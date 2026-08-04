@@ -1,4 +1,4 @@
-import { isTauriRuntime as detectTauri } from '@strata/platform';
+import { isTauriRuntime as detectTauri } from '@varve/platform';
 import type { ExecutionProvider, RuntimeCapabilities } from './types';
 
 let cachedCapabilities: RuntimeCapabilities | null = null;

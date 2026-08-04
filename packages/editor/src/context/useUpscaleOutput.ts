@@ -1,4 +1,4 @@
-import type { Document, Fill, ImageFillData, SceneNode } from '@strata/scene';
+import type { Document, Fill, ImageFillData, SceneNode } from '@varve/scene';
 import { useCallback } from 'react';
 
 export interface UpscaleOutputOptions {

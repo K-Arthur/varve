@@ -1,4 +1,4 @@
-import type { PerformanceEnvironment } from '@strata/shared';
+import type { PerformanceEnvironment } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { createPerformanceCollector } from './performanceCollector';
 

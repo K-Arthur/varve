@@ -75,7 +75,7 @@ Every doc the project touches or creates is listed here so future updates know w
 | Source code | `apps/website/` | Astro static site (42 pages) |
 | Release manifest | `apps/website/public/releases.json` | Single source of truth for download data |
 | Deployment workflow | `.github/workflows/deploy-website.yml` | GitHub Pages auto-deploy |
-| Website build | `pnpm --filter @strata/website build` | Build command (astro check + astro build) |
+| Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |
 | Website dev | `cd apps/website && pnpm dev` | Development server at localhost:4321 |
 
 ## Operations Guides

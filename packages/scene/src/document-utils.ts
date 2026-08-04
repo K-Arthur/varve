@@ -1,4 +1,4 @@
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import { type FrameNode, type GroupNode, isContainer, type NodeId, type SceneNode } from './types';
 
 /**

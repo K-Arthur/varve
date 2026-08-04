@@ -1,6 +1,6 @@
 /** Resolve and configure ONNX Runtime Web companion assets consistently. */
 
-declare const __STRATA_ASSET_BASE__: string | undefined;
+declare const __VARVE_ASSET_BASE__: string | undefined;
 
 export const REQUIRED_ORT_RUNTIME_FILES = [
   'ort-wasm-simd-threaded.jsep.mjs',
@@ -12,8 +12,8 @@ export const REQUIRED_ORT_RUNTIME_FILES = [
 let loggedConfiguration = false;
 
 function configuredAssetBase(): string {
-  if (typeof __STRATA_ASSET_BASE__ !== 'undefined' && __STRATA_ASSET_BASE__) {
-    return __STRATA_ASSET_BASE__;
+  if (typeof __VARVE_ASSET_BASE__ !== 'undefined' && __VARVE_ASSET_BASE__) {
+    return __VARVE_ASSET_BASE__;
   }
   return '/';
 }

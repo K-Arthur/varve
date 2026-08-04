@@ -13,8 +13,8 @@
  * never opens panels automatically, provides a link to the full finding.
  */
 
-import type { AuditFinding } from '@strata/scene';
-import { Icon, Tooltip } from '@strata/ui';
+import type { AuditFinding } from '@varve/scene';
+import { Icon, Tooltip } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../context';
 

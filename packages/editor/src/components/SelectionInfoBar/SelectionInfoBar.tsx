@@ -8,8 +8,8 @@
  * Research basis: Figma selection info bar, Illustrator properties panel.
  */
 
-import { type Document, getParent, isContainer, type NodeId, type SceneNode } from '@strata/scene';
-import { Icon, type IconName } from '@strata/ui';
+import { type Document, getParent, isContainer, type NodeId, type SceneNode } from '@varve/scene';
+import { Icon, type IconName } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../context';
 import { useViewport } from '../../context/ViewportContext';

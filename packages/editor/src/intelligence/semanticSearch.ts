@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { findDuplicateStructures } from './componentDetector';
 
 export interface SimilarityResult {

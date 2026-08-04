@@ -1,4 +1,4 @@
-import type { ImageFit } from '@strata/scene';
+import type { ImageFit } from '@varve/scene';
 
 export type FitSuggestion = 'cover' | 'contain' | 'fill' | 'crop';
 

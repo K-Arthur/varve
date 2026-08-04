@@ -1,4 +1,4 @@
-import { Tooltip } from '@strata/ui';
+import { Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { computeLayoutScore } from '../../intelligence/layoutScore';

@@ -110,7 +110,7 @@ Add `recordAction(actionId)` to EditorContext. Hook into all interactive surface
 ## Phase 0b: Foundation Math (Priority: CRITICAL — blocks S2)
 
 ### What
-Add WCAG 2.1 contrast math + statistical helpers to `@strata/shared`.
+Add WCAG 2.1 contrast math + statistical helpers to `@varve/shared`.
 
 ### New files
 - `packages/shared/src/color.ts` (extend existing or create)
@@ -463,7 +463,7 @@ Output: beginner | intermediate | advanced
 | `text/html` | Rich text | Strip tags, preserve bold/italic as TextNode properties |
 | `text/csv` | CSV data | Auto-layout Frame with TextNode children |
 | `text/plain` | Tab-separated | Same as CSV |
-| `image/svg+xml` | SVG | Parse via existing `@strata/import` SVG parser |
+| `image/svg+xml` | SVG | Parse via existing `@varve/import` SVG parser |
 | `image/png` | Small (<64px), low colors | "Trace to vector?" toast |
 | `image/*` | Any image | Standard ImageNode paste |
 
@@ -573,7 +573,7 @@ Output: beginner | intermediate | advanced
 #### Algorithm
 1. Read selected track's keyframes, sorted by progress
 2. For each consecutive pair, generate N intermediate keyframes at evenly-spaced progress values
-3. Interpolate using `interpolateValue()` from `@strata/shared`
+3. Interpolate using `interpolateValue()` from `@varve/shared`
 4. Apply track's default easing to each generated keyframe
 
 #### Files to modify

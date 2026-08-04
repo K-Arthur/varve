@@ -11,7 +11,7 @@
 - **Current Phase:** Completed
 - **Last Verified Commit:** Staged, ready to commit
 - **Active Workstream:** None (all verified)
-- **Last Passing Test Command:** pnpm --filter @strata/scene test (672/672 pass), pnpm --filter @strata/engine test (683/683 pass), typecheck clean on both
+- **Last Passing Test Command:** pnpm --filter @varve/scene test (672/672 pass), pnpm --filter @varve/engine test (683/683 pass), typecheck clean on both
 - **Known In-Scope Failures:** None
 - **Next 3 Concrete Actions:**
    1. Commit changes incrementally
@@ -1162,10 +1162,10 @@ Completed 2026-07-08. All high-priority deep audits completed:
 
 ## Commands Run
 
-- `pnpm --filter @strata/scene test` — 672/672 pass (44 test files)
-- `pnpm --filter @strata/engine test` — 683/683 pass (53 test files)
-- `pnpm --filter @strata/scene typecheck` — Clean
-- `pnpm --filter @strata/engine typecheck` — Clean
+- `pnpm --filter @varve/scene test` — 672/672 pass (44 test files)
+- `pnpm --filter @varve/engine test` — 683/683 pass (53 test files)
+- `pnpm --filter @varve/scene typecheck` — Clean
+- `pnpm --filter @varve/engine typecheck` — Clean
 
 ---
 

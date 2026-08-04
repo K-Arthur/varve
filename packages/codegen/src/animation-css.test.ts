@@ -1,5 +1,5 @@
-import { createKeyframe, makeTimelineObject } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
+import { createKeyframe, makeTimelineObject } from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { timelineToCSSKeyframes } from './animation-css';
 

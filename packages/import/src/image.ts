@@ -1,5 +1,5 @@
-import type { Fill } from '@strata/scene';
-import { imageFill } from '@strata/scene';
+import type { Fill } from '@varve/scene';
+import { imageFill } from '@varve/scene';
 import { bytesToDataUrl, getImageDimensions } from './bitmap';
 
 export interface ImageImportOptions {

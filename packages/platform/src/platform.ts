@@ -1,5 +1,5 @@
 /**
- * @strata/platform — the Platform interface.
+ * @varve/platform — the Platform interface.
  *
  * One surface for local-first persistence + native OS integration. Implemented
  * by `createMemoryPlatform` (tests/demo), `createWebPlatform` (IndexedDB +

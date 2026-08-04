@@ -257,7 +257,8 @@ aur-validate:
     for pkg in packaging/aur/*/; do
       name=$(basename "${pkg}")
       echo "── ${name} ──"
-      docker run --rm -v "$(pwd)/${pkg}:/pkg:ro" archlinux:base-devel bash -c '
+      "${CONTAINER_RUNTIME:-$(command -v podman >/dev/null && echo podman || echo docker)}" \
+        run --rm -v "$(pwd)/${pkg}:/pkg:ro" archlinux:base-devel bash -c '
         set -e
         pacman -Sy --noconfirm --needed namcap >/dev/null 2>&1 || true
         useradd -m builder

@@ -16,21 +16,21 @@
  * COMPLEXITY: 32 (well under 50 ceiling)
  */
 
-import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/engine';
-import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
+import { applyAffine, invertAffine, rectContains, shapeContains } from '@varve/engine';
+import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import {
   activePageNodes,
   buildParentIndexMap,
   deriveGeometryFromPaints,
   resolveNodePaints,
   walkNodes,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   cubicBezierClosestPoint,
   managedColorToRgba,
   pathPointToBezier,
   pointToSegmentDistSq,
-} from '@strata/shared';
+} from '@varve/shared';
 import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import {
@@ -198,7 +198,7 @@ export class HitTestEngine {
         if (!this.policy.includeContainers) {
           continue;
         }
-        const groupNode = n as import('@strata/scene').GroupNode;
+        const groupNode = n as import('@varve/scene').GroupNode;
         if (groupNode.children) {
           for (const childId of groupNode.children) {
             const child = this.doc.nodes[childId];
@@ -325,7 +325,7 @@ export class HitTestEngine {
         }
       } else if (n.kind === 'group') {
         if (activePolicy.includeContainers) {
-          const groupNode = n as import('@strata/scene').GroupNode;
+          const groupNode = n as import('@varve/scene').GroupNode;
           if (groupNode.children) {
             for (const childId of groupNode.children) {
               const child = this.doc.nodes[childId];
@@ -462,7 +462,7 @@ export class HitTestEngine {
     const node = this.doc.nodes[rootId];
     if (!node) return false;
     if (node.kind === 'frame' || node.kind === 'group') {
-      const container = node as import('@strata/scene').ContainerNode;
+      const container = node as import('@varve/scene').ContainerNode;
       if (container.children) {
         for (const childId of container.children) {
           if (this.isInSubtree(nodeId, childId)) return true;
@@ -514,7 +514,7 @@ function isPointNearPath(
 function isTransparentFill(node: SceneNode): boolean {
   if (node.kind !== 'shape') return false;
   if (node.fills && node.fills.length > 0) {
-    return node.fills.every((f: import('@strata/scene').Fill) => {
+    return node.fills.every((f: import('@varve/scene').Fill) => {
       if (f.type === 'solid' && f.color) {
         const [, , , a] = managedColorToRgba(f.color);
         return a === 0;

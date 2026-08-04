@@ -7,7 +7,7 @@
  * @module auditCache
  */
 
-import type { AuditFinding, NodeId } from '@strata/shared';
+import type { AuditFinding, NodeId } from '@varve/shared';
 
 // ============================================================================
 // Types

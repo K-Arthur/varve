@@ -3,14 +3,14 @@
  *
  * These types define the document-level animation model: timelines with
  * per-node property tracks, keyframes with easing, and playback control
- * parameters. Designed for integration with the existing @strata/prototype
- * animation engine and @strata/shared easing module.
+ * parameters. Designed for integration with the existing @varve/prototype
+ * animation engine and @varve/shared easing module.
  *
  * Research basis: W3C Web Animations API timing model (§4), Lottie/Bodymovin
  * v5.5 schema, GSAP Timeline architecture, After Effects layer/track model,
  * and CSS @keyframes fill/direction/iteration semantics.
  */
-import type { EasingDefinition } from '@strata/shared';
+import type { EasingDefinition } from '@varve/shared';
 import type { NodeId } from './types';
 
 /** Fill mode: what values to show before/after the active interval. */

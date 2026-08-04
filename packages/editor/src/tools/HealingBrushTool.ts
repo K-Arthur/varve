@@ -8,7 +8,7 @@
  * Research basis: Photoshop Healing Brush, GIMP Heal tool.
  *                 NCC patch matching (Barnes et al. 2009 PatchMatch).
  */
-import { createBrushMask, findBestPatch, healPixels } from '@strata/engine';
+import { createBrushMask, findBestPatch, healPixels } from '@varve/engine';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 

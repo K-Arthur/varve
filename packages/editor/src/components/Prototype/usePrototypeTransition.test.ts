@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { PropertyPair } from '@strata/prototype';
+import type { PropertyPair } from '@varve/prototype';
 import { describe, expect, it } from 'vitest';
 import { type ActivePrototypeTransition, computeTransitionVisuals } from './usePrototypeTransition';
 
@@ -26,9 +26,9 @@ describe('computeTransitionVisuals', () => {
         n1: {
           opacity: { from: 0, to: 0.5 } as PropertyPair<number>,
           transform: {
-            from: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
-            to: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
-          } as import('@strata/prototype').PropertyPair<import('@strata/engine').Affine>,
+            from: [1, 0, 0, 1, 0, 0] as import('@varve/engine').Affine,
+            to: [1, 0, 0, 1, 0, 0] as import('@varve/engine').Affine,
+          } as import('@varve/prototype').PropertyPair<import('@varve/engine').Affine>,
         },
       },
       startedAt: 0,

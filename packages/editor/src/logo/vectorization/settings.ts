@@ -4,10 +4,10 @@
  * The settings shape is serializable (no functions, no DOM types) so it can
  * be persisted to editor settings and passed across worker boundaries. The
  * actual trace execution reuses the engine's existing provider chain
- * (`@strata/engine` dispatchTrace): worker → direct → wasm → native.
+ * (`@varve/engine` dispatchTrace): worker → direct → wasm → native.
  */
 
-import type { RasterTraceOptions } from '@strata/engine';
+import type { RasterTraceOptions } from '@varve/engine';
 
 /** Source-preparation stage applied before tracing (never mutates the source asset). */
 export interface SourcePrepSettings {

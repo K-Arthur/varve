@@ -235,7 +235,7 @@ describe('PrototypePresenter', () => {
         currentScreenId="s1"
         onNavigate={() => {}}
         onEvent={onEvent}
-        prototypeDocument={doc as unknown as import('@strata/scene').Document}
+        prototypeDocument={doc as unknown as import('@varve/scene').Document}
         hitTestNode={() => ({ nodeId: 's1' })}
         getNodeBounds={() => ({ x: 0, y: 0, w: 375, h: 812 })}
       />,

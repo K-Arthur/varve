@@ -9,8 +9,8 @@ import type {
   MetricSample,
   PerformanceEnvironment,
   PerformanceTrace,
-} from '@strata/shared';
-import { appendBoundedMetric, createPerformanceTrace, summarizeDurations } from '@strata/shared';
+} from '@varve/shared';
+import { appendBoundedMetric, createPerformanceTrace, summarizeDurations } from '@varve/shared';
 
 export interface PerformanceCollector {
   start(

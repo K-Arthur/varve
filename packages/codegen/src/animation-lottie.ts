@@ -1,5 +1,5 @@
-import type { AnimationKeyframe, Document, Timeline } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
+import type { AnimationKeyframe, Document, Timeline } from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
 
 interface LottieBezierHandle {
   x: number[];

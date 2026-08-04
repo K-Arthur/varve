@@ -6,7 +6,7 @@ Architecture for first-run guidance, contextual help, and the offline help corpu
 
 | Constraint | Resolution |
 |---|---|
-| **Offline help** | All in-app articles live in bundled TypeScript (`@strata/help` + editor-local tool/panel articles). No network fetch for search or articles. |
+| **Offline help** | All in-app articles live in bundled TypeScript (`@varve/help` + editor-local tool/panel articles). No network fetch for search or articles. |
 | **No accounts** | Onboarding state is per-device only. No cloud profile or cross-device sync. |
 | **Desktop persistence** | Full `OnboardingStore` JSON is written to platform app settings (SQLite via Tauri on desktop, IndexedDB KV on web) on every save — not only on dismiss. |
 | **Browser persistence** | Same platform path; `localStorage` is a fast cache that may be cleared independently (private mode, site data wipe). Platform storage is authoritative on hydrate. |

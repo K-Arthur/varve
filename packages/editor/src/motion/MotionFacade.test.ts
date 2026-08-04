@@ -1,4 +1,4 @@
-import type { Timeline } from '@strata/scene';
+import type { Timeline } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { MotionFacade } from './MotionFacade';
 

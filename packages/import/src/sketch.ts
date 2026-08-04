@@ -1,4 +1,4 @@
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import {
   createDocument,
   type Document,
@@ -8,7 +8,7 @@ import {
   makeTextNode,
   type NodeId,
   type SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { strFromU8, unzipSync } from 'fflate';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 

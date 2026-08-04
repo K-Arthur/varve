@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import * as prototypeA11y from '@strata/prototype';
+import { act, cleanup, render, renderHook, waitFor } from '@testing-library/react';
+import * as prototypeA11y from '@varve/prototype';
 import {
   addInteraction,
   addNode,
@@ -10,8 +11,7 @@ import {
   createStateMachine,
   makeFrameNode,
   makeShapeNode,
-} from '@strata/scene';
-import { act, cleanup, render, renderHook, waitFor } from '@testing-library/react';
+} from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ActivePrototypeTransition } from '../components/Prototype/usePrototypeTransition';
 import { usePrototypeTransition } from '../components/Prototype/usePrototypeTransition';
@@ -88,8 +88,8 @@ function buildNavigateDoc(transitionKind: 'smartAnimate' | 'dissolve' = 'dissolv
     rootChildren: ['f1', 'f2'],
     nodes: {
       ...doc.nodes,
-      f1: { ...(doc.nodes.f1 as import('@strata/scene').FrameNode), children: ['hot1'] },
-      f2: { ...(doc.nodes.f2 as import('@strata/scene').FrameNode), children: ['hot2'] },
+      f1: { ...(doc.nodes.f1 as import('@varve/scene').FrameNode), children: ['hot1'] },
+      f2: { ...(doc.nodes.f2 as import('@varve/scene').FrameNode), children: ['hot2'] },
     },
   };
   const { doc: withIx } = addInteraction(doc, 'hot1', {

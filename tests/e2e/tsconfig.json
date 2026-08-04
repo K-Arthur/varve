@@ -9,7 +9,7 @@
     "sourceMap": false,
     "baseUrl": "../..",
     "paths": {
-      "@strata/*": ["packages/*/src/index.ts"]
+      "@varve/*": ["packages/*/src/index.ts"]
     },
     "types": ["node"]
   },

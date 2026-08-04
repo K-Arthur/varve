@@ -6,7 +6,7 @@ const { decodeImageBytesToImageData, encodeImageDataToPngBytes, invoke } = vi.ho
   invoke: vi.fn(),
 }));
 
-vi.mock('@strata/platform', () => ({
+vi.mock('@varve/platform', () => ({
   isTauriRuntime: () => true,
 }));
 

@@ -1,5 +1,5 @@
-import type { Document as SceneDoc } from '@strata/scene';
-import { createDocument, makeShapeNode } from '@strata/scene';
+import type { Document as SceneDoc } from '@varve/scene';
+import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { compareExportHashes, computeDocExportHash, computeNodeExportHash } from './diff';
 

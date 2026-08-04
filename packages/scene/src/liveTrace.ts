@@ -9,7 +9,7 @@
  * Trace, Affinity Designer, potrace-on-file-watch). The live trace state is
  * stored on the source image node so it survives save/load and undo.
  */
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import type { Document } from './document';
 import { getById, removeNode } from './document';
 import type { LiveTraceParams, LiveTraceState, NodeId } from './types';

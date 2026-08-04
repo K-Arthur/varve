@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { createDocument, type Document } from '@strata/scene';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createDocument, type Document } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider } from '../context';
 import { AIPanel } from './AIPanel';

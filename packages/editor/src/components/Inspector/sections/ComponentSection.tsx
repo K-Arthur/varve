@@ -8,9 +8,9 @@
  *
  * Research basis: Figma component instance panel with slot fills and overrides.
  */
-import type { ComponentDefinition, Document, FrameNode, SceneNode } from '@strata/scene';
-import { instanceOverrides } from '@strata/scene';
-import { Select } from '@strata/ui';
+import type { ComponentDefinition, Document, FrameNode, SceneNode } from '@varve/scene';
+import { instanceOverrides } from '@varve/scene';
+import { Select } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 

@@ -7,8 +7,8 @@
  *
  * Research basis: Figma missing font dialog, InDesign missing font replacement.
  */
-import type { FontCatalog, FontSubstitute, MissingFontInfo } from '@strata/engine/font';
-import { Select } from '@strata/ui';
+import type { FontCatalog, FontSubstitute, MissingFontInfo } from '@varve/engine/font';
+import { Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './MissingFontDialog.css';
 

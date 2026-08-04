@@ -16,9 +16,9 @@
  * Ordering is array-index for the local-first editor (sufficient without sync).
  * CRDT-safe fractional ordering replaces it when sync lands (Phase 2, plan §1.1).
  */
-import type { Affine, FontManifest, Shape } from '@strata/engine';
-import type { DocumentUnit } from '@strata/shared';
-import { generateKeyBetween, physicalToPx } from '@strata/shared';
+import type { Affine, FontManifest, Shape } from '@varve/engine';
+import type { DocumentUnit } from '@varve/shared';
+import { generateKeyBetween, physicalToPx } from '@varve/shared';
 import { stripBindingForVariable } from './bindings';
 import type {
   BitDepth,

@@ -14,7 +14,7 @@
  *   - Figma Tokens Studio v2 format
  *
  * Usage:
- *   import { dtcgExport } from '@strata/ui/tokens/dtcg';
+ *   import { dtcgExport } from '@varve/ui/tokens/dtcg';
  *   const json = JSON.stringify(dtcgExport(), null, 2);
  *
  * The export preserves all 52 semantic tokens × 3 themes with OKLCH values.
@@ -151,7 +151,7 @@ export function dtcgExport(): DTCGDocument {
     $extensions: {
       generated: new Date().toISOString(),
       source: 'packages/ui/src/tokens/color.ts',
-      generator: '@strata/ui/tokens/dtcg.ts',
+      generator: '@varve/ui/tokens/dtcg.ts',
     },
     color: colors,
   };

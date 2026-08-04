@@ -27,7 +27,7 @@ export default defineConfig({
   test: {
     server: {
       deps: {
-        inline: ['@strata/engine'],
+        inline: ['@varve/engine'],
       },
     },
     setupFiles: ['./vitest.setup.ts'],

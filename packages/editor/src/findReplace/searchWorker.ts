@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { searchInDocument } from './search';
 import type { MatchResult, SearchOptions } from './types';
 

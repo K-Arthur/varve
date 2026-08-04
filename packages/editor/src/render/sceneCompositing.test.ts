@@ -10,7 +10,7 @@ import {
   makeShapeNode,
   patternFill,
   solidFill,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   sceneCanUseWorkerRenderer,
@@ -39,7 +39,7 @@ describe('sceneNeedsStructuralCompositing', () => {
       }),
     );
     doc.nodes.f1 = {
-      ...(doc.nodes.f1 as import('@strata/scene').FrameNode),
+      ...(doc.nodes.f1 as import('@varve/scene').FrameNode),
       mask: { type: 'clip', sourceNodeId: 'm1', visible: true },
     };
     expect(sceneNeedsStructuralCompositing(doc)).toBe(true);

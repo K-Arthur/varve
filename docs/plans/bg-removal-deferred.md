@@ -74,10 +74,10 @@ Fix the gap by reading the full pattern in `packages/editor/src/context.tsx`, th
 ```typescript
 // In EditorContextValue interface (find context.tsx around line 577, near booleanOp):
   /** Remove background from the selected image node using the given method. */
-  removeBackground: (method: import('@strata/scene').BackgroundRemovalMethod) => Promise<void>;
+  removeBackground: (method: import('@varve/scene').BackgroundRemovalMethod) => Promise<void>;
 ```
 
-Implementation pattern: follow `booleanOp` implementation. Use `updateDoc` with `setBackgroundRemoval` from `@strata/scene`, call `removeBackground` from `@strata/engine`, show loading state via `announce`.
+Implementation pattern: follow `booleanOp` implementation. Use `updateDoc` with `setBackgroundRemoval` from `@varve/scene`, call `removeBackground` from `@varve/engine`, show loading state via `announce`.
 
 After adding the context action, run:
 ```bash
@@ -405,8 +405,8 @@ batchRemoveBackground: async (method) => {
 
   for (const node of imageNodes) {
     try {
-      const { removeBackground, getImageCache } = await import('@strata/engine');
-      const { setBackgroundRemoval } = await import('@strata/scene');
+      const { removeBackground, getImageCache } = await import('@varve/engine');
+      const { setBackgroundRemoval } = await import('@varve/scene');
       const cache = getImageCache();
       const img = await cache.load(node.src);
       if (!img) { failed++; continue; }

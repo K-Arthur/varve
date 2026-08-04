@@ -3,4 +3,4 @@ export type { HelpArticle } from './content/helpTypes';
 export { CATEGORIES } from './content/helpTypes';
 export { HelpBrowser } from './HelpBrowser';
 
-export const PACKAGE = '@strata/help' as const;
+export const PACKAGE = '@varve/help' as const;

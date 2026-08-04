@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { makeShapeNode } from '@strata/scene';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../../context';
 import { IconSection } from './IconSection';

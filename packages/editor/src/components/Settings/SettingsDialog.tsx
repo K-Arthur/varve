@@ -1,6 +1,6 @@
-import { managedColorToCss } from '@strata/shared';
-import { Button, Dialog, NumberInput, Select, Tooltip, TooltipProvider } from '@strata/ui';
-import { getTheme, setTheme } from '@strata/ui/tokens';
+import { managedColorToCss } from '@varve/shared';
+import { Button, Dialog, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
+import { getTheme, setTheme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bumpThemeRevision, getBackupService, useEditor } from '../../context';
 import { loadSettings, updateSettings } from '../../settings';

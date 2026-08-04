@@ -1,6 +1,6 @@
-import type { FileEntry, Folder, Platform } from '@strata/platform';
-import { createMemoryPlatform } from '@strata/platform';
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { FileEntry, Folder, Platform } from '@varve/platform';
+import { createMemoryPlatform } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { FolderView } from './FolderView';
 

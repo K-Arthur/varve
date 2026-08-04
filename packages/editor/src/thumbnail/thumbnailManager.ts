@@ -5,9 +5,9 @@
  * document's project thumbnail (used on the home screen).
  */
 
-import type { Platform, ThumbnailSourcePreference } from '@strata/platform';
-import { contentHash } from '@strata/platform';
-import type { Document } from '@strata/scene';
+import type { Platform, ThumbnailSourcePreference } from '@varve/platform';
+import { contentHash } from '@varve/platform';
+import type { Document } from '@varve/scene';
 import type { ThumbnailSourceType } from './thumbnailSource';
 import { generateDocThumbnail } from './thumbnailSource';
 

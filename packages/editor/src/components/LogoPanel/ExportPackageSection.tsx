@@ -9,8 +9,8 @@
  * packages.
  */
 
-import { sanitizeSegment } from '@strata/scene/export';
-import { Button, Checkbox, Icon, Select, Tooltip } from '@strata/ui';
+import { sanitizeSegment } from '@varve/scene/export';
+import { Button, Checkbox, Icon, Select, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {

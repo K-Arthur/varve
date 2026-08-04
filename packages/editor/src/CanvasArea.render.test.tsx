@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { CompositorBackend } from '@strata/compositor';
 import { cleanup, render, waitFor } from '@testing-library/react';
+import type { CompositorBackend } from '@varve/compositor';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CanvasArea } from './CanvasArea';
 import { EditorProvider } from './context';
@@ -33,15 +33,15 @@ function createSpyBackend(): CompositorBackend {
   };
 }
 
-vi.mock('@strata/compositor', () => ({
+vi.mock('@varve/compositor', () => ({
   createCompositorBackend: vi.fn(async () => ({
     backend: createSpyBackend(),
     capabilities: { webgpu: false },
   })),
 }));
 
-vi.mock('@strata/engine', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@strata/engine')>();
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
   return {
     ...actual,
     createEngine: vi.fn(async () => ({

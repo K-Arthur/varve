@@ -1,5 +1,5 @@
 {
-  "name": "@strata/help",
+  "name": "@varve/help",
   "version": "0.1.0",
   "private": true,
   "description": "Help system documentation and browser for Strata.",

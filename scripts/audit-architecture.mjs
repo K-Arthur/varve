@@ -391,7 +391,7 @@ async function checkLayers() {
     const deps = getPackageDeps(name);
 
     for (const dep of deps) {
-      const depPkgName = dep.replace('@strata/', '');
+      const depPkgName = dep.replace('@varve/', '');
       const depPkg = PACKAGES[depPkgName];
       if (!depPkg) continue;
 

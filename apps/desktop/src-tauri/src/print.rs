@@ -131,7 +131,7 @@ pub fn print_pdf(
 ) -> PrintJobResult {
     // Write PDF to a temp file for lp to consume
     let tmp_dir = std::env::temp_dir();
-    let tmp_path = tmp_dir.join(format!("strata_print_{}.pdf", job_id_counter()));
+    let tmp_path = tmp_dir.join(format!("varve_print_{}.pdf", job_id_counter()));
     if let Err(e) = std::fs::write(&tmp_path, pdf_bytes) {
         return PrintJobResult {
             job_id: 0,

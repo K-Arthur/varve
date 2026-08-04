@@ -20,10 +20,10 @@ architecture decisions you must not violate.
 
 ## Critical rules (from AGENTS.md — do not violate)
 
-1. **No circular `workspace:*` dependency chains.** `@strata/shared` is the
+1. **No circular `workspace:*` dependency chains.** `@varve/shared` is the
    leaf — scene/engine/editor depend on it, never the reverse.
 2. **Hub file caps:** `CanvasArea.tsx` (82 imports) and `Shell.tsx` (71 imports)
-   must NOT grow. Route new code through `@strata/shared` or adapter modules.
+   must NOT grow. Route new code through `@varve/shared` or adapter modules.
 3. **TDD-first.** Write failing tests before implementation.
 4. **No emoji anywhere** (zero-tolerance gate).
 5. **No hardcoded colors** — trace to CSS custom properties.
@@ -47,7 +47,7 @@ Failure at any step means a regression. Fix before committing.
 ### New types (already in codebase — use these, don't redefine)
 
 ```ts
-// @strata/shared/src/colorConversion.ts
+// @varve/shared/src/colorConversion.ts
 export type BitDepth = 'uint8' | 'uint16' | 'float16' | 'float32';
 export const DEFAULT_BIT_DEPTH: BitDepth = 'uint8';
 export function normalizeChannel(value: number, bitDepth: BitDepth): number;
@@ -58,7 +58,7 @@ export function managedColorToRgba(color: ManagedColor): [number, number, number
 export function managedColorToNormalized(color: ManagedColor): [number, number, number, number];  // 0.0–1.0
 export function normalizedToCss(rgba: [number, number, number, number]): string;
 
-// @strata/scene/src/colorManagement.ts
+// @varve/scene/src/colorManagement.ts
 export type WorkingSpace = 'srgb' | 'linear';
 export const DEFAULT_WORKING_SPACE: WorkingSpace = 'srgb';
 export interface ColorConfig {
@@ -78,7 +78,7 @@ export function colorConfigWithDefaults(config: ColorConfig | undefined): ColorC
 export function withDefaultBitDepth<T extends ManagedColor>(color: T, fallback?: BitDepth): T;
 // RgbColor/CmykColor/GrayColor now have optional `bitDepth?: BitDepth` field
 
-// @strata/engine/src/blendModes.ts
+// @varve/engine/src/blendModes.ts
 export function blend(backdrop, source, mode, opacity, linearize?: boolean): [number, number, number, number];
 export function blendPixels(backdrop: ImageData, source: ImageData, mode, opacity, linearize?: boolean): ImageData;
 ```
@@ -105,7 +105,7 @@ Implement:
 - Parse `hsl()`/`hsla()` → convert to `RgbColor` (document working space is RGB/CMYK)
 - Parse `icc-color(name, ...)` → store `profile` field on the resulting `ManagedColor`
 - Reject `currentColor` → `null` (returns transparent, caller handles)
-- Return type: `ManagedColor` (scene type) — import the type from `@strata/scene`
+- Return type: `ManagedColor` (scene type) — import the type from `@varve/scene`
 - Add `bitDepth` field when the SVG signals HiDPI/high-bitdepth (`colorDepth` attribute, or just default to `'uint8'`)
 
 Tests: `hsl(120, 100%, 50%)` → `{ space: 'rgb', r: 0, g: 255, b: 0, a: 255 }`;
@@ -275,7 +275,7 @@ rather than one bulk commit. Before each push:
 - Branch: `master`
 - Commits ahead of origin: 76 (all committed work is safe)
 - `CURRENT_DOCUMENT_VERSION = '2.4'` (already bumped)
-- Typecheck baseline: `@strata/editor` has ~259 PRE-EXISTING errors in
+- Typecheck baseline: `@varve/editor` has ~259 PRE-EXISTING errors in
   canvas/render/hitTest modules (not your concern)
 - Concurrent uncommitted work exists in `packages/engine/src/unicode/` and
   `packages/scene/src/coordinateService.ts` — DO NOT touch these files

@@ -24,7 +24,7 @@ function renderPanel() {
  * editor context (not a mocked useEditor), so section-registry gating runs
  * through its real call path rather than being bypassed by a test double. */
 async function renderPanelWithSelectedRect(locked = false) {
-  const { createDocument, makeShapeNode, addChild } = await import('@strata/scene');
+  const { createDocument, makeShapeNode, addChild } = await import('@varve/scene');
   let doc = createDocument('selection-test');
   const rect = makeShapeNode(
     'r1',
@@ -55,7 +55,7 @@ async function renderPanelWithSelectedRect(locked = false) {
 /** Same as the rect helper, but selects a frame — the Prototype tab is shown
  * only for a frame selection (or in prototype mode). */
 async function renderPanelWithSelectedFrame() {
-  const { createDocument, makeFrameNode, addChild } = await import('@strata/scene');
+  const { createDocument, makeFrameNode, addChild } = await import('@varve/scene');
   let doc = createDocument('frame-selection-test');
   const frame = makeFrameNode('f1', { name: 'Frame1', transform: [1, 0, 0, 1, 0, 0] });
   doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, frame);
@@ -183,7 +183,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
 describe('PropertiesPanel export tab has merged export and code', () => {
   it('renders the export tab with Format and Code sub-tabs when a node is selected', async () => {
-    const { makeShapeNode, addChild, createDocument } = await import('@strata/scene');
+    const { makeShapeNode, addChild, createDocument } = await import('@varve/scene');
     let doc = createDocument('export-test');
     const rect = makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
     doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);

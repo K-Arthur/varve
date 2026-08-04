@@ -312,7 +312,7 @@ function augmentPerfDiagnosticsHandle(): void {
 const refreshEstimator = new RefreshIntervalEstimator();
 
 /**
- * Seed a deterministic corpus fixture into the home database (`strata-home`
+ * Seed a deterministic corpus fixture into the home database (`varve-home`
  * `files` + `recentFiles` stores) so production workloads can open an exact
  * fixture through the normal home-screen flow. Deterministic by construction:
  * the corpus fixtures have stable ids, node ids and checksums.
@@ -324,7 +324,7 @@ export async function seedCorpusFixture(
 ): Promise<{ ok: boolean; id?: string; nodeCount?: number; fixtureChecksum?: string }> {
   try {
     const [{ createPerformanceWorkload, PERFORMANCE_WORKLOAD_IDS }, { openHomeDb }] =
-      await Promise.all([import('../performance/workloadCorpus'), import('@strata/platform')]);
+      await Promise.all([import('../performance/workloadCorpus'), import('@varve/platform')]);
     if (!(PERFORMANCE_WORKLOAD_IDS as readonly string[]).includes(workloadId)) {
       return { ok: false };
     }

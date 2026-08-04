@@ -1,4 +1,4 @@
-import type { Viewport } from '@strata/shared';
+import type { Viewport } from '@varve/shared';
 import { getEditorViewport } from '../canvas/cameraState';
 import { guideLineScreenEndpoints } from '../canvas/guideGeometry';
 import type { SnapGuide } from '../tools/snapping';

@@ -3,7 +3,7 @@ import { computeOutputDimensions, estimateFileSize } from './raster';
 
 /**
  * raster.ts re-exports computeOutputDimensions/estimateFileSize from ./rasterMath
- * for backward compatibility with existing @strata/engine consumers. Full behavior
+ * for backward compatibility with existing @varve/engine consumers. Full behavior
  * coverage (including property tests) lives in rasterMath.test.ts /
  * rasterMath.fuzz.test.ts, which test the implementation directly. This file only
  * confirms the re-export surface stays wired up.

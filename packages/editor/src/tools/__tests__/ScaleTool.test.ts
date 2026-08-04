@@ -1,6 +1,6 @@
-import type { Affine } from '@strata/engine';
-import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
-import { decomposeAffine, multiplyAffine, rotateDeg } from '@strata/shared';
+import type { Affine } from '@varve/engine';
+import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import { decomposeAffine, multiplyAffine, rotateDeg } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { nodeWorldBounds } from '../../scene/world';
 import { ScaleTool } from '../ScaleTool';

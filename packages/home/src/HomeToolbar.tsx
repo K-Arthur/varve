@@ -5,7 +5,7 @@ import type {
   SortDirection,
   SortKey,
   ViewMode,
-} from '@strata/platform';
+} from '@varve/platform';
 import {
   Button,
   Popover,
@@ -13,7 +13,7 @@ import {
   SolidIcon,
   Tooltip,
   ViewModeSwitcher,
-} from '@strata/ui';
+} from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { FilterDropdown } from './FilterDropdown';
 
@@ -92,7 +92,7 @@ export function HomeToolbar({
 
   return (
     <>
-      <div className="strata-home__toolbar-left">
+      <div className="varve-home__toolbar-left">
         <Button
           variant="ghost"
           onClick={onToggleSidebar}
@@ -113,14 +113,14 @@ export function HomeToolbar({
           </Button>
         )}
       </div>
-      <div className="strata-home__toolbar-right">
+      <div className="varve-home__toolbar-right">
         {section === 'recent' && onRecentWorkspaceFilterChange && (
           <Popover
             open={wsFilterOpen}
             onOpenChange={setWsFilterOpen}
             popover={
               <div
-                className="strata-home__ws-filter-dropdown"
+                className="varve-home__ws-filter-dropdown"
                 role="listbox"
                 aria-label="Workspace filter"
               >
@@ -130,9 +130,9 @@ export function HomeToolbar({
                     type="button"
                     role="option"
                     aria-selected={(recentWorkspaceFilter?.mode ?? 'all') === opt.value}
-                    className={`strata-home__ws-filter-option ${
+                    className={`varve-home__ws-filter-option ${
                       (recentWorkspaceFilter?.mode ?? 'all') === opt.value
-                        ? 'strata-home__ws-filter-option--active'
+                        ? 'varve-home__ws-filter-option--active'
                         : ''
                     }`}
                     onClick={() => handleWsFilterSelect(opt.value)}

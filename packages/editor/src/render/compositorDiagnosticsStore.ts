@@ -1,7 +1,7 @@
 /**
  * Non-blocking compositor diagnostics for StatusBar (useSyncExternalStore).
  */
-import type { CompositorDiagnostics } from '@strata/compositor';
+import type { CompositorDiagnostics } from '@varve/compositor';
 
 let snapshot: CompositorDiagnostics | null = null;
 const listeners = new Set<() => void>();

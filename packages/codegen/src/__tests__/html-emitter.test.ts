@@ -2,7 +2,7 @@
  * Tests for the semantic HTML/CSS emitter.
  */
 
-import { createDocument, makeFrameNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeFrameNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { exportIrToHtml } from '../html';
 import { sceneToIR } from '../ir-converter';

@@ -3,11 +3,11 @@ import { expect, test } from '@playwright/test';
 test.describe('Home Shell', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await page.waitForSelector('.varve-home');
   });
 
   test('renders HomeShell with toolbar', async ({ page }) => {
-    await expect(page.locator('.strata-home__toolbar')).toBeVisible();
+    await expect(page.locator('.varve-home__toolbar')).toBeVisible();
     await expect(page.getByRole('button', { name: /^new$/i })).toBeVisible();
     await expect(page.getByRole('button', { name: /open/i })).toBeVisible();
   });

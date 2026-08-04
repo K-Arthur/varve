@@ -13,11 +13,11 @@
  *
  * Uses the shared colorization request contract and pipeline dispatch.
  */
-import type { QualityMode } from '@strata/engine';
-import { listAllModels } from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button, Select } from '@strata/ui';
+import type { QualityMode } from '@varve/engine';
+import { listAllModels } from '@varve/engine';
+import type { SceneNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -78,7 +78,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   });
 
   const isImage = Boolean(node && isImageShape(node));
-  const typedNode = isImage ? (node as import('@strata/scene').ShapeNode) : null;
+  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
 
   // Elapsed timer
@@ -125,7 +125,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   // Load image from cache
   const loadImageData = useCallback(async (src: string): Promise<ImageData> => {
-    const { getImageCache } = await import('@strata/engine');
+    const { getImageCache } = await import('@varve/engine');
     const img = await getImageCache().load(src);
     const w = Math.max(1, img.naturalWidth || img.width);
     const h = Math.max(1, img.naturalHeight || img.height);
@@ -140,10 +140,8 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   // Run colorization
   const runColorize = useCallback(
     async (fullData: ImageData): Promise<ImageData> => {
-      const { dispatchColorization, generateColorizationRequestId } = await import(
-        '@strata/engine'
-      );
-      const { managedColorToHex } = await import('@strata/scene');
+      const { dispatchColorization, generateColorizationRequestId } = await import('@varve/engine');
+      const { managedColorToHex } = await import('@varve/scene');
 
       // Build palette from selected swatches
       let paletteColors: string[] = [];

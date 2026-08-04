@@ -9,8 +9,8 @@
  * once per frame/operation and pass it to getParentFast/isDescendantFast.
  */
 
-import type { Document, NodeId } from '@strata/scene';
-import { buildParentIndexMap, getParent } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { buildParentIndexMap, getParent } from '@varve/scene';
 
 /**
  * Cached parent index for O(1) parent lookups.

@@ -1,5 +1,5 @@
-import type { NodeId } from '@strata/scene';
-import { Tooltip } from '@strata/ui';
+import type { NodeId } from '@varve/scene';
+import { Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {

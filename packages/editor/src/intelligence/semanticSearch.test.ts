@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { findSimilarComponents } from './semanticSearch';
 
@@ -18,7 +18,7 @@ function makeRectShape(id: string, x: number, y: number, w: number, h: number) {
     blendMode: 'normal' as const,
     rotation: 0,
     order: 'a0',
-  } satisfies import('@strata/scene').ShapeNode;
+  } satisfies import('@varve/scene').ShapeNode;
 }
 
 function makeEllipseShape(id: string, cx: number, cy: number, rx: number, ry: number) {
@@ -37,7 +37,7 @@ function makeEllipseShape(id: string, cx: number, cy: number, rx: number, ry: nu
     blendMode: 'normal' as const,
     rotation: 0,
     order: 'a0',
-  } satisfies import('@strata/scene').ShapeNode;
+  } satisfies import('@varve/scene').ShapeNode;
 }
 
 function buildDoc(nodes: Record<string, unknown>, rootChildren: string[]): Document {

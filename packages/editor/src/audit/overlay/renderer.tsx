@@ -1,5 +1,5 @@
-import type { Point, Rect } from '@strata/shared';
-import { computeFloatingOrigin, worldToScreen } from '@strata/shared';
+import type { Point, Rect } from '@varve/shared';
+import { computeFloatingOrigin, worldToScreen } from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../../canvas/overlayZIndex';
 import type { LODCluster, OverlayRegistry } from './registry';

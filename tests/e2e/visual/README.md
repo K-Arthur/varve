@@ -22,7 +22,7 @@ harness uses a real browser (Playwright, already a dependency in this repo) inst
 3. `tests/e2e/visual/replay.spec.ts` — for each fixture, navigates to the harness page, calls
    `__renderFixture`, and asserts `toHaveScreenshot()` against a stored baseline with a
    per-fixture `maxDiffPixels` tolerance (see `playwright.config.ts`'s `chromium-visual-1x`/`-2x`/`-3x`
-   projects for DPR variants — 3x is opt-in via `STRATA_VISUAL_3X=1`, since it roughly triples
+   projects for DPR variants — 3x is opt-in via `VARVE_VISUAL_3X=1`, since it roughly triples
    this suite's snapshot count and CI time for the DPR tier bugs are least likely to hide in).
 4. On failure, `scripts/build-visual-diff-manifest.mjs` collects baseline/current/diff PNGs into
    `visual-diff-report/` + a `manifest.json`. CI uploads this directory as an artifact.

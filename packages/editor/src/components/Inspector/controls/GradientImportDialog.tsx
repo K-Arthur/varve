@@ -4,9 +4,9 @@
  * state is mutated. Parsing happens before the dialog opens; nothing here
  * touches the document or the library.
  */
-import type { GradientPreset } from '@strata/scene';
-import { displayName } from '@strata/scene';
-import { Checkbox, Dialog, Select } from '@strata/ui';
+import type { GradientPreset } from '@varve/scene';
+import { displayName } from '@varve/scene';
+import { Checkbox, Dialog, Select } from '@varve/ui';
 import { useMemo, useState } from 'react';
 
 import { gradientPresetToCss } from '../../../gradientPresets/thumbnail';

@@ -1,5 +1,5 @@
 /**
- * @strata/platform — canonical runtime capabilities abstraction.
+ * @varve/platform — canonical runtime capabilities abstraction.
  *
  * One authoritative place for runtime detection. Every other module must
  * import from here instead of reimplementing `'__TAURI__' in window`.

@@ -1,5 +1,5 @@
 {
-  "name": "@strata/platform",
+  "name": "@varve/platform",
   "version": "0.0.0",
   "private": true,
   "description": "Strata platform facade — local-first persistence, native dialogs, and OS integration. One interface, web + Tauri implementations.",

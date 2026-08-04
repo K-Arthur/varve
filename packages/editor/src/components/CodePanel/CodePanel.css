@@ -1,7 +1,7 @@
 /**
  * CodePanel styles — dedicated "Codegen & Design Audit" workspace panel.
  *
- * Follows CSS token conventions from @strata/ui (elevation, color, space, font,
+ * Follows CSS token conventions from @varve/ui (elevation, color, space, font,
  * radius tokens). Mirrors patterns from SpecPanel.css and inspector.css.
  */
 .code-panel {

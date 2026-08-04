@@ -4,7 +4,7 @@
 
 **Goal:** Correct the user-observed frame/text placement failures and remove the highest-risk Canvas 2D display/export divergences while preserving one modular rendering contract across Tauri and the Vite browser harness.
 
-**Architecture:** Keep `@strata/scene` as document truth and IR replay as the backend seam. Extract document-to-engine conversion and scoped scene traversal into a renderer-neutral editor module consumed by live display, video, raster export, and native PDF export. Canvas capabilities remain runtime-detected; optional worker/offscreen paths must preserve the same camera and scene semantics as the main-thread Canvas 2D path.
+**Architecture:** Keep `@varve/scene` as document truth and IR replay as the backend seam. Extract document-to-engine conversion and scoped scene traversal into a renderer-neutral editor module consumed by live display, video, raster export, and native PDF export. Canvas capabilities remain runtime-detected; optional worker/offscreen paths must preserve the same camera and scene semantics as the main-thread Canvas 2D path.
 
 **Tech Stack:** React 19, TypeScript strict mode, Canvas 2D, OffscreenCanvas with HTMLCanvas fallback, Web Workers, Tauri 2/Rust IR and PDF IPC, Vitest, Playwright, WDIO/WebKitGTK where executable.
 

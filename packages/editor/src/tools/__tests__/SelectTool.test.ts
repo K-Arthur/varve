@@ -4,7 +4,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   type Page,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
 

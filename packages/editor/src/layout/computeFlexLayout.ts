@@ -6,8 +6,8 @@
  *
  * Research basis: CSS Flexible Box Layout Module Level 1, Figma auto layout.
  */
-import type { FrameNode, SceneNode } from '@strata/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
+import type { FrameNode, SceneNode } from '@varve/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
 
 export interface LayoutResult {
   id: string;

@@ -10,7 +10,7 @@ no cloud dependency.
 
 ```bash
 pnpm install
-pnpm --filter @strata/ui storybook
+pnpm --filter @varve/ui storybook
 ```
 
 See [docs/development/setup.md](docs/development/setup.md) for full setup instructions.
@@ -19,12 +19,12 @@ See [docs/development/setup.md](docs/development/setup.md) for full setup instru
 
 | Package | Purpose |
 |---------|---------|
-| `@strata/ui` | Design system tokens, APG-pattern components, icon system |
-| `@strata/editor` | Editor shell, canvas, layers, inspector, tools, shortcuts |
-| `@strata/engine` | WASM/native/stub engine facade with IR-replay renderer |
-| `@strata/scene` | Immutable document model with ops |
-| `@strata/codegen` | SVG/React/Flutter/SwiftUI code export |
-| `@strata/platform` | Platform abstraction (Tauri/web/memory) |
+| `@varve/ui` | Design system tokens, APG-pattern components, icon system |
+| `@varve/editor` | Editor shell, canvas, layers, inspector, tools, shortcuts |
+| `@varve/engine` | WASM/native/stub engine facade with IR-replay renderer |
+| `@varve/scene` | Immutable document model with ops |
+| `@varve/codegen` | SVG/React/Flutter/SwiftUI code export |
+| `@varve/platform` | Platform abstraction (Tauri/web/memory) |
 
 ## Architecture
 

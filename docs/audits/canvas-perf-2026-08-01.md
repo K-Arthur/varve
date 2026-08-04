@@ -189,9 +189,9 @@ Notes:
 
 ## 8. Verification
 
-- `pnpm --filter @strata/editor test` — 3841+1 passed.
+- `pnpm --filter @varve/editor test` — 3841+1 passed.
 - Engine + scene suites — 4559 passed.
-- `pnpm --filter @strata/editor typecheck` — clean.
+- `pnpm --filter @varve/editor typecheck` — clean.
 - `biome check` on touched files — clean.
 - `scripts/audit-architecture.mjs --ci` — no layer violations; CanvasArea and
   context metrics unchanged from baseline.

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { BatchImportResult } from '@strata/import';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { BatchImportResult } from '@varve/import';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImportResults } from './ImportResults';
 

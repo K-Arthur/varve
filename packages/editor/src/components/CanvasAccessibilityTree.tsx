@@ -10,8 +10,8 @@
  * and Figma's undocumented accessibility tree (inferred behaviour).
  */
 
-import type { Document, NodeId } from '@strata/scene';
-import { buildParentIndexMap } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { buildParentIndexMap } from '@varve/scene';
 import { useMemo } from 'react';
 
 interface CanvasAccessibilityTreeProps {

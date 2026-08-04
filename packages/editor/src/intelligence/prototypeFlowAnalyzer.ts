@@ -1,5 +1,5 @@
-import type { Document, DocumentInteraction, FrameNode, NodeId, SceneNode } from '@strata/scene';
-import { getInteractionsForNode, walkNodes } from '@strata/scene';
+import type { Document, DocumentInteraction, FrameNode, NodeId, SceneNode } from '@varve/scene';
+import { getInteractionsForNode, walkNodes } from '@varve/scene';
 
 export interface FlowIssue {
   nodeId?: string;

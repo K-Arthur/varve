@@ -9,7 +9,7 @@
  * JSON manifest for version negotiation.
  */
 
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 
 /** Archive format version */
 export const ARCHIVE_FORMAT_VERSION = '1.0';

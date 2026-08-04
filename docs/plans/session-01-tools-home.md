@@ -172,7 +172,7 @@ So the E2E tests will focus on verifying these existing integrations work correc
 Check that `packages/home/src/FileGrid.tsx` already handles reorder. Verify:
 - Drag ends produce `handleDragEnd` in `HomeShell.tsx`
 - `platform.reorderFile()` is called with correct new ordering key
-- `generateKeyBetween` from `@strata/shared` computes the correct fractional index
+- `generateKeyBetween` from `@varve/shared` computes the correct fractional index
 
 Add missing pieces if `platform.reorderFile` isn't wired in `tauri.ts`:
 

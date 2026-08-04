@@ -7,7 +7,7 @@
  *
  * Research basis: Photoshop Selective Color panel.
  */
-import type { SelectiveColorParams, SelectiveColorTarget } from '@strata/engine';
+import type { SelectiveColorParams, SelectiveColorTarget } from '@varve/engine';
 import { useCallback } from 'react';
 import { NumberField } from './NumberField';
 

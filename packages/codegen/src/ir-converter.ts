@@ -2,8 +2,8 @@
 // suggestHtmlElement=18, collectFidelityWarnings=20, validateIR=14)
 // Plan: extract flatten/adjustment/fidelity into ir-flatten.ts and ir-warnings.ts
 
-import type { Document, Effect, SceneNode, TextNode } from '@strata/scene';
-import { activePageNodes, getParent, isImageShape } from '@strata/scene';
+import type { Document, Effect, SceneNode, TextNode } from '@varve/scene';
+import { activePageNodes, getParent, isImageShape } from '@varve/scene';
 import { convertToSemanticNode } from './ir-builders';
 import {
   analyzeSceneForDesignIR,
@@ -97,7 +97,7 @@ function computeFlattenInfo(node: SceneNode, _doc: Document): FlattenInfo {
   if (mask?.type === 'luminance') reasons.push('luminance-mask');
 
   if (node.kind === 'adjustment') {
-    const adj = node as import('@strata/scene').AdjustmentNode;
+    const adj = node as import('@varve/scene').AdjustmentNode;
     for (const a of adj.adjustments ?? []) {
       const ak = (a as { kind?: string }).kind ?? (a as { type?: string }).type ?? '';
       if (ak === 'halftone') reasons.push('halftone');
@@ -126,7 +126,7 @@ function computeFlattenInfo(node: SceneNode, _doc: Document): FlattenInfo {
 function computeAdjustmentScope(node: SceneNode, doc: Document): AdjustmentScopeInfo | undefined {
   if (node.kind !== 'adjustment') return undefined;
 
-  const scope = (node as import('@strata/scene').AdjustmentNode).scope;
+  const scope = (node as import('@varve/scene').AdjustmentNode).scope;
   const targetNodeIds: string[] = [];
 
   if (!scope) {
@@ -151,7 +151,7 @@ function computeAdjustmentScope(node: SceneNode, doc: Document): AdjustmentScope
     }
   }
 
-  const adjustments = (node as import('@strata/scene').AdjustmentNode).adjustments ?? [];
+  const adjustments = (node as import('@varve/scene').AdjustmentNode).adjustments ?? [];
   const cssCompatible = adjustments.every((a) =>
     [
       'brightness',
@@ -178,7 +178,7 @@ function computeAdjustmentScope(node: SceneNode, doc: Document): AdjustmentScope
             case 'hueRotate':
               return `hue-rotate(${a.value}deg)`;
             case 'blur':
-              return `blur(${(a as import('@strata/engine').BlurAdjustment).radius}px)`;
+              return `blur(${(a as import('@varve/engine').BlurAdjustment).radius}px)`;
             case 'opacity':
               return `opacity(${a.value})`;
             case 'sepia':
@@ -328,7 +328,7 @@ function collectFidelityWarnings(node: SceneNode, _doc: Document): FidelityWarni
   }
 
   if (node.kind === 'adjustment') {
-    const adj = node as import('@strata/scene').AdjustmentNode;
+    const adj = node as import('@varve/scene').AdjustmentNode;
     const hasComplex = (adj.adjustments ?? []).some((a) =>
       [
         'curves',

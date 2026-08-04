@@ -239,7 +239,7 @@ describe('effectPipeline', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-pnpm --filter @strata/engine test -- effectPipeline
+pnpm --filter @varve/engine test -- effectPipeline
 ```
 
 Expected: FAIL (module not found)
@@ -256,7 +256,7 @@ These are extracted from the identical code in `replay.ts:338-451` and `CanvasAr
 - [ ] **Step 4: Run test to verify it passes**
 
 ```bash
-pnpm --filter @strata/engine test -- effectPipeline
+pnpm --filter @varve/engine test -- effectPipeline
 ```
 
 Expected: PASS
@@ -432,7 +432,7 @@ describe('parallelWasmTraceProvider', () => {
 - [ ] **Step 2: Run test to verify it fails**
 
 ```bash
-pnpm --filter @strata/engine test -- parallelWasmTrace
+pnpm --filter @varve/engine test -- parallelWasmTrace
 ```
 
 - [ ] **Step 3: Implement parallel provider**
@@ -535,7 +535,7 @@ import { computeScreenBounds } from './effectPipeline';
 - [ ] **Step 3: Run existing replay tests**
 
 ```bash
-pnpm --filter @strata/engine test -- replay
+pnpm --filter @varve/engine test -- replay
 ```
 
 - [ ] **Step 4: Commit**
@@ -576,8 +576,8 @@ The pixel manipulation logic is extracted once.
 - [ ] **Step 3: Run effect tests**
 
 ```bash
-pnpm --filter @strata/engine test -- effect
-pnpm --filter @strata/editor test -- CanvasArea
+pnpm --filter @varve/engine test -- effect
+pnpm --filter @varve/editor test -- CanvasArea
 ```
 
 - [ ] **Step 4: Commit**
@@ -650,8 +650,8 @@ Replace the 350-line block in `CanvasArea.tsx` (lines 1575-1921) with a call to 
 - [ ] **Step 4: Run all effect tests**
 
 ```bash
-pnpm --filter @strata/engine test
-pnpm --filter @strata/editor test -- CanvasArea
+pnpm --filter @varve/engine test
+pnpm --filter @varve/editor test -- CanvasArea
 ```
 
 - [ ] **Step 5: Commit**

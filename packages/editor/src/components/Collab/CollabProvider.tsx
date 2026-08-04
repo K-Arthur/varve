@@ -1,4 +1,4 @@
-import { type CollabUser, getCollabUsers, type LiveCursor, updateCursor } from '@strata/collab';
+import { type CollabUser, getCollabUsers, type LiveCursor, updateCursor } from '@varve/collab';
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 
 interface StubCursor extends LiveCursor {

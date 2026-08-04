@@ -1,7 +1,7 @@
 /**
  * Platform capability detection for menu gating.
  *
- * Delegates to `@strata/platform` for canonical runtime detection and adds
+ * Delegates to `@varve/platform` for canonical runtime detection and adds
  * a caching/mocking layer for menu-specific use (which is called frequently
  * during menu rendering).
  */
@@ -10,7 +10,7 @@ import {
   getPlatformInfo,
   resetPlatformInfo as resetBase,
   setPlatformInfoForTest as setBaseOverride,
-} from '@strata/platform';
+} from '@varve/platform';
 import type { Capability } from './types';
 
 let _overrides: ReadonlySet<Capability> | null = null;

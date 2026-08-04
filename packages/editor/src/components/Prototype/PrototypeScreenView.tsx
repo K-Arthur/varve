@@ -1,7 +1,7 @@
 /**
  * Minimal prototype screen renderer — shows current frame with clickable hotspots.
  */
-import type { Document, NodeId } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
 import { useCallback, useMemo, useRef } from 'react';
 import type { HotspotTransitionOverride } from '../../motion/smartAnimateBridge';
 

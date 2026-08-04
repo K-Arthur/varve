@@ -1,5 +1,5 @@
-import type { NodeId, SceneNode } from '@strata/scene';
-import { resolveNodeFills } from '@strata/scene';
+import type { NodeId, SceneNode } from '@varve/scene';
+import { resolveNodeFills } from '@varve/scene';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import {

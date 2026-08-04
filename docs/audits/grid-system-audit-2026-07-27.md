@@ -161,7 +161,7 @@ export interface ViewportSettingsStore {
 ### Coordinate System
 
 #### Current Implementation
-- **Camera:** `@strata/shared/viewport.ts`
+- **Camera:** `@varve/shared/viewport.ts`
 - **Transform:** `editorScreenToWorld`, `editorWorldToScreen`
 - **Ruler Geometry:** Rotation-aware projection
 - **Guide Geometry:** Rotation-aware projection

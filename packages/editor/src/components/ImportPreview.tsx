@@ -1,4 +1,4 @@
-import type { ImportValidation } from '@strata/import';
+import type { ImportValidation } from '@varve/import';
 import { useCallback } from 'react';
 
 import './ImportPreview.css';

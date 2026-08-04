@@ -15,7 +15,7 @@
  */
 
 import { expect, test } from '@playwright/test';
-import type { RenderItem } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
 
 const WIDTH = 480;
 const HEIGHT = 360;

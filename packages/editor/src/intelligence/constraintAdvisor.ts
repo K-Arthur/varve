@@ -1,5 +1,5 @@
-import type { Constraints, Document, NodeId, SceneNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import type { Constraints, Document, NodeId, SceneNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
 import { getParentFast } from '../scene/parentIndexCache';
 import { nodeWorldBounds } from '../scene/world';
 
@@ -28,8 +28,8 @@ export function suggestConstraint(doc: Document, nodeId: NodeId): ConstraintSugg
   if (!parent || !isContainer(parent)) return null;
   if (parent.kind !== 'frame') return null;
 
-  const parentW = (parent as import('@strata/scene').FrameNode).w || 400;
-  const parentH = (parent as import('@strata/scene').FrameNode).h || 300;
+  const parentW = (parent as import('@varve/scene').FrameNode).w || 400;
+  const parentH = (parent as import('@varve/scene').FrameNode).h || 300;
 
   // Get the node's local position and size
   const bounds = nodeWorldBounds(doc, nodeId);

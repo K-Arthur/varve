@@ -1,5 +1,5 @@
-import type { FileEntry, Platform, Project } from '@strata/platform';
-import { uuid } from '@strata/platform';
+import type { FileEntry, Platform, Project } from '@varve/platform';
+import { uuid } from '@varve/platform';
 import { useCallback } from 'react';
 
 export interface FileActions {

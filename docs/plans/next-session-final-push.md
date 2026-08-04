@@ -32,9 +32,9 @@ The working tree has uncommitted changes from a parallel branch: codegen (tokens
 
 **Test targets:**
 ```
-pnpm -r --filter "@strata/codegen" --filter "@strata/editor" typecheck
-pnpm -r --filter "@strata/codegen" test
-pnpm -r --filter "@strata/editor" test
+pnpm -r --filter "@varve/codegen" --filter "@varve/editor" typecheck
+pnpm -r --filter "@varve/codegen" test
+pnpm -r --filter "@varve/editor" test
 cargo test --workspace
 ```
 
@@ -93,13 +93,13 @@ pnpm typecheck
 
 ```
 Phase 1: Merge codegen changes
-  → pnpm -r --filter "@strata/codegen" typecheck
-  → pnpm -r --filter "@strata/codegen" test (33 tests)
+  → pnpm -r --filter "@varve/codegen" typecheck
+  → pnpm -r --filter "@varve/codegen" test (33 tests)
   → cargo test --workspace (82 tests)
 
 Phase 2: Merge editor changes  
-  → pnpm -r --filter "@strata/editor" typecheck
-  → pnpm -r --filter "@strata/editor" test (130+ tests)
+  → pnpm -r --filter "@varve/editor" typecheck
+  → pnpm -r --filter "@varve/editor" test (130+ tests)
   → Write snapping tests (item 2)
 
 Phase 3: Full gate
@@ -107,7 +107,7 @@ Phase 3: Full gate
   → pnpm lint
   → pnpm audit:tokens
   → pnpm audit:emoji
-  → pnpm test:e2e --filter @strata/home (21 tests)
+  → pnpm test:e2e --filter @varve/home (21 tests)
 
 Phase 4: Polish (time permitting)
   → axe-core pass
@@ -120,7 +120,7 @@ Phase 4: Polish (time permitting)
 ```bash
 just gate  # format-check + lint + test + audits
 pnpm typecheck
-pnpm test:e2e --filter @strata/home
+pnpm test:e2e --filter @varve/home
 cargo test --workspace
 cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```

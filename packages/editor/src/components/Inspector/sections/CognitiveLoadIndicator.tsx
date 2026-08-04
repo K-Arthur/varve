@@ -1,5 +1,5 @@
-import type { Document, NodeId } from '@strata/scene';
-import { Tooltip } from '@strata/ui';
+import type { Document, NodeId } from '@varve/scene';
+import { Tooltip } from '@varve/ui';
 import { useMemo } from 'react';
 import { computeCognitiveLoad } from '../../../intelligence/cognitiveLoad';
 

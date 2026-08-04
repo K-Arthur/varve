@@ -1,4 +1,4 @@
-import { DEFAULT_ARTWORK_FONT_FAMILY, multiplyAffine } from '@strata/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, multiplyAffine } from '@varve/shared';
 import { createEngine } from './engine';
 import { createRasterSurface, encodeRasterSurface } from './rasterSurface';
 import { replayIr } from './replay';

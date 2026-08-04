@@ -1,22 +1,15 @@
 /**
- * @strata/codegen — Scene → code export (Strata plan §3.3, task 0.10).
+ * @varve/codegen — Scene → code export (Strata plan §3.3, task 0.10).
  *
  * Exports the scene model to CSS, React+Tailwind, React+CSS-Modules,
  * SVG, Flutter, and SwiftUI output. All exports are local-only:
  * zero network round-trips.
  */
 
-import type { Affine } from '@strata/engine';
-import type {
-  Document,
-  ManagedColor,
-  Mask,
-  NodeId,
-  SceneNode,
-  VectorMaskData,
-} from '@strata/scene';
-import { activePageNodes, isImageShape, resolveMask } from '@strata/scene';
-import { applyAffine, managedColorToRgba, multiplyAffine } from '@strata/shared';
+import type { Affine } from '@varve/engine';
+import type { Document, ManagedColor, Mask, NodeId, SceneNode, VectorMaskData } from '@varve/scene';
+import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
+import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
 import { svgCompositing } from './shared';
 import { imageContentTransform, imagePlacementForShape, svgRect } from './svg';
 
@@ -78,7 +71,7 @@ export {
   webComponentTargetGaps,
 } from './web-component';
 
-export const PACKAGE = '@strata/codegen' as const;
+export const PACKAGE = '@varve/codegen' as const;
 
 export interface SvgExportOptions {
   precision?: number;
@@ -153,16 +146,16 @@ function shapeVerticesToPoints(
 }
 
 function shapePathToData(
-  shape: Extract<import('@strata/engine').Shape, { kind: 'path' }>,
+  shape: Extract<import('@varve/engine').Shape, { kind: 'path' }>,
   precision: number,
 ): string {
-  const ringToCommands = (points: import('@strata/engine').PathPoint[], closed: boolean) => {
+  const ringToCommands = (points: import('@varve/engine').PathPoint[], closed: boolean) => {
     const first = points[0];
     if (!first) return [];
     const commands = [`M ${fmtNum(first.x, precision)} ${fmtNum(first.y, precision)}`];
     for (let index = 1; index < points.length; index += 1) {
-      const previous = points[index - 1] as import('@strata/engine').PathPoint;
-      const current = points[index] as import('@strata/engine').PathPoint;
+      const previous = points[index - 1] as import('@varve/engine').PathPoint;
+      const current = points[index] as import('@varve/engine').PathPoint;
       if (previous.handleOut || current.handleIn) {
         const c1x = previous.x + (previous.handleOut?.[0] ?? 0);
         const c1y = previous.y + (previous.handleOut?.[1] ?? 0);
@@ -573,7 +566,7 @@ function docCollectMaskDefs(doc: Document, rootIds: string[]): string[] {
 }
 
 /** Return the SVG element name for a shape, given the engine Shape type. */
-function svgElementForShape(s: import('@strata/engine').Shape): string {
+function svgElementForShape(s: import('@varve/engine').Shape): string {
   switch (s.kind) {
     case 'rect':
       return `rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}"`;

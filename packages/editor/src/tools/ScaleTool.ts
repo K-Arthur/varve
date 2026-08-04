@@ -8,9 +8,9 @@
  * Research basis: Figma Scale tool (K), Illustrator Scale tool.
  */
 
-import type { Affine } from '@strata/engine';
-import { getParent } from '@strata/scene';
-import { multiplyAffine } from '@strata/shared';
+import type { Affine } from '@varve/engine';
+import { getParent } from '@varve/scene';
+import { multiplyAffine } from '@varve/shared';
 import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';

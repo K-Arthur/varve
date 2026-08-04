@@ -12,8 +12,8 @@
  * Research basis: Web Animations API §5 Animation model (keyframe effect
  * value computation), GSAP TweenLite.render(), Lottie interpolators.
  */
-import type { AnimationKeyframe, CompositeOperation, Document, Timeline } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
+import type { AnimationKeyframe, CompositeOperation, Document, Timeline } from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
 import {
   ensureVertexMatch,
   getEasingFn,
@@ -23,7 +23,7 @@ import {
   interpolateSpatialBezier,
   interpolateValue,
   type PathPoint,
-} from '@strata/shared';
+} from '@varve/shared';
 
 export interface SampleResult {
   overrides: Map<string, Map<string, unknown>>;
@@ -245,7 +245,7 @@ function interpolateTrack(
   keyframes: AnimationKeyframe[],
   progress: number,
   defaultEasing: EasingDefinition,
-  interpolation: NonNullable<import('@strata/scene').AnimationTrack['interpolation']>,
+  interpolation: NonNullable<import('@varve/scene').AnimationTrack['interpolation']>,
   property: string,
 ): unknown {
   if (keyframes.length === 0) return undefined;
@@ -300,7 +300,7 @@ function interpolateSegment(
   after: AnimationKeyframe,
   progress: number,
   defaultEasing: EasingDefinition,
-  interpolation: NonNullable<import('@strata/scene').AnimationTrack['interpolation']>,
+  interpolation: NonNullable<import('@varve/scene').AnimationTrack['interpolation']>,
   property: string,
 ): unknown {
   const range = after.progress - before.progress;
@@ -438,9 +438,9 @@ function tryParseColor(v: unknown): string | number[] | null {
   return null;
 }
 
-function tryParseAffine(v: unknown): import('@strata/shared').Affine | null {
+function tryParseAffine(v: unknown): import('@varve/shared').Affine | null {
   if (Array.isArray(v) && v.length === 6 && v.every((n) => typeof n === 'number')) {
-    return v as unknown as import('@strata/shared').Affine;
+    return v as unknown as import('@varve/shared').Affine;
   }
   return null;
 }

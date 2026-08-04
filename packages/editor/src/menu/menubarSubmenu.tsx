@@ -6,7 +6,7 @@
  * menubarKeynav.ts; this component only renders and wires focus return).
  */
 
-import { FloatingPortal } from '@strata/ui';
+import { FloatingPortal } from '@varve/ui';
 import type React from 'react';
 
 interface SubmenuDef {

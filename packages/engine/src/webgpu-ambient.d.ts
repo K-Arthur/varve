@@ -4,7 +4,7 @@
  * from the spec — see git history for the 547-line version this replaced).
  *
  * A real `/// <reference types>` directive rather than a package.json
- * `"types"` array entry: other workspace packages type-check @strata/engine's
+ * `"types"` array entry: other workspace packages type-check @varve/engine's
  * .ts sources directly (no project-reference build boundary), so the ambient
  * globals need to leak the same way the old hand-rolled .d.ts did.
  */

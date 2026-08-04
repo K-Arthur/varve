@@ -1,7 +1,7 @@
 /**
  * Screen-space geometry for world-axis-aligned layout guides under view rotation.
  */
-import type { Viewport } from '@strata/shared';
+import type { Viewport } from '@varve/shared';
 import { type EditorCameraState, editorScreenToWorld, editorWorldToScreen } from './cameraState';
 
 export interface GuideAxisLine {

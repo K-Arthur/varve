@@ -14,8 +14,8 @@
  * document.
  */
 
-import type { PrintOptions } from '@strata/scene';
-import { Checkbox, Icon } from '@strata/ui';
+import type { PrintOptions } from '@varve/scene';
+import { Checkbox, Icon } from '@varve/ui';
 import { useId } from 'react';
 
 import './PrintSettingsPanel.css';

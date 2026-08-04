@@ -4,7 +4,7 @@
 
 **Goal:** Build a complete, production-grade prototyping ecosystem from scratch — interaction engine, animation system, state/variable management, navigation/flow system, presentation/preview mode, debugging tools, and accessibility support.
 
-**Architecture:** New `@strata/prototype` package for core engine + `packages/shared` extensions + `packages/editor` UI components. The prototype runtime is an event→trigger→action→state pipeline that drives IR replay on the existing Canvas2D renderer.
+**Architecture:** New `@varve/prototype` package for core engine + `packages/shared` extensions + `packages/editor` UI components. The prototype runtime is an event→trigger→action→state pipeline that drives IR replay on the existing Canvas2D renderer.
 
 **Tech Stack:** TypeScript 5.x, React 19, Vitest, Canvas2D IR replay, CSS Web Animations API for DOM transitions, `requestAnimationFrame` for JS-driven animations.
 
@@ -20,7 +20,7 @@
 ## Architecture Overview
 
 ```
-@strata/prototype/
+@varve/prototype/
 ├── types.ts              # All prototype type definitions
 ├── triggers.ts           # Trigger system (click, hover, scroll, key, etc.)
 ├── actions.ts            # Action system (navigate, overlay, setVariable, etc.)
@@ -41,7 +41,7 @@
 ```
 
 ```
-@strata/editor/src/
+@varve/editor/src/
 ├── context.tsx            # Extended with prototype state + methods
 ├── Shell.tsx              # Extended with presentation mode, prototype toolbars
 ├── Menubar.tsx            # Extended with Present entry
@@ -82,7 +82,7 @@
 
 ```json
 {
-  "name": "@strata/prototype",
+  "name": "@varve/prototype",
   "version": "0.0.0",
   "private": true,
   "description": "Strata prototype engine: interactions, animations, state, presentation.",
@@ -99,9 +99,9 @@
     "test": "cd ../.. && vitest run packages/prototype"
   },
   "dependencies": {
-    "@strata/engine": "workspace:*",
-    "@strata/scene": "workspace:*",
-    "@strata/shared": "workspace:*"
+    "@varve/engine": "workspace:*",
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*"
   }
 }
 ```
@@ -160,7 +160,7 @@ describe('PrototypeType', () => {
 ```typescript
 // packages/prototype/src/types.ts
 
-import type { NodeId } from '@strata/scene';
+import type { NodeId } from '@varve/scene';
 
 // ── Trigger Types ────────────────────────────────────────────────
 

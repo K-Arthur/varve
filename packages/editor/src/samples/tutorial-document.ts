@@ -1,5 +1,5 @@
-import type { Affine } from '@strata/engine';
-import type { Document, ManagedColor } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import type { Document, ManagedColor } from '@varve/scene';
 import {
   addChild,
   addNode,
@@ -7,7 +7,7 @@ import {
   makeFrameNode,
   makeShapeNode,
   makeTextNode,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export const TUTORIAL_DOCUMENT_VERSION = 1;
 export const TUTORIAL_DOCUMENT_ID = 'strata-tutorial';

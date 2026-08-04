@@ -4,8 +4,8 @@
  * Research basis: TDD for interaction overlay completeness.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
 import { render } from '@testing-library/react';
+import type { Document, SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
 import { nodeWorldBounds } from '../../scene/world';

@@ -1,4 +1,4 @@
-import type { Document, LayerColor, NodeId, SceneNode } from '@strata/scene';
+import type { Document, LayerColor, NodeId, SceneNode } from '@varve/scene';
 import {
   addNode,
   createDocument,
@@ -6,7 +6,7 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   bulkSetLayerColorDoc,

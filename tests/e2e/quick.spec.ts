@@ -13,6 +13,6 @@ test('quick check', async ({ page }) => {
     .catch(() => 'none');
   console.log('Fallback text:', text);
   const html = await page.content();
-  console.log('Has strata-home:', html.includes('strata-home'));
+  console.log('Has varve-home:', html.includes('varve-home'));
   console.log('HTML length:', html.length);
 });

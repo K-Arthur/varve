@@ -319,7 +319,7 @@ export function resolveGrainValueSync(
 }
 ```
 
-Run: `pnpm typecheck --filter @strata/engine` — should pass.
+Run: `pnpm typecheck --filter @varve/engine` — should pass.
 
 - [ ] **Step 5: Create wetPaint.ts**
 
@@ -499,7 +499,7 @@ export function wetEdgeDarkening(
 }
 ```
 
-Run: `pnpm test --filter @strata/scene` — verify existing tests still pass.
+Run: `pnpm test --filter @varve/scene` — verify existing tests still pass.
 
 - [ ] **Step 6: Create previewCanvas.ts**
 
@@ -703,7 +703,7 @@ Create `packages/editor/src/tools/SmudgeTool.ts`. It extends BaseTool similarly 
 - Cursor shows brush ring
 
 ```typescript
-import type { BrushDab, BrushPreset, RasterLayerNode } from '@strata/scene';
+import type { BrushDab, BrushPreset, RasterLayerNode } from '@varve/scene';
 import {
   compositeSmudgeDabOnNode,
   defaultBrushPreset,
@@ -711,7 +711,7 @@ import {
   seedJitter,
   smoothStrokePoints,
   strokePoint,
-} from '@strata/scene';
+} from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -719,7 +719,7 @@ export class SmudgeTool extends BaseTool {
   id = 'smudge' as const;
 
   private preset: BrushPreset;
-  private strokePoints: import('@strata/scene').StrokePoint[] = [];
+  private strokePoints: import('@varve/scene').StrokePoint[] = [];
   private rasterNodeId: string | null = null;
   private strokeGeneration = 0;
   private transactionOpen = false;
@@ -1180,7 +1180,7 @@ private renderPredictedPreview(
   this.previewCanvas.clear();
 
   // Convert predicted events to StrokePoints
-  const predictedPoints: import('@strata/scene').StrokePoint[] = [];
+  const predictedPoints: import('@varve/scene').StrokePoint[] = [];
   for (const ev of predictedEvents) {
     const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
     const pressure = ev.pressure > 0 ? ev.pressure : 0.5;

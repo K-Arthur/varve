@@ -6,7 +6,7 @@
  *
  * Research basis: Strata FloatingToolbar; Canva contextual action bar.
  */
-import { Icon, type IconName, Tooltip } from '@strata/ui';
+import { Icon, type IconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { QuickBarAction, QuickBarActionId, QuickBarProfile } from './resolveQuickBarProfile';
 import './SelectionQuickBar.css';

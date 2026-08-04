@@ -5,7 +5,8 @@
  * switching variants, creating variants, edge cases (no variants, no properties).
  */
 import '@testing-library/jest-dom/vitest';
-import type { Document, NodeId } from '@strata/scene';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { Document, NodeId } from '@varve/scene';
 import {
   addComponentProperty,
   addNode,
@@ -13,8 +14,7 @@ import {
   createDocument,
   createVariant,
   makeFrameNode,
-} from '@strata/scene';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+} from '@varve/scene';
 import type React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { VariantBox } from './VariantBox';

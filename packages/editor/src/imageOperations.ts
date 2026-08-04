@@ -5,8 +5,8 @@
  * raster and place derived results beside it as ordinary editable layers.
  */
 
-import type { RasterTracePath } from '@strata/engine';
-import { fitBezierToContour } from '@strata/engine';
+import type { RasterTracePath } from '@varve/engine';
+import { fitBezierToContour } from '@varve/engine';
 import {
   addChild,
   type Document,
@@ -20,7 +20,7 @@ import {
   type NodeId,
   nextNodeId,
   type ShapeNode,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export function selectedImageShape(doc: Document, selection: NodeId[]): ShapeNode | null {
   for (const id of selection) {
@@ -296,7 +296,7 @@ export async function bakeAlphaMaskIntoImageData(
   source: ImageData,
   maskDataUrl: string,
 ): Promise<ImageData> {
-  const { getImageCache } = await import('@strata/engine');
+  const { getImageCache } = await import('@varve/engine');
   const maskImage = await getImageCache().load(maskDataUrl);
 
   const maskCanvas = globalThis.document.createElement('canvas');

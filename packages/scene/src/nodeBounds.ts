@@ -10,8 +10,8 @@
  * Research basis: Figma node geometry, Illustrator bounding-box conventions.
  */
 
-import type { Rect } from '@strata/shared';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
+import type { Rect } from '@varve/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
 import { deriveGeometryFromPaints, resolveNodePaints } from './paint';
 import type { Paint, SceneNode } from './types';
 

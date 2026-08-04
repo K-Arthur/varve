@@ -4,9 +4,9 @@ import type {
   Platform,
   Project,
   TemplateLibrary,
-} from '@strata/platform';
-import { fuzzySearch } from '@strata/platform';
-import { Icon, Tooltip } from '@strata/ui';
+} from '@varve/platform';
+import { fuzzySearch } from '@varve/platform';
+import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface ResultItem {

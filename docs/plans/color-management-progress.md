@@ -23,7 +23,7 @@ text color, Lab/LCH picker, soft proofing, spot-color authoring).
 
 ## Affected packages
 
-`@strata/scene`, `@strata/shared`, `@strata/engine`, `@strata/ui`, `@strata/editor` (M1-M7).
+`@varve/scene`, `@varve/shared`, `@varve/engine`, `@varve/ui`, `@varve/editor` (M1-M7).
 
 ## Schema versions
 
@@ -33,11 +33,11 @@ text color, Lab/LCH picker, soft proofing, spot-color authoring).
 
 ## Tests run
 
-- `@strata/scene` 1930 passed (colorValidation, colorMode explicit, colorMigration fixtures, spotLibraries, proof).
-- `@strata/shared` 738 passed (colorLabLch, proofTransform).
-- `@strata/engine` 3104 passed (text layout/replay run-color carry).
-- `@strata/ui` 399 passed (ColorPickerLabLch suite, existing suites).
-- `@strata/editor` render + inspector suites pass (proofing, worker, popover); full editor suite pending (large).
+- `@varve/scene` 1930 passed (colorValidation, colorMode explicit, colorMigration fixtures, spotLibraries, proof).
+- `@varve/shared` 738 passed (colorLabLch, proofTransform).
+- `@varve/engine` 3104 passed (text layout/replay run-color carry).
+- `@varve/ui` 399 passed (ColorPickerLabLch suite, existing suites).
+- `@varve/editor` render + inspector suites pass (proofing, worker, popover); full editor suite pending (large).
 - Typecheck: all packages clean except pre-existing errors in the user's concurrent in-flight editor files.
 - Lint: 0 new errors; audit-emoji clean; audit-health passed.
 

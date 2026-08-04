@@ -1,5 +1,5 @@
-import type { Shape } from '@strata/engine';
-import type { Document, LiveTraceParams, ShapeNode } from '@strata/scene';
+import type { Shape } from '@varve/engine';
+import type { Document, LiveTraceParams, ShapeNode } from '@varve/scene';
 import {
   addNode,
   createDocument,
@@ -7,7 +7,7 @@ import {
   makeShapeNode,
   setLiveTraceParams,
   setLiveTraceResolved,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 const defaultParams: LiveTraceParams = {

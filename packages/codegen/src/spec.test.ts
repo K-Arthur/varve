@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import {
   addKeyframe,
   addNode,
@@ -9,7 +9,7 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildSpec, type SpecSheet, specToMarkdown } from './spec';
 
@@ -142,7 +142,7 @@ describe('buildSpec', () => {
     const { doc: d2, trackId } = addTrack(
       d1,
       tlId,
-      'node-x' as import('@strata/scene').NodeId,
+      'node-x' as import('@varve/scene').NodeId,
       'opacity',
     );
     doc = addKeyframe(d2, tlId, trackId, { progress: 0, value: 0 });

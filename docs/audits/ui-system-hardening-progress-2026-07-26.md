@@ -182,7 +182,7 @@ Repository-wide evidence:
   workspace `setTool` extraction, intelligence audit timing, scene state
   machines/migration expectations, home shortcut semantics, and clone
   benchmarks.
-- `pnpm typecheck` stops in `@strata/codegen` on stale scene-model fixtures and
+- `pnpm typecheck` stops in `@varve/codegen` on stale scene-model fixtures and
   converter assumptions before completing the workspace.
 - `pnpm lint` reports existing unfinished codegen, Shell test hook, CSP import,
   and E2E debt. Focused checks on touched files have no errors.

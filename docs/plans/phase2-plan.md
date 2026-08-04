@@ -45,7 +45,7 @@ Plus: **assert native backend on desktop** for any facade method added.
    - Depend on `rusqlite` + `yrs` (the Rust Yjs port) or a Yjs-compatible CRDT. Persist document snapshot + CRDT update log to SQLite. Implement `load_doc`, `apply_update`, `snapshot`, `offline_queue` (ordered pending updates), `reconcile_on_reconnect` (page-granular merge).
    - Tests (cargo): offline edit -> reconnect -> remote edits merge without data loss; concurrent edit on same property -> CRDT deterministic merge; large document (10k nodes) update latency budget.
 3. **TS package (`packages/collab`)**
-   - `@strata/collab`: `CollabProvider` wrapping an awareness-aware Yjs doc, sync transport (WebSocket relay when online, offline queue when not). Serialize scene <-> Yjs doc. Tie `collab` <-> `scene` Document via a双向 sync adapter.
+   - `@varve/collab`: `CollabProvider` wrapping an awareness-aware Yjs doc, sync transport (WebSocket relay when online, offline queue when not). Serialize scene <-> Yjs doc. Tie `collab` <-> `scene` Document via a双向 sync adapter.
    - Tests (Vitest): offline queue replays on reconnect; awareness presence updates; two simulated clients converge.
 4. **Tauri IPC**
    - Commands: `sync_load`, `sync_apply_update`, `sync_snapshot`, `sync_offline_flush`. Assert native backend chosen.
@@ -76,7 +76,7 @@ Plus: **assert native backend on desktop** for any facade method added.
    - `AssetCache` over SQLite + on-disk blob store: `store(blob) -> hash`, `load(hash) -> blob`, `evict_lru(bytes_budget)`. `FontRegistry` abstracting per-OS discovery via a `platform` trait (fontconfig/CoreText/DirectWrite live only there per AGENTS.md §2.3). Local font-matching parser with weighted resolution.
    - Tests (cargo): store -> load -> identical; LRU eviction respects budget; font matching picks best family/style/weight; platform trait toggled.
 3. **TS facade**
-   - `@strata/engine` (or new `@strata/assets`): `cacheAsset(blob)`, `loadAsset(hash)`, `listFonts()`, `matchFont(spec)` behind native + stub.
+   - `@varve/engine` (or new `@varve/assets`): `cacheAsset(blob)`, `loadAsset(hash)`, `listFonts()`, `matchFont(spec)` behind native + stub.
    - Tauri commands.
 4. **Editor UI**
    - Asset panel: list (virtualised, IntersectionObserver thumbnails), import, usage counts, "Used in N frames". Empty state with SVG illustration + CTA. Offline indicator when assets local.
@@ -124,7 +124,7 @@ Plus: **assert native backend on desktop** for any facade method added.
    - Hybrid render: vector pass (existing IR) + raster pass (tile-composited brush strokes stored as content-addressed blobs from 2.2). `paint_stroke(brush, pressure, points) -> RasterTile`. Composite at frame time.
    - Tests (cargo): stroke rasterises to expected tile coverage; composite order vector-under-raster; no blur on vector at high zoom.
 3. **TS facade**
-   - `@strata/engine`: `paintStroke`, `compositeHybrid(frame)`.
+   - `@varve/engine`: `paintStroke`, `compositeHybrid(frame)`.
    - Tauri command.
 4. **Editor UI**
    - Brush tool (toolbar entry, grouped with pen/pencil). Pressure sensitivity via Pointer Events. Brush settings (size, opacity, flow, hardness). Drawing layer toggles vector/raster visibility.

@@ -16,7 +16,7 @@ import type { FontCatalog } from './fontCatalog';
 import type { FontSourceKind } from './fontIdentity';
 
 // ---------------------------------------------------------------------------
-// Minimal document types (avoids dependency on @strata/scene)
+// Minimal document types (avoids dependency on @varve/scene)
 // ---------------------------------------------------------------------------
 
 /** Minimal text node shape used by the resolver. */

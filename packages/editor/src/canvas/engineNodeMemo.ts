@@ -47,7 +47,7 @@
  * already retains, so an entry's own marginal cost is the wrapper object.
  */
 
-import type { SceneNode as EngineNode } from '@strata/engine';
+import type { SceneNode as EngineNode } from '@varve/engine';
 
 interface MemoEntry {
   src: unknown;

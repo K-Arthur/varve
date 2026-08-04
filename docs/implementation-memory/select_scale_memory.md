@@ -5,7 +5,7 @@
 ## 0. Stack (Verified)
 
 ### Rendering backend
-- **Pure Canvas2D** (`@strata/engine/replay.ts`) — no Konva/Fabric/PixiJS.
+- **Pure Canvas2D** (`@varve/engine/replay.ts`) — no Konva/Fabric/PixiJS.
 - SVG overlay for selection handles (`SelectionOverlay.tsx`).
 - OffscreenCanvas render worker for non-structural scenes.
 - Floating-origin for large coordinate stability.
@@ -29,7 +29,7 @@
 
 ## 1. Coordinate Space Model (Explicit)
 
-**Defined in `@strata/shared/viewport.ts` and `@strata/shared/affine.ts`:**
+**Defined in `@varve/shared/viewport.ts` and `@varve/shared/affine.ts`:**
 
 | Space | Description |
 |---|---|
@@ -42,16 +42,16 @@
 **World-to-canvas:** `canvas = world * zoom + pan` (with rotation).
 
 **Conversions live in:**
-- `@strata/shared/viewport.ts` — `screenToWorld`, `worldToScreen`, `screenDeltaToWorld`, `clientToCanvas`.
+- `@varve/shared/viewport.ts` — `screenToWorld`, `worldToScreen`, `screenDeltaToWorld`, `clientToCanvas`.
 - `packages/editor/src/context/ViewportContext.tsx` — `canvasToWorld`, `worldToCanvas`, `canvasDeltaToWorld`.
 
-**⚠️ Duplicate found:** `SelectionOverlay.tsx:69-85` defines its own `worldToScreen` / `screenToWorld` — same math as `@strata/shared/viewport.ts`. Should be swapped to the canonical import.
+**⚠️ Duplicate found:** `SelectionOverlay.tsx:69-85` defines its own `worldToScreen` / `screenToWorld` — same math as `@varve/shared/viewport.ts`. Should be swapped to the canonical import.
 
 ---
 
 ## 2. Affine Transform Architecture
 
-**SSoT:** `@strata/shared/affine.ts` — `Affine = [a, b, c, d, e, f]` (same as Canvas2D `setTransform` and kurbo Rust).
+**SSoT:** `@varve/shared/affine.ts` — `Affine = [a, b, c, d, e, f]` (same as Canvas2D `setTransform` and kurbo Rust).
 
 - `multiplyAffine(parent, child)` — scene-graph composition (parent after child).
 - `invertAffine` / `tryInvertAffine` — singular matrix detection.
@@ -93,14 +93,14 @@
 `packages/editor/src/SelectionOverlay.tsx`
 
 - SVG overlay rendering selection box + 8 handles + rotation handle + center indicator.
-- Uses `computeSelectionBox()`, `handlePositions()` from `@strata/shared`.
+- Uses `computeSelectionBox()`, `handlePositions()` from `@varve/shared`.
 - Handle hit areas: 16×16px invisible rect (larger than visible 8×8 handle square).
 - Rotation: line from top-center to an offset circle 20px above.
 - Cursor per handle: `nwse-resize`, `ns-resize`, `nesw-resize`, `ew-resize`.
 - **Multi-select:** dashed bounding box, no handles (read-only).
 - **Single-select (shape/frame/text):** full interactive handles.
 - **Has its own `computeResize()` function** (lines 89-176) — this is a legacy path for non-rotated resizing. **TransformEngine is the active path.**
-- **Has its own `computeRotatedLocalBBox()` function** (lines 178-268) — triggered for rotated nodes. Both of these duplicate logic that `resizeSelectionBox` from `@strata/shared` handles.
+- **Has its own `computeRotatedLocalBBox()` function** (lines 178-268) — triggered for rotated nodes. Both of these duplicate logic that `resizeSelectionBox` from `@varve/shared` handles.
 
 ---
 

@@ -24,7 +24,7 @@ Close all 6 triage findings — scene module cycles, EditorProvider god function
 - `packages/scene/src/component-sync.ts` — import `DocumentBase` instead of `Document`
 - `packages/scene/src/library.ts` — import `DocumentBase` instead of `Document`; `isContainer` stays as-is (value import, no cycle)
 
-**Verification:** `pnpm typecheck`, `cargo test --workspace`, `pnpm test --filter @strata/scene`, dependency cycle check.
+**Verification:** `pnpm typecheck`, `cargo test --workspace`, `pnpm test --filter @varve/scene`, dependency cycle check.
 
 ---
 
@@ -43,7 +43,7 @@ Close all 6 triage findings — scene module cycles, EditorProvider god function
 - `packages/engine/src/raster.ts` — remove `RasterFormat` type, import from `raster-size.ts`
 - `packages/engine/src/types.ts` (new or existing) — add `Engine` interface if not already there; `engine.ts` exports implement it; `wasmLoader.ts` imports it from `types.ts`
 
-**Verification:** `pnpm typecheck`, `pnpm test --filter @strata/engine`.
+**Verification:** `pnpm typecheck`, `pnpm test --filter @varve/engine`.
 
 ---
 
@@ -59,7 +59,7 @@ Close all 6 triage findings — scene module cycles, EditorProvider god function
 - `packages/editor/src/Menubar.tsx` — replace `handleAction` switch with `actionRegistry.get(id)?.()`
 - `packages/editor/src/Shell.tsx` — context menu items call `actionRegistry.get(item.action)?.()`
 
-**Verification:** `pnpm typecheck`, `pnpm test --filter @strata/editor`, manual shortcut/menubar testing.
+**Verification:** `pnpm typecheck`, `pnpm test --filter @varve/editor`, manual shortcut/menubar testing.
 
 ---
 
@@ -74,7 +74,7 @@ Close all 6 triage findings — scene module cycles, EditorProvider god function
 
 **Fix — PrototypeContext (10 methods):** Extract prototype methods into a new `PrototypeContext` sub-context:
 - `setPrototypeMode`, `updatePrototypeData`, `handlePrototypeEvent`, `getPrototypeVariable`, `setPrototypeVariable`, `startPresentation`, `stopPresentation`, `getPrototypeScreens`, `prototypeCurrentScreen`, `navigatePrototypeTo`
-- These depend on `state.prototypeMode`, `state.prototypeRuntime`, `updateDoc`, and `@strata/prototype` runtime
+- These depend on `state.prototypeMode`, `state.prototypeRuntime`, `updateDoc`, and `@varve/prototype` runtime
 - `usePrototype()` hook for consumers
 
 **Files to create:**
@@ -86,7 +86,7 @@ Close all 6 triage findings — scene module cycles, EditorProvider god function
 - `packages/editor/src/context/types.ts` — add `MotionContextValue` and `PrototypeContextValue` interfaces
 - `packages/editor/src/context/index.ts` — export new sub-contexts
 
-**Verification:** `pnpm typecheck`, `pnpm test --filter @strata/editor`, `pnpm test --filter @strata/prototype`.
+**Verification:** `pnpm typecheck`, `pnpm test --filter @varve/editor`, `pnpm test --filter @varve/prototype`.
 
 ---
 
@@ -108,7 +108,7 @@ Close all 6 triage findings — scene module cycles, EditorProvider god function
 **Files to modify:**
 - `packages/editor/src/CanvasArea.tsx` — import and use extracted modules, remove inlined code
 
-**Verification:** `pnpm typecheck`, `pnpm test --filter @strata/editor`, Playwright E2E (`tests/e2e/canvas/tools.spec.ts`).
+**Verification:** `pnpm typecheck`, `pnpm test --filter @varve/editor`, Playwright E2E (`tests/e2e/canvas/tools.spec.ts`).
 
 ---
 
@@ -136,7 +136,7 @@ Close all 6 triage findings — scene module cycles, EditorProvider god function
 **Files to modify:**
 - `packages/editor/src/Shell.tsx` — replace inline code with extracted components
 
-**Verification:** `pnpm typecheck`, `pnpm test --filter @strata/editor`, Playwright E2E.
+**Verification:** `pnpm typecheck`, `pnpm test --filter @varve/editor`, Playwright E2E.
 
 ---
 

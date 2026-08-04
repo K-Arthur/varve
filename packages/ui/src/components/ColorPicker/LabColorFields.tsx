@@ -1,4 +1,4 @@
-import { COLOR_DISPLAY_DECIMALS } from '@strata/shared';
+import { COLOR_DISPLAY_DECIMALS } from '@varve/shared';
 import { useCallback } from 'react';
 import { SpinbuttonRow } from './SpinbuttonRow';
 

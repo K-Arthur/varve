@@ -9,7 +9,7 @@
  * nonfatal failures instead of leaving the user to guess which files landed.
  */
 
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import { useState } from 'react';
 import type { ExportFileReport } from '../../exportService';
 

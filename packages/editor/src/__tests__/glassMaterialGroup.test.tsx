@@ -1,8 +1,8 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { addChild, addNode, createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
 import { cleanup, render, waitFor } from '@testing-library/react';
+import { addChild, addNode, createDocument, makeGroupNode, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
 import { sceneNeedsStructuralCompositing } from '../render/sceneCompositing';

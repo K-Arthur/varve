@@ -1,12 +1,12 @@
-import { getFontRegistry } from '@strata/engine';
+import { getFontRegistry } from '@varve/engine';
 import {
   buildDocumentFontManifest,
   FontCatalog,
   resolveManifestAgainstCatalog,
-} from '@strata/engine/font';
-import { type Platform, upsertPreservingMeta } from '@strata/platform';
-import { createDocument, type Document, DocumentCodec, validateDocument } from '@strata/scene';
-import type { Viewport } from '@strata/shared';
+} from '@varve/engine/font';
+import { type Platform, upsertPreservingMeta } from '@varve/platform';
+import { createDocument, type Document, DocumentCodec, validateDocument } from '@varve/scene';
+import type { Viewport } from '@varve/shared';
 import { useCallback } from 'react';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';

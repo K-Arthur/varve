@@ -39,8 +39,8 @@
 
 ### Out of scope
 - Rust crates (`crates/`), Tauri backend (`apps/desktop/src-tauri/`)
-- `@strata/home` (home screen — covered at architectural level only)
-- `@strata/prototype`, `@strata/engine`, `@strata/scene` (model layer)
+- `@varve/home` (home screen — covered at architectural level only)
+- `@varve/prototype`, `@varve/engine`, `@varve/scene` (model layer)
 - Live runtime testing (no dev server running — source-only audit)
 - Performance profiling (no flame graphs or runtime metrics)
 

@@ -2,7 +2,7 @@
 // finding, polygon splitting/classification/contour assembly, cleanPolygon,
 // self-intersection detection + resolution. All private to boolean system.
 
-import type { PathPoint } from '@strata/engine';
+import type { PathPoint } from '@varve/engine';
 
 export type Point2D = { x: number; y: number };
 

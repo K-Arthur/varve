@@ -1,5 +1,5 @@
-import { createDocument, type Document, type ShapeNode } from '@strata/scene';
 import { render, screen } from '@testing-library/react';
+import { createDocument, type Document, type ShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { ImageCompareOverlay } from './ImageCompareOverlay';
 

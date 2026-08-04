@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import type { TextNode } from '@strata/scene';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { TextNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FloatingTextBar, type FloatingTextBarProps } from './FloatingTextBar';
 

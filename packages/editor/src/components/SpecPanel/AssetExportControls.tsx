@@ -1,6 +1,6 @@
-import { exportNodeToSvg } from '@strata/codegen';
-import { createEngine, type Engine } from '@strata/engine';
-import type { Platform } from '@strata/platform';
+import { exportNodeToSvg } from '@varve/codegen';
+import { createEngine, type Engine } from '@varve/engine';
+import type { Platform } from '@varve/platform';
 import type {
   Document,
   ExportBatch,
@@ -8,7 +8,7 @@ import type {
   ExportScale,
   ExportFormat as LegacyExportFormat,
   SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   type BuiltinPresetDefinition,
   builtinBundleList,
@@ -22,8 +22,8 @@ import {
   legacyScaleToCanonical,
   materializePreset,
   type PlatformKind,
-} from '@strata/scene/export';
-import { CopyButton, Icon, Select, Tooltip } from '@strata/ui';
+} from '@varve/scene/export';
+import { CopyButton, Icon, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
 import { runBatchPreflight } from '../../exportService';

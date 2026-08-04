@@ -5,7 +5,7 @@
  * corner radius, fill color, stroke weight) so the renderer can interpolate
  * between matched layers across screens.
  */
-import type { NodeId, SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@varve/scene';
 
 export interface LayerMatch {
   fromId: NodeId;
@@ -32,7 +32,7 @@ export interface PropertyPair<T> {
  */
 export interface SmartAnimateLayerValues {
   opacity: PropertyPair<number>;
-  transform: PropertyPair<import('@strata/engine').Affine>;
+  transform: PropertyPair<import('@varve/engine').Affine>;
   /** Rotation in degrees. */
   rotation?: PropertyPair<number>;
   /** Uniform corner radius (px). undefined when corners are not uniform. */

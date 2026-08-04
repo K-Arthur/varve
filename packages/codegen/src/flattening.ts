@@ -5,8 +5,8 @@
  * v2.1: Uses IR flattening types, provides per-target capability checks.
  */
 
-import type { Document, Effect, SceneNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import type { Document, Effect, SceneNode } from '@varve/scene';
+import { isImageShape } from '@varve/scene';
 import type { FlattenInfo, FlattenReason } from './ir-types';
 
 export type { FlattenInfo, FlattenReason };
@@ -55,8 +55,8 @@ function hasMultipleVisibleFills(node: SceneNode): boolean {
 
 function hasMultipleStrokes(node: SceneNode): boolean {
   return (
-    ((node as { strokes?: import('@strata/scene').Stroke[] }).strokes ?? []).filter(
-      (s: import('@strata/scene').Stroke) => s.visible !== false,
+    ((node as { strokes?: import('@varve/scene').Stroke[] }).strokes ?? []).filter(
+      (s: import('@varve/scene').Stroke) => s.visible !== false,
     ).length > 1
   );
 }

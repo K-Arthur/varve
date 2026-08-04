@@ -1,5 +1,5 @@
-import type { SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
@@ -12,7 +12,7 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
   useEditor();
   const node = nodes[0];
   const isImage = Boolean(node && isImageShape(node));
-  const typedNode = isImage ? (node as import('@strata/scene').ShapeNode) : null;
+  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
 
   if (!isImage || !typedNode) return null;

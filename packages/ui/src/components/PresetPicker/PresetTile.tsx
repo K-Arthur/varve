@@ -1,4 +1,4 @@
-import type { Preset } from '@strata/shared';
+import type { Preset } from '@varve/shared';
 import { useRef, useState } from 'react';
 import { IconButton } from '../IconButton';
 import { Menu, type MenuEntry } from '../Menu';

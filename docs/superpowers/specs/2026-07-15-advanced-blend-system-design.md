@@ -103,7 +103,7 @@ contract:
 
 ### 4.1 Blend domain
 
-`@strata/engine` owns a small blend domain with no scene or UI dependencies:
+`@varve/engine` owns a small blend domain with no scene or UI dependencies:
 
 - a canonical catalog containing stable document id, CSS name, PDF name,
   category, and applicability;
@@ -119,7 +119,7 @@ unsupported result; they do not return Normal.
 
 ### 4.2 Scene semantics
 
-`@strata/scene` owns document meaning:
+`@varve/scene` owns document meaning:
 
 - ordinary objects default to Normal;
 - groups default to Pass Through;

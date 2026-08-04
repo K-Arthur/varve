@@ -4,8 +4,8 @@
  * Compound-path insert: holes become evenodd subpaths on the outer ring.
  */
 
-import type { RasterTraceResult } from '@strata/engine';
-import { createDocument, makeImageShapeNode } from '@strata/scene';
+import type { RasterTraceResult } from '@varve/engine';
+import { createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { insertTraceGroup } from './imageOperations';
 

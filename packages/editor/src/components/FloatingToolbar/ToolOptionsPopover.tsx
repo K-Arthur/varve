@@ -1,4 +1,4 @@
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import './ToolOptionsPopover.css';

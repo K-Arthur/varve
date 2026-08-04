@@ -14,10 +14,10 @@
  *
  * Research basis: Figma / Sketch typography panel, APG Disclosure, Radiogroup.
  */
-import { getFontRegistry } from '@strata/engine';
-import type { SceneNode, TextNode } from '@strata/scene';
-import { resolveNodeFills } from '@strata/scene';
-import { Select } from '@strata/ui';
+import { getFontRegistry } from '@varve/engine';
+import type { SceneNode, TextNode } from '@varve/scene';
+import { resolveNodeFills } from '@varve/scene';
+import { Select } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -215,8 +215,8 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     if (!n) return null;
     const fills = resolveNodeFills(
       n as unknown as {
-        fill: import('@strata/scene').ManagedColor;
-        fills?: import('@strata/scene').Fill[];
+        fill: import('@varve/scene').ManagedColor;
+        fills?: import('@varve/scene').Fill[];
       },
     );
     const solid = fills.find((f) => f.visible && f.type === 'solid');

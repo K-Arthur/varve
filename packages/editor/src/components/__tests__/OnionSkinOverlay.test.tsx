@@ -10,7 +10,7 @@
  * - Boundary conditions (start/end of timeline)
  */
 
-import type { Timeline } from '@strata/scene';
+import type { Timeline } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_ONION_SKIN, getOnionSkinFrames } from '../OnionSkinOverlay';
 

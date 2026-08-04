@@ -22,7 +22,7 @@ nothing else.
    palette entries. Rows must keep their identity when the list is
    re-sorted (e.g. `stops.sort(by position)`), so index keys would cause
    state/position mismatches on reorder. Fixing requires stable IDs in the
-   document model (cross-cutting change to `@strata/scene` types, ops,
+   document model (cross-cutting change to `@varve/scene` types, ops,
    serialization, and migration).
 2. **Non-reorderable derived lists** — line-number-indexed code lines,
    static grids, zoom ticks. Position is immutable here, so `key={i}` is
@@ -61,7 +61,7 @@ nothing else.
 ### Resolution options
 
 - **Short-term (recommended, ~1 session):** add stable `id` fields to
-  gradient stops / fills / strokes / keyframes in `@strata/scene`, thread
+  gradient stops / fills / strokes / keyframes in `@varve/scene`, thread
   them through ops and serialization, and key rows on the id. For line-
   numbered and grouped-finding lists, add a `suppress` comment with the
   positional rationale or switch `noArrayIndexKey` from warning to off for

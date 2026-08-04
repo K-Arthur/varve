@@ -20,8 +20,8 @@
  * user-identifying metadata.
  */
 
-import { hasAnyCanvas, hasImageEncoding } from '@strata/engine';
-import type { Platform, ThumbnailRecord } from '@strata/platform';
+import { hasAnyCanvas, hasImageEncoding } from '@varve/engine';
+import type { Platform, ThumbnailRecord } from '@varve/platform';
 
 /** A deterministic, content-free placeholder for encrypted projects.
  *  SVG with no metadata — safe for recent-files and home-screen display. */

@@ -6,7 +6,7 @@
  *
  * Research basis: Figma frame/section titles at low zoom.
  */
-import { buildParentIndexMap, type Document, isContainer, type NodeId } from '@strata/scene';
+import { buildParentIndexMap, type Document, isContainer, type NodeId } from '@varve/scene';
 import { useMemo } from 'react';
 import { nodeWorldBounds } from '../scene/world';
 import { editorWorldToScreen, getEditorViewport } from './cameraState';

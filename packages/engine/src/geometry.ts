@@ -2,7 +2,7 @@
  * TS geometry helpers — mirror of strata-core's math so the stub backend can
  * hit-test and so the webview can do local picking without a round-trip.
  *
- * Re-exports affine primitives from @strata/shared (the single source of
+ * Re-exports affine primitives from @varve/shared (the single source of
  * truth for affine math). Shape-specific helpers (polygon/star/path geometry,
  * shapeContains, hitTest) remain here because they depend on engine types.
  *
@@ -26,9 +26,9 @@ import {
   transformRect,
   translate,
   tryInvertAffine,
-} from '@strata/shared';
+} from '@varve/shared';
 
-// Re-export for back-compat so @strata/engine consumers still see these.
+// Re-export for back-compat so @varve/engine consumers still see these.
 export {
   applyAffine,
   identity,
@@ -47,7 +47,7 @@ export {
   tryInvertAffine,
 };
 
-import type { Affine, Point } from '@strata/shared';
+import type { Affine, Point } from '@varve/shared';
 import type { PathPoint, SceneNode, Shape } from './types';
 
 function polygonVertices(

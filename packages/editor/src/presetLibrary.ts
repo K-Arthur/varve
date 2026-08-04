@@ -1,7 +1,7 @@
 /**
  * Custom-preset library hook for the editor — loads/persists user-created
  * frame/document presets, favorites, and recents via the platform's
- * cross-backend app-setting store (`@strata/shared`'s presetStore). When no
+ * cross-backend app-setting store (`@varve/shared`'s presetStore). When no
  * platform is available (e.g. component tests), state stays in-memory only
  * for the session, mirroring onboardingStore's optional-platform handling.
  *
@@ -11,7 +11,7 @@
  * caller — safe here since preset edits are one-at-a-time user actions, not
  * rapid concurrent updates.
  */
-import type { Platform } from '@strata/platform';
+import type { Platform } from '@varve/platform';
 import {
   type AddCustomPresetResult,
   addCustomPreset as addCustomPresetPure,
@@ -27,7 +27,7 @@ import {
   savePresetLibrary,
   toggleFavorite as toggleFavoritePure,
   updateCustomPreset as updateCustomPresetPure,
-} from '@strata/shared';
+} from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface UsePresetLibraryResult {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ModelManifestEntry } from '@strata/engine';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ModelManifestEntry } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -18,7 +18,7 @@ const {
   mockVerifyBundled: vi.fn().mockResolvedValue('verified'),
 }));
 
-vi.mock('@strata/engine', () => ({
+vi.mock('@varve/engine', () => ({
   deriveAcquisition: (entry: {
     id?: string;
     bundled: boolean;

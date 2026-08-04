@@ -7,8 +7,8 @@ import {
   SolidIcon,
   StrataLogo,
   Tooltip,
-} from '@strata/ui';
-import { getTheme, setTheme, type Theme } from '@strata/ui/tokens';
+} from '@varve/ui';
+import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';

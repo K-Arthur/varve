@@ -9,18 +9,18 @@
 
 ## Overview
 
-Strata follows [ADR-0001](../adr/0001-native-render-in-tauri-webview.md): the document lives in TypeScript (`@strata/scene`); a compact **render IR** crosses backend boundaries; the webview **replays** IR to the display surface.
+Strata follows [ADR-0001](../adr/0001-native-render-in-tauri-webview.md): the document lives in TypeScript (`@varve/scene`); a compact **render IR** crosses backend boundaries; the webview **replays** IR to the display surface.
 
 ## End-to-End Flow
 
 ```
-Document (@strata/scene)
+Document (@varve/scene)
   -> walkNodes + viewport cull (CanvasArea)
   -> world transforms + resolveAllStyles + timeline sampling
   -> flat EngineNode[]
   -> createEngine().buildIr()  [native IPC | wasm | TS stub]
   -> RenderItem[]
-  -> @strata/compositor (Canvas2D | WebGPU)
+  -> @varve/compositor (Canvas2D | WebGPU)
   -> screen
 ```
 
@@ -72,7 +72,7 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    must emit `shape:{kind:'text',…}` for text — a top-level `kind:'text'` with no
    `shape` makes `build_ir_json` throw ``missing field `shape` `` and rejects the
    **entire** `buildIr` batch, aborting the frame. The strict Rust deserializer is
-   the source of truth; `withStubFallback` (in `@strata/engine`) degrades native/wasm
+   the source of truth; `withStubFallback` (in `@varve/engine`) degrades native/wasm
    to the pure-TS stub on any deserializer failure (one warning + circuit breaker)
    so one malformed node can never blank the whole scene.
 
@@ -225,7 +225,7 @@ Raster/PDF export (`packages/editor/src/components/SpecPanel/export.ts`) had thr
 
 ## WebGPU/WGSL Subsystem Correctness Pass (2026-07-12)
 
-Baseline architecture review (§0 resolution): confirmed there is **no native `wgpu`-rs anywhere in this repo** — zero `wgpu` entries in `Cargo.lock`, only `naga` (WGSL validator, dev-dependency of `strata-bridge`, used solely for offline compile-checking the WGSL strings hand-copied from the TS sources into `crates/strata-bridge/tests/wgsl_validation.rs`). WebGPU rendering happens **entirely inside the webview** via `navigator.gpu` in `packages/compositor/src/webgpu/`, driven by TS/WGSL — not natively in the Rust process bridged over IPC. ADR-0001's IR-replay architecture means Rust only ever computes scene → IR; the webview (Tauri's WebKitGTK on Linux, or a real browser for `pnpm dev`) does 100% of the actual GPU work. Both the Tauri desktop dev flow (`pnpm tauri:dev`, WebKitGTK) and the browser-dev flow (`pnpm dev` in `apps/desktop`, no Tauri window) load the *same* `@strata/compositor` code — WebGPU reachability is identical in both, gated purely by whether the hosting engine exposes `navigator.gpu` (WebKitGTK currently doesn't; Chromium does). `apps/web` remains a Next.js stub (task 0.9+) with no compositor wiring at all.
+Baseline architecture review (§0 resolution): confirmed there is **no native `wgpu`-rs anywhere in this repo** — zero `wgpu` entries in `Cargo.lock`, only `naga` (WGSL validator, dev-dependency of `strata-bridge`, used solely for offline compile-checking the WGSL strings hand-copied from the TS sources into `crates/strata-bridge/tests/wgsl_validation.rs`). WebGPU rendering happens **entirely inside the webview** via `navigator.gpu` in `packages/compositor/src/webgpu/`, driven by TS/WGSL — not natively in the Rust process bridged over IPC. ADR-0001's IR-replay architecture means Rust only ever computes scene → IR; the webview (Tauri's WebKitGTK on Linux, or a real browser for `pnpm dev`) does 100% of the actual GPU work. Both the Tauri desktop dev flow (`pnpm tauri:dev`, WebKitGTK) and the browser-dev flow (`pnpm dev` in `apps/desktop`, no Tauri window) load the *same* `@varve/compositor` code — WebGPU reachability is identical in both, gated purely by whether the hosting engine exposes `navigator.gpu` (WebKitGTK currently doesn't; Chromium does). `apps/web` remains a Next.js stub (task 0.9+) with no compositor wiring at all.
 
 Fixes shipped this session (see commit messages for full detail; each is independently reverted-and-reproduced or execution-verified, not just code-reviewed):
 
@@ -247,7 +247,7 @@ Fixes shipped this session (see commit messages for full detail; each is indepen
 
 - **CI never exercises the real WebGPU rendering path (2026-07-11).** `.github/workflows/ci.yml`'s `rust`/`js` matrix runs on GitHub-hosted `ubuntu-latest`/`macos-latest`/`windows-latest` — none provide real GPU hardware. `packages/compositor/src/webgpu/golden.test.ts`'s `native WebGPU path renders without error` test self-skips via `it.skipIf(navigator.gpu === undefined)`, which is always true in Vitest/jsdom. The `e2e` job runs real Chromium via Playwright, but GitHub-hosted runners give headless Chromium no GPU passthrough either — at best it falls back to a software rasterizer (the same class of adapter Task 16 / ADR-0003 now declines at the app level), so even E2E doesn't validate the hardware-accelerated path. "Tests pass" and "E2E passes" should not be read as "the WebGPU path works on real hardware." See `docs/architecture/webgpu-manual-verification.md` for the manual check to run before relying on this path in a release. Resolving this properly (a GPU-enabled CI runner) is an infra/cost decision, not made here.
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
-- Leaf IR replay routes through `@strata/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic remains in `CanvasArea.replaySubtreeToCtx`. Blur compositing uses the separable blur module in `@strata/engine`, not the compositor.
+- Leaf IR replay routes through `@varve/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic remains in `CanvasArea.replaySubtreeToCtx`. Blur compositing uses the separable blur module in `@varve/engine`, not the compositor.
 - Render worker offloads flat, **image-free** scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes and any scene with image fills stay on main-thread replay (see Render invariant 2). Full `transferControlToOffscreen` deferred.
 - Blur effects are CPU-only for radius > 32px (separable software path). The CSS GPU path is used only for radius ≤ 32px. No WebGPU blur path exists — the WebGPU compositor routes solely on primitive kind and never inspects `item.effects` to dispatch blur.
 - Only backdrop blur has a dedicated LRU cache. Drop shadow, inner shadow, layer blur, outer glow, and inner glow recompute every frame.

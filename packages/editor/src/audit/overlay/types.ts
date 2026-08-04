@@ -1,5 +1,5 @@
-import type { Document } from '@strata/scene';
-import type { Affine, Point, Rect } from '@strata/shared';
+import type { Document } from '@varve/scene';
+import type { Affine, Point, Rect } from '@varve/shared';
 
 export type AuditSeverity = 'error' | 'warning' | 'suggestion' | 'advisory';
 

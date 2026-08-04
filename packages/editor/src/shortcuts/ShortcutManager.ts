@@ -1,4 +1,4 @@
-import { isMac as isMacPlatform } from '@strata/platform';
+import { isMac as isMacPlatform } from '@varve/platform';
 import { canonicalShortcutKey, physicalKeyFromEvent } from '../input/physicalKey';
 import type { KeymapExport, ShortcutBinding, ShortcutDef } from './types';
 

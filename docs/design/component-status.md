@@ -1,4 +1,4 @@
-# Component Status — `@strata/ui` maturity tracker
+# Component Status — `@varve/ui` maturity tracker
 
 **Last updated:** 2026-07-27
 **See:** ADR-0011 (governance), `docs/design/design-principles.md`
@@ -20,7 +20,7 @@
 | Button | ✅ | ✅ | ✅ | 6 variants × 3 sizes |
 | IconButton | ✅ | — | — | Wraps Button |
 | Checkbox | ✅ | — | — | Includes indeterminate |
-| Radio | 🧪 | — | — | Not yet extracted to @strata/ui |
+| Radio | 🧪 | — | — | Not yet extracted to @varve/ui |
 | Switch | 🧪 | — | — | Not yet extracted |
 | ToggleButton | 🧪 | — | — | Not yet extracted |
 | Input (text) | 🧪 | — | — | NumberInput exists; generic Input does not |
@@ -74,10 +74,10 @@
 | FocusTrap | ✅ | — | ✅ | Pointer-capture focus containment |
 | FloatingPortal | ✅ | — | ✅ | |
 
-## Missing primitives (not yet in `@strata/ui`)
+## Missing primitives (not yet in `@varve/ui`)
 
 These exist only as inline implementations in `packages/editor`. They should be
-extracted to `@strata/ui` as `beta` components:
+extracted to `@varve/ui` as `beta` components:
 
 - Radio group
 - Switch / toggle

@@ -1,7 +1,7 @@
 /**
  * Animation engine — keyframes, timelines, interpolation, and sampling.
  *
- * @deprecated Use `Document.timelines` via `@strata/scene` and `TimelineSampler`
+ * @deprecated Use `Document.timelines` via `@varve/scene` and `TimelineSampler`
  * instead. This standalone model is retained for backward-compatible tests only.
  *
  * Research basis: Web Animations API (KeyframeEffect, Animation.timeline),

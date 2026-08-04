@@ -1,7 +1,7 @@
-import type { Document, NodeId } from '@strata/scene';
-import { buildParentIndexMap } from '@strata/scene';
-import type { Affine, Rect } from '@strata/shared';
-import { identity, multiplyAffine, rotateDeg, transformRect } from '@strata/shared';
+import type { Document, NodeId } from '@varve/scene';
+import { buildParentIndexMap } from '@varve/scene';
+import type { Affine, Rect } from '@varve/shared';
+import { identity, multiplyAffine, rotateDeg, transformRect } from '@varve/shared';
 import { nodeLocalBounds } from './nodeBounds';
 
 export interface TransformCache {
@@ -88,7 +88,7 @@ export function getWorldBounds(cache: TransformCache, doc: Document, nodeId: Nod
 
   // Groups carry no own geometry; their world bounds are the union of their
   // children's world bounds. Node local bounds for groups return null, so
-  // handle them explicitly here (mirrors nodeWorldBounds in @strata/scene).
+  // handle them explicitly here (mirrors nodeWorldBounds in @varve/scene).
   if (node.kind === 'group') {
     const children = node.children ?? [];
     let union: Rect | null = null;

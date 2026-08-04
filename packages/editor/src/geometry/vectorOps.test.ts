@@ -3,9 +3,9 @@
  * no editor context required.
  */
 
-import type { Document, SceneNode, ShapeNode } from '@strata/scene';
-import { createEmptySelectionSetsData, makeShapeNode } from '@strata/scene';
-import { type Affine, applyAffine, type Point } from '@strata/shared';
+import type { Document, SceneNode, ShapeNode } from '@varve/scene';
+import { createEmptySelectionSetsData, makeShapeNode } from '@varve/scene';
+import { type Affine, applyAffine, type Point } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   composeWorldTransform,

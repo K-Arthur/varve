@@ -5,7 +5,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeInvalidationPlan } from './invalidationPlan';
 

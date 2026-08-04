@@ -5,7 +5,7 @@
  * Covers raster alpha bounds, vector mask bounds, clip mask bounds,
  * source alpha bounds, padding, and edge cases.
  */
-import type { Document, ShapeNode, VectorMaskData } from '@strata/scene';
+import type { Document, ShapeNode, VectorMaskData } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   computeAlphaBoundsFromImageData,

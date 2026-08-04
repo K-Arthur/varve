@@ -1,7 +1,7 @@
 /**
  * Gradient-map export preflight tests.
  */
-import { createDocument, makeAdjustment, makeAdjustmentNode } from '@strata/scene';
+import { createDocument, makeAdjustment, makeAdjustmentNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { collectGradientMapFlattenWarnings, subtreeHasGradientMap } from './gradientMapPreflight';
 

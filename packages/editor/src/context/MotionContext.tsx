@@ -1,4 +1,4 @@
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import {
   addKeyframe,
   addTimelineMarker as addTimelineMarkerDoc,
@@ -16,8 +16,8 @@ import {
   setActiveTimeline as setActiveTimelineDoc,
   updateKeyframe as updateKeyframeDoc,
   updateTrack as updateTrackDoc,
-} from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
+} from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { MotionFacade } from '../motion/MotionFacade';
@@ -597,12 +597,12 @@ function getPropertyValueAt(node: SceneNode, property: string): unknown {
   if (property === 'rotation') return node.rotation;
   if (property === 'fill' || property.startsWith('fill[')) return node.fill;
   if (property === 'transform' || property.startsWith('transform[')) {
-    const t = (node as import('@strata/scene').ShapeNode).transform;
+    const t = (node as import('@varve/scene').ShapeNode).transform;
     return t ?? [1, 0, 0, 1, 0, 0];
   }
-  if ('w' in node && property === 'w') return (node as import('@strata/scene').FrameNode).w;
-  if ('h' in node && property === 'h') return (node as import('@strata/scene').FrameNode).h;
+  if ('w' in node && property === 'w') return (node as import('@varve/scene').FrameNode).w;
+  if ('h' in node && property === 'h') return (node as import('@varve/scene').FrameNode).h;
   if (property === 'fontSize' && 'fontSize' in node)
-    return (node as import('@strata/scene').TextNode).fontSize;
+    return (node as import('@varve/scene').TextNode).fontSize;
   return getNestedValue(node as unknown as Record<string, unknown>, property.split('.')) ?? 0;
 }

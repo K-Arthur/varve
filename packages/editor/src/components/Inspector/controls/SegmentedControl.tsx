@@ -8,8 +8,8 @@
  * options. Home/End jump to first/last.
  */
 
-import type { IconName } from '@strata/ui';
-import { Icon } from '@strata/ui';
+import type { IconName } from '@varve/ui';
+import { Icon } from '@varve/ui';
 import { useId } from 'react';
 
 export interface SegmentedOption<T extends string> {

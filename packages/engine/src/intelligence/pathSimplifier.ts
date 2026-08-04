@@ -1,4 +1,4 @@
-import { pointToSegmentDistSq } from '@strata/shared';
+import { pointToSegmentDistSq } from '@varve/shared';
 import type { PathPoint } from '../types';
 
 export interface SimplifiedPath {

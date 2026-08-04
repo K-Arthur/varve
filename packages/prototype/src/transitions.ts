@@ -7,7 +7,7 @@
  * Smart Animate layer matching is handled at the runtime level.
  */
 
-import { getEasingFn } from '@strata/shared';
+import { getEasingFn } from '@varve/shared';
 import type { SmartAnimateLayerValues } from './smartAnimate';
 import type { NavigationDirection, TransitionConfig } from './types';
 

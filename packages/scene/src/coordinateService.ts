@@ -23,7 +23,7 @@
  * composition, Penpot matrix conventions, kurbo Affine, HTML Canvas CTM.
  */
 
-import type { Affine, Point, Rect } from '@strata/shared';
+import type { Affine, Point, Rect } from '@varve/shared';
 import {
   transformRect as affineTransformRect,
   applyAffine,
@@ -31,7 +31,7 @@ import {
   multiplyAffine,
   rotateDeg,
   tryInvertAffine,
-} from '@strata/shared';
+} from '@varve/shared';
 import type { Document } from './document';
 import { buildParentIndexMap, getParent } from './document';
 import { nodeLocalBounds } from './nodeBounds';

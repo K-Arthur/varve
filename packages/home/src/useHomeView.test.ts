@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { createMemoryPlatform, makeFileEntry, type Workspace } from '@strata/platform';
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { createMemoryPlatform, makeFileEntry, type Workspace } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { useFileActions } from './useFileActions';
 import { useHomeView } from './useHomeView';

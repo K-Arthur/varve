@@ -1,7 +1,7 @@
 /**
  * Collab presence hook — loads stub users and publishes local cursor position.
  */
-import { type CollabUser, getCollabUsers, updateCursor } from '@strata/collab';
+import { type CollabUser, getCollabUsers, updateCursor } from '@varve/collab';
 import { useEffect, useState } from 'react';
 import type { PresenceData } from '../components/LayersPanel/PresenceIndicator';
 

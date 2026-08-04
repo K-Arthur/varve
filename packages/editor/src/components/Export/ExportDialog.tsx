@@ -9,15 +9,15 @@ import {
   timelineToCSSKeyframes,
   timelineToLottieJSON,
   timelineToSVGAnimations,
-} from '@strata/codegen';
+} from '@varve/codegen';
 import {
   checkGifExportSupport,
   checkVideoExportSupport,
   computeVideoFrameCount,
   getModelLoaderReady,
   workerModelIdForMethod,
-} from '@strata/engine';
-import { prefersReducedMotion } from '@strata/prototype';
+} from '@varve/engine';
+import { prefersReducedMotion } from '@varve/prototype';
 import type {
   BackgroundRemovalMethod,
   BackgroundRemovalState,
@@ -31,8 +31,8 @@ import type {
   SceneNode,
   ShapeNode,
   Timeline,
-} from '@strata/scene';
-import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
+} from '@varve/scene';
+import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@varve/scene';
 import {
   buildExportPlan,
   type ExportBatchRequest,
@@ -42,8 +42,8 @@ import {
   legacyPresetsToConfigurations,
   legacyScaleToCanonical,
   type PlatformKind,
-} from '@strata/scene/export';
-import { FocusTrap, Select } from '@strata/ui';
+} from '@varve/scene/export';
+import { FocusTrap, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { applyExportBatchPaths } from '../../exportBatchPaths';
 import {
@@ -421,8 +421,8 @@ export function ExportDialog({
       const pendingImages = imageNodes.filter((n) => !n.backgroundRemoval);
       if (pendingImages.length > 0 && onApplyBackgroundRemoval) {
         setAnnounceMsg(`Removing background from ${pendingImages.length} image(s)...`);
-        const { removeBackground: removeBgFn } = await import('@strata/engine');
-        const { getImageCache } = await import('@strata/engine');
+        const { removeBackground: removeBgFn } = await import('@varve/engine');
+        const { getImageCache } = await import('@varve/engine');
         const cache = getImageCache();
         for (const imgNode of pendingImages) {
           try {
@@ -634,7 +634,7 @@ export function ExportDialog({
           },
         });
 
-        const { exportTimelineToVideo } = await import('@strata/engine');
+        const { exportTimelineToVideo } = await import('@varve/engine');
         const result = await exportTimelineToVideo(
           { id: tl.id, duration: tl.duration },
           {
@@ -707,7 +707,7 @@ export function ExportDialog({
           },
         });
 
-        const { exportTimelineToGif } = await import('@strata/engine');
+        const { exportTimelineToGif } = await import('@varve/engine');
         const result = await exportTimelineToGif(renderFrame, tl.duration, {
           width,
           height,

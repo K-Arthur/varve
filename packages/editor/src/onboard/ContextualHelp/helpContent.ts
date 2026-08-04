@@ -1,4 +1,4 @@
-import { HELP_CONTENT as HELP_PACKAGE_CONTENT } from '@strata/help';
+import { HELP_CONTENT as HELP_PACKAGE_CONTENT } from '@varve/help';
 
 export interface HelpArticle {
   id: string;
@@ -12,7 +12,7 @@ export interface HelpArticle {
 
 /**
  * Local tool/panel/export help articles. Merged with the shared
- * @strata/help package so all help entry points (F1, What's This,
+ * @varve/help package so all help entry points (F1, What's This,
  * ContextualHelp) search the same corpus.
  */
 const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
@@ -307,7 +307,7 @@ const LOCAL_HELP_CONTENT: Record<string, HelpArticle> = {
 };
 
 /**
- * Merged help corpus: local tool/panel articles + the shared @strata/help
+ * Merged help corpus: local tool/panel articles + the shared @varve/help
  * package (Getting Started, FAQ, Troubleshooting, etc.).
  */
 export const HELP_CONTENT: Record<string, HelpArticle> = {

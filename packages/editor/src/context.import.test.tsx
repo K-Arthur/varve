@@ -1,4 +1,5 @@
-import { ImportService } from '@strata/import';
+import { render, screen, waitFor } from '@testing-library/react';
+import { ImportService } from '@varve/import';
 import {
   activePageNodes,
   addChild,
@@ -9,8 +10,7 @@ import {
   isImageShape,
   makeGroupNode,
   makeShapeNode,
-} from '@strata/scene';
-import { render, screen, waitFor } from '@testing-library/react';
+} from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { captureClipboardEvent } from './clipboard';
 import { EditorProvider, useEditor } from './context';

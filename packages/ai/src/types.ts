@@ -1,4 +1,4 @@
-/** @strata/ai — types for AI assistant chat. */
+/** @varve/ai — types for AI assistant chat. */
 
 export interface AIMessage {
   id: string;

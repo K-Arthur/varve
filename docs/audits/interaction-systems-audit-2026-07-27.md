@@ -17,7 +17,7 @@ Both move-drag (SelectTool) and resize (SelectionOverlay) now consume it.
   returns platform-aware `ResizeModifiers` from the session's stored key state.
 - `SelectionOverlay` calls `interactionSession.updateModifiers()` on pointermove
   then passes the frozen snapshot to `computeResizeModifiers()`.
-- `computeResizeModifiers` in `@strata/shared` accepts an optional `snapshot`
+- `computeResizeModifiers` in `@varve/shared` accepts an optional `snapshot`
   parameter for backward-compatible unification.
 - `InteractionSnapshot` now includes `centered` and `proportional` derived fields.
 

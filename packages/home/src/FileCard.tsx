@@ -1,8 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { FileEntry } from '@strata/platform';
-import { formatRelativeTime } from '@strata/platform';
-import { Icon, Tooltip } from '@strata/ui';
+import type { FileEntry } from '@varve/platform';
+import { formatRelativeTime } from '@varve/platform';
+import { Icon, Tooltip } from '@varve/ui';
 import {
   forwardRef,
   type HTMLAttributes,

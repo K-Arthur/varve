@@ -1,5 +1,5 @@
 /**
- * @strata/platform — window chrome state and strategy model.
+ * @varve/platform — window chrome state and strategy model.
  *
  * Canonical model for cross-platform window chrome (title bar, menubar,
  * window controls). Provides platform-specific strategy resolution and

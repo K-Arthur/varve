@@ -5,9 +5,9 @@
  * Uses the selected unit for display, with unit conversion applied to copied values.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
-import { convertPx, formatValue, type SpecUnit } from '@strata/shared';
-import { CopyButton } from '@strata/ui';
+import type { Document, SceneNode } from '@varve/scene';
+import { convertPx, formatValue, type SpecUnit } from '@varve/shared';
+import { CopyButton } from '@varve/ui';
 import { useMemo } from 'react';
 import { worldBBox } from './measurement';
 

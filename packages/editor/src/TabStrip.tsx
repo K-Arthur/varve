@@ -17,7 +17,7 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
 
-import { AlertDialog, Tooltip } from '@strata/ui';
+import { AlertDialog, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
 

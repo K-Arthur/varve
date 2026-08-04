@@ -13,7 +13,7 @@ test.describe('Effects engine pixel-level verification', () => {
 
     const result = await page.evaluate(() => {
       // Access the engine module via dynamic import
-      return import('@strata/engine').then((engine) => {
+      return import('@varve/engine').then((engine) => {
         // Create a test image: 4x1 gradient from black to white
         const width = 4;
         const height = 1;
@@ -79,7 +79,7 @@ test.describe('Effects engine pixel-level verification', () => {
     await page.waitForTimeout(2000);
 
     const result = await page.evaluate(() => {
-      return import('@strata/engine').then((engine) => {
+      return import('@varve/engine').then((engine) => {
         // Create a test image: 3x1 gradient
         const width = 3;
         const height = 1;
@@ -167,7 +167,7 @@ test.describe('Effects engine pixel-level verification', () => {
     await page.waitForTimeout(2000);
 
     const result = await page.evaluate(() => {
-      return import('@strata/engine').then((engine) => {
+      return import('@varve/engine').then((engine) => {
         // Create a test image: 8x8 gradient
         const size = 8;
         const data = new Uint8ClampedArray(size * size * 4);
@@ -235,7 +235,7 @@ test.describe('Effects engine pixel-level verification', () => {
     await page.waitForTimeout(2000);
 
     const result = await page.evaluate(() => {
-      return import('@strata/engine').then((engine) => {
+      return import('@varve/engine').then((engine) => {
         // Create a smooth gradient: 32x1 pixels
         const width = 32;
         const height = 1;
@@ -311,7 +311,7 @@ test.describe('Effects engine pixel-level verification', () => {
     await page.waitForTimeout(2000);
 
     const result = await page.evaluate(() => {
-      return import('@strata/engine').then((engine) => {
+      return import('@varve/engine').then((engine) => {
         // Create test image with various alpha levels
         const data = new Uint8ClampedArray([
           128,
@@ -369,7 +369,7 @@ test.describe('Effects engine pixel-level verification', () => {
     await page.waitForTimeout(2000);
 
     const result = await page.evaluate(() => {
-      return import('@strata/engine').then((engine) => {
+      return import('@varve/engine').then((engine) => {
         // Create a 4x4 color test image
         const data = new Uint8ClampedArray([
           255,

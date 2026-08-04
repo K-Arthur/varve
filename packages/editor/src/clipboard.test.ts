@@ -1,4 +1,4 @@
-import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@strata/scene';
+import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { readFromClipboardEvent, writeClipboard } from './clipboard';
 

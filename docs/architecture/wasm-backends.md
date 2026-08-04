@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Share Rust scene computation (`strata-core`, `strata-engine`, `strata-layout`, `strata-trace`) with the web target via wasm-pack, behind the same `@strata/engine` facade as Tauri native IPC.
+Share Rust scene computation (`strata-core`, `strata-engine`, `strata-layout`, `strata-trace`) with the web target via wasm-pack, behind the same `@varve/engine` facade as Tauri native IPC.
 
 Desktop keeps the **native wedge** (ADR-0001): document state in unbounded native memory; WASM is for browser deployment and optional worker acceleration.
 

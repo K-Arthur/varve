@@ -1,5 +1,5 @@
-import { type AIMessage, createAssistant, type IntelligenceDispatchContext } from '@strata/ai';
-import { Button, Icon } from '@strata/ui';
+import { type AIMessage, createAssistant, type IntelligenceDispatchContext } from '@varve/ai';
+import { Button, Icon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../context';
 import { renameSelected } from '../intelligence/autoNamer';

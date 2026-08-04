@@ -39,7 +39,7 @@ vi.mock('../render/workerHost', () => ({
   isStaleResponse: vi.fn(() => false),
 }));
 
-vi.mock('@strata/compositor', () => ({
+vi.mock('@varve/compositor', () => ({
   createCompositorBackend: vi.fn(async () => ({
     backend: {
       id: 'canvas2d',
@@ -54,8 +54,8 @@ vi.mock('@strata/compositor', () => ({
   })),
 }));
 
-vi.mock('@strata/engine', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@strata/engine')>();
+vi.mock('@varve/engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/engine')>();
   return {
     ...actual,
     createEngine: vi.fn(async () => ({

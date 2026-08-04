@@ -11,14 +11,14 @@
 // canvas blank for every node — text, shapes, images alike — whenever a single
 // text node was present. These tests lock the wire contract in place.
 
-import type { NodeId } from '@strata/scene';
+import type { NodeId } from '@varve/scene';
 import {
   addNode,
   addRasterMaskAsset,
   createDocument,
   makeShapeNode,
   makeTextNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { toEngineNode as canvasToEngineNode } from './CanvasArea';
 import { sceneNodeToEngineNode as toEngineNode } from './render/sceneToEngine';

@@ -8,10 +8,10 @@
  * Toon Boom Harmony ghost frames, Blender onion-skinning cache.
  */
 
-import type { Affine, SceneNode as EngineNode, ReplayTarget } from '@strata/engine';
-import { createEngine, replayIr } from '@strata/engine';
-import type { Document, SceneNode, Timeline } from '@strata/scene';
-import { buildParentIndexMap, isContainer } from '@strata/scene';
+import type { Affine, SceneNode as EngineNode, ReplayTarget } from '@varve/engine';
+import { createEngine, replayIr } from '@varve/engine';
+import type { Document, SceneNode, Timeline } from '@varve/scene';
+import { buildParentIndexMap, isContainer } from '@varve/scene';
 import { sceneNodeToEngineNode } from '../render/sceneToEngine';
 import { nodeWorldTransform } from '../scene/world';
 import { sampleTimeline } from '../timeline/TimelineSampler';

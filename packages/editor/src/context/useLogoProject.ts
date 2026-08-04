@@ -6,9 +6,9 @@
  * variants, and patch the brief. All mutations go through updateDoc (undo
  * support) and keep the project's invariants via normalizeLogoProject.
  * The hook is deliberately thin — scene logic lives in
- * @strata/scene/src/logo/logoProject.ts (pure, unit-tested).
+ * @varve/scene/src/logo/logoProject.ts (pure, unit-tested).
  */
-import type { LogoConceptStatus, LogoVariantKind, NodeId } from '@strata/scene';
+import type { LogoConceptStatus, LogoVariantKind, NodeId } from '@varve/scene';
 import {
   addClearSpaceGuides as addClearSpaceGuidesOp,
   addLogoConcept,
@@ -20,7 +20,7 @@ import {
   normalizeLogoProject,
   patchLogoBrief,
   setLogoConceptStatus,
-} from '@strata/scene';
+} from '@varve/scene';
 import { useCallback } from 'react';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import type { EditorState } from './types';

@@ -1,5 +1,5 @@
-import type { FileEntry, Folder, Platform, Project } from '@strata/platform';
-import { Button, Icon, Tooltip } from '@strata/ui';
+import type { FileEntry, Folder, Platform, Project } from '@varve/platform';
+import { Button, Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BreadcrumbSegment } from './BreadcrumbNav';
 import { FileGrid } from './FileGrid';

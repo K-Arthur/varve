@@ -1,4 +1,4 @@
-import { Icon, Select, Tooltip } from '@strata/ui';
+import { Icon, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef } from 'react';
 import type { FindReplaceAPI } from '../../findReplace/useFindReplace';
 import { FindResultsList } from './FindResultsList';

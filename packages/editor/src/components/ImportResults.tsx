@@ -1,4 +1,4 @@
-import type { BatchImportResult } from '@strata/import';
+import type { BatchImportResult } from '@varve/import';
 import { useCallback, useState } from 'react';
 
 import './ImportResults.css';

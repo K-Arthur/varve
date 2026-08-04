@@ -1,4 +1,4 @@
-import type { Document, NodeId } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
 import {
   addNode,
   buildParentIndexMap,
@@ -6,8 +6,8 @@ import {
   isContainer,
   makeShapeNode,
   nodeWorldBounds as sceneNodeWorldBounds,
-} from '@strata/scene';
-import type { Affine, Rect } from '@strata/shared';
+} from '@varve/scene';
+import type { Affine, Rect } from '@varve/shared';
 import { bench, describe } from 'vitest';
 import { buildSpatialIndex, queryPoint, queryRect } from '../spatialIndex';
 

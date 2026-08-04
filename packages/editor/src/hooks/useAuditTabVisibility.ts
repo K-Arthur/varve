@@ -7,7 +7,7 @@
  * @module useAuditTabVisibility
  */
 
-import type { AuditFinding, EditorMode } from '@strata/shared';
+import type { AuditFinding, EditorMode } from '@varve/shared';
 import { useMemo } from 'react';
 
 interface AuditTabVisibilityOptions {

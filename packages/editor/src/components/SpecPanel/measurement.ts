@@ -8,9 +8,9 @@
  * Research basis: CSS Box Model (W3C); Figma Dev Mode measurement UX.
  */
 
-import type { Affine, Point, Shape } from '@strata/engine';
-import { applyAffine } from '@strata/engine';
-import type { ContainerNode, Document, SceneNode } from '@strata/scene';
+import type { Affine, Point, Shape } from '@varve/engine';
+import { applyAffine } from '@varve/engine';
+import type { ContainerNode, Document, SceneNode } from '@varve/scene';
 import { nodeWorldBounds } from '../../scene/world';
 
 export interface AABB {

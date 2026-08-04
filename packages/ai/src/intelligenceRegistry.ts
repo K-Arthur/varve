@@ -2,15 +2,15 @@
  * intelligenceRegistry — command metadata and fuzzy dispatch for the AI chat
  * assistant, shared by the chat panel and the QuickActionsBar.
  *
- * @strata/ai cannot depend on @strata/editor (would create a workspace
- * dependency cycle back through @strata/editor -> @strata/ai). Commands that
+ * @varve/ai cannot depend on @varve/editor (would create a workspace
+ * dependency cycle back through @varve/editor -> @varve/ai). Commands that
  * only need the scene Document (contrast audit, debt scan) run directly
- * against @strata/scene. Commands that need editor/selection state (rename
+ * against @varve/scene. Commands that need editor/selection state (rename
  * layers, harmonize spacing) are exposed here as metadata only — the actual
  * behavior is supplied by the caller as a handler callback, keeping the
  * dependency direction one-way (editor -> ai, never ai -> editor).
  */
-import { type Document, runDebtScan, runIntelligenceAudit } from '@strata/scene';
+import { type Document, runDebtScan, runIntelligenceAudit } from '@varve/scene';
 
 export type IntelligenceCategory = 'accessibility' | 'debt' | 'naming' | 'spacing';
 

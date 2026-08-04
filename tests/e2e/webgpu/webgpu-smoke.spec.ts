@@ -42,7 +42,7 @@ test.describe('WebGPU smoke test', () => {
       canvas.width = 128;
       canvas.height = 128;
       try {
-        const mod = await import('@strata/compositor');
+        const mod = await import('@varve/compositor');
         const { backend, capabilities } = await mod.createCompositorBackend(canvas, {
           preferWebGpu: true,
         });

@@ -43,7 +43,7 @@ export interface EnvironmentCapabilities {
   readonly label: string;
 }
 
-import { isTauriRuntime as detectTauri } from '@strata/platform';
+import { isTauriRuntime as detectTauri } from '@varve/platform';
 
 let cachedCapabilities: EnvironmentCapabilities | null = null;
 let webGpuResolve: Promise<boolean> | null = null;

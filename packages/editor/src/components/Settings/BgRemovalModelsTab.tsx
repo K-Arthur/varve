@@ -11,8 +11,8 @@ import {
   listAllModels,
   type RemovalMethod,
   workerModelIdForMethod,
-} from '@strata/engine';
-import { Button, RegionLoader } from '@strata/ui';
+} from '@varve/engine';
+import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 

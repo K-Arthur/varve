@@ -11,8 +11,8 @@
  * Sketch hierarchy navigation.
  */
 
-import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { getChildren, getParent } from '@strata/scene';
+import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
+import { getChildren, getParent } from '@varve/scene';
 
 export interface SelectionResult {
   selection: NodeId[];

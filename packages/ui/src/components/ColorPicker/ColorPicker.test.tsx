@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ManagedColor } from '@strata/scene';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ManagedColor } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CmykColorFields } from './CmykColorFields';
 import { ColorFields } from './ColorFields';

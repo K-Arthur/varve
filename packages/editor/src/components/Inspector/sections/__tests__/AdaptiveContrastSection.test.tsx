@@ -1,5 +1,5 @@
-import type { TextNode } from '@strata/scene';
 import { render } from '@testing-library/react';
+import type { TextNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { AdaptiveContrastSection } from '../AdaptiveContrastSection';
 

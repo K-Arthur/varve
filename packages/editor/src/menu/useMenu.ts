@@ -1,5 +1,5 @@
-import type { Document } from '@strata/scene';
-import type { MenuEntry } from '@strata/ui';
+import type { Document } from '@varve/scene';
+import type { MenuEntry } from '@varve/ui';
 import { useCallback, useMemo, useRef } from 'react';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import { getAllMenuDefs, getCanvasContextMenuDefs } from './defs';

@@ -1,9 +1,9 @@
-import type { Document } from '@strata/scene';
 import { act, renderHook } from '@testing-library/react';
+import type { Document } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { useHistory } from '../useHistory';
 
-vi.mock('@strata/collab', () => ({
+vi.mock('@varve/collab', () => ({
   getTransactionHooks: () => ({
     onBeginTransaction: vi.fn(),
     onCommitTransaction: vi.fn(),

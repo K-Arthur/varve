@@ -3,7 +3,7 @@
 /**
  * Shared WebGPU adapter selection: power-preference fallback iteration and
  * software/emulated-adapter detection, used identically by the render
- * compositor (`@strata/compositor`) and the background-removal GPU
+ * compositor (`@varve/compositor`) and the background-removal GPU
  * accelerator (`GpuAccelerator`).
  *
  * Consolidates what used to be three independent, textually-different

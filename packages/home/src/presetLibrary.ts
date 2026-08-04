@@ -1,9 +1,9 @@
 /**
  * Custom-preset library hook for Home's New File dialog — loads/persists
  * user-created document presets, favorites, and recents via the platform's
- * cross-backend app-setting store (`@strata/shared`'s presetStore).
+ * cross-backend app-setting store (`@varve/shared`'s presetStore).
  *
- * This is Home's counterpart to @strata/editor's presetLibrary.ts — same
+ * This is Home's counterpart to @varve/editor's presetLibrary.ts — same
  * shape, wrapping the platform HomeShell already owns, kept as a small
  * sibling-package duplication (packages/editor and packages/home don't
  * depend on each other) rather than a new shared-hooks package, mirroring
@@ -15,7 +15,7 @@
  * caller — safe here since preset edits are one-at-a-time user actions, not
  * rapid concurrent updates.
  */
-import type { Platform } from '@strata/platform';
+import type { Platform } from '@varve/platform';
 import {
   type AddCustomPresetResult,
   addCustomPreset as addCustomPresetPure,
@@ -31,7 +31,7 @@ import {
   savePresetLibrary,
   toggleFavorite as toggleFavoritePure,
   updateCustomPreset as updateCustomPresetPure,
-} from '@strata/shared';
+} from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface UsePresetLibraryResult {

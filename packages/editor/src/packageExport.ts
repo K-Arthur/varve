@@ -6,16 +6,10 @@
  * APIs favor binary ZIP payloads over many loose writes for portability.
  */
 
-import type { FontCatalog } from '@strata/engine/font';
-import { dataUrlToBytes } from '@strata/import';
-import {
-  type Document,
-  DocumentCodec,
-  type Fill,
-  type NodeId,
-  type SceneNode,
-} from '@strata/scene';
-import { dtcgExport } from '@strata/ui/tokens';
+import type { FontCatalog } from '@varve/engine/font';
+import { dataUrlToBytes } from '@varve/import';
+import { type Document, DocumentCodec, type Fill, type NodeId, type SceneNode } from '@varve/scene';
+import { dtcgExport } from '@varve/ui/tokens';
 import { strToU8, zipSync } from 'fflate';
 import type { ExportReport } from './exportService';
 

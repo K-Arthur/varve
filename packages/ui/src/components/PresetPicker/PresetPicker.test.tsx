@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
-import type { CustomPreset, PresetGroup } from '@strata/shared';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { CustomPreset, PresetGroup } from '@varve/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PresetPicker } from './PresetPicker';
 

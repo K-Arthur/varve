@@ -5,7 +5,7 @@
 
 ## Key Implementation Note
 
-The strategy matrix below is enforced at runtime by `resolveWindowChromeStrategy()` in `@strata/platform` (`windowChrome.ts`). Crucially, **native application menus are macOS-only** (`shouldUseNativeMenu`). On Windows and Linux the in-window custom menubar is the source of truth — installing a native menu there draws a stray OS menubar strip above the webview content (GTK on Linux) with unresolved label keys. This was the confirmed root cause of the CachyOS screenshot defect and is fixed by gating native menus behind the strategy.
+The strategy matrix below is enforced at runtime by `resolveWindowChromeStrategy()` in `@varve/platform` (`windowChrome.ts`). Crucially, **native application menus are macOS-only** (`shouldUseNativeMenu`). On Windows and Linux the in-window custom menubar is the source of truth — installing a native menu there draws a stray OS menubar strip above the webview content (GTK on Linux) with unresolved label keys. This was the confirmed root cause of the CachyOS screenshot defect and is fixed by gating native menus behind the strategy.
 
 ---
 

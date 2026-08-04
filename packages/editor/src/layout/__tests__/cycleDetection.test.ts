@@ -1,4 +1,4 @@
-import { createDocument, type Document, type LayoutStyle, type SceneNode } from '@strata/scene';
+import { createDocument, type Document, type LayoutStyle, type SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { checkLayoutCycle } from '../cycleDetection';
 

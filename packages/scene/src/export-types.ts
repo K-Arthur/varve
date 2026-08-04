@@ -4,7 +4,7 @@
  * Export presets are per-node and stackable (multiple presets per node).
  * Settings hold global defaults (per-document). Jobs represent a batch queue.
  *
- * No dependency on @strata/engine — these live at the scene layer so editor,
+ * No dependency on @varve/engine — these live at the scene layer so editor,
  * codegen, and print can all import them.
  */
 

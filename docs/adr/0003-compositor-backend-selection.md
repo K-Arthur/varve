@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-07-06
-- **Related:** ADR-0001, `@strata/compositor`
+- **Related:** ADR-0001, `@varve/compositor`
 
 ## Context
 
@@ -10,7 +10,7 @@ Strata must render mixed raster + vector documents with acceptable performance o
 
 ## Decision
 
-Introduce `@strata/compositor` with a **backend router**:
+Introduce `@varve/compositor` with a **backend router**:
 
 1. **Canvas2D** — always available; default on all platforms.
 2. **WebGPU** — opt-in when `detectWebGPU()` succeeds; device-loss falls back to Canvas2D.

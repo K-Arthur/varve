@@ -1,6 +1,6 @@
 // COMPLEXITY: 177 cyclo (over component ceiling) — see docs/plans/architecture-health-remediation-2026-07-26.md
 /**
- * @strata/platform — in-memory Platform implementation.
+ * @varve/platform — in-memory Platform implementation.
  *
  * The reference implementation: every other backend must behave identically
  * to this one. Used directly by Vitest (no IndexedDB shim required) and as a

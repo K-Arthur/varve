@@ -1,12 +1,12 @@
-import type { Document, Fill, ManagedColor, NodeId } from '@strata/scene';
-import { addSwatch, resolveNodeFills } from '@strata/scene';
+import type { Document, Fill, ManagedColor, NodeId } from '@varve/scene';
+import { addSwatch, resolveNodeFills } from '@varve/scene';
 import {
   contrastRatio,
   linearSrgbToOklab,
   managedColorToRgba,
   relativeLuminance,
   srgbToLinear,
-} from '@strata/shared';
+} from '@varve/shared';
 
 export type MappingMode = 'nearest' | 'preserve-lightness' | 'preserve-contrast' | 'fill-slot-only';
 

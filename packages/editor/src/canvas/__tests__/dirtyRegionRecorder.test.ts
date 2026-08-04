@@ -13,7 +13,7 @@ import {
   makeRasterLayerNode,
   makeShapeNode,
   strokePoint,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeDocumentDirtyRegion, DirtyRegionRecorder } from '../dirtyRegion';
 
@@ -69,7 +69,7 @@ describe('DirtyRegionRecorder', () => {
     // The *before* document must already contain the layer, otherwise the
     // diff takes the added-node path rather than the tile-version path.
     const withNode = addNode(empty, makeRasterLayerNode('raster', { width: 512, height: 512 }));
-    let rasterNode = withNode.nodes.raster! as import('@strata/scene').RasterLayerNode;
+    let rasterNode = withNode.nodes.raster! as import('@varve/scene').RasterLayerNode;
     for (const dab of generateDabs(
       [strokePoint(100, 100), strokePoint(150, 100)],
       defaultBrushPreset('test', 'Test'),

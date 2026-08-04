@@ -327,10 +327,10 @@ fixed path, verified against the identity-diff logic in §5 (`new: [] fixed: []`
 graph, i.e. no regression, nothing left dangling).
 
 **Verification performed:**
-- `pnpm --filter @strata/engine typecheck` — clean, zero errors, before and after.
+- `pnpm --filter @varve/engine typecheck` — clean, zero errors, before and after.
 - `npx vitest run packages/engine/src/filterCompositor.test.ts packages/engine/src/lut/lut.test.ts
   packages/engine/src/lut/lut-edge.test.ts` — 67/67 passing.
-- `pnpm --filter @strata/editor typecheck` — pre-existing errors only (none reference the 5 context
+- `pnpm --filter @varve/editor typecheck` — pre-existing errors only (none reference the 5 context
   files touched or `context/index`; all are unrelated WIP in other files, e.g.
   `AuditProfileSwitcher.tsx`, `IntelligencePanel.tsx`, `workspaceTypes.ts`).
 - `npx vitest run packages/editor/src/context.import.test.tsx` — 5 failures, but confirmed via
@@ -396,14 +396,14 @@ ui/src/components/IconButton.tsx` and `engine/src/raster-size.ts ↔ engine/src/
   - Downstream consumers of the moved types/values: grepped the whole repo. Every cross-package
     consumer (`packages/editor/src/exportService.ts`,
     `components/SpecPanel/AssetExportControls.tsx`) imports `RasterFormat`/`estimateFileSize`/
-    `computeOutputDimensions` from `@strata/engine`'s public barrel (`packages/engine/src/index.ts`
+    `computeOutputDimensions` from `@varve/engine`'s public barrel (`packages/engine/src/index.ts`
     → `./raster`), which still re-exports all three unchanged — zero external impact. The only
     intra-package consumer of `./raster-size` directly was `raster.test.ts`; updated in this same
     change.
   - Public API / `exports` field: `packages/engine/package.json` only declares `"."` and `"./font"`
     subpaths — `raster.ts`/`raster-size.ts`/`rasterMath.ts` were never externally reachable by deep
     import, so no subpath-exports change was needed and no deprecation re-export is required.
-  - Verified: `pnpm --filter @strata/engine typecheck` clean; full engine suite —
+  - Verified: `pnpm --filter @varve/engine typecheck` clean; full engine suite —
     **195 test files, 2515 tests, all passing** (this is broader than a targeted check because
     deleting `raster-size.ts` is exactly the kind of change that can break something far away, and
     the brief calls out that breaking changes need to be caught in the same PR); `madge --circular`

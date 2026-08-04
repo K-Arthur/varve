@@ -12,7 +12,7 @@
 
 ---
 
-## [OK] 1. Editor `@strata/editor` typecheck (pre-existing)
+## [OK] 1. Editor `@varve/editor` typecheck (pre-existing)
 
 **Status: [OK] PASS — all 13 packages typecheck clean.**
 
@@ -51,7 +51,7 @@ apps/desktop/src/e2e-main.tsx       — renders HomeShell with memory platform (
 
 ### Run
 ```bash
-pnpm test:e2e --filter @strata/home
+pnpm test:e2e --filter @varve/home
 # or
 npx playwright test --config packages/home/e2e/playwright.config.ts
 ```
@@ -77,7 +77,7 @@ npx playwright test --config packages/home/e2e/playwright.config.ts
 - **Rust:** `ordering TEXT NOT NULL DEFAULT ''` column on `files` table; `reorder_file()` method; `home_reorder_file` Tauri command; `list_files` sorts by `ordering ASC, updated_at DESC` (crates/strata-sync/src/lib.rs)
 - **TS (Platform):** `reorderFile()` on Platform interface, implemented in tauri/memory/web backends (packages/platform/)
 - **TS (Home):** `FileCard` draggable via HTML5 native DnD; `SidebarNav` project entries are drop targets with `sidebar-item--drop-target` CSS; `onDropOnProject` handler calls `moveToProject` (packages/home/)
-- **Deps:** `@dnd-kit/core/sortable/utilities` installed in `@strata/home` for future sortable integration
+- **Deps:** `@dnd-kit/core/sortable/utilities` installed in `@varve/home` for future sortable integration
 
 ---
 
@@ -149,7 +149,7 @@ npx playwright test --config packages/home/e2e/playwright.config.ts
 |---|---|---|---|
 | 1 | Editor typecheck | [OK] | All 13 packages clean |
 | 2 | Desktop typecheck | [OK] | |
-| 3 | Playwright E2E | [OK] | 21 tests, 9 spec files, run via `pnpm test:e2e --filter @strata/home` |
+| 3 | Playwright E2E | [OK] | 21 tests, 9 spec files, run via `pnpm test:e2e --filter @varve/home` |
 | 4 | Thumbnail desktop | [OK] | IPC wired, save flow generates thumbnails |
 | 5 | DnD reorder | [OK] | Cross-project moves via HTML5 DnD |
 | 6 | File watcher | [OK] | notify crate, Tauri events, Platform listener |

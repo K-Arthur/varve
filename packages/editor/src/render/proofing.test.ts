@@ -1,9 +1,9 @@
-import type { RenderItem } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
 import {
   clearProofConverters,
   type ProofTransformConfig,
   registerProfileProofConverter,
-} from '@strata/shared';
+} from '@varve/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyProofToIr, applyProofToItem } from './proofing';
 

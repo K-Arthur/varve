@@ -73,12 +73,12 @@ In `packages/compositor/src/canvas2d/tileCache.ts` — update any type reference
 
 - [x] **Step 5: Run typecheck and fix any new errors**
 
-Run: `pnpm --filter @strata/compositor typecheck`
+Run: `pnpm --filter @varve/compositor typecheck`
 Expected: 0 errors with WebGPU types properly resolved.
 
 - [x] **Step 6: Run full compositor tests**
 
-Run: `pnpm --filter @strata/compositor test`
+Run: `pnpm --filter @varve/compositor test`
 Expected: 7/7 pass (no behavior change, just types).
 
 - [x] **Step 7: Commit**
@@ -128,7 +128,7 @@ it('line primitive produces visible pixels', async () => {
 });
 ```
 
-Run: `pnpm --filter @strata/compositor test`
+Run: `pnpm --filter @varve/compositor test`
 Expected: passes (Canvas2D works). Then verify WebGPU path fails by checking the golden diff.
 
 - [x] **Step 3: Tessellate lines as quads in buildVertices**
@@ -183,12 +183,12 @@ In `drawGpuItems`, separate items into `solidItems` (rect + line) and `circleIte
 
 - [x] **Step 6: Write the fix test**
 
-Run: `pnpm --filter @strata/compositor test`
+Run: `pnpm --filter @varve/compositor test`
 Expected: All 7 tests pass, plus the new visible-pixels test.
 
 - [x] **Step 7: Verify golden diff relaxes or passes**
 
-Run: `pnpm --filter @strata/compositor test`
+Run: `pnpm --filter @varve/compositor test`
 Expected: `fallback path matches Canvas2D` still passes (< 8 avg pixel diff).
 
 - [x] **Step 8: Commit**
@@ -279,7 +279,7 @@ pass.setBindGroup(0, device.createBindGroup({ ... }));
 
 - [x] **Step 5: Verify all tests pass**
 
-Run: `pnpm --filter @strata/compositor test`
+Run: `pnpm --filter @varve/compositor test`
 Expected: 7+/7 pass + golden diff still passes.
 
 - [x] **Step 6: Commit**
@@ -348,7 +348,7 @@ this.vertexPool.clear();
 
 - [x] **Step 4: Verify all tests pass**
 
-Run: `pnpm --filter @strata/compositor test`
+Run: `pnpm --filter @varve/compositor test`
 Expected: 7+/7 pass + golden diff passes.
 
 - [x] **Step 5: Commit**
@@ -442,7 +442,7 @@ In `watchDeviceLost`, clear the cache on device lost.
 
 - [x] **Step 5: Verify all tests pass**
 
-Run: `pnpm --filter @strata/compositor test`
+Run: `pnpm --filter @varve/compositor test`
 Expected: All tests pass (render bundles empty fallback when content changes every frame = never hits cache in test, but doesn't break).
 
 - [x] **Step 6: Commit**
@@ -632,7 +632,7 @@ export function prewarmWasmEngine(): void {
 In `CanvasArea.tsx`, add a `useEffect` on mount that calls `prewarmWasmEngine()`:
 
 ```typescript
-import { prewarmWasmEngine } from '@strata/engine';
+import { prewarmWasmEngine } from '@varve/engine';
 
 useEffect(() => {
   // Warm up WASM engine on mount while user is looking at blank canvas
@@ -645,7 +645,7 @@ The `createEngine` call in `CanvasArea` already uses the cached module from `loa
 - [x] **Step 3: Verify no regressions**
 
 Run: `pnpm typecheck` — Expected: 0 errors.
-Run: `pnpm --filter @strata/editor test` — Expected: 1385/1385 pass (or close to it).
+Run: `pnpm --filter @varve/editor test` — Expected: 1385/1385 pass (or close to it).
 
 - [x] **Step 4: Commit**
 
@@ -783,7 +783,7 @@ it('render command can carry ImageBitmaps', () => {
 });
 ```
 
-Run: `pnpm --filter @strata/editor test packages/editor/src/render/renderWorker.test.ts`
+Run: `pnpm --filter @varve/editor test packages/editor/src/render/renderWorker.test.ts`
 Expected: Passes.
 
 - [x] **Step 7: Commit**
@@ -865,8 +865,8 @@ function generateTestScene(count: number): unknown[] {
 - [x] **Step 3: Run benchmarks**
 
 ```bash
-pnpm --filter @strata/compositor test -- --run packages/compositor/src/webgpu/bench.test.ts
-pnpm --filter @strata/engine test -- --run packages/engine/src/bench/wasm-bench.test.ts
+pnpm --filter @varve/compositor test -- --run packages/compositor/src/webgpu/bench.test.ts
+pnpm --filter @varve/engine test -- --run packages/engine/src/bench/wasm-bench.test.ts
 ```
 
 Expected: Benchmarks pass within thresholds.

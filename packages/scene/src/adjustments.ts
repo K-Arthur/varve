@@ -1,7 +1,7 @@
 /**
  * Nondestructive image adjustment layer model.
  *
- * The concrete adjustment value types live in @strata/engine/filters because
+ * The concrete adjustment value types live in @varve/engine/filters because
  * they are part of the render IR contract. This module re-exports them and adds
  * the scene-level adjustment layer node + helpers.
  *
@@ -45,11 +45,11 @@ export type {
   TintAdjustment,
   TritoneAdjustment,
   VibranceAdjustment,
-} from '@strata/engine';
+} from '@varve/engine';
 
-import type { Adjustment } from '@strata/engine';
+import type { Adjustment } from '@varve/engine';
 
-export { adjustmentDefaults, makeAdjustment } from '@strata/engine';
+export { adjustmentDefaults, makeAdjustment } from '@varve/engine';
 
 // Note: the scene-level adjustment-layer node type is `AdjustmentNode`
 // (defined in ./types, part of the `SceneNode` union). This module used to

@@ -7,15 +7,9 @@
  * produced visibly different results. This module is the single
  * implementation both now delegate to.
  */
-import type { Document } from '@strata/scene';
-import { buildParentIndexMap, walkNodes } from '@strata/scene';
-import {
-  clampZoom,
-  fitBoundsCamera,
-  stepZoom,
-  type Viewport,
-  zoomAboutPoint,
-} from '@strata/shared';
+import type { Document } from '@varve/scene';
+import { buildParentIndexMap, walkNodes } from '@varve/scene';
+import { clampZoom, fitBoundsCamera, stepZoom, type Viewport, zoomAboutPoint } from '@varve/shared';
 import {
   cameraPatch,
   type EditorCameraState,

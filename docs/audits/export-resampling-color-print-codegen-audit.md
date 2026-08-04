@@ -73,8 +73,8 @@ There are **two parallel type systems**:
 ExportDialog.buildJobs()          # node.presets → canonical configs → plan → legacy jobs
   → ExportService.run()           # sequential in-process loop, AbortSignal cancellation
     → renderJob() switch:
-        svg/svg-component         → @strata/codegen exportNodeToSvg (+compositor raster assets)
-        react-tailwind/...        → @strata/codegen emitters
+        svg/svg-component         → @varve/codegen exportNodeToSvg (+compositor raster assets)
+        react-tailwind/...        → @varve/codegen emitters
         pdf-screen                → exportNodeAsPdf   (Tauri vector | browser raster-PDF)
         pdf-x1a/pdf-x4            → exportNodeAsPdfX  (Tauri IPC → strata-print; throws on web)
         png/jpg/webp              → exportNodeAsRaster → IR replay at target scale → canvas.toBlob

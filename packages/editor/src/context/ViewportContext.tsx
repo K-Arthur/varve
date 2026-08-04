@@ -1,4 +1,4 @@
-import type { NodeId, SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@varve/scene';
 import {
   animateCamera,
   type Camera,
@@ -7,7 +7,7 @@ import {
   revealBoundsCamera,
   screenDeltaToWorld,
   type Viewport,
-} from '@strata/shared';
+} from '@varve/shared';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { editorScreenToWorld, editorWorldToScreen, getEditorViewport } from '../canvas/cameraState';
@@ -371,7 +371,7 @@ function nodeWorldBoundsInner(n: SceneNode): { x: number; y: number; w: number; 
   const tx = n.transform[4] ?? 0;
   const ty = n.transform[5] ?? 0;
   if (n.kind === 'shape') {
-    const s = (n as import('@strata/scene').ShapeNode).shape;
+    const s = (n as import('@varve/scene').ShapeNode).shape;
     if (s.kind === 'rect') return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
     if (s.kind === 'ellipse')
       return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
@@ -386,7 +386,7 @@ function nodeWorldBoundsInner(n: SceneNode): { x: number; y: number; w: number; 
     }
   }
   if (n.kind === 'frame') {
-    const f = n as import('@strata/scene').FrameNode;
+    const f = n as import('@varve/scene').FrameNode;
     return { x: tx, y: ty, w: f.w ?? 200, h: f.h ?? 160 };
   }
   if (n.kind === 'group') {

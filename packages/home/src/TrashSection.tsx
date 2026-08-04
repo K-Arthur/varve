@@ -1,6 +1,6 @@
-import type { FileEntry } from '@strata/platform';
-import { formatBytes, formatRelativeTime } from '@strata/platform';
-import { Button, Icon } from '@strata/ui';
+import type { FileEntry } from '@varve/platform';
+import { formatBytes, formatRelativeTime } from '@varve/platform';
+import { Button, Icon } from '@varve/ui';
 
 export interface TrashSectionProps {
   files: FileEntry[];
