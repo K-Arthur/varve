@@ -7,7 +7,7 @@ test.describe('Home search, sort, and filter', () => {
   });
 
   test('search input exists and can be typed into', async ({ page }) => {
-    const search = page.locator('.strata-search__input');
+    const search = page.locator('.varve-search__input');
     await expect(search).toBeVisible();
 
     await search.fill('test query');
@@ -15,7 +15,7 @@ test.describe('Home search, sort, and filter', () => {
   });
 
   test('search input has correct placeholder', async ({ page }) => {
-    const search = page.locator('.strata-search__input');
+    const search = page.locator('.varve-search__input');
     await expect(search).toHaveAttribute('placeholder', /search/i);
   });
 
@@ -47,10 +47,10 @@ test.describe('Home search, sort, and filter', () => {
   });
 
   test('clear search button appears when query entered', async ({ page }) => {
-    const search = page.locator('.strata-search__input');
+    const search = page.locator('.varve-search__input');
     await search.fill('something');
 
-    const clearBtn = page.locator('.strata-search__clear');
+    const clearBtn = page.locator('.varve-search__clear');
     await expect(clearBtn).toBeVisible();
     await expect(clearBtn).toHaveAttribute('aria-label', /clear/i);
   });
