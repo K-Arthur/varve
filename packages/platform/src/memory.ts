@@ -936,6 +936,9 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async saveDocumentToDisk() {
       return null;
     },
+    async writeDocumentToPath() {
+      return null;
+    },
     async listPrinters() {
       return [
         {

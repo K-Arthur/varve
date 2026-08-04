@@ -26,6 +26,7 @@ import {
   mergeViewState,
   stripExtension,
   uuid,
+  withDocumentExt,
 } from './pure';
 import { indexDocumentContent, searchContentIndex } from './searchIndex';
 import type {
@@ -228,7 +229,10 @@ function getWindow(): (Window & WindowWithFsAccess) | undefined {
 }
 
 const VARVE_ACCEPT = [
-  { description: 'Strata document', accept: { 'application/json': ['.strata'] } },
+  {
+    description: 'Varve document',
+    accept: { 'application/json': ['.varve', '.strata'] },
+  },
 ];
 
 export type WebPlatformOptions = Record<string, never>;
@@ -1018,7 +1022,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         const text = await file.text();
         return ingestFile(file.name, text);
       }
-      const picked = await pickViaInput(['.strata']);
+      const picked = await pickViaInput(['.varve', '.strata']);
       if (!picked) return null;
       return ingestFile(picked.name, picked.text);
     },
@@ -1042,7 +1046,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
 
     async saveDocumentToDisk(name, documentJson) {
       const w = getWindow();
-      const suggested = name.endsWith('.strata') ? name : `${name}.strata`;
+      const suggested = withDocumentExt(name);
       if (w?.showSaveFilePicker) {
         let handle: FileSystemFileHandle | undefined;
         try {
@@ -1071,6 +1075,13 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       a.click();
       URL.revokeObjectURL(url);
       return suggested;
+    },
+
+    async writeDocumentToPath(_path, documentJson) {
+      // Browsers can't write to arbitrary paths; the File System Access API
+      // requires a user gesture + picker per file. Fall back to the picker
+      // (the user still chooses the location, and the handle is re-granted).
+      return this.saveDocumentToDisk('document', documentJson);
     },
 
     async saveBinaryFile(name, data, mimeType, extension) {

@@ -252,6 +252,12 @@ export interface Platform {
     extensions: string[],
   ): Promise<{ result: OpenFileResult | null; unsupported: boolean }>;
   saveDocumentToDisk(name: string, documentJson: string): Promise<string | null>;
+  /**
+   * Write a document back to an existing path (File → Save for files opened
+   * from disk). Returns the path on success, null when unsupported. Falls
+   * back to saveDocumentToDisk (picker) on runtimes without path writes.
+   */
+  writeDocumentToPath(path: string, documentJson: string): Promise<string | null>;
   saveBinaryFile(
     name: string,
     data: Uint8Array,

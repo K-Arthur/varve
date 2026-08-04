@@ -19,10 +19,23 @@ import type {
   SortDirection,
 } from './types';
 
-/** The canonical Strata document extension (no dot). */
-export const DOCUMENT_EXT = 'strata';
+/** The canonical Varve document extension (no dot). New saves default to
+ *  `.varve`; the schema is versioned independently of the extension (see
+ *  @varve/scene CURRENT_DOCUMENT_VERSION), so `.strata` files open through
+ *  the same migration pipeline. */
+export const DOCUMENT_EXT = 'varve';
+
+/** Legacy document extension, still openable and still writable on
+ *  explicit Save As for compatibility. */
+export const LEGACY_DOCUMENT_EXT = 'strata';
+
+/** All extensions the app treats as native editable documents. */
+export const DOCUMENT_EXTS = [DOCUMENT_EXT, LEGACY_DOCUMENT_EXT] as const;
 
 const EXT_TO_KIND: Record<string, FileKind> = {
+  // `.varve` and `.strata` are the same editable format — kind stays
+  // 'strata' for persisted compatibility (SQLite DEFAULT 'strata').
+  varve: 'strata',
   strata: 'strata',
   fig: 'figma',
   ai: 'illustrator',
@@ -47,6 +60,17 @@ export function stripExtension(filename: string): string {
   const dot = filename.lastIndexOf('.');
   if (dot <= 0) return filename;
   return filename.slice(0, dot);
+}
+
+/**
+ * Ensure a display name carries the canonical `.varve` extension for a save
+ * dialog's default path. Names that already end in a document extension
+ * (.varve or .strata) are left untouched — Save As on a legacy file keeps
+ * its extension unless the user changes it.
+ */
+export function withDocumentExt(name: string): string {
+  if (/\.(varve|strata)$/i.test(name)) return name;
+  return `${name}.${DOCUMENT_EXT}`;
 }
 
 /**
