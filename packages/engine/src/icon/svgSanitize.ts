@@ -24,6 +24,10 @@ const MAX_NESTING_DEPTH = 32;
 const MAX_PATH_COMMANDS = 10_000;
 const MAX_TOTAL_ELEMENTS = 5_000;
 const MAX_ATTRIBUTE_LENGTH = 4_096;
+/** Maximum raw SVG input size accepted before parsing (default 1 MiB). */
+const MAX_INPUT_SIZE = 1_048_576;
+/** Maximum absolute value accepted for numeric geometry attributes. */
+const MAX_NUMERIC_VALUE = 1_000_000;
 
 /** Elements that are always removed with their entire subtree. */
 const DANGEROUS_TAGS = new Set([
@@ -220,7 +224,11 @@ export type SanitizeWarningCode =
   | 'attribute-length-truncated'
   | 'removed-data-url'
   | 'removed-javascript-url'
-  | 'removed-style-element';
+  | 'removed-style-element'
+  | 'removed-style-declaration'
+  | 'removed-use-cycle'
+  | 'removed-non-finite-number'
+  | 'input-too-large';
 
 export class SanitizeError extends Error {
   constructor(
@@ -248,8 +256,7 @@ function isDangerousUrl(url: string): boolean {
   const trimmed = url.trim().toLowerCase();
   if (trimmed.startsWith('javascript:')) return true;
   if (trimmed.startsWith('vbscript:')) return true;
-  if (trimmed.startsWith('data:text/html')) return true;
-  if (trimmed.startsWith('data:image/svg+xml')) return true; // nested SVG in data URL
+  if (trimmed.startsWith('data:')) return true; // all data: URLs — no exceptions
   return false;
 }
 
@@ -261,6 +268,187 @@ function isExternalUrl(url: string): boolean {
     trimmed.startsWith('//') ||
     trimmed.startsWith('ftp://')
   );
+}
+
+/**
+ * Check a CSS-ish value for external or data references: `url(http://…)`,
+ * `url(data:…)`, or `url(//…)`. Used for attributes such as clip-path,
+ * mask, fill, and stroke that may carry url() paint servers.
+ */
+function hasExternalUrlRef(value: string): boolean {
+  const re = /url\(\s*["']?([^"')]+)["']?\s*\)/gi;
+  let m: RegExpExecArray | null;
+  m = re.exec(value);
+  while (m !== null) {
+    const ref = (m[1] ?? '').trim().toLowerCase();
+    if (ref === '#' || ref.startsWith('#')) {
+      m = re.exec(value);
+      continue;
+    }
+    if (
+      ref.startsWith('http://') ||
+      ref.startsWith('https://') ||
+      ref.startsWith('//') ||
+      ref.startsWith('data:')
+    ) {
+      return true;
+    }
+    m = re.exec(value);
+  }
+  return false;
+}
+
+/** Numeric geometry attributes that must be finite and bounded. */
+const NUMERIC_ATTRS = new Set([
+  'x',
+  'y',
+  'width',
+  'height',
+  'rx',
+  'ry',
+  'cx',
+  'cy',
+  'r',
+  'fx',
+  'fy',
+  'offset',
+  'stroke-width',
+  'stroke-opacity',
+  'fill-opacity',
+  'opacity',
+  'x1',
+  'y1',
+  'x2',
+  'y2',
+]);
+
+function isFiniteNumber(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed === '') return false;
+  // Gradient stop offsets are commonly percentages ("50%") — allow one
+  // trailing percent sign.
+  const numericPart = trimmed.endsWith('%') ? trimmed.slice(0, -1) : trimmed;
+  if (numericPart === '') return false;
+  return Number.isFinite(Number(numericPart));
+}
+
+/** Inline style declarations allowed to survive sanitization. */
+const STYLE_PROPERTY_ALLOWLIST = new Set([
+  'fill',
+  'fill-opacity',
+  'fill-rule',
+  'stroke',
+  'stroke-opacity',
+  'stroke-width',
+  'stroke-linecap',
+  'stroke-linejoin',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'stroke-miterlimit',
+  'opacity',
+  'vector-effect',
+  'color',
+  'mix-blend-mode',
+  'filter',
+  'clip-path',
+]);
+
+const STYLE_PROPERTY_BLOCKLIST = new Set([
+  'behavior',
+  '-moz-binding',
+  'position',
+  'z-index',
+  'pointer-events',
+  'display',
+  'visibility',
+  'overflow',
+  'transform',
+  'transition',
+  'animation',
+  'background',
+  'background-image',
+  'cursor',
+  'content',
+  'clip',
+  'top',
+  'left',
+  'right',
+  'bottom',
+  'width',
+  'height',
+  'margin',
+  'padding',
+  'border',
+  'font-family',
+  'font',
+  'text-anchor',
+  'white-space',
+]);
+
+/** Allowed SVG `filter` attribute values (built-in keywords only). */
+const FILTER_FUNCTION_ALLOWLIST = new Set([
+  'blur',
+  'brightness',
+  'contrast',
+  'drop-shadow',
+  'grayscale',
+  'hue-rotate',
+  'invert',
+  'opacity',
+  'saturate',
+  'sepia',
+  'url',
+  'none',
+]);
+
+/**
+ * Sanitize an inline style attribute. Declarations that reference external
+ * resources (`url(...)`), use blocked properties, or contain suspicious
+ * characters are removed; the rest survive.
+ */
+function sanitizeStyleDeclarations(style: string, warnings: SanitizeWarning[]): string {
+  const declarations = style.split(';');
+  const kept: string[] = [];
+  for (const decl of declarations) {
+    const colon = decl.indexOf(':');
+    if (colon <= 0) continue;
+    const prop = decl.slice(0, colon).trim().toLowerCase();
+    const value = decl.slice(colon + 1).trim();
+    if (prop === '' || value === '') continue;
+    if (STYLE_PROPERTY_BLOCKLIST.has(prop)) {
+      warnings.push({
+        code: 'removed-style-declaration',
+        message: `Removed style declaration "${prop}"`,
+      });
+      continue;
+    }
+    if (!STYLE_PROPERTY_ALLOWLIST.has(prop)) {
+      warnings.push({
+        code: 'removed-style-declaration',
+        message: `Removed unknown style declaration "${prop}"`,
+      });
+      continue;
+    }
+    if (hasExternalUrlRef(value)) {
+      warnings.push({
+        code: 'removed-style-declaration',
+        message: `Removed style declaration "${prop}" with external url() reference`,
+      });
+      continue;
+    }
+    if (prop === 'filter') {
+      const fn = value.split('(')[0]?.trim().toLowerCase() ?? '';
+      if (!FILTER_FUNCTION_ALLOWLIST.has(fn)) {
+        warnings.push({
+          code: 'removed-style-declaration',
+          message: `Removed style declaration "filter: ${value}"`,
+        });
+        continue;
+      }
+    }
+    kept.push(`${prop}:${value}`);
+  }
+  return kept.join(';');
 }
 
 // ---------------------------------------------------------------------------
@@ -276,8 +464,40 @@ function sanitizeAttrValue(
   // Reject dangerous URLs in any attribute
   if (isDangerousUrl(value)) {
     warnings.push({
-      code: 'removed-javascript-url',
-      message: `Removed attribute "${key}" with javascript: URL`,
+      code: 'removed-data-url',
+      message: `Removed attribute "${key}" with data: URL`,
+    });
+    return null;
+  }
+
+  // Numeric geometry attributes must be finite and bounded
+  if (NUMERIC_ATTRS.has(key)) {
+    if (!isFiniteNumber(value)) {
+      warnings.push({
+        code: 'removed-non-finite-number',
+        message: `Removed non-finite number in attribute "${key}"`,
+      });
+      return null;
+    }
+    const num = Number(value.trim());
+    if (Math.abs(num) > MAX_NUMERIC_VALUE) {
+      warnings.push({
+        code: 'removed-non-finite-number',
+        message: `Removed out-of-range number in attribute "${key}"`,
+      });
+      return null;
+    }
+  }
+
+  // url() paint-server references (clip-path, mask, fill, stroke) must be
+  // internal fragment references only
+  if (
+    (key === 'clip-path' || key === 'mask' || key === 'fill' || key === 'stroke') &&
+    hasExternalUrlRef(value)
+  ) {
+    warnings.push({
+      code: 'removed-external-url',
+      message: `Removed external url() reference in attribute "${key}"`,
     });
     return null;
   }
@@ -302,6 +522,12 @@ function sanitizeAttrValue(
       });
       return null;
     }
+  }
+
+  // Sanitize inline styles
+  if (key === 'style') {
+    const clean = sanitizeStyleDeclarations(value, warnings);
+    return clean;
   }
 
   // Truncate excessively long attributes
@@ -344,9 +570,65 @@ interface SanitizeContext {
   warnings: SanitizeWarning[];
   options: Required<SanitizeOptions>;
   modified: boolean;
+  /** Hard stop: resource limit exceeded — stop processing entirely. */
+  stopped: boolean;
+  /** Symbol ids that are part of a recursive <use>/<symbol> cycle. */
+  cyclicSymbolIds: Set<string>;
+}
+
+/**
+ * Find symbol ids involved in recursive <use> reference cycles.
+ * Builds a graph symbol -> referenced symbol ids (transitive use targets)
+ * and returns every symbol that can reach itself.
+ */
+function findCyclicSymbolIds(root: ParsedElement): Set<string> {
+  const symbols = new Map<string, ParsedElement>();
+  const walkCollect = (el: ParsedElement): void => {
+    if (el.tag === 'symbol' && el.attrs.id) symbols.set(el.attrs.id, el);
+    for (const child of el.children) walkCollect(child);
+  };
+  walkCollect(root);
+
+  const collectUseTargets = (el: ParsedElement, targets: Set<string>): void => {
+    if (el.tag === 'use') {
+      const href = el.attrs['href'] ?? el.attrs['xlink:href'] ?? '';
+      const ref = href.trim().replace(/^#/, '');
+      if (ref) targets.add(ref);
+    }
+    for (const child of el.children) collectUseTargets(child, targets);
+  };
+
+  const edges = new Map<string, Set<string>>();
+  for (const [id, el] of symbols) {
+    const targets = new Set<string>();
+    collectUseTargets(el, targets);
+    edges.set(id, targets);
+  }
+
+  const cyclic = new Set<string>();
+  for (const id of symbols.keys()) {
+    const visited = new Set<string>();
+    const stack = [id];
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      for (const next of edges.get(cur) ?? []) {
+        if (next === id) {
+          cyclic.add(id);
+          stack.length = 0;
+          break;
+        }
+        if (!visited.has(next) && symbols.has(next)) stack.push(next);
+      }
+    }
+  }
+  return cyclic;
 }
 
 function sanitizeElement(el: ParsedElement, ctx: SanitizeContext): ParsedElement | null {
+  if (ctx.stopped) return null;
+
   // Check nesting depth
   if (ctx.depth > ctx.options.maxNestingDepth) {
     ctx.warnings.push({
@@ -364,7 +646,8 @@ function sanitizeElement(el: ParsedElement, ctx: SanitizeContext): ParsedElement
       code: 'element-count-limit',
       message: `Stopped at ${ctx.elementCount} elements (max ${ctx.options.maxTotalElements})`,
     });
-    ctx.modified = null as unknown as boolean; // signal hard stop
+    ctx.modified = true;
+    ctx.stopped = true; // signal hard stop
     return null;
   }
 
@@ -438,6 +721,28 @@ function sanitizeElement(el: ParsedElement, ctx: SanitizeContext): ParsedElement
     return null;
   }
 
+  // Detect recursive <use>/<symbol> reference cycles (pre-computed graph).
+  if (tag === 'use') {
+    const href = el.attrs['href'] ?? el.attrs['xlink:href'] ?? '';
+    const refId = href.trim().replace(/^#/, '');
+    if (refId && ctx.cyclicSymbolIds.has(refId)) {
+      ctx.warnings.push({
+        code: 'removed-use-cycle',
+        message: `Removed <use> reference to cyclic symbol #${refId}`,
+      });
+      ctx.modified = true;
+      return null;
+    }
+  }
+  if (tag === 'symbol' && el.attrs.id && ctx.cyclicSymbolIds.has(el.attrs.id)) {
+    ctx.warnings.push({
+      code: 'removed-use-cycle',
+      message: `Removed cyclic <symbol id="${el.attrs.id}">`,
+    });
+    ctx.modified = true;
+    return null;
+  }
+
   // Sanitize attributes
   const cleanAttrs: Record<string, string> = {};
   for (const [key, value] of Object.entries(el.attrs)) {
@@ -453,6 +758,23 @@ function sanitizeElement(el: ParsedElement, ctx: SanitizeContext): ParsedElement
     if (cleanValue !== null) {
       cleanAttrs[key] = cleanValue;
     } else {
+      ctx.modified = true;
+    }
+  }
+
+  // Validate svg viewBox: must be four finite numbers within bounds
+  if (tag === 'svg' && cleanAttrs.viewBox !== undefined) {
+    const parts = cleanAttrs.viewBox.trim().split(/[\s,]+/);
+    const numeric = parts.map(Number);
+    if (
+      parts.length !== 4 ||
+      numeric.some((n) => !Number.isFinite(n) || Math.abs(n) > MAX_NUMERIC_VALUE)
+    ) {
+      ctx.warnings.push({
+        code: 'removed-non-finite-number',
+        message: `Removed invalid viewBox "${cleanAttrs.viewBox}"`,
+      });
+      delete cleanAttrs.viewBox;
       ctx.modified = true;
     }
   }
@@ -486,18 +808,14 @@ function sanitizeElement(el: ParsedElement, ctx: SanitizeContext): ParsedElement
 function sanitizeChildren(children: ParsedElement[], ctx: SanitizeContext): ParsedElement[] {
   const result: ParsedElement[] = [];
   for (const child of children) {
+    if (ctx.stopped) break;
     const childCtx: SanitizeContext = { ...ctx, depth: ctx.depth + 1 };
     const sanitized = sanitizeElement(child, childCtx);
     // Propagate mutation/count flags back to parent context
     ctx.elementCount = childCtx.elementCount;
     if (childCtx.modified) ctx.modified = true;
-    if (sanitized === null) {
-      // Check if this was a hard stop (element count limit)
-      if (ctx.elementCount > ctx.options.maxTotalElements) {
-        return result;
-      }
-      continue;
-    }
+    if (childCtx.stopped) ctx.stopped = true;
+    if (sanitized === null) continue;
     result.push(sanitized);
   }
   return result;
@@ -738,7 +1056,7 @@ const DEFAULT_OPTIONS: Required<SanitizeOptions> = {
  * @param svg - Raw SVG string (untrusted).
  * @param options - Optional limits and feature flags.
  * @returns Sanitized SVG string, modification flag, and warnings.
- * @throws SanitizeError if the SVG is fundamentally malformed.
+ * @throws SanitizeError if the SVG is fundamentally malformed or oversized.
  */
 export function sanitizeSvg(svg: string, options: SanitizeOptions = {}): SanitizeResult {
   const opts = { ...DEFAULT_OPTIONS, ...options };
@@ -746,6 +1064,13 @@ export function sanitizeSvg(svg: string, options: SanitizeOptions = {}): Sanitiz
 
   if (!svg?.trim()) {
     throw new SanitizeError('Empty SVG input', 'empty-input');
+  }
+
+  if (svg.length > MAX_INPUT_SIZE) {
+    throw new SanitizeError(
+      `SVG input is ${svg.length} bytes (max ${MAX_INPUT_SIZE})`,
+      'input-too-large',
+    );
   }
 
   const parsed = parseXml(svg);
@@ -759,6 +1084,8 @@ export function sanitizeSvg(svg: string, options: SanitizeOptions = {}): Sanitiz
     warnings,
     options: opts,
     modified: false,
+    stopped: false,
+    cyclicSymbolIds: findCyclicSymbolIds(parsed),
   };
 
   const clean = sanitizeElement(parsed, ctx);
@@ -773,6 +1100,44 @@ export function sanitizeSvg(svg: string, options: SanitizeOptions = {}): Sanitiz
     svg: result,
     modified: ctx.modified,
     warnings,
+  };
+}
+
+/**
+ * Rewrite all fragment ids (id attributes and #fragment references) with a
+ * stable per-instance prefix. Prevents ID collisions when multiple icons are
+ * inserted into one document.
+ */
+export function rewriteSvgIds(svg: string, prefix: string): SanitizeResult {
+  const result = sanitizeSvg(svg);
+  const safePrefix =
+    prefix
+      .replace(/[^a-z0-9-]/gi, '-')
+      .toLowerCase()
+      .slice(0, 24) || 'icon';
+
+  let counter = 0;
+  const idMap = new Map<string, string>();
+  const rewritten = result.svg.replace(/\bid="([^"]+)"/g, (_match, id: string) => {
+    const mapped = `${safePrefix}-${++counter}-${id.replace(/[^a-z0-9-_.]/gi, '')}`;
+    idMap.set(id, mapped);
+    return `id="${mapped}"`;
+  });
+
+  const withRefs = rewritten
+    .replace(/(url\(\s*)#([^)\s"']+)/g, (_match, urlPrefix: string, refId: string) => {
+      const mapped = idMap.get(refId);
+      return mapped ? `${urlPrefix}#${mapped}` : `${urlPrefix}#${refId}`;
+    })
+    .replace(/\s(href|xlink:href)="#([^"]+)"/g, (_match, attr: string, refId: string) => {
+      const mapped = idMap.get(refId);
+      return mapped ? ` ${attr}="#${mapped}"` : ` ${attr}="#${refId}"`;
+    });
+
+  return {
+    svg: withRefs,
+    modified: result.modified || idMap.size > 0,
+    warnings: result.warnings,
   };
 }
 

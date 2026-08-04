@@ -1,9 +1,9 @@
 /**
- * IconBrowserDialog — modal wrapper that inserts icons from the icon browser
- * into the active document as document icon assets (embedded, sanitized SVG
- * with provenance). The insertion runs through the editor facade
- * (`insertIconAsset`), so it participates in undo, selection, and
- * document-icon asset bookkeeping.
+ * IconBrowserDialog — modal wrapper for quick icon insertion. Insertions
+ * run through the editor facade (`insertIconAsset` / `replaceIconAsset`),
+ * so they participate in undo, selection, and document icon-asset
+ * bookkeeping. The dialog stays open on failure so the user can retry or
+ * choose another icon.
  */
 
 import { Dialog } from '@varve/ui';
@@ -27,17 +27,27 @@ export function IconBrowserDialog({
 }: IconBrowserDialogProps) {
   const editor = useEditor();
   const [inserting, setInserting] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const handleInsert = useCallback(
     async (payload: IconInsertPayload) => {
       if (inserting) return;
       setInserting(true);
+      setLastError(null);
       const request = {
         name: payload.name,
         providerId: payload.providerId ?? (payload.prefix ? 'iconify' : undefined),
         prefix: payload.prefix,
         svg: payload.svg,
         licence: payload.licence,
+        spdxId: payload.spdxId,
+        licenceUrl: payload.licenceUrl,
+        attributionText: payload.attributionText,
+        author: payload.author,
+        sourceUrl: payload.sourceUrl,
+        sourceVersion: payload.sourceVersion,
+        paletteType: payload.paletteType,
+        style: 'outline' as const,
       };
       try {
         const inserted =
@@ -46,7 +56,11 @@ export function IconBrowserDialog({
             : await editor.insertIconAsset(request);
         if (inserted) {
           onClose();
+        } else {
+          setLastError('Could not insert this icon into the document.');
         }
+      } catch (err) {
+        setLastError(err instanceof Error ? err.message : 'Could not insert this icon.');
       } finally {
         setInserting(false);
       }
@@ -56,7 +70,12 @@ export function IconBrowserDialog({
 
   return (
     <Dialog open={open} onClose={onClose} title={title}>
-      <IconBrowser onInsert={handleInsert} />
+      {lastError && (
+        <div className="icon-dialog__error" role="alert">
+          {lastError}
+        </div>
+      )}
+      <IconBrowser onInsert={handleInsert} compact />
     </Dialog>
   );
 }

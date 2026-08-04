@@ -176,6 +176,14 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('import'),
     },
     {
+      id: 'insertIcon',
+      labelKey: 'menu.file.insertIcon',
+      accelerator: a('i', true, true, true),
+      kind: 'command',
+      group: 'io',
+      run: () => runAction('insertIcon'),
+    },
+    {
       id: 'exportSvg',
       labelKey: 'menu.file.exportSvg',
       accelerator: a('e', true, true),
