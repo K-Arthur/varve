@@ -43,7 +43,10 @@
           "https://www.googleapis.com",
           "https://*.githubusercontent.com",
           "https://*.huggingface.co",
-          "https://*.hf.co"
+          "https://*.hf.co",
+          "https://api.iconify.design",
+          "https://api.simplesvg.com",
+          "https://api.unisvg.com"
         ],
         "worker-src": ["'self'"],
         "media-src": ["'self'", "blob:", "data:"],
@@ -70,7 +73,10 @@
           "https://www.googleapis.com",
           "https://*.githubusercontent.com",
           "https://*.huggingface.co",
-          "https://*.hf.co"
+          "https://*.hf.co",
+          "https://api.iconify.design",
+          "https://api.simplesvg.com",
+          "https://api.unisvg.com"
         ],
         "worker-src": ["'self'"],
         "media-src": ["'self'", "blob:", "data:"],
@@ -89,9 +95,16 @@
     "resources": ["onnxruntime-libs/**/*"],
     "fileAssociations": [
       {
-        "ext": ["strata"],
+        "ext": ["varve"],
         "name": "Varve Document",
         "description": "Varve design document",
+        "mimeType": "application/x-varve",
+        "role": "Editor"
+      },
+      {
+        "ext": ["strata"],
+        "name": "Varve Document (legacy)",
+        "description": "Varve design document (legacy Strata format)",
         "mimeType": "application/x-strata",
         "role": "Editor"
       }

@@ -21,7 +21,6 @@ import { ImageCompareOverlay } from './components/ImageCompareOverlay';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
-import { LibraryPanel } from './components/LibraryPanel/LibraryPanel';
 import { LogoPanel } from './components/LogoPanel/LogoPanel';
 import { LogoPreviewDialog } from './components/LogoPreview/LogoPreviewDialog';
 import { MasterPanel } from './components/MasterPanel/MasterPanel';
@@ -32,6 +31,7 @@ import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandl
 import { PromptDialog, promptDialog } from './components/PromptDialog';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
+import { IconBrowserDialog, ResourcesPanel } from './components/ResourcesPanel/ResourcesPanel';
 import { SelectionInfoBar } from './components/SelectionInfoBar';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
@@ -183,6 +183,7 @@ function ShellInner({
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | 'general'
     | 'appearance'
@@ -241,6 +242,7 @@ function ShellInner({
       },
       onBatchBgRemove: () => exportLayerRef.current?.openBatchBgRemove(),
       onFindReplace: () => findReplaceLayerRef.current?.open(),
+      onInsertIcon: () => setIconBrowserOpen(true),
       onOpenFile: () => fileRef.current?.click(),
       onImportFile: () => fileRef.current?.click(),
     });
@@ -410,7 +412,7 @@ function ShellInner({
         )}
         {libraryPanelVisible && !distractionFreeMode && (
           <div className="editor__library-panel" data-panel="library">
-            <LibraryPanel
+            <ResourcesPanel
               doc={editor.state.document}
               onInstallLibrary={editor.installLibrary}
               onUninstallLibrary={editor.uninstallLibrary}
@@ -563,7 +565,7 @@ function ShellInner({
               type="button"
               className="editor__fab editor__fab--library"
               onClick={() => editor.toggleLibraryPanel()}
-              aria-label={libraryPanelVisible ? 'Hide library panel' : 'Show library panel'}
+              aria-label={libraryPanelVisible ? 'Hide resources panel' : 'Show resources panel'}
             >
               <Icon name="Library" />
             </button>
@@ -607,7 +609,7 @@ function ShellInner({
           ref={fileRef}
           id="file-open-input"
           type="file"
-          accept=".strata,.json"
+          accept=".varve,.strata,.json"
           style={{ display: 'none' }}
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -743,6 +745,11 @@ function ShellInner({
         {/* Export dialog + batch BG removal (self-contained) */}
         <ExportLayer ref={exportLayerRef} platform={platform} />
         <FindReplaceLayer ref={findReplaceLayerRef} />
+        <IconBrowserDialog
+          open={iconBrowserOpen}
+          onClose={() => setIconBrowserOpen(false)}
+          title="Insert icon"
+        />
 
         {editor.state.subjectPickerSession && (
           <SubjectPickerOverlay

@@ -26,7 +26,10 @@ export function getWindow(): (Window & WindowWithFsAccess) | undefined {
 }
 
 export const VARVE_ACCEPT = [
-  { description: 'Strata document', accept: { 'application/json': ['.strata'] } },
+  {
+    description: 'Varve document',
+    accept: { 'application/json': ['.varve', '.strata'] },
+  },
 ];
 
 export function ingestFile(filename: string, text: string): OpenFileResult {

@@ -237,6 +237,9 @@ export interface TemplateDef {
 export interface OpenFileResult {
   entry: FileEntry;
   documentJson: string;
+  /** Absolute path the document was opened from, when the runtime exposes
+   *  one (Tauri). Lets File → Save write back to the original location. */
+  filePath?: string;
 }
 
 // ─── Phase 1: Drafts ─────────────────────────────────────────────────────────

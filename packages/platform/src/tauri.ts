@@ -22,6 +22,7 @@ import {
   mergeViewState,
   stripExtension,
   uuid,
+  withDocumentExt,
 } from './pure';
 import type {
   ActivityEvent,
@@ -532,13 +533,13 @@ export function createTauriPlatform(): Platform {
         const picked = (await c.invoke('plugin:dialog|open', {
           options: {
             multiple: false,
-            filters: [{ name: 'Strata document', extensions: ['strata'] }],
+            filters: [{ name: 'Varve document', extensions: ['varve', 'strata'] }],
           },
         })) as Array<{ path?: string; name?: string; content?: string }> | null;
         const first = picked?.[0];
         if (!first?.path) return null;
         const text = (await c.invoke('home_read_text_file', { path: first.path })) as string;
-        return ingest(first.name ?? 'untitled.strata', text);
+        return ingest(first.name ?? 'untitled.varve', text, first.path);
       });
     },
 
@@ -567,17 +568,23 @@ export function createTauriPlatform(): Platform {
     async saveDocumentToDisk(name, documentJson) {
       return withFocusRestore(async () => {
         const c = core();
-        const suggested = name.endsWith('.strata') ? name : `${name}.strata`;
+        const suggested = withDocumentExt(name);
         const path = (await c.invoke('plugin:dialog|save', {
           options: {
             defaultPath: suggested,
-            filters: [{ name: 'Strata document', extensions: ['strata'] }],
+            filters: [{ name: 'Varve document', extensions: ['varve', 'strata'] }],
           },
         })) as string | null;
         if (!path) return null;
         await c.invoke('home_write_text_file', { path, contents: documentJson });
         return path;
       });
+    },
+
+    async writeDocumentToPath(path, documentJson) {
+      const c = core();
+      await c.invoke('home_write_text_file', { path, contents: documentJson });
+      return path;
     },
     async saveBinaryFile(name, data, mimeType, extension) {
       return withFocusRestore(async () => {
@@ -750,12 +757,15 @@ export function createTauriPlatform(): Platform {
   return platform;
 }
 
-const VERSIONS_KEY = 'strata-versions';
-const VERSION_CONTENT_KEY = 'strata-version-content';
+const VERSIONS_KEY = 'varve-versions';
+const VERSION_CONTENT_KEY = 'varve-version-content';
+/** Legacy pre-rename keys — read as a migration fallback, never written. */
+const LEGACY_VERSIONS_KEY = 'strata-versions';
+const LEGACY_VERSION_CONTENT_KEY = 'strata-version-content';
 
 function loadLocalVersions(): Map<string, VersionEntry[]> {
   try {
-    const raw = localStorage.getItem(VERSIONS_KEY);
+    const raw = localStorage.getItem(VERSIONS_KEY) ?? localStorage.getItem(LEGACY_VERSIONS_KEY);
     if (!raw) return new Map();
     const entries: VersionEntry[] = JSON.parse(raw);
     const byFile = new Map<string, VersionEntry[]>();
@@ -778,7 +788,8 @@ function saveLocalVersions(byFile: Map<string, VersionEntry[]>): void {
 
 function loadLocalContent(): Map<string, string> {
   try {
-    const raw = localStorage.getItem(VERSION_CONTENT_KEY);
+    const raw =
+      localStorage.getItem(VERSION_CONTENT_KEY) ?? localStorage.getItem(LEGACY_VERSION_CONTENT_KEY);
     return raw ? new Map(JSON.parse(raw)) : new Map();
   } catch {
     return new Map();
@@ -954,7 +965,7 @@ function createLocalVersionDelegates(): Pick<
   };
 }
 
-function ingest(filename: string, text: string): OpenFileResult {
+function ingest(filename: string, text: string, filePath?: string): OpenFileResult {
   const name = stripExtension(filename);
   const now = Date.now();
   const entry: FileEntry = {
@@ -970,8 +981,9 @@ function ingest(filename: string, text: string): OpenFileResult {
     trashedAt: null,
     ordering: '',
     contentHash: contentHash(text),
+    ...(filePath ? { filePath } : {}),
   };
-  return { entry, documentJson: text };
+  return { entry, documentJson: text, filePath };
 }
 
 function capture(
