@@ -64,6 +64,23 @@ const FAILURE_PATTERNS = [
 
 const IGNORED_PATTERNS = [/\bgit\s+status\b.*clean/i, /\+\s*exit\s+0/i, /\bgit\s+config\b/i];
 
+// Job-level annotations that mean "the job never started" (infrastructure
+// block), not a code or test failure. GitHub emits this when the account
+// billing is suspended or the spending limit is exhausted.
+const BILLING_BLOCK_PATTERN =
+  /recent account payments have failed|spending limit needs to be increased|spending limit|billing\s+&?\s*plans/i;
+
+// A failed job with zero recorded steps never started. There is nothing in the
+// logs to analyze — the failure is infra-level (billing block, runner outage).
+function classifyJobFailure(job, annotations) {
+  if (job.conclusion !== 'failure' && job.conclusion !== 'timed_out') return null;
+  if ((job.steps || []).length > 0) return 'real-failure';
+  if (annotations.some((a) => BILLING_BLOCK_PATTERN.test(a.message || ''))) {
+    return 'billing-block';
+  }
+  return 'never-started';
+}
+
 function parseArgs() {
   const args = process.argv.slice(2);
   const flags = {
@@ -194,6 +211,12 @@ async function getJobs(repo, runId, token) {
   return data.jobs || [];
 }
 
+async function getJobAnnotations(job, token) {
+  if (!job.check_run_url) return [];
+  const data = await githubJson(`${job.check_run_url}/annotations`, token);
+  return Array.isArray(data) ? data : [];
+}
+
 async function downloadLogs(repo, runId, token) {
   const [owner, name] = repo.split('/');
   const res = await githubFetch(`/repos/${owner}/${name}/actions/runs/${runId}/logs`, token);
@@ -283,7 +306,42 @@ function readdirSyncSafe(dir) {
   }
 }
 
-function formatReport(repo, run, jobs, failuresBySource) {
+function formatInfraBlockSection(infraBlocks) {
+  if (infraBlocks.length === 0) return [];
+  const lines = ['## Infrastructure block detected', ''];
+  lines.push('The following jobs **never started**. This is NOT a code or test failure:');
+  lines.push('');
+  for (const block of infraBlocks) {
+    if (block.kind === 'billing-block') {
+      lines.push(
+        `- **${block.jobName}** — GitHub billing/spending-limit block: "${block.message}".`,
+      );
+      lines.push(
+        '  Fix: resolve billing at https://github.com/settings/billing and re-run the workflow.',
+      );
+    } else {
+      lines.push(
+        `- **${block.jobName}** — job concluded ${block.conclusion} with zero steps recorded.`,
+      );
+      lines.push(
+        '  No runner started for this job (infra outage or runner unavailability). Re-run the workflow.',
+      );
+    }
+  }
+  lines.push(
+    '',
+    'Code-level fixes will not change this outcome. Validate locally while the block persists:',
+    '',
+  );
+  lines.push('```bash');
+  lines.push('just gate                 # full Cascade Review gate, no GitHub minutes');
+  lines.push('just ci-health            # watch for the block lifting across recent runs');
+  lines.push('```');
+  lines.push('');
+  return lines;
+}
+
+function formatReport(repo, run, jobs, failuresBySource, infraBlocks = []) {
   const runUrl = run.html_url || `https://github.com/${repo}/actions/runs/${run.id}`;
   const lines = [
     '# CI Failure Debug Report',
@@ -296,8 +354,11 @@ function formatReport(repo, run, jobs, failuresBySource) {
     `**Conclusion:** ${run.conclusion || 'N/A'}`,
     `**Created:** ${run.created_at || 'N/A'}`,
     '',
-    '## Failed jobs',
   ];
+
+  lines.push(...formatInfraBlockSection(infraBlocks));
+
+  lines.push('## Failed jobs', '');
 
   const failedJobs = jobs.filter((j) => j.conclusion === 'failure' || j.conclusion === 'timed_out');
   if (failedJobs.length === 0) {
@@ -307,7 +368,8 @@ function formatReport(repo, run, jobs, failuresBySource) {
       const failedSteps = (job.steps || []).filter(
         (s) => s.conclusion === 'failure' || s.conclusion === 'timed_out',
       );
-      lines.push(`- **${job.name}** (${job.conclusion})`);
+      const neverStarted = (job.steps || []).length === 0 ? ' (never started)' : '';
+      lines.push(`- **${job.name}** (${job.conclusion}${neverStarted})`);
       for (const step of failedSteps) {
         lines.push(`  - ${step.number}. ${step.name}: ${step.conclusion}`);
       }
@@ -378,6 +440,23 @@ async function main() {
   const run = await getRunMeta(args.repo, args.runId, token);
   const jobs = await getJobs(args.repo, args.runId, token);
 
+  const infraBlocks = [];
+  for (const job of jobs) {
+    const annotations = await getJobAnnotations(job, token);
+    const kind = classifyJobFailure(job, annotations);
+    if (kind === 'billing-block') {
+      const hit = annotations.find((a) => BILLING_BLOCK_PATTERN.test(a.message || ''));
+      infraBlocks.push({
+        jobName: job.name,
+        kind,
+        message: (hit && hit.message) || 'GitHub billing / spending-limit block',
+        conclusion: job.conclusion,
+      });
+    } else if (kind === 'never-started') {
+      infraBlocks.push({ jobName: job.name, kind, conclusion: job.conclusion });
+    }
+  }
+
   console.log(`Downloading logs for run ${args.runId} (${run.name || ''})...`);
   const logDir = await downloadLogs(args.repo, args.runId, token);
 
@@ -408,7 +487,7 @@ async function main() {
     }
   }
 
-  const report = formatReport(args.repo, run, jobs, failuresBySource);
+  const report = formatReport(args.repo, run, jobs, failuresBySource, infraBlocks);
   writeFileSync(args.output, report);
 
   if (process.env.GITHUB_STEP_SUMMARY) {
@@ -433,4 +512,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { extractFailures, isFailureLine, rankLine };
+export { classifyJobFailure, extractFailures, isFailureLine, rankLine };
