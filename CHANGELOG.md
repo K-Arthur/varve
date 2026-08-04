@@ -12,6 +12,51 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+### Added
+
+- **New Design experience** — the New File dialog is now "New design": an editable
+  document name (untitled defaults with collision-free numbering), three starting
+  points (Empty document / Start with a frame / Template), searchable frame presets
+  with favorites and recents, custom frame sizes with unit conversion and aspect
+  lock, and collapsed Advanced settings (print intent reveals CMYK, DPI, and bleed
+  automatically). Presets create an *initial frame* on an unbounded document — the
+  document itself never carries a size.
+- **Canonical document creation service** (`createNewDocument` in `@varve/scene`) —
+  every creation path (home New button, empty state, File → New, Ctrl+N, command
+  palette, template, frame preset) now funnels through one typed request that
+  atomically produces a fully initialized document (schema version, name, optional
+  initial frame, color config, undo state).
+- **`.varve` native format** — new saves default to `filename.varve`; legacy
+  `.strata` documents still open through the same versioned migration pipeline.
+  File → Save writes disk-opened documents back to their original path
+  (Figma/Photoshop behavior). `application/x-varve` registered alongside the legacy
+  `application/x-strata` MIME on Linux/Windows/macOS file associations.
+- **Responsive workspace navigation** — the editor top bar now fits the document
+  title, workspace tabs, and controls without overlap at any width: priority-ordered
+  workspace tabs with a "More" overflow menu, active workspace always visible, title
+  truncating with an ellipsis.
+- **Complete Varve identity** — app mark now renders on the home toolbar, About
+  dialog, custom title bar (with a graceful fallback), favicons, and the generated
+  icon pipeline emits `varve-icon.svg`; remaining user-visible "Strata" strings
+  (LUT export headers, AI diagnostics, window title defaults) renamed.
+
+### Changed
+
+- The New Design dialog fits within 1280×720 viewports: sticky header and footer,
+  internally scrollable body, viewport-capped height (also fixes the modal overlay
+  that could intercept clicks when closed).
+- Import of native-format files preserves the original document JSON and display
+  name instead of inserting a blank placeholder.
+
+### Fixed
+
+- The closed `<dialog>` could remain visible and intercept pointer events (a
+  `display: flex` override of the UA's `dialog:not([open])` rule) — now scoped to
+  `[open]`.
+- Stale `strata-*` selectors across the E2E suite refreshed to the `varve-*` classes.
+- The colour WASM fallback referenced a build artifact that no longer exists
+  (`/wasm/strata_colour_bg.wasm` → `varve_colour_bg.wasm`).
+
 ## [0.1.0] - 2026-08-04
 
 The first public release of Varve, and an alpha in the honest sense: it has been
@@ -58,8 +103,10 @@ The project was developed under the name **Strata** and renamed to **Varve** bef
 this, its first release. No Strata release was ever published, so there is nothing to
 migrate from and no older version to be compatible with.
 
-Documents use the `.strata` extension and the `application/x-strata` MIME type. That is
-deliberate for now and unrelated to the rename.
+Documents use the `.varve` extension (the `application/x-varve` MIME type). Files
+saved by earlier pre-release builds with the `.strata` extension remain openable
+through the same versioned document-migration pipeline, and Save As still offers
+`.strata` for compatibility.
 
 ---
 
