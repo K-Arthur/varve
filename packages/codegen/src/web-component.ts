@@ -175,7 +175,7 @@ export function exportNodeToWebComponent(
   doc: SceneDocument,
   opts?: WebComponentExportOptions,
 ): string {
-  const elementName = opts?.elementName ?? `strata-${toAttrClass(node.name)}`;
+  const elementName = opts?.elementName ?? `varve-${toAttrClass(node.name)}`;
   const name = node.name[0]?.toUpperCase() + node.name.slice(1) || 'Component';
   const useShadow = opts?.useShadowDom !== false;
 

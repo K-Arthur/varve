@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <!--
-    Strata app icon — full-colour launcher icon (1024×1024 master).
+    Varve app icon — full-colour launcher icon (1024×1024 master).
     Background rx=180 approximates Apple squircle; all mark content sits inside
     the 80% safe zone (x/y=[102,922]). Mark content: x=[160,864], y=[208,816].
     Colours: design-system brand tokens — all three pass 3:1 on #f5f7fa background.

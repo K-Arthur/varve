@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # verify-webgpu.sh — manual WebGPU verification script
 #
-# Validates that the Strata WebGPU compositor path is exercisable on this
+# Validates that the Varve WebGPU compositor path is exercisable on this
 # machine.  Prints a checklist, runs the Playwright WebGPU smoke test, and
 # captures a screenshot of the compositor diagnostics overlay.
 #
@@ -24,7 +24,7 @@ fail() { echo -e "  ${RED}✗${NC} $1"; failures+=("$1"); }
 warn() { echo -e "  ${YELLOW}⚠${NC} $1"; }
 
 echo "=========================================="
-echo "  Strata WebGPU Verification"
+echo "  Varve WebGPU Verification"
 echo "=========================================="
 echo ""
 

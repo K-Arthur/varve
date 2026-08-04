@@ -1,3 +1,4 @@
+import { migrateLegacyIndexedDb } from '@varve/platform';
 import { InferenceError } from './InferenceError';
 
 export interface StoredModel {
@@ -35,7 +36,8 @@ export interface ModelStorage {
 
 class IndexedDBStorage implements ModelStorage {
   readonly name = 'indexeddb';
-  private dbName = 'strata-model-store';
+  private dbName = 'varve-model-store';
+  private legacyDbName = 'strata-model-store';
   private dbVersion = 3;
   private storeName = 'models';
   private partialStore = 'partials';
@@ -56,7 +58,13 @@ class IndexedDBStorage implements ModelStorage {
           db.createObjectStore(this.partialStore);
         }
       };
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        const db = request.result;
+        void migrateLegacyIndexedDb(this.legacyDbName, this.dbName, [
+          this.storeName,
+          this.partialStore,
+        ]).then(() => resolve(db));
+      };
       request.onerror = () => reject(new Error('Failed to open IndexedDB model store'));
     });
   }
@@ -239,10 +247,18 @@ class LocalStorageModelStorage implements ModelStorage {
   }
 
   private key(modelId: string): string {
+    return `varve-model-${modelId}`;
+  }
+
+  private legacyKey(modelId: string): string {
     return `strata-model-${modelId}`;
   }
 
   private partialKey(modelId: string): string {
+    return `varve-model-partial-${modelId}`;
+  }
+
+  private legacyPartialKey(modelId: string): string {
     return `strata-model-partial-${modelId}`;
   }
 
@@ -262,7 +278,8 @@ class LocalStorageModelStorage implements ModelStorage {
 
   async loadInstalled(modelId: string): Promise<ArrayBuffer | null> {
     try {
-      const raw = localStorage.getItem(this.key(modelId));
+      const raw =
+        localStorage.getItem(this.key(modelId)) ?? localStorage.getItem(this.legacyKey(modelId));
       if (!raw) return null;
       const parsed = JSON.parse(raw) as { data: number[] };
       return new Uint8Array(parsed.data).buffer;
@@ -274,23 +291,34 @@ class LocalStorageModelStorage implements ModelStorage {
   async deleteInstalled(modelId: string): Promise<void> {
     try {
       localStorage.removeItem(this.key(modelId));
+      localStorage.removeItem(this.legacyKey(modelId));
     } catch {}
     try {
+      localStorage.removeItem(`varve-model-state-${modelId}`);
       localStorage.removeItem(`strata-model-state-${modelId}`);
     } catch {}
   }
 
   async hasInstalled(modelId: string): Promise<boolean> {
-    return localStorage.getItem(this.key(modelId)) !== null;
+    return (
+      localStorage.getItem(this.key(modelId)) !== null ||
+      localStorage.getItem(this.legacyKey(modelId)) !== null
+    );
   }
 
   async listInstalled(): Promise<string[]> {
     const ids: string[] = [];
-    const prefix = 'strata-model-';
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(prefix)) {
-        ids.push(key.slice(prefix.length));
+    const seen = new Set<string>();
+    for (const prefix of ['varve-model-', 'strata-model-']) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(prefix)) {
+          const id = key.slice(prefix.length);
+          if (!seen.has(id)) {
+            seen.add(id);
+            ids.push(id);
+          }
+        }
       }
     }
     return ids;
@@ -310,7 +338,9 @@ class LocalStorageModelStorage implements ModelStorage {
 
   async loadPartial(modelId: string): Promise<PartialDownloadRecord | null> {
     try {
-      const raw = localStorage.getItem(this.partialKey(modelId));
+      const raw =
+        localStorage.getItem(this.partialKey(modelId)) ??
+        localStorage.getItem(this.legacyPartialKey(modelId));
       if (!raw) return null;
       const parsed = JSON.parse(raw) as {
         bytes: number[];
@@ -330,13 +360,14 @@ class LocalStorageModelStorage implements ModelStorage {
   async deletePartial(modelId: string): Promise<void> {
     try {
       localStorage.removeItem(this.partialKey(modelId));
+      localStorage.removeItem(this.legacyPartialKey(modelId));
     } catch {}
   }
 
   async getQuota(): Promise<StorageQuota> {
     let used = 0;
     for (const id of await this.listInstalled()) {
-      const raw = localStorage.getItem(this.key(id));
+      const raw = localStorage.getItem(this.key(id)) ?? localStorage.getItem(this.legacyKey(id));
       if (raw) used += raw.length;
     }
     return { used, available: null };
@@ -352,11 +383,17 @@ class LocalStorageModelStorage implements ModelStorage {
 
   private async listPartials(): Promise<string[]> {
     const ids: string[] = [];
-    const prefix = 'strata-model-partial-';
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(prefix)) {
-        ids.push(key.slice(prefix.length));
+    const seen = new Set<string>();
+    for (const prefix of ['varve-model-partial-', 'strata-model-partial-']) {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith(prefix)) {
+          const id = key.slice(prefix.length);
+          if (!seen.has(id)) {
+            seen.add(id);
+            ids.push(id);
+          }
+        }
       }
     }
     return ids;

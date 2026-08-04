@@ -3,4 +3,4 @@ User-agent: *
 Allow: /
 
 # Sitemap
-Sitemap: https://strata.design/sitemap-index.xml
+Sitemap: https://k-arthur.github.io/varve/sitemap-index.xml

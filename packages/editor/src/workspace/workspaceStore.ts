@@ -19,7 +19,8 @@ import {
   type WorkspacePreferences,
 } from './workspaceTypes';
 
-const STORAGE_KEY = 'strata-workspace-preferences';
+const STORAGE_KEY = 'varve-workspace-preferences';
+const LEGACY_STORAGE_KEY = 'strata-workspace-preferences';
 
 /** Default preference for a mode (no customizations). */
 function defaultPreference(): WorkspacePreference {
@@ -29,7 +30,7 @@ function defaultPreference(): WorkspacePreference {
 /** Load all workspace preferences from localStorage. */
 export function loadWorkspacePreferences(): WorkspacePreferences {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return createDefaultPreferences();
 
     const parsed = JSON.parse(raw) as Record<string, unknown>;
