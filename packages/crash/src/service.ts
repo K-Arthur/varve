@@ -281,6 +281,11 @@ export class CrashReportService {
     return this.deps.queue.list();
   }
 
+  /** Test-only: replaces the transport. Never called by production code. */
+  setUploaderForTesting(uploader: CrashUploader): void {
+    this.deps.uploader = uploader;
+  }
+
   async deleteQueued(id: string): Promise<void> {
     await this.deps.queue.delete(id);
   }
