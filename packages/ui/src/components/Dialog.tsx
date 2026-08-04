@@ -15,10 +15,24 @@ export interface DialogProps extends DialogHTMLAttributes<HTMLDialogElement> {
   children: ReactNode;
   /** When true, clicking the backdrop dismisses the dialog. */
   dismissible?: boolean;
+  /** Size variant: 'sm' (default) or 'lg' (wider, used by preset browsers). */
+  size?: 'sm' | 'lg';
+  /** Sticky footer content, rendered below the scrollable body. */
+  footer?: ReactNode;
 }
 
 export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog(
-  { open, onClose, title, children, dismissible = true, className = '', ...rest },
+  {
+    open,
+    onClose,
+    title,
+    children,
+    dismissible = true,
+    size = 'sm',
+    footer,
+    className = '',
+    ...rest
+  },
   ref,
 ) {
   const innerRef = useRef<HTMLDialogElement | null>(null);
@@ -72,7 +86,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       onCancel={handleCancel}
       onClick={handleBackdrop}
       onKeyDown={handleBackdropKey}
-      className={`varve-dialog ${className}`.trim()}
+      className={`varve-dialog${size !== 'sm' ? ` varve-dialog--${size}` : ''} ${className}`.trim()}
       {...rest}
     >
       <div className="varve-dialog__header">
@@ -102,6 +116,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
         </button>
       </div>
       <div className="varve-dialog__body">{open ? children : null}</div>
+      {footer != null && <div className="varve-dialog__footer">{footer}</div>}
     </dialog>
   );
 });
