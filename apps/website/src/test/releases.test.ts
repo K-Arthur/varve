@@ -2,78 +2,88 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const RELEASES_PATH = path.resolve(__dirname, '../../public/releases.json');
+/**
+ * The download page renders entirely from this generated manifest
+ * (scripts/release/update-website-manifest.mjs). These tests guard the two
+ * things that would embarrass us in public:
+ *
+ *  1. The "no release yet" state must be honest. Before the first tag there is
+ *     nothing to download, and a page implying otherwise is worse than no page.
+ *  2. Once a release exists, every advertised artifact must carry a real
+ *     checksum and a URL that could actually resolve — publishing checksums is
+ *     the entire mitigation available for unsigned builds, so they must be real.
+ *
+ * This previously tested public/releases.json: a hand-maintained file with
+ * invented download sizes ("~200 MB") and an AUR command for a package that
+ * does not exist, which the download page never read.
+ */
+const MANIFEST_PATH = path.resolve(__dirname, '../data/release-manifest.json');
 
-function loadReleases() {
-  return JSON.parse(fs.readFileSync(RELEASES_PATH, 'utf-8'));
+function loadManifest() {
+  return JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8'));
 }
 
-describe('releases.json', () => {
-  it('has a latest version entry', () => {
-    const data = loadReleases();
-    expect(data.latest).toBeDefined();
-    expect(typeof data.latest.version).toBe('string');
-    expect(data.latest.version.length).toBeGreaterThan(0);
+const SHA256 = /^[0-9a-f]{64}$/;
+
+describe('website release manifest', () => {
+  it('is valid JSON with a known schema version', () => {
+    const data = loadManifest();
+    expect(data.schemaVersion).toBe(1);
+    expect(typeof data.hasRelease).toBe('boolean');
   });
 
-  it('has platform entries', () => {
-    const data = loadReleases();
-    expect(data.platforms).toBeDefined();
-    expect(data.platforms.linux).toBeDefined();
-    expect(data.platforms.macos).toBeDefined();
-    expect(data.platforms.windows).toBeDefined();
+  it('never claims notarised without signed', () => {
+    const data = loadManifest();
+    // An artifact advertised as signed that is not signed is worse than an
+    // honestly unsigned one — it borrows trust it has not earned.
+    expect(typeof data.signed).toBe('boolean');
+    expect(typeof data.notarized).toBe('boolean');
+    if (data.notarized) expect(data.signed).toBe(true);
   });
 
-  it('lists Linux x86_64 packages', () => {
-    const data = loadReleases();
-    const linux = data.platforms.linux.x86_64;
-    expect(linux.appimage).toBeDefined();
-    expect(linux.deb).toBeDefined();
-    expect(linux.rpm).toBeDefined();
-    expect(linux.aur).toBeDefined();
-    expect(linux.appimage.recommended).toBe(true);
-    expect(linux.appimage.url).toContain('github.com');
+  it('advertises no downloads when there is no release', () => {
+    const data = loadManifest();
+    if (data.hasRelease) return;
+    expect(data.version).toBeNull();
+    expect(data.tag).toBeNull();
+    expect(Object.keys(data.platforms)).toHaveLength(0);
   });
 
-  it('lists macOS universal package', () => {
-    const data = loadReleases();
-    const macos = data.platforms.macos.universal;
-    expect(macos.dmg).toBeDefined();
-    expect(macos.dmg.recommended).toBe(true);
-    expect(macos.dmg.url).toContain('github.com');
+  it('describes every artifact completely when a release exists', () => {
+    const data = loadManifest();
+    if (!data.hasRelease) return;
+
+    expect(typeof data.version).toBe('string');
+    expect(data.tag).toMatch(/^v\d+\.\d+\.\d+/);
+    expect(data.releaseDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(data.checksumsUrl).toContain(data.tag);
+
+    const artifacts = Object.values(data.platforms).flat() as Array<Record<string, unknown>>;
+    expect(artifacts.length).toBeGreaterThan(0);
+
+    for (const artifact of artifacts) {
+      expect(artifact.sha256).toMatch(SHA256);
+      expect(artifact.url).toContain(`/releases/download/${data.tag}/`);
+      // The filename carries the version by construction; if that drifts, every
+      // published download link 404s.
+      expect(String(artifact.filename)).toContain(String(data.version));
+      expect(String(artifact.size)).toMatch(/^\d+(\.\d+)? (MB|GB)$/);
+      expect(Number(artifact.sizeBytes)).toBeGreaterThan(0);
+    }
   });
 
-  it('lists Windows x86_64 packages', () => {
-    const data = loadReleases();
-    const windows = data.platforms.windows.x86_64;
-    expect(windows.msi).toBeDefined();
-    expect(windows.nsis).toBeDefined();
-    expect(windows.msi.recommended).toBe(true);
-  });
+  it('gives every unsigned artifact a caveat where the OS will block it', () => {
+    const data = loadManifest();
+    if (!data.hasRelease || data.signed) return;
 
-  it('has system requirements for all platforms', () => {
-    const data = loadReleases();
-    expect(data.systemRequirements.linux).toBeDefined();
-    expect(data.systemRequirements.macos).toBeDefined();
-    expect(data.systemRequirements.windows).toBeDefined();
-  });
-
-  it('has integrity information', () => {
-    const data = loadReleases();
-    expect(data.integrity).toBeDefined();
-    expect(typeof data.integrity.checksums).toBe('boolean');
-    expect(typeof data.integrity.codeSigning).toBe('boolean');
-  });
-});
-
-describe('sitemap.xml', () => {
-  it('exists and is valid XML', () => {
-    const sitemapPath = path.resolve(__dirname, '../../public/sitemap.xml');
-    const content = fs.readFileSync(sitemapPath, 'utf-8');
-    expect(content).toContain('<?xml');
-    expect(content).toContain('<urlset');
-    expect(content).toContain('strata.design');
-    expect(content).toContain('</urlset>');
+    const artifacts = Object.values(data.platforms).flat() as Array<Record<string, string>>;
+    for (const artifact of artifacts) {
+      // Windows and macOS both refuse unsigned binaries by default. A user who
+      // hits that wall with no explanation concludes the download is malware.
+      if (artifact.format === 'nsis' || artifact.format === 'msi' || artifact.format === 'dmg') {
+        expect(artifact.caveat, `${artifact.filename} needs an unsigned-build caveat`).toBeTruthy();
+      }
+    }
   });
 });
 

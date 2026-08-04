@@ -11,30 +11,35 @@ import Layout from '../../layouts/Layout.astro';
       <section class="privacy-section">
         <h2>What We Collect</h2>
         <p>
-          The Strata website uses Plausible Analytics, a privacy-first analytics service that does not use cookies or collect personal data. When you visit the website, Plausible collects:
+          <strong>Nothing.</strong> This website runs no analytics, sets no cookies, and loads
+          no third-party scripts. Its Content-Security-Policy permits no external hosts at all,
+          so your browser makes no requests to anyone but the host serving these pages.
         </p>
-        <ul>
-          <li>Page URL and page title you visit</li>
-          <li>Referrer URL (where you came from)</li>
-          <li>Browser and operating system information</li>
-          <li>Device type (desktop, tablet, or mobile)</li>
-          <li>Country-level location (no city or IP precision)</li>
-        </ul>
         <p>
-          No cookies are set. No persistent identifiers are stored. IP addresses are anonymized and never logged. The data is used solely to understand which pages are most useful and how visitors find the site.
+          The one thing we can see is what any web host sees: the requests its own server logs
+          record. We do not aggregate, analyse, or retain those beyond what the hosting provider
+          does by default.
+        </p>
+        <p>
+          Download counts come from GitHub's own release statistics, which count downloads per
+          file. They tell us how many people downloaded a build. They do not tell us who.
         </p>
       </section>
 
       <section class="privacy-section">
         <h2>What We Don't Collect</h2>
         <ul>
-          <li>No cookies or tracking scripts</li>
+          <li>No cookies</li>
+          <li>No analytics of any kind</li>
           <li>No browser fingerprinting</li>
           <li>No marketing or advertising trackers</li>
-          <li>No third-party analytics (beyond Plausible)</li>
           <li>No social media tracking pixels</li>
-          <li>No personal data of any kind</li>
+          <li>No accounts, and no personal data</li>
         </ul>
+        <p>
+          If privacy-respecting analytics are ever added, this page will say so before they are
+          switched on, and will name exactly what is collected.
+        </p>
       </section>
 
       <section class="privacy-section">

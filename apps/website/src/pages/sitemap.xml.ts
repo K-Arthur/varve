@@ -1,0 +1,76 @@
+import type { APIRoute } from 'astro';
+
+/**
+ * Generate the sitemap from the actual page files and the configured site URL.
+ *
+ * This replaces a hand-maintained public/sitemap.xml that listed 28 absolute
+ * URLs under https://strata.design — a domain that is not owned. Every entry
+ * pointed at a host that does not resolve, and nothing kept the list in step
+ * with the pages that exist.
+ *
+ * Deriving both halves (host from `site`, paths from the filesystem) means the
+ * sitemap follows a domain change and a page addition without anyone
+ * remembering to edit it.
+ */
+const pages = import.meta.glob('./**/*.astro', { eager: true });
+
+/** `./docs/tools/color.astro` -> `/docs/tools/color`; index files -> their directory. */
+function toRoute(filePath: string): string | null {
+  const relative = filePath.replace(/^\.\//, '').replace(/\.astro$/, '');
+
+  // 404 is not a destination; dynamic routes cannot be enumerated without
+  // knowing their params, and we have none today.
+  if (relative === '404') return null;
+  if (relative.includes('[')) return null;
+
+  if (relative === 'index') return '/';
+  return `/${relative.replace(/\/index$/, '')}`;
+}
+
+/**
+ * Shallower pages matter more. Deriving priority from depth avoids a
+ * hand-tuned table that drifts, while still telling crawlers that the home and
+ * download pages outrank a nested doc page.
+ */
+function priority(route: string): string {
+  if (route === '/') return '1.0';
+  if (route === '/download') return '0.9';
+  const depth = route.split('/').filter(Boolean).length;
+  return depth <= 1 ? '0.8' : '0.6';
+}
+
+export const GET: APIRoute = ({ site }) => {
+  if (!site) {
+    throw new Error(
+      'astro.config.mjs must define `site` for the sitemap to contain absolute URLs.',
+    );
+  }
+
+  const routes = Object.keys(pages)
+    .map(toRoute)
+    .filter((route): route is string => route !== null)
+    .sort();
+
+  // `site` is only the origin; the base path is separate and matters on GitHub
+  // Pages, where a project repo serves from /<repo>/. Joining them here is what
+  // keeps the sitemap valid on both a Pages deployment and a custom domain.
+  const base = import.meta.env.BASE_URL || '/';
+  const origin = new URL(base.endsWith('/') ? base : `${base}/`, site);
+
+  const urls = routes
+    .map((route) => {
+      const loc = new URL(route.replace(/^\//, ''), origin).href;
+      return `  <url><loc>${loc}</loc><changefreq>weekly</changefreq><priority>${priority(route)}</priority></url>`;
+    })
+    .join('\n');
+
+  const body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
+
+  return new Response(body, {
+    headers: { 'Content-Type': 'application/xml; charset=utf-8' },
+  });
+};

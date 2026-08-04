@@ -1,167 +1,204 @@
 ---
+import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
+
+// Every download control on this page is rendered from the generated release
+// manifest (scripts/release/update-website-manifest.mjs). Nothing about
+// versions, filenames, sizes or checksums is hand-typed here — the previous
+// version of this page hardcoded "~200MB", version 0.0.0, and an AUR command
+// for a package that does not exist, none of which any process kept true.
+interface Artifact {
+  filename: string;
+  arch: string;
+  format: string;
+  label: string;
+  size: string;
+  sha256: string;
+  url: string;
+  title?: string;
+  blurb?: string;
+  caveat?: string;
+  install?: string;
+}
+
+const PLATFORM_LABELS: Record<string, string> = {
+  linux: 'Linux',
+  macos: 'macOS',
+  windows: 'Windows',
+};
+
+const REQUIREMENTS: Record<string, string[]> = {
+  linux: [
+    'OS: any x86-64 distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
+    'CPU: x86-64',
+    'RAM: 4 GB minimum, 8 GB recommended',
+    'Display: Wayland or X11',
+    'Storage: 500 MB',
+  ],
+  macos: [
+    'OS: macOS 13 Ventura or later',
+    'CPU: Apple Silicon',
+    'RAM: 4 GB minimum, 8 GB recommended',
+    'Storage: 500 MB',
+  ],
+  windows: [
+    'OS: Windows 10 (1809) or Windows 11',
+    'CPU: x86-64',
+    'RAM: 4 GB minimum, 8 GB recommended',
+    'Storage: 500 MB',
+  ],
+};
+
+// Resolved here rather than inline in the template: Astro's parser reads the
+// `<` of a TypeScript generic inside a JSX expression as the start of a tag.
+const platformMap = release.platforms as unknown as Record<string, Artifact[]>;
+const available = ['linux', 'macos', 'windows']
+  .filter((id) => (platformMap[id]?.length ?? 0) > 0)
+  .map((id) => ({
+    id,
+    label: PLATFORM_LABELS[id] ?? id,
+    artifacts: platformMap[id],
+    requirements: REQUIREMENTS[id] ?? [],
+  }));
+const first = available[0]?.id;
 ---
 
-<Layout title="Download Strata Beta - Linux, macOS, Windows" description="Download the Strata beta for Linux, macOS, or Windows. Free and source-available under FSL-1.1-MIT.">
+<Layout
+  title="Download Strata"
+  description="Download Strata for Linux, macOS, or Windows. Source-available under FSL-1.1-MIT."
+>
   <div class="container-custom">
     <div class="download-page">
       <h1>Download Strata</h1>
       <p class="download-intro">
-        Free and source-available under FSL-1.1-MIT. Your designs stay on your machine.
+        Source-available under FSL-1.1-MIT. Your designs stay on your machine.
       </p>
 
-      <div class="prerelease-notice">
-        <strong>Strata is in beta.</strong> Core features are functional, but you may encounter bugs, incomplete tools, or changes to file formats. Keep backups of important work. See <a href="/support/known-issues">known issues</a> and <a href="/releases">release notes</a> for details.
-      </div>
-
-      <div id="detection-banner" class="detection-banner" style="display:none;"></div>
-
-      <div class="platform-selector">
-        <button class="platform-tab active" data-platform="linux">Linux</button>
-        <button class="platform-tab" data-platform="macos">macOS</button>
-        <button class="platform-tab" data-platform="windows">Windows</button>
-      </div>
-
-      <div class="platform-section active" id="platform-linux">
-        <h2>Linux</h2>
-        <p class="platform-note">
-          Officially tested on: CachyOS, Arch Linux, Ubuntu 22.04+, Fedora
-        </p>
-        
-        <div class="download-options">
-          <div class="download-option recommended">
-            <div class="option-header">
-              <h3>AppImage</h3>
-              <span class="badge recommended">Recommended</span>
-            </div>
-            <p>Universal package for any x86_64 Linux distribution</p>
-            <a href="https://github.com/K-Arthur/Strata/releases" target="_blank" rel="noopener noreferrer" class="btn-primary">Get it on GitHub</a>
-            <p class="download-meta">Size: ~200MB • Version: 0.0.0</p>
-          </div>
-
-          <div class="download-option">
-            <div class="option-header">
-              <h3>deb Package</h3>
-            </div>
-            <p>For Debian 11+ and Ubuntu 22.04+</p>
-            <a href="https://github.com/K-Arthur/Strata/releases" target="_blank" rel="noopener noreferrer" class="btn-secondary">Get it on GitHub</a>
-            <p class="download-meta">Size: ~180MB</p>
-          </div>
-
-          <div class="download-option">
-            <div class="option-header">
-              <h3>rpm Package</h3>
-            </div>
-            <p>For Fedora and RHEL-based distributions</p>
-            <a href="https://github.com/K-Arthur/Strata/releases" target="_blank" rel="noopener noreferrer" class="btn-secondary">Get it on GitHub</a>
-            <p class="download-meta">Size: ~180MB</p>
-          </div>
-
-          <div class="download-option">
-            <div class="option-header">
-              <h3>AUR</h3>
-            </div>
-            <p>For Arch Linux and CachyOS</p>
-            <code class="code-block">yay -S strata-desktop</code>
-            <p class="download-meta">Or: paru -S strata-desktop</p>
-          </div>
+      {!release.hasRelease && (
+        <div class="prerelease-notice">
+          <strong>There is no public release yet.</strong>
+          <p>
+            Strata is still in development and no installer has been published. This page will
+            list downloads, sizes and SHA-256 checksums as soon as the first release is tagged.
+            Until then there is nothing to install — please do not download Strata-branded
+            builds from anywhere else.
+          </p>
+          <p>
+            <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
+              Watch the releases page
+            </a> to be notified.
+          </p>
         </div>
+      )}
 
-        <div class="system-requirements">
-          <h3>System Requirements</h3>
-          <ul>
-            <li><strong>OS:</strong> CachyOS, Arch Linux, Ubuntu 22.04+, Fedora, RHEL</li>
-            <li><strong>CPU:</strong> x86_64</li>
-            <li><strong>RAM:</strong> 4GB minimum, 8GB recommended</li>
-            <li><strong>Dependencies:</strong> libwebkit2gtk-4.1-0, libgtk-3-0, librsvg2-2</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="platform-section" id="platform-macos">
-        <h2>macOS</h2>
-        <p class="platform-note">
-          Universal binary for Intel and Apple Silicon
-        </p>
-        
-        <div class="download-options">
-          <div class="download-option recommended">
-            <div class="option-header">
-              <h3>Universal dmg</h3>
-              <span class="badge recommended">Recommended</span>
-            </div>
-            <p>Works on Intel and Apple Silicon (M1/M2/M3)</p>
-            <a href="https://github.com/K-Arthur/Strata/releases" target="_blank" rel="noopener noreferrer" class="btn-primary">Get it on GitHub</a>
-            <p class="download-meta">Size: ~250MB • Version: 0.0.0</p>
-          </div>
-        </div>
-
-        <div class="system-requirements">
-          <h3>System Requirements</h3>
-          <ul>
-            <li><strong>OS:</strong> macOS 13 Ventura or later</li>
-            <li><strong>CPU:</strong> Intel or Apple Silicon</li>
-            <li><strong>RAM:</strong> 4GB minimum, 8GB recommended</li>
-            <li><strong>Storage:</strong> 500MB for application</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="platform-section" id="platform-windows">
-        <h2>Windows</h2>
-        <p class="platform-note">
-          For Windows 10 and Windows 11
-        </p>
-        
-        <div class="download-options">
-          <div class="download-option recommended">
-            <div class="option-header">
-              <h3>MSI Installer</h3>
-              <span class="badge recommended">Recommended</span>
-            </div>
-            <p>Standard Windows installer for most users</p>
-            <a href="https://github.com/K-Arthur/Strata/releases" target="_blank" rel="noopener noreferrer" class="btn-primary">Get it on GitHub</a>
-            <p class="download-meta">Size: ~220MB • Version: 0.0.0</p>
+      {release.hasRelease && (
+        <>
+          <div class="prerelease-notice">
+            <strong>
+              Strata {release.version} is {release.prerelease ? 'an early preview' : 'a young release'}.
+            </strong>
+            <p>
+              Expect bugs and incomplete tools. The <code>.strata</code> document format may still
+              change in ways that break older files. <strong>Keep backups of anything you care
+              about.</strong> See <a href="/support/known-issues">known issues</a> and
+              <a href="/releases">release notes</a>.
+            </p>
           </div>
 
-          <div class="download-option">
-            <div class="option-header">
-              <h3>NSIS Installer</h3>
+          {!release.signed && (
+            <div class="integrity-notice">
+              <h3>These builds are not code-signed</h3>
+              <p>
+                Strata does not yet have code-signing certificates, so your operating system
+                cannot verify who built these files. That is a statement about this project's
+                budget, not about the files — but you cannot tell the difference without
+                checking, so please check.
+              </p>
+              <p>
+                <strong>Verify your download</strong> against the published checksum before
+                running it:
+              </p>
+              <code class="code-block">sha256sum -c SHA256SUMS.txt</code>
+              <p class="download-meta">
+                macOS: <code>shasum -a 256 -c SHA256SUMS.txt</code> &middot; Windows PowerShell:
+                <code>Get-FileHash .\Strata-*.exe -Algorithm SHA256</code>
+              </p>
+              <p>
+                <a href={release.checksumsUrl} target="_blank" rel="noopener noreferrer">
+                  Download SHA256SUMS.txt
+                </a>
+                &middot;
+                <a href={release.sbomUrl} target="_blank" rel="noopener noreferrer">
+                  Software bill of materials
+                </a>
+              </p>
             </div>
-            <p>Alternative installer format</p>
-            <a href="https://github.com/K-Arthur/Strata/releases" target="_blank" rel="noopener noreferrer" class="btn-secondary">Get it on GitHub</a>
-            <p class="download-meta">Size: ~220MB</p>
+          )}
+
+          <div id="detection-banner" class="detection-banner" style="display:none;"></div>
+
+          <div class="platform-selector" id="choose-platform">
+            {available.map((p) => (
+              <button class:list={['platform-tab', { active: p.id === first }]} data-platform={p.id}>
+                {p.label}
+              </button>
+            ))}
           </div>
-        </div>
 
-        <div class="system-requirements">
-          <h3>System Requirements</h3>
-          <ul>
-            <li><strong>OS:</strong> Windows 10 or Windows 11</li>
-            <li><strong>CPU:</strong> x86_64</li>
-            <li><strong>RAM:</strong> 4GB minimum, 8GB recommended</li>
-            <li><strong>Storage:</strong> 500MB for application</li>
-          </ul>
-        </div>
-      </div>
+          {available.map((p) => (
+            <div class:list={['platform-section', { active: p.id === first }]} id={`platform-${p.id}`}>
+              <h2>{p.label}</h2>
 
-      <div class="release-info">
-        <h3>Current Release</h3>
-        <p><strong>Version:</strong> 0.0.0</p>
-        <p><strong>Release Date:</strong> 2026-07-08</p>
-        <p><strong>Release Notes:</strong> <a href="/releases">View release notes</a></p>
-      </div>
+              <div class="download-options">
+                {p.artifacts.map((artifact) => (
+                  <div class:list={['download-option', { recommended: artifact.format === 'appimage' }]}>
+                    <div class="option-header">
+                      <h3>{artifact.title ?? artifact.label}</h3>
+                      {artifact.format === 'appimage' && <span class="badge recommended">Recommended</span>}
+                    </div>
+                    <p>{artifact.blurb}</p>
+                    <a href={artifact.url} class="btn-primary" download>
+                      Download {artifact.size}
+                    </a>
+                    <p class="download-meta">
+                      {artifact.filename} &middot; {artifact.arch}
+                    </p>
+                    {artifact.install && <code class="code-block">{artifact.install}</code>}
+                    {artifact.caveat && <p class="download-meta"><strong>Note:</strong> {artifact.caveat}</p>}
+                    <details>
+                      <summary class="download-meta">SHA-256</summary>
+                      <code class="code-block">{artifact.sha256}</code>
+                    </details>
+                  </div>
+                ))}
+              </div>
 
-      <div class="integrity-notice">
-        <h3>Download Integrity</h3>
-        <p>
-          SHA256 checksums will be available for all downloads to verify integrity. 
-          Currently, packages are not code-signed. This will be addressed in future releases.
-        </p>
-      </div>
+              <div class="system-requirements">
+                <h3>System requirements</h3>
+                <ul>
+                  {p.requirements.map((requirement) => <li>{requirement}</li>)}
+                </ul>
+              </div>
+            </div>
+          ))}
+
+          <div class="release-info">
+            <h3>This release</h3>
+            <p><strong>Version:</strong> {release.version}</p>
+            <p><strong>Released:</strong> {release.releaseDate}</p>
+            <p><strong>Channel:</strong> {release.prerelease ? 'Prerelease' : 'Stable'}</p>
+            <p>
+              <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
+                Full release notes on GitHub
+              </a>
+            </p>
+          </div>
+        </>
+      )}
     </div>
   </div>
 </Layout>
+
 
 <style>
   .download-page {
@@ -382,8 +419,6 @@ import Layout from '../layouts/Layout.astro';
 </style>
 
 <script>
-  const RELEASES_URL = 'https://github.com/K-Arthur/Strata/releases';
-
   const PLATFORM_NAMES = {
     linux: 'Linux',
     macos: 'macOS',
@@ -412,17 +447,6 @@ import Layout from '../layouts/Layout.astro';
     banner.innerHTML = 'We detected you&rsquo;re on <strong>' + PLATFORM_NAMES[platform as keyof typeof PLATFORM_NAMES] + '</strong>. The recommended download is shown below. <a href="#choose-platform" style="margin-left:0.5rem;">Choose another platform</a>.';
   }
 
-  function updateDownloadLinks() {
-    const links = document.querySelectorAll('.download-option a');
-    links.forEach(function(link) {
-      if (link instanceof HTMLAnchorElement && !link.href.startsWith('https://github.com')) {
-        link.href = RELEASES_URL;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-      }
-    });
-  }
-
   const platformTabs = document.querySelectorAll('.platform-tab');
   const platformSections = document.querySelectorAll('.platform-section');
 
@@ -445,5 +469,4 @@ import Layout from '../layouts/Layout.astro';
     setActivePlatform(detected);
     showDetectionBanner(detected);
   }
-  updateDownloadLinks();
 </script>
