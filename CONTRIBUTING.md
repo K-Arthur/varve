@@ -1,17 +1,17 @@
-# Contributing to Strata
+# Contributing to Varve
 
-Thank you for your interest in contributing to Strata.
+Thank you for your interest in contributing to Varve.
 
 ## Current status: not yet open to external contributions
 
-Strata is not currently accepting external code contributions. The project
+Strata (now Varve) is not currently accepting external code contributions. The project
 is still stabilizing its own foundations (build, CI, and documentation), and
 the CLA/DCO infrastructure described below is not yet active. Everything in
 this document describes the process we intend to use once the project opens
 to outside contributors — treat it as a preview, not a live workflow.
 
 In the meantime, feedback, bug reports, and ideas are welcome via
-[GitHub Discussions](https://github.com/K-Arthur/Strata/discussions).
+[GitHub Discussions](https://github.com/K-Arthur/varve/discussions).
 
 ## Code of Conduct
 
@@ -107,4 +107,4 @@ are reviewed and committed by the project maintainer.
 
 ## Questions?
 
-Ask in [GitHub Discussions](https://github.com/K-Arthur/Strata/discussions).
+Ask in [GitHub Discussions](https://github.com/K-Arthur/varve/discussions).

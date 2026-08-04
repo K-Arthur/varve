@@ -2325,7 +2325,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -3301,7 +3301,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -4677,7 +4677,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -6053,7 +6053,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -7341,7 +7341,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -8629,7 +8629,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -9835,7 +9835,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -11041,7 +11041,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -12125,7 +12125,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -13209,7 +13209,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -14564,7 +14564,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -15919,7 +15919,7 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -16895,7 +16895,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -17871,7 +17871,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -19247,7 +19247,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -20623,7 +20623,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -21911,7 +21911,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -23199,7 +23199,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -24405,7 +24405,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -25611,7 +25611,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -26695,7 +26695,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -27779,7 +27779,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -29134,7 +29134,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {
@@ -30489,7 +30489,7 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "badge": undefined,
         "disabled": false,
         "id": "about",
-        "label": "About Strata",
+        "label": "About Varve",
         "onAction": [Function],
       },
       {

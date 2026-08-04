@@ -246,7 +246,7 @@ export function Select({
   );
 
   return (
-    <div ref={containerRef} className="strata-select">
+    <div ref={containerRef} className="varve-select">
       <div
         ref={triggerRef}
         role="combobox"
@@ -258,15 +258,15 @@ export function Select({
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         tabIndex={disabled ? -1 : 0}
-        className={`strata-select__trigger${error ? ' strata-select__trigger--error' : ''}${disabled ? ' strata-select__trigger--disabled' : ''}`}
+        className={`varve-select__trigger${error ? ' varve-select__trigger--error' : ''}${disabled ? ' varve-select__trigger--disabled' : ''}`}
         onClick={handleTriggerClick}
         onKeyDown={handleTriggerKeyDown}
         data-disabled={disabled || undefined}
       >
-        <span className={selectedOption ? 'strata-select__value' : 'strata-select__placeholder'}>
+        <span className={selectedOption ? 'varve-select__value' : 'varve-select__placeholder'}>
           {selectedOption?.label ?? placeholder}
         </span>
-        <SolidIcon name="CaretDown" className="strata-select__chevron" />
+        <SolidIcon name="CaretDown" className="varve-select__chevron" />
       </div>
 
       <FloatingPortal
@@ -282,14 +282,14 @@ export function Select({
           id={listboxId}
           role="listbox"
           aria-label={label}
-          className="strata-select__listbox"
+          className="varve-select__listbox"
         >
           {shouldShowSearch && (
-            <div className="strata-select__search">
+            <div className="varve-select__search">
               <input
                 ref={searchInputRef}
                 type="search"
-                className="strata-select__search-input"
+                className="varve-select__search-input"
                 placeholder="Filter..."
                 value={filterText}
                 onChange={(e) => {
@@ -301,7 +301,7 @@ export function Select({
             </div>
           )}
           {filteredOptions.length === 0 ? (
-            <div className="strata-select__no-results">No results</div>
+            <div className="varve-select__no-results">No results</div>
           ) : (
             filteredOptions.map((option, i) => {
               const isSelected = option.value === value;
@@ -317,12 +317,12 @@ export function Select({
                   aria-disabled={option.disabled || undefined}
                   data-highlighted={isHighlighted || undefined}
                   data-option-index={i}
-                  className={`strata-select__option${isHighlighted ? ' strata-select__option--highlighted' : ''}${isSelected ? ' strata-select__option--selected' : ''}${option.disabled ? ' strata-select__option--disabled' : ''}`}
+                  className={`varve-select__option${isHighlighted ? ' varve-select__option--highlighted' : ''}${isSelected ? ' varve-select__option--selected' : ''}${option.disabled ? ' varve-select__option--disabled' : ''}`}
                   onClick={() => handleOptionClick(option)}
                   onMouseEnter={() => setHighlightedIdx(i)}
                 >
-                  <span className="strata-select__option-label">{option.label}</span>
-                  {isSelected && <SolidIcon name="Check" className="strata-select__check" />}
+                  <span className="varve-select__option-label">{option.label}</span>
+                  {isSelected && <SolidIcon name="Check" className="varve-select__check" />}
                 </div>
               );
             })
@@ -335,13 +335,13 @@ export function Select({
         role="status"
         aria-live="polite"
         aria-atomic
-        className="strata-visually-hidden"
+        className="varve-visually-hidden"
       >
         {announcement}
       </div>
 
       {error && (
-        <div id={errorId} role="alert" className="strata-select__error">
+        <div id={errorId} role="alert" className="varve-select__error">
           {error}
         </div>
       )}

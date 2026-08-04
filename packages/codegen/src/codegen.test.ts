@@ -411,12 +411,12 @@ describe('token-aware codegen', () => {
     expect(css).not.toContain('#39d0c6');
   });
 
-  it('Flutter emits StrataTokens extension field when fill is bound', () => {
+  it('Flutter emits VarveTokens extension field when fill is bound', () => {
     const doc: SceneDoc = createDocument('Test');
     const store = createVariableStore();
     const node = nodeWithBindings(store);
     const fl = exportNodeToFlutter(node, doc, { variableStore: store });
-    expect(fl).toContain('Theme.of(context).extension<StrataTokens>()!.primary');
+    expect(fl).toContain('Theme.of(context).extension<VarveTokens>()!.primary');
     expect(fl).not.toContain('Color(0xFF39D0C6)');
   });
 

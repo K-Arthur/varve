@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="Rendering Pipeline — Strata">
+<Layout title="Rendering Pipeline — Varve">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
@@ -11,7 +11,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <h1>Rendering Pipeline</h1>
       <p class="docs-intro">
-        Strata's rendering pipeline converts a scene graph into pixels on screen through a compact Intermediate Representation (IR). This approach delivers 86 fps on Canvas2D for 600 shapes by separating computation from drawing.
+        Varve's rendering pipeline converts a scene graph into pixels on screen through a compact Intermediate Representation (IR). This approach delivers 86 fps on Canvas2D for 600 shapes by separating computation from drawing.
       </p>
 
       <section class="docs-section">
@@ -91,7 +91,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Floating Origin</h2>
         <p>
-          To maintain numerical precision at large coordinates or extreme zoom levels, Strata uses a <strong>floating origin</strong> camera system:
+          To maintain numerical precision at large coordinates or extreme zoom levels, Varve uses a <strong>floating origin</strong> camera system:
         </p>
         <ul>
           <li>The camera tracks a world-space origin point</li>
@@ -104,7 +104,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Worker Render Path</h2>
         <p>
-          For non-structural scenes (no masks, no clipping frames with children, no special groups), Strata can offload replay to an <strong>OffscreenCanvas</strong> in a Web Worker:
+          For non-structural scenes (no masks, no clipping frames with children, no special groups), Varve can offload replay to an <strong>OffscreenCanvas</strong> in a Web Worker:
         </p>
         <ul>
           <li>The document is serialized and sent to the worker</li>
@@ -120,7 +120,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Subtree IR Cache</h2>
         <p>
-          To avoid rebuilding IR for unchanged subtrees, Strata maintains a <strong>SubtreeIrCache</strong>:
+          To avoid rebuilding IR for unchanged subtrees, Varve maintains a <strong>SubtreeIrCache</strong>:
         </p>
         <ul>
           <li>Cache keys are based on content hashes (encoding shape kind, fill, strokes, effects, filters, opacity, blend mode, rotation, corner radius, text properties)</li>

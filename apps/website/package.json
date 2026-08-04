@@ -2,7 +2,7 @@
   "name": "@varve/website",
   "version": "0.0.0",
   "private": true,
-  "description": "Strata marketing website - static site for product documentation, downloads, and community",
+  "description": "Varve marketing website - static site for product documentation, downloads, and community",
   "type": "module",
   "scripts": {
     "dev": "astro dev",

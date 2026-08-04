@@ -1,6 +1,6 @@
 {
-  "name": "Strata",
-  "short_name": "Strata",
+  "name": "Varve",
+  "short_name": "Varve",
   "description": "A local-first design application for vector, raster, layout, typography, motion, and print",
   "start_url": "/",
   "display": "standalone",

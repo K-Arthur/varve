@@ -527,7 +527,7 @@ async fn download_background_removal_model(
     result
 }
 
-/// Remove background from an image via the native `strata-bgremove` crate.
+/// Remove background from an image via the native `varve-bgremove` crate.
 ///
 /// `method: "quick"` always uses the heuristic engine (always available).
 /// `"ai-balanced"` / `"ai-quality"` use ONNX inference when this binary was
@@ -927,7 +927,7 @@ async fn upscale_image_binary(
     app: tauri::AppHandle,
     request: tauri::ipc::Request<'_>,
 ) -> Result<Response, String> {
-    const OPTIONS_HEADER: &str = "x-strata-upscale-options";
+    const OPTIONS_HEADER: &str = "x-varve-upscale-options";
     let image_data = match request.body() {
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
         tauri::ipc::InvokeBody::Json(_) => {
@@ -1235,8 +1235,8 @@ impl Default for ExportPdfOptions {
         Self {
             page_width: 1920.0,
             page_height: 1080.0,
-            title: "Strata Export".into(),
-            author: "Strata".into(),
+            title: "Varve Export".into(),
+            author: "Varve".into(),
             outline_text: false,
             subset_fonts: false,
             font_data: None,
@@ -1299,8 +1299,8 @@ impl Default for PdfXOptions {
         Self {
             page_width: 1920.0,
             page_height: 1080.0,
-            title: "Strata Export".into(),
-            author: "Strata".into(),
+            title: "Varve Export".into(),
+            author: "Varve".into(),
             bleed_mm: 3.0,
             include_crop_marks: false,
             include_registration_marks: false,
@@ -2113,7 +2113,7 @@ pub fn run() {
     #[cfg(target_os = "linux")]
     {
         glib::set_prgname(Some("dev.strata.desktop"));
-        glib::set_application_name("Strata");
+        glib::set_application_name("Varve");
     }
 
     let builder = tauri::Builder::default()
@@ -2193,11 +2193,11 @@ pub fn run() {
                 let mut watcher = match notify::recommended_watcher(
                     move |res: Result<notify::Event, notify::Error>| {
                         if let Ok(event) = res {
-                            let has_strata = event
+                            let has_document_ext = event
                                 .paths
                                 .iter()
                                 .any(|p| p.extension().map(|e| e == "strata").unwrap_or(false));
-                            if has_strata {
+                            if has_document_ext {
                                 let _ = tx.send(());
                             }
                         }
@@ -2685,7 +2685,7 @@ mod tests {
             "pageWidth": 300.0,
             "pageHeight": 200.0,
             "title": "Test X-1a",
-            "author": "Strata",
+            "author": "Varve",
             "bleedMm": 3.0,
             "includeCropMarks": false,
         })
@@ -2711,7 +2711,7 @@ mod tests {
             "pageWidth": 300.0,
             "pageHeight": 200.0,
             "title": "Test X-4",
-            "author": "Strata",
+            "author": "Varve",
         })
         .to_string();
 
@@ -3250,7 +3250,7 @@ mod tests {
 
     #[test]
     fn resolve_user_path_accepts_existing_file_under_temp() {
-        let dir = std::env::temp_dir().join(format!("strata_path_test_{}", uuid()));
+        let dir = std::env::temp_dir().join(format!("varve_path_test_{}", uuid()));
         std::fs::create_dir_all(&dir).expect("create test dir");
         let file = dir.join("existing.txt");
         std::fs::write(&file, b"hi").expect("write test file");
@@ -3267,7 +3267,7 @@ mod tests {
 
     #[test]
     fn resolve_user_path_accepts_not_yet_existing_file_under_temp() {
-        let dir = std::env::temp_dir().join(format!("strata_path_test_new_{}", uuid()));
+        let dir = std::env::temp_dir().join(format!("varve_path_test_new_{}", uuid()));
         std::fs::create_dir_all(&dir).expect("create test dir");
         let target = dir.join("subdir").join("brand-new.txt");
 
@@ -3293,7 +3293,7 @@ mod tests {
 
     #[test]
     fn resolve_user_path_rejects_dotdot_in_not_yet_existing_suffix() {
-        let dir = std::env::temp_dir().join(format!("strata_path_test_dotdot_{}", uuid()));
+        let dir = std::env::temp_dir().join(format!("varve_path_test_dotdot_{}", uuid()));
         std::fs::create_dir_all(&dir).expect("create test dir");
         let escaping = dir.join("..").join("..").join("etc").join("passwd");
 
@@ -3309,7 +3309,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn resolve_user_path_rejects_symlink_escape() {
-        let dir = std::env::temp_dir().join(format!("strata_path_test_symlink_{}", uuid()));
+        let dir = std::env::temp_dir().join(format!("varve_path_test_symlink_{}", uuid()));
         std::fs::create_dir_all(&dir).expect("create test dir");
         let link = dir.join("escape");
         // Point a symlink at a real out-of-scope directory (a fresh temp

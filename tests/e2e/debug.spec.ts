@@ -9,7 +9,7 @@ test('debug page load', async ({ page }) => {
   console.log('Page HTML length:', html.length);
   console.log('Has .varve-home:', html.includes('varve-home'));
   console.log('Has new button:', html.includes('New'));
-  console.log('Has loading:', html.includes('Loading Strata'));
+  console.log('Has loading:', html.includes('Loading Varve'));
   await page.screenshot({ path: '/tmp/debug-screenshot.png' });
   console.log('Done');
 });

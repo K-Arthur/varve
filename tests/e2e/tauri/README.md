@@ -109,7 +109,7 @@ verification.
 2. Use `browser.tauri.execute()` for in-app JavaScript access
 3. Use `browser.tauri.mock()` to mock Tauri commands
 4. Use stable selectors (`data-testid`, accessible roles) over CSS classes
-5. Await the `strata:ready` custom event instead of using arbitrary timeouts
+5. Await the `varve:ready` custom event instead of using arbitrary timeouts
 6. Verify real application outcomes, not just DOM presence
 
 ## Troubleshooting

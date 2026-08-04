@@ -38,60 +38,10 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Validate manifest JSON schema
-        run: |
-          node -e "
-          const fs = require('fs');
-          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
-          
-          // Check version
-          if (manifest.version !== 3) {
-            console.error('ERROR: manifest version must be 3, got', manifest.version);
-            process.exit(1);
-          }
-          
-          // Check all entries have required fields
-          const required = ['id', 'filename', 'localPath', 'bundled', 'remoteUrl'];
-          for (const entry of manifest.models) {
-            for (const field of required) {
-              if (entry[field] === undefined) {
-                console.error('ERROR: entry', entry.id, 'missing required field:', field);
-                process.exit(1);
-              }
-            }
-            // INT8 entries must have sourceModelId and sourceSha256
-            if (entry.precision === 'int8' && (!entry.sourceModelId || !entry.sourceSha256)) {
-              console.error('ERROR: INT8 entry', entry.id, 'missing sourceModelId or sourceSha256');
-              process.exit(1);
-            }
-          }
-          
-          console.log('Manifest OK:', manifest.models.length, 'entries');
-          "
+        run: node scripts/models/validate-manifest.mjs
 
       - name: Verify bundled model files exist
-        run: |
-          node -e "
-          const fs = require('fs');
-          const path = require('path');
-          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
-          
-          let errors = 0;
-          for (const entry of manifest.models) {
-            if (entry.bundled) {
-              const filePath = path.join('apps/desktop/public/models', entry.localPath);
-              if (!fs.existsSync(filePath)) {
-                console.error('ERROR: bundled model not found:', filePath);
-                errors++;
-              }
-            }
-          }
-          
-          if (errors > 0) {
-            console.error(errors, 'bundled model(s) missing');
-            process.exit(1);
-          }
-          console.log('All bundled model files present');
-          "
+        run: node scripts/models/validate-manifest.mjs --check-files
 
       - name: Verify quantized artifact reports exist
         run: |

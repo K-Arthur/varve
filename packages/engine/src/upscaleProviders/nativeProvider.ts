@@ -117,7 +117,7 @@ export const nativeUpscaleProvider: UpscaleProvider = {
       const resultBytes = await invoke<ArrayBuffer | number[]>(
         'upscale_image_binary',
         arrayBufferForBytes(bytes),
-        { headers: { 'x-strata-upscale-options': JSON.stringify(wireOptions) } },
+        { headers: { 'x-varve-upscale-options': JSON.stringify(wireOptions) } },
       );
       if (signal?.aborted) throw new Error('cancelled');
       // Current Tauri returns ArrayBuffer for the raw Rust `Response`. Keep

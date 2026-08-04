@@ -47,28 +47,28 @@ function ToastDemo() {
     <div style={{ display: 'flex', gap: '8px', flexDirection: 'column', alignItems: 'flex-start' }}>
       <button
         type="button"
-        className="strata-btn strata-btn--primary"
+        className="varve-btn varve-btn--primary"
         onClick={() => toast({ message: 'Info toast', type: 'info' })}
       >
         Show Info
       </button>
       <button
         type="button"
-        className="strata-btn strata-btn--secondary"
+        className="varve-btn varve-btn--secondary"
         onClick={() => toast({ message: 'Success toast', type: 'success' })}
       >
         Show Success
       </button>
       <button
         type="button"
-        className="strata-btn strata-btn--ghost"
+        className="varve-btn varve-btn--ghost"
         onClick={() => toast({ message: 'Warning toast', type: 'warning' })}
       >
         Show Warning
       </button>
       <button
         type="button"
-        className="strata-btn strata-btn--danger"
+        className="varve-btn varve-btn--danger"
         onClick={() => toast({ message: 'Error toast', type: 'error' })}
       >
         Show Error

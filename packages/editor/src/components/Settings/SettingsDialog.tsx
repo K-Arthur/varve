@@ -108,7 +108,7 @@ export function SettingsDialog({
         onClose={onClose}
         title="Settings"
         dismissible
-        className="strata-dialog--settings"
+        className="varve-dialog--settings"
       >
         <div className="settings-dialog__layout">
           <nav className="settings-dialog__nav" aria-label="Settings sections">
@@ -480,7 +480,7 @@ function AISection() {
 function AboutSection() {
   return (
     <div className="settings-section">
-      <h3 className="settings-section__title">About Strata</h3>
+      <h3 className="settings-section__title">About Varve</h3>
       <div className="settings-about">
         <div className="settings-about__row">
           <span className="settings-about__key">Version</span>

@@ -23,7 +23,7 @@ describe('SearchField', () => {
   it('clears when clear button clicked', () => {
     const onChange = vi.fn();
     const { container } = render(<SearchField value="query" onChange={onChange} />);
-    const clearBtn = container.querySelector('.strata-search__clear') as HTMLButtonElement;
+    const clearBtn = container.querySelector('.varve-search__clear') as HTMLButtonElement;
     expect(clearBtn).toBeDefined();
     fireEvent.click(clearBtn);
     expect(onChange).toHaveBeenCalledWith('');

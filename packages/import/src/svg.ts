@@ -2,7 +2,7 @@
 // logic lives in svg/elements.ts; shared utilities in svg/shared.ts.
 
 /**
- * SVG parser — converts SVG XML into a Strata Document using a string-based
+ * SVG parser — converts SVG XML into a Varve Document using a string-based
  * recursive descent approach (no DOMParser dependency).
  *
  * Research basis: SVG 1.1 (W3C Recommendation), Adobe Illustrator SVG export.

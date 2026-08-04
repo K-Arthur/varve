@@ -5,7 +5,7 @@ export const EXPORT: Record<string, HelpArticle> = {
     id: 'export:overview',
     title: 'Export Overview',
     summary: 'Available export formats and options.',
-    body: 'Strata supports exporting your designs in multiple formats for different use cases. Open the Export dialog with File > Export or Ctrl+E. You can export individual nodes, frames, or the entire document. Each format has configurable options for scale, quality, and color profile. For code export, choose from React (JSX/Tailwind), Flutter, or SwiftUI output for seamless developer handoff.',
+    body: 'Varve supports exporting your designs in multiple formats for different use cases. Open the Export dialog with File > Export or Ctrl+E. You can export individual nodes, frames, or the entire document. Each format has configurable options for scale, quality, and color profile. For code export, choose from React (JSX/Tailwind), Flutter, or SwiftUI output for seamless developer handoff.',
     keywords: ['export', 'format', 'overview', 'dialog'],
     category: 'Export',
     related: ['export:png', 'export:svg', 'export:code', 'export:pdf'],

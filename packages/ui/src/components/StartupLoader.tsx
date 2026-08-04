@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StrataLogo } from '../icons/StrataLogo';
+import { VarveLogo } from '../icons/VarveLogo';
 import './StartupLoader.css';
 
 export interface StartupLoaderProps {
@@ -20,7 +20,7 @@ export interface StartupLoaderProps {
 const LOGO_SIZE = 160;
 
 /**
- * Branded startup loader — sharp white Strata mark, thin static spectral
+ * Branded startup loader — sharp white Varve mark, thin static spectral
  * fringe, quiet luminosity pulse. No sweep/glitch overlays.
  */
 export function StartupLoader({
@@ -55,12 +55,12 @@ export function StartupLoader({
     >
       <div className="startup-loader__content">
         <div className="startup-loader__logo-container startup-loader__logo-container--pulse">
-          <StrataLogo
+          <VarveLogo
             className="startup-loader__logo startup-loader__logo--mark"
             data-fringe="chromatic"
             symbolic
             size={LOGO_SIZE}
-            label="Strata"
+            label="Varve"
           />
         </div>
 

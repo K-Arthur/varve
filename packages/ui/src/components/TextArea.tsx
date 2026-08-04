@@ -20,11 +20,11 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
   const [focused, setFocused] = useState(false);
 
   const classes = [
-    'strata-textarea',
-    `strata-textarea--${size}`,
-    focused ? 'strata-textarea--focused' : '',
-    error ? 'strata-textarea--error' : '',
-    disabled ? 'strata-textarea--disabled' : '',
+    'varve-textarea',
+    `varve-textarea--${size}`,
+    focused ? 'varve-textarea--focused' : '',
+    error ? 'varve-textarea--error' : '',
+    disabled ? 'varve-textarea--disabled' : '',
     className,
   ]
     .filter(Boolean)
@@ -37,14 +37,14 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
   return (
     <div className={classes}>
       {label && (
-        <label className="strata-textarea__label" htmlFor={inputId}>
+        <label className="varve-textarea__label" htmlFor={inputId}>
           {label}
         </label>
       )}
       <textarea
         ref={ref}
         id={inputId}
-        className="strata-textarea__field"
+        className="varve-textarea__field"
         disabled={disabled}
         maxLength={maxLength}
         aria-invalid={error ? true : undefined}
@@ -60,20 +60,20 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(function 
         }}
         {...rest}
       />
-      <div className="strata-textarea__footer">
+      <div className="varve-textarea__footer">
         {error ? (
-          <span className="strata-textarea__error" id={errorId} role="alert">
+          <span className="varve-textarea__error" id={errorId} role="alert">
             {error}
           </span>
         ) : hint ? (
-          <span className="strata-textarea__hint" id={hintId}>
+          <span className="varve-textarea__hint" id={hintId}>
             {hint}
           </span>
         ) : (
           <span />
         )}
         {maxLength && (
-          <span className="strata-textarea__counter">
+          <span className="varve-textarea__counter">
             {currentLength}/{maxLength}
           </span>
         )}

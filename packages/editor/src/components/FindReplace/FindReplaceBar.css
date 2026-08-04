@@ -122,7 +122,7 @@
   min-inline-size: var(--space-10);
 }
 
-.find-replace-bar__scope .strata-select {
+.find-replace-bar__scope .varve-select {
   min-inline-size: 100%;
 }
 

@@ -45,11 +45,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const isAriaDisabled = loading || softDisabled;
 
   const classes = [
-    'strata-btn',
-    `strata-btn--${variant}`,
-    `strata-btn--${size}`,
-    loading ? 'strata-btn--loading' : '',
-    confirming ? 'strata-btn--confirming' : '',
+    'varve-btn',
+    `varve-btn--${variant}`,
+    `varve-btn--${size}`,
+    loading ? 'varve-btn--loading' : '',
+    confirming ? 'varve-btn--confirming' : '',
     className,
   ]
     .filter(Boolean)
@@ -66,10 +66,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {...rest}
     >
       {loading && <InlineActivityIndicator size={16} />}
-      <span className="strata-btn__content">
+      <span className="varve-btn__content">
         {confirming && confirmLabel ? (
           <>
-            <span className="strata-btn__label">{children}</span>
+            <span className="varve-btn__label">{children}</span>
             {confirmLabel}
           </>
         ) : (

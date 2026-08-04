@@ -158,7 +158,7 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
         </div>
 
         {result.warnings.length > 0 && (
-          <div role="status" aria-live="polite" className="strata-visually-hidden">
+          <div role="status" aria-live="polite" className="varve-visually-hidden">
             Import complete: {result.successCount} succeeded, {result.failCount} failed,{' '}
             {result.warnings.length} warnings
           </div>

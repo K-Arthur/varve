@@ -28,13 +28,13 @@ export function SearchField({
   }, [onChange]);
 
   return (
-    <div className={`strata-search ${className}`.trim()}>
-      <Icon name="Search" className="strata-search__icon" />
+    <div className={`varve-search ${className}`.trim()}>
+      <Icon name="Search" className="varve-search__icon" />
       <input
         ref={inputRef}
         id={id}
         type="search"
-        className="strata-search__input"
+        className="varve-search__input"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -43,7 +43,7 @@ export function SearchField({
       {value && (
         <button
           type="button"
-          className="strata-search__clear"
+          className="varve-search__clear"
           aria-label="Clear search"
           onClick={clear}
         >
@@ -55,7 +55,7 @@ export function SearchField({
         role="status"
         aria-live="polite"
         aria-atomic
-        className="strata-visually-hidden"
+        className="varve-visually-hidden"
       >
         {resultCount !== undefined
           ? `${resultCount} ${resultCount === 1 ? 'result' : 'results'}`
@@ -83,7 +83,7 @@ export function HighlightMatch({ text, query }: { text: string; query: string })
         const key = `${offset}:${part}`;
         offset += part.length;
         return part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={key} className="strata-search__match">
+          <mark key={key} className="varve-search__match">
             {part}
           </mark>
         ) : (

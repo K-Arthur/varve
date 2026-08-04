@@ -1,9 +1,9 @@
-# Strata Editions
+# Varve Editions
 
-Strata is developed as a community-first application with a sustainable
+Strata (now Varve) is developed as a community-first application with a sustainable
 funding model.
 
-## Strata Community Edition (free)
+## Varve Community Edition (free)
 
 The Community Edition is free to download, use, and modify for all lawful
 purposes. It receives ongoing bug fixes, compatibility updates, security
@@ -15,7 +15,7 @@ Free use is permitted for any Permitted Purpose — everything other than a
 Competing Use (offering a substitute product or service). After two years,
 each release converts to the MIT license.
 
-## Strata Pro (future paid edition)
+## Varve Pro (future paid edition)
 
 A future commercial edition may offer additional features for professional
 users. Pro features are designed to provide genuine value beyond the
@@ -45,5 +45,5 @@ from the Community Edition after their introduction.
 
 ## Current status
 
-Strata is currently in beta. Only the Community Edition exists today.
+Varve is currently in beta. Only the Community Edition exists today.
 The Pro edition and its pricing are not yet determined.

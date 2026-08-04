@@ -58,7 +58,7 @@ describe('GuideContextMenu', () => {
 
   it('renders a separator between Lock/Unlock and Delete', () => {
     const { container } = render(<GuideContextMenu {...defaultProps} />);
-    const separators = container.querySelectorAll('hr.strata-menu__sep');
+    const separators = container.querySelectorAll('hr.varve-menu__sep');
     expect(separators.length).toBe(1);
   });
 

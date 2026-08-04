@@ -6,7 +6,7 @@ import { Button } from './Button';
 beforeAll(() => {
   const style = document.createElement('style');
   style.textContent = `
-    .strata-btn { min-height: 44px; min-width: 44px; }
+    .varve-btn { min-height: 44px; min-width: 44px; }
   `;
   document.head.appendChild(style);
 });
@@ -21,14 +21,14 @@ describe('Button', () => {
 
   it('defaults to primary variant', () => {
     render(<Button>Primary</Button>);
-    expect(screen.getByRole('button').className).toContain('strata-btn--primary');
+    expect(screen.getByRole('button').className).toContain('varve-btn--primary');
   });
 
   it('renders all variants', () => {
     const variants = ['primary', 'secondary', 'ghost', 'danger'] as const;
     for (const variant of variants) {
       const { container } = render(<Button variant={variant}>{variant}</Button>);
-      expect(container.querySelector(`.strata-btn--${variant}`)).toBeTruthy();
+      expect(container.querySelector(`.varve-btn--${variant}`)).toBeTruthy();
     }
   });
 
@@ -41,7 +41,7 @@ describe('Button', () => {
 
   it('keeps children in DOM when loading (hidden visually)', () => {
     render(<Button loading>Processing</Button>);
-    const content = screen.getByRole('button').querySelector('.strata-btn__content');
+    const content = screen.getByRole('button').querySelector('.varve-btn__content');
     expect(content?.textContent).toBe('Processing');
   });
 

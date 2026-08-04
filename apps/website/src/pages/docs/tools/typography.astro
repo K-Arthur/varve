@@ -2,7 +2,7 @@
 import Layout from '../../../layouts/Layout.astro';
 ---
 
-<Layout title="Typography — Strata">
+<Layout title="Typography — Varve">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
@@ -11,7 +11,7 @@ import Layout from '../../../layouts/Layout.astro';
 
       <h1>Typography</h1>
       <p class="docs-intro">
-        Strata's text system provides professional typography controls with support for variable fonts, OpenType features, multi-line text, text on path, and CJK line breaking. The text engine renders via Canvas2D for pixel-perfect display.
+        Varve's text system provides professional typography controls with support for variable fonts, OpenType features, multi-line text, text on path, and CJK line breaking. The text engine renders via Canvas2D for pixel-perfect display.
       </p>
 
       <section class="docs-section">
@@ -20,7 +20,7 @@ import Layout from '../../../layouts/Layout.astro';
           Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately — the text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
         </p>
         <p>
-          Strata automatically sizes the text box based on your content using <code>measureText()</code> from the canvas API. The box expands as you type, or you can create a fixed-width text area by clicking and dragging to define a bounding box.
+          Varve automatically sizes the text box based on your content using <code>measureText()</code> from the canvas API. The box expands as you type, or you can create a fixed-width text area by clicking and dragging to define a bounding box.
         </p>
       </section>
 
@@ -46,11 +46,11 @@ import Layout from '../../../layouts/Layout.astro';
 
         <h3>Font Selection</h3>
         <p>
-          Strata's Font Registry manages font loading and fallback chains. You can use:
+          Varve's Font Registry manages font loading and fallback chains. You can use:
         </p>
         <ul>
           <li><strong>System fonts</strong> — Fonts installed on your operating system</li>
-          <li><strong>Bundled fonts</strong> — Open-source fonts included with Strata via @fontsource packages</li>
+          <li><strong>Bundled fonts</strong> — Open-source fonts included with Varve via @fontsource packages</li>
           <li><strong>Google Fonts</strong> — Load any Google Font by URL via <code>FontFace</code> API</li>
         </ul>
         <p>
@@ -82,14 +82,14 @@ import Layout from '../../../layouts/Layout.astro';
 
         <h3>Lists</h3>
         <p>
-          Text nodes can render as lists with <strong>List Style</strong> options: Disc, Decimal, Circle, or Square. Strata handles list item numbering and bullet rendering automatically.
+          Text nodes can render as lists with <strong>List Style</strong> options: Disc, Decimal, Circle, or Square. Varve handles list item numbering and bullet rendering automatically.
         </p>
       </section>
 
       <section class="docs-section">
         <h2>OpenType Features</h2>
         <p>
-          For fonts that support them, Strata exposes OpenType feature toggles in a collapsible section:
+          For fonts that support them, Varve exposes OpenType feature toggles in a collapsible section:
         </p>
         <ul>
           <li><code>liga</code> — Standard ligatures</li>
@@ -103,7 +103,7 @@ import Layout from '../../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Variable Fonts</h2>
         <p>
-          Strata supports variable fonts with full axis control. When a variable font is selected, the Typography section shows a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes are determined by the font's <code>fvar</code> table.
+          Varve supports variable fonts with full axis control. When a variable font is selected, the Typography section shows a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes are determined by the font's <code>fvar</code> table.
         </p>
       </section>
 
@@ -123,7 +123,7 @@ import Layout from '../../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Text Measurement</h2>
         <p>
-          Strata uses real canvas <code>measureText()</code> for accurate text metrics, falling back to content-length estimation only in non-DOM environments. The measurement system powers:
+          Varve uses real canvas <code>measureText()</code> for accurate text metrics, falling back to content-length estimation only in non-DOM environments. The measurement system powers:
         </p>
         <ul>
           <li>Auto-sizing text boxes</li>

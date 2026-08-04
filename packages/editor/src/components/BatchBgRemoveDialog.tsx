@@ -628,7 +628,7 @@ export function BatchBgRemoveDialog({
             </>
           )}
 
-          <div role="status" aria-live="polite" className="strata-visually-hidden">
+          <div role="status" aria-live="polite" className="varve-visually-hidden">
             {announceMsg}
           </div>
 

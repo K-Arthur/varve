@@ -1,5 +1,5 @@
 /**
- * Strata UI component primitives (APG-pattern, token-styled).
+ * Varve UI component primitives (APG-pattern, token-styled).
  *
  * Re-exports all components from a single entry point.
  */

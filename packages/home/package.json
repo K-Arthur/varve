@@ -2,7 +2,7 @@
   "name": "@varve/home",
   "version": "0.0.0",
   "private": true,
-  "description": "Strata Home/Start surface: recent files, projects, templates, and file management.",
+  "description": "Varve Home/Start surface: recent files, projects, templates, and file management.",
   "type": "module",
   "exports": {
     ".": {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Strata performance audit (Strata spec §6, §22).
+ * Varve performance audit (Strata spec §6, §22).
  *
  * Checks:
  *   1. No animation of layout properties (width, height, top, left, etc.)

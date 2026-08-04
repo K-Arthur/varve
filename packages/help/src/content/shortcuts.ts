@@ -3,7 +3,7 @@ import type { HelpArticle } from './helpTypes';
 export const SHORTCUTS_REFERENCE: HelpArticle = {
   id: 'shortcuts',
   title: 'Keyboard Shortcuts Reference',
-  summary: 'Complete list of all keyboard shortcuts in Strata.',
+  summary: 'Complete list of all keyboard shortcuts in Varve.',
   body: [
     'File Operations:',
     'Ctrl+N - New document',

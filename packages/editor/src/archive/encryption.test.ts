@@ -47,7 +47,7 @@ describe('encryption', () => {
 
   describe('encryptBytes / decryptBytes', () => {
     it('round-trips data correctly', async () => {
-      const data = new TextEncoder().encode('Hello, Strata!');
+      const data = new TextEncoder().encode('Hello, Varve!');
       const encrypted = await encryptBytes(data, password);
       const decrypted = await decryptBytes(encrypted, password);
       expect(arraysEqual(decrypted, data)).toBe(true);

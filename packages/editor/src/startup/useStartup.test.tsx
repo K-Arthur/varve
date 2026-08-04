@@ -95,7 +95,7 @@ describe('useStartup', () => {
   });
 
   it('skips branded loader on warm restart (sessionStorage)', () => {
-    sessionStorage.setItem('strata-session-started', '1');
+    sessionStorage.setItem('varve-session-started', '1');
     const { result } = renderHook(() => useStartup({}));
     expect(result.current.showLoader).toBe(false);
     expect(result.current.bootState).toBe('init');

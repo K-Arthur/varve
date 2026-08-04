@@ -1,4 +1,4 @@
-# AGENTS.md — Strata
+# AGENTS.md — Varve
 
 Local-first, cross-platform design suite. Native Rust engine on desktop
 (Tauri 2), WASM behind the same facade on web. Linux (CachyOS/Arch) is the
@@ -147,7 +147,7 @@ See `context/usePersistence.ts` and `context/useBackgroundRemoval.ts` for the pa
 
 ### The clean version is not always the fast version (render/replay hot path)
 
-Strata is a design app — frame time beats complexity score. `CanvasArea.tsx`'s
+Varve is a design app — frame time beats complexity score. `CanvasArea.tsx`'s
 `replaySubtreeToCtx` (and any function like it: a big `switch` over node/primitive
 kind, called once per node per frame) is a classic case where the "obvious"
 refactor — replacing the switch with a dispatch table or visitor pattern keyed by
