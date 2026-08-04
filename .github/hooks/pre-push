@@ -13,4 +13,13 @@ fi
 echo "Running pre-push gate (just gate)..."
 just gate
 
+# Informational pipeline health check. Never blocks the push — it warns when
+# remote CI cannot run (GitHub billing block / runner outage) so the developer
+# knows a red run is infra, not code.
+if node scripts/ci-health.mjs --quiet; then
+  :
+else
+  echo "(ci-health check unavailable — skipping pipeline health warning)"
+fi
+
 echo "Pre-push gate passed."
