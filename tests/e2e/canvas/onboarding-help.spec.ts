@@ -6,7 +6,7 @@ test.describe('onboarding and help', () => {
   test('welcome dialog offers skip paths and tour can be dismissed', async ({ page }) => {
     await navigateToEditor(page);
 
-    const welcome = page.getByRole('dialog', { name: /welcome to strata/i });
+    const welcome = page.getByRole('dialog', { name: /welcome to varve/i });
     await expect(welcome).toBeVisible();
 
     await page.getByRole('button', { name: /blank canvas/i }).click();
@@ -15,7 +15,7 @@ test.describe('onboarding and help', () => {
     // Dismissed state persists for the session
     await page.reload();
     await navigateToEditor(page);
-    await expect(page.getByRole('dialog', { name: /welcome to strata/i })).toBeHidden({
+    await expect(page.getByRole('dialog', { name: /welcome to varve/i })).toBeHidden({
       timeout: 5000,
     });
   });

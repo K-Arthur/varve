@@ -15,7 +15,7 @@ export interface FilterDropdownProps {
 }
 
 const ALL_KINDS: { value: FileKind; label: string }[] = [
-  { value: 'strata', label: 'Strata' },
+  { value: 'strata', label: 'Varve' },
   { value: 'figma', label: 'Figma' },
   { value: 'illustrator', label: 'Illustrator' },
   { value: 'image', label: 'Image' },

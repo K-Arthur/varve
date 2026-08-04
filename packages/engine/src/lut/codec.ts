@@ -175,7 +175,7 @@ export function deserializeLutTransform(json: string): LutTransform {
   }
   if (isRecord(parsed) && parsed.schema === CODEC_NAME) {
     if (parsed.version !== CODEC_VERSION) {
-      throw new Error(`Unsupported Strata LUT schema version: ${String(parsed.version)}`);
+      throw new Error(`Unsupported Varve LUT schema version: ${String(parsed.version)}`);
     }
     return normalizeLutTransform(parsed.transform);
   }

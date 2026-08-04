@@ -173,7 +173,7 @@ function checkDmgArch(path) {
     const mountPoint = mountOutput.trim().split('\n').pop()?.split('\t').pop() || '';
     if (mountPoint) {
       const binary = execSync(
-        `find "${mountPoint}" -name "strata-desktop" -type f 2>/dev/null || true`,
+        `find "${mountPoint}" -name "varve-desktop" -type f 2>/dev/null || true`,
         { encoding: 'utf8' },
       ).trim();
       if (binary) {
@@ -186,7 +186,7 @@ function checkDmgArch(path) {
           fail(`DMG binary is not universal: ${lipoInfo.trim()} in ${path}`);
         }
       } else {
-        fail(`No strata-desktop binary found in mounted DMG: ${path}`);
+        fail(`No varve-desktop binary found in mounted DMG: ${path}`);
       }
       execSync(`hdiutil detach -quiet "${mountPoint}" 2>/dev/null || true`);
     } else {
