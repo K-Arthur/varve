@@ -25,7 +25,7 @@ Document
 
 ### Interactions (v1.6)
 
-Persisted prototype wiring in `packages/scene/src/interactions.ts`. Structurally compatible with `@strata/prototype` `Interaction` at runtime. Loaded via `createRuntimeFromDocument()`.
+Persisted prototype wiring in `packages/scene/src/interactions.ts`. Structurally compatible with `@varve/prototype` `Interaction` at runtime. Loaded via `createRuntimeFromDocument()`.
 
 ### Motion Presets
 
@@ -98,7 +98,7 @@ Sampler cache: `invalidateSamplerCache()` is called on timeline mutations; keyfr
 
 | Strategy | Implementation |
 |---|---|
-| Color | Oklab (`interpolateColorOklch` in `@strata/shared/interpolation.ts`) |
+| Color | Oklab (`interpolateColorOklch` in `@varve/shared/interpolation.ts`) |
 | Affine | 6-element array lerp |
 | Path | `ensureVertexMatch` + `interpolatePath` when `interpolation: 'path'` |
 | Text | String discrete midpoint on `text` / `text.*` property paths |
@@ -137,7 +137,7 @@ Reserved in `motion-types.ts`, not yet implemented:
 
 ## Deprecated
 
-`@strata/prototype/animation.ts` standalone timeline model — use `Document.timelines` instead.
+`@varve/prototype/animation.ts` standalone timeline model — use `Document.timelines` instead.
 
 ## Shortcuts
 

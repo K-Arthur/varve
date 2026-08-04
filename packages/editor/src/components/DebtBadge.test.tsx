@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { createDocument, type Document, type SceneNode } from '@strata/scene';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { createDocument, type Document, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { DebtBadge } from './DebtBadge';
 

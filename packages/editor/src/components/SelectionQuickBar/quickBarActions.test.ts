@@ -2,7 +2,7 @@
 /**
  * Tests for quick-bar action helpers and dispatch.
  */
-import { makeImageShapeNode, makeShapeNode } from '@strata/scene';
+import { makeImageShapeNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import {
   cycleSelectedImageFit,

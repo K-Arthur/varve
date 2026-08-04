@@ -7,9 +7,9 @@
  * The dialog is a preview only: it never mutates the artwork, never holds an
  * editor transaction, and releases the rendered bitmap on close.
  */
-import type { Engine } from '@strata/engine';
-import { createEngine } from '@strata/engine';
-import { Button, Dialog, SegmentedControl } from '@strata/ui';
+import type { Engine } from '@varve/engine';
+import { createEngine } from '@varve/engine';
+import { Button, Dialog, SegmentedControl } from '@varve/ui';
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import './logo-preview.css';

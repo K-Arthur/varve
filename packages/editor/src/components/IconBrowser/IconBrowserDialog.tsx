@@ -6,7 +6,7 @@
  * document-icon asset bookkeeping.
  */
 
-import { Dialog } from '@strata/ui';
+import { Dialog } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 import { IconBrowser, type IconInsertPayload } from './IconBrowser';

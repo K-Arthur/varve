@@ -1,4 +1,4 @@
-import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
+import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { suggestConstraint, suggestConstraintsForSelection } from '../constraintAdvisor';
 

@@ -2,8 +2,9 @@
  * Tests for GradientEditor — drag transaction wrapping, RAF throttle,
  * keyboard add-stop, and ArrowUp/Down/Home/End nudge.
  */
-import type { GradientFill } from '@strata/scene';
+
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { GradientFill } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GradientEditor } from './GradientEditor';
 

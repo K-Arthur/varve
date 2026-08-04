@@ -8,8 +8,8 @@ import {
   type Page,
   removePage,
   reorderPages,
-} from '@strata/scene';
-import { ContextMenu, type MenuEntry } from '@strata/ui';
+} from '@varve/scene';
+import { ContextMenu, type MenuEntry } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { usePageThumbnail } from './usePageThumbnail';

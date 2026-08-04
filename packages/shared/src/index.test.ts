@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PACKAGE } from './index';
 
-describe('@strata/shared', () => {
+describe('@varve/shared', () => {
   it('exposes its package marker', () => {
-    expect(PACKAGE).toBe('@strata/shared');
+    expect(PACKAGE).toBe('@varve/shared');
   });
 });

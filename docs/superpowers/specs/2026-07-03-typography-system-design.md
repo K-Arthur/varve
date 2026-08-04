@@ -37,7 +37,7 @@ TextNode + FontRegistry + CanvasMeasure
 ### Data Model Changes
 
 1. **Engine IR** `Primitive` text kind gains:
-   - `richText?: RichText` (from `@strata/scene`)
+   - `richText?: RichText` (from `@varve/scene`)
    - `variableAxes?: Record<string, number>`
    - `openTypeFeatures?: Record<string, boolean>`
    - `textMode?: TextMode`
@@ -116,9 +116,9 @@ Each `PositionedRun` contains:
 After implementation, run:
 ```bash
 pnpm typecheck
-pnpm --filter @strata/shared test -- --run
-pnpm --filter @strata/engine test -- --run
-pnpm --filter @strata/scene test -- --run
+pnpm --filter @varve/shared test -- --run
+pnpm --filter @varve/engine test -- --run
+pnpm --filter @varve/scene test -- --run
 pnpm exec vitest run packages/codegen/src -- --run
 pnpm format-check
 pnpm lint

@@ -1,5 +1,5 @@
-import type { Document, NodeId, Style } from '@strata/scene';
-import { getNodesUsingStyle } from '@strata/scene';
+import type { Document, NodeId, Style } from '@varve/scene';
+import { getNodesUsingStyle } from '@varve/scene';
 
 export interface StyleMergeSuggestion {
   sourceStyleId: string;

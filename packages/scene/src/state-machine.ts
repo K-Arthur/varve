@@ -82,7 +82,7 @@ export function addSMTransition(
   opts?: {
     condition?: string;
     duration?: number;
-    easing?: import('@strata/shared').EasingDefinition;
+    easing?: import('@varve/shared').EasingDefinition;
     priority?: number;
     canInterrupt?: boolean;
   },

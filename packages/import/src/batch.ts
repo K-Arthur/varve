@@ -1,12 +1,12 @@
-import type { Affine } from '@strata/engine';
-import type { Document, SceneNode } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import type { Document, SceneNode } from '@varve/scene';
 import {
   createDocument,
   deepCloneSubtree,
   imageShapeH,
   imageShapeW,
   isImageShape,
-} from '@strata/scene';
+} from '@varve/scene';
 import { getParserForData, getParserForExtension } from './registry';
 import type { BatchFileResult } from './types';
 

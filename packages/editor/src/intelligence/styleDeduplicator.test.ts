@@ -1,5 +1,5 @@
 // @ts-nocheck
-import type { Document, Style } from '@strata/scene';
+import type { Document, Style } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { findDuplicateStyles } from './styleDeduplicator';
 

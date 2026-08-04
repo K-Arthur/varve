@@ -1,5 +1,5 @@
 {
-  "name": "@strata/print",
+  "name": "@varve/print",
   "version": "0.0.0",
   "private": true,
   "description": "TS facade for the strata-print Rust crate: font outlining, CMYK, PDF/X.",
@@ -16,9 +16,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@strata/engine": "workspace:*",
-    "@strata/platform": "workspace:*",
-    "@strata/scene": "workspace:*"
+    "@varve/engine": "workspace:*",
+    "@varve/platform": "workspace:*",
+    "@varve/scene": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }

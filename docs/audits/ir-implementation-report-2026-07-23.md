@@ -117,7 +117,7 @@ This makes the IR functionality available to:
 ### Document Model Integration
 
 The converter works with Strata's existing document model:
-- `Document` from `@strata/scene`
+- `Document` from `@varve/scene`
 - `FrameNode`, `TextNode`, `ShapeNode`, etc.
 - Auto-layout and constraint systems
 - Component definitions and instances

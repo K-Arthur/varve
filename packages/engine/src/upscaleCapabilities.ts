@@ -5,7 +5,7 @@
  * can show honest information about which path will run.
  */
 
-import { isTauriRuntime as isTauriEnvironment } from '@strata/platform';
+import { isTauriRuntime as isTauriEnvironment } from '@varve/platform';
 
 export type UpscaleCapabilityStatus =
   | 'available'

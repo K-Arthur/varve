@@ -8,7 +8,7 @@
  * SettingsDialog, and RecoveryDialog.
  */
 
-import { Dialog, Select } from '@strata/ui';
+import { Dialog, Select } from '@varve/ui';
 import {
   type ChangeEvent,
   type DragEvent,
@@ -50,7 +50,7 @@ export interface ArchiveDialogProps {
   onRestoreArchive?: (result: ArchiveRestoreResult) => void;
   /** When provided (desktop), archives save via a native dialog + atomic
    *  write instead of a browser download. */
-  platform?: import('@strata/platform').Platform;
+  platform?: import('@varve/platform').Platform;
 }
 
 type ArchiveTab = 'create' | 'restore';

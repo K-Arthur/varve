@@ -1,5 +1,5 @@
-import type { Document, SceneNode, ShapeNode } from '@strata/scene';
-import { resolveNodeFills } from '@strata/scene';
+import type { Document, SceneNode, ShapeNode } from '@varve/scene';
+import { resolveNodeFills } from '@varve/scene';
 
 export interface ExportSuggestion {
   format: 'image/png' | 'image/jpeg' | 'image/webp' | 'svg' | 'pdf';

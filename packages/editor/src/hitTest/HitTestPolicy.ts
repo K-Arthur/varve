@@ -1,4 +1,4 @@
-import type { NodeId, SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@varve/scene';
 
 export interface HitTestPolicy {
   tolerancePx: number;

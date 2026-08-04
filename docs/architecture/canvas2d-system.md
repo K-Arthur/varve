@@ -196,7 +196,7 @@ semantics are not rewritten.
 
 ## Adding a renderable type safely
 
-1. Add the document type and persistence migration in `@strata/scene`.
+1. Add the document type and persistence migration in `@varve/scene`.
 2. Extend `sceneToEngine.ts` and the strict Rust/WASM bridge contract together.
 3. Add primitive bounds, hit testing, replay, export, and thumbnail behavior.
 4. Define clipping, opacity, blend, mask, and effect ordering explicitly.
@@ -212,7 +212,7 @@ pnpm bench:canvas
 npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium
 npx playwright test tests/e2e/canvas/frame-text-placement.spec.ts --project=webkit
 npx playwright test tests/e2e/canvas/zoom-stability.spec.ts --project=chromium --project=firefox --project=webkit --workers=1
-pnpm --filter @strata/desktop build
+pnpm --filter @varve/desktop build
 cargo test --workspace
 ```
 

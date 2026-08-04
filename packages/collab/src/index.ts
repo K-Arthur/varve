@@ -1,5 +1,5 @@
 /**
- * @strata/collab — local-first CRDT awareness + reconnect (Strata plan §3.2, Phase 2).
+ * @varve/collab — local-first CRDT awareness + reconnect (Strata plan §3.2, Phase 2).
  *
  * P5: Transaction hooks for Yjs integration. These are stub hook points
  * that will be wired to Yjs document transactions when sync lands in
@@ -11,7 +11,7 @@
  */
 
 /** Marker for the collab package. */
-export const PACKAGE = '@strata/collab' as const;
+export const PACKAGE = '@varve/collab' as const;
 
 // ── Collab user / cursor types ────────────────────────────────────
 

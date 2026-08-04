@@ -1,4 +1,4 @@
-import { createDefaultDocumentGrid } from '@strata/scene';
+import { createDefaultDocumentGrid } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { computeGridLines, type GridGeometry, resolveCanvasColor } from '../gridRenderer';
 

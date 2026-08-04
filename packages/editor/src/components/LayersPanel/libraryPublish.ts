@@ -5,8 +5,8 @@
  * resolves the selected component master and builds a transportable package.
  */
 
-import type { ComponentDefinition, Document, LibraryPackage, NodeId } from '@strata/scene';
-import { createLibrary, createLibraryPackage, publishComponentToLibrary } from '@strata/scene';
+import type { ComponentDefinition, Document, LibraryPackage, NodeId } from '@varve/scene';
+import { createLibrary, createLibraryPackage, publishComponentToLibrary } from '@varve/scene';
 
 export function findComponentByMasterRootId(
   doc: Document,

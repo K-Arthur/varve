@@ -5,7 +5,7 @@
 | Question | Finding | Evidence |
 |---|---|---|
 | Native `wgpu-rs` in Tauri process? | **No** — zero `wgpu` in any `Cargo.toml` / lockfile | `rg wgpu` empty |
-| Where does GPU run? | **(a) System webview** via `navigator.gpu` (JS/TS) | `@strata/compositor` WebGPUBackend |
+| Where does GPU run? | **(a) System webview** via `navigator.gpu` (JS/TS) | `@varve/compositor` WebGPUBackend |
 | Shared vs divergent | **Shared** JS compositor for Tauri webview + browser | Same Vite frontend |
 | Linux Tauri WebGPU? | **Unavailable** (WebKitGTK 2.52) | Research 2026-07-13; ADR-0003 |
 

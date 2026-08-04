@@ -20,7 +20,7 @@ ExportDialog.tsx ──► ExportLayer.tsx ──► ExportService.run() ──�
                                              │                          (tauri / web / memory)
                                              └─► SpecPanel/export.ts (raster + vector + PDF)
                                              └─► export/compositor.ts (capability-driven flatten)
-                                             └─► @strata/codegen (SVG / Tailwind / Flutter / SwiftUI)
+                                             └─► @varve/codegen (SVG / Tailwind / Flutter / SwiftUI)
                                              └─► strata-print (Rust: PDF screen / PDF-X1a / PDF-X4)
 ```
 
@@ -31,11 +31,11 @@ Supported formats today:
 | PNG / JPEG / WebP | `exportNodeAsRaster` → canvas `toBlob`/`convertToBlob` | Works (sRGB baseline) |
 | GIF (timeline) | `engine/gifExport.ts` TS encoder | Works |
 | MP4 / WebM (timeline) | WebCodecs / MediaRecorder / image-sequence | Works (Chromium) |
-| SVG | `@strata/codegen/svg.ts` scene→SVG (+ subtree raster fallback) | Works with limits |
+| SVG | `@varve/codegen/svg.ts` scene→SVG (+ subtree raster fallback) | Works with limits |
 | PDF (screen) | Rust `strata_print::export_pdf`; browser fallback `makeSimpleImagePdf` | Works; browser output is a raster-backed PDF |
 | PDF/X-1a / PDF/X-4 | Rust `strata_print::cmyk::{export_pdfx1a, export_pdfx4}` | Works on desktop; capability-gated on web |
 | AVIF | none | **Advertised, throws at runtime** |
-| React / Flutter / SwiftUI / CSS | `@strata/codegen` | Works (semantic, not pixel-exact) |
+| React / Flutter / SwiftUI / CSS | `@varve/codegen` | Works (semantic, not pixel-exact) |
 | `.strata-package.zip` | `packageExport.ts` + `DocumentCodec` | Works |
 | TIFF / BMP / ICO / EPS / PSD / JSON / HTML | none | Not implemented |
 
@@ -69,7 +69,7 @@ model. Details below.
 | Flat `replayIr` on OffscreenCanvas | `render/renderWorker.ts` + `workerHost.ts` | Editor preview |
 | `replayStructuredScene` | Scene-graph superset of `replayIr` (frames clip, group blend isolation, masks w/ invert/feather/density) | Raster + SVG-flatten export |
 | `strata-print` native PDF | Re-emits PDF operators from `SceneNode` (no IR) | PDF export (desktop) |
-| `@strata/codegen/svg.ts` | Scene→SVG serializer | SVG export |
+| `@varve/codegen/svg.ts` | Scene→SVG serializer | SVG export |
 
 Preview and export **share `replayIr` as the leaf painter but not the
 structural layer**, so a node with mask/group-isolation semantics can look
@@ -175,11 +175,11 @@ rendering, naming, and destination preview.
 ## 5. Proposed target architecture
 
 A **strangler migration** onto a canonical, versioned export domain model in
-`@strata/scene`:
+`@varve/scene`:
 
 ```
 Settings (UI)                     ┌────────────────────────────────────────────┐
-   │   ExportConfiguration[]      │        @strata/scene/export (canonical)   │
+   │   ExportConfiguration[]      │        @varve/scene/export (canonical)   │
    ▼                              │                                            │
 ExportRequest ──────────────────► │  model.ts     versioned types + migrations │
                                   │  capabilities format capability contracts  │
@@ -327,9 +327,9 @@ Gate results per milestone:
 
 | Milestone | Typecheck | Lint (touched) | Unit tests | E2E / audits |
 |-----------|-----------|----------------|------------|--------------|
-| M2 | `@strata/scene` clean | Biome clean | 39/39 `scene/src/export` | n/a |
-| M3 | `@strata/scene` clean | Biome clean | 90/90 `scene/src/export` | n/a |
-| M4 | `@strata/scene` clean | Biome clean | 104/104 `scene/src/export` | n/a |
+| M2 | `@varve/scene` clean | Biome clean | 39/39 `scene/src/export` | n/a |
+| M3 | `@varve/scene` clean | Biome clean | 90/90 `scene/src/export` | n/a |
+| M4 | `@varve/scene` clean | Biome clean | 104/104 `scene/src/export` | n/a |
 | M5 | editor + scene clean | Biome clean (touched) | scene+editor suites; 11 unrelated failures proven pre-existing | pre-commit audit-health pass |
 | M6 | editor + scene clean | Biome clean | 133/133 (focused) | pre-commit audit-health pass |
 | M7 | scene clean | Biome clean | 115/115 `scene/src/export` | pre-commit audit-health pass |
@@ -366,7 +366,7 @@ complexity gates) passes on every commit. Pre-existing instability findings
 (`shared/index.ts` I=1.000, `engine/index.ts` I=1.000) are barrel-file artifacts
 that predate this work.
 
-E2E note: the `@strata/scene/export` subpath requires a fresh Vite dev server
+E2E note: the `@varve/scene/export` subpath requires a fresh Vite dev server
 (`STRATA_E2E_PORT=<other>`); the long-lived server on the default port predates
 the `package.json` exports change and does not re-resolve it.
 

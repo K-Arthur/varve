@@ -6,7 +6,7 @@
  * WGSL alignment: rotation fills the 4-byte slot before origin (vec2f @ 24).
  * Total size = 32 bytes.
  *
- * World→screen matches `@strata/shared` `buildWorldToScreenAffine` /
+ * World→screen matches `@varve/shared` `buildWorldToScreenAffine` /
  * `applyCameraTransform` (floating origin, zoom, rotate about viewport
  * centre, pan). Affine on vertices is kurbo/canvas `a·x+c·y+e` /
  * `b·x+d·y+f` with transform=vec4(a,b,c,d), transform2=vec2(e,f).
@@ -42,8 +42,8 @@ struct VertexOutput {
 fn vs_main(input: VertexInput) -> VertexOutput {
   var out: VertexOutput;
   // Affine: transform=vec4(a,b,c,d), transform2=vec2(e,f) → x'=a·x+c·y+e, y'=b·x+d·y+f
-  // (kurbo / canvas / @strata/shared affine convention). Scalar form avoids
-  // WGSL matCxR*vecC column-count traps — see strata-bridge wgsl_validation.
+  // (kurbo / canvas / @varve/shared affine convention). Scalar form avoids
+  // WGSL matCxR*vecC column-count traps — see varve-bridge wgsl_validation.
   let world = vec2f(
     input.transform.x * input.localPos.x + input.transform.z * input.localPos.y + input.transform2.x,
     input.transform.y * input.localPos.x + input.transform.w * input.localPos.y + input.transform2.y,

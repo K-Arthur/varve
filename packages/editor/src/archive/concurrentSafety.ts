@@ -10,7 +10,7 @@
  * This is a lightweight optimistic concurrency control mechanism.
  */
 
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import type { BackupSnapshot } from './archiveTypes';
 import { collectSettingsBackup } from './settingsBackup';
 

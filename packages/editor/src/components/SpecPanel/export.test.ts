@@ -1,4 +1,4 @@
-import { awaitExportsReady, createEngine, createRasterSurface } from '@strata/engine';
+import { awaitExportsReady, createEngine, createRasterSurface } from '@varve/engine';
 import {
   addChild,
   addNode,
@@ -11,7 +11,7 @@ import {
   makeTextNode,
   patternFill,
   solidFill,
-} from '@strata/scene';
+} from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exportNodeAsPdf, exportNodeAsRaster } from './export';
 
@@ -19,8 +19,8 @@ const { imageLoad } = vi.hoisted(() => ({
   imageLoad: vi.fn(async (_source: string) => document.createElement('img')),
 }));
 
-vi.mock('@strata/engine', async () => {
-  const actual = await vi.importActual<typeof import('@strata/engine')>('@strata/engine');
+vi.mock('@varve/engine', async () => {
+  const actual = await vi.importActual<typeof import('@varve/engine')>('@varve/engine');
   return {
     ...actual,
     awaitExportsReady: vi.fn(actual.awaitExportsReady),

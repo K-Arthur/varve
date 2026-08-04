@@ -15,9 +15,9 @@
  * Research basis: Figma/Sketch position/size panel with aspect lock.
  */
 
-import type { SceneNode } from '@strata/scene';
-import { decomposeAffineFull, formatCoordForRuler } from '@strata/shared';
-import { Tooltip, TooltipProvider } from '@strata/ui';
+import type { SceneNode } from '@varve/scene';
+import { decomposeAffineFull, formatCoordForRuler } from '@varve/shared';
+import { Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -34,7 +34,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const isImageNode = nodes.some(
     (n) =>
       n.kind === 'shape' &&
-      (n as import('@strata/scene').ShapeNode).fills?.some(
+      (n as import('@varve/scene').ShapeNode).fills?.some(
         (f) => f.type === 'image' || f.type === 'pattern',
       ),
   );
@@ -129,7 +129,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
     });
 
   const lineShape = isLineOrArrow
-    ? ((nodes[0] as import('@strata/scene').ShapeNode).shape as
+    ? ((nodes[0] as import('@varve/scene').ShapeNode).shape as
         | { kind: 'line'; from: readonly [number, number]; to: readonly [number, number] }
         | { kind: 'arrow'; from: readonly [number, number]; to: readonly [number, number] })
     : null;

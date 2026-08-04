@@ -1,4 +1,4 @@
-import type { TemplateLibrary } from '@strata/platform';
+import type { TemplateLibrary } from '@varve/platform';
 import {
   BLANK_DOCUMENT_PRESET,
   BUILTIN_PRESET_GROUPS,
@@ -9,7 +9,7 @@ import {
   deriveWidth,
   type Preset,
   simplifyRatio,
-} from '@strata/shared';
+} from '@varve/shared';
 import {
   Button,
   Checkbox,
@@ -19,7 +19,7 @@ import {
   PresetPicker,
   SegmentedControl,
   type SegmentedOption,
-} from '@strata/ui';
+} from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { TemplatesGallery } from './TemplatesGallery';
 

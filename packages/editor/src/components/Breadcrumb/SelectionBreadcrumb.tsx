@@ -1,6 +1,6 @@
-import type { Document, NodeId } from '@strata/scene';
-import { isContainer } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+import type { Document, NodeId } from '@varve/scene';
+import { isContainer } from '@varve/scene';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { getOrCreateParentCache, getParentFast } from '../../scene/parentIndexCache';

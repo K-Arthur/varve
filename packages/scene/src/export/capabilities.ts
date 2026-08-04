@@ -9,10 +9,10 @@
  * These tables mirror the real backends:
  *  - raster PNG/JPEG/WebP: browser canvas toBlob/convertToBlob (sRGB, 8-bit)
  *  - GIF: TS encoder (packages/engine/src/gifExport.ts)
- *  - SVG: @strata/codegen scene→SVG with subtree raster fallback
+ *  - SVG: @varve/codegen scene→SVG with subtree raster fallback
  *  - PDF family: strata-print (Rust) with a strict vector subset; browser has
  *    a minimal raster-PDF fallback
- *  - codegen: @strata/codegen emitters (semantic, not pixel-exact)
+ *  - codegen: @varve/codegen emitters (semantic, not pixel-exact)
  *
  * Platform differences are expressed via `browser`/`desktop` flags; use
  * {@link capabilitiesForFormat} to get the contract for an active platform.

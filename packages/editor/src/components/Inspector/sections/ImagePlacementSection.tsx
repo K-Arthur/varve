@@ -9,9 +9,9 @@
  * Research basis: Figma image fill controls, Sketch image cropping,
  * Adobe Illustrator clip group placement.
  */
-import type { ImageFillData, ImageFit, SceneNode, ShapeNode } from '@strata/scene';
-import { getImageFill, isImageShape } from '@strata/scene';
-import { Icon, Tooltip, TooltipProvider } from '@strata/ui';
+import type { ImageFillData, ImageFit, SceneNode, ShapeNode } from '@varve/scene';
+import { getImageFill, isImageShape } from '@varve/scene';
+import { Icon, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

@@ -222,7 +222,7 @@ async function downloadLogs(repo, runId, token) {
   const res = await githubFetch(`/repos/${owner}/${name}/actions/runs/${runId}/logs`, token);
   const buffer = Buffer.from(await res.arrayBuffer());
 
-  const tmpDir = mkdtempSync(join(tmpdir(), 'strata-ci-logs-'));
+  const tmpDir = mkdtempSync(join(tmpdir(), 'varve-ci-logs-'));
   const zipPath = join(tmpDir, 'logs.zip');
   writeFileSync(zipPath, buffer);
 

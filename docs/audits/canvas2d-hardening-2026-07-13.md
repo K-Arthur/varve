@@ -216,7 +216,7 @@ scene/export contract, Canvas paint/lifecycle, camera/interaction, tests, then d
 - `cargo test --workspace`: 215 passed; doc tests passed.
 - `cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml`: 28 passed.
 - `cargo check -p strata-wasm --target wasm32-unknown-unknown`: passed.
-- `pnpm --filter @strata/desktop build`: passed; 2,191 modules transformed. Existing
+- `pnpm --filter @varve/desktop build`: passed; 2,191 modules transformed. Existing
   dynamic-import and large-chunk warnings remain.
 - Focused final Canvas/worker/export Vitest set: 130 passed.
 - Production/serial zoom workflows: Chromium 3/3, Firefox 3/3, WebKit 3/3 passed.

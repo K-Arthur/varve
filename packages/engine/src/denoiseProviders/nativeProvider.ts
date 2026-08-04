@@ -1,4 +1,4 @@
-import { isTauriRuntime } from '@strata/platform';
+import { isTauriRuntime } from '@varve/platform';
 import {
   decodeImageBytesToImageData,
   encodeImageDataToPngBytes,

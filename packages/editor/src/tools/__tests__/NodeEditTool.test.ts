@@ -1,4 +1,4 @@
-import type { PathPoint } from '@strata/engine';
+import type { PathPoint } from '@varve/engine';
 import { describe, expect, it, vi } from 'vitest';
 import { NodeEditTool } from '../NodeEditTool';
 import type { ToolContext } from '../types';

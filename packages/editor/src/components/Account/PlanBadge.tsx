@@ -1,4 +1,4 @@
-import { Button, useToast } from '@strata/ui';
+import { Button, useToast } from '@varve/ui';
 
 export interface Entitlement {
   tier: 'free' | 'pro' | 'team' | 'enterprise';

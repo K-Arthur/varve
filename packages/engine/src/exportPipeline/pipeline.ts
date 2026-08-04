@@ -28,7 +28,7 @@ import type {
   ExportWorkingSpace,
   RasterResizeOptions as ResizeOptions,
   SharpenOptions,
-} from '@strata/shared';
+} from '@varve/shared';
 import { ditherImageData } from './dither';
 import { quantizeToPalette } from './palette';
 import { type ResampleResult, resampleImageData } from './resample';

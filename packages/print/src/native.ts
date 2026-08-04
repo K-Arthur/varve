@@ -1,11 +1,11 @@
 /**
- * @strata/print — Tauri native backend.
+ * @varve/print — Tauri native backend.
  *
  * Calls the strata-print Rust crate via Tauri IPC (window.__TAURI__.core.invoke)
  * for PDF assembly and font outlining. On web/stub environments, this file
  * should NOT be imported (tree-shaken via the facade in index.ts).
  *
- * Research basis: same pattern as @strata/engine's nativeEngine()
+ * Research basis: same pattern as @varve/engine's nativeEngine()
  * (packages/engine/src/engine.ts:80-98).
  */
 import type { PdfExportOptions, PdfResult, PrintEngine } from './types';

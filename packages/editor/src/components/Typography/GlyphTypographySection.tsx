@@ -11,7 +11,7 @@
  * shaping.
  */
 
-import type { GlyphAdjustment, TextNode } from '@strata/scene';
+import type { GlyphAdjustment, TextNode } from '@varve/scene';
 import {
   canGlyphAdjust,
   clearGlyphAdjustments,
@@ -21,8 +21,8 @@ import {
   setGlyphAdjustment,
   setPairAdjustment,
   setTextKerningMode,
-} from '@strata/scene';
-import { Button, NumberInput, Select } from '@strata/ui';
+} from '@varve/scene';
+import { Button, NumberInput, Select } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import './glyph-typography.css';

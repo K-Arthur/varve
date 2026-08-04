@@ -5,7 +5,7 @@
  * `updateDoc`/`patch` for state wiring and undo-stack integration.
  */
 
-import type { Document, LayerColor, NodeId, SceneNode } from '@strata/scene';
+import type { Document, LayerColor, NodeId, SceneNode } from '@varve/scene';
 
 export function bulkSetNodeLockedDoc(doc: Document, ids: NodeId[], locked: boolean): Document {
   const nodes = { ...doc.nodes };

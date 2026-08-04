@@ -3,9 +3,9 @@
  * recent-colors session storage for the ColorPicker swatch palette.
  */
 
-import type { Document, ManagedColor, SceneNode } from '@strata/scene';
-import { resolveNodeFills } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import type { Document, ManagedColor, SceneNode } from '@varve/scene';
+import { resolveNodeFills } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 
 const MAX_DOC_COLORS = 32;
 const MAX_RECENT_COLORS = 16;

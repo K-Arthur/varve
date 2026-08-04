@@ -29,7 +29,7 @@ vi.mock('../../../../context', () => ({
   }),
 }));
 
-vi.mock('@strata/engine', () => ({
+vi.mock('@varve/engine', () => ({
   colorizationPipeline: {
     resolveRuntime: vi.fn(),
     execute: vi.fn().mockRejectedValue(new Error('not mocked')),
@@ -51,12 +51,12 @@ vi.mock('@strata/engine', () => ({
   listAllModels: vi.fn(() => []),
 }));
 
-vi.mock('@strata/scene', () => ({
+vi.mock('@varve/scene', () => ({
   imageShapeSrc: vi.fn(() => 'data:image/png;base64,mock'),
   isImageShape: vi.fn(() => true),
 }));
 
-vi.mock('@strata/ui', () => ({
+vi.mock('@varve/ui', () => ({
   Button: ({ children, onClick, disabled, variant }) => (
     <button type="button" onClick={onClick} disabled={disabled} data-variant={variant}>
       {children}

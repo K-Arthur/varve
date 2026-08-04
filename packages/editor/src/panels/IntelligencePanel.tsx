@@ -15,9 +15,9 @@ import {
   getModelLoader,
   normalizeEmbedding,
   rankBySimilarity,
-} from '@strata/engine';
-import { validatePrototype } from '@strata/prototype';
-import type { Document, NodeId, ShapeNode } from '@strata/scene';
+} from '@varve/engine';
+import { validatePrototype } from '@varve/prototype';
+import type { Document, NodeId, ShapeNode } from '@varve/scene';
 import {
   type AuditContext,
   type AuditFinding,
@@ -37,8 +37,8 @@ import {
   runIntelligenceAudit,
   runLinterScan,
   type SuppressionEntry,
-} from '@strata/scene';
-import { Icon, Tooltip } from '@strata/ui';
+} from '@varve/scene';
+import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
@@ -1668,14 +1668,14 @@ function LayoutTab() {
   const sel = selectedNodes();
   const frame =
     sel.length === 1 && sel[0]?.kind === 'frame'
-      ? (sel[0] as import('@strata/scene').FrameNode)
+      ? (sel[0] as import('@varve/scene').FrameNode)
       : null;
 
   const children = useMemo(() => {
     if (!frame) return [];
     return (frame.children ?? [])
       .map((id) => state.document.nodes[id])
-      .filter((n): n is import('@strata/scene').SceneNode => n != null);
+      .filter((n): n is import('@varve/scene').SceneNode => n != null);
   }, [frame, state.document.nodes]);
 
   const autoSuggestion = useMemo(() => {

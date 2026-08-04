@@ -6,7 +6,7 @@ import {
   makeShapeNode,
   nextNodeId,
   type Page,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { collectActivePageNodeIds, computeActivePageLayerCount } from './layerCounts';
 

@@ -1,4 +1,4 @@
-import { makeFrameNode, makeGroupNode } from '@strata/scene';
+import { makeFrameNode, makeGroupNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { canCullDescendantsWithContainerBounds } from './containerCulling';
 

@@ -1,4 +1,4 @@
-import type { PathPoint } from '@strata/engine';
+import type { PathPoint } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { booleanOp, cleanPolygon, hasSelfIntersections, resolveSelfIntersections } from './boolean';
 import type { ShapeNode } from './types';

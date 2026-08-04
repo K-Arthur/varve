@@ -1,5 +1,5 @@
-import { type TextOutlineOptions, textToOutlines } from '@strata/engine';
-import { managedColorToRgba } from '@strata/shared';
+import { type TextOutlineOptions, textToOutlines } from '@varve/engine';
+import { managedColorToRgba } from '@varve/shared';
 import type { Document } from '../document';
 import { getParent, makeGroupNode, makeShapeNode } from '../document';
 import type {

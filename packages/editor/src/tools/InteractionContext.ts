@@ -1,4 +1,4 @@
-import { isMac } from '@strata/platform';
+import { isMac } from '@varve/platform';
 
 export type InputSource = 'mouse' | 'pen' | 'touch' | 'keyboard';
 export type AxisLock = 'none' | 'x' | 'y';

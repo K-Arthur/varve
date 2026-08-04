@@ -1,5 +1,5 @@
 /**
- * @strata/print — stub backend for tests and web-only environments.
+ * @varve/print — stub backend for tests and web-only environments.
  *
  * Produces a minimal PDF-wrapped SVG document so the export pipeline can be
  * verified without the native Rust engine or Tauri IPC.

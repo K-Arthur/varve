@@ -8,7 +8,7 @@
  * focus trap, Escape/backdrop dismiss, and lazy content (children only render
  * while open).
  */
-import { Dialog } from '@strata/ui';
+import { Dialog } from '@varve/ui';
 import { ErrorBoundary } from './ErrorBoundary';
 import { StateMachineSection } from './Inspector/sections/StateMachineSection';
 

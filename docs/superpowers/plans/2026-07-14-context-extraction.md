@@ -21,9 +21,9 @@
 Create `packages/editor/src/context/usePersistence.ts` with:
 ```ts
 import { useCallback, useRef } from 'react';
-import type { Document, NodeId } from '@strata/scene';
-import { DocumentCodec, createDocument, migrateDocument } from '@strata/scene';
-import type { Platform } from '@strata/platform';
+import type { Document, NodeId } from '@varve/scene';
+import { DocumentCodec, createDocument, migrateDocument } from '@varve/scene';
+import type { Platform } from '@varve/platform';
 import type { EditorState } from './types';
 import { loadSettings, updateSettings } from '../settings';
 import { AutoSaveService } from '../autoSaveService';
@@ -223,8 +223,8 @@ Update the useMemo value to reference the returned functions.
 - [ ] **Step 3: Run verification**
 
 ```bash
-pnpm typecheck --filter @strata/editor
-pnpm test --filter @strata/editor -- --run
+pnpm typecheck --filter @varve/editor
+pnpm test --filter @varve/editor -- --run
 pnpm lint
 ```
 
@@ -256,7 +256,7 @@ Similar pattern: extract removeBackground, removeBackgroundWithOptions, cancelBa
 ### Task 3: Verify full quality gate
 
 - [ ] **Run: `pnpm typecheck` (editor/15 packages)**
-- [ ] **Run: `pnpm test --filter @strata/editor -- --run`**
+- [ ] **Run: `pnpm test --filter @varve/editor -- --run`**
 - [ ] **Run: `pnpm lint` (0 new errors)**
 - [ ] **Run: `pnpm audit:emoji`**
 - [ ] **Run: `pnpm audit:tokens`**

@@ -1,5 +1,5 @@
 {
-  "name": "@strata/import",
+  "name": "@varve/import",
   "version": "0.0.0",
   "private": true,
   "description": "Foreign design file format importers (SVG, bitmap, and extensible format registry).",
@@ -15,9 +15,9 @@
     "test": "cd ../.. && vitest run packages/import"
   },
   "dependencies": {
-    "@strata/engine": "workspace:*",
-    "@strata/scene": "workspace:*",
-    "@strata/shared": "workspace:*",
+    "@varve/engine": "workspace:*",
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*",
     "@webtoon/psd": "^0.4.0",
     "fflate": "^0.8.3",
     "pdfjs-dist": "^6.1.200"

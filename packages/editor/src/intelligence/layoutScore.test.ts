@@ -1,6 +1,6 @@
-import type { Document, NodeId } from '@strata/scene';
-import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
-import { translate } from '@strata/shared';
+import type { Document, NodeId } from '@varve/scene';
+import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import { translate } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { computeLayoutScore } from './layoutScore';
 

@@ -18,7 +18,7 @@
  * web performance guidelines.
  */
 
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import type { AuditCategory, AuditFinding } from './ir-types';
 
 export type RasterIssueType =

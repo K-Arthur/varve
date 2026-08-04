@@ -6,10 +6,10 @@
  * OKLab perceptual uniform color space (Ottosson 2020).
  *
  * This module operates on raw color tuples and does not depend on
- * @strata/scene types — the editor-level integration provides the bridge.
+ * @varve/scene types — the editor-level integration provides the bridge.
  */
 
-import { autoFixContrast, contrastRatio, relativeLuminance } from '@strata/shared';
+import { autoFixContrast, contrastRatio, relativeLuminance } from '@varve/shared';
 
 export const DEFAULT_HYSTERESIS = 0.5;
 export const MIN_CUSTOM_RATIO = 4.5;

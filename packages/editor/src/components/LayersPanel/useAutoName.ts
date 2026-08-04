@@ -4,7 +4,7 @@
  * Scans existing node names for the highest counter per type and generates
  * the next unique name.
  */
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 
 const TYPE_LABELS: Record<string, string> = {
   rect: 'Rectangle',

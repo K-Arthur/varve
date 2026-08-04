@@ -100,7 +100,7 @@ await page.getByRole('button', { name: /^open/i }).first().click({ force: true, 
 const chooser = await chooserPromise;
 await chooser.setFiles(DOC_PATH);
 await page.locator('.layers-panel').waitFor({ timeout: 60000 });
-console.log('OPENED doc, handle:', !!(await page.evaluate(() => !!window.__strataPerf)));
+console.log('OPENED doc, handle:', !!(await page.evaluate(() => !!window.__varvePerf)));
 await page.waitForTimeout(1500);
 
 const nodeCount = await page.evaluate(() => document.querySelectorAll('[role=treeitem]').length);
@@ -108,7 +108,7 @@ console.log('TREE ITEMS:', nodeCount);
 
 // Measure full-frame cost via CDP-driven zoom (real input).
 const zoomCost = await page.evaluate(async () => {
-  const perf = window.__strataPerf;
+  const perf = window.__varvePerf;
   if (!perf) return { err: 'no-perf' };
   perf.reset();
   const c = document.querySelector('canvas.editor-canvas__content-layer');
@@ -150,7 +150,7 @@ console.log('wheel->frame latency (zoom):', JSON.stringify(summary(zoomCost.samp
 // Wait a moment, then read steady-state frame cost.
 await page.waitForTimeout(1200);
 const diag = await page.evaluate(() => {
-  const f = window.__strataPerf ? window.__strataPerf.getFrames(80) : [];
+  const f = window.__varvePerf ? window.__varvePerf.getFrames(80) : [];
   return {
     total: f.map((x) => x.totalMs),
     build: f.map((x) => x.buildIrMs),
@@ -197,7 +197,7 @@ const dragMs = Date.now() - dragStart;
 console.log('drag total (CDP round-trip dominated):', dragMs, 'ms');
 await page.waitForTimeout(500);
 const diag2 = await page.evaluate(() => {
-  const f = window.__strataPerf ? window.__strataPerf.getFrames(40) : [];
+  const f = window.__varvePerf ? window.__varvePerf.getFrames(40) : [];
   return { total: f.map((x) => x.totalMs) };
 });
 console.log('post-drag frame totalMs:', JSON.stringify(summary(diag2.total)));

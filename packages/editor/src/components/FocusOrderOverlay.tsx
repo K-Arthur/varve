@@ -8,7 +8,7 @@
  * Research basis: WCAG 2.1 §2.4.3 (Focus Order), APG Tree View pattern.
  */
 
-import { analyzeFocusOrder, type FocusOrderAnalysis } from '@strata/scene';
+import { analyzeFocusOrder, type FocusOrderAnalysis } from '@varve/scene';
 import { useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 

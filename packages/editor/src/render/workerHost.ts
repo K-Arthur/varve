@@ -1,8 +1,8 @@
 /**
  * Render worker host — latest-only OffscreenCanvas replay with render-revision guards.
  */
-import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
-import { asRenderRevision, type Camera, type RenderRevision, type Viewport } from '@strata/shared';
+import type { SceneNode as EngineNode, RenderItem } from '@varve/engine';
+import { asRenderRevision, type Camera, type RenderRevision, type Viewport } from '@varve/shared';
 import {
   isInteractionTracingEnabled,
   recordInteractionSpanAt,
@@ -37,7 +37,7 @@ export interface WorkerRenderCommand {
   /** Pre-decoded ImageBitmaps keyed by image src URL (Structured Clone transport). */
   images?: Record<string, ImageBitmap>;
   /** Display-only proof transform applied inside the worker before replay. */
-  proof?: import('@strata/shared').ProofTransformConfig | null;
+  proof?: import('@varve/shared').ProofTransformConfig | null;
 }
 
 export type WorkerCommand =

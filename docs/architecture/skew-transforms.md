@@ -17,7 +17,7 @@ HTML Canvas and kurbo conventions. This matrix inherently supports shear/skew:
 
 ### Decomposition
 
-`decomposeAffineFull()` in `@strata/shared/affine.ts` extracts:
+`decomposeAffineFull()` in `@varve/shared/affine.ts` extracts:
 - `translateX`, `translateY` — from e, f
 - `rotation` — from atan2(b, a)
 - `scaleX`, `scaleY` — from hypot(a,b), det/scaleX

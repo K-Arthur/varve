@@ -12,7 +12,7 @@ Branch: master (commit f0669631)
 
 | Check | Result | Pre-existing |
 |-------|--------|-------------|
-| `pnpm --filter @strata/engine test` | 13 failed / 2812 passed | Yes — 12 contractVersion-undefined + 1 BiRefNet-SHA mismatch in `manifestContracts.test.ts` |
+| `pnpm --filter @varve/engine test` | 13 failed / 2812 passed | Yes — 12 contractVersion-undefined + 1 BiRefNet-SHA mismatch in `manifestContracts.test.ts` |
 | Git status | 13 modified files + 1 untracked (unrelated concurrent work) | Preserved |
 
 Pre-existing failures:

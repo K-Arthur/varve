@@ -7,7 +7,7 @@ const { mockDownloadModel, mockGetModelLoader } = vi.hoisted(() => ({
   mockGetModelLoader: vi.fn(),
 }));
 
-vi.mock('@strata/engine', () => ({
+vi.mock('@varve/engine', () => ({
   AVAILABLE_MODELS: [
     {
       id: 'birefnet-general-lite',

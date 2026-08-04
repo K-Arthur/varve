@@ -10,7 +10,7 @@
  * is indistinguishable from loop-built IR.
  */
 
-import { applyStyleOverrides, type SceneNode as EngineNode } from '@strata/engine';
+import { applyStyleOverrides, type SceneNode as EngineNode } from '@varve/engine';
 import {
   applyBindingsToNode,
   type Document,
@@ -18,7 +18,7 @@ import {
   type NodeId,
   type SceneNode,
   type VariableStore,
-} from '@strata/scene';
+} from '@varve/scene';
 import { sceneNodeToEngineNode } from '../render/sceneToEngine';
 import { getWorldTransform, type TransformCache } from '../scene/transformCache';
 import { expandReplayDependencies } from './dirtyQuery';

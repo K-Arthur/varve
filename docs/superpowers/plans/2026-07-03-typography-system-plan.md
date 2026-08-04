@@ -4,7 +4,7 @@
 
 **Goal:** Close the gap between Strata's typography data model and its actual render, measurement, and export behavior for rich text, variable fonts, and OpenType features.
 
-**Architecture:** Extend the engine IR text primitive to carry rich text and font-feature data, add a focused typography layout engine in `@strata/engine`, update the Canvas2D replay renderer to draw positioned runs, and improve SVG export and preflight to consume the same data. One layout structure feeds multiple outputs.
+**Architecture:** Extend the engine IR text primitive to carry rich text and font-feature data, add a focused typography layout engine in `@varve/engine`, update the Canvas2D replay renderer to draw positioned runs, and improve SVG export and preflight to consume the same data. One layout structure feeds multiple outputs.
 
 **Tech Stack:** TypeScript, Vitest, jsdom, Canvas2D, CanvasRenderingContext2D, CSS Font Loading API, SVG 1.1.
 
@@ -73,7 +73,7 @@ it('isRegistered returns true for registered families regardless of load state',
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @strata/engine test -- --run fontRegistry`
+Run: `pnpm --filter @varve/engine test -- --run fontRegistry`
 Expected: FAIL with assertion mismatch on `resolve`/`buildFontCSS`/`isAvailable`/`isRegistered`.
 
 - [ ] **Step 3: Implement minimal changes**
@@ -123,7 +123,7 @@ isRegistered(family: string): boolean {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @strata/engine test -- --run fontRegistry`
+Run: `pnpm --filter @varve/engine test -- --run fontRegistry`
 Expected: PASS (36 tests).
 
 - [ ] **Step 5: Commit**
@@ -183,7 +183,7 @@ it('buildIr preserves richText, variableAxes, and openTypeFeatures on text nodes
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @strata/engine test -- --run engine`
+Run: `pnpm --filter @varve/engine test -- --run engine`
 Expected: FAIL because `primitive.richText` is undefined.
 
 - [ ] **Step 3: Implement minimal changes**
@@ -192,7 +192,7 @@ Edit `packages/engine/src/types.ts`:
 
 1. Add imports at the top:
 ```ts
-import type { OpenTypeFeatureMap, PathTextSettings, RichText, TextMode, VariableFontSettings } from '@strata/scene';
+import type { OpenTypeFeatureMap, PathTextSettings, RichText, TextMode, VariableFontSettings } from '@varve/scene';
 ```
 
 2. Extend `SceneNode` text fields:
@@ -260,7 +260,7 @@ return {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @strata/engine test -- --run engine`
+Run: `pnpm --filter @varve/engine test -- --run engine`
 Expected: PASS (new + existing 24 tests).
 
 - [ ] **Step 5: Commit**
@@ -347,7 +347,7 @@ describe('layoutRichText', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @strata/engine test -- --run textLayout`
+Run: `pnpm --filter @varve/engine test -- --run textLayout`
 Expected: FAIL because `textLayout.ts` does not exist.
 
 - [ ] **Step 3: Implement minimal layout engine**
@@ -361,8 +361,8 @@ Create `packages/engine/src/textLayout.ts`:
  * Research basis: CSS inline layout, Figma derived text data, HarfBuzz glyph runs.
  */
 
-import type { CharacterFormat, Paragraph, ParagraphFormat, RichText } from '@strata/scene';
-import { measureRun, type RunMeasureOptions } from '@strata/shared';
+import type { CharacterFormat, Paragraph, ParagraphFormat, RichText } from '@varve/scene';
+import { measureRun, type RunMeasureOptions } from '@varve/shared';
 
 export interface PositionedRun {
   text: string;
@@ -600,7 +600,7 @@ export function layoutRichText(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @strata/engine test -- --run textLayout`
+Run: `pnpm --filter @varve/engine test -- --run textLayout`
 Expected: PASS (3 tests).
 
 - [ ] **Step 5: Commit**
@@ -665,7 +665,7 @@ it('paints rich text with per-run formatting', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @strata/engine test -- --run replay`
+Run: `pnpm --filter @varve/engine test -- --run replay`
 Expected: FAIL because rich text path is not implemented.
 
 - [ ] **Step 3: Implement minimal rich text rendering**
@@ -734,7 +734,7 @@ if (p.richText) {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @strata/engine test -- --run replay`
+Run: `pnpm --filter @varve/engine test -- --run replay`
 Expected: PASS (new + existing tests).
 
 - [ ] **Step 5: Commit**
@@ -875,7 +875,7 @@ it('detects missing variable axes', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm --filter @strata/scene test -- --run typographyPreflight`
+Run: `pnpm --filter @varve/scene test -- --run typographyPreflight`
 Expected: FAIL because `supportedAxes` option is not implemented.
 
 - [ ] **Step 3: Implement minimal preflight improvements**
@@ -925,7 +925,7 @@ if (options.fontMetadata && node.text) {
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `pnpm --filter @strata/scene test -- --run typographyPreflight`
+Run: `pnpm --filter @varve/scene test -- --run typographyPreflight`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -942,9 +942,9 @@ git commit -m "feat(scene): strengthen typography preflight with variable axis a
 - [ ] **Step 1: Run all relevant tests**
 
 ```bash
-pnpm --filter @strata/shared test -- --run
-pnpm --filter @strata/engine test -- --run
-pnpm --filter @strata/scene test -- --run
+pnpm --filter @varve/shared test -- --run
+pnpm --filter @varve/engine test -- --run
+pnpm --filter @varve/scene test -- --run
 pnpm exec vitest run packages/codegen/src -- --run
 ```
 

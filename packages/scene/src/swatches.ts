@@ -1,4 +1,4 @@
-import { managedColorToRgba } from '@strata/shared';
+import { managedColorToRgba } from '@varve/shared';
 import type { ColorSwatch, ManagedColor, RgbColor } from './colorManagement';
 import type { Document } from './document';
 

@@ -6,7 +6,7 @@
  * EditorSettings, so user opt-in survives sessions.
  */
 
-import { getPlatformInfo, type PlatformCapability } from '@strata/platform';
+import { getPlatformInfo, type PlatformCapability } from '@varve/platform';
 import { DEFAULT_FEATURES, loadSettings } from './settings';
 
 export type FeatureFlag =

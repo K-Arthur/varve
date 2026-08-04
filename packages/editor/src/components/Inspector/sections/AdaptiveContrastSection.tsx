@@ -9,9 +9,9 @@
  * APG Disclosure (Show/Hide) pattern.
  */
 
-import type { ManagedColor, SceneNode, TextNode } from '@strata/scene';
-import { contrastRatio, managedColorToRgba, relativeLuminance, wcagLevel } from '@strata/shared';
-import { Select } from '@strata/ui';
+import type { ManagedColor, SceneNode, TextNode } from '@varve/scene';
+import { contrastRatio, managedColorToRgba, relativeLuminance, wcagLevel } from '@varve/shared';
+import { Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

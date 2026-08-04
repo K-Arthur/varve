@@ -6,7 +6,7 @@
  * where isolated per-item testing misses real defects.
  */
 
-import type { ShapeNode } from '@strata/scene';
+import type { ShapeNode } from '@varve/scene';
 import {
   addNode,
   bakeLiveTraceToRaster,
@@ -14,7 +14,7 @@ import {
   flattenLiveTrace,
   setLiveTraceParams,
   setLiveTraceResolved,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { nodeLocalBounds } from '../nodeBounds';
 

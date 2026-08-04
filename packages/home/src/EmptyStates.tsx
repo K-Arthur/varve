@@ -1,5 +1,5 @@
-import type { SidebarSection } from '@strata/platform';
-import { Button, EmptyState, Icon } from '@strata/ui';
+import type { SidebarSection } from '@varve/platform';
+import { Button, EmptyState, Icon } from '@varve/ui';
 
 export interface EmptyStatesProps {
   section: SidebarSection | 'search' | 'missing';

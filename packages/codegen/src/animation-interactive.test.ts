@@ -1,4 +1,4 @@
-import { addSMState, addSMTransition, createDocument, createStateMachine } from '@strata/scene';
+import { addSMState, addSMTransition, createDocument, createStateMachine } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { exportInteractivePrototype, type InteractiveExportResult } from './animation-interactive';
 

@@ -6,7 +6,7 @@
  * and pathological documents.
  */
 
-import type { RenderItem } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { SubtreeIrCache } from '../subtreeIrCache';
 

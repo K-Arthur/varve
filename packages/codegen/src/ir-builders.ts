@@ -6,9 +6,9 @@
  * Spec builder functions for scene-to-IR conversion.
  */
 
-import type { Document, FrameNode, NodeId, SceneNode, ShapeNode, TextNode } from '@strata/scene';
-import { isImageShape, resolveMask } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import type { Document, FrameNode, NodeId, SceneNode, ShapeNode, TextNode } from '@varve/scene';
+import { isImageShape, resolveMask } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import type {
   AccessibilityMetadata,
   AppearanceSpec,
@@ -47,7 +47,7 @@ import {
 
 // ── Color Helpers ──────────────────────────────────────────────────────────────
 
-function managedColorToCss(color: import('@strata/scene').ManagedColor): string {
+function managedColorToCss(color: import('@varve/scene').ManagedColor): string {
   const [r, g, b, a] = managedColorToRgba(color);
   return a < 255 ? `rgba(${r},${g},${b},${(a / 255).toFixed(3)})` : `rgb(${r},${g},${b})`;
 }
@@ -127,7 +127,7 @@ function buildStrokeSpec(node: SceneNode): StrokeSpec[] {
         ? [
             {
               type: 'solid',
-              value: managedColorToCss(s.color as import('@strata/scene').ManagedColor),
+              value: managedColorToCss(s.color as import('@varve/scene').ManagedColor),
               opacity: 1,
             },
           ]
@@ -213,7 +213,7 @@ function buildEffectSpec(node: SceneNode): EffectSpec[] {
         radius: (e.blur as number) ?? 0,
         spread: (e.spread as number) ?? 0,
         color: e.color
-          ? managedColorToCss(e.color as import('@strata/scene').ManagedColor)
+          ? managedColorToCss(e.color as import('@varve/scene').ManagedColor)
           : '#000000',
         inset: e.type === 'innerShadow',
       } as ShadowSpec);
@@ -443,7 +443,7 @@ function guessLayoutMode(node: SceneNode, children: string[], doc: Document): La
     if (children.length <= 1) return 'absolute';
     const positions = children
       .map((id) => doc.nodes[id])
-      .filter((n): n is import('@strata/scene').SceneNode => n != null)
+      .filter((n): n is import('@varve/scene').SceneNode => n != null)
       .map((n) => ({
         x: n.transform[4] ?? 0,
       }));

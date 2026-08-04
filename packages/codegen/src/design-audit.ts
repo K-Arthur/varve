@@ -1,13 +1,13 @@
 /**
  * Combined design audit — aggregates vector, raster, color, and codegen
  * readiness findings. Contrast/typography audit is handled by the scene
- * intelligence module directly (runIntelligenceAudit from @strata/scene).
+ * intelligence module directly (runIntelligenceAudit from @varve/scene).
  *
  * Produces a normalized DesignAuditReport consumable by IntelligencePanel,
  * export UI, or JSON output.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 import { analyzeFlattening } from './flattening';
 import type { AuditCategory, AuditFinding, DesignAuditReport } from './ir-types';
 import { runRasterAudit } from './raster-audit';

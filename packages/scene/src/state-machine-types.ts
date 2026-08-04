@@ -1,4 +1,4 @@
-import type { EasingDefinition } from '@strata/shared';
+import type { EasingDefinition } from '@varve/shared';
 
 export type SMInputType = 'boolean' | 'number' | 'trigger';
 export type SMTransitionTrigger =

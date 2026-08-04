@@ -85,7 +85,7 @@ Update `apps/website/src/pages/releases.astro` if you want version-specific note
 **6. Build and verify**
 
 ```bash
-pnpm --filter @strata/website build
+pnpm --filter @varve/website build
 # Verify: 0 errors, 42+ pages built
 npx vitest run apps/website/src/test/releases.test.ts
 # Verify: 9/9 tests pass
@@ -175,7 +175,7 @@ function detectPlatform() {
 **4. Verify the build**
 
 ```bash
-pnpm --filter @strata/website build
+pnpm --filter @varve/website build
 ```
 
 **5. Commit and push**
@@ -192,7 +192,7 @@ The website deploys automatically via GitHub Actions when:
 ### Manual Deployment
 ```bash
 # Build locally
-pnpm --filter @strata/website build
+pnpm --filter @varve/website build
 
 # Verify build output
 ls apps/website/dist/

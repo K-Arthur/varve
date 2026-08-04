@@ -1,7 +1,7 @@
 /**
  * Guide overlay performance — 1K guides screen projection budget.
  */
-import { addGuide, createDocument, type Guide } from '@strata/scene';
+import { addGuide, createDocument, type Guide } from '@varve/scene';
 import { describe, expect, test } from 'vitest';
 import { guideLineScreenEndpoints } from '../../../canvas/guideGeometry';
 

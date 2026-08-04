@@ -1,6 +1,6 @@
-import { getPlatformInfo } from '@strata/platform';
-import type { Document } from '@strata/scene';
-import { AuditScheduler } from '@strata/scene';
+import { getPlatformInfo } from '@varve/platform';
+import type { Document } from '@varve/scene';
+import { AuditScheduler } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
 
 export interface AuditDiagnostics {

@@ -125,19 +125,19 @@ importers:
       '@fontsource-variable/ibm-plex-sans':
         specifier: ^5.2.0
         version: 5.2.8
-      '@strata/editor':
+      '@varve/editor':
         specifier: workspace:*
         version: link:../../packages/editor
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../../packages/engine
-      '@strata/home':
+      '@varve/home':
         specifier: workspace:*
         version: link:../../packages/home
-      '@strata/platform':
+      '@varve/platform':
         specifier: workspace:*
         version: link:../../packages/platform
-      '@strata/ui':
+      '@varve/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       onnxruntime-web:
@@ -168,7 +168,7 @@ importers:
       '@astrojs/tailwind':
         specifier: ^6.0.0
         version: 6.0.2(astro@5.18.2(@types/node@22.20.0)(jiti@1.21.7)(rollup@4.62.2)(supports-color@8.1.1)(tsx@4.22.4)(typescript@5.9.3)(yaml@2.9.0))(tailwindcss@3.4.19(tsx@4.22.4)(yaml@2.9.0))(ts-node@10.9.2(@types/node@22.20.0)(typescript@5.9.3))
-      '@strata/ui':
+      '@varve/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       astro:
@@ -205,34 +205,34 @@ importers:
 
   packages/ai:
     dependencies:
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
 
   packages/codegen:
     dependencies:
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/collab:
     dependencies:
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
 
   packages/compositor:
     dependencies:
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -242,40 +242,40 @@ importers:
 
   packages/editor:
     dependencies:
-      '@strata/ai':
+      '@varve/ai':
         specifier: workspace:*
         version: link:../ai
-      '@strata/codegen':
+      '@varve/codegen':
         specifier: workspace:*
         version: link:../codegen
-      '@strata/collab':
+      '@varve/collab':
         specifier: workspace:*
         version: link:../collab
-      '@strata/compositor':
+      '@varve/compositor':
         specifier: workspace:*
         version: link:../compositor
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/help':
+      '@varve/help':
         specifier: workspace:*
         version: link:../help
-      '@strata/import':
+      '@varve/import':
         specifier: workspace:*
         version: link:../import
-      '@strata/platform':
+      '@varve/platform':
         specifier: workspace:*
         version: link:../platform
-      '@strata/prototype':
+      '@varve/prototype':
         specifier: workspace:*
         version: link:../prototype
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
-      '@strata/ui':
+      '@varve/ui':
         specifier: workspace:*
         version: link:../ui
       '@tanstack/react-virtual':
@@ -309,10 +309,10 @@ importers:
 
   packages/engine:
     dependencies:
-      '@strata/platform':
+      '@varve/platform':
         specifier: workspace:*
         version: link:../platform
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
       bidi-js:
@@ -360,19 +360,19 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.7)
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/platform':
+      '@varve/platform':
         specifier: workspace:*
         version: link:../platform
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
-      '@strata/ui':
+      '@varve/ui':
         specifier: workspace:*
         version: link:../ui
       '@tanstack/react-virtual':
@@ -387,13 +387,13 @@ importers:
 
   packages/import:
     dependencies:
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
       '@webtoon/psd':
@@ -408,10 +408,10 @@ importers:
 
   packages/layout:
     dependencies:
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -427,34 +427,34 @@ importers:
 
   packages/print:
     dependencies:
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/platform':
+      '@varve/platform':
         specifier: workspace:*
         version: link:../platform
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
 
   packages/prototype:
     dependencies:
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
 
   packages/scene:
     dependencies:
-      '@strata/engine':
+      '@varve/engine':
         specifier: workspace:*
         version: link:../engine
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -478,10 +478,10 @@ importers:
       '@phosphor-icons/react':
         specifier: ^2.1.10
         version: 2.1.10(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@strata/scene':
+      '@varve/scene':
         specifier: workspace:*
         version: link:../scene
-      '@strata/shared':
+      '@varve/shared':
         specifier: workspace:*
         version: link:../shared
       lucide-react:

@@ -6,8 +6,8 @@
  * across sessions. These are NOT stored in the user library — they are
  * composed in at read time (see `useGradientPresetLibrary`).
  */
-import type { GradientPreset } from '@strata/scene';
-import { makeGradientPreset } from '@strata/scene';
+import type { GradientPreset } from '@varve/scene';
+import { makeGradientPreset } from '@varve/scene';
 
 export const GRADIENT_BUILTIN_KEYS = [
   'black-white',

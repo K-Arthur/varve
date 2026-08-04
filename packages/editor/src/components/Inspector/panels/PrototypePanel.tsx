@@ -1,4 +1,4 @@
-import { EmptyState } from '@strata/ui';
+import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { PrototypeFlowView } from '../../Prototype/PrototypeFlowView';
 import { DisclosureSection } from '../controls/DisclosureSection';

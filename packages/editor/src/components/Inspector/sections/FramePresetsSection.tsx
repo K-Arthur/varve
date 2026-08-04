@@ -3,21 +3,16 @@
  *
  * Shown when the Frame tool is active (create a new preset-sized frame) or a
  * single frame is selected (resize it to the preset). Presets come from the
- * shared, data-driven registry (@strata/shared) rendered via the shared
- * PresetPicker (@strata/ui) — searchable, grouped, with favorites/recents and
+ * shared, data-driven registry (@varve/shared) rendered via the shared
+ * PresetPicker (@varve/ui) — searchable, grouped, with favorites/recents and
  * a user-created "Custom" section backed by usePresetLibrary.
  *
  * Frame create/resize never reads colorMode/dpi/bleed off a preset — only
  * width/height/unit ever reach applyFramePreset, since frames have no color
  * mode (only documents do).
  */
-import {
-  BUILTIN_PRESET_GROUPS,
-  type CustomPreset,
-  type Preset,
-  physicalToPx,
-} from '@strata/shared';
-import { Button, PresetPicker } from '@strata/ui';
+import { BUILTIN_PRESET_GROUPS, type CustomPreset, type Preset, physicalToPx } from '@varve/shared';
+import { Button, PresetPicker } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
 import { usePresetLibrary } from '../../../presetLibrary';

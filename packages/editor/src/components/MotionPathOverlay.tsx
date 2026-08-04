@@ -8,8 +8,8 @@
  * Research basis: Adobe After Effects motion paths (ti/to handles),
  * Blender 3D Viewport motion path visualization, Figma Smart Animate.
  */
-import type { AnimationKeyframe, AnimationTrack } from '@strata/scene';
-import { getEasingFn } from '@strata/shared';
+import type { AnimationKeyframe, AnimationTrack } from '@varve/scene';
+import { getEasingFn } from '@varve/shared';
 import { useMemo } from 'react';
 import { useEditor } from '../context';
 

@@ -244,7 +244,7 @@ describe('drawContent callback staleness', () => {
 - [ ] **Step 4: Run unit test to verify it fails**
 
 ```bash
-pnpm --filter @strata/editor vitest run canvas/__tests__/drawContent.unit.test.ts
+pnpm --filter @varve/editor vitest run canvas/__tests__/drawContent.unit.test.ts
 ```
 Expected: PASS — these are architectural contract tests, they test the simulation logic which should be correct by construction.
 
@@ -397,7 +397,7 @@ describe('drawDiagnostics', () => {
 - [ ] **Step 7: Run diagnostics tests**
 
 ```bash
-pnpm --filter @strata/editor vitest run canvas/__tests__/drawDiagnostics.test.ts
+pnpm --filter @varve/editor vitest run canvas/__tests__/drawDiagnostics.test.ts
 ```
 Expected: PASS
 
@@ -494,7 +494,7 @@ describe('redrawCount invalidation', () => {
 - [ ] **Step 5: Run test**
 
 ```bash
-pnpm --filter @strata/editor vitest run canvas/__tests__/redrawCount.test.ts
+pnpm --filter @varve/editor vitest run canvas/__tests__/redrawCount.test.ts
 ```
 Expected: PASS
 
@@ -1141,7 +1141,7 @@ The `walkNodes` call at line 1031 is a fast O(n) operation; it can stay in the d
 - [ ] **Step 2: Verify no regressions**
 
 ```bash
-pnpm --filter @strata/editor vitest run canvas/__tests__/
+pnpm --filter @varve/editor vitest run canvas/__tests__/
 ```
 Expected: All pass
 
@@ -1502,7 +1502,7 @@ it('memory usage for 500 cached IR items stays under 5MB', () => {
 - [ ] **Step 2: Run benchmarks**
 
 ```bash
-pnpm --filter @strata/editor vitest run canvas/canvas10k.bench.test.ts --reporter=verbose
+pnpm --filter @varve/editor vitest run canvas/canvas10k.bench.test.ts --reporter=verbose
 ```
 Expected: All assertions pass
 

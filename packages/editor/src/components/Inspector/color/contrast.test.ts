@@ -3,7 +3,7 @@ import {
   formatContrast,
   relativeLuminance,
   wcagLevel,
-} from '@strata/ui/components/ColorPicker';
+} from '@varve/ui/components/ColorPicker';
 import { describe, expect, it } from 'vitest';
 
 describe('relativeLuminance', () => {

@@ -21,8 +21,8 @@
  *  - regenerate after a failure
  */
 
-import type { FileEntry, Platform, ThumbnailSourcePreference } from '@strata/platform';
-import { Button, Icon } from '@strata/ui';
+import type { FileEntry, Platform, ThumbnailSourcePreference } from '@varve/platform';
+import { Button, Icon } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import './thumbnailsource.css';
 

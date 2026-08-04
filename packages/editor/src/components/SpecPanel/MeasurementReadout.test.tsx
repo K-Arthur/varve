@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { createDocument, makeShapeNode } from '@strata/scene';
 import { render } from '@testing-library/react';
+import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { MeasurementReadout } from './MeasurementReadout';
 

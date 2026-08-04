@@ -25,6 +25,6 @@ test('check new button state', async ({ page }) => {
   }
 
   const html = await page.content();
-  console.log('Has strata-home:', html.includes('strata-home'));
+  console.log('Has varve-home:', html.includes('varve-home'));
   console.log('Has dialog:', html.includes('<dialog'));
 });

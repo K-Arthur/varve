@@ -40,10 +40,10 @@ jobs:
           cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Install dependencies
-        run: pnpm --filter "@strata/website..." install --frozen-lockfile
+        run: pnpm --filter "@varve/website..." install --frozen-lockfile
 
       - name: Build website
-        run: pnpm --filter @strata/website build
+        run: pnpm --filter @varve/website build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa

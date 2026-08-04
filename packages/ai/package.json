@@ -1,5 +1,5 @@
 {
-  "name": "@strata/ai",
+  "name": "@varve/ai",
   "version": "0.0.0",
   "private": true,
   "description": "Auto-trace controller and assist orchestrator (on-device + cloud).",
@@ -16,7 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@strata/scene": "workspace:*"
+    "@varve/scene": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }

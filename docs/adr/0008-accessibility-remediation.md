@@ -24,7 +24,7 @@ Systematic accessibility audit identified 30 remaining findings across Critical,
 
 **Decision:** Layer context menus implement ArrowUp/Down/Home/End navigation with `tabIndex={0}` on the focused item and `tabIndex={-1}` on others. Focus enters the menu on open and returns to the invoking element on close.
 
-**Rationale:** W3C APG Menu pattern. The existing `MenuInternal` in `@strata/ui` already implements this for portaled menus. The LayersPanel's custom context menu was extended with the same keyboard model for consistency.
+**Rationale:** W3C APG Menu pattern. The existing `MenuInternal` in `@varve/ui` already implements this for portaled menus. The LayersPanel's custom context menu was extended with the same keyboard model for consistency.
 
 ### 3. Keyboard reparenting uses Tab/Shift+Tab indent/outdent
 
@@ -50,7 +50,7 @@ Systematic accessibility audit identified 30 remaining findings across Critical,
 
 ### 6. Toolbar uses APG roving tabindex via shared Toolbar component
 
-**Decision:** `AlignDistributeBar` uses the `@strata/ui` `Toolbar` component which implements APG roving tabindex (ArrowLeft/Right/Home/End, single tab stop). Toggle buttons use `aria-pressed`.
+**Decision:** `AlignDistributeBar` uses the `@varve/ui` `Toolbar` component which implements APG roving tabindex (ArrowLeft/Right/Home/End, single tab stop). Toggle buttons use `aria-pressed`.
 
 **Rationale:** The `Toolbar` component already exists and implements the APG pattern correctly. Reusing it eliminates duplicated keyboard handling.
 

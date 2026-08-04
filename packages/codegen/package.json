@@ -1,5 +1,5 @@
 {
-  "name": "@strata/codegen",
+  "name": "@varve/codegen",
   "version": "0.0.0",
   "private": true,
   "description": "IR → React/Tailwind/Flutter/SwiftUI/SVG export and .fig/.AI parsers.",
@@ -16,9 +16,9 @@
     "test": "cd ../.. && vitest run packages/codegen"
   },
   "dependencies": {
-    "@strata/engine": "workspace:*",
-    "@strata/scene": "workspace:*",
-    "@strata/shared": "workspace:*"
+    "@varve/engine": "workspace:*",
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }

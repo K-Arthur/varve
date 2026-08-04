@@ -1,4 +1,4 @@
-import { setDocumentGrid as sceneSetDocumentGrid } from '@strata/scene';
+import { setDocumentGrid as sceneSetDocumentGrid } from '@varve/scene';
 import { useCallback } from 'react';
 import type { DocumentGridSettings } from './types';
 

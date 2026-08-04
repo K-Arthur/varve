@@ -8,9 +8,9 @@
  * AGENTS.md §"Evaluate the Layer Thumbnail Renderer Pragmatically".
  */
 
-import { generateThumbnail } from '@strata/engine';
-import type { SceneNode, ShapeNode, TextNode } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import { generateThumbnail } from '@varve/engine';
+import type { SceneNode, ShapeNode, TextNode } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { ThumbnailCache, thumbnailCacheKey } from '../thumbnailCache';
 

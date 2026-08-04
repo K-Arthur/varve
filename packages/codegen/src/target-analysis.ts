@@ -7,7 +7,7 @@
  * reports document-wide so the Export dialog can show a preflight summary.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 import { cssTargetGaps } from './css';
 import { cssModulesTargetGaps } from './css-modules';
 import { flutterTargetGaps } from './flutter';

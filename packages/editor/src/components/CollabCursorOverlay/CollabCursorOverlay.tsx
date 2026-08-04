@@ -2,7 +2,7 @@
  * Ephemeral collaborator cursor labels on the canvas (stub transport).
  */
 
-import type { CollabUser } from '@strata/collab';
+import type { CollabUser } from '@varve/collab';
 import type { CSSProperties } from 'react';
 import './CollabCursorOverlay.css';
 

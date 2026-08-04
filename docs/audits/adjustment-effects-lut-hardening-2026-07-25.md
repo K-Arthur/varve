@@ -67,7 +67,7 @@
 1. `effect-rendering.md` previously claimed the complete effect array renders in
    user order. The renderer actually enforces fixed type passes. Reordering a
    `layerBlur` relative to a `dropShadow` does not change their cross-pass order.
-2. Adjustment data is owned by `@strata/engine` but stored on `@strata/scene`
+2. Adjustment data is owned by `@varve/engine` but stored on `@varve/scene`
    nodes, an intentional dependency boundary that still leaves Rust untyped.
 3. The main file-import route still creates legacy raw-transform JSON. The new
    renderer codec reads it safely, but new imports should converge on the versioned
@@ -224,7 +224,7 @@ compositor.
 
 - Focused engine suite: 82 tests passed across LUT parsing, interpolation,
   persistence, application, and filter compositing.
-- `@strata/engine` TypeScript check: passed.
+- `@varve/engine` TypeScript check: passed.
 - Task-owned Biome check: passed.
 - Emoji audit: passed.
 - Design-token contrast audit: 120/120 pairs passed across light, dark, and

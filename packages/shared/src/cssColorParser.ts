@@ -3,13 +3,13 @@
  *
  * Parses common CSS color syntaxes and returns a ManagedColor-compatible
  * object (always RGB space). Designed for the shared package — avoids
- * importing from @strata/scene to prevent circular dependencies.
+ * importing from @varve/scene to prevent circular dependencies.
  *
  * Research basis: CSS Color Module Level 4 (W3C), CSS Color Module Level 3,
  * CSS Color Module Level 5 (oklch/oklab).
  */
 
-// ── Color type shim (mirrors @strata/scene ManagedColor → RgbColor) ────────
+// ── Color type shim (mirrors @varve/scene ManagedColor → RgbColor) ────────
 
 /** RGB color matching the ManagedColor shape (0–255 per channel). */
 interface CssRgbColor {

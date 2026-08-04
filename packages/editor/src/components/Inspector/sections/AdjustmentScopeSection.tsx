@@ -4,14 +4,14 @@
  * Shows the current scope mode and allows changing it.
  * Renders when a single adjustment node is selected.
  */
-import type { AdjustmentScope, Document, NodeId } from '@strata/scene';
+import type { AdjustmentScope, Document, NodeId } from '@varve/scene';
 import {
   collectAllEligibleNodes,
   estimateAdjustmentImpact,
   resolveAdjustmentScope,
   validateScope,
-} from '@strata/scene';
-import { Icon, Select } from '@strata/ui';
+} from '@varve/scene';
+import { Icon, Select } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 
 export interface AdjustmentScopeSectionProps {

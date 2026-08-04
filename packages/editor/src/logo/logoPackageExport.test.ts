@@ -4,7 +4,7 @@
  * existing export pipeline tests; this suite tests the pure composition.)
  */
 
-import { addLogoVariant, createDocument, createLogoProject } from '@strata/scene';
+import { addLogoVariant, createDocument, createLogoProject } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildReadme, collectPalette, managedColorToHex } from './logoPackageExport';
 

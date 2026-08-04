@@ -14,7 +14,7 @@
  */
 
 import { useDroppable } from '@dnd-kit/core';
-import { type CompositorBackend, createCompositorBackend } from '@strata/compositor';
+import { type CompositorBackend, createCompositorBackend } from '@varve/compositor';
 import {
   adjustmentsToFilters,
   applyBackgroundBlurBackdrop,
@@ -40,9 +40,9 @@ import {
   renderEnhancedMask,
   replayIr,
   traceSceneNodeOutline,
-} from '@strata/engine';
-import { type ImportFileInput, ImportService } from '@strata/import';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+} from '@varve/engine';
+import { type ImportFileInput, ImportService } from '@varve/import';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import {
   activePageNodes,
   addNode,
@@ -62,7 +62,7 @@ import {
   resolveAdjustmentScope,
   resolveAllStyles,
   walkNodes,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   type Camera,
   computeFloatingOrigin,
@@ -70,7 +70,7 @@ import {
   managedColorToCss,
   screenToWorld,
   worldToScreen,
-} from '@strata/shared';
+} from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeProfile, resetProfile } from './canvas/adaptiveProfile';
 import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
@@ -296,9 +296,9 @@ function renderGroupInsetEffect(
     type: 'innerShadow' | 'innerGlow';
     blur: number;
     spread: number;
-    color: import('@strata/engine').EngineColor;
+    color: import('@varve/engine').EngineColor;
     opacity: number;
-    blendMode: import('@strata/scene').BlendMode;
+    blendMode: import('@varve/scene').BlendMode;
   },
   gCanvas: CompositeCanvas,
   renderScale: number,
@@ -643,7 +643,7 @@ export function CanvasArea({
   }, []);
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
-  const [warpMesh, setWarpMesh] = useState<import('@strata/engine').MeshWarp | null>(null);
+  const [warpMesh, setWarpMesh] = useState<import('@varve/engine').MeshWarp | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [displayDpr, setDisplayDpr] = useState(() =>
     typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
@@ -659,8 +659,8 @@ export function CanvasArea({
     screenX: number;
     screenY: number;
     candidates: Array<{
-      nodeId: import('@strata/scene').NodeId;
-      node: import('@strata/scene').SceneNode;
+      nodeId: import('@varve/scene').NodeId;
+      node: import('@varve/scene').SceneNode;
       depth: number;
     }>;
   } | null>(null);
@@ -1609,7 +1609,7 @@ export function CanvasArea({
           const isPathText =
             !!pathNodeId && (built as { shape?: { kind: string } }).shape?.kind === 'text';
           if (isPathText) {
-            const pathNode = doc.nodes[pathNodeId] as import('@strata/scene').ShapeNode | undefined;
+            const pathNode = doc.nodes[pathNodeId] as import('@varve/scene').ShapeNode | undefined;
             if (pathNode?.shape) {
               (built.shape as Record<string, unknown>).pathShape = pathNode.shape;
             }
@@ -1910,7 +1910,7 @@ export function CanvasArea({
               {
                 draw: (contentCtx: CanvasRenderingContext2D) => {
                   contentCtx.setTransform(baseTransform);
-                  for (const childId of (n as import('@strata/scene').ContainerNode).children) {
+                  for (const childId of (n as import('@varve/scene').ContainerNode).children) {
                     if (childId !== maskSrcId) replaySubtreeToCtx(childId, contentCtx);
                   }
                   // Render mask source on top of masked content unless hideMaskSource is true
@@ -1931,7 +1931,7 @@ export function CanvasArea({
           }
           function traceVectorMaskPoints(
             ctx: CanvasRenderingContext2D,
-            points: import('@strata/engine').PathPoint[],
+            points: import('@varve/engine').PathPoint[],
             closed: boolean,
           ): void {
             if (points.length === 0) return;
@@ -1969,7 +1969,7 @@ export function CanvasArea({
               if (!offCtx) return;
               offCtx.setTransform(baseTransform);
               // Render all non-mask-source children to offscreen canvas
-              for (const childId of (n as import('@strata/scene').ContainerNode).children) {
+              for (const childId of (n as import('@varve/scene').ContainerNode).children) {
                 if (childId !== maskSrcId) replaySubtreeToCtx(childId, offCtx);
               }
               // Render mask source on top unless hideMaskSource
@@ -2028,7 +2028,7 @@ export function CanvasArea({
                 clipCtx.clip(mask.fillRule ?? 'nonzero');
               }
               clipCtx.setTransform(baseTransform);
-              for (const childId of (n as import('@strata/scene').ContainerNode).children) {
+              for (const childId of (n as import('@varve/scene').ContainerNode).children) {
                 if (childId !== maskSrcId) replaySubtreeToCtx(childId, clipCtx);
               }
               // Render mask source on top of clipped children unless hideMaskSource
@@ -2395,7 +2395,7 @@ export function CanvasArea({
             }
           }
         } else if (n.kind === 'adjustment') {
-          const adjNode = n as import('@strata/scene').AdjustmentNode;
+          const adjNode = n as import('@varve/scene').AdjustmentNode;
           const adjList = adjNode.adjustments ?? [];
           const adjFilters = adjustmentsToFilters(adjList);
           if (adjFilters.length === 0) return;
@@ -2930,7 +2930,7 @@ export function CanvasArea({
       // Parse all files FIRST (expensive SVG parsing) before any setState
       const parsedItems: {
         node: SceneNode;
-        sourceDoc: import('@strata/scene').Document;
+        sourceDoc: import('@varve/scene').Document;
         position?: { x: number; y: number };
       }[] = [];
       const importInputs = files.map((file): ImportFileInput => {

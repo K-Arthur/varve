@@ -6,7 +6,7 @@
  * `GradientPreset[]` values plus structured warnings. Document state is never
  * touched here.
  */
-import type { GradientPreset } from '@strata/scene';
+import type { GradientPreset } from '@varve/scene';
 import { GrdError } from './descriptor';
 import { detectGradientFormat, type GradientFileFormat } from './detect';
 import { decodeGradientPresets } from './nativeFormat';

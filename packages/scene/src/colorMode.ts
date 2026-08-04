@@ -27,7 +27,7 @@
  *   emitted and the conversion is skipped.
  */
 
-import { cmykToRgb, labToRgb, lchToRgb, rgbToCmyk } from '@strata/shared';
+import { cmykToRgb, labToRgb, lchToRgb, rgbToCmyk } from '@varve/shared';
 import {
   type ColorConfig,
   type ColorMode,
@@ -63,7 +63,7 @@ function luminance(r: number, g: number, b: number): number {
   return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 }
 
-/** Analytical RGB<->CMYK (0-255 scale) — single source: @strata/shared. */
+/** Analytical RGB<->CMYK (0-255 scale) — single source: @varve/shared. */
 function rgbToCmykChannels(
   r: number,
   g: number,

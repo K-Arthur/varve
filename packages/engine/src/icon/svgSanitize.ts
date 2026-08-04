@@ -2,7 +2,7 @@
  * SVG sanitization for untrusted icon content.
  *
  * All imported and downloaded SVG is treated as untrusted. This module walks
- * the parsed element tree (from the string-based XML parser in @strata/import)
+ * the parsed element tree (from the string-based XML parser in @varve/import)
  * and strips or rejects anything that could execute code, exfiltrate data, or
  * cause denial-of-service.
  *
@@ -232,7 +232,7 @@ export class SanitizeError extends Error {
   }
 }
 
-// Parsed element shape (matches @strata/import svg/shared ParsedElement).
+// Parsed element shape (matches @varve/import svg/shared ParsedElement).
 interface ParsedElement {
   tag: string;
   attrs: Record<string, string>;

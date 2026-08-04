@@ -8,8 +8,8 @@
  * @module AuditProfileSwitcher
  */
 
-import type { EditorMode, WorkspaceMode } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import type { EditorMode, WorkspaceMode } from '@varve/shared';
+import { Icon } from '@varve/ui';
 import { useState } from 'react';
 
 /**

@@ -1,7 +1,7 @@
 /**
  * Inspector panel + controls styles (Strata plan §6 — token-only).
  *
- * Every colour/space/type/radius/motion value traces to a @strata/ui token.
+ * Every colour/space/type/radius/motion value traces to a @varve/ui token.
  * Research basis: ARIA APG Disclosure / Spinbutton / Slider / Radiogroup;
  * WCAG 2.2 focus-visible (2.4.7) and status-not-by-colour (1.4.1).
  */
@@ -221,7 +221,7 @@
   padding: var(--space-1);
 }
 
-/* Frame presets now render via @strata/ui's PresetPicker/PresetTile
+/* Frame presets now render via @varve/ui's PresetPicker/PresetTile
  * (preset-picker.css) — see FramePresetsSection.tsx. */
 
 /* ---------- Disclosure section (APG) — flat Figma-style ----------

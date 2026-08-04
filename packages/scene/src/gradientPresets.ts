@@ -23,8 +23,8 @@ import type {
   EmbeddedGradientOpacityStop,
   EmbeddedGradientPreset,
   GradientMapStop,
-} from '@strata/engine';
-import { managedColorToRgba } from '@strata/shared';
+} from '@varve/engine';
+import { managedColorToRgba } from '@varve/shared';
 import type { ManagedColor } from './colorManagement';
 import { rgbFromTuple } from './colorManagement';
 import type { GradientInterpolationSpace } from './types';

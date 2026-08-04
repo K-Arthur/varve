@@ -6,10 +6,10 @@
  * independent of tool state lets refine, trimap, mouse, pen, and touch paths
  * share identical pixel targeting.
  */
-import { computeImagePlacement, type ImagePlacement, localToSourcePixel } from '@strata/engine';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
-import { buildParentIndexMap, resolveNodePaints } from '@strata/scene';
-import { applyAffine, tryInvertAffine } from '@strata/shared';
+import { computeImagePlacement, type ImagePlacement, localToSourcePixel } from '@varve/engine';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
+import { buildParentIndexMap, resolveNodePaints } from '@varve/scene';
+import { applyAffine, tryInvertAffine } from '@varve/shared';
 import { nodeLocalBounds, nodeWorldTransform } from '../scene/world';
 
 export interface PrepareImageMaskMapperOptions {

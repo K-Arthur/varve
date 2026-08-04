@@ -11,7 +11,7 @@
  * for final ICC conversion.
  */
 
-import type { ProofRenderingIntent } from '@strata/shared';
+import type { ProofRenderingIntent } from '@varve/shared';
 import type { Document } from './document';
 
 export interface ProofGamutWarningConfig {

@@ -65,14 +65,14 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 
 ### 1.6 Import infrastructure
 
-- `@strata/import` registry: `getParserForExtension` / `getParserForData` (content sniffing) / `ImportParser {parse, canParse, supportedExtensions}`.
+- `@varve/import` registry: `getParserForExtension` / `getParserForData` (content sniffing) / `ImportParser {parse, canParse, supportedExtensions}`.
 - `ImportService.importFiles` → per-file `parse` → `DocumentCodec.normalize` → `FidelityIssue[]` → `ImportFileReport`. **No gradient importer exists.**
 - File pickers: hidden `<input type=file>` (Shell.tsx:571-668), Tauri dialogs (`platform.openDocumentFromDisk`), HTML5 + native `tauri://drag-*` drop (`dropUtils.ts`, `CanvasArea.tsx:2601-2690`).
 - PSD import uses `@webtoon/psd` and warns adjustment layers unsupported.
 
 ### 1.7 Test infrastructure
 
-- Vitest (jsdom for ui/editor), Playwright E2E (`tests/e2e`), visual harness `tests/e2e/visual/replay.spec.ts` + per-DPR snapshots, `@strata/engine` bench, `gradientMap.test.ts`/`gradientMapFilter.test.ts` exist.
+- Vitest (jsdom for ui/editor), Playwright E2E (`tests/e2e`), visual harness `tests/e2e/visual/replay.spec.ts` + per-DPR snapshots, `@varve/engine` bench, `gradientMap.test.ts`/`gradientMapFilter.test.ts` exist.
 - `vitest.setup.ts` mocks canvas2d/OffscreenCanvas/ImageData/PointerEvent/dialog.
 - Scene fixtures: `packages/scene/src/__fixtures__` (raw doc JSON migrated in tests).
 - `pnpm test` / `pnpm typecheck` / `pnpm lint` / `just gate` / `scripts/audit-architecture.mjs --ci`.
@@ -80,10 +80,10 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 ## 2. Architectural decisions
 
 1. **Gradient maps are adjustments, not fills.** A gradient map remaps rendered tonal values; it stays a `gradientMap` `Adjustment` on `AdjustmentNode` with a scope. Ordinary gradient fills remain spatial `GradientFill`. The two share stop/interpolation primitives but keep distinct scene representations (matches the task's requirement).
-2. **Canonical `GradientPreset` lives in `@strata/scene`** (uses `ManagedColor`); the engine keeps a structural mirror (`GradientMapStop`/engine params with `Color` tuples) for the render/IR path, exactly like `EngineColor` mirrors `ManagedColor`.
+2. **Canonical `GradientPreset` lives in `@varve/scene`** (uses `ManagedColor`); the engine keeps a structural mirror (`GradientMapStop`/engine params with `Color` tuples) for the render/IR path, exactly like `EngineColor` mirrors `ManagedColor`.
 3. **The existing adjustment pipeline is the rendering path** for raster, vector, text, groups, frames, and mixed subtrees (backdrop compositing of scope targets). No new renderer is needed; the new parameters flow through `FilterIR.gradientMap` → `applySoftwareFilter` → `applyGradientMapFilter`.
-4. **LUT evaluation is consolidated onto `@strata/shared/colorInterpolation`** (`sampleGradientColor` + `interpolateManagedColor` + `applyMidpointBias`), unifying the previously-divergent midpoint formula and enabling sRGB/Oklab/Oklch/HSL interpolation for gradient maps.
-5. **`.grd` parser is isolated in `@strata/import/src/gradient/`**, parser-fuzzable, bounded, and produces structured warnings separate from errors. Native `.strata-gradient.json` is the human-inspectable interchange format.
+4. **LUT evaluation is consolidated onto `@varve/shared/colorInterpolation`** (`sampleGradientColor` + `interpolateManagedColor` + `applyMidpointBias`), unifying the previously-divergent midpoint formula and enabling sRGB/Oklab/Oklch/HSL interpolation for gradient maps.
+5. **`.grd` parser is isolated in `@varve/import/src/gradient/`**, parser-fuzzable, bounded, and produces structured warnings separate from errors. Native `.strata-gradient.json` is the human-inspectable interchange format.
 6. **Persistence is additive**: new optional `GradientMapAdjustment` fields (backward compatible), `Document.gradientPresets` (document-local, portability), user-level library in `PresetKVStore`, version bump `2.10 → 2.11`.
 7. **No new panel slot.** The Gradient Map editor + preset browser lives inside the standard AdjustmentPanel per-effect editor (where gradient maps are already configured). Import review uses the shared `Dialog`/`Menu`/`Select` primitives.
 8. **No new canvas GPU backend.** Existing `software-cpu` + `raster-export` path covers Canvas2D, worker-excluded structural scenes, and exports. A WebGPU/WebGL gradient-map compute pass is deferred (see §6.3) — Linux WebKitGTK cannot be assumed to expose either.
@@ -92,11 +92,11 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 
 | Package | Files |
 |---|---|
-| `@strata/scene` | `gradientPresets.ts` (new), `types.ts` (Document.gradientPresets), `document.ts`, `version.ts` (2.11 migration), `index.ts` |
-| `@strata/engine` | `gradientMap.ts` (rewrite LUT+params), `filters.ts` (GradientMapAdjustment fields), `types.ts` (FilterIR), `filterCompositor.ts` (param pass-through), `index.ts` |
-| `@strata/shared` | (none required — reuse `colorInterpolation`, `colorConversion`, `contrast`) |
-| `@strata/import` | `gradient/` (new): `detect.ts`, `descriptor.ts`, `photoshopGrd.ts`, `legacyGrd.ts`, `normalize.ts`, `validate.ts`, `nativeFormat.ts`, `index.ts`; `index.ts` exports; fixtures + tests |
-| `@strata/editor` | `gradientPresets/library.ts` (user preset store hook), `gradientPresets/builtin.ts`, `components/Inspector/controls/GradientMapEditor.tsx` (rework), `components/Inspector/controls/GradientMapPresetBrowser.tsx` (new), `components/gradientMap/import/` (review dialog + handler), `AdjustmentEditor.tsx` wiring |
+| `@varve/scene` | `gradientPresets.ts` (new), `types.ts` (Document.gradientPresets), `document.ts`, `version.ts` (2.11 migration), `index.ts` |
+| `@varve/engine` | `gradientMap.ts` (rewrite LUT+params), `filters.ts` (GradientMapAdjustment fields), `types.ts` (FilterIR), `filterCompositor.ts` (param pass-through), `index.ts` |
+| `@varve/shared` | (none required — reuse `colorInterpolation`, `colorConversion`, `contrast`) |
+| `@varve/import` | `gradient/` (new): `detect.ts`, `descriptor.ts`, `photoshopGrd.ts`, `legacyGrd.ts`, `normalize.ts`, `validate.ts`, `nativeFormat.ts`, `index.ts`; `index.ts` exports; fixtures + tests |
+| `@varve/editor` | `gradientPresets/library.ts` (user preset store hook), `gradientPresets/builtin.ts`, `components/Inspector/controls/GradientMapEditor.tsx` (rework), `components/Inspector/controls/GradientMapPresetBrowser.tsx` (new), `components/gradientMap/import/` (review dialog + handler), `AdjustmentEditor.tsx` wiring |
 | `tests/e2e` | `gradient-map/` specs |
 | `docs/` | `implementation/gradient-map-progress.md`, `architecture/gradient-map-system.md` |
 

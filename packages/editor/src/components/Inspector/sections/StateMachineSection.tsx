@@ -10,9 +10,9 @@
  * APG Disclosure/Spinbox/Combobox patterns.
  */
 
-import type { SMTransitionTrigger, SMValidationIssue, StateMachine } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
-import { Button, Icon, NumberInput, Select, Tooltip } from '@strata/ui';
+import type { SMTransitionTrigger, SMValidationIssue, StateMachine } from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
+import { Button, Icon, NumberInput, Select, Tooltip } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

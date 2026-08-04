@@ -1,5 +1,5 @@
 /**
- * @strata/platform — types shared by every Platform implementation.
+ * @varve/platform — types shared by every Platform implementation.
  *
  * Research basis: the "Local-First Software" essay (Kleppmann et al., 2019)
  * — the application's state lives on the user's device first; remote sync is

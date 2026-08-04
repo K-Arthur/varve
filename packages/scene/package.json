@@ -1,5 +1,5 @@
 {
-  "name": "@strata/scene",
+  "name": "@varve/scene",
   "version": "0.0.0",
   "private": true,
   "description": "Document model: scene graph, ComponentDefinition with typed slots, VariableStore with math.",
@@ -20,8 +20,8 @@
     "test": "cd ../.. && vitest run packages/scene"
   },
   "dependencies": {
-    "@strata/shared": "workspace:*",
-    "@strata/engine": "workspace:*"
+    "@varve/shared": "workspace:*",
+    "@varve/engine": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }

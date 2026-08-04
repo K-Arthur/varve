@@ -11,9 +11,9 @@
  * Research basis: Photoshop Refine Edge brush, GIMP foreground-select tool,
  *                 Canvas 2D ImageData compositing.
  */
-import { createBrushMask } from '@strata/engine';
-import type { ShapeNode } from '@strata/scene';
-import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@strata/scene';
+import { createBrushMask } from '@varve/engine';
+import type { ShapeNode } from '@varve/scene';
+import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import { prepareImageMaskMapper } from './imageMaskCoordinates';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';

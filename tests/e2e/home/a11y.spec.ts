@@ -7,7 +7,7 @@ test.describe('Home - axe-core scan', () => {
     await navigateToHome(page);
 
     const results = await new AxeBuilder({ page })
-      .include('.strata-home')
+      .include('.varve-home')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
 
@@ -48,7 +48,7 @@ test.describe('Home - axe-core scan', () => {
     await page.waitForTimeout(200);
 
     const results = await new AxeBuilder({ page })
-      .include('.strata-home__content')
+      .include('.varve-home__content')
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze();
 

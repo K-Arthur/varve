@@ -4,10 +4,10 @@ import {
   depthToHeatmapImageData,
   getInferenceWorkerHost,
   getModelLoader,
-} from '@strata/engine';
-import type { SceneNode, ShapeNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+} from '@varve/engine';
+import type { SceneNode, ShapeNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

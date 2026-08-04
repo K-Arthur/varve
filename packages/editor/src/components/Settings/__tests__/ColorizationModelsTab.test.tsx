@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   mockSubscribe: vi.fn(() => () => {}),
 }));
 
-vi.mock('@strata/engine', () => ({
+vi.mock('@varve/engine', () => ({
   resolveAcquisition: (entry: { bundled: boolean; remoteUrl: string; checksum: string }) => {
     if (entry.bundled)
       return {
@@ -60,7 +60,7 @@ vi.mock('@strata/engine', () => ({
   ]),
 }));
 
-vi.mock('@strata/ui', () => ({
+vi.mock('@varve/ui', () => ({
   Button: ({ children, onClick, disabled, variant }) => (
     <button type="button" onClick={onClick} disabled={disabled} data-variant={variant}>
       {children}

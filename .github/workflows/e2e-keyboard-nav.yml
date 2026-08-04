@@ -44,11 +44,11 @@ jobs:
         browser: [chromium, firefox, webkit]
         include:
           - os: ubuntu-latest
-            dev-command: xvfb-run --auto-servernum pnpm --filter @strata/desktop dev
+            dev-command: xvfb-run --auto-servernum pnpm --filter @varve/desktop dev
           - os: macos-latest
-            dev-command: pnpm --filter @strata/desktop dev
+            dev-command: pnpm --filter @varve/desktop dev
           - os: windows-latest
-            dev-command: pnpm --filter @strata/desktop dev
+            dev-command: pnpm --filter @varve/desktop dev
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:

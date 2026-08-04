@@ -8,8 +8,8 @@
 //
 // Canvas-level pixel compositing is covered by packages/engine/src/replay-image-fill.test.ts.
 
-import { createEngine } from '@strata/engine';
-import { addNode, createDocument, type NodeId, type ShapeNode } from '@strata/scene';
+import { createEngine } from '@varve/engine';
+import { addNode, createDocument, type NodeId, type ShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { toEngineNode } from '../CanvasArea';
 import { flattenSceneToEngine } from './sceneToEngine';

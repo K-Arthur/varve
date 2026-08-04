@@ -13,7 +13,7 @@ import {
   nextNodeId,
   resetInstanceOverrides,
   swapInstance,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 describe('component instance operations', () => {

@@ -7,8 +7,8 @@
  * are exposed directly to React.
  */
 
-import type { NodeId, SceneNode } from '@strata/scene';
-import type { Affine, Point, Rect } from '@strata/shared';
+import type { NodeId, SceneNode } from '@varve/scene';
+import type { Affine, Point, Rect } from '@varve/shared';
 
 export type { Point };
 

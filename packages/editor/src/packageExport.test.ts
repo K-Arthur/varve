@@ -6,7 +6,7 @@ import {
   makeTextNode,
   type RasterMaskAsset,
   type ShapeNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { strFromU8, unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { buildPackageExport, type PackageManifest } from './packageExport';

@@ -12,13 +12,13 @@
  * Research basis: Figma non-destructive pixel masks, ADR-0005 offline-first
  * asset model, immutable Document pattern.
  */
-import type { BackgroundRemovalProvenance, Document, NodeId, RasterMaskAsset } from '@strata/scene';
+import type { BackgroundRemovalProvenance, Document, NodeId, RasterMaskAsset } from '@varve/scene';
 import {
   addRasterMaskAsset,
   removeRasterMaskAsset,
   resolveNodePaints,
   updateRasterMaskAsset,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export interface RasterMaskCommitFields {
   dataUrl: string;

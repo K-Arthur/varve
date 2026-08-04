@@ -2,7 +2,7 @@
  * Tests for the enhanced Tailwind emitter.
  */
 
-import { createDocument, makeFrameNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeFrameNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { sceneToIR } from '../ir-converter';
 import { exportIrNodeToTailwind, exportIrToTailwind } from '../tailwind';

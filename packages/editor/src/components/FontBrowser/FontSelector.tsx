@@ -9,9 +9,9 @@
  * inline autocomplete. Arrow keys navigate, Enter selects, Escape closes.
  */
 
-import type { FontMetadata } from '@strata/engine';
-import { getFontRegistry } from '@strata/engine';
-import { Tooltip } from '@strata/ui';
+import type { FontMetadata } from '@varve/engine';
+import { getFontRegistry } from '@varve/engine';
+import { Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useOnlineFontSearch } from './useOnlineFontSearch';
 import './FontSelector.css';

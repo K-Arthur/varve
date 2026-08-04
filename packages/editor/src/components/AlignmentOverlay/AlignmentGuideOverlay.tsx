@@ -1,4 +1,4 @@
-import { computeFloatingOrigin } from '@strata/shared';
+import { computeFloatingOrigin } from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEditorViewport } from '../../canvas/cameraState';
 import { useEditor } from '../../context';
@@ -78,7 +78,7 @@ export function AlignmentGuideOverlay() {
 }
 
 export function showAlignmentGuidesFromSelection(
-  doc: import('@strata/scene').Document,
+  doc: import('@varve/scene').Document,
   sel: string[],
 ) {
   if (sel.length < 2) return;

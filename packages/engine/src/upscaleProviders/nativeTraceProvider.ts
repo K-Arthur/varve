@@ -1,4 +1,4 @@
-import { isTauriRuntime as isTauri } from '@strata/platform';
+import { isTauriRuntime as isTauri } from '@varve/platform';
 import { mapNativePathsToTraceResult } from './mapNativePaths';
 import { encodeImageDataToPngBytes } from './pngDecode';
 import type { TraceProvider } from './types';

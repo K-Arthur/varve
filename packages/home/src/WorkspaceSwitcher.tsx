@@ -1,4 +1,4 @@
-import { Popover, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { Popover, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { type KeyboardEvent, useCallback, useState } from 'react';
 
 export interface WorkspaceSwitcherProps {

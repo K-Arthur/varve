@@ -597,7 +597,12 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     },
     acquisition: {
       kind: 'remote',
-      sources: [{ url: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor-tiny.onnx', sha256: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8' }],
+      sources: [
+        {
+          url: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor-tiny.onnx',
+          sha256: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
+        },
+      ],
       sha256: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
     },
   },
@@ -627,7 +632,12 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     },
     acquisition: {
       kind: 'remote',
-      sources: [{ url: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor.onnx', sha256: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812' }],
+      sources: [
+        {
+          url: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor.onnx',
+          sha256: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
+        },
+      ],
       sha256: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
     },
   },
@@ -661,7 +671,12 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     },
     acquisition: {
       kind: 'remote',
-      sources: [{ url: 'https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx', sha256: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6' }],
+      sources: [
+        {
+          url: 'https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx',
+          sha256: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6',
+        },
+      ],
       sha256: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6',
     },
   },

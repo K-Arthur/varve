@@ -1,7 +1,7 @@
 /**
  * Intelligence panel — audit issue types and the WCAG contrast audit runner.
  *
- * The contrast math and auto-fix algorithm live in @strata/shared
+ * The contrast math and auto-fix algorithm live in @varve/shared
  * (contrast.ts); this module walks the document to find text/background
  * pairs and turns low-contrast pairs into AuditIssues the panel can render.
  *
@@ -16,7 +16,7 @@ import {
   relativeLuminance,
   WCAG_AA_LARGE,
   WCAG_AA_NORMAL,
-} from '@strata/shared';
+} from '@varve/shared';
 import type { Document } from '../document';
 import { getParent } from '../document';
 import type { NodeId, SceneNode } from '../types';

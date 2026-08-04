@@ -24,7 +24,7 @@ and `tests/e2e/canvas/menu-perf-budget.spec.ts`.
 In development mode (`NODE_ENV=development`), the menu system emits `performance.mark`
 and `performance.measure` calls tagged `menu:*`. Enable/disable with:
 ```ts
-import { setMenuPerfInstrumentation } from '@strata/editor/menu';
+import { setMenuPerfInstrumentation } from '@varve/editor/menu';
 
 setMenuPerfInstrumentation(true); // enable instrumentation
 ```

@@ -9,8 +9,8 @@
  * needs the touched nodes — plus their parents, since a parent's cached
  * world bounds can be a union of its children's bounds — invalidated.
  */
-import type { Document, NodeId } from '@strata/scene';
-import { buildParentIndexMap } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { buildParentIndexMap } from '@varve/scene';
 import { computeDocumentDirtyRegion } from './dirtyRegion';
 
 export interface InvalidationPlan {

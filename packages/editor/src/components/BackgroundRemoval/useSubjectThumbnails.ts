@@ -1,4 +1,4 @@
-import type { MaskComponent } from '@strata/engine';
+import type { MaskComponent } from '@varve/engine';
 import { useEffect, useRef, useState } from 'react';
 
 export interface SubjectThumbnail {

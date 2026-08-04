@@ -10,7 +10,7 @@
  * functions, SVG filters, and game-engine vertex displacement.
  */
 
-import type { Point } from '@strata/engine';
+import type { Point } from '@varve/engine';
 
 export type WarpKind =
   | 'arc'

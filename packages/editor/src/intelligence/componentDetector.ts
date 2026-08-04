@@ -1,4 +1,4 @@
-import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
+import type { Document, ManagedColor, NodeId, SceneNode } from '@varve/scene';
 
 export interface DuplicateGroup {
   score: number;

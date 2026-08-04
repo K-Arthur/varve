@@ -4,7 +4,7 @@
  * engine-specific result types.
  */
 
-import type { BoundsRect } from '@strata/scene';
+import type { BoundsRect } from '@varve/scene';
 
 export type { BoundsRect };
 

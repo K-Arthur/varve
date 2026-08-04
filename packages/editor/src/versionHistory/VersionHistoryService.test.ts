@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { createMemoryPlatform } from '@strata/platform';
-import type { Document } from '@strata/scene';
+import { createMemoryPlatform } from '@varve/platform';
+import type { Document } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { VersionHistoryService } from './VersionHistoryService';
 

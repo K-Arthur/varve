@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Home keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await page.waitForSelector('.varve-home');
   });
 
   test('file grid receives focus via tab', async ({ page }) => {
@@ -43,7 +43,7 @@ test.describe('Home keyboard navigation', () => {
       .isVisible()
       .catch(() => false);
     const staysOnHome = await page
-      .locator('.strata-home')
+      .locator('.varve-home')
       .isVisible()
       .catch(() => false);
     expect(hasNavigated || staysOnHome).toBe(true);

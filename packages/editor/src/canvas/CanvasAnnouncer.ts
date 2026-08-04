@@ -8,7 +8,7 @@
  * Research basis: WAI-ARIA 1.2 live regions, APG alert/status patterns.
  */
 
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
 
 export class CanvasAnnouncer {
   private politeEl: HTMLElement | null = null;

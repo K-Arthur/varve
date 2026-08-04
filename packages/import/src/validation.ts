@@ -1,5 +1,5 @@
-import type { ColorConfig, ManagedColor } from '@strata/scene';
-import { isCmykColor, isRgbColor, isSpotColor } from '@strata/scene';
+import type { ColorConfig, ManagedColor } from '@varve/scene';
+import { isCmykColor, isRgbColor, isSpotColor } from '@varve/scene';
 import { getParserForData, getParserForExtension } from './registry';
 
 /** Colors that carry channel data (not spot references) can have bitDepth/profile. */

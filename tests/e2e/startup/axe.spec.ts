@@ -17,7 +17,7 @@ test.describe('Startup accessibility', () => {
 
     const hasAccessibleSurface = await page.evaluate(() => {
       return Boolean(
-        document.querySelector('[role="status"]') || document.querySelector('.strata-home'),
+        document.querySelector('[role="status"]') || document.querySelector('.varve-home'),
       );
     });
     expect(hasAccessibleSurface).toBe(true);

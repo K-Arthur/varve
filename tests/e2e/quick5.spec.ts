@@ -12,5 +12,5 @@ test('quick check short', async ({ page }) => {
   await page.waitForTimeout(5000);
   console.log('Errors:', JSON.stringify(errors));
   const html = await page.content();
-  console.log('Has strata-home:', html.includes('strata-home'));
+  console.log('Has varve-home:', html.includes('varve-home'));
 });

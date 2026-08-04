@@ -1,4 +1,4 @@
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import { useEffect, useRef } from 'react';
 import './OnboardingChecklist.css';
 

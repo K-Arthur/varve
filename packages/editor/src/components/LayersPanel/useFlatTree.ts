@@ -14,8 +14,8 @@
  * (expensive, recursive, with filter logic).
  */
 
-import type { Document, FrameNode, NodeId, Page, SceneNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import type { Document, FrameNode, NodeId, Page, SceneNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
 import { useMemo, useRef } from 'react';
 import {
   DEFAULT_FILTER,

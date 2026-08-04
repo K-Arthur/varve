@@ -3,15 +3,15 @@
  * and shape vertex computations.
  */
 
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import type {
   BlendMode,
   ManagedColor,
   NodeId,
   Document as SceneDocument,
   SceneNode,
-} from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+} from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import type { TargetGap } from './types';
 
 /**
@@ -25,7 +25,7 @@ import type { TargetGap } from './types';
  */
 export function adjustmentStackTargetGaps(
   node: SceneNode,
-  _doc?: import('@strata/scene').Document,
+  _doc?: import('@varve/scene').Document,
   flattened?: boolean,
 ): TargetGap[] {
   if (node.kind !== 'adjustment') return [];
@@ -79,7 +79,7 @@ export interface SvgColorResult {
  * - float16/float32 without profile → rgba() + warning comment
  *
  * Color space is detected by the `space` discriminant and `bitDepth` field
- * — no dependency on @strata/scene type guards (avoids module-loading
+ * — no dependency on @varve/scene type guards (avoids module-loading
  * edge cases in the codegen package's vitest environment).
  */
 export function colorToSvgValue(

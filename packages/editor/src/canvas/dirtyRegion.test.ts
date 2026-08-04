@@ -8,7 +8,7 @@ import {
   makeRasterLayerNode,
   makeShapeNode,
   strokePoint,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeDocumentDirtyRegion } from './dirtyRegion';
 
@@ -144,7 +144,7 @@ describe('computeDocumentDirtyRegion', () => {
     const withNode = addNode(before, makeRasterLayerNode('raster', { width: 512, height: 512 }));
     const preset = defaultBrushPreset('test', 'Test');
     const dabs = generateDabs([strokePoint(100, 100), strokePoint(150, 100)], preset);
-    let rasterNode = withNode.nodes.raster! as import('@strata/scene').RasterLayerNode;
+    let rasterNode = withNode.nodes.raster! as import('@varve/scene').RasterLayerNode;
     for (const dab of dabs) {
       rasterNode = compositeDabOnNode(rasterNode, dab, [0, 0, 0, 255]);
     }
@@ -229,4 +229,4 @@ describe('computeDocumentDirtyRegion large-document cost', () => {
   });
 });
 
-type Document = import('@strata/scene').Document;
+type Document = import('@varve/scene').Document;

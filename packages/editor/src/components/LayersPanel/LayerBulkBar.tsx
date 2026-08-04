@@ -1,11 +1,11 @@
-import type { LayerColor } from '@strata/scene';
+import type { LayerColor } from '@varve/scene';
 import {
   SOLID_CHROME_ICONS,
   SOLID_TOOL_ICONS,
   SolidIcon,
   Tooltip,
   TooltipProvider,
-} from '@strata/ui';
+} from '@varve/ui';
 
 export interface LayerBulkBarProps {
   selectedCount: number;

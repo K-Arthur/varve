@@ -8,8 +8,8 @@
  */
 // @vitest-environment jsdom
 
-import type { PatternFillData } from '@strata/scene';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { PatternFillData } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PatternFillControls } from './PatternFillControls';
 

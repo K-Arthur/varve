@@ -1,4 +1,4 @@
-import type { NodeId, RichText } from '@strata/scene';
+import type { NodeId, RichText } from '@varve/scene';
 
 export interface SearchOptions {
   caseSensitive: boolean;

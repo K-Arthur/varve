@@ -12,7 +12,7 @@
  * - Keyboard accessible: focus, Enter to fit, arrow keys to pan.
  */
 
-import { Tooltip } from '@strata/ui';
+import { Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {

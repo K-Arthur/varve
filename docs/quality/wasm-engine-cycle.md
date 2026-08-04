@@ -44,7 +44,7 @@ actual WASM binary.
 **A second, independent entry point already existed:** `packages/engine/src/index.ts` (the
 package's public barrel) statically re-exported `loadWasmEngineModule`, `prewarmWasmEngine`,
 `tryWasmEngine`, and `createWasmEngineFromModule` directly from `./wasmLoader` — meaning
-`wasmLoader.ts` was *already* eagerly bundled into anything that imports `@strata/engine` at all,
+`wasmLoader.ts` was *already* eagerly bundled into anything that imports `@varve/engine` at all,
 regardless of `createEngine()`. `packages/editor/src/CanvasArea.tsx` uses this: it calls
 `prewarmWasmEngine()` directly (line 770), completely bypassing `engine.ts`, to kick off the WASM
 load during idle time before `createEngine()` is ever called. This only worked correctly because
@@ -163,7 +163,7 @@ race-safe contract.
 file (and, for `tryWasmEngine`, their internal warning behavior) changed. `packages/engine/src/index.ts`
 still exports both, now sourced from `./engine` instead of `./wasmLoader`. Checked every consumer
 repo-wide: no file outside `packages/engine/src` imports either function directly (both are
-reachable only through the `@strata/engine` barrel, which is unchanged), so this is a pure internal
+reachable only through the `@varve/engine` barrel, which is unchanged), so this is a pure internal
 relocation, not a public API change — consistent with "do not change public API surface" for this
 pass. The one internal test that imported `createWasmEngineFromModule` directly
 (`wasmLoader.test.ts`) was updated to import it from `./engine`.
@@ -197,7 +197,7 @@ unrelated broken build isn't a "small, mechanical" cycle change.
 
 **What was actually run instead: two real bundles of `packages/engine/src/index.ts` via esbuild
 directly** (bypassing the desktop app's broken Vite config entirely — a self-contained,
-`@strata/engine`-only bundle), one unminified ("dev"-shaped) and one minified ("prod"-shaped):
+`@varve/engine`-only bundle), one unminified ("dev"-shaped) and one minified ("prod"-shaped):
 
 | | dev-shaped (unminified) | prod-shaped (minified) |
 |---|---|---|
@@ -248,7 +248,7 @@ code path (`nativeEngine()`) that never touches `wasmLoader.ts`.
 
 ## 6. Verification performed
 
-- `pnpm --filter @strata/engine typecheck` — clean, before and after.
+- `pnpm --filter @varve/engine typecheck` — clean, before and after.
 - `npx madge --circular ... packages/engine/src/index.ts` — `[]`. Zero cycles left in the engine
   package (was 3 at the start of this cycle-fixing effort: `docs/quality/cycles.md` §0/§7/§8).
 - `npx vitest run packages/engine/src/engine.test.ts packages/engine/src/wasmLoader.test.ts
@@ -256,7 +256,7 @@ code path (`nativeEngine()`) that never touches `wasmLoader.ts`.
   exactly once across all 30 `createEngine()` calls in `engine.test.ts` (not 30 times).
 - Full engine suite: `npx vitest run packages/engine/src` — **195 files / 2515 tests, all
   passing.**
-- Two esbuild bundles (dev-shaped, prod-shaped) of the real `@strata/engine` entry point,
+- Two esbuild bundles (dev-shaped, prod-shaped) of the real `@varve/engine` entry point,
   metafile-verified: `wasmLoader.ts` has exactly one import (`geometry.ts`), in both modes.
 - Confirmed `apps/desktop`'s real build is still broken for the same pre-existing, unrelated
   reason as before this change (not fixed, not worsened).

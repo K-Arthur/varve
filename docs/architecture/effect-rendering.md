@@ -12,7 +12,7 @@ a specific subset of effect types via `if/else if` dispatch and
 
 ## Canonical schema and native interchange
 
-The document-level `Effect` discriminated union is owned by `@strata/scene`.
+The document-level `Effect` discriminated union is owned by `@varve/scene`.
 Each effect may carry a stable `id`; document normalization assigns missing IDs
 and repairs duplicates without changing valid IDs. The Rust `strata-core::Effect`
 wire representation mirrors all nine TypeScript variants, retains optional IDs,

@@ -4,7 +4,7 @@
  * Covers: stable IDs, availability predicates, default state, migration,
  * collapse/hide operations, and query helpers.
  */
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   CATEGORY_LABELS,

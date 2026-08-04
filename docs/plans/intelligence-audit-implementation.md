@@ -21,7 +21,7 @@
 |-----------|------------|
 | **Business** | Strata increases activation and retention by making design files production-ready faster. Intelligence features reduce rework and differentiate against Figma/Penpot in print, accessibility, and design-system governance. |
 | **Market** | No competitor ships deterministic, offline-first design intelligence. Figma's AI is cloud-dependent; Penpot's ML is research-only; Adobe is expensive and legacy. Strata's whitespace is *correctness at design time*. |
-| **Architecture** | Intelligence runs as local, pure-function modules in `@strata/scene`, `@strata/engine`, and `@strata/editor`. No external inference. Public APIs are optional, client-side, and cacheable. |
+| **Architecture** | Intelligence runs as local, pure-function modules in `@varve/scene`, `@varve/engine`, and `@varve/editor`. No external inference. Public APIs are optional, client-side, and cacheable. |
 | **Delivery** | Incremental, test-first phases. Each phase ends with the full Cascade Review gate (`just gate`). No feature blocks canvas rendering. |
 
 ---
@@ -127,12 +127,12 @@
 | **Investor Narrative** | "Strata's pencil tool produces production-ready vector paths, not rough sketches." |
 | **Technical Approach** | RDP (Ramer-Douglas-Peucker) for simplification: O(N log N). Least-squares cubic bezier fitting: O(N) tridiagonal solve. `simplifyPoints()` in PencilTool is the integration point. |
 | **Estimated Complexity** | Low (2 days) |
-| **Cost Profile** | $0 — pure math, existing bezier infrastructure in `@strata/shared/bezier.ts` |
+| **Cost Profile** | $0 — pure math, existing bezier infrastructure in `@varve/shared/bezier.ts` |
 | **Scalability** | O(N log N) for RDP, O(N) for bezier fit. <2ms for 1000-point path. |
 | **Risks & Edge Cases** | Over-simplification destroys detail: user-controlled epsilon threshold. Sharp corners: detect angle threshold before simplifying. Complex silhouettes: offer preview. |
 | **TDD Guard** | 8 tests: simple path simplification, bezier fitting accuracy, sharp corner preservation, threshold bounds |
 
-**Existing infrastructure:** `simplifyPoints` in PencilTool, `cubicBezierPoint`/`cubicBezierSplit` in `@strata/shared/bezier.ts`.
+**Existing infrastructure:** `simplifyPoints` in PencilTool, `cubicBezierPoint`/`cubicBezierSplit` in `@varve/shared/bezier.ts`.
 
 ---
 

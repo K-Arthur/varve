@@ -1,4 +1,4 @@
-import type { ComponentPropertyType, Document, NodeId } from '@strata/scene';
+import type { ComponentPropertyType, Document, NodeId } from '@varve/scene';
 import {
   addChild,
   addComponentProperty,
@@ -8,7 +8,7 @@ import {
   getParent,
   instantiate,
   removeNode,
-} from '@strata/scene';
+} from '@varve/scene';
 
 import type { VariantCandidate } from './componentVariantDetector';
 
@@ -86,7 +86,7 @@ export function buildPromotionPlan(
 }
 
 function extractPropertyValue(
-  node: import('@strata/scene').SceneNode,
+  node: import('@varve/scene').SceneNode,
   property: string,
 ): string | null {
   switch (property) {
@@ -184,7 +184,7 @@ export function promoteToVariantSet(
     const { node: instanceNode, doc: withInstance } = instantiate(next, component);
     next = withInstance;
 
-    const placed: import('@strata/scene').SceneNode = {
+    const placed: import('@varve/scene').SceneNode = {
       ...instanceNode,
       transform: original.transform,
       opacity: original.opacity,

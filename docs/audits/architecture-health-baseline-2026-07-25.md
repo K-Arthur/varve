@@ -170,7 +170,7 @@ shared (L1) → engine (L2) → scene/compositor/import/prototype/codegen/layout
 → ui/ai/collab (L4) → editor/home (L5)
 ```
 
-All `workspace:*` dependencies flow downward. No `@strata/editor` package is
+All `workspace:*` dependencies flow downward. No `@varve/editor` package is
 imported by a lower layer.
 
 ## 5. Hub File Budgets

@@ -1,4 +1,4 @@
-import type { DocumentGrid } from '@strata/scene';
+import type { DocumentGrid } from '@varve/scene';
 
 export type { DocumentGrid };
 

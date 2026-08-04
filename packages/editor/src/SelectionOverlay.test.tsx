@@ -4,9 +4,9 @@
  * Research basis: TDD for overlay handle completeness (Phase A4).
  */
 
-import type { Document, SceneNode, ShapeNode } from '@strata/scene';
-import type { Affine } from '@strata/shared';
 import { render } from '@testing-library/react';
+import type { Document, SceneNode, ShapeNode } from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
   computeResize,

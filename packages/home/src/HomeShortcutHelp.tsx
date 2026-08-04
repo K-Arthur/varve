@@ -1,4 +1,4 @@
-import { Dialog } from '@strata/ui';
+import { Dialog } from '@varve/ui';
 
 export interface ShortcutEntry {
   label: string;

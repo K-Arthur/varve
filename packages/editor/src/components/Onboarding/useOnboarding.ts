@@ -1,4 +1,4 @@
-import type { Platform } from '@strata/platform';
+import type { Platform } from '@varve/platform';
 import { useCallback, useEffect, useState } from 'react';
 import {
   dismissTip as dismissTipStore,

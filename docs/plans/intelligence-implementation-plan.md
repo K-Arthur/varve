@@ -129,7 +129,7 @@ class ActionTracker {
 
 ### 0b. WCAG Math Foundation (1 day)
 
-**Goal:** Add statistical helpers and accessible color finder to `@strata/shared`. The WCAG contrast math already exists in `@strata/ui/tokens/contrast.ts` — this phase adds the missing `findAccessibleColor()` and stats helpers.
+**Goal:** Add statistical helpers and accessible color finder to `@varve/shared`. The WCAG contrast math already exists in `@varve/ui/tokens/contrast.ts` — this phase adds the missing `findAccessibleColor()` and stats helpers.
 
 #### New files
 - `packages/shared/src/colorMath.ts`
@@ -137,7 +137,7 @@ class ActionTracker {
 
 #### Functions to implement
 ```typescript
-import { relativeLuminance, contrastRatio, oklchToRgb, rgbToOklch, type Oklch, type Rgb } from '@strata/ui/tokens/contrast';
+import { relativeLuminance, contrastRatio, oklchToRgb, rgbToOklch, type Oklch, type Rgb } from '@varve/ui/tokens/contrast';
 
 /** Find nearest accessible color via OKLCH lightness binary search. */
 export function findAccessibleColor(
@@ -163,7 +163,7 @@ export function binnedMode(values: number[], binSize: number): number | null
 export function deltaEOK(a: Oklch, b: Oklch): number
 ```
 
-**Important:** `relativeLuminance` and `contrastRatio` already exist in `@strata/ui/src/tokens/contrast.ts`. Import them — do NOT reimplement. The `findAccessibleColor` function uses binary search in OKLCH lightness, converting to RGB for contrast checks at each step.
+**Important:** `relativeLuminance` and `contrastRatio` already exist in `@varve/ui/src/tokens/contrast.ts`. Import them — do NOT reimplement. The `findAccessibleColor` function uses binary search in OKLCH lightness, converting to RGB for contrast checks at each step.
 
 #### TDD test spec (6 tests)
 1. `mean([1,2,3,4,5])` = 3
@@ -332,12 +332,12 @@ export function deltaEOK(a: Oklch, b: Oklch): number
 1. For each fill color on selected node, compute contrast ratio against background
 2. Background = parent frame's fill (walk ancestors), or white if none
 3. If ratio < 4.5:1 (AA) or < 3.0:1 (AA large text), mark FAIL
-4. Auto-fix: use `findAccessibleColor()` from `@strata/shared/colorMath`
+4. Auto-fix: use `findAccessibleColor()` from `@varve/shared/colorMath`
 5. For transparent fills: warn "can't verify — depends on background"
 6. For gradients: check worst-case color in stops
 7. For multiple fills: check topmost visible fill
 
-**Import from existing:** `relativeLuminance`, `contrastRatio`, `oklchContrastRatio`, `passes`, `minimumRatio` from `@strata/ui/tokens/contrast`. `findAccessibleColor` from `@strata/shared/colorMath`.
+**Import from existing:** `relativeLuminance`, `contrastRatio`, `oklchContrastRatio`, `passes`, `minimumRatio` from `@varve/ui/tokens/contrast`. `findAccessibleColor` from `@varve/shared/colorMath`.
 
 #### Files to modify
 - `packages/editor/src/components/Inspector/sections/FillSection.tsx` — render `<ContrastIndicator />` next to swatches
@@ -791,7 +791,7 @@ Output: beginner | intermediate | advanced
 | `text/html` | Rich text | Strip tags, preserve bold/italic as TextNode properties |
 | `text/csv` | CSV data | Auto-layout Frame with TextNode children |
 | `text/plain` | Tab-separated | Same as CSV |
-| `image/svg+xml` | SVG | Parse via existing `@strata/import` SVG parser |
+| `image/svg+xml` | SVG | Parse via existing `@varve/import` SVG parser |
 | `image/png` | Small (<64px), low colors | "Trace to vector?" toast |
 | `image/*` | Any image | Standard ImageNode paste |
 
@@ -965,7 +965,7 @@ Output: beginner | intermediate | advanced
 #### Algorithm
 1. Read selected track's keyframes, sorted by progress
 2. For each consecutive pair, generate N intermediate keyframes at evenly-spaced progress values
-3. Interpolate using `interpolateValue()` from `@strata/shared`
+3. Interpolate using `interpolateValue()` from `@varve/shared`
 4. Apply track's default easing to each generated keyframe
 
 #### Files to modify

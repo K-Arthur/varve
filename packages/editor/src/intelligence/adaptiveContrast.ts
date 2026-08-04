@@ -15,9 +15,9 @@ import {
   backdropChangedSinceLastResolve,
   resolveAdaptiveTextColor,
   sampleRegionBackdrop,
-} from '@strata/engine';
-import type { Document, ManagedColor, NodeId, TextNode } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+} from '@varve/engine';
+import type { Document, ManagedColor, NodeId, TextNode } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../context';
 import { nodeWorldBounds } from '../scene/world';

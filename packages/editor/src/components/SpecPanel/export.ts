@@ -3,7 +3,7 @@
  * via codegen. All exports are local: no network round-trips.
  */
 
-import { exportNodeToSvg } from '@strata/codegen';
+import { exportNodeToSvg } from '@varve/codegen';
 import {
   awaitExportsReady,
   collectFontData,
@@ -25,12 +25,12 @@ import {
   resolveMetadataContent,
   runRasterPipeline,
   stripPngMetadata,
-} from '@strata/engine';
-import type { Document as SceneDocument, SceneNode, ShapeNode } from '@strata/scene';
-import { imageFill } from '@strata/scene';
-import type { MetadataPolicy } from '@strata/scene/export';
-import { capabilitiesForFormat } from '@strata/scene/export';
-import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@strata/shared';
+} from '@varve/engine';
+import type { Document as SceneDocument, SceneNode, ShapeNode } from '@varve/scene';
+import { imageFill } from '@varve/scene';
+import type { MetadataPolicy } from '@varve/scene/export';
+import { capabilitiesForFormat } from '@varve/scene/export';
+import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@varve/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
 import {
   composeFlattenedRasterAssetsForNode,
@@ -641,7 +641,7 @@ export interface PdfXExportOptions {
  * (`strata_print::cmyk::export_pdfx1a` / `export_pdfx4`).
  *
  * Desktop-only by design: the browser build has no CMYK/ICC print engine, and
- * the `@strata/print` stub emits a placeholder rather than a real PDF — so this
+ * the `@varve/print` stub emits a placeholder rather than a real PDF — so this
  * throws on web instead of silently producing an invalid press file. The
  * capability contract (`FORMAT_CAPABILITIES['pdf-x1a'].browser === false`)
  * is the single source of truth the UI gates on.

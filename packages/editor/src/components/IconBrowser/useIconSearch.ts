@@ -2,7 +2,7 @@
  * useIconSearch — debounced search hook for online icon providers.
  */
 
-import { getIconProviderRegistry, type IconProviderResult } from '@strata/engine';
+import { getIconProviderRegistry, type IconProviderResult } from '@varve/engine';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface IconSearchState {

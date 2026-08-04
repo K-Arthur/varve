@@ -6,11 +6,11 @@
  *
  * Research basis: APG Dialog (Modal); Floating UI placement; WCAG 2.2 target size.
  */
-import type { ColorMode, Document, ManagedColor } from '@strata/scene';
-import { managedColorKey, managedColorToRgba } from '@strata/shared';
-import { FloatingPortal, FocusTrap, Icon } from '@strata/ui';
-import type { Color } from '@strata/ui/components/ColorPicker';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import type { ColorMode, Document, ManagedColor } from '@varve/scene';
+import { managedColorKey, managedColorToRgba } from '@varve/shared';
+import { FloatingPortal, FocusTrap, Icon } from '@varve/ui';
+import type { Color } from '@varve/ui/components/ColorPicker';
+import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { addRecentColor, extractDocumentColors, getRecentColors } from '../color/colorCollections';
@@ -30,7 +30,7 @@ function useDocDocument(): Document | null {
 /** Soft-proof session state from the editor (standalone renders: off). */
 function useProofState(): {
   enabled: boolean;
-  config: import('@strata/shared').ProofTransformConfig;
+  config: import('@varve/shared').ProofTransformConfig;
   toggle: (enabled: boolean) => void;
 } | null {
   try {

@@ -2,7 +2,7 @@ import {
   COLOR_DISPLAY_DECIMALS,
   COLOR_HUE_DISPLAY_DECIMALS,
   normalizeHueDegrees,
-} from '@strata/shared';
+} from '@varve/shared';
 import { useCallback } from 'react';
 import { SpinbuttonRow } from './SpinbuttonRow';
 

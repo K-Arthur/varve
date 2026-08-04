@@ -3,7 +3,7 @@
  * and read-only diagnostics for support/bug-report use.
  */
 
-import { Button, Select } from '@strata/ui';
+import { Button, Select } from '@varve/ui';
 import { useState } from 'react';
 import { detectPlatformCapabilities, getCurrentTier } from '../../canvas/adaptiveProfile';
 import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';

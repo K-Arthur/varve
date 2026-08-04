@@ -1,5 +1,5 @@
 {
-  "name": "@strata/home",
+  "name": "@varve/home",
   "version": "0.0.0",
   "private": true,
   "description": "Strata Home/Start surface: recent files, projects, templates, and file management.",
@@ -18,11 +18,11 @@
     "test:e2e": "playwright test --config e2e/playwright.config.ts"
   },
   "dependencies": {
-    "@strata/engine": "workspace:*",
-    "@strata/platform": "workspace:*",
-    "@strata/scene": "workspace:*",
-    "@strata/shared": "workspace:*",
-    "@strata/ui": "workspace:*",
+    "@varve/engine": "workspace:*",
+    "@varve/platform": "workspace:*",
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*",
+    "@varve/ui": "workspace:*",
     "@tanstack/react-virtual": "^3.14.4",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",

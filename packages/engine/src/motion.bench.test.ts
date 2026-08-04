@@ -1,4 +1,4 @@
-import type { Timeline } from '@strata/scene';
+import type { Timeline } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { sampleTimeline } from '../../editor/src/timeline/TimelineSampler';
 

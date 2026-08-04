@@ -57,7 +57,7 @@ export function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
 async function loadWasmEngineModuleUncached(): Promise<WasmEngineModule | null> {
   try {
     const base = '/wasm';
-    const candidates = [`${base}/strata_wasm_simd_bg.wasm`, `${base}/strata_wasm_bg.wasm`];
+    const candidates = [`${base}/varve_wasm_simd_bg.wasm`, `${base}/varve_wasm_bg.wasm`];
     for (const wasmUrl of candidates) {
       let blobUrl: string | null = null;
       try {
@@ -124,7 +124,7 @@ export async function tryLoadTraceWasm(): Promise<WasmTraceModule | null> {
   if (cachedTraceModule) return cachedTraceModule;
   try {
     const base = '/wasm';
-    const candidates = [`${base}/strata_wasm_simd_bg.wasm`, `${base}/strata_wasm_bg.wasm`];
+    const candidates = [`${base}/varve_wasm_simd_bg.wasm`, `${base}/varve_wasm_bg.wasm`];
     for (const wasmUrl of candidates) {
       let blobUrl: string | null = null;
       try {

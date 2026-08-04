@@ -9,7 +9,7 @@ import {
   removeMotionPreset,
   removeTimelineMarker,
   renameTimelineMarker,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 describe('motion presets and markers', () => {

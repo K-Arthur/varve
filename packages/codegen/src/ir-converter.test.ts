@@ -2,7 +2,7 @@
  * Tests for scene-to-IR converter.
  */
 
-import { createDocument, makeFrameNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeFrameNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { deserializeIR, sceneToIR, serializeIR } from './ir-converter';
 

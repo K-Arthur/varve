@@ -7,7 +7,7 @@
  * @module overlayManager
  */
 
-import type { AuditFinding, AuditSeverity } from '@strata/shared';
+import type { AuditFinding, AuditSeverity } from '@varve/shared';
 
 // ============================================================================
 // Types

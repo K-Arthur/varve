@@ -31,37 +31,37 @@ This report documents the complete design and architecture for improving Strata'
 
 ### Existing Audit Systems
 
-**1. Scene Intelligence Audit** (`@strata/scene/intelligence/audit.ts`)
+**1. Scene Intelligence Audit** (`@varve/scene/intelligence/audit.ts`)
 - 1 rule: WCAG contrast checking
 - Severity: error, warning, info
 - Auto-fix: Yes (contrast adjustment)
 - Execution: Immediate
 
-**2. Design Debt Scanner** (`@strata/scene/intelligence/debtScanner.ts`)
+**2. Design Debt Scanner** (`@varve/scene/intelligence/debtScanner.ts`)
 - 15 rules: Design system governance
 - Severity: error, warning, info
 - Auto-fix: Yes (untokenized colors, missing fonts)
 - Execution: Immediate
 
-**3. Governance Rules** (`@strata/scene/intelligence/governanceRules.ts`)
+**3. Governance Rules** (`@varve/scene/intelligence/governanceRules.ts`)
 - 5 rules: Real-time design-system validation
 - Severity: error, warning, info
 - Auto-fix: No
 - Execution: Immediate
 
-**4. Design Linter** (`@strata/scene/intelligence/linterScanner.ts`)
+**4. Design Linter** (`@varve/scene/intelligence/linterScanner.ts`)
 - 6 rules: Accessibility and layer hygiene
 - Severity: error, warning, info, suggestion
 - Auto-fix: No (interface defined but empty)
 - Execution: Immediate/debounced
 
-**5. Codegen Audits** (`@strata/codegen/src/vector-audit.ts`, `raster-audit.ts`)
+**5. Codegen Audits** (`@varve/codegen/src/vector-audit.ts`, `raster-audit.ts`)
 - 22 rules: Vector (12) + Raster (10)
 - Severity: error, warning, info
 - Auto-fix: No
 - Execution: Immediate
 
-**6. Prototype Validation** (`@strata/prototype/src/validation.ts`)
+**6. Prototype Validation** (`@varve/prototype/src/validation.ts`)
 - 3 rules: Prototype integrity
 - Severity: error, warning, info
 - Auto-fix: No

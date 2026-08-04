@@ -3,7 +3,7 @@
 /**
  * WebGPU capability detection with fallback adapter reporting.
  */
-import { selectWebGpuAdapter } from '@strata/engine';
+import { selectWebGpuAdapter } from '@varve/engine';
 import type { CompositorCapabilities } from '../types';
 
 export async function detectWebGPU(

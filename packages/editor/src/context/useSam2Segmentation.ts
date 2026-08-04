@@ -1,11 +1,11 @@
-import type { WorkerInferResult } from '@strata/engine';
+import type { WorkerInferResult } from '@varve/engine';
 import {
   decodeSam2DecoderOutput,
   getImageCache,
   getInferenceWorkerHost,
   getModelLoader,
-} from '@strata/engine';
-import type { Document, NodeId } from '@strata/scene';
+} from '@varve/engine';
+import type { Document, NodeId } from '@varve/scene';
 import { useCallback, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
@@ -73,14 +73,14 @@ export function useSam2Segmentation(
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
       const generation = ++generationRef.current;
       const currentDoc = stateRef.current.document;
-      const node = currentDoc.nodes[nodeId] as import('@strata/scene').ShapeNode | undefined;
+      const node = currentDoc.nodes[nodeId] as import('@varve/scene').ShapeNode | undefined;
 
       if (node?.kind !== 'shape') {
         announcerRef.current?.announce('Select a shape node first');
         return null;
       }
 
-      const { isImageShape, imageShapeSrc } = await import('@strata/scene');
+      const { isImageShape, imageShapeSrc } = await import('@varve/scene');
       if (!isImageShape(node)) {
         announcerRef.current?.announce('The selected node does not have an image fill');
         return null;

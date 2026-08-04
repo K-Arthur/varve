@@ -7,8 +7,8 @@
  *
  * Research basis: Photoshop Curves panel; SVG pointer-event compositing.
  */
-import type { CurvePoint } from '@strata/engine';
-import { Icon } from '@strata/ui';
+import type { CurvePoint } from '@varve/engine';
+import { Icon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 
 const WIDTH = 300;

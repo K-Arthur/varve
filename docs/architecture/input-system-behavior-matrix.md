@@ -95,7 +95,7 @@ and numpad works under any NumLock state (see `input/physicalKey.ts`).
 
 | Property | Value |
 |---|---|
-| MIN_ZOOM / MAX_ZOOM | 0.001 / 64 (`@strata/shared/viewport.ts`) |
+| MIN_ZOOM / MAX_ZOOM | 0.001 / 64 (`@varve/shared/viewport.ts`) |
 | Discrete step | ×1.25 / ÷1.25 (`ZOOM_STEP_FACTOR`) |
 | Presets | 0.5 / 0.75 / 1 / 1.5 / 2 / 4 |
 | Continuous scale | `exp(-clampedDelta * 0.01)`, delta clamped ±24 |

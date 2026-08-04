@@ -1,5 +1,5 @@
-import type { Affine } from '@strata/shared';
-import { multiplyAffine, rotateDeg } from '@strata/shared';
+import type { Affine } from '@varve/shared';
+import { multiplyAffine, rotateDeg } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   canBeClipMaskSource,

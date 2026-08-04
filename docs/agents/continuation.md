@@ -30,7 +30,7 @@
 - **Shortcut system** — `packages/editor/src/shortcuts/` with `ShortcutManager`, `useShortcuts` hook, `ShortcutPalette` (Ctrl+/). 16 bindings (undo/redo/delete/new/open/save/export SVG/zoom reset/select all/group + tool toggles v/r/e/t/h). Platform-aware modifiers (Cmd on Mac, Ctrl on Linux/Windows).
 - **Canvas keyboard navigation** — Arrow nudge (1px, 10px with Shift, 0.5px with Alt), Tab/Shift+Tab cycling through objects, Escape clears selection, Enter renames, `aria-live` announcer for selection changes.
 - **Layers tree upgrade** — Full APG Tree View (`role="tree"`, `role="treeitem"`) with roving tabindex, Arrow/Home/End/Space navigation, type-ahead find, HTML5 drag-to-reorder calling `moveNode()`. Menu bar Open button consolidated onto Shell's `#file-open-input`.
-- **NumberInput scrubbing** — Reusable `<NumberInput>` in `@strata/ui` with drag-to-scrub, Arrow up/down increment/decrement, Shift/Alt step modifiers, min/max clamping. Replaced inspector X/Y/W/H raw inputs.
+- **NumberInput scrubbing** — Reusable `<NumberInput>` in `@varve/ui` with drag-to-scrub, Arrow up/down increment/decrement, Shift/Alt step modifiers, min/max clamping. Replaced inspector X/Y/W/H raw inputs.
 - **All gates pass** — 66 JS tests, 15 Rust tests, lint 0, typecheck 11/11, emoji 0, tokens 42/42.
 
 ### Stabilization additions now present

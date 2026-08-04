@@ -3,8 +3,8 @@
  * and selection within the timeline/keyframe editor.
  */
 
-import { prefersReducedMotion } from '@strata/prototype';
-import type { Timeline } from '@strata/scene';
+import { prefersReducedMotion } from '@varve/prototype';
+import type { Timeline } from '@varve/scene';
 import { TimelineEngine } from '../timeline/TimelineEngine';
 import { type SampleResult, sampleTimeline } from '../timeline/TimelineSampler';
 

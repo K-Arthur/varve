@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   assessNodeCapability,
@@ -687,8 +687,8 @@ describe('findFlattenBoundaries', () => {
 describe('composeFlattenedExportSnapshot', () => {
   beforeEach(() => {
     // Mock createRasterSurface and encodeRasterSurface
-    vi.mock('@strata/engine', async () => {
-      const actual = await vi.importActual('@strata/engine');
+    vi.mock('@varve/engine', async () => {
+      const actual = await vi.importActual('@varve/engine');
       return {
         ...actual,
         createRasterSurface: vi.fn(() => {

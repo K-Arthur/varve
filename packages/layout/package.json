@@ -1,5 +1,5 @@
 {
-  "name": "@strata/layout",
+  "name": "@varve/layout",
   "version": "0.0.0",
   "private": true,
   "description": "CSS-native flex/grid/container-query layout IR mirroring the strata-layout Rust crate.",
@@ -16,8 +16,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@strata/shared": "workspace:*",
-    "@strata/scene": "workspace:*"
+    "@varve/shared": "workspace:*",
+    "@varve/scene": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }

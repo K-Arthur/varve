@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import type { ManagedColor } from '@strata/scene';
-import { labToLch, rgbToLab, rgbToLch } from '@strata/shared';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ManagedColor } from '@varve/scene';
+import { labToLch, rgbToLab, rgbToLch } from '@varve/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ColorPicker } from './ColorPicker';
 

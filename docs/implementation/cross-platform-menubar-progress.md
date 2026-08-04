@@ -23,7 +23,7 @@ The GTK native menubar strip shown above the title-bar region in the screenshot 
 
 Fixes shipped in this milestone:
 
-- **Native menu gating**: `useNativeMenu` now only activates when the resolved window-chrome strategy is `native-application-menu` (macOS). Linux and Windows never call `app.set_menu`, so the stray GTK strip cannot appear. Decision lives behind `shouldUseNativeMenu(platform)` in `@strata/platform`.
+- **Native menu gating**: `useNativeMenu` now only activates when the resolved window-chrome strategy is `native-application-menu` (macOS). Linux and Windows never call `app.set_menu`, so the stray GTK strip cannot appear. Decision lives behind `shouldUseNativeMenu(platform)` in `@varve/platform`.
 - **Label resolution**: `menu/localization.ts` now resolves every `labelKey` to a real display string (full English dictionary + humanized fallback), and the resolver is threaded through the native adapter and the defs-driven renderer, so raw keys can never reach production UI.
 - **Window-chrome strategy wiring**: `TitleBar` renders only when the strategy calls for custom chrome (`showCustomTitleBar`), reflects live maximize/fullscreen/focus state, and routes actions through a rejection-safe, rapid-click-guarded service. Browser builds render no fake window controls.
 - **Tests**: localization integrity test (every defs `labelKey` resolves), platform strategy-decision tests, and a Playwright chrome-integrity spec asserting no raw keys, no desktop controls in the browser build, and correct menubar placement.
@@ -82,7 +82,7 @@ Fixes shipped in this milestone:
   - Accelerator translation
   - Label resolution
   - Capability filtering
-- **Runtime Detection**: Uses `isTauriRuntime()` from `@strata/platform`
+- **Runtime Detection**: Uses `isTauriRuntime()` from `@varve/platform`
 
 #### 6. Localization System
 - **Location**: `packages/editor/src/menu/localization.ts`
@@ -150,7 +150,7 @@ Fixes shipped in this milestone:
 
 ## Current Platform Strategy
 
-### Resolved Strategies (implemented in `@strata/platform` `windowChrome.ts`)
+### Resolved Strategies (implemented in `@varve/platform` `windowChrome.ts`)
 
 | Platform | Menubar Strategy | Decoration | Controls | Custom TitleBar | Custom Menubar |
 |----------|-----------------|------------|----------|-----------------|----------------|
@@ -280,10 +280,10 @@ Public decision helpers (all pure, tested):
 
 | Gate | Command | Result |
 |------|---------|--------|
-| Platform tests | `pnpm --filter @strata/platform test` | 183/183 pass (incl. 29 windowChrome) |
+| Platform tests | `pnpm --filter @varve/platform test` | 183/183 pass (incl. 29 windowChrome) |
 | Editor menu tests | `pnpm vitest run packages/editor/src/menu/__tests__` | 109/109 pass (localization, nativeAdapter, menuSnapshot, commandIntegrity, capabilities) |
 | Menubar component | `pnpm vitest run packages/editor/src/Menubar.test.tsx` | 18/18 pass |
-| Typecheck | `pnpm --filter @strata/{platform,editor,desktop} typecheck` | all clean |
+| Typecheck | `pnpm --filter @varve/{platform,editor,desktop} typecheck` | all clean |
 | Lint (touched files) | `biome lint` (11 files) | 0 errors, 0 warnings |
 | Format (touched files) | `biome format --write` | applied |
 | Architecture audit | `node scripts/audit-architecture.mjs --ci` | "✓ Architecture audit complete" (cycles 4 ≤ 6, layer violations none) |
@@ -351,13 +351,13 @@ Both were reproduced with all milestone changes stashed (`git stash push -u`):
 ### External Dependencies
 - **Tauri 2**: Window and menu APIs
 - **React**: Component framework
-- **@strata/platform**: Runtime detection
-- **@strata/ui**: UI components and tokens
+- **@varve/platform**: Runtime detection
+- **@varve/ui**: UI components and tokens
 
 ### Internal Dependencies
-- **@strata/editor**: Editor state and context
-- **@strata/scene**: Document model
-- **@strata/shared**: Shared utilities
+- **@varve/editor**: Editor state and context
+- **@varve/scene**: Document model
+- **@varve/shared**: Shared utilities
 
 ---
 
@@ -515,8 +515,8 @@ Both were reproduced with all milestone changes stashed (`git stash push -u`):
 - Implementation plan defined
 
 ### Milestone 1 — Root-cause fix, localization, strategy wiring (2026-08-01)
-- `@strata/platform`: canonical window-chrome model (`windowChrome.ts`), strategy resolver, display-server/button-layout detection, decision helpers (`shouldUseNativeMenu` / `shouldRenderCustomTitleBar` / `shouldRenderCustomMenubar`) + tests
-- `@strata/editor`: native-menu gating to macOS (`useNativeMenu`), real label resolution (`localization.ts`), safe default resolvers in `nativeAdapter`/`renderer`, localization integrity tests, snapshot refresh (raw keys → resolved labels)
+- `@varve/platform`: canonical window-chrome model (`windowChrome.ts`), strategy resolver, display-server/button-layout detection, decision helpers (`shouldUseNativeMenu` / `shouldRenderCustomTitleBar` / `shouldRenderCustomMenubar`) + tests
+- `@varve/editor`: native-menu gating to macOS (`useNativeMenu`), real label resolution (`localization.ts`), safe default resolvers in `nativeAdapter`/`renderer`, localization integrity tests, snapshot refresh (raw keys → resolved labels)
 - `apps/desktop`: `useWindowChrome` live event bridge, strategy-aware `TitleBar`, `windowActions` service
 - `tests/e2e/menus/chrome-integrity.spec.ts`: no raw keys / no browser window controls / menubar placement
 - Commit hashes: `85e249ca` (feat/chrome: macOS-only native menus, resolved menu labels, strategy-aware title bar — branch `feat/input-system`)

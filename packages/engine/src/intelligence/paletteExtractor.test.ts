@@ -1,4 +1,4 @@
-import { linearSrgbToOklab, oklabToOkLch, srgbToLinear } from '@strata/shared';
+import { linearSrgbToOklab, oklabToOkLch, srgbToLinear } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   analogousHarmony,

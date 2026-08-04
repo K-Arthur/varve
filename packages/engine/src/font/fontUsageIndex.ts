@@ -13,7 +13,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Minimal document types (avoids dependency on @strata/scene)
+// Minimal document types (avoids dependency on @varve/scene)
 // ---------------------------------------------------------------------------
 
 /** Minimal text node shape for usage scanning. */

@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
 import '@testing-library/jest-dom/vitest';
-import type { Platform } from '@strata/platform';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { Platform } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { HomeSearchPalette } from './HomeSearchPalette';
 

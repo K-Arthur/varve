@@ -17,8 +17,8 @@
  * - Multiple renders with same data reuse cache
  */
 
-import type { Affine } from '@strata/engine';
-import type { Document, SceneNode, Timeline } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import type { Document, SceneNode, Timeline } from '@varve/scene';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OnionSkinCompositor } from '../OnionSkinCompositor';
 
@@ -26,7 +26,7 @@ import { OnionSkinCompositor } from '../OnionSkinCompositor';
 
 const { mockBuildIr } = vi.hoisted(() => ({ mockBuildIr: vi.fn().mockResolvedValue([]) }));
 
-vi.mock('@strata/engine', async (importOriginal) => {
+vi.mock('@varve/engine', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
@@ -35,7 +35,7 @@ vi.mock('@strata/engine', async (importOriginal) => {
   };
 });
 
-vi.mock('@strata/scene', async (importOriginal) => {
+vi.mock('@varve/scene', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
@@ -194,7 +194,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('avoids re-rendering on cache hit', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 
@@ -236,7 +236,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('invalidates cache on doc version change', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 
@@ -269,7 +269,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('evicts oldest entry at max cache entries', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 
@@ -338,7 +338,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('clearCache empties all entries', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 
@@ -551,7 +551,7 @@ describe('OnionSkinCompositor', () => {
 
   it('respects before and after frame counts', async () => {
     const { sampleTimeline } = await import('../../timeline/TimelineSampler');
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
 
     // Mock sampleTimeline to return non-empty overrides so frames are rendered
     vi.mocked(sampleTimeline).mockReturnValue({
@@ -669,7 +669,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('canvas size change produces different cache keys', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 
@@ -710,7 +710,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('returns correct cache stats', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 
@@ -742,7 +742,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('reuses cache across multiple renders with same data', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 
@@ -819,7 +819,7 @@ describe('OnionSkinCompositor', () => {
   });
 
   it('zoom change produces different cache keys', async () => {
-    const { createEngine } = await import('@strata/engine');
+    const { createEngine } = await import('@varve/engine');
     const mockEngine = { buildIr: vi.fn().mockResolvedValue([]) };
     vi.mocked(createEngine).mockResolvedValue(mockEngine as never);
 

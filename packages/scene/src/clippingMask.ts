@@ -13,8 +13,8 @@
  *   - content replacement
  *   - validation and recovery for dangling references
  */
-import type { Affine } from '@strata/engine';
-import { identity, invertAffine, multiplyAffine, rotateDeg } from '@strata/shared';
+import type { Affine } from '@varve/engine';
+import { identity, invertAffine, multiplyAffine, rotateDeg } from '@varve/shared';
 import type { Document } from './document';
 import {
   buildParentIndexMap,

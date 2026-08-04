@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { replaceAll as replaceAllInDocument, replaceSingle } from './replace';
 import { searchInDocument, validateRegex } from './search';

@@ -361,7 +361,7 @@ import {
   createDocument,
   makeShapeNode,
   setSnapExcluded as sceneSetSnapExcluded,
-} from '@strata/scene';
+} from '@varve/scene';
 
 describe('setSnapExcluded — D-03', () => {
   it('toggles snap exclusion on/off', () => {

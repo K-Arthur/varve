@@ -1,4 +1,4 @@
-import { createDocument, type Document } from '@strata/scene';
+import { createDocument, type Document } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { chat, createAssistant } from './index';
 

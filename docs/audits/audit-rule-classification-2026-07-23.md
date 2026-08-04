@@ -26,7 +26,7 @@ Strata has **4 distinct audit systems** with **35+ individual rules** across mul
 |---------|----------|----------|----------|------------|----------------|------------|-------|
 | `contrast-aa-fail` | contrast | error/warning | Yes | text (solid RGB) | immediate | all | all |
 
-**Source:** `@strata/scene/intelligence/audit.ts`
+**Source:** `@varve/scene/intelligence/audit.ts`
 
 **Applicability:**
 - All workspaces (text contrast is universal)
@@ -57,7 +57,7 @@ Strata has **4 distinct audit systems** with **35+ individual rules** across mul
 | `excessive-nesting` | layout | warning | No | all | immediate | all | all |
 | `missing-export-presets` | export | info | No | root nodes | immediate | all | all |
 
-**Source:** `@strata/scene/intelligence/debtScanner.ts`
+**Source:** `@varve/scene/intelligence/debtScanner.ts`
 
 **Applicability Notes:**
 - `mixed-color-spaces`: Print-specific (CMYK/gray docs with RGB fills)
@@ -77,7 +77,7 @@ Strata has **4 distinct audit systems** with **35+ individual rules** across mul
 | `orphan` | governance | info | No | style, component | immediate | all | all |
 | `font` | typography | error | No | text | immediate | all | all |
 
-**Source:** `@strata/scene/intelligence/governanceRules.ts`
+**Source:** `@varve/scene/intelligence/governanceRules.ts`
 
 **Applicability Notes:**
 - Real-time design-system governance
@@ -97,7 +97,7 @@ Strata has **4 distinct audit systems** with **35+ individual rules** across mul
 | `accessibility/touch-target/v1` | touch-target | warning/info | No | interactive nodes | cheap | design, motion | all |
 | `accessibility/focus-order/v1` | focus-order | warning | No | interactive nodes | moderate | design, motion | prototype |
 
-**Source:** `@strata/scene/intelligence/linterScanner.ts`
+**Source:** `@varve/scene/intelligence/linterScanner.ts`
 
 **Applicability Notes:**
 - `touch-target`: Design/motion (interactive prototypes)
@@ -126,7 +126,7 @@ Strata has **4 distinct audit systems** with **35+ individual rules** across mul
 | `boolean-artifact` | vector | warning | No | shape | moderate | design, drawing | all |
 | `unlinked-mask` | vector | warning | No | masked nodes | moderate | design, drawing | all |
 
-**Source:** `@strata/codegen/src/vector-audit.ts`
+**Source:** `@varve/codegen/src/vector-audit.ts`
 
 **Applicability Notes:**
 - Design/drawing-focused (vector artwork)
@@ -148,7 +148,7 @@ Strata has **4 distinct audit systems** with **35+ individual rules** across mul
 | `over-compressed` | raster | warning | No | image fills | moderate | image, web | all |
 | `no-alt-text` | raster | info | No | image fills | cheap | all | all |
 
-**Source:** `@strata/codegen/src/raster-audit.ts`
+**Source:** `@varve/codegen/src/raster-audit.ts`
 
 **Applicability Notes:**
 - Image/print-focused (photo editing, print production)
@@ -166,7 +166,7 @@ Strata has **4 distinct audit systems** with **35+ individual rules** across mul
 | `disabled-interaction` | prototype | warning | No | interaction | cheap | design, motion | prototype |
 | `orphan-node` | prototype | info | No | all | cheap | design, motion | prototype |
 
-**Source:** `@strata/prototype/src/validation.ts`
+**Source:** `@varve/prototype/src/validation.ts`
 
 **Applicability Notes:**
 - Design/motion workspaces only

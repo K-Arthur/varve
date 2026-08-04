@@ -9,7 +9,7 @@
  * - Empty/edge cases
  */
 
-import type { AnimationKeyframe, AnimationTrack } from '@strata/scene';
+import type { AnimationKeyframe, AnimationTrack } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 describe('Motion path utilities', () => {

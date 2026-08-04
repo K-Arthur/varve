@@ -6,7 +6,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   type SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   expandReplayDependencies,

@@ -7,9 +7,9 @@
  * Replacement actions mutate the document via the editor's updateNode.
  */
 
-import { getFontRegistry } from '@strata/engine';
-import type { MissingFontInfo } from '@strata/engine/font';
-import { FontCatalog, FontResolver } from '@strata/engine/font';
+import { getFontRegistry } from '@varve/engine';
+import type { MissingFontInfo } from '@varve/engine/font';
+import { FontCatalog, FontResolver } from '@varve/engine/font';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 

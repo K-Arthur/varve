@@ -5,7 +5,7 @@
  * Restoring a set selects only the members that still exist in the document.
  */
 
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';

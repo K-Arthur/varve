@@ -1,5 +1,5 @@
 /**
- * @strata/ui/icons — typed `<Icon>` + curated icon maps.
+ * @varve/ui/icons — typed `<Icon>` + curated icon maps.
  *
  * The `Icon` primitive is the only graphics path for UI affordances (Strata
  * plan §4.4: zero emoji, SVG via Lucide only). Curated maps group icons by

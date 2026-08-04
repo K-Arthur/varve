@@ -10,7 +10,7 @@
  *   DaVinci Resolve LUT application.
  */
 
-import { linearToSrgb, srgbToLinear } from '@strata/shared';
+import { linearToSrgb, srgbToLinear } from '@varve/shared';
 import { applyLut1D, sampleLut3D } from './interpolate';
 import type { LutInterpolation, LutTransform } from './types';
 

@@ -1,5 +1,5 @@
-import type { Affine } from '@strata/engine';
-import { generateKeyBetween } from '@strata/shared';
+import type { Affine } from '@varve/engine';
+import { generateKeyBetween } from '@varve/shared';
 import type { Document } from './document';
 import { removeNode } from './document-nodes';
 import { cryptoId, devValidate, makeGroupNode } from './document-utils';

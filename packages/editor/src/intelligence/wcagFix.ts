@@ -1,4 +1,4 @@
-import type { Fill, GradientStop, ManagedColor } from '@strata/scene';
+import type { Fill, GradientStop, ManagedColor } from '@varve/scene';
 import {
   autoFixContrast,
   contrastRatio,
@@ -6,7 +6,7 @@ import {
   managedColorToRgba,
   relativeLuminance,
   wcagLevel,
-} from '@strata/shared';
+} from '@varve/shared';
 
 export interface ContrastResult {
   ratio: number;

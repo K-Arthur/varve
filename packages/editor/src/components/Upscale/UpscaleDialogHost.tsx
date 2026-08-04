@@ -6,8 +6,8 @@
  * to the editor context's upscaleSelectedImage.
  */
 
-import { getImageCache } from '@strata/engine';
-import { getImageFill, isImageShape } from '@strata/scene';
+import { getImageCache } from '@varve/engine';
+import { getImageFill, isImageShape } from '@varve/scene';
 import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
 import { selectedImageShape } from '../../imageOperations';
@@ -44,7 +44,7 @@ export function UpscaleDialogHost({ open, onClose }: UpscaleDialogHostProps) {
       if (!imageNode) return;
 
       const shapeNode =
-        imageNode.kind === 'shape' ? (imageNode as import('@strata/scene').ShapeNode) : undefined;
+        imageNode.kind === 'shape' ? (imageNode as import('@varve/scene').ShapeNode) : undefined;
       const imageFill = shapeNode && isImageShape(shapeNode) ? getImageFill(shapeNode) : undefined;
       const imageFillData =
         imageFill?.type === 'image' && imageFill.image ? imageFill.image : undefined;

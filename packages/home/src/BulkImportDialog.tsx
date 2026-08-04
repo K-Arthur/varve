@@ -1,7 +1,7 @@
-import type { FileEntry, FileKind, Platform } from '@strata/platform';
-import { contentHash, DRAFTS_ID, detectFileKind, stripExtension, uuid } from '@strata/platform';
-import { serializeDocument as serializeDoc } from '@strata/scene';
-import { Button, Dialog, Icon } from '@strata/ui';
+import type { FileEntry, FileKind, Platform } from '@varve/platform';
+import { contentHash, DRAFTS_ID, detectFileKind, stripExtension, uuid } from '@varve/platform';
+import { serializeDocument as serializeDoc } from '@varve/scene';
+import { Button, Dialog, Icon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 
 interface QueuedFile {

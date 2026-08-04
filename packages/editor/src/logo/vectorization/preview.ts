@@ -6,7 +6,7 @@
  * up to MAX_FINAL_DIM for quality. The source asset is never modified.
  */
 
-import { dispatchTrace, type RasterTraceResult } from '@strata/engine';
+import { dispatchTrace, type RasterTraceResult } from '@varve/engine';
 import { MAX_PREVIEW_DIM, prepareImageData } from './prepareSource';
 import type { VectorizationSettings } from './settings';
 import { toTraceOptions } from './settings';
@@ -24,7 +24,7 @@ export interface PreviewPayload {
 
 /** Load the source image by its stored src (data URL or asset path). */
 export async function loadSourceImage(src: string, signal: AbortSignal): Promise<HTMLImageElement> {
-  const { getImageCache } = await import('@strata/engine');
+  const { getImageCache } = await import('@varve/engine');
   if (signal.aborted) throw new Error('cancelled');
   const image = await getImageCache().load(src);
   if (signal.aborted) throw new Error('cancelled');

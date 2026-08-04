@@ -22,7 +22,7 @@ Use this in a future session to complete the remaining phases.
 | Frame parenting | Done | `findContainingFrameInDoc` spatial containment, `createShapeAt` accepts parentId, `addChild` for frames, `reparentNode` on move-end |
 | ToolId type | Done | 21 tool IDs across context and tools/types, union-synced |
 | TOOL_ICONS | Done | All tool icons mapped (arrow, zoom, nodeEdit, scale, eyedropper, boolean ops, inspect) |
-| Pre-existing codegen fixes | Done | 7 files in `@strata/codegen`: `Document` type alias to `SceneDocument`, unused params/vars, `FrameNode` typing |
+| Pre-existing codegen fixes | Done | 7 files in `@varve/codegen`: `Document` type alias to `SceneDocument`, unused params/vars, `FrameNode` typing |
 
 ## Completed implementation (Session 10, 2026-06-29)
 

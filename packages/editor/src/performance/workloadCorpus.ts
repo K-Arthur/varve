@@ -11,7 +11,7 @@ import {
   makeTextNode,
   type Page,
   type SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export const PERFORMANCE_WORKLOAD_VERSION = 2 as const;
 

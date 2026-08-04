@@ -1,7 +1,7 @@
 /**
  * Built-in preset registry, grouped by category. Curated, not exhaustive —
  * new categories/presets are added here as pure data; no UI component needs
- * to change to support them (see PresetPicker in @strata/ui, which renders
+ * to change to support them (see PresetPicker in @varve/ui, which renders
  * whatever groups it's given).
  *
  * Curatorial rule for anyone extending this file: 'paper' holds raw ISO/ANSI

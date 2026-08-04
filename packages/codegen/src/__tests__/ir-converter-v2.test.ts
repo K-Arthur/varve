@@ -9,7 +9,7 @@ import {
   makeFrameNode,
   makeShapeNode,
   makeTextNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { sceneToIR } from '../ir-converter';
 
@@ -100,7 +100,7 @@ describe('IR v2.1 — flattening info', () => {
     const frame = makeFrameNode('f1', { name: 'Shadow Frame' });
     const frameWithEffects = {
       ...frame,
-      fills: [] as import('@strata/scene').Fill[],
+      fills: [] as import('@varve/scene').Fill[],
       effects: [
         {
           type: 'innerShadow' as const,
@@ -108,7 +108,7 @@ describe('IR v2.1 — flattening info', () => {
           offsetY: 2,
           radius: 4,
           color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 128 },
-        } as unknown as import('@strata/scene').Effect,
+        } as unknown as import('@varve/scene').Effect,
       ],
     };
 
@@ -188,7 +188,7 @@ describe('IR v2.1 — fidelity warnings', () => {
     const frame = makeFrameNode('f1', { name: 'Glass' });
     const frameWithEffects = {
       ...frame,
-      fills: [] as import('@strata/scene').Fill[],
+      fills: [] as import('@varve/scene').Fill[],
       effects: [
         {
           type: 'glassMaterial' as const,
@@ -197,7 +197,7 @@ describe('IR v2.1 — fidelity warnings', () => {
           saturation: 1.0,
           brightness: 1.0,
           noise: 0.02,
-        } as unknown as import('@strata/scene').Effect,
+        } as unknown as import('@varve/scene').Effect,
       ],
     };
 

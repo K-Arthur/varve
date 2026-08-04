@@ -1,5 +1,5 @@
-import { type AuditFinding, type Document, getParent } from '@strata/scene';
-import type { Viewport } from '@strata/shared';
+import { type AuditFinding, type Document, getParent } from '@varve/scene';
+import type { Viewport } from '@varve/shared';
 import { useCallback, useRef } from 'react';
 import type { SectionId } from '../components/Inspector/sectionRegistry';
 import { useEditor } from '../context';
@@ -28,7 +28,7 @@ function nodeWorldBounds(
   const tx = n.transform[4] ?? 0;
   const ty = n.transform[5] ?? 0;
   if (n.kind === 'shape') {
-    const s = (n as import('@strata/scene').ShapeNode).shape;
+    const s = (n as import('@varve/scene').ShapeNode).shape;
     if (s.kind === 'rect') return clampBounds({ x: tx + s.x, y: ty + s.y, w: s.w, h: s.h });
     if (s.kind === 'ellipse')
       return clampBounds({ x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 });
@@ -44,11 +44,11 @@ function nodeWorldBounds(
     return null;
   }
   if (n.kind === 'frame') {
-    const f = n as import('@strata/scene').FrameNode;
+    const f = n as import('@varve/scene').FrameNode;
     return clampBounds({ x: tx, y: ty, w: f.w ?? 200, h: f.h ?? 160 });
   }
   if (n.kind === 'group') {
-    const children: string[] = (n as import('@strata/scene').GroupNode).children ?? [];
+    const children: string[] = (n as import('@varve/scene').GroupNode).children ?? [];
     if (children.length === 0) return null;
     let minX = Infinity,
       minY = Infinity,
@@ -113,7 +113,7 @@ function findNestedComponentInstance(doc: Document, nodeId: string): string | nu
   const parent = doc.nodes[parentId];
   if (!parent) return null;
   if (parent.kind === 'frame') {
-    const frame = parent as import('@strata/scene').FrameNode;
+    const frame = parent as import('@varve/scene').FrameNode;
     if (frame.componentId) return parentId;
   }
   return findNestedComponentInstance(doc, parentId);

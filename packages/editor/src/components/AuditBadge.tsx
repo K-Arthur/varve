@@ -11,10 +11,10 @@
  * never forces attention, never opens panels automatically.
  */
 
-import { getFontRegistry } from '@strata/engine';
-import type { AuditContext } from '@strata/scene';
-import { runQuickStatus } from '@strata/scene';
-import { Icon, Tooltip } from '@strata/ui';
+import { getFontRegistry } from '@varve/engine';
+import type { AuditContext } from '@varve/scene';
+import { runQuickStatus } from '@varve/scene';
+import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../context';
 

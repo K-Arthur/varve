@@ -11,7 +11,7 @@ import {
   MIN_ZOOM,
   screenToWorld,
   worldToScreen,
-} from '@strata/shared';
+} from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import type { ToolContext } from './types';
 import { ZoomTool } from './ZoomTool';
@@ -151,7 +151,7 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
 
     expect(setCameraMock.mock.calls).toHaveLength(1);
 
-    const camera = firstCallArg<import('@strata/shared').Camera>(setCameraMock);
+    const camera = firstCallArg<import('@varve/shared').Camera>(setCameraMock);
     const newZoom = camera.zoom;
     const newPan = camera.pan;
 
@@ -175,7 +175,7 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(pointerDown, ctx);
     tool.onPointerUp?.(pointerDown, ctx);
 
-    const camera = firstCallArg<import('@strata/shared').Camera>(
+    const camera = firstCallArg<import('@varve/shared').Camera>(
       ctx.setCamera as ReturnType<typeof vi.fn>,
     );
     const newZoom = camera.zoom;
@@ -197,7 +197,7 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@strata/shared').Camera>(
+    const camera = firstCallArg<import('@varve/shared').Camera>(
       ctx.setCamera as ReturnType<typeof vi.fn>,
     );
     expect(camera.zoom).toBeCloseTo(1.25, 2);
@@ -210,7 +210,7 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@strata/shared').Camera>(
+    const camera = firstCallArg<import('@varve/shared').Camera>(
       ctx.setCamera as ReturnType<typeof vi.fn>,
     );
     expect(camera.zoom).toBeCloseTo(0.8, 2);
@@ -251,7 +251,7 @@ describe('ZoomTool — viewport-aware anchor', () => {
     tool.onPointerDown(pointerDown, ctx);
     tool.onPointerUp?.(pointerDown, ctx);
 
-    const resultCam = firstCallArg<import('@strata/shared').Camera>(
+    const resultCam = firstCallArg<import('@varve/shared').Camera>(
       ctx.setCamera as ReturnType<typeof vi.fn>,
     );
     const finalOrigin = computeFloatingOrigin(resultCam, { width: 640, height: 480 });
@@ -276,7 +276,7 @@ describe('ZoomTool — zoom clamping', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@strata/shared').Camera>(
+    const camera = firstCallArg<import('@varve/shared').Camera>(
       ctx.setCamera as ReturnType<typeof vi.fn>,
     );
     expect(camera.zoom).toBeLessThanOrEqual(MAX_ZOOM);
@@ -289,7 +289,7 @@ describe('ZoomTool — zoom clamping', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@strata/shared').Camera>(
+    const camera = firstCallArg<import('@varve/shared').Camera>(
       ctx.setCamera as ReturnType<typeof vi.fn>,
     );
     expect(camera.zoom).toBeGreaterThanOrEqual(MIN_ZOOM);

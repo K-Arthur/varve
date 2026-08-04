@@ -1,4 +1,4 @@
-import type { Document, FrameNode, ShapeNode } from '@strata/scene';
+import type { Document, FrameNode, ShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { classifyLayout } from './layoutClassifier';
 

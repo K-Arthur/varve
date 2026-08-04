@@ -3,7 +3,7 @@ import { createPrintEngine, createStubPrintEngine, PACKAGE } from './index';
 
 describe('PACKAGE', () => {
   it('exposes package marker', () => {
-    expect(PACKAGE).toBe('@strata/print');
+    expect(PACKAGE).toBe('@varve/print');
   });
 });
 

@@ -2,8 +2,9 @@
  * usePresetLibrary tests (Home) — custom-preset CRUD, favorites/recents, and
  * persistence via the platform's app-setting KV store.
  */
-import type { Platform } from '@strata/platform';
+
 import { act, renderHook, waitFor } from '@testing-library/react';
+import type { Platform } from '@varve/platform';
 import { describe, expect, it } from 'vitest';
 import { usePresetLibrary } from './presetLibrary';
 

@@ -8,7 +8,7 @@
  *   npx vitest run packages/editor/src/components/LayersPanel/__benchmarks__/layers10k.bench.test.ts --testTimeout=60000
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import {
   buildParentIndexMap,
   createDocument,
@@ -16,7 +16,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   resolveAllStyles,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, test } from 'vitest';
 import { getOrCreateParentCache, getParentFast } from '../../../scene/parentIndexCache';
 import { buildSpatialIndex, queryPoint } from '../../../scene/spatialIndex';
@@ -91,7 +91,7 @@ function build1kSubtreeDoc(): { doc: Document; rootId: NodeId } {
  */
 function build10kDocWithStyles(): Document {
   const doc = build10kDoc();
-  const styles: Record<string, import('@strata/scene').Style> = {
+  const styles: Record<string, import('@varve/scene').Style> = {
     s1: {
       id: 's1',
       type: 'color',

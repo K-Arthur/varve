@@ -296,7 +296,7 @@ vi.mock('./shortcuts', () => {
   };
 });
 
-vi.mock('@strata/codegen', () => ({
+vi.mock('@varve/codegen', () => ({
   exportDocumentToSvg: () => '<svg/>',
 }));
 

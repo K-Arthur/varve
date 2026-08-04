@@ -8,8 +8,8 @@
  * as an unexplained full visible-list pass with `redrawReason: 'clean'`.
  */
 
-import type { CompositorBackend } from '@strata/compositor';
-import type { Affine } from '@strata/shared';
+import type { CompositorBackend } from '@varve/compositor';
+import type { Affine } from '@varve/shared';
 import { computeProfile } from './adaptiveProfile';
 import { endFrameTiming, getAverageFrameTime, getOverBudgetCount } from './frameBudget';
 import { recordFrame } from './perfRuntime';

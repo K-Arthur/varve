@@ -1,5 +1,5 @@
-import type { Document, NodeId } from '@strata/scene';
-import { buildParentIndexMap, isContainer } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { buildParentIndexMap, isContainer } from '@varve/scene';
 import { nodeWorldBounds } from './world';
 
 const CELL_SIZE = 64;

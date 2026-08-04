@@ -1,6 +1,6 @@
 // @ts-nocheck
-import type { Platform } from '@strata/platform';
-import type { Document } from '@strata/scene';
+import type { Platform } from '@varve/platform';
+import type { Document } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { scanCrossDocument } from './crossDocScanner';
 

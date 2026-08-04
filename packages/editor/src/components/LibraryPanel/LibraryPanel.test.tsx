@@ -2,8 +2,8 @@
  * LibraryPanel tests.
  */
 
-import { createDocument, createLibrary } from '@strata/scene';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { createDocument, createLibrary } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { LibraryPanel } from './LibraryPanel';
 

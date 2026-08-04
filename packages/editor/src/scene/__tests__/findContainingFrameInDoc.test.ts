@@ -1,4 +1,4 @@
-import { addChild, addNode, createDocument, type Document, makeFrameNode } from '@strata/scene';
+import { addChild, addNode, createDocument, type Document, makeFrameNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { findContainingFrameInDoc } from '../findContainingFrame';
 
@@ -18,7 +18,7 @@ function addFrame(
   y: number,
   w: number,
   h: number,
-  overrides?: Partial<import('@strata/scene').FrameNode>,
+  overrides?: Partial<import('@varve/scene').FrameNode>,
 ): Document {
   const frame = makeFrameNode(id, {
     name: id,

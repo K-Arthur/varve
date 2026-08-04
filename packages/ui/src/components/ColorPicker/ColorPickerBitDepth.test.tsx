@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ManagedColor } from '@strata/scene';
 import { act, render, screen } from '@testing-library/react';
+import type { ManagedColor } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { ColorPicker } from './ColorPicker';
 import { GamutWarning } from './GamutWarning';

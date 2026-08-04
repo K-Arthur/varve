@@ -4,7 +4,7 @@
  * The flip operation negates a scale axis in the local→parent affine while
  * adjusting the translation so the visual centre stays fixed.
  */
-import type { Affine } from '@strata/shared';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 
 // ── Helper ──────────────────────────────────────────────────────────────────

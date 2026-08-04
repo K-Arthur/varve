@@ -10,13 +10,13 @@
  *   tab order past the trigger), Enter/Space with disabled guards.
  */
 
-import { nextEnabledIndex } from '@strata/ui/utils/focusMovement';
+import { nextEnabledIndex } from '@varve/ui/utils/focusMovement';
 import {
   getTypeAheadResetMs,
   isResetKey,
   matchMenuTypeAhead,
   shouldTypeAhead,
-} from '@strata/ui/utils/menuTypeAhead';
+} from '@varve/ui/utils/menuTypeAhead';
 import type React from 'react';
 
 export interface MenuItemDef {

@@ -8,7 +8,7 @@
  * shared affordance, so the chevron, its rotation, hit area and labelling stay
  * identical everywhere rather than being re-implemented per section.
  */
-import { Tooltip } from '@strata/ui';
+import { Tooltip } from '@varve/ui';
 import './section-collapse.css';
 
 export interface SectionCollapseToggleProps {

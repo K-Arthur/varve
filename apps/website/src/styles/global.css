@@ -1,5 +1,5 @@
 /* Import Strata design tokens */
-@import "@strata/ui/tokens.css";
+@import "@varve/ui/tokens.css";
 
 @tailwind base;
 @tailwind components;

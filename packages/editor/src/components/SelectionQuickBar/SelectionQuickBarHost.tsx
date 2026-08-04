@@ -1,7 +1,7 @@
 /**
  * SelectionQuickBarHost — wires profile resolution + action dispatch to editor context.
  */
-import type { ShapeNode } from '@strata/scene';
+import type { ShapeNode } from '@varve/scene';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { selectedImageShape } from '../../imageOperations';

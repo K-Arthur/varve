@@ -94,9 +94,9 @@ Complete 10-phase redesign of the project/workspace/home system:
 - All new Platform methods are idempotent (upsert pattern)
 - Version history reuses recovery point data model but adds browsable UI
 
-**New types added to `@strata/platform`:** Folder, Collection, CollectionFilter, CollectionEntry, Workspace, Library, TemplateLibrary, ProjectTemplate, Asset, AssetFolder, VersionEntry, Branch, Permission, ActivityEvent, DRAFTS_ID sentinel, expanded SidebarSection
+**New types added to `@varve/platform`:** Folder, Collection, CollectionFilter, CollectionEntry, Workspace, Library, TemplateLibrary, ProjectTemplate, Asset, AssetFolder, VersionEntry, Branch, Permission, ActivityEvent, DRAFTS_ID sentinel, expanded SidebarSection
 
-**Verification:** 185+ JS tests pass (18 test files), typecheck clean on @strata/home and @strata/platform (pre-existing scene/prototype errors untouched), lint clean on all modified files.
+**Verification:** 185+ JS tests pass (18 test files), typecheck clean on @varve/home and @varve/platform (pre-existing scene/prototype errors untouched), lint clean on all modified files.
 
 ## Motion System (2026-07-03)
 
@@ -213,7 +213,7 @@ render, layer-click not revealing. 4 phases committed onto `feat/home-start-page
   `fitBoundsCamera`, `revealBoundsCamera`, `zoomAboutPoint`, `clientToCanvas`.
 - Rewrote `packages/shared/src/ordering.ts`: swapped the zero-padded integer facade to
   the real `fractional-indexing` npm package (base-62 midpoint, CRDT-safe).
-- Moved affine re-exports through `@strata/engine` for back-compat.
+- Moved affine re-exports through `@varve/engine` for back-compat.
 - **Fixed pointer placement bug** (`CanvasArea.buildToolCtx.canvasToWorld`): now
   subtracts `getBoundingClientRect()` before camera math — all drawing tools had
   been passing raw `clientX/Y` as if the canvas filled the window.
@@ -303,7 +303,7 @@ Root-cause repairs and capability implementation across the image rendering, eff
 ### Verification
 - JS tests: 1807/1808 pass (1 pre-existing AVIF test failure)
 - Engine tests: 232/232 pass (was 232, all new image/effects tests pass)
-- Typecheck: clean on all modified packages (@strata/engine, @strata/editor)
+- Typecheck: clean on all modified packages (@varve/engine, @varve/editor)
 - Lint: 0 new errors (all 502 pre-existing)
 - Emoji: clean
 - Tokens: 93/93 WCAG-AA
@@ -322,7 +322,7 @@ Fixes for 6 P0/P1 bugs in the text and selection system:
 |---|---|---|
 | **F4** Drawing tools stay active after creation → next click consumed by tool, no selection | `createShapeAt`/`createTextNodeAt` auto-return to SelectTool via `tool: 'select'` in state update | 2 (tool auto-return, text auto-return) |
 | **F5** `hitTestNode` tests parents before children (depth-sort + reverse-iteration bug) → nested nodes unselectable | Replace `sort((a,b) => b.depth - a.depth)` + reverse loop with simple `[...entries].reverse()` (DFS reverse = correct reverse-paint-order) | 2 (nested child hit, empty frame area hit) |
-| **F0** Text box dimensions hardcoded as `fontSize*6`/`fontSize*1.4` regardless of content | Use `measureText()` from `@strata/shared` for content-aware width/height, minimum 1em | 1 (content-aware sizing) |
+| **F0** Text box dimensions hardcoded as `fontSize*6`/`fontSize*1.4` regardless of content | Use `measureText()` from `@varve/shared` for content-aware width/height, minimum 1em | 1 (content-aware sizing) |
 | **F1** FontRegistry `resolve()` outputs malformed CSS `font` shorthand (missing font-size) | Changed to return CSS `font-family` fallback chain string only (correct for `ctx.font` usage) | 1 (resolve generic) |
 | **F2** TextEditOverlay position ignores non-identity transforms and ancestor frames | Pass `worldTransform` (from `nodeWorldTransform()`) as prop to compose ancestor transforms; use `measureText` for content-aware overlay sizing | 0 |
 | **F3** `makeTextNode` doesn't accept 6 properties (`textAlignVertical`, `paragraphSpacing`, `listStyle`, `textOverflow`, `textResizing`, `openTypeFeatures`) | Added to `Pick` type and return value | 1 (advanced properties) |
@@ -356,7 +356,7 @@ Implemented from text plan:
 | Phase | What was built |
 |---|---|
 | **1 Foundation** | Prototype types, trigger system (14 kinds), action system (13 kinds), interaction model, conditional branching (comparison + logical operators). 55 TDD tests. |
-| **2 Animation** | Keyframe timelines, multi-type interpolation (numbers/arrays/objects), multi-keyframe sampling, transition engine (dissolve/slide/push/moveIn/moveOut/instant). Easing math in `@strata/shared`: linear, ease, cubic-bezier, spring physics (mass-spring-damper), CSS steps(). 27 tests. |
+| **2 Animation** | Keyframe timelines, multi-type interpolation (numbers/arrays/objects), multi-keyframe sampling, transition engine (dissolve/slide/push/moveIn/moveOut/instant). Easing math in `@varve/shared`: linear, ease, cubic-bezier, spring physics (mass-spring-damper), CSS steps(). 27 tests. |
 | **3 Runtime** | Event→trigger→action→state pipeline with `createRuntime`/`handleEvent`/`applyActionResult`. Full state management (variables, overlays, visibility, animations). 22 tests. |
 | **4 Navigation** | Flow graph (nodes + connections), BFS shortest-path finding, orphan detection, entry point resolution with fallbacks. 38 tests. |
 | **5 Variables** | Typed variable store (string/number/boolean/color), arithmetic/string/comparison expression evaluator, prototype expression resolver. 17 tests. |
@@ -517,7 +517,7 @@ Both long-lived feature branches merged into `master`. All work is now on a sing
 | Merge | What changed |
 |---|---|
 | `feat/home-start-page` → master | Home shell, start page, design token refresh, brand assets, onboarding tour (already merged in prior session). |
-| `feat/export-system` → master | Per-node export presets (PNG/SVG/PDF/WebP/AVIF/React/Flutter/SwiftUI), `ExportPresetPanel`, inspector tab strip (Properties/Export/Spec), `Platform.saveBinaryFile` replaces `saveBlob`, Tauri 2 `write_binary_file` command, `exportDocumentToSvgAdvanced` with `boundsOverride`, `Slider` UI component, `@strata/print` TS facade, `TextNode.textAlign` + `Primitive` text union in TS and Rust. |
+| `feat/export-system` → master | Per-node export presets (PNG/SVG/PDF/WebP/AVIF/React/Flutter/SwiftUI), `ExportPresetPanel`, inspector tab strip (Properties/Export/Spec), `Platform.saveBinaryFile` replaces `saveBlob`, Tauri 2 `write_binary_file` command, `exportDocumentToSvgAdvanced` with `boundsOverride`, `Slider` UI component, `@varve/print` TS facade, `TextNode.textAlign` + `Primitive` text union in TS and Rust. |
 
 **Key conflict resolutions:**
 - `TextNode`/`Primitive`: kept `x, y, w, h` from master AND added `textAlign: 'left' | 'center' | 'right'` from export-system. `makeTextNode` defaults: `Inter/400/normal/1.2lh/0ls/left`.
@@ -536,9 +536,9 @@ Root-cause repair of zoom/pan not working, plus pinch/scroll, keyboard shortcuts
 
 | Area | Update |
 |---|---|
-| `packages/editor/src/CanvasArea.tsx` | **Draw redraw fix**: added `state.zoom`, `state.pan.x`, `state.pan.y` to `draw` useCallback deps. **Wheel handler**: `ctrlKey` → cursor-anchored pinch-zoom via `zoomAboutPoint`; plain wheel → two-finger scroll-to-pan (`pan.x - deltaX`, `pan.y - deltaY`). **Keyboard shortcuts**: added `Ctrl/Cmd+0` (100%), `=`/`+` (zoom in 1.25x), `-` (zoom out 0.8×) all anchored to viewport centre via `screenToWorld + zoomAboutPoint`. Numeric presets 1-6 now also zoom about the canvas centre. **Shift+1 / Shift+2 viewport**: use actual `canvasRef.current.parentElement.clientWidth/Height` instead of `window.innerWidth`. `revealSelection` now passes `viewport` from canvas element. Imported `clampZoom`, `screenToWorld`, `zoomAboutPoint` from `@strata/shared`. |
+| `packages/editor/src/CanvasArea.tsx` | **Draw redraw fix**: added `state.zoom`, `state.pan.x`, `state.pan.y` to `draw` useCallback deps. **Wheel handler**: `ctrlKey` → cursor-anchored pinch-zoom via `zoomAboutPoint`; plain wheel → two-finger scroll-to-pan (`pan.x - deltaX`, `pan.y - deltaY`). **Keyboard shortcuts**: added `Ctrl/Cmd+0` (100%), `=`/`+` (zoom in 1.25x), `-` (zoom out 0.8×) all anchored to viewport centre via `screenToWorld + zoomAboutPoint`. Numeric presets 1-6 now also zoom about the canvas centre. **Shift+1 / Shift+2 viewport**: use actual `canvasRef.current.parentElement.clientWidth/Height` instead of `window.innerWidth`. `revealSelection` now passes `viewport` from canvas element. Imported `clampZoom`, `screenToWorld`, `zoomAboutPoint` from `@varve/shared`. |
 | `packages/editor/src/context.tsx` | `setZoom` now wraps value in `clampZoom` so every caller (keyboard, StatusBar, tools) is clamped to `[MIN_ZOOM, MAX_ZOOM]`. `revealSelection` accepts `opts.viewport?: Viewport` so callers that know the canvas size can pass it; falls back to `window.innerWidth` estimate when absent. |
-| `packages/editor/src/tools/ZoomTool.ts` | Click-zoom now anchors to the cursor: computes `zoomAboutPoint(cam, startWorld, newZoom)` and calls both `setZoom` + `setPan`, keeping the world point under the click cursor fixed. Uses `clampZoom` from `@strata/shared`. |
+| `packages/editor/src/tools/ZoomTool.ts` | Click-zoom now anchors to the cursor: computes `zoomAboutPoint(cam, startWorld, newZoom)` and calls both `setZoom` + `setPan`, keeping the world point under the click cursor fixed. Uses `clampZoom` from `@varve/shared`. |
 | `packages/editor/src/tools/zoom.test.ts` | **New file** — 6 TDD tests: cursor-anchored click zoom-in (screen position invariant), cursor-anchored alt-click zoom-out, 1.25× factor, 0.8× factor, MAX_ZOOM clamp, MIN_ZOOM clamp. Tests written as failing assertions before the fix was applied. |
 | `justfile` | Fixed `format-check` recipe: `biome format --check .` is not valid in Biome 2.x. Replaced with `pnpm exec biome ci --formatter-enabled=true --linter-enabled=false .` which is the Biome 2.5.1 equivalent. |
 | `crates/strata-engine/src/lib.rs`, `crates/strata-print/src/lib.rs` | `cargo fmt` formatting-only fix (pre-existing line-too-long violations that blocked `just gate`). |
@@ -589,12 +589,12 @@ Four features implemented TDD-first; all new tests written as failing assertions
 | **Live snapping** | `snapEnabled` (was hardcoded `false`) now wired from `EditorState.snapEnabled` in `CanvasArea.buildToolCtx`. Early return added to `snapPosition` wrapper when disabled. `,` shortcut and View menu "Toggle Snap" entry added. 9 snapping unit tests (`edge/center-x/y/threshold/disabled/empty`). |
 | **NodeEditTool** | New `packages/editor/src/tools/NodeEditTool.ts` — `BaseTool` subclass for bezier anchor editing. Enter on double-click of a `path` ShapeNode (wired in `SelectTool.onDoubleClick`). Escape/V → select tool; Backspace → delete anchor (blocked at 2 pts); C → corner↔smooth toggle. Drag moves anchor via `updateNode`. `setNodeEditTargetId` / `setNodeEditSelectedAnchors` added to `ToolContext`. 8 TDD tests pass. |
 | **NodeEditOverlay** | New `packages/editor/src/components/NodeEditOverlay.tsx` — SVG overlay (pointer-events:none) showing square/circle handles for corner/smooth anchors and bezier control lines. Rendered by CanvasArea when `tool === 'nodeEdit'`. |
-| **Boolean ops** | New `packages/scene/src/boolean.ts` — `booleanOp(kind, nodes): ShapeNode`. Union/exclude: bounding rectangle. Intersect: Sutherland-Hodgman polygon clipping. Subtract: first shape (MVP; Weiler-Atherton deferred). `BooleanOpKind` exported from `@strata/scene`. Wired to `context.booleanOp()`, `FloatingToolbar` boolean flyout (applies op then reverts to select), `Menubar` Object menu (Ctrl+Alt+U/S/I/X), and shortcut handlers. 9 TDD tests pass. |
-| **Auto-layout reflow** | New `packages/editor/src/layout/computeFlexLayout.ts` — pure-TS flex layout engine (replaces the deferred `@strata/layout` WASM stub). Supports row/column/rowReverse/columnReverse, gap, and padding[top,right,bottom,left]. Returns `{ id, x, y, w, h }[]` for caller to apply as transforms. `applyFrameLayout(doc, parentId)` helper in `context.tsx` calls it and patches children's transforms. Wired at: `createShapeAt` (addChild path), `createTextNodeAt` (addChild path), `reparentNode` (old + new parent), `removeSelected` (all affected parents). 5 TDD tests pass. |
+| **Boolean ops** | New `packages/scene/src/boolean.ts` — `booleanOp(kind, nodes): ShapeNode`. Union/exclude: bounding rectangle. Intersect: Sutherland-Hodgman polygon clipping. Subtract: first shape (MVP; Weiler-Atherton deferred). `BooleanOpKind` exported from `@varve/scene`. Wired to `context.booleanOp()`, `FloatingToolbar` boolean flyout (applies op then reverts to select), `Menubar` Object menu (Ctrl+Alt+U/S/I/X), and shortcut handlers. 9 TDD tests pass. |
+| **Auto-layout reflow** | New `packages/editor/src/layout/computeFlexLayout.ts` — pure-TS flex layout engine (replaces the deferred `@varve/layout` WASM stub). Supports row/column/rowReverse/columnReverse, gap, and padding[top,right,bottom,left]. Returns `{ id, x, y, w, h }[]` for caller to apply as transforms. `applyFrameLayout(doc, parentId)` helper in `context.tsx` calls it and patches children's transforms. Wired at: `createShapeAt` (addChild path), `createTextNodeAt` (addChild path), `reparentNode` (old + new parent), `removeSelected` (all affected parents). 5 TDD tests pass. |
 
 **Verification:** 601 JS tests across key packages (editor 166, scene 113, engine 55, shared 84, platform 43, ui 140) — all green. Typecheck clean (13 packages). `pnpm audit:tokens` 72/72. `pnpm audit:emoji` clean. Lint 0 errors on all modified files.
 
-**Typecheck fixes (same commit):** Exported `PathPoint` from `@strata/engine`; added required `NodeBase` fields to `makeResult` in boolean.ts; fixed `Fill` tuple color syntax in boolean.test.ts; added missing `ToolContext` fields to zoom.test.ts and NodeEditTool.test.ts mocks; fixed `TextNode` has no `w`/`h` in computeFlexLayout.
+**Typecheck fixes (same commit):** Exported `PathPoint` from `@varve/engine`; added required `NodeBase` fields to `makeResult` in boolean.ts; fixed `Fill` tuple color syntax in boolean.test.ts; added missing `ToolContext` fields to zoom.test.ts and NodeEditTool.test.ts mocks; fixed `TextNode` has no `w`/`h` in computeFlexLayout.
 
 ## Session 15 — Production-grade frontend polish pass (2026-07-01)
 
@@ -766,10 +766,10 @@ Complete text/typography system implementation across 7 phases, TDD-first:
 | Phase | Area | Status |
 |---|---|---|
 | **A** | Pipeline fixes: textAlign, letterSpacing, lineHeight in IR, measureText mock, createTextNodeAt size param | Done |
-| **B** | Text Measurement Engine: `textMeasure`/`textWrap` in `@strata/shared`, wired into `nodeLocalBounds`, `computeFlexLayout` | Done |
+| **B** | Text Measurement Engine: `textMeasure`/`textWrap` in `@varve/shared`, wired into `nodeLocalBounds`, `computeFlexLayout` | Done |
 | **C** | Renderer Completion: multi-line, textCase, textAlignVertical, textDecoration (underline/line-through), textOverflow (clip/ellipsis), listStyle (disc/decimal/circle/square), letterSpacing per-glyph | Done |
 | **D** | Inline Text Editing: `TextEditOverlay` component, positioned `<textarea>`, Enter/IME/Escape handling, double-click entry via SelectTool | Done |
-| **E** | Font System: `FontRegistry` in `@strata/engine`, singleton, CSS fallback chains, load state tracking | Done |
+| **E** | Font System: `FontRegistry` in `@varve/engine`, singleton, CSS fallback chains, load state tracking | Done |
 | **F** | Export Fix: export.ts emits real text primitives instead of degrading to rectangles | Done |
 | **G** | Test Infrastructure: measureText added to vitest canvas mock, FontRegistry tests, 20+ new text renderer tests | Done |
 
@@ -961,7 +961,7 @@ All phases implemented TDD-first with test counts verified at every gate.
 
 ## Session 26 — Import/Export System Overhaul (2026-07-02)
 
-Complete import/export system review, refactor, and enhancement. All 3 workstreams from `docs/plans/export-system-deferred.md` completed + new `@strata/import` package.
+Complete import/export system review, refactor, and enhancement. All 3 workstreams from `docs/plans/export-system-deferred.md` completed + new `@varve/import` package.
 
 ### Workstream A: Rust Print Engine (A1-A3)
 
@@ -988,16 +988,16 @@ Complete import/export system review, refactor, and enhancement. All 3 workstrea
 | **C3 Settings store** | `settings.ts` — `EditorSettings`/`loadSettings()`/`saveSettings()`/`updateSettings()`/`resetSettings()` with localStorage. 5 tests. |
 | **C4 Settings UI** | `SettingsDialog.tsx` — tabbed dialog (Appearance/Export). `ExportSettingsTab.tsx` — format, scale, ICC profile, bleed, outline text, template, rendering intent, color profile. |
 
-### New: Import System (@strata/import)
+### New: Import System (@varve/import)
 
 The biggest architecture gap — creating an import pipeline for foreign design file formats:
 
 | Area | Update |
 |---|---|
-| **@strata/import package** | New package at `packages/import/`. SVG parser (recursive descent, 8 primitive types + paths + groups + text + transforms + defs/use), image importer, format registry, bitmap decoder. 20 tests. |
+| **@varve/import package** | New package at `packages/import/`. SVG parser (recursive descent, 8 primitive types + paths + groups + text + transforms + defs/use), image importer, format registry, bitmap decoder. 20 tests. |
 | **SVG parser** | Handles `<rect>`/`<circle>`/`<ellipse>`/`<line>`/`<polygon>`/`<polyline>`/`<path>` (M/L/C/S/Q/T/A/Z)/`<g>`/`<text>`/`<image>`/`<use>`/`<defs>`. Transform attribute parsing. fill/stroke/opacity/style. |
-| **ImageNode** | Added `kind: 'image'` to `SceneNode` union in `@strata/scene` with `src`/`w`/`h`/`imageFit`. |
-| **ImageCache** | `ImageCache` singleton in `@strata/engine` — async loading, caching, preloading, state tracking, subscriptions for progressive loading. |
+| **ImageNode** | Added `kind: 'image'` to `SceneNode` union in `@varve/scene` with `src`/`w`/`h`/`imageFit`. |
+| **ImageCache** | `ImageCache` singleton in `@varve/engine` — async loading, caching, preloading, state tracking, subscriptions for progressive loading. |
 | **Canvas drag-drop** | `CanvasArea.tsx` — `onDragOver`/`onDrop` handlers for files. SVG/PNG/JPG/WebP drop → import → canvas placement. Drag-over visual feedback. |
 | **Clipboard paste** | `clipboard.ts` — `readClipboardImages()` reads image/* and text/svg MIME types. `context.tsx` — paste handler now reads images/SVG from system clipboard alongside Strata nodes. |
 | **Import menu** | Menubar → File → Import… (⌘I). Hidden file input for SVG/PNG/JPG/WebP/GIF. |
@@ -1116,7 +1116,7 @@ TDD-first bug fixes for ScaleTool and SelectTool undo/redo transactions, plus pr
 | `packages/import/src/svg.ts` — 2x biome `noAssignInExpressions` | Extracted `while ((m = re.exec(...))` into separate assignment + while loop |
 | `packages/prototype/src/navigation.ts` — biome `noExplicitAny` | Changed `Record<string, any[]>` → `Record<string, unknown[]>` |
 | `packages/editor/src/layout/computeFlexLayout.ts` — 4x biome `noExplicitAny` | Replaced `as any` with typed cast `as { layoutStyle?: { grow?: number } }` |
-| `packages/editor/src/tools/SelectTool.ts` — biome `noExplicitAny` | Replaced `f: any` → `f: import('@strata/scene').Fill` |
+| `packages/editor/src/tools/SelectTool.ts` — biome `noExplicitAny` | Replaced `f: any` → `f: import('@varve/scene').Fill` |
 | `packages/editor/src/InspectorPanel.tsx` — biome `suppressions/unused` | Removed stale `noArrayIndexKey` suppression |
 | `biome.json` — 149 pre-existing `noExplicitAny` errors in test files | Added `overrides` block: test files get `noExplicitAny: warn` (source files still `error`) |
 | `biome.json` — 11 pre-existing a11y errors in Export/Prototype components | Relaxed 4 a11y rules to `warn` (requires dedicated a11y refactoring pass) |
@@ -1227,7 +1227,7 @@ Complete implementation of the 5-phase color management and print production arc
 
 **Key architecture decisions:**
 - `ManagedColor` is the canonical color type everywhere (RGB/CMYK/Gray/Spot discriminated union)
-- `EngineColor` mirrors it as a self-contained type in `@strata/engine` (no circular dep)
+- `EngineColor` mirrors it as a self-contained type in `@varve/engine` (no circular dep)
 - `ColorConversionService` provides pure-TS analytical conversions (no ICC needed for basic ops)
 - `Page` model stores each page's content via a `contentRoot` GroupNode in `rootChildren` for backward compat
 - Rust `RenderContext` pattern replaced flat `shape_to_pdf_content` with `render_fills`/`render_strokes`/`render_effects`
@@ -1252,7 +1252,7 @@ Complete implementation of canvas architecture improvements plus 8 deterministic
 | **Viewport culling** | `isWorldRectInViewport()` — intersection-based culling (not full-containment). Pre-builds parent index map for O(1) parent lookups. Skips off-screen nodes during IR build+replay. | +7 viewport tests |
 | **Parent index map** | `buildParentIndexMap(doc)` — O(n) single-pass parent map. `nodeWorldTransform`/`nodeWorldBounds` accept optional `parentIndex` param for O(1) ancestor traversal. | (existing tests) |
 | **Canvas mode system** | Three modes via `EditorState.canvasMode`: `full` (default, full IR rendering), `outline` (fills/effects stripped, uniform stroke), `preview` (all overlays hidden). Ctrl+Shift+O/R shortcuts. View menu checkboxes. | +11 editor tests |
-| **Coordinate deduplication** | All 8 files with duplicate `worldToScreen`/`screenToWorld` implementations now import from canonical `@strata/shared/viewport.ts`. 19 duplicate sites eliminated. | 32/32 SelectionOverlay tests pass |
+| **Coordinate deduplication** | All 8 files with duplicate `worldToScreen`/`screenToWorld` implementations now import from canonical `@varve/shared/viewport.ts`. 19 duplicate sites eliminated. | 32/32 SelectionOverlay tests pass |
 | **Minimap** | `components/Minimap/` — Full overhaul: `minimapLayout.ts` (canonical document bounds, outlier culling, world↔minimap transforms), `minimapRenderer.ts` (retained Canvas2D renderer with frame/shape/text/group differentiation), `MinimapPanel.tsx` (click/drag/keyboard nav, collapse/expand, page-aware, DFS traversal into frames/groups, theme-aware viewport indicator, accessible section with aria-labels). | +41 tests |
 | **Multi-page UI** | `PageNav` — horizontal page thumbnail strip with add/duplicate/delete, `currentPageId` in editor state. | +4 tests |
 
@@ -1309,7 +1309,7 @@ Complete 18-phase overhaul of the Layers Panel subsystem — architecture audit,
 | **3.13 Component Sync** | `component-sync.ts` — baseline-aware override detection (`syncBaseline` per instance), `pushMasterChanges`, `syncInstance`, `syncAllInstances`, `getInstanceStatus`. Master edits propagate to non-overridden instances. `component.ts` `propagateMaster` (full subtree re-clone) exists but editor uses `component-sync.ts` frame-prop sync. Sync badges in LayersRow. | `component-sync.ts`, `component.ts`, `context.tsx`, `LayersRow.tsx` | +16 |
 | **3.14 Grid Layout** | `computeGridLayout.ts` — full CSS Grid engine (px/fr/auto tracks, explicit placement via `gridPlacement`, auto-flow, gap, padding). Wired into `applyFrameLayout` when `mode === 'grid'`. Grid icon in LayersRow. | `computeGridLayout.ts`, `context.tsx` | +21 |
 | **3.15 Alpha Mask** | `renderAlphaMask` — offscreen canvas compositing via `destination-in`. Alpha mask branch in `replaySubtreeToCtx`. State isolation, zero-size guards, gradient support. | `replay.ts`, `CanvasArea.tsx` | +7 |
-| **3.16 Collaboration** | `PresenceIndicator` (avatar dots + overflow) and `PresenceStore` (singleton) exist as UI scaffolding; **not mounted** in `Shell.tsx`/`LayersRow` as of 2026-07-06. `@strata/collab` returns stub users/cursors. Real multiplayer deferred in `docs/plans/phase2-plan.md`. `NodeBase` uses boolean `locked` (no `lockedBy` field). | `PresenceIndicator.tsx`, `presenceStore.ts`, `types.ts` | +12 |
+| **3.16 Collaboration** | `PresenceIndicator` (avatar dots + overflow) and `PresenceStore` (singleton) exist as UI scaffolding; **not mounted** in `Shell.tsx`/`LayersRow` as of 2026-07-06. `@varve/collab` returns stub users/cursors. Real multiplayer deferred in `docs/plans/phase2-plan.md`. `NodeBase` uses boolean `locked` (no `lockedBy` field). | `PresenceIndicator.tsx`, `presenceStore.ts`, `types.ts` | +12 |
 
 ### Phase 4 — Stress & Polish
 
@@ -1350,12 +1350,12 @@ Closed Phases A–D from the deferred-work plan. Phase E (native Rust AI, hair m
 | Phase | What |
 |---|---|
 | **P0** | RefineMaskTool `onDragCancel` test fix; ExportDialog `globalThis.document` shadowing fix; CurveEditor `role="graphics-document"` |
-| **A** | `@strata/engine` typecheck cleanup (~35 sites); `strata-bridge` clippy box fix; BiRefNet rembg mirror URLs (214MB/928MB); `verifyBundledModel` on Settings first open |
+| **A** | `@varve/engine` typecheck cleanup (~35 sites); `strata-bridge` clippy box fix; BiRefNet rembg mirror URLs (214MB/928MB); `verifyBundledModel` on Settings first open |
 | **B** | HTTP Range resume + partial IndexedDB store; `ModelStorageQuotaError` actionable UX |
 | **C** | RefineMask commit-on-drag-end tests; `[`/`]` brush shortcuts; all `.bg-removal__*` + export bg-method CSS |
 | **D** | `DEFAULT_PREVIEW_MAX_DIMENSION=2048` wired end-to-end; inspector downscale hint; WebGPU EP blocked on WebKitGTK (ADR-0005 note) |
 
-**Verification:** Focused bg-removal suite **145/145** pass; `@strata/engine` typecheck clean; `cargo clippy` + `cargo test --workspace` (166/166) clean. Full `pnpm test`: **3731/3743** pass (11 failures in uncommitted motion WIP). Phase E prompt: `docs/plans/bg-removal-phase-e-prompt.md`.
+**Verification:** Focused bg-removal suite **145/145** pass; `@varve/engine` typecheck clean; `cargo clippy` + `cargo test --workspace` (166/166) clean. Full `pnpm test`: **3731/3743** pass (11 failures in uncommitted motion WIP). Phase E prompt: `docs/plans/bg-removal-phase-e-prompt.md`.
 
 ## Session 40 — Background Removal Phase E (2026-07-06)
 
@@ -1369,7 +1369,7 @@ Completed Phase E deferred work: stub parity, hair matting, multi-subject picker
 | **E.3** | 8-connected CC labeling + subject picker overlay | `maskOps.ts`, `SubjectPickerOverlay`, `finalizeMask.ts` | +8 |
 | **E.4** | Ephemeral trimap editor + matting solver | `TrimapEditTool.ts`, `trimapMatting.ts` | +3 |
 
-**Verification:** Focused bg-removal suite **163/163** pass (23 files); `@strata/engine` typecheck **0 errors**; `cargo clippy -D warnings` clean; `cargo test --workspace` **167/167** pass.
+**Verification:** Focused bg-removal suite **163/163** pass (23 files); `@varve/engine` typecheck **0 errors**; `cargo clippy -D warnings` clean; `cargo test --workspace` **167/167** pass.
 
 ## Session 41 — Canvas System Architecture Audit (2026-07-06)
 
@@ -1683,11 +1683,11 @@ TDD-first investigation of 3 pre-existing issues following the methodology in `d
 |---|---|---|---|---|
 | **VersionHistory loading state test** (1 test failure) | Test used `getByText('Loading version history...')` but `InlineActivityIndicator` renders the label in SVG `aria-label`/`<title>`, not visible DOM text | Changed to `getByRole('img', { name: /Loading version history/ })` | `packages/home/src/VersionHistory.test.tsx` | 104/104 home tests pass |
 | **HistogramWidget unhandled errors** (2 runtime errors) | jsdom doesn't implement `canvas.setPointerCapture()` | Added `HTMLCanvasElement.prototype.setPointerCapture = vi.fn()` (and `releasePointerCapture`) to `vitest.setup.ts` | `vitest.setup.ts` | 1552/1552 editor tests pass, 0 unhandled errors |
-| **Scene fixture typecheck errors** (8 TS errors) | Unsafe casts from `Record<string, unknown>` to `Document` without `unknown` intermediate; inline types missing `kind`/`handleIn`/`handleOut` fields | Casts through `unknown` via `as unknown as Document`; expanded inline types to include all accessed fields | `packages/scene/src/__fixtures__/legacy-fixture.test.ts`, `path-fixture.test.ts` | `@strata/scene` typecheck clean |
+| **Scene fixture typecheck errors** (8 TS errors) | Unsafe casts from `Record<string, unknown>` to `Document` without `unknown` intermediate; inline types missing `kind`/`handleIn`/`handleOut` fields | Casts through `unknown` via `as unknown as Document`; expanded inline types to include all accessed fields | `packages/scene/src/__fixtures__/legacy-fixture.test.ts`, `path-fixture.test.ts` | `@varve/scene` typecheck clean |
 
 ### Gates
 - **JS tests:** 4542 passed, 0 failed, 1 skipped (399 files)
-- **Typecheck:** All 17 packages clean (pre-existing @strata/editor errors untouched — 44 errors across 10 files)
+- **Typecheck:** All 17 packages clean (pre-existing @varve/editor errors untouched — 44 errors across 10 files)
 - **Lint:** 0 new errors on modified files
 - **Rust:** 197/197 workspace tests pass
 
@@ -1704,7 +1704,7 @@ Complete implementation of master pages, facing-page spreads, native print backe
 | **Master assignment** | `assignMasterToPage`, `setMasterAppliesTo`. Pages carry `masterPageId` and `masterOverrides` records. | `types.ts`, `document.ts` |
 | **Master overrides** | `MasterOverride` type (modified/hidden/deleted). `addMasterOverride`, `removeMasterOverride`, `resetMasterOverrides`, `detachMasterOverride`. | `types.ts`, `document.ts` |
 | **Master propagation** | `activePageNodesWithMaster(doc, pageId)` computes visible nodes: globals → master content (filtered by overrides) → page-local content. `pageHasOverrides()`, `resolveNodeOrigin()` for 'master'|'override'|'local' classification. | `document.ts` |
-| **Editor context** | 15 new methods on `EditorContextValue`: master CRUD, assignment, spread reconstruction, page side classification, page numbering, facing pages toggle. All delegate to @strata/scene pure functions via `updateDoc`. | `context.tsx`, `context/types.ts` |
+| **Editor context** | 15 new methods on `EditorContextValue`: master CRUD, assignment, spread reconstruction, page side classification, page numbering, facing pages toggle. All delegate to @varve/scene pure functions via `updateDoc`. | `context.tsx`, `context/types.ts` |
 
 ### Phase 2 — Facing Pages & Spreads
 
@@ -1788,16 +1788,16 @@ Two-part session: (1) implemented the remaining Phase 0-5 intelligence algorithm
 | Surface | What changed | Files |
 |---|---|---|
 | **Status-bar → inspector** | `DebtBadge` and `LayoutScoreIndicator` clicks now open `IntelligencePanel`'s debt/layout tabs. Implemented as a module-level handler bridge (`setInspectorTabHandler`/`context.setInspectorTab`) mirroring the existing `setToastHandler` pattern — `PropertiesPanel` registers itself on mount and remounts `IntelligencePanel` with the requested sub-tab via a seq-counter key, so repeated clicks on the same sub-tab always work even when the panel is already open. | `context.tsx`, `context/types.ts`, `components/DebtBadge.tsx`, `components/StatusBar/LayoutScoreIndicator.tsx`, `components/Inspector/PropertiesPanel.tsx` |
-| **Debt auto-fix** | `DebtTab` auto-runs on mount and on document change (idle-scheduled). `debtScanner.ts`'s `DebtIssue` gained a real `autoFix?: (doc) => Document` field, implemented for `untokenized-colors` (adds the color as a document swatch) and `missing-fonts` (swaps to the first available font, including rich-text runs). `unnamed-layers` auto-fix is handled in the editor layer via the existing `autoNamer.ts` heuristic (not duplicated into `@strata/scene`, which must not depend on `@strata/editor`). | `packages/scene/src/intelligence/debtScanner.ts`, `panels/IntelligencePanel.tsx` |
+| **Debt auto-fix** | `DebtTab` auto-runs on mount and on document change (idle-scheduled). `debtScanner.ts`'s `DebtIssue` gained a real `autoFix?: (doc) => Document` field, implemented for `untokenized-colors` (adds the color as a document swatch) and `missing-fonts` (swaps to the first available font, including rich-text runs). `unnamed-layers` auto-fix is handled in the editor layer via the existing `autoNamer.ts` heuristic (not duplicated into `@varve/scene`, which must not depend on `@varve/editor`). | `packages/scene/src/intelligence/debtScanner.ts`, `panels/IntelligencePanel.tsx` |
 | **Component creation** | New `createComponentFromGroup(nodeIds)` context action: first node becomes the master component definition, the rest are replaced in place with instances (transform/opacity/rotation preserved). Wires `ComponentsTab`'s previously-inert "Create component" button. | `context.tsx`, `panels/IntelligencePanel.tsx` |
 | **Menubar + QuickActionsBar** | Object menu gained Audit / Scan for Debt / Suggest Names / Detect Duplicates (Harmonize Spacing was already wired to Arrange + Ctrl+Shift+Space). Same four registered in the central `ActionRegistry` with search keywords, so `QuickActionsBar` (Ctrl+;) lists and can launch them. | `Menubar.tsx`, `actions/createActionHandlers.ts`, `actions/registerAll.ts` |
 | **Contrast indicators** | Fixed a real runtime bug: `FillSection`'s `FillRow` rendered two different `ContrastIndicator` components for text nodes — a stale one using a `fgColor`/`bgColor` prop shape that doesn't exist on the actual component (`fill`/`background`/`fillIndex`), which would throw accessing `fill.type` on `undefined`. Removed the duplicate, carried its fontSize/fontWeight context into the working call. | `components/Inspector/sections/FillSection.tsx` |
-| **AI chat dispatch** | New `@strata/ai/intelligenceRegistry.ts`: command metadata + keyword matching. Scene-native commands (`check-contrast` via `runIntelligenceAudit`, `scan-debt` via `runDebtScan`) run directly against `@strata/scene`; editor-only commands (`suggest-names`, `harmonize-spacing`) are dispatched through a caller-supplied handler callback — `@strata/ai` never imports `@strata/editor` (would cycle back). `chat()`/`createAssistant().sendMessage()` take an optional per-call context; `AIPanel` supplies `state.document` plus handlers backed by `renameSelected`/`harmonizeSpacing`. No context → same mock replies as before (backward compatible). | `packages/ai/src/intelligenceRegistry.ts`, `packages/ai/src/index.ts`, `components/AIPanel.tsx` |
+| **AI chat dispatch** | New `@varve/ai/intelligenceRegistry.ts`: command metadata + keyword matching. Scene-native commands (`check-contrast` via `runIntelligenceAudit`, `scan-debt` via `runDebtScan`) run directly against `@varve/scene`; editor-only commands (`suggest-names`, `harmonize-spacing`) are dispatched through a caller-supplied handler callback — `@varve/ai` never imports `@varve/editor` (would cycle back). `chat()`/`createAssistant().sendMessage()` take an optional per-call context; `AIPanel` supplies `state.document` plus handlers backed by `renameSelected`/`harmonizeSpacing`. No context → same mock replies as before (backward compatible). | `packages/ai/src/intelligenceRegistry.ts`, `packages/ai/src/index.ts`, `components/AIPanel.tsx` |
 | **Export advisor** | `AssetExportControls` pre-fills format/scale from `exportAdvisor.suggestExportFormat(node, doc)` on mount and whenever the selected node changes (without fighting a manual choice made on the same node), plus a "Why?" info button showing the heuristic's reason. | `components/SpecPanel/AssetExportControls.tsx`, `SpecPanel.css` |
 
 ### Pre-existing bugs found and fixed while wiring (all predate this session — verified via `git blame`)
 
-- `context.tsx`: `getShapeKindName` (autoNamer) didn't cover line/polygon/star/arrow shapes, silently defaulting them to "Shape" once auto-naming got wired into node creation; `createClippingMaskDoc` was called but never imported (dead code path, `createClippingMaskFromSelected` would throw); `shapeForTool`'s exhaustiveness switch was missing the `smudge` tool; initial `brushSettings` state was missing 11 fields a later brush-engine change added (`smudgeStrength`, `grainId`, wet-paint fields, …); `getSpreadForPage`/`getPageSide` referenced a nonexistent local `./types` module instead of `@strata/scene`; `Icon name="AlertTriangle"`/`"HelpCircle"` — lucide-react renamed these to `TriangleAlert`/`CircleHelp`.
+- `context.tsx`: `getShapeKindName` (autoNamer) didn't cover line/polygon/star/arrow shapes, silently defaulting them to "Shape" once auto-naming got wired into node creation; `createClippingMaskDoc` was called but never imported (dead code path, `createClippingMaskFromSelected` would throw); `shapeForTool`'s exhaustiveness switch was missing the `smudge` tool; initial `brushSettings` state was missing 11 fields a later brush-engine change added (`smudgeStrength`, `grainId`, wet-paint fields, …); `getSpreadForPage`/`getPageSide` referenced a nonexistent local `./types` module instead of `@varve/scene`; `Icon name="AlertTriangle"`/`"HelpCircle"` — lucide-react renamed these to `TriangleAlert`/`CircleHelp`.
 - `exportAdvisor.ts`: frame-children list used `.filter(Boolean)`, which doesn't narrow `undefined` out of the TS type, leaving every downstream access unsound.
 - `crates/strata-print`, `crates/strata-layout`: two `cargo clippy -D warnings` failures (one pre-existing unneeded-wildcard-pattern, one `rustc` 1.97.1 vs the documented 1.96 toolchain drift on f32 literal fallback) — blocked `just gate`'s lint step though a normal `cargo build`/`cargo check` already succeeded.
 - `registerAll.ts`: `SHORTCUT_DEFS[id]` lookup had no index signature (implicit `any`).
@@ -1805,13 +1805,13 @@ Two-part session: (1) implemented the remaining Phase 0-5 intelligence algorithm
 ### Verification
 - **JS tests:** 6605 passed, 3 skipped, 0 failed (577 files, full `pnpm test`)
 - **Rust tests:** 356/356 workspace tests pass (`cargo test --workspace`, 2026-07-17): strata-bgremove 8, strata-bridge 5, strata-colour 8, strata-core 61, strata-engine 11, strata-layout 63, strata-print 117, strata-sync 9, strata-trace 50, strata-upscale 6, wgsl-drift 8, agreement 11
-- **Typecheck:** all packages clean except `@strata/editor`'s pre-existing ~259 errors (unrelated to this session's touched files — canvas/render/hitTest and several intelligence modules never reached typecheck-clean after their initial implementation)
+- **Typecheck:** all packages clean except `@varve/editor`'s pre-existing ~259 errors (unrelated to this session's touched files — canvas/render/hitTest and several intelligence modules never reached typecheck-clean after their initial implementation)
 - **Lint:** 0 new errors on touched files
 - **Tokens:** 120/120 WCAG-AA (3 themes)
 - **Emoji:** 0 violations
 - **`just gate`:** passes after the two Rust clippy fixes above
 - **Manual verification:** live Vite dev server + Playwright — created a document, drew a shape, opened the Audit panel, confirmed the Layout Score status-bar badge correctly switches to the Layout sub-tab, no console errors
-- **Not done this session:** the ~259 pre-existing `@strata/editor` typecheck errors outside this session's files (canvas/hitTest/render/most `intelligence/*.ts` modules from their initial implementation) — accepted debt, tracked here rather than silently ignored. `wcagFix.ts` vs `@strata/scene/intelligence/audit.ts` duplication (flagged in the original plan) was not unified — `FillSection`'s `ContrastIndicator` uses `wcagFix.ts` (has working auto-fix), `TypographySection`'s uses `audit.ts`-adjacent logic; left as-is since unifying them was a larger refactor than this session's wiring scope.
+- **Not done this session:** the ~259 pre-existing `@varve/editor` typecheck errors outside this session's files (canvas/hitTest/render/most `intelligence/*.ts` modules from their initial implementation) — accepted debt, tracked here rather than silently ignored. `wcagFix.ts` vs `@varve/scene/intelligence/audit.ts` duplication (flagged in the original plan) was not unified — `FillSection`'s `ContrastIndicator` uses `wcagFix.ts` (has working auto-fix), `TypographySection`'s uses `audit.ts`-adjacent logic; left as-is since unifying them was a larger refactor than this session's wiring scope.
 
 ---
 
@@ -1952,7 +1952,7 @@ Legacy adjustments (no scope) use `resolveLegacyScope()` which finds the sibling
 
 - Scene tests: 1134/1135 passed (61 files, 1 skipped)
 - Full workspace: 6882/6885 passed (587 files, 1 pre-existing Menubar mock failure)
-- `@strata/scene` typecheck: clean
+- `@varve/scene` typecheck: clean
 - `pnpm format`: clean (1582 files)
 
 ### Remaining limitations
@@ -2068,7 +2068,7 @@ ready'`, asserting the Worker is never even attempted when
 - `cargo test -p strata-bgremove --features ai`: 14/14 pass
 - `cargo test` (strata-desktop, default features = ai): 30/30 pass; `--no-default-features`: 31/31 pass (the ai-rejection test only runs there)
 - `cargo clippy --features ai -D warnings` on `strata-bgremove`/`strata-desktop`: clean on all files touched this session (pre-existing unrelated violations in `model.rs`/`print.rs`, neither touched)
-- `@strata/engine` typecheck: 0 new errors
+- `@varve/engine` typecheck: 0 new errors
 
 ## Session 52+ — Constraint & Crop System Overhaul (2026-07-20)
 
@@ -2183,7 +2183,7 @@ Asset** (external file) storage kind without a schema redesign.
 
 - 1264/1264 `packages/scene` tests pass (66 new: `assets.test.ts`, `documentCodec.test.ts` additions, `version.test.ts` additions)
 - `ImageFillControls.test.tsx`: 5/5 (2 new: stale-assetId-on-edit/clear, dimension-decode-on-replace)
-- Typecheck: 0 new errors in `@strata/scene` or `@strata/editor` (pre-existing ~24 errors in unrelated files, all from concurrent in-flight color/text-pipeline work, unchanged)
+- Typecheck: 0 new errors in `@varve/scene` or `@varve/editor` (pre-existing ~24 errors in unrelated files, all from concurrent in-flight color/text-pipeline work, unchanged)
 - Lint: 0 errors/warnings on the 12 files touched (1 pre-existing `noArrayIndexKey` warning in `FillSection.tsx`, predates this change)
 - Full `pnpm test`: 7520/7566 pass; all 40 failures are in files this change never touched (SVG color codegen, RTL text shaping, ML capability-gating mocks — pre-existing, from concurrent work)
 - `pnpm audit:emoji` / `pnpm audit:tokens`: clean
@@ -2234,7 +2234,7 @@ commit `6f381edb`) that the index hadn't caught up with.
 
 - `pnpm format`: clean
 - `pnpm typecheck`: all packages pass
-- `pnpm test --filter @strata/scene`: 86 files, 1587 tests, all passing
+- `pnpm test --filter @varve/scene`: 86 files, 1587 tests, all passing
 - `node scripts/audit-architecture.mjs --ci`: clean (no regressions)
 - `node scripts/audit-health.mjs`: clean (all hub files under budget)
 
@@ -2285,14 +2285,14 @@ and visual verification across all three themes.
 - [ ] Wire LibraryPanel visibility to workspace config instead of local useState
 - [ ] Wire Codegen panel to workspace config (component doesn't exist yet)
 - [ ] Consolidate DisclosureSection dual persistence (registry vs legacy sessionStorage)
-- [ ] Migrate LayersPanel context menu to shared `@strata/ui` ContextMenu
+- [ ] Migrate LayersPanel context menu to shared `@varve/ui` ContextMenu
 - [ ] Replace remaining hardcoded z-index values in canvas-internal layers (1-5 are render pipeline internals)
 - [ ] Additional ~50 hardcoded CSS spacing/font-size values across remaining files
 
 ## Session — Tooltip System Standardization (2026-08-01)
 
 Completed the tooltip standardization begun on 2026-07-27. The shared
-`Tooltip` primitive in `@strata/ui` is now the single tooltip implementation
+`Tooltip` primitive in `@varve/ui` is now the single tooltip implementation
 across home, editor, and the design-system package itself. Full audit matrix:
 `docs/audits/tooltip-system-audit-2026-08-01.md`.
 

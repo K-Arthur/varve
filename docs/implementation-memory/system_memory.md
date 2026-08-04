@@ -5,7 +5,7 @@
 ### Verification Summary
 - **Background removal tests:** 199/199 pass across 24 test files
 - **Engine tests (bg-removal only):** 24/24 test files pass
-- **Typecheck (`@strata/engine`):** 0 new errors (pre-existing `@strata/shared` duplicates only)
+- **Typecheck (`@varve/engine`):** 0 new errors (pre-existing `@varve/shared` duplicates only)
 - **Lint:** 0 new warnings on all new/modified files
 - **Emoji audit:** clean (1022 files)
 - **Format:** clean (27 files auto-fixed)
@@ -67,7 +67,7 @@
 ### Verification Criteria Met
 - ✅ All 199 background removal tests pass (24 files)
 - ✅ Zero `TODO` comments in new code
-- ✅ Typecheck clean on `@strata/engine` (no new errors)
+- ✅ Typecheck clean on `@varve/engine` (no new errors)
 - ✅ Lint clean on all new/modified files
 - ✅ Emoji audit clean
 - ✅ Architecture documented in `.system_memory.md`

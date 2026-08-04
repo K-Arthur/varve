@@ -1,4 +1,4 @@
-import { EmptyState } from '@strata/ui';
+import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { EffectsSection } from '../sections/EffectsSection';
 import { MaskSection } from '../sections/MaskSection';

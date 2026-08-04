@@ -7,18 +7,18 @@
  * Architecture:
  * - Reuses the same brush preset model as PaintTool (radius, hardness, spacing)
  * - Adds smudgeStrength (0-1) controlling how far pixels are dragged per frame
- * - Uses `compositeSmudgeDabOnNode` from @strata/scene for tile-level compositing
+ * - Uses `compositeSmudgeDabOnNode` from @varve/scene for tile-level compositing
  * - Requires an existing raster layer to smudge (creates one if needed)
  */
 
-import type { BrushPreset, RasterLayerNode } from '@strata/scene';
+import type { BrushPreset, RasterLayerNode } from '@varve/scene';
 import {
   compositeSmudgeDabOnNode,
   defaultBrushPreset,
   generateDabs,
   smoothStrokePoints,
   strokePoint,
-} from '@strata/scene';
+} from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents, type NormalizedInputEvent } from './inputNormalizer';
 import { PreviewCanvas } from './previewCanvas';
@@ -30,7 +30,7 @@ export class SmudgeTool extends BaseTool {
   id = 'smudge' as const;
 
   private preset: BrushPreset;
-  private strokePoints: import('@strata/scene').StrokePoint[] = [];
+  private strokePoints: import('@varve/scene').StrokePoint[] = [];
   private rasterNodeId: string | null = null;
   private strokeGeneration = 0;
   private transactionOpen = false;
@@ -287,7 +287,7 @@ export class SmudgeTool extends BaseTool {
     this.previewCanvas.ensureSize(canvas.width, canvas.height);
     this.previewCanvas.clear();
 
-    const pts: import('@strata/scene').StrokePoint[] = [];
+    const pts: import('@varve/scene').StrokePoint[] = [];
     for (const ev of predictedEvents) {
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;

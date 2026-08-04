@@ -6,7 +6,7 @@
  *
  * Research basis: MDN EyeDropper API, Figma eyedropper (I).
  */
-import type { ManagedColor } from '@strata/scene';
+import type { ManagedColor } from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 

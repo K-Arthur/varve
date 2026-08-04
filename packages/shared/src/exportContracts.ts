@@ -1,9 +1,9 @@
 /**
  * Cross-package export contract enums.
  *
- * Owned here (not in @strata/scene) so @strata/engine — which must not depend
- * on @strata/scene — can reference the same closed unions without duplicating
- * them. @strata/scene re-exports these from `export/pipeline.ts`; the engine's
+ * Owned here (not in @varve/scene) so @varve/engine — which must not depend
+ * on @varve/scene — can reference the same closed unions without duplicating
+ * them. @varve/scene re-exports these from `export/pipeline.ts`; the engine's
  * `exportPipeline/*` modules import them from this file. This keeps the "no
  * duplicate incompatible types across packages" invariant.
  */
@@ -143,8 +143,8 @@ export function isMetadataFieldDecision(value: unknown): value is MetadataFieldD
 
 // ── Processing-stage option contracts ───────────────────────────────────────
 //
-// These option shapes are the canonical stage contracts shared by @strata/scene
-// (config model) and @strata/engine (pipeline execution). They contain only
+// These option shapes are the canonical stage contracts shared by @varve/scene
+// (config model) and @varve/engine (pipeline execution). They contain only
 // cross-package types so neither side duplicates them.
 
 export type RenderingIntent = 'perceptual' | 'relative' | 'absolute' | 'saturation';

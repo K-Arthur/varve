@@ -7,8 +7,8 @@
  *
  * Research basis: CSS Grid Layout Module Level 1, Figma auto-layout grid.
  */
-import type { Document, LayoutStyle, NodeId, SceneNode } from '@strata/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
+import type { Document, LayoutStyle, NodeId, SceneNode } from '@varve/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
 
 export interface GridItem {
   id: NodeId;

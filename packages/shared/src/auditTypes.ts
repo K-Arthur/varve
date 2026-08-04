@@ -9,7 +9,7 @@
  */
 
 // NodeId is a string identifier for nodes in the document
-// Defined locally to avoid circular dependencies with @strata/scene
+// Defined locally to avoid circular dependencies with @varve/scene
 export type NodeId = string;
 
 // ============================================================================
@@ -264,14 +264,14 @@ export interface SuppressionRecord {
 // ============================================================================
 
 /**
- * @deprecated Use AuditFinding from @strata/scene instead. This type remains
+ * @deprecated Use AuditFinding from @varve/scene instead. This type remains
  * for the intelligence subsystem migration. New code should import
- * AuditFinding from '@strata/scene'.
+ * AuditFinding from '@varve/scene'.
  *
  * Conversion functions:
  *   {@link sceneFindingToShared} — converts a scene AuditFinding to this shape.
  *   {@link sharedFindingToSceneFinding} — converts this shape to scene AuditFinding
- *   (in @strata/scene/src/auditFinding.ts).
+ *   (in @varve/scene/src/auditFinding.ts).
  *
  * Migration tracking: packages/scene/src/intelligence/ files still import this
  * type. Once they are updated to import from '../auditFinding', this type can
@@ -411,9 +411,9 @@ export interface AuditFinding {
 // ============================================================================
 
 /**
- * Convert a scene AuditFinding (from @strata/scene) to the shared format.
+ * Convert a scene AuditFinding (from @varve/scene) to the shared format.
  * Accepts a plain object matching the scene shape so no import from
- * @strata/scene is needed (avoids circular dependency).
+ * @varve/scene is needed (avoids circular dependency).
  *
  * The shared AuditFinding is used by the intelligence subsystem (scheduler,
  * overlay manager, cache, pipeline) which cannot depend on scene types.
@@ -518,7 +518,7 @@ function mapSceneCategory(finding: {
 
 /**
  * Convert a shared AuditFinding back to the canonical scene shape.
- * Returns a plain object that matches AuditFinding from @strata/scene.
+ * Returns a plain object that matches AuditFinding from @varve/scene.
  * Use after importing the scene type separately.
  */
 export function sharedFindingToSceneShape(finding: AuditFinding): Record<string, unknown> {

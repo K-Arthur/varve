@@ -1,5 +1,5 @@
-import type { Affine } from '@strata/engine';
-import { createDocument, makeFrameNode, makeShapeNode, nextNodeId } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import { createDocument, makeFrameNode, makeShapeNode, nextNodeId } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FILTER, type LayerFilterSpec, nodeMatchesFilter } from './layerFilterTypes';
 
@@ -31,7 +31,7 @@ function makeTestText(overrides: Record<string, unknown> = {}) {
       visible: true,
       ...overrides,
     },
-  ) as unknown as import('@strata/scene').SceneNode;
+  ) as unknown as import('@varve/scene').SceneNode;
   return {
     ...node,
     kind: 'text' as const,
@@ -242,7 +242,7 @@ describe('nodeMatchesFilter', () => {
     const node = {
       ...makeTestShape(),
       blendMode: undefined,
-    } as unknown as import('@strata/scene').SceneNode;
+    } as unknown as import('@varve/scene').SceneNode;
     expect(nodeMatchesFilter(node, { ...DEFAULT_FILTER, blendModes: ['normal'] })).toBe(false);
   });
 

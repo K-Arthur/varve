@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import {
   addKeyframe,
   addTrack,
@@ -12,12 +12,12 @@ import {
   setActiveTimeline,
   updateKeyframe,
   updateTrack,
-} from '@strata/scene';
+} from '@varve/scene';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-// MotionContext methods that delegate to @strata/scene immutable operations.
+// MotionContext methods that delegate to @varve/scene immutable operations.
 // We test the logic these methods contain by exercising the underlying
-// @strata/scene functions directly (they share the same implementation).
+// @varve/scene functions directly (they share the same implementation).
 
 function createDocWithTimeline(): Document {
   let doc = createDocument();

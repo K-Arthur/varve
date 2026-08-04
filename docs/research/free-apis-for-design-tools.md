@@ -49,7 +49,7 @@ Network-backed features should be:
   format endpoint, but it's undocumented and may break). WebAIM explicitly
   provides tools, not a service API.
 - **Value to Strata:** We already have built-in WCAG contrast checking in
-  `@strata/scene/intelligence/audit.ts`. An external API would add nothing.
+  `@varve/scene/intelligence/audit.ts`. An external API would add nothing.
 - **Verdict:** **SKIP.** We already implement this ourselves. No dependency needed.
 
 ### Color blindness simulation

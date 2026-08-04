@@ -8,8 +8,8 @@
  * callbacks fired, not that the document actually changed.
  */
 
-import type { ExportPreset } from '@strata/scene';
 import { render, waitFor } from '@testing-library/react';
+import type { ExportPreset } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from './context';
 

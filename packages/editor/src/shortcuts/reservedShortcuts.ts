@@ -27,7 +27,7 @@ export const DESKTOP_OS_RESERVED_SHORTCUTS: ReservedShortcut[] = [
   { keys: 'Print Screen', action: 'Screenshot (OS)' },
 ];
 
-import { isTauriRuntime } from '@strata/platform';
+import { isTauriRuntime } from '@varve/platform';
 
 export { isTauriRuntime };
 

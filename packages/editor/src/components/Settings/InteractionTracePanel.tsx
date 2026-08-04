@@ -10,7 +10,7 @@
  * Lives behind the Performance settings tab (an advanced surface), not in the
  * ordinary editor chrome.
  */
-import { Button } from '@strata/ui';
+import { Button } from '@varve/ui';
 import { useCallback, useId, useMemo, useState } from 'react';
 import { getNodeWorkSamples } from '../../canvas/perfRuntime';
 import type { InteractionTrace } from '../../performance/interactionTrace';

@@ -1,5 +1,5 @@
 {
-  "name": "@strata/web",
+  "name": "@varve/web",
   "version": "0.0.0",
   "private": true,
   "description": "Next.js 15 editor — WASM engine backend. Full scaffold lands in task 0.9.",

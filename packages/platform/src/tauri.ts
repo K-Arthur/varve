@@ -1,5 +1,5 @@
 /**
- * @strata/platform — Tauri 2 desktop Platform implementation.
+ * @varve/platform — Tauri 2 desktop Platform implementation.
  *
  * Persists to the native SQLite store (crates/strata-sync) over Tauri IPC, and
  * uses the official `tauri-plugin-dialog` + `tauri-plugin-opener` for native
