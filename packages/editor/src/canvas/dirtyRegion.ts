@@ -291,6 +291,8 @@ export function resolveRedrawReason(input: RedrawAttributionInput): RedrawReason
 export type FullRedrawReason =
   | 'structural'
   | 'camera-rotation'
+  | 'camera-moved'
+  | 'surface-stale'
   | 'profile-disabled'
   | 'dirty-area-limit'
   | 'no-dirty-rect';
@@ -306,10 +308,69 @@ export function resolveFullRedrawReason(opts: {
   dirtyRectArea: number;
   viewportArea: number;
   hasDirtyRect: boolean;
+  /** Result of `surfaceMatchesBackingStore` for this frame (defaults to true). */
+  surfaceMatch?: SurfaceMatch;
 }): FullRedrawReason | null {
   if (!opts.hasDirtyRect) return 'no-dirty-rect';
   if (opts.rotation !== 0) return 'camera-rotation';
+  const surfaceMatch = opts.surfaceMatch ?? 'match';
+  if (surfaceMatch === 'camera-moved') return 'camera-moved';
+  if (surfaceMatch !== 'match') return 'surface-stale';
   if (!opts.profileEnablePartialRedraw) return 'profile-disabled';
   if (opts.dirtyRectArea > opts.viewportArea * 0.6) return 'dirty-area-limit';
   return null;
+}
+
+/**
+ * Identity of the camera and surface the backing store was last painted under.
+ * Partial redraw retains every pixel outside the dirty rects, so those pixels
+ * are only valid while the camera and surface are byte-for-byte the same as
+ * when they were painted.
+ */
+export interface PaintedSurfaceIdentity {
+  zoom: number;
+  panX: number;
+  panY: number;
+  rotation: number;
+  dpr: number;
+  /** Device-pixel backing-store dimensions (canvas.width / canvas.height). */
+  surfaceW: number;
+  surfaceH: number;
+}
+
+export type SurfaceMatch = 'match' | 'never-painted' | 'camera-moved' | 'surface-resized';
+
+/**
+ * Whether the retained backing-store pixels are still valid for this frame.
+ *
+ * A pan, zoom or rotation moves every retained pixel to the wrong place: the
+ * dirty rects would repaint under the new camera while everything around them
+ * still shows the previous scroll offset (stale pixels, and a visible seam at
+ * the clip boundary). A surface resize or DPR change reallocates the backing
+ * store entirely. In both cases the frame must be a full redraw.
+ *
+ * Exact equality is deliberate — a sub-pixel pan still shifts content, and a
+ * tolerance here trades a correctness guarantee for at most one repaint.
+ */
+export function surfaceMatchesBackingStore(
+  painted: PaintedSurfaceIdentity | null,
+  current: PaintedSurfaceIdentity,
+): SurfaceMatch {
+  if (painted === null) return 'never-painted';
+  if (
+    painted.surfaceW !== current.surfaceW ||
+    painted.surfaceH !== current.surfaceH ||
+    painted.dpr !== current.dpr
+  ) {
+    return 'surface-resized';
+  }
+  if (
+    painted.zoom !== current.zoom ||
+    painted.panX !== current.panX ||
+    painted.panY !== current.panY ||
+    painted.rotation !== current.rotation
+  ) {
+    return 'camera-moved';
+  }
+  return 'match';
 }
