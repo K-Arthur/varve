@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeDirtyRects, MAX_DIRTY_INPUT_RECTS } from '../dirtyRegionMerge';
+import { MAX_DIRTY_INPUT_RECTS, mergeDirtyRects } from '../dirtyRegionMerge';
 
 const V = { width: 1600, height: 1000 };
 
@@ -201,7 +201,10 @@ describe('mergeDirtyRects', () => {
     const result = mergeDirtyRects(inputs, { maxRects: 8 }, V);
     let inputUnion = null;
     let mergedUnion = null;
-    const unionOf = (left: { x: number; y: number; w: number; h: number } | null, right: { x: number; y: number; w: number; h: number }): { x: number; y: number; w: number; h: number } => {
+    const unionOf = (
+      left: { x: number; y: number; w: number; h: number } | null,
+      right: { x: number; y: number; w: number; h: number },
+    ): { x: number; y: number; w: number; h: number } => {
       if (!left) return { ...right };
       const x = Math.min(left.x, right.x);
       const y = Math.min(left.y, right.y);
