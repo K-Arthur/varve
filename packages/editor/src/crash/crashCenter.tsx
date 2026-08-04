@@ -97,7 +97,7 @@ export function CrashCenter({
   return (
     <>
       <CrashRecoveryDialog
-        open={state.dialogVisible && state.awaitingReport !== null}
+        open={state.dialogVisible}
         report={state.awaitingReport}
         consentChoice={
           state.consent.state === 'automaticAllowed'

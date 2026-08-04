@@ -63,7 +63,13 @@ same redaction → queue → consent path.
 | UI (recovery dialog, review dialog, settings, safe-mode screen, controller, test hooks) | `packages/editor/src/crash/` |
 | Native panic hook + report filesystem | `apps/desktop/src-tauri/src/crash.rs` |
 | Release stamp | `apps/desktop/vite.config.ts` (`__VARVE_RELEASE__`) |
-| Tests | colocated `*.test.ts(x)`; `tests/e2e/crash/privacy-network.spec.ts` |
+| Tests | colocated `*.test.ts(x)`; `tests/e2e/crash/privacy-network.spec.ts`, `tests/e2e/crash/screenshots.spec.ts` |
+
+## UX screenshots
+
+`docs/crash-reporting/screenshots/` (captured from the running app by
+`screenshots.spec.ts`): crash-recovery dialog, review-before-send,
+report-id receipt, safe-mode screen, and Privacy & Diagnostics settings.
 
 ## Performance and memory budgets
 
