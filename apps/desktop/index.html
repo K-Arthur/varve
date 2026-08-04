@@ -14,6 +14,69 @@
       if (typeof performance !== 'undefined' && performance.mark) {
         performance.mark('strata-html-paint');
       }
+
+      // Surface startup failures on screen.
+      //
+      // If the module bundle throws before React mounts, nothing removes the
+      // boot fallback and the app sits on the logo forever with no way to see
+      // why — there is no console in a packaged build. These handlers run from
+      // plain inline script, so they work even when the bundle never executes,
+      // which is exactly the case that used to be invisible.
+      (function () {
+        var reported = false;
+        function showBootError(kind, message, detail) {
+          if (reported) return;
+          reported = true;
+          var host = document.getElementById('strata-boot-fallback');
+          if (!host) return;
+          var box = document.createElement('div');
+          box.className = 'boot-error';
+          box.setAttribute('role', 'alert');
+          var text =
+            '<h1>Strata could not start</h1>' +
+            '<p class="boot-error-kind"></p>' +
+            '<pre class="boot-error-message"></pre>' +
+            '<p class="boot-error-hint">Please report this with the text above at ' +
+            'github.com/K-Arthur/Strata/issues</p>';
+          box.innerHTML = text;
+          // textContent, not innerHTML — an error message can contain markup
+          // from untrusted document content.
+          box.querySelector('.boot-error-kind').textContent = kind;
+          box.querySelector('.boot-error-message').textContent =
+            String(message) + (detail ? '\n\n' + detail : '');
+          host.textContent = '';
+          host.appendChild(box);
+        }
+
+        window.addEventListener('error', function (event) {
+          showBootError(
+            'Script error',
+            event.message || 'Unknown error',
+            event.filename ? event.filename + ':' + event.lineno : '',
+          );
+        });
+        window.addEventListener('unhandledrejection', function (event) {
+          var reason = event.reason;
+          showBootError(
+            'Unhandled promise rejection',
+            (reason && (reason.message || reason)) || 'Unknown',
+            (reason && reason.stack) || '',
+          );
+        });
+
+        // Nothing threw, but React never mounted either — a silently-failing
+        // module graph. Report that too rather than spinning forever.
+        window.setTimeout(function () {
+          var root = document.getElementById('root');
+          if (root && root.children.length === 0) {
+            showBootError(
+              'Startup timed out',
+              'The application bundle loaded but never rendered.',
+              'This usually means a script failed to evaluate in this WebView.',
+            );
+          }
+        }, 20000);
+      })();
     </script>
     <style id="strata-boot-fallback-style">
       #strata-boot-fallback {
@@ -63,6 +126,43 @@
         50% {
           opacity: 0.9;
         }
+      }
+      #strata-boot-fallback .boot-error {
+        max-width: 44rem;
+        padding: 2rem;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+        text-align: left;
+      }
+      #strata-boot-fallback .boot-error h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+      }
+      #strata-boot-fallback .boot-error-kind {
+        margin: 0 0 1rem;
+        color: #ff8fa3;
+        font-weight: 500;
+      }
+      #strata-boot-fallback .boot-error-message {
+        margin: 0 0 1rem;
+        padding: 1rem;
+        max-height: 40vh;
+        overflow: auto;
+        border-radius: 6px;
+        background: rgb(255 255 255 / 0.06);
+        white-space: pre-wrap;
+        word-break: break-word;
+        font:
+          12px/1.5 ui-monospace,
+          monospace;
+        -webkit-user-select: text;
+        user-select: text;
+      }
+      #strata-boot-fallback .boot-error-hint {
+        margin: 0;
+        color: rgb(255 255 255 / 0.65);
       }
       @media (prefers-reduced-motion: reduce) {
         #strata-boot-fallback .boot-logo-wrap::before {

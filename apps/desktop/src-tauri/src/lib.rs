@@ -2041,65 +2041,28 @@ fn list_plugins() -> Result<Vec<PluginInfo>, String> {
     Ok(vec![])
 }
 
-/// How long the splash may stay up before it is force-dismissed.
+/// Show and focus the main window.
 ///
-/// The main window starts hidden and is revealed by the frontend calling
-/// `close_splashscreen`. If the frontend never gets that far — a JS exception,
-/// a hung data load, a webview that failed to run the bundle at all — the user
-/// is left staring at a splash screen forever with no error, no window, and
-/// nothing to report beyond "it doesn't start". Observed in the 0.0.0 AppImage.
+/// The native splash window was removed: it created a second window and left
+/// `main` hidden until the frontend asked for it, so any startup failure — a
+/// bundle that never evaluated, a hung data load — left the user on an
+/// unclosable splash with no error and nothing to report. Observed in the
+/// 0.0.0 and 0.1.0 AppImages.
 ///
-/// This backstop runs in the Rust process, so it works even when no JS executes.
-const SPLASH_WATCHDOG_MS: u64 = 10_000;
-
-/// Close the native splashscreen and reveal the main window.
+/// `main` is now `visible: true` from the start, so the branded boot screen in
+/// index.html is what the user sees, and it replaces itself with a readable
+/// error if startup fails. The in-app `StartupLoader` then takes over with
+/// progress, a timeout, and a retry button.
 ///
-/// Idempotent: safe to call from the frontend, from the watchdog, or from both.
-/// Always prefer showing a broken main window over hiding behind the splash —
-/// the frontend's own startup loader can render an error and a retry button,
-/// but only if it is on screen.
-fn reveal_main_window(app: &tauri::AppHandle) {
-    if let Some(splash) = app.get_webview_window("splashscreen") {
-        let _ = splash.close();
-    }
+/// This command is kept because the frontend still calls it once mounted;
+/// showing an already-visible window is a harmless no-op, and it keeps the
+/// window focused when launched from a file association.
+#[tauri::command]
+fn close_splashscreen(app: tauri::AppHandle) {
     if let Some(main) = app.get_webview_window("main") {
         let _ = main.show();
         let _ = main.set_focus();
     }
-}
-
-/// Frontend-driven reveal, called once the first surface has data.
-/// Pattern: https://v2.tauri.app/learn/splashscreen/ (2026-07-13)
-#[tauri::command]
-fn close_splashscreen(app: tauri::AppHandle) {
-    reveal_main_window(&app);
-}
-
-/// Force the main window on screen after `SPLASH_WATCHDOG_MS`, whatever the
-/// frontend is doing.
-///
-/// Window operations must happen on the main thread (GTK on Linux, AppKit on
-/// macOS), hence `run_on_main_thread` rather than touching the window directly
-/// from the timer thread.
-fn spawn_splash_watchdog(app: tauri::AppHandle) {
-    std::thread::spawn(move || {
-        std::thread::sleep(std::time::Duration::from_millis(SPLASH_WATCHDOG_MS));
-
-        // Nothing to do if the frontend already revealed: the splash is gone.
-        let still_splashing = app.get_webview_window("splashscreen").is_some();
-        if !still_splashing {
-            return;
-        }
-
-        eprintln!(
-            "[strata] Frontend did not signal readiness within {SPLASH_WATCHDOG_MS}ms — \
-             revealing the main window anyway so the startup error is visible."
-        );
-        let handle = app.clone();
-        let _ = app.run_on_main_thread(move || {
-            reveal_main_window(&handle);
-        });
-    });
 }
 
 /// Resolve the bundled native onnxruntime dylib for the current platform,
@@ -2181,11 +2144,6 @@ pub fn run() {
             let store = strata_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
             app.manage(UpscaleCancelState::new());
-
-            // Backstop so the splash can never become a dead end. Started before
-            // any of the webview wiring below, so it also covers a failure in
-            // that setup rather than only a failure in the frontend.
-            spawn_splash_watchdog(app.handle().clone());
 
             // WebKitGTK owns the touchpad pinch gesture and applies it as page
             // zoom, scaling the entire UI. The gesture never reaches JS, so the
