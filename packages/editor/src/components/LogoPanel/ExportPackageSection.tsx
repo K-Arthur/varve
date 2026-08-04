@@ -210,9 +210,7 @@ export function ExportPackageSection() {
       <div className="logo-panel__field">
         <span className="logo-panel__field-label">Output</span>
         <code className="logo-panel__code">{zipName}</code>
-        <pre className="logo-panel__tree" role="region" aria-label="Package folder preview">
-          {folderTree.join('\n')}
-        </pre>
+        <pre className="logo-panel__tree">{folderTree.join('\n')}</pre>
         <p className="logo-panel__muted">
           ~{estimated} files across {selected.size} item{selected.size === 1 ? '' : 's'}.
         </p>
