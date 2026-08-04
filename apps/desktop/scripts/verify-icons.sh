@@ -99,7 +99,7 @@ echo ""
 echo "--> 5. Verifying Linux hicolor ladder"
 
 HICOLOR_SIZES=(16 22 24 32 48 64 96 128 256 512 1024)
-export APP_ID="dev.strata.desktop"
+export APP_ID="dev.varve.desktop"
 
 for SIZE in "${HICOLOR_SIZES[@]}"; do
   icon="$HICOLOR_DIR/${SIZE}x${SIZE}/apps/${APP_ID}.png"
@@ -147,7 +147,7 @@ for df in "$DESKTOP_TEMPLATE" "$DESKTOP_INSTALLED"; do
     else
       fail "$base missing Icon=${APP_ID}"
     fi
-    if grep -q "StartupWMClass=${APP_ID}" "$df" 2>/dev/null || grep -q "StartupWMClass=strata-desktop" "$df" 2>/dev/null; then
+    if grep -q "StartupWMClass=${APP_ID}" "$df" 2>/dev/null || grep -q "StartupWMClass=varve-desktop" "$df" 2>/dev/null; then
       pass "$base has StartupWMClass"
     else
       fail "$base missing StartupWMClass"

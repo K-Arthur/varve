@@ -422,13 +422,14 @@ export class BackupService {
 
   private saveConfig(): void {
     try {
-      localStorage.setItem('strata-backup-config', JSON.stringify(this.config));
+      localStorage.setItem('varve-backup-config', JSON.stringify(this.config));
     } catch {}
   }
 
   private restoreState(): void {
     try {
-      const raw = localStorage.getItem('strata-backup-config');
+      const raw =
+        localStorage.getItem('varve-backup-config') ?? localStorage.getItem('strata-backup-config');
       if (raw) {
         const saved = JSON.parse(raw);
         this.config = { ...DEFAULT_BACKUP_CONFIG, ...saved };

@@ -124,7 +124,7 @@ export interface EditorSettings {
   };
 }
 
-const STORAGE_KEY = 'strata-editor-settings';
+const STORAGE_KEY = 'varve-editor-settings';
 
 export const DEFAULT_EXPORT_SETTINGS: ExportSettingsStore = {
   defaultScale: { type: 'factor', value: 2 },
@@ -237,7 +237,7 @@ function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undef
 
 export function loadSettings(): EditorSettings {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('strata-editor-settings');
     if (!raw)
       return {
         export: { ...DEFAULT_EXPORT_SETTINGS },

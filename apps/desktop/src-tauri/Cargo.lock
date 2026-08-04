@@ -4985,132 +4985,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
-name = "strata-bgremove"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "dirs-next",
- "image",
- "ort",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "strata-bridge"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "strata-core",
-]
-
-[[package]]
-name = "strata-colour"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "strata-core",
- "tintbox",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "strata-core"
-version = "0.1.0"
-dependencies = [
- "kurbo",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "strata-desktop"
-version = "0.1.0"
-dependencies = [
- "arboard",
- "base64 0.22.1",
- "chrono",
- "font-enumeration",
- "glib 0.20.12",
- "image",
- "notify",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2",
- "strata-bgremove",
- "strata-bridge",
- "strata-core",
- "strata-engine",
- "strata-print",
- "strata-sync",
- "strata-trace",
- "strata-upscale",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-opener",
- "tauri-plugin-wdio",
- "tauri-plugin-wdio-webdriver",
- "webkit2gtk",
-]
-
-[[package]]
-name = "strata-engine"
-version = "0.1.0"
-dependencies = [
- "kurbo",
- "serde",
- "serde_json",
- "strata-core",
-]
-
-[[package]]
-name = "strata-print"
-version = "0.1.0"
-dependencies = [
- "ab_glyph",
- "font-subset",
- "lopdf",
- "rustybuzz",
- "serde",
- "serde_json",
- "strata-colour",
- "strata-core",
- "ttf-parser 0.24.1",
-]
-
-[[package]]
-name = "strata-sync"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "rusqlite",
-]
-
-[[package]]
-name = "strata-trace"
-version = "0.1.0"
-dependencies = [
- "rayon",
- "serde",
- "strata-core",
-]
-
-[[package]]
-name = "strata-upscale"
-version = "0.1.0"
-dependencies = [
- "dirs-next",
- "image",
- "ort",
-]
-
-[[package]]
 name = "string_cache"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6269,6 +6143,132 @@ dependencies = [
  "aligned-vec",
  "num-traits",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "varve-bgremove"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "dirs-next",
+ "image",
+ "ort",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "varve-bridge"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "varve-core",
+]
+
+[[package]]
+name = "varve-colour"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tintbox",
+ "varve-core",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "varve-core"
+version = "0.1.0"
+dependencies = [
+ "kurbo",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "varve-desktop"
+version = "0.1.0"
+dependencies = [
+ "arboard",
+ "base64 0.22.1",
+ "chrono",
+ "font-enumeration",
+ "glib 0.20.12",
+ "image",
+ "notify",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-opener",
+ "tauri-plugin-wdio",
+ "tauri-plugin-wdio-webdriver",
+ "varve-bgremove",
+ "varve-bridge",
+ "varve-core",
+ "varve-engine",
+ "varve-print",
+ "varve-sync",
+ "varve-trace",
+ "varve-upscale",
+ "webkit2gtk",
+]
+
+[[package]]
+name = "varve-engine"
+version = "0.1.0"
+dependencies = [
+ "kurbo",
+ "serde",
+ "serde_json",
+ "varve-core",
+]
+
+[[package]]
+name = "varve-print"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "font-subset",
+ "lopdf",
+ "rustybuzz",
+ "serde",
+ "serde_json",
+ "ttf-parser 0.24.1",
+ "varve-colour",
+ "varve-core",
+]
+
+[[package]]
+name = "varve-sync"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "rusqlite",
+]
+
+[[package]]
+name = "varve-trace"
+version = "0.1.0"
+dependencies = [
+ "rayon",
+ "serde",
+ "varve-core",
+]
+
+[[package]]
+name = "varve-upscale"
+version = "0.1.0"
+dependencies = [
+ "dirs-next",
+ "image",
+ "ort",
 ]
 
 [[package]]

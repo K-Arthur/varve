@@ -43,7 +43,7 @@ export interface Settings {
   };
 }
 
-const STORAGE_KEY = 'strata-settings';
+const STORAGE_KEY = 'varve-settings';
 
 export const DEFAULT_SETTINGS: Settings = {
   general: {
@@ -70,7 +70,7 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export function loadSettings(): Settings {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('strata-settings');
     if (!raw) return { ...DEFAULT_SETTINGS };
     const parsed = JSON.parse(raw) as Partial<Settings>;
     return {

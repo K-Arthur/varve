@@ -102,7 +102,7 @@ describe('readFromClipboardEvent', () => {
   it('returns empty when clipboardData is null', async () => {
     const event = { type: 'paste', clipboardData: null } as unknown as ClipboardEvent;
     const result = await readFromClipboardEvent(event);
-    expect(result.strataData).toBeNull();
+    expect(result.varveData).toBeNull();
     expect(result.importItems).toHaveLength(0);
   });
 
@@ -142,13 +142,13 @@ describe('readFromClipboardEvent', () => {
     const event = { type: 'paste', clipboardData: dt } as unknown as ClipboardEvent;
 
     const result = await readFromClipboardEvent(event);
-    expect(result.strataData).not.toBeNull();
-    expect(result.strataData?.nodes).toHaveLength(1);
-    expect(result.strataData?.nodes[0]?.id).toBe('n1');
+    expect(result.varveData).not.toBeNull();
+    expect(result.varveData?.nodes).toHaveLength(1);
+    expect(result.varveData?.nodes[0]?.id).toBe('n1');
   });
 
   it('reads clipboard data including raster mask assets', async () => {
-    const strataData = {
+    const varveData = {
       nodes: [
         {
           id: 'img-1',
@@ -169,7 +169,7 @@ describe('readFromClipboardEvent', () => {
         },
       },
     };
-    const strataJson = JSON.stringify(strataData);
+    const strataJson = JSON.stringify(varveData);
     const file = new File([strataJson], 'data.strata', { type: 'application/vnd.strata+json' });
     const dt = createDataTransferWithFiles([file]);
     dt.getData = (format: string) => {
@@ -179,10 +179,10 @@ describe('readFromClipboardEvent', () => {
     const event = { type: 'paste', clipboardData: dt } as unknown as ClipboardEvent;
 
     const result = await readFromClipboardEvent(event);
-    expect(result.strataData).not.toBeNull();
-    expect(result.strataData?.rasterMaskAssets).toBeDefined();
-    expect(result.strataData?.rasterMaskAssets?.['mask-img-1']).toBeDefined();
-    expect(result.strataData?.rasterMaskAssets?.['mask-img-1']?.mimeType).toBe('image/png');
+    expect(result.varveData).not.toBeNull();
+    expect(result.varveData?.rasterMaskAssets).toBeDefined();
+    expect(result.varveData?.rasterMaskAssets?.['mask-img-1']).toBeDefined();
+    expect(result.varveData?.rasterMaskAssets?.['mask-img-1']?.mimeType).toBe('image/png');
   });
 
   it('round-trips cropped image geometry with image and raster-mask asset closure', async () => {
@@ -266,11 +266,11 @@ describe('readFromClipboardEvent', () => {
 
     const result = await readFromClipboardEvent(event);
 
-    expect(result.strataData).toEqual(JSON.parse(strataJson));
-    const image = result.strataData?.nodes[0]?.fills?.[0]?.image;
+    expect(result.varveData).toEqual(JSON.parse(strataJson));
+    const image = result.varveData?.nodes[0]?.fills?.[0]?.image;
     expect(image?.crop).toEqual({ x: 20, y: 10, w: 120, h: 70 });
-    expect(result.strataData?.assets?.[imageAsset.id]).toEqual(imageAsset);
-    expect(result.strataData?.rasterMaskAssets?.[maskAsset.id]).toEqual(maskAsset);
+    expect(result.varveData?.assets?.[imageAsset.id]).toEqual(imageAsset);
+    expect(result.varveData?.rasterMaskAssets?.[maskAsset.id]).toEqual(maskAsset);
   });
 
   it('writes image and raster-mask assets into the Varve clipboard payload', async () => {

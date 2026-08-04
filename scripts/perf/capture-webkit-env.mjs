@@ -127,7 +127,7 @@ if (!jsonOnly) {
   if (env.profilers.perf) {
     tips.push(
       'perf: sample all web processes during a slow interaction:\n' +
-        '  perf record -F 199 -g -p $(pgrep -f "WebKit|strata" | tr "\\n" ",") sleep 15 && perf report',
+        '  perf record -F 199 -g -p $(pgrep -f "WebKit|varve-desktop" | tr "\\n" ",") sleep 15 && perf report',
     );
   } else {
     tips.push(

@@ -155,8 +155,8 @@ export function resolveReleaseBinary(explicit) {
   if (explicit) {
     return { path: explicit, mode: 'explicit', isRelease: !explicit.includes('/debug/') };
   }
-  const release = `${ROOT}target/release/strata`;
-  const debug = `${ROOT}target/debug/strata`;
+  const release = `${ROOT}target/release/varve-desktop`;
+  const debug = `${ROOT}target/debug/varve-desktop`;
   if (existsSync(release)) return { path: release, mode: 'release', isRelease: true };
   if (existsSync(debug)) return { path: debug, mode: 'debug', isRelease: false };
   return { path: null, mode: 'missing', isRelease: false };
@@ -170,7 +170,7 @@ if (!isMain) {
     console.error(
       'native-soak: no desktop binary found. Build one first:\n' +
         '  pnpm --dir apps/desktop tauri build --release\n' +
-        'or pass --binary=/path/to/strata',
+        'or pass --binary=/path/to/varve-desktop',
     );
     process.exit(1);
   }
