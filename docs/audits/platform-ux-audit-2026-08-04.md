@@ -16,6 +16,18 @@
 | Forced-colors support (tokens → system colors, incl. focus ring → Highlight) | PASS (app + website) |
 | `prefers-reduced-motion` | Global token zeroing + JS manager in app; global guard on website |
 
+## 0a. Platform context model (which findings matter where)
+
+The audit covers three distinct surfaces with different input profiles. Severity and fix order are weighted per surface, not uniformly:
+
+| Surface | Where it runs | Input profile | Weighted issues |
+|---|---|---|---|
+| **Desktop app** (Tauri, `apps/desktop`) | Native window, `minWidth: 900` | Mouse + keyboard first; hybrid touch on touchscreen laptops; SRs (NVDA/VoiceOver) | U1-U4, E1-E3 (keyboard/focus); R1 (window min vs breakpoint); R3/R2 only as hybrid-device items |
+| **App on web** | Same Vite frontend served in browsers | Mouse/keyboard + touch; tablets/phones reach the ≤899px drawer layout | U-series + R2/R3 (touch now real), R8, R9, R10 |
+| **Marketing website** (`apps/website`) | GitHub Pages, all browser sizes | Touch/mobile-first (most traffic), keyboard secondary, SRs | W1-W10 (touch targets, 320px reflow, menu semantics), W11/W12 |
+
+Cross-cutting consequence: the responsive editor layout is **unreachable in the desktop window** (window cannot shrink below 900px, drawer breakpoint is 899px), so every touch/mobile finding in the editor applies to the web surface, not the desktop binary. Nothing in the website audit applies to the app and vice versa (no shared components — website is hand-written CSS + Astro).
+
 ## 1. Issue inventory
 
 Severity definitions: **Critical** = blocks task completion for a whole input modality. **Major** = significantly degrades a core flow, workaround exists. **Moderate** = usability friction. **Minor** = polish/consistency.
@@ -144,3 +156,27 @@ Key message: **no Critical findings** — no single flow is fully blocked for an
 - Website W11 asset, W12 favicon need asset generation.
 - iPad split-view, real iOS/Android hardware, TalkBack/VoiceOver untested.
 - Motion/Prototype player, timeline playback and Print/Export flows were sampled, not exhaustively walked this phase.
+
+## 6. Phase 2 status (2026-08-04, same session)
+
+All Phase 2 items landed on master with verification evidence:
+
+### Website (commit a9a217ef + user commits 1f561bab, 61c5c6c5, 079fb4e0)
+- W1 license table `<th scope="row">` + caption; W2 mobile menu `aria-expanded`/`aria-controls` + Esc + focus return; W4 heading hierarchy (3 pages); W8 SHA-256 code-block overflow; W11/W12 real `og-image.png` (1200x630) + `favicon-32x32.png`; `.code-block` contrast fix on 14 pages.
+- **Evidence**: `pnpm --filter @varve/website build` clean (42 pages); axe-core (wcag2a/aa/21/22 tags) on all 41 sitemap pages against the local build → **0 non-minor violations**. (Note: the live `k-arthur.github.io` build still shows contrast violations — it predates the theme-token work; resolves on next deploy.)
+
+### App — keyboard/focus (commit pending)
+- U1/U2/U3 focus rings on `.varve-input__field`, `.varve-textarea__field`, `.insp-num__input` (`components.css`).
+- U4 `Select` restores focus to trigger when the searchable listbox unmounts (`Select.tsx`).
+- E1/E2 skip link + `<main>` landmark in editor (`Shell.tsx`, `CanvasArea.tsx`, `editor.css`); canvas `:focus-visible` ring.
+- E3 focus moved to the visible surface on home↔editor view switch (`App.tsx`, `HomeShell.tsx`).
+- R1 viewport-aware panel clamps (`clampPanelWidthToViewport`, `PANEL_LIMITS` unchanged) + `minmax(320px, 1fr)` canvas floor (`PanelResizeHandle.tsx`, `editor.css`).
+- R3 six hover-gated controls revealed on `@media (any-hover: none)` (`editor.css`, `layers.css`, `adjustment.css`, `home.css`).
+- U20 `prefers-contrast: more` high-contrast block in the token CSS generator + regenerated `tokens.css` (System theme mode only; explicit in-app theme still wins).
+
+### Verification evidence (app)
+- `pnpm typecheck` 15/15 packages PASS (one transient failure was a user mid-save state).
+- `pnpm lint`: 0 errors in any file touched by this audit (pre-existing errors on master unchanged: CodePanel, GradientHandleOverlay, ImportPreview, ImportResults, SelectionOverlay + user WIP website test files).
+- `pnpm test`: 12038 passed; the 19 failures are 14 user-WIP crash tests (untracked `packages/editor/src/crash/`) and 5 load-flakes — FloatingToolbar 5/5, layers10k 10/10, menuPerf 18/18 all pass in isolation.
+- `pnpm audit:tokens` 123/123, `pnpm audit:emoji` clean, architecture audit PASS (no layer violations; hub-file budget warnings come from the user's crash-recovery commit, which added imports, not from this audit's changes).
+- Not yet performed: live Playwright axe scans against the running app, keyboard-only walkthrough, screen-reader passes, real-device touch (no hardware in environment).
