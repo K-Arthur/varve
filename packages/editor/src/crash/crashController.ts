@@ -400,6 +400,11 @@ export class CrashCenterController {
     this.setState({ dialogVisible: true });
   }
 
+  /** Test-only: replaces the transport (see crashTestHooks). */
+  setUploaderForTesting(uploader: CrashUploader): void {
+    this.service.setUploaderForTesting(uploader);
+  }
+
   // ---- Dialog actions -----------------------------------------------------
 
   closeDialog(): void {
@@ -424,11 +429,12 @@ export class CrashCenterController {
     const result = await this.service.sendOne(report.reportId);
     this.setState({ consent: this.service.getConsent() });
     if (result?.ok) {
+      // Stay open to show the report-id receipt; awaitingReport is cleared.
       this.setState({
         lastSentReportId: report.reportId,
         lastSendFailed: false,
         awaitingReport: null,
-        dialogVisible: false,
+        dialogVisible: true,
       });
       this.metricsRecord('dialogCompletion');
     } else {
@@ -452,7 +458,8 @@ export class CrashCenterController {
   }
 
   closeReview(): void {
-    this.setState({ reviewingReport: null });
+    // Back from review returns to the decision dialog when one is pending.
+    this.setState({ reviewingReport: null, dialogVisible: this.ui.awaitingReport !== null });
   }
 
   async sendReviewing(): Promise<void> {
@@ -461,8 +468,11 @@ export class CrashCenterController {
     const result = await this.service.sendOne(report.reportId);
     this.setState({ consent: this.service.getConsent() });
     if (result?.ok) {
+      // Return to the decision dialog showing the report-id receipt.
       this.setState({
         reviewingReport: null,
+        awaitingReport: null,
+        dialogVisible: true,
         lastSentReportId: report.reportId,
         lastSendFailed: false,
       });
