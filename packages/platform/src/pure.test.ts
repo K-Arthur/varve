@@ -3,6 +3,8 @@ import { makeFileEntry } from './memory';
 import {
   compareBy,
   contentHash,
+  DOCUMENT_EXT,
+  DOCUMENT_EXTS,
   defaultViewState,
   detectFileKind,
   emptyFilter,
@@ -13,15 +15,19 @@ import {
   fuzzyScore,
   fuzzySearch,
   isImportableKind,
+  LEGACY_DOCUMENT_EXT,
   mergeViewState,
   stripExtension,
   uuid,
+  withDocumentExt,
 } from './pure';
 import type { Collection, FileEntry } from './types';
 
 describe('detectFileKind', () => {
   it('maps known extensions', () => {
     expect(detectFileKind('logo.strata')).toBe('strata');
+    // .varve documents map to the same persisted kind for compatibility.
+    expect(detectFileKind('logo.varve')).toBe('strata');
     expect(detectFileKind('UI.fig')).toBe('figma');
     expect(detectFileKind('drawing.AI')).toBe('illustrator');
     expect(detectFileKind('photo.png')).toBe('image');
@@ -30,6 +36,25 @@ describe('detectFileKind', () => {
   it('returns unknown for unknown or extensionless names', () => {
     expect(detectFileKind('readme')).toBe('unknown');
     expect(detectFileKind('archive.zip')).toBe('unknown');
+  });
+});
+
+describe('document extensions', () => {
+  it('prefers .varve and keeps .strata openable', () => {
+    expect(DOCUMENT_EXT).toBe('varve');
+    expect(LEGACY_DOCUMENT_EXT).toBe('strata');
+    expect(DOCUMENT_EXTS).toEqual(['varve', 'strata']);
+  });
+});
+
+describe('withDocumentExt', () => {
+  it('appends the canonical extension', () => {
+    expect(withDocumentExt('Brand Deck')).toBe('Brand Deck.varve');
+    expect(withDocumentExt('Untitled 1')).toBe('Untitled 1.varve');
+  });
+  it('leaves existing document extensions untouched', () => {
+    expect(withDocumentExt('Old.strata')).toBe('Old.strata');
+    expect(withDocumentExt('New.VARVE')).toBe('New.VARVE');
   });
 });
 

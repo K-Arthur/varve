@@ -118,6 +118,7 @@ export function App() {
               id: entry.id,
               name: entry.name,
               json,
+              filePath: entry.filePath,
               seq: (prev?.seq ?? 0) + 1,
             }));
             markEditorStateInitialized();
@@ -144,6 +145,7 @@ export function App() {
         id: entry.id,
         name: entry.name,
         json,
+        filePath: entry.filePath,
         seq: (prev?.seq ?? 0) + 1,
       }));
       markEditorStateInitialized();

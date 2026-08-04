@@ -75,7 +75,20 @@ export function usePersistence(
       const meta = s.sessions.find((sess) => sess.id === s.activeId);
       const json = DocumentCodec.encode(s.document);
       if (meta?.fileId) {
+        // App-store copy (recents, thumbnails, home screen) — always kept.
         await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
+        // Figma/Photoshop behavior: a document opened from disk saves back
+        // to its original path. When the runtime supports path writes,
+        // keep the external file in sync too; unsupported runtimes (web)
+        // fall back to the picker inside writeDocumentToPath.
+        if (meta.filePath) {
+          const written = await platform.writeDocumentToPath(meta.filePath, json);
+          if (!written) {
+            // The user cancelled the picker fallback — still keep the app
+            // store copy, but surface the save as cancelled.
+            return false;
+          }
+        }
       } else {
         return await saveAsImpl(platform, stateRef, recoveryRef, patch);
       }
