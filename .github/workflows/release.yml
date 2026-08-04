@@ -282,6 +282,13 @@ jobs:
         if: matrix.enabled
         run: pnpm tauri build --bundles ${{ matrix.bundles }} --ci
         working-directory: apps/desktop
+        env:
+          # linuxdeploy bundles an old binutils `strip` that cannot parse the
+          # SHT_RELR (.relr.dyn) sections modern toolchains emit, and aborts the
+          # whole AppImage build with only "failed to run linuxdeploy" to show
+          # for it. Harmless to set everywhere: the Strata binary is stripped by
+          # [profile.release] strip = true, and distro libraries ship stripped.
+          NO_STRIP: '1'
 
       # ── Signing ──────────────────────────────────────────────────────────
       # Signing runs only when the required secrets are present. Two rules:
