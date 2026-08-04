@@ -28,6 +28,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { productSlug, repoSlug } from './product.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SOURCE_DIR = join(repoRoot, 'models-source');
@@ -137,9 +138,9 @@ function main() {
         'create',
         TAG,
         '--title',
-        'Strata AI models (v1)',
+        `${productSlug()} AI models (v1)`,
         '--notes',
-        'On-demand AI models downloaded by Strata. Not an application release.\n\n' +
+        `On-demand AI models downloaded by ${productSlug()}. Not an application release.\n\n` +
           'These are pinned by SHA-256 in the app; assets here are never overwritten. ' +
           'A revised model ships as models-v2.',
         '--latest=false',
@@ -158,7 +159,7 @@ function main() {
   process.stdout.write(`\nDone. Verify a download resolves:\n`);
   for (const { filename } of ready) {
     process.stdout.write(
-      `  curl -sIL https://github.com/K-Arthur/Strata/releases/download/${TAG}/${filename} | head -1\n`,
+      `  curl -sIL https://github.com/${repoSlug()}/releases/download/${TAG}/${filename} | head -1\n`,
     );
   }
 }
