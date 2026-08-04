@@ -23,15 +23,13 @@ test.describe('Glass Material Effects', () => {
 
     // The Select combobox for effect type uses aria-label "New effect type"
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
 
     // Click "Glass Material" in the dropdown listbox
-    const glassOption = page
-      .locator('.strata-select__option')
-      .filter({ hasText: 'Glass Material' });
+    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
     if (await glassOption.isVisible()) {
       await glassOption.click();
       await page.waitForTimeout(100);
@@ -65,14 +63,12 @@ test.describe('Glass Material Effects', () => {
     await expect(effectsSection).toBeVisible({ timeout: 5000 });
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
 
-    const glassOption = page
-      .locator('.strata-select__option')
-      .filter({ hasText: 'Glass Material' });
+    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
     if (await glassOption.isVisible()) {
       await glassOption.click();
       await page.waitForTimeout(100);
@@ -95,7 +91,7 @@ test.describe('Glass Material Effects', () => {
 
       // The InspectorColorPopover should open a dialog
       // It renders inside a FloatingPortal, look for the open popover
-      const popover = page.locator('[role="dialog"].strata-popover').first();
+      const popover = page.locator('[role="dialog"].varve-popover').first();
       await expect(popover).toBeVisible({ timeout: 5000 });
     }
   });
@@ -111,13 +107,11 @@ test.describe('Glass Material Effects', () => {
     await expect(effectsSection).toBeVisible({ timeout: 5000 });
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
-    const glassOption = page
-      .locator('.strata-select__option')
-      .filter({ hasText: 'Glass Material' });
+    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
     if (await glassOption.isVisible()) {
       await glassOption.click();
       await page.waitForTimeout(100);
@@ -169,13 +163,11 @@ test.describe('Glass Material Effects', () => {
     await expect(effectsSection).toBeVisible({ timeout: 5000 });
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
-    const glassOption = page
-      .locator('.strata-select__option')
-      .filter({ hasText: 'Glass Material' });
+    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
     if (await glassOption.isVisible()) {
       await glassOption.click();
       await page.waitForTimeout(100);

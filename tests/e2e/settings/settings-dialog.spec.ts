@@ -4,7 +4,7 @@ import { navigateToEditor } from '../shared';
 /**
  * Regression coverage for a CSS-cascade bug: `dialog:not([open]) { display:
  * none }` is a UA-origin rule that any author `display` declaration
- * overrides regardless of selector specificity. A `.strata-dialog--settings
+ * overrides regardless of selector specificity. A `.varve-dialog--settings
  * { display: flex }` rule (no [open] qualifier) made the closed Settings
  * dialog stay visibly rendered as an empty header-only shell. jsdom's
  * minimal CSS engine can't compute this cascade, so it's only catchable in
@@ -15,7 +15,7 @@ test.describe('Settings dialog', () => {
   test('stays hidden while closed', async ({ page }) => {
     await navigateToEditor(page);
 
-    const settingsDialog = page.locator('dialog.strata-dialog--settings');
+    const settingsDialog = page.locator('dialog.varve-dialog--settings');
     await expect(settingsDialog).toHaveCount(1);
     await expect(settingsDialog).not.toHaveAttribute('open');
     await expect(settingsDialog).toBeHidden();
@@ -46,11 +46,11 @@ test.describe('Settings dialog', () => {
       (el as HTMLElement | undefined)?.click();
     });
 
-    const settingsDialog = page.locator('dialog.strata-dialog--settings');
+    const settingsDialog = page.locator('dialog.varve-dialog--settings');
     await expect(settingsDialog).toHaveAttribute('open', '', { timeout: 10000 });
 
     // Two real regressions this guards against: (1) width stuck at the base
-    // .strata-dialog's 32rem because a same-specificity cascade tie with
+    // .varve-dialog's 32rem because a same-specificity cascade tie with
     // components.css was decided by load order, not intent; (2) an
     // auto-height flex column inside <dialog> collapsing to near-zero
     // height on WebKitGTK (this app's actual Linux renderer) even though
