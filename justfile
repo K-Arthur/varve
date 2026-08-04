@@ -28,33 +28,33 @@ build-js:
 # --- WASM build (web engine backend) ---
 wasm-build:
     rustup target add wasm32-unknown-unknown
-    cd crates/strata-wasm && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name strata_wasm
-    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/strata_wasm_bg.wasm apps/desktop/public/wasm/strata_wasm_bg.wasm || echo "wasm-opt not on PATH — skipping manual optimization"
+    cd crates/varve-wasm && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name varve_wasm
+    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/varve_wasm_bg.wasm apps/desktop/public/wasm/varve_wasm_bg.wasm || echo "wasm-opt not on PATH — skipping manual optimization"
 
 wasm-build-simd:
     rustup target add wasm32-unknown-unknown
-    cd crates/strata-wasm && RUSTFLAGS="-C target-feature=+simd128" \
-      wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name strata_wasm_simd
-    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/strata_wasm_simd_bg.wasm apps/desktop/public/wasm/strata_wasm_simd_bg.wasm || echo "wasm-opt not on PATH — skipping SIMD optimization"
+    cd crates/varve-wasm && RUSTFLAGS="-C target-feature=+simd128" \
+      wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name varve_wasm_simd
+    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/varve_wasm_simd_bg.wasm apps/desktop/public/wasm/varve_wasm_simd_bg.wasm || echo "wasm-opt not on PATH — skipping SIMD optimization"
 
 wasm-check:
     rustup target add wasm32-unknown-unknown
-    cargo check --target wasm32-unknown-unknown -p strata-wasm
+    cargo check --target wasm32-unknown-unknown -p varve-wasm
 
 # --- WASM build (colour engine, for browser print pipeline) ---
 wasm-build-colour:
     rustup target add wasm32-unknown-unknown
-    cd crates/strata-colour && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name strata_colour -- --features wasm
-    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/strata_colour_bg.wasm apps/desktop/public/wasm/strata_colour_bg.wasm || echo "wasm-opt not on PATH — skipping manual optimization"
+    cd crates/varve-colour && wasm-pack build --target web --out-dir ../../apps/desktop/public/wasm --out-name varve_colour -- --features wasm
+    which wasm-opt 2>/dev/null && wasm-opt -O3 -o apps/desktop/public/wasm/varve_colour_bg.wasm apps/desktop/public/wasm/varve_colour_bg.wasm || echo "wasm-opt not on PATH — skipping manual optimization"
 
 wasm-build-all: wasm-build wasm-build-simd wasm-build-colour
 
 wasm-size:
-    ls -lh apps/desktop/public/wasm/strata_wasm_bg.wasm apps/desktop/public/wasm/strata_wasm_simd_bg.wasm apps/desktop/public/wasm/strata_colour_bg.wasm 2>/dev/null
+    ls -lh apps/desktop/public/wasm/varve_wasm_bg.wasm apps/desktop/public/wasm/varve_wasm_simd_bg.wasm apps/desktop/public/wasm/varve_colour_bg.wasm 2>/dev/null
 
 wasm-check-colour:
     rustup target add wasm32-unknown-unknown
-    cargo check --target wasm32-unknown-unknown -p strata-colour --features wasm
+    cargo check --target wasm32-unknown-unknown -p varve-colour --features wasm
 
 # --- Tests (TDD-first) ---
 test: test-rust test-js
@@ -92,7 +92,7 @@ typecheck-regression:
     node scripts/audit-typecheck-regression.mjs
 
 # --- Icon generation ---
-# Canonical master: packages/ui/src/icons/strata-app-icon.svg
+# Canonical master: packages/ui/src/icons/varve-app-icon.svg
 # (via apps/desktop/build-icons.sh — do not regenerate launchers from mark-only SVGs)
 generate-icons:
     bash apps/desktop/build-icons.sh
@@ -204,14 +204,54 @@ package-dmg: prune-runtimes
 package-windows: prune-runtimes
     cd apps/desktop && pnpm tauri build --bundles msi,nsis --ci --features ai
 
+# --- Release tooling ---
+#
+# `just` always runs from the justfile's directory, so these work from anywhere
+# in the tree. Invoking the scripts as `node scripts/release/...` only works
+# from the repository root, which is a sharp edge worth removing.
+
+# Pre-flight: bundled assets, model catalog agreement, download checksums.
+release-check:
+    node scripts/release/check-bundled-assets.mjs
+
+# Show the version every manifest reports; pass a tag to assert they match it.
+release-version TAG="":
+    node scripts/release/version.mjs verify {{TAG}}
+
+# Set the release version across all manifests (then refresh the lockfiles).
+release-set-version VERSION:
+    node scripts/release/version.mjs set {{VERSION}}
+    @echo "Now run: cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml"
+
+# Upload the large on-demand AI models to the models-v1 release.
+# Needs `git lfs pull --include="models-source/*.onnx"` first.
+release-publish-models *ARGS:
+    node scripts/release/publish-model-assets.mjs {{ARGS}}
+
+# Collect built bundles into dist/release with checksums and a manifest.
+release-collect *ARGS:
+    node scripts/release/collect-artifacts.mjs {{ARGS}}
+
+# Verify dist/release against its manifest and checksum file.
+release-verify *ARGS:
+    node scripts/release/verify-artifacts.mjs {{ARGS}}
+
+# Generate the CycloneDX SBOM.
+release-sbom OUT="dist/release/sbom.cdx.json":
+    node scripts/release/generate-sbom.mjs --out {{OUT}}
+
+# Point the website download page at a published release.
+release-website TAG:
+    node scripts/release/update-website-manifest.mjs --manifest dist/release/release-manifest.json --tag {{TAG}}
+
 # Validate AUR PKGBUILDs using Docker (requires docker; works on any OS).
 # Standard AUR CI pattern: useradd non-root builder + makepkg --printsrcinfo.
 aur-validate:
     docker run --rm -v "$(pwd)/dist/aur:/aur" archlinux:base-devel bash -c " \
       useradd -m builder && \
       chown -R builder:builder /aur && \
-      cd /aur/strata-desktop && su -c 'makepkg --printsrcinfo' builder && echo 'source PKGBUILD OK' && \
-      cd /aur/strata-desktop-bin && su -c 'makepkg --printsrcinfo' builder && echo 'bin PKGBUILD OK' \
+      cd /aur/varve-desktop && su -c 'makepkg --printsrcinfo' builder && echo 'source PKGBUILD OK' && \
+      cd /aur/varve-desktop-bin && su -c 'makepkg --printsrcinfo' builder && echo 'bin PKGBUILD OK' \
     "
 
 # Smoke-test AppImage on the current Linux session (Wayland or X11).

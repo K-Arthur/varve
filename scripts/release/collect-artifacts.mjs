@@ -40,6 +40,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { productSlug } from './product.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -88,7 +89,7 @@ function humanSize(bytes) {
   return mb >= 1000 ? `${(mb / 1000).toFixed(2)} GB` : `${mb.toFixed(1)} MB`;
 }
 
-function collect({ bundleDir, outDir, os, arch, version }) {
+function collect({ bundleDir, outDir, os, arch, version, product }) {
   if (!existsSync(bundleDir)) {
     throw new Error(
       `Bundle directory not found: ${bundleDir}\n` +
@@ -110,7 +111,7 @@ function collect({ bundleDir, outDir, os, arch, version }) {
       const source = join(dir, entry);
       if (!statSync(source).isFile()) continue;
 
-      const canonical = `Strata-${version}-${os}-${arch}.${meta.ext}`;
+      const canonical = `${product}-${version}-${os}-${arch}.${meta.ext}`;
       const dest = join(outDir, canonical);
       copyFileSync(source, dest);
 
@@ -199,7 +200,10 @@ function main() {
     );
   }
 
-  const artifacts = collect({ bundleDir, outDir, os, arch, version });
+  // Read from tauri.conf.json rather than hardcoded, so a product rename
+  // renames the artifacts too instead of silently shipping the old name.
+  const product = productSlug();
+  const artifacts = collect({ bundleDir, outDir, os, arch, version, product });
   writeChecksums(outDir, artifacts);
   const manifest = writeManifest(outDir, artifacts, version);
 
