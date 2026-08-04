@@ -740,6 +740,18 @@ visual echo of the logo, at the cost of a mild fabric association.
 > and cleanest registry profile). No rename work has been executed; nothing
 > changes until an explicit go-ahead.
 
+> **EXECUTION RECORD (addendum, 2026-08-04):** The rename to **Varve** was
+> executed. Repo, packages (`@varve/*`), crates (`varve-*`), Tauri identifier
+> (`dev.varve.desktop`), product name, website, and app icons are Varve.
+> Compatibility identifiers deliberately kept stable: `kind 'strata'` values
+> in the SQLite schema, `.strata` extension support, `strata-*` localStorage /
+> IndexedDB keys that still carry live data (migrated with read-fallbacks or
+> one-time copies, never deleted), legacy app-data dir migration
+> (`dev.strata.desktop` → `dev.varve.desktop`), clipboard MIME types, and
+> historical fixtures/docs. The native document extension is now `.varve`
+> (see `docs/architecture/new-design-creation.md`); `.strata` files remain
+> openable through the same versioned migration pipeline.
+
 ---
 
 *Appendix: this document was produced from a live audit of the repository
