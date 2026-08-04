@@ -1015,6 +1015,38 @@ export const ALL_WORKSPACE_MODES: readonly WorkspaceMode[] = [
   'logo',
 ] as const;
 
+/**
+ * Top-bar display order for workspace tabs — data-driven, single source of
+ * truth for how many modes the menubar shows at any width. Order reflects
+ * product intent: the primary modes (Design, Draw, Photo) stay on screen;
+ * Print, Motion, Codegen, and Logo are the first to move into the "More"
+ * overflow menu at narrow widths.
+ */
+export const WORKSPACE_OVERFLOW_ORDER: readonly WorkspaceMode[] = [
+  'design',
+  'drawing',
+  'image',
+  'print',
+  'motion',
+  'codegen',
+  'logo',
+] as const;
+
+/**
+ * Overflow priority per mode — higher values leave the visible tab strip
+ * first when space runs out (0 = never overflows). Design never overflows;
+ * Logo and Codegen overflow first.
+ */
+export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
+  design: 0,
+  drawing: 2,
+  image: 2,
+  print: 3,
+  motion: 4,
+  codegen: 5,
+  logo: 6,
+};
+
 /** Mode-specific keyboard shortcuts for switching. */
 export const WORKSPACE_SHORTCUTS: Record<WorkspaceMode, string> = {
   design: 'Ctrl+Shift+D',
