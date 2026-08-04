@@ -12,6 +12,22 @@ const {
   description = "Strata is a local-first design tool for vector, layout, typography, motion, prototyping, and print. Cross-platform design suite — no subscription.",
   image = "/og-image.png"
 } = Astro.props;
+
+// Empty unless deliberately configured at build time. See the analytics comment
+// in <head> — the default build makes no third-party requests at all.
+const analyticsDomain = import.meta.env.ANALYTICS_DOMAIN ?? '';
+
+const csp = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${analyticsDomain ? ' https://plausible.io' : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data:",
+  `connect-src 'self'${analyticsDomain ? ' https://plausible.io' : ''}`,
+  "font-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
 ---
 
 <!doctype html>
@@ -34,12 +50,21 @@ const {
       })();
     </script>
 
-    <!-- Plausible Analytics (production only) -->
-    {
-      import.meta.env.PROD && (
-        <script is:inline defer data-domain="strata.design" src="https://plausible.io/js/script.js"></script>
-      )
-    }
+    {/*
+      Analytics are opt-in and off by default.
+
+      This previously loaded Plausible unconditionally in production, pointed at
+      strata.design — a domain that is not owned, so it collected nothing while
+      still being a paid subscription and a third-party request on every page.
+
+      GitHub Releases already reports per-asset download counts for free, which
+      is the only number that matters before launch. To enable analytics later,
+      set both ANALYTICS_DOMAIN and the CSP hosts below, and update
+      /about/privacy to match.
+    */}
+    {import.meta.env.PROD && analyticsDomain && (
+      <script is:inline defer data-domain={analyticsDomain} src="https://plausible.io/js/script.js" />
+    )}
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -54,8 +79,11 @@ const {
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={image} />
 
-    <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://plausible.io; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://plausible.io; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" />
+    {/*
+      CSP allows the analytics host only when analytics are actually enabled, so
+      the default build permits no third-party script or connection at all.
+    */}
+    <meta http-equiv="Content-Security-Policy" content={csp} />
 
     <title>{title} | Strata</title>
   </head>
