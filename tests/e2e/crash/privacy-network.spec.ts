@@ -63,17 +63,21 @@ test('crash capture with unknown consent never transmits (window error)', async 
 
   // Drive a real window error through the capture path.
   await page.evaluate(() => {
-    window.dispatchEvent(new ErrorEvent('error', {
-      message: 'e2e synthetic error',
-      error: new Error('e2e synthetic error'),
-    }));
+    window.dispatchEvent(
+      new ErrorEvent('error', {
+        message: 'e2e synthetic error',
+        error: new Error('e2e synthetic error'),
+      }),
+    );
   });
   await page.waitForTimeout(500);
   const crashRequests = requests.filter((r) => isCrashTraffic(r.url, r.headers));
   expect(crashRequests).toEqual([]);
 });
 
-test('crash dialog offers recovery without sending and without consent inference', async ({ page }) => {
+test('crash dialog offers recovery without sending and without consent inference', async ({
+  page,
+}) => {
   const requests = await collectRequests(page);
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 45000 });
@@ -88,7 +92,9 @@ test('crash dialog offers recovery without sending and without consent inference
 
   // The synthetic crash hooks are dev-only; drive the controller directly.
   const dialogSeen = await page.evaluate(async () => {
-    const hooks = (window as unknown as { __varveCrashTest?: { simulateWorkerCrash: () => Promise<void> } }).__varveCrashTest;
+    const hooks = (
+      window as unknown as { __varveCrashTest?: { simulateWorkerCrash: () => Promise<void> } }
+    ).__varveCrashTest;
     if (hooks) {
       await hooks.simulateWorkerCrash('e2e worker crash');
     }
@@ -126,7 +132,9 @@ test('denied consent stays silent even when a report would be sent', async ({ pa
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 45000 });
 
   await page.evaluate(async () => {
-    const h = (window as unknown as { __varveCrashTest?: { simulateWorkerCrash: () => Promise<void> } }).__varveCrashTest;
+    const h = (
+      window as unknown as { __varveCrashTest?: { simulateWorkerCrash: () => Promise<void> } }
+    ).__varveCrashTest;
     if (h) await h.simulateWorkerCrash('e2e denied crash');
   });
 

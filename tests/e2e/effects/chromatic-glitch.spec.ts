@@ -21,13 +21,13 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
 
     const caOption = page
-      .locator('.strata-select__option')
+      .locator('.varve-select__option')
       .filter({ hasText: 'Chromatic Aberration' });
     if (await caOption.isVisible()) {
       await caOption.click();
@@ -58,12 +58,12 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
 
-    const glitchOption = page.locator('.strata-select__option').filter({ hasText: 'Glitch' });
+    const glitchOption = page.locator('.varve-select__option').filter({ hasText: 'Glitch' });
     if (await glitchOption.isVisible()) {
       await glitchOption.click();
       await page.waitForTimeout(100);
@@ -93,12 +93,12 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
 
-    const glitchOption = page.locator('.strata-select__option').filter({ hasText: 'Glitch' });
+    const glitchOption = page.locator('.varve-select__option').filter({ hasText: 'Glitch' });
     if (await glitchOption.isVisible()) {
       await glitchOption.click();
       await page.waitForTimeout(100);
@@ -141,13 +141,13 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
 
     const caOption = page
-      .locator('.strata-select__option')
+      .locator('.varve-select__option')
       .filter({ hasText: 'Chromatic Aberration' });
     if (await caOption.isVisible()) {
       await caOption.click();
@@ -173,12 +173,12 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
-      '.strata-select__trigger[aria-label="New effect type"]',
+      '.varve-select__trigger[aria-label="New effect type"]',
     );
     await effectTypeSelect.click();
     await page.waitForTimeout(200);
 
-    const shadowOption = page.locator('.strata-select__option').filter({ hasText: 'Drop Shadow' });
+    const shadowOption = page.locator('.varve-select__option').filter({ hasText: 'Drop Shadow' });
     if (await shadowOption.isVisible()) {
       await shadowOption.click();
       await page.waitForTimeout(100);

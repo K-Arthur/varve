@@ -4,8 +4,8 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /^new$/i }).click();
   await page
-    .locator('dialog.strata-dialog[open]')
-    .getByRole('button', { name: /^create$/i })
+    .locator('dialog.varve-dialog[open]')
+    .getByRole('button', { name: /^create design$/i })
     .click();
   await page.locator('.layers-panel').waitFor();
 
