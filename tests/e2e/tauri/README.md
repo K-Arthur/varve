@@ -122,7 +122,7 @@ The `wdio` Cargo feature must be enabled for test builds:
 pnpm desktop:build:test
 
 # Wrong (will fail):
-cargo build -p strata-desktop
+cargo build -p varve-desktop
 ```
 
 Normal release builds do NOT include the wdio feature.

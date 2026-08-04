@@ -17,16 +17,16 @@ test.describe('Home trash flow', () => {
     await sidebarNavClick(page, 'Trash');
     await page.waitForTimeout(150);
 
-    const emptyState = page.locator('.strata-empty[role="status"]');
+    const emptyState = page.locator('.varve-empty[role="status"]');
     await expect(emptyState).toBeVisible();
-    await expect(emptyState.locator('.strata-empty__headline')).toContainText(/trash is empty/i);
+    await expect(emptyState.locator('.varve-empty__headline')).toContainText(/trash is empty/i);
   });
 
   test('trash section CTA navigates back to files', async ({ page }) => {
     await sidebarNavClick(page, 'Trash');
     await page.waitForTimeout(150);
 
-    const cta = page.locator('.strata-empty__actions button');
+    const cta = page.locator('.varve-empty__actions button');
     await expect(cta).toBeVisible();
 
     await cta.click();
@@ -57,7 +57,7 @@ test.describe('Home trash flow', () => {
     await card.click({ button: 'right' });
     await page.waitForTimeout(150);
 
-    const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
+    const ctxMenu = page.locator('.varve-ctxmenu[role="menu"]');
     await expect(ctxMenu.locator('[role="menuitem"]').filter({ hasText: /trash/i })).toBeVisible();
   });
 });

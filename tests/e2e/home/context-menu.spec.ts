@@ -15,7 +15,7 @@ test.describe('Home context menu', () => {
     await card.click({ button: 'right' });
     await page.waitForTimeout(200);
 
-    const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
+    const ctxMenu = page.locator('.varve-ctxmenu[role="menu"]');
     await expect(ctxMenu).toBeVisible();
   });
 
@@ -27,7 +27,7 @@ test.describe('Home context menu', () => {
     await card.click({ button: 'right' });
     await page.waitForTimeout(200);
 
-    const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
+    const ctxMenu = page.locator('.varve-ctxmenu[role="menu"]');
     await expect(ctxMenu.locator('[role="menuitem"]').filter({ hasText: 'Open' })).toBeVisible();
     await expect(ctxMenu.locator('[role="menuitem"]').filter({ hasText: 'Rename' })).toBeVisible();
     await expect(
@@ -43,7 +43,7 @@ test.describe('Home context menu', () => {
     await card.click({ button: 'right' });
     await page.waitForTimeout(200);
 
-    const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
+    const ctxMenu = page.locator('.varve-ctxmenu[role="menu"]');
     await expect(ctxMenu).toBeVisible();
 
     await page.keyboard.press('Escape');
@@ -59,7 +59,7 @@ test.describe('Home context menu', () => {
     await card.click({ button: 'right' });
     await page.waitForTimeout(200);
 
-    const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
+    const ctxMenu = page.locator('.varve-ctxmenu[role="menu"]');
     await expect(ctxMenu).toBeVisible();
 
     await page.locator('.varve-home__toolbar').click();
