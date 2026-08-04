@@ -206,12 +206,12 @@ chore: update dependencies to latest versions</code></pre>
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 
   .guidelines-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
     line-height: 1.8;
   }
@@ -224,31 +224,31 @@ chore: update dependencies to latest versions</code></pre>
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 
   .guidelines-section p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
   }
 
   .guidelines-section strong {
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 
-  .guidelines-section code {
+  .guidelines-section code:not(.code-block) {
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
     font-size: 0.875em;
-    background: var(--color-neutral-100);
+    background: var(--surface-muted);
     padding: 0.125rem 0.375rem;
     border-radius: 0.25rem;
-    color: var(--color-teal-700);
+    color: var(--text-link-hover);
   }
 
   .guidelines-section pre {
-    background: var(--color-neutral-900);
-    color: var(--color-neutral-100);
+    background: var(--surface-code);
+    color: var(--text-code);
     border-radius: 0.5rem;
     padding: 1rem 1.25rem;
     overflow-x: auto;
@@ -258,7 +258,7 @@ chore: update dependencies to latest versions</code></pre>
   .guidelines-section pre code {
     background: none;
     padding: 0;
-    color: var(--color-neutral-100);
+    color: var(--text-code);
     font-size: 0.8125rem;
     line-height: 1.6;
   }
@@ -269,7 +269,7 @@ chore: update dependencies to latest versions</code></pre>
   }
 
   .guidelines-section ul li {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
@@ -280,7 +280,7 @@ chore: update dependencies to latest versions</code></pre>
     content: "\2022";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
     font-weight: bold;
   }
 
@@ -295,7 +295,7 @@ chore: update dependencies to latest versions</code></pre>
     margin-bottom: 0.75rem;
     padding-left: 2.5rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
   }
 
@@ -306,8 +306,8 @@ chore: update dependencies to latest versions</code></pre>
     top: 0.15rem;
     width: 1.5rem;
     height: 1.5rem;
-    background: var(--color-teal-600);
-    color: white;
+    background: var(--status-built);
+    color: var(--text-on-status);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -319,14 +319,14 @@ chore: update dependencies to latest versions</code></pre>
   .guidelines-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
 
   .guidelines-cta h2 {
     font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 
   @media (max-width: 768px) {

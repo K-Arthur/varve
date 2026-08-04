@@ -173,17 +173,17 @@ import Layout from '../../../layouts/Layout.astro';
     margin-bottom: 1.5rem;
   }
   .breadcrumb a {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   .docs-page h1 {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   .docs-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   .docs-section {
@@ -193,12 +193,12 @@ import Layout from '../../../layouts/Layout.astro';
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
-    border-bottom: 2px solid var(--color-teal-100);
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-accent);
     padding-bottom: 0.5rem;
   }
   .docs-section p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
   }
@@ -209,13 +209,13 @@ import Layout from '../../../layouts/Layout.astro';
     margin-bottom: 0.5rem;
     padding-left: 1.5rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   .docs-section ul li::before {
     content: "•";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
   }
   .docs-section ol {
     list-style: none;
@@ -231,8 +231,8 @@ import Layout from '../../../layouts/Layout.astro';
     left: 0;
     width: 1.5rem;
     height: 1.5rem;
-    background: var(--color-teal-600);
-    color: white;
+    background: var(--status-built);
+    color: var(--text-on-status);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -240,19 +240,19 @@ import Layout from '../../../layouts/Layout.astro';
     font-size: 0.75rem;
     font-weight: 600;
   }
-  .docs-section code {
-    background: var(--color-neutral-200);
+  .docs-section code:not(.code-block) {
+    background: var(--surface-muted);
     padding: 0.125rem 0.375rem;
     border-radius: 0.25rem;
     font-family: monospace;
     font-size: 0.875rem;
   }
   .docs-section a {
-    color: var(--color-teal-600);
+    color: var(--text-link);
   }
   .docs-tip {
-    background: var(--color-teal-50);
-    border: 1px solid var(--color-teal-200);
+    background: var(--surface-accent-soft);
+    border: 1px solid var(--border-accent);
     border-radius: 0.75rem;
     padding: 1.5rem;
     margin-bottom: 2rem;
@@ -261,24 +261,24 @@ import Layout from '../../../layouts/Layout.astro';
     font-size: 1rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
-    color: var(--color-teal-800);
+    color: var(--text-link);
   }
   .docs-tip p {
-    color: var(--color-teal-700);
+    color: var(--text-link-hover);
     line-height: 1.7;
   }
   .docs-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
   .docs-cta h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   .docs-cta p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
 </style>
