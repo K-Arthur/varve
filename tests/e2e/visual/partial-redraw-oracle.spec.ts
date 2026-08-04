@@ -52,7 +52,7 @@ function rectItem(
 
 /** World AABB for a rect primitive under an identity-ish transform. */
 function rectBounds(item: RenderItem): { x: number; y: number; w: number; h: number } {
-  const [a, b, c, d, e, f] = item.transform;
+  const [a, , , d, e, f] = item.transform;
   if (item.primitive.kind !== 'rect') throw new Error('oracle fixtures are rects only');
   const { x, y, w, h } = item.primitive;
   // Axis-aligned transform: use the max axis scale like the render bounds do.
