@@ -1,57 +1,70 @@
 # Deferred Lint Debt
 
 These warnings require genuine component redesign or are legitimate use cases
-of ARIA/HTML patterns that Biome's `useSemanticElements` cannot express.
+of ARIA/HTML patterns that Biome's rules cannot express without a data-model
+change.
 
-Last updated: 2026-07-25
+Last updated: 2026-08-03 (inventory refreshed during validation-repair pass)
 
-Attempted Phase 1 Sprint A/B/C (127→21 achieved, then reverted by `git checkout -- .`).
-Current count: 153 warnings. Re-apply fixes from session history.
+## Current count: 41 warnings — all `noArrayIndexKey`
 
-## Remaining warnings (21 total)
+Previous inventories in this file (2026-07-25: 21 warnings incl. 14
+`useSemanticElements`) are obsolete: the `useSemanticElements` batch was fixed
+in later sessions, and `noArrayIndexKey` sites grew with new code. The lint
+baseline for `master` (2026-08-02) is 41 `noArrayIndexKey` warnings and
+nothing else.
 
-### noArrayIndexKey (6 warnings)
+### Why these remain
 
-These use array index as key because position *is* the identity for ordered
-effect/stroke/fill lists. Fixing them requires either:
-- Adding stable IDs to the data model (scala effort, cross-cutting)
-- Accepting that `key={i}` is correct for non-reorderable lists
+`key={i}` is used because array position *is* the identity for these lists:
 
-| File | Line | Required redesign |
-|------|------|-------------------|
-| `Inspector/sections/EffectsSection.tsx` | 263 | Add stable IDs to effect model |
-| `Inspector/sections/FillSection.tsx` | 192 | Add stable IDs to fill model |
-| `Inspector/sections/StrokeSection.tsx` | 181 | Add stable IDs to stroke model |
-| `SpecPanel/CodeGenView.tsx` | 116 | highlightedLines are line-number-indexed; stable by nature |
-| `timeline/GraphEditor.tsx` | 334 | keyframes array — needs kf.id or composite key |
-| `panels/IntelligencePanel.tsx` | 367, 902, 1041, 1219, 1310, 1458, 1518, 1635 | Several `noArrayIndexKey` that use positional identity for grouped findings |
+1. **Reorderable model lists** — gradient stops, fills, strokes, keyframes,
+   palette entries. Rows must keep their identity when the list is
+   re-sorted (e.g. `stops.sort(by position)`), so index keys would cause
+   state/position mismatches on reorder. Fixing requires stable IDs in the
+   document model (cross-cutting change to `@strata/scene` types, ops,
+   serialization, and migration).
+2. **Non-reorderable derived lists** — line-number-indexed code lines,
+   static grids, zoom ticks. Position is immutable here, so `key={i}` is
+   correct; the warning is noise.
+3. **Grouped findings** — intelligence/layout/preflight issue lists. Items
+   have no unique id; keys are composite (`nodeId`-prefixed) with index to
+   disambiguate duplicates.
 
-### useSemanticElements (14 warnings)
+### Inventory (41 sites, 2026-08-03)
 
-These use `role` attributes on elements that cannot be replaced with semantic
-HTML without losing essential interactivity or visual structure.
+| Category | File | Lines |
+|----------|------|-------|
+| Reorderable (needs model IDs) | `Inspector/color/GradientEditor.tsx` | 289 |
+| Reorderable (needs model IDs) | `Inspector/controls/GradientMapEditor.tsx` | 241, 400, 630 |
+| Reorderable (needs model IDs) | `Inspector/controls/GradientImportDialog.tsx` | 73 |
+| Reorderable (needs model IDs) | `Inspector/sections/FillSection.tsx` | 192 |
+| Reorderable (needs model IDs) | `Inspector/sections/StrokeSection.tsx` | 181 |
+| Reorderable (needs model IDs) | `Inspector/sections/OcrSection.tsx` | 368 |
+| Reorderable (needs model IDs) | `Inspector/sections/PaletteSection.tsx` | 184 |
+| Reorderable (needs model IDs) | `PalettePreviewDialog.tsx` | 108, 137, 226 |
+| Reorderable (needs model IDs) | `GradientHandleOverlay.tsx` | 204, 224 |
+| Reorderable (needs model IDs) | `timeline/GraphEditor.tsx` | 334 |
+| Positional (index is identity) | `Inspector/controls/CurveEditor.tsx` | 405, 417, 440 |
+| Positional (index is identity) | `timeline/TimelineRuler.tsx` | 178 |
+| Positional (index is identity) | `NodeEditOverlay.tsx` | 68 |
+| Positional (index is identity) | `SelectionOverlay.tsx` | 856 |
+| Line-numbered (index is identity) | `CodePanel/CodePanel.tsx` | 232, 303, 409, 442 |
+| Line-numbered (index is identity) | `SpecPanel/CodeGenView.tsx` | 116 |
+| Grouped findings (composite key) | `Inspector/sections/LayoutScoreSection.tsx` | 38 |
+| Grouped findings (composite key) | `Inspector/sections/StateMachineSection.tsx` | 130 |
+| Grouped findings (composite key) | `PreflightWarnings.tsx` | 214 |
+| Grouped findings (composite key) | `panels/IntelligencePanel.tsx` | 370, 1007, 1147, 1327, 1418, 1572, 1638, 2294 |
+| Grouped findings (composite key) | `ImportPreview.tsx` | 91, 101 |
+| Grouped findings (composite key) | `ImportResults.tsx` | 99, 139 |
 
-| File | Line | Pattern | Required change |
-|------|------|---------|-----------------|
-| `PropertiesPanel.tsx` | 221 | `role="button"` on backdrop overlay | Overlay must be fixed-position; `<button>` needs CSS adjustments |
-| `DisclosureSection.tsx` | 168 | `<section>` with context menu | Context menu interaction is supplementary |
-| `RichTextSpanEditor.tsx` | 83 | contentEditable `role="textbox"` | Cannot use `<textarea>` — needs rich text formatting |
-| `LayersRow.tsx` | 356 | `role="button"` on zoom icon | Double-click action, nested in layers row |
-| `LibraryPanel.tsx` | 83 | `role="button"` on library item | Has nested `<Button>` child |
-| `PanelResizeHandle.tsx` | 136 | `role="separator"` on resize handle | `<hr>` is horizontal only and can't be focusable |
-| `PreflightWarnings.tsx` | 138 | `role="button"` on backdrop overlay | Same as PropertiesPanel backdrop |
-| `PrototypePlayer.tsx` | 48 | `role="button"` on interaction area | Full-area click zone |
-| `PrototypePlayer.tsx` | 77 | `role="region"` on hints overlay | Generic landmark for overlay |
-| `NewFeatureBadge.tsx` | 38 | `role="button"` on badge span | Badge with click interaction |
-| `PlaybackControls.tsx` | 177 | `<time>` → should not have aria-label | Use `<span role="timer">` |
-| `ContextualHelpPanel.tsx` | 54 | `role="complementary"` on panel | Need to change to `<aside>` |
-| `ContextualHelpPanel.tsx` | 116 | `aria-selected` on `<li>` | Need `role="option"` on `<li>` |
-| `AuditUtilityPanel.tsx` | 161 | `role="button"` on finding div | Clickable finding with nested content |
-| `IntelligencePanel.tsx` | 182 | `role="group"` on more-groups div | Should be `<fieldset>` |
+### Resolution options
 
-## Migration plan
-
-| Phase | Target | Effort |
-|-------|--------|--------|
-| Sprint D | Fix 6 noArrayIndexKey by adding IDs to models | ~2 sessions |
-| Sprint E | Fix 14 useSemanticElements by native HTML swap | ~2 sessions |
+- **Short-term (recommended, ~1 session):** add stable `id` fields to
+  gradient stops / fills / strokes / keyframes in `@strata/scene`, thread
+  them through ops and serialization, and key rows on the id. For line-
+  numbered and grouped-finding lists, add a `suppress` comment with the
+  positional rationale or switch `noArrayIndexKey` from warning to off for
+  those files.
+- **Policy change:** promote the rule to error (with the above inventory
+  fixed first) so new index-keyed lists are caught in review.

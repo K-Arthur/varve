@@ -95,3 +95,76 @@ Architecture audit (`scripts/audit-architecture.mjs --ci`) is slow locally
 because it scans 5 concurrent worktrees; CI runs on a clean checkout.
 `git status` clean apart from this ledger + auto-fixed `scripts/perf/*.mjs`
 (committed by the coordinator).
+
+---
+
+# Session 2026-08-03 — revalidation pass on `master`
+
+Branch: `master` @ `23e04b75`. Only untracked file was `.boot-check.tmp.mjs`
+(transient external boot-check artifact; added to `.gitignore` so `biome ci`
+and git status stop tripping on it).
+
+## Baseline (2026-08-03)
+
+| Area | Command | Initial Result | Root Cause | Status | Verification |
+|------|---------|---------------:|------------|--------|--------------|
+| Formatting | `just format-check` | 2 errors | `.boot-check.tmp.mjs` untracked temp artifact | Fixed (gitignore) | biome ci + cargo fmt pass |
+| TypeScript | `pnpm typecheck` | 15/15 pkgs pass | — | Pass | exit 0 |
+| E2E types | `pnpm typecheck:e2e` | 2 errors | `next[0].tag` under `noUncheckedIndexedAccess`; `(string\|null)[]` vs `string[]` | Fixed | exit 0 |
+| Lint | `pnpm lint` | 0 errors, 57 warn, 7 info | 46 deferred `noArrayIndexKey` + 6 a11y + 5 useOptionalChain + 4 useLiteralKeys + 3 useTemplate | 46→41 deferred; all other 16 resolved | exit 0, 41 deferred |
+| Accessibility | a11y lint warnings | 6 | ShortcutPalette listbox rows (4), DisclosureSection context menu (1), ExportPackageSection pre aria-label (1) | Fixed | lint clean; unit tests pass |
+| Warnings | build/test/compiler | none beyond lint | — | — | — |
+
+## Fixes applied (2026-08-03)
+
+- **E2E types**: `focus-order.spec.ts:175` — `next[0]` possibly undefined
+  (`noUncheckedIndexedAccess`) → `toBeDefined()` + `next[0]?.tag`;
+  `keyboard-nav.spec.ts:37` — `selectedNodeIds` filters nulls with a type
+  predicate.
+- **A11y — ShortcutPalette (4 warnings)**: option rows are intentionally not
+  tab stops (WAI-ARIA combobox + `aria-activedescendant`; Enter/Alt+Enter/
+  Alt+Backspace handled at dialog level). Added narrow per-site
+  `biome-ignore lint/a11y` with justification. Covered by existing
+  `ShortcutPalette.test.tsx` keyboard tests (arrows + Enter, Alt+Enter remap).
+- **A11y — DisclosureSection (1 warning)**: "Hide section" context menu moved
+  from the static `<section>` onto the native trigger `<button>` (also
+  unblocks native context menus on fields inside the section), with
+  `aria-haspopup="menu"`, keyboard trigger (`ContextMenu` key / `Shift+F10`),
+  focus of the menu item when keyboard-opened, and focus restoration to the
+  trigger on Escape/hide.
+- **A11y — ExportPackageSection (1 warning)**: `<pre aria-label>` → added
+  `role="region"` so the accessible name is valid (labelled landmark).
+- **useOptionalChain ×5**: `useIconAssets.ts` (`children ?? []`),
+  `descriptor.ts` ×2, `Menu.tsx`, `Toolbar.tsx` — manual equivalent fixes.
+- **useLiteralKeys ×4 / useTemplate ×3**: test files + `logoPackageExport.ts`
+  hex builders.
+- **noArrayIndexKey 46→41**: fixed 5 sites with natural stable keys
+  (`AuditKeyboardNav` shortcut keys, `DocumentPanel` axis angle,
+  `SnapGuidesOverlay` axis+position ×3). Remaining 41 documented in
+  `docs/audits/deferred-lint-debt.md` (rewritten with current inventory:
+  reorderable model lists needing stable IDs, positional/line-numbered lists
+  where index is identity, grouped findings with composite keys).
+
+## Final verification (2026-08-03)
+
+| Command | Result |
+|---------|--------|
+| `pnpm typecheck` (15 pkgs + E2E) | PASS (exit 0) |
+| `pnpm typecheck:e2e` | PASS (exit 0) |
+| `pnpm lint` (biome check .) | PASS (exit 0, 41 documented-deferred `noArrayIndexKey`) |
+| `just format-check` | PASS (cargo fmt + biome ci) |
+| Targeted vitest (ShortcutPalette, Menu, Toolbar, logo, gradient, scene presets, controls, icons, sections) | 16 files / 198 tests PASS |
+| `pnpm audit:tokens` / `pnpm audit:emoji` | PASS |
+| Full `pnpm test` | PASS |
+| Playwright E2E discovery | PASS |
+
+## Remaining
+
+- 41 `noArrayIndexKey` warnings — documented deferred
+  (`docs/audits/deferred-lint-debt.md`); need stable IDs in the `@strata/scene`
+  data model or per-site suppression for positional lists.
+- `lint:css` — 4 pre-existing BEM warnings in
+  `packages/ui/src/components/components.css` (not in CI).
+- Full Playwright E2E run not executed locally (needs `dev` server + wasm);
+  CI runs `playwright test --project=chromium`.
+
