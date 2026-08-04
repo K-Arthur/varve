@@ -166,5 +166,5 @@ repository owner as an explicit decision:
 | Apple Developer Program | USD $99 payment, legal agreement | Defer until a Mac is available |
 | Azure Artifact Signing | Paid Azure subscription, identity validation | Defer — Store path is free |
 | Domain purchase | Payment | See budget plan; defer to Scenario B trigger |
-| Making the repository public | Repository visibility change | See budget plan §4 — this is the single biggest cost lever |
+| ~~Making the repository public~~ | — | **Done 2026-08-04.** Secret-audited first; CI and Pages are now free |
 | Publishing any release | Public distribution | All release automation lands as **draft**; publishing stays manual |

@@ -484,7 +484,7 @@ Blocks: earliest release tier the item prevents.
 | H-2 | Download page | **Stale** | `download.astro` never reads `releases.json` | H | Advertises unbuilt platforms and a non-existent AUR package | Consume generated manifest | Beta |
 | H-3 | macOS universal | **Partial** | `fetch-onnxruntime.mjs` `PLATFORMS`; `publish.yml:104` | H | Intel Macs lose native AI silently | Document; or ship per-arch DMGs | Beta |
 | H-4 | Bundle targets | **Fragile** | `tauri.conf.json:106` `"targets": "all"` | H | Artifact set varies with toolchain | Enumerate targets explicitly | Beta |
-| H-5 | CI cost | **Unsafe** | `build.yml:5,157`; repo is private | H | Free Actions allowance exhausted in ~3 pushes | Split gate from bundle; bundle on tag only | Beta |
+| H-5 | CI cost | **Resolved** | `build.yml`; repo made public 2026-08-04 | H | Free Actions allowance exhausted in ~3 pushes | Workflow split + public repo: runners now free and unmetered | Beta |
 | H-6 | File associations | **Fixed** | No `fileAssociations`; no shared-mime-info XML | H | Double-clicking a `.strata` file does nothing | `fileAssociations` added; MIME XML installed by deb/rpm | Beta |
 | M-1 | ORT supply chain | **Weak** | `fetch-onnxruntime.mjs` verify-after-extract | M | Extractor runs on unverified bytes | Hash buffer before extraction | Beta |
 | M-2 | Model attribution | **Incomplete** | `THIRD_PARTY_NOTICES:127-151` vs `dist/models/` | M | Licence obligations unmet for a shipped artifact | Add `font-classify` entry | Beta |
