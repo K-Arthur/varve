@@ -3,6 +3,7 @@ import { Button, Dialog, NumberInput, Select, Tooltip, TooltipProvider } from '@
 import { getTheme, setTheme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bumpThemeRevision, getBackupService, useEditor } from '../../context';
+import { PrivacyDiagnosticsSection } from '../../crash';
 import { loadSettings, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
@@ -26,6 +27,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'models', label: 'Offline Models' },
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'AI Assistant' },
+  { id: 'privacy', label: 'Privacy & Diagnostics' },
   { id: 'about', label: 'About' },
 ];
 
@@ -158,6 +160,7 @@ export function SettingsDialog({
             )}
             {activeSection === 'collab' && <CollabSection />}
             {activeSection === 'ai' && <AISection />}
+            {activeSection === 'privacy' && <PrivacyDiagnosticsSection />}
             {activeSection === 'about' && <AboutSection />}
           </div>
         </div>
