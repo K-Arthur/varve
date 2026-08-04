@@ -75,6 +75,7 @@ export * from './maskCapability';
 export * from './masks';
 export * from './motion';
 export * from './motion-types';
+export * from './newDocument';
 export * from './nodeBounds';
 export * from './paint';
 export * from './preflight';
