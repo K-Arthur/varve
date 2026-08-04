@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "hasRelease": false,
+  "note": "GENERATED FILE — do not hand-edit. Written by scripts/release/update-website-manifest.mjs from the release manifest produced by .github/workflows/release.yml. Until the first release is tagged and published, hasRelease stays false and the download page says so rather than advertising builds that do not exist.",
+  "version": null,
+  "tag": null,
+  "releaseDate": null,
+  "prerelease": true,
+  "signed": false,
+  "notarized": false,
+  "releaseUrl": "https://github.com/K-Arthur/Strata/releases",
+  "checksumsUrl": null,
+  "sbomUrl": null,
+  "platforms": {}
+}
