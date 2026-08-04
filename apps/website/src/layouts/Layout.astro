@@ -40,13 +40,29 @@ const csp = [
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <meta name="generator" content={Astro.generator} />
 
-    <!-- Theme detection script (runs before paint) -->
+    <!-- Theme detection script (runs before paint).
+      One canonical state on <html data-theme="light|dark|high-contrast">.
+      "high-contrast" wins over dark when the OS asks for more contrast; the
+      OS preference is tracked live so a mid-session OS switch re-themes the
+      page. No user choice is persisted (no manual control exists yet), so
+      this never stores anything. The tokens.css + theme.css media fallbacks
+      keep JS-disabled rendering readable. -->
     <script is:inline>
-      (function() {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const prefersHighContrast = window.matchMedia('(prefers-contrast: more)').matches;
-        const theme = prefersHighContrast ? 'high-contrast' : (prefersDark ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
+      (function () {
+        var root = document.documentElement;
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+        var prefersHighContrast = window.matchMedia('(prefers-contrast: more)');
+        function apply() {
+          var theme = prefersHighContrast.matches
+            ? 'high-contrast'
+            : prefersDark.matches
+              ? 'dark'
+              : 'light';
+          root.setAttribute('data-theme', theme);
+        }
+        apply();
+        prefersDark.addEventListener('change', apply);
+        prefersHighContrast.addEventListener('change', apply);
       })();
     </script>
 
