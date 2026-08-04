@@ -25,6 +25,10 @@ export interface CrashTestHooks {
   corruptQueue(): Promise<void>;
   revokeDuringUpload(): Promise<void>;
   shutdownDuringPersistence(): Promise<void>;
+  /** Injects a stub transport (test only). */
+  setUploaderForTesting(uploader: {
+    upload: (report: unknown) => Promise<{ ok: boolean; retryable: boolean; status: number }>;
+  }): void;
 }
 
 declare global {
@@ -152,6 +156,11 @@ export function installCrashTestHooks(controller: CrashCenterController): void {
         threadCategory: 'main',
         recoveryStatus: 'not-applicable',
       });
+    },
+    setUploaderForTesting: (uploader) => {
+      controller.setUploaderForTesting({
+        upload: async (report: unknown) => uploader.upload(report),
+      } as unknown as Parameters<CrashCenterController['setUploaderForTesting']>[0]);
     },
   };
   window.__varveCrashTest = hooks;
