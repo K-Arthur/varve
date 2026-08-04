@@ -1,0 +1,313 @@
+/*
+ * Varve website — semantic color/typography layer.
+ *
+ * The website imports @varve/ui/tokens.css (editor tokens, theme-aware via
+ * [data-theme] + prefers-color-scheme + forced-colors). Pages previously
+ * layered a second, light-only --color-neutral-* ramp on top and picked colors
+ * from both systems, so dark/high-contrast sessions rendered a mix of light
+ * page backgrounds and dark component surfaces with wrong text tokens.
+ *
+ * This file is the single semantic layer for the site. Components and pages
+ * must reference only these names (--surface-*, --text-*, --border-*,
+ * --accent-*, --status-*); never raw --color-neutral-* or hex values.
+ *
+ * Every value is derived per theme; forced-colors mode resolves the aliases to
+ * system colors via the underlying @varve/ui tokens.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* --- Surfaces --- */
+  --surface-page: var(--color-surface-app);
+  --surface-sunken: var(--color-surface-sunken);
+  --surface-card: var(--color-surface-raised);
+  --surface-card-hover: oklch(0.965 0.009 258);
+  --surface-muted: var(--color-surface-sunken);
+  --surface-header: var(--color-surface-app);
+  --surface-footer: oklch(0.1719 0.0186 259.66);
+  --surface-inset: oklch(0.1719 0.0186 259.66);
+  --surface-inverse: var(--color-surface-overlay);
+  --surface-code: oklch(0.17 0.012 260);
+  --surface-accent-soft: oklch(0.955 0.03 190);
+  --surface-selected: var(--color-accent-subtle);
+  --surface-interactive: var(--color-interactive-default);
+
+  /* --- Status surfaces --- */
+  --surface-info: oklch(0.955 0.022 248);
+  --surface-warning: oklch(0.962 0.022 79.82);
+  --surface-danger: oklch(0.953 0.025 27);
+  --surface-success: oklch(0.953 0.025 156);
+
+  /* --- Text --- */
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --text-subtle: var(--color-text-subtle);
+  --text-disabled: var(--color-text-disabled);
+  --text-placeholder: var(--color-text-subtle);
+  --text-inverse: var(--color-text-primary-on-overlay);
+  --text-on-accent: oklch(0.1956 0.0217 263.87);
+  --text-on-status: oklch(0.1956 0.0217 263.87);
+  --text-link: oklch(0.4452 0.0693 190.9);
+  --text-link-hover: oklch(0.38 0.0577 191.62);
+  --text-link-visited: oklch(0.4 0.09 250);
+  --text-code: oklch(0.94 0.008 260);
+  --text-footer: oklch(0.82 0.012 260);
+  --text-footer-muted: oklch(0.64 0.02 260);
+  --text-footer-heading: var(--color-brand-teal);
+  --text-footer-link: oklch(0.78 0.012 260);
+  --text-footer-link-hover: var(--color-brand-teal);
+
+  /* --- Status text (on --surface-page) --- */
+  --text-success: oklch(0.47 0.13 156);
+  --text-warning: oklch(0.46 0.12 79.82);
+  --text-danger: oklch(0.47 0.16 27);
+  --text-info: oklch(0.47 0.11 250);
+
+  /* --- Borders and focus --- */
+  --border-default: var(--color-border-subtle);
+  --border-subtle: oklch(0.925 0.011 260);
+  --border-strong: var(--color-border-strong);
+  --border-interactive: var(--color-interactive-default);
+  --border-accent: oklch(0.87 0.04 190);
+  --border-warning: oklch(0.62 0.12 60);
+  --border-footer: oklch(0.3 0.02 260);
+  --focus-ring: var(--color-border-focus);
+  --focus-ring-offset: 2px;
+  --divider: var(--color-border-subtle);
+
+  /* --- Brand / accent --- */
+  --accent-primary: var(--color-accent-primary);
+  --accent-primary-hover: oklch(0.72 0.11 189);
+  --accent-strong: var(--color-interactive-default);
+  --accent-strong-hover: var(--color-interactive-hover);
+  --accent-soft: var(--color-accent-subtle);
+  --brand-teal: var(--color-brand-teal);
+  --brand-sandstone: var(--color-brand-sandstone);
+  --brand-terracotta: var(--color-brand-terracotta);
+
+  /* --- Status badges (brand colors, dark text on them) --- */
+  --status-built: var(--brand-teal);
+  --status-partial: var(--brand-sandstone);
+  --status-dev: oklch(0.66 0.15 30);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-card-hover: oklch(0.25 0.02 263);
+  --surface-muted: oklch(0.21 0.02 262);
+  --surface-header: var(--color-surface-app);
+  --surface-footer: oklch(0.125 0.014 260);
+  --surface-inset: oklch(0.12 0.014 260);
+  --surface-code: oklch(0.28 0.018 262);
+  --surface-accent-soft: oklch(0.24 0.03 190);
+  --surface-selected: var(--color-accent-subtle);
+  --surface-info: oklch(0.26 0.035 250);
+  --surface-warning: oklch(0.27 0.04 80);
+  --surface-danger: oklch(0.28 0.05 27);
+  --surface-success: oklch(0.27 0.04 156);
+
+  --text-on-accent: oklch(0.1956 0.0217 263.87);
+  --text-on-status: oklch(0.1956 0.0217 263.87);
+  --text-link: oklch(0.7873 0.1127 186.47);
+  --text-link-hover: oklch(0.8896 0.0735 186.3);
+  --text-link-visited: oklch(0.76 0.09 258);
+  --text-code: oklch(0.92 0.01 260);
+  --text-footer: oklch(0.82 0.012 260);
+  --text-footer-muted: oklch(0.62 0.02 260);
+  --text-footer-link: oklch(0.76 0.012 260);
+
+  --text-success: oklch(0.81 0.12 156);
+  --text-warning: oklch(0.82 0.11 80);
+  --text-danger: oklch(0.79 0.13 27);
+  --text-info: oklch(0.8 0.1 250);
+
+  --border-subtle: var(--color-border-subtle);
+  --border-accent: oklch(0.4 0.045 190);
+  --border-warning: oklch(0.72 0.11 60);
+  --border-footer: oklch(0.28 0.02 260);
+  --divider: var(--color-border-subtle);
+}
+
+[data-theme="high-contrast"] {
+  color-scheme: dark;
+
+  --surface-page: oklch(0 0 0);
+  --surface-sunken: oklch(0 0 0);
+  --surface-card: oklch(0.15 0 0);
+  --surface-card-hover: oklch(0.2 0 0);
+  --surface-muted: oklch(0 0 0);
+  --surface-header: oklch(0 0 0);
+  --surface-footer: oklch(0 0 0);
+  --surface-inset: oklch(0 0 0);
+  --surface-code: oklch(0 0 0);
+  --surface-accent-soft: oklch(0.25 0 0);
+  --surface-inverse: oklch(1 0 0);
+  --surface-info: oklch(0 0 0);
+  --surface-warning: oklch(0 0 0);
+  --surface-danger: oklch(0 0 0);
+  --surface-success: oklch(0 0 0);
+
+  --text-primary: oklch(1 0 0);
+  --text-secondary: oklch(0.92 0 0);
+  --text-muted: oklch(0.8577 0 0);
+  --text-subtle: oklch(0.78 0 0);
+  --text-disabled: oklch(0.6 0 0);
+  --text-placeholder: oklch(0.78 0 0);
+  --text-inverse: oklch(0 0 0);
+  --text-on-accent: oklch(0 0 0);
+  --text-on-status: oklch(0 0 0);
+  --text-link: oklch(0.9519 0.2924 111.62);
+  --text-link-hover: oklch(0.9519 0.2924 111.62);
+  --text-link-visited: oklch(0.85 0.15 280);
+  --text-code: oklch(1 0 0);
+  --text-footer: oklch(1 0 0);
+  --text-footer-muted: oklch(0.85 0 0);
+  --text-footer-heading: oklch(0.9519 0.2924 111.62);
+  --text-footer-link: oklch(1 0 0);
+  --text-footer-link-hover: oklch(0.9519 0.2924 111.62);
+
+  --text-success: oklch(0.8649 0.2979 142.49);
+  --text-warning: oklch(0.8446 0.1616 82.25);
+  --text-danger: oklch(0.6559 0.1934 27.47);
+  --text-info: oklch(0.7086 0.1456 250.24);
+
+  --border-default: oklch(1 0 0);
+  --border-subtle: oklch(1 0 0);
+  --border-strong: oklch(1 0 0);
+  --border-interactive: oklch(0.9519 0.2924 111.62);
+  --border-accent: oklch(0.9519 0.2924 111.62);
+  --border-warning: oklch(0.9519 0.2924 111.62);
+  --border-footer: oklch(1 0 0);
+  --divider: oklch(1 0 0);
+
+  --accent-primary: oklch(0.9519 0.2924 111.62);
+  --accent-primary-hover: oklch(0.9519 0.2924 111.62);
+  --accent-strong: oklch(0.9519 0.2924 111.62);
+  --accent-strong-hover: oklch(0.9519 0.2924 111.62);
+  --accent-soft: oklch(0.4 0.1 111.62);
+
+  --status-built: oklch(0.9519 0.2924 111.62);
+  --status-partial: oklch(0.8446 0.1616 82.25);
+  --status-dev: oklch(0.75 0.2 27);
+}
+
+/* No-JS / pre-paint fallback: match the inline theme script in Layout.astro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
+/* High-contrast preference without JS. */
+@media (prefers-contrast: more) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --surface-page: oklch(0 0 0);
+    --surface-sunken: oklch(0 0 0);
+    --surface-card: oklch(0.15 0 0);
+    --surface-card-hover: oklch(0.2 0 0);
+    --surface-muted: oklch(0 0 0);
+    --surface-header: oklch(0 0 0);
+    --surface-footer: oklch(0 0 0);
+    --surface-inset: oklch(0 0 0);
+    --surface-code: oklch(0 0 0);
+    --surface-accent-soft: oklch(0.25 0 0);
+    --text-primary: oklch(1 0 0);
+    --text-secondary: oklch(0.92 0 0);
+    --text-muted: oklch(0.8577 0 0);
+    --text-subtle: oklch(0.78 0 0);
+    --text-disabled: oklch(0.6 0 0);
+    --text-inverse: oklch(0 0 0);
+    --text-on-accent: oklch(0 0 0);
+    --text-on-status: oklch(0 0 0);
+    --text-link: oklch(0.9519 0.2924 111.62);
+    --text-link-hover: oklch(0.9519 0.2924 111.62);
+    --text-code: oklch(1 0 0);
+    --text-footer: oklch(1 0 0);
+    --text-footer-muted: oklch(0.85 0 0);
+    --text-footer-heading: oklch(0.9519 0.2924 111.62);
+    --text-footer-link: oklch(1 0 0);
+    --text-footer-link-hover: oklch(0.9519 0.2924 111.62);
+    --border-default: oklch(1 0 0);
+    --border-subtle: oklch(1 0 0);
+    --border-strong: oklch(1 0 0);
+    --border-interactive: oklch(0.9519 0.2924 111.62);
+    --border-accent: oklch(0.9519 0.2924 111.62);
+    --border-warning: oklch(0.9519 0.2924 111.62);
+    --border-footer: oklch(1 0 0);
+    --divider: oklch(1 0 0);
+    --accent-primary: oklch(0.9519 0.2924 111.62);
+    --accent-primary-hover: oklch(0.9519 0.2924 111.62);
+    --accent-strong: oklch(0.9519 0.2924 111.62);
+    --accent-strong-hover: oklch(0.9519 0.2924 111.62);
+    --status-built: oklch(0.9519 0.2924 111.62);
+    --status-partial: oklch(0.8446 0.1616 82.25);
+    --status-dev: oklch(0.75 0.2 27);
+  }
+}
+
+/* OS forced-colors: all website surfaces/text resolve to system colors. */
+@media (forced-colors: active) {
+  :root:not([data-theme="high-contrast"]) {
+    --surface-page: Canvas;
+    --surface-sunken: Canvas;
+    --surface-card: Canvas;
+    --surface-card-hover: Canvas;
+    --surface-muted: Canvas;
+    --surface-header: Canvas;
+    --surface-footer: Canvas;
+    --surface-inset: Canvas;
+    --surface-code: Canvas;
+    --surface-accent-soft: Canvas;
+    --surface-inverse: Canvas;
+    --surface-info: Canvas;
+    --surface-warning: Canvas;
+    --surface-danger: Canvas;
+    --surface-success: Canvas;
+    --text-primary: CanvasText;
+    --text-secondary: CanvasText;
+    --text-muted: GrayText;
+    --text-subtle: GrayText;
+    --text-disabled: GrayText;
+    --text-placeholder: GrayText;
+    --text-inverse: CanvasText;
+    --text-on-accent: ButtonText;
+    --text-on-status: ButtonText;
+    --text-link: LinkText;
+    --text-link-hover: LinkText;
+    --text-link-visited: LinkText;
+    --text-code: CanvasText;
+    --text-footer: CanvasText;
+    --text-footer-muted: GrayText;
+    --text-footer-heading: CanvasText;
+    --text-footer-link: LinkText;
+    --text-footer-link-hover: LinkText;
+    --text-success: CanvasText;
+    --text-warning: CanvasText;
+    --text-danger: CanvasText;
+    --text-info: CanvasText;
+    --border-default: ButtonBorder;
+    --border-subtle: ButtonBorder;
+    --border-strong: ButtonBorder;
+    --border-interactive: ButtonBorder;
+    --border-accent: Highlight;
+    --border-warning: Highlight;
+    --border-footer: ButtonBorder;
+    --divider: ButtonBorder;
+    --accent-primary: ButtonFace;
+    --accent-primary-hover: ButtonFace;
+    --accent-strong: ButtonFace;
+    --accent-strong-hover: ButtonFace;
+    --accent-soft: Canvas;
+    --status-built: Highlight;
+    --status-partial: Highlight;
+    --status-dev: Highlight;
+  }
+}
+
+/* Reduced motion: the shared --duration-* tokens (tokens.css) already collapse
+ * to 0ms; the site's transitions reference them, so no override is needed
+ * here. Smooth scrolling is gated on no-preference in global.css. */

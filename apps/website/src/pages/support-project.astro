@@ -139,12 +139,12 @@ import Layout from '../layouts/Layout.astro';
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .support-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
@@ -156,11 +156,11 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .support-section p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
   }
@@ -173,18 +173,18 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .support-section li::before {
     content: "•";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
   }
   
   .support-section strong {
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .support-grid {
@@ -195,8 +195,8 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .support-item {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
@@ -205,7 +205,7 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.125rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .support-item p {
@@ -221,8 +221,8 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .tier-card {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
     display: flex;
@@ -230,21 +230,21 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .tier-card.featured {
-    border-color: var(--color-teal-400);
-    background: linear-gradient(135deg, var(--color-teal-50) 0%, white 100%);
+    border-color: var(--border-accent);
+    background: linear-gradient(135deg, var(--surface-accent-soft) 0%, var(--surface-card) 100%);
   }
   
   .tier-card h3 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .tier-price {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--color-teal-600);
+    color: var(--text-link);
     margin-bottom: 1rem;
   }
   
@@ -259,20 +259,20 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 0.5rem;
     padding-left: 1.25rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .tier-card li::before {
     content: "✓";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
     font-weight: bold;
   }
   
   .one-time-note {
     text-align: center;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     font-size: 0.875rem;
     margin-top: 1rem;
   }
@@ -280,13 +280,13 @@ import Layout from '../layouts/Layout.astro';
   .support-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
   
   .support-cta h2 {
     font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 </style>

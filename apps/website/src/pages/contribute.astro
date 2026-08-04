@@ -116,12 +116,12 @@ import Layout from '../layouts/Layout.astro';
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .contribute-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
@@ -133,11 +133,11 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .contribute-section p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
   }
@@ -150,8 +150,8 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .contribute-card {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
@@ -160,7 +160,7 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.125rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .contribute-card p {
@@ -177,14 +177,14 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 0.5rem;
     padding-left: 1.25rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .contribute-card li::before {
     content: "•";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
   }
   
   .contribute-section ol {
@@ -197,7 +197,7 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 0.75rem;
     padding-left: 2.5rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .contribute-section ol li::before {
@@ -206,8 +206,8 @@ import Layout from '../layouts/Layout.astro';
     left: 0;
     width: 1.5rem;
     height: 1.5rem;
-    background: var(--color-teal-600);
-    color: white;
+    background: var(--status-built);
+    color: var(--text-on-status);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -224,26 +224,26 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 0.5rem;
     padding-left: 1.5rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .contribute-section li::before {
     content: "•";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
   }
   
   .contribute-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
   
   .contribute-cta h2 {
     font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 </style>
