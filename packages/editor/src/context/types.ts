@@ -372,6 +372,7 @@ export interface EditorContextValue {
   setCamera: (camera: Camera) => void;
   setZoom: (z: number) => void;
   setPan: (p: { x: number; y: number }) => void;
+  panBy: (dx: number, dy: number) => void;
   zoomIn: () => void;
   zoomOut: () => void;
   zoomTo: (level: number) => void;
