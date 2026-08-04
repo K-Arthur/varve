@@ -14,19 +14,24 @@
 ## 0. Headline answer
 
 **Can the repository produce genuine production builds today?**
-Partly. The Linux production build path is real and works from a clean CachyOS checkout.
-The *release* path — the thing that turns a build into something a stranger can install and
-trust — is not functional. Four defects each independently prevent a correct public release,
-and three of them are silent (they produce a plausible-looking artifact that is wrong).
+The *release* path now works: all three Linux formats build, artifacts are renamed,
+checksummed, manifested, SBOM'd and verified, and a draft-then-approve pipeline exists.
+Every release blocker found in the original audit has been fixed.
 
-**The single most important finding:** builds are **not reproducible between this workstation
-and CI**, and the CI-produced artifact is the broken one. See RB-1 (Git LFS) below.
+**One blocker remains, and it is not a release-engineering one: the packaged
+application does not reach its UI.** A watchdog proved React never mounts in the
+packaged WebView, even though the same `dist/` renders perfectly in Chromium.
+Until that is resolved there is nothing worth releasing. See RB-6 and RB-7.
+
+**The original headline finding** — builds not being reproducible between this
+workstation and CI, with the CI artifact being the broken one — is fixed: no
+bundled asset is LFS-tracked any more, so both produce the same thing.
 
 ---
 
 ## 1. Release blockers (RB) — must fix before any external distribution
 
-### RB-1 — CI ships 133-byte Git LFS pointer files in place of AI models `CRITICAL`
+### RB-1 — CI ships 133-byte Git LFS pointer files in place of AI models `CRITICAL` — FIXED
 
 `.gitattributes:1` tracks `*.onnx` through Git LFS:
 
@@ -63,10 +68,12 @@ everything in `public/` into `dist/` verbatim — so the installer would balloon
 `ddcolor` and `ddcolor-tiny` are marked `"bundled": false` in the manifest yet are physically
 staged in `public/`, which is the one directory whose contents *always* ship.
 
-**Remediation:** (a) move the two `ddcolor` models out of `public/` — they are already designed
-to be runtime-downloaded via their manifest `remoteUrl`; (b) fetch only `font-classify.onnx`
-in CI with a targeted `git lfs pull --include=`; (c) add a build-time guard that fails if any
-file under `models/` begins with the LFS pointer magic. Blocks: **alpha**.
+**Fixed.** All three LFS models moved out of `public/` to `models-source/` and made
+runtime-downloadable with pinned checksums (see RB-1b), and
+`scripts/release/check-bundled-assets.mjs` fails the build if any file under
+`models/` begins with the LFS pointer magic. Because no bundled model is
+LFS-tracked any more, **CI does not need Git LFS at all** — the 10 GB/month
+bandwidth constraint is gone rather than rationed.
 
 ### RB-2 — The release job can never run `CRITICAL`
 
@@ -112,7 +119,7 @@ Upgrade logic in every package manager (deb/rpm/MSI) depends on a monotonic vers
 **Remediation:** single-source the version and add a CI gate that fails when tag ≠ manifest
 version. Implemented in this work — see §6. Blocks: **alpha**.
 
-### RB-1b — The two model catalogs contradict each other `CRITICAL`
+### RB-1b — The two model catalogs contradict each other `CRITICAL` — FIXED
 
 Discovered while building the guard for RB-1. Two independent sources describe
 what ships, and they disagree about roughly **1.2 GB** of installer payload:
@@ -132,10 +139,72 @@ installer silently gains ~1.2 GB.
 Which of the two catalogs "wins" depends on which code path reads first, so the
 behaviour is not even consistent within one build.
 
-`scripts/release/check-bundled-assets.mjs` now fails on the disagreement rather
-than guessing. Resolving it is a **product** decision (does colorization ship in
-v1, and if so as a bundled or downloaded model?) — see
-`docs/release/implementation-plan.md` P0-10. Blocks: **alpha**.
+**Fixed.** All three are now `acquisition.kind: 'remote'` in both catalogs, with
+SHA-256 values recovered from the Git LFS object ids (which *are* the content
+hash). DDColor is hosted on a dedicated `models-v1` GitHub release
+(`scripts/release/publish-model-assets.mjs`); `font-classify` uses its existing
+upstream. Colorization and font identification keep working, the installer stays
+~74 MB, and `check-bundled-assets.mjs` fails on any future disagreement.
+
+### RB-5 — CSP blocked 14 of 18 optional model downloads `CRITICAL` — FIXED
+
+Found by tracing a download end to end instead of reading configuration.
+`apps/desktop/src-tauri/tauri.conf.json` `connect-src` allowed `github.com` and
+`huggingface.co`, but neither serves the payload itself:
+
+```
+huggingface.co/.../resolve/main/model.onnx -> us.aws.cdn.hf.co
+github.com/.../releases/download/...       -> release-assets.githubusercontent.com
+```
+
+CSP is enforced against **every URL in a redirect chain**, so the fetch died at
+the redirect. Verified with `curl -sIL` against both hosts.
+
+Only the four background-removal models worked, because
+`packages/engine/src/backgroundRemoval/modelLoader.ts` routes those through the
+Rust IPC command `download_background_removal_model` (reqwest, not CSP-bound).
+Everything reached via `packages/engine/src/inference/core/DownloadManager.ts` —
+Lens Blur, AI Denoise, Select Subject, line art, colorization, OCR, inpainting,
+frame interpolation — used `fetch()` and failed.
+
+**Fixed** by allowing `https://*.githubusercontent.com`,
+`https://*.huggingface.co` and `https://*.hf.co` in both CSP blocks.
+
+Worth recording: both download paths *do* verify SHA-256 (Rust via `sha2`, JS
+via `crypto.subtle`), and all 18 downloadable models are pinned. The guard in
+`scripts/release/check-bundled-assets.mjs` now fails the build if a model gains
+a `remoteUrl` without a checksum, or over plain HTTP.
+
+### RB-6 — The splash screen was a startup dead end `CRITICAL` — FIXED
+
+Reported from the packaged AppImage: it launches and sits on the splash forever.
+
+`main` was configured `visible: false` and revealed only when the frontend
+invoked `close_splashscreen` — from `App.tsx`'s `handleHomeReady`, i.e. *after*
+Home's data finished loading. Anything that stopped that path completing left an
+unclosable native window with no error, no logs, and nothing for a user to
+report. `useStartup`'s existing stuck-startup timeout could not help: it only
+changes React state inside the window that is still hidden.
+
+A Rust watchdog was added first and worked — it fired exactly as designed:
+
+```
+[strata] Frontend did not signal readiness within 10000ms — revealing the
+         main window anyway so the startup error is visible.
+```
+
+That also proved a second, deeper defect: a reveal-on-mount effect never fired
+either, so **React does not mount at all in the packaged WebView**. The frontend
+itself is healthy — serving the built `dist` in Chromium renders Home with full
+navigation, zero console errors, and a working New-document dialog.
+
+**Fixed** by removing the native splash entirely. `main` is now `visible: true`,
+the branded boot screen lives in `index.html` inside it, and inline error
+handlers there render a readable, selectable error if the bundle throws or never
+renders. `StartupLoader` takes over once React mounts.
+
+The mount failure itself is tracked separately — the splash was hiding it, not
+causing it.
 
 ### RB-4 — No checksums, no release manifest, no SBOM `HIGH`
 
@@ -403,17 +472,20 @@ Blocks: earliest release tier the item prevents.
 | # | Area | Status | Evidence | Sev | User impact | Remediation | Blocks |
 |---|---|---|---|---|---|---|---|
 | RB-1 | AI models in CI | **Broken** | `.gitattributes:1`; no `lfs:` in any workflow | C | Font-classification feature dead in every CI build; installer size non-deterministic by ±1.2 GB | Targeted `git lfs pull` in CI (done); pointer guard (done); reconcile catalogs (P0-10) | Alpha |
-| RB-1b | Model catalogs disagree | **Broken** | `manifest.json` vs `modelCatalog.ts` for 3 models | C | ~1.2 GB of installer contents undefined; colorization cannot work | Product decision — see implementation plan P0-10 | Alpha |
+| RB-1b | Model catalogs disagree | **Fixed** | `manifest.json` vs `modelCatalog.ts` for 3 models | C | ~1.2 GB of installer contents undefined; colorization cannot work | All three now runtime-downloaded, SHA-256 pinned | Alpha |
 | H-0 | AppImage on Arch | **Fixed** | linuxdeploy `strip` cannot parse `.relr.dyn` | H | No Linux package could be built locally at all | `NO_STRIP=1` in `justfile` + `release.yml` | Alpha |
 | RB-2 | Release job | **Broken** | `publish.yml:213` needs `aur-validate`; `dist/aur` absent + gitignored | C | No release is ever produced; CI minutes burned for nothing | Drop AUR from release gate; defer AUR packaging | Alpha |
 | RB-3 | Versioning | **Broken** | `0.0.0` in 5 manifests; no tag check in `publish.yml` | H | Installers self-identify as `0.0.0`; upgrades undefined | Single-source version + CI tag gate | Alpha |
-| RB-4 | Integrity | **Missing** | No checksum/SBOM/manifest step in `publish.yml` | H | Users cannot verify an unsigned download — the one mitigation that costs nothing | Generate + verify SHA-256, manifest, SBOM | Alpha |
+| RB-4 | Integrity | **Fixed** | No checksum/SBOM/manifest step in `publish.yml` | H | Users cannot verify an unsigned download — the one mitigation that costs nothing | Generate + verify SHA-256, manifest, SBOM | Alpha |
+| RB-5 | Model downloads | **Fixed** | CSP vs CDN redirect targets | C | 14 of 18 optional models undownloadable; 8+ AI features dead | Allow redirect hosts in CSP | Alpha |
+| RB-6 | Startup | **Fixed** | `main` hidden until frontend signalled | C | App unusable — stuck on splash forever with no error | Splash removed; boot errors rendered on screen | Alpha |
+| RB-7 | React mount | **OPEN** | Watchdog proves no JS mount in packaged WebView | C | App never reaches its UI when packaged | Under diagnosis with a devtools build | Alpha |
 | H-1 | Website config | **Broken** | `astro.config.mjs:7`; `Layout.astro:40` | H | Site 404s its own assets on Pages; pays for analytics pre-launch | Env-driven `site`/`base`; opt-in analytics | Beta |
 | H-2 | Download page | **Stale** | `download.astro` never reads `releases.json` | H | Advertises unbuilt platforms and a non-existent AUR package | Consume generated manifest | Beta |
 | H-3 | macOS universal | **Partial** | `fetch-onnxruntime.mjs` `PLATFORMS`; `publish.yml:104` | H | Intel Macs lose native AI silently | Document; or ship per-arch DMGs | Beta |
 | H-4 | Bundle targets | **Fragile** | `tauri.conf.json:106` `"targets": "all"` | H | Artifact set varies with toolchain | Enumerate targets explicitly | Beta |
 | H-5 | CI cost | **Unsafe** | `build.yml:5,157`; repo is private | H | Free Actions allowance exhausted in ~3 pushes | Split gate from bundle; bundle on tag only | Beta |
-| H-6 | File associations | **Missing** | No `fileAssociations` in `tauri.conf.json` | H | Double-clicking a `.strata` file does nothing | Add `fileAssociations` + Linux MIME XML | Beta |
+| H-6 | File associations | **Fixed** | No `fileAssociations`; no shared-mime-info XML | H | Double-clicking a `.strata` file does nothing | `fileAssociations` added; MIME XML installed by deb/rpm | Beta |
 | M-1 | ORT supply chain | **Weak** | `fetch-onnxruntime.mjs` verify-after-extract | M | Extractor runs on unverified bytes | Hash buffer before extraction | Beta |
 | M-2 | Model attribution | **Incomplete** | `THIRD_PARTY_NOTICES:127-151` vs `dist/models/` | M | Licence obligations unmet for a shipped artifact | Add `font-classify` entry | Beta |
 | M-3 | IPC scope | **Acceptable** | `resolve_user_path()` verified fixed; home-wide root | M | Defence-in-depth gap only | Narrow to documents root | Stable |

@@ -25,39 +25,80 @@ Priorities are defined by what they unblock, not by effort:
 | ✅ P0-7 | Fix AppImage build (`NO_STRIP=1`) | `justfile`, `release.yml` | — | AppImage bundles instead of failing | Low | 1 h | No |
 | ✅ P0-8 | Honest download page from generated manifest | `apps/website/src/pages/download.astro`, `src/data/release-manifest.json` | P0-4 | Renders "no release yet"; no invented data | Low | 3 h | No |
 | ✅ P0-9 | Working website URLs; analytics off by default | `astro.config.mjs`, `Layout.astro`, `sitemap.xml.ts` | — | Builds correctly for Pages and custom domain | Low | 2 h | No |
-| ⬜ **P0-10** | **Reconcile the model bundling contradiction** | `apps/desktop/public/models/manifest.json`, `packages/engine/src/inference/modelCatalog.ts`, `public/models/*.onnx` | P0-3 | `check-bundled-assets.mjs` passes | **High** | 3 h | No |
+| ✅ P0-10 | Reconcile the model bundling contradiction — resolved as runtime-download | `manifest.json`, `modelCatalog.ts`, `models-source/` | P0-3 | `check-bundled-assets.mjs` passes | High | 3 h | No |
+| ✅ P0-13 | Fix CSP blocking 14 of 18 model downloads | `tauri.conf.json` | — | Every redirect target now allowed | **Critical** | 1 h | No |
+| ✅ P0-14 | Remove the splash screen dead end | `tauri.conf.json`, `lib.rs`, `index.html`, `App.tsx` | — | Main window visible from start; boot errors rendered on screen | **High** | 3 h | No |
 | ⬜ **P0-11** | **First green CI release build** | `.github/workflows/release.yml` | P0-10 | `workflow_dispatch` with `platforms: linux` produces a draft | Med | 2–4 h | Actions minutes |
 | ⬜ **P0-12** | **Install-test the CI AppImage on a clean non-Arch VM** | — | P0-11 | Alpha checklist "Install verification" section | **High** | 3 h | No |
 
-### P0-10 in detail — the one genuine blocker left
+### P0-10 — RESOLVED as runtime download
 
-The two model catalogs disagree about roughly 1.2 GB of installer payload:
+All three contested models now download on demand, so every feature keeps
+working and the installer stays small:
 
-| Model | `manifest.json` | `modelCatalog.ts` | On disk | Real size |
-|---|---|---|---|---|
-| `ddcolor` | `bundled: false` | `bundled: true`, `acquisition.kind: 'bundled'`, `remoteUrl: ''` | LFS pointer | 980 MB |
-| `ddcolor-tiny` | `bundled: false` | `bundled: true` | LFS pointer | 220 MB |
-| `font-classify` | `bundled: true` | `bundled: false` | LFS pointer | 64 MB |
+| Model | Was (manifest / catalog) | Now | Hosted |
+|---|---|---|---|
+| `ddcolor` 980 MB | `false` / `true` | `remote`, SHA-256 pinned | `models-v1` GitHub release |
+| `ddcolor-tiny` 220 MB | `false` / `true` | `remote`, SHA-256 pinned | `models-v1` GitHub release |
+| `font-classify` 64 MB | `true` / `false` | `remote`, SHA-256 pinned | HuggingFace (upstream) |
 
-Whichever way it resolves, three things are currently true and cannot all stay
-true: the engine expects `ddcolor` locally with **no remote fallback**; the file
-is a pointer, so colorization cannot work; and if anyone runs `git lfs pull`
-before building, the installer gains ~1.2 GB.
+Checksums came from the Git LFS object ids, which *are* the SHA-256 of the file
+content — nothing had to be recomputed or trusted.
 
-This is a **product decision, not a release-engineering one**, so it is left
-open deliberately rather than resolved by guess. The options:
+The three files moved from `apps/desktop/public/models/` to `models-source/`.
+Anything under `public/` is copied into `dist/` and embedded in the binary,
+which is how a 980 MB model came to sit one `git lfs pull` away from every
+installer.
 
-- **(a) Ship colorization.** Installer grows by ~1.2 GB. Flatly incompatible
-  with the 4 GB RAM target and a reasonable download. Not recommended.
-- **(b) Make the ddcolor models runtime-downloadable.** Set
-  `acquisition.kind` to a download, give them real `remoteUrl` + `sha256`,
-  and remove them from `public/`. Colorization becomes an opt-in download.
-  **Recommended.**
-- **(c) Cut colorization from v1.** Remove both models and gate the feature.
-  Smallest installer, least work, honest.
+Consequences beyond the fix itself:
 
-`font-classify` is simpler: it is genuinely bundled and only 64 MB, so set
-`bundled: true` in both places and fetch it in CI (already wired).
+- installer stays ~74 MB;
+- every model download is SHA-256-verified on both the Rust and the JS path;
+- **CI no longer needs Git LFS at all**, so the 10 GB/month LFS bandwidth
+  constraint disappears rather than being rationed.
+
+`scripts/release/publish-model-assets.mjs` uploads the two DDColor files to the
+`models-v1` tag, verifying each against its pinned checksum first and refusing
+to overwrite a published asset (clients pin those hashes).
+
+**Remaining maintainer action:** run that script once, or colorization will
+correctly report its model as unavailable.
+
+### P0-13 — RESOLVED: CSP blocked 14 of 18 model downloads
+
+Found by tracing a download end to end rather than reading configuration.
+`connect-src` allowed `github.com` and `huggingface.co`, but both redirect:
+
+```
+huggingface.co/.../resolve/main/model.onnx -> us.aws.cdn.hf.co
+github.com/.../releases/download/...       -> release-assets.githubusercontent.com
+```
+
+CSP is enforced against **every URL in a redirect chain**, so most optional
+models could not be fetched at all. Only the four background-removal models
+worked, because those route through the Rust IPC command (reqwest, not
+CSP-bound). Lens Blur, AI Denoise, Select Subject, line art, colorization, OCR,
+inpainting and frame interpolation were all affected.
+
+Fixed by allowing `https://*.githubusercontent.com`, `https://*.huggingface.co`
+and `https://*.hf.co` in both the production and dev CSP blocks.
+
+### P0-14 — RESOLVED: the splash screen is gone
+
+The main window started hidden and was revealed only when the frontend invoked
+`close_splashscreen` after Home's data had loaded. Anything that stopped that
+path completing left an unclosable splash with no error, no logs and nothing to
+report — which is what a packaged build did.
+
+A watchdog was tried first and worked, but it also proved the frontend never
+mounts at all in the packaged WebView, so the splash was hiding a second bug as
+well as being one.
+
+The native splash window is **removed**. `main` is `visible: true`, so the
+branded boot screen in `index.html` is what the user sees, and inline error
+handlers there replace it with a readable, selectable error if the bundle throws
+or never renders. `StartupLoader` then takes over with progress, a timeout and a
+retry button. This removes the failure class instead of adding a timeout to it.
 
 ---
 
@@ -68,7 +109,7 @@ open deliberately rather than resolved by guess. The options:
 | ⬜ P1-1 | Trim `ort-wasm` to the variants actually used (93 MB → est. 15–25 MB) | `scripts/copy-onnx-wasm.mjs`, `vite.config.ts` | — | Installer size drops; AI features still work | Med | 4 h | No |
 | ⬜ P1-2 | Code-split the 10.1 MB main chunk | `apps/desktop/vite.config.ts` | — | No chunk over ~2 MB; startup measured on 4 GB RAM | Med | 6 h | No |
 | ⬜ P1-3 | Windows build in CI + smoke test in a VM | `release.yml` | P0-11 | NSIS installs per-user and launches | **High** | 1–2 d | Actions minutes |
-| ⬜ P1-4 | Linux MIME XML so `.strata` actually associates | `apps/desktop/src-tauri/linux/`, `tauri.conf.json` | — | Double-click opens a document on GNOME and KDE | Med | 3 h | No |
+| ✅ P1-4 | Linux MIME XML so `.strata` actually associates | `linux/dev.strata.desktop.xml`, `tauri.conf.json` | — | Installed to `/usr/share/mime/packages/` by deb and rpm | Med | 3 h | No |
 | ⬜ P1-5 | Verify `fileAssociations` on each OS | — | P1-3, P1-4 | Beta checklist | Med | 3 h | No |
 | ⬜ P1-6 | Ubuntu LTS + Fedora VM test pass | — | P0-11 | Both launch, save, export, print-dialog opens | **High** | 1 d | No |
 | ⬜ P1-7 | X11/XWayland pass (dev is Wayland-only) | — | — | Window, DnD, clipboard, HiDPI all behave | Med | 4 h | No |
@@ -97,7 +138,7 @@ open deliberately rather than resolved by guess. The options:
 
 | # | Task | Notes |
 |---|---|---|
-| ⬜ P3-1 | AUR `strata-desktop-bin` | ~1 h once an AppImage is published; cannot exist before |
+| 🟡 P3-1 | AUR `strata-desktop-bin` | PKGBUILD written and parses under `makepkg` (`packaging/aur/`); needs the real SHA-256 from a published `SHA256SUMS.txt` before submission |
 | ⬜ P3-2 | Flathub submission | Best long-term Linux channel; weeks of review + sandbox work for printing and fonts |
 | ⬜ P3-3 | Tauri updater, signed manifests, channels | Only after P2-4 — see `update-strategy.md` |
 | ⬜ P3-4 | Crash reporting | Requires explicit opt-in consent UX first |
@@ -110,8 +151,19 @@ open deliberately rather than resolved by guess. The options:
 ## Critical path to a first alpha
 
 ```
-P0-10 (reconcile models)  →  P0-11 (green CI build)  →  P0-12 (VM install test)  →  alpha
+P0-11 (green CI build)  →  P0-12 (VM install test)  →  alpha
 ```
 
-Three tasks. None costs money. Roughly **1–2 days** of focused work, and P0-10 is
-a decision more than an implementation.
+P0-10, P0-13 and P0-14 are done. The two remaining P0 items both need something
+this workstation does not have:
+
+- **P0-11** needs GitHub Actions minutes. `act` is installed but requires Docker
+  or Podman, neither of which is present, so the workflow cannot be exercised
+  locally. Trigger `release.yml` via `workflow_dispatch` with
+  `platforms: linux`.
+- **P0-12** needs a non-Arch VM. No `qemu`, `libvirt`, `docker` or `distrobox`
+  on this machine. It must not be skipped: a package built here links against
+  glibc 2.44 and cannot run on the Ubuntu 22.04 baseline, so **only the CI
+  artifact is worth testing**.
+
+Everything else on the critical path is complete.
