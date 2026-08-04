@@ -141,8 +141,8 @@ function testRanking() {
   console.log('\n=== Testing failure ranking ===');
 
   const testCases = [
-    { line: 'error: foo', expectedRank: 0 }, // Matches first ERROR pattern at index 0
-    { line: 'panicked at foo', expectedRank: 5 }, // Lower priority
+    { line: 'error: foo', expectedRank: 0 }, // Matches ERROR/FAIL/FATAL pattern at index 0
+    { line: 'panicked at foo', expectedRank: 7 }, // Lower priority
   ];
 
   let allPassed = true;
@@ -153,6 +153,17 @@ function testRanking() {
     allPassed = allPassed && passed;
 
     console.log(`  ${passed ? '✅' : '❌'} "${line}" -> rank ${rank} (expected ${expectedRank})`);
+  }
+
+  // The invariant that matters: generic error outranks panic regardless of
+  // where new patterns are inserted into FAILURE_PATTERNS.
+  const genericRank = rankLine('error: foo');
+  const panicRank = rankLine('panicked at foo');
+  if (genericRank >= panicRank) {
+    console.log('  ❌ invariant broken: generic "error:" must outrank "panicked at"');
+    allPassed = false;
+  } else {
+    console.log('  ✅ invariant: "error:" outranks "panicked at"');
   }
 
   return allPassed;
