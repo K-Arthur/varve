@@ -42,6 +42,9 @@ jobs:
       - name: Install dependencies
         run: pnpm --filter "@varve/website..." install --frozen-lockfile
 
+      - name: Token and contrast gate
+        run: pnpm test:website
+
       - name: Build website
         run: pnpm --filter @varve/website build
 
