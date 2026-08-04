@@ -31,14 +31,14 @@ test.describe('Home Shell', () => {
     await trashItem.click();
     await page.waitForTimeout(200);
 
-    const emptyState = page.locator('.strata-empty');
+    const emptyState = page.locator('.varve-empty');
     await expect(emptyState).toBeVisible();
-    await expect(emptyState.locator('.strata-empty__headline')).toContainText(/trash/i);
+    await expect(emptyState.locator('.varve-empty__headline')).toContainText(/trash/i);
   });
 
   test('empty state shows correct headline for recent section', async ({ page }) => {
-    const emptyState = page.locator('.strata-empty[role="status"]');
+    const emptyState = page.locator('.varve-empty[role="status"]');
     await expect(emptyState).toBeVisible();
-    await expect(emptyState.locator('.strata-empty__headline')).toContainText(/nothing here yet/i);
+    await expect(emptyState.locator('.varve-empty__headline')).toContainText(/nothing here yet/i);
   });
 });

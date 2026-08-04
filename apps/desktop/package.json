@@ -32,6 +32,8 @@
     "@varve/engine": "workspace:*",
     "@varve/home": "workspace:*",
     "@varve/platform": "workspace:*",
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*",
     "@varve/ui": "workspace:*",
     "onnxruntime-web": "^1.27.0"
   },
