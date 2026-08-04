@@ -1,0 +1,458 @@
+# Strata release pipeline.
+#
+# Replaces publish.yml, which could never reach its `release` job: that job
+# declared `needs: [bundle, aur-validate]`, and `aur-validate` chowns `dist/aur`
+# — a directory that does not exist and is gitignored. See
+# docs/release/release-readiness-audit.md RB-2.
+#
+# Design rules this workflow enforces:
+#   - A tag never releases anything by itself. It builds a DRAFT; a human
+#     publishes.
+#   - The tag and the application version must agree before anything is built.
+#   - An artifact is never labelled signed unless it was actually signed.
+#   - Every artifact is renamed to one predictable scheme, hashed, and verified
+#     against the bytes that will actually be uploaded.
+#
+# Third-party actions are pinned to full commit SHAs (enforced by
+# scripts/pin-github-actions.mjs). To update one, run `just pin-actions-fix`.
+name: Release
+
+on:
+  push:
+    tags:
+      # Stable and prerelease tags both match; the channel is derived from the
+      # tag shape in the `preflight` job rather than from a separate trigger, so
+      # a prerelease can never overwrite a stable release by accident.
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build (e.g. v0.1.0)'
+        required: true
+      platforms:
+        description: 'Which platforms to build'
+        required: true
+        default: 'linux'
+        type: choice
+        options: [linux, linux-windows, all]
+
+concurrency:
+  # Never cancel a release build in flight — a half-uploaded draft is worse than
+  # a slow one.
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PNPM_VERSION: '11.9.0'
+  NODE_VERSION: '26'
+
+jobs:
+  # ── 1. Preflight: refuse to build the wrong thing ───────────────────────────
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      channel: ${{ steps.resolve.outputs.channel }}
+      build_windows: ${{ steps.resolve.outputs.build_windows }}
+      build_macos: ${{ steps.resolve.outputs.build_macos }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve tag, version and channel
+        id: resolve
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          # Anything with a hyphen after the patch number is a prerelease
+          # (v0.1.0-alpha.1). Stable tags are bare (v0.1.0).
+          if [[ "${TAG}" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "channel=${TAG#*-}" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          fi
+
+          VERSION="$(node scripts/release/version.mjs get)"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          PLATFORMS="${{ inputs.platforms || 'all' }}"
+          BUILD_WINDOWS=true
+          BUILD_MACOS=true
+          if [[ "${PLATFORMS}" == "linux" ]]; then
+            BUILD_WINDOWS=false
+            BUILD_MACOS=false
+          elif [[ "${PLATFORMS}" == "linux-windows" ]]; then
+            BUILD_MACOS=false
+          fi
+          echo "build_windows=${BUILD_WINDOWS}" >> "$GITHUB_OUTPUT"
+          echo "build_macos=${BUILD_MACOS}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify tag matches application version
+        # The whole point of the gate: a v0.1.0 tag must not produce installers
+        # that identify themselves as 0.0.0 (audit RB-3).
+        run: node scripts/release/version.mjs verify "${{ steps.resolve.outputs.tag }}"
+
+      - name: Verify changelog has an entry for this version
+        run: |
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "::error::CHANGELOG.md is missing. Release notes are generated from it."
+            exit 1
+          fi
+          if ! grep -q "## \[${{ steps.resolve.outputs.version }}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [${{ steps.resolve.outputs.version }}]' section."
+            echo "Add one before tagging — release notes are generated from the changelog,"
+            echo "not from commit messages."
+            exit 1
+          fi
+
+  # ── 2. Quality gate ─────────────────────────────────────────────────────────
+  gate:
+    name: Quality Gate
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          components: rustfmt, clippy
+
+      - name: Install Linux system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            cmake pkg-config
+
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+        with:
+          # Keyed by tag so a release build never reuses a cache entry produced
+          # by a different source tree. Stale generated artifacts leaking into a
+          # release are exactly the failure mode caching invites.
+          key: gate-${{ needs.preflight.outputs.tag }}
+
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+      - name: cargo clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo test
+        run: cargo test --workspace --all-targets
+      - name: cargo test (desktop)
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+      - name: typecheck
+        run: pnpm typecheck
+      - name: lint
+        run: pnpm lint
+      - name: unit tests
+        run: pnpm test
+      - name: token gate
+        run: pnpm audit:tokens
+      - name: emoji gate
+        run: pnpm audit:emoji
+
+  # ── 3. Platform bundles on native runners ───────────────────────────────────
+  bundle:
+    name: Bundle (${{ matrix.name }})
+    needs: [preflight, gate]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-latest
+            os_slug: linux
+            arch_slug: x86_64
+            bundles: appimage,deb,rpm
+            enabled: true
+          - name: windows-x86_64
+            os: windows-latest
+            os_slug: windows
+            arch_slug: x86_64
+            bundles: nsis
+            enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
+          - name: macos-aarch64
+            os: macos-latest
+            os_slug: macos
+            arch_slug: aarch64
+            # ARM64 only, not universal: the bundled ONNX Runtime dylib has no
+            # macOS Intel build (scripts/fetch-onnxruntime.mjs PLATFORMS), so a
+            # "universal" DMG would be half-degraded. Audit H-3.
+            bundles: dmg
+            enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        if: matrix.enabled
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+          # Deliberately NOT lfs: true. A blanket LFS fetch pulls 1.26 GB per
+          # runner (ddcolor.onnx alone is 980 MB), which would burn the 10 GB/mo
+          # free LFS bandwidth in ~3 runs. Only the genuinely-bundled model is
+          # fetched below.
+          lfs: false
+
+      - name: Fetch bundled LFS models only
+        if: matrix.enabled
+        shell: bash
+        run: |
+          git lfs install --local
+          git lfs pull --include="apps/desktop/public/models/font-classify.onnx"
+
+      - name: Verify no bundled asset is an LFS pointer
+        if: matrix.enabled
+        run: node scripts/release/check-bundled-assets.mjs
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        if: matrix.enabled
+
+      - name: Install Linux system deps
+        if: matrix.enabled && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            cmake pkg-config patchelf
+
+      - name: Add macOS Rust target
+        if: matrix.enabled && runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+        if: matrix.enabled
+        with:
+          key: bundle-${{ matrix.name }}-${{ needs.preflight.outputs.tag }}
+
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+        if: matrix.enabled
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        if: matrix.enabled
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        if: matrix.enabled
+
+      - name: Build frontend
+        if: matrix.enabled
+        run: pnpm build
+        working-directory: apps/desktop
+
+      - name: Verify built dist has no LFS pointers
+        if: matrix.enabled
+        run: node scripts/release/check-bundled-assets.mjs --dist
+
+      - name: Tauri build
+        if: matrix.enabled
+        run: pnpm tauri build --bundles ${{ matrix.bundles }} --ci
+        working-directory: apps/desktop
+
+      # ── Signing ──────────────────────────────────────────────────────────
+      # Signing runs only when the required secrets are present. Two rules:
+      #   1. A missing secret means "build unsigned", not "fail" — so unsigned
+      #      alpha builds keep working before any certificate is bought.
+      #   2. If RELEASE_EXPECT_SIGNED is set, a missing secret is a hard failure.
+      #      That prevents the dangerous case: a stable release that silently
+      #      ships unsigned while the release notes claim it is signed.
+      - name: Check signing preconditions
+        if: matrix.enabled
+        shell: bash
+        env:
+          EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED }}
+          HAS_APPLE: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          HAS_WINDOWS: ${{ secrets.AZURE_SIGNING_CLIENT_ID != '' }}
+        run: |
+          # Only booleans are echoed here, never secret values.
+          if [[ "${EXPECT_SIGNED}" == "true" ]]; then
+            if [[ "${{ runner.os }}" == "macOS" && "${HAS_APPLE}" != "true" ]]; then
+              echo "::error::RELEASE_EXPECT_SIGNED=true but Apple signing secrets are absent."
+              exit 1
+            fi
+            if [[ "${{ runner.os }}" == "Windows" && "${HAS_WINDOWS}" != "true" ]]; then
+              echo "::error::RELEASE_EXPECT_SIGNED=true but Windows signing secrets are absent."
+              exit 1
+            fi
+          else
+            echo "::notice::Building UNSIGNED artifacts (RELEASE_EXPECT_SIGNED is not 'true')."
+          fi
+
+      # ── Collect, rename, checksum ────────────────────────────────────────
+      - name: Collect artifacts
+        if: matrix.enabled
+        run: |
+          node scripts/release/collect-artifacts.mjs \
+            --bundle-dir apps/desktop/src-tauri/target/release/bundle \
+            --out dist/release \
+            --os ${{ matrix.os_slug }} \
+            --arch ${{ matrix.arch_slug }}
+        shell: bash
+
+      - name: Upload release artifacts
+        if: matrix.enabled
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: release-${{ matrix.name }}
+          path: dist/release/
+          if-no-files-found: error
+          retention-days: 14
+
+      # Kept out of the public release: useful for symbolicating a crash report,
+      # but it is an unstripped binary and there is no reason to hand it to
+      # everyone who downloads the app. NOTE: [profile.release] sets
+      # strip = true, so this is currently of limited value — see
+      # docs/release/production-build.md for the debug-symbol plan.
+      - name: Upload unstripped binary for crash triage
+        if: matrix.enabled && runner.os == 'Linux'
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: debug-binary-${{ matrix.name }}
+          path: apps/desktop/src-tauri/target/release/strata-desktop
+          if-no-files-found: warn
+          retention-days: 90
+
+  # ── 4. Assemble, verify, draft ──────────────────────────────────────────────
+  draft:
+    name: Draft Release
+    needs: [preflight, bundle]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: release-*
+          path: staged
+          merge-multiple: false
+
+      - name: Merge into one release directory
+        shell: bash
+        run: |
+          mkdir -p dist/release
+          # Each runner produced its own release-manifest.json covering only its
+          # platform. Copy the binaries first, then rebuild the combined manifest
+          # and checksum file from the merged set so both describe exactly what
+          # is about to be uploaded.
+          find staged -type f ! -name 'release-manifest.json' ! -name 'SHA256SUMS.txt' \
+            -exec cp {} dist/release/ \;
+          node scripts/release/merge-manifests.mjs --staged staged --out dist/release
+
+      - name: Generate SBOM
+        run: node scripts/release/generate-sbom.mjs --out dist/release/strata-${{ needs.preflight.outputs.version }}-sbom.cdx.json
+
+      - name: Verify artifacts against the manifest
+        run: |
+          node scripts/release/verify-artifacts.mjs \
+            --dir dist/release \
+            --expect-version ${{ needs.preflight.outputs.version }}
+
+      - name: Build release notes
+        id: notes
+        run: |
+          node scripts/release/release-notes.mjs \
+            --version ${{ needs.preflight.outputs.version }} \
+            --manifest dist/release/release-manifest.json \
+            --out RELEASE_NOTES.md
+          echo "Generated $(wc -l < RELEASE_NOTES.md) lines of release notes."
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
+        with:
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          name: Strata ${{ needs.preflight.outputs.tag }}
+          # Always a draft. Publication is a separate, human decision — see the
+          # `publish` job below.
+          draft: true
+          prerelease: ${{ needs.preflight.outputs.prerelease }}
+          body_path: RELEASE_NOTES.md
+          files: dist/release/*
+          fail_on_unmatched_files: true
+
+      - name: Summary
+        run: |
+          {
+            echo "### Draft release created"
+            echo ""
+            echo "- **Tag:** ${{ needs.preflight.outputs.tag }}"
+            echo "- **Version:** ${{ needs.preflight.outputs.version }}"
+            echo "- **Channel:** ${{ needs.preflight.outputs.channel }}"
+            echo "- **Signed:** no"
+            echo ""
+            echo "Smoke-test the artifacts, then run the \`publish\` job to make it public."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 5. Publish — gated on a human ───────────────────────────────────────────
+  publish:
+    name: Publish (manual approval)
+    needs: [preflight, draft]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The `release-publish` environment must have required reviewers configured
+    # in repo settings. Without that, this job runs automatically and the gate is
+    # decorative. See docs/release/ci-secrets.md.
+    environment:
+      name: release-publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "${{ needs.preflight.outputs.tag }}" --draft=false
+          echo "::notice::Published ${{ needs.preflight.outputs.tag }}."
