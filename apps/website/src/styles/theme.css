@@ -3,13 +3,14 @@
  *
  * The website imports @varve/ui/tokens.css (editor tokens, theme-aware via
  * [data-theme] + prefers-color-scheme + forced-colors). Pages previously
- * layered a second, light-only --color-neutral-* ramp on top and picked colors
- * from both systems, so dark/high-contrast sessions rendered a mix of light
- * page backgrounds and dark component surfaces with wrong text tokens.
+ * layered a second, light-only neutral ramp (color-neutral-*) on top and
+ * picked colors from both systems, so dark/high-contrast sessions rendered a
+ * mix of light page backgrounds and dark component surfaces with wrong text
+ * tokens.
  *
  * This file is the single semantic layer for the site. Components and pages
- * must reference only these names (--surface-*, --text-*, --border-*,
- * --accent-*, --status-*); never raw --color-neutral-* or hex values.
+ * must reference only these names (surface-, text-, border-, accent-,
+ * status- prefixed tokens); never raw legacy neutral/teal values or hex codes.
  *
  * Every value is derived per theme; forced-colors mode resolves the aliases to
  * system colors via the underlying @varve/ui tokens.
@@ -47,14 +48,14 @@
   --text-disabled: var(--color-text-disabled);
   --text-placeholder: var(--color-text-subtle);
   --text-inverse: var(--color-text-primary-on-overlay);
-  --text-on-accent: oklch(0.1956 0.0217 263.87);
+  --text-on-accent: oklch(1 0 0);
   --text-on-status: oklch(0.1956 0.0217 263.87);
   --text-link: oklch(0.4452 0.0693 190.9);
   --text-link-hover: oklch(0.38 0.0577 191.62);
   --text-link-visited: oklch(0.4 0.09 250);
   --text-code: oklch(0.94 0.008 260);
   --text-footer: oklch(0.82 0.012 260);
-  --text-footer-muted: oklch(0.64 0.02 260);
+  --text-footer-muted: oklch(0.78 0.015 260);
   --text-footer-heading: var(--color-brand-teal);
   --text-footer-link: oklch(0.78 0.012 260);
   --text-footer-link-hover: var(--color-brand-teal);
@@ -70,7 +71,7 @@
   --border-subtle: oklch(0.925 0.011 260);
   --border-strong: var(--color-border-strong);
   --border-interactive: var(--color-interactive-default);
-  --border-accent: oklch(0.87 0.04 190);
+  --border-accent: oklch(0.8 0.05 190);
   --border-warning: oklch(0.62 0.12 60);
   --border-footer: oklch(0.3 0.02 260);
   --focus-ring: var(--color-border-focus);
@@ -78,8 +79,8 @@
   --divider: var(--color-border-subtle);
 
   /* --- Brand / accent --- */
-  --accent-primary: var(--color-accent-primary);
-  --accent-primary-hover: oklch(0.72 0.11 189);
+  --accent-primary: oklch(0.48 0.085 190);
+  --accent-primary-hover: oklch(0.42 0.08 190);
   --accent-strong: var(--color-interactive-default);
   --accent-strong-hover: var(--color-interactive-hover);
   --accent-soft: var(--color-accent-subtle);
@@ -89,8 +90,8 @@
 
   /* --- Status badges (brand colors, dark text on them) --- */
   --status-built: var(--brand-teal);
-  --status-partial: var(--brand-sandstone);
-  --status-dev: oklch(0.66 0.15 30);
+  --status-partial: oklch(0.75 0.12 60);
+  --status-dev: oklch(0.72 0.14 30);
 }
 
 [data-theme="dark"] {
@@ -114,18 +115,22 @@
   --text-link: oklch(0.7873 0.1127 186.47);
   --text-link-hover: oklch(0.8896 0.0735 186.3);
   --text-link-visited: oklch(0.76 0.09 258);
+  --text-muted: oklch(0.78 0.02 260);
+  --text-subtle: oklch(0.8 0.018 260);
   --text-code: oklch(0.92 0.01 260);
   --text-footer: oklch(0.82 0.012 260);
-  --text-footer-muted: oklch(0.62 0.02 260);
-  --text-footer-link: oklch(0.76 0.012 260);
+  --text-footer-muted: oklch(0.78 0.015 260);
+  --text-footer-link: oklch(0.8 0.012 260);
 
   --text-success: oklch(0.81 0.12 156);
   --text-warning: oklch(0.82 0.11 80);
   --text-danger: oklch(0.79 0.13 27);
   --text-info: oklch(0.8 0.1 250);
+  --accent-primary: var(--color-accent-primary);
+  --accent-primary-hover: oklch(0.75 0.1 189);
 
   --border-subtle: var(--color-border-subtle);
-  --border-accent: oklch(0.4 0.045 190);
+  --border-accent: oklch(0.7 0.09 190);
   --border-warning: oklch(0.72 0.11 60);
   --border-footer: oklch(0.28 0.02 260);
   --divider: var(--color-border-subtle);
@@ -171,8 +176,8 @@
 
   --text-success: oklch(0.8649 0.2979 142.49);
   --text-warning: oklch(0.8446 0.1616 82.25);
-  --text-danger: oklch(0.6559 0.1934 27.47);
-  --text-info: oklch(0.7086 0.1456 250.24);
+  --text-danger: oklch(0.72 0.18 27);
+  --text-info: oklch(0.76 0.14 250);
 
   --border-default: oklch(1 0 0);
   --border-subtle: oklch(1 0 0);
