@@ -1,4 +1,4 @@
-# Strata — Launch Budget Plan (CAD $200 hard cap)
+# Varve — Launch Budget Plan (CAD $200 hard cap)
 
 **Prepared:** 2026-08-03
 **Exchange rate used:** 1 USD = **1.4036 CAD** (spot, 2026-08-03). All conversions add a
@@ -43,7 +43,7 @@ may be self-assessed rather than charged at point of sale; the buffer covers eit
 | Linux packages | AppImage + `.deb` + `.rpm` | $0 |
 | Windows | Unsigned NSIS, documented SmartScreen steps | $0 |
 | macOS | **Omitted** (no Mac to validate on) | $0 |
-| Website | Astro → GitHub Pages at `k-arthur.github.io/Strata` | $0 |
+| Website | Astro → GitHub Pages at `k-arthur.github.io/varve` | $0 |
 | Integrity | SHA-256 manifest + SBOM, published alongside | $0 |
 | Updates | Manual — "check the releases page" | $0 |
 | Analytics | None (GitHub download counts only) | $0 |
@@ -53,6 +53,20 @@ This scenario is genuinely free: the repository went public on 2026-08-04, so
 GitHub-hosted runners are unmetered and GitHub Pages is available. The workflow
 restructuring in `build.yml` was done anyway — a three-OS Tauri build on every PR
 is slow feedback regardless of who pays for it.
+
+**Confirmed executed 2026-08-04:**
+
+- Repository made public (secret-audited first — see §4).
+- GitHub Pages enabled for the repo with build source `workflow`
+  (`gh api -X POST repos/K-Arthur/varve/pages -f build_type=workflow`);
+  the site deploys to `https://k-arthur.github.io/varve/` via
+  `website-deploy.yml`. The earlier `HttpError: Not Found` deployment failures
+  were the Pages-not-enabled state, not a workflow defect.
+- Container install-test tooling (`just verify-packages`) verified working with
+  podman (rootless) against `ubuntu:22.04` and `fedora:38`.
+- The Model Supply Chain Validation gate (previously failing on every push) is
+  fixed; remaining red runs at the time of writing were rename-in-progress
+  failures, not cost or infra issues.
 
 Scenario A is honest as long as unsigned artifacts are labelled unsigned, with an accurate
 description of the OS warnings and the supported way through them. It must never imply a trust
@@ -67,7 +81,7 @@ blocked on something money cannot fix.
 
 | # | Item | Provider | Status | Native | CAD est. | Tax+buffer | CAD total | Renewal | When | Why | If deferred |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | `.com` or `.app` domain | Cloudflare Registrar | **Optional — recommended** | USD $10.44–14 | $14.66–19.65 | +23% | **$24.17** | same, no markup | At public beta | Own the namespace; enables project email; prerequisite for a Store **Company** account | Site stays on `k-arthur.github.io/Strata`; fully functional, less memorable |
+| 1 | `.com` or `.app` domain | Cloudflare Registrar | **Optional — recommended** | USD $10.44–14 | $14.66–19.65 | +23% | **$24.17** | same, no markup | At public beta | Own the namespace; enables project email; prerequisite for a Store **Company** account | Site stays on `k-arthur.github.io/varve`; fully functional, less memorable |
 | 2 | Real-device test time | Local shop / friend / rental | **Optional** | — | ~$50 | — | **$50.00** | one-off | Before any macOS or Windows claim | The one thing that actually unblocks macOS and Windows tiers | Windows/macOS stay Tier 3 forever |
 | 3 | Contingency reserve | — | **Mandatory** | — | — | — | **$125.83** | — | Held | LFS/Actions overage, domain renewal, unforeseen | No cushion for a surprise bill |
 | | **TOTAL COMMITTED** | | | | | | **$74.17** | | | | |
@@ -93,7 +107,7 @@ The budget buys **one** of these:
 - a domain for ~8 years (CAD ~$24/yr), **or**
 - real-device testing plus a domain plus a CAD $126 cushion.
 
-The fourth is recommended, because signing and notarisation solve *trust* problems, and Strata
+The fourth is recommended, because signing and notarisation solve *trust* problems, and Varve
 does not have a trust problem yet — it has a **verification** problem. Nobody has run this
 application on Windows or macOS. Money spent on signatures before that is spent making an
 untested build look trustworthy.
