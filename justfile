@@ -247,12 +247,31 @@ release-website TAG:
 # Validate AUR PKGBUILDs using Docker (requires docker; works on any OS).
 # Standard AUR CI pattern: useradd non-root builder + makepkg --printsrcinfo.
 aur-validate:
-    docker run --rm -v "$(pwd)/dist/aur:/aur" archlinux:base-devel bash -c " \
-      useradd -m builder && \
-      chown -R builder:builder /aur && \
-      cd /aur/varve-desktop && su -c 'makepkg --printsrcinfo' builder && echo 'source PKGBUILD OK' && \
-      cd /aur/varve-desktop-bin && su -c 'makepkg --printsrcinfo' builder && echo 'bin PKGBUILD OK' \
-    "
+    #!/usr/bin/env bash
+    # PKGBUILDs live in packaging/aur/, not dist/aur/ — `dist` is gitignored, so
+    # the old path pointed at a directory that never existed in a fresh clone.
+    # That is what made the publish workflow's aur-validate job fail on every
+    # run and, because the release job depended on it, why no release was ever
+    # produced (audit RB-2).
+    set -euo pipefail
+    for pkg in packaging/aur/*/; do
+      name=$(basename "${pkg}")
+      echo "── ${name} ──"
+      docker run --rm -v "$(pwd)/${pkg}:/pkg:ro" archlinux:base-devel bash -c '
+        set -e
+        pacman -Sy --noconfirm --needed namcap >/dev/null 2>&1 || true
+        useradd -m builder
+        cp -r /pkg /home/builder/build && chown -R builder:builder /home/builder/build
+        cd /home/builder/build
+        su builder -c "makepkg --printsrcinfo > .SRCINFO" && echo "  .SRCINFO generated"
+        su builder -c "namcap PKGBUILD" || true
+      '
+    done
+
+# Install-test the built .deb and .rpm in clean non-Arch containers.
+# Proves the glibc baseline claim that nothing else in the repo can check.
+verify-packages *ARGS:
+    bash scripts/release/verify-package-install.sh {{ARGS}}
 
 # Smoke-test AppImage on the current Linux session (Wayland or X11).
 # Exits after 5 s to prevent hanging in CI.
