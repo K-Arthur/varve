@@ -35,9 +35,9 @@ test.describe('Canvas keyboard navigation', () => {
 
   async function selectedNodeIds(page: import('@playwright/test').Page): Promise<string[]> {
     return page.evaluate(() =>
-      Array.from(document.querySelectorAll('[role="treeitem"][aria-selected="true"]')).map((el) =>
-        el.getAttribute('data-node-id'),
-      ),
+      Array.from(document.querySelectorAll('[role="treeitem"][aria-selected="true"]'))
+        .map((el) => el.getAttribute('data-node-id'))
+        .filter((id): id is string => id !== null),
     );
   }
 

@@ -172,7 +172,8 @@ test.describe('Focus-order baseline trace', () => {
     // No selection on a fresh document: Tab exits the canvas (previously
     // it cycled selection and focus stayed on the canvas).
     expect(regions[0], `next stop after canvas; got ${regions.join(' → ')}`).not.toBe('canvas');
-    expect(next[0].tag).not.toBe('body');
+    expect(next[0]).toBeDefined();
+    expect(next[0]?.tag).not.toBe('body');
   });
 });
 
