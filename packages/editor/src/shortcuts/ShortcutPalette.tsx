@@ -434,9 +434,8 @@ export function ShortcutPalette({
                   const useCount = usageInfo?.count ?? 0;
 
                   return (
-                    // biome-ignore lint/a11y: option rows are not tab stops by design — keyboard
-                    // interaction is handled by the combobox input via aria-activedescendant
-                    // (WAI-ARIA listbox pattern); Enter/Alt+Enter/Alt+Backspace live in handleKey.
+                    // biome-ignore lint/a11y/useKeyWithClickEvents: pointer click on a row is the mouse-path duplicate of Enter; both call handleRowClick(id).
+                    // biome-ignore lint/a11y/useFocusableInteractive: option rows are not tab stops by design — keyboard interaction is handled by the combobox input via aria-activedescendant (WAI-ARIA listbox pattern); Enter lives in handleKey.
                     <div
                       key={id}
                       id={`palette-option-${id}`}
@@ -520,9 +519,8 @@ export function ShortcutPalette({
                     const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
                     const binding = getEffectiveBinding(id);
                     return (
-                      // biome-ignore lint/a11y: option rows are not tab stops by design — keyboard
-                      // interaction is handled by the combobox input via aria-activedescendant
-                      // (WAI-ARIA listbox pattern); Enter/Alt+Enter/Alt+Backspace live in handleKey.
+                      // biome-ignore lint/a11y/useKeyWithClickEvents: pointer click on a row is the mouse-path duplicate of Enter; both call handleRowClick(id).
+                      // biome-ignore lint/a11y/useFocusableInteractive: option rows are not tab stops by design — keyboard interaction is handled by the combobox input via aria-activedescendant (WAI-ARIA listbox pattern); Enter lives in handleKey.
                       <div
                         key={`unused-${id}`}
                         role="option"
