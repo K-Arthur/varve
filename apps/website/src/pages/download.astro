@@ -107,7 +107,7 @@ const first = available[0]?.id;
 
           {!release.signed && (
             <div class="integrity-notice">
-              <h3>These builds are not code-signed</h3>
+              <h2>These builds are not code-signed</h2>
               <p>
                 Varve does not yet have code-signing certificates, so your operating system
                 cannot verify who built these files. That is a statement about this project's
@@ -211,12 +211,12 @@ const first = available[0]?.id;
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .download-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
@@ -224,7 +224,7 @@ const first = available[0]?.id;
     display: flex;
     gap: 0.5rem;
     margin-bottom: 2rem;
-    border-bottom: 1px solid var(--color-neutral-200);
+    border-bottom: 1px solid var(--border-default);
   }
   
   .platform-tab {
@@ -233,19 +233,19 @@ const first = available[0]?.id;
     border: none;
     font-size: 1rem;
     font-weight: 600;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     cursor: pointer;
     border-bottom: 2px solid transparent;
-    transition: all 0.2s;
+    transition: all var(--duration-fast) var(--ease-default);
   }
   
   .platform-tab:hover {
-    color: var(--color-teal-600);
+    color: var(--text-link);
   }
   
   .platform-tab.active {
-    color: var(--color-teal-600);
-    border-bottom-color: var(--color-teal-600);
+    color: var(--text-link);
+    border-bottom-color: var(--text-link);
   }
   
   .platform-section {
@@ -260,11 +260,11 @@ const first = available[0]?.id;
     font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 0.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .platform-note {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 2rem;
   }
   
@@ -275,15 +275,15 @@ const first = available[0]?.id;
   }
   
   .download-option {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
   
   .download-option.recommended {
-    border-color: var(--color-teal-400);
-    background: linear-gradient(135deg, var(--color-teal-50) 0%, white 100%);
+    border-color: var(--border-accent);
+    background: linear-gradient(135deg, var(--surface-accent-soft) 0%, var(--surface-card) 100%);
   }
   
   .option-header {
@@ -309,34 +309,24 @@ const first = available[0]?.id;
   }
   
   .badge.recommended {
-    background: var(--color-teal-600);
-    color: white;
+    background: var(--status-built);
+    color: var(--text-on-status);
   }
   
   .download-option p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 1rem;
   }
   
   .download-meta {
     font-size: 0.875rem;
-    color: var(--color-neutral-500);
+    color: var(--text-muted);
     margin-top: 0.75rem;
   }
   
-  .code-block {
-    display: block;
-    background: var(--color-neutral-900);
-    color: var(--color-neutral-100);
-    padding: 0.75rem 1rem;
-    border-radius: 0.375rem;
-    font-family: monospace;
-    font-size: 0.875rem;
-    margin: 1rem 0;
-  }
   
   .system-requirements {
-    background: var(--color-neutral-100);
+    background: var(--surface-muted);
     border-radius: 0.75rem;
     padding: 1.5rem;
     margin-bottom: 2rem;
@@ -354,66 +344,66 @@ const first = available[0]?.id;
   
   .system-requirements li {
     margin-bottom: 0.5rem;
-    color: var(--color-neutral-700);
+    color: var(--text-secondary);
   }
   
   .system-requirements strong {
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .release-info,
   .integrity-notice {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
   }
   
   .release-info h3,
-  .integrity-notice h3 {
+  .integrity-notice h2 {
     font-size: 1rem;
     font-weight: 600;
     margin-bottom: 1rem;
   }
   
   .release-info p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
   }
   
   .integrity-notice p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
 
     .prerelease-notice {
-    background: var(--color-terracotta-50);
-    border: 1px solid var(--color-terracotta-200, #fecaca);
+    background: var(--surface-warning);
+    border: 1px solid var(--border-warning);
     border-radius: 0.5rem;
     padding: 1rem 1.25rem;
     margin-bottom: 2rem;
     font-size: 0.9375rem;
-    color: var(--color-neutral-700);
+    color: var(--text-secondary);
     line-height: 1.6;
   }
 
   .prerelease-notice a {
-    color: var(--color-teal-600);
+    color: var(--text-link);
     text-decoration: underline;
   }
 
   .detection-banner {
-    background: var(--color-teal-50);
-    border: 1px solid var(--color-teal-200);
+    background: var(--surface-accent-soft);
+    border: 1px solid var(--border-accent);
     border-radius: 0.5rem;
     padding: 0.75rem 1rem;
     margin-bottom: 1rem;
     font-size: 0.9375rem;
-    color: var(--color-neutral-700);
+    color: var(--text-secondary);
   }
 
   .detection-banner a {
-    color: var(--color-teal-600);
+    color: var(--text-link);
     text-decoration: underline;
   }
 </style>

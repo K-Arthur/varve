@@ -87,19 +87,19 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .breadcrumb a {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .feature-page h1 {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .feature-intro {
     font-size: 1.25rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
@@ -111,11 +111,11 @@ import Layout from '../../layouts/Layout.astro';
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .feature-section p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
   }
@@ -128,22 +128,22 @@ import Layout from '../../layouts/Layout.astro';
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .feature-section li::before {
     content: "•";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
   }
   
   .feature-section strong {
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .limitations {
-    background: var(--color-neutral-100);
+    background: var(--surface-muted);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
@@ -154,21 +154,21 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .status-badge {
-    background: var(--color-terracotta-50);
-    border: 1px solid var(--color-terracotta-400);
+    background: var(--surface-warning);
+    border: 1px solid var(--border-warning);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
   
   .status-badge.partial {
-    background: var(--color-terracotta-50);
-    border-color: var(--color-terracotta-400);
+    background: var(--surface-warning);
+    border-color: var(--border-warning);
   }
   
   .badge-text {
     display: inline-block;
-    background: var(--color-terracotta-400);
-    color: white;
+    background: var(--status-partial);
+    color: var(--text-on-status);
     padding: 0.25rem 0.75rem;
     border-radius: 0.25rem;
     font-size: 0.75rem;
@@ -179,20 +179,20 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .status-badge p {
-    color: var(--color-neutral-700);
+    color: var(--text-secondary);
     margin: 0;
   }
   
   .feature-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
   
   .feature-cta h2 {
     font-size: 1.75rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 </style>
