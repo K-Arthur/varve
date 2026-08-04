@@ -119,8 +119,14 @@ function RegistryDisclosure({
   const visible = subsectionId
     ? !isSectionCollapsed(state.sectionVisibility, sectionId)
     : isSectionVisible(state.sectionVisibility, sectionId);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    fromKeyboard: boolean;
+  } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuItemRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const def = getSectionDefinition(sectionId);
 
   // Close context menu on outside click
@@ -135,14 +141,22 @@ function RegistryDisclosure({
     return () => document.removeEventListener('mousedown', handle);
   }, [contextMenu]);
 
-  // Close context menu on Escape
+  // Close context menu on Escape; restore focus when it was keyboard-opened.
   useEffect(() => {
     if (!contextMenu) return;
     const handle = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setContextMenu(null);
+      if (e.key === 'Escape') {
+        if (contextMenu.fromKeyboard) triggerRef.current?.focus();
+        setContextMenu(null);
+      }
     };
     document.addEventListener('keydown', handle);
     return () => document.removeEventListener('keydown', handle);
+  }, [contextMenu]);
+
+  // Focus the menu item when the menu was opened from the keyboard.
+  useEffect(() => {
+    if (contextMenu?.fromKeyboard) menuItemRef.current?.focus();
   }, [contextMenu]);
 
   if (!visible) return null;
@@ -154,24 +168,40 @@ function RegistryDisclosure({
       toggleSectionCollapse(sectionId);
     }
   };
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
+  const openContextMenu = (x: number, y: number, fromKeyboard: boolean) => {
     if (def && !def.canHide) return; // essential sections can't be hidden
-    setContextMenu({ x: e.clientX, y: e.clientY });
+    setContextMenu({ x, y, fromKeyboard });
+  };
+  const handleTriggerContextMenu = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    openContextMenu(rect.left, rect.bottom, false);
+  };
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      const rect = e.currentTarget.getBoundingClientRect();
+      openContextMenu(rect.left, rect.bottom, true);
+    }
   };
   const handleHide = () => {
+    if (contextMenu?.fromKeyboard) triggerRef.current?.focus();
     hideInspectorSection(sectionId);
     setContextMenu(null);
   };
 
   return (
-    <section className="insp-disclosure" onContextMenu={handleContextMenu}>
+    <section className="insp-disclosure">
       <button
+        ref={triggerRef}
         type="button"
         className="insp-disclosure__trigger"
         aria-expanded={expanded}
         aria-controls={panelId}
+        aria-haspopup={def?.canHide ? 'menu' : undefined}
         onClick={handleToggle}
+        onContextMenu={handleTriggerContextMenu}
+        onKeyDown={handleTriggerKeyDown}
       >
         <Icon
           name="ChevronRight"
@@ -195,6 +225,7 @@ function RegistryDisclosure({
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button
+            ref={menuItemRef}
             type="button"
             className="insp-disclosure__context-menu-item"
             role="menuitem"
