@@ -16,7 +16,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="tutorials-grid">
         <div class="tutorial-card">
-          <h3>Getting Started with Varve</h3>
+          <h2>Getting Started with Varve</h2>
           <p>
             Learn the basics of Varve's interface, tools, and workflow. This tutorial covers installation, first launch, and creating your first design.
           </p>
@@ -28,7 +28,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="tutorial-card">
-          <h3>Vector Design Basics</h3>
+          <h2>Vector Design Basics</h2>
           <p>
             Master shape primitives, path editing, and boolean operations. Learn how to create precise vector graphics using Varve's geometry tools.
           </p>
@@ -40,7 +40,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="tutorial-card">
-          <h3>Typography and Text</h3>
+          <h2>Typography and Text</h2>
           <p>
             Work with text elements, font families, and typography controls. Learn about text properties, alignment, and text-on-path capabilities.
           </p>
@@ -52,7 +52,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="tutorial-card">
-          <h3>Motion and Prototyping</h3>
+          <h2>Motion and Prototyping</h2>
           <p>
             Create timeline-based animations and prototype interactions. Learn about Smart Animate, easing curves, and export to CSS/Lottie.
           </p>
@@ -64,7 +64,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="tutorial-card">
-          <h3>Export and Code Generation</h3>
+          <h2>Export and Code Generation</h2>
           <p>
             Export your designs to various formats including SVG, React/Tailwind, Flutter, and SwiftUI. Learn about export settings and code generation options.
           </p>
@@ -97,19 +97,19 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .breadcrumb a {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .learn-page h1 {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .learn-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
@@ -121,27 +121,27 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .tutorial-card {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 2rem;
-    transition: all 0.2s;
+    transition: all var(--duration-fast) var(--ease-default);
   }
   
   .tutorial-card:hover {
-    border-color: var(--color-teal-400);
+    border-color: var(--border-accent);
     transform: translateY(-2px);
   }
   
-  .tutorial-card h3 {
+  .tutorial-card h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .tutorial-card p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 1rem;
   }
@@ -157,24 +157,24 @@ import Layout from '../../layouts/Layout.astro';
     font-size: 0.875rem;
     padding: 0.25rem 0.75rem;
     border-radius: 9999px;
-    background: var(--color-neutral-100);
-    color: var(--color-neutral-600);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
   }
   
   .learn-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
   
   .learn-cta h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .learn-cta p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
 </style>

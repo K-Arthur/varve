@@ -80,12 +80,12 @@ import Layout from '../layouts/Layout.astro';
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .features-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
@@ -97,17 +97,17 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .feature-card {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 2rem;
-    transition: all 0.2s;
+    transition: all var(--duration-fast) var(--ease-default);
     text-decoration: none;
     display: block;
   }
   
   .feature-card:hover {
-    border-color: var(--color-teal-400);
+    border-color: var(--border-accent);
     transform: translateY(-2px);
   }
   
@@ -115,11 +115,11 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .feature-card p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 1rem;
     line-height: 1.6;
   }
@@ -135,22 +135,22 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .status.built {
-    background: var(--color-teal-600);
-    color: white;
+    background: var(--status-built);
+    color: var(--text-on-status);
   }
   
   .status.partial {
-    background: var(--color-terracotta-400);
-    color: white;
+    background: var(--status-partial);
+    color: var(--text-on-status);
   }
   
   .status.in-development {
-    background: var(--color-sandstone-400);
-    color: white;
+    background: var(--status-dev);
+    color: var(--text-on-status);
   }
   
   .status-legend {
-    background: var(--color-neutral-100);
+    background: var(--surface-muted);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
@@ -159,7 +159,7 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1rem;
     font-weight: 600;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .legend-items {
@@ -173,7 +173,7 @@ import Layout from '../layouts/Layout.astro';
     align-items: center;
     gap: 0.75rem;
     font-size: 0.875rem;
-    color: var(--color-neutral-700);
+    color: var(--text-secondary);
   }
   
   .legend-status {
@@ -183,14 +183,14 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .legend-status.built {
-    background: var(--color-teal-600);
+    background: var(--status-built);
   }
   
   .legend-status.partial {
-    background: var(--color-terracotta-400);
+    background: var(--status-partial);
   }
   
   .legend-status.in-development {
-    background: var(--color-sandstone-400);
+    background: var(--status-dev);
   }
 </style>

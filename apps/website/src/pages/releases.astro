@@ -79,18 +79,18 @@ import Layout from '../layouts/Layout.astro';
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .releases-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
   .current-release {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 2rem;
     margin-bottom: 3rem;
@@ -107,12 +107,12 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.5rem;
     font-weight: 700;
     margin: 0;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .version-badge {
-    background: var(--color-teal-600);
-    color: white;
+    background: var(--status-built);
+    color: var(--text-on-status);
     padding: 0.25rem 0.75rem;
     border-radius: 0.25rem;
     font-size: 0.875rem;
@@ -120,7 +120,7 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .release-date {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 1.5rem;
   }
   
@@ -128,7 +128,7 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.125rem;
     font-weight: 600;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .release-notes h4 {
@@ -136,7 +136,7 @@ import Layout from '../layouts/Layout.astro';
     font-weight: 600;
     margin-top: 1.5rem;
     margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .release-notes ul {
@@ -148,18 +148,18 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 0.5rem;
     padding-left: 1.5rem;
     position: relative;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .release-notes li::before {
     content: "•";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
   }
   
   .release-notes p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 1rem;
   }
@@ -172,15 +172,15 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .previous-releases p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .release-info {
-    background: var(--color-neutral-100);
+    background: var(--surface-muted);
     border-radius: 0.75rem;
     padding: 1.5rem;
     margin-bottom: 3rem;
@@ -190,7 +190,7 @@ import Layout from '../layouts/Layout.astro';
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .release-info ul {
@@ -199,27 +199,27 @@ import Layout from '../layouts/Layout.astro';
   
   .release-info li {
     margin-bottom: 0.5rem;
-    color: var(--color-neutral-700);
+    color: var(--text-secondary);
   }
   
   .release-info strong {
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .release-info a {
-    color: var(--color-teal-600);
+    color: var(--text-link);
   }
   
   .release-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
   
   .release-cta h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 1.5rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 </style>

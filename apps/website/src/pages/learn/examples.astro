@@ -16,7 +16,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="examples-grid">
         <div class="example-card">
-          <h3>UI Component Library</h3>
+          <h2>UI Component Library</h2>
           <p>
             A collection of common UI components built with Varve. Includes buttons, cards, inputs, and navigation elements ready to use in your designs.
           </p>
@@ -27,7 +27,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="example-card">
-          <h3>Mobile App Mockups</h3>
+          <h2>Mobile App Mockups</h2>
           <p>
             Example mobile app designs showcasing Varve's vector tools and layout capabilities. Includes iOS and Android frame templates.
           </p>
@@ -38,7 +38,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="example-card">
-          <h3>Icon Set</h3>
+          <h2>Icon Set</h2>
           <p>
             A comprehensive icon set created entirely in Varve. Demonstrates precision vector work and export to SVG format.
           </p>
@@ -49,7 +49,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="example-card">
-          <h3>Brand Identity System</h3>
+          <h2>Brand Identity System</h2>
           <p>
             Complete brand identity example including logo variations, color palette, typography system, and brand guidelines document.
           </p>
@@ -60,7 +60,7 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="example-card">
-          <h3>Animation Showcase</h3>
+          <h2>Animation Showcase</h2>
           <p>
             Interactive animations and motion design examples. Demonstrates timeline animation, Smart Animate, and export to CSS/Lottie.
           </p>
@@ -92,19 +92,19 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .breadcrumb a {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
   
   .learn-page h1 {
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .learn-intro {
     font-size: 1.125rem;
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     margin-bottom: 3rem;
   }
   
@@ -116,27 +116,27 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .example-card {
-    background: white;
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 2rem;
-    transition: all 0.2s;
+    transition: all var(--duration-fast) var(--ease-default);
   }
   
   .example-card:hover {
-    border-color: var(--color-teal-400);
+    border-color: var(--border-accent);
     transform: translateY(-2px);
   }
   
-  .example-card h3 {
+  .example-card h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .example-card p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 1rem;
   }
@@ -151,29 +151,29 @@ import Layout from '../../layouts/Layout.astro';
     font-size: 0.875rem;
     padding: 0.25rem 0.75rem;
     border-radius: 9999px;
-    background: var(--color-neutral-100);
-    color: var(--color-neutral-600);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
   }
   
   .example-status {
-    background: var(--color-sandstone-100);
-    color: var(--color-sandstone-700);
+    background: var(--surface-warning);
+    color: var(--text-warning);
   }
   
   .learn-cta {
     text-align: center;
     padding: 3rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
   
   .learn-cta h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
   
   .learn-cta p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
   }
 </style>
