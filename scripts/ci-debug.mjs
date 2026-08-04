@@ -449,7 +449,7 @@ async function main() {
       infraBlocks.push({
         jobName: job.name,
         kind,
-        message: (hit && hit.message) || 'GitHub billing / spending-limit block',
+        message: hit?.message || 'GitHub billing / spending-limit block',
         conclusion: job.conclusion,
       });
     } else if (kind === 'never-started') {
