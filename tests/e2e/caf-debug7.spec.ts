@@ -124,12 +124,12 @@ test('open CAF dialog by rendering it directly', async ({ page }) => {
 
   // Check for dialog
   const dialogExists = await page.evaluate(() => {
-    return !!document.querySelector('dialog.strata-dialog--caf');
+    return !!document.querySelector('dialog.varve-dialog--caf');
   });
   console.log('Dialog element exists in DOM:', dialogExists);
 
   const dialogOpen = await page.evaluate(() => {
-    const d = document.querySelector('dialog.strata-dialog--caf') as HTMLDialogElement | null;
+    const d = document.querySelector('dialog.varve-dialog--caf') as HTMLDialogElement | null;
     return d?.open ?? false;
   });
   console.log('Dialog open:', dialogOpen);

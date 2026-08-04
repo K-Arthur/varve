@@ -10,11 +10,11 @@ async function setupWithImage(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: /^new$/i }).click();
   await page
     .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
+    .getByRole('button', { name: /^create design$/i })
     .waitFor({ timeout: 10000 });
   await page
     .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
+    .getByRole('button', { name: /^create design$/i })
     .click();
   await page.locator('.layers-panel').waitFor({ timeout: 15000 });
   const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });

@@ -32,8 +32,8 @@ async function setupEditor(page: import('@playwright/test').Page) {
   await newBtn.waitFor({ state: 'visible', timeout: 5000 });
   await newBtn.click();
 
-  // In the New dialog, click "Create" for a blank document
-  const createBtn = page.locator('dialog').getByRole('button', { name: /^create$/i });
+  // In the New dialog, click "Create design" for a blank document
+  const createBtn = page.locator('dialog').getByRole('button', { name: /^create design$/i });
   await createBtn.waitFor({ state: 'visible', timeout: 5000 });
   await createBtn.click();
 

@@ -178,7 +178,7 @@ test('find state via hook chain', async ({ page }) => {
 
     await page.waitForTimeout(1000);
 
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
     console.log('Dialog visible after dispatch:', await dialog.isVisible().catch(() => false));
 
     if (await dialog.isVisible().catch(() => false)) {

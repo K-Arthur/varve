@@ -194,7 +194,7 @@ test('direct CAF dialog access via evaluate', async ({ page }) => {
     await page.waitForTimeout(500);
 
     // Check if dialog is open
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
     const isOpen = await dialog.isVisible().catch(() => false);
     console.log('CAF dialog open after dispatch:', isOpen);
 
