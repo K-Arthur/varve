@@ -11,8 +11,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use varve_core::NodeId;
 use taffy::prelude::*;
+use varve_core::NodeId;
 
 /// Layout mode for a frame.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
