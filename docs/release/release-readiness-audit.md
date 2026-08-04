@@ -112,6 +112,31 @@ Upgrade logic in every package manager (deb/rpm/MSI) depends on a monotonic vers
 **Remediation:** single-source the version and add a CI gate that fails when tag ≠ manifest
 version. Implemented in this work — see §6. Blocks: **alpha**.
 
+### RB-1b — The two model catalogs contradict each other `CRITICAL`
+
+Discovered while building the guard for RB-1. Two independent sources describe
+what ships, and they disagree about roughly **1.2 GB** of installer payload:
+
+| Model | `apps/desktop/public/models/manifest.json` | `packages/engine/src/inference/modelCatalog.ts` | On disk | Real size |
+|---|---|---|---|---|
+| `ddcolor` | `bundled: false` | `bundled: true`, `acquisition.kind: 'bundled'`, `remoteUrl: ''` | LFS pointer | 980 MB |
+| `ddcolor-tiny` | `bundled: false` | `bundled: true` | LFS pointer | 220 MB |
+| `font-classify` | `bundled: true` | `bundled: false` | LFS pointer | 64 MB |
+
+Three things are currently true and cannot all remain true: the engine expects
+`ddcolor` at `/models/ddcolor.onnx` with **no remote fallback**
+(`modelCatalog.ts:610` — `remoteUrl: ''`); the file is a pointer, so colorization
+cannot work at all; and if anyone runs `git lfs pull` before building, the
+installer silently gains ~1.2 GB.
+
+Which of the two catalogs "wins" depends on which code path reads first, so the
+behaviour is not even consistent within one build.
+
+`scripts/release/check-bundled-assets.mjs` now fails on the disagreement rather
+than guessing. Resolving it is a **product** decision (does colorization ship in
+v1, and if so as a bundled or downloaded model?) — see
+`docs/release/implementation-plan.md` P0-10. Blocks: **alpha**.
+
 ### RB-4 — No checksums, no release manifest, no SBOM `HIGH`
 
 `publish.yml` uploads bundles straight to a draft release. There is no SHA-256 generation, no
@@ -176,6 +201,36 @@ fallback. That is a *survivable* degradation (the code is written for it — `na
 reports unavailable), but shipping a binary advertised as universal whose accelerated path only
 works on half the target hardware needs to be stated, not discovered. Blocks: **beta** (as a
 documentation/claim accuracy issue).
+
+### H-0 — AppImage bundling fails outright on Arch/CachyOS `HIGH` — FIXED
+
+`pnpm tauri build --bundles appimage` failed on this machine with only:
+
+```
+failed to bundle project: `failed to run linuxdeploy`
+```
+
+Tauri surfaces no cause. Invoking linuxdeploy directly against the staged AppDir
+gives the real one, for every bundled system library:
+
+```
+ERROR: Strip call failed: strip: libzstd.so.1: unknown type [0x13] section `.relr.dyn'
+```
+
+linuxdeploy 1-alpha (git `659c9db`, built 2024-07-26) ships its own binutils
+`strip`, which predates `SHT_RELR`. Every system library on a current Arch host
+has a `.relr.dyn` section, so the strip step fails for all of them and
+linuxdeploy aborts.
+
+**Fixed** by setting `NO_STRIP=1` in `justfile` (`package-linux`,
+`package-appimage`) and in `release.yml`'s Tauri build step. The cost is
+negligible: the Strata binary is already stripped by
+`[profile.release] strip = true`, and distro libraries ship stripped.
+
+Worth noting what this *also* proves: the AppImage bundler copies **this host's**
+libraries into the bundle. An AppImage built on CachyOS carries glibc 2.44 and
+cannot run on the Ubuntu 22.04 baseline. Local AppImages are smoke-test
+artifacts; release AppImages must come from the `ubuntu-latest` runner.
 
 ### H-4 — `bundle.targets: "all"` is non-deterministic
 
@@ -303,7 +358,9 @@ Blocks: earliest release tier the item prevents.
 
 | # | Area | Status | Evidence | Sev | User impact | Remediation | Blocks |
 |---|---|---|---|---|---|---|---|
-| RB-1 | AI models in CI | **Broken** | `.gitattributes:1`; no `lfs:` in any workflow | C | Font-classification feature dead in every CI build; installer size non-deterministic by ±1.2 GB | Move `ddcolor*` out of `public/`; targeted `git lfs pull`; pointer guard | Alpha |
+| RB-1 | AI models in CI | **Broken** | `.gitattributes:1`; no `lfs:` in any workflow | C | Font-classification feature dead in every CI build; installer size non-deterministic by ±1.2 GB | Targeted `git lfs pull` in CI (done); pointer guard (done); reconcile catalogs (P0-10) | Alpha |
+| RB-1b | Model catalogs disagree | **Broken** | `manifest.json` vs `modelCatalog.ts` for 3 models | C | ~1.2 GB of installer contents undefined; colorization cannot work | Product decision — see implementation plan P0-10 | Alpha |
+| H-0 | AppImage on Arch | **Fixed** | linuxdeploy `strip` cannot parse `.relr.dyn` | H | No Linux package could be built locally at all | `NO_STRIP=1` in `justfile` + `release.yml` | Alpha |
 | RB-2 | Release job | **Broken** | `publish.yml:213` needs `aur-validate`; `dist/aur` absent + gitignored | C | No release is ever produced; CI minutes burned for nothing | Drop AUR from release gate; defer AUR packaging | Alpha |
 | RB-3 | Versioning | **Broken** | `0.0.0` in 5 manifests; no tag check in `publish.yml` | H | Installers self-identify as `0.0.0`; upgrades undefined | Single-source version + CI tag gate | Alpha |
 | RB-4 | Integrity | **Missing** | No checksum/SBOM/manifest step in `publish.yml` | H | Users cannot verify an unsigned download — the one mitigation that costs nothing | Generate + verify SHA-256, manifest, SBOM | Alpha |
