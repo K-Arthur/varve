@@ -118,6 +118,9 @@ export class CrashCenterController {
   private disposed = false;
   private handlersInstalled = false;
   private capturing = false;
+  /** Per-session: crash-loop outcome is recorded once, even if StrictMode
+   * remounts CrashCenter and boot() runs twice. */
+  private loopRecorded = false;
   private consent!: CrashConsentProvider;
   private safeModeStore: SafeModeStore = new MemorySafeModeStore();
 
@@ -185,12 +188,17 @@ export class CrashCenterController {
     this.disposed = false;
 
     // Crash-loop tracking: an unclean previous shutdown counts as a failure.
+    // Recorded once per app session (StrictMode remounts must not double-
+    // count a single crash).
     const loopStore = new LocalStorageCrashLoopStore(localStorageLike());
-    const unclean = this.deps.readUncleanShutdown();
-    if (unclean) {
-      recordStartupFailure(loopStore);
-    } else {
-      recordCleanStartup(loopStore);
+    if (!this.loopRecorded) {
+      this.loopRecorded = true;
+      const unclean = this.deps.readUncleanShutdown();
+      if (unclean) {
+        recordStartupFailure(loopStore);
+      } else {
+        recordCleanStartup(loopStore);
+      }
     }
     if (isInCrashLoop(loopStore)) {
       this.safeModeStore = new LocalStorageSafeModeStore(localStorageLike());
