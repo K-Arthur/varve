@@ -50,6 +50,27 @@ export function App() {
     });
   }, [markHomeDataReady, measure, onHomeReady]);
 
+  // Hand off from the native splash as soon as React is mounted, rather than
+  // waiting for Home's data to finish loading.
+  //
+  // The native splash window can only be closed from here, so gating it on data
+  // readiness meant any failure in that load — an exception, a hung IPC call,
+  // a slow first run — left the user on an unclosable splash with no error and
+  // nothing to report. Once React is up, `StartupLoader` takes over: it shows
+  // branded progress, has its own timeout, and can surface an error with a
+  // retry button. That is strictly better than an opaque native window, and it
+  // keeps the splash doing the one job it is good at — covering the gap before
+  // the webview has painted anything.
+  useEffect(() => {
+    void revealMainWindow();
+  }, []);
+
+  // A boot error must never be invisible. `showLoader` renders the error state,
+  // but only if the window is actually on screen.
+  useEffect(() => {
+    if (bootError) void revealMainWindow();
+  }, [bootError]);
+
   useEffect(
     () => () => {
       pendingHomeMilestone.current?.();
