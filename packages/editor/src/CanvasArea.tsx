@@ -3137,6 +3137,8 @@ export function CanvasArea({
   return (
     <section
       ref={setCombinedRef}
+      id="editor-main"
+      tabIndex={-1}
       className={`editor-canvas gpu-layer${isDragOver ? ' editor-canvas--drag-over' : ''}${canvasDropClass}`}
       aria-label="Canvas"
       onDragOver={handleDragOver}
