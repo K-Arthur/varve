@@ -37,25 +37,27 @@ Legend: ✅ verified · ⚠️ configured but never successfully executed · ⬜
 
 ---
 
-## 2a. Container install-test status (2026-08-04)
+## 2a. Container install-test status (2026-08-04, fresh Varve 0.1.0 build)
 
-`just verify-packages` (podman, rootless) now runs against `.deb`/`.rpm` built on
-this machine:
+`just verify-packages` (podman, rootless) against `.deb`/`.rpm` built on
+this machine on 2026-08-04:
 
 | Check | `.deb` on ubuntu:22.04 | `.rpm` on fedora:38 |
 |---|---|---|
 | Declared deps resolve from distro repos | ✅ install | ✅ install |
-| Binary path | ✅ (as packaged — name pending M3 rename decision) | ✅ (as packaged) |
+| Binary path | ✅ `/usr/bin/varve-desktop` | ✅ `/usr/bin/varve-desktop` |
 | glibc symbol floor | ❌ GLIBC_2.39 vs 2.35 (locally-built smoke artifact — release builds come from the `ubuntu-22.04` CI runner, floor 2.35) | ❌ same |
 | `ldd` resolves all libraries | ✅ | ✅ |
-| Desktop entry | ✅ | ✅ |
+| Desktop entry | ✅ single `Varve.desktop` (double-entry fix holds) | ✅ |
 | Icons (hicolor) | ✅ | ✅ |
-| MIME XML registration | ⏳ pending fresh build (stale 0.0.0 artifact predates the fix; config maps `dev.varve.desktop.xml` in deb+rpm) | ⏳ same |
+| MIME XML registration | ✅ `dev.varve.desktop.xml` | ✅ |
 | Uninstall + clean | ✅ binary removed | ✅ |
 
 The glibc column is the expected result for a CachyOS-built artifact and is
 documented in the release-readiness audit (RB-8); the container test's real
-value is the install/uninstall/linkage columns, which all pass.
+value is the install/uninstall/linkage columns, which all pass. A fresh build
+also confirms the MIME XML ships in both formats (the earlier run was against
+a stale pre-fix artifact).
 
 ---
 
@@ -109,9 +111,9 @@ Untested and needing a VM pass before Tier 2 is claimed:
 **Closed since the original matrix (2026-08-04):**
 
 - MIME/`.desktop`/icon installation and **clean uninstall** for deb and rpm —
-  container-verified on ubuntu:22.04 and fedora:38 (desktop entry, hicolor
-  icons, uninstall all pass). MIME XML registration was checked against a
-  stale pre-fix artifact and is re-verified on the first fresh build.
+  container-verified on ubuntu:22.04 and fedora:38 with a fresh 0.1.0 build:
+  single desktop entry, hicolor icons, MIME XML, uninstall all pass.
+- Binary name resolved: `/usr/bin/varve-desktop` (the M3 rename decision).
 
 ---
 
