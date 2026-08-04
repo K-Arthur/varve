@@ -1,1 +1,55 @@
+# Normalise line endings to LF everywhere.
+#
+# Without this, Git for Windows checks out CRLF (core.autocrlf defaults to true
+# there, including on GitHub's windows-latest runners), while biome.json sets
+# "lineEnding": "lf". The result is that `pnpm lint` fails on *every* text file
+# on Windows — not a few, all of them — which made the Windows CI job
+# unpassable and therefore blocked any Windows release.
+#
+# `text=auto` lets Git detect text vs binary; `eol=lf` forces LF in the working
+# tree on every platform. Files are stored as LF in the repository either way,
+# so this changes nothing for existing Linux and macOS checkouts.
+* text=auto eol=lf
+
+# Files that must keep CRLF to work on Windows.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary — never subject to EOL conversion. `text=auto` detects most of these,
+# but being explicit avoids a mis-detected file being silently corrupted on
+# checkout, which is a miserable thing to diagnose.
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.icns     binary
+*.webp     binary
+*.avif     binary
+*.pdf      binary
+*.woff     binary
+*.woff2    binary
+*.ttf      binary
+*.otf      binary
+*.wasm     binary
+*.so       binary
+*.dylib    binary
+*.dll      binary
+*.exe      binary
+*.zip      binary
+*.gz       binary
+*.tgz      binary
+*.AppImage binary
+*.deb      binary
+*.rpm      binary
+*.dmg      binary
+
+# AI models are Git LFS objects. `-text` keeps Git from ever applying EOL
+# conversion, which would corrupt the pointer files.
 *.onnx filter=lfs diff=lfs merge=lfs -text
+
+# Generated lockfiles: collapsed in diffs and excluded from language stats,
+# without being hidden from review.
+pnpm-lock.yaml linguist-generated=true
+Cargo.lock     linguist-generated=true
