@@ -1,0 +1,19 @@
+{
+  "name": "@varve/crash",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Privacy-first crash reporting and recovery core: versioned consent, redaction, bounded queue, consent-gated upload.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/crash"
+  },
+  "license": "FSL-1.1-MIT"
+}
