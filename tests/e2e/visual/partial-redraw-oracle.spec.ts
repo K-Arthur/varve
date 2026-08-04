@@ -31,7 +31,13 @@ const TEAL = { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 };
 const RED = { space: 'rgb' as const, r: 220, g: 40, b: 40, a: 255 };
 const BLUE = { space: 'rgb' as const, r: 40, g: 60, b: 220, a: 255 };
 
-function rectItem(x: number, y: number, w: number, h: number, overrides: Partial<RenderItem> = {}): RenderItem {
+function rectItem(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  overrides: Partial<RenderItem> = {},
+): RenderItem {
   return {
     transform: [1, 0, 0, 1, x, y],
     fill: TEAL,
@@ -54,8 +60,13 @@ function rectBounds(item: RenderItem): { x: number; y: number; w: number; h: num
   return { x: e + x * a, y: f + y * d, w: w * scale, h: h * scale };
 }
 
-function intersects(a: { x: number; y: number; w: number; h: number }, rects: DirtyRect[]): boolean {
-  return rects.some((b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h);
+function intersects(
+  a: { x: number; y: number; w: number; h: number },
+  rects: DirtyRect[],
+): boolean {
+  return rects.some(
+    (b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h,
+  );
 }
 
 /** Deterministic grid scene: 6x4 rects at 70px spacing, teal on white. */
@@ -83,9 +94,11 @@ async function renderFull(
 ): Promise<void> {
   await page.evaluate(
     ({ items: itemsArg, width, height }) => {
-      (window as unknown as {
-        __renderBoardFixture: (items: unknown[], w: number, h: number) => void;
-      }).__renderBoardFixture(itemsArg, width, height);
+      (
+        window as unknown as {
+          __renderBoardFixture: (items: unknown[], w: number, h: number) => void;
+        }
+      ).__renderBoardFixture(itemsArg, width, height);
     },
     { items, width: WIDTH, height: HEIGHT },
   );
@@ -98,14 +111,16 @@ async function renderPartial(
 ): Promise<void> {
   await page.evaluate(
     ({ items: itemsArg, width, height, dirtyRects: rects }) => {
-      (window as unknown as {
-        __renderPartialFrame: (
-          items: unknown[],
-          w: number,
-          h: number,
-          rects: DirtyRect[],
-        ) => void;
-      }).__renderPartialFrame(itemsArg, width, height, rects);
+      (
+        window as unknown as {
+          __renderPartialFrame: (
+            items: unknown[],
+            w: number,
+            h: number,
+            rects: DirtyRect[],
+          ) => void;
+        }
+      ).__renderPartialFrame(itemsArg, width, height, rects);
     },
     { items, width: WIDTH, height: HEIGHT, dirtyRects },
   );
@@ -130,9 +145,11 @@ async function runOracle(
   );
   await renderPartial(page, subset, dirtyRects);
   return page.evaluate(() =>
-    (window as unknown as {
-      __diffPixels: () => { diffPixels: number; maxDelta: number; total: number };
-    }).__diffPixels(),
+    (
+      window as unknown as {
+        __diffPixels: () => { diffPixels: number; maxDelta: number; total: number };
+      }
+    ).__diffPixels(),
   );
 }
 
@@ -205,9 +222,7 @@ test.describe('partial redraw oracle', () => {
     expect(result.diffPixels, JSON.stringify(result)).toBe(0);
   });
 
-  test('two distant rects must not clear or repaint the gap between them', async ({
-    page,
-  }) => {
+  test('two distant rects must not clear or repaint the gap between them', async ({ page }) => {
     await openHarness(page);
     const scene = gridScene();
     // Two separate edits far apart; the gap contains a grid node that is NOT
@@ -219,9 +234,7 @@ test.describe('partial redraw oracle', () => {
     const subset = scene.filter((item) => intersects(rectBounds(item), dirtyRects));
     expect(subset.length).toBeLessThan(scene.length);
     // A gap node must NOT be in the subset.
-    const gapNode = scene.find(
-      (item) => rectBounds(item).x === 90 && rectBounds(item).y === 20,
-    );
+    const gapNode = scene.find((item) => rectBounds(item).x === 90 && rectBounds(item).y === 20);
     expect(gapNode).toBeDefined();
     expect(subset).not.toContain(gapNode);
 
@@ -229,9 +242,7 @@ test.describe('partial redraw oracle', () => {
     expect(result.diffPixels, JSON.stringify(result)).toBe(0);
   });
 
-  test('missing a candidate produces a detectable diff (oracle sensitivity)', async ({
-    page,
-  }) => {
+  test('missing a candidate produces a detectable diff (oracle sensitivity)', async ({ page }) => {
     await openHarness(page);
     const scene = gridScene();
     const dirtyRects: DirtyRect[] = [{ x: 20, y: 20, w: 40, h: 40 }];

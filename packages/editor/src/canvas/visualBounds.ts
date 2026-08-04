@@ -65,7 +65,10 @@ export function expandRect(rect: Rect, padding: number): Rect {
  * corners are at most 90° (or rounded), so their miter extension is bounded
  * by half the stroke width. Circles, ellipses and lines have no joins.
  */
-function shapeHasMiterJoins(shapeKind: string | undefined, cornerRadius?: number | readonly [number, number, number, number]): boolean {
+function shapeHasMiterJoins(
+  shapeKind: string | undefined,
+  cornerRadius?: number | readonly [number, number, number, number],
+): boolean {
   if (shapeKind === 'rect' || shapeKind === 'frame') {
     if (typeof cornerRadius === 'number') return cornerRadius <= 0;
     if (Array.isArray(cornerRadius)) return cornerRadius.every((r) => r <= 0);
