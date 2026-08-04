@@ -83,9 +83,11 @@ import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling
 import { computeDirtyPruneDecision, rectsIntersectAny } from './canvas/dirtyQuery';
 import {
   DirtyRegionRecorder,
+  type PaintedSurfaceIdentity,
   type RedrawReason,
   resolveFullRedrawReason,
   resolveRedrawReason,
+  surfaceMatchesBackingStore,
 } from './canvas/dirtyRegion';
 import { computeFrameDirtyRegion } from './canvas/dirtyRegionMerge';
 import { expandReplayList } from './canvas/dirtyReplay';
@@ -604,6 +606,12 @@ export function CanvasArea({
     pan: { x: number; y: number };
     rotation: number;
   } | null>(null);
+  // Camera + surface the content backing store was last fully painted under.
+  // Partial redraw retains every pixel outside the dirty rects, so those pixels
+  // are only valid while this matches the current frame exactly — a pan or zoom
+  // moves them all, which is what produced stale/smeared content while
+  // scrolling (auto-pan during a drag changes camera and document together).
+  const paintedSurfaceRef = useRef<PaintedSurfaceIdentity | null>(null);
   const prevImageCacheStampForRedrawRef = useRef(imageCacheStamp);
   const prevFontLoadStampForRedrawRef = useRef(fontLoadStamp);
 
@@ -678,6 +686,9 @@ export function CanvasArea({
       onLost: () => {
         disposeWorkerFrame(renderWorkerRef.current, workerBitmapRef.current?.bitmap);
         workerBitmapRef.current = null;
+        // The backing store is gone: nothing may be retained across the loss,
+        // so the recovery frame must be a full redraw.
+        paintedSurfaceRef.current = null;
         editorRef.current.announce('Canvas rendering context lost. Waiting to restore rendering.');
       },
       onRestored: () => {
@@ -1403,6 +1414,18 @@ export function CanvasArea({
         });
         if (presented) {
           pendingPresentRef.current = false;
+          // The present path repaints the whole surface (board fill + bitmap)
+          // and only runs when the bitmap camera equals the current camera, so
+          // the backing store now shows this camera in full.
+          paintedSurfaceRef.current = {
+            zoom: s.zoom,
+            panX: s.pan.x,
+            panY: s.pan.y,
+            rotation: s.cameraRotation ?? 0,
+            dpr,
+            surfaceW: canvas.width,
+            surfaceH: canvas.height,
+          };
           return;
         }
       }
@@ -1494,6 +1517,19 @@ export function CanvasArea({
         profileCanUseWorker &&
         sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
         !sceneNeedsStructuralCompositing(doc);
+      // One shared surface-validity result per frame: the prune gate and the
+      // paint gate must agree, or a pruned replay lands on a fully cleared
+      // surface and erases every node outside the dirty region.
+      const currentSurface: PaintedSurfaceIdentity = {
+        zoom: s.zoom,
+        panX: s.pan.x,
+        panY: s.pan.y,
+        rotation: s.cameraRotation ?? 0,
+        dpr,
+        surfaceW: canvas.width,
+        surfaceH: canvas.height,
+      };
+      const surfaceMatch = surfaceMatchesBackingStore(paintedSurfaceRef.current, currentSurface);
       const pruneDecision = computeDirtyPruneDecision({
         dirtyKind: dirty.kind,
         merged: mergedDirty,
@@ -1503,6 +1539,7 @@ export function CanvasArea({
         viewportW: VP_W,
         viewportH: VP_H,
         workerWillRender,
+        surfaceMatch,
         worldToScreen: (wx: number, wy: number) =>
           worldToScreen(cam, wx, wy, vp, computeFloatingOrigin(cam, vp)),
       });
@@ -1794,6 +1831,9 @@ export function CanvasArea({
       const usePartialRedraw =
         profile.enablePartialRedraw &&
         (s.cameraRotation ?? 0) === 0 &&
+        // Retained pixels belong to the previous camera/surface; reusing them
+        // after a pan, zoom or resize is exactly the stale-pixel failure.
+        surfaceMatch === 'match' &&
         dirtyRect &&
         dirtyRect.w > 0 &&
         dirtyRect.h > 0 &&
@@ -2607,8 +2647,13 @@ export function CanvasArea({
               dirtyRectArea: dirtyRect ? dirtyRect.w * dirtyRect.h : 0,
               viewportArea,
               hasDirtyRect: dirtyRect !== null,
+              surfaceMatch,
             }) ?? undefined)
           : undefined;
+      // The surface now shows this camera: a full redraw repainted everything,
+      // and a partial redraw repainted the dirty rects over pixels that were
+      // already valid for this same camera (surfaceMatch === 'match').
+      paintedSurfaceRef.current = currentSurface;
       prevCameraForRedrawRef.current = {
         zoom: s.zoom,
         pan: s.pan,

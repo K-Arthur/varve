@@ -28,7 +28,7 @@
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import { isContainer } from '@strata/scene';
 import type { Rect } from '@strata/shared';
-import type { DirtyRegion } from './dirtyRegion';
+import type { DirtyRegion, SurfaceMatch } from './dirtyRegion';
 import type { DirtyMergeResult } from './dirtyRegionMerge';
 
 /**
@@ -37,10 +37,16 @@ import type { DirtyMergeResult } from './dirtyRegionMerge';
  *
  * Pruning is only safe when the paint path will actually use a partial
  * redraw (same gate as `usePartialRedraw`: profile, rotation, positive
- * viewport-clamped union rect under the area threshold), when the merged set
- * did not fall back to a viewport-sized rect, and when the render worker is
- * not going to draw the whole frame anyway (the worker bitmap must contain
- * every pixel, not just the dirty region).
+ * viewport-clamped union rect under the area threshold, and a backing store
+ * whose retained pixels were painted under this exact camera and surface),
+ * when the merged set did not fall back to a viewport-sized rect, and when the
+ * render worker is not going to draw the whole frame anyway (the worker bitmap
+ * must contain every pixel, not just the dirty region).
+ *
+ * The two gates must never disagree: pruning without a partial paint clears
+ * the whole surface and replays only the pruned subset, which erases every
+ * node outside the dirty region. `surfaceMatch` is therefore threaded through
+ * both from one shared computation per frame.
  */
 export function computeDirtyPruneDecision(opts: {
   dirtyKind: DirtyRegion['kind'];
@@ -51,6 +57,8 @@ export function computeDirtyPruneDecision(opts: {
   viewportW: number;
   viewportH: number;
   workerWillRender: boolean;
+  /** Whether retained backing-store pixels are valid; defaults to 'match'. */
+  surfaceMatch?: SurfaceMatch;
   worldToScreen: (wx: number, wy: number) => readonly [number, number];
 }): { screenRects: readonly Rect[] | null; worldRects: readonly Rect[] | null } {
   const {
@@ -62,6 +70,7 @@ export function computeDirtyPruneDecision(opts: {
     viewportW,
     viewportH,
     workerWillRender,
+    surfaceMatch = 'match',
     worldToScreen,
   } = opts;
   const pruneable =
@@ -71,6 +80,7 @@ export function computeDirtyPruneDecision(opts: {
     merged.rects.length > 0 &&
     profileEnablePartialRedraw &&
     rotation === 0 &&
+    surfaceMatch === 'match' &&
     dirtyScreenRect !== null &&
     dirtyScreenRect.w > 0 &&
     dirtyScreenRect.h > 0 &&
