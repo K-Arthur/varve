@@ -1,4 +1,4 @@
-# Pinned dependencies for the Strata INT8 quantization pipeline.
+# Pinned dependencies for the Varve INT8 quantization pipeline.
 # Regenerate artifacts with: python3 quantize_model.py --all
 #
 # Install: pip install -r requirements.txt

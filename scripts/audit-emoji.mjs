@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Strata emoji-ban audit (Strata plan §4.4 / §7 gate).
+ * Varve emoji-ban audit (Strata plan §4.4 / §7 gate).
  *
  * Zero emoji anywhere in source. Two passes:
  *   1. EMOJI_RE — pictographic emoji across ALL source files

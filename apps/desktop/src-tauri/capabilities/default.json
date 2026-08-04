@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability for the Strata desktop app",
+  "description": "Default capability for the Varve desktop app",
   "windows": ["main"],
   "permissions": [
     "core:default",

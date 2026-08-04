@@ -35,8 +35,7 @@ export function PlanBadge({ entitlement }: { entitlement: Entitlement }) {
           size="sm"
           onClick={() =>
             toast.toast({
-              message:
-                'Strata is currently free during beta. Pricing will be announced before 1.0.',
+              message: 'Varve is currently free during beta. Pricing will be announced before 1.0.',
               type: 'info',
             })
           }

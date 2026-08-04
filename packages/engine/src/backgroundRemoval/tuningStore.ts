@@ -7,7 +7,8 @@
 
 import type { CategoryProfile } from './categoryTuning';
 
-const TUNING_STORE_KEY = 'strata-bg-category-tuning';
+const TUNING_STORE_KEY = 'varve-bg-category-tuning';
+const LEGACY_TUNING_STORE_KEY = 'strata-bg-category-tuning';
 const STORE_VERSION = 1;
 
 export interface TuningStoreData {
@@ -21,7 +22,8 @@ function defaultStore(): TuningStoreData {
 
 function readStore(): TuningStoreData {
   try {
-    const raw = localStorage.getItem(TUNING_STORE_KEY);
+    const raw =
+      localStorage.getItem(TUNING_STORE_KEY) ?? localStorage.getItem(LEGACY_TUNING_STORE_KEY);
     if (!raw) return defaultStore();
     const parsed = JSON.parse(raw) as TuningStoreData;
     if (!Array.isArray(parsed.profiles)) return defaultStore();

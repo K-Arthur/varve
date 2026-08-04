@@ -1,4 +1,4 @@
-"""Convert canonical Real-ESRGAN PyTorch weights to Strata's ONNX contract.
+"""Convert canonical Real-ESRGAN PyTorch weights to Varve's ONNX contract.
 
 The model definitions and release URLs mirror the upstream v0.3.0 inference
 script. Output is a dynamic-height/width NCHW float32 model with a fixed 4x

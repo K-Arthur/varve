@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Strata workspace-mode API audit.
+ * Varve workspace-mode API audit.
  *
  * Ensures that:
  *   1. `setWorkspaceMode` (the old public API) is never called directly.
