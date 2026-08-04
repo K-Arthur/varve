@@ -47,12 +47,12 @@ may be self-assessed rather than charged at point of sale; the buffer covers eit
 | Integrity | SHA-256 manifest + SBOM, published alongside | $0 |
 | Updates | Manual — "check the releases page" | $0 |
 | Analytics | None (GitHub download counts only) | $0 |
-| CI | GitHub Actions | $0 **if the repo is public** |
+| CI | GitHub Actions | $0 — repo is public |
 
-**This scenario is only free if the repository is public.** While private, the three-OS bundle
-matrix in `build.yml` can consume the entire monthly Actions allowance in a handful of pushes
-(see audit H-5). Fixing the workflow structure is mandatory either way; going public makes CI
-genuinely unmetered.
+This scenario is genuinely free: the repository went public on 2026-08-04, so
+GitHub-hosted runners are unmetered and GitHub Pages is available. The workflow
+restructuring in `build.yml` was done anyway — a three-OS Tauri build on every PR
+is slow feedback regardless of who pays for it.
 
 Scenario A is honest as long as unsigned artifacts are labelled unsigned, with an accurate
 description of the OS warnings and the supported way through them. It must never imply a trust
@@ -100,19 +100,27 @@ untested build look trustworthy.
 
 ---
 
-## 4. The largest cost lever is free: repository visibility
+## 4. The largest cost lever — DONE (2026-08-04)
 
-The repository is currently **private**. GitHub Actions is **free and unmetered for public
+The repository is now **public**. This was the single highest-value zero-cost
+action available and it has been taken. Everything below is retained as the
+reasoning, now settled.
+
+**What it unlocked:** CI is free and unmetered, GitHub Pages is available on the
+free tier, the `NOTICE` claim about published source became true, and Discussions
+are available for support. The Actions-overage risk in §6 is closed.
+
+The repository was previously **private**. GitHub Actions is **free and unmetered for public
 repositories**; on private repos it draws down 2,000–3,000 included minutes/month with macOS at
 **10×** and Windows at **2×**.
 
 A single cold three-OS Tauri release build is realistically **400–600 billed minutes**. On a
 Free account that is one to one-and-a-half pushes per month.
 
-Making the repository public would:
+Making the repository public did:
 - remove all CI metering,
-- align with the `NOTICE` file, which already states *"The source code for this product is
-  publicly available at https://github.com/K-Arthur/Strata"* — currently **inaccurate**,
+- align with the `NOTICE` file, which states *"The source code for this product is
+  publicly available"* — previously inaccurate, now true,
 - align with FSL-1.1-MIT, a source-available licence whose entire premise is published source,
 - enable free GitHub Pages for a project site,
 - enable free GitHub Discussions for support (referenced by `SUPPORT.md`).
@@ -120,9 +128,10 @@ Making the repository public would:
 FSL-1.1-MIT still forbids competing use and converts to MIT after two years, so publishing the
 source does not surrender commercial options.
 
-**This is a repository-visibility change and therefore the owner's decision — this audit does
-not make it.** It is flagged because it is the single highest-value zero-cost action available,
-and because two shipped files currently make a claim that only becomes true once it happens.
+**Done 2026-08-04.** Preceded by a full secret audit: every blob across 1,410
+commits was scanned for provider tokens, private keys, certificates, JWTs and
+credentialed connection strings — all zero. The one finding, a personal email in
+an AUR PKGBUILD maintainer field, was scrubbed from history before publication.
 
 ---
 
@@ -150,7 +159,7 @@ hardware produces claims that cannot be verified.
 
 | Risk | Trigger | Est. cost | Mitigation |
 |---|---|---|---|
-| Actions overage | Private repo + bundle-on-every-push | Up to ~USD $37/mo on Free | Fix workflow structure (done); consider going public |
+| Actions overage | ~~Private repo + bundle-on-every-push~~ | **$0 — closed** | Repository is public; runners are free and unmetered |
 | LFS bandwidth | Naive `lfs: true` in CI — 1.26 GB × 3 runners/run | 10 GB free exhausted in ~3 runs | Fetch only `font-classify.onnx`; move `ddcolor` out of `public/` |
 | LFS storage | 1.26 GB of the 10 GB free tier | $0 today | Do not add more large models to LFS |
 | Release bandwidth | GitHub Releases assets are **not** metered | $0 | None needed — a genuine advantage over self-hosting |
