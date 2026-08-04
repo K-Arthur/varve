@@ -2037,6 +2037,13 @@ dialog.varve-dialog--settings[open] {
   flex-direction: column;
   gap: var(--space-2);
 }
+.settings-about__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) 0 var(--space-2);
+  color: var(--color-interactive-default);
+}
 .settings-about__row {
   display: flex;
   gap: var(--space-3);
