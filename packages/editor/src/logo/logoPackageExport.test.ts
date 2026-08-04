@@ -50,7 +50,7 @@ describe('collectPalette', () => {
       },
     };
     const palette = collectPalette(doc);
-    expect(palette['Ink']).toBe('#000000');
+    expect(palette.Ink).toBe('#000000');
   });
 });
 

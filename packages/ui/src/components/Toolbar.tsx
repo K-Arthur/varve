@@ -81,7 +81,7 @@ export function Toolbar({ label, children, wrap = true }: ToolbarProps) {
       }
     }
     const container = toolbarRef.current;
-    if (!container || !container.contains(document.activeElement)) return;
+    if (!container?.contains(document.activeElement)) return;
     const target = buttons[focusIdx];
     if (target && !target.hasAttribute('disabled')) {
       target.focus({ preventScroll: true });

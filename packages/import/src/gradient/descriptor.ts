@@ -307,14 +307,14 @@ function parseDescriptor(reader: ByteReader, depth: number): DescriptorValue {
 
 /** Numeric helpers over the descriptor tree. */
 export function asObjc(v: DescriptorValue | undefined, context: string): DescriptorObjc {
-  if (!v || v.type !== 'Objc') {
+  if (v?.type !== 'Objc') {
     throw new GrdError('unsupported-descriptor', `Expected Objc at ${context}`);
   }
   return v;
 }
 
 export function asList(v: DescriptorValue | undefined, context: string): DescriptorVlLs {
-  if (!v || v.type !== 'VlLs') {
+  if (v?.type !== 'VlLs') {
     throw new GrdError('unsupported-descriptor', `Expected VlLs at ${context}`);
   }
   return v;

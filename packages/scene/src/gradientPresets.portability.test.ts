@@ -106,13 +106,13 @@ describe('deleted-global-preset recovery', () => {
       preserveLuminosity: false,
       embeddedGradient: embedded,
     };
-    (doc.nodes as Record<string, unknown>)['n1'] = {
+    (doc.nodes as Record<string, unknown>).n1 = {
       kind: 'adjustment',
       adjustments: [adjustment],
     };
 
     const roundTrip = JSON.parse(JSON.stringify(doc)) as typeof doc;
-    const node = roundTrip.nodes['n1'] as {
+    const node = roundTrip.nodes.n1 as {
       adjustments?: Array<{ embeddedGradient?: typeof embedded }>;
     };
     expect(node.adjustments?.[0]?.embeddedGradient?.id).toBe('gpreset-snapshot');
