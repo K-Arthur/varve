@@ -97,6 +97,15 @@ assert_false bash -c "
   command_exists definitely-not-a-real-binary-xyz
 "
 
+# --check mode: reports parity without installing anything. It must either
+# find act (installed locally) or say it is not installed — never crash.
+OUT4=$(bash "$INSTALL_CI" --check 2>&1 || true)
+if echo "$OUT4" | grep -qE "Local act parity|act is not installed"; then
+  ok "--check reports act parity"
+else
+  bad "--check should report act parity (got: $OUT4)"
+fi
+
 # ── generated act-secrets stub contract ─────────────────────────────────────
 echo "== .act-secrets stub contract =="
 STUB_DIR="$(mktemp -d)"

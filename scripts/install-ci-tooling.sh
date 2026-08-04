@@ -159,9 +159,52 @@ install_act() {
   install_aur act
 }
 
+# Container engine check. act needs a running engine (docker or podman) for
+# full job execution; --list and dry-run work without one.
+check_act_parity() {
+  local ok=0
+  echo "=== Local act parity ==="
+  if ! command_exists act; then
+    echo "❌ act is not installed. Run: sudo bash scripts/install-ci-tooling.sh"
+    return 1
+  fi
+  echo "✅ act $(act --version 2>/dev/null | head -1 || echo 'installed')"
+
+  if command_exists docker && docker info >/dev/null 2>&1; then
+    echo "✅ docker daemon running — full local job execution available"
+    ok=1
+  elif command_exists podman && podman info >/dev/null 2>&1; then
+    echo "✅ podman running — full local job execution available"
+    ok=1
+  elif command_exists docker; then
+    echo "⚠️  docker installed but not running"
+    echo "    Start it with: sudo systemctl start docker"
+  elif command_exists podman; then
+    echo "⚠️  podman installed but not running"
+    echo "    Start it with: systemctl --user start podman"
+  else
+    echo "⚠️  no container engine found (docker or podman)"
+    echo "    Install one: sudo pacman -S docker && sudo systemctl start docker"
+  fi
+
+  if [ "$ok" = 1 ]; then
+    echo "✅ act list / dry-run / run all available"
+  else
+    echo "ℹ️  act list + dry-run work without an engine:"
+    echo "      just act-list"
+    echo "      just act-dry .github/workflows/ci.yml"
+    echo "   act run needs the engine: just act-run js"
+  fi
+}
+
 # Main installation
 echo "🔍 Checking for installed tools..."
 echo ""
+
+if [ "${1:-}" = "--check" ]; then
+  check_act_parity
+  exit 0
+fi
 
 # Install Docker first (required by act)
 echo "=== Docker ==="
