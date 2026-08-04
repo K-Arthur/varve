@@ -291,7 +291,7 @@ function MenuInternal({
       // surface took it afterwards (activeElement is body when the focused
       // element was removed with the menu).
       if (!focusWasInside || (active !== document.body && !menuEl?.contains(active))) return;
-      if (!target || !target.isConnected) return;
+      if (!target?.isConnected) return;
 
       // Tab closed the menu: walk the global tab order from the anchor.
       if (tabDirectionRef.current !== null) {

@@ -201,8 +201,8 @@ export function KeyboardShortcutsHelp() {
     <div className="audit-keyboard-shortcuts">
       <h4>Keyboard Shortcuts</h4>
       <ul>
-        {DEFAULT_SHORTCUTS.map((shortcut, index) => (
-          <li key={index}>
+        {DEFAULT_SHORTCUTS.map((shortcut) => (
+          <li key={shortcut.keys}>
             <kbd>{shortcut.keys}</kbd>
             <span>{shortcut.description}</span>
           </li>

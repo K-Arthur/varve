@@ -549,7 +549,7 @@ function IsometricGridSection() {
           <>
             {grid.axes.map((axis, index) => (
               <div
-                key={index}
+                key={`axis-${axis.angle}`}
                 className="insp-field"
                 style={{
                   borderBottom: '1px solid var(--color-border-subtle)',

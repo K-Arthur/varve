@@ -40,12 +40,12 @@ export function SnapGuidesOverlay({
   return (
     <svg className="snap-guides-overlay" aria-hidden>
       <title>Snap guides overlay</title>
-      {guides.map((g, i) => {
+      {guides.map((g) => {
         const line = lineFor(g.axis, g.position);
         const color = guideColor(g.type);
         return (
           <line
-            key={i}
+            key={`${g.axis}:${g.position}`}
             x1={line.x1}
             y1={line.y1}
             x2={line.x2}
@@ -58,26 +58,38 @@ export function SnapGuidesOverlay({
       })}
       {guides
         .filter((g) => g.label)
-        .map((g, i) => {
+        .map((g) => {
           const line = lineFor(g.axis, g.position);
           const color = guideColor(g.type);
           const midX = (line.x1 + line.x2) / 2;
           const midY = (line.y1 + line.y2) / 2;
           return (
-            <text key={`l${i}`} x={midX + 4} y={midY - 4} fontSize={10} fill={color}>
+            <text
+              key={`l:${g.axis}:${g.position}`}
+              x={midX + 4}
+              y={midY - 4}
+              fontSize={10}
+              fill={color}
+            >
               {g.label}
             </text>
           );
         })}
       {guides
         .filter((g) => g.distance !== undefined)
-        .map((g, i) => {
+        .map((g) => {
           const line = lineFor(g.axis, g.position);
           const color = guideColor(g.type);
           const midX = (line.x1 + line.x2) / 2;
           const midY = (line.y1 + line.y2) / 2;
           return (
-            <text key={`d${i}`} x={midX + 4} y={midY + 12} fontSize={9} fill={color}>
+            <text
+              key={`d:${g.axis}:${g.position}`}
+              x={midX + 4}
+              y={midY + 12}
+              fontSize={9}
+              fill={color}
+            >
               {g.distance}px
             </text>
           );

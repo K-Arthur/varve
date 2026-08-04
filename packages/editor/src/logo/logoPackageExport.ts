@@ -153,8 +153,7 @@ export function managedColorToHex(color: import('@strata/scene').ManagedColor): 
   if (color.space === 'rgb') {
     const to255 = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 255);
     const a = to255(color.a);
-    const hex =
-      '#' + [color.r, color.g, color.b].map((v) => to255(v).toString(16).padStart(2, '0')).join('');
+    const hex = `#${[color.r, color.g, color.b].map((v) => to255(v).toString(16).padStart(2, '0')).join('')}`;
     return a < 255 ? `${hex}${a.toString(16).padStart(2, '0')}` : hex;
   }
   if (color.space === 'cmyk') {
@@ -165,10 +164,10 @@ export function managedColorToHex(color: import('@strata/scene').ManagedColor): 
     const r = Math.round(255 * (1 - c) * (1 - k));
     const g = Math.round(255 * (1 - m) * (1 - k));
     const b = Math.round(255 * (1 - y) * (1 - k));
-    return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+    return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
   }
   const gray = Math.round(255 * Math.min(1, Math.max(0, color.space === 'gray' ? color.v : 0.5)));
-  return '#' + [gray, gray, gray].map((v) => v.toString(16).padStart(2, '0')).join('');
+  return `#${[gray, gray, gray].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 export function buildReadme(
