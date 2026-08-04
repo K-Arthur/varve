@@ -43,7 +43,7 @@ export async function navigateToEditor(page: Page, path = '/') {
     await page.waitForTimeout(50);
   }
 
-  // Dismiss "Welcome to Strata" modal on first launch
+  // Dismiss "Welcome to Varve" modal on first launch
   const blankCanvas = page.getByRole('dialog').getByRole('button', { name: /^blank canvas$/i });
   if (await blankCanvas.isVisible({ timeout: 1000 }).catch(() => false)) {
     await blankCanvas.click({ timeout: 5000 });

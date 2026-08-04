@@ -14,7 +14,7 @@
 # PREVIEW — banner shown in the app when built from this manifest:
 # "This is a Flatpak preview build. Not production-certified."
 
-app-id: dev.strata.desktop
+app-id: dev.varve.desktop
 runtime: org.gnome.Platform
 runtime-version: '47'
 sdk: org.gnome.Sdk
@@ -22,7 +22,7 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
   - org.freedesktop.Sdk.Extension.node20
 
-command: strata
+command: varve-desktop
 
 finish-args:
   # Wayland + X11 display
@@ -40,14 +40,14 @@ finish-args:
 build-options:
   env:
     RUST_BACKTRACE: '1'
-    CARGO_HOME: /run/build/strata/cargo
-    PNPM_HOME: /run/build/strata/pnpm
+    CARGO_HOME: /run/build/varve/cargo
+    PNPM_HOME: /run/build/varve/pnpm
 
 modules:
   # TODO: Add cargo-sources.json (generate with flatpak-cargo-generator).
   # TODO: Add pnpm-sources.json (generate with flatpak-node-generator).
 
-  - name: strata
+  - name: varve
     buildsystem: simple
     build-options:
       append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
@@ -60,7 +60,7 @@ modules:
         exit 1
     sources:
       - type: git
-        url: https://github.com/K-Arthur/Strata.git
+        url: https://github.com/K-Arthur/varve.git
         tag: v0.0.0
         # TODO: Replace with actual commit sha when publishing
         commit: PLACEHOLDER_REPLACE_WITH_GIT_SHA

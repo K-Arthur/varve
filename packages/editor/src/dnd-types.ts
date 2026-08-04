@@ -1,5 +1,7 @@
-export const STRATA_NODE_MIME = 'application/x-strata-node';
-export const STRATA_FILE_MIME = 'application/x-strata-file';
+export const VARVE_NODE_MIME = 'application/x-varve-node';
+export const VARVE_FILE_MIME = 'application/x-varve-file';
+export const LEGACY_NODE_MIME = 'application/x-strata-node';
+export const LEGACY_FILE_MIME = 'application/x-strata-file';
 
 export interface DragNodeData {
   type: 'layer';

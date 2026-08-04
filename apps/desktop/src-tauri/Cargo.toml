@@ -1,5 +1,5 @@
 [package]
-name = "strata-desktop"
+name = "varve-desktop"
 version = "0.1.0"
 description = "Strata desktop app (Tauri 2) — native engine backend."
 edition = "2021"
@@ -10,7 +10,7 @@ license = "FSL-1.1-MIT"
 [workspace]
 
 [lib]
-name = "strata_desktop_lib"
+name = "varve_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

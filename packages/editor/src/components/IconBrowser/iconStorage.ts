@@ -1,6 +1,7 @@
 /**
  * Icon storage — IndexedDB persistence for downloaded/cached icon SVGs.
  */
+import { migrateLegacyIndexedDb } from '@varve/platform';
 
 export interface IconStorageRecord {
   id: string;
@@ -16,9 +17,18 @@ export interface IconStorageRecord {
   byteSize: number;
 }
 
-const DB_NAME = 'strata-icon-storage';
+const DB_NAME = 'varve-icon-storage';
+const LEGACY_DB_NAME = 'strata-icon-storage';
 const DB_VERSION = 1;
 const STORE_NAME = 'icons';
+
+let migrated = false;
+
+async function ensureMigrated(): Promise<void> {
+  if (migrated) return;
+  migrated = true;
+  await migrateLegacyIndexedDb(LEGACY_DB_NAME, DB_NAME, [STORE_NAME]);
+}
 
 function openDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === 'undefined') return Promise.resolve(null);
@@ -34,7 +44,10 @@ function openDb(): Promise<IDBDatabase | null> {
           store.createIndex('storedAt', 'storedAt', { unique: false });
         }
       };
-      req.onsuccess = () => resolve(req.result);
+      req.onsuccess = () => {
+        const db = req.result;
+        void ensureMigrated().then(() => resolve(db));
+      };
       req.onerror = () => reject(req.error);
     } catch {
       resolve(null);

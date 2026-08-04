@@ -154,7 +154,7 @@ const allChecks = [linuxLibraries, webView2, display, wdio, platformSupport];
 if (wantsJson) {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 } else {
-  console.log(`Strata desktop preflight: ${platform}/${process.arch}`);
+  console.log(`Varve desktop preflight: ${platform}/${process.arch}`);
   if (!platformSupport.ok) {
     for (const issue of platformSupport.issues) console.log(`ERROR: ${issue}`);
   }

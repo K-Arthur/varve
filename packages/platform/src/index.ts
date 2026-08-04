@@ -64,6 +64,7 @@ export {
   DB_NAME,
   DB_VERSION,
   KV_VIEW_STATE,
+  migrateLegacyIndexedDb,
   openHomeDb,
   STORE_ACTIVITY,
   STORE_ASSET_FOLDERS,

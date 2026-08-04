@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'strata-template-usage';
+const STORAGE_KEY = 'varve-template-usage';
 
 interface UsageEntry {
   count: number;
@@ -7,7 +7,7 @@ interface UsageEntry {
 
 function readStore(): Record<string, UsageEntry> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('strata-template-usage');
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};

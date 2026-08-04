@@ -15,6 +15,7 @@ export interface RecentEntry {
 
 export const SCHEMA_KEY = 'recentFiles.v1';
 export const MAX_ENTRIES = 15;
-export const IDB_NAME = 'strata-recent-handles';
+export const IDB_NAME = 'varve-recent-handles';
+export const LEGACY_IDB_NAME = 'strata-recent-handles';
 export const IDB_STORE = 'handles';
 export const STORAGE_EVENT_KEY = 'recentFiles.v1';

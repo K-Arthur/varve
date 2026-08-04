@@ -1558,7 +1558,8 @@ export function Menubar({
   const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
   useEffect(() => {
-    const saved = localStorage.getItem('strata-theme') as Theme | null;
+    const saved = (localStorage.getItem('varve-theme') ??
+      localStorage.getItem('strata-theme')) as Theme | null;
     if (saved && saved !== getTheme()) {
       setTheme(saved);
       setCurrentTheme(saved);
@@ -1844,7 +1845,7 @@ export function Menubar({
             const theme = action.slice(6) as Theme;
             setTheme(theme);
             setCurrentTheme(theme);
-            localStorage.setItem('strata-theme', theme);
+            localStorage.setItem('varve-theme', theme);
             bumpThemeRevision();
             return;
           }

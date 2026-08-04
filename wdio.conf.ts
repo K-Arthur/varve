@@ -2,9 +2,9 @@ import { mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import type { Options } from '@wdio/globals/types';
 
-const binaryName = process.platform === 'win32' ? 'strata-desktop.exe' : 'strata-desktop';
-const appBinaryPath = process.env.STRATA_DESKTOP_BINARY
-  ? resolve(process.env.STRATA_DESKTOP_BINARY)
+const binaryName = process.platform === 'win32' ? 'varve-desktop.exe' : 'varve-desktop';
+const appBinaryPath = process.env.VARVE_DESKTOP_BINARY
+  ? resolve(process.env.VARVE_DESKTOP_BINARY)
   : resolve('apps/desktop/src-tauri/target/debug', binaryName);
 const artifactDirectory = resolve('artifacts/desktop');
 

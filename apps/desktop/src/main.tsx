@@ -44,7 +44,7 @@ async function bootstrap() {
   // Restore persisted theme before first paint so both home and editor surfaces
   // start with the correct [data-theme] attribute rather than falling through to
   // the OS prefers-color-scheme default.
-  const savedTheme = localStorage.getItem('strata-theme');
+  const savedTheme = localStorage.getItem('varve-theme') ?? localStorage.getItem('strata-theme');
   if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'high-contrast') {
     document.documentElement.dataset.theme = savedTheme;
   }
