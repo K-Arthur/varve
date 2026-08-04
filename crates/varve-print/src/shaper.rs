@@ -321,142 +321,211 @@ fn parse_feature_tag(tag: &str, enable: bool) -> Result<rustybuzz::Feature, Stri
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_basic_latin_shaping() {
-        // Use Geist font data from the test fixture path
-        let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("varve-print")
-            .join("tests")
-            .join("fonts")
-            .join("Geist-Variable.ttf");
+    /// Every font-dependent test shapes with the committed OpenSans fixture.
+    ///
+    /// These tests used to look for `varve-print/tests/fonts/Geist-Variable.ttf`,
+    /// a path that does not exist in the repository, and fall back to a
+    /// `create_minimal_font()` helper that returned `Vec::new()`. Every caller
+    /// then hit an `if font_data.is_empty() { return; }` guard, so all six
+    /// shaping tests passed without shaping anything — which is why 65% of this
+    /// module was never executed. The rest of the crate already resolves fonts
+    /// through `test_fonts`, so use it here too.
+    fn fixture_font() -> Vec<u8> {
+        crate::test_fonts::test_font_bytes().to_vec()
+    }
 
-        let font_data = if font_path.exists() {
-            std::fs::read(&font_path).unwrap_or_default()
-        } else {
-            // Create a minimal valid font for testing
-            create_minimal_font()
-        };
-
-        if font_data.is_empty() {
-            eprintln!("No test font available, skipping shaping tests");
-            return;
-        }
-
-        let request = ShapeRequest {
-            text: "Hello".into(),
-            font_data,
+    fn latin_request(text: &str) -> ShapeRequest {
+        ShapeRequest {
+            text: text.into(),
+            font_data: fixture_font(),
             face_index: 0,
             font_size: 16.0,
             language: Some("en".into()),
             script: Some("Latn".into()),
             direction: Some("ltr".into()),
-            features: vec!["liga".into(), "kern".into()],
+            features: vec![],
             disable_features: vec![],
             variation_axes: std::collections::HashMap::new(),
-        };
+        }
+    }
+
+    #[test]
+    fn test_basic_latin_shaping() {
+        let mut request = latin_request("Hello");
+        request.features = vec!["liga".into(), "kern".into()];
 
         let result = shape_text(&request).expect("Shaping should succeed");
-        assert!(!result.glyphs.is_empty(), "Should produce glyphs");
+
         assert_eq!(result.direction, "ltr");
+        assert_eq!(
+            result.glyphs.len(),
+            5,
+            "one glyph per Latin character with no ligature substitution"
+        );
+        assert!(
+            result.glyphs.iter().all(|g| g.glyph_id != 0),
+            "no character should fall back to .notdef in a font that covers Latin"
+        );
+        assert!(
+            result.glyphs.iter().any(|g| g.x_advance > 0),
+            "shaped glyphs must carry real advances"
+        );
+    }
+
+    #[test]
+    fn shaping_reports_clusters_that_map_back_to_the_source_text() {
+        // Clusters are how a caller maps a glyph back to the character the user
+        // typed — caret placement and selection depend on it.
+        let result = shape_text(&latin_request("abc")).expect("Shaping should succeed");
+
+        let clusters: Vec<u32> = result.glyphs.iter().map(|g| g.cluster).collect();
+        assert_eq!(clusters, vec![0, 1, 2], "one cluster per byte for ASCII");
+    }
+
+    #[test]
+    fn right_to_left_direction_is_honoured() {
+        let mut request = latin_request("abc");
+        request.direction = Some("rtl".into());
+
+        let result = shape_text(&request).expect("Shaping should succeed");
+
+        assert_eq!(result.direction, "rtl");
+        assert!(
+            !result.glyphs.is_empty(),
+            "RTL shaping should produce glyphs"
+        );
+    }
+
+    #[test]
+    fn vertical_directions_are_accepted() {
+        for dir in ["ttb", "btt"] {
+            let mut request = latin_request("ab");
+            request.direction = Some(dir.into());
+
+            let result =
+                shape_text(&request).unwrap_or_else(|e| panic!("shaping {dir} failed: {e}"));
+            assert!(
+                !result.glyphs.is_empty(),
+                "{dir} shaping should produce glyphs"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_and_malformed_script_tags_fall_back_instead_of_failing() {
+        // A script tag shorter than four bytes cannot form an OpenType tag, and
+        // an unrecognised one has no ISO 15924 mapping. Both must degrade to
+        // DFLT rather than error — script codes arrive from document data.
+        for script in ["Ln", "", "Zzzz"] {
+            let mut request = latin_request("hi");
+            request.script = Some(script.into());
+
+            let result = shape_text(&request)
+                .unwrap_or_else(|e| panic!("script {script:?} should not fail: {e}"));
+            assert!(
+                !result.glyphs.is_empty(),
+                "script {script:?} produced nothing"
+            );
+        }
+    }
+
+    #[test]
+    fn absent_optional_fields_shape_with_defaults() {
+        let mut request = latin_request("hi");
+        request.language = None;
+        request.script = None;
+        request.direction = None;
+
+        let result = shape_text(&request).expect("defaults should shape");
+
+        assert_eq!(
+            result.direction, "ltr",
+            "default direction is left-to-right"
+        );
+        assert!(!result.glyphs.is_empty());
+    }
+
+    #[test]
+    fn disabling_a_feature_is_accepted_and_shapes() {
+        let mut request = latin_request("fi");
+        request.disable_features = vec!["liga".into(), "kern".into()];
+
+        let result = shape_text(&request).expect("Shaping should succeed");
+
+        assert_eq!(
+            result.glyphs.len(),
+            2,
+            "with liga disabled, 'fi' must stay two glyphs"
+        );
+    }
+
+    #[test]
+    fn unparseable_feature_tags_are_skipped_rather_than_fatal() {
+        let mut request = latin_request("hi");
+        request.features = vec!["".into(), "toolong".into(), "liga".into()];
+
+        let result = shape_text(&request).expect("bad feature tags must not fail shaping");
+        assert!(!result.glyphs.is_empty());
+    }
+
+    #[test]
+    fn variation_axes_are_applied_without_error() {
+        // OpenSans-Regular is not variable, so the axis is ignored — the point
+        // is that the variation path runs and does not reject the request.
+        let mut request = latin_request("hi");
+        request.variation_axes.insert("wght".into(), 700.0);
+        request.variation_axes.insert("toolongaxis".into(), 1.0);
+
+        let result = shape_text(&request).expect("variation settings should not fail shaping");
+        assert!(!result.glyphs.is_empty());
+    }
+
+    #[test]
+    fn out_of_range_face_index_is_an_error_not_a_panic() {
+        let mut request = latin_request("hi");
+        request.face_index = 99;
+
+        assert!(
+            shape_text(&request).is_err(),
+            "a face index past the end of the file must return Err"
+        );
     }
 
     #[test]
     fn test_ligature_shaping() {
-        // "fi" should be shaped as a ligature in fonts that support it
-        let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("varve-print")
-            .join("tests")
-            .join("fonts")
-            .join("Geist-Variable.ttf");
-
-        let font_data = if font_path.exists() {
-            std::fs::read(&font_path).unwrap_or_default()
-        } else {
-            create_minimal_font()
-        };
-
-        if font_data.is_empty() {
-            eprintln!("No test font available, skipping ligature test");
-            return;
-        }
-
-        let request = ShapeRequest {
-            text: "fi".into(),
-            font_data,
-            face_index: 0,
-            font_size: 16.0,
-            language: Some("en".into()),
-            script: Some("Latn".into()),
-            direction: Some("ltr".into()),
-            features: vec!["liga".into()],
-            disable_features: vec![],
-            variation_axes: std::collections::HashMap::new(),
-        };
+        let mut request = latin_request("fi");
+        request.features = vec!["liga".into()];
 
         let result = shape_text(&request).expect("Shaping should succeed");
-        // Some fonts may or may not have a ligature for "fi"
-        // The key test is that shaping doesn't crash and produces glyphs
+
         assert!(!result.glyphs.is_empty(), "Should produce glyphs");
-        // 'f' + 'i' = 2 chars, ligature should produce 1 glyph
-        // But this depends on the font, so just check we have at least one
-        assert!(result.glyphs.len() <= 2, "Ligature may merge glyphs");
+        assert!(
+            result.glyphs.len() <= 2,
+            "'fi' is at most two glyphs, fewer if the font ligates"
+        );
     }
 
     #[test]
     fn test_color_font_detection() {
-        let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("varve-print")
-            .join("tests")
-            .join("fonts")
-            .join("Geist-Variable.ttf");
+        assert!(
+            !font_has_color_glyphs(&fixture_font(), 0),
+            "OpenSans is monochrome and must not report colour glyphs"
+        );
+    }
 
-        let font_data = if font_path.exists() {
-            std::fs::read(&font_path).unwrap_or_default()
-        } else {
-            create_minimal_font()
-        };
-
-        if font_data.is_empty() {
-            eprintln!("No test font available, skipping colour detection test");
-            return;
-        }
-
-        let has_color = font_has_color_glyphs(&font_data, 0);
-        // Geist is a monochrome font, so this should be false
-        assert!(!has_color, "Standard fonts should not have colour glyphs");
+    #[test]
+    fn color_glyph_detection_rejects_unparseable_data() {
+        assert!(
+            !font_has_color_glyphs(b"not a font at all", 0),
+            "garbage input must report no colour glyphs rather than panic"
+        );
     }
 
     #[test]
     fn test_empty_text() {
-        let font_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap()
-            .join("varve-print")
-            .join("tests")
-            .join("fonts")
-            .join("Geist-Variable.ttf");
-
-        let font_data = if font_path.exists() {
-            std::fs::read(&font_path).unwrap_or_default()
-        } else {
-            eprintln!("No test font available, skipping empty_text test");
-            return;
-        };
-
-        if font_data.is_empty() {
-            eprintln!("No test font available, skipping empty_text test");
-            return;
-        }
-
         let request = ShapeRequest {
             text: String::new(),
-            font_data,
+            font_data: fixture_font(),
             face_index: 0,
             font_size: 16.0,
             language: None,
@@ -481,29 +550,6 @@ mod tests {
 
         let disabled = parse_feature_tag("kern=0", true).expect("kern=0 should parse");
         assert_eq!(disabled.value, 0, "Disabled feature should have value 0");
-    }
-
-    /// Create a minimal valid TTF font for testing purposes.
-    fn create_minimal_font() -> Vec<u8> {
-        // Minimal TrueType font with required tables
-        let mut data = Vec::new();
-
-        // sfVersion (0x00010000 for TrueType)
-        data.extend_from_slice(&0x0001_0000u32.to_be_bytes());
-
-        // numTables = 5 (cmap, head, hhea, hmtx, maxp)
-        data.extend_from_slice(&5u16.to_be_bytes());
-        // searchRange, entrySelector, rangeShift
-        data.extend_from_slice(&16u16.to_be_bytes());
-        data.extend_from_slice(&3u16.to_be_bytes());
-        data.extend_from_slice(&0u16.to_be_bytes());
-
-        // We'll create minimal valid tables
-        // For now, just create a font with the required minimum
-        // This is complex, so we use a pre-built minimal font
-
-        // Return empty - the tests will be skipped if no font file is available
-        Vec::new()
     }
 
     #[test]
