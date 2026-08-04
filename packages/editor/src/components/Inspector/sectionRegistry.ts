@@ -645,6 +645,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => ctx.selectionKind === 'empty',
   },
   {
+    id: 'document-proof',
+    title: 'Soft Proof',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 615,
+    category: 'canvas',
+    isAvailable: (ctx) => ctx.selectionKind === 'empty',
+  },
+  {
     id: 'document-grid',
     title: 'Document Grid',
     defaultExpanded: false,
