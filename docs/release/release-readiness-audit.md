@@ -206,6 +206,36 @@ renders. `StartupLoader` takes over once React mounts.
 The mount failure itself is tracked separately — the splash was hiding it, not
 causing it.
 
+### RB-8 — The documented Linux baseline was unachievable `HIGH` — FIXED
+
+Measured with `just verify-packages`, which installs the built `.deb` into a
+clean `ubuntu:22.04` container:
+
+```
+glibc available on Ubuntu 22.04 : 2.35
+glibc required by the binary    : GLIBC_2.39
+/usr/bin/strata-desktop: /lib/x86_64-linux-gnu/libc.so.6:
+    version `GLIBC_2.39' not found (required by /usr/bin/strata-desktop)
+```
+
+Two things came out of this that the earlier, assumption-based version of this
+audit got wrong:
+
+1. **The floor is 2.39, not 2.44.** A binary inherits the highest glibc symbol
+   version it actually references, not the build host's full version. The
+   original text implied the latter.
+2. **`ubuntu-latest` would not have fixed it.** That runner is Ubuntu 24.04,
+   which is glibc 2.39 — the identical floor. Every Linux artifact `release.yml`
+   produced would have excluded Ubuntu 22.04 LTS, Debian 12 and Fedora 38 while
+   the platform matrix advertised 22.04 support.
+
+**Fixed** by pinning the Linux bundle job to the `ubuntu-22.04` runner, which
+sets the floor at glibc 2.35.
+
+The `.deb` itself installs cleanly on 22.04 with every declared dependency
+resolving from Ubuntu's own repositories, and uninstalls cleanly — so the
+`depends` list in `tauri.conf.json` is correct. Only the glibc floor was wrong.
+
 ### RB-4 — No checksums, no release manifest, no SBOM `HIGH`
 
 `publish.yml` uploads bundles straight to a draft release. There is no SHA-256 generation, no
@@ -479,7 +509,8 @@ Blocks: earliest release tier the item prevents.
 | RB-4 | Integrity | **Fixed** | No checksum/SBOM/manifest step in `publish.yml` | H | Users cannot verify an unsigned download — the one mitigation that costs nothing | Generate + verify SHA-256, manifest, SBOM | Alpha |
 | RB-5 | Model downloads | **Fixed** | CSP vs CDN redirect targets | C | 14 of 18 optional models undownloadable; 8+ AI features dead | Allow redirect hosts in CSP | Alpha |
 | RB-6 | Startup | **Fixed** | `main` hidden until frontend signalled | C | App unusable — stuck on splash forever with no error | Splash removed; boot errors rendered on screen | Alpha |
-| RB-7 | React mount | **OPEN** | Watchdog proves no JS mount in packaged WebView | C | App never reaches its UI when packaged | Under diagnosis with a devtools build | Alpha |
+| RB-7 | React mount | **Fixed** | Static import of eval-using wawoff2 in the entry chunk | C | App never reached its UI when packaged | Dynamic import; entry chunk now eval-free | Alpha |
+| RB-8 | Linux glibc baseline | **Fixed** | Measured: binary needs GLIBC_2.39, Ubuntu 22.04 has 2.35 | H | Advertised 22.04 support no artifact could deliver | Build Linux artifacts on the `ubuntu-22.04` runner | Alpha |
 | H-1 | Website config | **Broken** | `astro.config.mjs:7`; `Layout.astro:40` | H | Site 404s its own assets on Pages; pays for analytics pre-launch | Env-driven `site`/`base`; opt-in analytics | Beta |
 | H-2 | Download page | **Stale** | `download.astro` never reads `releases.json` | H | Advertises unbuilt platforms and a non-existent AUR package | Consume generated manifest | Beta |
 | H-3 | macOS universal | **Partial** | `fetch-onnxruntime.mjs` `PLATFORMS`; `publish.yml:104` | H | Intel Macs lose native AI silently | Document; or ship per-arch DMGs | Beta |
