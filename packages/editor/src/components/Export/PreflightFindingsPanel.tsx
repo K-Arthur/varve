@@ -126,7 +126,7 @@ export function PreflightFindingsPanel({
           <span className="preflight-panel__summary">Preflight: {summary}</span>
         </button>
         {onApplyFix && (
-          <span className="strata-visually-hidden" role="status">
+          <span className="varve-visually-hidden" role="status">
             {summary}
           </span>
         )}
@@ -150,7 +150,7 @@ export function PreflightFindingsPanel({
                   />
                   <div className="preflight-panel__finding-body">
                     <p className="preflight-panel__finding-title">
-                      <span className="strata-visually-hidden">{meta.label}: </span>
+                      <span className="varve-visually-hidden">{meta.label}: </span>
                       {finding.title}
                     </p>
                     <p className="preflight-panel__finding-desc">{finding.description}</p>

@@ -5,8 +5,8 @@ import {
   IconButton,
   SOLID_CHROME_ICONS,
   SolidIcon,
-  StrataLogo,
   Tooltip,
+  VarveLogo,
 } from '@varve/ui';
 import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
 
@@ -1241,7 +1241,7 @@ function buildMenus(
         { label: '---' },
         { label: 'Take a Tour', action: 'startTour' },
         { label: '---' },
-        { label: 'About Strata', action: 'about' },
+        { label: 'About Varve', action: 'about' },
         ...(!caps.has('nativeMenu') && !isInstallDesktopDismissed() && !isInIframe()
           ? [
               { label: '---' as const },
@@ -1989,7 +1989,7 @@ export function Menubar({
           aria-label="Home"
           onClick={() => onBackToHome?.()}
         >
-          <StrataLogo size={16} />
+          <VarveLogo size={16} />
         </button>
       </Tooltip>
       <div

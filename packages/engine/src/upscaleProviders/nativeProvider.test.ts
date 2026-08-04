@@ -64,7 +64,7 @@ describe('nativeUpscaleProvider', () => {
     const upscaleCall = invokeMock.mock.calls.find((c) => c[0] === 'upscale_image_binary');
     const body = upscaleCall?.[1];
     const invokeOptions = upscaleCall?.[2] as { headers?: Record<string, string> } | undefined;
-    const opts = JSON.parse(invokeOptions?.headers?.['x-strata-upscale-options'] ?? '{}') as Record<
+    const opts = JSON.parse(invokeOptions?.headers?.['x-varve-upscale-options'] ?? '{}') as Record<
       string,
       unknown
     >;

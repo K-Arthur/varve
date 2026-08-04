@@ -34,5 +34,5 @@ export async function revealMainWindow(): Promise<void> {
  * Called once React is about to mount.
  */
 export function dismissBootFallback(): void {
-  document.getElementById('strata-boot-fallback')?.remove();
+  document.getElementById('varve-boot-fallback')?.remove();
 }

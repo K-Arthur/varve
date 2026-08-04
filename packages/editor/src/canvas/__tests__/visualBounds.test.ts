@@ -255,7 +255,7 @@ describe('nodeVisualWorldBounds', () => {
         ],
         strokes: [STROKE({ weight: 20 })],
       }),
-      makeTextNode('text-1', 'Strata', { fontSize: 64, w: 200, h: 40 }),
+      makeTextNode('text-1', 'Varve', { fontSize: 64, w: 200, h: 40 }),
     ];
     return {
       ...document,

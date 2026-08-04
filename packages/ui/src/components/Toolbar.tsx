@@ -154,7 +154,7 @@ export function Toolbar({ label, children, wrap = true }: ToolbarProps) {
   return (
     <div
       ref={toolbarRef}
-      className="strata-toolbar"
+      className="varve-toolbar"
       role="toolbar"
       aria-label={label}
       onKeyDown={handleKey}

@@ -45,8 +45,8 @@ export function App() {
     pendingHomeMilestone.current = afterFirstVisiblePaint('.varve-home', () => {
       setHomeReady(true);
       onHomeReady();
-      measure('strata-startup', 'app_mount');
-      window.dispatchEvent(new CustomEvent('strata:ready', { detail: { mode: 'home' } }));
+      measure('varve-startup', 'app_mount');
+      window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'home' } }));
     });
   }, [markHomeDataReady, measure, onHomeReady]);
 
@@ -146,8 +146,8 @@ export function App() {
         '.editor-canvas__content-layer',
         () => {
           onEditorReady();
-          measure('strata-editor-first-visible-canvas', 'editor_state_initialized');
-          window.dispatchEvent(new CustomEvent('strata:ready', { detail: { mode: 'editor' } }));
+          measure('varve-editor-first-visible-canvas', 'editor_state_initialized');
+          window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'editor' } }));
         },
       );
     },

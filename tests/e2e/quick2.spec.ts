@@ -13,6 +13,6 @@ test('quick check dom', async ({ page }) => {
     .catch(() => console.log('no varve-home'));
   const html = await page.content();
   console.log('Has varve-home:', html.includes('varve-home'));
-  console.log('Has loading:', html.includes('Loading Strata'));
+  console.log('Has loading:', html.includes('Loading Varve'));
   console.log('HTML length:', html.length);
 });

@@ -30,8 +30,8 @@ export function createNativePrintEngine(): PrintEngine {
       const optionsJson = JSON.stringify({
         pageWidth: _opts.pageWidth ?? 1920,
         pageHeight,
-        title: _opts.title ?? 'Strata Export',
-        author: _opts.author ?? 'Strata',
+        title: _opts.title ?? 'Varve Export',
+        author: _opts.author ?? 'Varve',
         bleedMm: _opts.bleedMm ?? 3,
         includeCropMarks: _opts.includeCropMarks ?? false,
         includeRegistrationMarks: _opts.includeRegistrationMarks ?? false,

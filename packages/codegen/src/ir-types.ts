@@ -1,7 +1,7 @@
 /**
  * Intermediate Representation types for design-to-code pipeline.
  *
- * This module defines the shared IR that normalizes Strata's scene model
+ * This module defines the shared IR that normalizes Varve's scene model
  * into a format optimized for code generation across multiple targets.
  *
  * v2.1: flattening info, adjustment scope, responsive breakpoint inference,

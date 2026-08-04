@@ -72,12 +72,12 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   }, [startTimer, toast.type]);
 
   const role = toast.type === 'error' ? 'alert' : 'status';
-  const typeClass = toast.type && toast.type !== 'info' ? `strata-toast--${toast.type}` : '';
+  const typeClass = toast.type && toast.type !== 'info' ? `varve-toast--${toast.type}` : '';
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: toast needs hover/focus to pause auto-dismiss timer
     <div
-      className={`strata-toast ${typeClass}${exiting ? ' strata-toast--exiting' : ''}`}
+      className={`varve-toast ${typeClass}${exiting ? ' varve-toast--exiting' : ''}`}
       role={role}
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
       onMouseEnter={pauseTimer}
@@ -85,9 +85,9 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       onFocus={pauseTimer}
       onBlur={resumeTimer}
     >
-      <span className="strata-toast__message">{toast.message}</span>
+      <span className="varve-toast__message">{toast.message}</span>
       <button
-        className="strata-toast__close"
+        className="varve-toast__close"
         aria-label="Dismiss notification"
         onClick={dismiss}
         type="button"

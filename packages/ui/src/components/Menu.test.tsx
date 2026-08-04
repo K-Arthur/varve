@@ -168,7 +168,7 @@ describe('Menu', () => {
 
   it('shows ellipsis for dialog items', () => {
     render(<TestMenu open onClose={vi.fn()} />);
-    const ellipses = document.body.querySelectorAll('.strata-menu__ellipsis');
+    const ellipses = document.body.querySelectorAll('.varve-menu__ellipsis');
     expect(ellipses.length).toBe(1);
   });
 

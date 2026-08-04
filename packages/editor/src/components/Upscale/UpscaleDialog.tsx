@@ -707,7 +707,7 @@ export function UpscaleDialog({
           </div>
 
           {/* Screen-reader announcements */}
-          <div role="status" aria-live="polite" className="strata-visually-hidden">
+          <div role="status" aria-live="polite" className="varve-visually-hidden">
             {processing && progress
               ? `Upscaling: tile ${progress.done} of ${progress.total}`
               : (error ?? '')}

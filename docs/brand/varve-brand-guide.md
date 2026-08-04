@@ -1,12 +1,12 @@
-# Strata Brand Guide
+# Varve Brand Guide
 
 ## Concept Statement
 
-Strata means layers — literally, the plural of the Latin *stratum* ("a covering, a
+Varve means layers — literally, the plural of the Latin *stratum* ("a covering, a
 layer," from PIE root *stere-* "to spread"). In geology, strata are the
 sedimentary bands that record time, accumulation, and structure — older at the
 bottom, newer at the top. In a design tool, the central organizational concept is
-layers. The Strata mark makes this double meaning tangible: four horizontal bands
+layers. The Varve mark makes this double meaning tangible: four horizontal bands
 in the teal ramp, alternating offset like a geological cross-section, readable as
 both *stratified rock* and *stacked layers in a design document*. The mark is not
 a generic geometric shape — it is a distillation of what the product *is*:
@@ -17,7 +17,7 @@ anchoring the brand in the existing token system (ADR-0002). Teal has no major
 design-tool association (unlike blue: Adobe, Linear, Penpot, Canva), reads as
 "creative AND technical," and is contractually WCAG 2.2 AA across all three
 themes. The warm light background (`--color-surface-app`, `#f5f7fa`)
-differentiates Strata from the dark-square convention of nearly every competitor
+differentiates Varve from the dark-square convention of nearly every competitor
 dock icon.
 
 ---
@@ -49,7 +49,7 @@ The master mark is built on a 128×128 viewBox with the following geometry:
 - **Corner radius:** 2px on all bands (drops to imperceptible sub-pixel at ≤24px)
 - **Total mark height:** 76px; vertically centred in 128px viewBox at y=26
 - **Safe zone:** all content within inner 80% (102.4px) — no platform mask will clip the mark
-- **Font:** "Strata" wordmark set in Geist Variable (--font-display), weight 600 (semibold), letter-spacing -0.03em
+- **Font:** "Varve" wordmark set in Geist Variable (--font-display), weight 600 (semibold), letter-spacing -0.03em
 
 ---
 
@@ -87,7 +87,7 @@ All colour values are sRGB/linear. Themes: Light (default), Dark (`[data-theme="
 
 - **Clear space:** minimum 1× band height (16px @ 128px viewBox) around the mark on all sides
 - **Minimum mark size:** 16px (the mark remains legible — 4 bands × 2px with 2px visible offset)
-- **Minimum wordmark size:** "Strata" should never be rendered smaller than 10px cap height
+- **Minimum wordmark size:** "Varve" should never be rendered smaller than 10px cap height
 - **Minimum horizontal lockup:** mark (16px) + wordmark (proportional) = 48px total width
 - **Minimum stacked lockup:** mark (16px) + wordmark (proportional) = 16px total height
 
@@ -112,7 +112,7 @@ All colour values are sRGB/linear. Themes: Light (default), Dark (`[data-theme="
 - **Don't place on low-contrast backgrounds:** avoid mid-tone backgrounds that match the teal value. Use light (`#f5f7fa` or lighter) or dark (`#1e2532` or darker) backgrounds.
 - **Don't rearrange the offset pattern:** the alternating left-right offset is structural. Inverting the order or centering all bands breaks the "strata" reading.
 - **Don't substitute fonts:** the wordmark must use Geist Variable (weight 600). No other typeface.
-- **Don't use emoji** anywhere in the brand system (§4.4). All icons are Lucide or the Strata SVGs.
+- **Don't use emoji** anywhere in the brand system (§4.4). All icons are Lucide or the Varve SVGs.
 
 ---
 
@@ -123,7 +123,7 @@ All colour values are sRGB/linear. Themes: Light (default), Dark (`[data-theme="
 | `packages/ui/src/icons/strata-icon.svg` | Master full-colour mark (transparent bg) |
 | `packages/ui/src/icons/strata-icon-symbolic.svg` | Monochrome symbolic mark (Linux) |
 | `packages/ui/src/icons/strata-app-icon.svg` | Full-colour app icon with light bg |
-| `packages/ui/src/icons/strata-wordmark.svg` | Horizontal lockup (mark + "Strata") |
+| `packages/ui/src/icons/strata-wordmark.svg` | Horizontal lockup (mark + "Varve") |
 | `packages/ui/src/icons/strata-wordmark-stacked.svg` | Stacked lockup (mark above wordmark) |
 | `packages/ui/src/icons/strata-wordmark-only.svg` | Wordmark only |
 | `packages/ui/src/icons/strata-wordmark-dark.svg` | Horizonal lockup, dark bg variant |
@@ -171,5 +171,5 @@ complete platform set deterministically.
 
 ---
 
-*Strata Brand Guide v1.0 — Last updated 2026-06-30*
+*Varve Brand Guide v1.0 — Last updated 2026-06-30*
 *Accent: teal #39d0c6 | Display font: Geist Variable | Body font: IBM Plex Sans Variable*

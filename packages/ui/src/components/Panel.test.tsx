@@ -192,11 +192,11 @@ describe('Panel', () => {
     const handle = getHandle();
     fireEvent.keyDown(handle, { key: 'ArrowRight' });
 
-    expect(localStorage.getItem('strata-panel-persist-test')).toBe('210');
+    expect(localStorage.getItem('varve-panel-persist-test')).toBe('210');
   });
 
   it('restores width from localStorage on mount', () => {
-    localStorage.setItem('strata-panel-restore-test', '350');
+    localStorage.setItem('varve-panel-restore-test', '350');
     const { container } = render(
       <Panel
         storageKey="restore-test"
@@ -234,7 +234,7 @@ describe('Panel', () => {
       </Panel>,
     );
     const panelEl = container.firstChild as HTMLElement;
-    expect(panelEl.className).toContain('strata-panel--collapsed');
+    expect(panelEl.className).toContain('varve-panel--collapsed');
   });
 
   it('applies reduced-motion class when prefers-reduced-motion', () => {
@@ -255,6 +255,6 @@ describe('Panel', () => {
       </Panel>,
     );
     const panelEl = container.firstChild as HTMLElement;
-    expect(panelEl.className).toContain('strata-panel--reduced-motion');
+    expect(panelEl.className).toContain('varve-panel--reduced-motion');
   });
 });

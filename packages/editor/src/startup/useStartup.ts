@@ -62,9 +62,9 @@ export function useStartup(opts: UseStartupOptions): UseStartupResult {
 
   const isWarmRestart = useMemo(() => {
     if (typeof sessionStorage !== 'undefined') {
-      const flag = sessionStorage.getItem('strata-session-started');
+      const flag = sessionStorage.getItem('varve-session-started');
       if (flag) return true;
-      sessionStorage.setItem('strata-session-started', '1');
+      sessionStorage.setItem('varve-session-started', '1');
     }
     return false;
   }, []);

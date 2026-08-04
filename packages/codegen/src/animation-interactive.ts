@@ -209,7 +209,7 @@ export function exportInteractivePrototype(
 
   const width = options.width ?? 375;
   const height = options.height ?? 812;
-  const title = options.title ?? 'Strata Prototype';
+  const title = options.title ?? 'Varve Prototype';
   const primarySm = sms[0];
 
   const html = buildHtmlDocument(doc, {
@@ -306,7 +306,7 @@ ${screensSvg}
     <div class="strata-hint">Click interactive elements</div>
   </div>
   <script>
-// === Strata Prototype Runtime (self-contained) ===
+// === Varve Prototype Runtime (self-contained) ===
 (function() {
   'use strict';
 

@@ -56,7 +56,7 @@ export function CopyButton({ value, label, className }: CopyButtonProps) {
           <Icon name="Copy" label={undefined} size="0.95em" />
         )}
       </button>
-      <span id={liveId} role="status" aria-live="polite" className="strata-visually-hidden">
+      <span id={liveId} role="status" aria-live="polite" className="varve-visually-hidden">
         {announce}
       </span>
     </>

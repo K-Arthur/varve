@@ -61,7 +61,7 @@ export function importGradientPresets(
 
   throw {
     code: 'unsupported-format',
-    message: 'This file does not appear to be a Photoshop gradient preset or Strata gradient file',
+    message: 'This file does not appear to be a Photoshop gradient preset or Varve gradient file',
     format,
   } as GradientImportError;
 }

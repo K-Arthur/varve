@@ -135,13 +135,13 @@ export function GradientImportDialog({
           })}
         </ul>
       </div>
-      <div className="strata-dialog__actions">
-        <button type="button" className="strata-btn strata-btn--ghost" onClick={onClose}>
+      <div className="varve-dialog__actions">
+        <button type="button" className="varve-btn varve-btn--ghost" onClick={onClose}>
           Cancel
         </button>
         <button
           type="button"
-          className="strata-btn strata-btn--primary"
+          className="varve-btn varve-btn--primary"
           disabled={selectedList.length === 0}
           onClick={() => {
             onImport(selectedList, scope);

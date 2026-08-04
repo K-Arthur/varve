@@ -19,7 +19,7 @@ export const Top: Story = {
     label: 'Tooltip on top',
     placement: 'top',
     children: (
-      <button type="button" className="strata-btn strata-btn--primary">
+      <button type="button" className="varve-btn varve-btn--primary">
         Hover me
       </button>
     ),
@@ -31,7 +31,7 @@ export const Bottom: Story = {
     label: 'Tooltip on bottom',
     placement: 'bottom',
     children: (
-      <button type="button" className="strata-btn strata-btn--secondary">
+      <button type="button" className="varve-btn varve-btn--secondary">
         Hover me
       </button>
     ),
@@ -43,7 +43,7 @@ export const Left: Story = {
     label: 'Tooltip on left',
     placement: 'left',
     children: (
-      <button type="button" className="strata-btn strata-btn--ghost">
+      <button type="button" className="varve-btn varve-btn--ghost">
         Hover me
       </button>
     ),
@@ -55,7 +55,7 @@ export const Right: Story = {
     label: 'Tooltip on right',
     placement: 'right',
     children: (
-      <button type="button" className="strata-btn strata-btn--danger">
+      <button type="button" className="varve-btn varve-btn--danger">
         Hover me
       </button>
     ),
@@ -68,7 +68,7 @@ export const LongLabel: Story = {
       'This is a longer tooltip label that demonstrates text wrapping and max-width constraints.',
     placement: 'top',
     children: (
-      <button type="button" className="strata-btn strata-btn--primary">
+      <button type="button" className="varve-btn varve-btn--primary">
         Long tooltip
       </button>
     ),
@@ -80,7 +80,7 @@ export const Dark: Story = {
     label: 'Dark theme tooltip',
     placement: 'top',
     children: (
-      <button type="button" className="strata-btn strata-btn--primary">
+      <button type="button" className="varve-btn varve-btn--primary">
         Hover me
       </button>
     ),

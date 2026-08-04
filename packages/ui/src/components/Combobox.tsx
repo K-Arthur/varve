@@ -141,24 +141,24 @@ export function Combobox({
 
   return (
     <div
-      className={`strata-combobox${error ? ' strata-combobox--error' : ''}${
-        disabled ? ' strata-combobox--disabled' : ''
+      className={`varve-combobox${error ? ' varve-combobox--error' : ''}${
+        disabled ? ' varve-combobox--disabled' : ''
       }`}
       ref={containerRef}
     >
       <label
-        className="strata-combobox__label"
+        className="varve-combobox__label"
         id={`${listboxId}-label`}
         htmlFor={`${listboxId}-input`}
       >
         {label}
       </label>
-      <div className="strata-combobox__wrapper" ref={wrapperRef}>
+      <div className="varve-combobox__wrapper" ref={wrapperRef}>
         <input
           ref={inputRef}
           id={`${listboxId}-input`}
           type="text"
-          className="strata-combobox__input"
+          className="varve-combobox__input"
           role="combobox"
           aria-expanded={open}
           aria-controls={listboxId}
@@ -189,7 +189,7 @@ export function Combobox({
         />
       </div>
       {error && (
-        <span className="strata-combobox__error" id={errorId} role="alert">
+        <span className="varve-combobox__error" id={errorId} role="alert">
           {error}
         </span>
       )}
@@ -205,7 +205,7 @@ export function Combobox({
             id={listboxId}
             role="listbox"
             aria-labelledby={`${listboxId}-label`}
-            className="strata-combobox__listbox"
+            className="varve-combobox__listbox"
           >
             {filteredOptions.map((opt, idx) => (
               // biome-ignore lint/a11y/useFocusableInteractive: APG combobox pattern — options are non-focusable in an aria-activedescendant listbox; the input owns keyboard navigation.
@@ -215,9 +215,9 @@ export function Combobox({
                 role="option"
                 aria-selected={opt.label === inputValue}
                 aria-disabled={opt.disabled}
-                className={`strata-combobox__option${
-                  idx === highlightedIdx ? ' strata-combobox__option--highlighted' : ''
-                }${opt.disabled ? ' strata-combobox__option--disabled' : ''}`}
+                className={`varve-combobox__option${
+                  idx === highlightedIdx ? ' varve-combobox__option--highlighted' : ''
+                }${opt.disabled ? ' varve-combobox__option--disabled' : ''}`}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   if (!opt.disabled) commit(opt.label);

@@ -216,7 +216,7 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
             </div>
             <p className="version-history__empty-title">No versions yet</p>
             <p className="version-history__empty-desc">
-              Every time you save, Strata creates a version so you can track changes, compare
+              Every time you save, Varve creates a version so you can track changes, compare
               snapshots, and restore earlier work with confidence.
             </p>
             <Button variant="secondary" size="sm" onClick={handleSaveVersion}>

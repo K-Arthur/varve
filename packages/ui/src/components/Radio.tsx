@@ -29,7 +29,7 @@ export function RadioGroup<V extends string>({
 
   return (
     <div
-      className={`strata-radio-group strata-radio-group--${orientation}`}
+      className={`varve-radio-group varve-radio-group--${orientation}`}
       role="radiogroup"
       aria-label={label}
       aria-orientation={orientation === 'horizontal' ? 'horizontal' : 'vertical'}
@@ -39,8 +39,8 @@ export function RadioGroup<V extends string>({
         return (
           <label
             key={opt.value}
-            className={`strata-radio${checked ? ' strata-radio--checked' : ''}${
-              opt.disabled || disabled ? ' strata-radio--disabled' : ''
+            className={`varve-radio${checked ? ' varve-radio--checked' : ''}${
+              opt.disabled || disabled ? ' varve-radio--disabled' : ''
             }`}
           >
             <input
@@ -50,10 +50,10 @@ export function RadioGroup<V extends string>({
               checked={checked}
               disabled={opt.disabled || disabled}
               onChange={() => onChange(opt.value)}
-              className="strata-radio__input"
+              className="varve-radio__input"
             />
-            <span className="strata-radio__dot" aria-hidden="true" />
-            <span className="strata-radio__label">{opt.label}</span>
+            <span className="varve-radio__dot" aria-hidden="true" />
+            <span className="varve-radio__label">{opt.label}</span>
           </label>
         );
       })}
@@ -70,10 +70,10 @@ export const Radio = forwardRef<HTMLInputElement, RadioProps>(function Radio(
   ref,
 ) {
   return (
-    <label className={`strata-radio${className ? ` ${className}` : ''}`}>
-      <input ref={ref} type="radio" className="strata-radio__input" {...rest} />
-      <span className="strata-radio__dot" aria-hidden="true" />
-      {label && <span className="strata-radio__label">{label}</span>}
+    <label className={`varve-radio${className ? ` ${className}` : ''}`}>
+      <input ref={ref} type="radio" className="varve-radio__input" {...rest} />
+      <span className="varve-radio__dot" aria-hidden="true" />
+      {label && <span className="varve-radio__label">{label}</span>}
     </label>
   );
 });

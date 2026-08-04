@@ -5,10 +5,10 @@
  */
 
 /* ── Modal / dialog open ────────────────────────── */
-.strata-dialog {
+.varve-dialog {
   animation: strata-modal-in var(--duration-base) var(--ease-spring);
 }
-.strata-dialog.closing {
+.varve-dialog.closing {
   animation: strata-modal-out var(--duration-fast) var(--ease-in);
 }
 @keyframes strata-modal-in {
@@ -47,7 +47,7 @@
 }
 
 /* ── Selection highlight ────────────────────────── */
-.strata-selection-highlight {
+.varve-selection-highlight {
   animation: strata-fade-in var(--duration-instant) linear;
 }
 @keyframes strata-fade-in {
@@ -98,13 +98,13 @@
 }
 
 /* ── Panel open/close ───────────────────────────── */
-.strata-panel-enter {
-  animation: strata-panel-in var(--duration-base) var(--ease-spring);
+.varve-panel-enter {
+  animation: varve-panel-in var(--duration-base) var(--ease-spring);
 }
-.strata-panel-exit {
-  animation: strata-panel-out var(--duration-base) var(--ease-in);
+.varve-panel-exit {
+  animation: varve-panel-out var(--duration-base) var(--ease-in);
 }
-@keyframes strata-panel-in {
+@keyframes varve-panel-in {
   from {
     opacity: 0;
     transform: scaleX(0);
@@ -114,7 +114,7 @@
     transform: scaleX(1);
   }
 }
-@keyframes strata-panel-out {
+@keyframes varve-panel-out {
   from {
     opacity: 1;
     transform: scaleX(1);
@@ -126,17 +126,17 @@
 }
 
 /* ── Layer expand (max-height trick) ────────────── */
-.strata-layer-expand {
+.varve-layer-expand {
   overflow: hidden;
   max-height: 0;
   transition: max-height var(--duration-base) var(--ease-out);
 }
-.strata-layer-expand.open {
+.varve-layer-expand.open {
   max-height: 1000px;
 }
 
 /* ── Drag feedback ──────────────────────────────── */
-.strata-dragging {
+.varve-dragging {
   transform: scale(1.02);
   box-shadow: var(--shadow-lg);
   transition:
@@ -145,14 +145,14 @@
 }
 
 /* ── IconButton ────────────────────────────────── */
-.strata-iconbtn {
+.varve-iconbtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
 /* ── Button (base) ─────────────────────────────── */
-.strata-btn {
+.varve-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -175,41 +175,41 @@
     color var(--duration-quick) var(--ease-standard),
     transform var(--duration-fast) var(--ease-default);
 }
-.strata-btn:focus-visible {
+.varve-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
-.strata-btn--primary {
+.varve-btn--primary {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.strata-btn--primary:hover {
+.varve-btn--primary:hover {
   background: var(--color-interactive-hover);
 }
-.strata-btn--secondary {
+.varve-btn--secondary {
   background: transparent;
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-strong);
 }
-.strata-btn--secondary:hover {
+.varve-btn--secondary:hover {
   background: var(--color-surface-sunken);
 }
-.strata-btn--ghost {
+.varve-btn--ghost {
   background: transparent;
   color: var(--color-text-secondary);
 }
-.strata-btn--ghost:hover {
+.varve-btn--ghost:hover {
   background: var(--color-surface-sunken);
 }
-.strata-btn--danger {
+.varve-btn--danger {
   background: var(--color-feedback-danger);
   color: var(--color-text-on-danger);
 }
-.strata-btn--danger:hover {
+.varve-btn--danger:hover {
   background: var(--color-feedback-danger);
   filter: saturate(1.4);
 }
 /* ── Pill button variants (design system refresh) ── */
-.strata-btn--pill {
+.varve-btn--pill {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border-radius: var(--radius-pill);
@@ -219,10 +219,10 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
 }
-.strata-btn--pill:hover {
+.varve-btn--pill:hover {
   background: var(--color-interactive-hover);
 }
-.strata-btn--pill-outline {
+.varve-btn--pill-outline {
   background: transparent;
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-strong);
@@ -233,48 +233,48 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
 }
-.strata-btn--pill-outline:hover {
+.varve-btn--pill-outline:hover {
   background: var(--color-surface-sunken);
   border-color: var(--color-interactive-default);
   color: var(--color-interactive-default);
 }
-.strata-btn--sm {
+.varve-btn--sm {
   height: var(--space-5);
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
 }
-.strata-btn--lg {
+.varve-btn--lg {
   height: var(--space-7);
   padding: 0 var(--space-4);
   font-size: var(--font-size-md);
 }
 
-.strata-btn:active {
+.varve-btn:active {
   transform: scale(0.97);
 }
-.strata-btn:disabled {
+.varve-btn:disabled {
   cursor: default;
   opacity: 0.5;
   pointer-events: none;
 }
-.strata-btn[aria-disabled="true"] {
+.varve-btn[aria-disabled="true"] {
   cursor: default;
   opacity: 0.5;
 }
-.strata-btn__spinner {
+.varve-btn__spinner {
   position: absolute;
   animation: strata-spin 0.6s linear infinite;
 }
-.strata-btn__content {
+.varve-btn__content {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
-.strata-btn--loading .strata-btn__content {
+.varve-btn--loading .varve-btn__content {
   opacity: 0;
   pointer-events: none;
 }
-.strata-btn--confirming .strata-btn__label {
+.varve-btn--confirming .varve-btn__label {
   text-decoration: line-through;
 }
 @keyframes strata-spin {
@@ -283,7 +283,7 @@
   }
 }
 
-.strata-tooltip {
+.varve-tooltip {
   position: fixed;
   z-index: var(--z-tooltip);
   display: inline-flex;
@@ -297,18 +297,18 @@
   font-size: var(--font-size-xs);
   line-height: 1.4;
   box-shadow: var(--shadow-md);
-  animation: strata-tooltip-fade-in var(--duration-fast) ease;
+  animation: varve-tooltip-fade-in var(--duration-fast) ease;
   white-space: normal;
   word-break: break-word;
   /* Tooltips must be hoverable so the content can be read without vanishing. */
   pointer-events: auto;
 }
 
-.strata-tooltip__body {
+.varve-tooltip__body {
   display: block;
 }
 
-@keyframes strata-tooltip-fade-in {
+@keyframes varve-tooltip-fade-in {
   from {
     opacity: 0;
     transform: translateY(2px);
@@ -319,31 +319,31 @@
   }
 }
 
-.strata-tooltip--multiline {
+.varve-tooltip--multiline {
   max-width: 320px;
   line-height: 1.5;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .strata-tooltip {
+  .varve-tooltip {
     animation: none;
     opacity: 1;
   }
 }
 
 @media (forced-colors: active) {
-  .strata-tooltip {
+  .varve-tooltip {
     border: 1px solid CanvasText;
     background: Canvas;
     color: CanvasText;
     box-shadow: none;
   }
-  .strata-tip__shortcut {
+  .varve-tip__shortcut {
     border: 1px solid CanvasText;
   }
 }
 
-.strata-dialog {
+.varve-dialog {
   border: none;
   border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
@@ -353,22 +353,22 @@
   width: min(90vw, 32rem);
   box-shadow: var(--shadow-lg);
 }
-.strata-dialog::backdrop {
+.varve-dialog::backdrop {
   background: var(--elevation-scrim);
 }
-.strata-dialog__header {
+.varve-dialog__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4) var(--space-4) 0;
 }
-.strata-dialog__title {
+.varve-dialog__title {
   font-family: var(--font-display);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   margin: 0;
 }
-.strata-dialog__close {
+.varve-dialog__close {
   background: none;
   border: none;
   cursor: pointer;
@@ -378,31 +378,31 @@
   line-height: 1;
   border-radius: var(--radius-sm);
 }
-.strata-dialog__close:hover {
+.varve-dialog__close:hover {
   background: var(--color-surface-sunken);
 }
-.strata-dialog__body {
+.varve-dialog__body {
   padding: var(--space-4);
 }
-.strata-dialog__desc {
+.varve-dialog__desc {
   margin: 0 0 var(--space-4);
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   line-height: 1.5;
 }
-.strata-dialog__actions {
+.varve-dialog__actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
   margin-top: var(--space-4);
 }
 
-.strata-menu--portaled {
+.varve-menu--portaled {
   position: relative;
   z-index: auto;
 }
 
-.strata-menu {
+.varve-menu {
   position: absolute;
   z-index: var(--z-overlay);
   min-width: 12rem;
@@ -412,7 +412,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
 }
-.strata-menu__item {
+.varve-menu__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -427,32 +427,32 @@
   text-align: left;
   white-space: nowrap;
 }
-.strata-menu__item:hover {
+.varve-menu__item:hover {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.strata-menu__item:focus-visible {
+.varve-menu__item:focus-visible {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
-.strata-menu__item:disabled,
-.strata-menu__item[aria-disabled="true"] {
+.varve-menu__item:disabled,
+.varve-menu__item[aria-disabled="true"] {
   color: var(--color-text-muted);
   cursor: default;
 }
-.strata-menu__sep {
+.varve-menu__sep {
   height: 1px;
   background: var(--color-border-subtle);
   margin: var(--space-1) var(--space-2);
 }
-.strata-menu__ellipsis {
+.varve-menu__ellipsis {
   margin-left: var(--space-4);
   color: inherit;
 }
 
-.strata-ctxmenu {
+.varve-ctxmenu {
   position: fixed;
   z-index: var(--z-overlay);
   min-width: 12rem;
@@ -463,11 +463,11 @@
   box-shadow: var(--shadow-lg);
 }
 
-.strata-menu__item-wrapper {
+.varve-menu__item-wrapper {
   position: relative;
 }
 
-.strata-menu__submenu {
+.varve-menu__submenu {
   position: absolute;
   left: 100%;
   top: 0;
@@ -480,7 +480,7 @@
   box-shadow: var(--shadow-lg);
 }
 
-.strata-menu__indicator {
+.varve-menu__indicator {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -490,12 +490,12 @@
   font-size: var(--font-size-sm);
 }
 
-.strata-menu__submenu-arrow {
+.varve-menu__submenu-arrow {
   margin-left: var(--space-4);
   color: inherit;
 }
 
-.strata-menu__badge {
+.varve-menu__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -511,12 +511,12 @@
   color: var(--color-text-on-accent);
 }
 
-.strata-search {
+.varve-search {
   position: relative;
   display: flex;
   align-items: center;
 }
-.strata-search__icon {
+.varve-search__icon {
   position: absolute;
   left: var(--space-2);
   color: var(--color-text-muted);
@@ -524,7 +524,7 @@
   width: 1em;
   height: 1em;
 }
-.strata-search__input {
+.varve-search__input {
   width: 100%;
   height: var(--space-6);
   padding: 0 var(--space-2) 0 var(--space-7);
@@ -536,14 +536,14 @@
   font-size: var(--font-size-sm);
   outline-offset: 2px;
 }
-.strata-search__input:focus-visible {
+.varve-search__input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   border-color: var(--color-interactive-default);
 }
-.strata-search__input::placeholder {
+.varve-search__input::placeholder {
   color: var(--color-text-muted);
 }
-.strata-search__clear {
+.varve-search__clear {
   position: absolute;
   right: var(--space-1);
   background: none;
@@ -554,17 +554,17 @@
   border-radius: var(--radius-sm);
   display: flex;
 }
-.strata-search__clear:hover {
+.varve-search__clear:hover {
   color: var(--color-text-primary);
 }
-.strata-search__match {
+.varve-search__match {
   font-weight: var(--font-weight-semibold);
   text-decoration: underline;
   background: transparent;
   color: inherit;
 }
 
-.strata-select {
+.varve-select {
   position: relative;
   display: inline-flex;
   flex-direction: column;
@@ -573,7 +573,7 @@
   width: 100%;
 }
 
-.strata-select__trigger {
+.varve-select__trigger {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -590,30 +590,30 @@
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 
-.strata-select__trigger:focus-visible {
+.varve-select__trigger:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   border-color: var(--color-interactive-default);
 }
 
-.strata-select__trigger--error {
+.varve-select__trigger--error {
   border-color: var(--color-feedback-danger);
 }
 
-.strata-select__trigger--disabled {
+.varve-select__trigger--disabled {
   cursor: default;
   opacity: 0.5;
   pointer-events: none;
 }
 
-.strata-select__placeholder {
+.varve-select__placeholder {
   color: var(--color-text-muted);
 }
 
-.strata-select__value {
+.varve-select__value {
   color: var(--color-text-primary);
 }
 
-.strata-select__chevron {
+.varve-select__chevron {
   color: var(--color-text-muted);
   width: 1em;
   height: 1em;
@@ -621,11 +621,11 @@
   transition: transform var(--duration-quick) var(--ease-standard);
 }
 
-.strata-select__chevron {
+.varve-select__chevron {
   transform: rotate(0deg);
 }
 
-.strata-select__listbox {
+.varve-select__listbox {
   min-width: 12rem;
   width: 100%;
   padding: var(--space-1) 0;
@@ -636,13 +636,13 @@
   overflow-y: auto;
 }
 
-.strata-select__search {
+.varve-select__search {
   padding: var(--space-1) var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
   margin-bottom: var(--space-1);
 }
 
-.strata-select__search-input {
+.varve-select__search-input {
   width: 100%;
   height: var(--space-6);
   padding: 0 var(--space-2);
@@ -655,23 +655,23 @@
   outline-offset: 1px;
 }
 
-.strata-select__search-input:focus-visible {
+.varve-select__search-input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   border-color: var(--color-interactive-default);
 }
 
-.strata-select__search-input::placeholder {
+.varve-select__search-input::placeholder {
   color: var(--color-text-muted);
 }
 
-.strata-select__no-results {
+.varve-select__no-results {
   padding: var(--space-2) var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   text-align: center;
 }
 
-.strata-select__option {
+.varve-select__option {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -685,39 +685,39 @@
   white-space: nowrap;
 }
 
-.strata-select__option--highlighted {
+.varve-select__option--highlighted {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   outline: none;
 }
 
-.strata-select__option--disabled {
+.varve-select__option--disabled {
   color: var(--color-text-muted);
   cursor: default;
 }
 
-.strata-select__option-label {
+.varve-select__option-label {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.strata-select__check {
+.varve-select__check {
   width: 1em;
   height: 1em;
   flex-shrink: 0;
   margin-left: var(--space-2);
 }
 
-.strata-select__error {
+.varve-select__error {
   color: var(--color-feedback-danger);
   font-size: var(--font-size-xs);
   margin-top: var(--space-1);
   padding: 0 var(--space-1);
 }
 
-.strata-empty {
+.varve-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -726,33 +726,33 @@
   text-align: center;
   gap: var(--space-3);
 }
-.strata-empty__illustration {
+.varve-empty__illustration {
   width: 8rem;
   height: 8rem;
   color: var(--color-text-muted);
   margin-bottom: var(--space-2);
 }
-.strata-empty__headline {
+.varve-empty__headline {
   font-family: var(--font-display);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0;
 }
-.strata-empty__desc {
+.varve-empty__desc {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   max-width: 24rem;
   margin: 0;
   line-height: 1.5;
 }
-.strata-empty__actions {
+.varve-empty__actions {
   display: flex;
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
 
-.strata-popover {
+.varve-popover {
   background: var(--color-surface-overlay);
   box-shadow: var(--shadow-lg);
   border-radius: var(--radius-md);
@@ -767,21 +767,21 @@
     transform var(--duration-base) ease;
 }
 
-.strata-popover:popover-open,
-.strata-popover[data-popover-open="true"] {
+.varve-popover:popover-open,
+.varve-popover[data-popover-open="true"] {
   opacity: 1;
   transform: scale(1);
 }
 
 @starting-style {
-  .strata-popover:popover-open,
-  .strata-popover[data-popover-open="true"] {
+  .varve-popover:popover-open,
+  .varve-popover[data-popover-open="true"] {
     opacity: 0;
     transform: scale(0.95);
   }
 }
 
-.strata-popover__arrow {
+.varve-popover__arrow {
   position: absolute;
   width: 8px;
   height: 8px;
@@ -790,7 +790,7 @@
   border: 1px solid var(--color-border-subtle);
 }
 
-.strata-visually-hidden {
+.varve-visually-hidden {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -802,13 +802,13 @@
   border: 0;
 }
 
-.strata-segmented {
+.varve-segmented {
   display: inline-flex;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
-.strata-segmented__btn {
+.varve-segmented__btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -822,26 +822,26 @@
   outline-offset: -2px;
   transition: background var(--duration-quick) var(--ease-standard);
 }
-.strata-segmented__btn:has(input:checked) {
+.varve-segmented__btn:has(input:checked) {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.strata-segmented__btn:hover:not(:has(input:checked)) {
+.varve-segmented__btn:hover:not(:has(input:checked)) {
   background: var(--color-surface-sunken);
 }
-.strata-segmented__btn:has(input:focus-visible) {
+.varve-segmented__btn:has(input:focus-visible) {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
 
 /* ── ViewModeSwitcher (pill-shaped, design system refresh) ── */
-.strata-view-mode-switcher {
+.varve-view-mode-switcher {
   display: inline-flex;
   gap: var(--space-1);
   background: var(--color-surface-sunken);
   border-radius: var(--radius-pill);
   padding: var(--space-1);
 }
-.strata-view-mode-switcher__btn {
+.varve-view-mode-switcher__btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -859,28 +859,28 @@
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
-.strata-view-mode-switcher__btn:has(input:checked) {
+.varve-view-mode-switcher__btn:has(input:checked) {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.strata-view-mode-switcher__btn:hover:not(:has(input:checked)) {
+.varve-view-mode-switcher__btn:hover:not(:has(input:checked)) {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
 }
-.strata-view-mode-switcher__btn:has(input:focus-visible) {
+.varve-view-mode-switcher__btn:has(input:focus-visible) {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
-.strata-view-mode-switcher__label {
+.varve-view-mode-switcher__label {
   display: none;
 }
 @media (min-width: 640px) {
-  .strata-view-mode-switcher__label {
+  .varve-view-mode-switcher__label {
     display: inline;
   }
 }
 
 /* ── Checkbox (design system refresh) ── */
-.strata-checkbox {
+.varve-checkbox {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -889,7 +889,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
-.strata-checkbox__input {
+.varve-checkbox__input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -900,7 +900,7 @@
   white-space: nowrap;
   border: 0;
 }
-.strata-checkbox__box {
+.varve-checkbox__box {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -914,24 +914,24 @@
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-.strata-checkbox__input:checked + .strata-checkbox__box {
+.varve-checkbox__input:checked + .varve-checkbox__box {
   background: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
 }
-.strata-checkbox__input[data-indeterminate="true"] + .strata-checkbox__box {
+.varve-checkbox__input[data-indeterminate="true"] + .varve-checkbox__box {
   background: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
 }
-.strata-checkbox__input:focus-visible + .strata-checkbox__box {
+.varve-checkbox__input:focus-visible + .varve-checkbox__box {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
-.strata-checkbox__input:disabled + .strata-checkbox__box {
+.varve-checkbox__input:disabled + .varve-checkbox__box {
   opacity: 0.5;
   cursor: default;
 }
-.strata-checkbox__check,
-.strata-checkbox__indeterminate {
+.varve-checkbox__check,
+.varve-checkbox__indeterminate {
   position: absolute;
   color: var(--color-text-on-accent);
   opacity: 0;
@@ -940,31 +940,31 @@
     opacity var(--duration-quick) var(--ease-standard),
     transform var(--duration-quick) var(--ease-standard);
 }
-.strata-checkbox__input:checked + .strata-checkbox__box .strata-checkbox__check {
+.varve-checkbox__input:checked + .varve-checkbox__box .varve-checkbox__check {
   opacity: 1;
   transform: scale(1);
 }
-.strata-checkbox__input[data-indeterminate="true"]
-  + .strata-checkbox__box
-  .strata-checkbox__indeterminate {
+.varve-checkbox__input[data-indeterminate="true"]
+  + .varve-checkbox__box
+  .varve-checkbox__indeterminate {
   opacity: 1;
   transform: scale(1);
 }
-.strata-checkbox__label {
+.varve-checkbox__label {
   user-select: none;
 }
 
-.strata-tabs {
+.varve-tabs {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
-.strata-tablist {
+.varve-tablist {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--color-border-subtle);
 }
-.strata-tab {
+.varve-tab {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -982,55 +982,55 @@
     color var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-.strata-tab[aria-selected="true"] {
+.varve-tab[aria-selected="true"] {
   color: var(--color-text-primary);
   border-bottom-color: var(--color-interactive-default);
 }
-.strata-tab:hover:not([aria-selected="true"]) {
+.varve-tab:hover:not([aria-selected="true"]) {
   color: var(--color-text-primary);
   background: var(--color-surface-sunken);
 }
-.strata-tab:focus-visible {
+.varve-tab:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
-.strata-tabpanel {
+.varve-tabpanel {
   padding: var(--space-3);
   outline: none;
 }
-.strata-tabpanel:focus {
+.varve-tabpanel:focus {
   outline: none;
 }
 
-.strata-panel {
+.varve-panel {
   position: relative;
   display: flex;
   width: var(--panel-width);
   min-width: 0;
   transition: width var(--duration-base) var(--ease-out);
 }
-.strata-panel--left {
+.varve-panel--left {
   flex-direction: row;
 }
-.strata-panel--right {
+.varve-panel--right {
   flex-direction: row-reverse;
 }
-.strata-panel--collapsed {
+.varve-panel--collapsed {
   width: 0;
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
 }
-.strata-panel--reduced-motion {
+.varve-panel--reduced-motion {
   transition: none;
 }
-.strata-panel__content {
+.varve-panel__content {
   flex: 1;
   min-width: 0;
   padding: var(--panel-padding);
   overflow: hidden;
 }
-.strata-panel__handle {
+.varve-panel__handle {
   flex-shrink: 0;
   width: 4px;
   background: transparent;
@@ -1039,21 +1039,21 @@
   position: relative;
   transition: background var(--duration-quick) var(--ease-standard);
 }
-.strata-panel__handle:hover,
-.strata-panel__handle:focus-visible {
+.varve-panel__handle:hover,
+.varve-panel__handle:focus-visible {
   background: var(--color-border-strong);
 }
-.strata-panel__handle:focus-visible {
+.varve-panel__handle:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
-.strata-panel--left .strata-panel__handle {
+.varve-panel--left .varve-panel__handle {
   margin-left: auto;
 }
-.strata-panel--right .strata-panel__handle {
+.varve-panel--right .varve-panel__handle {
   margin-right: auto;
 }
 
-.strata-toast-container {
+.varve-toast-container {
   position: fixed;
   bottom: var(--space-4);
   right: var(--space-4);
@@ -1064,7 +1064,7 @@
   pointer-events: none;
 }
 @media (max-width: 640px) {
-  .strata-toast-container {
+  .varve-toast-container {
     left: var(--space-4);
     right: var(--space-4);
     bottom: var(--space-4);
@@ -1072,7 +1072,7 @@
   }
 }
 
-.strata-toast {
+.varve-toast {
   pointer-events: auto;
   display: flex;
   align-items: flex-start;
@@ -1089,28 +1089,28 @@
   font-size: var(--font-size-sm);
   line-height: 1.5;
   border-left: 4px solid var(--color-accent-default);
-  animation: strata-toast-enter var(--duration-fast) var(--ease-out) both;
+  animation: varve-toast-enter var(--duration-fast) var(--ease-out) both;
 }
 
-.strata-toast--success {
+.varve-toast--success {
   border-left-color: var(--color-feedback-success);
 }
 
-.strata-toast--warning {
+.varve-toast--warning {
   border-left-color: var(--color-feedback-warning);
 }
 
-.strata-toast--error {
+.varve-toast--error {
   border-left-color: var(--color-feedback-danger);
 }
 
-.strata-toast__message {
+.varve-toast__message {
   flex: 1;
   min-width: 0;
   padding: var(--space-1) 0;
 }
 
-.strata-toast__close {
+.varve-toast__close {
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -1130,18 +1130,18 @@
     color var(--duration-quick) var(--ease-standard);
 }
 
-.strata-toast__close:hover {
+.varve-toast__close:hover {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
 }
 
-.strata-toast__close:focus-visible {
+.varve-toast__close:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
-.strata-toast--exiting {
-  animation: strata-toast-exit var(--duration-fast) var(--ease-in) both;
+.varve-toast--exiting {
+  animation: varve-toast-exit var(--duration-fast) var(--ease-in) both;
 }
 
 /* ---------- ColorPicker: visually-hidden but available to SR (WCAG 1.3.1) ---------- */
@@ -1242,7 +1242,7 @@
 }
 
 /* ── NumberInput (drag-to-scrub) ──────────────────── */
-.strata-number-input {
+.varve-number-input {
   flex: 1;
   height: var(--space-5);
   padding: 0 var(--space-2);
@@ -1255,37 +1255,37 @@
   cursor: ew-resize;
   outline: none;
 }
-.strata-number-input:focus {
+.varve-number-input:focus {
   border-color: var(--color-interactive-default);
 }
-.strata-number-input:focus-visible {
+.varve-number-input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
 /* ── Slider (APG linear slider with fieldset) ───── */
-.strata-slider {
+.varve-slider {
   border: none;
   padding: 0;
   margin: 0;
 }
-.strata-slider--disabled {
+.varve-slider--disabled {
   opacity: 0.5;
   pointer-events: none;
 }
-.strata-slider__legend {
+.varve-slider__legend {
   display: block;
   margin-bottom: var(--space-1);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   padding: 0;
 }
-.strata-slider__row {
+.varve-slider__row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
-.strata-slider__track {
+.varve-slider__track {
   flex: 1;
   height: var(--space-1);
   background: var(--color-border-subtle);
@@ -1293,15 +1293,15 @@
   position: relative;
   cursor: pointer;
 }
-.strata-slider--disabled .strata-slider__track {
+.varve-slider--disabled .varve-slider__track {
   cursor: default;
 }
-.strata-slider__fill {
+.varve-slider__fill {
   height: 100%;
   background: var(--color-interactive-default);
   border-radius: var(--radius-sm);
 }
-.strata-slider__thumb {
+.varve-slider__thumb {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -1314,10 +1314,10 @@
   cursor: grab;
   touch-action: none;
 }
-.strata-slider--disabled .strata-slider__thumb {
+.varve-slider--disabled .varve-slider__thumb {
   cursor: default;
 }
-.strata-slider__value {
+.varve-slider__value {
   min-width: var(--space-8);
   text-align: right;
   font-size: var(--font-size-sm);
@@ -1325,7 +1325,7 @@
 }
 
 /* ── Toolbar (APG roving tabindex) ───────────────── */
-.strata-toolbar {
+.varve-toolbar {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -1333,39 +1333,39 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .strata-toast {
+  .varve-toast {
     animation: none;
     opacity: 1;
     transform: none;
   }
-  .strata-toast--exiting {
+  .varve-toast--exiting {
     animation: none;
     opacity: 0;
   }
-  .strata-dialog[open] {
+  .varve-dialog[open] {
     animation: none;
     opacity: 1;
     transform: none;
   }
-  .strata-dialog::backdrop {
+  .varve-dialog::backdrop {
     transition: none;
   }
-  .strata-popover {
+  .varve-popover {
     animation: none;
     opacity: 1;
     transform: none;
   }
-  .strata-layer-expand {
+  .varve-layer-expand {
     transition: none;
   }
-  .strata-dragging {
+  .varve-dragging {
     transition: none;
     transform: none;
     box-shadow: none;
   }
 }
 
-@keyframes strata-toast-enter {
+@keyframes varve-toast-enter {
   from {
     opacity: 0;
     transform: translateY(8px);
@@ -1376,7 +1376,7 @@
   }
 }
 
-@keyframes strata-toast-exit {
+@keyframes varve-toast-exit {
   from {
     opacity: 1;
     transform: translateY(0);
@@ -1482,7 +1482,7 @@
    Shortcut Tooltip (Linear-style shortcut labels in tooltips)
    ════════════════════════════════════════════════════════════════════ */
 
-.strata-tip__shortcut {
+.varve-tip__shortcut {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1509,17 +1509,17 @@
 }
 
 /* ── Input (text field) ──────────────────────────── */
-.strata-input {
+.varve-input {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
-.strata-input__label {
+.varve-input__label {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
-.strata-input__wrapper {
+.varve-input__wrapper {
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -1528,29 +1528,29 @@
   background: var(--color-surface-sunken);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.strata-input--focused .strata-input__wrapper {
+.varve-input--focused .varve-input__wrapper {
   border-color: var(--color-interactive-default);
 }
-.strata-input--error .strata-input__wrapper {
+.varve-input--error .varve-input__wrapper {
   border-color: var(--color-feedback-danger);
 }
-.strata-input--disabled .strata-input__wrapper {
+.varve-input--disabled .varve-input__wrapper {
   opacity: 0.5;
 }
-.strata-input__prefix,
-.strata-input__suffix {
+.varve-input__prefix,
+.varve-input__suffix {
   display: flex;
   align-items: center;
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
-.strata-input__prefix {
+.varve-input__prefix {
   padding-left: var(--space-2);
 }
-.strata-input__suffix {
+.varve-input__suffix {
   padding-right: var(--space-2);
 }
-.strata-input__field {
+.varve-input__field {
   flex: 1;
   height: var(--space-5);
   padding: 0 var(--space-2);
@@ -1562,33 +1562,33 @@
   font-size: var(--font-size-sm);
   outline: none;
 }
-.strata-input--sm .strata-input__field {
+.varve-input--sm .varve-input__field {
   height: var(--space-4);
 }
-.strata-input--lg .strata-input__field {
+.varve-input--lg .varve-input__field {
   height: var(--space-6);
 }
-.strata-input__error {
+.varve-input__error {
   font-size: var(--font-size-xs);
   color: var(--color-feedback-danger);
 }
-.strata-input__hint {
+.varve-input__hint {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
 /* ── TextArea ─────────────────────────────────────── */
-.strata-textarea {
+.varve-textarea {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
-.strata-textarea__label {
+.varve-textarea__label {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
-.strata-textarea__field {
+.varve-textarea__field {
   width: 100%;
   min-height: calc(var(--space-5) * 3);
   padding: var(--space-2);
@@ -1603,37 +1603,37 @@
   outline: none;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.strata-textarea--focused .strata-textarea__field {
+.varve-textarea--focused .varve-textarea__field {
   border-color: var(--color-interactive-default);
 }
-.strata-textarea--error .strata-textarea__field {
+.varve-textarea--error .varve-textarea__field {
   border-color: var(--color-feedback-danger);
 }
-.strata-textarea--disabled .strata-textarea__field {
+.varve-textarea--disabled .varve-textarea__field {
   opacity: 0.5;
   resize: none;
 }
-.strata-textarea--sm .strata-textarea__field {
+.varve-textarea--sm .varve-textarea__field {
   min-height: calc(var(--space-4) * 3);
 }
-.strata-textarea--lg .strata-textarea__field {
+.varve-textarea--lg .varve-textarea__field {
   min-height: calc(var(--space-6) * 3);
 }
-.strata-textarea__footer {
+.varve-textarea__footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   min-height: var(--space-3);
 }
-.strata-textarea__error {
+.varve-textarea__error {
   font-size: var(--font-size-xs);
   color: var(--color-feedback-danger);
 }
-.strata-textarea__hint {
+.varve-textarea__hint {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
-.strata-textarea__counter {
+.varve-textarea__counter {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   font-family: var(--font-mono);
@@ -1641,18 +1641,18 @@
 }
 
 /* ── Radio (APG Radio Group) ──────────────────────── */
-.strata-radio-group {
+.varve-radio-group {
   display: flex;
   gap: var(--space-1);
 }
-.strata-radio-group--vertical {
+.varve-radio-group--vertical {
   flex-direction: column;
 }
-.strata-radio-group--horizontal {
+.varve-radio-group--horizontal {
   flex-direction: row;
   flex-wrap: wrap;
 }
-.strata-radio {
+.varve-radio {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1660,7 +1660,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
-.strata-radio__input {
+.varve-radio__input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1671,7 +1671,7 @@
   white-space: nowrap;
   border: 0;
 }
-.strata-radio__dot {
+.varve-radio__dot {
   position: relative;
   width: 18px;
   height: 18px;
@@ -1682,7 +1682,7 @@
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-.strata-radio__dot::after {
+.varve-radio__dot::after {
   content: "";
   position: absolute;
   inset: 4px;
@@ -1694,28 +1694,28 @@
     opacity var(--duration-quick) var(--ease-standard),
     transform var(--duration-quick) var(--ease-standard);
 }
-.strata-radio--checked .strata-radio__dot {
+.varve-radio--checked .varve-radio__dot {
   background: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
 }
-.strata-radio--checked .strata-radio__dot::after {
+.varve-radio--checked .varve-radio__dot::after {
   opacity: 1;
   transform: scale(1);
 }
-.strata-radio__input:focus-visible + .strata-radio__dot {
+.varve-radio__input:focus-visible + .varve-radio__dot {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
-.strata-radio--disabled {
+.varve-radio--disabled {
   opacity: 0.5;
   cursor: default;
 }
-.strata-radio__label {
+.varve-radio__label {
   user-select: none;
 }
 
 /* ── Switch (APG Switch) ──────────────────────────── */
-.strata-switch {
+.varve-switch {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1723,7 +1723,7 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
-.strata-switch__input {
+.varve-switch__input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -1734,7 +1734,7 @@
   white-space: nowrap;
   border: 0;
 }
-.strata-switch__track {
+.varve-switch__track {
   position: relative;
   width: 36px;
   height: 20px;
@@ -1742,7 +1742,7 @@
   background: var(--color-border-strong);
   transition: background var(--duration-quick) var(--ease-standard);
 }
-.strata-switch__thumb {
+.varve-switch__thumb {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -1752,26 +1752,26 @@
   background: var(--color-surface-raised);
   transition: transform var(--duration-quick) var(--ease-standard);
 }
-.strata-switch__input:checked + .strata-switch__track {
+.varve-switch__input:checked + .varve-switch__track {
   background: var(--color-interactive-default);
 }
-.strata-switch__input:checked + .strata-switch__track .strata-switch__thumb {
+.varve-switch__input:checked + .varve-switch__track .varve-switch__thumb {
   transform: translateX(16px);
 }
-.strata-switch__input:focus-visible + .strata-switch__track {
+.varve-switch__input:focus-visible + .varve-switch__track {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
-.strata-switch--disabled {
+.varve-switch--disabled {
   opacity: 0.5;
   cursor: default;
 }
-.strata-switch__label {
+.varve-switch__label {
   user-select: none;
 }
 
 /* ── ToggleButton (pressed/unpressed tool button) ─── */
-.strata-toggle-btn {
+.varve-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1785,55 +1785,55 @@
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
-.strata-toggle-btn:hover {
+.varve-toggle-btn:hover {
   background: var(--color-surface-sunken);
 }
-.strata-toggle-btn--pressed {
+.varve-toggle-btn--pressed {
   background: var(--color-accent-subtle);
   color: var(--color-accent-primary);
 }
-.strata-toggle-btn--pressed:hover {
+.varve-toggle-btn--pressed:hover {
   background: var(--color-accent-subtle);
 }
-.strata-toggle-btn--sm {
+.varve-toggle-btn--sm {
   height: var(--space-4);
   width: var(--space-4);
 }
-.strata-toggle-btn--md {
+.varve-toggle-btn--md {
   height: var(--space-5);
   width: var(--space-5);
 }
-.strata-toggle-btn--lg {
+.varve-toggle-btn--lg {
   height: var(--space-6);
   width: var(--space-6);
 }
-.strata-toggle-btn:focus-visible {
+.varve-toggle-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
-.strata-toggle-btn--disabled {
+.varve-toggle-btn--disabled {
   opacity: 0.5;
   cursor: default;
   pointer-events: none;
 }
 
 /* ── Combobox (free-text with suggestions) ────────── */
-.strata-combobox {
+.varve-combobox {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   position: relative;
 }
-.strata-combobox__label {
+.varve-combobox__label {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
 }
-.strata-combobox__wrapper {
+.varve-combobox__wrapper {
   display: flex;
   align-items: center;
 }
-.strata-combobox__input {
+.varve-combobox__input {
   flex: 1;
   height: var(--space-5);
   padding: 0 var(--space-2);
@@ -1846,24 +1846,24 @@
   outline: none;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
-.strata-combobox__input:focus {
+.varve-combobox__input:focus {
   border-color: var(--color-interactive-default);
 }
-.strata-combobox__input:focus-visible {
+.varve-combobox__input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
-.strata-combobox--error .strata-combobox__input {
+.varve-combobox--error .varve-combobox__input {
   border-color: var(--color-feedback-danger);
 }
-.strata-combobox--disabled .strata-combobox__input {
+.varve-combobox--disabled .varve-combobox__input {
   opacity: 0.5;
 }
-.strata-combobox__error {
+.varve-combobox__error {
   font-size: var(--font-size-xs);
   color: var(--color-feedback-danger);
 }
-.strata-combobox__listbox {
+.varve-combobox__listbox {
   position: absolute;
   top: 100%;
   left: 0;
@@ -1877,16 +1877,16 @@
   box-shadow: var(--elevation-shadow-raised);
   margin-top: var(--space-1);
 }
-.strata-combobox__option {
+.varve-combobox__option {
   padding: var(--space-2);
   cursor: pointer;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
-.strata-combobox__option--highlighted {
+.varve-combobox__option--highlighted {
   background: var(--color-surface-sunken);
 }
-.strata-combobox__option--disabled {
+.varve-combobox__option--disabled {
   opacity: 0.5;
   cursor: default;
 }

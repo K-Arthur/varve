@@ -70,13 +70,13 @@ describe('suggestName', () => {
 
   it('rule 4: large bold text gets "Heading: ..."', () => {
     const doc = createTestDoc();
-    const text = makeTextNode('t1', 'Welcome to Strata', {
+    const text = makeTextNode('t1', 'Welcome to Varve', {
       name: 'Text 1',
       fontSize: 32,
       fontWeight: 700,
     });
     const result = suggestName(text, doc);
-    expect(result.name).toBe('Heading: Welcome to Strata');
+    expect(result.name).toBe('Heading: Welcome to Varve');
     expect(result.confidence).toBe('high');
     expect(result.matchedRule).toBe('3-text-heading');
   });

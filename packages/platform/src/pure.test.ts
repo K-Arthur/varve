@@ -314,7 +314,7 @@ describe('evaluateSmartCollection', () => {
   it('excludes trashed files', () => {
     const collection: Collection = {
       id: 'c6',
-      name: 'All Strata',
+      name: 'All Varve',
       createdAt: 0,
       updatedAt: 0,
       ordering: '',

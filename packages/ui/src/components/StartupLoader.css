@@ -55,7 +55,7 @@
 }
 
 .startup-loader__logo-container--pulse::before {
-  animation: strata-logo-luminosity 3.6s ease-in-out infinite;
+  animation: varve-logo-luminosity 3.6s ease-in-out infinite;
 }
 
 .startup-loader__logo {
@@ -86,7 +86,7 @@
   gap: var(--space-4, 1rem);
   max-width: 320px;
   text-align: center;
-  animation: strata-startup-fade-in var(--duration-base, 0.25s) var(--ease-out, ease-out);
+  animation: varve-startup-fade-in var(--duration-base, 0.25s) var(--ease-out, ease-out);
 }
 
 .startup-loader__error-msg {
@@ -114,7 +114,7 @@
 }
 
 /* Ambient only — mark geometry stays rock-solid */
-@keyframes strata-logo-luminosity {
+@keyframes varve-logo-luminosity {
   0%,
   100% {
     opacity: 0.45;
@@ -124,7 +124,7 @@
   }
 }
 
-@keyframes strata-startup-fade-in {
+@keyframes varve-startup-fade-in {
   from {
     opacity: 0;
   }

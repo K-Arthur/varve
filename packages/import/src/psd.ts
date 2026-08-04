@@ -1,8 +1,8 @@
 /**
- * PSD parser — converts PSD files into a Strata Document using @webtoon/psd.
+ * PSD parser — converts PSD files into a Varve Document using @webtoon/psd.
  *
  * Extracts layer structure, visibility, opacity, blend modes, and masks.
- * Layer masks and clipping masks are converted to the canonical Strata mask
+ * Layer masks and clipping masks are converted to the canonical Varve mask
  * model (clip, alpha, luminance). Vector masks are imported as vector masks
  * when representable.
  *
