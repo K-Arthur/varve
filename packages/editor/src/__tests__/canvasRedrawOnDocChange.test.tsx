@@ -77,7 +77,14 @@ const CONTENT_KEY_PREFIX = 'canvas-content:';
 const contentScheduleCount = () =>
   scheduledKeys.filter((k) => k.startsWith(CONTENT_KEY_PREFIX)).length;
 
+// `id`, `name` and `nextId` are required by DocumentCodec. Without them the
+// decode fails, the provider silently falls back to a default document, and
+// `setNodePosition('r1')` becomes a no-op — the assertions below then measure
+// an empty scene instead of the redraw behaviour they exist to guard.
 const docJson = JSON.stringify({
+  id: 'doc-redraw-test',
+  name: 'Redraw Test',
+  nextId: 2,
   formatVersion: '1.3',
   nodes: {
     r1: {
