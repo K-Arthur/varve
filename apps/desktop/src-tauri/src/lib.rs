@@ -2108,11 +2108,11 @@ pub fn run() {
     // On Wayland (especially KDE Plasma), the window icon is resolved via the
     // FreeDesktop desktop file whose *filename stem* matches the process
     // program name / Wayland app_id. Force that id to our Tauri identifier so
-    // `dev.strata.desktop.desktop` + hicolor icons resolve instead of the
+    // `dev.varve.desktop.desktop` + hicolor icons resolve instead of the
     // generic Wayland logo. Must run before GTK init inside `Builder::run`.
     #[cfg(target_os = "linux")]
     {
-        glib::set_prgname(Some("dev.strata.desktop"));
+        glib::set_prgname(Some("dev.varve.desktop"));
         glib::set_application_name("Varve");
     }
 
@@ -2139,6 +2139,7 @@ pub fn run() {
             // happen once the webview is already up and running JS.
 
             let data_dir = app.path().app_data_dir().expect("no app data dir");
+            migrate_legacy_data_dir(&data_dir);
             std::fs::create_dir_all(&data_dir).expect("create data dir");
             let db_path = data_dir.join("documents.db");
             let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
@@ -3395,4 +3396,50 @@ mod tests {
         });
         serde_json::Value::Array(vec![one; MAX_SCENE_NODES + 1])
     }
+}
+
+fn migrate_legacy_data_dir(data_dir: &std::path::Path) {
+    if data_dir.exists() {
+        return;
+    }
+    let Some(base) = legacy_data_base() else {
+        return;
+    };
+    let legacy = base.join("dev.strata.desktop");
+    if !legacy.is_dir() {
+        return;
+    }
+    let _ = copy_dir_all(&legacy, data_dir);
+}
+
+fn legacy_data_base() -> Option<std::path::PathBuf> {
+    if cfg!(target_os = "linux") {
+        std::env::var_os("XDG_DATA_HOME")
+            .map(std::path::PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".local/share"))
+            })
+    } else if cfg!(target_os = "macos") {
+        std::env::var_os("HOME")
+            .map(|h| std::path::PathBuf::from(h).join("Library/Application Support"))
+    } else if cfg!(target_os = "windows") {
+        std::env::var_os("APPDATA").map(std::path::PathBuf::from)
+    } else {
+        None
+    }
+}
+
+fn copy_dir_all(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let target = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &target)?;
+        } else if ty.is_file() {
+            std::fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
 }

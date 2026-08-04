@@ -1,9 +1,11 @@
 /**
- * System clipboard integration for Strata node data.
+ * System clipboard integration for Varve node data.
  *
- * Copies nodes as `application/vnd.strata+json` (preserves structure for
+ * Copies nodes as `application/vnd.varve+json` (preserves structure for
  * in-app paste) and `text/plain` (fallback for paste-into-text-editor).
- * Reads clipboard in a single pass for Strata JSON, SVG text, and images.
+ * The legacy `application/vnd.strata+json` type is written and read
+ * alongside it so clipboard payloads survive an upgrade between builds.
+ * Reads clipboard in a single pass for Varve JSON, SVG text, and images.
  *
  * The payload includes both image assets and raster-mask assets referenced by
  * the copied node closure so cross-document paste remains self-contained.
@@ -13,7 +15,8 @@
 import type { Platform } from '@varve/platform';
 import type { DocumentAsset, DocumentIconAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
 
-const STRATA_MIME = 'application/vnd.strata+json';
+const VARVE_MIME = 'application/vnd.varve+json';
+const LEGACY_MIME = 'application/vnd.strata+json';
 
 export interface ClipboardData {
   nodes: SceneNode[];
@@ -29,7 +32,7 @@ export interface ClipboardImportItem {
 }
 
 export interface UnifiedClipboardResult {
-  strataData: ClipboardData | null;
+  varveData: ClipboardData | null;
   importItems: ClipboardImportItem[];
 }
 
@@ -47,11 +50,12 @@ export async function writeClipboard(
       ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
     };
     const json = JSON.stringify(data);
-    const blob = new Blob([json], { type: STRATA_MIME });
+    const blob = new Blob([json], { type: VARVE_MIME });
     const textBlob = new Blob([nodes.map((n) => n.name).join('\n')], { type: 'text/plain' });
     await navigator.clipboard.write([
       new ClipboardItem({
-        [STRATA_MIME]: blob,
+        [VARVE_MIME]: blob,
+        [LEGACY_MIME]: blob,
         'text/plain': textBlob,
       }),
     ]);
@@ -70,8 +74,9 @@ export async function readClipboard(): Promise<ClipboardData | null> {
   try {
     const items = await navigator.clipboard.read();
     for (const item of items) {
-      if (item.types.includes(STRATA_MIME)) {
-        const blob = await item.getType(STRATA_MIME);
+      const mime = item.types.find((t) => t === VARVE_MIME || t === LEGACY_MIME);
+      if (mime) {
+        const blob = await item.getType(mime);
         const text = await blob.text();
         const parsed = JSON.parse(text) as ClipboardData;
         if (parsed.nodes && Array.isArray(parsed.nodes)) {
@@ -94,7 +99,7 @@ export async function readClipboard(): Promise<ClipboardData | null> {
  * importImageAsFile can process them.
  */
 export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
-  const result: UnifiedClipboardResult = { strataData: null, importItems: [] };
+  const result: UnifiedClipboardResult = { varveData: null, importItems: [] };
   // A single logical image is often exposed under more than one ClipboardItem
   // or MIME type (seen in practice on Linux/Wayland clipboard proxies) —
   // dedupe by name so one paste doesn't produce duplicate nodes.
@@ -103,12 +108,12 @@ export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
     const items = await navigator.clipboard.read();
     for (const item of items) {
       for (const type of item.types) {
-        if (type === STRATA_MIME) {
+        if (type === VARVE_MIME || type === LEGACY_MIME) {
           const blob = await item.getType(type);
           const text = await blob.text();
           const parsed = JSON.parse(text) as ClipboardData;
           if (parsed.nodes && Array.isArray(parsed.nodes)) {
-            result.strataData = parsed;
+            result.varveData = parsed;
           }
         } else if (type.startsWith('image/') && type !== 'image/svg+xml') {
           const name = `clipboard.${type.split('/')[1] ?? 'png'}`;
@@ -155,17 +160,17 @@ export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
 export async function readFromClipboardEvent(
   event: ClipboardEvent,
 ): Promise<UnifiedClipboardResult> {
-  const result: UnifiedClipboardResult = { strataData: null, importItems: [] };
+  const result: UnifiedClipboardResult = { varveData: null, importItems: [] };
   const dt = event.clipboardData;
   if (!dt) return result;
 
-  // Try reading Strata JSON from clipboard data
+  // Try reading Varve JSON from clipboard data
   try {
-    const strataDataStr = dt.getData('application/vnd.strata+json');
-    if (strataDataStr) {
-      const parsed = JSON.parse(strataDataStr) as ClipboardData;
+    const varveDataStr = dt.getData('application/vnd.strata+json');
+    if (varveDataStr) {
+      const parsed = JSON.parse(varveDataStr) as ClipboardData;
       if (parsed.nodes && Array.isArray(parsed.nodes)) {
-        result.strataData = parsed;
+        result.varveData = parsed;
       }
     }
   } catch {
@@ -287,7 +292,7 @@ export async function readClipboardUnifiedWithFallback(
   platform?: Pick<Platform, 'kind' | 'readClipboardImage'>,
 ): Promise<UnifiedClipboardResult> {
   const apiResult = await readClipboardUnified();
-  if (apiResult.strataData || apiResult.importItems.length > 0) {
+  if (apiResult.varveData || apiResult.importItems.length > 0) {
     clearCapturedClipboardEvent();
     return apiResult;
   }
@@ -295,7 +300,7 @@ export async function readClipboardUnifiedWithFallback(
     const event = capturedPasteEvent;
     capturedPasteEvent = null;
     const eventResult = await readFromClipboardEvent(event);
-    if (eventResult.strataData || eventResult.importItems.length > 0) {
+    if (eventResult.varveData || eventResult.importItems.length > 0) {
       return eventResult;
     }
   }
@@ -304,7 +309,7 @@ export async function readClipboardUnifiedWithFallback(
       const bytes = await platform.readClipboardImage();
       if (bytes && bytes.length > 0) {
         return {
-          strataData: null,
+          varveData: null,
           importItems: [{ data: bytes, mimeType: 'image/png', name: 'clipboard.png' }],
         };
       }

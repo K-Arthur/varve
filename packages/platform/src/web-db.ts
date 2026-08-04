@@ -180,3 +180,130 @@ export async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
     },
   });
 }
+
+/**
+ * Copy records from a legacy IndexedDB database into the current one,
+ * idempotently: stores that already contain data are left untouched.
+ *
+ * Used by storage backends whose database names carried the old product
+ * name (e.g. `strata-backups`) and were renamed with the product. The
+ * legacy database is opened read-only and closed afterwards; it is never
+ * deleted, so a rollback to the old build keeps working.
+ *
+ * Records are copied by key via `getAllKeys` + `get`, which works for
+ * both keyPath stores and keyless stores.
+ */
+export function migrateLegacyIndexedDb(
+  legacyName: string,
+  currentName: string,
+  stores: string[],
+): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === 'undefined') {
+      resolve();
+      return;
+    }
+    let legacy: IDBDatabase | null = null;
+    let current: IDBDatabase | null = null;
+    const finish = () => {
+      legacy?.close();
+      current?.close();
+      resolve();
+    };
+    const legacyReq = indexedDB.open(legacyName);
+    legacyReq.onupgradeneeded = () => {
+      legacyReq.transaction?.abort();
+    };
+    legacyReq.onerror = () => {
+      resolve();
+    };
+    legacyReq.onsuccess = () => {
+      const legacyDb = legacyReq.result;
+      legacy = legacyDb;
+      if (!legacyDb) {
+        resolve();
+        return;
+      }
+      const storeNames = stores.filter((s) => legacyDb.objectStoreNames.contains(s));
+      if (storeNames.length === 0) {
+        finish();
+        return;
+      }
+      const currentReq = indexedDB.open(currentName);
+      currentReq.onerror = () => {
+        finish();
+      };
+      currentReq.onsuccess = () => {
+        current = currentReq.result;
+        if (!current) {
+          finish();
+          return;
+        }
+        const tasks = storeNames.map(
+          (storeName) =>
+            new Promise<void>((storeDone) => {
+              if (!current?.objectStoreNames.contains(storeName)) {
+                storeDone();
+                return;
+              }
+              const countReq = current
+                .transaction(storeName, 'readonly')
+                .objectStore(storeName)
+                .count();
+              countReq.onerror = () => {
+                storeDone();
+              };
+              countReq.onsuccess = () => {
+                if (!current || !legacy || countReq.result > 0) {
+                  storeDone();
+                  return;
+                }
+                const keysReq = legacy
+                  .transaction(storeName, 'readonly')
+                  .objectStore(storeName)
+                  .getAllKeys();
+                keysReq.onerror = () => {
+                  storeDone();
+                };
+                keysReq.onsuccess = () => {
+                  const keys = keysReq.result;
+                  if (!current || keys.length === 0) {
+                    storeDone();
+                    return;
+                  }
+                  const writeTx = current.transaction(storeName, 'readwrite');
+                  const target = writeTx.objectStore(storeName);
+                  let remaining = keys.length;
+                  const stepDone = () => {
+                    remaining -= 1;
+                    if (remaining === 0) {
+                      writeTx.oncomplete = () => {
+                        storeDone();
+                      };
+                      writeTx.onerror = () => {
+                        storeDone();
+                      };
+                    }
+                  };
+                  keys.forEach((key) => {
+                    const getReq = legacy!
+                      .transaction(storeName, 'readonly')
+                      .objectStore(storeName)
+                      .get(key);
+                    getReq.onsuccess = () => {
+                      target.put(getReq.result, key as IDBValidKey);
+                      stepDone();
+                    };
+                    getReq.onerror = () => {
+                      stepDone();
+                    };
+                  });
+                };
+              };
+            }),
+        );
+        void Promise.all(tasks).then(finish);
+      };
+    };
+  });
+}

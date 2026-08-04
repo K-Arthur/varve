@@ -207,7 +207,7 @@ export function PaintLibrarySection() {
   }, []);
 
   const handleDragStart = useCallback((e: React.DragEvent, paintId: string) => {
-    e.dataTransfer.setData('application/strata-paint', paintId);
+    e.dataTransfer.setData('application/varve-paint', paintId);
     e.dataTransfer.effectAllowed = 'copy';
   }, []);
 

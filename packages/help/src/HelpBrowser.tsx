@@ -28,7 +28,8 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
   const [selectedArticle, setSelectedArticle] = useState<HelpArticle | null>(null);
   const [helpfulFeedback, setHelpfulFeedback] = useState<Record<string, boolean>>(() => {
     try {
-      const stored = localStorage.getItem('strata-help-feedback');
+      const stored =
+        localStorage.getItem('varve-help-feedback') ?? localStorage.getItem('strata-help-feedback');
       return stored ? (JSON.parse(stored) as Record<string, boolean>) : {};
     } catch {
       return {};
@@ -138,7 +139,7 @@ export function HelpBrowser({ open, onClose }: HelpBrowserProps) {
       const updated = { ...helpfulFeedback, [articleId]: isHelpful };
       setHelpfulFeedback(updated);
       try {
-        localStorage.setItem('strata-help-feedback', JSON.stringify(updated));
+        localStorage.setItem('varve-help-feedback', JSON.stringify(updated));
       } catch {
         // localStorage not available
       }

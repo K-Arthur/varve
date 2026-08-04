@@ -9,7 +9,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-APP_ID="dev.strata.desktop"
+APP_ID="dev.varve.desktop"
 ICON_SRC="$REPO_ROOT/apps/desktop/src-tauri/icons/hicolor"
 DESKTOP_SRC="$REPO_ROOT/apps/desktop/src-tauri/linux/${APP_ID}.installed.desktop"
 APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
@@ -64,23 +64,23 @@ fi
 echo "==> Installing desktop entry → $APPS_DIR/${APP_ID}.desktop"
 cp -f "$DESKTOP_SRC" "$APPS_DIR/${APP_ID}.desktop"
 
-# Alias for Cargo binary app_id fallback (strata-desktop) — NoDisplay so menus stay single.
+# Alias for Cargo binary app_id fallback (varve-desktop) — NoDisplay so menus stay single.
 {
   echo "[Desktop Entry]"
   echo "Name=Varve"
   echo "GenericName=Design Tool"
   echo "Comment=Local-first, cross-platform design suite"
-  echo "Exec=strata-desktop %F"
+  echo "Exec=varve-desktop %F"
   echo "Icon=${APP_ID}"
   echo "Type=Application"
   echo "Categories=Graphics;2DGraphics;VectorGraphics;"
   echo "Keywords=design;ui;vector;graphics;print;"
   echo "Terminal=false"
   echo "StartupNotify=true"
-  echo "StartupWMClass=strata-desktop"
+  echo "StartupWMClass=varve-desktop"
   echo "MimeType=application/x-strata;"
   echo "NoDisplay=true"
-} > "$APPS_DIR/strata-desktop.desktop"
+} > "$APPS_DIR/varve-desktop.desktop"
 
 echo "==> Refreshing icon / desktop caches"
 if command -v gtk-update-icon-cache >/dev/null 2>&1; then

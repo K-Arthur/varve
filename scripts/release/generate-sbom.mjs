@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate a CycloneDX 1.5 SBOM for a Strata release.
+ * Generate a CycloneDX 1.5 SBOM for a Varve release.
  *
  * Deliberately has no external tool dependency (no syft, no cargo-cyclonedx).
  * A release pipeline that needs a tool installed from a `latest` URL to produce
@@ -10,7 +10,7 @@
  * committed lockfiles and are already required for the build.
  *
  * Usage:
- *   node scripts/release/generate-sbom.mjs --out dist/release/strata-sbom.cdx.json
+ *   node scripts/release/generate-sbom.mjs --out dist/release/varve-sbom.cdx.json
  */
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -77,7 +77,7 @@ function rustComponents() {
 
     const metadata = JSON.parse(raw);
     for (const pkg of metadata.packages) {
-      // Path dependencies are first-party Strata crates, not third-party supply
+      // Path dependencies are first-party Varve crates, not third-party supply
       // chain. They are recorded, but flagged so a consumer can tell them apart.
       const isLocal = (pkg.source ?? null) === null;
       const key = `${pkg.name}@${pkg.version}`;
@@ -93,8 +93,8 @@ function rustComponents() {
         ...(pkg.license ? { licenses: licenseEntries(pkg.license) } : {}),
         ...(pkg.repository ? { externalReferences: [{ type: 'vcs', url: pkg.repository }] } : {}),
         properties: [
-          { name: 'strata:ecosystem', value: 'cargo' },
-          { name: 'strata:origin', value: isLocal ? 'first-party' : 'registry' },
+          { name: 'varve:ecosystem', value: 'cargo' },
+          { name: 'varve:origin', value: isLocal ? 'first-party' : 'registry' },
         ],
       });
     }
@@ -139,8 +139,8 @@ function npmComponents() {
           version,
           purl: `pkg:npm/${purlEncode(name)}@${version}`,
           properties: [
-            { name: 'strata:ecosystem', value: 'npm' },
-            { name: 'strata:origin', value: isLink ? 'first-party' : 'registry' },
+            { name: 'varve:ecosystem', value: 'npm' },
+            { name: 'varve:origin', value: isLink ? 'first-party' : 'registry' },
           ],
         });
       }
@@ -177,8 +177,8 @@ function bundledBinaryComponents() {
       licenses: [{ license: { id: 'MIT' } }],
       externalReferences: [{ type: 'vcs', url: 'https://github.com/microsoft/onnxruntime' }],
       properties: [
-        { name: 'strata:ecosystem', value: 'generic' },
-        { name: 'strata:origin', value: 'vendored-binary' },
+        { name: 'varve:ecosystem', value: 'generic' },
+        { name: 'varve:origin', value: 'vendored-binary' },
       ],
     });
   }
@@ -195,9 +195,9 @@ function bundledBinaryComponents() {
       ...(model.sourceLicense ? { licenses: licenseEntries(model.sourceLicense) } : {}),
       ...(model.sha256 ? { hashes: [{ alg: 'SHA-256', content: model.sha256 }] } : {}),
       properties: [
-        { name: 'strata:ecosystem', value: 'onnx-model' },
-        { name: 'strata:origin', value: 'bundled-model' },
-        ...(model.remoteUrl ? [{ name: 'strata:sourceUrl', value: model.remoteUrl }] : []),
+        { name: 'varve:ecosystem', value: 'onnx-model' },
+        { name: 'varve:origin', value: 'bundled-model' },
+        ...(model.remoteUrl ? [{ name: 'varve:sourceUrl', value: model.remoteUrl }] : []),
         {
           name: 'strata:provenanceStatus',
           value: model.validation?.provenanceStatus ?? 'unknown',
@@ -211,7 +211,7 @@ function bundledBinaryComponents() {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const outPath = resolve(repoRoot, args.out ?? 'dist/release/strata-sbom.cdx.json');
+  const outPath = resolve(repoRoot, args.out ?? 'dist/release/varve-sbom.cdx.json');
   const version = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf-8')).version;
 
   const components = [...rustComponents(), ...npmComponents(), ...bundledBinaryComponents()];
@@ -240,7 +240,7 @@ function main() {
   writeFileSync(outPath, `${JSON.stringify(sbom, null, 2)}\n`);
 
   const counts = components.reduce((acc, c) => {
-    const eco = c.properties?.find((p) => p.name === 'strata:ecosystem')?.value ?? 'other';
+    const eco = c.properties?.find((p) => p.name === 'varve:ecosystem')?.value ?? 'other';
     acc[eco] = (acc[eco] ?? 0) + 1;
     return acc;
   }, {});

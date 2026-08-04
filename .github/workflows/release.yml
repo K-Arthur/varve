@@ -304,7 +304,7 @@ jobs:
           # linuxdeploy bundles an old binutils `strip` that cannot parse the
           # SHT_RELR (.relr.dyn) sections modern toolchains emit, and aborts the
           # whole AppImage build with only "failed to run linuxdeploy" to show
-          # for it. Harmless to set everywhere: the Strata binary is stripped by
+          # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
 
@@ -367,7 +367,7 @@ jobs:
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: debug-binary-${{ matrix.name }}
-          path: apps/desktop/src-tauri/target/release/strata-desktop
+          path: apps/desktop/src-tauri/target/release/varve-desktop
           if-no-files-found: warn
           retention-days: 90
 
@@ -414,7 +414,7 @@ jobs:
           node scripts/release/merge-manifests.mjs --staged staged --out dist/release
 
       - name: Generate SBOM
-        run: node scripts/release/generate-sbom.mjs --out dist/release/strata-${{ needs.preflight.outputs.version }}-sbom.cdx.json
+        run: node scripts/release/generate-sbom.mjs --out dist/release/varve-${{ needs.preflight.outputs.version }}-sbom.cdx.json
 
       - name: Verify artifacts against the manifest
         run: |
