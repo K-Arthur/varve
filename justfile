@@ -172,29 +172,36 @@ validate-workflows-staged:
 # Ubuntu 22.04 (glibc 2.35) compatibility baseline. Release AppImages must come
 # from the ubuntu-latest runner in release.yml.
 
+# Strip ONNX Runtime libraries for other platforms out of the bundle.
+# tauri.conf.json globs onnxruntime-libs/** wholesale, so every platform ever
+# fetched on this machine ships inside the installer. A .deb built here carried
+# 53.9 MB of macOS and Windows libraries out of 74 MB total.
+prune-runtimes:
+    node scripts/release/prune-foreign-runtimes.mjs
+
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
-package-linux:
+package-linux: prune-runtimes
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb,rpm --ci --features ai
     @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
 
 # Build deb only (faster; useful for quick install testing on Debian/Ubuntu).
-package-deb:
+package-deb: prune-runtimes
     cd apps/desktop && pnpm tauri build --bundles deb --ci --features ai
 
 # Build rpm only.
-package-rpm:
+package-rpm: prune-runtimes
     cd apps/desktop && pnpm tauri build --bundles rpm --ci --features ai
 
 # Build AppImage only. Local smoke-test artifact — see the note above.
-package-appimage:
+package-appimage: prune-runtimes
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai
 
 # Build macOS dmg (run on macOS only).
-package-dmg:
+package-dmg: prune-runtimes
     cd apps/desktop && pnpm tauri build --bundles dmg --ci --features ai
 
 # Build Windows msi + nsis (run on Windows only).
-package-windows:
+package-windows: prune-runtimes
     cd apps/desktop && pnpm tauri build --bundles msi,nsis --ci --features ai
 
 # Validate AUR PKGBUILDs using Docker (requires docker; works on any OS).
