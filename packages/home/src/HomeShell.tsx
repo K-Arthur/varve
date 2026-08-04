@@ -7,7 +7,7 @@ import {
   type SavedSearch,
   type TemplateLibrary,
 } from '@varve/platform';
-import { createNewDocument, serializeDocument } from '@varve/scene';
+import { createNewDocument, type NewDocumentRequest, serializeDocument } from '@varve/scene';
 import {
   BLANK_DOCUMENT_PRESET,
   generateKeyBetween,
@@ -28,7 +28,7 @@ import { FileList } from './FileList';
 import { HomeSearchPalette } from './HomeSearchPalette';
 import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
-import { NewFileDialog } from './NewFileDialog';
+import { NewDesignDialog } from './NewDesignDialog';
 import { PerfProfile } from './PerfProfile';
 import { ProjectsView } from './ProjectsView';
 import { usePresetLibrary } from './presetLibrary';
@@ -478,31 +478,21 @@ export function HomeShell({
     [actions],
   );
 
-  // Create a document from a preset (blank or print) and open it. Shared by the
-  // New File dialog and the home quick-start row. Runs through the canonical
-  // creation service (@varve/scene createNewDocument): presets become an
-  // initial frame on an unbounded document; the blank preset stays empty.
-  const createFromPreset = useCallback(
-    async (preset: Preset, documentName?: string) => {
-      const id = crypto.randomUUID();
-      const now = Date.now();
-      const name =
-        documentName?.trim() ||
-        nextUntitledName(
-          view.files.map((f) => f.name),
-          'Untitled',
-        );
-      const created = createNewDocument({
-        documentName: name,
-        startMode: preset.id === BLANK_DOCUMENT_PRESET.id ? 'empty' : 'framePreset',
-        preset,
-      });
+  // Create a document from a canonical creation request and open it. Shared
+  // by the New Design dialog and the home quick-start row; every creation
+  // path funnels through @varve/scene's createNewDocument so behavior is
+  // identical (empty document vs. initial-frame preset vs. template).
+  const createDocumentFromRequest = useCallback(
+    async (request: NewDocumentRequest) => {
+      const created = createNewDocument(request);
       if (!created.ok) return;
       const doc = created.result.document;
+      const id = crypto.randomUUID();
+      const now = Date.now();
       const docJson = serializeDocument(doc);
       const entry: FileEntry = {
         id,
-        name,
+        name: doc.name,
         kind: 'strata',
         projectId: null,
         createdAt: now,
@@ -521,7 +511,40 @@ export function HomeShell({
       generateThumbnail(platform, entry, docJson);
       onOpenFile(entry);
     },
-    [platform, onOpenFile, view.files],
+    [platform, onOpenFile],
+  );
+
+  // Create a document from a preset (blank or print) and open it — used by
+  // the quick-start row and the dialog's frame-preset path.
+  const createFromPreset = useCallback(
+    (preset: Preset, documentName?: string) => {
+      const name =
+        documentName?.trim() ||
+        nextUntitledName(
+          view.files.map((f) => f.name),
+          'Untitled',
+        );
+      void createDocumentFromRequest({
+        documentName: name,
+        startMode: preset.id === BLANK_DOCUMENT_PRESET.id ? 'empty' : 'framePreset',
+        preset,
+      });
+    },
+    [createDocumentFromRequest, view.files],
+  );
+
+  const createEmptyOrCustom = useCallback(
+    (request: NewDocumentRequest) => {
+      void createDocumentFromRequest(request);
+    },
+    [createDocumentFromRequest],
+  );
+
+  const createFromTemplateRequest = useCallback(
+    (request: NewDocumentRequest) => {
+      void createDocumentFromRequest(request);
+    },
+    [createDocumentFromRequest],
   );
 
   const handleBreadcrumbNavigate = useCallback(
@@ -900,7 +923,7 @@ export function HomeShell({
             />
           </div>
         )}
-        <main className="varve-home__content">
+        <main id="home-main" tabIndex={-1} className="varve-home__content">
           {renderContent()}
           <PerfProfile
             fileCount={view.files.length}
@@ -909,11 +932,21 @@ export function HomeShell({
           />
         </main>
 
-        <NewFileDialog
+        <NewDesignDialog
           open={newFileOpen}
           onClose={() => setNewFileOpen(false)}
-          onCreate={(preset) => {
-            createFromPreset(preset);
+          defaultName={nextUntitledName(
+            view.files.map((f) => f.name),
+            'Untitled',
+          )}
+          onCreate={(request) => {
+            if (request.startMode === 'template' && request.templateJson) {
+              createFromTemplateRequest(request);
+            } else if (request.startMode === 'framePreset' && request.preset) {
+              createFromPreset(request.preset, request.documentName);
+            } else {
+              createEmptyOrCustom(request);
+            }
             setNewFileOpen(false);
           }}
           customPresets={presetLibrary.customPresets}
