@@ -12,8 +12,8 @@ import type {
   AuditFinding,
   AuditSeverity,
   AuditScope as UnifiedAuditScope,
-} from '@strata/shared';
-import { generateFindingId, mapLegacySeverity } from '@strata/shared';
+} from '@varve/shared';
+import { generateFindingId, mapLegacySeverity } from '@varve/shared';
 import type { AuditIssue as SceneAuditIssue } from './audit';
 import type { DebtIssue } from './debtScanner';
 import type { GovernanceIssue } from './governanceRules';

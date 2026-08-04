@@ -1,5 +1,5 @@
-import type { FileEntry, Project } from '@strata/platform';
-import { ContextMenu, type MenuEntry } from '@strata/ui';
+import type { FileEntry, Project } from '@varve/platform';
+import { ContextMenu, type MenuEntry } from '@varve/ui';
 
 export type FileMenuAction =
   | 'open'

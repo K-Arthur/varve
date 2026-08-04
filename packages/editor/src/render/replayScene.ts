@@ -23,10 +23,10 @@ import {
   renderEnhancedMask,
   replayIr,
   traceSceneNodeOutline,
-} from '@strata/engine';
-import type { Document, Effect, ManagedColor, Mask, NodeId } from '@strata/scene';
-import { nodeEffectPadding } from '@strata/scene';
-import { managedColorToRgba, tryInvertAffine } from '@strata/shared';
+} from '@varve/engine';
+import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene';
+import { nodeEffectPadding } from '@varve/scene';
+import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
 import { nodeWorldTransform } from '../scene/world';
 
 type SceneContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;

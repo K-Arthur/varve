@@ -13,7 +13,7 @@
  * WCAG 2.2 AA compliant: keyboard accessible, focus visible,
  * screen reader labels, reduced motion support.
  */
-import { Button, Select, Tooltip } from '@strata/ui';
+import { Button, Select, Tooltip } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------

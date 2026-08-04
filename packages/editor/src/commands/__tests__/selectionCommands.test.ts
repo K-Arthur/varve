@@ -1,5 +1,5 @@
-import type { Shape } from '@strata/engine';
-import { createDocument, makeShapeNode } from '@strata/scene';
+import type { Shape } from '@varve/engine';
+import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   invertSelectionCmd,

@@ -9,9 +9,9 @@
  * VS Code problem-count badge in the status bar.
  */
 
-import { getFontRegistry } from '@strata/engine';
-import { runDebtScan } from '@strata/scene';
-import { Icon, Tooltip } from '@strata/ui';
+import { getFontRegistry } from '@varve/engine';
+import { runDebtScan } from '@varve/scene';
+import { Icon, Tooltip } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../context';
 

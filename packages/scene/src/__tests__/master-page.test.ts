@@ -5,7 +5,7 @@
  * `createDocument()` (no args = page-based, backward-compatible default).
  */
 
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import {
   addChild,

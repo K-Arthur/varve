@@ -5,7 +5,7 @@
  * Research basis: Adobe InDesign preflight, Figma font resolution.
  */
 
-import { managedColorToRgba } from '@strata/shared';
+import { managedColorToRgba } from '@varve/shared';
 import type { Document } from './document';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import type { ManagedColor, NodeId } from './types';

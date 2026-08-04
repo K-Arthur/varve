@@ -1,5 +1,5 @@
-import type { SceneNode } from '@strata/scene';
 import { render, screen, waitFor } from '@testing-library/react';
+import type { SceneNode } from '@varve/scene';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, type ToolId, useEditor } from './context';
@@ -206,9 +206,7 @@ describe('EditorContext', () => {
   });
 
   it('hitTestNode returns nested child before parent frame', async () => {
-    const { createDocument, makeFrameNode, makeShapeNode, addChild } = await import(
-      '@strata/scene'
-    );
+    const { createDocument, makeFrameNode, makeShapeNode, addChild } = await import('@varve/scene');
 
     // Create a doc with: page content root → frame → rectChild
     let doc = createDocument('hit-test');
@@ -252,9 +250,7 @@ describe('EditorContext', () => {
   });
 
   it('hitTestNode returns parent frame when clicking frame area without children', async () => {
-    const { createDocument, makeFrameNode, makeShapeNode, addChild } = await import(
-      '@strata/scene'
-    );
+    const { createDocument, makeFrameNode, makeShapeNode, addChild } = await import('@varve/scene');
 
     let doc = createDocument('hit-test');
     const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200 });
@@ -289,7 +285,7 @@ describe('EditorContext', () => {
   describe('duplicateSelected', () => {
     it('deep-clones container nodes with new IDs and offset transforms', async () => {
       const { createDocument, makeFrameNode, makeShapeNode, makeGroupNode, addNode, addChild } =
-        await import('@strata/scene');
+        await import('@varve/scene');
 
       // Build: root -> frame(f1) -> rect(r1) and group(g2) -> rect(r2)
       // This tests one level deep (r1) and two levels deep (r2 inside g2 inside f1)
@@ -422,7 +418,7 @@ describe('EditorContext', () => {
 
     it('deep-clones a GroupNode container', async () => {
       const { createDocument, makeGroupNode, makeShapeNode, addNode, addChild } = await import(
-        '@strata/scene'
+        '@varve/scene'
       );
 
       let doc = createDocument('dup-group-test');
@@ -492,7 +488,7 @@ describe('EditorContext', () => {
 
     it('remaps a clipping mask source to the duplicated child', async () => {
       const { addChild, addMask, addNode, createDocument, makeGroupNode, makeShapeNode } =
-        await import('@strata/scene');
+        await import('@varve/scene');
 
       let doc = createDocument('dup-mask-test');
       doc = addNode(doc, makeGroupNode('clip', { name: 'Clip' }));

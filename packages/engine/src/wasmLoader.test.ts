@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { createWasmEngineFromModule } from './engine';
 import { wasmHitTestFallback } from './wasmLoader';
 
-const WASM_ARTIFACT = resolve(process.cwd(), 'apps/desktop/public/wasm/strata_wasm_bg.wasm');
+const WASM_ARTIFACT = resolve(process.cwd(), 'apps/desktop/public/wasm/varve_wasm_bg.wasm');
 
 describe('wasmLoader', () => {
   it('wasm build artifact exists when just wasm-build has been run', () => {
     if (!existsSync(WASM_ARTIFACT)) {
-      console.warn('Skipping: run `just wasm-build` to produce strata_wasm_bg.wasm');
+      console.warn('Skipping: run `just wasm-build` to produce varve_wasm_bg.wasm');
       return;
     }
     expect(existsSync(WASM_ARTIFACT)).toBe(true);

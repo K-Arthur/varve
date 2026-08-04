@@ -11,8 +11,8 @@
  * export decisions).
  */
 
-import type { SceneNode } from '@strata/scene';
-import { Button, Icon, Tooltip } from '@strata/ui';
+import type { SceneNode } from '@varve/scene';
+import { Button, Icon, Tooltip } from '@varve/ui';
 import { useState } from 'react';
 import { useEditor } from '../../../context';
 import { IconBrowserDialog } from '../../IconBrowser/IconBrowserDialog';

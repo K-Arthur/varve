@@ -8,12 +8,12 @@
  * and drag-on-label scrubbing (Pointer Events — cross-platform, Linux-first).
  *
  * Math: commits evaluate arithmetic expressions via the safe Pratt parser in
- * @strata/scene (`evaluate`). Supports `{alias}` references resolved against
+ * @varve/scene (`evaluate`). Supports `{alias}` references resolved against
  * the active variable mode. No `eval`, no mathjs — stays local-first/offline
  * (Strata plan §0.1, §8.0). Invalid input sets `aria-invalid` + an inline,
  * `aria-describedby` error and does NOT commit.
  */
-import { evaluate } from '@strata/scene';
+import { evaluate } from '@varve/scene';
 import { useCallback, useContext, useId, useRef, useState } from 'react';
 import { EditorCtx } from '../../../context';
 

@@ -11,13 +11,13 @@
  * disclose the limitation.
  */
 
-import type { RenderItem } from '@strata/engine';
-import { applyProofToRgba, managedColorToRgba, type ProofTransformConfig } from '@strata/shared';
+import type { RenderItem } from '@varve/engine';
+import { applyProofToRgba, managedColorToRgba, type ProofTransformConfig } from '@varve/shared';
 
 function proofColor(
-  color: import('@strata/shared').ManagedColorShim,
+  color: import('@varve/shared').ManagedColorShim,
   config: ProofTransformConfig,
-): import('@strata/shared').ManagedColorShim {
+): import('@varve/shared').ManagedColorShim {
   const rgba = managedColorToRgba(color);
   const result = applyProofToRgba(rgba, config);
   if (result.kind === 'unavailable') return color;

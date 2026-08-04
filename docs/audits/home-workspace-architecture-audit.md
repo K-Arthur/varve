@@ -406,7 +406,7 @@
 
 - **Unit tests (home):** 16 files, 96 tests, all green.
 - **Unit tests (platform):** 2 files, 68 tests, all green.
-- **Typecheck:** `@strata/platform` passes; `@strata/home` has pre-existing errors in `TemplatesGallery` unrelated to this work.
+- **Typecheck:** `@varve/platform` passes; `@varve/home` has pre-existing errors in `TemplatesGallery` unrelated to this work.
 - **Lint:** `biome check` on all touched files passes (0 errors; 5 warnings are pre-existing). New `// biome-ignore` annotation added for the intentional `useEffect` reset in `HomeSearchPalette`.
 - **Emoji audit:** clean (619 files scanned).
 - **Token audit:** 93/93 WCAG-AA pairs pass across 3 themes.

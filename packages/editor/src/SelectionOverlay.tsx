@@ -9,9 +9,9 @@
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
 
-import type { ShapeNode } from '@strata/scene';
-import { buildParentIndexMap } from '@strata/scene';
-import type { Affine, Point, Rect } from '@strata/shared';
+import type { ShapeNode } from '@varve/scene';
+import { buildParentIndexMap } from '@varve/scene';
+import type { Affine, Point, Rect } from '@varve/shared';
 import {
   applyAffine,
   computeResizeModifiers,
@@ -23,7 +23,7 @@ import {
   simpleWorldToScreen,
   transformRect,
   tryInvertAffine,
-} from '@strata/shared';
+} from '@varve/shared';
 import { Fragment, useCallback, useMemo, useRef } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
@@ -336,7 +336,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   // which is O(n) per call. The overlay resolves world geometry for the whole
   // selection every render, so on a large selection (e.g. after select-all +
   // duplicate) it would be O(n²). One O(n) parent index per document keeps it
-  // O(selection) — see @strata/scene coordinateService.
+  // O(selection) — see @varve/scene coordinateService.
   const parentIndex = useMemo(() => buildParentIndexMap(state.document), [state.document]);
 
   const box = useMemo<SelectionBox | null>(() => {
@@ -551,7 +551,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         if (s.kind === 'rect') localRect = { x: s.x, y: s.y, w: s.w, h: s.h };
       }
       if (!localRect) return;
-      const cr = (node as import('@strata/scene').ShapeNode).cornerRadius ?? 0;
+      const cr = (node as import('@varve/scene').ShapeNode).cornerRadius ?? 0;
       const uniform = typeof cr === 'number' ? cr : Array.isArray(cr) ? cr[0] : 0;
       if (uniform <= 0) return;
 
@@ -631,10 +631,10 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
                   ...n.shape,
                   from: newFrom,
                   to: newTo,
-                } as import('@strata/engine').Shape,
+                } as import('@varve/engine').Shape,
               },
             },
-          } as import('@strata/scene').Document;
+          } as import('@varve/scene').Document;
         });
         return;
       }
@@ -722,9 +722,9 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
               [crDrag.nodeId]: {
                 ...nn,
                 cornerRadius: newRadius,
-              } as import('@strata/scene').SceneNode,
+              } as import('@varve/scene').SceneNode,
             },
-          } as import('@strata/scene').Document;
+          } as import('@varve/scene').Document;
         });
         return;
       }

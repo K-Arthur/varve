@@ -15,8 +15,8 @@
  * Research basis: Figma multi-type resize, Sketch Resizing.
  */
 
-import type { PathPoint } from '@strata/engine';
-import type { SceneNode, ShapeNode } from '@strata/scene';
+import type { PathPoint } from '@varve/engine';
+import type { SceneNode, ShapeNode } from '@varve/scene';
 
 export function resizeNodeGeometry(n: SceneNode, w: number, h: number): SceneNode {
   if (n.kind === 'frame') return { ...n, w, h };

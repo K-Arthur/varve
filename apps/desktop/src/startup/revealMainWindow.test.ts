@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { isTauriRuntime, resetPlatformInfo } from '@strata/platform';
+import { isTauriRuntime, resetPlatformInfo } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { dismissBootFallback, revealMainWindow } from './revealMainWindow';
 

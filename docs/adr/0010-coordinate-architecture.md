@@ -77,9 +77,9 @@ document migration (2.4 → 2.5). After migration:
 
 ### Package Structure
 
-- `@strata/shared` — pure math (`affine.ts`, `viewport.ts`, `coordinates.ts`)
-- `@strata/scene` — scene-graph-aware conversions (`coordinateService.ts`, `nodeBounds.ts`)
-- `@strata/editor` — re-exports from scene for backward compatibility (`world.ts`, `nodeBounds.ts`)
+- `@varve/shared` — pure math (`affine.ts`, `viewport.ts`, `coordinates.ts`)
+- `@varve/scene` — scene-graph-aware conversions (`coordinateService.ts`, `nodeBounds.ts`)
+- `@varve/editor` — re-exports from scene for backward compatibility (`world.ts`, `nodeBounds.ts`)
 
 ## Consequences
 
@@ -91,9 +91,9 @@ document migration (2.4 → 2.5). After migration:
 
 ### Migration
 - Existing documents are migrated 2.4 → 2.5 on next open (rotation baked in)
-- The editor's `world.ts` and `nodeBounds.ts` re-export from `@strata/scene`
+- The editor's `world.ts` and `nodeBounds.ts` re-export from `@varve/scene`
   for backward compatibility — existing imports continue to work
-- New code should import directly from `@strata/scene`
+- New code should import directly from `@varve/scene`
 
 ### Performance
 - `nodeWorldTransform` accepts an optional `parentIndex` map for O(1) parent

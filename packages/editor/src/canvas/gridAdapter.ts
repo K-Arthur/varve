@@ -1,4 +1,4 @@
-import type { Document, DocumentGrid } from '@strata/scene';
+import type { Document, DocumentGrid } from '@varve/scene';
 
 export const DEFAULT_DOCUMENT_GRID_ID = 'grid-document-default';
 

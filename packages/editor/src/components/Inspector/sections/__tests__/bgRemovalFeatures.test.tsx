@@ -22,7 +22,7 @@ const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } =
   mockExportIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock('@strata/engine', () => ({
+vi.mock('@varve/engine', () => ({
   DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
   checkGifExportSupport: () => ({ supported: false, reason: 'test' }),
   checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),
@@ -153,7 +153,7 @@ function makeImageNode(overrides: Record<string, unknown> = {}) {
     index: 0,
     order: 'a0',
     ...overrides,
-  } as import('@strata/scene').ShapeNode;
+  } as import('@varve/scene').ShapeNode;
 }
 
 function makeExportableImageNode(overrides: Record<string, unknown> = {}) {

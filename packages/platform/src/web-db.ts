@@ -1,5 +1,5 @@
 /**
- * @strata/platform — IndexedDB schema, store constants, and the DB initializer.
+ * @varve/platform — IndexedDB schema, store constants, and the DB initializer.
  *
  * Every object store used by the web platform is defined and versioned here.
  * The public export is `openHomeDb()`; every consumer imports the store-name
@@ -28,7 +28,7 @@ import type {
 
 // COMPLEXITY: 15
 
-export const DB_NAME = 'strata-home';
+export const DB_NAME = 'varve-home';
 export const DB_VERSION = 3;
 export const STORE_FILES = 'files';
 export const STORE_PROJECTS = 'projects';

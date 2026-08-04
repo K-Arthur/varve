@@ -1,6 +1,6 @@
 // COMPLEXITY: 155 cyclo (over component ceiling) — see docs/plans/architecture-health-remediation-2026-07-26.md
 /**
- * @strata/platform — browser Platform implementation.
+ * @varve/platform — browser Platform implementation.
  *
  * Local-first in the browser: the file/project index lives in IndexedDB,
  * thumbnails are content-addressed IDB blobs, and the view state is a single
@@ -55,7 +55,7 @@ import type {
 } from './types';
 import { DRAFTS_ID } from './types';
 
-const DB_NAME = 'strata-home';
+const DB_NAME = 'varve-home';
 const DB_VERSION = 3;
 const STORE_FILES = 'files';
 const STORE_PROJECTS = 'projects';
@@ -227,7 +227,7 @@ function getWindow(): (Window & WindowWithFsAccess) | undefined {
   return typeof window !== 'undefined' ? (window as Window & WindowWithFsAccess) : undefined;
 }
 
-const STRATA_ACCEPT = [
+const VARVE_ACCEPT = [
   { description: 'Strata document', accept: { 'application/json': ['.strata'] } },
 ];
 
@@ -1008,7 +1008,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       if (w?.showOpenFilePicker) {
         let handles: Array<FileSystemFileHandle> | undefined;
         try {
-          handles = await w.showOpenFilePicker({ multiple: false, types: STRATA_ACCEPT });
+          handles = await w.showOpenFilePicker({ multiple: false, types: VARVE_ACCEPT });
         } catch {
           return null;
         }
@@ -1046,7 +1046,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       if (w?.showSaveFilePicker) {
         let handle: FileSystemFileHandle | undefined;
         try {
-          handle = await w.showSaveFilePicker({ suggestedName: suggested, types: STRATA_ACCEPT });
+          handle = await w.showSaveFilePicker({ suggestedName: suggested, types: VARVE_ACCEPT });
         } catch {
           return null;
         }

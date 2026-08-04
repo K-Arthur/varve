@@ -9,7 +9,7 @@
  * Google Fonts API self-hosting docs.
  */
 
-import { isTauriRuntime as isTauri } from '@strata/platform';
+import { isTauriRuntime as isTauri } from '@varve/platform';
 import { type FontRegistry, getFontRegistry } from '../fontRegistry';
 import type { ParsedFontMetadata } from './fontIdentity';
 import { parseFontData } from './fontParser';

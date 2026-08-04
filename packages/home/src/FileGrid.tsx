@@ -1,6 +1,6 @@
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable';
-import type { FileEntry } from '@strata/platform';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import type { FileEntry } from '@varve/platform';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { FileCard } from './FileCard';
 

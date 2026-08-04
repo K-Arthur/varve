@@ -7,9 +7,9 @@
  *
  * Research basis: Figma variant picker popover.
  */
-import type { ComponentProperty, Document, NodeId, Variant } from '@strata/scene';
-import { getComponentProperties, resolveVariantProperties } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import type { ComponentProperty, Document, NodeId, Variant } from '@varve/scene';
+import { getComponentProperties, resolveVariantProperties } from '@varve/scene';
+import { SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import './VariantBox.css';
 

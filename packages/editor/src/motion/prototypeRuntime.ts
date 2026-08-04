@@ -1,15 +1,15 @@
 /**
  * Build a prototype runtime from Document interactions.
  */
-import { createRuntime, type Interaction, type PrototypeRuntime } from '@strata/prototype';
-import { type Document, flattenInteractions } from '@strata/scene';
+import { createRuntime, type Interaction, type PrototypeRuntime } from '@varve/prototype';
+import { type Document, flattenInteractions } from '@varve/scene';
 
 export function createRuntimeFromDocument(doc: Document): {
   runtime: PrototypeRuntime;
   entryScreenId: string;
 } {
   const screens = Object.values(doc.nodes).filter(
-    (n): n is import('@strata/scene').FrameNode => n.kind === 'frame',
+    (n): n is import('@varve/scene').FrameNode => n.kind === 'frame',
   );
   const firstScreen = screens[0];
   const interactions = flattenInteractions(doc) as Interaction[];

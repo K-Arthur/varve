@@ -32,15 +32,10 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { ContainerNode, Document, NodeId } from '@strata/scene';
-import {
-  getInstanceStatus,
-  getKeyframeCount,
-  getNodesInTimeline,
-  isContainer,
-} from '@strata/scene';
-import { EmptyState } from '@strata/ui';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
+import type { ContainerNode, Document, NodeId } from '@varve/scene';
+import { getInstanceStatus, getKeyframeCount, getNodesInTimeline, isContainer } from '@varve/scene';
+import { EmptyState } from '@varve/ui';
 import type React from 'react';
 import {
   forwardRef,
@@ -1470,7 +1465,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 });
 
 interface SortableVirtualRowProps {
-  node: import('@strata/scene').SceneNode;
+  node: import('@varve/scene').SceneNode;
   depth: number;
   selected: boolean;
   focused: boolean;
@@ -1565,7 +1560,7 @@ function SortableVirtualRow({
       : undefined;
 
   // Resolve sync status for component instances
-  const syncStatus: import('@strata/scene').InstanceStatus | undefined =
+  const syncStatus: import('@varve/scene').InstanceStatus | undefined =
     node.kind === 'frame' && node.componentId
       ? (() => {
           try {

@@ -38,7 +38,7 @@ remain distinct scene concepts.
 
 - LUT evaluation: `packages/engine/src/gradientMap.ts`
   (`buildGradientColorLut`, `buildGradientAlphaLut`, `applyGradientMapFilter`).
-  Color math reuses `@strata/shared` `interpolateManagedColor` so gradient-map
+  Color math reuses `@varve/shared` `interpolateManagedColor` so gradient-map
   stops blend identically to fill gradients in the same space. Midpoint
   semantics follow the Photoshop `.grd` convention (a stop's midpoint governs
   the segment to the previous stop) — see the module docstring.

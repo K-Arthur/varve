@@ -63,7 +63,7 @@ if [ -n "${SKIP_PLAYWRIGHT:-}" ]; then
   warn "SKIP_PLAYWRIGHT=1 set — skipping automated tests"
 else
   echo "Starting dev server..."
-  pnpm --filter @strata/desktop dev &
+  pnpm --filter @varve/desktop dev &
   DEV_PID=$!
   echo "  Dev server PID: $DEV_PID"
   cleanup() {

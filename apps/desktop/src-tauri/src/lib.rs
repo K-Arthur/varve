@@ -12,12 +12,12 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
-use strata_core::Point;
+use varve_core::Point;
 use tauri::ipc::Response;
 use tauri::Emitter;
 use tauri::Manager;
 
-use strata_bridge::{convert_engine_nodes, IpcSceneNode};
+use varve_bridge::{convert_engine_nodes, IpcSceneNode};
 
 use crate::renderer::{generate_ir, generate_pixels, ShapeIr};
 
@@ -40,22 +40,22 @@ fn check_scene_node_bounds(nodes: &[IpcSceneNode]) -> Result<(), String> {
     Ok(())
 }
 
-fn convert_scene(nodes: Vec<IpcSceneNode>) -> Vec<strata_core::SceneNode> {
+fn convert_scene(nodes: Vec<IpcSceneNode>) -> Vec<varve_core::SceneNode> {
     convert_engine_nodes(nodes)
 }
 
 #[tauri::command]
-fn build_render_ir(nodes: Vec<IpcSceneNode>) -> Result<Vec<strata_engine::RenderItem>, String> {
+fn build_render_ir(nodes: Vec<IpcSceneNode>) -> Result<Vec<varve_engine::RenderItem>, String> {
     check_scene_node_bounds(&nodes)?;
     let scene = convert_scene(nodes);
-    Ok(strata_engine::build_render_ir(&scene))
+    Ok(varve_engine::build_render_ir(&scene))
 }
 
 #[tauri::command]
 fn hit_test(nodes: Vec<IpcSceneNode>, x: f64, y: f64) -> Result<Option<usize>, String> {
     check_scene_node_bounds(&nodes)?;
     let scene = convert_scene(nodes);
-    Ok(strata_core::hit_test(&scene, Point::new(x, y)))
+    Ok(varve_core::hit_test(&scene, Point::new(x, y)))
 }
 
 #[derive(Debug, Serialize)]
@@ -308,7 +308,7 @@ fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
 /// Persist a document. Receives the full document JSON from the TS editor.
 #[tauri::command]
 fn sync_save(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     doc_id: String,
     json: String,
 ) -> Result<(), String> {
@@ -319,7 +319,7 @@ fn sync_save(
 
 #[tauri::command]
 fn sync_load(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     doc_id: String,
 ) -> Result<Option<String>, String> {
     store.load_document(&doc_id).map_err(|e| e.to_string())
@@ -328,7 +328,7 @@ fn sync_load(
 // ── Background Removal ──────────────────────────────────
 
 /// Wire format matches the `BackgroundRemovalOptions` shape sent by
-/// `@strata/engine`'s `invokeTauriRemoveBackground` — camelCase, since
+/// `@varve/engine`'s `invokeTauriRemoveBackground` — camelCase, since
 /// (unlike top-level command argument names) Tauri does NOT auto-convert
 /// casing for fields nested inside a command's argument structs.
 #[derive(Debug, Deserialize)]
@@ -346,7 +346,7 @@ struct BgRemoveOptions {
     preview_max_dimension: Option<u32>,
 }
 
-/// Wire format matches `BackgroundRemovalResult` in `@strata/engine` —
+/// Wire format matches `BackgroundRemovalResult` in `@varve/engine` —
 /// see the `BgRemoveOptions` note on casing above; this applies
 /// symmetrically to values returned from the command.
 #[derive(Debug, Serialize)]
@@ -390,8 +390,8 @@ fn valid_download_request_id(request_id: &str) -> bool {
 
 fn background_removal_model_info(
     model_id: &str,
-) -> Result<&'static strata_bgremove::model::ModelInfo, String> {
-    strata_bgremove::model::model_info(model_id)
+) -> Result<&'static varve_bgremove::model::ModelInfo, String> {
+    varve_bgremove::model::model_info(model_id)
         .ok_or_else(|| format!("Unknown background-removal model: {model_id}"))
 }
 
@@ -401,7 +401,7 @@ fn native_background_removal_model_status(
     model_id: String,
 ) -> Result<NativeBgModelStatus, String> {
     let model = background_removal_model_info(&model_id)?;
-    let path = strata_bgremove::model::model_path(&model_id);
+    let path = varve_bgremove::model::model_path(&model_id);
     let size_bytes = path.metadata().map(|metadata| metadata.len()).unwrap_or(0);
     Ok(NativeBgModelStatus {
         runtime_ready: ensure_native_ai(&app),
@@ -425,7 +425,7 @@ fn cancel_background_removal_model_download(request_id: String) -> Result<(), St
 #[tauri::command]
 fn delete_background_removal_model(model_id: String) -> Result<(), String> {
     background_removal_model_info(&model_id)?;
-    strata_bgremove::model::delete_model(&model_id)
+    varve_bgremove::model::delete_model(&model_id)
 }
 
 #[tauri::command]
@@ -441,7 +441,7 @@ async fn download_background_removal_model(
         return Err("Native ONNX Runtime is unavailable on this desktop build".into());
     }
     let model = background_removal_model_info(&model_id)?.clone();
-    let destination = strata_bgremove::model::model_path(&model_id);
+    let destination = varve_bgremove::model::model_path(&model_id);
     if destination.metadata().map(|metadata| metadata.len()).ok() == Some(model.size_bytes) {
         return Ok(model.size_bytes);
     }
@@ -581,17 +581,17 @@ fn remove_background_impl(
 
     #[cfg(feature = "ai")]
     let method = match options.method.as_str() {
-        "ai-balanced" => strata_bgremove::RemovalMethod::AiBalanced,
-        "ai-quality" => strata_bgremove::RemovalMethod::AiQuality,
-        _ => strata_bgremove::RemovalMethod::Quick,
+        "ai-balanced" => varve_bgremove::RemovalMethod::AiBalanced,
+        "ai-quality" => varve_bgremove::RemovalMethod::AiQuality,
+        _ => varve_bgremove::RemovalMethod::Quick,
     };
     #[cfg(not(feature = "ai"))]
     let method = match options.method.as_str() {
-        "quick" => strata_bgremove::RemovalMethod::Quick,
+        "quick" => varve_bgremove::RemovalMethod::Quick,
         _ => return Err("AI background removal is not enabled in this desktop build".into()),
     };
 
-    let remove_opts = strata_bgremove::RemovalOptions {
+    let remove_opts = varve_bgremove::RemovalOptions {
         method,
         tolerance: options.tolerance,
         feather_radius: options.feather_radius,
@@ -601,7 +601,7 @@ fn remove_background_impl(
         preview_max_dimension: options.preview_max_dimension,
     };
 
-    let result = strata_bgremove::remove_background(&img, &remove_opts)?;
+    let result = varve_bgremove::remove_background(&img, &remove_opts)?;
 
     Ok(BgRemoveResult {
         mask_base64: result.mask_base64,
@@ -651,7 +651,7 @@ async fn denoise_image(
         );
     }
     let model_id = options.model_id.unwrap_or_else(|| "scunet".to_string());
-    if !strata_bgremove::is_image_model(&model_id) {
+    if !varve_bgremove::is_image_model(&model_id) {
         return Err(format!(
             "Unknown denoise model '{model_id}'. Supported: scunet"
         ));
@@ -660,7 +660,7 @@ async fn denoise_image(
 
     tauri::async_runtime::spawn_blocking(move || {
         let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
-        let result = strata_bgremove::denoise_image(&img, strength, &model_id)?;
+        let result = varve_bgremove::denoise_image(&img, strength, &model_id)?;
         Ok(NativeDenoiseResult {
             png_base64: result.png_base64,
             width: result.width,
@@ -715,7 +715,7 @@ async fn content_aware_fill(
     }
 
     tauri::async_runtime::spawn_blocking(move || {
-        let request = strata_bgremove::LamaInpaintRequest {
+        let request = varve_bgremove::LamaInpaintRequest {
             image_rgba: options.image_data,
             image_w: options.image_w,
             image_h: options.image_h,
@@ -725,7 +725,7 @@ async fn content_aware_fill(
             preview_max_dimension: options.preview_max_dimension,
         };
 
-        let result = strata_bgremove::lama_inpaint(request)?;
+        let result = varve_bgremove::lama_inpaint(request)?;
 
         Ok(ContentAwareFillResult {
             png_base64: result.png_base64,
@@ -752,7 +752,7 @@ async fn content_aware_fill(
 ///
 /// Deliberately lazy: the dylib is only loaded the first time this command
 /// is actually invoked (cached after that — see
-/// `strata_bgremove::runtime::init_native_runtime`), never during app
+/// `varve_bgremove::runtime::init_native_runtime`), never during app
 /// startup. Loading a native library that may spawn its own thread pool or
 /// install its own signal handlers (onnxruntime does both) before the
 /// webview has finished initializing risks racing WebKitGTK's own
@@ -783,11 +783,11 @@ fn native_ai_status(_app: tauri::AppHandle) -> bool {
 /// than erroring when its API is used with no dylib loaded.
 #[cfg(feature = "ai")]
 fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
-    if strata_bgremove::runtime::native_ai_ready() {
+    if varve_bgremove::runtime::native_ai_ready() {
         return true;
     }
     match resolve_onnxruntime_dylib(app) {
-        Some(path) => match strata_bgremove::runtime::init_native_runtime(&path) {
+        Some(path) => match varve_bgremove::runtime::init_native_runtime(&path) {
             Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
             Err(e) => {
                 eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM")
@@ -797,7 +797,7 @@ fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
             eprintln!("[bgremove] no bundled onnxruntime dylib found for this platform; falling back to WASM");
         }
     }
-    strata_bgremove::runtime::native_ai_ready()
+    varve_bgremove::runtime::native_ai_ready()
 }
 
 /// Shared state for cancelling an in-flight AI upscaling job. The active job's
@@ -989,7 +989,7 @@ async fn upscale_image_command(
     // Progress callback: emit a `upscale:progress` event the frontend listens to.
     let app_for_progress = app.clone();
     let clamped_job_id = job_id;
-    let progress_callback: Option<strata_upscale::ProgressCallback> =
+    let progress_callback: Option<varve_upscale::ProgressCallback> =
         Some(Box::new(move |done: usize, total: usize| {
             let _ = app_for_progress.emit(
                 "upscale:progress",
@@ -1074,7 +1074,7 @@ fn upscale_image_impl(
     max_pixels: Option<u64>,
     method: &str,
     model_id: &str,
-    progress_callback: Option<strata_upscale::ProgressCallback>,
+    progress_callback: Option<varve_upscale::ProgressCallback>,
     cancel_flag: std::sync::Arc<AtomicBool>,
 ) -> Result<Vec<u8>, String> {
     if cancel_flag.load(Ordering::SeqCst) {
@@ -1114,11 +1114,11 @@ fn upscale_image_impl(
     let result = if method == "ai" {
         #[cfg(feature = "ai")]
         {
-            let upscale_opts = strata_upscale::UpscaleOptions {
+            let upscale_opts = varve_upscale::UpscaleOptions {
                 progress: progress_callback,
                 cancel: Some(cancel_flag.clone()),
             };
-            strata_upscale::ai_upscale(pixels, width, height, model_id, upscale_opts)?
+            varve_upscale::ai_upscale(pixels, width, height, model_id, upscale_opts)?
         }
         #[cfg(not(feature = "ai"))]
         {
@@ -1127,12 +1127,12 @@ fn upscale_image_impl(
             ));
         }
     } else {
-        let filter = strata_upscale::UpscaleFilter::from_method(method);
+        let filter = varve_upscale::UpscaleFilter::from_method(method);
         let mp = (width as u64) * (height as u64);
         if mp > 4_000_000 {
-            strata_upscale::tiled_upscale(pixels, width, height, scale, 256, 16, filter)?
+            varve_upscale::tiled_upscale(pixels, width, height, scale, 256, 16, filter)?
         } else {
-            strata_upscale::cpu_upscale(pixels, width, height, scale, filter)?
+            varve_upscale::cpu_upscale(pixels, width, height, scale, filter)?
         }
     };
 
@@ -1180,7 +1180,7 @@ fn default_max_error() -> f64 {
 fn trace_image(
     image_data: Vec<u8>,
     options: TraceImageOptions,
-) -> Result<Vec<strata_trace::BezierPath>, String> {
+) -> Result<Vec<varve_trace::BezierPath>, String> {
     let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
     let rgba = img.to_rgba8();
     let (width, height) = rgba.dimensions();
@@ -1188,28 +1188,28 @@ fn trace_image(
     let foreground = options
         .foreground
         .as_deref()
-        .map_or(strata_trace::Foreground::Dark, |v| {
+        .map_or(varve_trace::Foreground::Dark, |v| {
             if v.eq_ignore_ascii_case("light") {
-                strata_trace::Foreground::Light
+                varve_trace::Foreground::Light
             } else {
-                strata_trace::Foreground::Dark
+                varve_trace::Foreground::Dark
             }
         });
-    let opts = strata_trace::TraceOptions {
+    let opts = varve_trace::TraceOptions {
         threshold: options.threshold,
         min_pixels: options.min_pixels,
         max_colors: options.max_colors,
         foreground,
         corner_angle: options.corner_angle,
         max_error: options.max_error,
-        trace_mode: strata_trace::TraceMode::Silhouette,
+        trace_mode: varve_trace::TraceMode::Silhouette,
         alpha_threshold: 1,
         centerline_width: 2.0,
         centerline_prune: 4.0,
         max_paths: 1000,
         compound_holes: true,
     };
-    Ok(strata_trace::trace_to_beziers(
+    Ok(varve_trace::trace_to_beziers(
         &pixels, width, height, &opts,
     ))
 }
@@ -1254,7 +1254,7 @@ fn export_node_pdf(
     check_scene_node_bounds(&nodes)?;
     let scene = convert_scene(nodes);
     let pdf_opts = opts.unwrap_or_default();
-    let mut print_opts = strata_print::PdfOptions {
+    let mut print_opts = varve_print::PdfOptions {
         page_width: pdf_opts.page_width,
         page_height: pdf_opts.page_height,
         title: pdf_opts.title,
@@ -1266,7 +1266,7 @@ fn export_node_pdf(
         ..Default::default()
     };
     print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
-    strata_print::export_pdf(&scene, &print_opts)
+    varve_print::export_pdf(&scene, &print_opts)
 }
 
 // ── PDF/X and text outlining commands ────────────────────
@@ -1317,8 +1317,8 @@ impl Default for PdfXOptions {
 }
 
 impl PdfXOptions {
-    fn to_pdf_options(&self, page_height: f64) -> strata_print::PdfOptions {
-        strata_print::PdfOptions {
+    fn to_pdf_options(&self, page_height: f64) -> varve_print::PdfOptions {
+        varve_print::PdfOptions {
             page_width: self.page_width,
             page_height,
             title: self.title.clone(),
@@ -1330,7 +1330,7 @@ impl PdfXOptions {
             color_bar: self.color_bars,
             print_profile: self.print_profile(),
             subset_fonts: self.subset_fonts || self.outline_text,
-            embedding_restriction_handling: strata_print::subset::EmbeddingRestriction::Warn,
+            embedding_restriction_handling: varve_print::subset::EmbeddingRestriction::Warn,
             manifest: None,
             lossy: false,
         }
@@ -1339,31 +1339,31 @@ impl PdfXOptions {
     /// Resolve the requested ICC print profile from the `iccProfile` option.
     /// Unknown profile names return `None` — the caller's preflight must have
     /// surfaced the mismatch; we never guess a different profile silently.
-    fn print_profile(&self) -> Option<strata_print::profiles::PrintProfile> {
-        strata_print::profiles::PrintProfile::parse(&self.icc_profile)
+    fn print_profile(&self) -> Option<varve_print::profiles::PrintProfile> {
+        varve_print::profiles::PrintProfile::parse(&self.icc_profile)
     }
 
     /// Build print-mark geometry when bleed or crop marks are requested. The
     /// engine draws crop marks and derives the bleed boxes from this geometry,
     /// so `include_crop_marks` and `bleed_mm` are honored together (the PDF/X
     /// builders only receive a `MarksGeometry`, never a bare bleed value).
-    fn marks_geometry(&self) -> Option<strata_print::marks::MarksGeometry> {
+    fn marks_geometry(&self) -> Option<varve_print::marks::MarksGeometry> {
         let bleed = self.bleed_mm.max(0.0);
         if !self.include_crop_marks && bleed <= 0.0 {
             return None;
         }
-        Some(strata_print::marks::MarksGeometry {
+        Some(varve_print::marks::MarksGeometry {
             bleed_mm: if bleed > 0.0 {
                 bleed
             } else {
-                strata_print::marks::MarksGeometry::default().bleed_mm
+                varve_print::marks::MarksGeometry::default().bleed_mm
             },
             ..Default::default()
         })
     }
 }
 
-fn parse_nodes_from_json(nodes_json: &str) -> Result<Vec<strata_core::SceneNode>, String> {
+fn parse_nodes_from_json(nodes_json: &str) -> Result<Vec<varve_core::SceneNode>, String> {
     let nodes: Vec<IpcSceneNode> =
         serde_json::from_str(nodes_json).map_err(|e| format!("Nodes JSON parse error: {e}"))?;
     check_scene_node_bounds(&nodes)?;
@@ -1372,7 +1372,7 @@ fn parse_nodes_from_json(nodes_json: &str) -> Result<Vec<strata_core::SceneNode>
 
 #[tauri::command]
 fn export_pdfx1a(
-    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    _state: tauri::State<'_, varve_sync::DocumentStore>,
     nodes_json: String,
     page_height: f64,
     options_json: String,
@@ -1384,15 +1384,15 @@ fn export_pdfx1a(
     let mut print_opts = opts.to_pdf_options(page_height);
     print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
     if let Some(geo) = opts.marks_geometry() {
-        strata_print::cmyk::export_pdfx1a_with_marks(&scene, &print_opts, &geo)
+        varve_print::cmyk::export_pdfx1a_with_marks(&scene, &print_opts, &geo)
     } else {
-        strata_print::cmyk::export_pdfx1a(&scene, &print_opts)
+        varve_print::cmyk::export_pdfx1a(&scene, &print_opts)
     }
 }
 
 #[tauri::command]
 fn export_pdfx4(
-    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    _state: tauri::State<'_, varve_sync::DocumentStore>,
     nodes_json: String,
     page_height: f64,
     options_json: String,
@@ -1404,24 +1404,24 @@ fn export_pdfx4(
     let mut print_opts = opts.to_pdf_options(page_height);
     print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
     if let Some(geo) = opts.marks_geometry() {
-        strata_print::cmyk::export_pdfx4_with_marks(&scene, &print_opts, &geo)
+        varve_print::cmyk::export_pdfx4_with_marks(&scene, &print_opts, &geo)
     } else {
-        strata_print::cmyk::export_pdfx4(&scene, &print_opts)
+        varve_print::cmyk::export_pdfx4(&scene, &print_opts)
     }
 }
 
 #[tauri::command]
 fn outline_text(
-    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    _state: tauri::State<'_, varve_sync::DocumentStore>,
     text: String,
     font_data: Vec<u8>,
     font_size: f64,
 ) -> Result<String, String> {
     let fonts = &font_data;
-    let outlines = strata_print::outline_text(fonts, &text, font_size)?;
+    let outlines = varve_print::outline_text(fonts, &text, font_size)?;
     let mut path = String::new();
     for glyph in &outlines {
-        let d = strata_print::commands_to_svg_path(&glyph.commands, 2);
+        let d = varve_print::commands_to_svg_path(&glyph.commands, 2);
         if !d.is_empty() {
             if !path.is_empty() {
                 path.push(' ');
@@ -1434,20 +1434,20 @@ fn outline_text(
 
 #[tauri::command]
 fn shape_text_command(
-    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    _state: tauri::State<'_, varve_sync::DocumentStore>,
     request_json: String,
 ) -> Result<String, String> {
-    let request: strata_print::shaper::ShapeRequest =
+    let request: varve_print::shaper::ShapeRequest =
         serde_json::from_str(&request_json)
             .map_err(|e| format!("Shape request parse error: {e}"))?;
-    let result = strata_print::shaper::shape_text(&request)?;
+    let result = varve_print::shaper::shape_text(&request)?;
     serde_json::to_string(&result)
         .map_err(|e| format!("Shape result serialize error: {e}"))
 }
 
 #[tauri::command]
 fn export_pdf_with_options(
-    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    _state: tauri::State<'_, varve_sync::DocumentStore>,
     nodes_json: String,
     page_height: f64,
     use_cmyk: bool,
@@ -1461,10 +1461,10 @@ fn export_pdf_with_options(
     print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
 
     match opts.format.as_str() {
-        "x1a" | "pdf-x1a" => strata_print::cmyk::export_pdfx1a(&scene, &print_opts),
-        "x4" | "pdf-x4" => strata_print::cmyk::export_pdfx4(&scene, &print_opts),
-        _ if use_cmyk => strata_print::cmyk::export_pdfx1a(&scene, &print_opts),
-        _ => strata_print::export_pdf(&scene, &print_opts),
+        "x1a" | "pdf-x1a" => varve_print::cmyk::export_pdfx1a(&scene, &print_opts),
+        "x4" | "pdf-x4" => varve_print::cmyk::export_pdfx4(&scene, &print_opts),
+        _ if use_cmyk => varve_print::cmyk::export_pdfx1a(&scene, &print_opts),
+        _ => varve_print::export_pdf(&scene, &print_opts),
     }
 }
 
@@ -1533,7 +1533,7 @@ struct HomeProject {
     trashed_at: Option<i64>,
 }
 
-fn file_to_home(f: strata_sync::FileRow) -> HomeFile {
+fn file_to_home(f: varve_sync::FileRow) -> HomeFile {
     HomeFile {
         id: f.id,
         name: f.name,
@@ -1552,7 +1552,7 @@ fn file_to_home(f: strata_sync::FileRow) -> HomeFile {
     }
 }
 
-fn project_to_home(p: strata_sync::ProjectRow) -> HomeProject {
+fn project_to_home(p: varve_sync::ProjectRow) -> HomeProject {
     HomeProject {
         id: p.id,
         name: p.name,
@@ -1586,7 +1586,7 @@ fn epoch_ms_to_rfc3339(ms: i64) -> String {
 // Files
 #[tauri::command]
 fn home_list_files(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
 ) -> Result<Vec<HomeFile>, String> {
     store
         .list_files()
@@ -1596,7 +1596,7 @@ fn home_list_files(
 
 #[tauri::command]
 fn home_list_trashed(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
 ) -> Result<Vec<HomeFile>, String> {
     store
         .list_trashed_files()
@@ -1606,7 +1606,7 @@ fn home_list_trashed(
 
 #[tauri::command]
 fn home_get_file(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
 ) -> Result<Option<HomeFile>, String> {
     store
@@ -1617,7 +1617,7 @@ fn home_get_file(
 
 #[tauri::command]
 fn home_read_file(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
 ) -> Result<Option<String>, String> {
     store.load_document(&id).map_err(|e| e.to_string())
@@ -1625,7 +1625,7 @@ fn home_read_file(
 
 #[tauri::command]
 fn home_upsert_file(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     entry: HomeFileInput,
     json: String,
 ) -> Result<(), String> {
@@ -1654,7 +1654,7 @@ fn home_upsert_file(
 
 #[tauri::command]
 fn home_touch_file(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     opened_at: Option<i64>,
 ) -> Result<(), String> {
@@ -1666,7 +1666,7 @@ fn home_touch_file(
 
 #[tauri::command]
 fn home_rename_file(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     name: String,
 ) -> Result<(), String> {
@@ -1675,7 +1675,7 @@ fn home_rename_file(
 
 #[tauri::command]
 fn home_set_pinned(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     pinned: bool,
 ) -> Result<(), String> {
@@ -1686,7 +1686,7 @@ fn home_set_pinned(
 
 #[tauri::command]
 fn home_set_favorited(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     favorited_at: Option<i64>,
 ) -> Result<(), String> {
@@ -1696,7 +1696,7 @@ fn home_set_favorited(
 
 #[tauri::command]
 fn home_move_project(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     project_id: Option<String>,
 ) -> Result<(), String> {
@@ -1707,7 +1707,7 @@ fn home_move_project(
 
 #[tauri::command]
 fn home_trash(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
 ) -> Result<(), String> {
     store
@@ -1717,7 +1717,7 @@ fn home_trash(
 
 #[tauri::command]
 fn home_restore(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
 ) -> Result<(), String> {
     store.restore_file(&id).map_err(|e| e.to_string())
@@ -1725,7 +1725,7 @@ fn home_restore(
 
 #[tauri::command]
 fn home_purge(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
 ) -> Result<(), String> {
     store.purge_file(&id).map_err(|e| e.to_string())
@@ -1734,7 +1734,7 @@ fn home_purge(
 // Projects
 #[tauri::command]
 fn home_list_projects(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
 ) -> Result<Vec<HomeProject>, String> {
     store
         .list_projects()
@@ -1744,7 +1744,7 @@ fn home_list_projects(
 
 #[tauri::command]
 fn home_create_project(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     name: String,
 ) -> Result<HomeProject, String> {
     let id = uuid();
@@ -1766,7 +1766,7 @@ fn home_create_project(
 
 #[tauri::command]
 fn home_rename_project(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     name: String,
 ) -> Result<(), String> {
@@ -1775,7 +1775,7 @@ fn home_rename_project(
 
 #[tauri::command]
 fn home_delete_project(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
 ) -> Result<(), String> {
     store.delete_project(&id).map_err(|e| e.to_string())
@@ -1783,7 +1783,7 @@ fn home_delete_project(
 
 #[tauri::command]
 fn home_set_project_pinned(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     pinned: bool,
 ) -> Result<(), String> {
@@ -1795,14 +1795,14 @@ fn home_set_project_pinned(
 // View State
 #[tauri::command]
 fn home_get_view_state(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
 ) -> Result<Option<String>, String> {
     store.get_view_state("home").map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn home_set_view_state(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     value: String,
 ) -> Result<(), String> {
     store
@@ -1816,7 +1816,7 @@ fn home_set_view_state(
 // platform/WebView engine.
 #[tauri::command]
 fn app_get_setting(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     key: String,
 ) -> Result<Option<String>, String> {
     store
@@ -1826,7 +1826,7 @@ fn app_get_setting(
 
 #[tauri::command]
 fn app_set_setting(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     key: String,
     value: String,
 ) -> Result<(), String> {
@@ -1849,7 +1849,7 @@ struct ThumbnailInput {
 
 #[tauri::command]
 fn home_get_thumbnail(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     hash: String,
 ) -> Result<Option<String>, String> {
     store.get_thumbnail(&hash).map_err(|e| e.to_string())
@@ -1857,7 +1857,7 @@ fn home_get_thumbnail(
 
 #[tauri::command]
 fn home_put_thumbnail(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     input: ThumbnailInput,
 ) -> Result<(), String> {
     store
@@ -1873,7 +1873,7 @@ fn home_put_thumbnail(
 
 #[tauri::command]
 fn home_evict_thumbnails(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     keep_count: i64,
 ) -> Result<i64, String> {
     store
@@ -1883,7 +1883,7 @@ fn home_evict_thumbnails(
 
 #[tauri::command]
 fn home_delete_thumbnail(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     hash: String,
 ) -> Result<(), String> {
     store.delete_thumbnail(&hash).map_err(|e| e.to_string())
@@ -1893,7 +1893,7 @@ fn home_delete_thumbnail(
 
 #[tauri::command]
 fn home_search_files(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     query: String,
 ) -> Result<Vec<HomeFile>, String> {
     store
@@ -1906,7 +1906,7 @@ fn home_search_files(
 
 #[tauri::command]
 fn home_reorder_file(
-    store: tauri::State<'_, strata_sync::DocumentStore>,
+    store: tauri::State<'_, varve_sync::DocumentStore>,
     id: String,
     ordering: String,
 ) -> Result<(), String> {
@@ -2141,7 +2141,7 @@ pub fn run() {
             let data_dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&data_dir).expect("create data dir");
             let db_path = data_dir.join("documents.db");
-            let store = strata_sync::DocumentStore::new(&db_path).expect("init document store");
+            let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
             app.manage(UpscaleCancelState::new());
 
@@ -2383,7 +2383,7 @@ fn cancel_print_job(printer_name: String, job_id: u32) -> Result<String, String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use strata_core::EngineColor;
+    use varve_core::EngineColor;
 
     fn ts_wire_json() -> serde_json::Value {
         serde_json::json!([
@@ -2441,7 +2441,7 @@ mod tests {
         assert_eq!(nodes.len(), 5);
 
         let scene = convert_scene(nodes);
-        let ir = strata_engine::build_render_ir(&scene);
+        let ir = varve_engine::build_render_ir(&scene);
         assert_eq!(ir.len(), 5);
 
         // Rect: origin, teal
@@ -2459,7 +2459,7 @@ mod tests {
         );
         assert_eq!(
             ir[0].primitive,
-            strata_engine::Primitive::Rect {
+            varve_engine::Primitive::Rect {
                 x: 0.0,
                 y: 0.0,
                 w: 10.0,
@@ -2483,7 +2483,7 @@ mod tests {
         );
         assert_eq!(
             ir[1].primitive,
-            strata_engine::Primitive::Circle {
+            varve_engine::Primitive::Circle {
                 cx: 0.0,
                 cy: 0.0,
                 r: 5.0
@@ -2494,7 +2494,7 @@ mod tests {
         assert_eq!(ir[2].transform, [1.0, 0.0, 0.0, 1.0, 100.0, 100.0]);
         assert_eq!(
             ir[2].primitive,
-            strata_engine::Primitive::Ellipse {
+            varve_engine::Primitive::Ellipse {
                 cx: 10.0,
                 cy: 5.0,
                 rx: 8.0,
@@ -2506,7 +2506,7 @@ mod tests {
         assert_eq!(ir[3].transform, [1.0, 0.0, 0.0, 1.0, 0.0, 0.0]);
         assert_eq!(
             ir[3].primitive,
-            strata_engine::Primitive::Line {
+            varve_engine::Primitive::Line {
                 from: [0.0, 0.0],
                 to: [10.0, 10.0],
                 tolerance: 2.0
@@ -2528,9 +2528,9 @@ mod tests {
         );
         assert!(matches!(
             ir[4].primitive,
-            strata_engine::Primitive::Text { text: _, .. }
+            varve_engine::Primitive::Text { text: _, .. }
         ));
-        if let strata_engine::Primitive::Text {
+        if let varve_engine::Primitive::Text {
             ref text,
             font_size,
             ref font_family,
@@ -2583,10 +2583,10 @@ mod tests {
             }
         );
 
-        let ir = strata_engine::build_render_ir(&scene);
+        let ir = varve_engine::build_render_ir(&scene);
         assert!(ir[0].fills.is_some());
         assert!(ir[0].filters.is_some());
-        if let strata_engine::Primitive::Rect { corner_radius, .. } = &ir[0].primitive {
+        if let varve_engine::Primitive::Rect { corner_radius, .. } = &ir[0].primitive {
             assert!(corner_radius.is_some());
         } else {
             panic!("expected rect");
@@ -2598,24 +2598,24 @@ mod tests {
         let json = ts_wire_json();
         let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
         let scene = convert_scene(nodes);
-        let hit = strata_core::hit_test(&scene, Point::new(2.0, 8.0));
+        let hit = varve_core::hit_test(&scene, Point::new(2.0, 8.0));
         assert_eq!(hit, Some(0));
 
         // Circle at world (50,50) radius 5: (52,50) is inside.
-        let hit = strata_core::hit_test(&scene, Point::new(52.0, 50.0));
+        let hit = varve_core::hit_test(&scene, Point::new(52.0, 50.0));
         assert_eq!(hit, Some(1));
 
         // Ellipse at world center (110,105), rx=8 ry=4: (115,105) is inside.
-        let hit = strata_core::hit_test(&scene, Point::new(115.0, 105.0));
+        let hit = varve_core::hit_test(&scene, Point::new(115.0, 105.0));
         assert_eq!(hit, Some(2));
 
         // Point (5,5) is inside both the rect and the line (tolerance 2).
         // hit_test returns the topmost (highest index) — line at index 3.
-        let hit = strata_core::hit_test(&scene, Point::new(5.0, 5.0));
+        let hit = varve_core::hit_test(&scene, Point::new(5.0, 5.0));
         assert_eq!(hit, Some(3));
 
         // Point outside all shapes
-        let hit = strata_core::hit_test(&scene, Point::new(999.0, 999.0));
+        let hit = varve_core::hit_test(&scene, Point::new(999.0, 999.0));
         assert_eq!(hit, None);
     }
 
@@ -2624,7 +2624,7 @@ mod tests {
         let json = ts_wire_json();
         let nodes: Vec<IpcSceneNode> = serde_json::from_value(json).expect("deserialize");
         let scene = convert_scene(nodes);
-        let ir = strata_engine::build_render_ir(&scene);
+        let ir = varve_engine::build_render_ir(&scene);
 
         let serialized = serde_json::to_value(&ir).expect("serialize IR");
 
@@ -2674,7 +2674,7 @@ mod tests {
     // ── New command integration tests ─────────────────────────────────────
 
     fn test_font_data() -> Vec<u8> {
-        strata_print::test_fonts::test_font_bytes().to_vec()
+        varve_print::test_fonts::test_font_bytes().to_vec()
     }
 
     #[test]
@@ -2696,7 +2696,7 @@ mod tests {
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(200.0);
-        let bytes = strata_print::cmyk::export_pdfx1a(&scene, &print_opts).expect("pdfx1a");
+        let bytes = varve_print::cmyk::export_pdfx1a(&scene, &print_opts).expect("pdfx1a");
         assert!(bytes.starts_with(b"%PDF"), "should be a valid PDF");
         assert!(
             String::from_utf8_lossy(&bytes).contains("GTS_PDFX"),
@@ -2719,7 +2719,7 @@ mod tests {
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(200.0);
-        let bytes = strata_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
+        let bytes = varve_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
         assert!(bytes.starts_with(b"%PDF-1.6"), "PDF/X-4 should use PDF 1.6");
     }
 
@@ -2784,11 +2784,11 @@ mod tests {
     #[test]
     fn outline_text_command_returns_svg_path() {
         let font_data = test_font_data();
-        let result = strata_print::outline_text(&font_data, "A", 16.0).expect("outline");
+        let result = varve_print::outline_text(&font_data, "A", 16.0).expect("outline");
         assert!(!result.is_empty(), "should produce glyph outlines");
         let path = result
             .iter()
-            .map(|g| strata_print::commands_to_svg_path(&g.commands, 2))
+            .map(|g| varve_print::commands_to_svg_path(&g.commands, 2))
             .filter(|d| !d.is_empty())
             .collect::<Vec<_>>()
             .join(" ");
@@ -2799,18 +2799,18 @@ mod tests {
     #[test]
     fn outline_text_command_empty_string() {
         let font_data = test_font_data();
-        let result = strata_print::outline_text(&font_data, "", 16.0).expect("outline empty");
+        let result = varve_print::outline_text(&font_data, "", 16.0).expect("outline empty");
         assert!(result.is_empty(), "empty text should produce no outlines");
     }
 
     #[test]
     fn outline_text_command_returns_path_for_multiple_glyphs() {
         let font_data = test_font_data();
-        let result = strata_print::outline_text(&font_data, "AB", 16.0).expect("outline AB");
+        let result = varve_print::outline_text(&font_data, "AB", 16.0).expect("outline AB");
         assert_eq!(result.len(), 2, "should produce two glyph outlines");
         let path = result
             .iter()
-            .map(|g| strata_print::commands_to_svg_path(&g.commands, 2))
+            .map(|g| varve_print::commands_to_svg_path(&g.commands, 2))
             .filter(|d| !d.is_empty())
             .collect::<Vec<_>>()
             .join(" ");
@@ -2831,7 +2831,7 @@ mod tests {
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(108.0);
-        let bytes = strata_print::export_pdf(&scene, &print_opts).expect("screen pdf");
+        let bytes = varve_print::export_pdf(&scene, &print_opts).expect("screen pdf");
         assert!(bytes.starts_with(b"%PDF"), "should be a valid PDF");
         assert!(
             !String::from_utf8_lossy(&bytes).contains("GTS_PDFX"),
@@ -2853,7 +2853,7 @@ mod tests {
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(200.0);
         // use_cmyk = true should dispatch to export_pdfx1a
-        let bytes = strata_print::cmyk::export_pdfx1a(&scene, &print_opts).expect("pdfx1a");
+        let bytes = varve_print::cmyk::export_pdfx1a(&scene, &print_opts).expect("pdfx1a");
         assert!(bytes.starts_with(b"%PDF"), "should be a valid PDF");
         assert!(
             String::from_utf8_lossy(&bytes).contains("GTS_PDFX"),
@@ -2875,7 +2875,7 @@ mod tests {
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(200.0);
-        let bytes = strata_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
+        let bytes = varve_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
         assert!(
             bytes.starts_with(b"%PDF-1.6"),
             "format x4 should produce PDF/X-4"

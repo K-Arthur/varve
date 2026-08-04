@@ -15,13 +15,13 @@ import {
   isWasmModelSafe,
   removeBackground,
   workerModelIdForMethod,
-} from '@strata/engine';
+} from '@varve/engine';
 import type {
   BackgroundRemovalMethod,
   BackgroundRemovalState,
   NodeId,
   SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   imageShapeH,
   imageShapeSrc,
@@ -29,7 +29,7 @@ import {
   isImageShape,
   shapeHeight,
   shapeWidth,
-} from '@strata/scene';
+} from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { FocusTrap } from '../onboard/FocusTrap';
@@ -231,7 +231,7 @@ export function BatchBgRemoveDialog({
         return 'error';
       }
 
-      let result: import('@strata/engine').BackgroundRemovalResult;
+      let result: import('@varve/engine').BackgroundRemovalResult;
       try {
         result = await removeBackground(
           imageData,
@@ -258,7 +258,7 @@ export function BatchBgRemoveDialog({
         return 'error';
       }
 
-      const { finalizeMaskResult } = await import('@strata/engine');
+      const { finalizeMaskResult } = await import('@varve/engine');
       const finalized = await finalizeMaskResult(result);
 
       const state: BackgroundRemovalState = {

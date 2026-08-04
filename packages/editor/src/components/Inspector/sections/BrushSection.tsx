@@ -1,5 +1,5 @@
-import { BUILT_IN_BRUSH_PRESETS, defaultBrushPreset, validateBrushPreset } from '@strata/scene';
-import { Select } from '@strata/ui';
+import { BUILT_IN_BRUSH_PRESETS, defaultBrushPreset, validateBrushPreset } from '@varve/scene';
+import { Select } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

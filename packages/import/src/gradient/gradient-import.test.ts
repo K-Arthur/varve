@@ -3,7 +3,7 @@
  * presets, native JSON round-trip, error mapping, and randomized fuzz.
  */
 
-import type { GradientPreset } from '@strata/scene';
+import type { GradientPreset } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { GrdError } from './descriptor';
 import { detectGradientFormat } from './detect';

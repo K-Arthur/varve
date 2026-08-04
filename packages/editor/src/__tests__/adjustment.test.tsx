@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
-import type { Adjustment } from '@strata/engine';
-import { makeAdjustment } from '@strata/scene';
 import { cleanup, render, waitFor } from '@testing-library/react';
+import type { Adjustment } from '@varve/engine';
+import { makeAdjustment } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
 import { EditorProvider, useEditor } from '../context';

@@ -4,8 +4,8 @@
  * Guards the P0 bug where CanvasArea.buildToolCtx dropped pathPoints.
  */
 
-import type { PathPoint } from '@strata/engine';
-import { makeShapeNode } from '@strata/scene';
+import type { PathPoint } from '@varve/engine';
+import { makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 /** Mirror createShapeAt path rebasing logic for unit verification. */

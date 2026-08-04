@@ -2,7 +2,7 @@
  * useWindowChrome — live window-chrome state for the desktop app.
  *
  * Bridges Tauri window events into the canonical `WindowChromeState` model
- * from `@strata/platform`. The strategy is resolved once (from the platform
+ * from `@varve/platform`. The strategy is resolved once (from the platform
  * snapshot); the dynamic fields (focus, maximize, fullscreen, resizable,
  * scale) are driven by real window events, never guessed at startup.
  *
@@ -19,7 +19,7 @@ import {
   updateChromeState,
   type WindowChromeState,
   type WindowEvent,
-} from '@strata/platform';
+} from '@varve/platform';
 import { useEffect, useMemo, useState } from 'react';
 
 function partialToEvents(partial: Partial<WindowChromeState>): WindowEvent[] {

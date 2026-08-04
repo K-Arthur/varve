@@ -10,7 +10,7 @@ import {
   createDocument,
   DocumentCodec,
   makeShapeNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { flattenSceneToEngine, sceneNodeToEngineNode } from './sceneToEngine';
 

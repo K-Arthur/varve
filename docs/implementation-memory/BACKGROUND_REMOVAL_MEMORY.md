@@ -163,7 +163,7 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 | Gate | Result |
 |---|---|
 | Focused bg-removal suite | **154/154 pass** (20 files) |
-| `@strata/engine` typecheck | **0 errors** |
+| `@varve/engine` typecheck | **0 errors** |
 | `cargo test -p strata-bgremove` | **8/8 pass** |
 | Full `pnpm typecheck` | **15/15 pass** |
 | Full `pnpm test` | **4282/4282 pass** |

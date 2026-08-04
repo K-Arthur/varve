@@ -3,8 +3,8 @@
  * colors and the target document's color model.
  */
 
-import type { ColorConfig, ManagedColor } from '@strata/scene';
-import { defaultCmykColorConfig, defaultColorConfig } from '@strata/scene';
+import type { ColorConfig, ManagedColor } from '@varve/scene';
+import { defaultCmykColorConfig, defaultColorConfig } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { validateImportColor } from './validation';
 

@@ -51,22 +51,44 @@ pass() { printf '    \033[32mPASS\033[0m  %s\n' "$1"; }
 fail() { printf '    \033[31mFAIL\033[0m  %s\n' "$1"; FAILURES=$((FAILURES + 1)); }
 info() { printf '    ....  %s\n' "$1"; }
 
-if ! docker info >/dev/null 2>&1; then
+# Prefer podman: it runs rootless by default, so it needs neither a root daemon
+# nor membership of a group that is equivalent to root. Falls back to docker.
+if command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1; then
+  RUNTIME=podman
+elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  RUNTIME=docker
+else
   cat >&2 <<'EOF'
-Docker is not usable.
+No usable container runtime.
 
-  sudo systemctl enable --now docker
-  sudo usermod -aG docker "$USER"    # then log out and back in, or: newgrp docker
+  podman (recommended — rootless, no daemon, no privileged group):
+      sudo pacman -S podman
+      podman run --rm hello-world
 
-Note that membership of the `docker` group is equivalent to root on this
-machine — the daemon runs as root and will bind-mount any path you ask it to.
-If that is not a trade you want, install rootless Docker or podman instead.
+  docker:
+      sudo systemctl enable --now docker.socket
+      sudo usermod -aG docker "$USER"
+      newgrp docker      # the group is not active until you re-login
+
+Note the `docker` group is effectively root: the daemon runs as root and will
+bind-mount any path you ask it to. podman avoids that entirely.
 EOF
   exit 1
 fi
 
 find_artifact() {
   find "${BUNDLE_DIR}" -maxdepth 2 -name "$1" -type f 2>/dev/null | head -1
+}
+
+# Tauri names bundles with a space ("Strata Desktop_0.1.0_amd64.deb"). podman's
+# -v argument parser rejects that outright ("names must match [a-zA-Z0-9]..."),
+# so stage a space-free copy rather than fighting the quoting.
+STAGE="$(mktemp -d)"
+trap 'rm -rf "${STAGE}"' EXIT
+stage_artifact() {
+  local src="$1" dest="${STAGE}/$2"
+  cp "${src}" "${dest}"
+  printf '%s' "${dest}"
 }
 
 # ── The container-side script. Kept as one heredoc per format so the whole
@@ -78,8 +100,8 @@ run_deb_test() {
   info "$(basename "${deb}")"
 
   local out
-  out=$(docker run --rm -i \
-    -v "${deb}:/tmp/pkg.deb:ro" \
+  out=$("${RUNTIME}" run --rm -i \
+    -v "$(stage_artifact "${deb}" pkg.deb):/tmp/pkg.deb:ro" \
     "${DEB_IMAGE}" bash -s <<'CONTAINER'
 set -uo pipefail
 export DEBIAN_FRONTEND=noninteractive
@@ -92,6 +114,7 @@ apt-get update -qq >/dev/null 2>&1 || { say deps-update FAIL; exit 1; }
 # `apt-get install ./file.deb` resolves declared dependencies from the distro
 # repositories — the same path a user takes, and the one that proves the
 # `depends` list in tauri.conf.json is both correct and satisfiable on 22.04.
+apt-get install -y -qq binutils >/dev/null 2>&1   # objdump, for the glibc check
 if apt-get install -y -qq /tmp/pkg.deb >/tmp/install.log 2>&1; then
   say install PASS
 else
@@ -109,8 +132,12 @@ if [ -n "$BIN" ]; then
   NEED=$(objdump -T "$BIN" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -uV | tail -1)
   say glibc-required "${NEED:-unknown}"
 
-  MISSING=$(ldd "$BIN" 2>/dev/null | grep 'not found' | awk '{print $1}' | tr '\n' ' ')
-  if [ -z "$MISSING" ]; then say ldd PASS; else say ldd "FAIL: ${MISSING}"; fi
+  # Two distinct failures share the words "not found":
+  #   a missing library      "libfoo.so.1 => not found"
+  #   a too-old glibc        "<bin>: libc.so.6: version `GLIBC_2.39' not found"
+  # Report the whole line; the reason is the useful part.
+  PROBLEM=$(ldd "$BIN" 2>&1 | grep 'not found' | head -2 | tr '\n' '; ')
+  if [ -z "$PROBLEM" ]; then say ldd PASS; else say ldd "FAIL: ${PROBLEM}"; fi
 fi
 
 for f in /usr/share/applications/*.desktop; do [ -e "$f" ] && say desktop-entry "$(basename "$f")"; done
@@ -137,14 +164,15 @@ run_rpm_test() {
   info "$(basename "${rpm}")"
 
   local out
-  out=$(docker run --rm -i \
-    -v "${rpm}:/tmp/pkg.rpm:ro" \
+  out=$("${RUNTIME}" run --rm -i \
+    -v "$(stage_artifact "${rpm}" pkg.rpm):/tmp/pkg.rpm:ro" \
     "${RPM_IMAGE}" bash -s <<'CONTAINER'
 set -uo pipefail
 say() { echo "MARK|$1|$2"; }
 
 echo "MARK|glibc-available|$(ldd --version | head -1 | grep -oE '[0-9]+\.[0-9]+$')"
 
+dnf install -y -q binutils >/dev/null 2>&1        # objdump, for the glibc check
 if dnf install -y -q /tmp/pkg.rpm >/tmp/install.log 2>&1; then
   say install PASS
 else
@@ -160,8 +188,12 @@ BIN=$(rpm -ql "$PKG" 2>/dev/null | grep -E '/usr/bin/' | head -1)
 if [ -n "$BIN" ]; then
   NEED=$(objdump -T "$BIN" 2>/dev/null | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sort -uV | tail -1)
   say glibc-required "${NEED:-unknown}"
-  MISSING=$(ldd "$BIN" 2>/dev/null | grep 'not found' | awk '{print $1}' | tr '\n' ' ')
-  [ -z "$MISSING" ] && say ldd PASS || say ldd "FAIL: ${MISSING}"
+  # Two distinct failures share the words "not found":
+  #   a missing library      "libfoo.so.1 => not found"
+  #   a too-old glibc        "<bin>: libc.so.6: version `GLIBC_2.39' not found"
+  # Report the whole line; the reason is the useful part.
+  PROBLEM=$(ldd "$BIN" 2>&1 | grep 'not found' | head -2 | tr '\n' '; ')
+  if [ -z "$PROBLEM" ]; then say ldd PASS; else say ldd "FAIL: ${PROBLEM}"; fi
 fi
 
 ls /usr/share/applications/*.desktop >/dev/null 2>&1 && say desktop-entry PASS || say desktop-entry MISSING
@@ -188,6 +220,7 @@ parse_marks() {
 }
 
 echo "Package install verification"
+echo "  runtime:    ${RUNTIME}"
 echo "  bundle dir: ${BUNDLE_DIR}"
 
 DEB=$(find_artifact '*.deb')

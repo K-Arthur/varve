@@ -1,4 +1,4 @@
-import { UNIT_TO_PX } from '@strata/shared';
+import { UNIT_TO_PX } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 
 /**

@@ -82,7 +82,7 @@
 
 **Critical findings:**
 - No `cm` or `pc` (picas) in the `Unit` type despite being in the editor's display list.
-- Unit conversion is fragmented: `@strata/shared/units.ts` handles px/pt/rem/%, but the editor context handles px/pt/cm/mm/in/%. No single source of truth.
+- Unit conversion is fragmented: `@varve/shared/units.ts` handles px/pt/rem/%, but the editor context handles px/pt/cm/mm/in/%. No single source of truth.
 - No physical dimension storage. All measurements are pixel-based with 96 DPI assumed.
 - No DPI awareness. No support for high-DPI print workflows (300+ DPI).
 - No precision control. Conversions use floating-point with no rounding strategy.
@@ -356,7 +356,7 @@ interface SpotColorDef {
 
 ### 4.5 Unit System
 
-**Recommendation:** Unify all unit conversion into a single `@strata/shared` module. Store internally in CSS px (current behavior) but add physical unit metadata to the document. Add `cm` and `pc` to the `Unit` type.
+**Recommendation:** Unify all unit conversion into a single `@varve/shared` module. Store internally in CSS px (current behavior) but add physical unit metadata to the document. Add `cm` and `pc` to the `Unit` type.
 
 ```typescript
 type DocumentUnit = 'px' | 'pt' | 'mm' | 'cm' | 'in' | 'pc';
@@ -412,7 +412,7 @@ function runPrintPreflight(doc: Document, options: PrintPreflightOptions): Print
 
 | Task | Deliverable | Tests |
 |---|---|---|
-| 1.1 Add `DocumentUnit` type + unified conversion | `@strata/shared` unit module with all 6 units | Unit conversion tests (round-trip, precision) |
+| 1.1 Add `DocumentUnit` type + unified conversion | `@varve/shared` unit module with all 6 units | Unit conversion tests (round-trip, precision) |
 | 1.2 Add `ColorMode`, `BleedConfig`, `SafeAreaConfig` to Document | Extended `Document` interface + migration | Migration test (v1.0 → v1.1) |
 | 1.3 Add physical dimensions (`physicalWidth/Height`, `dpi`) | Document fields + conversion helpers | Physical-to-px conversion tests |
 | 1.4 Wire `NewFileDialog` to persist into Document | Connect UI to document creation | Integration test |
@@ -424,7 +424,7 @@ function runPrintPreflight(doc: Document, options: PrintPreflightOptions): Print
 
 | Task | Deliverable | Tests |
 |---|---|---|
-| 2.1 `ManagedColor` type (RGB/CMYK/gray/spot) | New color type in `@strata/scene` | Type + serialization tests |
+| 2.1 `ManagedColor` type (RGB/CMYK/gray/spot) | New color type in `@varve/scene` | Type + serialization tests |
 | 2.2 `ColorProfileRef` + profile registry | Profile management module | Profile lookup tests |
 | 2.3 CMYK color picker | Extended color picker UI | Component tests |
 | 2.4 Color space conversion (TS, profile-aware) | Conversion utilities | Conversion accuracy tests |
@@ -446,7 +446,7 @@ function runPrintPreflight(doc: Document, options: PrintPreflightOptions): Print
 
 | Task | Deliverable | Tests |
 |---|---|---|
-| 4.1 `PrintPreflightIssue` types + runner | Preflight module in `@strata/scene` | Preflight logic tests |
+| 4.1 `PrintPreflightIssue` types + runner | Preflight module in `@varve/scene` | Preflight logic tests |
 | 4.2 Bleed/trim/safe-area checks | Missing bleed, content in bleed | Check tests |
 | 4.3 Color space/profile checks | Untagged colors, missing profiles | Check tests |
 | 4.4 Resolution/DPI checks | Low-res images for print DPI | Check tests |

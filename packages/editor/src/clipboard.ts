@@ -10,8 +10,8 @@
  *
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
-import type { Platform } from '@strata/platform';
-import type { DocumentAsset, DocumentIconAsset, RasterMaskAsset, SceneNode } from '@strata/scene';
+import type { Platform } from '@varve/platform';
+import type { DocumentAsset, DocumentIconAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
 
 const STRATA_MIME = 'application/vnd.strata+json';
 

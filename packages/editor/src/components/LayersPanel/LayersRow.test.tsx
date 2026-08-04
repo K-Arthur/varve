@@ -1,5 +1,5 @@
-import type { SceneNode } from '@strata/scene';
 import { fireEvent, render } from '@testing-library/react';
+import type { SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { LayersRow } from './LayersRow';
 

@@ -3,8 +3,8 @@
  *
  * Research basis: Illustrator Object > Path > Simplify; Figma close-path.
  */
-import { type PathPoint, simplifyPathRDP } from '@strata/engine';
-import type { Document, NodeId, ShapeNode } from '@strata/scene';
+import { type PathPoint, simplifyPathRDP } from '@varve/engine';
+import type { Document, NodeId, ShapeNode } from '@varve/scene';
 
 function getPathShape(doc: Document, nodeId: NodeId): ShapeNode | null {
   const node = doc.nodes[nodeId];

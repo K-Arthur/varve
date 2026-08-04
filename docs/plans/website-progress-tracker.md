@@ -86,7 +86,7 @@
 - Deployment: GitHub Pages
 - Analytics: Plausible (privacy-focused)
 - Funding: GitHub Sponsors (start), consider Open Collective later
-- Design system: Integrate existing Strata tokens from `@strata/ui`
+- Design system: Integrate existing Strata tokens from `@varve/ui`
 
 ---
 
@@ -101,7 +101,7 @@
 - ✅ Accessibility: semantic HTML verified, skip link present, WCAG-AA tokens from design system (96/96), high-contrast theme detection wired, keyboard navigation okay
 - ✅ Responsive: mobile menu toggle, stacked layouts at <768px, auto-fit grids at all breakpoints
 - ✅ Error testing: custom 404 page verified in build output
-- ✅ CSS import fix: `@import "@strata/ui/tokens.css"` corrected (was using internal path)
+- ✅ CSS import fix: `@import "@varve/ui/tokens.css"` corrected (was using internal path)
 - ✅ Detailed audit report: `docs/plans/website-hardening-report.md`
 
 **Known remaining (human-only, documented in handoff):**
@@ -239,7 +239,7 @@
 
 **Technical Notes:**
 - Astro 5.0.0 configured with React and Tailwind
-- Path aliases: `@/*` maps to `./src/*`, `@strata/ui` maps to `../../packages/ui/src`
+- Path aliases: `@/*` maps to `./src/*`, `@varve/ui` maps to `../../packages/ui/src`
 - Tailwind configured with Strata brand colors from brand-guide.md
 - Layout includes responsive navigation (hidden on mobile, needs mobile menu)
 - Download page includes JavaScript for platform tab switching
@@ -434,9 +434,9 @@
 - What to track: Page views, download CTA clicks, platform selection, referrers, device/browser breakdown
 - What NOT to track: Personal identifiers, user sessions, location data, fingerprinting
 
-**Design System:** Integrate existing Strata tokens from `@strata/ui`
+**Design System:** Integrate existing Strata tokens from `@varve/ui`
 - Rationale: Consistency with app, leverage existing brand colors (teal, sandstone, terracotta)
-- Implementation: Tailwind config extends with Strata colors, path alias to `@strata/ui`
+- Implementation: Tailwind config extends with Strata colors, path alias to `@varve/ui`
 
 **Funding Platform:** GitHub Sponsors (start with this)
 - Rationale: Integrated with GitHub, professional invoicing, global reach, tax compliance handled

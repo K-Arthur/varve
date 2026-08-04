@@ -55,7 +55,7 @@ pnpm tauri:dev
 ### Storybook (UI component library)
 
 ```bash
-pnpm --filter @strata/ui storybook
+pnpm --filter @varve/ui storybook
 ```
 
 ## Testing

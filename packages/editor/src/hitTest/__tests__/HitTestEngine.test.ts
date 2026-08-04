@@ -4,8 +4,8 @@ import {
   makeFrameNode,
   makeShapeNode,
   nextNodeId,
-} from '@strata/scene';
-import type { Affine } from '@strata/shared';
+} from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { HitTestEngine } from '..';
 

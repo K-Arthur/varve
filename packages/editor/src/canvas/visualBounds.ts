@@ -25,9 +25,9 @@
  * blur expansion; Strata's portable cross-engine Canvas 2D safety policy.
  */
 
-import type { Document, Effect, NodeId, SceneNode } from '@strata/scene';
-import { resolveAllStyles } from '@strata/scene';
-import type { Affine, Rect } from '@strata/shared';
+import type { Document, Effect, NodeId, SceneNode } from '@varve/scene';
+import { resolveAllStyles } from '@varve/scene';
+import type { Affine, Rect } from '@varve/shared';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
 export type Appearance = Pick<SceneNode, 'transform'> & {
@@ -43,8 +43,8 @@ export type Appearance = Pick<SceneNode, 'transform'> & {
     perSideWeights?: readonly number[];
     join?: 'miter' | 'round' | 'bevel';
     miterLimit?: number;
-    arrowStart?: import('@strata/scene').ArrowheadStyle;
-    arrowEnd?: import('@strata/scene').ArrowheadStyle;
+    arrowStart?: import('@varve/scene').ArrowheadStyle;
+    arrowEnd?: import('@varve/scene').ArrowheadStyle;
   }[];
   effects?: readonly Effect[];
 };

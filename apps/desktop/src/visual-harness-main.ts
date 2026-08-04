@@ -13,8 +13,8 @@
  * isolation surfaces, nested clips). See tests/e2e/visual/README.md for why.
  */
 
-import type { RenderItem } from '@strata/engine';
-import { type ReplayTarget, replayIr } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
+import { type ReplayTarget, replayIr } from '@varve/engine';
 
 declare global {
   interface Window {

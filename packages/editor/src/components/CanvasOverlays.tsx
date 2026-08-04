@@ -8,13 +8,13 @@
  * load and make overlay composition independently testable.
  */
 
-import type { CollabUser } from '@strata/collab';
-import type { MeshWarp } from '@strata/engine';
-import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@strata/scene';
-import { activePageNodes, walkNodes } from '@strata/scene';
-import type { RulerMode } from '@strata/shared';
-import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@strata/shared';
-import { EmptyState } from '@strata/ui';
+import type { CollabUser } from '@varve/collab';
+import type { MeshWarp } from '@varve/engine';
+import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@varve/scene';
+import { activePageNodes, walkNodes } from '@varve/scene';
+import type { RulerMode } from '@varve/shared';
+import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@varve/shared';
+import { EmptyState } from '@varve/ui';
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { useEditor } from '../context';
 import type { GridOverlayMode } from '../context/types';

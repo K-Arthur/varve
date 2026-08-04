@@ -71,7 +71,7 @@ async function main() {
     console.log('  Or use Docker:  docker pull openpreserve/verapdf');
     console.log('');
     console.log('To validate generated PDFs externally:');
-    console.log('  1. Generate fixtures: cargo test --workspace -- strata_print');
+    console.log('  1. Generate fixtures: cargo test --workspace -- varve_print');
     console.log('  2. Copy PDFs from test output to tests/fixtures/pdfs/');
     console.log('  3. Run: verapdf --profile 1b tests/fixtures/pdfs/<file>');
     console.log('');

@@ -1,5 +1,5 @@
 /**
- * @strata/engine/lut — LUT colour transform subsystem.
+ * @varve/engine/lut — LUT colour transform subsystem.
  *
  * Provides data types, parsers, interpolation, application, and export
  * for 1D and 3D lookup tables.

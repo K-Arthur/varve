@@ -1,5 +1,5 @@
-import type { BlendMode, FrameNode, LayerColor, SceneNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import type { BlendMode, FrameNode, LayerColor, SceneNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
 
 /** Filter by node kind (e.g., 'shape', 'text', 'frame', etc.) */
 export type NodeKindFilter = Array<SceneNode['kind'] | 'component'>;

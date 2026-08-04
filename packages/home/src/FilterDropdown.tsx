@@ -1,5 +1,5 @@
-import type { FileKind } from '@strata/platform';
-import { Button, Icon, Popover } from '@strata/ui';
+import type { FileKind } from '@varve/platform';
+import { Button, Icon, Popover } from '@varve/ui';
 import { useCallback } from 'react';
 
 export interface FilterDropdownProps {

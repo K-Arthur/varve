@@ -6,10 +6,10 @@ import {
   type Platform,
   type SavedSearch,
   type TemplateLibrary,
-} from '@strata/platform';
-import { createDocumentFromPreset, serializeDocument } from '@strata/scene';
-import { generateKeyBetween, type Preset } from '@strata/shared';
-import { ContentSkeleton, Dialog, Icon, Tooltip } from '@strata/ui';
+} from '@varve/platform';
+import { createDocumentFromPreset, serializeDocument } from '@varve/scene';
+import { generateKeyBetween, type Preset } from '@varve/shared';
+import { ContentSkeleton, Dialog, Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
 import { AssetBrowser } from './AssetBrowser';
@@ -51,7 +51,7 @@ export interface HomeShellProps {
 
 async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
   try {
-    const { renderThumbnail } = await import('@strata/engine');
+    const { renderThumbnail } = await import('@varve/engine');
     const doc = JSON.parse(docJson);
     const dataUrl = await renderThumbnail(doc);
     if (dataUrl) {
@@ -526,11 +526,11 @@ export function HomeShell({
   const renderContent = () => {
     if (view.loading) {
       return (
-        <div className="strata-home">
-          <div className="strata-home__sidebar">
+        <div className="varve-home">
+          <div className="varve-home__sidebar">
             <ContentSkeleton variant="list" rows={5} label="Loading navigation" />
           </div>
-          <div className="strata-home__content">
+          <div className="varve-home__content">
             <ContentSkeleton variant="grid" columns={4} rows={2} label="Loading projects" />
           </div>
         </div>
@@ -698,7 +698,7 @@ export function HomeShell({
   return (
     <DndContext sensors={sensors} collisionDetection={undefined} onDragEnd={handleDragEnd}>
       <section
-        className={`strata-home ${view.state.sidebarCollapsed ? 'strata-home--collapsed' : ''} ${isDragOver ? 'strata-home--drag-over' : ''}`}
+        className={`varve-home ${view.state.sidebarCollapsed ? 'varve-home--collapsed' : ''} ${isDragOver ? 'varve-home--drag-over' : ''}`}
         aria-label="File drop zone"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -712,7 +712,7 @@ export function HomeShell({
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        <div className={`strata-home__sidebar ${sidebarOpen ? 'strata-home__sidebar--open' : ''}`}>
+        <div className={`varve-home__sidebar ${sidebarOpen ? 'varve-home__sidebar--open' : ''}`}>
           {onResumeEditing && (
             <Tooltip label="Return to your open tabs">
               <button type="button" className="sidebar-resume" onClick={onResumeEditing}>
@@ -805,7 +805,7 @@ export function HomeShell({
             searchResultCount={view.visibleFiles.length}
           />
         </div>
-        <div className="strata-home__toolbar">
+        <div className="varve-home__toolbar">
           <HomeToolbar
             sidebarCollapsed={view.state.sidebarCollapsed}
             onToggleSidebar={view.toggleSidebar}
@@ -850,7 +850,7 @@ export function HomeShell({
           />
         </div>
         {selectedIds.length > 0 && (
-          <div className="strata-home__batch-bar">
+          <div className="varve-home__batch-bar">
             <BatchActions
               selectedCount={selectedIds.length}
               projects={view.projects}
@@ -881,7 +881,7 @@ export function HomeShell({
             />
           </div>
         )}
-        <main className="strata-home__content">
+        <main className="varve-home__content">
           {renderContent()}
           <PerfProfile
             fileCount={view.files.length}
@@ -958,14 +958,14 @@ export function HomeShell({
             setNewProjectName('');
           }}
         >
-          <div className="strata-home__new-project-dialog">
-            <label htmlFor="new-project-name" className="strata-home__new-project-label">
+          <div className="varve-home__new-project-dialog">
+            <label htmlFor="new-project-name" className="varve-home__new-project-label">
               Project name
             </label>
             <input
               id="new-project-name"
               type="text"
-              className="strata-home__new-project-input"
+              className="varve-home__new-project-input"
               placeholder="e.g. Brand Redesign"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
@@ -982,10 +982,10 @@ export function HomeShell({
                 }
               }}
             />
-            <div className="strata-home__new-project-actions">
+            <div className="varve-home__new-project-actions">
               <button
                 type="button"
-                className="strata-home__new-project-cancel"
+                className="varve-home__new-project-cancel"
                 onClick={() => {
                   setNewProjectName('');
                   setNewProjectOpen(false);
@@ -995,7 +995,7 @@ export function HomeShell({
               </button>
               <button
                 type="button"
-                className="strata-home__new-project-confirm"
+                className="varve-home__new-project-confirm"
                 disabled={!newProjectName.trim()}
                 onClick={() => {
                   if (newProjectName.trim()) {
@@ -1018,14 +1018,14 @@ export function HomeShell({
           title="Save Search"
           onClose={() => setSaveSearchDialogOpen(false)}
         >
-          <div className="strata-home__new-project-dialog">
-            <label htmlFor="save-search-name" className="strata-home__new-project-label">
+          <div className="varve-home__new-project-dialog">
+            <label htmlFor="save-search-name" className="varve-home__new-project-label">
               Search name
             </label>
             <input
               id="save-search-name"
               type="text"
-              className="strata-home__new-project-input"
+              className="varve-home__new-project-input"
               placeholder="e.g. Recent logos"
               value={saveSearchName}
               onChange={(e) => setSaveSearchName(e.target.value)}
@@ -1051,10 +1051,10 @@ export function HomeShell({
                 }
               }}
             />
-            <div className="strata-home__new-project-actions">
+            <div className="varve-home__new-project-actions">
               <button
                 type="button"
-                className="strata-home__new-project-cancel"
+                className="varve-home__new-project-cancel"
                 onClick={() => {
                   setSaveSearchDialogOpen(false);
                   setSaveSearchName('');
@@ -1064,7 +1064,7 @@ export function HomeShell({
               </button>
               <button
                 type="button"
-                className="strata-home__new-project-confirm"
+                className="varve-home__new-project-confirm"
                 disabled={!saveSearchName.trim()}
                 onClick={() => {
                   if (saveSearchName.trim()) {

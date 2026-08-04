@@ -5,7 +5,7 @@
  * detect modifications without storing full snapshots.
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 
 /** FNV-1a 32-bit hash of a string. Returns hex string. */
 function fnv1a(data: string): string {

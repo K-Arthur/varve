@@ -2,7 +2,7 @@
  * Batch job list — lists all export jobs with status, select-all, and per-row checkbox.
  */
 
-import type { ExportJob } from '@strata/scene';
+import type { ExportJob } from '@varve/scene';
 import { useMemo } from 'react';
 
 import './BatchJobList.css';

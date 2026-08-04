@@ -16,7 +16,7 @@
  * font engineering guidelines for path quality.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 import type { AuditCategory, AuditFinding } from './ir-types';
 
 export type VectorIssueType =

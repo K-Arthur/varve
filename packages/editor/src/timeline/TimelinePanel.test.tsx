@@ -1,5 +1,5 @@
-import type { Timeline } from '@strata/scene';
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { Timeline } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@floating-ui/dom', () => ({
@@ -18,7 +18,7 @@ function makeTimeline(
   id: string,
   name: string,
   duration: number,
-  tracks?: import('@strata/scene').AnimationTrack[],
+  tracks?: import('@varve/scene').AnimationTrack[],
 ): Timeline {
   return {
     id,

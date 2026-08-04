@@ -1,5 +1,5 @@
 {
-  "name": "@strata/engine",
+  "name": "@varve/engine",
   "version": "0.0.0",
   "private": true,
   "description": "Dual-backend renderer facade: native (Tauri IPC → Rust) on desktop, WASM on web. Identical API.",
@@ -20,8 +20,8 @@
     "test": "cd ../.. && vitest run packages/engine"
   },
   "dependencies": {
-    "@strata/platform": "workspace:*",
-    "@strata/shared": "workspace:*",
+    "@varve/platform": "workspace:*",
+    "@varve/shared": "workspace:*",
     "bidi-js": "^1.0.3",
     "harfbuzzjs": "^1.4.0",
     "mp4-muxer": "^5.2.2",

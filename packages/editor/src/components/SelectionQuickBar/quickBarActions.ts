@@ -1,8 +1,8 @@
 /**
  * Pure helpers + action dispatch for SelectionQuickBar.
  */
-import type { ImageFit, NodeId, ShapeNode } from '@strata/scene';
-import { getImageFill, isImageShape } from '@strata/scene';
+import type { ImageFit, NodeId, ShapeNode } from '@varve/scene';
+import { getImageFill, isImageShape } from '@varve/scene';
 import type { QuickBarActionId } from './resolveQuickBarProfile';
 
 export const IMAGE_FIT_CYCLE: readonly ImageFit[] = ['fill', 'fit', 'crop', 'stretch', 'tile'];

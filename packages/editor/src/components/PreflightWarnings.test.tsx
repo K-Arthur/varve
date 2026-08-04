@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import {
   createDocument,
   DEFAULT_BLEED,
   type Document,
   defaultCmykColorConfig,
   type ShapeNode,
-} from '@strata/scene';
-import { fireEvent, render, screen } from '@testing-library/react';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider } from '../context';
 import { PreflightWarnings } from './PreflightWarnings';

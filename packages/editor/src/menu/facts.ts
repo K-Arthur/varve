@@ -1,5 +1,5 @@
-import type { Document, SceneNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import { computeCapabilities } from './capabilities';
 import type { DocumentFacts, IntelFacts, PlatformFacts, SelectionFacts } from './types';

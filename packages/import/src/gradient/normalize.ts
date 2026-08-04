@@ -1,6 +1,6 @@
 /**
  * Normalize parsed gradient data into the canonical `GradientPreset` model
- * (`@strata/scene`). Keeps source metadata and compatibility info.
+ * (`@varve/scene`). Keeps source metadata and compatibility info.
  */
 import {
   type GradientCompatibilityInfo,
@@ -8,7 +8,7 @@ import {
   type GradientPresetSource,
   gradientPresetContentHash,
   makeGradientPreset,
-} from '@strata/scene';
+} from '@varve/scene';
 
 import type { ParsedGradient } from './photoshopGrd';
 

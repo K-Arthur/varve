@@ -1,4 +1,4 @@
-import { ContextMenu, type MenuEntry, Tooltip } from '@strata/ui';
+import { ContextMenu, type MenuEntry, Tooltip } from '@varve/ui';
 import { type FC, useCallback, useRef, useState } from 'react';
 
 export interface TimelineRulerProps {

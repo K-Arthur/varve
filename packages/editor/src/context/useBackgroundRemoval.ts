@@ -1,4 +1,4 @@
-import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@strata/scene';
+import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
 import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { warmMaskRenderCache } from '../backgroundRemoval/maskRenderCache';
@@ -47,7 +47,7 @@ async function decodeSource(
   src: string,
   announcerRef: React.MutableRefObject<CanvasAnnouncer | null>,
 ): Promise<{ imageData: ImageData; extractW: number; extractH: number } | null> {
-  const { getImageCache } = await import('@strata/engine');
+  const { getImageCache } = await import('@varve/engine');
   const cache = getImageCache();
   let img: HTMLImageElement | ImageBitmap | null = null;
   try {
@@ -121,7 +121,7 @@ export function useBackgroundRemoval(
 
   const removeBackground = useCallback(
     async (method: BackgroundRemovalMethod) => {
-      const { getImageFill, isImageShape, imageShapeSrc } = await import('@strata/scene');
+      const { getImageFill, isImageShape, imageShapeSrc } = await import('@varve/scene');
       const imageNode = state.selection
         .map((id) => state.document.nodes[id] as ShapeNode | undefined)
         .find((n) => n && isImageShape(n)) as ShapeNode | undefined;
@@ -168,7 +168,7 @@ export function useBackgroundRemoval(
           return;
         }
 
-        const { getImageCache } = await import('@strata/engine');
+        const { getImageCache } = await import('@varve/engine');
         await warmMaskRenderCache(
           getImageCache(),
           result.maskDataUrl,
@@ -218,7 +218,7 @@ export function useBackgroundRemoval(
 
   const removeBackgroundWithOptions = useCallback(
     async (method: BackgroundRemovalMethod, feather: number, decontaminate: boolean) => {
-      const { getImageFill, isImageShape, imageShapeSrc } = await import('@strata/scene');
+      const { getImageFill, isImageShape, imageShapeSrc } = await import('@varve/scene');
       const imageNode = state.selection
         .map((id) => state.document.nodes[id] as ShapeNode | undefined)
         .find((n) => n && isImageShape(n)) as ShapeNode | undefined;
@@ -274,7 +274,7 @@ export function useBackgroundRemoval(
           height: isoResult.maskHeight,
         };
 
-        const { finalizeMaskResult } = await import('@strata/engine');
+        const { finalizeMaskResult } = await import('@varve/engine');
         // Quick is the one-click path. Its heuristic can legitimately produce
         // several disconnected foreground regions (for example, a person and
         // an object they are holding), so preserve its complete mask and move
@@ -310,7 +310,7 @@ export function useBackgroundRemoval(
           return;
         }
 
-        const { getImageCache } = await import('@strata/engine');
+        const { getImageCache } = await import('@varve/engine');
         await warmMaskRenderCache(
           getImageCache(),
           finalized.maskDataUrl,
@@ -364,7 +364,7 @@ export function useBackgroundRemoval(
     if (!preview) return;
     const currentState = stateRef.current;
     const currentNode = currentState.document.nodes[preview.nodeId] as ShapeNode | undefined;
-    void import('@strata/scene').then(({ getImageFill, isImageShape, imageShapeSrc }) => {
+    void import('@varve/scene').then(({ getImageFill, isImageShape, imageShapeSrc }) => {
       if (
         currentState.document.id !== preview.documentId ||
         !currentState.selection.includes(preview.nodeId) ||
@@ -471,7 +471,7 @@ export function useBackgroundRemoval(
       if (!session) return;
       void (async () => {
         const { decodeMaskDataUrl, filterMaskByComponents, getImageCache, maskArrayToDataUrl } =
-          await import('@strata/engine');
+          await import('@varve/engine');
         const { mask, width, height } = await decodeMaskDataUrl(session.pendingMaskDataUrl);
         const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
         const maskDataUrl = maskArrayToDataUrl(filtered, width, height);
@@ -509,7 +509,7 @@ export function useBackgroundRemoval(
   }, [patch, announcerRef]);
 
   const refineHairEdges = useCallback(async () => {
-    const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import('@strata/scene');
+    const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import('@varve/scene');
     const doc = state.document;
     const imageNode = state.selection
       .map((id) => doc.nodes[id] as ShapeNode | undefined)
@@ -520,7 +520,7 @@ export function useBackgroundRemoval(
     }
     try {
       const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, refineHairMatting } =
-        await import('@strata/engine');
+        await import('@varve/engine');
       const w = imageShapeW(imageNode);
       const h = imageShapeH(imageNode);
       const img = await getImageCache().load(imageShapeSrc(imageNode));
@@ -582,11 +582,11 @@ export function useBackgroundRemoval(
     }
     try {
       const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-        '@strata/scene'
+        '@varve/scene'
       );
       if (!isImageShape(node)) return;
       const { getImageCache, maskArrayToDataUrl, solveTrimapMatting } = await import(
-        '@strata/engine'
+        '@varve/engine'
       );
       const w = imageShapeW(node);
       const h = imageShapeH(node);

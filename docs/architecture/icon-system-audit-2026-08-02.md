@@ -101,7 +101,7 @@ All modules under `packages/engine/src/icon/` with tests:
   surface passes real documents. No document icon asset model wiring.
 - `iconExport.ts` exists but has no UI; `iconAudit.ts` exists but has no
   panel.
-- `@strata/import` SVG parser is the right conversion path (used by
+- `@varve/import` SVG parser is the right conversion path (used by
   paste/import flows) and produces scene nodes + documents; sanitization is
   **not** applied by the import pipeline itself — only the icon download
   manager sanitizes.
@@ -161,11 +161,11 @@ All modules under `packages/engine/src/icon/` with tests:
 
 | Package | Responsibility | Changes this milestone |
 |---|---|---|
-| `@strata/ui` | Icon primitives + semantic registry + size tokens | add `semantic.ts` (registry, validation, mirror, sizes) |
-| `@strata/engine` | sanitize, providers, licence, audit, export, variants | keep; fix parseLicense conservatism; add style-URL stripping |
-| `@strata/scene` | document icon asset model | wire `Document.iconAssets` + `NodeBase.iconAssetId` + codec validation |
-| `@strata/import` | SVG conversion | unchanged (reused by insertion) |
-| `@strata/editor` | browser UI, insertion, inspector, audit panel | wire IconBrowser, insertion hook, inspector section |
+| `@varve/ui` | Icon primitives + semantic registry + size tokens | add `semantic.ts` (registry, validation, mirror, sizes) |
+| `@varve/engine` | sanitize, providers, licence, audit, export, variants | keep; fix parseLicense conservatism; add style-URL stripping |
+| `@varve/scene` | document icon asset model | wire `Document.iconAssets` + `NodeBase.iconAssetId` + codec validation |
+| `@varve/import` | SVG conversion | unchanged (reused by insertion) |
+| `@varve/editor` | browser UI, insertion, inspector, audit panel | wire IconBrowser, insertion hook, inspector section |
 
 ## 6. Migration strategy
 
@@ -193,8 +193,8 @@ All modules under `packages/engine/src/icon/` with tests:
 
 ## 8. Verification baseline (2026-08-02, pre-change)
 
-- `@strata/ui` tests: 38 files / 368 tests — pass.
-- `@strata/engine` tests: 1034 suites / 0 failures in clean run (2 flaky
+- `@varve/ui` tests: 38 files / 368 tests — pass.
+- `@varve/engine` tests: 1034 suites / 0 failures in clean run (2 flaky
   WASM-load failures in backgroundRemoval seen once; unrelated to icons).
 - `packages/engine/src/icon` targeted: 6 files / 74 tests — pass.
 - Working tree carried concurrent staged + unstaged changes (color picker,
@@ -207,7 +207,7 @@ Commits (all on `master`, pushed-able):
 | Commit | Scope |
 |---|---|
 | `5a6a7a77` | This audit note |
-| `dc8282b0` | Semantic icon registry (`@strata/ui/icons/semantic.tsx`) — 96 concepts × outline/filled, validation, RTL mirror, size tokens; `SolidIconName` union extended with 14 verified Phosphor names |
+| `dc8282b0` | Semantic icon registry (`@varve/ui/icons/semantic.tsx`) — 96 concepts × outline/filled, validation, RTL mirror, size tokens; `SolidIconName` union extended with 14 verified Phosphor names |
 | `5d9a7f35` | `Document.iconAssets` + `NodeBase.iconAssetId` + codec validation/pruning/closure; 9 tests |
 | `8745f323` | Editor insertion pipeline: `useIconAssets` (insert/replace/detach), `IconBrowserDialog`, Layers-panel trigger, clipboard icon-asset provenance, IconBrowser download fix |
 | `4c3e5619` | Restore scene icon model after concurrent `feat(logo)` commit clobbered it |
@@ -215,9 +215,9 @@ Commits (all on `master`, pushed-able):
 
 Verification after implementation:
 
-- `@strata/ui`: 385 tests pass (incl. 26 icon tests).
-- `@strata/scene`: 1799 pass, 1 skipped (incl. 9 icon-asset tests).
-- `@strata/editor`: 4221 pass. Remaining failures are concurrent-agent WIP
+- `@varve/ui`: 385 tests pass (incl. 26 icon tests).
+- `@varve/scene`: 1799 pass, 1 skipped (incl. 9 icon-asset tests).
+- `@varve/editor`: 4221 pass. Remaining failures are concurrent-agent WIP
   (`Menubar.test` — focus work, `workspaceMode.test` — logo mode label,
   `FloatingTextBar.test` — color work) plus two perf tests that pass in
   isolation (load noise).

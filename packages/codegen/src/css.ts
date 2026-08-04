@@ -9,8 +9,8 @@ import type {
   Document as SceneDocument,
   SceneNode,
   VariableStore,
-} from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+} from '@varve/scene';
+import { isImageShape } from '@varve/scene';
 import { canEmitAsHtml } from './flattening';
 import { adjustmentStackTargetGaps, colorToHex, computeNodePos, rgba } from './shared';
 import { resolveTokenName } from './tokens';

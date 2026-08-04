@@ -1,7 +1,7 @@
 /**
- * @strata/print — types for the print/PDF export facade.
+ * @varve/print — types for the print/PDF export facade.
  */
-import type { ExportFormat } from '@strata/scene';
+import type { ExportFormat } from '@varve/scene';
 
 export interface PdfExportOptions {
   pageWidth?: number;

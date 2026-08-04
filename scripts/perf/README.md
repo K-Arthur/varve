@@ -11,7 +11,7 @@ default base URL is `http://localhost:1432`; the scripts read `?perf=1` to opt
 in to the diagnostics ring-buffer handle (see
 `packages/editor/src/canvas/drawDiagnostics.ts`).
 
-The `?perf=1` query string enables `window.__strataPerf`, which exposes the
+The `?perf=1` query string enables `window.__varvePerf`, which exposes the
 frame-diagnostics ring buffer (`totalMs`, `buildIrMs`, `replayMs`, `hashMs`,
 `nodeCount`, render path, cache stats) without console flooding. It is inert in
 normal usage.
@@ -80,7 +80,7 @@ dense-overlap, wide-spread, many-small, few-large, clipped-frames,
 masked-content, rotated-skewed, thick-strokes, effects-heavy, blend-modes,
 raster-heavy, mixed-raster-vector, hidden-locked, offscreen-mixed,
 boundary-crossing, multi-page, text-heavy, deep-nesting, ...) through the
-app's own fixture seeder (`window.__strataPerf.fixtures.seed`), so the file,
+app's own fixture seeder (`window.__varvePerf.fixtures.seed`), so the file,
 checksum and node count all come from the corpus code under test.
 
 Workloads include: `pointer-move-idle`, `single-drag`, `multi-drag`,

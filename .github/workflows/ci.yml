@@ -87,7 +87,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-wasm
+          name: varve-wasm
           path: apps/desktop/public/wasm/
       - name: Automated failure debug
         if: failure()
@@ -96,7 +96,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-debug-rust-${{ matrix.os }}-${{ github.run_id }}
+          name: varve-debug-rust-${{ matrix.os }}-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
       - name: Post debug report to PR
@@ -161,7 +161,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-debug-js-${{ github.run_id }}
+          name: varve-debug-js-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
       - name: Post debug report to PR
@@ -190,7 +190,7 @@ jobs:
       - name: Download wasm artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: strata-wasm
+          name: varve-wasm
           path: apps/desktop/public/wasm/
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
@@ -205,7 +205,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-visual-diff-${{ github.run_id }}
+          name: varve-visual-diff-${{ github.run_id }}
           path: visual-diff-report/
           if-no-files-found: ignore
       - name: Automated failure debug
@@ -215,7 +215,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-debug-e2e-${{ github.run_id }}
+          name: varve-debug-e2e-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
       - name: Post debug report to PR
@@ -268,7 +268,7 @@ jobs:
       - name: Download wasm artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: strata-wasm
+          name: varve-wasm
           path: apps/desktop/public/wasm/
       - name: Run native desktop E2E (Linux Xvfb)
         if: matrix.xvfb
@@ -283,7 +283,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-debug-desktop-e2e-${{ github.run_id }}
+          name: varve-debug-desktop-e2e-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
       - name: Post debug report to PR
@@ -295,6 +295,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-native-artifacts-${{ matrix.name }}-${{ github.run_id }}
+          name: varve-native-artifacts-${{ matrix.name }}-${{ github.run_id }}
           path: artifacts/desktop/
           if-no-files-found: ignore

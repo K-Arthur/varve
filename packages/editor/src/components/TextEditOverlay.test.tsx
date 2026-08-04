@@ -1,5 +1,5 @@
-import type { TextNode } from '@strata/scene';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { TextNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider } from '../context';
 import { TextEditOverlay } from './TextEditOverlay';

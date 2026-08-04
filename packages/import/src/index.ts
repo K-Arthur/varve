@@ -33,7 +33,7 @@ export type { BatchFileResult, ImportOptions, ImportParser, ImportResult } from 
 export type { ImportValidation } from './validation';
 export { validateImport } from './validation';
 
-export const PACKAGE = '@strata/import' as const;
+export const PACKAGE = '@varve/import' as const;
 
 import { createAiParser } from './ai';
 import { createEpsParser } from './eps';

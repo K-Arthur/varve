@@ -5,7 +5,7 @@
  * All positions are scaled by pxPerUnit to convert document units to
  * screen pixels at the current zoom.
  */
-import type { BleedConfig, SafeAreaConfig, SlugConfig } from '@strata/scene';
+import type { BleedConfig, SafeAreaConfig, SlugConfig } from '@varve/scene';
 
 export interface PrintOverlaysProps {
   pageWidth: number;

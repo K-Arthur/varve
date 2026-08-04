@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-07-27
-**Decisions:** One canonical runtime detection module in `@strata/platform`
+**Decisions:** One canonical runtime detection module in `@varve/platform`
 
 ## Context
 
@@ -15,7 +15,7 @@ availability). Feature code couldn't be tested deterministically — mocking req
 
 ## Decision
 
-Create `@strata/platform/src/runtime.ts` as the single source of truth:
+Create `@varve/platform/src/runtime.ts` as the single source of truth:
 
 - `RuntimeKind` (`'memory' | 'web' | 'tauri'`) — coarse backend identity
 - `PlatformCapability` — granular flags (`fs.read`, `webgpu`, `wasm`, `webWorker`, …)
@@ -24,14 +24,14 @@ Create `@strata/platform/src/runtime.ts` as the single source of truth:
 - `setPlatformInfoForTest()` — deterministic injection for tests
 - `detectRuntimeKind()` — low-level check for the Tauri global
 
-Every other module imports from `@strata/platform` instead of reimplementing the
+Every other module imports from `@varve/platform` instead of reimplementing the
 check.
 
 ## Consequences
 
 - **One detection path** — bug fixes and new capabilities land in one place
 - **Testable** — `setPlatformInfoForTest()` replaces fragile `window` mocking
-- **No circular dependency** — `@strata/platform` is the lowest layer both scene
+- **No circular dependency** — `@varve/platform` is the lowest layer both scene
   and editor depend on
 - **SSR-safe** — returns `'memory'` when `window` is undefined
 - **Worker-safe** — detects Web Worker environment correctly

@@ -5,8 +5,8 @@
  * with cleanup of stale sessions and graceful handling of corrupt data.
  */
 
-import type { Document } from '@strata/scene';
-import { migrateDocumentJson } from '@strata/scene';
+import type { Document } from '@varve/scene';
+import { migrateDocumentJson } from '@varve/scene';
 
 export interface RecoverySession {
   id: string;

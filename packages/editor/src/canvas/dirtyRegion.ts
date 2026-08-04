@@ -6,15 +6,15 @@
  * parent transform, clip, mask, or isolation change can affect descendants.
  */
 
-import type { Document, NodeId, RasterLayerNode } from '@strata/scene';
+import type { Document, NodeId, RasterLayerNode } from '@varve/scene';
 import {
   buildParentIndexMap,
   isContainer,
   parseTileKey,
   resolveAllStyles,
   TILE_SIZE,
-} from '@strata/scene';
-import type { Rect } from '@strata/shared';
+} from '@varve/scene';
+import type { Rect } from '@varve/shared';
 import { nodeVisualWorldBounds } from './visualBounds';
 
 export type DirtyRegion =

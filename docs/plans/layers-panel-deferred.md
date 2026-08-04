@@ -196,7 +196,7 @@ follow-up work):
 - **Rust engine hierarchy mirror.** `strata-bridge`'s `SceneNode` only
   represents flat shape primitives — it never sees groups, frames,
   components, or pages as such; something upstream flattens the rich
-  `@strata/scene` `Document` before it reaches the native renderer. This
+  `@varve/scene` `Document` before it reaches the native renderer. This
   affects native-render/export fidelity for complex hierarchies, not the
   Layers Panel UI itself; out of scope here.
 

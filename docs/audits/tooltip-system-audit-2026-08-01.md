@@ -3,7 +3,7 @@
 ## Executive Summary
 
 This audit completed the tooltip standardization effort begun on 2026-07-27.
-The shared `Tooltip` primitive in `@strata/ui` (APG tooltip pattern, Floating
+The shared `Tooltip` primitive in `@varve/ui` (APG tooltip pattern, Floating
 UI positioning, portaled to `document.body`) is now the single tooltip
 implementation across the product. The home app — previously 100% native
 `title` attributes — was migrated wholesale, the editor's remaining
@@ -73,7 +73,7 @@ displays now resolve from the registry.
 
 ## Testing
 
-- Unit: `@strata/ui` Tooltip suite (22 tests) + home/editor suites pass.
+- Unit: `@varve/ui` Tooltip suite (22 tests) + home/editor suites pass.
 - E2E: `tests/e2e/canvas/tooltip-system.spec.ts` (9 tests) and
   `tests/e2e/home/tooltips.spec.ts` (4 tests) pass on Chromium.
 - Fixed a pre-existing E2E strict-mode failure in the canvas-drag test

@@ -2,7 +2,7 @@
  * Icon asset operations — insert, replace, and detach document icon assets.
  *
  * Follows the paste/import pattern: the sanitized SVG is converted to scene
- * nodes via the @strata/import pipeline, the subtree is merged into the live
+ * nodes via the @varve/import pipeline, the subtree is merged into the live
  * document in a single undo transaction, and provenance (provider, licence,
  * attribution) is recorded in `Document.iconAssets` keyed by a deterministic
  * asset id. Nodes reference the asset via `NodeBase.iconAssetId`.
@@ -11,8 +11,8 @@
  * provider outage, cache clear, or offline open can never break rendering.
  */
 
-import { type SanitizeError, type Shape, sanitizeSvg } from '@strata/engine';
-import { ImportService } from '@strata/import';
+import { type SanitizeError, type Shape, sanitizeSvg } from '@varve/engine';
+import { ImportService } from '@varve/import';
 import {
   createDocumentIconAsset,
   type Document,
@@ -21,7 +21,7 @@ import {
   iconAssetIdFor,
   isIconAssetReferenced,
   type SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { useCallback } from 'react';
 import type { EditorState } from './types';
 

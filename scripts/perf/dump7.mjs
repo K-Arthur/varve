@@ -22,7 +22,7 @@ await page.mouse.move(box.x + 200, box.y + 160);
 await page.mouse.up();
 await page.waitForTimeout(1500);
 const info = await page.evaluate(() => {
-  const h = window.__strataPerf;
+  const h = window.__varvePerf;
   return {
     hasHandle: !!h,
     frameCount: h ? h.getFrames(1000).length : -1,

@@ -1,5 +1,5 @@
-import type { GradientMapStop } from '@strata/engine';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { GradientMapStop } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GradientMapEditor } from './GradientMapEditor';
 

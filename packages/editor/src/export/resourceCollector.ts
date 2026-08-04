@@ -1,4 +1,4 @@
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
 
 export interface ImageResource {
   id: string;

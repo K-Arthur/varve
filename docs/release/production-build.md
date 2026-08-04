@@ -261,10 +261,10 @@ Nothing here contacts GitHub or publishes anything.
 ## 11. Website — VERIFIED
 
 ```sh
-pnpm --filter @strata/website build      # exit 0, 42 pages, 0 errors
+pnpm --filter @varve/website build      # exit 0, 42 pages, 0 errors
 
 # with a custom domain later:
-SITE_URL=https://example.com SITE_BASE=/ pnpm --filter @strata/website build
+SITE_URL=https://example.com SITE_BASE=/ pnpm --filter @varve/website build
 ```
 
 After a release, point the download page at it:

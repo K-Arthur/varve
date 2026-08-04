@@ -34,7 +34,7 @@ await page.keyboard.press('Control+s');
 await page.waitForTimeout(2000);
 const dbInfo = await page.evaluate(async () => {
   const db = await new Promise((res, rej) => {
-    const r = indexedDB.open('strata-home');
+    const r = indexedDB.open('varve-home');
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   });

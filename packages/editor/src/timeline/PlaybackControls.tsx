@@ -1,4 +1,4 @@
-import { Icon, Select } from '@strata/ui';
+import { Icon, Select } from '@varve/ui';
 import { type FC, useCallback } from 'react';
 
 export interface PlaybackControlsProps {

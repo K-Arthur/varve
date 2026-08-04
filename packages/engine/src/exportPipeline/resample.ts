@@ -22,7 +22,7 @@
  *    bounded memory with no seams.
  */
 
-import type { ExportWorkingSpace, ResamplingAlgorithm } from '@strata/shared';
+import type { ExportWorkingSpace, ResamplingAlgorithm } from '@varve/shared';
 
 export interface ResampleOptions {
   algorithm?: ResamplingAlgorithm;

@@ -1,4 +1,4 @@
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import type { ShortcutRecommendation } from './shortcutRecommender';
 
 interface ShortcutTipChipProps {

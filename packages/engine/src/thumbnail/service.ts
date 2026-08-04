@@ -6,7 +6,7 @@
  *
  * The caller is responsible for source resolution (which nodes to render).
  * High-level source selection (page, frame, selection) lives in
- * `@strata/editor/src/thumbnail/`.
+ * `@varve/editor/src/thumbnail/`.
  */
 
 import { createEngine } from '../engine';

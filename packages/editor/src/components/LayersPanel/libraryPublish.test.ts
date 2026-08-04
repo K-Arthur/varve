@@ -1,4 +1,4 @@
-import { addNode, createComponent, createDocument, makeFrameNode, nextNodeId } from '@strata/scene';
+import { addNode, createComponent, createDocument, makeFrameNode, nextNodeId } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildComponentLibraryPackage, findComponentByMasterRootId } from './libraryPublish';
 

@@ -1,4 +1,4 @@
-import { contrastRatio, managedColorToRgba, relativeLuminance } from '@strata/shared';
+import { contrastRatio, managedColorToRgba, relativeLuminance } from '@varve/shared';
 import type { ManagedColor } from '../colorManagement';
 import type { Document } from '../document';
 import { getParent } from '../document';

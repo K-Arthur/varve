@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { addKeyframe, addTrack, createDocument, createTimeline } from '@strata/scene';
 import { render, screen } from '@testing-library/react';
+import { addKeyframe, addTrack, createDocument, createTimeline } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { MotionSpecSection } from './MotionSpecSection';
 

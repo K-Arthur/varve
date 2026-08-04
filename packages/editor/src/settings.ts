@@ -9,7 +9,7 @@
  * React context.
  */
 
-import type { ExportFormat, ExportScale, RenderingIntent } from '@strata/scene';
+import type { ExportFormat, ExportScale, RenderingIntent } from '@varve/scene';
 import {
   createDefaultSectionState,
   migrateLegacyDisclosureState,

@@ -17,15 +17,15 @@
  * pipeline, so browser and desktop runtimes produce identical bytes.
  */
 
-import type { Platform } from '@strata/platform';
-import type { Document, NodeId } from '@strata/scene';
+import type { Platform } from '@varve/platform';
+import type { Document, NodeId } from '@varve/scene';
 import {
   buildIcns,
   buildIco,
   ICNS_REPRESENTATIONS,
   ICO_SUPPORTED_SIZES,
   sanitizeSegment,
-} from '@strata/scene/export';
+} from '@varve/scene/export';
 
 export interface LogoPackageEntry {
   fileName: string;
@@ -82,12 +82,12 @@ export const DEFAULT_ICO_SIZES = [16, 32, 48, 256] as const;
 
 /** Render a node to a transparent PNG blob at the given scale factor. */
 async function renderPngBytes(
-  node: import('@strata/scene').SceneNode,
+  node: import('@varve/scene').SceneNode,
   doc: Document,
   scale: number,
 ): Promise<Uint8Array> {
   const { exportNodeAsRaster } = await import('../components/SpecPanel/export');
-  const { createEngine } = await import('@strata/engine');
+  const { createEngine } = await import('@varve/engine');
   const engine = await createEngine('auto');
   const result = await exportNodeAsRaster(node, doc, engine, {
     format: 'image/png',
@@ -99,7 +99,7 @@ async function renderPngBytes(
 
 /** Render a node to a transparent PNG at an exact pixel size (for icons). */
 async function renderPngAtSize(
-  node: import('@strata/scene').SceneNode,
+  node: import('@varve/scene').SceneNode,
   doc: Document,
   size: number,
 ): Promise<Uint8Array> {
@@ -111,8 +111,8 @@ async function renderPngAtSize(
 }
 
 /** Render a node to an SVG string (transparent background). */
-async function renderSvg(node: import('@strata/scene').SceneNode, doc: Document): Promise<string> {
-  const { exportNodeToSvg } = await import('@strata/codegen');
+async function renderSvg(node: import('@varve/scene').SceneNode, doc: Document): Promise<string> {
+  const { exportNodeToSvg } = await import('@varve/codegen');
   return exportNodeToSvg(node, doc, {
     background: 'transparent',
     minify: false,
@@ -121,11 +121,11 @@ async function renderSvg(node: import('@strata/scene').SceneNode, doc: Document)
 
 /** Render a node to a PDF (vector on desktop, raster fallback in browser). */
 async function renderPdf(
-  node: import('@strata/scene').SceneNode,
+  node: import('@varve/scene').SceneNode,
   doc: Document,
 ): Promise<Uint8Array> {
   const { exportNodeAsPdf } = await import('../components/SpecPanel/export');
-  const { createEngine } = await import('@strata/engine');
+  const { createEngine } = await import('@varve/engine');
   const engine = await createEngine('auto');
   const result = await exportNodeAsPdf(node, doc, 1, engine);
   return result.bytes;
@@ -149,7 +149,7 @@ export function collectPalette(doc: Document): Record<string, string> {
   return out;
 }
 
-export function managedColorToHex(color: import('@strata/scene').ManagedColor): string {
+export function managedColorToHex(color: import('@varve/scene').ManagedColor): string {
   if (color.space === 'rgb') {
     const to255 = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 255);
     const a = to255(color.a);

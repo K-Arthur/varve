@@ -4,7 +4,7 @@
  * Research basis: CSS Color Module Level 4 (W3C), SVG 1.1 color syntax.
  */
 
-import type { RgbColor } from '@strata/scene';
+import type { RgbColor } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { parseSvgColor } from './svg';
 

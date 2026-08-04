@@ -2,9 +2,9 @@
  * diagnostics ring buffer. Usage: node scripts/perf/probe-interaction.mjs */
 import { chromium } from '@playwright/test';
 
-// STRATA_PERF_URL lets the same probe run against a production build
+// VARVE_PERF_URL lets the same probe run against a production build
 // (vite preview) as well as the dev server.
-const BASE = process.env.STRATA_PERF_URL ?? 'http://localhost:1432/?perf=1';
+const BASE = process.env.VARVE_PERF_URL ?? 'http://localhost:1432/?perf=1';
 
 function pct(sorted, p) {
   if (!sorted.length) return 0;
@@ -82,14 +82,14 @@ for (let i = 0; i < 4; i++) {
 }
 const readCount = () =>
   page.evaluate(() => {
-    const f = window.__strataPerf ? window.__strataPerf.getFrames(3) : [];
+    const f = window.__varvePerf ? window.__varvePerf.getFrames(3) : [];
     return f.length ? f[f.length - 1].nodeCount : 0;
   });
 // Each pass doubles the node count (4 rects → 4·2^n). Configurable so the same
 // probe can measure the small-document and heavy-document cases, and so dev and
 // production runs can be compared at an identical node count — the comparison
 // is meaningless otherwise.
-const DUPS = Number(process.env.STRATA_PERF_DUPS ?? 5);
+const DUPS = Number(process.env.VARVE_PERF_DUPS ?? 5);
 for (let guard = 0; guard < DUPS; guard++) {
   await page.keyboard.press('Control+a');
   await page.waitForTimeout(25);
@@ -106,7 +106,7 @@ await page.waitForTimeout(200);
 await page.mouse.click(box.x + 100, box.y + 90);
 await page.waitForTimeout(300);
 await page.evaluate(() => {
-  if (window.__strataPerf) window.__strataPerf.reset();
+  if (window.__varvePerf) window.__varvePerf.reset();
 });
 await page.mouse.move(box.x + 100, box.y + 90);
 await page.mouse.down();
@@ -117,7 +117,7 @@ for (let i = 0; i < 20; i++) {
 await page.mouse.up();
 await page.waitForTimeout(400);
 const dragDiag = await page.evaluate(() => {
-  const f = window.__strataPerf ? window.__strataPerf.getFrames(120) : [];
+  const f = window.__varvePerf ? window.__varvePerf.getFrames(120) : [];
   return {
     total: f.map((x) => x.totalMs),
     build: f.map((x) => x.buildIrMs),

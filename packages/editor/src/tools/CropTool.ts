@@ -11,9 +11,9 @@
  * Research basis: Figma image crop, Canva crop handle pattern.
  */
 
-import { computeImagePlacement, sourcePixelToLocal } from '@strata/engine';
-import type { ImageFillData, ImageFit } from '@strata/scene';
-import { isImageShape, nodeLocalBounds } from '@strata/scene';
+import { computeImagePlacement, sourcePixelToLocal } from '@varve/engine';
+import type { ImageFillData, ImageFit } from '@varve/scene';
+import { isImageShape, nodeLocalBounds } from '@varve/scene';
 import type { CropState, LocalCropRect } from '../imageCrop';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';

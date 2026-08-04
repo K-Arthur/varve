@@ -115,7 +115,7 @@ the two draw paths. Eliminating them removes a persistent main-thread cost that
 is independent of document complexity. The `cacheContentParts` dedup halves the
 JSON serialization work on the IR-build hot path for cache-miss nodes.
 
-**Validation:** `@strata/editor` typecheck clean (2 pre-existing errors in
+**Validation:** `@varve/editor` typecheck clean (2 pre-existing errors in
 `AdjustmentEditor.tsx` from concurrent `b90e5b02` — verified present without my
 changes). 138/138 canvas tests pass. Biome clean on modified file.
 `pnpm bench:canvas` 12/12 pass. No new test failures.

@@ -3,7 +3,7 @@
  * for use in generated code output (CSS custom properties, Tailwind, etc.).
  */
 
-import type { PropertyBinding, VariableStore } from '@strata/scene';
+import type { PropertyBinding, VariableStore } from '@varve/scene';
 
 export function resolveTokenName(
   bindings: Record<string, PropertyBinding> | undefined,

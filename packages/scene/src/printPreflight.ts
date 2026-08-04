@@ -9,7 +9,7 @@
  * Enfocus PitStop, ISO 15930 (PDF/X) requirements.
  */
 
-import { DEFAULT_ARTWORK_FONT_FAMILY, physicalToPx } from '@strata/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, physicalToPx } from '@varve/shared';
 import type { ColorMode } from './colorManagement';
 import type { Document } from './document';
 import { isImageShape } from './fills';
@@ -271,11 +271,11 @@ function estimateTac(node: import('./types').SceneNode): number | null {
 
 // ── Helper Functions ────────────────────────────────────────────────────────
 
-function convertBleedToMm(value: number, unit: import('@strata/shared').DocumentUnit): number {
+function convertBleedToMm(value: number, unit: import('@varve/shared').DocumentUnit): number {
   return convertToMm(value, unit);
 }
 
-function convertToMm(value: number, unit: import('@strata/shared').DocumentUnit): number {
+function convertToMm(value: number, unit: import('@varve/shared').DocumentUnit): number {
   const px = physicalToPx(value, unit);
   return px / (96 / 25.4);
 }

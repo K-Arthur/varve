@@ -8,9 +8,9 @@
  *   Select image node → adjust strength slider → Preview (at 512×512)
  *   → review denoised preview → adjust → Apply (full-resolution result)
  */
-import type { SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+import type { SceneNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -45,7 +45,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
   });
 
   const isImage = Boolean(node && isImageShape(node));
-  const typedNode = isImage ? (node as import('@strata/scene').ShapeNode) : null;
+  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
 
   // Check model availability on mount
@@ -54,7 +54,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
     let cancelled = false;
     (async () => {
       try {
-        const { getModelLoader } = await import('@strata/engine');
+        const { getModelLoader } = await import('@varve/engine');
         const loader = getModelLoader();
         const available = await loader.isModelAvailable(MODEL_ID);
         if (!cancelled) {
@@ -112,7 +112,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
    * Load image from cache as full-size ImageData.
    */
   const loadImageData = useCallback(async (src: string): Promise<ImageData> => {
-    const { getImageCache } = await import('@strata/engine');
+    const { getImageCache } = await import('@varve/engine');
     const img = await getImageCache().load(src);
     const w = Math.max(1, img.naturalWidth || img.width);
     const h = Math.max(1, img.naturalHeight || img.height);
@@ -133,7 +133,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
    */
   const runDenoise = useCallback(
     async (fullData: ImageData): Promise<ImageData> => {
-      const { dispatchDenoise } = await import('@strata/engine');
+      const { dispatchDenoise } = await import('@varve/engine');
       const result = await dispatchDenoise(fullData, {
         strength,
         modelId: MODEL_ID,
@@ -157,7 +157,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
     }));
 
     try {
-      const { getModelLoader } = await import('@strata/engine');
+      const { getModelLoader } = await import('@varve/engine');
       const loader = getModelLoader();
       await loader.downloadModel(MODEL_ID, () => {}, controller.signal);
 

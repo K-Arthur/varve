@@ -213,8 +213,8 @@ a `Tj` text-showing operator.
 - **Hub file budget:** `CanvasArea.tsx` (imports 82) and `Shell.tsx`
   (imports 71) are **over budget**. Do NOT add new imports to them.
   Route new functionality through existing sub-modules or context.
-- **No circular `workspace:*` deps.** `@strata/engine` must not import
-  from `@strata/editor` (would create a cycle via scene→editor→engine).
+- **No circular `workspace:*` deps.** `@varve/engine` must not import
+  from `@varve/editor` (would create a cycle via scene→editor→engine).
 - **Sub-context `onReady` pattern** if extracting any context logic.
 - **ActionRegistry overwrite order** if adding shortcuts.
 - **No emoji, no hardcoded colors, trace to CSS custom properties.**

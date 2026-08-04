@@ -1,6 +1,6 @@
 # Background Removal System Audit
 
-**Date:** 2026-07-06 | **Scope:** `@strata/engine`, `@strata/editor`, `crates/strata-bgremove`, ADR-0005
+**Date:** 2026-07-06 | **Scope:** `@varve/engine`, `@varve/editor`, `crates/strata-bgremove`, ADR-0005
 
 ---
 
@@ -52,7 +52,7 @@ Session 48 closed the remaining async-state gaps: `fetchWithTimeout` now races `
 | Gate | Result |
 |---|---|
 | Focused bg-removal suite | **154/154** pass (20 files) |
-| `@strata/engine` typecheck | **0 errors** |
+| `@varve/engine` typecheck | **0 errors** |
 | `cargo test -p strata-bgremove` | **8/8** pass |
 
 Session 47 extracted the inference dispatch chain into Strategy-pattern providers:
@@ -66,7 +66,7 @@ See `packages/engine/src/backgroundRemoval/providers/` and `BACKGROUND_REMOVAL_M
 | Gate | Result |
 |---|---|
 | Focused bg-removal suite | **163/163** pass (23 files) |
-| `@strata/engine` typecheck | **0 errors** |
+| `@varve/engine` typecheck | **0 errors** |
 | `cargo clippy --workspace -D warnings` | **clean** |
 | `cargo test --workspace` | **167/167** pass (+1 model metadata test) |
 | Full `pnpm test` | motion WIP failures unchanged (unrelated) |
@@ -91,7 +91,7 @@ node scripts/compute-model-checksum.mjs \
 | Gate | Result |
 |---|---|
 | Focused bg-removal suite | **145/145** pass (18 files) |
-| `@strata/engine` typecheck | **0 errors** |
+| `@varve/engine` typecheck | **0 errors** |
 | `cargo clippy --workspace -D warnings` | **clean** |
 | `cargo test --workspace` | **166/166** pass |
 | Full `pnpm test` | **11 failures** in uncommitted motion-system WIP (3731 pass / 3743 total) |

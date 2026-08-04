@@ -1,12 +1,12 @@
-import type { ColorMode, IsometricAxis, ManagedColor } from '@strata/scene';
+import type { ColorMode, IsometricAxis, ManagedColor } from '@varve/scene';
 import {
   CMYK_PROFILES,
   ISOMETRIC_PRESETS,
   normaliseAngle,
   validateIsometricAxes,
-} from '@strata/scene';
-import { cssStringToManagedColor, managedColorToCss } from '@strata/shared';
-import { Select } from '@strata/ui';
+} from '@varve/scene';
+import { cssStringToManagedColor, managedColorToCss } from '@varve/shared';
+import { Select } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

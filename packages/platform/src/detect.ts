@@ -1,5 +1,5 @@
 /**
- * @strata/platform — runtime backend detection.
+ * @varve/platform — runtime backend detection.
  *
  * Returns a ready-to-use Platform by sniffing for the Tauri global injected by
  * `withGlobalTauri: true`. Falls back to the in-memory implementation so that

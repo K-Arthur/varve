@@ -6,7 +6,7 @@ This audit evaluated the accessibility, consistency, and performance of the Stra
 
 ## Audit Scope
 
-- **Component**: `@strata/ui` Tooltip component and editor-wide tooltip usage
+- **Component**: `@varve/ui` Tooltip component and editor-wide tooltip usage
 - **Focus**: Accessibility compliance, consistency, performance, and developer experience
 - **Date**: 2026-07-27
 - **Auditor**: Devin AI Agent

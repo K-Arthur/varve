@@ -1,5 +1,5 @@
-import type { Platform } from '@strata/platform';
-import type { ExportJob } from '@strata/scene';
+import type { Platform } from '@varve/platform';
+import type { ExportJob } from '@varve/scene';
 import { unzipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
 import {

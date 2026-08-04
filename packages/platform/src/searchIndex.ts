@@ -1,5 +1,5 @@
 /**
- * @strata/platform — content search index for design documents.
+ * @varve/platform — content search index for design documents.
  *
  * Builds a lightweight inverted index from Document JSON, mapping searchable
  * terms (node names, text content, component names) back to file and node IDs.

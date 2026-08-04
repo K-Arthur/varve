@@ -8,8 +8,8 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
-import type { NodeId } from '@strata/scene';
-import { screenToWorld } from '@strata/shared';
+import type { NodeId } from '@varve/scene';
+import { screenToWorld } from '@varve/shared';
 import { type ReactNode, useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import type { DragNodeData } from '../../dnd-types';

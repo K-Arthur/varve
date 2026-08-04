@@ -1,4 +1,4 @@
-import type { MaskComponent } from '@strata/engine';
+import type { MaskComponent } from '@varve/engine';
 import { memo, useCallback } from 'react';
 import type { SubjectThumbnail } from './useSubjectThumbnails';
 

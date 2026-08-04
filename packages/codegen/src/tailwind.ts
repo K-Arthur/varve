@@ -5,7 +5,7 @@
  * uses the DesignIR for semantic output, produces readable code.
  */
 
-import type { Document, SceneNode, VariableStore } from '@strata/scene';
+import type { Document, SceneNode, VariableStore } from '@varve/scene';
 import { analyzeNodeFlattening } from './flattening';
 import type { IRDocument, SemanticNode } from './ir-types';
 import { resolveTokenName } from './tokens';
@@ -225,7 +225,7 @@ function typographyClasses(node: SemanticNode, b: ClassBuilder) {
 
 /** Direct conversion for standalone nodes (not in doc.nodes). */
 function resolveFillToken(
-  node: import('@strata/scene').SceneNode,
+  node: import('@varve/scene').SceneNode,
   opts: TailwindExportOptions,
 ): string | undefined {
   const bindings = (node as { bindings?: Record<string, { variableId: string }> }).bindings;
@@ -237,7 +237,7 @@ function resolveFillToken(
 }
 
 function directNodeToTailwind(
-  node: import('@strata/scene').SceneNode,
+  node: import('@varve/scene').SceneNode,
   opts: TailwindExportOptions,
 ): string {
   const av = opts.arbitraryValues ?? true;
@@ -260,7 +260,7 @@ function directNodeToTailwind(
     w = (node.text?.length ?? 0) * fs * 0.6;
     h = fs * 1.4;
   } else if (node.kind === 'frame') {
-    const fn = node as import('@strata/scene').FrameNode;
+    const fn = node as import('@varve/scene').FrameNode;
     w = fn.w ?? 200;
     h = fn.h ?? 160;
   }
@@ -271,7 +271,7 @@ function directNodeToTailwind(
   if (tokenName) {
     classes.push(`bg-[--${tokenName}]`);
   } else if (node.fill) {
-    const c = node.fill as import('@strata/scene').ManagedColor;
+    const c = node.fill as import('@varve/scene').ManagedColor;
     if (c.space === 'rgb') {
       classes.push(
         `bg-[#${c.r.toString(16).padStart(2, '0')}${c.g.toString(16).padStart(2, '0')}${c.b.toString(16).padStart(2, '0')}]`,
@@ -280,7 +280,7 @@ function directNodeToTailwind(
   }
 
   if (node.kind === 'text') {
-    const tn = node as import('@strata/scene').TextNode;
+    const tn = node as import('@varve/scene').TextNode;
     const fs = tn.fontSize ?? 16;
     classes.push(`text-[${base > 0 ? `${fs / base}rem` : `${fs}px`}]`);
     if (tn.fontFamily) classes.push(`font-['${tn.fontFamily}']`);
@@ -288,21 +288,21 @@ function directNodeToTailwind(
 
   const tag = node.kind === 'text' ? 'span' : 'div';
   const text =
-    node.kind === 'text' ? escapeXml((node as import('@strata/scene').TextNode).text) : '';
+    node.kind === 'text' ? escapeXml((node as import('@varve/scene').TextNode).text) : '';
 
   if (text) return `<${tag} className="${classes.join(' ')}">${text}</${tag}>`;
   return `<${tag} className="${classes.join(' ')}" />`;
 }
 
 export function sceneToTailwind(
-  node: import('@strata/scene').SceneNode,
-  doc: import('@strata/scene').Document,
+  node: import('@varve/scene').SceneNode,
+  doc: import('@varve/scene').Document,
   opts?: TailwindExportOptions,
 ): string {
   // Try IR-based conversion if node is in document
   try {
     const { sceneToIR } = require('./ir-converter') as {
-      sceneToIR: (doc: import('@strata/scene').Document) => IRDocument;
+      sceneToIR: (doc: import('@varve/scene').Document) => IRDocument;
     };
     const ir = sceneToIR(doc);
     const irNode = Object.values(ir.nodes).find(
@@ -404,14 +404,14 @@ export function exportIrToTailwind(ir: IRDocument, opts: TailwindExportOptions =
 // ── Target gaps ──────────────────────────────────────────────────────────────
 
 export function tailwindTargetGaps(
-  node: import('@strata/scene').SceneNode,
-  doc: import('@strata/scene').Document,
+  node: import('@varve/scene').SceneNode,
+  doc: import('@varve/scene').Document,
 ): TargetGap[] {
   const gaps: TargetGap[] = [];
 
   // Check for adjustment stack (nondestructive filters)
   if (node.kind === 'adjustment') {
-    const visible = ((node as import('@strata/scene').AdjustmentNode).adjustments ?? []).filter(
+    const visible = ((node as import('@varve/scene').AdjustmentNode).adjustments ?? []).filter(
       (a) => a.visible && a.opacity > 0,
     );
     if (visible.length > 0) {
@@ -510,8 +510,8 @@ export function exportNodeToTailwind(
     w = (node.text?.length ?? 0) * (node.fontSize ?? 16) * 0.6;
     h = (node.fontSize ?? 16) * 1.4;
   } else if (node.kind === 'frame') {
-    w = (node as import('@strata/scene').FrameNode).w ?? 200;
-    h = (node as import('@strata/scene').FrameNode).h ?? 160;
+    w = (node as import('@varve/scene').FrameNode).w ?? 200;
+    h = (node as import('@varve/scene').FrameNode).h ?? 160;
   }
   b.classes.push(sizeTw(w, av, 'w'));
   b.classes.push(sizeTw(h, av, 'h'));
@@ -536,7 +536,7 @@ export function exportNodeToTailwind(
 
   if (node.kind === 'text') {
     const tag = 'span';
-    const text = (node as import('@strata/scene').TextNode).text ?? '';
+    const text = (node as import('@varve/scene').TextNode).text ?? '';
     const cleaned = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return `<${tag} className="${b.classes.join(' ')}">${cleaned}</${tag}>`;
   }

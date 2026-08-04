@@ -6,7 +6,7 @@
  * and usage tracking.
  *
  * Usage:
- *   import { FontCatalog, FontResolver, FontLoader } from '@strata/engine/font';
+ *   import { FontCatalog, FontResolver, FontLoader } from '@varve/engine/font';
  */
 
 export type { UnifiedFontInfo } from './fontBridge';

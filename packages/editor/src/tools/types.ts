@@ -10,9 +10,9 @@
  * F3: GestureResult tells the ToolManager whether to fall through or consume.
  */
 
-import type { Engine, PathPoint } from '@strata/engine';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
-import type { Camera } from '@strata/shared';
+import type { Engine, PathPoint } from '@varve/engine';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
+import type { Camera } from '@varve/shared';
 import type { NormalizedInputEvent } from './inputNormalizer';
 
 export type ToolId =
@@ -155,7 +155,7 @@ export interface ToolContext {
   snapEnabled: boolean;
   snapGrid: number;
   /** Isolation/focus view: when set, only nodes in this subtree are selectable. */
-  isolatedNodeId?: import('@strata/scene').NodeId | null;
+  isolatedNodeId?: import('@varve/scene').NodeId | null;
   /** Enter or exit subtree isolation without coupling tools to editor context. */
   enterIsolation?: (nodeId: NodeId) => void;
   exitIsolation?: () => void;

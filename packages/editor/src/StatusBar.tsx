@@ -1,4 +1,4 @@
-import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@strata/ui';
+import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { useSyncExternalStore } from 'react';
 import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';

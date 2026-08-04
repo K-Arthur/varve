@@ -1,5 +1,5 @@
-import type { MasterAppliesTo, MasterPage } from '@strata/scene';
-import { Select, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+import type { MasterAppliesTo, MasterPage } from '@varve/scene';
+import { Select, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';

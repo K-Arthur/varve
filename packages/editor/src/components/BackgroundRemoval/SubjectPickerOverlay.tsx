@@ -7,7 +7,7 @@
  * the combined result before committing.
  */
 
-import type { MaskComponent } from '@strata/engine';
+import type { MaskComponent } from '@varve/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '../BackgroundRemoval/SubjectCard.css';
 import '../BackgroundRemoval/CombinedPreview.css';

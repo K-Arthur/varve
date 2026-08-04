@@ -12,7 +12,7 @@
  * .strata file. Browser builds no-op.
  */
 
-import { isTauriRuntime } from '@strata/platform';
+import { isTauriRuntime } from '@varve/platform';
 
 /**
  * Show and focus the main window. Idempotent; failures are logged, not thrown —

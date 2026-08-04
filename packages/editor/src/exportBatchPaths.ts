@@ -1,10 +1,10 @@
-import type { ExportBatch, ExportJob } from '@strata/scene';
+import type { ExportBatch, ExportJob } from '@varve/scene';
 import {
   formatFileName,
   legacyFormatToCanonical,
   legacyScaleToCanonical,
   resolveCollisions,
-} from '@strata/scene/export';
+} from '@varve/scene/export';
 
 /**
  * Resolve the filename template, organization rule, and collisions once for

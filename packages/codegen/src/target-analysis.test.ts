@@ -10,7 +10,7 @@ import {
   makeImageNode,
   makeShapeNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { cssTargetGaps } from './css';
 import { cssModulesTargetGaps } from './css-modules';

@@ -8,8 +8,8 @@
  * Research basis: After Effects Graph Editor, Cavalry Driven Graph, Figma
  * Smart Animate curves, CSS cubic-bezier editor patterns.
  */
-import type { AnimationTrack, Timeline } from '@strata/scene';
-import { getEasingFn } from '@strata/shared';
+import type { AnimationTrack, Timeline } from '@varve/scene';
+import { getEasingFn } from '@varve/shared';
 import { type FC, useCallback, useMemo, useRef, useState } from 'react';
 import './GraphEditor.css';
 
@@ -36,7 +36,7 @@ export interface GraphEditorProps {
     timelineId: string,
     trackId: string,
     progress: number,
-    easing: import('@strata/shared').EasingDefinition,
+    easing: import('@varve/shared').EasingDefinition,
   ) => void;
 }
 

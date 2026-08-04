@@ -2,8 +2,8 @@
 
 import { DndContext } from '@dnd-kit/core';
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable';
-import type { FileEntry } from '@strata/platform';
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { FileEntry } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { FileCard } from './FileCard';
 

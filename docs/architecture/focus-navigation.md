@@ -133,11 +133,11 @@ Fallback chain:
 | Shell | `Shell.tsx` | CSS Grid layout with `inert` on hidden panels |
 | CanvasArea | `CanvasArea.tsx` | `tabIndex={0}` canvas element, keyboard input pipeline |
 | Menubar | `components/Menubar/index.tsx` | APG menubar, roving tabindex |
-| Toolbar | `@strata/ui/Toolbar.tsx` | APG toolbar, roving tabindex |
+| Toolbar | `@varve/ui/Toolbar.tsx` | APG toolbar, roving tabindex |
 | TabStrip | `TabStrip.tsx` | APG tabs, roving tabindex |
 | LayersPanel | `components/LayersPanel/` | APG tree, roving tabindex |
 | PropertiesPanel | `components/Inspector/PropertiesPanel.tsx` | APG tabs, section disclosure |
-| FocusTrap | `@strata/ui/FocusTrap.tsx` | Modal focus trap with initial focus |
+| FocusTrap | `@varve/ui/FocusTrap.tsx` | Modal focus trap with initial focus |
 
 ## Shared Primitives (hooks)
 

@@ -14,15 +14,15 @@
  *   4. createTextNodeAt() places the text layer at the correct world
  *      position in a single undoable transaction.
  */
-import type { OcrResult, OcrWord } from '@strata/engine';
+import type { OcrResult, OcrWord } from '@varve/engine';
 import {
   computeImagePlacement,
   getModelLoader,
   getOcrModelConfig,
   runOcrPipeline,
   sourcePixelToLocal,
-} from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
+} from '@varve/engine';
+import type { SceneNode } from '@varve/scene';
 import {
   addNode,
   imageShapeSrc,
@@ -30,8 +30,8 @@ import {
   makeTextNode,
   nextNodeId,
   nodeWorldTransform,
-} from '@strata/scene';
-import { Button } from '@strata/ui';
+} from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -64,7 +64,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   });
 
   const isImage = Boolean(node && isImageShape(node));
-  const typedNode = isImage ? (node as import('@strata/scene').ShapeNode) : null;
+  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   }, [isImage]);
 
   const loadImageData = useCallback(async (src: string): Promise<ImageData> => {
-    const { getImageCache } = await import('@strata/engine');
+    const { getImageCache } = await import('@varve/engine');
     const img = await getImageCache().load(src);
     const w = Math.max(1, img.naturalWidth || img.width);
     const h = Math.max(1, img.naturalHeight || img.height);

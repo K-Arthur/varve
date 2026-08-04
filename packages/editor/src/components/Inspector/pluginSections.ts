@@ -38,7 +38,7 @@ export interface ContributionDisplay {
   title: string;
   /** Category for grouping in the management UI. Falls back to 'advanced'. */
   category?: SectionCategory;
-  /** Icon name from @strata/ui icon set. */
+  /** Icon name from @varve/ui icon set. */
   icon?: string;
   /** Tooltip description. */
   description?: string;

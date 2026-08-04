@@ -8,12 +8,12 @@
  *
  * Persistence is best-effort: a platform-less environment (unit tests) keeps
  * state in memory for the session. Presets are always stored by stable id and
- * normalized through `@strata/scene`'s `makeGradientPreset`, so corrupt
+ * normalized through `@varve/scene`'s `makeGradientPreset`, so corrupt
  * entries are dropped on load rather than surfaced.
  */
-import type { Platform } from '@strata/platform';
-import type { GradientPreset } from '@strata/scene';
-import { gradientPresetContentHash, makeGradientPreset } from '@strata/scene';
+import type { Platform } from '@varve/platform';
+import type { GradientPreset } from '@varve/scene';
+import { gradientPresetContentHash, makeGradientPreset } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { GRADIENT_BUILTIN_PRESETS } from './builtin';

@@ -38,7 +38,7 @@ await page.mouse.up();
 await page.waitForTimeout(1500);
 const info = await page.evaluate(() => ({
   treeItems: document.querySelectorAll('[role=treeitem]').length,
-  frames: window.__strataPerf ? window.__strataPerf.getFrames(1000).length : -1,
+  frames: window.__varvePerf ? window.__varvePerf.getFrames(1000).length : -1,
 }));
 console.log('RESULT:', JSON.stringify(info));
 console.log('ERRS:', errs.slice(0, 3));

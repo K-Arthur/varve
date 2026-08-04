@@ -7,8 +7,8 @@
  *
  * Research basis: Figma pattern fill controls; APG file input patterns.
  */
-import type { PatternFillData } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import type { PatternFillData } from '@varve/scene';
+import { Icon } from '@varve/ui';
 import { useCallback, useId, useRef } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';

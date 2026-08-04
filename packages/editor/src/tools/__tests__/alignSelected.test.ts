@@ -1,4 +1,4 @@
-import { createDocument, type Document, makeShapeNode, type SceneNode } from '@strata/scene';
+import { createDocument, type Document, makeShapeNode, type SceneNode } from '@varve/scene';
 import {
   alignBBox,
   type BBox,
@@ -8,7 +8,7 @@ import {
   identity,
   obbAlignmentTarget,
   orientedBBox,
-} from '@strata/shared';
+} from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { nodeWorldBounds } from '../../scene/world';
 

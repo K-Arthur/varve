@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { createMemoryPlatform } from '@strata/platform';
+import { createMemoryPlatform } from '@varve/platform';
 import { describe, expect, it } from 'vitest';
 import {
   clearProjectPreviewData,

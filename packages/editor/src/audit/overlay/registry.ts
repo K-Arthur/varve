@@ -1,4 +1,4 @@
-import type { Point, Rect } from '@strata/shared';
+import type { Point, Rect } from '@varve/shared';
 import type {
   AuditSeverity,
   OverlayContext,

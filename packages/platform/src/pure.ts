@@ -1,5 +1,5 @@
 /**
- * @strata/platform — pure helpers. No I/O; fully unit-testable.
+ * @varve/platform — pure helpers. No I/O; fully unit-testable.
  *
  * Research basis:
  *  - FNV-1a 32-bit hash: fast, dependency-free content fingerprint that
@@ -20,7 +20,7 @@ import type {
 } from './types';
 
 /** The canonical Strata document extension (no dot). */
-export const STRATA_EXT = 'strata';
+export const DOCUMENT_EXT = 'strata';
 
 const EXT_TO_KIND: Record<string, FileKind> = {
   strata: 'strata',

@@ -5,7 +5,7 @@
 | Job | Status | Notes |
 |-----|--------|-------|
 | `build.yml` — wasm | ✅ Working | `just wasm-build-all` compiles 3 targets |
-| `build.yml` — build | ⚠️ @strata/editor typecheck (276 pre-existing) | All other gates pass |
+| `build.yml` — build | ⚠️ @varve/editor typecheck (276 pre-existing) | All other gates pass |
 | `ci.yml` — rust | ✅ Working | cargo fmt/clippy/test/wasm all pass |
 | `ci.yml` — js | ✅ Working | 6395/6395 tests pass |
 | `ci.yml` — e2e | ✅ Working (structural) | Requires real browser |
@@ -32,7 +32,7 @@
   - **Fix**: Added type assertion for `cornerRadius`
 - **File**: `packages/scene/src/intelligence/debtScanner.test.ts`
   - **Fix**: Added non-null assertions on `issues[0]`
-- **Gate**: `@strata/scene` typecheck passes clean
+- **Gate**: `@varve/scene` typecheck passes clean
 
 ### 4. `pnpm test` — 6 failures + runtime error
 - **Fix**: Added `requestIdleCallback`/`cancelIdleCallback` to `vitest.setup.ts`
@@ -48,7 +48,7 @@
 - **Tests**: `node scripts/ci-debug.test.mjs` passes
 
 ## Known CI gaps
-- **@strata/editor typecheck**: 276 pre-existing errors in test file mocks (ToolContext missing properties) — documented since Session 48
+- **@varve/editor typecheck**: 276 pre-existing errors in test file mocks (ToolContext missing properties) — documented since Session 48
 - **AUR validate**: Requires Arch Linux container — `act` can't run container jobs
 - **E2E**: Needs real browser (Playwright); `act` doesn't support service containers
 - **macOS/Windows**: Cross-platform jobs only run on GitHub-hosted runners

@@ -8,7 +8,7 @@
  * contract, Strata motion architecture (docs/architecture/motion-system.md).
  */
 
-import type { Timeline } from '@strata/scene';
+import type { Timeline } from '@varve/scene';
 import { createMotionTimelineEngine, type MotionTimelineEngine } from '../state/motion-state';
 
 export interface MotionFacadeCallbacks {

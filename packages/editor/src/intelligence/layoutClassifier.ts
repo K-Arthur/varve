@@ -1,4 +1,4 @@
-import type { Document, FrameNode, SceneNode } from '@strata/scene';
+import type { Document, FrameNode, SceneNode } from '@varve/scene';
 
 export interface LayoutClassification {
   type: 'hero' | 'card-grid' | 'list' | 'sidebar' | 'header-footer' | 'dashboard' | 'freeform';

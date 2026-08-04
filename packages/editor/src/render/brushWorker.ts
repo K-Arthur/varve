@@ -6,7 +6,7 @@ import {
   seedJitter,
   smoothStrokePoints,
   strokeBounds,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export interface BrushWorkerCommand {
   type: 'generateDabs';

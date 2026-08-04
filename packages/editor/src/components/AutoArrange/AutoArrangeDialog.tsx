@@ -1,5 +1,5 @@
-import type { IconName } from '@strata/ui';
-import { Button, Dialog, Icon, NumberInput } from '@strata/ui';
+import type { IconName } from '@varve/ui';
+import { Button, Dialog, Icon, NumberInput } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -15,7 +15,7 @@ export interface AutoArrangeDialogProps {
   selectionBounds: { x: number; y: number; width: number; height: number } | null;
 }
 
-function childSize(n: import('@strata/scene').SceneNode): { width: number; height: number } {
+function childSize(n: import('@varve/scene').SceneNode): { width: number; height: number } {
   if (n.kind === 'frame') return { width: n.w, height: n.h };
   return { width: 100, height: 60 };
 }
@@ -40,10 +40,10 @@ export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrang
 
   const selectedNodes = useMemo(() => {
     const sel = state.selection;
-    if (sel.length === 0) return [] as import('@strata/scene').SceneNode[];
+    if (sel.length === 0) return [] as import('@varve/scene').SceneNode[];
     return sel
       .map((id) => state.document.nodes[id])
-      .filter((n): n is import('@strata/scene').SceneNode => n != null && n.kind !== 'group');
+      .filter((n): n is import('@varve/scene').SceneNode => n != null && n.kind !== 'group');
   }, [state.selection, state.document.nodes]);
 
   const _bounds = useMemo(() => {

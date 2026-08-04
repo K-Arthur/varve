@@ -283,7 +283,7 @@ export class PenTool extends BaseTool {
       } else if (this.points.length >= 2 || closed) {
         const first = this.points[0];
         if (!first) throw new Error('first point not found');
-        const pathPoints: import('@strata/engine').PathPoint[] = this.points.map((p) => ({
+        const pathPoints: import('@varve/engine').PathPoint[] = this.points.map((p) => ({
           x: p.x,
           y: p.y,
           handleIn: p.handleIn ? ([p.handleIn.x, p.handleIn.y] as [number, number]) : null,
@@ -301,7 +301,7 @@ export class PenTool extends BaseTool {
                 points: localPoints,
                 closed: closed || n.shape.closed,
               },
-            } as import('@strata/scene').ShapeNode;
+            } as import('@varve/scene').ShapeNode;
           });
         } else {
           ctx.createShapeAt({ x: first.x, y: first.y }, undefined, undefined, pathPoints, closed);

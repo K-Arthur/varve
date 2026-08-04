@@ -1,4 +1,4 @@
-import type { FlexDirection, FrameNode, LayoutStyle, NodeId, SceneNode } from '@strata/scene';
+import type { FlexDirection, FrameNode, LayoutStyle, NodeId, SceneNode } from '@varve/scene';
 import { nodeWorldBounds } from '../scene/world';
 
 export interface LayoutSuggestion {
@@ -12,7 +12,7 @@ export interface LayoutSuggestion {
 }
 
 function worldBoundsOf(
-  doc: import('@strata/scene').Document,
+  doc: import('@varve/scene').Document,
   nodeId: NodeId,
 ): { x: number; y: number; w: number; h: number } | null {
   try {
@@ -25,7 +25,7 @@ function worldBoundsOf(
 export function suggestAutoLayout(
   frame: FrameNode,
   children: SceneNode[],
-  doc: import('@strata/scene').Document,
+  doc: import('@varve/scene').Document,
 ): LayoutSuggestion | null {
   if (children.length < 2) return null;
   const visible = children.filter((c) => c.visible !== false);

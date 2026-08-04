@@ -5,7 +5,7 @@
  * asset collection, and ZIP packaging.
  */
 
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   buildArchive,

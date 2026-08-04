@@ -1,4 +1,4 @@
-/** @strata/ai — AI assistant chat controller. */
+/** @varve/ai — AI assistant chat controller. */
 
 export {
   dispatchIntelligence,
@@ -10,7 +10,7 @@ export {
   matchIntelligenceCommand,
 } from './intelligenceRegistry';
 export type { AIMessage, AIModel, AISession } from './types';
-export const PACKAGE = '@strata/ai' as const;
+export const PACKAGE = '@varve/ai' as const;
 
 import { dispatchIntelligence, type IntelligenceDispatchContext } from './intelligenceRegistry';
 

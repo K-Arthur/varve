@@ -2,8 +2,8 @@
  * Render worker entry — replays IR to OffscreenCanvas.
  * Supports pre-decoded ImageBitmaps via Structured Clone for image fills.
  */
-import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
-import { asRenderRevision } from '@strata/shared';
+import { type RenderItem, type ReplayTarget, replayIr } from '@varve/engine';
+import { asRenderRevision } from '@varve/shared';
 import { canvasBackingSize } from '../canvas/canvasSurface';
 import { closeImageBitmapMap, replaceImageBitmapMap } from './collectImageBitmaps';
 import { applyProofToIr } from './proofing';

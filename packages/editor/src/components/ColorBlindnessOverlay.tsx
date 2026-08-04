@@ -1,4 +1,4 @@
-import { simulateColorBlindness } from '@strata/shared';
+import { simulateColorBlindness } from '@varve/shared';
 import { useEffect, useRef } from 'react';
 
 export type ColorBlindnessView = 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';

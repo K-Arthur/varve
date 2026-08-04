@@ -1,5 +1,5 @@
-import type { BlendMode } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import type { BlendMode } from '@varve/scene';
+import { SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';

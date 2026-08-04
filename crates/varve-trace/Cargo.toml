@@ -1,0 +1,20 @@
+[package]
+name = "varve-trace"
+description = "Raster-to-vector auto-tracing (Potrace/vtracer-class: contour + centerline)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[features]
+default = ["rayon"]
+wasm = []
+
+[dependencies]
+varve-core = { path = "../varve-core" }
+rayon = { version = "1", optional = true }
+serde = { version = "1", features = ["derive"] }
+
+[lints]
+workspace = true

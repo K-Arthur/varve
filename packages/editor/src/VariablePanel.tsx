@@ -9,7 +9,7 @@
  * Research basis: Figma "Variables" panel; Tokens Studio table conventions.
  */
 
-import { Select, Tooltip } from '@strata/ui';
+import { Select, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { SectionCollapseToggle } from './components/SectionCollapseToggle';
 import { useEditor } from './context';

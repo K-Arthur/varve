@@ -6,7 +6,7 @@
  * Properties. Shown only for image selections while outside that mode —
  * see sectionRegistry.ts's workspaceMode gate on those section ids.
  */
-import { Button } from '@strata/ui';
+import { Button } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
 import { workspaceShortcutLabel } from '../../../workspace/workspaceShortcutLabel';

@@ -9,7 +9,7 @@
  * Architecture:
  *   Pre-computes a bounded LUT (256/1024/4096 samples) mapping each tonal
  *   value to an interpolated color from the gradient stops. Interpolation
- *   reuses the shared color-interpolation primitives (`@strata/shared`
+ *   reuses the shared color-interpolation primitives (`@varve/shared`
  *   `sampleGradientColor` / `applyMidpointBias`), so gradient-map stops
  *   blend identically to fill-gradient stops in the same space. Supports
  *   optional ordered dithering (Bayer) for banding reduction.
@@ -24,8 +24,8 @@
  *   Photo Gradient Map, photographic split-toning concepts.
  */
 
-import type { GradientInterpolationSpace } from '@strata/shared';
-import { applyMidpointBias, interpolateManagedColor } from '@strata/shared';
+import type { GradientInterpolationSpace } from '@varve/shared';
+import { applyMidpointBias, interpolateManagedColor } from '@varve/shared';
 import type { Color } from './types';
 
 export interface GradientMapStop {
@@ -165,7 +165,7 @@ export interface GradientColorLutOptions {
  * - Midpoint semantics follow Photoshop's gradient format: a stop's midpoint
  *   governs the segment between it and the previous stop (the upper stop of
  *   the segment). This matches how `.grd` files store per-stop midpoints and
- *   differs from fill gradients (`@strata/shared`), which attach the midpoint
+ *   differs from fill gradients (`@varve/shared`), which attach the midpoint
  *   to the lower stop. The color math itself reuses the shared
  *   `interpolateManagedColor`, so blending matches fill gradients in the
  *   same interpolation space.

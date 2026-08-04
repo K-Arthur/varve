@@ -87,7 +87,7 @@ test.describe('Font detection', () => {
     // in the JavaScript source (not DOM)
     const registryHasSection = await page.evaluate(() => {
       try {
-        const sections = (window as unknown as Record<string, unknown>).__STRATA_SECTIONS__;
+        const sections = (window as unknown as Record<string, unknown>).__VARVE_SECTIONS__;
         return Array.isArray(sections) && sections.includes('font-detect');
       } catch {
         return false;

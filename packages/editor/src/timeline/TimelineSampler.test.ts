@@ -1,5 +1,5 @@
-import type { Timeline } from '@strata/scene';
-import { addKeyframe, addTrack, createDocument, createTimeline } from '@strata/scene';
+import type { Timeline } from '@varve/scene';
+import { addKeyframe, addTrack, createDocument, createTimeline } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { sampleTimeline, sampleTimelineAt } from './TimelineSampler';
 

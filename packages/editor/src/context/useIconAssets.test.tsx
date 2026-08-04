@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
-import { ImportService } from '@strata/import';
-import type { Document, SceneNode } from '@strata/scene';
-import { addNode, createDocument, makeShapeNode } from '@strata/scene';
 import { act, renderHook } from '@testing-library/react';
+import { ImportService } from '@varve/import';
+import type { Document, SceneNode } from '@varve/scene';
+import { addNode, createDocument, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorState } from './types';
 import { type IconInsertRequest, useIconAssets } from './useIconAssets';

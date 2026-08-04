@@ -20,10 +20,10 @@ import type {
   StrokeCap,
   StrokeJoin,
   TextNode,
-} from '@strata/scene';
-import { defaultStroke } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
-import { Icon, Select } from '@strata/ui';
+} from '@varve/scene';
+import { defaultStroke } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
+import { Icon, Select } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { GradientEditor } from '../color/GradientEditor';

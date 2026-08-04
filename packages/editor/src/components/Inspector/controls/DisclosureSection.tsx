@@ -11,7 +11,7 @@
  * - Registry (with sectionId): centralized EditorState + localStorage persistence
  *   with hide/show support, context menu, and management UI integration.
  */
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';

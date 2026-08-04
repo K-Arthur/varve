@@ -1,12 +1,12 @@
-import type { Document } from '@strata/scene';
-import { plainTextToRichText, richTextReplace, richTextToPlainText } from '@strata/scene';
+import type { Document } from '@varve/scene';
+import { plainTextToRichText, richTextReplace, richTextToPlainText } from '@varve/scene';
 import { searchInDocument } from './search';
 import type { MatchResult, SearchOptions } from './types';
 
 export function replaceSingle(doc: Document, match: MatchResult, replacement: string): Document {
   const node = doc.nodes[match.nodeId];
   if (node?.kind !== 'text') return doc;
-  const textNode = node as import('@strata/scene').TextNode;
+  const textNode = node as import('@varve/scene').TextNode;
   const rt = textNode.richText ?? plainTextToRichText(textNode.text);
 
   const updatedRich = richTextReplace(rt, match.flatStart, match.flatEnd, replacement);
@@ -20,7 +20,7 @@ export function replaceSingle(doc: Document, match: MatchResult, replacement: st
         ...textNode,
         text: updatedPlain,
         richText: updatedRich,
-      } as import('@strata/scene').SceneNode,
+      } as import('@varve/scene').SceneNode,
     },
   };
 }
@@ -64,7 +64,7 @@ export function replaceAll(
 
     let expandedReplacement = replacement;
     if (options.useRegex && replacement.includes('$')) {
-      const textNode = node as import('@strata/scene').TextNode;
+      const textNode = node as import('@varve/scene').TextNode;
       const matchedText = textNode.text.slice(match.flatStart, match.flatEnd);
       expandedReplacement = expandRegexReplacement(
         matchedText,

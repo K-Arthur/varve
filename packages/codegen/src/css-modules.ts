@@ -7,7 +7,7 @@
  * Research basis: CSS Modules spec (github.com/css-modules/css-modules).
  */
 
-import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode } from '@varve/scene';
 import { type CssExportOptions, cssTargetGaps, exportNodeToCss } from './css';
 import { escapeXml } from './shared';
 import type { TargetGap } from './types';

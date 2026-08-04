@@ -4,14 +4,14 @@ Reconcile and extend the existing `packages/editor/src/intelligence/` modules to
 
 ## Scope
 
-- Phase 0: Foundation (`colorMath.ts` in `@strata/shared`; `recordAction` wired to all interactive surfaces).
+- Phase 0: Foundation (`colorMath.ts` in `@varve/shared`; `recordAction` wired to all interactive surfaces).
 - Phase 1: Layout & Color Intelligence (auto-naming, image fit, spacing harmonizer, WCAG contrast, palette extraction, cognitive load budget).
 - Existing modules (`actionTracker`, `autoNamer`, `imageFitAdvisor`, `spacingHarmonizer`, `wcagFix`) will be refactored to match the spec where they diverge.
 - New modules (`colorMath`, `paletteExtractor`, `cognitiveLoad`, `ContrastIndicator`, `CognitiveLoadIndicator`) will be created from scratch.
 
 ## Approach
 
-- `@strata/shared` is the canonical location for color/contrast math. `colorMath.ts` will be added there and re-exported from `index.ts`.
+- `@varve/shared` is the canonical location for color/contrast math. `colorMath.ts` will be added there and re-exported from `index.ts`.
 - `findAccessibleColor` will be implemented as a thin wrapper around the existing `autoFixContrast`, exposing the `Rgb`/`Oklch` API described in the plan.
 - `EditorContextValue` additions will be delivered through the existing `context/useX.ts` extraction pattern, preserving React hook order in `EditorProvider`.
 - Hub files (`Shell.tsx`, `CanvasArea.tsx`, `Menubar.tsx`) will receive their integrations via adapter modules under `packages/editor/src/intelligence/` where possible, to respect the dependency budgets in `AGENTS.md`.

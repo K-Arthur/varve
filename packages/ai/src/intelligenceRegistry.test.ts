@@ -1,4 +1,4 @@
-import { addSwatch, createDocument, type Document, type SceneNode } from '@strata/scene';
+import { addSwatch, createDocument, type Document, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import {
   dispatchIntelligence,

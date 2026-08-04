@@ -11,8 +11,8 @@
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
-import { isImageShape, type SceneNode } from '@strata/scene';
-import { EmptyState } from '@strata/ui';
+import { isImageShape, type SceneNode } from '@varve/scene';
+import { EmptyState } from '@varve/ui';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
 import type { InspectorTab, IntelligenceTab } from '../../context/types';
@@ -467,9 +467,9 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
   const { state } = useEditor();
   const node = nodes[0] as SceneNode;
   const isFrame = node.kind === 'frame';
-  const isComponentInstance = isFrame && (node as import('@strata/scene').FrameNode).componentId;
+  const isComponentInstance = isFrame && (node as import('@varve/scene').FrameNode).componentId;
   const isRect =
-    node.kind === 'shape' && (node as import('@strata/scene').ShapeNode).shape.kind === 'rect';
+    node.kind === 'shape' && (node as import('@varve/scene').ShapeNode).shape.kind === 'rect';
 
   const sectionEntries = useMemo(() => {
     const availabilityCtx: SectionAvailabilityContext = {
@@ -495,12 +495,12 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     if (node.kind === 'adjustment') return entries;
 
     if (isComponentInstance)
-      add('component', <ComponentSection node={node as import('@strata/scene').FrameNode} />);
+      add('component', <ComponentSection node={node as import('@varve/scene').FrameNode} />);
     if (node.iconAssetId) add('icon', <IconSection node={node} />);
     add('position-size', <PositionSizeSection nodes={nodes} />);
     add('constraints', <ConstraintSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
-    if (isFrame) add('layout', <LayoutSection node={node as import('@strata/scene').FrameNode} />);
+    if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);

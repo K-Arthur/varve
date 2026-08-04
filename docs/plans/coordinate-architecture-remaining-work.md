@@ -7,7 +7,7 @@ Phase 0 (foundation) is complete:
 - `packages/scene/src/nodeBounds.ts` — canonical local bounds
 - Migration 2.4 → 2.5 (bake rotation into transform, validate)
 - 35 tests + ADR-0010 + AGENTS.md section
-- `@strata/editor/scene/world.ts` re-exports from `@strata/scene` (backward compat)
+- `@varve/editor/scene/world.ts` re-exports from `@varve/scene` (backward compat)
 
 ## Remaining work: Phases 2–5
 
@@ -20,14 +20,14 @@ the centralized `CoordinateService`. Each phase is independently testable.
 
 1. In `packages/editor/src/hitTest/HitTestEngine.ts`:
    - Replace `nodeWorldTransform` + `nodeWorldBounds` imports with a single
-     `import { ... } from '@strata/scene'`
+     `import { ... } from '@varve/scene'`
    - Add `localToWorld`/`worldToLocal` where world↔local point conversions
      happen inline
    - Verify hit-test tolerance math still uses `nodeWorldTransform` for
      inverse-transforming points
 
 2. In `packages/editor/src/tools/snapping.ts`:
-   - Replace `nodeWorldBounds` import with `@strata/scene` version
+   - Replace `nodeWorldBounds` import with `@varve/scene` version
    - Use `localSpaceTransform` for cross-artboard snap comparisons
    - Snap comparisons must happen in world space, results converted back to
      parent-local space of the edited node
@@ -35,14 +35,14 @@ the centralized `CoordinateService`. Each phase is independently testable.
 3. Write tests for cross-artboard snapping (snap a node in one artboard to
    an object in another artboard).
 
-**Run**: `pnpm --filter @strata/editor test -- --run packages/editor/src/hitTest packages/editor/src/tools/snapping`
+**Run**: `pnpm --filter @varve/editor test -- --run packages/editor/src/hitTest packages/editor/src/tools/snapping`
 
 ### Phase 3: Tools (TDD-first)
 
 **Goal**: SelectTool, shape creation tools, drag operations use `CoordinateService`.
 
 1. In `packages/editor/src/tools/SelectTool.ts`:
-   - Import `nodeWorldTransform`/`nodeWorldBounds` from `@strata/scene`
+   - Import `nodeWorldTransform`/`nodeWorldBounds` from `@varve/scene`
    - Use `computeReparentTransform` for the drag-end reparent logic (replaces
      inline `invertAffine` + `multiplyAffine` pattern)
    - Use `localToWorld`/`worldToLocal` for nudge operations
@@ -50,17 +50,17 @@ the centralized `CoordinateService`. Each phase is independently testable.
 2. In `packages/editor/src/context.tsx`:
    - `createShapeAt` / `createTextNodeAt`: use `worldToParent` from
      `CoordinateService` instead of inline `applyAffine(invertAffine(...))`
-   - `reparentNode`: use `computeReparentTransform` from `@strata/scene`
+   - `reparentNode`: use `computeReparentTransform` from `@varve/scene`
 
 3. Shape creation tools (RectTool, EllipseTool, etc.):
-   - Import world-transform helpers from `@strata/scene`
+   - Import world-transform helpers from `@varve/scene`
    - Ensure tool preview and committed geometry use the same conversion path
      (no "jump" on commit)
 
 4. Test: drag an object from one artboard to another and assert its world
    position is preserved (use `nodeWorldTransform` before and after).
 
-**Run**: `pnpm --filter @strata/editor test -- --run packages/editor/src/tools packages/editor/src/context`
+**Run**: `pnpm --filter @varve/editor test -- --run packages/editor/src/tools packages/editor/src/context`
 
 ### Phase 4: Overlays (batch refactor)
 
@@ -68,10 +68,10 @@ the centralized `CoordinateService`. Each phase is independently testable.
 overlay components.
 
 These components each implement their own wrapper that calls
-`simpleWorldToScreen` / `simpleScreenToWorld` from `@strata/shared/viewport.ts`.
+`simpleWorldToScreen` / `simpleScreenToWorld` from `@varve/shared/viewport.ts`.
 Under view rotation, these simplified helpers drift from the canonical camera
 transform. Migrate them to use `worldToScreen`/`screenToScreen` from
-`@strata/shared/viewport.ts` directly (or via the editor context's
+`@varve/shared/viewport.ts` directly (or via the editor context's
 `worldToCanvas`/`canvasToWorld`).
 
 Files to update (each is a small mechanical change):
@@ -92,7 +92,7 @@ Pattern: replace `simpleWorldToScreen(wx, wy, zoom, pan)` with
 editor context. The editor context already provides `worldToCanvas` /
 `canvasToWorld` wrappers that include rotation — prefer those.
 
-**Run**: `pnpm --filter @strata/editor test -- --run packages/editor/src/components`
+**Run**: `pnpm --filter @varve/editor test -- --run packages/editor/src/components`
 
 ### Phase 5: Export/import
 
@@ -111,7 +111,7 @@ editor context. The editor context already provides `worldToCanvas` /
 4. Add a test: create a document with a rotated frame containing a child,
    serialize, deserialize, assert the child's world position is preserved.
 
-**Run**: `pnpm --filter @strata/scene test -- --run packages/scene/src/documentCodec`
+**Run**: `pnpm --filter @varve/scene test -- --run packages/scene/src/documentCodec`
 
 ## Regression protocol (mandatory after each phase)
 
@@ -137,12 +137,12 @@ pnpm audit:tokens     # 120/120 WCAG-AA (3 themes)
    handles rotation via the full inverse transform.
 5. **Backward compatibility**: Keep `editor/scene/world.ts` and
    `editor/scene/nodeBounds.ts` as thin re-exports. Do NOT remove them until
-   all consumers within `@strata/editor` have migrated.
+   all consumers within `@varve/editor` have migrated.
 
 ## Definition of done
 
 Each phase is complete when:
-- All targeted files import from `@strata/scene` (not duplicated math)
+- All targeted files import from `@varve/scene` (not duplicated math)
 - Tests pass (existing + new TDD tests for the phase's functionality)
 - Typecheck clean on scene + editor
 - Lint 0 errors on touched files

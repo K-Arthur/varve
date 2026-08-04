@@ -3,7 +3,7 @@ import type {
   PixelArtAlgorithm,
   UpscaleModeId,
   UpscaleProgressFn,
-} from '@strata/engine';
+} from '@varve/engine';
 import type { EditorContextValue } from '../../context/types';
 import { insertDerivedImageShape, selectedImageShape } from '../../imageOperations';
 
@@ -30,8 +30,8 @@ export async function applyEnhancement(
     return;
   }
 
-  const engine = await import('@strata/engine');
-  const scene = await import('@strata/scene');
+  const engine = await import('@varve/engine');
+  const scene = await import('@varve/scene');
 
   const { getImageCache, runEnhancementPipeline, scalePixelArt } = engine;
   const { imageShapeSrc, getImageFill, findOrCreateEmbeddedAsset, mimeTypeFromDataUrl } = scene;

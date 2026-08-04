@@ -1,4 +1,4 @@
-import { asRenderRevision } from '@strata/shared';
+import { asRenderRevision } from '@varve/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerCommand } from './workerHost';
 import {

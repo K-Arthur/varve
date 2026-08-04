@@ -1,8 +1,8 @@
-import { createEngine, type Engine, getFontRegistry } from '@strata/engine';
-import { FontCatalog } from '@strata/engine/font';
-import type { Platform } from '@strata/platform';
-import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import { createEngine, type Engine, getFontRegistry } from '@varve/engine';
+import { FontCatalog } from '@varve/engine/font';
+import type { Platform } from '@varve/platform';
+import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
+import { isImageShape } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {

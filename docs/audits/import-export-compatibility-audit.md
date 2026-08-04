@@ -42,7 +42,7 @@ current parser can support it.
 
 ## Implemented Architecture
 
-- `DocumentCodec` in `@strata/scene` is now the canonical document boundary for
+- `DocumentCodec` in `@varve/scene` is now the canonical document boundary for
   decode, migrate, normalize, encode, and node closure collection.
 - `ImportService.importFiles(inputs, options, signal)` is the shared import
   orchestration layer with typed file inputs, per-file status, warnings,

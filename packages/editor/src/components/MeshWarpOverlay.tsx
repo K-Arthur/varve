@@ -1,9 +1,9 @@
-import type { MeshWarp } from '@strata/engine';
+import type { MeshWarp } from '@varve/engine';
 import {
   computeFloatingOrigin,
   screenToWorld as sharedScreenToWorld,
   worldToScreen as sharedWorldToScreen,
-} from '@strata/shared';
+} from '@varve/shared';
 import { useCallback, useRef, useState } from 'react';
 import { getEditorViewport } from '../canvas/cameraState';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';

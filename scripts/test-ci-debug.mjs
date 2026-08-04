@@ -35,10 +35,10 @@ Run pnpm install
 
 Run cargo test
   cargo test --workspace --all-targets
-    Compiling strata-core v0.1.0
-    Compiling strata-engine v0.1.0
+    Compiling varve-core v0.1.0
+    Compiling varve-engine v0.1.0
   error: failed to compile: unused import: \`std::collections::HashMap\`
-  --> crates/strata-core/src/lib.rs:15:23
+  --> crates/varve-core/src/lib.rs:15:23
    |
 15 | use std::collections::HashMap;
    |                      ^^^^^^^

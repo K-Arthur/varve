@@ -1,4 +1,4 @@
-import { isTauriRuntime } from '@strata/platform';
+import { isTauriRuntime } from '@varve/platform';
 import { formatLabel as defaultFormatLabel } from './localization';
 import type { MenuContext, MenuItemDef } from './types';
 

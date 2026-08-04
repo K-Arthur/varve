@@ -1,5 +1,5 @@
-import type { Timeline } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
+import type { Timeline } from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
 
 function easingToCSS(easing: EasingDefinition): string {
   switch (easing.kind) {

@@ -20,8 +20,8 @@ import type {
   LayoutSizing,
   LayoutStyle,
   SceneNode,
-} from '@strata/scene';
-import { Select } from '@strata/ui';
+} from '@varve/scene';
+import { Select } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { suggestAutoLayout } from '../../../intelligence/autoLayoutSuggestor';
@@ -71,7 +71,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
     () =>
       (node.children ?? [])
         .map((id) => state.document.nodes[id])
-        .filter((n): n is import('@strata/scene').SceneNode => n != null),
+        .filter((n): n is import('@varve/scene').SceneNode => n != null),
     [node.children, state.document.nodes],
   );
   const suggestion = useMemo(

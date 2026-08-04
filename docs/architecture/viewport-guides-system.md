@@ -51,7 +51,7 @@ future.
 
 ## Coordinate Spaces
 
-The canonical camera transform lives in `@strata/shared/viewport`:
+The canonical camera transform lives in `@varve/shared/viewport`:
 
 ```
 screen = T(pan) * T(viewportCenter) * R(rotation) * T(-viewportCenter)

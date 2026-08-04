@@ -1,5 +1,5 @@
 /**
- * @strata/platform — public entry point.
+ * @varve/platform — public entry point.
  *
  * One `Platform` interface, three implementations (memory / web / tauri), plus
  * the pure helpers every consumer needs. The Home surface imports only from
@@ -20,6 +20,7 @@ export type { Platform } from './platform';
 export {
   compareBy,
   contentHash,
+  DOCUMENT_EXT,
   defaultViewState,
   detectFileKind,
   emptyFilter,
@@ -34,7 +35,6 @@ export {
   isImportableKind,
   mergeViewState,
   recentFileSections,
-  STRATA_EXT,
   stripExtension,
   uuid,
 } from './pure';

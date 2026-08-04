@@ -481,7 +481,7 @@ These are **NOT registered as audit rules** — they are standalone pure functio
 #### Risks and unknowns
 
 - **`registerBuiltinRules()` is never called** — the entire audit engine rule registry is empty in production. `runAudit()` produces zero findings. Fix: call `registerBuiltinRules()` once on editor startup (documented in the comment at `auditAdapter.ts:380-381`).
-- **Two incompatible `AuditFinding` types** — code that imports from `@strata/shared`'s version (with `nodeIds: NodeId[]`) cannot work with code that imports from `@strata/scene`'s version (with `nodeId?: NodeId`) without a mapping layer.
+- **Two incompatible `AuditFinding` types** — code that imports from `@varve/shared`'s version (with `nodeIds: NodeId[]`) cannot work with code that imports from `@varve/scene`'s version (with `nodeId?: NodeId`) without a mapping layer.
 - **Two separate scheduling systems** — `auditEngine.ts:runAudit()` (sync, with caching) and `auditScheduler.ts:AuditScheduler` (async, with debounce timers). The scheduler is not wired to the engine. A new feature should extend one, not both.
 - **Editor intelligence modules bypass the rule registry entirely** — `componentVariantDetector`, `shortcutRecommender`, `componentDetector` are standalone functions called directly by UI. They don't benefit from caching, suppression, scheduling, or the Finding type system.
 - **Suppressions are stored in the `Document`** — serialized/versioned with the doc. No separate store. No concept of "workspace-wide" vs "document-wide" suppressions yet.
@@ -662,8 +662,8 @@ All check `typeof window !== 'undefined' && '__TAURI__' in window`.
 
 ### Platform abstraction package
 
-**Location:** `packages/platform/` (not under `packages/@strata/`)
-**npm name:** `@strata/platform`
+**Location:** `packages/platform/` (not under `packages/@varve/`)
+**npm name:** `@varve/platform`
 **Architecture:** Hexagonal (ports & adapters):
 - `Platform` interface (port) — `platform.ts`
 - Three adapters: `web.ts`, `tauri.ts`, `memory.ts`
@@ -675,7 +675,7 @@ All check `typeof window !== 'undefined' && '__TAURI__' in window`.
 
 ### Engine cascade mirrors the pattern
 
-Both `@strata/engine` and `@strata/print` use the same probe pattern:
+Both `@varve/engine` and `@varve/print` use the same probe pattern:
 - `engine.ts:389-405`: `createEngine('auto')` — tries native if `__TAURI__`, then WASM, then stub
 - `print/src/index.ts:27-47`: `createPrintEngine('auto')` — tries native if `__TAURI__`, else stub
 
@@ -684,7 +684,7 @@ Both `@strata/engine` and `@strata/print` use the same probe pattern:
 - **Nine independent `isTauriRuntime()` implementations** — if the detection key ever changes (Tauri 3?), all must be updated or some code silently breaks.
 - **`detectPlatform()` returns memory platform in browser** — callers that use `detectPlatform()` in the browser get a memory-backed platform with no persistence. The web platform must be explicitly constructed via `createWebPlatform()` (async). This is a documented design decision (detect.ts:9-12) but likely to trip up new implementers.
 - **`fileExists()` always returns `true` in web** — any code that checks `fileExists()` before operations will never skip operations in the browser.
-- **PDF export is desktop-only** — the `AssetExportControls.tsx` gate means browser users cannot export PDFs at all. If browser PDF generation is needed, it would use the `@strata/print` stub which produces placeholder results.
+- **PDF export is desktop-only** — the `AssetExportControls.tsx` gate means browser users cannot export PDFs at all. If browser PDF generation is needed, it would use the `@varve/print` stub which produces placeholder results.
 - **Version history uses localStorage in Tauri** (`tauri.ts:696-897`) — this is a documented "interim measure". The Rust SQLite backend doesn't yet serve version history.
 
 ---

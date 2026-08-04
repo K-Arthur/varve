@@ -7,7 +7,7 @@ Branch: `feat/input-system` (from `ee73a115`)
 The Strata input system is **substantially more mature than a greenfield
 audit would assume**. The core infrastructure already exists:
 
-- **Single viewport source of truth** (`@strata/shared/viewport.ts`) with
+- **Single viewport source of truth** (`@varve/shared/viewport.ts`) with
   correct focal-point zoom (`zoomAboutPoint`), rotation-aware affine
   transforms, `clampZoom`, `stepZoom`, and `screenDeltaToWorld`.
 - **Centralized input pipeline** (`canvas/inputPipeline.ts`) handling
@@ -71,7 +71,7 @@ DOM keydown
 
 ### 1.3 Viewport API (already consolidated)
 
-`@strata/shared/viewport.ts` is the single source of truth:
+`@varve/shared/viewport.ts` is the single source of truth:
 - `zoomAboutPoint(cam, worldAnchor, newZoom, viewport)` — closed-form,
   absolute recomputation (no drift). Used by wheel, pinch, gesture, keyboard.
 - `clampZoom` enforced at all entry points. `MIN_ZOOM=0.001`, `MAX_ZOOM=64`.
@@ -114,7 +114,7 @@ ViewportContext surface is wrong.)
 | G5 | No numpad zoom support | FIXED — numpad `+`/`-`/`0`/`1-6` zoom with NumLock on; NumLock-off keys navigate |
 | G6 | No `lostpointercapture` listener | FIXED (commit `a835f273`) |
 | G7 | No `visibilitychange` reset | FIXED (commit `a50204cd`) |
-| G8 | Platform detection duplicated 6+ locations | FIXED (commit `a835f273` → `@strata/platform`) |
+| G8 | Platform detection duplicated 6+ locations | FIXED (commit `a835f273` → `@varve/platform`) |
 | G9 | Coalesced events only used by brush tools | OPEN (pen/brush path; low priority) |
 | G10 | No formal interaction state machine | PARTIAL — navigation layer is a documented explicit state machine (§5 of the behavior matrix); tools still own their own drag state |
 | G11 | No input diagnostics surface | FIXED — `inputDiagnostics.ts` bounded ring buffer (dev-only opt-in) |
@@ -160,14 +160,14 @@ ViewportContext surface is wrong.)
 
 | Location | Check | Should use |
 |----------|-------|------------|
-| `ShortcutManager.ts:666` | `navigator.platform.includes('mac')` | `@strata/platform` |
-| `InteractionContext.ts:84` | `/Mac\|iPod\|iPhone\|iPad/.test(navigator.platform)` | `@strata/platform` |
-| `Menubar.tsx:1339` | `navigator.platform.includes('mac')` | `@strata/platform` |
-| `SelectionOverlay.tsx:668` | Mac detection | `@strata/platform` |
-| `inputNormalizer.ts:88` | `/AppleWebKit/.test(ua) && !/Chrome/.test(ua)` | `@strata/platform` |
-| `adaptiveProfile.ts:83` | WebKitGTK detection | `@strata/platform` |
+| `ShortcutManager.ts:666` | `navigator.platform.includes('mac')` | `@varve/platform` |
+| `InteractionContext.ts:84` | `/Mac\|iPod\|iPhone\|iPad/.test(navigator.platform)` | `@varve/platform` |
+| `Menubar.tsx:1339` | `navigator.platform.includes('mac')` | `@varve/platform` |
+| `SelectionOverlay.tsx:668` | Mac detection | `@varve/platform` |
+| `inputNormalizer.ts:88` | `/AppleWebKit/.test(ua) && !/Chrome/.test(ua)` | `@varve/platform` |
+| `adaptiveProfile.ts:83` | WebKitGTK detection | `@varve/platform` |
 
-`@strata/platform` already has `detectOs()` and `detectRuntimeKind()` but
+`@varve/platform` already has `detectOs()` and `detectRuntimeKind()` but
 does not expose an `isMac()` or `isWebKitGTK()` helper for input code.
 
 ---

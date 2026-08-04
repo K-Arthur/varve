@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { createDocument, type Document, type FrameNode, type TextNode } from '@strata/scene';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createDocument, type Document, type FrameNode, type TextNode } from '@varve/scene';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../context';

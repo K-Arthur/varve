@@ -1,4 +1,4 @@
-import type { SceneNode, ShapeNode } from '@strata/scene';
+import type { SceneNode, ShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { applyDropPosition, isSupportedFile, validateFiles } from './dropUtils';
 

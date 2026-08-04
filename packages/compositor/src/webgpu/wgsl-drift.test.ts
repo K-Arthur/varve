@@ -17,7 +17,7 @@ import {
 } from './shaders';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const rustPath = join(here, '../../../../crates/strata-bridge/tests/wgsl_validation.rs');
+const rustPath = join(here, '../../../../crates/varve-bridge/tests/wgsl_validation.rs');
 
 function extractRustWgsl(src: string, constName: string): string {
   const marker = `const ${constName}: &str = r#"`;

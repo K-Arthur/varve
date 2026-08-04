@@ -1,4 +1,4 @@
-import { isTauriRuntime as isTauri } from '@strata/platform';
+import { isTauriRuntime as isTauri } from '@varve/platform';
 import type { UpscaleOptions } from '../imageEnhancement';
 import { DEFAULT_AI_UPSCALE_MODEL_ID } from '../imageEnhancement';
 import { decodeImageBytesToImageData, encodeImageDataToPngBytes } from './pngDecode';

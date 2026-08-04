@@ -1,5 +1,5 @@
-import { buildSpec } from '@strata/codegen';
-import type { Document } from '@strata/scene';
+import { buildSpec } from '@varve/codegen';
+import type { Document } from '@varve/scene';
 
 interface SpecPanelMotionProps {
   doc: Document;

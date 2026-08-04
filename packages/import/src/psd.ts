@@ -10,8 +10,8 @@
  * @webtoon/psd 0.4.0 API.
  */
 
-import type { Affine } from '@strata/engine';
-import type { Document, MaskType, SceneNode } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import type { Document, MaskType, SceneNode } from '@varve/scene';
 import {
   addMask,
   addNode,
@@ -20,7 +20,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import type { Group as PsdGroup, Layer as PsdLayer } from '@webtoon/psd';
 import Psd from '@webtoon/psd';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
@@ -167,7 +167,7 @@ function convertPsdLayer(
   const x = layer.left * opts.scale;
   const y = layer.top * opts.scale;
 
-  const shape: import('@strata/engine').Shape = {
+  const shape: import('@varve/engine').Shape = {
     kind: 'rect',
     x: 0,
     y: 0,
@@ -221,7 +221,7 @@ function applyPsdMask(
   const { id: maskNodeId, doc: d2 } = nextNodeId(doc);
   let d = d2;
 
-  const maskShape: import('@strata/engine').Shape = {
+  const maskShape: import('@varve/engine').Shape = {
     kind: 'rect',
     x: 0,
     y: 0,

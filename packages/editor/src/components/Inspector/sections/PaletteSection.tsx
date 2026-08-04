@@ -1,6 +1,6 @@
-import { extractPalette as engineExtractPalette, type PaletteResult } from '@strata/engine';
-import { managedColorToCss } from '@strata/shared';
-import { Icon, Tooltip } from '@strata/ui';
+import { extractPalette as engineExtractPalette, type PaletteResult } from '@varve/engine';
+import { managedColorToCss } from '@varve/shared';
+import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

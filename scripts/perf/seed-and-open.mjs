@@ -53,7 +53,7 @@ const seeded = await page.evaluate(async (count) => {
   };
   const json = JSON.stringify(doc);
   const db = await new Promise((res, rej) => {
-    const r = indexedDB.open('strata-home', 3);
+    const r = indexedDB.open('varve-home', 3);
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   });

@@ -15,8 +15,8 @@
  * - Make useful tools permanently inaccessible
  */
 
-import type { WorkspaceMode } from '@strata/shared';
-import type { IconName } from '@strata/ui';
+import type { WorkspaceMode } from '@varve/shared';
+import type { IconName } from '@varve/ui';
 import type { ToolId } from '../tools/types';
 
 // ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ import type { ToolId } from '../tools/types';
 // ---------------------------------------------------------------------------
 
 /**
- * Canonical definition lives in @strata/shared (the lowest layer both scene
+ * Canonical definition lives in @varve/shared (the lowest layer both scene
  * and editor depend on) — re-exported here so existing
  * `from '../workspace/workspaceTypes'` imports keep working. Do not
  * redeclare this locally; it drifted out of sync with scene's copy once

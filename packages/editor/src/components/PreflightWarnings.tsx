@@ -9,10 +9,10 @@
  * Research basis: Adobe InDesign preflight panel, Enfocus PitStop inspection.
  */
 
-import { getFontRegistry } from '@strata/engine';
-import type { CombinedPreflightIssue, CombinedPreflightSeverity } from '@strata/scene';
-import { runCombinedPreflight } from '@strata/scene';
-import { Icon, Tooltip } from '@strata/ui';
+import { getFontRegistry } from '@varve/engine';
+import type { CombinedPreflightIssue, CombinedPreflightSeverity } from '@varve/scene';
+import { runCombinedPreflight } from '@varve/scene';
+import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../context';
 

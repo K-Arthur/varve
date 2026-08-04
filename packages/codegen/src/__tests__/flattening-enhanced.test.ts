@@ -2,7 +2,7 @@
  * Tests for the enhanced flattening analysis v2.1.
  */
 
-import { createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { canEmitAsHtml, getRenderCapability } from '../flattening';
 

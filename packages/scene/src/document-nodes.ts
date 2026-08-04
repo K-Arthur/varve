@@ -1,5 +1,5 @@
-import type { Affine } from '@strata/engine';
-import { generateKeyBetween } from '@strata/shared';
+import type { Affine } from '@varve/engine';
+import { generateKeyBetween } from '@varve/shared';
 import { deepCloneSubtree } from './clone';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { Document } from './document';

@@ -1,5 +1,5 @@
-import type { Asset, AssetFolder, Platform } from '@strata/platform';
-import { ContentSkeleton, Icon, type IconName, Tooltip } from '@strata/ui';
+import type { Asset, AssetFolder, Platform } from '@varve/platform';
+import { ContentSkeleton, Icon, type IconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface AssetBrowserProps {

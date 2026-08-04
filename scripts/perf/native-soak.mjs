@@ -246,7 +246,7 @@ if (!isMain) {
   child = spawn(binary.path, [], {
     cwd: ROOT,
     stdio: 'pipe',
-    env: { ...process.env, STRATA_PERF: '1' },
+    env: { ...process.env, VARVE_PERF: '1' },
   });
   child.on('exit', (code, signal) => {
     if (stopping) return;

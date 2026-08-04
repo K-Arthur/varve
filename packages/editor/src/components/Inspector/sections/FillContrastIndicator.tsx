@@ -6,8 +6,8 @@
  * background, opens a popover with the ratio/level, and offers an Auto-fix
  * action that mutates the fill via the editor. Used by FillSection.
  */
-import type { Fill, ManagedColor } from '@strata/scene';
-import { Tooltip } from '@strata/ui';
+import type { Fill, ManagedColor } from '@varve/scene';
+import { Tooltip } from '@varve/ui';
 import { useState } from 'react';
 import { useEditor } from '../../../context';
 import { checkFillContrast } from '../../../intelligence/wcagFix';

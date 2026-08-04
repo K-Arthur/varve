@@ -35,7 +35,7 @@ Strata already has **54 intelligence modules** across 3 packages with a surprisi
 | **Detection** | componentDetector, variantDetector, styleDeduplicator | Mostly (Components tab, not variant tab) |
 | **Analytics** | actionTracker, commandRanker, workflowAnalyzer, tokenAnalytics, shortcutRecommender, designFingerprint | No (modules exist, no UI) |
 | **Advisors** | exportAdvisor, imageFitAdvisor, easingAdvisor, transitionAdvisor, smartDefaults, progressiveComplexity, cognitiveLoad | Partial (exportAdvisor wired) |
-| **AI Assistant** | @strata/ai chat with 4 keyword-dispatch commands | Yes (AIPanel, keyboard shortcuts) |
+| **AI Assistant** | @varve/ai chat with 4 keyword-dispatch commands | Yes (AIPanel, keyboard shortcuts) |
 | **ML Infrastructure** | ONNX inference (3 backends), model loading/downloading, environment capability detection | Yes (bg-removal pipeline) |
 
 ### What's Not Yet Built (Gaps)

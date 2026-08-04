@@ -1,5 +1,5 @@
-import { contrastRatio, relativeLuminance, WCAG_AA_LARGE, WCAG_AA_NORMAL } from '@strata/shared';
-import { Icon, Tooltip } from '@strata/ui';
+import { contrastRatio, relativeLuminance, WCAG_AA_LARGE, WCAG_AA_NORMAL } from '@varve/shared';
+import { Icon, Tooltip } from '@varve/ui';
 
 export interface ContrastIndicatorProps {
   fgColor?: { r: number; g: number; b: number } | null;

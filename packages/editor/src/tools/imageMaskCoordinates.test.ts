@@ -4,7 +4,7 @@
  * Research basis: inverse scene-graph affine composition followed by the
  * renderer's canonical image-placement inverse.
  */
-import { computeImagePlacement, sourcePixelToLocal } from '@strata/engine';
+import { computeImagePlacement, sourcePixelToLocal } from '@varve/engine';
 import {
   addChild,
   addNode,
@@ -13,8 +13,8 @@ import {
   makeFrameNode,
   makePaint,
   makeShapeNode,
-} from '@strata/scene';
-import { applyAffine, tryInvertAffine } from '@strata/shared';
+} from '@varve/scene';
+import { applyAffine, tryInvertAffine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { nodeWorldTransform } from '../scene/world';
 import { prepareImageMaskMapper, worldPointToImageMaskPixel } from './imageMaskCoordinates';
@@ -24,8 +24,8 @@ vi.mock('../scene/world', async (importOriginal) => {
   return { ...actual, nodeWorldTransform: vi.fn(actual.nodeWorldTransform) };
 });
 
-vi.mock('@strata/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@strata/shared')>();
+vi.mock('@varve/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/shared')>();
   return { ...actual, tryInvertAffine: vi.fn(actual.tryInvertAffine) };
 });
 

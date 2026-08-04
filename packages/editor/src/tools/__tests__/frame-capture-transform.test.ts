@@ -5,8 +5,8 @@ import {
   type Document,
   makeFrameNode,
   makeShapeNode,
-} from '@strata/scene';
-import { transformRect } from '@strata/shared';
+} from '@varve/scene';
+import { transformRect } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { nodeWorldTransform } from '../../scene/world';
 

@@ -4,14 +4,14 @@
  * independently testable without booting a Worker global.
  */
 
-import type { Affine, Camera, Viewport } from '@strata/shared';
+import type { Affine, Camera, Viewport } from '@varve/shared';
 import {
   applyCameraTransform,
   buildWorldToScreenAffine,
   computeFloatingOrigin,
   multiplyAffine,
   tryInvertAffine,
-} from '@strata/shared';
+} from '@varve/shared';
 
 export interface WorkerCameraTarget {
   setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;

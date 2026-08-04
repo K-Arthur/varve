@@ -188,8 +188,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # ubuntu-22.04, NOT ubuntu-latest. This is the whole ballgame for Linux
+          # compatibility: a binary inherits the glibc symbol versions of the
+          # machine that linked it, and glibc is forward- but not
+          # backward-compatible.
+          #
+          # Measured against a real build (podman, ubuntu:22.04):
+          #   built on CachyOS (glibc 2.44) -> requires GLIBC_2.39 -> refuses to
+          #   exec on Ubuntu 22.04 with "version `GLIBC_2.39' not found".
+          #
+          # ubuntu-latest is 24.04 (glibc 2.39), so building there would produce
+          # exactly the same floor and silently exclude Ubuntu 22.04 LTS,
+          # Debian 12 and Fedora 38 — while the docs claimed 22.04 support.
+          # Building on 22.04 sets the floor at glibc 2.35 and those all work.
           - name: linux-x86_64
-            os: ubuntu-latest
+            os: ubuntu-22.04
             os_slug: linux
             arch_slug: x86_64
             bundles: appimage,deb,rpm

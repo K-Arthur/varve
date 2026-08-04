@@ -1,6 +1,6 @@
-import type { MaskType, SceneNode } from '@strata/scene';
-import { walkNodes } from '@strata/scene';
-import { Select, Tooltip } from '@strata/ui';
+import type { MaskType, SceneNode } from '@varve/scene';
+import { walkNodes } from '@varve/scene';
+import { Select, Tooltip } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -144,7 +144,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   const handleEditVectorPath = useCallback(() => {
     if (setMaskVectorPath && mask?.vectorMask) {
       setMaskVectorPath(
-        mask.vectorMask.points as import('@strata/engine').PathPoint[],
+        mask.vectorMask.points as import('@varve/engine').PathPoint[],
         mask.vectorMask.closed,
       );
     }

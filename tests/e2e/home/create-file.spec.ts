@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Create File dialog', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await page.waitForSelector('.varve-home');
   });
 
   test('clicking New File opens dialog', async ({ page }) => {
@@ -15,8 +15,8 @@ test.describe('Create File dialog', () => {
 
   test('blank tab shows blank canvas and the full preset picker', async ({ page }) => {
     // As of the unified preset system, New File is blank-canvas-first plus a
-    // searchable, grouped PresetPicker (@strata/ui) fed the full
-    // @strata/shared preset registry (photo/print/web/mobile-tablet/desktop/
+    // searchable, grouped PresetPicker (@varve/ui) fed the full
+    // @varve/shared preset registry (photo/print/web/mobile-tablet/desktop/
     // social/video-motion/presentation/paper/icon-asset) — not just a
     // print-only grid. Device/social frame presets are also still available
     // inside the editor via FramePresetsSection.

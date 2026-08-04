@@ -1,6 +1,6 @@
 /// <reference types="@webgpu/types" />
 
-import type { RenderItem } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
 /**
  * WebGPU compositor backend — solid fills for rect/circle/line.
  *
@@ -16,8 +16,8 @@ import type { RenderItem } from '@strata/engine';
  * Lines are tessellated as thin quads; circles use a discard shader.
  * Explicit pipeline layouts + vertex buffer ring pool.
  */
-import { selectWebGpuAdapter } from '@strata/engine';
-import { computeFloatingOrigin, managedColorToRgba } from '@strata/shared';
+import { selectWebGpuAdapter } from '@varve/engine';
+import { computeFloatingOrigin, managedColorToRgba } from '@varve/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import type { CompositorDiagnostics, CompositorFrame } from '../types';
 import {
@@ -138,7 +138,7 @@ export function lineTessellationVertexCount(item: RenderItem): number {
 
 /**
  * Apply item affine to a local point — same convention as SOLID_VERTEX_WGSL
- * and `@strata/shared` `applyAffine` (`x'=a·x+c·y+e`, `y'=b·x+d·y+f`).
+ * and `@varve/shared` `applyAffine` (`x'=a·x+c·y+e`, `y'=b·x+d·y+f`).
  */
 export function applyItemAffine(
   localPos: readonly [number, number],

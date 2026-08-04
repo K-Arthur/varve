@@ -1,4 +1,4 @@
-import { createMetadataPolicy } from '@strata/shared';
+import { createMetadataPolicy } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { applyExifOrientation, orientationAfterApply, parseExifOrientation } from './exif';
 import {

@@ -3,8 +3,8 @@
  * bleed, outline text, filename template, and color profile.
  */
 
-import type { ExportFormat, RenderingIntent } from '@strata/scene';
-import { NumberInput, Select } from '@strata/ui';
+import type { ExportFormat, RenderingIntent } from '@varve/scene';
+import { NumberInput, Select } from '@varve/ui';
 import { useState } from 'react';
 import { loadSettings, saveSettings } from '../../settings';
 

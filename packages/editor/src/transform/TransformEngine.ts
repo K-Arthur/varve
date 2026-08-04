@@ -13,10 +13,10 @@
  * - Figma: relativeTransform carries rotation/translation, geometry is separate.
  */
 
-import type { PathPoint, Shape } from '@strata/engine';
-import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { applyConstraints, getParent } from '@strata/scene';
-import type { Affine, Point, Rect } from '@strata/shared';
+import type { PathPoint, Shape } from '@varve/engine';
+import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
+import { applyConstraints, getParent } from '@varve/scene';
+import type { Affine, Point, Rect } from '@varve/shared';
 import {
   applyAffine,
   boxDeltaMatrix,
@@ -32,7 +32,7 @@ import {
   type SelectionBox,
   translate,
   tryInvertAffine,
-} from '@strata/shared';
+} from '@varve/shared';
 import { OBJECT_RESIZE_POLICIES } from '../context/selectionState';
 import { resizeNodeGeometry } from '../scene/resizeGeometry';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from '../scene/world';

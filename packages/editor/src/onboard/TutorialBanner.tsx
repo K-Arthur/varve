@@ -1,4 +1,4 @@
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import type { TutorialProgress } from './TutorialFile/useTutorialProgress';
 import './TutorialBanner.css';

@@ -3,7 +3,7 @@
  *
  * Replaced by FloatingToolbar in Session 12+.
  */
-import { IconButton, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
+import { IconButton, TOOL_ICONS, Toolbar, Tooltip } from '@varve/ui';
 import { type ToolId, useEditor } from './context';
 import { toolShortcutLabel } from './shortcuts';
 

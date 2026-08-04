@@ -10,7 +10,7 @@
  * shell grid's --sidebar-width / --inspector-width custom properties.
  */
 
-import { Tooltip } from '@strata/ui';
+import { Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { loadSettings, updateSettings } from '../settings';
 

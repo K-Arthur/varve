@@ -1,0 +1,257 @@
+//! WASM bindings for `@varve/engine` web backend.
+
+use serde::Serialize;
+use varve_bridge::parse_engine_nodes_json;
+use varve_core::Point;
+use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen]
+pub fn build_ir_json(nodes_json: &str) -> Result<String, JsValue> {
+    let scene = parse_engine_nodes_json(nodes_json).map_err(|e| JsValue::from_str(&e))?;
+    let ir = varve_engine::build_render_ir(&scene);
+    serde_json::to_string(&ir).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+#[wasm_bindgen]
+pub fn hit_test_json(nodes_json: &str, x: f64, y: f64) -> Result<i32, JsValue> {
+    let scene = parse_engine_nodes_json(nodes_json).map_err(|e| JsValue::from_str(&e))?;
+    Ok(varve_core::hit_test(&scene, Point::new(x, y))
+        .map(|i| i as i32)
+        .unwrap_or(-1))
+}
+
+#[wasm_bindgen]
+pub fn wasm_engine_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+// ── WASM trace bindings ─────────────────────────────────────────────────
+
+/// JSON-serializable path point for the wasm trace result.
+#[derive(Serialize)]
+struct TracePointJson {
+    x: f64,
+    y: f64,
+}
+
+/// JSON-serializable bounding box for the wasm trace result.
+#[derive(Serialize)]
+struct TraceBoundsJson {
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+}
+
+/// JSON-serializable traced path matching the TS `RasterTracePath` shape.
+#[derive(Serialize)]
+struct TracePathJson {
+    points: Vec<TracePointJson>,
+    holes: Option<Vec<Vec<TracePointJson>>>,
+    closed: bool,
+    area: f64,
+    bounds: TraceBoundsJson,
+}
+
+/// JSON-serializable trace result matching the TS `RasterTraceResult` shape.
+#[derive(Serialize)]
+#[allow(non_snake_case)]
+struct TraceResultJson {
+    width: u32,
+    height: u32,
+    paths: Vec<TracePathJson>,
+    omittedHoles: u32,
+}
+
+/// Trace raster image data to vector contours.
+///
+/// `pixels`: flat RGBA byte array (width × height × 4)
+/// `width`, `height`: image dimensions
+/// `threshold`: binarization threshold (0–255)
+/// `min_pixels`: minimum contour pixel count
+/// `foreground`: "dark" or "light" (default "dark")
+///
+/// Returns a JSON string matching the TS `RasterTraceResult` shape.
+/// Parse optional JSON options and merge with explicit params.
+fn parse_trace_opts(
+    threshold: u8,
+    min_pixels: u32,
+    foreground: Option<String>,
+    opts_json: Option<String>,
+) -> varve_trace::TraceOptions {
+    let fg = foreground
+        .as_deref()
+        .map_or(varve_trace::Foreground::Dark, |v| {
+            if v.eq_ignore_ascii_case("light") {
+                varve_trace::Foreground::Light
+            } else {
+                varve_trace::Foreground::Dark
+            }
+        });
+
+    // Start with defaults, then overlay explicit params
+    let mut opts = varve_trace::TraceOptions {
+        threshold,
+        min_pixels: min_pixels as usize,
+        max_colors: 0,
+        foreground: fg,
+        ..Default::default()
+    };
+
+    // If JSON options provided, parse and overlay
+    if let Some(json) = opts_json {
+        if let Ok(json_opts) = serde_json::from_str::<serde_json::Value>(&json) {
+            if let Some(ca) = json_opts.get("cornerAngle").and_then(|v| v.as_f64()) {
+                opts.corner_angle = ca;
+            }
+            if let Some(me) = json_opts.get("maxError").and_then(|v| v.as_f64()) {
+                opts.max_error = me;
+            }
+        }
+    }
+
+    opts
+}
+
+#[wasm_bindgen]
+pub fn trace_contours_json(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    threshold: u8,
+    min_pixels: u32,
+    foreground: Option<String>,
+) -> Result<String, JsValue> {
+    trace_contours_json_opts(
+        pixels, width, height, threshold, min_pixels, foreground, None,
+    )
+}
+
+/// Extended version that accepts additional options as JSON string.
+#[wasm_bindgen(js_name = trace_contours_json_opts)]
+pub fn trace_contours_json_opts(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    threshold: u8,
+    min_pixels: u32,
+    foreground: Option<String>,
+    opts_json: Option<String>,
+) -> Result<String, JsValue> {
+    let expected_len = (width * height * 4) as usize;
+    if pixels.len() != expected_len {
+        return Err(JsValue::from_str(&format!(
+            "pixels length {} does not match width*height*4 = {}",
+            pixels.len(),
+            expected_len
+        )));
+    }
+    if width == 0 || height == 0 {
+        return Err(JsValue::from_str("width and height must be > 0"));
+    }
+
+    // Convert RGBA to grayscale using luma formula
+    let num_pixels = (width * height) as usize;
+    let mut gray = Vec::with_capacity(num_pixels);
+    for chunk in pixels.chunks_exact(4) {
+        let r = chunk[0] as f64;
+        let g = chunk[1] as f64;
+        let b = chunk[2] as f64;
+        let luma = (0.2126 * r + 0.7152 * g + 0.0722 * b).round() as u8;
+        gray.push(luma);
+    }
+
+    let opts = parse_trace_opts(threshold, min_pixels, foreground, opts_json);
+
+    // Detect hardware concurrency via navigator.hardwareConcurrency,
+    // clamped to [1, 4] chunks. Falls back to 2 in non-browser contexts.
+    let chunk_count = web_sys::window()
+        .map(|w| w.navigator().hardware_concurrency() as usize)
+        .unwrap_or(2)
+        .clamp(1, 4);
+
+    let paths =
+        varve_trace::chunked::trace_contours_chunked(&gray, width, height, &opts, chunk_count);
+
+    // Apply Bezier fitting to each path
+    let json_paths: Vec<TracePathJson> = paths
+        .into_iter()
+        .map(|p| {
+            // Convert to contour for Bezier fitting
+            let contour: Vec<(f64, f64)> = p.points.iter().map(|pt| (pt.x, pt.y)).collect();
+            let bezier_pts = varve_trace::bezier_fit::fit_bezier_to_contour(
+                &contour,
+                p.closed,
+                opts.corner_angle,
+                opts.max_error,
+            );
+            let bezier_points: Vec<TracePointJson> = bezier_pts
+                .iter()
+                .map(|pt| TracePointJson { x: pt.x, y: pt.y })
+                .collect();
+            let area = polygon_area(&p.points);
+            let (min_x, min_y, max_x, max_y) = bounds(&p.points);
+            TracePathJson {
+                points: bezier_points,
+                holes: None,
+                closed: true,
+                area,
+                bounds: TraceBoundsJson {
+                    x: min_x,
+                    y: min_y,
+                    w: (max_x - min_x).max(0.0),
+                    h: (max_y - min_y).max(0.0),
+                },
+            }
+        })
+        .collect();
+
+    let result = TraceResultJson {
+        width,
+        height,
+        paths: json_paths,
+        omittedHoles: 0,
+    };
+
+    serde_json::to_string(&result).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// WASM trace version identifier.
+#[wasm_bindgen]
+pub fn wasm_trace_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+fn polygon_area(points: &[Point]) -> f64 {
+    if points.len() < 3 {
+        return 0.0;
+    }
+    let mut sum = 0.0;
+    for i in 0..points.len() {
+        let j = (i + 1) % points.len();
+        sum += points[i].x * points[j].y - points[j].x * points[i].y;
+    }
+    sum.abs() / 2.0
+}
+
+fn bounds(points: &[Point]) -> (f64, f64, f64, f64) {
+    let mut min_x = f64::MAX;
+    let mut min_y = f64::MAX;
+    let mut max_x = f64::MIN;
+    let mut max_y = f64::MIN;
+    for p in points {
+        if p.x < min_x {
+            min_x = p.x;
+        }
+        if p.y < min_y {
+            min_y = p.y;
+        }
+        if p.x > max_x {
+            max_x = p.x;
+        }
+        if p.y > max_y {
+            max_y = p.y;
+        }
+    }
+    (min_x, min_y, max_x, max_y)
+}

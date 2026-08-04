@@ -9,7 +9,7 @@
  * segment intersection via orientation tests.
  */
 
-import { rectContains } from '@strata/shared';
+import { rectContains } from '@varve/shared';
 
 export type Point2D = { x: number; y: number };
 export type Rect = { x: number; y: number; w: number; h: number };

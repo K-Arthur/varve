@@ -4,7 +4,7 @@
  * Persisted to localStorage('strata-spec-unit'). Default: 'px'.
  */
 
-import type { SpecUnit } from '@strata/shared';
+import type { SpecUnit } from '@varve/shared';
 import { useCallback, useState } from 'react';
 
 const STORAGE_KEY = 'strata-spec-unit';

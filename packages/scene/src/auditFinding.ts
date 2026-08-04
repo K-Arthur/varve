@@ -19,7 +19,7 @@
  * severity mapping).
  */
 
-import type { WorkspaceMode } from '@strata/shared';
+import type { WorkspaceMode } from '@varve/shared';
 import type { FindingFingerprint } from './fingerprint';
 import { hash128 } from './fingerprint';
 import type { NodeId } from './types';
@@ -55,7 +55,7 @@ export type FindingCategory =
 
 /**
  * Which workspace modes this finding applies to. Empty = all workspaces.
- * Canonical definition lives in @strata/shared (the lowest layer both scene
+ * Canonical definition lives in @varve/shared (the lowest layer both scene
  * and editor depend on) — re-exported here so existing `from './auditFinding'`
  * imports keep working. Do not redeclare this locally; it drifted out of sync
  * with editor's copy once before (missing 'codegen') and caused real
@@ -114,8 +114,8 @@ export interface FindingFix {
  * - `scanId` links findings to a particular scan run for staleness tracking.
  *
  * This type unifies what was previously two incompatible AuditFinding models
- * (one in @strata/scene and one in @strata/shared). Convert between them with
- * `sceneFindingToShared()` / `sharedFindingToScene()` from @strata/shared.
+ * (one in @varve/scene and one in @varve/shared). Convert between them with
+ * `sceneFindingToShared()` / `sharedFindingToScene()` from @varve/shared.
  */
 export interface AuditFinding {
   /** Stable rule identifier (e.g. 'contrast/aa-fail', 'print/missing-bleed'). */

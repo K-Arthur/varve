@@ -1,4 +1,4 @@
-import type { FileEntry, Platform } from '@strata/platform';
+import type { FileEntry, Platform } from '@varve/platform';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const BATCH_SIZE = 5;
@@ -62,7 +62,7 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
           return;
         }
 
-        const { renderThumbnail } = await import('@strata/engine');
+        const { renderThumbnail } = await import('@varve/engine');
         const thumbDataUrl = await renderThumbnail(JSON.parse(json));
         if (thumbDataUrl) {
           await platform.putThumbnail({

@@ -12,7 +12,7 @@
  *
  * Research basis: Figma image crop (viewport crop keeps source + mask intact).
  */
-import { type Affine, computeImagePlacement, localToSourcePixel } from '@strata/engine';
+import { type Affine, computeImagePlacement, localToSourcePixel } from '@varve/engine';
 import type {
   Document,
   ImageCropRect,
@@ -20,14 +20,14 @@ import type {
   ImageFit,
   NodeId,
   ShapeNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   getImageFill,
   getOwnRasterMaskAsset,
   isImageShape,
   nodeLocalBounds,
   normalizeImageCropRect,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   computeVisibleContentBounds,
   type LocalBounds,
@@ -66,8 +66,8 @@ export interface CropState {
  * Returns null for non-shape nodes or zero-dimension nodes.
  */
 function getNodeBounds(
-  node: import('@strata/scene').SceneNode,
-  doc: import('@strata/scene').Document,
+  node: import('@varve/scene').SceneNode,
+  doc: import('@varve/scene').Document,
 ): { w: number; h: number } | null {
   if (node.kind !== 'shape') return null;
   const shapeNode = node as ShapeNode;
@@ -169,7 +169,7 @@ export function commitImageCropExtended(
 ): Document {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
-  const shapeNode = node as import('@strata/scene').ShapeNode;
+  const shapeNode = node as import('@varve/scene').ShapeNode;
   const bounds = getNodeBounds(node, doc);
   if (!bounds) return doc;
   const W = bounds.w;
@@ -368,7 +368,7 @@ export function expandBounds(
 ): Document {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
-  const shapeNode = node as import('@strata/scene').ShapeNode;
+  const shapeNode = node as import('@varve/scene').ShapeNode;
   const bounds = getNodeBounds(shapeNode, doc);
   if (!bounds) return doc;
 
@@ -395,7 +395,7 @@ export function expandBounds(
 export function resetToSourceBounds(doc: Document, nodeId: NodeId): Document {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
-  const shapeNode = node as import('@strata/scene').ShapeNode;
+  const shapeNode = node as import('@varve/scene').ShapeNode;
   const bounds = getNodeBounds(node, doc);
   if (!bounds) return doc;
 
@@ -417,7 +417,7 @@ export function resetToSourceBounds(doc: Document, nodeId: NodeId): Document {
     ...shapeNode,
     shape: resetShape as typeof shapeNode.shape,
     ...(shape.kind === 'rect'
-      ? { transform: [1, 0, 0, 1, 0, 0] as import('@strata/shared').Affine }
+      ? { transform: [1, 0, 0, 1, 0, 0] as import('@varve/shared').Affine }
       : {}),
     fills: (shapeNode.fills ?? []).map((f) => {
       if (f.type !== 'image' || !f.image) return f;

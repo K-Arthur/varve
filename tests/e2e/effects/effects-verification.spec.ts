@@ -197,7 +197,7 @@ test.describe('Effect pipeline E2E verification', () => {
     // Verify the gradient map presets are accessible via the engine module
     const presetsInfo = await page.evaluate(() => {
       // The engine package should be available via the app's module system
-      // Check that gradientMap types exist by looking at the window.__STRATA__ debug object
+      // Check that gradientMap types exist by looking at the window.__VARVE__ debug object
       // or checking the DOM for preset-related elements
       const presetElements = document.querySelectorAll('[aria-label*="preset"]');
       return {

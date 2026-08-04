@@ -4,7 +4,7 @@
  * Crop is stored on the image fill in source-pixel coordinates, NOT baked
  * into node geometry. Node bounds are preserved.
  */
-import { createDocument, makeImageShapeNode, makeShapeNode, type ShapeNode } from '@strata/scene';
+import { createDocument, makeImageShapeNode, makeShapeNode, type ShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   commitImageCrop,

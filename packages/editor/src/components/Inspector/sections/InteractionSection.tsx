@@ -2,9 +2,9 @@
  * InteractionSection — full prototype interaction editor for selected nodes.
  */
 
-import type { ActionKind, TransitionConfig, TriggerKind } from '@strata/prototype';
-import type { DocumentInteraction } from '@strata/scene';
-import { Button, Icon, Select } from '@strata/ui';
+import type { ActionKind, TransitionConfig, TriggerKind } from '@varve/prototype';
+import type { DocumentInteraction } from '@varve/scene';
+import { Button, Icon, Select } from '@varve/ui';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

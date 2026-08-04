@@ -1,4 +1,4 @@
-import { createDefaultDocumentGrid } from '@strata/scene';
+import { createDefaultDocumentGrid } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeMajorStep } from '../gridTypes';
 

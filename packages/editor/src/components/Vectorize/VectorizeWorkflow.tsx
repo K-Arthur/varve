@@ -14,9 +14,9 @@
  * generation + abort), so newer previews cancel older ones.
  */
 
-import type { RasterTracePath, RasterTraceResult } from '@strata/engine';
-import { imageShapeSrc, isImageShape, type SceneNode, type ShapeNode } from '@strata/scene';
-import { Button, Checkbox, SegmentedControl, Select, Slider, Tooltip } from '@strata/ui';
+import type { RasterTracePath, RasterTraceResult } from '@varve/engine';
+import { imageShapeSrc, isImageShape, type SceneNode, type ShapeNode } from '@varve/scene';
+import { Button, Checkbox, SegmentedControl, Select, Slider, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { insertTraceGroup } from '../../imageOperations';

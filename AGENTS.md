@@ -72,7 +72,7 @@ Adding new violations will silently break tests and block CI.
 A package must never import from another package that transitively imports back to it.
 TypeScript + Vite module resolution will either fail outright or produce non-deterministic
 builds depending on evaluation order. To break a cycle, move the shared code into the
-dependent package itself (or into `@strata/shared` if it belongs to no single owner).
+dependent package itself (or into `@varve/shared` if it belongs to no single owner).
 
 ### Sub-context `onReady` pattern (Session 44+)
 
@@ -177,7 +177,7 @@ cleanup tooling, codemods).
 - `pnpm typecheck` — `tsc --noEmit` across packages/*
 - `pnpm audit:tokens` — WCAG 2.2 AA token gate (120 checks across 3 themes)
 - `pnpm audit:emoji` — zero-emoji gate
-- `pnpm --filter @strata/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
+- `pnpm --filter @varve/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
 - `just gate` — full Cascade Review gate (format-check + lint + test + audits)
 
 ### CI/CD Commands
@@ -396,15 +396,15 @@ See `docs/architecture/text-pipeline.md`.
 ### packages/ (TypeScript)
 | Package | Status | Contents |
 |---|---|---|
-| `@strata/engine` | **Built** | Engine facade (stub/native/wasm), IR types, `replayIr`, geometry helpers |
-| `@strata/scene` | **Built** | Immutable Document model, nodes, ops, master pages, spreads |
-| `@strata/ui` | **Built** | Design tokens, icons (Lucide/Phosphor), APG components |
-| `@strata/editor` | **Built** | Shell (CSS Grid), EditorProvider, CanvasArea, LayersPanel, InspectorPanel, shortcuts |
-| `@strata/codegen` | **Built** | SVG, React, Flutter, SwiftUI code export |
-| `@strata/prototype` | **Built** | Prototype engine: triggers, actions, animation, transitions, navigation |
-| `@strata/shared` | **Built** | Ordering, debounce, easing, units |
-| `@strata/import` | **Built** | SVG/PDF/PSD/AI/EPS import parsers |
-| `@strata/platform` | **Built** | Platform abstraction (Tauri/web/memory) |
+| `@varve/engine` | **Built** | Engine facade (stub/native/wasm), IR types, `replayIr`, geometry helpers |
+| `@varve/scene` | **Built** | Immutable Document model, nodes, ops, master pages, spreads |
+| `@varve/ui` | **Built** | Design tokens, icons (Lucide/Phosphor), APG components |
+| `@varve/editor` | **Built** | Shell (CSS Grid), EditorProvider, CanvasArea, LayersPanel, InspectorPanel, shortcuts |
+| `@varve/codegen` | **Built** | SVG, React, Flutter, SwiftUI code export |
+| `@varve/prototype` | **Built** | Prototype engine: triggers, actions, animation, transitions, navigation |
+| `@varve/shared` | **Built** | Ordering, debounce, easing, units |
+| `@varve/import` | **Built** | SVG/PDF/PSD/AI/EPS import parsers |
+| `@varve/platform` | **Built** | Platform abstraction (Tauri/web/memory) |
 
 ### apps/
 | App | Status | Contents |
@@ -434,7 +434,7 @@ merge sequentially. Verify with `just gate` after each merge.
 - TS strict, no `any` (Biome enforces `noExplicitAny: error`).
 - Rust `unsafe_code = deny` workspace-wide.
 - Cross-platform: if it works on macOS but not Linux, it's not done.
-- **No native `<select>` elements** — use `@strata/ui`'s custom `Select` component.
+- **No native `<select>` elements** — use `@varve/ui`'s custom `Select` component.
 
 ## Session history
 

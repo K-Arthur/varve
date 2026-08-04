@@ -64,4 +64,4 @@ npx playwright test tests/e2e/menus --reporter=list
 
 - `helpers/menu-helpers.ts` — shared utilities (`mod()`, `openMenu()`, `assertFocusNotOnBody()`, etc.)
 - `shared.ts` — `navigateToEditor()` — canonical navigation to editor
-- Type-ahead timeout is controllable via `window.__STRATA_TYPEAHEAD_MS` (set per-test via `setTypeAheadTimeout`)
+- Type-ahead timeout is controllable via `window.__VARVE_TYPEAHEAD_MS` (set per-test via `setTypeAheadTimeout`)

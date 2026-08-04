@@ -3,15 +3,15 @@
  * Usage:
  *   node scripts/perf/probe-cpu-profile.mjs
  *   node scripts/perf/probe-cpu-profile.mjs --callers=groupWorldBounds
- *   STRATA_PERF_DUPS=5 STRATA_PERF_URL=http://localhost:1447/?perf=1 \
+ *   VARVE_PERF_DUPS=5 VARVE_PERF_URL=http://localhost:1447/?perf=1 \
  *     node scripts/perf/probe-cpu-profile.mjs
  */
 import { chromium } from '@playwright/test';
 
-// STRATA_PERF_URL lets the same probe run against a production build
+// VARVE_PERF_URL lets the same probe run against a production build
 // (vite preview) as well as the dev server — the dev/prod comparison is the
 // point, since React dev-mode overhead dominates dev-build drag profiles.
-const BASE = process.env.STRATA_PERF_URL ?? 'http://localhost:1432/?perf=1';
+const BASE = process.env.VARVE_PERF_URL ?? 'http://localhost:1432/?perf=1';
 
 const browser = await chromium.launch({
   headless: true,
@@ -73,12 +73,12 @@ for (let i = 0; i < 4; i++) {
 }
 const readCount = () =>
   page.evaluate(() => {
-    const f = window.__strataPerf ? window.__strataPerf.getFrames(3) : [];
+    const f = window.__varvePerf ? window.__varvePerf.getFrames(3) : [];
     return f.length ? f[f.length - 1].nodeCount : 0;
   });
 // Node count doubles per pass (4 rects → 4·2^n). Keep this in step with
 // probe-interaction.mjs when comparing the two probes' output.
-const DUPS = Number(process.env.STRATA_PERF_DUPS ?? 8);
+const DUPS = Number(process.env.VARVE_PERF_DUPS ?? 8);
 for (let guard = 0; guard < DUPS; guard++) {
   await page.keyboard.press('Control+a');
   await page.waitForTimeout(25);

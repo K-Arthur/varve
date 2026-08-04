@@ -7,7 +7,7 @@
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
-const OUT = '/tmp/strata-review';
+const OUT = '/tmp/varve-review';
 await mkdir(OUT, { recursive: true });
 
 const browser = await chromium.launch({ headless: true });

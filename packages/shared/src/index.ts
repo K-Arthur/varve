@@ -1,5 +1,5 @@
 /**
- * @strata/shared — framework-agnostic primitives shared across engine, scene,
+ * @varve/shared — framework-agnostic primitives shared across engine, scene,
  * and UI. Runs in Rust-wasm bindings, web workers, and React components alike.
  */
 
@@ -423,4 +423,4 @@ export {
 } from './viewport';
 
 /** Semantic Strata package marker. */
-export const PACKAGE = '@strata/shared' as const;
+export const PACKAGE = '@varve/shared' as const;

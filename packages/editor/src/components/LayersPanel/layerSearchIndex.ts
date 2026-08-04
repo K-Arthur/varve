@@ -1,4 +1,4 @@
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 
 /**
  * Search index for layer names and properties.

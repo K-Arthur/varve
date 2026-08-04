@@ -7,7 +7,7 @@ import {
   type Document,
   getCurrentStateTimelineId,
   type SMRuntime,
-} from '@strata/scene';
+} from '@varve/scene';
 
 /** Get timeline id for the entry state of the first state machine on the document. */
 export function getPrimaryStateMachineTimelineId(doc: Document): string | null {

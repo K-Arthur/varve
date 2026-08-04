@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { Timeline } from '@strata/scene';
-import { addRasterMaskAsset, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
+import type { Timeline } from '@varve/scene';
+import { addRasterMaskAsset, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createVideoFrameRenderer,

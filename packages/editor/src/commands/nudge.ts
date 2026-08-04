@@ -1,4 +1,4 @@
-import type { NodeId, SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@varve/scene';
 
 export type NudgeDirection = 'up' | 'down' | 'left' | 'right';
 export type NudgeMode = 'standard' | 'large' | 'fine';

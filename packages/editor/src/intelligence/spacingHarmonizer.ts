@@ -17,8 +17,8 @@
  *  10. detectedBaseUnit = suggestedGap when confidence >= 0.8.
  */
 
-import type { Document, NodeId } from '@strata/scene';
-import type { Affine, Rect } from '@strata/shared';
+import type { Document, NodeId } from '@varve/scene';
+import type { Affine, Rect } from '@varve/shared';
 import { nodeWorldBounds } from '../scene/world';
 
 export interface SpacingAnalysis {

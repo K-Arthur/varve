@@ -1,18 +1,18 @@
-import type { PrototypeRuntime } from '@strata/prototype';
+import type { PrototypeRuntime } from '@varve/prototype';
 import {
   applyActionResult as protoApplyActionResult,
   getVariable as protoGetVar,
   handleEvent as protoHandleEvent,
   setVariable as protoSetVar,
-} from '@strata/prototype';
-import type { Document, SMRuntime } from '@strata/scene';
+} from '@varve/prototype';
+import type { Document, SMRuntime } from '@varve/scene';
 import {
   createStateMachineRuntime,
   getCurrentStateTimelineId,
   setActiveTimeline as setActiveTimelineDoc,
   triggerSMEvent,
   updateVariableInDocument,
-} from '@strata/scene';
+} from '@varve/scene';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -150,7 +150,7 @@ export function PrototypeProvider({
           if (actionResult.kind === 'navigateTo') {
             const transition = actionResult.transition;
             let smartValues:
-              | Record<string, import('@strata/prototype').SmartAnimateLayerValues>
+              | Record<string, import('@varve/prototype').SmartAnimateLayerValues>
               | undefined;
             if (transition.kind === 'smartAnimate') {
               const sa = computeSmartAnimateTransition(
@@ -253,7 +253,7 @@ export function PrototypeProvider({
 
   const getPrototypeScreens = useCallback(() => {
     return Object.values(state.document.nodes)
-      .filter((n): n is import('@strata/scene').FrameNode => n.kind === 'frame')
+      .filter((n): n is import('@varve/scene').FrameNode => n.kind === 'frame')
       .map((n) => ({ id: n.id, name: n.name }));
   }, [state.document.nodes]);
 

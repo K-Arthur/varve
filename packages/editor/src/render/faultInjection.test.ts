@@ -1,5 +1,5 @@
-import type { RenderItem } from '@strata/engine';
-import { getImageCache, resetImageCache } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
+import { getImageCache, resetImageCache } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resolvePressureBudgets } from '../canvas/memoryBudget';
 import { collectImageBitmaps } from './collectImageBitmaps';

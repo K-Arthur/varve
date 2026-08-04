@@ -19,7 +19,7 @@ await createBtn.waitFor({ state: 'visible', timeout: 15000 });
 await createBtn.click({ force: true, timeout: 15000 });
 await page.locator('.layers-panel').waitFor({ timeout: 20000 });
 const handle = await page.evaluate(() => {
-  const h = window.__strataPerf;
+  const h = window.__varvePerf;
   return h
     ? { hasHandle: true, frames: h.getFrames(5).length, enabled: !!h.getLast() }
     : { hasHandle: false };

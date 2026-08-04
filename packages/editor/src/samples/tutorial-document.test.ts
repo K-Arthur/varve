@@ -19,7 +19,7 @@ describe('tutorial-document', () => {
     const doc = createTutorialDocument();
     const frameNodes = doc.rootChildren
       .map((id) => doc.nodes[id])
-      .filter((n): n is import('@strata/scene').FrameNode => n?.kind === 'frame');
+      .filter((n): n is import('@varve/scene').FrameNode => n?.kind === 'frame');
     expect(frameNodes).toHaveLength(3);
 
     const names = frameNodes.map((f) => f.name);
@@ -32,14 +32,14 @@ describe('tutorial-document', () => {
     const doc = createTutorialDocument();
     const frameNodes = doc.rootChildren
       .map((id) => doc.nodes[id])
-      .filter((n): n is import('@strata/scene').FrameNode => n?.kind === 'frame');
+      .filter((n): n is import('@varve/scene').FrameNode => n?.kind === 'frame');
 
     for (const frame of frameNodes) {
       const childIds = frame.children;
       const textChildren = childIds.map((cid) => doc.nodes[cid]).filter((n) => n?.kind === 'text');
       expect(textChildren.length).toBeGreaterThanOrEqual(1);
       for (const t of textChildren) {
-        expect((t as import('@strata/scene').TextNode).text).toBeTruthy();
+        expect((t as import('@varve/scene').TextNode).text).toBeTruthy();
       }
     }
   });
@@ -48,14 +48,14 @@ describe('tutorial-document', () => {
     const doc = createTutorialDocument();
     const allNodes = Object.values(doc.nodes);
     const shapeNodes = allNodes.filter(
-      (n): n is import('@strata/scene').ShapeNode => n.kind === 'shape',
+      (n): n is import('@varve/scene').ShapeNode => n.kind === 'shape',
     );
     for (const s of shapeNodes) {
       expect(s.name).toBeTruthy();
       expect(s.name.length).toBeGreaterThan(5);
     }
     const textNodes = allNodes.filter(
-      (n): n is import('@strata/scene').TextNode => n.kind === 'text',
+      (n): n is import('@varve/scene').TextNode => n.kind === 'text',
     );
     for (const t of textNodes) {
       expect(t.name).toBeTruthy();

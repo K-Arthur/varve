@@ -3,8 +3,8 @@
  * project's thumbnail source, with preview and refresh controls.
  */
 
-import type { FileEntry, Platform, ThumbnailSourcePreference } from '@strata/platform';
-import { Button, Dialog, Icon } from '@strata/ui';
+import type { FileEntry, Platform, ThumbnailSourcePreference } from '@varve/platform';
+import { Button, Dialog, Icon } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { ThumbnailSourcePicker } from './ThumbnailSourcePicker';
 
@@ -53,7 +53,7 @@ export function ThumbnailInfoDialog({
         return;
       }
 
-      const { renderThumbnail } = await import('@strata/engine');
+      const { renderThumbnail } = await import('@varve/engine');
       const doc = JSON.parse(docJson);
       const dataUrl = await renderThumbnail(doc);
       if (dataUrl) {

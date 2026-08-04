@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { BUILTIN_PRESET_GROUPS } from '@strata/shared';
+import { BUILTIN_PRESET_GROUPS } from '@varve/shared';
 import { useState } from 'react';
 import { PresetPicker } from './PresetPicker';
 

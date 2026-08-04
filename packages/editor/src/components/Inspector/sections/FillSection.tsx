@@ -11,7 +11,7 @@
  *
  * Research basis: Figma/Sketch fill panel; APG Disclosure, Listbox, Slider.
  */
-import { complementaryHarmony } from '@strata/engine';
+import { complementaryHarmony } from '@varve/engine';
 import type {
   BlendMode,
   Fill,
@@ -20,7 +20,7 @@ import type {
   ImageFillData,
   PatternFillData,
   SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   createEmbeddedAsset,
   gradientFill,
@@ -28,9 +28,9 @@ import {
   patternFill,
   resolveNodeFills,
   solidFill,
-} from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
-import { Icon, Select, Tooltip } from '@strata/ui';
+} from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
+import { Icon, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -357,12 +357,12 @@ function FillRow({
             fillIndex={index}
             fontSize={
               nodes.length === 1 && nodes[0]?.kind === 'text'
-                ? (nodes[0] as import('@strata/scene').TextNode).fontSize
+                ? (nodes[0] as import('@varve/scene').TextNode).fontSize
                 : undefined
             }
             fontWeight={
               nodes.length === 1 && nodes[0]?.kind === 'text'
-                ? (nodes[0] as import('@strata/scene').TextNode).fontWeight
+                ? (nodes[0] as import('@varve/scene').TextNode).fontWeight
                 : undefined
             }
           />

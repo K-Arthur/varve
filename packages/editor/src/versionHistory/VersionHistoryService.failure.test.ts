@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { createMemoryPlatform } from '@strata/platform';
+import { createMemoryPlatform } from '@varve/platform';
 /**
  * Failure injection tests for VersionHistoryService.
  *
@@ -8,7 +8,7 @@ import { createMemoryPlatform } from '@strata/platform';
  * and behavior at storage boundaries. These verify the system degrades
  * gracefully rather than losing data or corrupting history.
  */
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { VersionHistoryService } from './VersionHistoryService';
 

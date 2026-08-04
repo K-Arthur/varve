@@ -6,7 +6,7 @@ This guide provides practical patterns and best practices for using the Strata t
 
 ### Basic Tooltip
 ```tsx
-import { Tooltip } from '@strata/ui';
+import { Tooltip } from '@varve/ui';
 
 <Tooltip label="Save your document">
   <button>Save</button>
@@ -15,8 +15,8 @@ import { Tooltip } from '@strata/ui';
 
 ### Tooltip with Shortcut
 ```tsx
-import { Tooltip } from '@strata/ui';
-import { toolShortcutLabel } from '@strata/editor';
+import { Tooltip } from '@varve/ui';
+import { toolShortcutLabel } from '@varve/editor';
 
 <Tooltip label="Save" shortcut={toolShortcutLabel('save')}>
   <button>Save</button>
@@ -25,7 +25,7 @@ import { toolShortcutLabel } from '@strata/editor';
 
 ### Disabled Control with Explanation
 ```tsx
-import { Tooltip } from '@strata/ui';
+import { Tooltip } from '@varve/ui';
 
 <Tooltip label="Boolean operation" disabledReason="Select 2+ shapes for boolean">
   <button disabled>Boolean</button>
@@ -104,7 +104,7 @@ For workspace-mode shortcuts use the registry-backed helper (the historical
 `Ctrl+Shift+1..9`):
 
 ```tsx
-import { workspaceShortcutLabel } from '@strata/editor';
+import { workspaceShortcutLabel } from '@varve/editor';
 <Tooltip label="Design workspace" shortcut={workspaceShortcutLabel('design')}>
   ...
 </Tooltip>
@@ -233,7 +233,7 @@ Control tooltip placement:
 For context management in complex components:
 
 ```tsx
-import { TooltipProvider } from '@strata/ui';
+import { TooltipProvider } from '@varve/ui';
 
 <TooltipProvider>
   <YourComponent />
@@ -397,7 +397,7 @@ test('tooltip interaction', async ({ page }) => {
 
 ## Migration Status
 
-As of 2026-08-01 the home app, the editor, and the `@strata/ui` package all use
+As of 2026-08-01 the home app, the editor, and the `@varve/ui` package all use
 the shared `Tooltip` component — **no new native `title` tooltips should be
 added**. When you touch a control that still has a `title` attribute, migrate
 it in place:

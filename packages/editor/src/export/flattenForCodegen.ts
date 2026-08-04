@@ -10,10 +10,10 @@
  * Non-rasterized nodes remain in the IR for native code output.
  */
 
-import type { FlattenInfo, IRDocument, RasterAsset } from '@strata/codegen';
-import type { Engine } from '@strata/engine';
-import { createRasterSurface, encodeRasterSurface } from '@strata/engine';
-import type { Document, SceneNode } from '@strata/scene';
+import type { FlattenInfo, IRDocument, RasterAsset } from '@varve/codegen';
+import type { Engine } from '@varve/engine';
+import { createRasterSurface, encodeRasterSurface } from '@varve/engine';
+import type { Document, SceneNode } from '@varve/scene';
 import { nodeWorldBounds } from '../scene/world';
 
 export interface CodegenFlattenOptions {
@@ -126,13 +126,13 @@ export async function flattenIrForCodegen(
         const replayFn = (
           engine as unknown as {
             replayIr?: (
-              target: import('@strata/engine').ReplayTarget,
-              ir: import('@strata/engine').RenderItem[],
+              target: import('@varve/engine').ReplayTarget,
+              ir: import('@varve/engine').RenderItem[],
             ) => void;
           }
         ).replayIr;
         if (replayFn) {
-          replayFn(surface as unknown as import('@strata/engine').ReplayTarget, irResult);
+          replayFn(surface as unknown as import('@varve/engine').ReplayTarget, irResult);
         }
       }
     } catch {
