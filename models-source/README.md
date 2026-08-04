@@ -1,6 +1,6 @@
 # Model source files (not shipped)
 
-These are the large ONNX models Strata downloads **on demand** rather than
+These are the large ONNX models Varve downloads **on demand** rather than
 bundling. They live here, outside `apps/desktop/public/`, because everything in
 `public/` is copied into `dist/` by Vite and embedded in the installer — which
 is how `ddcolor.onnx` alone nearly added a gigabyte to every download.

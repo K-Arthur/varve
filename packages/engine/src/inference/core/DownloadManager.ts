@@ -18,7 +18,8 @@ interface ActiveDownload {
 type StateListener = (modelId: string, state: ModelState) => void;
 type DownloadListener = (progress: DownloadProgress) => void;
 
-const STATE_PREFIX = 'strata-model-state-';
+const STATE_PREFIX = 'varve-model-state-';
+const LEGACY_STATE_PREFIX = 'strata-model-state-';
 
 export class DownloadManager {
   private activeDownloads = new Map<string, ActiveDownload>();
@@ -669,6 +670,7 @@ export class DownloadManager {
   private persistState(modelId: string, state: ModelState): void {
     try {
       localStorage.setItem(`${STATE_PREFIX}${modelId}`, state);
+      localStorage.removeItem(`${LEGACY_STATE_PREFIX}${modelId}`);
     } catch {}
   }
 

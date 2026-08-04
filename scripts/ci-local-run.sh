@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Strata local GitHub Actions runner wrapper.
+# Varve local GitHub Actions runner wrapper.
 # Research basis: nektos/act (https://github.com/nektos/act) with catthehacker images.
 #
 # Usage:

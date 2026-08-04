@@ -2,6 +2,7 @@
  * Font storage — persists downloaded font bytes to the application
  * font cache so they survive across sessions.
  */
+import { migrateLegacyIndexedDb } from '@varve/platform';
 
 export interface FontStorageMetadata {
   providerId: string;
@@ -22,7 +23,7 @@ export async function storeFont(
   if (typeof indexedDB === 'undefined') return;
 
   try {
-    const open = indexedDB.open('strata-font-storage', 1);
+    const open = indexedDB.open('varve-font-storage', 1);
     open.onupgradeneeded = () => {
       const db = open.result;
       if (!db.objectStoreNames.contains('fonts')) {
@@ -31,18 +32,22 @@ export async function storeFont(
     };
     await new Promise<void>((resolve, reject) => {
       open.onsuccess = () => {
-        const db = open.result;
-        const tx = db.transaction('fonts', 'readwrite');
-        const store = tx.objectStore('fonts');
-        store.put({ familyName, data, metadata, storedAt: Date.now() });
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => {
-          db.close();
-          reject(tx.error);
-        };
+        void migrateLegacyIndexedDb('strata-font-storage', 'varve-font-storage', ['fonts']).then(
+          () => {
+            const db = open.result;
+            const tx = db.transaction('fonts', 'readwrite');
+            const store = tx.objectStore('fonts');
+            store.put({ familyName, data, metadata, storedAt: Date.now() });
+            tx.oncomplete = () => {
+              db.close();
+              resolve();
+            };
+            tx.onerror = () => {
+              db.close();
+              reject(tx.error);
+            };
+          },
+        );
       };
       open.onerror = () => reject(open.error);
     });
@@ -60,7 +65,8 @@ export async function getStoredFont(
   if (typeof indexedDB === 'undefined') return null;
 
   try {
-    const open = indexedDB.open('strata-font-storage', 1);
+    const open = indexedDB.open('varve-font-storage', 1);
+    await migrateLegacyIndexedDb('strata-font-storage', 'varve-font-storage', ['fonts']);
     const result = await new Promise<{ data: ArrayBuffer; metadata: FontStorageMetadata } | null>(
       (resolve, reject) => {
         open.onsuccess = () => {
@@ -100,7 +106,7 @@ export async function listStoredFonts(): Promise<
   if (typeof indexedDB === 'undefined') return [];
 
   try {
-    const open = indexedDB.open('strata-font-storage', 1);
+    const open = indexedDB.open('varve-font-storage', 1);
     return await new Promise((resolve, reject) => {
       open.onsuccess = () => {
         const db = open.result;
@@ -135,26 +141,30 @@ export async function removeStoredFont(familyName: string): Promise<void> {
   if (typeof indexedDB === 'undefined') return;
 
   try {
-    const open = indexedDB.open('strata-font-storage', 1);
+    const open = indexedDB.open('varve-font-storage', 1);
     await new Promise<void>((resolve, reject) => {
       open.onsuccess = () => {
-        const db = open.result;
-        if (!db.objectStoreNames.contains('fonts')) {
-          db.close();
-          resolve();
-          return;
-        }
-        const tx = db.transaction('fonts', 'readwrite');
-        const store = tx.objectStore('fonts');
-        store.delete(familyName);
-        tx.oncomplete = () => {
-          db.close();
-          resolve();
-        };
-        tx.onerror = () => {
-          db.close();
-          reject(tx.error);
-        };
+        void migrateLegacyIndexedDb('strata-font-storage', 'varve-font-storage', ['fonts']).then(
+          () => {
+            const db = open.result;
+            if (!db.objectStoreNames.contains('fonts')) {
+              db.close();
+              resolve();
+              return;
+            }
+            const tx = db.transaction('fonts', 'readwrite');
+            const store = tx.objectStore('fonts');
+            store.delete(familyName);
+            tx.oncomplete = () => {
+              db.close();
+              resolve();
+            };
+            tx.onerror = () => {
+              db.close();
+              reject(tx.error);
+            };
+          },
+        );
       };
       open.onerror = () => reject(open.error);
     });

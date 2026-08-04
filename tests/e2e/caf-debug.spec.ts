@@ -137,9 +137,9 @@ test.describe('CAF debug', () => {
     if (cafBtnCount > 0) {
       await cafBtn.first().click();
       await page
-        .locator('dialog.strata-dialog--caf[open]')
+        .locator('dialog.varve-dialog--caf[open]')
         .waitFor({ state: 'visible', timeout: 5000 });
-      await expect(page.locator('dialog.strata-dialog--caf[open]')).toBeVisible();
+      await expect(page.locator('dialog.varve-dialog--caf[open]')).toBeVisible();
       console.log('CAF dialog opened successfully!');
     } else {
       // Try direct approach: evaluate openCafDialog

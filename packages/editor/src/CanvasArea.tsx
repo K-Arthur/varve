@@ -794,14 +794,14 @@ export function CanvasArea({
           }
         } else if (msg.type === 'error' && !workerFailedRef.current) {
           workerFailedRef.current = true;
-          console.warn('[Strata] Render worker failed, falling back to main-thread:', msg.message);
+          console.warn('[Varve] Render worker failed, falling back to main-thread:', msg.message);
           requestContentDrawRef.current?.('worker-error', 'backing-store-recovery');
         }
       },
       () => {
         if (!workerFailedRef.current) {
           workerFailedRef.current = true;
-          console.warn('[Strata] Render worker stopped permanently; using main-thread Canvas 2D.');
+          console.warn('[Varve] Render worker stopped permanently; using main-thread Canvas 2D.');
           requestContentDrawRef.current?.('worker-stop', 'backing-store-recovery');
         }
       },

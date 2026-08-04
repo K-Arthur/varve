@@ -37,7 +37,7 @@ const FETCH_TIMEOUT_MS = 120_000;
 const ORT_VERSION = '1.27.1';
 
 /**
- * One entry per platform-arch pair Strata's desktop build targets.
+ * One entry per platform-arch pair Varve's desktop build targets.
  * `dir` matches `format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)`
  * in Rust so lib.rs can compute the expected path without a lookup table.
  * `archivePath` is the file to extract from the downloaded archive;
