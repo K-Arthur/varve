@@ -13,9 +13,9 @@ the planned milestones.
 | 1. Audit, ADRs 0017-0046, baselines | Landed | `4102c5ba` (restored `666ddb5e`) |
 | 2. Collision-resistant persistent identity | Landed | `ef16b31f` (restored `7c5ee704`) |
 | 3. Canonical serialization + SHA-256 | Landed | `04722221` |
-| 4. Typed operation pipeline (core) | Landed | `054af3b1` |
-| 5. Immutable log + replay + storage | Next | — |
-| 6. Snapshots + recovery | Next | — |
+| 4. Typed operation pipeline (core) | Landed | `054af3b1` (restored `7c4cde64`) |
+| 5. Immutable log + replay + storage | Landed | `@varve/history` (M5+M6 commit) |
+| 6. Snapshots + recovery | Landed | `@varve/history` (M5+M6 commit) |
 | 7. Persistent undo/redo | Next | — |
 | 8. History panel | Next | — |
 | 9. Checkpoints + branches | Next | — |
@@ -29,6 +29,38 @@ the planned milestones.
 | 17. Hardening | Next | — |
 
 Tracker: `docs/plans/persistent-history-progress.md`.
+
+## `@varve/history` package (M5+M6, 2026-08-05)
+
+The revision-history core lives in a dedicated package (`packages/history`),
+per the plan's package ownership:
+
+- `log.ts` — append-only, checksummed (SHA-256) operation segments;
+  contiguous logical sequences; JSON-serializable for every backend.
+- `store.ts` — backend-agnostic `HistoryStore` contract (ADR-0020) with an
+  atomic `commitRevision` (revision + branch head + checkpoint commit
+  together — a branch is never observed pointing at an incomplete
+  revision); memory implementation included; IndexedDB/SQLite backends are
+  platform follow-ups.
+- `revisions.ts` — immutable `RevisionRecord` DAG (genesis/one-parent/two
+  parents, ADR-0022), genesis creation (always snapshotted), checkpoint and
+  branch-head helpers, graph validation.
+- `replay.ts` — deterministic replay from the nearest snapshotted ancestor
+  over half-open log ranges, hash verification (`replayAndVerify`),
+  `applyStoredOperations`, `loadDocumentAt`.
+- `snapshots.ts` — content-addressed snapshots keyed by canonical SHA-256
+  (dedupe), threshold-based `SnapshotPolicy`/`SnapshotScheduler`
+  (operation count, replayed bytes, replay time, checkpoint, shutdown).
+- `recovery.ts` — `recoverTail` (corrupt-tail detection → truncation →
+  last-known-good revision → branch-head rewind) and `validateHistory`
+  (segments, DAG invariants, ref resolution, replay-based hash checks).
+- `legacyImport.ts` — ADR-0024 convergence: legacy `VersionEntry` records
+  import as parentless snapshot revisions (no fabricated lineage) with
+  named/pinned versions becoming checkpoints.
+- `entityIndex.ts` — rebuildable entity → operation index.
+
+Fault-injection coverage: corrupt tail segments, dangling branch heads,
+hash mismatch, mid-history snapshots, deterministic replay.
 
 ## Normative contracts already in effect
 

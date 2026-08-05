@@ -360,6 +360,12 @@ importers:
 
   packages/help: {}
 
+  packages/history:
+    dependencies:
+      '@varve/scene':
+        specifier: workspace:*
+        version: link:../scene
+
   packages/home:
     dependencies:
       '@dnd-kit/core':
