@@ -137,6 +137,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.object.addClearSpaceGuides': 'Generate Clear-Space Guides…',
 
   // ── Object ─────────────────────────────────────────────────────────────────
+  'menu.object.path': 'Path',
   'menu.object.group': 'Group Selection',
   'menu.object.ungroup': 'Ungroup',
   'menu.object.flattenSelection': 'Flatten',
