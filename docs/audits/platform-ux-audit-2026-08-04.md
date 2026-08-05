@@ -180,3 +180,18 @@ All Phase 2 items landed on master with verification evidence:
 - `pnpm test`: 12038 passed; the 19 failures are 14 user-WIP crash tests (untracked `packages/editor/src/crash/`) and 5 load-flakes — FloatingToolbar 5/5, layers10k 10/10, menuPerf 18/18 all pass in isolation.
 - `pnpm audit:tokens` 123/123, `pnpm audit:emoji` clean, architecture audit PASS (no layer violations; hub-file budget warnings come from the user's crash-recovery commit, which added imports, not from this audit's changes).
 - Not yet performed: live Playwright axe scans against the running app, keyboard-only walkthrough, screen-reader passes, real-device touch (no hardware in environment).
+
+## 7. Live axe scan of the running app (2026-08-04, addendum)
+
+Ran axe-core (wcag2a/2aa/21a/21aa) against the live Vite app via Playwright:
+
+| Surface | Result |
+|---|---|
+| Home main view (`.varve-home`) | 1 serious: color-contrast — `.sidebar-item--active` (accent-primary on accent-subtle), `.perf-profile__label` (text-muted). **Attributed to the in-flight theme-token work (uncommitted)**, not to this audit. |
+| Sidebar nav | 1 serious: color-contrast (same token pairing) |
+| New design dialog | 0 violations |
+| Editor (post-create) | 3 serious, all pre-existing: `aria-progressbar-name` (onboarding checklist), color-contrast (`.editor-status__score-badge`, "Toggle artboard ruler origin"), `nested-interactive` (`.editor-tabs__tab` div containing its close button — documented pattern, TabStrip.tsx:13-14) |
+
+Zero violations attributable to Phase 2 changes (skip link, `<main>`, focus rings, Select, panels, any-hover rules all clean).
+
+**E2E spec status**: `tests/e2e/home/a11y.spec.ts` and `layers/axe.spec.ts` currently fail against the working tree — (a) the uncommitted NewDesignDialog rename changed the create button label ("Create" → "Create design"), breaking the `/^create$/i` selectors in the e2e nav helpers; (b) the contrast violations above. Both resolve or need spec updates when the theme/rename work lands. The layers spec's `mouse.move` timeout is load-related (machine was under full parallel load).
