@@ -1,0 +1,20 @@
+{
+  "name": "@varve/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "DTCG 2025.10 design-token standards engine: source-aware parsing, codecs, validation, source-preserving serialization, reference graph, resolver, semantic diff, three-way merge, adapter contracts. Zero React, zero scene imports.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/tokens"
+  },
+  "dependencies": {},
+  "license": "FSL-1.1-MIT"
+}
