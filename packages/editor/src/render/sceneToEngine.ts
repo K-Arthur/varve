@@ -13,7 +13,14 @@
 import {
   adjustmentsToFilters,
   applyStyleOverrides,
+  buildWarpEvaluation,
+  createClusterMeasure,
+  DEFAULT_WARP_QUALITY,
   type SceneNode as EngineNode,
+  hasLiveWarps,
+  type WarpQualitySettings,
+  warpShapeToPath,
+  warpTextToClusterAdjustments,
 } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import {
@@ -21,19 +28,27 @@ import {
   buildAllVariantCaches,
   createVariableStore,
   getEffectiveNode,
+  nodeLocalBoundsSource,
   resolveAllStyles,
   resolveNodePaints,
   resolveRasterMaskAsset,
+  warpsOnNode,
 } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { maskRenderUrl } from '../backgroundRemoval/maskRenderCache';
 import { nodeWorldTransform } from '../scene/world';
+import { compileTableToEngineNode } from './tableCompile';
 
 export interface SceneNodeConversionOptions {
   /** Preview-only bypass for comparing a background-removal source image. */
   showOriginalBackgroundNodeId?: string | null;
   /** Use the bounded interactive proxy while preserving full-resolution exports. */
   useMaskRenderProxy?: boolean;
+  /**
+   * Evaluation quality for live warp modifiers. Defaults to the node's
+   * warpSettings.quality (interactive). Export callers pass 'export'.
+   */
+  warpQuality?: WarpQualitySettings;
 }
 
 /**
@@ -86,9 +101,13 @@ export function sceneNodeToEngineNode(
     const shapeless = 'shapeless' in node && node.shapeless === true;
     const nativeRasterMask = doc ? resolveRasterMaskAsset(doc, node) : null;
     const alphaMask = nativeRasterMask?.dataUrl ?? node.backgroundRemoval?.maskDataUrl;
+    // V2.16+: live non-destructive warp — evaluate the source geometry into
+    // an exact path (source-local) once per node change; the object transform
+    // is applied by the caller on top. Disabled/absent stacks pass through.
+    const shape = evaluateShapeWarp(node, options);
     return {
       ...base,
-      shape: node.shape,
+      shape,
       shapeless: shapeless || undefined,
       cornerRadius: node.cornerRadius,
       cornerSmoothing: node.cornerSmoothing !== undefined ? node.cornerSmoothing / 100 : undefined,
@@ -156,7 +175,7 @@ export function sceneNodeToEngineNode(
       direction: node.direction ?? 'auto',
       language: node.language,
       kerningMode: node.kerningMode,
-      glyphAdjustments: node.glyphAdjustments,
+      ...deriveTextWarp(node, width, height, options),
       pairAdjustments: node.pairAdjustments,
       w: width,
       h: height,
@@ -182,6 +201,11 @@ export function sceneNodeToEngineNode(
       cornerRadius: node.cornerRadius,
       cornerSmoothing: node.cornerSmoothing !== undefined ? node.cornerSmoothing / 100 : undefined,
     };
+  }
+
+  if (node.kind === 'table') {
+    // V2.15+: native tables compile to a single engine item (ADR-0016 D3).
+    return compileTableToEngineNode(node, { width: node.w ?? 480, height: node.h ?? 240 });
   }
 
   if (node.kind === 'adjustment') {
@@ -271,4 +295,79 @@ export function flattenSceneToEngine(
 
   for (const rootId of rootIds) visit(rootId);
   return { ids, nodes };
+}
+
+// ── live warp evaluation (leaves) ───────────────────────────────────────────
+
+function warpQualityFor(node: SceneNode, options: SceneNodeConversionOptions): WarpQualitySettings {
+  if (options.warpQuality) return options.warpQuality;
+  const settings = (node as { warpSettings?: { quality?: WarpQualitySettings } }).warpSettings;
+  return settings?.quality ?? DEFAULT_WARP_QUALITY;
+}
+
+/** Evaluate a shape node's warp stack into an exact path (source-local). */
+function evaluateShapeWarp(
+  node: Extract<SceneNode, { kind: 'shape' }>,
+  options: SceneNodeConversionOptions,
+): import('@varve/engine').Shape {
+  const warps = warpsOnNode(node);
+  if (!hasLiveWarps(warps)) return node.shape;
+  const sourceBounds = nodeLocalBoundsSource(node);
+  if (!sourceBounds) return node.shape;
+  const { shape } = warpShapeToPath(node.shape, warps, sourceBounds, {
+    settings: (node as { warpSettings?: import('@varve/engine').WarpSettings }).warpSettings,
+    quality: warpQualityFor(node, options),
+  });
+  return shape;
+}
+
+/**
+ * Derive per-cluster glyph adjustments for a text node's live warp (text
+ * stays text). Returns `{ glyphAdjustments }` with the original adjustments
+ * when there is no warp or the text cannot be warp-rendered.
+ */
+function deriveTextWarp(
+  node: Extract<SceneNode, { kind: 'text' }>,
+  width: number,
+  height: number,
+  _options: SceneNodeConversionOptions,
+): { glyphAdjustments?: Record<number, import('@varve/engine').GlyphAdjustmentIR> } {
+  const warps = warpsOnNode(node);
+  if (!hasLiveWarps(warps)) {
+    return node.glyphAdjustments ? { glyphAdjustments: node.glyphAdjustments } : {};
+  }
+  if (node.richText || node.textMode === 'path') {
+    return node.glyphAdjustments ? { glyphAdjustments: node.glyphAdjustments } : {};
+  }
+  const sourceBounds = nodeLocalBoundsSource(node);
+  if (!sourceBounds)
+    return node.glyphAdjustments ? { glyphAdjustments: node.glyphAdjustments } : {};
+  const settings = (node as { warpSettings?: import('@varve/engine').WarpSettings }).warpSettings;
+  const evalWarp = buildWarpEvaluation(warps, sourceBounds, settings ? { settings } : {});
+  const result = warpTextToClusterAdjustments(
+    {
+      text: node.text,
+      fontSize: node.fontSize ?? 14,
+      fontFamily: node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
+      fontWeight: node.fontWeight,
+      fontStyle: node.fontStyle,
+      letterSpacing: node.letterSpacing,
+      tracking: node.tracking,
+      w: width,
+      h: height,
+      textAlign: node.textAlign,
+      direction: node.direction,
+      measure: createClusterMeasure(
+        node.fontSize ?? 14,
+        node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
+      ),
+    },
+    evalWarp,
+  );
+  if (result.unsupported) {
+    // Keep the text unwarped rather than silently mis-render it; the
+    // Inspector surfaces the reason via `textWarpUnsupportedReason`.
+    return node.glyphAdjustments ? { glyphAdjustments: node.glyphAdjustments } : {};
+  }
+  return Object.keys(result.adjustments).length > 0 ? { glyphAdjustments: result.adjustments } : {};
 }
