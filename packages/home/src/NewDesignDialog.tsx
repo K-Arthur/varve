@@ -1,4 +1,5 @@
 import type { TemplateLibrary } from '@varve/platform';
+import type { NewDocumentRequest } from '@varve/scene';
 import {
   BUILTIN_PRESET_GROUPS,
   type ColorMode,
@@ -8,7 +9,6 @@ import {
   type PresetBleed,
   simplifyRatio,
 } from '@varve/shared';
-import type { NewDocumentRequest } from '@varve/scene';
 import {
   Button,
   Checkbox,
@@ -66,9 +66,8 @@ const colorModeOptions: SegmentedOption<ColorMode>[] = [
   { value: 'grayscale', label: 'Grayscale' },
 ];
 
-/** Last valid custom-frame settings, kept across dialog opens within a
- *  session so repeat creation doesn't force re-entry. */
-let lastCustomFrame: { width: number; height: number; unit: DocumentUnit } = {
+/** Default custom-frame settings shown on first open of the dialog. */
+const defaultCustomFrame: { width: number; height: number; unit: DocumentUnit } = {
   width: 1920,
   height: 1080,
   unit: 'px',
@@ -107,12 +106,12 @@ export function NewDesignDialog({
   const [startMode, setStartMode] = useState<StartMode>('empty');
   const [frameSource, setFrameSource] = useState<FrameSource>('preset');
   const [selectedPreset, setSelectedPreset] = useState<Preset>(() => defaultPreset());
-  const [customW, setCustomW] = useState(lastCustomFrame.width);
-  const [customH, setCustomH] = useState(lastCustomFrame.height);
-  const [unit, setUnit] = useState<DocumentUnit>(lastCustomFrame.unit);
+  const [customW, setCustomW] = useState(defaultCustomFrame.width);
+  const [customH, setCustomH] = useState(defaultCustomFrame.height);
+  const [unit, setUnit] = useState<DocumentUnit>(defaultCustomFrame.unit);
   const [ratioLocked, setRatioLocked] = useState(false);
   const [lockedRatio, setLockedRatio] = useState(() =>
-    simplifyRatio(lastCustomFrame.width, lastCustomFrame.height),
+    simplifyRatio(defaultCustomFrame.width, defaultCustomFrame.height),
   );
   const [intent, setIntent] = useState<DocumentIntent>('screen');
   const [colorMode, setColorMode] = useState<ColorMode>('rgb');
@@ -195,6 +194,7 @@ export function NewDesignDialog({
     colorMode,
     bleed,
     dpi,
+    onCreate,
   ]);
 
   const handleTemplateSelect = useCallback(
@@ -399,17 +399,21 @@ export function NewDesignDialog({
                 ['template', 'Template', 'Start from a template with ready-made content.'],
               ] as const
             ).map(([mode, label, hint]) => (
-              <button
+              <label
                 key={mode}
-                type="button"
-                role="radio"
-                aria-checked={startMode === mode}
                 className={`new-design__start-card${startMode === mode ? ' new-design__start-card--active' : ''}`}
-                onClick={() => setStartMode(mode)}
               >
+                <input
+                  type="radio"
+                  name="new-design-start"
+                  value={mode}
+                  checked={startMode === mode}
+                  onChange={() => setStartMode(mode)}
+                  className="new-design__start-card-input"
+                />
                 <span className="new-design__start-card-title">{label}</span>
                 <span className="new-design__start-card-hint">{hint}</span>
-              </button>
+              </label>
             ))}
           </div>
         </fieldset>

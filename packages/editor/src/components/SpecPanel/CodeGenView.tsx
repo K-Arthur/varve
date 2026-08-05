@@ -113,6 +113,7 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
               <pre>
                 <code>
                   {highlightedLines.map((html, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: line-numbered code; position in the rendered block is the identity (index = line number)
                     <span key={i} className="spec-codegen__line">
                       <span className="spec-codegen__line-num">
                         {String(i + 1).padStart(String(lineCount).length, ' ')}

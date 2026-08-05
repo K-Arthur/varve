@@ -181,6 +181,7 @@ export function PaletteSection() {
               </p>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                 {extraction.result.colors.map((color, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: extracted swatch colors can repeat; swatches are stateless
                   <Tooltip key={`pal-${i}`} label={managedColorToCss(color)}>
                     <div
                       style={{ ...swatchStyle, background: managedColorToCss(color) }}

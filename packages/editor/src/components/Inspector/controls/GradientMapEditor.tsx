@@ -238,6 +238,7 @@ function ChannelBar({
       >
         {sorted.map((stop, i) => (
           <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
             key={`ch-${label}-${i}`}
             type="button"
             aria-label={`${label} stop ${i + 1} at ${Math.round(stop.position * 100)}%`}
@@ -397,6 +398,7 @@ function OpacityStopBar({
       >
         {sorted.map((stop, i) => (
           <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
             key={`os-stop-${i}-${autoId}`}
             type="button"
             aria-label={`Opacity stop ${i + 1} at ${Math.round(stop.position * 100)}%, opacity ${Math.round(stop.opacity * 100)}%`}
@@ -627,6 +629,7 @@ export function GradientMapEditor({
       >
         {stops.map((stop, i) => (
           <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
             key={`gm-stop-${i}-${autoId}`}
             type="button"
             aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%`}

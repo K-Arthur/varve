@@ -125,9 +125,9 @@ export function StateMachineSection() {
         {/* Validation warnings */}
         {validation && validation.issues.length > 0 && (
           <div className="insp-sm__warnings" role="status" aria-live="polite">
-            {validation.issues.slice(0, 5).map((issue, idx) => (
+            {validation.issues.slice(0, 5).map((issue) => (
               <div
-                key={`${issue.code}-${idx}`}
+                key={`${issue.code}-${issue.stateId ?? ''}-${issue.transitionId ?? ''}`}
                 className={`insp-sm__warning insp-sm__warning--${issue.severity}`}
               >
                 <Icon
