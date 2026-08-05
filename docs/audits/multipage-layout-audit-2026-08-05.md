@@ -8,6 +8,12 @@ unstaged worktree changes preserved untouched).
 Scope: page model, spread topology, master pages, text chains, canvas
 architecture, print geometry, frontend, persistence/history/diff/merge/collab.
 
+> **Implementation status (2026-08-05, branch `feat/multipage-layout`):**
+> Milestones 1-5 (scene foundation) have landed — see
+> `docs/plans/multipage-layout-progress.md` for the tracker, ADRs 0122-0154,
+> and the commit hashes in this file's appendix. Audit findings below remain
+> the baseline the program is measured against.
+
 ## 1. Executive summary
 
 Varve already has a **real page model** (per-page width/height, fractional
