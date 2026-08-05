@@ -42,6 +42,7 @@ const MODE_OPTIONS = [
   { value: 'monochrome', label: 'B&W' },
   { value: 'grayscale', label: 'Grayscale' },
   { value: 'color', label: 'Color' },
+  { value: 'pixel-art', label: 'Pixel art' },
 ] as const;
 
 const TRACE_MODE_OPTIONS = [
@@ -55,6 +56,21 @@ const FOREGROUND_OPTIONS = [
 ] as const;
 
 type PreviewStatus = 'idle' | 'running' | 'ready' | 'error';
+
+/** Complexity tiers used for the pre-commit estimate (paths x points). */
+const COMPLEXITY_TIERS = [
+  { label: 'Low', max: 5_000 },
+  { label: 'Moderate', max: 25_000 },
+  { label: 'High', max: 100_000 },
+] as const;
+
+/** Neutral complexity label for the result estimate (Low/Moderate/High/Extreme). */
+function complexityLabel(complexity: number): string {
+  for (const tier of COMPLEXITY_TIERS) {
+    if (complexity <= tier.max) return tier.label;
+  }
+  return 'Extreme';
+}
 
 interface PreviewState {
   status: PreviewStatus;
@@ -226,7 +242,13 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
   );
 
   const patch = useCallback((patch: Partial<VectorizationSettings>) => {
-    setSettings((prev) => ({ ...prev, ...patch, presetId: null }));
+    setSettings((prev) => {
+      const next = { ...prev, ...patch, presetId: null };
+      // Pixel-art is an outline-free mode: force silhouette so the trace
+      // cannot silently degrade to a filled skeleton.
+      if (patch.mode === 'pixel-art') next.traceMode = 'silhouette';
+      return next;
+    });
   }, []);
 
   const patchPrep = useCallback((patch: Partial<VectorizationSettings['prep']>) => {
@@ -242,6 +264,29 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
     node !== null && Math.max(node.shape.kind === 'rect' ? node.shape.w : 0, 0) > 2048;
   const previewIsDownsampled =
     node !== null && Math.max(node.shape.kind === 'rect' ? node.shape.w : 0, 0) > MAX_PREVIEW_DIM;
+
+  // Capability gating: centerline is native-only. On web builds the option
+  // stays visible but disabled with an honest reason instead of silently
+  // producing filled silhouettes.
+  const [centerlineCapability, setCenterlineCapability] = useState<{
+    available: boolean;
+    reason?: string;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    import('@varve/engine')
+      .then(({ traceCapabilityReport }) => traceCapabilityReport({ traceMode: 'centerline' }))
+      .then((report) => {
+        if (!cancelled) setCenterlineCapability(report);
+      })
+      .catch(() => {
+        if (!cancelled) setCenterlineCapability({ available: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const centerlineUnavailable = centerlineCapability !== null && !centerlineCapability.available;
 
   const controlPanel = (
     <div className="vectorize__body">
@@ -264,7 +309,14 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
         value={settings.traceMode}
         options={TRACE_MODE_OPTIONS}
         onChange={(value) => patch({ traceMode: value })}
+        disabled={settings.mode === 'pixel-art'}
       />
+
+      {settings.traceMode === 'centerline' && centerlineUnavailable && (
+        <p className="vectorize__warning" role="alert">
+          {centerlineCapability?.reason ?? 'Centerline tracing is unavailable on this platform.'}
+        </p>
+      )}
 
       <Slider
         {...sliderProps('Threshold', settings.threshold, 1, 254)}
@@ -377,6 +429,12 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
 
   const diagnostics = preview.diagnostics;
 
+  const complexity = diagnostics ? complexityLabel(diagnostics.complexity) : null;
+  const complexityWarning =
+    diagnostics && diagnostics.complexity > COMPLEXITY_TIERS[2]!.max
+      ? `This trace is estimated to be extremely complex (${diagnostics.pathCount} paths). It may be slow to edit and export; consider raising the minimum region area or lowering the color count.`
+      : null;
+
   return (
     <div className="vectorize__body">
       <SegmentedControl
@@ -391,6 +449,19 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
       {validation.warnings.length > 0 && (
         <div className="vectorize__warning" role="alert">
           {validation.warnings.join(' ')}
+        </div>
+      )}
+
+      {settings.mode === 'pixel-art' && (
+        <p className="vectorize__muted" role="note">
+          Pixel art keeps hard pixel boundaries: no anti-alias smoothing, no curve fitting.
+          Contiguous regions of the same color become single polygons.
+        </p>
+      )}
+
+      {complexityWarning && (
+        <div className="vectorize__warning" role="alert">
+          {complexityWarning}
         </div>
       )}
 
@@ -435,18 +506,33 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
             <dt>Omitted</dt>
             <dd>{diagnostics.omittedHoles}</dd>
           </div>
+          <div>
+            <dt>Complexity</dt>
+            <dd>{complexity}</dd>
+          </div>
         </dl>
       )}
 
       <div className="vectorize__button-row">
         <Tooltip
           label="Insert the traced paths beside the source (undoable)"
-          disabledReason={preview.status !== 'ready' ? 'Run a preview first' : undefined}
+          disabledReason={
+            preview.status !== 'ready'
+              ? 'Run a preview first'
+              : centerlineUnavailable
+                ? 'Centerline tracing is unavailable on this platform'
+                : undefined
+          }
         >
           <Button
             size="sm"
             loading={applying}
-            disabled={preview.status !== 'ready' || applying || validation.warnings.length > 0}
+            disabled={
+              preview.status !== 'ready' ||
+              applying ||
+              validation.warnings.length > 0 ||
+              (settings.traceMode === 'centerline' && centerlineUnavailable)
+            }
             onClick={() => void apply()}
           >
             Apply trace

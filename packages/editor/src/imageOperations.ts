@@ -131,7 +131,7 @@ export function insertDerivedImageShape(
 export interface TraceGroupInput {
   width: number;
   height: number;
-  paths: Array<Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill'>>;
+  paths: Array<Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill' | 'strokeWidth'>>;
   /** Retained for diagnostics; compound holes no longer block insert. */
   omittedHoles?: number;
   /** Bezier corner angle threshold (degrees). Default 135. */
@@ -142,6 +142,71 @@ export interface TraceGroupInput {
   traceMode?: 'silhouette' | 'centerline';
   /** Target stroke width for centerline mode. Default 2. */
   centerlineWidth?: number;
+}
+
+/** Build one traced path node: filled for closed contours, stroked for
+ *  centerline (open) contours. Hole rings only apply to closed fills. */
+function makeTraceChildNode(
+  id: NodeId,
+  traced: TraceGroupInput['paths'][number],
+  index: number,
+  scaleAndFit: (
+    points: Array<{ x: number; y: number }>,
+    closed: boolean,
+  ) => ReturnType<typeof fitBezierToContour>,
+  strokeWeight: number,
+): ReturnType<typeof makeShapeNode> {
+  const holes = traced.holes?.map((h) => scaleAndFit(h, true));
+  const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
+  if (!traced.closed) {
+    // Centerline output: an open stroked path (no fill).
+    return makeShapeNode(
+      id,
+      {
+        kind: 'path',
+        closed: false,
+        tolerance: 1,
+        points: scaleAndFit(traced.points, false),
+      },
+      {
+        name: `Trace ${index + 1}`,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+        strokes: [
+          {
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+            weight: traced.strokeWidth ?? strokeWeight,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'round',
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      },
+    );
+  }
+  return makeShapeNode(
+    id,
+    {
+      kind: 'path',
+      closed: true,
+      tolerance: 1,
+      points: scaleAndFit(traced.points, true),
+      ...(holes && holes.length > 0 ? { holes, fillRule: 'evenodd' as const } : {}),
+    },
+    {
+      name: `Trace ${index + 1}`,
+      fill: {
+        space: 'rgb',
+        r: fillColor.r,
+        g: fillColor.g,
+        b: fillColor.b,
+        a: fillColor.a,
+      },
+    },
+  );
 }
 
 export function insertTraceGroup(
@@ -172,31 +237,13 @@ export function insertTraceGroup(
   for (let index = 0; index < input.paths.length; index += 1) {
     const allocation = nextNodeId(result);
     result = allocation.doc;
-    const traced = input.paths[index] as Pick<
-      RasterTracePath,
-      'closed' | 'points' | 'holes' | 'fill'
-    >;
-    const holes = traced.holes?.map((h) => scaleAndFit(h, true));
-    const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
-    const child = makeShapeNode(
+    const traced = input.paths[index] as TraceGroupInput['paths'][number];
+    const child = makeTraceChildNode(
       allocation.id,
-      {
-        kind: 'path',
-        closed: traced.closed,
-        tolerance: 1,
-        points: scaleAndFit(traced.points, traced.closed),
-        ...(holes && holes.length > 0 ? { holes, fillRule: 'evenodd' as const } : {}),
-      },
-      {
-        name: `Trace ${index + 1}`,
-        fill: {
-          space: 'rgb',
-          r: fillColor.r,
-          g: fillColor.g,
-          b: fillColor.b,
-          a: fillColor.a,
-        },
-      },
+      traced,
+      index,
+      scaleAndFit,
+      input.centerlineWidth ?? 2,
     );
     result = addChild(result, group.id, child);
   }
@@ -243,31 +290,13 @@ export function insertLiveTraceGroup(
   for (let index = 0; index < input.paths.length; index += 1) {
     const allocation = nextNodeId(result);
     result = allocation.doc;
-    const traced = input.paths[index] as Pick<
-      RasterTracePath,
-      'closed' | 'points' | 'holes' | 'fill'
-    >;
-    const holes = traced.holes?.map((h) => scaleAndFit(h, true));
-    const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
-    const child = makeShapeNode(
+    const traced = input.paths[index] as TraceGroupInput['paths'][number];
+    const child = makeTraceChildNode(
       allocation.id,
-      {
-        kind: 'path',
-        closed: traced.closed,
-        tolerance: 1,
-        points: scaleAndFit(traced.points, traced.closed),
-        ...(holes && holes.length > 0 ? { holes, fillRule: 'evenodd' as const } : {}),
-      },
-      {
-        name: `Trace ${index + 1}`,
-        fill: {
-          space: 'rgb',
-          r: fillColor.r,
-          g: fillColor.g,
-          b: fillColor.b,
-          a: fillColor.a,
-        },
-      },
+      traced,
+      index,
+      scaleAndFit,
+      input.centerlineWidth ?? 2,
     );
     result = addChild(result, group.id, child);
   }
