@@ -4,6 +4,11 @@
 - **Status:** Accepted (Milestone 1). Implementation plan for the native DTCG
   token-sync program. Each numbered decision maps to an ADR in `docs/adr/`.
 
+> **Session status (2026-08-05):** M1–M7 landed; branch `feat/token-sync`
+> (worktree `.worktrees/token-sync`). M8 (Sync Center frontend), M9 (Git
+> integration), M10 (interop adapters), M11 (multimodal), M12 (hardening)
+> remain; see the ledger in `docs/tokens/dtcgsync-audit.md`.
+
 ## 1. Objective
 
 Make Varve a standards-based participant in multi-platform design-token
