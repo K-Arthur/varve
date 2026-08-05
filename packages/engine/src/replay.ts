@@ -29,6 +29,7 @@ import {
   type ImagePlacement,
   type ImagePlacementRect,
 } from './imagePlacement';
+import { paintWarpedImage, quadBoundsOf, resolveReplayImage } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { getRasterLayerCache } from './rasterLayerCache';
@@ -42,7 +43,7 @@ import {
   type ShadowOps,
 } from './shadowSource';
 import { layoutRichText } from './textLayout';
-import type { ArrowheadStyle, EngineColor, FillIR, RenderItem, Stroke } from './types';
+import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
 import { splitGraphemes } from './unicode/grapheme';
 
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;
@@ -935,24 +936,7 @@ function paintImageFill(
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
 
-  let image: CanvasImageSource | undefined;
-  if (imageLookupForCurrentReplay) {
-    // Worker path: use a pre-decoded ImageBitmap. All placement math below is
-    // deliberately shared with HTMLImageElement replay so worker selection
-    // cannot change document semantics.
-    image = imageLookupForCurrentReplay(fill.src);
-  } else {
-    const cache = getImageCache();
-    const imgEntry = cache.get(fill.src);
-    if (imgEntry?.state === 'loaded' && imgEntry.image) {
-      image = imgEntry.image;
-    } else if (!imgEntry || imgEntry.state === 'idle') {
-      // CanvasArea subscribes to cache changes and schedules another frame.
-      cache.load(fill.src).catch(() => {
-        /* errors recorded in cache entry */
-      });
-    }
-  }
+  const image = resolveReplayImage(fill.src, imageLookupForCurrentReplay, getImageCache());
 
   if (!target.drawImage) {
     target.fillRect(bounds.x, bounds.y, bw, bh);
@@ -1967,6 +1951,11 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       break;
     case 'rasterLayer':
       paintRasterLayer(target, p);
+      break;
+    case 'warpedImage':
+      paintWarpedImage(target, p, (src) =>
+        resolveReplayImage(src, imageLookupForCurrentReplay, getImageCache()),
+      );
       break;
     default:
       break;
@@ -3040,6 +3029,14 @@ function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
       target.rect(0, 0, p.width, p.height);
       break;
     }
+    case 'warpedImage': {
+      target.moveTo(p.quad[0][0], p.quad[0][1]);
+      target.lineTo(p.quad[1][0], p.quad[1][1]);
+      target.lineTo(p.quad[2][0], p.quad[2][1]);
+      target.lineTo(p.quad[3][0], p.quad[3][1]);
+      target.closePath();
+      break;
+    }
     default:
       break;
   }
@@ -3053,6 +3050,9 @@ export function primitiveBounds(p: RenderItem['primitive']): {
   h: number;
 } {
   switch (p.kind) {
+    case 'warpedImage': {
+      return quadBoundsOf(p as Extract<Primitive, { kind: 'warpedImage' }>);
+    }
     case 'rect':
       return { x: p.x, y: p.y, w: p.w, h: p.h };
     case 'ellipse':
