@@ -35,13 +35,7 @@ export interface QuickBarActionDeps {
   ) => Promise<void>;
   cancelBackgroundRemoval: () => void;
   openUpscaleDialog: () => void;
-  traceSelectedImage: (opts: {
-    mode: 'monochrome';
-    threshold: number;
-    foreground: 'dark';
-    minArea: number;
-    simplifyTolerance: number;
-  }) => Promise<void>;
+  openVectorizeDialog: () => void;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
   setRefineMaskOptions?: (opts: { brushSize: number; hardness: number }) => void;
   updateNode: (id: NodeId, updater: (n: ShapeNode) => ShapeNode) => void;
@@ -81,13 +75,9 @@ export async function dispatchQuickBarAction(
       deps.openUpscaleDialog();
       return;
     case 'vectorize':
-      await deps.traceSelectedImage({
-        mode: 'monochrome',
-        threshold: 128,
-        foreground: 'dark',
-        minArea: 4,
-        simplifyTolerance: 0.75,
-      });
+      // Open the full Image Trace dialog (presets, preview, centerline,
+      // pixel-art) rather than a hidden one-shot monochrome trace.
+      deps.openVectorizeDialog();
       return;
     case 'fitCycle': {
       const node = deps.selectedImageNode;
