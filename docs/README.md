@@ -1,9 +1,26 @@
 # Documentation Index
 
-This is the source-of-truth index for all documentation in the Strata project.
-Every doc the project touches or creates is listed here so future updates know what exists.
+This is the source-of-truth index for documentation in the Varve project. Every
+doc the project touches or creates is listed here so future updates know what
+exists.
+
+Dated documents under `docs/audits/`, `docs/plans/`, `docs/perf/`,
+`docs/superpowers/`, and `docs/implementation-memory/` are **historical
+records** — they describe the state of the project at the time they were
+written and are not updated retroactively. Current guidance lives in
+`docs/architecture/`, `docs/release/`, `docs/development/`, and this index.
+
+## Entry points
+
+| Doc | Purpose |
+|-----|---------|
+| [README.md](../README.md) (root) | What Varve is, quick start, key packages |
+| [AGENTS.md](../AGENTS.md) (root) | AI agent instructions — cross-project rules for automation |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) (root) | Contribution process (not yet open to external contributions) |
+| [CHANGELOG.md](../CHANGELOG.md) (root) | Release notes — source for `release-notes.mjs` |
 
 ## Architecture Decision Records
+
 | Doc | Purpose |
 |-----|---------|
 | `adr/0001-native-render-in-tauri-webview.md` | IR-replay rendering decision |
@@ -11,93 +28,148 @@ Every doc the project touches or creates is listed here so future updates know w
 | `adr/0003-compositor-backend-selection.md` | Canvas2D vs WebGPU backend |
 | `adr/0004-wasm-crate-boundary.md` | WASM crate boundary decisions |
 | `adr/0005-offline-model-bundling.md` | Offline model bundling for AI features |
+| `adr/0008-accessibility-remediation.md` | Accessibility remediation |
+| `adr/0009-document-color-architecture.md` | Document colour architecture |
+| `adr/0010-coordinate-architecture.md` | Coordinate architecture |
+| `adr/0011-design-system-governance.md` | Design system governance |
+| `adr/0012-runtime-capability-abstraction.md` | Runtime capability abstraction |
+| `adr/0013-canonical-audit-finding-contract.md` | Canonical audit finding contract |
+| `adr/0014-font-detection-architecture.md` | Font detection architecture |
 
-## Architecture Docs
+## Architecture Docs (current state)
+
 | Doc | Purpose |
 |-----|---------|
-| `architecture/frame-encapsulation.md` | Frame clipping and containment |
-| `architecture/loading-system.md` | Loading experience system |
-| `architecture/motion-system.md` | Motion/animation architecture |
+| `ARCHITECTURE_BRIEF.md` | High-level architecture brief (docs root) |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/wasm-backends.md` | WASM backend architecture |
+| `architecture/motion-system.md` | Motion/animation architecture |
+| `architecture/text-pipeline.md` | Multilingual text rendering and layout |
+| `architecture/loading-system.md` | Loading experience system |
+| `architecture/logo-system.md` | Logo workspace system |
+| `architecture/icon-system.md` | Icon infrastructure |
+| `architecture/typography-platform.md` | Typography platform |
+| `architecture/colour-management.md` | Colour management and ICC |
+| `architecture/security-csp.md` | Content Security Policy |
+| `architecture/onboarding-help-system.md` | Help/onboarding system |
+| `architecture/frame-encapsulation.md` | Frame clipping and containment |
+| `architecture/canvas2d-system.md` | Canvas 2D system contract |
+| `architecture/interaction-systems-2026-07-27.md` | Interaction systems |
+| `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 
-## Audits
-| Doc | Purpose | Last Updated |
-|-----|---------|-------------|
-| `audits/adjustment-effects-lut-hardening-2026-07-25.md` | Adjustment, effects, LUT, persistence, and export audit | 2026-07-25 |
-| `audits/background-removal-audit.md` | Background removal pipeline audit |
-| `audits/canvas-system-audit.md` | Canvas system architecture audit |
-| `audits/color-management-print-audit.md` | Color management & print audit |
-| `audits/effects-halftone-audit.md` | Effects & halftone audit |
-| `audits/home-workspace-architecture-audit.md` | Home/workspace architecture |
-| `audits/image-text-manipulation-audit.md` | Image & text manipulation audit |
-| `audits/import-export-compatibility-audit.md` | Import/export compatibility |
-| `audits/intelligence-audit-2026.md` | Design intelligence audit |
-| `audits/loading-experience-audit.md` | Loading experience audit |
-| `audits/motion-system-audit.md` | Motion system audit |
-| `audits/typography-system-audit.md` | Typography system audit |
-| `audits/ui-ux-redesign-memory.md` | UI/UX redesign memory |
-| `audits/ui-ux-review-jul-2026.md` | July 2026 UI/UX review |
+## Release Engineering (current state)
 
-## Design
 | Doc | Purpose |
 |-----|---------|
-| `design/elevation-system.md` | Elevation/shadow system |
-| `design/visual-direction.md` | Visual direction & polish |
-| `brand-guide.md` | Strata brand guide (colors, logo, usage) |
-| `brand/strata-brand-guide.md` | Detailed brand guidelines |
-
-## Plans
-| Doc | Purpose |
-|-----|---------|
-| `plans/website-product-truth-matrix.md` | Product capability audit (source of truth for marketing claims) |
-| `plans/website-strategy.md` | Full website marketing strategy |
-| `plans/website-research-findings.md` | Competitor research findings |
-| `plans/website-progress-tracker.md` | Implementation progress tracker |
-| `plans/website-operations-guide.md` | **How to add new releases and platforms** |
-| `plans/phase1-plan.md` | Phase 1 execution plan |
-| `plans/phase2-plan.md` | Phase 2 execution plan |
-| Various session plans | Per-session implementation plans |
-
-## Performance
-| Doc | Purpose |
-|-----|---------|
-| `perf/ledger.md` | Performance benchmarks and tracking |
-
-## CI/CD & Operations
-| Doc | Purpose |
-|-----|---------|
-| `CI_CD_RESILIENCE.md` | CI/CD failure modes and mitigations |
-
-## Website-specific
-| Area | Location | Purpose |
-|------|----------|---------|
-| Source code | `apps/website/` | Astro static site (42 pages) |
-| Release manifest | `apps/website/public/releases.json` | Single source of truth for download data |
-| Deployment workflow | `.github/workflows/deploy-website.yml` | GitHub Pages auto-deploy |
-| Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |
-| Website dev | `cd apps/website && pnpm dev` | Development server at localhost:4321 |
-
-## Operations Guides
-| Doc | Purpose |
-|-----|---------|
-| `plans/website-operations-guide.md` | Step-by-step: adding releases and platforms |
+| `release/README.md` | Overview of the release pipeline and tooling |
+| `release/release-readiness-audit.md` | Historical audit: can this repository ship? |
+| `release/platform-support-matrix.md` | Which OSes/architectures are supported vs claimed |
+| `release/production-build.md` | Verified production build commands |
+| `release/release-checklists.md` | Alpha/beta/RC/stable checklists + rollback runbooks |
+| `release/ci-secrets.md` | Secret names, permissions, enrolment |
+| `release/update-strategy.md` | Updater status and future key management |
+| `release/website.md` | Website architecture and launch plan |
+| `release/budget-plan.md` | Launch budget (CAD $200) and purchase triggers |
+| `release/distribution-decision-matrix.md` | Distribution channel decisions |
 
 ## Development Guide
+
 | Doc | Purpose |
 |-----|---------|
 | `development/setup.md` | Setup, running, testing, and quality gates |
 | `development/provenance.md` | Git identity and contribution provenance |
-| `development/style-guide.md` (planned) | Code style and conventions |
+| `development/tooltip-guide.md` | Tooltip system authoring patterns |
 
-## AI-Assisted Development
+## Design & Brand
+
 | Doc | Purpose |
 |-----|---------|
-| [AGENTS.md](../AGENTS.md) (root) | AI agent instructions — cross-project rules for automation |
+| `design/elevation-system.md` | Elevation/shadow system |
+| `design/visual-direction.md` | Visual direction & polish |
+| `design/design-principles.md` | Design principles |
+| `design/component-status.md` | Component implementation status |
+| `design/migration-debt.md` | Design migration debt |
+| `brand-guide.md` | Brand guide (mark, wordmarks, usage) |
+| `brand/varve-brand-guide.md` | Detailed brand guidelines |
+
+## Privacy & Security
+
+| Doc | Purpose |
+|-----|---------|
+| `privacy/consent-state.md` | Consent state for telemetry/crash reporting |
+| `privacy/crash-audit.md` | Crash reporting data audit |
+| `privacy/ingestion.md` | Data ingestion inventory |
+| `privacy/redaction.md` | Redaction rules |
+| `privacy/retention.md` | Retention policy |
+| `privacy/runbooks.md` | Privacy operations runbooks |
+| `crash-reporting/README.md` | Crash reporting architecture |
+
+## Quality
+
+| Doc | Purpose |
+|-----|---------|
+| `quality/test-reality.md` | What tests actually cover |
+| `quality/tauri-command-audit.md` | Tauri command surface audit |
+| `quality/editorprovider-surface.md` | EditorProvider surface |
+| `quality/cycles.md` / `quality/scene-cycle-report.md` / `quality/section-registry-cycle-report.md` / `quality/wasm-engine-cycle.md` | Dependency cycle reports |
+| `quality/report-audit.md` | Audit report quality review |
+
+## CI/CD & Operations
+
+| Doc | Purpose |
+|-----|---------|
+| `CI_CD_RESILIENCE.md` | CI/CD failure modes and mitigations |
+| `desktop-runtime.md` | Desktop runtime (Tauri 2, WebKitGTK/WebView2) |
+| `menu-capability-matrix.md` | Menu items and required capabilities |
+| `menu-workspace-matrix.md` | Menu items per workspace |
+| `menu-performance.md` | Menu performance notes |
+
+## Performance
+
+| Doc | Purpose |
+|-----|---------|
+| `perf/ledger.md` | Performance benchmark ledger |
+| `perf/findings.md` | Performance findings |
+| `perf/*.md` | Dated performance investigations |
+
+## Plans (historical)
+
+| Doc | Purpose |
+|-----|---------|
+| `plans/website-operations-guide.md` | **Operating guide:** how to add releases and platforms (keep current) |
+| `plans/website-progress-tracker.md` | Website implementation progress |
+| `plans/website-strategy.md` | Website marketing strategy |
+| `plans/website-research-findings.md` | Competitor research |
+| `plans/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` |
+| `plans/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
+| Other `plans/*.md` | Per-session implementation plans and deferred-work records |
+
+## Audits (historical)
+
+`docs/audits/` contains dated audit reports (canvas, motion, typography,
+accessibility, platform UX, inference, and more). They are point-in-time
+records; check the current code before acting on their findings.
+
+## Website-specific (current state)
+
+| Area | Location | Purpose |
+|------|----------|---------|
+| Source code | `apps/website/` | Astro 5 static site (42 pages) |
+| Release manifest | `apps/website/src/data/release-manifest.json` | Download data for the release pages |
+| Deployment workflow | `.github/workflows/website-deploy.yml` | GitHub Pages auto-deploy |
+| Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |
+| Website dev | `cd apps/website && pnpm dev` | Development server at localhost:4321 |
+
+## AI-Assisted Development
+
+| Doc | Purpose |
+|-----|---------|
 | `agents/README.md` | Why and how AI tooling is used in this project |
 | `agents/continuation.md` | Session-level continuation context for AI |
+| `agents/session-history.md` | Detailed per-session development records |
 
-## Implementation Memory
+## Implementation Memory (historical)
+
 | Doc | Purpose |
 |-----|---------|
 | `implementation-memory/BACKGROUND_REMOVAL_MEMORY.md` | Background removal pipeline execution memory |
@@ -112,3 +184,7 @@ Every doc the project touches or creates is listed here so future updates know w
 | `implementation-memory/impeccable.md` | Design context and brand personality |
 | `implementation-memory/select-move-overhaul.md` | Selection and move overhaul |
 | `implementation-memory/typography-overhaul.md` | Typography system overhaul |
+
+Mirrored copies of several memory files also exist at the repository root
+(`.system_memory.md`, `.effects_system_memory.md`, etc.) for session-scoped
+AI tooling; the `docs/implementation-memory/` copies are the canonical ones.

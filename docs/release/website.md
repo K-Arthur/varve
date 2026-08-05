@@ -1,4 +1,4 @@
-# Strata — Website Architecture and Launch Plan
+# Varve — Website Architecture and Launch Plan
 
 **Date:** 2026-08-04
 **Status:** implemented and building; not yet deployed
@@ -16,7 +16,7 @@ Three things made it unshippable, all now fixed:
 | Problem | Effect | Fix |
 |---|---|---|
 | `site: 'https://strata.design'`, `base: '/'` | Domain not owned. On GitHub Pages a project repo serves from `/<repo>/`, so every absolute asset path 404'd and every canonical URL and `og:url` pointed at a host that does not resolve | `SITE_URL`/`SITE_BASE` env vars, defaulting to the Pages URL that actually exists |
-| `download.astro` never read `releases.json` | Hardcoded "Get it on GitHub" buttons, invented sizes, version `0.0.0`, and `yay -S strata-desktop` for a package that does not exist | Renders entirely from a generated manifest |
+| `download.astro` never read `releases.json` | Hardcoded "Get it on GitHub" buttons, invented sizes, version `0.0.0`, and `yay -S varve-desktop` for a package that does not exist | Renders entirely from a generated manifest |
 | Plausible loaded unconditionally | A paid subscription pointed at a non-existent domain: cost, no data, third-party request on every page | Opt-in via `ANALYTICS_DOMAIN`; CSP derived from the same flag |
 
 A hand-maintained `public/sitemap.xml` listed 28 absolute URLs under the same
@@ -62,7 +62,7 @@ Nothing about a download is typed by hand. The page cannot advertise a file that
 was not built, a size that was not measured, or a checksum that was not computed.
 
 `hasRelease: false` is a first-class rendered state: before the first tag, the
-page says there is nothing to download and warns against Strata-branded builds
+page says there is nothing to download and warns against Varve-branded builds
 from elsewhere. This is the default committed state today.
 
 ---
@@ -83,7 +83,7 @@ touching `apps/website/**`. With a custom domain later, set `SITE_URL` and
 
 ## 4. Domain
 
-**Defer.** `k-arthur.github.io/Strata` is a working, free, honest URL.
+**Defer.** `k-arthur.github.io/varve` is a working, free, honest URL.
 
 When it is worth buying (public beta), Cloudflare Registrar sells at cost with
 no renewal markup — `.com` at USD $10.44/yr ≈ **CAD $24** with tax and FX
@@ -149,7 +149,7 @@ Target WCAG 2.2 AA.
 
 - [ ] Repository visibility decided (Pages free tier needs public)
 - [ ] `website-deploy.yml` run once; site loads at the Pages URL
-- [ ] Every internal link resolves under the `/Strata` base path
+- [ ] Every internal link resolves under the `/Varve` base path
 - [ ] `sitemap.xml` and `robots.txt` serve correctly
 - [ ] OG image renders in a link preview
 - [ ] Real screenshots added

@@ -2,12 +2,12 @@
 
 **Updated:** 2026-07-13
 
-This document is the maintained contract for Strata's Canvas 2D path. It supersedes
+This document is the maintained contract for Varve's Canvas 2D path. It supersedes
 older implementation details in `docs/audits/canvas-system-audit.md`.
 
 ## Deployment reality
 
-Strata currently has one production editor target: the Vite/React frontend embedded
+Varve currently has one production editor target: the Vite/React frontend embedded
 in Tauri 2. `apps/web` is an unlisted scaffold, not a deployable browser application.
 The same frontend can run in a normal browser as a development and compatibility
 harness, but that is not an offline production web product.
@@ -22,7 +22,7 @@ Tauri does not provide a uniform web engine:
 
 The Tauri Rust engine builds render IR. It does not rasterize live editor pixels.
 Canvas 2D in the webview is the default live rasterizer on every platform. WebGPU is
-opt-in and falls back to Canvas 2D. The separate Rust `strata-print` renderer writes
+opt-in and falls back to Canvas 2D. The separate Rust `varve-print` renderer writes
 PDF and is intentionally guarded by export preflight because it supports a smaller
 semantic subset than the live renderer.
 
@@ -49,7 +49,7 @@ One canonical document-to-engine converter lives in
 `packages/editor/src/render/sceneToEngine.ts`. Live rendering, raster export, video
 export, and specification export use this converter so text and nested transforms do
 not drift. Rust/WASM's required text `shape` wire contract is constructed there and
-mirrored in `strata-core`, `strata-bridge`, and `strata-engine`; area/path mode,
+mirrored in `varve-core`, `varve-bridge`, and `varve-engine`; area/path mode,
 vertical alignment, paragraph spacing, overflow, lists, rich text, variable axes, and
 OpenType features survive the native/WASM round trip.
 
@@ -167,7 +167,7 @@ visible image fill, pattern tile, and background-removal mask, excludes editor o
 validates the returned MIME type, and applies both dimension and area budgets.
 
 The default single-surface policy is 16,384 pixels per axis and 33,554,432 total pixels
-(128 MiB for one RGBA surface). This is a Strata memory policy, not a claim about a
+(128 MiB for one RGBA surface). This is a Varve memory policy, not a claim about a
 universal browser maximum. Oversized jobs are proportionally clamped with a warning.
 True streamed/tiled encoding remains required before the product can promise arbitrary
 gigapixel exports.
@@ -176,7 +176,7 @@ Home thumbnails use the portable raster surface and include text, frames, nested
 transforms, fills, strokes, effects, visibility, opacity, and blend state supported by
 the thumbnail scene contract.
 
-Native PDF export currently accepts the subset that `strata-print` can reproduce:
+Native PDF export currently accepts the subset that `varve-print` can reproduce:
 scale 1, simple translation, opaque normal blending, supported solid paint, no live
 filters/effects, no unsupported group opacity/blend/isolation/mask semantics, and no
 clipped-frame descendant export. Unsupported requests fail preflight with an

@@ -1,4 +1,4 @@
-# Strata — Continuation Prompt (Session 5)
+# Varve — Continuation Prompt (Session 5)
 
 > Generated 2026-06-28 after completing Session 2 (P0 Frontend Depth).
 > Updated 2026-06-28 during the Stabilization & Feature-Completion pass.
@@ -16,7 +16,7 @@
 | 0.3 | Design tokens (42/42 WCAG-AA, 3 themes) | Done |
 | 0.4 | Icon system (Lucide, zero-emoji audit) | Done |
 | 0.5 | APG components (Button, IconButton, Toolbar) | Done |
-| 0.6 | Core crates (strata-core 8 tests, strata-engine 3 tests) | Done |
+| 0.6 | Core crates (varve-core 8 tests, varve-engine 3 tests) | Done |
 | 0.7 | Dual-backend facade (createEngine, 19 tests) | Done |
 | 0.8 | Scene model (Document, ComponentDef, VariableStore, 11 tests) | Done |
 | 0.9 | Editor shell (CSS Grid, 6 panels, 3 tests) | Done |
@@ -56,7 +56,7 @@
 | 1.4 | **Print font outlining + PDF export** | 8.0 | Export PDF with text paths outlined as Bezier (no font substitution). Noto font outline. RGB PDF with outlined paths. | 1.1 |
 | 1.5 | **CMYK + PDF/X stub** | 3.0 | ICC profile-based RGB to CMYK conversion, bleed/trim/registration marks, PDF/X-1a and PDF/X-4 output. | 1.4 |
 | 1.6 | **Local spec inspector** | 6.0 | Parse spacing/padding/type/assets from document model; display them in a developer-facing spec tab. | 1.3 |
-| 1.7 | **Auto-trace** | 6.67 | `crates/strata-trace` implementing Potrace/vtracer-class contour + centerline tracing. Multi-threaded via rayon. Adjustable color count, threshold, path expansion. In-canvas integration. | 0.11 |
+| 1.7 | **Auto-trace** | 6.67 | `crates/varve-trace` implementing Potrace/vtracer-class contour + centerline tracing. Multi-threaded via rayon. Adjustable color count, threshold, path expansion. In-canvas integration. | 0.11 |
 | 0.11 | **Packaging** | — | `.AppImage` + `.deb` on Linux CI. Then `.rpm`, Flatpak, AUR (CachyOS-priority). | 0.10 |
 
 ### Frontend Depth (from Frontend Rework Prompt) — Session 2 wiped all P0 items
@@ -89,9 +89,9 @@
 
 | Item | Where | Notes |
 |---|---|---|
-| Rust/TS `Shape` serde mismatch | `apps/desktop/src-tauri/src/lib.rs` | IPC adapter `IpcSceneNode` uses `strata_core::Shape` directly, but TS Shape uses `kind`-tagged serde. Only the `IpcSceneNode.shape` field needs a tagged `IpcShape` adapter for the IPC bridge to work end-to-end. Currently only `Primitive` (output) is aligned. |
+| Rust/TS `Shape` serde mismatch | `apps/desktop/src-tauri/src/lib.rs` | IPC adapter `IpcSceneNode` uses `varve_core::Shape` directly, but TS Shape uses `kind`-tagged serde. Only the `IpcSceneNode.shape` field needs a tagged `IpcShape` adapter for the IPC bridge to work end-to-end. Currently only `Primitive` (output) is aligned. |
 | Native engine IPC end-to-end | `engine.ts` + `lib.rs` | `nativeEngine()` wired but untested at runtime. Need a full serialization round-trip test. |
-| `strata-sync` SQLite | `crates/strata-sync/src/lib.rs` | Smoke test only. Needs `rusqlite` dependency, `save_document`/`load_document` commands surfaced as Tauri IPC. |
+| `varve-sync` SQLite | `crates/varve-sync/src/lib.rs` | Smoke test only. Needs `rusqlite` dependency, `save_document`/`load_document` commands surfaced as Tauri IPC. |
 | Test coverage | Editor: 17 tests | Still needs broader tests for Menubar actions, Inspector editing, undo/redo, SVG export, zoom/pan, transform gestures. |
 | jsdom canvas crash | `vitest.setup.ts`, `editor.test.tsx` | Fixed with a Canvas2D test shim plus a regression that fails on console errors during shell render. |
 | Vite chunk size | `apps/desktop/dist` | 904 KB JS bundle. Lucide icons tree-shake needs audit. |
@@ -147,8 +147,8 @@ All must pass. Non-negotiable.
 | `packages/editor/src/Menubar.tsx` | File/Edit/View dropdowns with platform-aware shortcuts |
 | `packages/editor/src/shortcuts/` | ShortcutManager, useShortcuts, ShortcutPalette |
 | `packages/codegen/src/index.ts` | SVG + React code export |
-| `crates/strata-core/src/scene.rs` | Rust SceneNode, hit_test |
-| `crates/strata-engine/src/lib.rs` | Rust build_render_ir, Primitive enums (TS-compatible serde) |
+| `crates/varve-core/src/scene.rs` | Rust SceneNode, hit_test |
+| `crates/varve-engine/src/lib.rs` | Rust build_render_ir, Primitive enums (TS-compatible serde) |
 | `apps/desktop/src-tauri/src/lib.rs` | Tauri commands (build_render_ir, hit_test) |
 | `apps/desktop/src-tauri/src/renderer.rs` | Legacy render spike (archived) |
 | `pnpm-workspace.yaml` | Workspace config + allowBuilds |

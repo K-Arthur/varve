@@ -1,6 +1,6 @@
 # Menu Item × Capability Visibility Matrix
 
-Every item in the Strata menu system, its required capability (if any), and its
+Every item in the Varve menu system, its required capability (if any), and its
 visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 
 ## Legend

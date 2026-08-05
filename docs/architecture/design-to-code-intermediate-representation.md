@@ -1,12 +1,12 @@
 # Design-to-Code Intermediate Representation Architecture
 
 **Date:** 2026-07-23  
-**Purpose:** Define a shared intermediate representation (IR) for Strata's design-to-code pipeline  
+**Purpose:** Define a shared intermediate representation (IR) for Varve's design-to-code pipeline  
 **Status:** Design Document
 
 ## Overview
 
-This document defines a shared intermediate representation (IR) that normalizes Strata's scene model into a format optimized for code generation across multiple targets (HTML/CSS, React, Tailwind, Flutter, SwiftUI, SVG). The IR preserves semantic intent, layout behavior, and component structure while abstracting away implementation details.
+This document defines a shared intermediate representation (IR) that normalizes Varve's scene model into a format optimized for code generation across multiple targets (HTML/CSS, React, Tailwind, Flutter, SwiftUI, SVG). The IR preserves semantic intent, layout behavior, and component structure while abstracting away implementation details.
 
 ## Design Principles
 

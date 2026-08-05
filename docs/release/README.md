@@ -1,4 +1,4 @@
-# Strata — Release Engineering
+# Varve — Release Engineering
 
 Everything about turning a commit into something a stranger can install and
 trust. Start with the audit; it explains why the rest of these exist.
@@ -31,6 +31,9 @@ trust. Start with the audit; it explains why the rest of these exist.
 | `generate-sbom.mjs` | CycloneDX 1.5 from both Cargo workspaces + pnpm + bundled binaries |
 | `release-notes.mjs` | Notes from `CHANGELOG.md` + the manifest |
 | `update-website-manifest.mjs` | Point the download page at a published release |
+| `product.mjs` | Product identity constants shared by the release scripts |
+| `publish-model-assets.mjs` | Upload on-demand AI models to the models release |
+| `verify-package-install.sh` | Install-test `.deb`/`.rpm` in clean Ubuntu/Fedora containers |
 
 ## The shape of a release
 
@@ -39,7 +42,7 @@ tag v0.1.0
    │
    ├── preflight   tag == version == changelog entry, or stop
    ├── gate        lint, typecheck, tests, clippy, cargo test
-   ├── bundle      native runners; LFS fetch; prune; build; collect; hash
+   ├── bundle      native runners; prune; build; collect; hash
    ├── draft       merge, SBOM, verify, release notes, DRAFT release
    └── publish     manual approval, then public
 ```

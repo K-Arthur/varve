@@ -5,6 +5,13 @@
 **Auditor role:** release engineering / distribution
 **Scope:** production build, packaging, signing, distribution, update, website, supply chain, licensing
 
+> **Status: historical snapshot.** This audit describes the repository state at
+> the audited commit. The "one blocker remains" paragraph in §0 (RB-6/RB-7 —
+> the packaged app not reaching its UI) was resolved after this audit; the
+> scorecard in §8 records both as **Fixed**, and `CHANGELOG.md` 0.1.0
+> (2026-08-04) documents the fixes. Do not treat this document as current
+> release guidance — use `docs/release/README.md` and the checklists.
+
 > Every finding below cites a file and, where useful, a line or symbol. Claims made by
 > existing repository documentation were **re-verified against current code** rather than
 > taken at face value; where a document was stale, that is called out.

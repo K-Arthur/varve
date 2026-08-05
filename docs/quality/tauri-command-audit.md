@@ -2,10 +2,10 @@
 
 `apps/desktop/src-tauri/src/lib.rs` (2,879 lines) + `menu.rs` (256 lines). **68 `#[tauri::command]`
 functions**, every one an IPC entry point reachable from **any JS executing in the webview** —
-not just the app's own frontend code. Supporting crates: `strata-core` (align, geometry, hit
-test), `strata-engine` (render IR), `strata-print` (PDF/CMYK export), `strata-bgremove` (ONNX
-inference), `strata-colour` (conversions), `strata-sync` (SQLite document store), `strata-upscale`,
-`strata-trace`.
+not just the app's own frontend code. Supporting crates: `varve-core` (align, geometry, hit
+test), `varve-engine` (render IR), `varve-print` (PDF/CMYK export), `varve-bgremove` (ONNX
+inference), `varve-colour` (conversions), `varve-sync` (SQLite document store), `varve-upscale`,
+`varve-trace`.
 
 No fixes are silently bundled into this document — findings here are cross-referenced to the
 actual patches applied separately (§4), each scoped to one concern.
@@ -40,7 +40,7 @@ actual patches applied separately (§4), each scoped to one concern.
 | `outline_text` | `text, font_data: Vec<u8>, font_size` | Compute (font parsing) | Untrusted font bytes parsed synchronously; malformed font data could panic in the font-parsing crate (not audited to crate depth here) |
 | `home_list_files` … `home_reorder_file` (24 commands) | various, all via `tauri::State<DocumentStore>` | DB (SQLite via Mutex) | All funnel through `.lock().unwrap()` — see §2.3 |
 | `home_get_thumbnail` / `home_put_thumbnail` / `home_evict_thumbnails` / `home_delete_thumbnail` | `hash, data_url, ...` | DB | Same Mutex issue; no size cap on `data_url` (base64 thumbnail) before storing |
-| `home_search_files` | `query: String` | DB | Passed to `strata_sync::search_files` — not audited to SQL-injection depth here, but `rusqlite` parameterization is the norm in this file elsewhere, worth a follow-up spot-check |
+| `home_search_files` | `query: String` | DB | Passed to `varve_sync::search_files` — not audited to SQL-injection depth here, but `rusqlite` parameterization is the norm in this file elsewhere, worth a follow-up spot-check |
 | `home_read_text_file` | `path: String` | FS read | **Arbitrary path, zero validation** |
 | `home_write_text_file` | `path: String, contents: String` | FS write | **Arbitrary path, zero validation** |
 | `ai_chat` | `session_id, message` | Pure stub | Safe, no-op |
@@ -86,7 +86,7 @@ cookie stores, other applications' config/credentials) from a single IPC call.
 ### 2.3 CRITICAL — `DocumentStore` Mutex poisoning cascades to total persistence failure
 
 ```rust
-// crates/strata-sync/src/*.rs — every single accessor:
+// crates/varve-sync/src/*.rs — every single accessor:
 let conn = self.conn.lock().unwrap();
 ```
 
@@ -139,7 +139,7 @@ from a caught panic into a typed `Result::Err` with a clear message. **`export_n
 internally dispatches sync commands through its own `spawn_blocking`-equivalent (so a panic here
 is unlikely to take down the whole process — confirmed no `panic = "abort"` in `Cargo.toml`,
 default is `unwind`), but nothing in these command bodies converts a caught panic into the kind of
-specific, actionable error message the AI commands get. A panic deep in `strata_print` (which has
+specific, actionable error message the AI commands get. A panic deep in `varve-print` (which has
 a nonzero real panic surface — 2 `.unwrap()`, 40 indexing operations per the earlier crash-surface
 audit) during PDF export surfaces as a generic/opaque failure to the frontend instead of "PDF
 export failed: <reason>". Not fixed in this pass (it's a refactor — wrapping ~8 commands
@@ -195,7 +195,7 @@ decide, per the dead-code protocol: don't delete what you haven't confirmed is u
 - **Cancellation-flag races on upscale**: `UpscaleCancelState` uses a `Mutex`-guarded slot plus an
   `Arc<AtomicBool>` per job, checked at multiple points inside the worker closure, with graceful
   (non-panicking) degradation if the `Mutex` is ever poisoned (`register()` falls back to a fresh,
-  non-shared flag rather than unwrapping). Good defensive pattern, and unlike `strata-sync`'s
+  non-shared flag rather than unwrapping). Good defensive pattern, and unlike `varve-sync`'s
   Mutex, a poison here doesn't cascade to unrelated functionality — it only degrades cancellation
   for the one already-running job.
 
@@ -231,7 +231,7 @@ under `$HOME`).
 ### 4.2 `DocumentStore` Mutex poison recovery
 
 `self.conn.lock().unwrap()` → `self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner)`
-throughout `crates/strata-sync/src/lib.rs`. A `rusqlite::Connection` is not left in a
+throughout `crates/varve-sync/src/lib.rs`. A `rusqlite::Connection` is not left in a
 partially-mutated, unsound Rust-level state by a panic in unrelated calling code around the lock
 (the panic doesn't touch the connection's internals unless it happens *during* a `Connection`
 method itself, which none of these call sites do work inside of past the lock acquisition) — so

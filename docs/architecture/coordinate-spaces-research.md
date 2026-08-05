@@ -425,7 +425,7 @@ position on reparent; the user code must compute new local TRS.
 
 ---
 
-## 6. Lessons for Strata's architecture
+## 6. Lessons for Varve's architecture
 
 1. **TRS storage + parent ref** (Unity/Godot/Bevy pattern) is the most
    practical for a design tool: editable in the UI, animatable, and can
@@ -449,7 +449,7 @@ position on reparent; the user code must compute new local TRS.
 
 5. **Non-invertible guards at the math layer** — Penpot's
    `inverse` returning `nil` when `det ≈ 0` is a clean, composable
-   pattern. Strata's `tryInvertAffine` in `packages/shared/src/affine.ts`
+   pattern. Varve's `tryInvertAffine` in `packages/shared/src/affine.ts`
    already follows this pattern.
 
 6. **Separate shader-space transforms** (Skia's `localMatrix` insight):
@@ -458,6 +458,6 @@ position on reparent; the user code must compute new local TRS.
 
 7. **Stacking-context isolation via offscreen** — CSS's stacking
    context and Skia's `saveLayer` both establish a new compositing
-   boundary per transformed/subtree root. Strata's
+   boundary per transformed/subtree root. Varve's
    `sceneNeedsStructuralCompositing` already does this; mirroring
    the CSS/Skia language helps document the tradeoffs.

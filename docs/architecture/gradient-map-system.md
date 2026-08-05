@@ -114,7 +114,7 @@ adjustment effects) composes:
   rasterized (existing `compositor.ts` capability path). `exportService`
   surfaces a preflight warning
   (`export/gradientMapPreflight.ts`) when flattening loses editability.
-- Print (strata-print): adjustments are flattened via the webview raster path
+- Print (varve-print): adjustments are flattened via the webview raster path
   (documented pre-existing limitation).
 
 ## Performance

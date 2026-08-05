@@ -9,7 +9,7 @@
 
 ## Overview
 
-Strata follows [ADR-0001](../adr/0001-native-render-in-tauri-webview.md): the document lives in TypeScript (`@varve/scene`); a compact **render IR** crosses backend boundaries; the webview **replays** IR to the display surface.
+Varve follows [ADR-0001](../adr/0001-native-render-in-tauri-webview.md): the document lives in TypeScript (`@varve/scene`); a compact **render IR** crosses backend boundaries; the webview **replays** IR to the display surface.
 
 ## End-to-End Flow
 
@@ -30,7 +30,7 @@ Document (@varve/scene)
 |---|---|---|
 | Editor draw | `packages/editor/src/CanvasArea.tsx` | RAF scheduling, flatten, `replaySubtree`, compositor |
 | IR build (TS) | `packages/engine/src/engine.ts` | `stubEngine`, `nativeEngine`, `wasmEngine` |
-| IR build (Rust) | `crates/strata-engine/src/lib.rs` | `build_render_ir` |
+| IR build (Rust) | `crates/varve-engine/src/lib.rs` | `build_render_ir` |
 | IPC bridge | `apps/desktop/src-tauri/src/lib.rs` | `build_render_ir`, `hit_test` Tauri commands |
 | Replay | `packages/engine/src/replay.ts` | Canvas2D immediate-mode paint |
 | Blur | `packages/engine/src/blur.ts` | Separable Gaussian/box blur kernels, linear-light conversion, downsample-blur-upsample |
@@ -67,7 +67,7 @@ Rust `hit_test` IPC exists but is **not called** from `CanvasArea`. Engine `hitT
 Two invariants are load-bearing; violating either blanks part or all of the scene.
 
 1. **Every engine node must carry a valid `shape`.** Native + wasm deserialize
-   each node into Rust `strata-bridge::IpcSceneNode`, where `shape` is required
+   each node into Rust `varve-bridge::IpcSceneNode`, where `shape` is required
    and internally tagged by `kind` (text = `IpcShape::Text{…}`). `CanvasArea.toEngineNode`
    must emit `shape:{kind:'text',…}` for text — a top-level `kind:'text'` with no
    `shape` makes `build_ir_json` throw ``missing field `shape` `` and rejects the
@@ -96,7 +96,7 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
 | Device loss | In-place Canvas2D continue; StatusBar "GPU lost — using Canvas2D" |
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
 | Diagnostics | Status bar via `CompositorDiagnostics` |
-| Drift guard | `wgsl-drift.test.ts` keeps TS shaders ≡ `crates/strata-bridge/tests/wgsl_validation.rs` |
+| Drift guard | `wgsl-drift.test.ts` keeps TS shaders ≡ `crates/varve-bridge/tests/wgsl_validation.rs` |
 
 ### Rollback & Incident Response
 
@@ -225,7 +225,7 @@ Raster/PDF export (`packages/editor/src/components/SpecPanel/export.ts`) had thr
 
 ## WebGPU/WGSL Subsystem Correctness Pass (2026-07-12)
 
-Baseline architecture review (§0 resolution): confirmed there is **no native `wgpu`-rs anywhere in this repo** — zero `wgpu` entries in `Cargo.lock`, only `naga` (WGSL validator, dev-dependency of `strata-bridge`, used solely for offline compile-checking the WGSL strings hand-copied from the TS sources into `crates/strata-bridge/tests/wgsl_validation.rs`). WebGPU rendering happens **entirely inside the webview** via `navigator.gpu` in `packages/compositor/src/webgpu/`, driven by TS/WGSL — not natively in the Rust process bridged over IPC. ADR-0001's IR-replay architecture means Rust only ever computes scene → IR; the webview (Tauri's WebKitGTK on Linux, or a real browser for `pnpm dev`) does 100% of the actual GPU work. Both the Tauri desktop dev flow (`pnpm tauri:dev`, WebKitGTK) and the browser-dev flow (`pnpm dev` in `apps/desktop`, no Tauri window) load the *same* `@varve/compositor` code — WebGPU reachability is identical in both, gated purely by whether the hosting engine exposes `navigator.gpu` (WebKitGTK currently doesn't; Chromium does). `apps/web` remains a Next.js stub (task 0.9+) with no compositor wiring at all.
+Baseline architecture review (§0 resolution): confirmed there is **no native `wgpu`-rs anywhere in this repo** — zero `wgpu` entries in `Cargo.lock`, only `naga` (WGSL validator, dev-dependency of `varve-bridge`, used solely for offline compile-checking the WGSL strings hand-copied from the TS sources into `crates/varve-bridge/tests/wgsl_validation.rs`). WebGPU rendering happens **entirely inside the webview** via `navigator.gpu` in `packages/compositor/src/webgpu/`, driven by TS/WGSL — not natively in the Rust process bridged over IPC. ADR-0001's IR-replay architecture means Rust only ever computes scene → IR; the webview (Tauri's WebKitGTK on Linux, or a real browser for `pnpm dev`) does 100% of the actual GPU work. Both the Tauri desktop dev flow (`pnpm tauri:dev`, WebKitGTK) and the browser-dev flow (`pnpm dev` in `apps/desktop`, no Tauri window) load the *same* `@varve/compositor` code — WebGPU reachability is identical in both, gated purely by whether the hosting engine exposes `navigator.gpu` (WebKitGTK currently doesn't; Chromium does). `apps/web` remains a Next.js stub (task 0.9+) with no compositor wiring at all.
 
 Fixes shipped this session (see commit messages for full detail; each is independently reverted-and-reproduced or execution-verified, not just code-reviewed):
 
@@ -239,7 +239,7 @@ Fixes shipped this session (see commit messages for full detail; each is indepen
 
 **Deferred, not attempted this session (see WEBGPU_WASM_ENGINE_MEMORY.md for the full dated log):**
 
-- **WGSL single-source-of-truth.** `crates/strata-bridge/tests/wgsl_validation.rs` still hand-copies WGSL strings from the two TS source files; this session caught one live instance of the copy drifting (the Rust copy already had the mat3x2f-avoidance workaround the TS source hadn't landed yet at the time). A real fix (extract to standalone `.wgsl` files, imported raw by both Vite/TS and Rust's `include_str!`) touches the build pipeline on both sides and wasn't attempted here — recommended next step for whoever picks this up.
+- **WGSL single-source-of-truth.** `crates/varve-bridge/tests/wgsl_validation.rs` still hand-copies WGSL strings from the two TS source files; this session caught one live instance of the copy drifting (the Rust copy already had the mat3x2f-avoidance workaround the TS source hadn't landed yet at the time). A real fix (extract to standalone `.wgsl` files, imported raw by both Vite/TS and Rust's `include_str!`) touches the build pipeline on both sides and wasn't attempted here — recommended next step for whoever picks this up.
 - **Circles don't use the render-bundle cache** (`WebGPUBackend`, only rects/lines do) — every circle on screen is a separate `beginRenderPass`/`draw` per frame. A real perf gap, but fixing it needs a per-circle bind-group cache design, and this environment has no real GPU to measure the before/after against (see Performance section below) — deferred rather than shipped unmeasured.
 - **`docs/perf/ledger.md` has no WebGPU-specific measurements** despite the amount of WebGPU perf work done across sessions (vertex pooling, render bundles, this session's adapter consolidation). This sandbox's `wgpu::Instance`-equivalent check (`navigator.gpu` in headless Chromium via Playwright) only reaches a SwiftShare software adapter — see `docs/architecture/webgpu-manual-verification.md` for the real-hardware checklist that needs to be run on real hardware to produce trustworthy numbers.
 
@@ -251,7 +251,7 @@ Fixes shipped this session (see commit messages for full detail; each is indepen
 - Render worker offloads flat, **image-free** scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes and any scene with image fills stay on main-thread replay (see Render invariant 2). Full `transferControlToOffscreen` deferred.
 - Blur effects are CPU-only for radius > 32px (separable software path). The CSS GPU path is used only for radius ≤ 32px. No WebGPU blur path exists — the WebGPU compositor routes solely on primitive kind and never inspects `item.effects` to dispatch blur.
 - Only backdrop blur has a dedicated LRU cache. Drop shadow, inner shadow, layer blur, outer glow, and inner glow recompute every frame.
-- **No visual-parity test between the native PDF export path (`crates/strata-print`, lopdf-based) and the webview Canvas2D renderer (2026-07-12).** These are two independently-implemented rendering paths for the same document; nothing asserts they agree on geometry, fill, stroke, or text placement. `strata-print` has 44 Rust unit tests but none are golden/pixel comparisons against Canvas2D output. Deferred — moderate severity (a PDF export could silently drift from on-screen appearance with no test catching it), needs a shared fixture + rasterize-and-diff harness (e.g. render the PDF via a Rust PDF rasterizer, compare against a Canvas2D `OffscreenCanvas` render of the same document).
+- **No visual-parity test between the native PDF export path (`crates/varve-print`, lopdf-based) and the webview Canvas2D renderer (2026-07-12).** These are two independently-implemented rendering paths for the same document; nothing asserts they agree on geometry, fill, stroke, or text placement. `varve-print` has 44 Rust unit tests but none are golden/pixel comparisons against Canvas2D output. Deferred — moderate severity (a PDF export could silently drift from on-screen appearance with no test catching it), needs a shared fixture + rasterize-and-diff harness (e.g. render the PDF via a Rust PDF rasterizer, compare against a Canvas2D `OffscreenCanvas` render of the same document).
 - **`display-p3` canvas color space is unused and would be inconsistent if adopted today.** Current research (2026-07): WebKit only documents `getContext('2d', {colorSpace:'display-p3'})` for macOS/iOS ports, not WebKitGTK; Firefox has no Display-P3 canvas/CSS support at all (tracked, not landed). If wide-gamut export is ever prioritized, it cannot be a uniform cross-target feature without a documented fallback for WebKitGTK Linux and Firefox — not attempted this session since the app doesn't request a non-default `colorSpace` anywhere today.
-- **Print is PDF-export-only by design, confirmed 2026-07-12.** No `window.print()`/print CSS path exists in the browser build, and no Tauri-native print API is used — `exportNodeAsPdf` → `strata-print`'s lopdf PDF is the sole print answer for both targets. This matches the product's existing PDF/press-ready feature set (CMYK, marks, PDF-X per ADR); recorded here so a future session doesn't treat the absence of `window.print()` as an oversight.
+- **Print is PDF-export-only by design, confirmed 2026-07-12.** No `window.print()`/print CSS path exists in the browser build, and no Tauri-native print API is used — `exportNodeAsPdf` → `varve-print`'s lopdf PDF is the sole print answer for both targets. This matches the product's existing PDF/press-ready feature set (CMYK, marks, PDF-X per ADR); recorded here so a future session doesn't treat the absence of `window.print()` as an oversight.
 - **WGSL has no single source of truth; circles skip the render-bundle cache.** See "WebGPU/WGSL Subsystem Correctness Pass (2026-07-12)" → Deferred, above, for detail on both.

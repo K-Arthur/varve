@@ -5,7 +5,7 @@ out of scope for this iteration and documented as a gap.
 
 ## Scope
 
-Strata's logo workflow is a **manual-first, editable, non-destructive**
+Varve's logo workflow is a **manual-first, editable, non-destructive**
 logo design experience built on the ordinary document model. There is no
 second editor: a logo project is metadata (concepts, variants, brief,
 palette) layered over regular artboard frames.
@@ -61,7 +61,7 @@ palette) layered over regular artboard frames.
 
 - The manual workflow is fully local: no assets leave the device.
 - The package README states that licensing status of fonts/images/templates
-  must be reviewed before commercial adoption, and that Strata does not
+  must be reviewed before commercial adoption, and that Varve does not
   grant or assert trademark rights.
 - Audit findings are advisory only; they never block export and never claim
   to score design quality.

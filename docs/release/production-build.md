@@ -1,4 +1,4 @@
-# Strata — Production Build Commands
+# Varve — Production Build Commands
 
 **Date:** 2026-08-04
 **Verified on:** CachyOS Linux (kernel 7.1.5, Wayland), Node v26.4.0, pnpm 11.9.0,
@@ -22,8 +22,8 @@ Installing the locally-built `.deb` into a clean `ubuntu:22.04` container
 glibc available on Ubuntu 22.04 : 2.35
 glibc required by the binary    : GLIBC_2.39
 
-/usr/bin/strata-desktop: /lib/x86_64-linux-gnu/libc.so.6:
-    version `GLIBC_2.39' not found (required by /usr/bin/strata-desktop)
+/usr/bin/varve-desktop: /lib/x86_64-linux-gnu/libc.so.6:
+    version `GLIBC_2.39' not found (required by /usr/bin/varve-desktop)
 ```
 
 The binary refuses to exec. Note the floor is **2.39, not 2.44** — a binary
@@ -64,9 +64,13 @@ stored in Git LFS and `git clone` does not fetch LFS content by default:
 
 ```sh
 git lfs install --local
-git lfs pull --include="apps/desktop/public/models/font-classify.onnx"
+git lfs pull --include="models-source/font-classify.onnx"
 node scripts/release/check-bundled-assets.mjs   # fails loudly if you skipped it
 ```
+
+Only the one-time **publisher** needs this: CI checks out with `lfs: false` and
+the release pipeline no longer requires LFS content (models are runtime
+downloads, verified by SHA-256).
 
 ---
 
@@ -117,7 +121,7 @@ cargo build --release --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
 Result: exit 0. **38m 47s** from a cold cache. Produces a 71 MB
-`apps/desktop/src-tauri/target/release/strata-desktop`.
+`apps/desktop/src-tauri/target/release/varve-desktop`.
 
 Profile (`Cargo.toml` `[profile.release]`): `opt-level = 3`, `lto = "thin"`,
 `codegen-units = 1`, `strip = true`. Good for size and speed; `strip = true`
@@ -157,7 +161,7 @@ ERROR: Strip call failed: strip: libzstd.so.1: unknown type [0x13] section `.rel
 linuxdeploy 1-alpha (built 2024-07-26) bundles a binutils `strip` that predates
 `SHT_RELR`. Every system library on a current Arch host has a `.relr.dyn`
 section, so stripping fails for all of them and linuxdeploy aborts. `NO_STRIP=1`
-skips that step, which costs essentially nothing: the Strata binary is already
+skips that step, which costs essentially nothing: the Varve binary is already
 stripped by the release profile, and distro libraries ship stripped.
 
 This is set in `justfile` (`package-linux`, `package-appimage`) and in
@@ -227,11 +231,13 @@ cd dist/release && sha256sum -c SHA256SUMS.txt
 ## 8. SBOM — VERIFIED
 
 ```sh
-node scripts/release/generate-sbom.mjs --out dist/release/strata-0.1.0-sbom.cdx.json
+node scripts/release/generate-sbom.mjs --out dist/release/varve-0.1.0-sbom.cdx.json
 ```
 
 Result: CycloneDX 1.5, **1,324 components** — 715 cargo, 603 npm, 1 vendored
-binary (ONNX Runtime), 5 bundled models.
+binary (ONNX Runtime), 4 bundled models (u2netp, u2netp-int8,
+realesr-general-x4v3, realesr-general-x4v3-int8; `font-classify` is no longer
+bundled).
 
 No external tooling required (no syft, no cargo-cyclonedx). Uses
 `cargo metadata --locked` across **both** Cargo workspaces — the Tauri app is a
