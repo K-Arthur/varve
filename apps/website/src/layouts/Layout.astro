@@ -5,13 +5,62 @@ interface Props {
   title: string;
   description?: string;
   image?: string;
+  /** Optional JSON-LD object(s) injected on this page only (e.g. FAQPage, SoftwareApplication). */
+  structuredData?: object | object[];
+  /** Set true for pages that must not appear in search results (e.g. 404). */
+  noindex?: boolean;
 }
 
 const {
   title,
   description = "Varve is a local-first design tool for vector, layout, typography, motion, prototyping, and print. Cross-platform design suite — no subscription.",
-  image = "/og-image.png"
+  image = "/og-image.png",
+  structuredData,
+  noindex = false,
 } = Astro.props;
+
+// The base path is part of the deployed URL (GitHub Pages serves under /varve),
+// so absolute URLs must join site + base rather than assume the root.
+const basePath = import.meta.env.BASE_URL || '/';
+const origin = new URL(
+  basePath.endsWith('/') ? basePath : `${basePath}/`,
+  Astro.site ?? 'https://k-arthur.github.io',
+);
+const canonicalUrl = new URL(
+  Astro.url.pathname.replace(/\/$/, '') || '/',
+  origin,
+).href;
+const ogImageUrl = new URL(image.replace(/^\//, ''), origin).href;
+
+// Avoid "Features - Varve | Varve" duplication: only append the brand when the
+// page title does not already carry it.
+const pageTitle = /\bVarve\b/.test(title) ? title : `${title} | Varve`;
+
+const sitewideStructuredData = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': `${origin.href}#organization`,
+    name: 'Varve',
+    url: origin.href,
+    logo: ogImageUrl,
+    sameAs: [
+      'https://github.com/K-Arthur/varve',
+      'https://github.com/K-Arthur/varve/discussions',
+    ],
+  },
+  {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': `${origin.href}#website`,
+    url: origin.href,
+    name: 'Varve',
+    description:
+      'Varve is a local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print. Free and source-available under FSL-1.1-MIT.',
+    publisher: { '@id': `${origin.href}#organization` },
+    inLanguage: 'en',
+  },
+];
 
 // Empty unless deliberately configured at build time. See the analytics comment
 // in <head> — the default build makes no third-party requests at all.
@@ -39,27 +88,61 @@ const csp = [
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <meta name="generator" content={Astro.generator} />
+    {noindex ? (
+      <meta name="robots" content="noindex, nofollow" />
+    ) : (
+      <meta name="robots" content="index, follow" />
+    )}
+    <link rel="canonical" href={canonicalUrl} />
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 
     <!-- Theme detection script (runs before paint).
       One canonical state on <html data-theme="light|dark|high-contrast">.
-      "high-contrast" wins over dark when the OS asks for more contrast; the
-      OS preference is tracked live so a mid-session OS switch re-themes the
-      page. No user choice is persisted (no manual control exists yet), so
-      this never stores anything. The tokens.css + theme.css media fallbacks
-      keep JS-disabled rendering readable. -->
+      Precedence:
+        1. An explicit user choice (localStorage "varve-theme":
+           "light" | "dark" | "system") wins over everything.
+        2. Otherwise ("system" or no choice) the OS drives: prefers-contrast
+           "more" maps to the high-contrast theme, then prefers-color-scheme
+           dark, else light.
+      The OS preference is tracked live so a mid-session OS switch re-themes
+      the page while the choice is "system". The tokens.css + theme.css media
+      fallbacks keep JS-disabled rendering readable. -->
     <script is:inline>
       (function () {
         var root = document.documentElement;
+        var KEY = 'varve-theme';
         var prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
         var prefersHighContrast = window.matchMedia('(prefers-contrast: more)');
-        function apply() {
-          var theme = prefersHighContrast.matches
+        function readChoice() {
+          try {
+            return localStorage.getItem(KEY);
+          } catch (e) {
+            return null;
+          }
+        }
+        function writeChoice(value) {
+          try {
+            localStorage.setItem(KEY, value);
+          } catch (e) {}
+        }
+        function resolve(choice) {
+          if (choice === 'light' || choice === 'dark') return choice;
+          return prefersHighContrast.matches
             ? 'high-contrast'
             : prefersDark.matches
               ? 'dark'
               : 'light';
-          root.setAttribute('data-theme', theme);
         }
+        function apply() {
+          root.setAttribute('data-theme', resolve(readChoice()));
+        }
+        window.__varveTheme = {
+          read: readChoice,
+          write: writeChoice,
+          resolve: resolve,
+          apply: apply,
+        };
         apply();
         prefersDark.addEventListener('change', apply);
         prefersHighContrast.addEventListener('change', apply);
@@ -84,16 +167,29 @@ const csp = [
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content={Astro.url} />
-    <meta property="og:title" content={title} />
+    <meta property="og:site_name" content="Varve" />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={image} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:locale" content="en_US" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content={title} />
+    <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={image} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <!-- Structured data: Organization + WebSite on every page; page-specific
+      schemas (FAQPage, SoftwareApplication, ...) via the structuredData prop. -->
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(sitewideStructuredData)} />
+    {structuredData && (
+      <script
+        type="application/ld+json"
+        is:inline
+        set:html={JSON.stringify(structuredData)}
+      />
+    )}
 
     {/*
       CSP allows the analytics host only when analytics are actually enabled, so
@@ -101,7 +197,7 @@ const csp = [
     */}
     <meta http-equiv="Content-Security-Policy" content={csp} />
 
-    <title>{title} | Varve</title>
+    <title>{pageTitle}</title>
   </head>
   <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
@@ -127,13 +223,34 @@ const csp = [
           <li><a href="/support">Support</a></li>
           <li><a href="/contribute">Contribute</a></li>
         </ul>
-        <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav-links">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <line x1="3" y1="6" x2="21" y2="6"></line>
-            <line x1="3" y1="12" x2="21" y2="12"></line>
-            <line x1="3" y1="18" x2="21" y2="18"></line>
-          </svg>
-        </button>
+        <div class="nav-actions">
+          <div class="theme-switcher" role="group" aria-label="Theme">
+            <button class="theme-option" data-theme-choice="light" aria-pressed="false" title="Light theme" aria-label="Light theme">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"></circle>
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+              </svg>
+            </button>
+            <button class="theme-option" data-theme-choice="dark" aria-pressed="false" title="Dark theme" aria-label="Dark theme">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            </button>
+            <button class="theme-option" data-theme-choice="system" aria-pressed="true" title="System theme" aria-label="System theme">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                <path d="M8 21h8M12 17v4"></path>
+              </svg>
+            </button>
+          </div>
+          <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav-links">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+        </div>
       </nav>
     </header>
     
