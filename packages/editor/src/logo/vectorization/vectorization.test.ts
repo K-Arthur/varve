@@ -206,3 +206,35 @@ describe('trace diagnostics', () => {
     expect(diagnostics.complexity).toBe(10);
   });
 });
+
+describe('pixel-art vectorization settings', () => {
+  it('includes a pixel-art sprite preset with hard-boundary defaults', () => {
+    const preset = getVectorizationPreset('pixel-art-sprite');
+    expect(preset).not.toBeNull();
+    expect(preset?.settings.mode).toBe('pixel-art');
+    expect(preset?.settings.minArea).toBe(1);
+    expect(preset?.settings.simplifyTolerance).toBe(0);
+    expect(preset?.settings.traceMode).toBe('silhouette');
+  });
+
+  it('maps pixel-art mode through to engine trace options', () => {
+    const preset = getVectorizationPreset('pixel-art-sprite');
+    expect(preset).not.toBeNull();
+    const options = toTraceOptions({
+      ...DEFAULT_VECTORIZATION_SETTINGS,
+      ...preset?.settings,
+      presetId: 'pixel-art-sprite',
+    });
+    expect(options.mode).toBe('pixel-art');
+    expect(options.maxColors).toBe(16);
+  });
+
+  it('validates pixel-art settings like other modes', () => {
+    const settings: VectorizationSettings = {
+      ...DEFAULT_VECTORIZATION_SETTINGS,
+      mode: 'pixel-art',
+      presetId: 'pixel-art-sprite',
+    };
+    expect(validateVectorizationSettings(settings).ok).toBe(true);
+  });
+});

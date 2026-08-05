@@ -848,6 +848,11 @@ function ShellInner({
               editor.state.selection.length === 1 &&
               selectedNode?.kind === 'shape' &&
               isImageShape(selectedNode);
+            const isSingleTraceGroup =
+              hasSelection &&
+              editor.state.selection.length === 1 &&
+              selectedNode?.kind === 'group' &&
+              selectedNode.traceMetadata !== undefined;
             const nodeCount = Object.keys(editor.state.document.nodes).length;
             const hasNodes = nodeCount >= 1;
             const hasMultipleNodes = nodeCount >= 2;
@@ -979,6 +984,23 @@ function ShellInner({
                             onAction: () => {
                               record('vectorize');
                               editor.openVectorizeDialog();
+                              closeMenu();
+                            },
+                          } satisfies MenuEntry,
+                        ]
+                      : []),
+                    ...(isSingleTraceGroup
+                      ? [
+                          {
+                            id: 'ctx-retrace',
+                            label: 'Edit Trace…',
+                            onAction: () => {
+                              record('retrace');
+                              if (selectedNode?.kind === 'group') {
+                                editor.openVectorizeDialog({
+                                  replaceGroupId: selectedNode.id,
+                                });
+                              }
                               closeMenu();
                             },
                           } satisfies MenuEntry,
