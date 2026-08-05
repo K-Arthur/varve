@@ -2,12 +2,22 @@
 
 ## Status: Accepted (Phase 1 implemented 2026-07-27; Phases 2–3 implemented 2026-08-02)
 
-See `docs/architecture/icon-system-audit-2026-08-02.md` for the full
-2026-08-02 audit, gap analysis, and verification evidence.
+The user-facing icon library (online discovery, acquisition, cache,
+pack manager, licensing) is implemented and documented in
+`docs/architecture/icon-library.md` (current state, 2026-08-04).
+`docs/architecture/icon-system-audit-2026-08-02.md` is historical
+evidence; verify any claim against the code before relying on it.
+
+The four distinct icon categories are:
+1. **Internal Varve UI icons** — `packages/ui/src/icons/` (this ADR).
+2. **User-inserted document icons** — `packages/engine/src/icon/`,
+   `packages/editor/.../IconBrowser/`, `packages/scene/src/iconAsset.ts`.
+3. **Application/installer icons** — `apps/desktop/src-tauri/icons/`.
+4. **Logo-workspace export icons** — `packages/scene/src/logo/`.
 
 ## Context
 
-Strata's icon infrastructure evolved organically across two library families
+Varve's icon infrastructure evolved organically across two library families
 (Lucide for outline, Phosphor for filled) with a thin wrapper API
 (`<Icon>`, `<SolidIcon>`). This was adequate for internal UI chrome but has
 several gaps that become critical when expanding to user-facing icon
@@ -21,7 +31,7 @@ workflows:
 3. **No document icon model** — icons inserted into documents have no
    semantic identity, no linked/embedded state, and no override system.
 4. **No icon creation/audit workflow** — no guides, validation, or export
-   presets for authoring icons in Strata.
+   presets for authoring icons in Varve.
 5. **Inconsistent internal usage** — one direct `lucide-react` import
    bypasses the `<Icon>` accessibility wrapper; one emoji used as functional
    icon violates the zero-emoji policy.

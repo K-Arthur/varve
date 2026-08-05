@@ -38,7 +38,6 @@ function fetchForFixture(fixtureName: string, route: string): typeof fetch {
   });
 }
 
-const SEARCH_URL = 'api.iconify.design/search?query=home&limit=3';
 const SEARCH_ROUTE = 'api.iconify.design/search?query=home&limit=3';
 
 afterEach(() => {
