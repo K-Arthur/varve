@@ -24,6 +24,9 @@ export {
   type TransactionCoordinatorOptions,
   type TransactionSession,
 } from './transaction';
+// Alias: scene's ./governance also exports `ValidationResult`; the barrel
+// alias keeps `export *` at the package index unambiguous.
+export type { ValidationResult as OperationValidationResult } from './types';
 export {
   DEFAULT_DISPATCHER_LIMITS,
   type DesignOperation,
@@ -36,5 +39,4 @@ export {
   type OperationSource,
   type SemanticSummary,
   type SummaryContext,
-  type ValidationResult,
 } from './types';
