@@ -1,0 +1,198 @@
+/**
+ * Native table primitive: IR build passthrough and replay painting.
+ */
+import { describe, expect, it } from 'vitest';
+import { createEngine } from './engine';
+import { primitiveBounds, replayIr } from './replay';
+import type { RenderItem, TableShape } from './types';
+
+const tableShape: TableShape = {
+  kind: 'table',
+  x: 0,
+  y: 0,
+  w: 300,
+  h: 120,
+  cornerRadius: 4,
+  borderColor: { space: 'rgb', r: 10, g: 10, b: 10, a: 255 },
+  borderWidth: 1,
+  dividerColor: { space: 'rgb', r: 200, g: 200, b: 200, a: 255 },
+  dividerWidth: 1,
+  colPositions: [0, 150, 300],
+  rowPositions: [0, 40, 120],
+  cells: [
+    {
+      x: 0,
+      y: 0,
+      w: 150,
+      h: 40,
+      fill: { space: 'rgb', r: 240, g: 240, b: 240, a: 255 },
+      text: {
+        lines: ['Header A'],
+        fontSize: 13,
+        fontFamily: 'Inter',
+        fontWeight: 600,
+        fontStyle: 'normal',
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        alignH: 'left',
+        alignV: 'middle',
+        padding: 8,
+      },
+    },
+    {
+      x: 150,
+      y: 0,
+      w: 150,
+      h: 40,
+      fill: { space: 'rgb', r: 240, g: 240, b: 240, a: 255 },
+    },
+    { x: 0, y: 40, w: 150, h: 80, fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+    { x: 150, y: 40, w: 150, h: 80, fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+  ],
+};
+
+class Recorder {
+  calls: string[] = [];
+  font = '';
+  fillStyle = '';
+  textBaseline = '';
+  textAlign: string = '';
+  lineWidth = 0;
+  strokeStyle = '';
+  globalAlpha = 1;
+  globalCompositeOperation = 'source-over';
+  filter = 'none';
+  lineDashOffset = 0;
+  setLineDash(): void {}
+  save(): void {
+    this.calls.push('save');
+  }
+  restore(): void {
+    this.calls.push('restore');
+  }
+  transform(): void {}
+  translate(): void {}
+  rotate(): void {}
+  scale(): void {}
+  beginPath(): void {
+    this.calls.push('beginPath');
+  }
+  rect(x: number, y: number, w: number, h: number): void {
+    this.calls.push(`rect(${x},${y},${w},${h})`);
+  }
+  roundRect(x: number, y: number, w: number, h: number): void {
+    this.calls.push(`roundRect(${x},${y},${w},${h})`);
+  }
+  ellipse(): void {}
+  arc(): void {}
+  moveTo(): void {}
+  lineTo(): void {}
+  bezierCurveTo(): void {}
+  fill(): void {
+    this.calls.push('fill');
+  }
+  stroke(): void {
+    this.calls.push('stroke');
+  }
+  closePath(): void {}
+  clip(): void {
+    this.calls.push('clip');
+  }
+  fillRect(x: number, y: number, w: number, h: number): void {
+    this.calls.push(`fillRect(${x},${y},${w},${h})`);
+  }
+  strokeRect(x: number, y: number, w: number, h: number): void {
+    this.calls.push(`strokeRect(${x},${y},${w},${h})`);
+  }
+  fillText(text: string, x: number, y: number): void {
+    this.calls.push(`fillText("${text}",${x},${y})`);
+  }
+  canvas = null;
+  getTransform(): { a: number; b: number; c: number; d: number; e: number; f: number } {
+    return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+  }
+  setTransform(): void {}
+  drawImage(): void {}
+  createLinearGradient(): { addColorStop(): void } {
+    return { addColorStop() {} };
+  }
+  createRadialGradient(): { addColorStop(): void } {
+    return { addColorStop() {} };
+  }
+  globalAlphaGet = 1;
+  get globalAlphaValue(): number {
+    return this.globalAlpha;
+  }
+}
+
+function tableItem(): RenderItem {
+  return {
+    transform: [1, 0, 0, 1, 0, 0],
+    fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+    primitive: tableShape,
+    opacity: 1,
+    blendMode: 'normal',
+  };
+}
+
+describe('table primitive IR build', () => {
+  it('stub engine passes the compiled table shape through unchanged', async () => {
+    const engine = await createEngine();
+    const item = tableItem();
+    const built = await engine.buildIr({
+      nodes: [
+        {
+          id: 't1',
+          name: 'Table',
+          transform: [1, 0, 0, 1, 0, 0],
+          opacity: 1,
+          blendMode: 'normal',
+          rotation: 0,
+          shape: tableShape,
+          fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+        },
+      ],
+    });
+    expect(built[0]?.primitive.kind).toBe('table');
+    const prim = built[0]?.primitive as TableShape;
+    expect(prim.cells).toHaveLength(4);
+    expect(prim.cells[0]?.text?.lines).toEqual(['Header A']);
+    expect(prim.colPositions).toEqual([0, 150, 300]);
+    void item;
+  });
+
+  it('primitiveBounds covers the table rect', () => {
+    expect(primitiveBounds(tableShape)).toEqual({ x: 0, y: 0, w: 300, h: 120 });
+  });
+});
+
+describe('table primitive replay', () => {
+  it('paints cell fills, wrapped text, dividers, and the border', () => {
+    const rec = new Recorder();
+    replayIr(rec, [tableItem()]);
+    const calls = rec.calls;
+    // 4 cell fills + 4 inner dividers (2 vertical + 2 horizontal)
+    expect(calls.filter((c) => c.startsWith('fillRect(')).length).toBe(8);
+    // Header text with middle vertical alignment
+    const textCalls = calls.filter((c) => c.startsWith('fillText('));
+    expect(textCalls).toHaveLength(1);
+    expect(textCalls[0]).toMatch(/Header A/);
+    // Outer border stroke
+    expect(calls.some((c) => c.startsWith('strokeRect(') || c === 'stroke')).toBe(true);
+    // Clipped to the table bounds
+    expect(calls.includes('clip')).toBe(true);
+  });
+
+  it('clips text to the padded cell rect', () => {
+    const rec = new Recorder();
+    replayIr(rec, [tableItem()]);
+    // The text clip begins with the padded cell rect.
+    const rectCalls = rec.calls.filter((c) => c.startsWith('rect('));
+    expect(rectCalls.some((c) => c.includes('8,8,134,24') || c.includes('8,8'))).toBe(true);
+  });
+
+  it('skip painting when the table has zero size', () => {
+    const rec = new Recorder();
+    replayIr(rec, [{ ...tableItem(), primitive: { ...tableShape, w: 0, h: 0 } }]);
+    expect(rec.calls.filter((c) => c.startsWith('fillRect(')).length).toBe(0);
+  });
+});
