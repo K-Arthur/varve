@@ -1136,6 +1136,54 @@ export interface GroupNode extends NodeBase {
   isolated?: boolean;
   /** Effects applied to the group as a whole (shadows, blurs, glows). */
   effects: Effect[];
+  /**
+   * Lightweight provenance for groups created by Image Trace. Enables the
+   * Edit Trace / Re-trace workflow: the dialog can be reopened pre-filled
+   * with the original options, and re-traces replace this group in place.
+   * Deliberately stores no image bytes — only the source node id and a
+   * content hash for staleness checks.
+   */
+  traceMetadata?: TraceMetadata;
+}
+
+/**
+ * Versioned provenance for a traced group (see `GroupNode.traceMetadata`).
+ * Stored on the group so it survives save/load and undo without embedding
+ * raster data in the metadata.
+ */
+export interface TraceMetadata {
+  schemaVersion: 1;
+  /** The image node this trace was generated from. */
+  sourceNodeId: NodeId;
+  /** Content hash of the source pixels at trace time (sha256 hex), when known. */
+  sourceHash?: string;
+  /** Trace mode: monochrome outline / grayscale / limited color / pixel art. */
+  mode: 'monochrome' | 'grayscale' | 'color' | 'pixel-art';
+  /** Filled silhouette vs stroked centerline. */
+  traceMode: 'silhouette' | 'centerline';
+  threshold: number;
+  foreground: 'dark' | 'light';
+  alphaThreshold: number;
+  minArea: number;
+  simplifyTolerance: number;
+  maxPaths: number;
+  maxColors: number;
+  compoundHoles: boolean;
+  cornerAngle: number;
+  centerlineWidth: number;
+  centerlinePrune: number;
+  /** Which engine produced the result (native Rust / TS worker / WASM). */
+  engine: 'native' | 'worker' | 'wasm' | 'direct';
+  /** Result statistics at trace time. */
+  stats: {
+    pathCount: number;
+    pointCount: number;
+    holeCount: number;
+    omittedHoles: number;
+  };
+  /** Milliseconds spent tracing (engine time only, informational). */
+  traceMs?: number;
+  createdAt: number;
 }
 
 /** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */

@@ -1093,3 +1093,39 @@ describe('v2.13 migration (glyph-level typography)', () => {
     expect(nodes.n1!.kerningMode).toBe('bogus');
   });
 });
+
+describe('v2.16 trace metadata', () => {
+  it('preserves traceMetadata through migration and serialization', () => {
+    const traceMetadata = {
+      schemaVersion: 1,
+      sourceNodeId: 'img-1',
+      mode: 'pixel-art',
+      traceMode: 'silhouette',
+      threshold: 128,
+      foreground: 'dark',
+      alphaThreshold: 1,
+      minArea: 1,
+      simplifyTolerance: 0,
+      maxPaths: 1000,
+      maxColors: 16,
+      compoundHoles: true,
+      cornerAngle: 135,
+      centerlineWidth: 2,
+      centerlinePrune: 4,
+      engine: 'native',
+      stats: { pathCount: 3, pointCount: 24, holeCount: 1, omittedHoles: 0 },
+      createdAt: 1234,
+    };
+    const doc = {
+      formatVersion: '2.15',
+      nodes: {
+        g1: { id: 'g1', kind: 'group', traceMetadata, children: [] },
+      },
+    };
+    const migrated = migrateDocument(doc);
+    const group = (migrated?.nodes as Record<string, { traceMetadata?: unknown }>)?.['g1'];
+    expect(migrated?.formatVersion).toBe('2.16');
+    expect(group?.traceMetadata).toEqual(traceMetadata);
+    expect(JSON.parse(serializeDocument(migrated ?? {})).formatVersion).toBe('2.16');
+  });
+});
