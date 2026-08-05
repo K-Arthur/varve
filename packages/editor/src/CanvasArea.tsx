@@ -42,7 +42,6 @@ import {
   traceSceneNodeOutline,
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
-import type { Document, NodeId, SceneNode } from '@varve/scene';
 import {
   activePageNodes,
   addNode,
@@ -52,15 +51,19 @@ import {
   buildVariableDependencyMap,
   canBeClipMaskSource,
   createVariableStore,
+  type Document,
   getChangedVariableIds,
   getEffectiveNode,
   getGuidesForPage,
   isContainer,
   isImageShape,
+  isWarpedContainer,
   makeRasterLayerNode,
+  type NodeId,
   nextNodeId,
   resolveAdjustmentScope,
   resolveAllStyles,
+  type SceneNode,
   walkNodes,
 } from '@varve/scene';
 import {
@@ -161,6 +164,7 @@ import {
   setCompositorDiagnostics,
   workerBitmapDelta,
 } from './render/canvasRenderAdapter';
+import { decorateMockupIr, MockupSurfaceCache } from './render/mockup/mockupIr';
 import {
   type FrameSpatialIndex,
   getOrCreateFrameSpatialIndex,
@@ -190,6 +194,11 @@ import {
   snapPosition,
   snapTargetSearchRect,
 } from './tools/snapping';
+import { applyWarpToSelection } from './warp/warpActions';
+import {
+  evaluateWarpedContainerItems,
+  warpedContainerWorldBounds,
+} from './warp/warpContainerRender';
 
 /**
  * Quick reference-equality check: returns true when the only top-level field
@@ -458,6 +467,7 @@ export function CanvasArea({
   const settings = loadSettings();
   const budgets = getMemoryBudgets(settings.render.memoryBudget);
   const subtreeIrCacheRef = useRef(new SubtreeIrCache(500, budgets.subtreeIrCacheBytes));
+  const mockupSurfaceCacheRef = useRef<MockupSurfaceCache | null>(null);
   // Cross-frame memo for the per-node content hash. Lets pan/zoom/rotate/resize
   // frames (which change neither the document nor world transforms) skip the
   // per-node cacheContentParts + nodeHash loop entirely. See NodeHashMemo.
@@ -1057,6 +1067,8 @@ export function CanvasArea({
       abortTransaction: () => e.abortTransaction(),
 
       setTool: (id) => e.setTool(id),
+      setWarpEdit: (target) => e.setWarpEdit(target),
+      applyWarpToSelection: (presetKind) => applyWarpToSelection(e, presetKind),
       setFocusedNode: (id) => e.setFocusedNode(id),
       clearFocusedNode: () => e.clearFocusedNode(),
       focusNextSelectedNode: () => e.focusNextSelectedNode(),
@@ -1065,6 +1077,7 @@ export function CanvasArea({
       setNodeEditTargetId,
       setNodeEditSelectedAnchors,
       setTextEditTargetId,
+      setTableEdit: (state) => e.setTableEdit(state),
 
       snapPosition: (bounds, _targets) => {
         if (!s.snapEnabled) {
@@ -2064,6 +2077,10 @@ export function CanvasArea({
 
         if (n.kind === 'frame') {
           if (item) paintLeafItem(item, targetCtx);
+          const extras = mockupExtras.get(n.id);
+          if (extras) {
+            for (const extra of extras) paintLeafItem(extra, targetCtx);
+          }
           if (n.children.length > 0) {
             const renderChildren = (ctx: CanvasRenderingContext2D) => {
               const adjIds: string[] = [];
@@ -2117,8 +2134,13 @@ export function CanvasArea({
           }
           const isIsolated = n.isolated === true;
           const visibleGroupEffects = n.effects.filter((effect) => effect.visible);
+          // V2.16+: a live warp on the container forces the flatten path so
+          // evaluated (nonlinear) geometry, opacity, blend and group effects
+          // compose on one surface — exactly like the isolated-group path.
+          const warpedContainer = isWarpedContainer(n);
           const needsFlatten =
             isIsolated ||
+            warpedContainer ||
             (n.blendMode && n.blendMode !== 'normal' && n.blendMode !== 'passThrough') ||
             (n.opacity !== undefined && n.opacity < 1) ||
             visibleGroupEffects.length > 0;
@@ -2126,18 +2148,32 @@ export function CanvasArea({
             // The flatten surface re-renders the whole subtree — the dirty
             // candidate set does not apply inside it.
             replayForceAll = true;
+            let warpItems: ReturnType<typeof evaluateWarpedContainerItems> | null = null;
+            if (warpedContainer) {
+              warpItems = evaluateWarpedContainerItems(doc, nodeId);
+            }
             let minX = Infinity,
               minY = Infinity,
               maxX = -Infinity,
               maxY = -Infinity;
-            for (const childId of n.children) {
-              parentIndex ??= buildParentIndexMap(doc);
-              const b = nodeVisualWorldBounds(doc, childId, resolvedStyles, parentIndex);
-              if (b) {
-                minX = Math.min(minX, b.x);
-                minY = Math.min(minY, b.y);
-                maxX = Math.max(maxX, b.x + b.w);
-                maxY = Math.max(maxY, b.y + b.h);
+            if (warpItems && warpItems.items.length > 0) {
+              const wb = warpedContainerWorldBounds(warpItems.items);
+              if (wb) {
+                minX = wb.x;
+                minY = wb.y;
+                maxX = wb.x + wb.w;
+                maxY = wb.y + wb.h;
+              }
+            } else {
+              for (const childId of n.children) {
+                parentIndex ??= buildParentIndexMap(doc);
+                const b = nodeVisualWorldBounds(doc, childId, resolvedStyles, parentIndex);
+                if (b) {
+                  minX = Math.min(minX, b.x);
+                  minY = Math.min(minY, b.y);
+                  maxX = Math.max(maxX, b.x + b.w);
+                  maxY = Math.max(maxY, b.y + b.h);
+                }
               }
             }
             if (Number.isFinite(minX)) {
@@ -2165,17 +2201,25 @@ export function CanvasArea({
               const gCtx = gCanvas.ctx;
               gCtx.save();
               gCtx.translate(-minX + effectPadding, -minY + effectPadding);
-              const gAdjIds: string[] = [];
-              for (const childId of n.children) {
-                const child = doc.nodes[childId];
-                if (child?.kind === 'adjustment') {
-                  gAdjIds.push(childId);
-                } else {
-                  replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
+              if (warpItems && warpItems.items.length > 0) {
+                // Evaluated warped items already carry world transforms and
+                // container-local warped geometry — paint them directly.
+                for (const { item: warpItem } of warpItems.items) {
+                  paintLeafItem(warpItem, gCtx as unknown as CanvasRenderingContext2D);
                 }
-              }
-              for (const adjId of gAdjIds) {
-                replaySubtreeToCtx(adjId, gCtx as unknown as CanvasRenderingContext2D);
+              } else {
+                const gAdjIds: string[] = [];
+                for (const childId of n.children) {
+                  const child = doc.nodes[childId];
+                  if (child?.kind === 'adjustment') {
+                    gAdjIds.push(childId);
+                  } else {
+                    replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
+                  }
+                }
+                for (const adjId of gAdjIds) {
+                  replaySubtreeToCtx(adjId, gCtx as unknown as CanvasRenderingContext2D);
+                }
               }
               gCtx.restore();
 
@@ -2484,6 +2528,37 @@ export function CanvasArea({
       // Worker path when structural compositing is not required and every
       // image fill src is loaded (ImageBitmap Structured Clone transport).
       const workerReady = sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
+
+      // Mockup surface decoration: compose mockup frames into the IR list
+      // (plate shapes, baked surface rasters, shadows, glows). Runs before
+      // any paint or worker post so preview, worker, and export see the same
+      // items. The source subtrees are replayed through the structural path
+      // with the prune force flag set (sources may be outside the dirty set).
+      const mockupExtras = new Map<string, IrItem[]>();
+      {
+        if (!mockupSurfaceCacheRef.current) {
+          mockupSurfaceCacheRef.current = new MockupSurfaceCache();
+        }
+        const result = decorateMockupIr({
+          doc,
+          nodeIds,
+          items: ir,
+          renderSubtree: (ctx, nodeId) => {
+            const prevForce = replayForceAll;
+            replayForceAll = true;
+            try {
+              replaySubtreeToCtx(nodeId, ctx);
+            } finally {
+              replayForceAll = prevForce;
+            }
+          },
+          qualityScale: 1,
+          cache: mockupSurfaceCacheRef.current,
+        });
+        for (const [frameId, extras] of result.extrasByNodeId) {
+          mockupExtras.set(frameId, extras);
+        }
+      }
 
       replayStartTime = performance.now();
       if (needsStructural) {
