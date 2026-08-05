@@ -10,7 +10,7 @@ import type { Document, Library } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
-import { subscribeMockupsTab } from '../../mockup/mockupTabStore';
+import { getMockupsTabRequest, subscribeMockupsTab } from '../../mockup/mockupTabStore';
 import { IconBrowser } from '../IconBrowser/IconBrowser';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
@@ -33,7 +33,10 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
   const editor = useEditor();
 
   // Mockups tab requests from context menu / command palette switch here.
+  // A request may land before this panel mounts (the request opens the
+  // panel), so replay the current request on mount as well.
   useEffect(() => {
+    if (getMockupsTabRequest()) setActiveTab('mockups');
     return subscribeMockupsTab(() => setActiveTab('mockups'));
   }, []);
 
