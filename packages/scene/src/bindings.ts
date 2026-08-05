@@ -4,6 +4,7 @@
  * Research basis: Figma variable bindings on layer properties.
  */
 import type { ManagedColor } from './colorManagement';
+import { applyAlphaModifiers } from './modifiers';
 import type { PropertyBinding, SceneNode } from './types';
 import { resolveBinding, type VariableStore } from './variables';
 
@@ -30,6 +31,24 @@ function bindingValueToFill(value: unknown): ManagedColor | undefined {
 }
 
 /**
+ * Resolve a fill from a binding value, applying the typed modifier stack.
+ * Returns `undefined` when the value is not a compatible color — the binding
+ * is preserved (never silently detached) and the original value stands.
+ */
+export function resolveBoundFill(
+  binding: PropertyBinding,
+  resolved: unknown,
+): ManagedColor | undefined {
+  const fillColor = bindingValueToFill(resolved);
+  if (!fillColor) return undefined;
+  if (binding.modifiers && binding.modifiers.length > 0) {
+    const { color, valid } = applyAlphaModifiers(fillColor, binding.modifiers);
+    return valid ? color : fillColor;
+  }
+  return fillColor;
+}
+
+/**
  * Apply document variable bindings to a single node (non-destructive copy).
  */
 export function applyBindingsToNode(node: SceneNode, store: VariableStore | undefined): SceneNode {
@@ -41,7 +60,7 @@ export function applyBindingsToNode(node: SceneNode, store: VariableStore | unde
     try {
       const resolved = resolveBinding(store, binding as PropertyBinding);
       if (property === 'fill') {
-        const fillColor = bindingValueToFill(resolved);
+        const fillColor = resolveBoundFill(binding as PropertyBinding, resolved);
         if (fillColor) {
           next = { ...next, fill: fillColor } as SceneNode;
         }
