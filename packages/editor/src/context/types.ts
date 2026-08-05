@@ -327,10 +327,17 @@ export interface EditorState {
     height: number;
   };
   /** Node ID for the Content-Aware Fill dialog target. When set, Shell
-   *  renders the dialog. Null when closed. */
-  cafDialogNodeId: NodeId | null;
+   *  renders the dialog. Null when closed. */ cafDialogNodeId: NodeId | null;
+  /**
+   * V2.16+: active warp modifier being edited by the Warp tool / overlay /
+   * Inspector. Transient editor state — the modifier itself lives on the
+   * Document node (`node.warps`).
+   */
+  warpEdit: { nodeId: NodeId; modifierId: string } | null;
   /** Whether the upscale dialog is open. */
   upscaleDialogOpen: boolean;
+  /** Whether the Image Trace (vectorize) dialog is open. */
+  vectorizeDialogOpen: boolean;
   /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
@@ -779,6 +786,11 @@ export interface EditorContextValue {
   upscaleDialogOpen: boolean;
   openUpscaleDialog: () => void;
   closeUpscaleDialog: () => void;
+
+  // Image Trace dialog
+  vectorizeDialogOpen: boolean;
+  openVectorizeDialog: () => void;
+  closeVectorizeDialog: () => void;
 
   // Archive
   showArchiveDialog: boolean;
