@@ -286,6 +286,7 @@ export function GradientEditor({
       >
         {gradient.stops.map((stop, i) => (
           <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
             key={`stop-${i}-${autoId}`}
             type="button"
             aria-label={`Stop ${i + 1} at ${Math.round(stop.position * 100)}%, colour ${(() => {

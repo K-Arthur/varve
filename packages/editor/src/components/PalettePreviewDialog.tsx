@@ -105,6 +105,7 @@ export function PalettePreviewDialog({
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {sourceEntries.map((entry, i) => (
                     <Tooltip
+                      // biome-ignore lint/suspicious/noArrayIndexKey: palette entries have no unique id; names/colors can repeat
                       key={`src-${i}`}
                       label={`${entry.name ?? `Color ${i + 1}`}${entry.warning ? ` — ${entry.warning}` : ''}`}
                     >
@@ -134,6 +135,7 @@ export function PalettePreviewDialog({
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-1)' }}>Proposed palette</p>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {proposedEntries.map((entry, i) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: palette entries have no unique id; names/colors can repeat
                     <Tooltip key={`dst-${i}`} label={entry.name ?? `Color ${i + 1}`}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <div
@@ -221,9 +223,9 @@ export function PalettePreviewDialog({
                   {mappingResult.mappings.length === 1 ? '' : 's'}
                 </summary>
                 <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 4 }}>
-                  {mappingResult.mappings.map((m, i) => (
+                  {mappingResult.mappings.map((m) => (
                     <div
-                      key={`m-${m.nodeId}-${m.fillIndex}-${i}`}
+                      key={`m-${m.nodeId}-${m.fillIndex}`}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

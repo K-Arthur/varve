@@ -88,6 +88,7 @@ export function ImportPreview({ validation, onConfirm, onCancel }: ImportPreview
               </h3>
               <ul className="import-preview__warnings-list">
                 {validation.unsupportedFeatures.map((feature, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: stateless feature strings; content keys would collide on duplicates
                   <li key={i}>{feature}</li>
                 ))}
               </ul>
@@ -98,6 +99,7 @@ export function ImportPreview({ validation, onConfirm, onCancel }: ImportPreview
             <div className="import-preview__warnings">
               <ul className="import-preview__warnings-list">
                 {validation.warnings.map((w, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: stateless warning strings; content keys would collide on duplicates
                   <li key={i}>{w}</li>
                 ))}
               </ul>

@@ -33,9 +33,9 @@ export function LayoutScoreSection() {
       )}
       {result.issues.length > 0 && (
         <ul className="insp-panel__score-issues">
-          {result.issues.map((issue, i) => (
+          {result.issues.map((issue) => (
             <li
-              key={i}
+              key={`${issue.category}-${issue.nodeIds.join(',')}-${issue.description}`}
               className={`insp-panel__score-issue insp-panel__score-issue--${issue.severity}`}
             >
               <span className="insp-panel__score-issue-icon">{SEVERITY_ICON[issue.severity]}</span>
