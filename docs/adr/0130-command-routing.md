@@ -1,4 +1,4 @@
-# ADR-0025: Command routing
+# ADR-0130: Command routing
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -14,7 +14,7 @@ not a serializable command bus.
 ## Alternatives
 
 1. Replicate the provider per window and hope state converges — rejected
-   (ADR-0017).
+   (ADR-0122).
 2. Route every detached-panel mutation through the existing action system
    by name — insufficient: actions close over a window-local context value;
    panel mutations like `setSelectedOpacity` are context methods, not
@@ -26,18 +26,18 @@ not a serializable command bus.
 
 - Define `SubmitEditorCommand` (`commandId` uuid, `originWindowId`,
   `originPanelInstanceId`, `activeDocumentId`, `expectedRevision?`,
-  `commandType`, `payload`) in the protocol module (ADR-0023).
+  `commandType`, `payload`) in the protocol module (ADR-0128).
 - `commandType` is a closed, validated union mapped to canonical provider
   methods (initial set: `set-opacity`, `rename-node`, `set-fill`,
   `set-transform`, `delete-nodes`, `undo`, `redo`, `set-selection`,
   `switch-document`, `save-document`). Registration is a table
   `commandHandlers.ts` with per-command payload schema validators.
 - Broker pipeline: validate session/sender/generation → validate panel
-  capability (registry, ADR-0019) → validate active document (ADR-0027) →
+  capability (registry, ADR-0124) → validate active document (ADR-0132) →
   validate payload schema → apply **once** via the canonical provider
   (idempotency by `commandId` dedupe in a bounded window) → undo/redo
-  update naturally (single stack, ADR-0026) → bump session revision →
-  fan out resulting patches (ADR-0024) → `COMMAND_ACK` (with new revision)
+  update naturally (single stack, ADR-0131) → bump session revision →
+  fan out resulting patches (ADR-0129) → `COMMAND_ACK` (with new revision)
   or `COMMAND_REJECT` (with reason) to the origin.
 - Stale commands (`expectedRevision` mismatch) are rejected, not silently
   applied; the origin resyncs.
@@ -63,7 +63,7 @@ BroadcastChannel, and memory transports.
 
 ## Security implications
 
-Commands are validated end-to-end (ADR-0040); `commandType` is allowlisted;
+Commands are validated end-to-end (ADR-0145); `commandType` is allowlisted;
 payload size is bounded; `commandId` dedupe prevents replay.
 
 ## Accessibility implications
@@ -75,7 +75,7 @@ window ("Layers panel: rename applied").
 
 One IPC hop per detached edit (target < 20 ms round-trip budget, M8);
 same-window edits stay synchronous. Coalesced inspector drags submit at
-transaction boundaries (ADR-0026).
+transaction boundaries (ADR-0131).
 
 ## Rejected shortcuts
 

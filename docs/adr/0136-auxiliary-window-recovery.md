@@ -1,4 +1,4 @@
-# ADR-0031: Auxiliary-window recovery
+# ADR-0136: Auxiliary-window recovery
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -19,14 +19,14 @@ document, duplicate panels, or reopen crashing windows in a loop.
 
 - **Window generations:** every `WINDOW_READY` after a reload registers a
   fresh `senderGeneration`; the broker rejects all messages from older
-  generations (ADR-0023) and sends a fresh snapshot (ADR-0024) — reload
+  generations (ADR-0128) and sends a fresh snapshot (ADR-0129) — reload
   never duplicates panel instances because instances are broker-assigned
   and re-validated against the layout on registration.
 - **Auxiliary crash/disappear:** heartbeat timeout (10 s) marks the
   window's panels orphaned (not lost): layout keeps their instances,
   panel-local snapshots are retained broker-side, focus ownership is
   cleared, in-flight transfers involving the window are cancelled
-  (ADR-0029), and a recovery banner offers automatic safe reattachment to
+  (ADR-0134), and a recovery banner offers automatic safe reattachment to
   the primary or to a new window.
 - **Primary broker reload:** new registration round; the session
   re-hydrates from its own storage (BackupService/RecoveryManager,

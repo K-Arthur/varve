@@ -1,4 +1,4 @@
-# ADR-0039: Collaboration behavior
+# ADR-0144: Collaboration behavior
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -20,20 +20,20 @@ real connection does not fork per window.
 ## Decision
 
 - **One collaboration connection per canonical session**, owned by the
-  primary window (ADR-0017). Auxiliary windows consume session-shared
+  primary window (ADR-0122). Auxiliary windows consume session-shared
   collaboration state (remote selections, presence, activity) through the
-  broker snapshot/patches (ADR-0024).
+  broker snapshot/patches (ADR-0129).
 - Duplicate presence connections, cursor broadcasts, document
   subscriptions, activity records, and autosave loops are forbidden.
 - Which window displays collaboration toasts: the window where the
   user-facing action originated; session-level events (permission
   changes) announce in the primary and are mirrored as announcements in
   auxiliary windows.
-- Permission management stays primary-owned (session modal, ADR-0035).
+- Permission management stays primary-owned (session modal, ADR-0140).
 - Remote selections update detached panels through the shared selection
-  channel (ADR-0027).
+  channel (ADR-0132).
 - Focus and active-document affect presence as today; window *placement*
-  is machine-local and never broadcast (ADR-0018).
+  is machine-local and never broadcast (ADR-0123).
 - Team workspace *logical templates* may become shareable only through an
   explicit separate feature; native workspace geometry never is.
 
@@ -64,7 +64,7 @@ announcements.
 ## Performance implications
 
 One socket instead of N; presence updates coalesce via the patch channel
-(ADR-0024).
+(ADR-0129).
 
 ## Rejected shortcuts
 
