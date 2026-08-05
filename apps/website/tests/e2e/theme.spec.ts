@@ -161,11 +161,11 @@ test.describe('hero visibility (screenshot defects 1-3)', () => {
       await expect(subtitle).toBeInViewport();
       const ctas = page.locator('.hero-ctas');
       await expect(ctas.getByRole('link', { name: /download the beta/i })).toBeVisible();
-      await expect(ctas.getByRole('link', { name: /see what's built/i })).toBeVisible();
+      await expect(ctas.getByRole('link', { name: /what is varve/i })).toBeVisible();
 
       // Full copy present (defect: only "your machine." visible).
       const subtitleText = await subtitle.textContent();
-      expect(subtitleText).toContain('Move between vector design');
+      expect(subtitleText).toContain('local-first design suite');
       expect(subtitleText).toContain('stays on your machine');
     });
   }

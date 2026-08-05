@@ -1,8 +1,102 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+
+// FAQPage structured data: mirrors the visible Q&As so answer engines can
+// extract and cite them. Keep the answers here in sync with the markup below —
+// the questions are duplicated by design (schema + visible content).
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'Is Varve free?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. The Varve Community Edition is free to download and use — no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on GitHub under FSL-1.1-MIT.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What platforms does Varve support?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve supports Linux (x86_64), macOS (Universal, Intel and Apple Silicon, macOS 13+), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, rpm, and AUR.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What does FSL-1.1-MIT mean?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Is Varve open source?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does Varve have real-time collaboration?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Not yet. Collaboration features are currently UI scaffolding only with no transport or wire protocol. This is planned for future development.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I use Varve for professional print work?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using it for critical print production.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does Varve support ARM processors?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve supports Apple Silicon (ARM) on macOS via Universal binaries. Linux ARM and Windows ARM are not currently supported.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'What export formats does Varve support?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Who develops Varve?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve is built by one designer-developer independently. Development is transparent, with architecture decisions and known limitations documented publicly.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How can I contribute to Varve?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'You can contribute code, documentation, testing, design, or translations. Non-financial contributions are equally valuable to financial support.',
+      },
+    },
+  ],
+};
 ---
 
-<Layout title="FAQ - Varve Support">
+<Layout
+  title="FAQ"
+  description="Frequently asked questions about Varve: pricing, platforms, licensing (FSL-1.1-MIT), features, print work, ARM support, and contribution."
+  structuredData={faqSchema}
+>
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb">
