@@ -9,9 +9,12 @@
  * Known limitations deliberately pinned here (each is a documented migration
  * risk, not a defect to fix silently):
  *
- * - Variable IDs come from process-local counters (`v1`, `col-1`, `grp-1`);
- *   they are not persisted as canonical identities and can collide across
- *   imports, copies, or concurrent editing.
+ * - Variable IDs were process-local counters (`v1`, `col-1`, `grp-1`) at
+ *   audit time; a concurrent session replaced them with random hex ids
+ *   (`v-<hex>`) while this program was in flight — collision resistance
+ *   improved, but ids are still not canonical token identities and are not
+ *   derived from the synchronized source. The id-format pins below record
+ *   the current behavior.
  * - Aliases resolve by NAME (or id), so renaming a variable breaks every
  *   `{name}` alias that targeted it.
  * - `mergeVariableStores` is a two-way "source wins" overwrite, not a
@@ -52,14 +55,14 @@ describe('variable-system baseline', () => {
     expect(store.collections).toEqual({});
   });
 
-  it('addVariable assigns counter-based ids of the form vN and stores valuesByMode', () => {
+  it('addVariable assigns collision-resistant random ids and stores valuesByMode', () => {
     const store = createVariableStore();
     const { variable } = addVariable(store, {
       name: 'brand.primary',
       type: 'color',
       valuesByMode: { default: '#0066cc' },
     });
-    expect(variable.id).toMatch(/^v\d+$/);
+    expect(variable.id).toMatch(/^v-[0-9a-f]{16}$/);
     expect(variable.name).toBe('brand.primary');
     expect(variable.valuesByMode).toEqual({ default: '#0066cc' });
   });
@@ -79,12 +82,12 @@ describe('variable-system baseline', () => {
     expect(a.id).not.toBe(b.id);
   });
 
-  it('collection and group ids are counter-based (col-N / grp-N)', () => {
+  it('collection and group ids are random (col-<hex> / grp-<hex>)', () => {
     const { collection, store } = createCollection(createVariableStore(), 'Semantic', [
       'light',
       'dark',
     ]);
-    expect(collection.id).toMatch(/^col-\d+$/);
+    expect(collection.id).toMatch(/^col-[0-9a-f]{16}$/);
     expect(collection.modes).toEqual(['light', 'dark']);
     expect(collection.activeMode).toBe('light');
 
@@ -93,7 +96,7 @@ describe('variable-system baseline', () => {
       type: 'color',
       valuesByMode: { light: '#ffffff', dark: '#000000' },
     });
-    expect(variable.id).toMatch(/^v\d+$/);
+    expect(variable.id).toMatch(/^v-[0-9a-f]{16}$/);
   });
 
   it('resolution honors the collection active mode', () => {
@@ -299,7 +302,7 @@ describe('variable-system baseline', () => {
     const roundTripped = (decoded as { document: { variableStore: unknown } }).document
       .variableStore;
     expect(roundTripped).toEqual(s2);
-    expect(variable.id).toMatch(/^v\d+$/);
+    expect(variable.id).toMatch(/^v-[0-9a-f]{16}$/);
   });
 
   it('resolveBinding applies binding expressions on numeric variables', () => {
