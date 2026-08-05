@@ -35,6 +35,7 @@ function imageDataFromSource(
   image: HTMLImageElement,
   maxDim: number,
   signal: AbortSignal,
+  pixelArt: boolean,
 ): ImageData {
   const sourceWidth = Math.max(1, image.naturalWidth || image.width);
   const sourceHeight = Math.max(1, image.naturalHeight || image.height);
@@ -46,6 +47,11 @@ function imageDataFromSource(
   canvas.height = height;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Canvas pixel processing is unavailable');
+  if (pixelArt) {
+    // Pixel-art mode must never smooth: hard pixel boundaries are the
+    // feature. Nearest-neighbor scaling keeps the source grid intact.
+    ctx.imageSmoothingEnabled = false;
+  }
   ctx.drawImage(image, 0, 0, width, height);
   if (signal.aborted) throw new Error('cancelled');
   return ctx.getImageData(0, 0, width, height);
@@ -59,7 +65,7 @@ export async function runPreviewTrace(
   maxDim: number = MAX_PREVIEW_DIM,
 ): Promise<PreviewPayload> {
   const image = await loadSourceImage(src, signal);
-  const raw = imageDataFromSource(image, maxDim, signal);
+  const raw = imageDataFromSource(image, maxDim, signal, settings.mode === 'pixel-art');
   const prepared = prepareImageData(raw, settings.prep);
   const result = await dispatchTrace(prepared, toTraceOptions(settings), signal);
   if (signal.aborted) throw new Error('cancelled');
@@ -94,8 +100,6 @@ export function drawPreview(
   ctx.restore();
 
   for (const path of payload.result.paths) {
-    const fill = path.fill ?? { r: 0, g: 0, b: 0, a: 255 };
-    if (fill.a === 0) continue;
     ctx.save();
     ctx.scale(scale, scale);
     ctx.beginPath();
@@ -115,9 +119,26 @@ export function drawPreview(
           ctx.lineTo(p.x, p.y);
         }
       }
-      ctx.closePath();
-      ctx.fillStyle = `rgba(${fill.r}, ${fill.g}, ${fill.b}, ${fill.a / 255})`;
-      ctx.fill('evenodd');
+      if (path.closed) {
+        ctx.closePath();
+        const fill = path.fill ?? { r: 0, g: 0, b: 0, a: 255 };
+        if (fill.a === 0) {
+          // Centerline paths are open strokes; keep them visible as strokes.
+          ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+          ctx.lineWidth = path.strokeWidth ?? 2;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = `rgba(${fill.r}, ${fill.g}, ${fill.b}, ${fill.a / 255})`;
+          ctx.fill('evenodd');
+        }
+      } else {
+        // Open centerline branch: stroke, never fill.
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.lineWidth = path.strokeWidth ?? 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
