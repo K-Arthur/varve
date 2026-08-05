@@ -50,6 +50,12 @@ export function matchMenuTypeAhead(
 
     if (matchingIndices.length === 0) return null;
 
+    // A fresh single-char buffer starts a new search from the top of the
+    // list. Only an accumulated buffer (e.g. "ss" from rapid repeat presses)
+    // cycles from the current item — otherwise typing a char after an arrow
+    // key (which resets the buffer) would skip the first match.
+    if (buffer.length === 1) return matchingIndices[0]!.idx;
+
     const currentPos = matchingIndices.findIndex((m) => m.idx === currentIndex);
     const nextPos = (currentPos + 1) % matchingIndices.length;
     return matchingIndices[nextPos]!.idx;
