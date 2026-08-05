@@ -1,0 +1,177 @@
+/* IconPackManager — pack-level storage management */
+
+.icon-pack-manager {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-default, #fff);
+}
+
+.icon-pack-manager__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border-bottom: 1px solid var(--color-border-default, #e5e5e5);
+  flex-shrink: 0;
+}
+
+.icon-pack-manager__title {
+  margin: 0;
+  font-size: var(--font-size-md, 14px);
+  font-weight: 600;
+}
+
+.icon-pack-manager__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.icon-pack-manager__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--color-fg-muted, #888);
+  cursor: pointer;
+  padding: 0;
+}
+
+.icon-pack-manager__close:hover {
+  background: var(--color-bg-hover, #f0f0f0);
+  color: var(--color-fg-default, #1a1a1a);
+}
+
+.icon-pack-manager__notice {
+  margin: var(--space-2, 8px) var(--space-3, 12px) 0;
+  padding: var(--space-2, 8px);
+  border-radius: var(--radius-sm, 6px);
+  font-size: var(--font-size-xs, 11px);
+  background: var(--color-accent-subtle, #e6f0ff);
+  color: var(--color-accent-fg, #0b4a8a);
+  border: 1px solid var(--color-accent-border, #b8d4f5);
+}
+
+.icon-pack-manager__summary {
+  display: flex;
+  gap: var(--space-3, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-fg-muted, #888);
+  border-bottom: 1px solid var(--color-border-subtle, #f0f0f0);
+  flex-shrink: 0;
+}
+
+.icon-pack-manager__summary--warn {
+  color: var(--color-warning, #d97706);
+}
+
+.icon-pack-manager__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2, 8px) var(--space-3, 12px) var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4, 16px);
+}
+
+.icon-pack-manager__section-title {
+  margin: 0 0 var(--space-1, 4px);
+  font-size: var(--font-size-xs, 11px);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-fg-muted, #888);
+}
+
+.icon-pack-manager__section-desc {
+  margin: 0 0 var(--space-2, 8px);
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-fg-muted, #888);
+  max-width: 480px;
+}
+
+.icon-pack-manager__loading {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-fg-muted, #aaa);
+}
+
+.icon-pack-manager__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+}
+
+.icon-pack-manager__pack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border: 1px solid var(--color-border-default, #e5e5e5);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-bg-subtle, #fafafa);
+}
+
+.icon-pack-manager__pack-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.icon-pack-manager__pack-name {
+  font-weight: 600;
+  font-size: var(--font-size-sm, 13px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.icon-pack-manager__tm {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-warning, #d97706);
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm, 4px);
+  padding: 0 3px;
+}
+
+.icon-pack-manager__pack-meta {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-fg-muted, #888);
+}
+
+.icon-pack-manager__pack-actions {
+  display: flex;
+  gap: var(--space-1, 4px);
+  flex-wrap: wrap;
+}
+
+.icon-pack-manager__progress {
+  height: 4px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--color-bg-active, #e0e0e0);
+  overflow: hidden;
+}
+
+.icon-pack-manager__progress-bar {
+  height: 100%;
+  background: var(--color-accent, #0b6bcb);
+  transition: width 0.15s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-pack-manager__progress-bar {
+    transition: none;
+  }
+}

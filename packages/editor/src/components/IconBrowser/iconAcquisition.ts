@@ -423,7 +423,7 @@ export async function downloadPack(
 ): Promise<PackDownloadProgress> {
   const registry = getIconProviderRegistry();
   const provider = registry.get('iconify');
-  if (!provider || !provider.getPackIcons) {
+  if (!provider?.getPackIcons) {
     throw new IconAcquisitionError(
       'Icon pack source is unavailable',
       'provider-unavailable',
