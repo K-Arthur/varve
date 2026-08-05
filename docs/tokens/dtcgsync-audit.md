@@ -6,6 +6,41 @@
   platform/Tauri layer, codegen, AI infrastructure, and test tooling, recorded
   BEFORE any synchronization code is written.
 
+## 0. Program status (updated 2026-08-05, end of session)
+
+Milestones M1–M7 are implemented, tested, and committed. The program runs on
+branch `feat/token-sync` in worktree `.worktrees/token-sync`; M1–M4 commits
+landed on `master` before the worktree switch.
+
+### Commit ledger
+
+| Hash | Subject | Files | Validation |
+| --- | --- | --- | --- |
+| `5dac2347` | test(tokens): capture variable-system baselines | 1 (21 tests) | vitest scene ✓ |
+| `f1e83112` | docs(tokens): record DTCG synchronization architecture | 26 (2 docs + 22 ADRs 0100–0121 + README index) | audit:docs ✓, audit:emoji ✓ |
+| `8e204378` | feat(scene): add canonical design token model | 7 (tokens/ store, identity, bridge, persistence field) | vitest 21+23 ✓, biome ✓ |
+| `900feeb7` | feat(tokens): add DTCG 2025.10 format support | 15 (new @varve/tokens package) | vitest 78 ✓, tsc ✓ |
+| `2330ad35` | feat(tokens): add reference graph validation | 6 | vitest 113 ✓, tsc ✓ |
+| `ee1690ef` | test(scene): update baseline pins for random variable ids | 1 | vitest ✓ |
+| `f5d65cce` | feat(tokens): add semantic token diffing and three-way merge | 4 | vitest 138 ✓, tsc ✓ |
+| `bbfbd10b` | feat(platform): add safe local token sources | 9 (sources, atomicWrite, watcherEvents, syncApply) | vitest 192 ✓, biome ✓ |
+
+Content-attribution notes (concurrent-session index races on shared master):
+color bridge + scene package.json dependency landed inside the parallel
+session's `1bf0732f`; resolver engine landed inside its `e2836a7a`. Content is
+committed, verified, and intact; attribution reflects the race, not intent.
+From `f5d65cce` onward all work is committed from the dedicated worktree.
+
+### Concurrency record
+
+A parallel session committed continuously to `master` while this program ran
+(table model, mockup system, warp system, persistent-history ADRs 0017–0046,
+collision-resistant ids). Handling per the session protocol: dedicated
+worktree after M6, explicit pathspec staging, never destructive commands,
+pre/post-commit verification, orphaned work recovered via reflog/cherry-pick
+(never `reset --hard`). Pre-existing scene typecheck failures (table/warp
+in-flight files) are recorded separately from regressions introduced here.
+
 ## 1. Executive summary
 
 Varve has a functional but shallow variable system: collections, nested groups,
