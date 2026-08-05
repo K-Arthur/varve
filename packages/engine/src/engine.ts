@@ -151,6 +151,10 @@ function shapeToPrimitive(
   }
   const s = node.shape;
   if (!s) return { kind: 'rect', x: 0, y: 0, w: 100, h: 100 };
+  // V2.15+: native tables arrive fully compiled (ADR-0016 D3).
+  if (s.kind === 'table') {
+    return s;
+  }
   switch (s.kind) {
     case 'rect':
       return {
