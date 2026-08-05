@@ -1,17 +1,21 @@
 /**
  * Workspace module — public API.
+ *
+ * Switching is NOT exported here. There is exactly one switch path,
+ * `requestWorkspaceSwitch` on the editor context (see
+ * `context/useWorkspaceMode.ts`); it owns interaction resolution, re-entrancy
+ * guarding, and the announcement contract. A second entry point in this
+ * barrel is what previously let a caller patch workspace state without any
+ * of that, so it stays out on purpose.
  */
 
+export { useEffectiveWorkspaceConfig } from './useWorkspaceConfig';
+export { workspaceShortcutLabel } from './workspaceShortcutLabel';
 export {
-  createWorkspaceSnapshot,
-  getWorkspaceShortcutHint,
-  matchWorkspaceShortcut,
-  // Switching
-  useWorkspaceSwitcher,
-} from './useWorkspace';
-
-export {
+  // Effective configuration — the one resolver (built-in + user overrides)
   getEffectivePanelConfig,
+  getEffectiveWorkspaceConfig,
+  getWorkspacePreferences,
   isModeCustomized,
   // Persistence
   loadWorkspacePreferences,
@@ -20,6 +24,7 @@ export {
   resetModePreferences,
   saveWorkspacePreferences,
   setPanelOverride,
+  subscribeWorkspacePreferences,
 } from './workspaceStore';
 export {
   ALL_WORKSPACE_MODES,
@@ -42,8 +47,6 @@ export {
   type PanelConfig,
   type PanelId,
   type PanelLayout,
-  type PerformanceConfig,
-  type ShortcutLayer,
   type StatusSectionConfig,
   type StatusSectionId,
   TAB_GROUP_LABELS,
@@ -55,11 +58,9 @@ export {
   WORKSPACE_CONFIGS,
   WORKSPACE_ICONS,
   WORKSPACE_LABELS,
-  WORKSPACE_SHORTCUTS,
   type WorkspaceConfig,
   // Types
   type WorkspaceMode,
   type WorkspacePreference,
   type WorkspacePreferences,
-  type WorkspaceSnapshot,
 } from './workspaceTypes';

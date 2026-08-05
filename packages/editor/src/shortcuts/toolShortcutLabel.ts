@@ -28,6 +28,11 @@ const TOOL_SHORTCUT_IDS: Partial<Record<ToolId, string>> = {
   sam2Segment: 'toolSam2Segment',
 };
 
+/** Registry action id that carries a tool's shortcut, if the tool has one. */
+export function toolShortcutId(id: ToolId): string | undefined {
+  return TOOL_SHORTCUT_IDS[id];
+}
+
 export function toolShortcutLabel(id: ToolId): string | undefined {
   const sid = TOOL_SHORTCUT_IDS[id];
   if (!sid) return undefined;
