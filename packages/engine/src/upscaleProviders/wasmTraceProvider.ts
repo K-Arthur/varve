@@ -3,7 +3,10 @@ import { tryLoadTraceWasm } from '../wasmLoader';
 import type { TraceProvider } from './types';
 
 function wasmSupportsOptions(options: RasterTraceOptions): boolean {
-  // The wasm binding currently only supports threshold/foreground monochrome tracing.
+  // The wasm binding currently only supports threshold/foreground monochrome
+  // tracing. Pixel-art and centerline are handled by other providers.
+  if (options.traceMode === 'centerline') return false;
+  if (options.mode === 'pixel-art') return false;
   return (options.mode ?? 'monochrome') === 'monochrome';
 }
 

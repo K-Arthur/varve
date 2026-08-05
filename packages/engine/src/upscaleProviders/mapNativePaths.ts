@@ -1,4 +1,4 @@
-import type { RasterTraceResult } from '../rasterTrace';
+import type { RasterTracePath, RasterTraceResult } from '../rasterTrace';
 
 interface NativeBezierPoint {
   x: number;
@@ -11,15 +11,18 @@ interface NativeBezierPath {
   points: NativeBezierPoint[];
   closed: boolean;
   fill?: { r: number; g: number; b: number; a: number } | null;
+  holes?: NativeBezierPoint[][];
 }
 
 export function mapNativePathsToTraceResult(
   width: number,
   height: number,
   paths: NativeBezierPath[],
+  omittedHoles = 0,
+  centerlineWidth?: number,
 ): RasterTraceResult {
   const mapped = paths
-    .filter((p) => p.points.length >= 3)
+    .filter((p) => p.points.length >= 2)
     .map((path) => {
       let minX = Infinity;
       let minY = Infinity;
@@ -33,20 +36,23 @@ export function mapNativePathsToTraceResult(
       }
       const w = Math.max(1, maxX - minX);
       const h = Math.max(1, maxY - minY);
+      const holes = (path.holes ?? []).map((ring) => ring.map((p) => ({ x: p.x, y: p.y })));
       return {
         points: path.points.map((p) => ({ x: p.x, y: p.y })),
-        closed: true as const,
+        closed: path.closed,
         area: w * h,
         bounds: { x: minX, y: minY, w, h },
+        ...(holes.length > 0 ? { holes } : {}),
         ...(path.fill
           ? { fill: { r: path.fill.r, g: path.fill.g, b: path.fill.b, a: path.fill.a } }
           : {}),
-      };
+        ...(centerlineWidth !== undefined ? { strokeWidth: centerlineWidth } : {}),
+      } satisfies RasterTracePath;
     });
   return {
     width,
     height,
     paths: mapped,
-    omittedHoles: 0,
+    omittedHoles,
   };
 }
