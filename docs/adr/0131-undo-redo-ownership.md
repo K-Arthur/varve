@@ -1,4 +1,4 @@
-# ADR-0026: Undo and redo ownership
+# ADR-0131: Undo and redo ownership
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -20,7 +20,7 @@ edit sequence would fork.
 
 - The canonical provider keeps the **sole** undo/redo stacks; `undo` and
   `redo` from any window arrive as broker commands (`undo`, `redo`,
-  ADR-0025) and execute on the canonical stacks.
+  ADR-0130) and execute on the canonical stacks.
 - Command availability (`canUndo`/`canRedo`/`undoLabel`/`redoLabel`,
   `context/types.ts:161,169-172`) is part of the session-shared snapshot
   and patches, so every window shows consistent enabled/disabled state.
@@ -30,7 +30,7 @@ edit sequence would fork.
   `commitTransaction`/`abortTransaction` primitives, `context.tsx:5081-5084`)
   so one drag = one undo step.
 - A stale panel editing after an undo (revision mismatch) is rejected and
-  resynced (ADR-0024/0025).
+  resynced (ADR-0129/0025).
 
 ## Consequences
 

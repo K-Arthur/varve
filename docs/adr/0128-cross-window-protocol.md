@@ -1,4 +1,4 @@
-# ADR-0023: Cross-window protocol
+# ADR-0128: Cross-window protocol
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -14,7 +14,7 @@ secure, and testable without real windows.
 
 1. BroadcastChannel only — rejected: no lifecycle authority, no startup
    ordering, no validation, unreliable in browsers, no crash recovery.
-2. Rust broker holding all session state — rejected (ADR-0017).
+2. Rust broker holding all session state — rejected (ADR-0122).
 3. **Hybrid: TypeScript session broker in the primary window + Tauri event
    transport, with Rust as the registry/liveness relay** (chosen).
 
@@ -44,11 +44,11 @@ secure, and testable without real windows.
   messages targeting closed windows.
 - Every mutation `COMMAND_SUBMIT` carries `expectedRevision` where
   applicable; the broker rejects stale mutations and triggers RESYNC
-  (ADR-0024/0025).
+  (ADR-0129/0025).
 
 ## Consequences
 
-- All cross-window traffic is auditable and fuzzable (ADR-0042).
+- All cross-window traffic is auditable and fuzzable (ADR-0147).
 - The protocol is transport-agnostic; the same broker logic runs on
   desktop, browser fallback, and tests.
 
@@ -65,7 +65,7 @@ the same envelope schema.
 
 ## Security implications
 
-Every envelope is untrusted input (ADR-0040); the broker validates sender
+Every envelope is untrusted input (ADR-0145); the broker validates sender
 registration, generation, and payload schemas before dispatch; session ids
 are opaque uuids not derivable from document names.
 
@@ -76,7 +76,7 @@ receiving window get the same guarantees as the primary.
 
 ## Performance implications
 
-Sequence numbers and revisions enable gap detection (ADR-0024); heartbeat
+Sequence numbers and revisions enable gap detection (ADR-0129); heartbeat
 is throttled (e.g. 10s); diagnostics counters (duplicate/stale dropped
 messages) are non-PII.
 

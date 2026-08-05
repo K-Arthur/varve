@@ -1,4 +1,4 @@
-# ADR-0021: Dock-tree representation
+# ADR-0126: Dock-tree representation
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -36,7 +36,7 @@ type DockNode =
 
 - `WorkspaceWindowLayout` = role (`primary` | `auxiliary-panel`), `dockRoot`,
   `placement`, `state`; `NativeWorkspaceLayout` = versioned collection of
-  windows + name + mode association (ADR-0032).
+  windows + name + mode association (ADR-0137).
 - Pure operations in `dockOps.ts`: `insertPanel`, `removePanel`,
   `splitHost`, `tabGroup`, `movePanelToWindow`, `collapsePanel`,
   `mergeEmptyNodes`, `normalizeDockTree`, `serializeDockTree`,
@@ -69,11 +69,11 @@ root is a split with tabs.
 ## Cross-platform implications
 
 The dock model is pure and OS-agnostic; placement stays out of the dock tree
-(`machine-local`, ADR-0032).
+(`machine-local`, ADR-0137).
 
 ## Security implications
 
-Imported layouts (ADR-0032) are validated by `deserializeDockTree` before
+Imported layouts (ADR-0137) are validated by `deserializeDockTree` before
 any node is applied; malformed ratios/ids are rejected, not guessed.
 
 ## Accessibility implications

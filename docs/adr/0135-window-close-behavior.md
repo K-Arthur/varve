@@ -1,4 +1,4 @@
-# ADR-0030: Window-close behavior
+# ADR-0135: Window-close behavior
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -20,14 +20,14 @@ close, primary close, last-window close — per platform conventions
 
 - **Closing a panel:** policy per registry entry — hide (keep instance +
   local state) or destroy; never silently destroy unsaved panel-local
-  input (ADR-0034 confirms first).
+  input (ADR-0139 confirms first).
 - **Closing an auxiliary window:** default policy = reattach its panels to
   the primary window (source panels are never lost); alternative policies
   (hide window keeping layout; close optional panels) are configurable per
   layout but never defaulted to data loss. An empty auxiliary window
-  closes after its last panel transfers out (ADR-0029).
+  closes after its last panel transfers out (ADR-0134).
 - **Closing the primary window:** treated as session close; the close
-  coordinator (broker, ADR-0023) runs: resolve save/recovery prompts once
+  coordinator (broker, ADR-0128) runs: resolve save/recovery prompts once
   (no duplicate prompts from every window), then coordinate auxiliary
   shutdown (ordered: suspend panels → close auxiliaries → exit). No
   auxiliary window outlives the session with orphaned state.
@@ -61,13 +61,13 @@ auxiliary shutdown.
 
 ## Accessibility implications
 
-Close prompts are session modals (ADR-0035) with correct focus trapping
+Close prompts are session modals (ADR-0140) with correct focus trapping
 and announcements.
 
 ## Performance implications
 
 Auxiliary shutdown is parallelized; timers/listeners are torn down per
-window (ADR-0038).
+window (ADR-0143).
 
 ## Rejected shortcuts
 
