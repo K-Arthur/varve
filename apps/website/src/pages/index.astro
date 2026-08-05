@@ -3,9 +3,30 @@ import Layout from '../layouts/Layout.astro';
 import Button from '../components/Button.astro';
 import BentoGrid from '../components/BentoGrid.astro';
 import BentoCard from '../components/BentoCard.astro';
+
+const softwareSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Varve',
+  applicationCategory: 'DesignApplication',
+  operatingSystem: 'Linux, macOS, Windows',
+  description:
+    'Varve is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Free and source-available under FSL-1.1-MIT.',
+  softwareVersion: 'beta',
+  license: 'FSL-1.1-MIT',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+};
 ---
 
-<Layout title="Varve - Design across disciplines" description="A local-first design suite for vector, layout, typography, motion, prototyping, and print. Cross-platform. No subscription.">
+<Layout
+  title="Varve — free design suite for vector, layout, motion, and print"
+  description="Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print — one application on Linux, macOS, and Windows. No subscription, no account, no uploads."
+  structuredData={softwareSchema}
+>
   <section class="hero">
     <div class="container-custom">
       <div class="hero-content">
@@ -13,14 +34,14 @@ import BentoCard from '../components/BentoCard.astro';
           Design across disciplines.<br/>One canvas.
         </h1>
         <p class="hero-subtitle">
-          Move between vector design, illustration, layout, typography, prototyping, animation, and print production without switching applications. Your work stays on your machine.
+          Varve is a free, local-first design suite that keeps vector, layout, typography, motion, prototyping, and print production in one application — on Linux, macOS, and Windows. No subscription, no account, no uploads: your work stays on your machine.
         </p>
         <div class="hero-ctas">
           <Button href="/download" variant="primary">
             Download the beta
           </Button>
-          <Button href="/features" variant="secondary">
-            See what's built
+          <Button href="/product" variant="secondary">
+            What is Varve?
           </Button>
         </div>
         <p class="hero-platforms">

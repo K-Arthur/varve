@@ -1,8 +1,18 @@
 ---
+import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
----
 
-<Layout title="Releases - Varve">
+// The release facts on this page come from the same generated manifest that
+// drives /download (scripts/release/update-website-manifest.mjs). Nothing
+// about versions, dates, or download availability is hand-typed here — the
+// previous version of this page hardcoded version 0.0.0, a "last updated"
+// date, and a download CTA for builds that do not exist, which contradicted
+// the download page's honest "no release yet" state.
+---
+<Layout
+  title="Releases"
+  description="Current release and version history for Varve. In beta — see what's built, what's limited, and what's next."
+>
   <div class="container-custom">
     <div class="releases-page">
       <h1>Releases</h1>
@@ -10,59 +20,107 @@ import Layout from '../layouts/Layout.astro';
         Current release and version history for Varve.
       </p>
 
-      <div class="current-release">
-        <div class="release-header">
-          <h2>Current Release</h2>
-          <span class="version-badge">Beta</span>
+      {!release.hasRelease && (
+        <div class="current-release">
+          <div class="release-header">
+            <h2>Current Release</h2>
+            <span class="version-badge">In development</span>
+          </div>
+          <p class="release-date">
+            No public release has been tagged yet. Varve is in active beta and
+            installers are not published until the first release is ready.
+          </p>
+          <p>
+            <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
+              Watch the GitHub releases page
+            </a>{' '}
+            to be notified, or see the{' '}
+            <a href="/features">features overview</a> for what is already built.
+          </p>
         </div>
-        <p class="release-date">Last updated: 2026-07-20</p>
-        
+      )}
+
+      {release.hasRelease && (
+        <div class="current-release">
+          <div class="release-header">
+            <h2>Current Release</h2>
+            <span class="version-badge">{release.prerelease ? 'Prerelease' : 'Stable'}</span>
+          </div>
+          <p class="release-date">
+            Version {release.version} — released {release.releaseDate}
+          </p>
+          <p>
+            <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
+              Full release notes on GitHub
+            </a>
+          </p>
+        </div>
+      )}
+
+      <div class="current-release">
         <div class="release-notes">
-          <h3>Release Notes</h3>
-          <p>Varve is in active beta. Core systems are built and functional. This page tracks the current state of the release.</p>
-          
-          <h4>What's built</h4>
+          <h2>What's built today</h2>
+          <p>
+            Varve is in active beta. Core systems are functional and tested, but
+            you may hit rough edges. This is the current state of the
+            development build.
+          </p>
+
+          <h3>What's built</h3>
           <ul>
             <li>Canvas: Infinite canvas, viewport culling, sticky snap, rulers, guides, view rotation, zoom range 0.001x-64x</li>
             <li>Vector tools: Shapes, pen/pencil with bezier handles, boolean operations, node editing, layers, groups, frames</li>
             <li>Typography: Multi-line text, OpenType features, variable fonts, text-on-path, inline editing, CJK line breaking</li>
             <li>Color and effects: RGB/CMYK color management, ICC profiles, blend modes, shadows, blur, adjustment layers, halftone</li>
             <li>Motion: Timeline animation, keyframes, easing, Smart Animate, prototype interactions, CSS/Lottie/video export</li>
-            <li>Export: SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, multi-page, facing pages</li>
+            <li>Export: SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, per-node export settings</li>
             <li>Import: SVG, PDF, PSD, AI, EPS, and common image formats</li>
             <li>Design systems: Styles, variables, components, variants, libraries</li>
             <li>Background removal: AI-based with u2netp (bundled) and BiRefNet-Lite, hair edge refinement</li>
             <li>Workspace modes: Design, Print, Draw, Photo, Motion with per-mode toolbars and panels</li>
           </ul>
-          
-          <h4>Known limitations</h4>
+
+          <h3>Known limitations</h3>
           <ul>
             <li>Complex script shaping (Arabic, Devanagari) not supported</li>
             <li>Collaboration features are UI scaffolding only</li>
             <li>Canvas bleed and trim visualization not implemented</li>
-            <li>Background removal with BiRefNet-Lite requires native desktop (WASM has 4GB memory limit)</li>
+            <li>Background removal with BiRefNet-Lite requires native desktop (WASM has a 4GB memory limit)</li>
           </ul>
         </div>
       </div>
 
       <div class="previous-releases">
         <h2>Previous Releases</h2>
-        <p>No previous releases. This is the initial development version.</p>
+        <p>
+          {release.hasRelease
+            ? 'Older releases are archived on GitHub.'
+            : 'No previous releases yet — this is the initial development period.'}
+        </p>
       </div>
 
       <div class="release-info">
         <h2>Release Information</h2>
         <ul>
-          <li><strong>Version:</strong> 0.0.0 (development)</li>
+          <li>
+            <strong>Version:</strong>{' '}
+            {release.hasRelease ? release.version : 'Unreleased (in development)'}
+          </li>
           <li><strong>License:</strong> FSL-1.1-MIT</li>
-          <li><strong>Source:</strong> <a href="https://github.com/K-Arthur/varve">GitHub</a></li>
-          <li><strong>Downloads:</strong> <a href="/download">Download page</a></li>
+          <li>
+            <strong>Source:</strong> <a href="https://github.com/K-Arthur/varve">GitHub</a>
+          </li>
+          <li>
+            <strong>Downloads:</strong> <a href="/download">Download page</a>
+          </li>
         </ul>
       </div>
 
       <div class="release-cta">
         <h2>Download Current Release</h2>
-        <a href="/download" class="btn-primary">Download Varve 0.0.0</a>
+        <a href="/download" class="btn-primary">
+          {release.hasRelease ? `Download Varve ${release.version}` : 'Go to the download page'}
+        </a>
       </div>
     </div>
   </div>
@@ -124,18 +182,17 @@ import Layout from '../layouts/Layout.astro';
     margin-bottom: 1.5rem;
   }
   
-  .release-notes h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
+  .release-notes h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
     margin-bottom: 1rem;
     color: var(--text-primary);
   }
   
-  .release-notes h4 {
-    font-size: 1rem;
+  .release-notes h3 {
+    font-size: 1.125rem;
     font-weight: 600;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     color: var(--text-primary);
   }
   
@@ -162,6 +219,10 @@ import Layout from '../layouts/Layout.astro';
     color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 1rem;
+  }
+  
+  .release-notes a {
+    color: var(--text-link);
   }
   
   .previous-releases {
