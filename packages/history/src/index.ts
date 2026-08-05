@@ -9,6 +9,25 @@
  */
 
 export {
+  type NameValidation,
+  suggestBranchName,
+  suggestUniqueBranchName,
+  validateBranchName,
+  validateCheckpointName,
+} from './branchNames';
+export {
+  type DiffEntityKind,
+  type DiffOptions,
+  type DiffSummary,
+  type DocumentDiff,
+  diffDocuments,
+  lcsIndices,
+  type SemanticChange,
+  type SemanticChangeType,
+  stableStringify,
+  type TextChangeRanges,
+} from './diff';
+export {
   buildEntityIndex,
   type EntityHistoryIndex,
   entityOperations,
@@ -29,6 +48,17 @@ export {
   serializeSegmentContent,
   verifySegmentChecksum,
 } from './log';
+export {
+  type ConflictKind,
+  changeKey,
+  commitMergeRevision,
+  type MergeCommitOptions,
+  type MergeConflict,
+  type MergeResult,
+  type MergeStatus,
+  mergeDocuments,
+  spliceClusterRange,
+} from './merge';
 export {
   recoverTail,
   validateHistory,
@@ -87,3 +117,14 @@ export type {
   TailRecoveryReport,
   VerifyResult,
 } from './types';
+export {
+  abandonedDescendants,
+  branchHistory,
+  firstParentChain,
+  materializeDivergenceBranch,
+  redoRevision,
+  type UndoError,
+  undoN,
+  undoRevision,
+  undoTo,
+} from './undo';

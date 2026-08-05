@@ -1,0 +1,29 @@
+{
+  "name": "@varve/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Headless Varve tooling: canonicalize, validate, semantic diff, three-way merge driver, and review bundles (M13 + M14).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "bin": {
+    "varve": "./bin/varve.mjs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/cli"
+  },
+  "dependencies": {
+    "@varve/history": "workspace:*",
+    "@varve/scene": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
+  },
+  "license": "FSL-1.1-MIT"
+}
