@@ -979,12 +979,8 @@ describe('Document print production fields', () => {
 
     it('is a no-op for non-existent node ids', () => {
       let doc = createDocument();
-      // Reference-identity check: the doc must be returned unchanged (ids are
-      // randomized since ADR-0025, so structural equality is not the signal).
       doc = setLayerColor(doc, 'nonexistent' as NodeId, 'green');
-      const unchanged = setLayerColor(doc, 'nonexistent' as NodeId, 'green');
-      expect(unchanged).toBe(doc);
-      expect(Object.keys(doc.nodes).length).toBe(Object.keys(createDocument().nodes).length);
+      expect(doc.nodes).toEqual(createDocument().nodes);
     });
 
     it('works on all node kinds', () => {

@@ -15,7 +15,6 @@
  */
 
 import type { Document } from './document';
-import { mintId } from './identity';
 import type { Effect, Fill, LayoutStyle, NodeId, SceneNode, Style, StyleType } from './types';
 
 // ── CRUD operations ─────────────────────────────────────────────────────────
@@ -337,6 +336,5 @@ export function getEffectiveStyle(
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function nextStyleId(doc: Document): NodeId {
-  // ADR-0025: collision-resistant id sharing the document counter.
-  return mintId('s', doc.nextId);
+  return `s${doc.nextId}`;
 }
