@@ -590,6 +590,21 @@ export {
   policyKeepsSensitiveData,
   resolveMetadataContent,
 } from './metadata/policy';
+export type { FitResult, MockupAlignX, MockupAlignY, MockupFitMode } from './mockup/fit';
+export { fitRect, isFitEmpty } from './mockup/fit';
+export type { Homography, Quad, Vec2 } from './mockup/homography';
+export {
+  applyHomography,
+  invertHomography,
+  isQuadConcave,
+  isQuadSelfCrossing,
+  isQuadValid,
+  multiplyHomography,
+  normalizeQuadCorners,
+  quadBounds,
+  solveHomography,
+} from './mockup/homography';
+export { mapQuadPoint, sampleBilinear, warpImageToQuad } from './mockup/quadWarp';
 export type { NonSeparableMode } from './nonSeparable';
 export {
   blendColorLch,
