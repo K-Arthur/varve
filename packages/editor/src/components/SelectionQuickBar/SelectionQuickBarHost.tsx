@@ -106,7 +106,7 @@ export function SelectionQuickBarHost({
           removeBackgroundWithOptions: editor.removeBackgroundWithOptions,
           cancelBackgroundRemoval: editor.cancelBackgroundRemoval,
           openUpscaleDialog: editor.openUpscaleDialog,
-          traceSelectedImage: editor.traceSelectedImage,
+          openVectorizeDialog: editor.openVectorizeDialog,
           setShowOriginalBg: editor.setShowOriginalBg,
           setRefineMaskOptions: editor.setRefineMaskOptions,
           updateNode: (nid, updater) => {

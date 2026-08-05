@@ -350,6 +350,18 @@ export function createActionHandlers(
       }
       e.openUpscaleDialog();
     },
+    imageTrace: () => {
+      const imageNode = e.state.selection
+        .map((id) => e.state.document.nodes[id])
+        .find(
+          (n) => n?.kind === 'shape' && n.fills?.some((f) => f.type === 'image' && f.image?.src),
+        );
+      if (!imageNode) {
+        e.announce?.('Select an image layer to vectorize');
+        return;
+      }
+      e.openVectorizeDialog();
+    },
     addAlphaMask: () => e.addMaskToSelected?.('alpha'),
     addClipMask: () => e.addMaskToSelected?.('clip'),
     addLuminanceMask: () => e.addMaskToSelected?.('luminance'),

@@ -135,11 +135,17 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.workspaceLogo': 'Workspace: Logo',
   'menu.view.logoPreview': 'Test Logo at Small Sizes',
   'menu.object.addClearSpaceGuides': 'Generate Clear-Space Guides…',
+  'menu.object.imageTrace': 'Vectorize Image (Image Trace)…',
 
   // ── Object ─────────────────────────────────────────────────────────────────
   'menu.object.path': 'Path',
   'menu.object.group': 'Group Selection',
   'menu.object.ungroup': 'Ungroup',
+  'menu.object.warpEnvelope': 'Warp: Envelope',
+  'menu.object.warpPerspective': 'Warp: Perspective',
+  'menu.object.warpMesh': 'Warp: Mesh',
+  'menu.object.warpBend': 'Warp: Bend',
+  'menu.object.expandAppearance': 'Expand Appearance',
   'menu.object.flattenSelection': 'Flatten',
   'menu.object.mergeSelected': 'Merge Selected',
   'menu.object.rasterize': 'Rasterize',

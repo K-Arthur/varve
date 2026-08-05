@@ -1134,6 +1134,12 @@ export interface EditorContextValue {
   openUpscaleDialog: () => void;
   /** Close the upscale dialog. */
   closeUpscaleDialog: () => void;
+  /** Whether the Image Trace (vectorize) dialog is open. */
+  vectorizeDialogOpen: boolean;
+  /** Open the Image Trace dialog for the selected image. */
+  openVectorizeDialog: () => void;
+  /** Close the Image Trace dialog. */
+  closeVectorizeDialog: () => void;
   /** Flatten/rasterize/merge the current selection (unified flatten system). */
   flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
   rasterizeSelected: (scale?: number) => void;
@@ -2186,7 +2192,9 @@ export function EditorProvider({
       },
       themeRevision: 0,
       revision: 0,
+      warpEdit: null,
       upscaleDialogOpen: false,
+      vectorizeDialogOpen: false,
       debugOverlay: {
         enabled: false,
         channels: {
@@ -2899,20 +2907,24 @@ export function EditorProvider({
       toggleLeftPanel: () => {
         const next = !state.leftPanelVisible;
         patch({ leftPanelVisible: next });
+        recordPanelVisibilityOverride(state.workspaceMode, 'layers', next);
         updateSettings({ panel: { leftPanelVisible: next } });
       },
       toggleRightPanel: () => {
         const next = !state.rightPanelVisible;
         patch({ rightPanelVisible: next });
+        recordPanelVisibilityOverride(state.workspaceMode, 'inspector', next);
         updateSettings({ panel: { rightPanelVisible: next } });
       },
       toggleLibraryPanel: () => {
         const next = !state.libraryPanelVisible;
         patch({ libraryPanelVisible: next });
+        recordPanelVisibilityOverride(state.workspaceMode, 'library', next);
       },
       toggleCodegenPanel: () => {
         const next = !state.codegenPanelVisible;
         patch({ codegenPanelVisible: next });
+        recordPanelVisibilityOverride(state.workspaceMode, 'codegen', next);
       },
       toggleLogoPanel: () => {
         if (state.workspaceMode !== 'logo') {
@@ -2921,6 +2933,7 @@ export function EditorProvider({
         }
         const next = !state.logoPanelVisible;
         patch({ logoPanelVisible: next });
+        recordPanelVisibilityOverride(state.workspaceMode, 'logo', next);
         updateSettings({ panel: { logoPanelVisible: next } });
       },
       toggleDistractionFreeMode: () => {
@@ -3058,6 +3071,20 @@ export function EditorProvider({
           selectionRevision: state.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
         });
+      },
+
+      // ADR-0016: table edit session + undoable table model ops.
+      setTableEdit: (tableEdit: import('./context/types').TableEditState | null) => {
+        patch({ tableEdit });
+      },
+      updateTableCellText: (cellId: string, text: string) => {
+        updateDoc((doc) => updateTableCellTextInDoc(doc, cellId, text));
+      },
+      tableOp: (
+        tableId: string,
+        op: (model: import('@varve/scene').TableModel) => import('@varve/scene').TableModel,
+      ) => {
+        updateDoc((doc) => applyTableModelOp(doc, tableId, op));
       },
 
       // F1: additive = shift+click behaviour.
@@ -3208,7 +3235,22 @@ export function EditorProvider({
 
           let node: SceneNode;
           let isFrame = false;
-          if (activeTool === 'frame' || activeTool === 'slice') {
+          if (activeTool === 'table') {
+            // ADR-0016: a native table with a data-backed model, header row,
+            // and fraction-filled columns sized to the dragged rect.
+            const w = Math.max(80, size?.w ?? 480);
+            const h = Math.max(60, size?.h ?? 240);
+            node = makeTableNode(id, {
+              name: 'Table',
+              transform,
+              rows: 4,
+              columns: 4,
+              headerRows: 1,
+              w,
+              h,
+              columnSizing: { kind: 'fraction', value: 1 },
+            });
+          } else if (activeTool === 'frame' || activeTool === 'slice') {
             node = makeFrameNode(id, {
               name: 'Node',
               transform,
@@ -6030,6 +6072,22 @@ export function EditorProvider({
         }));
       },
 
+      setWarpEdit: (target) => {
+        setState((s) => {
+          const next = target ? { nodeId: target.nodeId, modifierId: target.modifierId } : null;
+          if (
+            (s.warpEdit === null && next === null) ||
+            (s.warpEdit !== null &&
+              next !== null &&
+              s.warpEdit.nodeId === next.nodeId &&
+              s.warpEdit.modifierId === next.modifierId)
+          ) {
+            return s;
+          }
+          return { ...s, warpEdit: next };
+        });
+      },
+
       paintQuickMask: (x: number, y: number, radius: number, value: number) => {
         setState((s) => {
           const buf = s.quickMask.coverage;
@@ -7375,6 +7433,13 @@ export function EditorProvider({
       },
       closeUpscaleDialog: () => {
         patch({ upscaleDialogOpen: false });
+      },
+      vectorizeDialogOpen: state.vectorizeDialogOpen,
+      openVectorizeDialog: () => {
+        patch({ vectorizeDialogOpen: true });
+      },
+      closeVectorizeDialog: () => {
+        patch({ vectorizeDialogOpen: false });
       },
 
       addPreset: (nodeId, preset) => {
