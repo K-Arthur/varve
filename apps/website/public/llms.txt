@@ -1,0 +1,60 @@
+# Varve
+
+> Varve is a free, local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print production. It runs natively on Linux, macOS, and Windows, and is currently in active beta. Source-available under the Functional Source License 1.1 with MIT Future License (FSL-1.1-MIT): free to use, modify, and redistribute for any permitted purpose; after two years each release converts to the MIT license.
+
+## What Varve is
+
+- Varve is a design application (category: design suite / creative software), comparable to Figma, Sketch, Adobe Illustrator, and Affinity tools.
+- It combines vector design, page layout, typography, animation, prototyping, and print production in one application and one document model.
+- It is local-first: no account, no cloud sync, no telemetry. Design data stays on the user's machine.
+- It is free with no subscription and no feature lockouts. Only the Community Edition exists today.
+- Desktop builds use a native Rust engine; the web build uses the same engine compiled to WASM.
+
+## Platforms and system requirements
+
+- Linux (x86_64): AppImage, deb, rpm, AUR. Requires glibc 2.35+ (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS).
+- macOS: Universal binary for Intel and Apple Silicon, macOS 13 Ventura or later.
+- Windows: 10 (1809) or 11, x86_64 (MSI and NSIS installers).
+- Minimum 4 GB RAM (8 GB recommended), 500 MB storage.
+- Linux ARM, Windows ARM, and code-signed builds are not yet available. macOS builds are not notarized.
+
+## Key facts (verified against the 2026-07-20 development build)
+
+- Current status: beta. No public release has been tagged yet; installers are not published.
+- Import formats: SVG, PDF, PSD, AI, EPS, and common image formats.
+- Export formats: SVG, React/Tailwind, React/CSS Modules, CSS, Flutter, SwiftUI, PDF (RGB), PDF/X-1a (CMYK), PDF/X-4, and CSS/Lottie/SVG/video animation export.
+- Print support: CMYK color management, ICC profiles, crop and registration marks, color bars, bleed boxes, print preflight checks.
+- Typography: multi-line text, OpenType features, variable fonts, text on path, inline editing, CJK line breaking. Complex script shaping (Arabic, Devanagari) is not yet supported.
+- Collaboration: not implemented (UI scaffolding only).
+- Motion: timeline animation, keyframes, easing, Smart Animate, prototype interactions, state machines.
+- Development: built independently by one designer-developer; development is documented publicly.
+
+## Documentation
+
+- [Product overview](product)
+- [Features overview](features)
+- [Download and install](download)
+- [Documentation](docs)
+- [Getting started](docs/getting-started)
+- [Keyboard shortcuts](docs/keyboard-shortcuts)
+- [File formats](docs/file-formats)
+- [Architecture](docs/architecture)
+- [Rendering pipeline](docs/rendering)
+
+## Support and community
+
+- [FAQ](support/faq)
+- [Troubleshooting](support/troubleshooting)
+- [Known issues](support/known-issues)
+- [Report an issue](support/report-issue)
+- [GitHub repository](https://github.com/K-Arthur/varve)
+- [GitHub Discussions](https://github.com/K-Arthur/varve/discussions)
+
+## Project information
+
+- [About](about)
+- [License (FSL-1.1-MIT)](about/license)
+- [Privacy policy](about/privacy)
+- [Security policy](about/security)
+- [Contribute](contribute)
+- [Releases](releases)
