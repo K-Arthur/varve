@@ -14,10 +14,10 @@ const mockRecommendation: recommender.ShortcutRecommendation = {
 
 const recommendSpy = vi.spyOn(recommender, 'recommendShortcuts');
 
+// Suppression is derived from the workspace's hidden tools now, so the mock
+// stands in for the toolbar rather than a declared `shortcuts.disabled` list.
 vi.mock('../workspace/workspaceTypes', () => ({
-  getWorkspaceConfig: vi.fn(() => ({
-    shortcuts: { disabled: [] },
-  })),
+  getHiddenTools: vi.fn(() => new Set(['rect'])),
 }));
 
 describe('useShortcutTips', () => {
@@ -104,9 +104,11 @@ describe('useShortcutTips', () => {
     expect(result.current.currentTip).toBeNull();
   });
 
-  it('passes disabledShortcutIds to recommendShortcuts', () => {
+  it('suppresses tips for tools the workspace hides', () => {
     recommendSpy.mockReturnValue([]);
     renderHook(() => useShortcutTips('design', true));
-    expect(recommendSpy).toHaveBeenCalledWith(expect.anything(), 1, []);
+    // 'rect' is hidden per the mock above, so its shortcut must not be
+    // recommended — the suppression list is derived, never declared.
+    expect(recommendSpy).toHaveBeenCalledWith(expect.anything(), 1, ['toolRect']);
   });
 });

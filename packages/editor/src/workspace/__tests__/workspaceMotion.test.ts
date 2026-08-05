@@ -4,11 +4,12 @@
  * Verifies:
  * - Motion workspace config has timeline panel visible
  * - Motion workspace has correct default tool
- * - Motion workspace has onion skin shortcut
- * - Motion workspace has animation-specific shortcuts
+ * - Motion workspace resolves its switch shortcut from the live registry
  * - Workspace switching preserves document state
  */
 import { describe, expect, it } from 'vitest';
+import { formatShortcut, getEffectiveBinding } from '../../shortcuts/ShortcutManager';
+import { workspaceShortcutLabel } from '../workspaceShortcutLabel';
 import { getWorkspaceConfig, WORKSPACE_CONFIGS, type WorkspaceMode } from '../workspaceTypes';
 
 describe('Motion workspace config', () => {
@@ -35,17 +36,16 @@ describe('Motion workspace config', () => {
     expect(motionConfig.statusBar).toBe(true);
   });
 
-  it('has animation-specific keyboard shortcuts', () => {
-    const shortcuts = motionConfig.shortcuts.extra;
-    expect(shortcuts).toBeDefined();
-    expect(shortcuts?.G).toBe('toggleGraphEditor');
-    expect(shortcuts?.Space).toBe('playPause');
-    expect(shortcuts?.['Alt+O']).toBe('toggleOnionSkin');
-    expect(shortcuts?.['Alt+P']).toBe('addPositionKeyframe');
-    expect(shortcuts?.['Alt+R']).toBe('addRotationKeyframe');
-    expect(shortcuts?.['Alt+S']).toBe('addScaleKeyframe');
-    expect(shortcuts?.['Alt+E']).toBe('addOpacityKeyframe');
-    expect(shortcuts?.['Alt+K']).toBe('toggleAutoKeyframe');
+  // The config used to declare per-mode key bindings ('G' → toggleGraphEditor,
+  // 'Space' → playPause…) that nothing ever registered: ShortcutManager holds
+  // one global binding per action id and has no per-workspace layer to receive
+  // them. Those assertions passed while the keys they named did nothing, so
+  // what is asserted now is the binding that genuinely fires.
+  it('resolves its switch shortcut from the live registry', () => {
+    expect(workspaceShortcutLabel('motion')).toBe(
+      formatShortcut(getEffectiveBinding('workspaceMotion')),
+    );
+    expect(workspaceShortcutLabel('motion')).toBeTruthy();
   });
 
   it('has select tool in toolbar', () => {
@@ -123,9 +123,7 @@ describe('Workspace config integrity', () => {
     expect(motion.panels.timeline.visible).toBe(true);
     expect(design.panels.timeline.visible).toBe(false);
 
-    // Motion has extra shortcuts not in design
-    expect(Object.keys(motion.shortcuts.extra ?? {}).length).toBeGreaterThan(
-      Object.keys(design.shortcuts.extra ?? {}).length,
-    );
+    // …and the two modes are reachable by different switch shortcuts.
+    expect(workspaceShortcutLabel('motion')).not.toBe(workspaceShortcutLabel('design'));
   });
 });
