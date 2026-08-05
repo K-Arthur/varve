@@ -10,6 +10,8 @@ import type { Document, Library } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { useState } from 'react';
 import { useEditor } from '../../context';
+import { IconBrowser } from '../IconBrowser/IconBrowser';
+import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
 import './ResourcesPanel.css';
 
@@ -20,7 +22,6 @@ export interface ResourcesPanelProps {
   doc: Document;
   onInstallLibrary: (library: Library) => void;
   onUninstallLibrary: (libraryId: string) => void;
-  onInsertIcon?: (payload: IconInsertPayload) => void;
 }
 
 type ResourcesTab = 'libraries' | 'icons';
