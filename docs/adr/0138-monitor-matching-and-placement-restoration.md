@@ -1,4 +1,4 @@
-# ADR-0033: Monitor matching and placement restoration
+# ADR-0138: Monitor matching and placement restoration
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -18,7 +18,7 @@ exists in the codebase.
 
 ## Decision
 
-- Normalized monitor model in `@varve/platform` (ADR-0022):
+- Normalized monitor model in `@varve/platform` (ADR-0127):
   `DisplayInfo` = `runtimeId` (session-scoped, not durable), `name?`,
   `isPrimary`, `position`, `size`, `workArea`, `scaleFactor`, `rotation`.
   `DisplayFingerprint` = `name?`, `physicalSizeHint?`, `resolution`,
@@ -37,12 +37,12 @@ exists in the codebase.
   placement).
 - Missing saved monitor: restore visibly on the primary monitor,
   cascade multiple recovered windows, non-blocking recovery notice,
-  offer "Gather all windows" (ADR-0035 wait — see ADR-0035 numbering:
+  offer "Gather all windows" (ADR-0140 wait — see ADR-0140 numbering:
   gather command is part of M9/M10 deliverables), preserve the logical
   layout so it returns when the monitor does.
 - Honesty about platform limits: Wayland compositors may refuse exact
   placement — request size + monitor/relative placement and accept the
-  compositor's choice, documenting the fallback (ADR-0036).
+  compositor's choice, documenting the fallback (ADR-0141).
 
 ## Consequences
 
@@ -64,7 +64,7 @@ macOS Spaces/fullscreen Spaces, lid close/dock changes, remote desktop.
 ## Security implications
 
 Monitor geometry is machine-local and never leaves the device
-(ADR-0018/0040).
+(ADR-0123/0040).
 
 ## Accessibility implications
 

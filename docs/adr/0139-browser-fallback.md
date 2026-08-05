@@ -1,4 +1,4 @@
-# ADR-0034: Browser fallback
+# ADR-0139: Browser fallback
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -19,21 +19,21 @@ restrictions, storage partitioning, unreliable restoration).
 
 ## Decision
 
-- Browser `windowService.capability` = `'single-window'` (ADR-0022):
+- Browser `windowService.capability` = `'single-window'` (ADR-0127):
   native multi-monitor windows are labeled as a **desktop capability** in
   the workspace manager and window menus; detach affordances show an
   accurate explanation instead of pretending.
-- The **same dock-tree model** (ADR-0021) renders in one browser window:
+- The **same dock-tree model** (ADR-0126) renders in one browser window:
   in-page dock groups, tabs, resizable split panes, named logical layouts
-  (ADR-0032), full-screen panel focus mode as the closest in-page analog
+  (ADR-0137), full-screen panel focus mode as the closest in-page analog
   of detachment.
 - Popup experimentation is allowed only behind capability detection
   (popup blockers detectable via `window.open` return) with clear
   warnings and no core-correctness dependency; `BroadcastChannel` may
   power the experimental popup path only as a transport behind the broker
-  (ADR-0023) — never as the authority.
+  (ADR-0128) — never as the authority.
 - Logical layout import/export works in the browser; machine placement is
-  stripped on import (ADR-0032).
+  stripped on import (ADR-0137).
 
 ## Consequences
 

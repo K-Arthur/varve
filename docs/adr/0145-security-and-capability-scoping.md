@@ -1,4 +1,4 @@
-# ADR-0040: Security and capability scoping
+# ADR-0145: Security and capability scoping
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -35,10 +35,10 @@ untrusted input.
   URL navigation.
 - **Window creation rules:** only application-owned routes
   (`index.html?surface=panel-window...`); no arbitrary URLs; labels are
-  sanitized/bounded (ADR-0020); query strings carry opaque ids only —
+  sanitized/bounded (ADR-0125); query strings carry opaque ids only —
   never file contents, credentials, native paths, document names, or
-  document JSON (ADR-0020/0021).
-- **Message validation** (ADR-0023): protocol version, session id,
+  document JSON (ADR-0125/0021).
+- **Message validation** (ADR-0128): protocol version, session id,
   window registration + generation, sender permission, message type,
   payload schema, payload size, sequence, document revision, panel
   capability, target document, command authorization. Reject: spoofed
@@ -46,7 +46,7 @@ untrusted input.
   stale commands, floods (rate limits), oversized snapshots, prototype
   pollution (schema validation, no `__proto__` keys), drag payload
   tampering.
-- **Imported layouts** (ADR-0032): schema-validated, geometry sanitized
+- **Imported layouts** (ADR-0137): schema-validated, geometry sanitized
   (NaN/Infinity/huge coordinates rejected), panel ids must reference the
   registry; a malicious layout cannot create arbitrary windows or invoke
   arbitrary commands — it is a data file, validated like any other
@@ -78,7 +78,7 @@ enforce the same scopes.
 ## Security implications
 
 This ADR is the security contract; validated by the fuzz/security test
-suite (ADR-0042) and a review pass in M15.
+suite (ADR-0147) and a review pass in M15.
 
 ## Accessibility implications
 

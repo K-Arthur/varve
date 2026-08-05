@@ -1,4 +1,4 @@
-# ADR-0038: Rendering and worker isolation
+# ADR-0143: Rendering and worker isolation
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -30,7 +30,7 @@ caches. If every auxiliary window repeated this, memory would multiply
   requires them (none do in M7).
 - Centralized runtimes: model manager, font cache, and collaboration
   connection remain primary-window singletons; auxiliary windows call
-  through the broker (ADR-0025) or the platform service, never spawning
+  through the broker (ADR-0130) or the platform service, never spawning
   their own.
 - Lifecycle cleanup: hidden/minimized windows throttle nonessential work
   (visibility-change gating, reusing `editorFrameRuntime.ts:20` pattern);
@@ -55,7 +55,7 @@ Chunk loading is Vite-based on all OSes; WebKitGTK's older baseline
 ## Security implications
 
 Smaller surface per window = smaller attack surface; the minimal bundle
-cannot even reach canvas/model code paths (defense in depth, ADR-0040).
+cannot even reach canvas/model code paths (defense in depth, ADR-0145).
 
 ## Accessibility implications
 

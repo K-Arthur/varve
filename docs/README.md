@@ -36,32 +36,32 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0013-canonical-audit-finding-contract.md` | Canonical audit finding contract |
 | `adr/0014-font-detection-architecture.md` | Font detection architecture |
 | `adr/0016-tables-and-color-modifiers.md` | Tables and linked color modifiers |
-| `adr/0017-canonical-editor-session-ownership.md` | One canonical editing session per application session |
-| `adr/0018-state-partitioning-across-windows.md` | State scope taxonomy for multi-window sync |
-| `adr/0019-panel-registry.md` | Declarative panel registry and lifecycle contract |
-| `adr/0020-stable-window-and-panel-instance-identity.md` | Durable ids for windows/panels/transactions |
-| `adr/0021-dock-tree-representation.md` | Normalized dock-tree model and pure operations |
-| `adr/0022-native-window-service-boundary.md` | Platform window service abstraction |
-| `adr/0023-cross-window-protocol.md` | Versioned, typed session envelope protocol |
-| `adr/0024-snapshot-and-incremental-synchronization.md` | Snapshot + revisioned patch sync |
-| `adr/0025-command-routing.md` | Broker-routed validated mutations |
-| `adr/0026-undo-redo-ownership.md` | Single authoritative undo stack |
-| `adr/0027-selection-and-active-document-semantics.md` | Shared selection; panels follow active document |
-| `adr/0028-focus-and-shortcut-routing.md` | Window-aware shortcut classification |
-| `adr/0029-atomic-panel-transfer.md` | Transactional detach/reattach state machine |
-| `adr/0030-window-close-behavior.md` | Coordinated close policy per platform |
-| `adr/0031-auxiliary-window-recovery.md` | Generation-based reload/crash recovery |
-| `adr/0032-workspace-persistence.md` | Versioned named workspace layouts |
-| `adr/0033-monitor-matching-and-placement-restoration.md` | Display fingerprint matching and safe placement |
-| `adr/0034-browser-fallback.md` | Honest single-window browser fallback |
-| `adr/0035-dialog-and-overlay-ownership.md` | Window-local vs session modal coordination |
-| `adr/0036-drag-and-drop-across-native-windows.md` | Command-first, progressive drag layers |
-| `adr/0037-canvas-window-deferral.md` | Canvas windows deferred to a later phase |
-| `adr/0038-rendering-and-worker-isolation.md` | Minimal auxiliary bundles; centralized runtimes |
-| `adr/0039-collaboration-behavior.md` | One collaboration connection per session |
-| `adr/0040-security-and-capability-scoping.md` | Narrow per-window Tauri capabilities + validation |
-| `adr/0041-multimodal-proposal-boundary.md` | Typed, validated AI workspace plans |
-| `adr/0042-test-architecture.md` | Multi-layer multi-window test pyramid |
+| `adr/0122-canonical-editor-session-ownership.md` | One canonical editing session per application session |
+| `adr/0123-state-partitioning-across-windows.md` | State scope taxonomy for multi-window sync |
+| `adr/0124-panel-registry.md` | Declarative panel registry and lifecycle contract |
+| `adr/0125-stable-window-and-panel-instance-identity.md` | Durable ids for windows/panels/transactions |
+| `adr/0126-dock-tree-representation.md` | Normalized dock-tree model and pure operations |
+| `adr/0127-native-window-service-boundary.md` | Platform window service abstraction |
+| `adr/0128-cross-window-protocol.md` | Versioned, typed session envelope protocol |
+| `adr/0129-snapshot-and-incremental-synchronization.md` | Snapshot + revisioned patch sync |
+| `adr/0130-command-routing.md` | Broker-routed validated mutations |
+| `adr/0131-undo-redo-ownership.md` | Single authoritative undo stack |
+| `adr/0132-selection-and-active-document-semantics.md` | Shared selection; panels follow active document |
+| `adr/0133-focus-and-shortcut-routing.md` | Window-aware shortcut classification |
+| `adr/0134-atomic-panel-transfer.md` | Transactional detach/reattach state machine |
+| `adr/0135-window-close-behavior.md` | Coordinated close policy per platform |
+| `adr/0136-auxiliary-window-recovery.md` | Generation-based reload/crash recovery |
+| `adr/0137-workspace-persistence.md` | Versioned named workspace layouts |
+| `adr/0138-monitor-matching-and-placement-restoration.md` | Display fingerprint matching and safe placement |
+| `adr/0139-browser-fallback.md` | Honest single-window browser fallback |
+| `adr/0140-dialog-and-overlay-ownership.md` | Window-local vs session modal coordination |
+| `adr/0141-drag-and-drop-across-native-windows.md` | Command-first, progressive drag layers |
+| `adr/0142-canvas-window-deferral.md` | Canvas windows deferred to a later phase |
+| `adr/0143-rendering-and-worker-isolation.md` | Minimal auxiliary bundles; centralized runtimes |
+| `adr/0144-collaboration-behavior.md` | One collaboration connection per session |
+| `adr/0145-security-and-capability-scoping.md` | Narrow per-window Tauri capabilities + validation |
+| `adr/0146-multimodal-proposal-boundary.md` | Typed, validated AI workspace plans |
+| `adr/0147-test-architecture.md` | Multi-layer multi-window test pyramid |
 
 ## Architecture Docs (current state)
 

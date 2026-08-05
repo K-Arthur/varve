@@ -1,4 +1,4 @@
-# ADR-0032: Workspace persistence
+# ADR-0137: Workspace persistence
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -22,30 +22,30 @@ monitor-aware layouts with logical/device separation do not exist.
   `app-setting` keys on desktop via `app_get_setting`/`app_set_setting`,
   `lib.rs:1824-1842`) holding `{ schemaVersion, layouts:
   NamedLayout[], activeLayoutId, lastKnownGoodLayout, restoreAttempts }`.
-- `NativeWorkspaceLayout` (ADR-0021) is **portable**: logical window
+- `NativeWorkspaceLayout` (ADR-0126) is **portable**: logical window
   roles, dock trees, panel instances, split ratios, active tabs,
   panel-local-state references, workspace-mode association, schema
   version. `WindowPlacement` carries display **fingerprints**
-  (ADR-0033), never raw coordinates as the source of truth.
+  (ADR-0138), never raw coordinates as the source of truth.
 - Separation (explicit in the store): portable logical layout vs
   device-specific placement vs per-mode panel visibility preferences
   (existing `WorkspaceConfig.panels`) vs document-specific pinning
-  (deferred, ADR-0027).
+  (deferred, ADR-0132).
 - Named layouts: Default, Single monitor, Dual monitor, Focus canvas,
   Illustration, Print production, Motion, Developer handoff, Custom.
   Operations: save, save as, rename, duplicate, delete, reset, assign
   default per workspace mode, export logical layout, import logical
   layout (validated, machine-specific coordinates stripped).
 - Imported layouts are validated by `deserializeDockTree` + placement
-  sanitization (NaN/infinite/oversized geometry rejected, ADR-0040) and
+  sanitization (NaN/infinite/oversized geometry rejected, ADR-0145) and
   never stored with monitor coordinates.
 
 ## Consequences
 
 - Layouts survive restart; missing monitors never create unreachable
-  windows (ADR-0033); the design document never contains layout data.
+  windows (ADR-0138); the design document never contains layout data.
 - The existing `varve-editor-settings.panel` fields migrate into the dock
-  tree for the primary window (migration tested, ADR-0021).
+  tree for the primary window (migration tested, ADR-0126).
 
 ## Migration impact
 
@@ -61,9 +61,9 @@ validation are identical; the desktop/web parity test harness
 
 ## Security implications
 
-Imported layouts are untrusted input (fuzzed, ADR-0042); machine-local
+Imported layouts are untrusted input (fuzzed, ADR-0147); machine-local
 coordinates are stripped on import; monitor geometry never enters the
-design document or collaboration payloads (ADR-0040).
+design document or collaboration payloads (ADR-0145).
 
 ## Accessibility implications
 
@@ -73,7 +73,7 @@ restore warnings precede costly layouts (performance profile).
 ## Performance implications
 
 Layout blobs are small (id-based); export/import are synchronous-safe;
-restore is bounded by window count (ADR-0037 limits).
+restore is bounded by window count (ADR-0142 limits).
 
 ## Rejected shortcuts
 

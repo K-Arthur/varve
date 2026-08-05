@@ -20,32 +20,32 @@ evidence.
 | Panel definition | Registered type + capabilities of a panel (registry entry). |
 | Panel instance | Concrete mounted instance with stable id and local presentation state. |
 | Editor session | The canonical live editing session (documents, undo, selection, commands, save) owned by the primary window. |
-| Document view | A viewport/presentation of a document. Panel detachment never creates one; canvas windows are deferred (ADR-0037). |
+| Document view | A viewport/presentation of a document. Panel detachment never creates one; canvas windows are deferred (ADR-0142). |
 
 ## Core principles
 
-1. **One canonical editing authority** (ADR-0017): one session, one
+1. **One canonical editing authority** (ADR-0122): one session, one
    `EditorProvider` (primary window), one undo stack, one save authority.
    Auxiliary windows are projections that submit validated commands.
-2. **Explicit state partitioning** (ADR-0018): `document-shared`,
+2. **Explicit state partitioning** (ADR-0123): `document-shared`,
    `session-shared`, `window-local`, `panel-instance-local`,
    `machine-local`, `ephemeral`. Only shared slices cross the channel.
-3. **Stable identities** (ADR-0020): UUIDs for sessions, windows, panel
+3. **Stable identities** (ADR-0125): UUIDs for sessions, windows, panel
    instances, hosts, dock nodes, transfers, layouts. Tauri labels are
    sanitized derivations.
-4. **Typed, versioned protocol** (ADR-0023): every message is a
+4. **Typed, versioned protocol** (ADR-0128): every message is a
    `SessionEnvelope` with version/session/window/generation/sequence/
    revision validation at the broker.
-5. **Atomic panel transfer** (ADR-0029): detach/reattach is a two-phase
+5. **Atomic panel transfer** (ADR-0134): detach/reattach is a two-phase
    state machine; the source never unmounts before the destination
    acknowledges.
-6. **Platform abstraction** (ADR-0022): React never touches Tauri window
+6. **Platform abstraction** (ADR-0127): React never touches Tauri window
    APIs; `@varve/platform` window service has memory/browser/tauri
    implementations.
-7. **Safe recovery** (ADR-0031): generation-based registration,
+7. **Safe recovery** (ADR-0136): generation-based registration,
    heartbeat liveness, last-known-good layouts, crash-loop breaker,
    safe single-window boot.
-8. **Progressive capability** (ADR-0037): panel windows first; canvas
+8. **Progressive capability** (ADR-0142): panel windows first; canvas
    windows deferred.
 
 ## Module layout
@@ -89,7 +89,7 @@ patches fan out to all windows → `COMMAND_ACK` returns with new revision.
 `windowService.capability === 'single-window'`: the same dock-tree model
 renders in one window (tabs, splits, named layouts, focus mode); native
 operations are labeled as desktop-only with accurate explanations; popups
-are opt-in experiments only (ADR-0034).
+are opt-in experiments only (ADR-0139).
 
 ## Milestones
 
@@ -126,4 +126,4 @@ compositor — request size + monitor/relative placement and document the
 fallback honestly. Windows: mixed-DPI work areas, taskbar, snap layouts.
 macOS: Spaces, application-lives-without-windows, native traffic lights
 if auxiliary windows use native decorations. Native testing per OS is
-mandatory (ADR-0042); browser tests never substitute for it.
+mandatory (ADR-0147); browser tests never substitute for it.

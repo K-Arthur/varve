@@ -177,7 +177,7 @@ root, no single toast host element, no single tooltip host.
 - Canvas renderer initializes in the editor window: worker renderer, WASM IR
   path, `SubtreeReplayCache`, ONNX model manager, font loading, thumbnail
   queues. All are **per-window** today; a panel-only window must not
-  initialize them (ADR-0022).
+  initialize them (ADR-0127).
 - `replaySubtreeToCtx` in `CanvasArea.tsx` is the per-node-per-frame hot path;
   the perf harness under `docs/quality/` must be used for any replay change
   (AGENTS.md).
@@ -209,7 +209,7 @@ root, no single toast host element, no single tooltip host.
 | Fonts | Inspector `fonts` tab | yes | no | yes | yes | no | **Via Inspector** | Font browser lives inside Inspector |
 | Export | `ExportLayer`/ExportDialog (Shell 746) | yes | no | yes | yes | no | **No — session dialog** | Native save dialogs; keep modal in primary |
 | Audit | Inspector `audit` tab + `AuditOverlayHost` | yes | no | yes | yes | no | **Via Inspector** | Overlay is canvas-coupled |
-| AI | `AiToolsHintSection` etc. (Inspector) | yes | no | yes | yes | no | **Via Inspector** | Model runtime centralized (ADR-0022) |
+| AI | `AiToolsHintSection` etc. (Inspector) | yes | no | yes | yes | no | **Via Inspector** | Model runtime centralized (ADR-0127) |
 | Minimap | `MinimapPanel` (inside Layers) | yes | no | yes | yes | yes | **No** | Canvas-dependent; stays with Layers or canvas |
 | Master pages | `MasterPanel` (inside Layers) | yes | no | yes | no | no | **With Layers** | — |
 | Spread settings | `SpreadSettings` (inside Layers) | yes | no | yes | no | no | **With Layers** | — |

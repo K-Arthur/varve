@@ -1,4 +1,4 @@
-# ADR-0028: Focus and shortcut routing
+# ADR-0133: Focus and shortcut routing
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -24,7 +24,7 @@ windows without a canvas.
     workspace manager. Valid in any window.
   - **Session-global** — undo, redo, find, command palette, delete-when-
     focus-is-canvas-or-selection. Routed to the broker; applied once
-    (ADR-0025/0026).
+    (ADR-0130/0026).
   - **Document-view-specific** — zoom, pan, canvas tool shortcuts. **Only
     in the primary canvas window**; auxiliary windows never register them.
   - **Panel-local** — rename, expand tree, inspector navigation. Bound in
@@ -36,16 +36,16 @@ windows without a canvas.
   a detached search field never deletes artwork and Spacebar pan never
   activates without a canvas.
 - Focus tracking: the broker records last-focused window and last-focused
-  panel (from focus messages); `focusWindow` (ADR-0022) is the sanctioned
+  panel (from focus messages); `focusWindow` (ADR-0127) is the sanctioned
   cross-window focus move.
 - Escape closes overlays only within the focused window (per-window modal
-  roots, ADR-0035).
+  roots, ADR-0140).
 
 ## Consequences
 
 - Exactly one undo per Ctrl+Z even with two windows focused-adjacent.
 - A detached window's shortcut surface is derived from the registry
-  (ADR-0019) — no canvas bindings leak in.
+  (ADR-0124) — no canvas bindings leak in.
 
 ## Migration impact
 
@@ -65,8 +65,8 @@ session-global actions).
 ## Accessibility implications
 
 Keyboard-accessible detach/attach/move commands are panel-local or
-session-global actions (ADR-0041 keyboard workflows); focus restoration is
-explicit in transfer (ADR-0029).
+session-global actions (ADR-0146 keyboard workflows); focus restoration is
+explicit in transfer (ADR-0134).
 
 ## Performance implications
 
