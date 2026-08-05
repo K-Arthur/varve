@@ -105,6 +105,13 @@ export function useWorkspaceMode(
   const latestState = useRef(state);
   latestState.current = state;
 
+  // Write the pre-upgrade global panel mirror through as real overrides. After
+  // mount, never during initial-state construction: the store notifies its
+  // subscribers on write, and doing that mid-render produces extra renders.
+  useEffect(() => {
+    migrateLegacyPanelSettings(BOOT_WORKSPACE_MODE);
+  }, []);
+
   // Fold durable preferences (SQLite on desktop, IndexedDB on web) into the
   // session snapshot once. localStorage alone is not enough: on WebKitGTK it
   // has been observed not surviving between launches, which would silently
@@ -226,6 +233,7 @@ export const BOOT_WORKSPACE_MODE: WorkspaceMode = 'design';
  * left behind by some *other* mode from being adopted as this mode's choice.
  */
 function legacyPanelEdits(mode: WorkspaceMode): [PanelId, boolean][] {
+  if (isModeCustomized(getWorkspacePreferences(), mode)) return [];
   const base = getWorkspaceConfig(mode).panels;
   const legacy = loadSettings().panel;
   const candidates: [PanelId, boolean][] = [
@@ -237,6 +245,24 @@ function legacyPanelEdits(mode: WorkspaceMode): [PanelId, boolean][] {
 }
 
 /**
+ * Persist the legacy mirror as real overrides for this mode.
+ *
+ * Deliberately separate from `initialPanelVisibility`: that runs while the
+ * initial EditorState is being constructed, and writing to the preference
+ * store there would notify subscribers during render.
+ */
+export function migrateLegacyPanelSettings(mode: WorkspaceMode = BOOT_WORKSPACE_MODE): void {
+  const edits = legacyPanelEdits(mode);
+  if (edits.length === 0) return;
+  updateWorkspacePreferences((prefs) =>
+    edits.reduce(
+      (acc, [panelId, visible]) => setPanelOverride(acc, mode, panelId, { visible }),
+      prefs,
+    ),
+  );
+}
+
+/**
  * Panel visibility for the initial EditorState.
  *
  * Resolves through the effective config so a per-workspace customization
@@ -245,20 +271,20 @@ function legacyPanelEdits(mode: WorkspaceMode): [PanelId, boolean][] {
  * layout the app booted into under Design.
  *
  * Upgrading users have a populated mirror and no overrides yet, so their
- * pre-upgrade layout is migrated into this mode's overrides once, on first
- * read, rather than being silently reset to the built-in default.
+ * pre-upgrade layout is folded in here and written through as real overrides
+ * by `migrateLegacyPanelSettings` after mount, rather than being silently
+ * reset to the built-in default.
+ *
+ * Pure by contract — this runs during initial-state construction, so it must
+ * not touch the preference store or notify its subscribers.
  */
 export function initialPanelVisibility(mode: WorkspaceMode = BOOT_WORKSPACE_MODE) {
-  if (!isModeCustomized(getWorkspacePreferences(), mode)) {
-    const edits = legacyPanelEdits(mode);
-    if (edits.length > 0) {
-      updateWorkspacePreferences((prefs) =>
-        edits.reduce(
-          (acc, [panelId, visible]) => setPanelOverride(acc, mode, panelId, { visible }),
-          prefs,
-        ),
-      );
-    }
+  const config = getEffectiveWorkspaceConfig(mode);
+  const legacy = legacyPanelEdits(mode);
+  if (legacy.length === 0) return panelVisibilityPatch(config);
+  const panels = { ...config.panels };
+  for (const [panelId, visible] of legacy) {
+    panels[panelId] = { ...panels[panelId], visible };
   }
-  return panelVisibilityPatch(getEffectiveWorkspaceConfig(mode));
+  return panelVisibilityPatch({ ...config, panels });
 }
