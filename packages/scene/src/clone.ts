@@ -6,6 +6,7 @@
  */
 
 import { nextNodeId } from './node-id';
+import { remapTableModelIds } from './tableOps';
 import type {
   ContainerNode,
   FrameNode,
@@ -13,6 +14,7 @@ import type {
   NodeId,
   RasterLayerNode,
   SceneNode,
+  TableNode,
 } from './types';
 import { isContainer } from './types';
 
@@ -97,6 +99,13 @@ export function deepCloneSubtree(
         });
       }
       cloned = { ...rl, id: newId, tiles: newTiles } as SceneNode;
+    } else if (node.kind === 'table') {
+      // Tables carry their own stable row/column/cell ids; remap them so a
+      // pasted table never collides with the source document's identities.
+      const tableNode = node as TableNode;
+      const remapped = remapTableModelIds(tableNode.table, currentDoc.nextId);
+      currentDoc = { ...currentDoc, nextId: remapped.nextId };
+      cloned = { ...tableNode, id: newId, table: remapped.model } as SceneNode;
     } else {
       // Leaf node: simple id replacement
       cloned = { ...node, id: newId } as SceneNode;
