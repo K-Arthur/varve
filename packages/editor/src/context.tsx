@@ -2726,6 +2726,7 @@ export function EditorProvider({
     toolRef,
     announcerRef,
     workspaceSwitchInProgressRef,
+    platform,
   );
 
   const value = useMemo<EditorContextValue>(
