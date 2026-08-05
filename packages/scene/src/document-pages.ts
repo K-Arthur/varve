@@ -71,8 +71,35 @@ export function addPage(
  * Remove a page from the document.
  * Removes the contentRoot node (and all descendants) and any background nodes.
  * Guards against removing the last page.
+ * Equivalent to `deletePageWithPolicy(doc, pageId, 'delete-content')`.
  */
 export function removePage(doc: Document, pageId: NodeId): Document {
+  return deletePageWithPolicy(doc, pageId, 'delete-content');
+}
+
+/**
+ * Page deletion policy (ADR-0126 D3). Explicit choice of what happens to the
+ * page's content instead of silent removal:
+ * - `delete-content`: remove the content subtree with the page (status quo).
+ * - `move-to-pasteboard`: reparent content children to the pasteboard
+ *   (rootChildren) before removing the page.
+ * - `move-to-page`: reparent content children to another page's content root
+ *   (transforms are preserved because page roots sit at identity).
+ */
+export type DeletePagePolicy = 'delete-content' | 'move-to-pasteboard' | 'move-to-page';
+
+/**
+ * Delete a page under an explicit content policy. Guards against removing
+ * the last page. When `policy` is `move-to-page`, `targetPageId` must name
+ * a surviving page (other than the deleted page); the policy falls back to
+ * `delete-content` when the target is missing.
+ */
+export function deletePageWithPolicy(
+  doc: Document,
+  pageId: NodeId,
+  policy: DeletePagePolicy,
+  targetPageId?: NodeId,
+): Document {
   if (!doc.pages || doc.pages.length <= 1) return doc;
   const idx = doc.pages.findIndex((p) => p.id === pageId);
   if (idx < 0) return doc;
@@ -87,6 +114,42 @@ export function removePage(doc: Document, pageId: NodeId): Document {
     pages: nextPages,
     activePageId: activePageStillExists ? doc.activePageId : fallbackPage?.id,
   };
+
+  // Resolve content destination before the page entry is gone.
+  const contentRoot = d.nodes[page.contentRoot] as GroupNode | undefined;
+  let targetRoot: NodeId | null = null;
+  if (policy === 'move-to-page' && targetPageId) {
+    const target = d.pages?.find((p) => p.id === targetPageId);
+    if (target && target.id !== pageId) targetRoot = target.contentRoot;
+  }
+  const moveToPasteboard =
+    policy === 'move-to-pasteboard' || (policy === 'move-to-page' && !targetRoot);
+
+  if (moveToPasteboard || targetRoot) {
+    const children = contentRoot?.children ?? [];
+    if (targetRoot) {
+      const targetNode = d.nodes[targetRoot] as GroupNode | undefined;
+      if (targetNode) {
+        d = {
+          ...d,
+          nodes: {
+            ...d.nodes,
+            [targetRoot]: { ...targetNode, children: [...targetNode.children, ...children] },
+          },
+        };
+      }
+    } else {
+      d = { ...d, rootChildren: [...d.rootChildren, ...children] };
+    }
+    // Sever the parent link so removeNode below does not cascade into the
+    // reparented children (they must survive the page deletion).
+    if (contentRoot) {
+      d = {
+        ...d,
+        nodes: { ...d.nodes, [page.contentRoot]: { ...contentRoot, children: [] } },
+      };
+    }
+  }
 
   // Remove background nodes
   for (const bgId of page.backgrounds) {
@@ -216,11 +279,40 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
     contentRoot: newContentRootId,
   };
 
-  return {
+  let result: Document = {
     ...d,
     pages: [...(d.pages ?? []), newPage],
     rootChildren: [...d.rootChildren, newContentRootId],
   };
+
+  // Text chains: frames of the duplicated page get fresh chain entries so the
+  // copied story stays linked within the copy and never silently joins the
+  // source story (ADR-0126 D4). The source chains keep their frame ids.
+  const chains = result.textChains as
+    | Record<string, { id: string; name?: string; frameIds: NodeId[] }>
+    | undefined;
+  if (chains && Object.keys(chains).length > 0) {
+    const mappedChains: typeof chains = {};
+    for (const chain of Object.values(chains)) {
+      if (!Array.isArray(chain?.frameIds)) continue;
+      const mapped = chain.frameIds
+        .map((fid) => (idMap.get(fid) ?? null) as NodeId | null)
+        .filter((fid): fid is NodeId => fid !== null);
+      if (mapped.length === 0) continue;
+      const chainId = cryptoId();
+      mappedChains[chainId] = {
+        id: chainId,
+        name: chain.name ? `${chain.name} Copy` : undefined,
+        frameIds: mapped,
+      };
+    }
+    if (Object.keys(mappedChains).length > 0) {
+      result = { ...result, textChains: { ...result.textChains, ...mappedChains } };
+    }
+  }
+
+  devValidate(result);
+  return result;
 }
 
 /**
