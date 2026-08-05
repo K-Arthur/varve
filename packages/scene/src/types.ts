@@ -1256,7 +1256,7 @@ export interface BackgroundRemovalState {
 // ── Live Trace Types ─────────────────────────────────────────────────────────
 
 export interface LiveTraceParams {
-  mode: 'monochrome' | 'grayscale' | 'color';
+  mode: 'monochrome' | 'grayscale' | 'color' | 'pixel-art';
   threshold: number;
   foreground: 'dark' | 'light';
   alphaThreshold: number;
