@@ -47,6 +47,7 @@ const definitions: PanelDefinition[] = [
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     a11yLabels: {
@@ -74,6 +75,7 @@ const definitions: PanelDefinition[] = [
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     a11yLabels: {
@@ -104,6 +106,7 @@ const definitions: PanelDefinition[] = [
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     a11yLabels: {
@@ -130,6 +133,7 @@ const definitions: PanelDefinition[] = [
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     a11yLabels: {
@@ -156,6 +160,7 @@ const definitions: PanelDefinition[] = [
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     a11yLabels: {
@@ -183,6 +188,7 @@ const definitions: PanelDefinition[] = [
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     a11yLabels: {
@@ -209,6 +215,7 @@ const definitions: PanelDefinition[] = [
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     a11yLabels: {

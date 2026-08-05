@@ -233,19 +233,23 @@ export function removePanel(
     }
     let next: DockNode;
     if (panels.length === 1 && root.panels.length > 1) {
+      const single = panels[0];
+      if (!single) {
+        return { tree: createEmptyNode(root.id), removed };
+      }
       next = {
         kind: 'panel',
         id: root.id,
-        panelInstanceId: panels[0].instanceId,
-        panelTypeId: panels[0].panelTypeId,
+        panelInstanceId: single.instanceId,
+        panelTypeId: single.panelTypeId,
       };
     } else {
       next = {
         ...root,
         panels,
         activePanelInstanceId:
-          root.activePanelInstanceId === instanceId
-            ? panels[0].instanceId
+          root.activePanelInstanceId === instanceId && panels.length > 0
+            ? (panels[0]?.instanceId ?? undefined)
             : root.activePanelInstanceId,
       };
     }
@@ -271,7 +275,11 @@ export function removePanel(
 }
 
 /** Rebuild a split whose sibling may have become empty. */
-function mergeEmptySiblings(split: DockNode, first: DockNode, second: DockNode): DockNode {
+function mergeEmptySiblings(
+  split: Extract<DockNode, { kind: 'split' }>,
+  first: DockNode,
+  second: DockNode,
+): DockNode {
   if (first.kind !== 'empty' && second.kind !== 'empty') {
     return { ...split, first, second };
   }
@@ -299,15 +307,15 @@ export function normalizeDockTree(root: DockNode): DockNode {
   if (root.kind === 'tabs') {
     const panels = root.panels;
     if (panels.length === 0) return createEmptyNode(root.id);
-    if (panels.length === 1 && root.panels.length > 1) {
-      return {
-        kind: 'panel',
-        id: root.id,
-        panelInstanceId: panels[0].instanceId,
-        panelTypeId: panels[0].panelTypeId,
-      };
-    }
-    return root;
+    if (panels.length > 1) return root;
+    const single = panels[0];
+    if (!single) return createEmptyNode(root.id);
+    return {
+      kind: 'panel',
+      id: root.id,
+      panelInstanceId: single.instanceId,
+      panelTypeId: single.panelTypeId,
+    };
   }
   return root;
 }

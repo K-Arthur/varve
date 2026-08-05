@@ -37,11 +37,11 @@ beforeEach(() => {
 
 const layers = (instanceId = 'i1'): PanelInstanceRef => ({
   instanceId,
-  panelTypeId: 'layers',
+  panelTypeId: 'layers' as const,
 });
 const inspector = (instanceId = 'i2'): PanelInstanceRef => ({
   instanceId,
-  panelTypeId: 'inspector',
+  panelTypeId: 'inspector' as const,
 });
 
 function emptyRoot(): DockNode {
@@ -50,7 +50,12 @@ function emptyRoot(): DockNode {
 
 describe('dock ops: insertion and splits', () => {
   it('insertBeside creates a split with the panel second', () => {
-    const root = { kind: 'panel' as const, id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' };
+    const root = {
+      kind: 'panel' as const,
+      id: 'p1',
+      panelInstanceId: 'i1',
+      panelTypeId: 'layers' as const,
+    };
     const next = insertBeside(root, 'p1', inspector(), 'row', 0.4, 'split1');
     expect(next.kind).toBe('split');
     if (next.kind === 'split') {
@@ -76,7 +81,12 @@ describe('dock ops: insertion and splits', () => {
   });
 
   it('splitHost splits an existing host', () => {
-    const root = { kind: 'panel' as const, id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' };
+    const root = {
+      kind: 'panel' as const,
+      id: 'p1',
+      panelInstanceId: 'i1',
+      panelTypeId: 'layers' as const,
+    };
     const next = splitHost(root, 'p1', inspector(), 'column', 0.6, 'split1');
     expect(next.kind).toBe('split');
     if (next.kind === 'split') {
@@ -108,7 +118,12 @@ describe('dock ops: tab groups', () => {
   });
 
   it('addToTabGroup converts a single panel node into tabs', () => {
-    const root = { kind: 'panel' as const, id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' };
+    const root = {
+      kind: 'panel' as const,
+      id: 'p1',
+      panelInstanceId: 'i1',
+      panelTypeId: 'layers' as const,
+    };
     const next = addToTabGroup(root, 'p1', inspector('i2'));
     expect(next.kind).toBe('tabs');
     if (next.kind === 'tabs') {
@@ -119,7 +134,12 @@ describe('dock ops: tab groups', () => {
 
 describe('dock ops: removal', () => {
   it('removing the only panel leaves an empty node and returns the ref', () => {
-    const root = { kind: 'panel' as const, id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' };
+    const root = {
+      kind: 'panel' as const,
+      id: 'p1',
+      panelInstanceId: 'i1',
+      panelTypeId: 'layers' as const,
+    };
     const { tree, removed } = removePanel(root, 'i1');
     expect(tree.kind).toBe('empty');
     expect(removed?.panelTypeId).toBe('layers');
@@ -157,8 +177,8 @@ describe('dock ops: removal', () => {
       id: 's1',
       direction: 'row',
       ratio: 0.5,
-      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
-      second: { kind: 'panel', id: 'p2', panelInstanceId: 'i2', panelTypeId: 'inspector' },
+      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' as const },
+      second: { kind: 'panel', id: 'p2', panelInstanceId: 'i2', panelTypeId: 'inspector' as const },
     };
     const { tree } = removePanel(split, 'i1');
     expect(tree.kind).toBe('panel');
@@ -174,7 +194,7 @@ describe('dock ops: normalization and validation', () => {
       direction: 'row',
       ratio: 0.5,
       first: { kind: 'empty', id: 'e1' },
-      second: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
+      second: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' as const },
     };
     const normalized = normalizeDockTree(split);
     expect(normalized.kind).toBe('panel');
@@ -198,7 +218,7 @@ describe('dock ops: normalization and validation', () => {
       id: 's1',
       direction: 'row',
       ratio: 0.5,
-      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
+      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' as const },
       second: {
         kind: 'tabs',
         id: 't1',
@@ -214,8 +234,8 @@ describe('dock ops: normalization and validation', () => {
       id: 's1',
       direction: 'row',
       ratio: 1.5,
-      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
-      second: { kind: 'panel', id: 'p2', panelInstanceId: 'i2', panelTypeId: 'inspector' },
+      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' as const },
+      second: { kind: 'panel', id: 'p2', panelInstanceId: 'i2', panelTypeId: 'inspector' as const },
     };
     expect(validateDockTree(badRatio).some((v) => v.includes('invalid ratio'))).toBe(true);
 
@@ -279,12 +299,12 @@ describe('dock ops: serialization', () => {
       id: 's1',
       direction: 'row',
       ratio: 0.5,
-      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
+      first: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' as const },
       second: {
         kind: 'tabs',
         id: 't1',
         activePanelInstanceId: 'i3',
-        panels: [inspector('i2'), { instanceId: 'i3', panelTypeId: 'library' }],
+        panels: [inspector('i2'), { instanceId: 'i3', panelTypeId: 'library' as const }],
       },
     };
     const serialized = serializeDockTree(root);
@@ -334,7 +354,7 @@ describe('dock ops: serialization', () => {
       direction: 'row',
       ratio: 0.5,
       first: { kind: 'empty', id: 'e1' },
-      second: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' },
+      second: { kind: 'panel', id: 'p1', panelInstanceId: 'i1', panelTypeId: 'layers' as const },
     };
     const result = deserializeDockTree(unnormalized);
     expect(result.ok).toBe(true);
@@ -357,10 +377,10 @@ describe('dock ops: sidebar migration', () => {
     expect(validateDockTree(tree)).toEqual([]);
     if (tree.kind === 'split') {
       expect(listPanelInstances(tree.first)).toEqual([
-        { instanceId: 'instance-layers', panelTypeId: 'layers' },
+        { instanceId: 'instance-layers', panelTypeId: 'layers' as const },
       ]);
       expect(listPanelInstances(tree.second)).toEqual([
-        { instanceId: 'instance-inspector', panelTypeId: 'inspector' },
+        { instanceId: 'instance-inspector', panelTypeId: 'inspector' as const },
       ]);
     }
   });
