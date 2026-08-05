@@ -972,6 +972,19 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('batchBgRemove'),
     },
     {
+      id: 'imageTrace',
+      labelKey: 'menu.object.imageTrace',
+      accelerator: a('t', true, true, true),
+      kind: 'command',
+      group: 'image',
+      workspaces: ['design', 'drawing', 'image'],
+      enabled: (ctx) => {
+        if (ctx.selection.hasImage) return true;
+        return { reason: 'Select an image layer' };
+      },
+      run: () => runAction('imageTrace'),
+    },
+    {
       id: 'toolCrop',
       labelKey: 'menu.object.cropImage',
       accelerator: a('c', true, true),

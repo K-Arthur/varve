@@ -44,7 +44,7 @@ function makeDeps(overrides: Partial<QuickBarActionDeps> = {}): QuickBarActionDe
     removeBackgroundWithOptions: vi.fn().mockResolvedValue(undefined),
     cancelBackgroundRemoval: vi.fn(),
     openUpscaleDialog: vi.fn(),
-    traceSelectedImage: vi.fn().mockResolvedValue(undefined),
+    openVectorizeDialog: vi.fn(),
     setShowOriginalBg: vi.fn(),
     setRefineMaskOptions: vi.fn(),
     updateNode: vi.fn(),
@@ -72,12 +72,10 @@ describe('dispatchQuickBarAction', () => {
     expect(deps.openUpscaleDialog).toHaveBeenCalledWith();
   });
 
-  it('wires vectorize to monochrome trace defaults', async () => {
+  it('wires vectorize to the full Image Trace dialog', async () => {
     const deps = makeDeps();
     await dispatchQuickBarAction('vectorize', deps);
-    expect(deps.traceSelectedImage).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: 'monochrome', threshold: 128 }),
-    );
+    expect(deps.openVectorizeDialog).toHaveBeenCalledWith();
   });
 
   it('wires flipH/flipV', async () => {
