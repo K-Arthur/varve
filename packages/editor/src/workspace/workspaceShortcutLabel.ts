@@ -8,7 +8,8 @@
  * matches the live bindings — workspace switching actually uses Ctrl+Shift+1..9).
  */
 import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
-import type { WorkspaceMode } from './workspaceTypes';
+import { toolShortcutId } from '../shortcuts/toolShortcutLabel';
+import { getHiddenTools, type WorkspaceMode } from './workspaceTypes';
 
 const WORKSPACE_SHORTCUT_IDS: Record<WorkspaceMode, string> = {
   design: 'workspaceDesign',
@@ -25,4 +26,22 @@ export function workspaceShortcutLabel(mode: WorkspaceMode): string {
   const id = WORKSPACE_SHORTCUT_IDS[mode];
   if (!id) return '';
   return formatShortcut(getEffectiveBinding(id));
+}
+
+/**
+ * Shortcut ids the tip recommender should not surface in this workspace.
+ *
+ * Derived from the workspace's own toolbar rather than declared: a tip for a
+ * tool the workspace doesn't show is noise, and deriving it means adding or
+ * removing a tool from a toolbar keeps the tips correct automatically. This
+ * replaces `WorkspaceConfig.shortcuts.disabled`, a hand-maintained list that
+ * was empty in every built-in workspace and so suppressed nothing.
+ */
+export function suppressedTipShortcutIds(mode: WorkspaceMode): string[] {
+  const ids: string[] = [];
+  for (const tool of getHiddenTools(mode)) {
+    const id = toolShortcutId(tool);
+    if (id) ids.push(id);
+  }
+  return ids;
 }
