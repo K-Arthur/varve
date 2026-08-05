@@ -1,4 +1,4 @@
-# Strata — Release Checklists
+# Varve — Release Checklists
 
 **Date:** 2026-08-03
 
@@ -10,7 +10,7 @@ actually run the thing you are about to hand to strangers."
 
 ## Alpha (first external testers)
 
-Goal: a small number of people can install Strata on Linux and it does not
+Goal: a small number of people can install Varve on Linux and it does not
 destroy their work.
 
 **Blockers — none of this ships until every box is ticked**
@@ -26,7 +26,7 @@ destroy their work.
 - [ ] SHA-256 checksums published and independently verified from a second machine
 - [ ] SBOM attached
 
-**Install verification — on a machine that has never built Strata**
+**Install verification — on a machine that has never built Varve**
 
 - [ ] Fresh install from the artifact, not the build tree
 - [ ] First launch: window appears, no crash, no console spew
@@ -34,7 +34,7 @@ destroy their work.
 - [ ] Quit, relaunch, reopen the saved document — content intact
 - [ ] Save As to a path containing a space and a non-ASCII character
 - [ ] Export to at least one format
-- [ ] Launch with networking disabled — must work; Strata is local-first
+- [ ] Launch with networking disabled — must work; Varve is local-first
 - [ ] Uninstall: application removed, **user documents preserved**
 
 **Honesty**
@@ -85,7 +85,7 @@ Everything in Alpha, plus:
 - [ ] Everything above
 - [ ] Windows: signed, or distributed through the Microsoft Store
 - [ ] macOS: signed with Developer ID, notarised, and **stapled**
-- [ ] Notarisation verified: `spctl -a -vvv -t install Strata.app` on a real Mac
+- [ ] Notarisation verified: `spctl -a -vvv -t install Varve.app` on a real Mac
 - [ ] Support channel staffed — someone is actually reading it
 - [ ] Previous release remains downloadable (rollback target)
 
@@ -114,7 +114,7 @@ Triggered when a published release is worse than its predecessor.
        Mark it as a prerelease so it stops being "latest", and edit the notes to
        say plainly what is wrong.
 2. [ ] Confirm the previous release's assets are still downloadable
-3. [ ] `node scripts/release/update-website-manifest.mjs --tag <previous>` and
+3. [ ] `node scripts/release/update-website-manifest.mjs --manifest dist/release/release-manifest.json --tag <previous>` and
        redeploy the site, so the download page points at the good version
 4. [ ] Post the reason and the workaround where users will see it
 5. [ ] Then fix forward — a rollback is a stopgap, not a resolution

@@ -1,6 +1,6 @@
 # Desktop runtime and native testing
 
-Strata uses Tauri 2. The desktop renderer is WebKitGTK on Linux, WebView2 on
+Varve uses Tauri 2. The desktop renderer is WebKitGTK on Linux, WebView2 on
 Windows, and WKWebView on macOS. Browser tests and desktop-window tests are
 separate: Playwright drives the Vite browser build; WebdriverIO drives a real
 Tauri window built with test-only support.
@@ -69,7 +69,7 @@ requires a compositor such as Weston, not merely `Xvfb`.
 The app uses WebView2, never GTK. The NSIS installer is configured to embed
 Tauri's offline WebView2 bootstrapper so an offline installation does not rely
 on a browser download. Hosted Windows runners execute the embedded provider;
-no EdgeDriver is selected or downloaded by Strata. Test x64 and ARM64 packaged
+no EdgeDriver is selected or downloaded by Varve. Test x64 and ARM64 packaged
 builds independently, use short writable temp paths, and retain screenshots on
 failure. Account for DPI and multiple-monitor coordinates in interaction tests.
 

@@ -1,6 +1,6 @@
 # Onboarding and Help System
 
-Architecture for first-run guidance, contextual help, and the offline help corpus in Strata.
+Architecture for first-run guidance, contextual help, and the offline help corpus in Varve.
 
 ## Design constraints (offline-first, dual-target)
 

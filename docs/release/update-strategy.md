@@ -1,4 +1,4 @@
-# Strata — Update and Release Channel Strategy
+# Varve — Update and Release Channel Strategy
 
 **Date:** 2026-08-03
 **Current state:** no updater is configured, and that is deliberate for v1.
@@ -24,7 +24,7 @@ decision to make is whether to add one for the first release.
 **Do not enable the Tauri updater for the first release.** Reasons, in order of
 weight:
 
-1. **Upgrade paths have never been tested.** Nobody has installed Strata `0.1.0`
+1. **Upgrade paths have never been tested.** Nobody has installed Varve `0.1.0`
    and upgraded it to `0.1.1` on any operating system. An auto-updater's entire
    job is to perform an untested operation unattended, on a user's machine,
    against their documents. The document format is explicitly still changing.
@@ -34,7 +34,7 @@ weight:
    developer must generate, back up offline, store in CI, and rotate. Getting
    that wrong is worse than having no updater.
 
-3. **The unsigned problem compounds.** Strata's installers are not code-signed.
+3. **The unsigned problem compounds.** Varve's installers are not code-signed.
    Adding an auto-updater to unsigned software means a user who cannot verify
    the first install also cannot verify any subsequent one — and now the
    unverified updates arrive silently.
@@ -94,7 +94,7 @@ Tauri's updater signs manifests with a minisign keypair.
 **Generation** — on an offline or trusted machine, never in CI:
 
 ```sh
-pnpm tauri signer generate -w ~/.strata/updater.key
+pnpm tauri signer generate -w ~/.varve/updater.key
 ```
 
 **Handling rules:**

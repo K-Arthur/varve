@@ -62,7 +62,7 @@ frontend worker route.
 - A production Vite bundle was exercised in Chromium through the real editor UI. The
   generated layer was identified as a Real-ESRGAN `4x-ai` result and undo restored the
   source state.
-- `cargo check -p strata-upscale --features ai` compile-verifies the optional native
+- `cargo check -p varve-upscale --features ai` compile-verifies the optional native
   provider.
 
 Official references:

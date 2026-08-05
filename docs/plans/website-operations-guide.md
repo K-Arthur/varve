@@ -28,9 +28,9 @@ This is the single source of truth for all download data. Open it and update:
     "releaseDate": "2026-07-15",
     "description": "First public release with basic canvas and export",
     "isPrerelease": false,
-    "githubUrl": "https://github.com/strata/strata",
-    "releasesUrl": "https://github.com/strata/strata/releases",
-    "discussionsUrl": "https://github.com/strata/strata/discussions"
+    "githubUrl": "https://github.com/K-Arthur/varve",
+    "releasesUrl": "https://github.com/K-Arthur/varve/releases",
+    "discussionsUrl": "https://github.com/K-Arthur/varve/discussions"
   }
 }
 ```
@@ -51,7 +51,7 @@ If the release changed platform artifacts (package names, sizes, formats), updat
     "linux": {
       "x86_64": {
         "appimage": {
-          "url": "https://github.com/strata/strata/releases/download/v0.1.0/Strata_0.1.0_amd64.AppImage",
+          "url": "https://github.com/K-Arthur/varve/releases/download/v0.1.0/Varve-0.1.0-linux-x86_64.AppImage",
           "size": "~210 MB",
           "format": "AppImage",
           "recommended": true
@@ -119,7 +119,7 @@ You added a new target to the CI matrix (e.g., Linux ARM64, macOS ARM-only, Wind
       "x86_64": { /* existing */ },
       "arm64": {
         "appimage": {
-          "url": "https://github.com/strata/strata/releases/download/v0.1.0/Strata_0.1.0_arm64.AppImage",
+          "url": "https://github.com/K-Arthur/varve/releases/download/v0.1.0/Varve-0.1.0-linux-aarch64.AppImage",
           "size": "~200 MB",
           "format": "AppImage",
           "recommended": true
@@ -204,16 +204,21 @@ git push
 ```
 
 ### Domain Configuration
-The site is configured for `https://strata.design` in `astro.config.mjs`:
+The site is configured via `SITE_URL` / `SITE_BASE` environment variables in
+`astro.config.mjs`, defaulting to the GitHub Pages URL that actually exists
+(`https://k-arthur.github.io` with base `/varve`):
+
 ```js
-site: 'https://strata.design'
+site: process.env.SITE_URL ?? 'https://k-arthur.github.io'
+base: process.env.SITE_BASE ?? '/varve'
 ```
 
 To configure GitHub Pages with a custom domain:
 1. Go to repo Settings > Pages
-2. Set Custom domain to `strata.design`
+2. Set Custom domain (e.g. `varve.design`)
 3. Add a CNAME record at your DNS provider pointing to `your-username.github.io`
 4. Enable Enforce HTTPS
+5. Set `SITE_URL` and `SITE_BASE` in the `website-deploy.yml` workflow
 
 ---
 
@@ -225,7 +230,7 @@ These items depend on accounts, money, or personal judgment and cannot be automa
 |------|------------|
 | **GitHub Sponsors setup** | Go to repo Settings > Sponsors, link Stripe/bank account, set up tiers |
 | **Custom domain DNS** | Add CNAME record at domain registrar pointing to `your-username.github.io` |
-| **Plausible analytics** | Sign up at plausible.io, add site `strata.design`, install JS snippet (already wired in Layout.astro with `data-domain="strata.design"`) |
+| **Plausible analytics** | Sign up at plausible.io, set the `ANALYTICS_DOMAIN` build env var (Layout.astro gates the snippet and CSP on it; unset = no analytics) |
 | **Code signing cert** | Purchase from DigiCert/Apple Developer, add to CI secrets |
 | **Legal review** | Have a lawyer review terms of service, privacy policy, and AGPL licensing pages |
 | **Payment terminology** | Decide whether to call payments "donations" vs "sponsorships" (has tax implications) |

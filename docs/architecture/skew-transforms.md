@@ -2,7 +2,7 @@
 
 ## Transform Representation
 
-Strata uses the canonical 2x3 affine matrix `[a, b, c, d, e, f]` matching the
+Varve uses the canonical 2x3 affine matrix `[a, b, c, d, e, f]` matching the
 HTML Canvas and kurbo conventions. This matrix inherently supports shear/skew:
 
 ```

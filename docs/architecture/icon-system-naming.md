@@ -1,4 +1,4 @@
-# Strata Icon Naming Conventions and Visual Standards
+# Varve Icon Naming Conventions and Visual Standards
 
 Canonical source of truth for internal UI icons. Feature code references
 semantic names (via `SemanticIcon` from `@varve/ui`); the registry maps each

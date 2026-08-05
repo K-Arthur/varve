@@ -1,4 +1,4 @@
-# Strata — Prioritised Release Implementation Plan
+# Varve — Prioritised Release Implementation Plan
 
 **Date:** 2026-08-04
 **Status key:** ✅ done in this pass · ⬜ outstanding
@@ -109,7 +109,7 @@ retry button. This removes the failure class instead of adding a timeout to it.
 | ⬜ P1-1 | Trim `ort-wasm` to the variants actually used (93 MB → est. 15–25 MB) | `scripts/copy-onnx-wasm.mjs`, `vite.config.ts` | — | Installer size drops; AI features still work | Med | 4 h | No |
 | ⬜ P1-2 | Code-split the 10.1 MB main chunk | `apps/desktop/vite.config.ts` | — | No chunk over ~2 MB; startup measured on 4 GB RAM | Med | 6 h | No |
 | ⬜ P1-3 | Windows build in CI + smoke test in a VM | `release.yml` | P0-11 | NSIS installs per-user and launches | **High** | 1–2 d | Actions minutes |
-| ✅ P1-4 | Linux MIME XML so `.strata` actually associates | `linux/dev.strata.desktop.xml`, `tauri.conf.json` | — | Installed to `/usr/share/mime/packages/` by deb and rpm | Med | 3 h | No |
+| ✅ P1-4 | Linux MIME XML so `.strata` actually associates | `linux/dev.varve.desktop.xml`, `tauri.conf.json` | — | Installed to `/usr/share/mime/packages/` by deb and rpm | Med | 3 h | No |
 | ⬜ P1-5 | Verify `fileAssociations` on each OS | — | P1-3, P1-4 | Beta checklist | Med | 3 h | No |
 | ⬜ P1-6 | Ubuntu LTS + Fedora VM test pass | — | P0-11 | Both launch, save, export, print-dialog opens | **High** | 1 d | No |
 | ⬜ P1-7 | X11/XWayland pass (dev is Wayland-only) | — | — | Window, DnD, clipboard, HiDPI all behave | Med | 4 h | No |
@@ -138,7 +138,7 @@ retry button. This removes the failure class instead of adding a timeout to it.
 
 | # | Task | Notes |
 |---|---|---|
-| 🟡 P3-1 | AUR `strata-desktop-bin` | PKGBUILD written and parses under `makepkg` (`packaging/aur/`); needs the real SHA-256 from a published `SHA256SUMS.txt` before submission |
+| 🟡 P3-1 | AUR `varve-desktop-bin` | PKGBUILD written and parses under `makepkg` (`packaging/aur/`); needs the real SHA-256 from a published `SHA256SUMS.txt` before submission |
 | ⬜ P3-2 | Flathub submission | Best long-term Linux channel; weeks of review + sandbox work for printing and fonts |
 | ⬜ P3-3 | Tauri updater, signed manifests, channels | Only after P2-4 — see `update-strategy.md` |
 | ⬜ P3-4 | Crash reporting | Requires explicit opt-in consent UX first |
