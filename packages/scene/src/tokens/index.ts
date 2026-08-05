@@ -7,6 +7,7 @@
  * bridge to the existing VariableStore.
  */
 
+export * from './colorBridge';
 export * from './identity';
 export * from './model';
 export * from './store';

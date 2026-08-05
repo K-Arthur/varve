@@ -51,6 +51,15 @@ export function imageSrcsFromIr(ir: RenderItem[]): string[] {
     ) {
       srcs.add((fill as { src: string }).src);
     }
+    const primitive = item.primitive;
+    if (
+      primitive &&
+      typeof primitive === 'object' &&
+      primitive.kind === 'warpedImage' &&
+      typeof primitive.src === 'string'
+    ) {
+      srcs.add(primitive.src);
+    }
   }
   return [...srcs];
 }
