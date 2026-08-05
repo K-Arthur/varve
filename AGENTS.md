@@ -331,6 +331,33 @@ just install-dev-icons
 | Collab (stub) | `PresenceIndicator`, `CollabCursorOverlay`, `useCollabPresence` |
 | Perf | `canvas10k.bench.test.ts`, `SubtreeReplayCache` |
 
+## Image Trace System
+
+Native raster-to-vector with honest web fallbacks. Canonical docs:
+`docs/architecture/image-trace-system.md`, ADR-0170.
+
+| Area | Location |
+|---|---|
+| Rust engine | `crates/varve-trace/` (contours, pixel_art, centerline, bezier_fit, quantize, hierarchy) |
+| Native IPC | `trace_image` / `trace_image_binary` / `begin_trace_job` / `cancel_trace` + `trace:progress` (apps/desktop/src-tauri/src/lib.rs) |
+| Provider chain + gating | `packages/engine/src/upscaleProviders/traceDispatch.ts` (native-first under Tauri), `rasterTrace.ts` fallback |
+| Dialog/workflow | `packages/editor/src/components/Vectorize/` (presets, preview, complexity estimate, Edit Trace) |
+| Insert/re-trace ops | `packages/editor/src/imageOperations.ts` (`insertTraceGroup`, `replaceTraceGroup`) |
+| Provenance | `GroupNode.traceMetadata` (schema 2.16) + `packages/editor/src/logo/vectorization/metadata.ts` |
+| E2E | `tests/e2e/canvas/image-trace.spec.ts` |
+
+Key rules:
+1. Desktop traces MUST prefer the native provider (chain is native-first under
+   Tauri); never reorder it behind the TS fallbacks.
+2. The wire options contract is camelCase (`rename_all = "camelCase"` in
+   `TraceImageOptions`); snake_case keys are silently dropped.
+3. Centerline is native-only: TS providers declare it unavailable instead of
+   emitting filled silhouettes.
+4. Traces are bounded: 128 MB bytes, 64 MPixels, 100 k paths; decode is
+   dimension-pre-checked (bomb guard).
+5. Trace insertion is one undo entry; re-traces replace the old group in
+   place; metadata stores no raster bytes.
+
 ## Motion System
 
 Complete timeline-based animation workspace. Canonical doc: `docs/architecture/motion-system.md`.
@@ -392,7 +419,7 @@ See `docs/architecture/text-pipeline.md`.
 | `varve-engine` | **Built** | `build_render_ir()` — scene → `Vec<RenderItem>` |
 | `varve-layout` | Stub | Taffy-backed flex/grid layout |
 | `varve-sync` | **Built** | SQLite DocumentStore + Tauri IPC |
-| `varve-trace` | Stub | Auto-trace (Potrace/vtracer) |
+| `varve-trace` | **Built** | Raster-to-vector tracing: silhouette/centerline/pixel-art modes, Oklab quantization, Bézier fitting, hole pairing, cancellation (`docs/architecture/image-trace-system.md`) |
 | `varve-print` | **Built** | lopdf-based PDF export, CMYK/PDF-X, font outlining, ICC profiles, print backends |
 | `varve-upscale` | **Built** | Native image upscaling — bicubic CPU + optional ONNX super-resolution |
 | `varve-bgremove` | **Built** | Background removal: heuristic non-AI methods + optional ONNX matting |
