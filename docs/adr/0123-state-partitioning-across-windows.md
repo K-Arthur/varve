@@ -1,4 +1,4 @@
-# ADR-0018: State partitioning across windows
+# ADR-0123: State partitioning across windows
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -36,7 +36,7 @@ Adopt the explicit scope taxonomy from the program spec:
 - `ephemeral` — hover, pointer capture, drag preview, open context menu,
   tooltips, IME composition.
 
-The broker (ADR-0023) publishes a **snapshot projection** (ADR-0024) built
+The broker (ADR-0128) publishes a **snapshot projection** (ADR-0129) built
 from the `session-shared` + the `document-shared` slices required by the
 hosted panels. `window-local` and `machine-local` state never crosses the
 session channel.
@@ -47,7 +47,7 @@ session channel.
   canvas (e.g. `document.querySelector('.editor-canvas')`,
   `context.tsx:3527,3541`) — those become window-local in the primary.
 - Panel-local state survives transfer only through the typed, versioned
-  local-state codec (ADR-0019), never through raw React state capture.
+  local-state codec (ADR-0124), never through raw React state capture.
 - The scope taxonomy is recorded in the type system as
   `StateScope` documentation on each projected field.
 
@@ -59,12 +59,12 @@ no storage migration needed (M2+).
 ## Cross-platform implications
 
 Monitor/geometry handling is machine-local on every OS; Wayland constraints
-(ADR-0033) only affect the `machine-local` layer.
+(ADR-0138) only affect the `machine-local` layer.
 
 ## Security implications
 
 Machine-local state (monitor geometry, file paths) is never serialized into
-session messages, crash reports, or shared layouts (ADR-0040, privacy).
+session messages, crash reports, or shared layouts (ADR-0145, privacy).
 
 ## Accessibility implications
 

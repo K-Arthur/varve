@@ -1,4 +1,4 @@
-# ADR-0017: Canonical editor-session ownership
+# ADR-0122: Canonical editor-session ownership
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -27,12 +27,12 @@ question is which process owns that session when multiple windows exist.
 **One canonical editing session per application session, owned by the primary
 window's `EditorProvider`.** Auxiliary windows never mount an `EditorProvider`:
 they run a minimal `AuxiliaryShell` whose providers are projections fed by a
-session broker (ADR-0023/0024). The broker's authority lives in the primary
+session broker (ADR-0128/0024). The broker's authority lives in the primary
 window's JS with Rust as transport/liveness (window registry, event relay).
 When the primary window reloads or closes, the broker generation is torn down
-and the session re-hydrates on the replacement window (ADR-0031); if the
+and the session re-hydrates on the replacement window (ADR-0136); if the
 primary closes as session close, auxiliary windows shut down coordinated
-(ADR-0030).
+(ADR-0135).
 
 ## Consequences
 
@@ -43,7 +43,7 @@ primary closes as session close, auxiliary windows shut down coordinated
   `patch`/`updateDoc` pair (`context.tsx:2436,2488`).
 - Primary-window reload becomes a recoverable event, not a catastrophic one.
 - The broker is the single place that owns session identity, revisions,
-  registration, and liveness (ADR-0023).
+  registration, and liveness (ADR-0128).
 
 ## Migration impact
 
@@ -59,7 +59,7 @@ in-memory in tests).
 ## Security implications
 
 Auxiliary windows must authenticate to the broker (session id + window id +
-generation, ADR-0040); the broker rejects unregistered senders.
+generation, ADR-0145); the broker rejects unregistered senders.
 
 ## Accessibility implications
 
@@ -69,7 +69,7 @@ auxiliary windows announce their own local events (detach/attach).
 ## Performance implications
 
 One document copy exists at a time per session in the primary; auxiliary
-windows hold projections (ADR-0024). No duplicate document store, undo
+windows hold projections (ADR-0129). No duplicate document store, undo
 stack, or save authority. Cost: one IPC hop per remote edit.
 
 ## Rejected shortcuts

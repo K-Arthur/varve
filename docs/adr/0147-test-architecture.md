@@ -1,4 +1,4 @@
-# ADR-0042: Test architecture
+# ADR-0147: Test architecture
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -22,13 +22,13 @@ restart recovery.
 ## Decision
 
 - **L1 — pure (fast, no DOM):** dock ops with fast-check property tests
-  (invariants from ADR-0021); protocol envelope validation, revision/gap
-  arithmetic, coalescing, sequence/duplicate/stale logic (ADR-0023/0024);
+  (invariants from ADR-0126); protocol envelope validation, revision/gap
+  arithmetic, coalescing, sequence/duplicate/stale logic (ADR-0128/0024);
   transfer state machine with failure injection at every transition
-  (ADR-0029); monitor matching and placement math with fixture topologies
+  (ADR-0134); monitor matching and placement math with fixture topologies
   (negative coordinates, mixed DPI, rotation, missing primary,
-  Wayland-denied placement, ADR-0033); layout schema validation and
-  migration (ADR-0032); security fuzz (malformed layouts, envelopes,
+  Wayland-denied placement, ADR-0138); layout schema validation and
+  migration (ADR-0137); security fuzz (malformed layouts, envelopes,
   geometry, panel-local state — `fast-check`).
 - **L2 — React:** panel chrome, detach/reattach/move menus, disabled-state
   reasons, transfer progress/failure UI, workspace manager, monitor map,
@@ -37,7 +37,7 @@ restart recovery.
   window service).
 - **L3 — Playwright (browser fallback):** single-window dock groups,
   save/restore logical layout, reload, desktop-capability explanation,
-  panel focus mode, reset layout (ADR-0034).
+  panel focus mode, reset layout (ADR-0139).
 - **L4 — WDIO native:** the ten workflows from the program spec
   (detach/reattach; multiple panels one window; missing monitor;
   auxiliary reload; transfer failure; focus/shortcuts; document
@@ -47,7 +47,7 @@ restart recovery.
   where the harness supports it, otherwise documented manual fixtures.
 - **Contract tests:** the same `NativeWindowService` test suite runs
   against memory, browser, and (where practical) Tauri implementations
-  (ADR-0022) — no silent no-ops, correct capability reporting.
+  (ADR-0127) — no silent no-ops, correct capability reporting.
 - **Baselines:** pre-refactor tests committed first (M1) pin
   single-window panel/visibility/width/multi-doc/undo/selection behavior;
   regressions in those contracts block later milestones.
@@ -59,7 +59,7 @@ restart recovery.
 
 - Multi-window behavior is testable without a display server in L1–L3;
   L4 proves native reality on each OS.
-- Security claims (ADR-0040) are backed by fuzz tests, not review alone.
+- Security claims (ADR-0145) are backed by fuzz tests, not review alone.
 
 ## Migration impact
 
@@ -84,7 +84,7 @@ WCAG 2.2 AA gate per window type.
 ## Performance implications
 
 L1/L2 stay seconds; L4 is a separate nightly/manual gate;
-performance budgets (ADR-0038) have their own bench suite
+performance budgets (ADR-0143) have their own bench suite
 (`.bench.ts`, run separately per AGENTS.md).
 
 ## Rejected shortcuts

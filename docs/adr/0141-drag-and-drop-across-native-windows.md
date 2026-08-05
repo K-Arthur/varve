@@ -1,4 +1,4 @@
-# ADR-0036: Drag and drop across native windows
+# ADR-0141: Drag and drop across native windows
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -24,7 +24,7 @@ reliable baseline on all platforms.
   in-app drag of a panel tab to another Varve window uses the broker
   protocol (a drag is a *proposed transfer* carrying panel instance id and
   a drop-target window id; no HTML dataTransfer across windows). Native
-  drag payloads are validated like any envelope (ADR-0023/0040).
+  drag payloads are validated like any envelope (ADR-0128/0040).
   - Source window renders a drag preview locally; on pointer exit it
     converts to a broker-proposed transfer; destination windows show
     native drop highlights when the broker broadcasts the pending
@@ -33,7 +33,7 @@ reliable baseline on all platforms.
     during drag, source window losing focus (pointer capture end) —
     all cancel the proposed transfer, never a partial one.
   - Scale factors across mixed-DPI displays: coordinates are converted
-    via the display scale of each window (ADR-0033), and drop targets
+    via the display scale of each window (ADR-0138), and drop targets
     are resolved by window id, not by coordinates, to avoid Wayland
     coordinate ambiguity.
 - Platform audit gates the enhanced layer: if Linux WebKitGTK cannot
@@ -44,7 +44,7 @@ reliable baseline on all platforms.
 
 - No essential operation requires dragging (acceptance criterion).
 - Cross-window dragging never bypasses the transfer state machine
-  (ADR-0029) — it merely *proposes* a transfer.
+  (ADR-0134) — it merely *proposes* a transfer.
 
 ## Migration impact
 
@@ -63,7 +63,7 @@ destination windows cannot be spoofed into accepting arbitrary content.
 
 ## Accessibility implications
 
-Every drag action has a keyboard equivalent (ADR-0041); drop targets have
+Every drag action has a keyboard equivalent (ADR-0146); drop targets have
 visible focus states.
 
 ## Performance implications

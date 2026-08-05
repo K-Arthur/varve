@@ -1,4 +1,4 @@
-# ADR-0024: Snapshot and incremental synchronization
+# ADR-0129: Snapshot and incremental synchronization
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -23,7 +23,7 @@ update would be a full snapshot and gaps would be undetectable.
   with a `SessionSnapshot` (`{ revision, openDocuments, activeDocumentId,
   workspaceMode, theme, locale, selection, commandAvailability,
   panelLayout, panelLocalState, collaborationSummary }`) sized to the
-  hosted panels (ADR-0018) — never DOM nodes, canvas contexts, worker
+  hosted panels (ADR-0123) — never DOM nodes, canvas contexts, worker
   handles, functions, image buffers, full undo history, credentials, or
   native paths.
 - Incremental updates are typed domain patches: `{ baseRevision, patches }`
@@ -36,14 +36,14 @@ update would be a full snapshot and gaps would be undetectable.
 - Backpressure: per-window bounded queues; overflow drops coalescible
   patches and requests resync rather than growing memory.
 - Bounded payloads: envelope size cap; panel-local state snapshots are
-  size-limited (ADR-0019 codec).
+  size-limited (ADR-0124 codec).
 
 ## Consequences
 
 - Fresh windows converge in one round trip; steady state is patch traffic
   proportional to actual change.
 - Full document bytes are not resent per small edit (the canonical
-  document lives in the primary; panels get projections, ADR-0017).
+  document lives in the primary; panels get projections, ADR-0122).
 
 ## Migration impact
 
@@ -57,12 +57,12 @@ revision/queue code with BroadcastChannel transport.
 ## Security implications
 
 Snapshots contain only session-required slices; the broker refuses to
-serialize excluded fields (defense-in-depth with ADR-0040).
+serialize excluded fields (defense-in-depth with ADR-0145).
 
 ## Accessibility implications
 
 `WINDOW_HYDRATED` gates "panel ready" announcements; a failed hydration
-produces the recoverable error screen (ADR-0031).
+produces the recoverable error screen (ADR-0136).
 
 ## Performance implications
 
