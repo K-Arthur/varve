@@ -6,7 +6,7 @@ branching, diff, merge, and Git program is defined by ADRs 0017-0046 (see
 describes what exists today, the contracts that are already normative, and
 the planned milestones.
 
-## Status summary (Milestones 1-4 landed)
+## Status summary (Milestones 1-14 landed, 15/16 deferred, 17 partial)
 
 | Milestone | Status | Commits |
 |---|---|---|
@@ -14,23 +14,91 @@ the planned milestones.
 | 2. Collision-resistant persistent identity | Landed | `ef16b31f` (restored `7c5ee704`) |
 | 3. Canonical serialization + SHA-256 | Landed | `04722221` |
 | 4. Typed operation pipeline (core) | Landed | `054af3b1` (restored `7c4cde64`) |
-| 5. Immutable log + replay + storage | Landed | `@varve/history` (M5+M6 commit) |
-| 6. Snapshots + recovery | Landed | `@varve/history` (M5+M6 commit) |
-| 7. Persistent undo/redo | Next | — |
+| 5. Immutable log + replay + storage | Landed | `@varve/history` (`1af1ef2e`) |
+| 6. Snapshots + recovery | Landed | `@varve/history` (`1af1ef2e`) |
+| 7. Persistent undo/redo | Core landed (store-level); editor wiring pending | `581eb7c7` |
 | 8. History panel | Next | — |
-| 9. Checkpoints + branches | Next | — |
-| 10. Semantic diff | Next | — |
-| 11. Three-way merge | Next | — |
+| 9. Checkpoints + branches | Core landed (naming policy + store refs); UI pending | `581eb7c7` |
+| 10. Semantic diff | Landed | `581eb7c7` |
+| 11. Three-way merge | Landed | `581eb7c7` |
 | 12. Conflict resolver | Next | — |
-| 13. Git working format + drivers | Next | — |
-| 14. Review bundles | Next | — |
-| 15. Collaboration integration | Next | — |
-| 16. Multimodal assistance | Next | — |
-| 17. Hardening | Next | — |
+| 13. Git working format + drivers | Landed | `c25b9d65` |
+| 14. Review bundles | Landed | `c25b9d65` |
+| 15. Collaboration integration | Deferred by directive (2026-08-05) | — |
+| 16. Multimodal assistance | Deferred by directive (2026-08-05) | — |
+| 17. Hardening | Partial (validation); fuzzing/a11y/RAM pending | — |
 
 Tracker: `docs/plans/persistent-history-progress.md`.
 
-## `@varve/history` package (M5+M6, 2026-08-05)
+## `@varve/history` — diff, merge, undo (M7 core, M9 core, M10, M11)
+
+- `diff.ts` — semantic document diff (ADR-0028). Entity/property-level
+  changes keyed by persistent ids (`SemanticChange` with full
+  document-relative paths so merge application is a pure deep-set);
+  ordered collections diffed by LCS over stable ids with a single array
+  rewrite change carrying full before/after arrays; id-less arrays
+  (fills/strokes/effects) are rewrite-only (no stable element identity);
+  property-specific epsilon policies (geometry/transform/typography
+  families, exact elsewhere); grapheme-cluster text changes carrying
+  base/target cluster ranges ([start, end) semantics) for merge-time
+  overlap detection; asset `dataUrl` bytes and the `nextId` counter are
+  excluded as non-semantic.
+- `merge.ts` — three-way semantic merge (ADR-0034). Conflict keys are
+  `entityId + propertyPath`; identical edits adopt once; concurrent edits
+  to the same property conflict (`scalar`); edit-vs-delete, add-vs-add,
+  rename-vs-rename, and overlapping text edits conflict; id-keyed array
+  rewrites (rootChildren, pages, children) merge with a deterministic
+  three-way order merge (additions land in base-relative gaps, ours first
+  within a gap; moves conflict when both sides moved an item); id-less
+  array rewrites conflict unless identical. The merged document is always
+  produced with `ours` values kept under conflicts, plus
+  base/ours/theirs values per conflict for the resolver (M12) to
+  re-resolve. `commitMergeRevision` creates the two-parent merge revision
+  and moves the branch head atomically.
+- `undo.ts` — ADR-0019 Model A store core: the undo stack IS the revision
+  DAG. `undoRevision`/`redoRevision`/`undoN`/`undoTo` move the branch head
+  along first-parent chains (redo targets validated as direct children);
+  `abandonedDescendants` + `materializeDivergenceBranch` preserve
+  left-behind redo paths as named branches (never deleted).
+- `branchNames.ts` — ADR-0023 naming policy: git-ref-safe branch names
+  (charset, length, reserved names) and free-form checkpoint names;
+  `suggestBranchName`/`suggestUniqueBranchName` for automatic
+  divergence/import branches.
+
+All three modules are pure (sync) over `Document` values; only
+`commitMergeRevision` touches the store. Test coverage: 65 tests across
+`diff.test.ts`, `merge.test.ts`, `undo.test.ts`, `branchNames.test.ts`.
+
+## `@varve/cli` — headless tooling (M13, M14)
+
+`packages/cli` is a dependency-free Node CLI (self-bundling esbuild
+launcher, no build step):
+
+- `varve validate <file>` — decode + validate; prints name/format/hash.
+- `varve canonicalize <file> [--hash]` / `varve hash <file>` — canonical
+  JSON / SHA-256 (Git textconv input, ADR-0028/0036).
+- `varve diff <base> <target> [--format text|json|summary]` — semantic
+  diff (M10).
+- `varve textconv <file>` — git textconv conversion.
+- `varve merge-driver <base> <current> <incoming> [--manifest <path>]` —
+  git merge driver (ADR-0040 contract: writes the merged document into
+  %A, writes a conflict manifest sidecar, exit 0 clean / 1 conflicted /
+  2 error). Verified end-to-end against real git merges (clean and
+  conflicted paths).
+- `varve review <base> <target> -o <dir>` — review bundle (M14):
+  manifest.json (schema `varve-review-bundle/1`), diff.json, summary.md,
+  and a standalone accessible index.html viewer (no network, no assets,
+  CSP meta, keyboard-navigable change lists grouped by entity, before/
+  after tables). Pixel previews are a documented follow-up (headless
+  render).
+- `varve git-setup [--apply]` — prints or applies `.gitattributes`
+  (`*.varve diff=varve merge=varve`) + `diff.varve.textconv` +
+  `merge.varve.driver` config.
+
+Exit codes: 0 clean, 1 conflicted merge, 2 error. Runtime deps:
+`@varve/scene` + `@varve/history` bundled with esbuild on first run.
+
+## Normative contracts already in effect
 
 The revision-history core lives in a dedicated package (`packages/history`),
 per the plan's package ownership:
