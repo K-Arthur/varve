@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "@varve/shared": "workspace:*",
-    "@varve/engine": "workspace:*"
+    "@varve/engine": "workspace:*",
+    "@varve/tokens": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }
