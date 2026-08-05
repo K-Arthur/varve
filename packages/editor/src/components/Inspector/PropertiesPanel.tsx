@@ -35,9 +35,13 @@ import { FillSection } from './sections/FillSection';
 import { IconSection } from './sections/IconSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { LayoutSection } from './sections/LayoutSection';
+import { MockupsSection } from './sections/MockupsSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
+import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
+import { TableSection } from './sections/TableSection';
 import { TypographySection } from './sections/TypographySection';
+import { WarpSection } from './sections/WarpSection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
 
 import './inspector.css';
@@ -479,6 +483,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       workspaceMode: state.workspaceMode,
       activeTool: state.tool,
       prototypeMode: state.prototypeMode,
+      tableEdit: state.tableEdit,
     };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
     const add = (id: SectionId, el: React.ReactNode) => {
@@ -494,9 +499,21 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     // create a second, conflicting effects pipeline.
     if (node.kind === 'adjustment') return entries;
 
+    if (node.kind === 'table') {
+      add('table', <TableSection node={node as import('@varve/scene').TableNode} />);
+      add('table-cells', <TableCellsSection tableId={node.id} />);
+      add('table-columns', <TableTracksSection tableId={node.id} />);
+      add('table-rows', <TableTracksSection tableId={node.id} />);
+      add('appearance', <AppearanceSection nodes={nodes} />);
+      return entries.sort((a, b) => a.order - b.order);
+    }
+
     if (isComponentInstance)
       add('component', <ComponentSection node={node as import('@varve/scene').FrameNode} />);
     if (node.iconAssetId) add('icon', <IconSection node={node} />);
+    if (isFrame && 'mockup' in node) {
+      add('mockups', <MockupsSection node={node as import('@varve/scene').FrameNode} />);
+    }
     add('position-size', <PositionSizeSection nodes={nodes} />);
     add('constraints', <ConstraintSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
@@ -506,6 +523,9 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
+    if ('warps' in node || state.tool === 'warp') {
+      add('warp', <WarpSection nodes={nodes} node={node} />);
+    }
 
     return entries.sort((a, b) => a.order - b.order);
   }, [nodes, node, isFrame, isComponentInstance, isRect, state]);
@@ -557,6 +577,9 @@ function MultiSelectionPanel({
     add('fills', <FillSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
+    if (nodes.some((n) => 'warps' in n) || state.tool === 'warp') {
+      add('warp', <WarpSection nodes={nodes} node={nodes[0]} />);
+    }
 
     return entries.sort((a, b) => a.order - b.order);
   }, [nodes, state, summary.sharedKind]);

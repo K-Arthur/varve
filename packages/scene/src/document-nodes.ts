@@ -176,9 +176,6 @@ export function moveNode(doc: Document, id: NodeId, toIndex: number): Document {
   const next = [...doc.rootChildren];
   next.splice(from, 1);
   const clamped = Math.max(0, Math.min(toIndex, next.length));
-  // No-op move: return the identical reference so empty-transaction
-  // detection (reference equality) and structural sharing stay intact.
-  if (from === clamped) return doc;
   next.splice(clamped, 0, id);
   const node = doc.nodes[id];
   if (!node) return doc;
