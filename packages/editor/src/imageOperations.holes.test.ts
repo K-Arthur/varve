@@ -7,7 +7,7 @@
 import type { RasterTraceResult } from '@varve/engine';
 import { createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { insertTraceGroup } from './imageOperations';
+import { insertTraceGroup, replaceTraceGroup } from './imageOperations';
 
 describe('trace hole handling', () => {
   it('inserts compound paths with evenodd holes', () => {
@@ -182,5 +182,107 @@ describe('centerline stroke output', () => {
     expect(child.shape.closed).toBe(true);
     expect(child.fill).toEqual({ space: 'rgb', r: 255, g: 0, b: 0, a: 255 });
     expect(child.strokes).toHaveLength(0);
+  });
+});
+
+describe('trace metadata and re-trace', () => {
+  function makeDoc() {
+    let doc = createDocument('Images', true);
+    const image = makeImageShapeNode('img-m1', {
+      name: 'Sprite',
+      w: 10,
+      h: 10,
+      src: 'data:image/png;base64,AAAA',
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, [image.id]: image }, rootChildren: [image.id] };
+    return { doc, image };
+  }
+
+  const metadata = {
+    schemaVersion: 1 as const,
+    sourceNodeId: 'img-m1',
+    mode: 'pixel-art' as const,
+    traceMode: 'silhouette' as const,
+    threshold: 128,
+    foreground: 'dark' as const,
+    alphaThreshold: 1,
+    minArea: 1,
+    simplifyTolerance: 0,
+    maxPaths: 1000,
+    maxColors: 16,
+    compoundHoles: true,
+    cornerAngle: 135,
+    centerlineWidth: 2,
+    centerlinePrune: 4,
+    engine: 'native' as const,
+    stats: { pathCount: 3, pointCount: 24, holeCount: 1, omittedHoles: 0 },
+    createdAt: 1234,
+  };
+
+  const traced: RasterTraceResult = {
+    width: 10,
+    height: 10,
+    omittedHoles: 0,
+    paths: [
+      {
+        closed: true,
+        area: 4,
+        bounds: { x: 2, y: 2, w: 2, h: 2 },
+        points: [
+          { x: 2, y: 2 },
+          { x: 4, y: 2 },
+          { x: 4, y: 4 },
+          { x: 2, y: 4 },
+        ],
+        fill: { r: 10, g: 20, b: 30, a: 255 },
+      },
+    ],
+  };
+
+  it('stores traceMetadata on the inserted group', () => {
+    const { doc, image } = makeDoc();
+    const result = insertTraceGroup(doc, image.id, { ...traced, metadata });
+    const group = result.doc.nodes[result.nodeId];
+    expect(group?.kind).toBe('group');
+    if (group?.kind !== 'group') return;
+    expect(group.traceMetadata).toEqual(metadata);
+  });
+
+  it('replaces an existing trace group in place at the same paint order', () => {
+    const { doc, image } = makeDoc();
+    const first = insertTraceGroup(doc, image.id, { ...traced, metadata });
+    const before = first.doc.rootChildren.indexOf(first.nodeId);
+    expect(before).toBe(1);
+
+    const second = replaceTraceGroup(first.doc, image.id, first.nodeId, {
+      ...traced,
+      metadata: { ...metadata, createdAt: 5678 },
+    });
+    expect(second.nodeId).not.toBe(first.nodeId);
+    // The old group is gone and the new one sits at the old position.
+    expect(second.doc.nodes[first.nodeId]).toBeUndefined();
+    expect(second.doc.rootChildren.indexOf(second.nodeId)).toBe(before);
+    const group = second.doc.nodes[second.nodeId];
+    if (group?.kind !== 'group') return;
+    expect(group.traceMetadata?.createdAt).toBe(5678);
+  });
+
+  it('metadata settings round-trip restores editable settings', async () => {
+    const { settingsFromTraceMetadata, buildTraceMetadata, traceEngineLabel } = await import(
+      './logo/vectorization/metadata'
+    );
+    const { DEFAULT_VECTORIZATION_SETTINGS } = await import('./logo/vectorization/settings');
+    const built = buildTraceMetadata(
+      'img-m1',
+      { ...DEFAULT_VECTORIZATION_SETTINGS, mode: 'pixel-art', maxColors: 16, minArea: 1 },
+      { pathCount: 3, pointCount: 24, holeCount: 1, omittedHoles: 0, complexity: 72 },
+      0,
+      traceEngineLabel(),
+    );
+    const restored = settingsFromTraceMetadata(built);
+    expect(restored.mode).toBe('pixel-art');
+    expect(restored.maxColors).toBe(16);
+    expect(restored.minArea).toBe(1);
+    expect(restored.prep.grayscale).toBe(DEFAULT_VECTORIZATION_SETTINGS.prep.grayscale);
   });
 });

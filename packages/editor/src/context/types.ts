@@ -338,6 +338,8 @@ export interface EditorState {
   upscaleDialogOpen: boolean;
   /** Whether the Image Trace (vectorize) dialog is open. */
   vectorizeDialogOpen: boolean;
+  /** Re-trace target for the Image Trace dialog (Edit Trace workflow). */
+  vectorizeDialogPrefill: { replaceGroupId: string } | null;
   /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
@@ -789,7 +791,7 @@ export interface EditorContextValue {
 
   // Image Trace dialog
   vectorizeDialogOpen: boolean;
-  openVectorizeDialog: () => void;
+  openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeVectorizeDialog: () => void;
 
   // Archive
