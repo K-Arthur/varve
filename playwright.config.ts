@@ -5,12 +5,22 @@ const e2eBaseUrl = `http://localhost:${e2ePort}`;
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Warm the dev server's module graph before any spec runs (see
+  // tests/e2e/global-setup.ts) — first-load transform of this app takes
+  // ~90-100s on a cold cache and killed the first test of every run.
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
   reporter: 'html',
-  timeout: 60000,
+  // 180s: measured cold first-paint on a fresh vite transform cache is ~100s
+  // on this machine and worse on CI runners (shared cache, slower disks). A
+  // 60s test timeout made every spec die in navigateToEditor's page.goto on
+  // the first test of a run even though the dev server itself was healthy.
+  // Assertion/action timeouts (expect 10s, per-step 15-45s) still bound real
+  // hangs; this only extends the navigation/compile budget.
+  timeout: 180000,
   expect: { timeout: 10000 },
   use: {
     baseURL: e2eBaseUrl,
