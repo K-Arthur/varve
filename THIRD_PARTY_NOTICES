@@ -216,6 +216,28 @@ WebDriverIO (MIT)
 Storybook (MIT)
 
 -----------------------------------------------------------------------------
+Bundled Content — Offline Icon Starter Pack
+-----------------------------------------------------------------------------
+
+Varve ships a small offline starter pack of common UI icons at
+`apps/desktop/public/packs/starter-pack.json` (generated deterministically
+at build time by `scripts/generate-starter-pack.mjs`, pinned to the
+versions listed below). The SVG content is sourced from two open icon
+sets; the notices below apply to the bundled icon files only.
+
+Material Design Icons (39 icons)
+  Copyright (c) Pictogrammers
+  https://github.com/Templarian/MaterialDesign
+  Licensed under Apache License 2.0 (Apache-2.0).
+  https://github.com/Templarian/MaterialDesign/blob/master/LICENSE
+
+Lucide (39 icons)
+  Copyright (c) Lucide Contributors
+  https://github.com/lucide-icons/lucide
+  Licensed under ISC License (ISC).
+  https://github.com/lucide-icons/lucide/blob/main/LICENSE
+
+-----------------------------------------------------------------------------
 General Notes
 -----------------------------------------------------------------------------
 

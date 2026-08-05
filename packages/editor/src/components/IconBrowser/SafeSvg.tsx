@@ -51,10 +51,9 @@ export function SafeSvg({ svg, label, className, asImage, onSanitizeWarning }: S
   const inner = safe.svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
 
   return (
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: content is sanitized here
     <span
       className={className}
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: sanitized above
+      // Content is guaranteed sanitized by sanitizeSvg above.
       dangerouslySetInnerHTML={{ __html: inner }}
       {...attrs}
     />

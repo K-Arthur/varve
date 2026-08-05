@@ -26,6 +26,8 @@ export interface IconDiscoverySectionsProps {
   onSelectFavourites: () => void;
   onSelectDownloaded: () => void;
   onOpenPackManager: () => void;
+  onCopyAttributionReport: () => void;
+  hasAttribution: boolean;
 }
 
 export function IconDiscoverySections({
@@ -40,6 +42,8 @@ export function IconDiscoverySections({
   onSelectFavourites,
   onSelectDownloaded,
   onOpenPackManager,
+  onCopyAttributionReport,
+  hasAttribution,
 }: IconDiscoverySectionsProps) {
   const catalogue = DEFAULT_CATALOGUE_PREFIXES.map((prefix) => {
     const live = packs.find((p) => p.prefix === prefix);
@@ -100,6 +104,16 @@ export function IconDiscoverySections({
               <Icon name="Package" size={16} />
               Pack manager
             </button>
+            {hasAttribution && (
+              <button
+                type="button"
+                className="icon-discovery__action"
+                onClick={onCopyAttributionReport}
+              >
+                <Icon name="FileText" size={16} />
+                Attribution report
+              </button>
+            )}
           </div>
         </section>
       )}
