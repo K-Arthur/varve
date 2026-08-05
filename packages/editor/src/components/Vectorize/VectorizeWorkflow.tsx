@@ -15,11 +15,18 @@
  */
 
 import type { RasterTracePath, RasterTraceResult } from '@varve/engine';
-import { imageShapeSrc, isImageShape, type SceneNode, type ShapeNode } from '@varve/scene';
+import {
+  imageShapeSrc,
+  isImageShape,
+  type SceneNode,
+  type ShapeNode,
+  type TraceMetadata,
+} from '@varve/scene';
 import { Button, Checkbox, SegmentedControl, Select, Slider, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { insertTraceGroup } from '../../imageOperations';
+import { insertTraceGroup, replaceTraceGroup } from '../../imageOperations';
+import { buildTraceMetadata, traceEngineLabel } from '../../logo/vectorization/metadata';
 import { MAX_PREVIEW_DIM } from '../../logo/vectorization/prepareSource';
 import { drawPreview, MAX_FINAL_DIM, runPreviewTrace } from '../../logo/vectorization/preview';
 import {
@@ -87,6 +94,13 @@ interface PreviewState {
 export interface VectorizeWorkflowProps {
   /** Copy shown when no single image layer is selected. */
   emptyStateNote?: string;
+  /** Pre-fill settings for the Edit Trace workflow (from traceMetadata). */
+  initialSettings?: VectorizationSettings | null;
+  /**
+   * When set, Apply replaces this existing trace group in place (re-trace)
+   * instead of inserting a new one beside the source.
+   */
+  replaceGroupId?: string | null;
 }
 
 /** The selected node when it is exactly one image-filled shape. */
@@ -103,12 +117,16 @@ function sliderProps(label: string, value: number, min: number, max: number, ste
   return { label, value, min, max, step };
 }
 
-export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
+export function VectorizeWorkflow({
+  emptyStateNote,
+  initialSettings,
+  replaceGroupId,
+}: VectorizeWorkflowProps) {
   const editor = useEditor();
   const { document: doc, selection } = editor.state;
   const node = useMemo(() => selectedImageNode(selection, doc), [doc, selection]);
   const [settings, setSettings] = useState<VectorizationSettings>({
-    ...DEFAULT_VECTORIZATION_SETTINGS,
+    ...(initialSettings ?? DEFAULT_VECTORIZATION_SETTINGS),
   });
   const [preview, setPreview] = useState<PreviewState>({ status: 'idle' });
   const [applying, setApplying] = useState(false);
@@ -196,11 +214,18 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
         return;
       }
       const paths = result.paths as Array<
-        Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill'>
+        Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill' | 'strokeWidth'>
       >;
       const insertedRef: { nodeId: string | null } = { nodeId: null };
+      const metadata: TraceMetadata = buildTraceMetadata(
+        node.id,
+        settings,
+        traceDiagnostics(result),
+        result.omittedHoles,
+        traceEngineLabel(),
+      );
       editor.updateDoc((d) => {
-        const inserted = insertTraceGroup(d, node.id, {
+        const input = {
           width,
           height,
           paths,
@@ -210,7 +235,12 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
           traceMode: settings.traceMode,
           centerlineWidth:
             settings.traceMode === 'centerline' ? settings.centerlineWidth : undefined,
-        });
+          metadata,
+        };
+        const inserted =
+          replaceGroupId && d.nodes[replaceGroupId]
+            ? replaceTraceGroup(d, node.id, replaceGroupId, input)
+            : insertTraceGroup(d, node.id, input);
         insertedRef.nodeId = inserted.nodeId;
         return inserted.doc;
       });
@@ -226,7 +256,7 @@ export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
     } finally {
       setApplying(false);
     }
-  }, [editor, node, settings]);
+  }, [editor, node, settings, replaceGroupId]);
 
   const cancelPreview = useCallback(() => {
     sessionRef.current?.cancelAll();

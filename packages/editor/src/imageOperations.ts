@@ -17,9 +17,12 @@ import {
   makeGroupNode,
   makeShapeNode,
   moveChild,
+  moveNode,
   type NodeId,
   nextNodeId,
+  removeNode,
   type ShapeNode,
+  type TraceMetadata,
 } from '@varve/scene';
 
 export function selectedImageShape(doc: Document, selection: NodeId[]): ShapeNode | null {
@@ -142,6 +145,8 @@ export interface TraceGroupInput {
   traceMode?: 'silhouette' | 'centerline';
   /** Target stroke width for centerline mode. Default 2. */
   centerlineWidth?: number;
+  /** Versioned provenance stored on the group (enables Edit Trace). */
+  metadata?: TraceMetadata;
 }
 
 /** Build one traced path node: filled for closed contours, stroked for
@@ -225,6 +230,15 @@ export function insertTraceGroup(
     transform: placeBeside(source.transform, sourceWidth, sourceHeight, sourceWidth, sourceHeight),
   });
   let result = insertAfter(groupAllocation.doc, sourceId, group);
+  if (input.metadata) {
+    result = {
+      ...result,
+      nodes: {
+        ...result.nodes,
+        [group.id]: { ...(result.nodes[group.id] as typeof group), traceMetadata: input.metadata },
+      },
+    };
+  }
   const scaleX = sourceWidth / input.width;
   const scaleY = sourceHeight / input.height;
   const bezierAngle = input.cornerAngle ?? 135;
@@ -248,6 +262,39 @@ export function insertTraceGroup(
     result = addChild(result, group.id, child);
   }
   return { doc: result, nodeId: group.id };
+}
+
+/**
+ * Re-trace in place: remove the previous trace group and insert a new one at
+ * the same paint order position. Falls back to beside-the-source placement
+ * when the old group's slot can no longer be resolved. One undo entry.
+ */
+export function replaceTraceGroup(
+  doc: Document,
+  sourceId: NodeId,
+  replaceGroupId: NodeId,
+  input: TraceGroupInput,
+): { doc: Document; nodeId: NodeId } {
+  const oldParentId = getParent(doc, replaceGroupId);
+  const oldParent = oldParentId !== null ? doc.nodes[oldParentId] : undefined;
+  const oldIndex =
+    oldParentId === null
+      ? doc.rootChildren.indexOf(replaceGroupId)
+      : oldParent && (oldParent.kind === 'group' || oldParent.kind === 'frame')
+        ? oldParent.children.indexOf(replaceGroupId)
+        : -1;
+  const removed = removeNode(doc, replaceGroupId);
+  const inserted = insertTraceGroup(removed, sourceId, input);
+  let result = inserted.doc;
+  const newParentId = getParent(result, inserted.nodeId);
+  if (oldIndex >= 0) {
+    if (newParentId === null && oldParentId === null) {
+      result = moveNode(result, inserted.nodeId, oldIndex);
+    } else if (newParentId !== null && newParentId === oldParentId) {
+      result = moveChild(result, oldParentId, inserted.nodeId, oldIndex);
+    }
+  }
+  return { doc: result, nodeId: inserted.nodeId };
 }
 
 /**
