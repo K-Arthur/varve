@@ -114,6 +114,7 @@ export {
   activePageNodes,
   addGlobalChild,
   addPage,
+  deletePageWithPolicy,
   duplicatePage,
   getFormattedPageNumber,
   getPageNumber,
