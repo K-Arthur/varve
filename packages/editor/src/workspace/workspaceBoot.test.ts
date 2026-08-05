@@ -11,7 +11,11 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { BOOT_WORKSPACE_MODE, initialPanelVisibility } from '../context/useWorkspaceMode';
+import {
+  BOOT_WORKSPACE_MODE,
+  initialPanelVisibility,
+  migrateLegacyPanelSettings,
+} from '../context/useWorkspaceMode';
 import { loadSettings, updateSettings } from '../settings';
 import { getWorkspacePreferences, resetWorkspacePreferenceCache } from './workspaceStore';
 import { getWorkspaceConfig } from './workspaceTypes';
@@ -62,14 +66,32 @@ describe('initialPanelVisibility', () => {
     expect(initialPanelVisibility('design').leftPanelVisible).toBe(true);
   });
 
-  it('migrates a pre-upgrade global panel setting into this mode once', () => {
+  it('honours a pre-upgrade global panel setting without writing during render', () => {
     // Upgrading user: they hid the layers panel back when `settings.panel` was
     // the only store, so there is a mirror value but no override yet.
     updateSettings({ panel: { leftPanelVisible: false } });
     expect(getWorkspacePreferences().design.customized).toBe(false);
 
+    // The boot read reflects it…
     expect(initialPanelVisibility('design').leftPanelVisible).toBe(false);
+    // …but stays pure. It runs while the initial EditorState is being built,
+    // and a store write there would notify subscribers mid-render.
+    expect(getWorkspacePreferences().design.customized).toBe(false);
+  });
+
+  it('writes the pre-upgrade setting through as a real override after mount', () => {
+    updateSettings({ panel: { leftPanelVisible: false } });
+    migrateLegacyPanelSettings('design');
     expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+  });
+
+  it('migrating twice is a no-op', () => {
+    updateSettings({ panel: { leftPanelVisible: false } });
+    migrateLegacyPanelSettings('design');
+    const first = getWorkspacePreferences().design.lastCustomized;
+    migrateLegacyPanelSettings('design');
+    // Already customized, so the second pass has nothing to carry over.
+    expect(getWorkspacePreferences().design.lastCustomized).toBe(first);
   });
 
   it('does not invent an override when the mirror agrees with the default', () => {
