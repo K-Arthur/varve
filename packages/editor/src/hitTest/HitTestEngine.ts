@@ -16,14 +16,24 @@
  * COMPLEXITY: 32 (well under 50 ceiling)
  */
 
-import { applyAffine, invertAffine, rectContains, shapeContains } from '@varve/engine';
+import {
+  applyAffine,
+  hasLiveWarps,
+  invertAffine,
+  rectContains,
+  shapeContains,
+  warpShapeToPath,
+} from '@varve/engine';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import {
   activePageNodes,
   buildParentIndexMap,
   deriveGeometryFromPaints,
+  isWarpedContainer,
+  nodeLocalBoundsSource,
   resolveNodePaints,
   walkNodes,
+  warpsOnNode,
 } from '@varve/scene';
 import {
   cubicBezierClosestPoint,
@@ -33,6 +43,7 @@ import {
 } from '@varve/shared';
 import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
+import { evaluateWarpedContainerItems } from '../warp/warpContainerRender';
 import {
   HIT_TEST_POLICIES,
   type HitTestPolicy,
@@ -43,6 +54,18 @@ import {
 const CELL_SIZE = 64;
 
 function hitGeometry(node: ShapeNode, doc: Document): ShapeNode['shape'] {
+  // V2.16+: live warps evaluate the visible (warped) geometry for hit
+  // testing — selection follows what the user sees, not the source.
+  const warps = warpsOnNode(node);
+  if (hasLiveWarps(warps)) {
+    const sourceBounds = nodeLocalBoundsSource(node, doc);
+    if (sourceBounds) {
+      const evaluated = warpShapeToPath(node.shape, warps, sourceBounds, {
+        quality: { profile: 'draft' },
+      });
+      return evaluated.shape;
+    }
+  }
   return node.shapeless === true
     ? deriveGeometryFromPaints(
         resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc),
@@ -176,7 +199,28 @@ export class HitTestEngine {
         }
       }
 
-      if (n.kind === 'text' || n.kind === 'frame') {
+      if (n.kind === 'group') {
+        // V2.16+: warped containers hit-test against their evaluated items.
+        if (isWarpedContainer(n)) {
+          const evaluated = evaluateWarpedContainerItems(this.doc, entry.nodeId, {
+            quality: { profile: 'draft' },
+          });
+          for (const { item } of evaluated.items) {
+            const prim = item.primitive;
+            if (!prim || prim.kind !== 'path') continue;
+            const wInv = invertAffine([
+              ...item.transform,
+            ] as unknown as import('@varve/shared').Affine);
+            const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
+            if (shapeContains(prim, local)) {
+              isHit = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (n.kind === 'text' || n.kind === 'frame' || n.kind === 'table') {
         if (!this.policy.includeContainers && n.kind === 'frame') {
           continue;
         }
@@ -310,7 +354,7 @@ export class HitTestEngine {
             }
           }
         }
-      } else if (n.kind === 'text' || n.kind === 'frame') {
+      } else if (n.kind === 'text' || n.kind === 'frame' || n.kind === 'table') {
         const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
         if (bbox) {
           const expanded = {
