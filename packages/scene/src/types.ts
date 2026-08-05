@@ -16,6 +16,7 @@
 import type { Adjustment, Affine, PathPoint, Shape } from '@varve/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
+import type { VariableModifier } from './modifiers';
 
 export type {
   BaselineGrid,
@@ -651,6 +652,12 @@ export function makePaint(id: string, name: string, fill: Fill): Paint {
 export interface PropertyBinding {
   variableId: string;
   expression?: string;
+  /**
+   * V2.15+: typed, non-destructive modifier stack applied after the variable
+   * resolves (alpha first). Never encoded into `expression` — modifiers are
+   * validated, serialized, and migrated as typed records.
+   */
+  modifiers?: VariableModifier[];
 }
 
 // ── Typography types (shared with typography.ts via re-export) ───────────────
