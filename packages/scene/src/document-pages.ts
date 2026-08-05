@@ -4,16 +4,9 @@ import type { Document } from './document';
 import { removeNode } from './document-nodes';
 import { cryptoId, devValidate, makeGroupNode } from './document-utils';
 import { nextNodeId } from './node-id';
-import type {
-  FacingPagesConfig,
-  GroupNode,
-  NodeId,
-  Page,
-  PageNumberStyle,
-  PageSection,
-  PageSide,
-  Spread,
-} from './types';
+import { getPageNumbering } from './pageNumbering';
+import { projectSpreads } from './pasteboardLayout';
+import type { FacingPagesConfig, GroupNode, NodeId, Page, PageSide, Spread } from './types';
 import { isContainer } from './types';
 
 // ── Helper ─────────────────────────────────────────────────────────────────
@@ -501,59 +494,36 @@ export function activePageNodes(doc: Document): NodeId[] {
 // ── Editorial spreads ─────────────────────────────────────────────────────
 
 /**
+ * Build the derived spread projection with stable ids (ADR-0128 D3).
+ * Spread ids are deterministic (`spread-<index>`), never regenerated per
+ * rebuild — spread-level guides and identity survive toggles and reorders.
+ * The projection is a pure function of (pages, facing config).
+ */
+export function spreadsFromProjection(doc: Document, facingPages?: FacingPagesConfig): Spread[] {
+  const slots = projectSpreads(doc, facingPages);
+  return slots.map((spread, i) => ({
+    id: `spread-${i}`,
+    kind: spread.length === 1 ? ('single' as const) : ('facing' as const),
+    pageIds: spread.map((s) => s.pageId) as [NodeId] | [NodeId, NodeId],
+  }));
+}
+
+/**
  * Rebuild spread assignments based on facing pages configuration.
  * Assigns each page to a spread: single-page spreads when facing pages
  * are disabled, or two-page spreads with proper left/right ordering
  * when enabled.
+ *
+ * Derived projection with stable ids (ADR-0128). No-op when the document
+ * uses the `custom` spread model — user-authored spreads are never
+ * clobbered by the projection.
  */
 export function rebuildSpreads(doc: Document, facingPages?: FacingPagesConfig): Document {
   if (!doc.pages) return doc;
+  if (doc.spreadModel === 'custom') return doc;
 
   const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
-  const spreads: Spread[] = [];
-
-  if (!config.enabled) {
-    // Single-page spreads
-    for (const page of doc.pages) {
-      spreads.push({
-        id: cryptoId(),
-        pageIds: [page.id],
-      });
-    }
-  } else {
-    // Facing-page spreads
-    let i = 0;
-    const startOnRight = config.startOnRight ?? true;
-
-    // If first page should be on the right, put it alone
-    if (startOnRight && doc.pages.length > 0) {
-      spreads.push({
-        id: cryptoId(),
-        pageIds: [doc.pages[0]!.id],
-      });
-      i = 1;
-    }
-
-    // Process remaining pages in pairs
-    while (i < doc.pages.length) {
-      if (i + 1 < doc.pages.length) {
-        spreads.push({
-          id: cryptoId(),
-          pageIds: [doc.pages[i]!.id, doc.pages[i + 1]!.id],
-        });
-        i += 2;
-      } else {
-        // Single page at end
-        spreads.push({
-          id: cryptoId(),
-          pageIds: [doc.pages[i]!.id],
-        });
-        i += 1;
-      }
-    }
-  }
-
-  return { ...doc, spreads, facingPages: config };
+  return { ...doc, spreads: spreadsFromProjection(doc, config), facingPages: config };
 }
 
 /**
@@ -565,8 +535,11 @@ export function getSpreadForPage(doc: Document, pageId: NodeId): Spread | undefi
 }
 
 /**
- * Determine whether a page is left, right, or neither within facing-page spreads.
- * When facing pages are disabled, always returns 'none'.
+ * Determine whether a page is left, right, or neither within facing-page
+ * spreads (ADR-0129 D2). Side classification honors the binding direction:
+ * in RTL, the first slot of a pair is the right page and a leading
+ * single-page spread is a left page. When facing pages are disabled,
+ * always returns 'none'.
  */
 export function getPageSide(
   doc: Document,
@@ -576,6 +549,7 @@ export function getPageSide(
   const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
   if (!config.enabled) return 'none';
 
+  const rtl = config.bindingDirection === 'rtl';
   const spreads = doc.spreads;
   if (!spreads) return 'none';
 
@@ -583,11 +557,12 @@ export function getPageSide(
     const idx = spread.pageIds.indexOf(pageId);
     if (idx === -1) continue;
     if (spread.pageIds.length === 1) {
-      // Single-page spread: side depends on whether first page should be right
-      return config.startOnRight ? 'right' : 'left';
+      // Single-page spread: side depends on whether first page starts right
+      // (LTR) or left (RTL mirror).
+      return config.startOnRight ? (rtl ? 'left' : 'right') : rtl ? 'right' : 'left';
     }
-    if (idx === 0) return 'left';
-    if (idx === 1) return 'right';
+    if (idx === 0) return rtl ? 'right' : 'left';
+    if (idx === 1) return rtl ? 'left' : 'right';
   }
 
   return 'none';
@@ -610,126 +585,14 @@ export function isPageOnLeftSide(
  * Get the 1-indexed page number for a page, respecting section numbering.
  */
 export function getPageNumber(doc: Document, pageId: NodeId): number {
-  if (!doc.pages) return 0;
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return 0;
-
-  // Check for section-based numbering
-  const sections = doc.sections ?? [];
-  if (sections.length === 0) return pageIndex + 1;
-
-  // Find which section this page belongs to
-  let owningSection: PageSection | undefined;
-  let sectionStartIndex = 0;
-
-  for (const section of sections) {
-    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
-    if (sectionStartPageIdx !== -1 && sectionStartPageIdx <= pageIndex) {
-      owningSection = section;
-      sectionStartIndex = sectionStartPageIdx;
-    }
-  }
-
-  if (owningSection) {
-    const offset = pageIndex - sectionStartIndex;
-    return owningSection.startNumber + offset;
-  }
-
-  return pageIndex + 1;
-}
-
-/** Roman numeral mapping tables. */
-const ROMAN_NUMERALS: Array<[number, string]> = [
-  [1000, 'M'],
-  [900, 'CM'],
-  [500, 'D'],
-  [400, 'CD'],
-  [100, 'C'],
-  [90, 'XC'],
-  [50, 'L'],
-  [40, 'XL'],
-  [10, 'X'],
-  [9, 'IX'],
-  [5, 'V'],
-  [4, 'IV'],
-  [1, 'I'],
-];
-
-function toRoman(num: number): string {
-  if (num <= 0) return '';
-  let result = '';
-  let n = num;
-  for (const [value, numeral] of ROMAN_NUMERALS) {
-    while (n >= value) {
-      result += numeral;
-      n -= value;
-    }
-  }
-  return result;
+  return getPageNumbering(doc, pageId)?.number ?? 0;
 }
 
 /**
  * Get the formatted page number string (e.g. "1", "iii", "A-5") for a page.
  */
 export function getFormattedPageNumber(doc: Document, pageId: NodeId): string {
-  const num = getPageNumber(doc, pageId);
-
-  if (num === 0) return '';
-
-  if (!doc.pages) return String(num);
-
-  const page = doc.pages.find((p) => p.id === pageId);
-  if (!page) return '';
-
-  // Find the section for this page's numbering style
-  const sections = doc.sections ?? [];
-  let style: PageNumberStyle = 'decimal';
-  let prefix = '';
-
-  for (const section of sections) {
-    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
-    if (sectionStartPageIdx !== -1) {
-      const pageIdx = doc.pages.indexOf(page);
-      if (pageIdx >= sectionStartPageIdx) {
-        if (!section.showPageNumber) return '';
-        style = section.numberStyle;
-        prefix = section.prefix ?? '';
-      }
-    }
-  }
-
-  let formatted: string;
-  switch (style) {
-    case 'upperRoman':
-      formatted = toRoman(num);
-      break;
-    case 'lowerRoman':
-      formatted = toRoman(num).toLowerCase();
-      break;
-    case 'upperAlpha':
-      formatted = numToAlpha(num).toUpperCase();
-      break;
-    case 'lowerAlpha':
-      formatted = numToAlpha(num);
-      break;
-    default:
-      formatted = String(num);
-  }
-
-  return prefix ? `${prefix}${formatted}` : formatted;
-}
-
-/** Convert a number to an alphabetic string (1=a, 2=b, ..., 27=aa). */
-function numToAlpha(num: number): string {
-  let result = '';
-  let n = num;
-  while (n > 0) {
-    n -= 1;
-    result = String.fromCharCode(97 + (n % 26)) + result;
-    n = Math.floor(n / 26);
-  }
-  return result;
+  return getPageNumbering(doc, pageId)?.formatted ?? '';
 }
 
 // ── Toggle facing pages ───────────────────────────────────────────────────
