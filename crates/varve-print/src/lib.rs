@@ -337,6 +337,9 @@ fn shape_path_operators(node: &SceneNode, page_height: f64) -> Vec<u8> {
             }
             buf
         }
+        // Native tables are compiled by the editor render layer before print
+        // export; a raw table shape prints as nothing here.
+        Shape::Table(_) => Vec::new(),
         Shape::Text { x, y, w, h, .. } => {
             let px = x + x_off;
             let py = page_height - y - h - y_off;
@@ -525,6 +528,7 @@ fn shape_local_bounds(node: &SceneNode) -> (f64, f64, f64, f64) {
             (min_x, min_y, max_x - min_x, max_y - min_y)
         }
         Shape::Text { x, y, w, h, .. } => (*x, *y, *w, *h),
+        Shape::Table(_) => (0.0, 0.0, 0.0, 0.0),
     }
 }
 
