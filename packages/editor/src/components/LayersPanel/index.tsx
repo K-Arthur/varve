@@ -68,6 +68,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     toggleMask,
     invertMask,
     openUpscaleDialog,
+    openVectorizeDialog,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -521,6 +522,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             invertMask,
             setSelection,
             openUpscaleDialog,
+            openVectorizeDialog,
             closeMenu,
             LAYER_COLORS,
             COLOR_LABELS,
@@ -580,6 +582,7 @@ interface BuildLayerMenuItemsArgs {
   invertMask: () => void;
   setSelection: (id: string) => void;
   openUpscaleDialog: () => void;
+  openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeMenu: () => void;
   LAYER_COLORS: NonNullable<LayerColor>[];
   COLOR_LABELS: Record<NonNullable<LayerColor>, string>;
@@ -626,6 +629,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     invertMask,
     setSelection,
     openUpscaleDialog,
+    openVectorizeDialog,
     closeMenu,
     LAYER_COLORS,
     COLOR_LABELS,
@@ -640,12 +644,36 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     { id: 'paste', label: 'Paste', badge: 'Ctrl+V', onAction: handlePaste },
   ];
 
+  if (contextMenuNode?.kind === 'group' && contextMenuNode.traceMetadata !== undefined) {
+    items.push(
+      { id: 'sep-retrace', separator: true },
+      {
+        id: 'retrace',
+        label: 'Edit Trace…',
+        onAction: () => {
+          setSelection(nodeId);
+          openVectorizeDialog({ replaceGroupId: nodeId });
+          closeMenu();
+        },
+      },
+    );
+  }
+
   if (
     contextMenuNode?.kind === 'shape' &&
     contextMenuNode.fills?.some((f) => f.type === 'image' && f.image?.src)
   ) {
     items.push(
       { id: 'sep-upscale', separator: true },
+      {
+        id: 'vectorize',
+        label: 'Vectorize Image…',
+        onAction: () => {
+          setSelection(nodeId);
+          openVectorizeDialog();
+          closeMenu();
+        },
+      },
       {
         id: 'upscale',
         label: 'Upscale Image',

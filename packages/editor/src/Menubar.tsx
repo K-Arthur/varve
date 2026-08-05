@@ -239,6 +239,7 @@ function buildMenus(
       case 'toolCrop':
       case 'extractPalette':
       case 'batchBgRemove':
+      case 'imageTrace':
         return !hasSelection;
       case 'createMaster':
         return currentPageIsMaster;
@@ -901,6 +902,13 @@ function buildMenus(
           label: 'Extract Palette',
           action: 'extractPalette',
           disabled: dis('extractPalette'),
+        },
+        {
+          label: 'Vectorize Image…',
+          shortcut: formatShortcut(SHORTCUT_DEFS.imageTrace.binding),
+          ariaKeyshortcut: ks('imageTrace'),
+          action: 'imageTrace',
+          disabled: dis('imageTrace'),
         },
         { label: '---' },
         // Masks
