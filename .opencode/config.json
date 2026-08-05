@@ -1,11 +1,11 @@
 {
   "project": "varve",
   "ephemeral_tree": true,
-  "branch": "feat/home-start-page",
-  "last_commit": "5d1c090",
+  "branch": "master",
+  "last_commit": "60f77ad3",
   "recovery": {
-    "branch_command": "git checkout feat/home-start-page",
-    "worktree_command": "git worktree add .worktrees/home-start-page feat/home-start-page",
+    "branch_command": "git checkout master",
+    "worktree_command": "git worktree add .worktrees/<feature> -b <feature>",
     "verify_command": "git log --oneline -3"
   },
   "deferred_plan": "docs/plans/home-surface-deferred.md",
