@@ -127,6 +127,7 @@ export {
   reorderPages,
   setActivePage,
   setFacingPagesEnabled,
+  setPagePlacement,
   setPageSize,
   setPageSizeWithContentScale,
   toggleFacingPages,

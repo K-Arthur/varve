@@ -1595,12 +1595,27 @@ export interface Page {
   masterOverrides?: Record<NodeId, MasterOverride>;
   /** Print/export settings for this page. */
   printSettings?: PagePrintSettings;
+  /**
+   * Pasteboard placement (world/pasteboard coordinates of the trim box
+   * top-left). Absent = resolved deterministically by the pasteboard layout
+   * engine. Placement is layout metadata, never content: moving a page must
+   * not mutate any node transform (ADR-0124).
+   */
+  placement?: PagePlacement;
 }
 
 // ── Page ordering ──────────────────────────────────────────────────────────────
 
 /** Stable ordering key for pages (fractional-indexing). */
 export type PageOrder = string;
+
+// ── Pasteboard placement ───────────────────────────────────────────────────────
+
+/** World/pasteboard coordinates of a page or spread origin (top-left). */
+export interface PagePlacement {
+  x: number;
+  y: number;
+}
 
 // ── Page side classification ──────────────────────────────────────────────────
 
@@ -1649,6 +1664,12 @@ export interface Spread {
   pageIds: [NodeId] | [NodeId, NodeId];
   /** Spread-level guides. */
   guides?: Guide[];
+  /**
+   * Pasteboard placement of the spread origin (top-left of the first page).
+   * Absent = resolved from member page placement or the layout engine
+   * (ADR-0124).
+   */
+  placement?: PagePlacement;
 }
 
 // ── Facing pages configuration ────────────────────────────────────────────────
