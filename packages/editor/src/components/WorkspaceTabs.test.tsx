@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceTabs } from './WorkspaceTabs';
 
 const { requestWorkspaceSwitch } = vi.hoisted(() => ({
-  requestWorkspaceSwitch: vi.fn(),
+  // Resolves like the real context method, so the post-switch focus
+  // restoration actually runs instead of throwing on `undefined.then`.
+  requestWorkspaceSwitch: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('../context', () => ({
