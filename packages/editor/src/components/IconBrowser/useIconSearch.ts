@@ -227,7 +227,7 @@ export function useIconSearch() {
         .filter(
           (d) =>
             descriptorMatchesQuery(d, query) ||
-            tokens.every((t) => (d.name + ' ' + d.keywords.join(' ')).includes(t)),
+            tokens.every((t) => `${d.name} ${d.keywords.join(' ')}`.includes(t)),
         );
     },
     [toDescriptor],

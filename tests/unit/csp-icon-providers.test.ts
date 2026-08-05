@@ -12,8 +12,10 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ICONIFY_CSP_HOSTS, ICONIFY_HOSTS } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
+// Relative import: this test lives outside any package workspace, and the
+// client module is dependency-free by design.
+import { ICONIFY_CSP_HOSTS, ICONIFY_HOSTS } from '../../packages/engine/src/icon/iconifyClient';
 
 interface TauriConfig {
   app?: { security?: { csp?: Record<string, string[]>; devCsp?: Record<string, string[]> } };

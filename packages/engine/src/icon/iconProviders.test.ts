@@ -83,9 +83,7 @@ describe('IconProviderRegistry lifecycle', () => {
   });
 
   it('reset clears providers and initialization', () => {
-    let calls = 0;
     registry.ensureProviders(() => {
-      calls++;
       registry.register(
         makeProvider('iconify', { items: [], total: 0, start: 0, exhausted: true }),
       );
