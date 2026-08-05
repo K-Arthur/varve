@@ -124,7 +124,18 @@ export function VectorizeWorkflow({
 }: VectorizeWorkflowProps) {
   const editor = useEditor();
   const { document: doc, selection } = editor.state;
-  const node = useMemo(() => selectedImageNode(selection, doc), [doc, selection]);
+  // Edit Trace: the selection is the trace GROUP, not the source image; the
+  // source is resolved from the group's stored provenance.
+  const node = useMemo(() => {
+    if (replaceGroupId) {
+      const group = doc.nodes[replaceGroupId];
+      if (group?.kind === 'group' && group.traceMetadata) {
+        const source = doc.nodes[group.traceMetadata.sourceNodeId];
+        if (source?.kind === 'shape' && isImageShape(source)) return source;
+      }
+    }
+    return selectedImageNode(selection, doc);
+  }, [doc, selection, replaceGroupId]);
   const [settings, setSettings] = useState<VectorizationSettings>({
     ...(initialSettings ?? DEFAULT_VECTORIZATION_SETTINGS),
   });
@@ -201,11 +212,13 @@ export function VectorizeWorkflow({
       const { result, width, height } = payload;
       const current = editor.state;
       const sourceNode = current.document.nodes[node.id];
-      if (
+      const stale =
         !session.isCurrent(handle) ||
-        !current.selection.includes(node.id) ||
-        sourceNode !== node
-      ) {
+        sourceNode !== node ||
+        (replaceGroupId
+          ? current.document.nodes[replaceGroupId] === undefined
+          : !current.selection.includes(node.id));
+      if (stale) {
         editor.announce('Vectorization cancelled: the source changed');
         return;
       }
