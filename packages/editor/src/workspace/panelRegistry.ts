@@ -44,6 +44,8 @@ export interface PanelCapabilities {
   requiresRenderer: boolean;
   /** Panel requires model runtimes (ONNX workers, inference). */
   requiresModels: boolean;
+  /** Panel supports more than one instance per session. */
+  supportsMultipleInstances: boolean;
   /** Panel supports being pinned to a specific document (deferred, ADR-0027). */
   supportsDocumentPinning: boolean;
 }
