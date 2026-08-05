@@ -393,8 +393,6 @@ export function validateTableModel(model: TableModel | undefined): TableModelIss
     columnIds.add(id);
   }
 
-  const seenCoordinates = new Set<string>();
-  const spanCovered = new Set<string>();
   for (const cell of Object.values(model.cells)) {
     if (!model.rows[cell.rowId])
       issues.push({
@@ -417,24 +415,32 @@ export function validateTableModel(model: TableModel | undefined): TableModelIss
     }
   }
 
-  const grid = occupancyGrid(model);
-  for (let r = 0; r < grid.length; r++) {
-    for (let c = 0; c < (grid[r]?.length ?? 0); c++) {
-      const cellId = grid[r]?.[c];
-      if (!cellId) continue;
-      const key = `${r},${c}`;
-      if (seenCoordinates.has(key)) {
-        issues.push({
-          code: 'duplicate-coordinate',
-          message: `coordinate ${key} covered twice`,
-          ref: cellId,
-        });
+  // Overlap detection: any coordinate covered by more than one cell's span.
+  const spanCovered = new Set<string>();
+  for (const cell of Object.values(model.cells)) {
+    const rowIdx = rowIndexOf(model, cell.rowId);
+    const columnIdx = columnIndexOf(model, cell.columnId);
+    if (rowIdx < 0 || columnIdx < 0) continue;
+    for (
+      let r = rowIdx;
+      r < Math.min(model.rowOrder.length, rowIdx + Math.max(1, cell.rowSpan));
+      r++
+    ) {
+      for (
+        let c = columnIdx;
+        c < Math.min(model.columnOrder.length, columnIdx + Math.max(1, cell.columnSpan));
+        c++
+      ) {
+        const key = `${r},${c}`;
+        if (spanCovered.has(key)) {
+          issues.push({
+            code: 'overlapping-span',
+            message: `span overlap at ${key}`,
+            ref: cell.id,
+          });
+        }
+        spanCovered.add(key);
       }
-      seenCoordinates.add(key);
-      if (spanCovered.has(key) && cellId !== model.cellIndex[key]) {
-        issues.push({ code: 'overlapping-span', message: `span overlap at ${key}`, ref: cellId });
-      }
-      spanCovered.add(key);
     }
   }
 
