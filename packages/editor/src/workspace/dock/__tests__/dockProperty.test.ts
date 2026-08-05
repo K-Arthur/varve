@@ -55,7 +55,7 @@ const opArb: fc.Arbitrary<Op> = fc.oneof(
   fc.record({
     op: fc.constant('split'),
     panelType: fc.constantFrom(...PANEL_TYPES),
-    direction: fc.constant('row', 'column'),
+    direction: fc.constantFrom('row', 'column'),
     ratio: ratioArb,
   }),
   fc.record({ op: fc.constant('remove') }),
@@ -131,12 +131,13 @@ function applyOp(layout: DockLayout, op: Op): DockLayout {
       const first = firstInstanceRef(next);
       if (first) {
         const index = next.windows.findIndex((w) => findInWindow(w.dockRoot, first.instanceId));
-        if (index !== -1) {
-          const removed = removePanel(next.windows[index].dockRoot, first.instanceId);
+        const sourceWindow = index !== -1 ? next.windows[index] : undefined;
+        if (sourceWindow) {
+          const removed = removePanel(sourceWindow.dockRoot, first.instanceId);
           next = {
             ...next,
-            windows: next.windows.map((w, i) =>
-              i === index ? { ...w, dockRoot: normalizeDockTree(removed.tree) } : w,
+            windows: next.windows.map((w) =>
+              w.id === sourceWindow.id ? { ...w, dockRoot: normalizeDockTree(removed.tree) } : w,
             ),
           };
         }
@@ -166,8 +167,9 @@ function firstInstanceRef(
 ): { instanceId: string; windowId: string } | undefined {
   for (const window of layout.windows) {
     const instances = listPanelInstances(window.dockRoot);
-    if (instances.length > 0) {
-      return { instanceId: instances[0].instanceId, windowId: window.id };
+    const first = instances[0];
+    if (first) {
+      return { instanceId: first.instanceId, windowId: window.id };
     }
   }
   return undefined;
@@ -177,8 +179,16 @@ function collectInstances(layout: DockLayout): PanelInstanceRef[] {
   return layout.windows.flatMap((w) => listPanelInstances(w.dockRoot));
 }
 
+const failure: { message: string | null } = { message: null };
+
+function check(condition: boolean, message: string): boolean {
+  if (!condition) failure.message = message;
+  return condition;
+}
+
 describe('dock model property tests', () => {
   beforeEach(() => {
+    failure.message = null;
     resetPanelRegistry();
     registerBuiltinPanels();
     expect(listPanelDefinitions().length).toBeGreaterThan(0);
@@ -191,8 +201,13 @@ describe('dock model property tests', () => {
         for (const op of ops) {
           layout = applyOp(layout, op);
           const violations = validateDockLayout(layout);
-          if (violations.length > 0) {
-            return `invariant broken after ${JSON.stringify(op)}: ${violations.join('; ')}`;
+          if (
+            !check(
+              violations.length === 0,
+              `invariant broken after ${JSON.stringify(op)}: ${violations.join('; ')}`,
+            )
+          ) {
+            return false;
           }
         }
         return true;
@@ -208,8 +223,13 @@ describe('dock model property tests', () => {
         for (const op of ops) layout = applyOp(layout, op);
         for (const window of layout.windows) {
           for (const ref of listPanelInstances(window.dockRoot)) {
-            if (!findInWindow(window.dockRoot, ref.instanceId)) {
-              return `instance ${ref.instanceId} unreachable in window ${window.id}`;
+            if (
+              !check(
+                findInWindow(window.dockRoot, ref.instanceId),
+                `instance ${ref.instanceId} unreachable in window ${window.id}`,
+              )
+            ) {
+              return false;
             }
           }
         }
@@ -228,9 +248,10 @@ describe('dock model property tests', () => {
         const serialized = JSON.parse(JSON.stringify(layout)) as DockLayout;
         for (const window of serialized.windows) {
           const result = deserializeDockTree(window.dockRoot);
-          if (!result.ok) return `round-trip rejection: ${result.reason}`;
+          if (!result.ok) return false;
           const violations = validateDockTree(result.tree);
-          if (violations.length > 0) return `round-trip violations: ${violations.join('; ')}`;
+          if (!check(violations.length === 0, `round-trip violations: ${violations.join('; ')}`))
+            return false;
         }
 
         const before = collectInstances(layout)
@@ -240,8 +261,13 @@ describe('dock model property tests', () => {
           .flatMap((w) => listPanelInstances(w.dockRoot))
           .map((p) => p.instanceId)
           .sort();
-        if (JSON.stringify(before) !== JSON.stringify(after)) {
-          return `instance set changed by round-trip: ${JSON.stringify(before)} vs ${JSON.stringify(after)}`;
+        if (
+          !check(
+            JSON.stringify(before) === JSON.stringify(after),
+            `instance set changed by round-trip: ${JSON.stringify(before)} vs ${JSON.stringify(after)}`,
+          )
+        ) {
+          return false;
         }
         return true;
       }),
@@ -259,12 +285,19 @@ describe('dock model property tests', () => {
           const windowIndex = layout.windows.findIndex((w) =>
             findInWindow(w.dockRoot, ref.instanceId),
           );
-          if (windowIndex === -1) return `instance ${ref.instanceId} not in any window`;
-          const removed = removePanel(layout.windows[windowIndex].dockRoot, ref.instanceId);
-          if (!removed.removed) return `remove returned no ref for ${ref.instanceId}`;
+          if (!check(windowIndex !== -1, `instance ${ref.instanceId} not in any window`))
+            return false;
+          const window = layout.windows[windowIndex];
+          if (!window) return false;
+          const removed = removePanel(window.dockRoot, ref.instanceId);
           const violations = validateDockTree(normalizeDockTree(removed.tree));
-          if (violations.length > 0) {
-            return `tree corrupted after removing ${ref.instanceId}: ${violations.join('; ')}`;
+          if (
+            !check(
+              violations.length === 0,
+              `tree corrupted after removing ${ref.instanceId}: ${violations.join('; ')}`,
+            )
+          ) {
+            return false;
           }
         }
         return true;

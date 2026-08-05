@@ -12,6 +12,8 @@
 
 import type { PanelTypeId } from '../panelRegistry';
 
+export type { PanelTypeId };
+
 export type DockNodeId = string;
 export type PanelInstanceId = string;
 export type WorkspaceWindowId = string;

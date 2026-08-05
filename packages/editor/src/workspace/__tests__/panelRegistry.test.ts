@@ -62,6 +62,7 @@ function detachableDefinition(overrides: Partial<PanelDefinition> = {}): PanelDe
       requiresCanvas: false,
       requiresRenderer: false,
       requiresModels: false,
+      supportsMultipleInstances: false,
       supportsDocumentPinning: false,
     },
     lifecycle,
@@ -186,6 +187,7 @@ describe('panel registry: invariants', () => {
         requiresCanvas: false,
         requiresRenderer: false,
         requiresModels: false,
+        supportsMultipleInstances: false,
         supportsDocumentPinning: false,
       },
     });
@@ -200,6 +202,7 @@ describe('panel registry: invariants', () => {
         requiresRenderer: false,
         requiresModels: false,
         supportsMultipleInstances: true,
+        supportsDocumentPinning: false,
       },
     });
     expect(validatePanelDefinition(contradictory)).toContain(
@@ -214,6 +217,7 @@ describe('panel registry: invariants', () => {
         requiresCanvas: true,
         requiresRenderer: false,
         requiresModels: false,
+        supportsMultipleInstances: false,
         supportsDocumentPinning: false,
       },
     });
@@ -226,6 +230,7 @@ describe('panel registry: invariants', () => {
         requiresCanvas: false,
         requiresRenderer: true,
         requiresModels: false,
+        supportsMultipleInstances: false,
         supportsDocumentPinning: false,
       },
     });
