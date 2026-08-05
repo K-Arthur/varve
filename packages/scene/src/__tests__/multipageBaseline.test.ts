@@ -87,10 +87,10 @@ describe('Baseline B1 — page placement (no pasteboard placement today)', () =>
   });
 });
 
-// ── B2: spread identity instability ───────────────────────────────────────────
+// ── B2: spread identity stability (inverted by M4) ────────────────────────────
 
-describe('Baseline B2 — spread rebuild regenerates IDs', () => {
-  it('rebuildSpreads assigns fresh crypto ids every call', () => {
+describe('Baseline B2 — spread rebuild stability (FIXED by M4, ADR-0128)', () => {
+  it('rebuildSpreads keeps spread ids stable across rebuilds', () => {
     let doc = createDocument();
     doc = addPage(doc);
     doc = addPage(doc);
@@ -98,17 +98,17 @@ describe('Baseline B2 — spread rebuild regenerates IDs', () => {
     const a = rebuildSpreads(doc, { enabled: true, startOnRight: true });
     const b = rebuildSpreads(doc, { enabled: true, startOnRight: true });
     expect(a.spreads!.length).toBe(b.spreads!.length);
-    expect(a.spreads![0]!.id).not.toBe(b.spreads![0]!.id);
+    expect(a.spreads![0]!.id).toBe(b.spreads![0]!.id);
   });
 
-  it('toggle-facing-pages round trip loses original spread ids', () => {
+  it('toggle-facing-pages round trip preserves spread ids', () => {
     let doc = createDocument();
     doc = addPage(doc);
     doc = rebuildSpreads(doc, { enabled: true, startOnRight: false });
     const originalId = doc.spreads![0]!.id;
     doc = rebuildSpreads(doc, { enabled: false, startOnRight: false });
     doc = rebuildSpreads(doc, { enabled: true, startOnRight: false });
-    expect(doc.spreads![0]!.id).not.toBe(originalId);
+    expect(doc.spreads![0]!.id).toBe(originalId);
   });
 });
 

@@ -1658,12 +1658,17 @@ export interface MasterOverride {
 
 // ── Editorial spreads ─────────────────────────────────────────────────────────
 
+/** Spread topology kind (ADR-0128/0129). */
+export type SpreadKind = 'single' | 'facing' | 'foldout' | 'custom';
+
 export interface Spread {
   id: NodeId;
   /** One page (single-page spread) or two pages (facing-page spread). */
   pageIds: [NodeId] | [NodeId, NodeId];
   /** Spread-level guides. */
   guides?: Guide[];
+  /** Topology kind; absent = derived from facing-pages config. */
+  kind?: SpreadKind;
   /**
    * Pasteboard placement of the spread origin (top-left of the first page).
    * Absent = resolved from member page placement or the layout engine
@@ -1680,7 +1685,17 @@ export interface FacingPagesConfig {
   startOnRight: boolean;
   /** Whether a blank page is inserted to ensure the first page is right-side. */
   autoInsertBlank?: boolean;
+  /** Binding direction (default ltr); mirrors side classification (ADR-0129). */
+  bindingDirection?: 'ltr' | 'rtl';
 }
+
+/**
+ * Spread persistence model (ADR-0128):
+ * - `derived`: spreads are a pure projection of page order (default).
+ * - `custom`: spreads are user-authored records with stable ids; the derived
+ *   projection never overwrites them.
+ */
+export type SpreadModel = 'derived' | 'custom';
 
 // ── Page numbering and sections ───────────────────────────────────────────────
 
