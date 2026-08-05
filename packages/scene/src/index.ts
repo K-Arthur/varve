@@ -90,6 +90,7 @@ export * from './motion-types';
 export * from './newDocument';
 export * from './nodeBounds';
 export * from './operations';
+export * from './pageNumbering';
 export * from './pageOwnership';
 export * from './paint';
 export * from './pasteboardLayout';
