@@ -2,7 +2,7 @@
 
 ## Application Region Order
 
-The Strata editor is organized into logical focus regions. Tab and Shift+Tab
+The Varve editor is organized into logical focus regions. Tab and Shift+Tab
 traverse regions in this order:
 
 ```

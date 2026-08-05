@@ -1,6 +1,6 @@
 # Motion System Architecture
 
-Motion is a first-class document capability in Strata. Animation data lives on `Document`; playback and prototype runtime are editor facades that sample timelines without mutating undo history.
+Motion is a first-class document capability in Varve. Animation data lives on `Document`; playback and prototype runtime are editor facades that sample timelines without mutating undo history.
 
 ## Document Model (v1.6)
 

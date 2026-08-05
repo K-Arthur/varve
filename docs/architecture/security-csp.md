@@ -1,6 +1,6 @@
-# Content Security Policy (CSP) — Strata Desktop
+# Content Security Policy (CSP) — Varve Desktop
 
-Strata Desktop enforces a Content Security Policy (CSP) on all webview
+Varve Desktop enforces a Content Security Policy (CSP) on all webview
 windows. The policy is configured in `apps/desktop/src-tauri/tauri.conf.json`
 under `app.security.csp` (production) and `app.security.devCsp` (development).
 
@@ -53,7 +53,7 @@ WebSocket. This entry does NOT appear in the production policy.
 
 ### `'wasm-unsafe-eval'` justification
 
-Required because ONNX Runtime (`onnxruntime-web`) and `strata-wasm`
+Required because ONNX Runtime (`onnxruntime-web`) and `varve-wasm`
 use WebAssembly with `eval`-style instantiation. The `'blob:'` source
 is required because the WASM glue loader (`wasmLoader.ts`) fetches
 `.js` glue source and imports it from a `blob:` URL to bypass Vite
@@ -89,7 +89,7 @@ The following unsafe patterns were identified and fixed:
    supports comparison, logical, and arithmetic operators without
    dynamic code execution.
 
-2. **`js_sys::eval()` in strata-wasm** (`crates/strata-wasm/src/lib.rs`)
+2. **`js_sys::eval()` in varve-wasm** (`crates/varve-wasm/src/lib.rs`)
    — Replaced with `web_sys::window().navigator().hardware_concurrency()`
    to detect CPU core count without `eval()`.
 

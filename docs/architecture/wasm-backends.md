@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Share Rust scene computation (`strata-core`, `strata-engine`, `strata-layout`, `strata-trace`) with the web target via wasm-pack, behind the same `@varve/engine` facade as Tauri native IPC.
+Share Rust scene computation (`varve-core`, `varve-engine`, `varve-layout`, `varve-trace`) with the web target via wasm-pack, behind the same `@varve/engine` facade as Tauri native IPC.
 
 Desktop keeps the **native wedge** (ADR-0001): document state in unbounded native memory; WASM is for browser deployment and optional worker acceleration.
 
@@ -12,28 +12,28 @@ Desktop keeps the **native wedge** (ADR-0001): document state in unbounded nativ
 
 | Crate | WASM build | Notes |
 |---|---|---|
-| `strata-core` | Yes | Geometry, scene, hit_test |
-| `strata-engine` | Yes | `build_render_ir` |
-| `strata-layout` | Yes | Flex/grid layout parity |
-| `strata-trace` | Yes | Auto-trace (Potrace-class) |
-| `strata-wasm` | Yes | wasm-bindgen glue crate |
-| `strata-sync` | No | SQLite |
-| `strata-bgremove` | No | Native ORT; browser uses onnxruntime-web |
+| `varve-core` | Yes | Geometry, scene, hit_test |
+| `varve-engine` | Yes | `build_render_ir` |
+| `varve-layout` | Yes | Flex/grid layout parity |
+| `varve-trace` | Yes | Auto-trace (Potrace-class) |
+| `varve-wasm` | Yes | wasm-bindgen glue crate |
+| `varve-sync` | No | SQLite |
+| `varve-bgremove` | No | Native ORT; browser uses onnxruntime-web |
 
 ## Feature Variants
 
 | Artifact | Flags | Use when |
 |---|---|---|
-| `strata_wasm_simd_bg.wasm` | `+simd128`, wasm-opt -O3 | **Preferred** — SIMD-capable browsers |
-| `strata_wasm_bg.wasm` | baseline, wasm-opt -O3 | Fallback when SIMD artifact absent |
-| `strata_engine_threads.wasm` | `+atomics,+bulk-memory` | Web with COOP/COEP only (deferred) |
+| `varve_wasm_simd_bg.wasm` | `+simd128`, wasm-opt -O3 | **Preferred** — SIMD-capable browsers |
+| `varve_wasm_bg.wasm` | baseline, wasm-opt -O3 | Fallback when SIMD artifact absent |
+| `varve_engine_threads.wasm` | `+atomics,+bulk-memory` | Web with COOP/COEP only (deferred) |
 
 **Threading reality check (2026-07-11):** nothing in this repo uses `SharedArrayBuffer`,
 `rayon`, or `wasm-bindgen-rayon` today — the `simd128` variant above is single-threaded
 lane parallelism and needs neither shared memory nor cross-origin isolation. Tauri's
 `apps/desktop/src-tauri/tauri.conf.json` currently sets `"csp": null` (no COOP/COEP
 equivalent configured), which is fine while nothing requests threading — but whoever
-picks up `strata_engine_threads.wasm` needs to verify Tauri's webview shell actually
+picks up `varve_engine_threads.wasm` needs to verify Tauri's webview shell actually
 satisfies `SharedArrayBuffer` availability before relying on it; the COOP/COEP mental
 model is browser-tab-shaped and doesn't necessarily map 1:1 onto a Tauri webview.
 
@@ -51,7 +51,7 @@ Coarse scene-level calls only (avoid per-node WASM transitions):
 
 - WASM modules ship in app bundle (`apps/desktop/public/wasm/`). `ci.yml` runs `just wasm-build-all` (base + SIMD) and passes artifacts to E2E. **`build.yml`** (the actual release-packaging workflow) previously built no WASM at all — the gitignored output directory was simply empty on a clean checkout, so every packaged release silently shipped with the JS-only engine. Fixed 2026-07-11: `build.yml` now has a `build-wasm` job (`wasm-build-all`, once on Linux) whose artifact every OS's release job downloads before `pnpm build`.
 - ONNX models use `manifest.json` with SHA-256 verification via `ModelLoader`. No `.onnx` binaries are committed yet (`bundled: false`); users download explicitly from settings (ADR-0005).
-- `strata-layout` / `strata-trace` WASM bindings remain deferred stubs.
+- `varve-layout` / `varve-trace` WASM bindings remain deferred stubs.
 
 ## Build
 

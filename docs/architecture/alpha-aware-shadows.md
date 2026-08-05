@@ -207,7 +207,7 @@ cache-independent).
 ## How to add a new effect
 
 1. Add the variant to the `Effect` union in `packages/scene/src/types.ts`.
-2. Add the mirror to `packages/engine/src/types.ts` (and `strata-core` if the
+2. Add the mirror to `packages/engine/src/types.ts` (and `varve-core` if the
    native IR must transport it).
 3. Add the `defaultEffect` entry and parameter controls in
    `packages/editor/src/components/Inspector/sections/EffectsSection.tsx`.

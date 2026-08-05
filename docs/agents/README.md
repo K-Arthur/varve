@@ -1,6 +1,6 @@
 # AI-Assisted Development
 
-Strata is built by a solo developer who uses AI coding assistants as a
+Varve is built by a solo developer who uses AI coding assistants as a
 force multiplier. This directory documents what tooling is used, how
 agent instructions are structured, and which files are for humans vs
 automation.

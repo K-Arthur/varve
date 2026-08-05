@@ -80,7 +80,7 @@ cannot reproduce. Revisit when there is hardware.
 | **`.deb`** | **Ship — secondary** | `tauri.conf.json` already carries a correct, complete `depends` list. Zero extra work |
 | **`.rpm`** | **Ship — secondary** | Same. `depends` list present |
 | **Flatpak / Flathub** | **Defer** | `packaging/flatpak/dev.varve.desktop.yml` exists but is unvalidated. Flathub review is a multi-week process with a real maintenance burden (runtime upgrades, sandbox holes for printing + font access). Excellent *second* channel, wrong *first* channel |
-| **AUR** | **Defer to post-release** | Cannot exist before there is a release to point at (see RB-2). `varve-desktop-bin` wrapping the AppImage is ~1 h once v0.1.0 is published |
+| **AUR** | **Defer to post-release** | Cannot exist before there is a release to point at (see RB-2). `varve-desktop-bin` PKGBUILD is already written (`packaging/aur/varve-desktop-bin`) and parses under `makepkg`; it needs the real SHA-256 from a published `SHA256SUMS.txt` before submission |
 | **Snap** | **Reject** | No meaningful benefit over AppImage here; adds a confinement model that fights CUPS printing and system font enumeration |
 | **Portable tarball** | **Reject** | AppImage already is the portable option |
 
@@ -119,9 +119,11 @@ Untested and needing a VM pass before Tier 2 is claimed:
 
 ## 4. Windows — detail
 
-**Status: never built.** `publish.yml` configures `windows-latest` with `msi,nsis`, but the
-workflow has never reached that job successfully (RB-2). Everything below is a plan, not a
-verified result.
+**Status: never built.** The `release.yml` windows job builds `nsis` on
+`windows-latest`, but no packaged Windows build has been run on a Windows
+machine yet (RB-2, release-readiness-audit). Everything below is a plan, not a
+verified result. (An earlier `publish.yml` that targeted `msi,nsis` was
+retired in P0-1 — `release.yml` is the only tag-triggered workflow.)
 
 | Decision | Choice | Reasoning |
 |---|---|---|
@@ -152,7 +154,7 @@ with a Microsoft-trusted identity — and, as of the current onboarding flow, co
 | Decision | Choice | Reasoning |
 |---|---|---|
 | Arch | ARM64 first | Apple Silicon is the overwhelming majority of active Macs; Intel is declining and cannot use the bundled ORT dylib anyway (H-3) |
-| Universal vs split | **Split, ARM64 published** | The current `universal-apple-darwin` build produces a binary whose accelerated inference path only works on Apple Silicon. Better to ship an honest `aarch64` DMG than a "universal" one that is half-degraded |
+| Universal vs split | **Split, ARM64 published** | The current build targets `aarch64-apple-darwin` only (a DMG); an earlier `universal-apple-darwin` approach produced a binary whose accelerated inference path only worked on Apple Silicon anyway. Better to ship an honest `aarch64` DMG than a "universal" one that is half-degraded |
 | Intel | Tier 3, or omit | Only if someone asks and can test it |
 | Min version | macOS 13 Ventura | Already set in `tauri.conf.json:180` |
 | Distribution | Unsigned DMG, clearly labelled | See below |

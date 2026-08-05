@@ -1,6 +1,6 @@
 # Tooltip Contributor Guide
 
-This guide provides practical patterns and best practices for using the Strata tooltip system effectively.
+This guide provides practical patterns and best practices for using the Varve tooltip system effectively.
 
 ## Quick Start
 
@@ -382,8 +382,8 @@ test('tooltip interaction', async ({ page }) => {
 ### Internal Documentation
 - [Tooltip System Audit (2026-08-01)](../audits/tooltip-system-audit-2026-08-01.md)
 - [Tooltip System Audit (2026-07-27)](../audits/tooltip-system-audit-2026-07-27.md)
-- [Component Source](../../../packages/ui/src/components/Tooltip.tsx)
-- [Tooltip Tests](../../../packages/ui/src/components/Tooltip.test.tsx)
+- [Component Source](../../packages/ui/src/components/Tooltip.tsx)
+- [Tooltip Tests](../../packages/ui/src/components/Tooltip.test.tsx)
 
 ### External References
 - [ARIA Authoring Practices Guide - Tooltip](https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/)
@@ -391,9 +391,9 @@ test('tooltip interaction', async ({ page }) => {
 - [React Accessibility Documentation](https://react.dev/learn/accessibility)
 
 ### Shortcut System
-- [Shortcut Registry](../../../packages/editor/src/shortcuts/)
-- [toolShortcutLabel Utility](../../../packages/editor/src/shortcuts/toolShortcutLabel.ts)
-- [workspaceShortcutLabel Utility](../../../packages/editor/src/workspace/workspaceShortcutLabel.ts)
+- [Shortcut Registry](../../packages/editor/src/shortcuts/)
+- [toolShortcutLabel Utility](../../packages/editor/src/shortcuts/toolShortcutLabel.ts)
+- [workspaceShortcutLabel Utility](../../packages/editor/src/workspace/workspaceShortcutLabel.ts)
 
 ## Migration Status
 

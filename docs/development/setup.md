@@ -27,8 +27,8 @@ See [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for other
 ## First-time setup
 
 ```bash
-git clone https://github.com/K-Arthur/Strata
-cd Strata
+git clone https://github.com/K-Arthur/varve
+cd varve
 pnpm install              # Install JS dependencies
 just check-env            # Verify toolchain
 cargo build --workspace   # Build all Rust crates

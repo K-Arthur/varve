@@ -36,7 +36,7 @@ in `packages/shared/src/colorConversion.ts`:
 - `rgbToCmyk()` / `cmykToRgb()` — analytical (no ICC profile)
 
 ### ICC-aware (Rust/desktop) path
-The `strata-print` crate provides full ICC-aware CMYK conversion:
+The `varve-print` crate provides full ICC-aware CMYK conversion:
 - `rgb_to_cmyk_icc()` — sRGB→linear→XYZ(D50)→Lab→CMYK with GCR/TAC
 - 4 rendering intents, black point compensation
 - Profile-specific GCR (Fogra39=0.35, Gracol=0.25, SWOP=0.30)
@@ -53,8 +53,8 @@ Wired into the editor context at `context.tsx` with undo/redo support.
 
 | Capability | Desktop (Tauri/Rust) | Browser |
 |---|---|---|
-| ICC-aware CMYK conversion | Full (via strata-print, lopdf) | Analytical only (no ICC) |
-| PDF/X-1a, PDF/X-4 export | Full (Rust strata-print) | Not available — stub only |
+| ICC-aware CMYK conversion | Full (via varve-print, lopdf) | Analytical only (no ICC) |
+| PDF/X-1a, PDF/X-4 export | Full (Rust varve-print) | Not available — stub only |
 | Font outlining | Full (ab_glyph) | Not available |
 | Native print pipeline | Yes (CUPS/system print) | No (window.print() only) |
 | Soft proofing | Analytical preview | Analytical preview |
@@ -81,7 +81,7 @@ the user looked at CMYK fields.
   the active document CMYK profile; native CMYK values show their profile.
 - CMYK-mode documents tag newly authored CMYK values with the document
   working profile id so print intent survives in the data model.
-- ICC-managed conversion stays in `strata-colour`/`strata-print` (PDF/X
+- ICC-managed conversion stays in `varve-colour`/`varve-print` (PDF/X
   export, raster conversion). The picker never claims analytical output is
   color-managed.
 
@@ -216,7 +216,7 @@ definitions.
   profile-accurate conversion requires the desktop ICC engine.
 - Accurate monitor-profile soft proofing is unavailable in browser canvases
   — the proof transform reports `unavailable` and UIs disclose it.
-- PDF spot (Separation/DeviceN) export is deferred until `strata-print`
+- PDF spot (Separation/DeviceN) export is deferred until `varve-print`
   supports it; unsupported formats must warn before converting spots to
   process colors.
 - Registration color renders as black on screen (all plates).

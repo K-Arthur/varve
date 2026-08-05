@@ -55,7 +55,7 @@ cached in an LRU keyed by `(text, font, size, direction, language)`.
 
 ### Non-Latin PDF export uses outlining
 
-`crates/strata-print/src/lib.rs` detects non-WinAnsi text via
+`crates/varve-print/src/lib.rs` detects non-WinAnsi text via
 `requires_outline()` and falls back to `outline_text_multi()` (ab_glyph)
 which emits vector path operators (`m`, `l`, `c`, `h`). This preserves
 visual fidelity for Arabic/Hebrew/Devanagari/CJK without a CIDFont/ToUnicode
@@ -89,7 +89,7 @@ extensions) to set canvas `textAlign='right'` for native BiDi reordering.
 | `packages/scene/src/typography.ts` | `RichText`, `CharacterFormat`, `ParagraphFormat` |
 | `packages/scene/src/richTextOps.ts` | Pure run split/merge/format helpers |
 | `packages/codegen/src/svg.ts` | SVG `direction`/`unicode-bidi` emission |
-| `crates/strata-print/src/lib.rs` | WinAnsi + outline fallback for PDF |
+| `crates/varve-print/src/lib.rs` | WinAnsi + outline fallback for PDF |
 | `packages/editor/src/components/TextEditOverlay.tsx` | Inline editing, caret reporting |
 | `packages/editor/src/components/Inspector/controls/RichTextSpanEditor.tsx` | Span-level formatting |
 

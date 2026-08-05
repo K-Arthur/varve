@@ -29,6 +29,7 @@ pnpm typecheck       # 15/15 packages must pass
 pnpm lint            # 0 new errors on touched files
 pnpm test            # full test suite must pass (excludes .bench.ts — run separately)
 pnpm bench           # benchmark mode for .bench.ts files (optional, perf-sensitive)
+pnpm audit:docs      # docs naming/index/link drift — zero violations
 pnpm audit:emoji     # zero violations
 pnpm audit:tokens    # 120/120 WCAG-AA (3 themes)
 ```
@@ -177,6 +178,7 @@ cleanup tooling, codemods).
 - `pnpm typecheck` — `tsc --noEmit` across packages/*
 - `pnpm audit:tokens` — WCAG 2.2 AA token gate (120 checks across 3 themes)
 - `pnpm audit:emoji` — zero-emoji gate
+- `pnpm audit:docs` — docs drift gate (stale "Strata"/dead-path references in current-state docs, ADR index coverage, broken internal links). Historical docs (dated audits/plans/perf/session history/ADRs/CLA/licensing, and files under `docs/implementation-memory/`) may reference the old name; current-state docs must not.
 - `pnpm --filter @varve/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
 - `just gate` — full Cascade Review gate (format-check + lint + test + audits)
 
@@ -286,11 +288,11 @@ git log --oneline -3
 
 | Asset | Source | Generator | Location |
 |---|---|---|---|
-| Master art (1024x1024) | `packages/ui/src/icons/strata-app-icon.svg` | — | `apps/desktop/src-tauri/icons/strata-icon-source.png` |
-| Mark-only (no background) | `packages/ui/src/icons/strata-icon.svg` | — | `apps/desktop/public/icons/strata-icon.svg` |
-| Tauri PNGs + .icns + .ico | `strata-app-icon.svg` | `just generate-icons` | `apps/desktop/src-tauri/icons/` |
-| Linux hicolor ladder (11 sizes) | `strata-app-icon.svg` | `just generate-icons` | `apps/desktop/src-tauri/icons/hicolor/` |
-| Web/PWA favicons | `strata-icon.svg` + `strata-app-icon.svg` | `just generate-icons` | `apps/desktop/public/icons/` |
+| Master art (1024x1024) | `packages/ui/src/icons/varve-app-icon.svg` | — | `apps/desktop/build-icons.sh` (source) |
+| Mark-only (no background) | `packages/ui/src/icons/varve-icon.svg` | — | `apps/desktop/public/icons/favicon.svg` |
+| Tauri PNGs + .icns + .ico | `varve-app-icon.svg` | `just generate-icons` | `apps/desktop/src-tauri/icons/` |
+| Linux hicolor ladder (11 sizes) | `varve-app-icon.svg` | `just generate-icons` | `apps/desktop/src-tauri/icons/hicolor/` (as `dev.varve.desktop.*`) |
+| Web/PWA favicons | `varve-icon.svg` + `varve-app-icon.svg` | `just generate-icons` | `apps/desktop/public/icons/` |
 
 ### Wayland icon fix
 On Wayland, `tauri dev` does not install desktop entries — the compositor
@@ -305,7 +307,7 @@ just install-dev-icons
   scene, emits compact IR (~42 KB/frame for 600 shapes); webview replays to canvas2D.
 - **ADR-0002** — teal accent, 12-step neutral+teal ramps, Light/Dark/High-Contrast themes.
 - **ADR-0003** — Canvas2D default, WebGPU opt-in with fallback.
-- **ADR-0004** — strata-bridge + strata-wasm for shared IPC/WASM IR.
+- **ADR-0004** — varve-bridge + varve-wasm for shared IPC/WASM IR.
 - **ADR-0005** — Offline-first ONNX: bundled models manifest, remote download explicit only.
 
 ## WebGPU + WASM program
@@ -386,12 +388,17 @@ See `docs/architecture/text-pipeline.md`.
 ### crates/ (Rust)
 | Crate | Status | Contents |
 |---|---|---|
-| `strata-core` | **Built** | Geometry primitives, `Shape` enum, `SceneNode`, `hit_test()` |
-| `strata-engine` | **Built** | `build_render_ir()` — scene → `Vec<RenderItem>` |
-| `strata-layout` | Stub | Taffy-backed flex/grid layout |
-| `strata-sync` | **Built** | SQLite DocumentStore + Tauri IPC |
-| `strata-trace` | Stub | Auto-trace (Potrace/vtracer) |
-| `strata-print` | **Built** | lopdf-based PDF export, CMYK/PDF-X, font outlining, ICC profiles, print backends |
+| `varve-core` | **Built** | Geometry primitives, `Shape` enum, `SceneNode`, `hit_test()` |
+| `varve-engine` | **Built** | `build_render_ir()` — scene → `Vec<RenderItem>` |
+| `varve-layout` | Stub | Taffy-backed flex/grid layout |
+| `varve-sync` | **Built** | SQLite DocumentStore + Tauri IPC |
+| `varve-trace` | Stub | Auto-trace (Potrace/vtracer) |
+| `varve-print` | **Built** | lopdf-based PDF export, CMYK/PDF-X, font outlining, ICC profiles, print backends |
+| `varve-upscale` | **Built** | Native image upscaling — bicubic CPU + optional ONNX super-resolution |
+| `varve-bgremove` | **Built** | Background removal: heuristic non-AI methods + optional ONNX matting |
+| `varve-colour` | **Built** | Colour science: ICC transforms (tintbox), analytical conversion, WASM bindings |
+| `varve-bridge` | **Built** | TS wire-format → `varve-core` `SceneNode` conversion (Tauri IPC + WASM) |
+| `varve-wasm` | **Built** | wasm-bindgen glue for `varve-engine` (web IR build + hit test) |
 
 ### packages/ (TypeScript)
 | Package | Status | Contents |
@@ -405,12 +412,20 @@ See `docs/architecture/text-pipeline.md`.
 | `@varve/shared` | **Built** | Ordering, debounce, easing, units |
 | `@varve/import` | **Built** | SVG/PDF/PSD/AI/EPS import parsers |
 | `@varve/platform` | **Built** | Platform abstraction (Tauri/web/memory) |
+| `@varve/ai` | **Built** | Auto-trace controller and assist orchestrator (on-device + cloud) |
+| `@varve/collab` | **Built** | CRDT awareness and reconnect over the varve-sync SQLite core |
+| `@varve/compositor` | **Built** | Pluggable render compositor: Canvas2D baseline, WebGPU when available |
+| `@varve/crash` | **Built** | Privacy-first crash reporting and recovery core |
+| `@varve/help` | **Built** | Help system documentation and browser |
+| `@varve/home` | **Built** | Home/Start surface: recent files, projects, templates, file management |
+| `@varve/layout` | **Built** | CSS-native flex/grid layout IR mirroring the `varve-layout` crate |
+| `@varve/print` | **Built** | TS facade for the `varve-print` crate: font outlining, CMYK, PDF/X |
 
 ### apps/
 | App | Status | Contents |
 |---|---|---|
 | `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend |
-| `apps/web` | Stub | Next.js 15 scaffold |
+| `apps/website` | **Built** | Astro 5 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
 
 ## Quality gates (Cascade Review) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
