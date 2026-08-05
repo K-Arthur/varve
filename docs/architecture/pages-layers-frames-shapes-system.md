@@ -60,7 +60,7 @@ Shared model behavior should not diverge between desktop and web. The I/O adapte
 
 Access date for all links: 2026-07-12.
 
-- Figma frames are layers that act as containers, can nest, and can hold shapes/images/text. This supports Strata's `FrameNode` as a renderable container, not a separate page concept. Source: https://help.figma.com/hc/en-us/articles/360041539473-Frames-in-Figma-Design
+- Figma frames are layers that act as containers, can nest, and can hold shapes/images/text. This supports Varve's `FrameNode` as a renderable container, not a separate page concept. Source: https://help.figma.com/hc/en-us/articles/360041539473-Frames-in-Figma-Design
 - Figma distinguishes groups from frames: groups combine layers and their bounds follow children, while frames can act as more explicit parent objects. Source: https://help.figma.com/hc/en-us/articles/360039832054-The-difference-between-frames-and-groups
 - Sketch 2025 frames/graphics support full styling like fills, borders, shadows, and blur, unlike legacy artboard background semantics. Source: https://developer.sketch.com/plugins/updates/new-in-sketch-20251
 - Tauri 2 exposes native drag/drop events such as `tauri://drag-drop`, `tauri://drag-enter`, `tauri://drag-over`, and `tauri://drag-leave`. Source: https://v2.tauri.app/reference/javascript/api/namespaceevent/
@@ -69,7 +69,7 @@ Access date for all links: 2026-07-12.
 - Browser File System Access requires user-granted handles for user-visible files; OPFS is origin-private and subject to browser quota. Sources: https://developer.mozilla.org/en-US/docs/Web/API/File_System_API and https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system
 - Browser storage quotas and eviction differ by browser and origin. Source: https://developer.mozilla.org/en-US/docs/Web/API/Storage_API/Storage_quotas_and_eviction_criteria
 - Clipboard API works in secure contexts and reads are constrained by user activation or browser permission behavior. Source: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
-- BroadcastChannel supports same-origin browsing-context communication and can support future cross-tab coordination, but Strata does not yet implement it. Source: https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API
+- BroadcastChannel supports same-origin browsing-context communication and can support future cross-tab coordination, but Varve does not yet implement it. Source: https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API
 - WAI-ARIA tree view guidance distinguishes focus from selection, especially in multi-select trees. This remains relevant for LayersPanel behavior. Source: https://www.w3.org/WAI/ARIA/apg/patterns/treeview/
 
 ## Shipped In This Slice
@@ -86,7 +86,7 @@ Access date for all links: 2026-07-12.
 High:
 
 - Add a Tauri file-drop adapter or explicitly set `dragDropEnabled` per intended behavior, then test OS file drop on Linux/Wayland, Windows, and macOS.
-- Add browser/Tauri clipboard capability documentation and target-specific tests for custom Strata JSON, SVG, PNG, and permission-denied paths.
+- Add browser/Tauri clipboard capability documentation and target-specific tests for custom Varve JSON, SVG, PNG, and permission-denied paths.
 - Extend codec repair to detect duplicate parentage and cycles in untrusted documents before editor state consumes them.
 - Add Playwright page-workflow coverage: create page, switch page, create shape, delete active page, save/reopen, and assert rendered/layer state.
 
@@ -117,5 +117,5 @@ Directly executed this session:
 
 Blocked by existing dirty-tree issues:
 
-- `just format-check` stops on untracked Rust formatting drift in `crates/strata-bridge/tests/wgsl_validation.rs`.
+- `just format-check` stops on untracked Rust formatting drift in `crates/varve-bridge/tests/wgsl_validation.rs`.
 - `pnpm lint` stops on six existing Biome error-level diagnostics outside the page-model slice: one settings tab-panel `tabIndex`, one `NumberInput` dependency warning promoted to error, and four duplicate generated custom properties in `packages/ui/src/tokens/tokens.css`.

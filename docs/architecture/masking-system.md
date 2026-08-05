@@ -2,7 +2,7 @@
 
 ## Overview
 
-Strata's masking subsystem provides three mask types (clip, alpha, luminance) applied to
+Varve's masking subsystem provides three mask types (clip, alpha, luminance) applied to
 container nodes (FrameNode, GroupNode, AdjustmentNode). The architecture follows the
 Section 0 mandate to extend existing rendering/content-model/colour/effects infrastructure
 rather than introducing parallel systems.

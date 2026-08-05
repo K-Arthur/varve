@@ -4,7 +4,7 @@
 
 ## Target Model
 
-Strata currently has one production viewport and guide implementation in the
+Varve currently has one production viewport and guide implementation in the
 shared React editor package:
 
 - `packages/editor/src/CanvasArea.tsx` owns the live canvas DOM event pipeline,
@@ -171,7 +171,7 @@ Access date: 2026-07-13.
   coalesced/predicted event concepts:
   https://www.w3.org/TR/pointerevents/
 - Tauri 2 docs confirm windows/webviews are label-addressed; native multi-window
-  is possible but not wired into Strata's viewport state today:
+  is possible but not wired into Varve's viewport state today:
   https://v2.tauri.app/reference/javascript/api/namespacewebviewwindow/
 
 ## Shipped (2026-07-13)

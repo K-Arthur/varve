@@ -1,6 +1,6 @@
 # CI/CD Resilience & Debugging Guide
 
-This document describes the hardened GitHub Actions pipeline, the automated failure-debug tooling, and the local runner parity setup for the Strata monorepo.
+This document describes the hardened GitHub Actions pipeline, the automated failure-debug tooling, and the local runner parity setup for the Varve monorepo.
 
 ## Hardened workflows
 

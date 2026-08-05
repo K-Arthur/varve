@@ -3,7 +3,7 @@
 Branch: `feat/input-system` — 2026-08-01
 
 This matrix is the canonical statement of *intended* input behavior for the
-Strata canvas. It accompanies `docs/audits/input-system-audit-2026-08-01.md`
+Varve canvas. It accompanies `docs/audits/input-system-audit-2026-08-01.md`
 (the "as-was" audit) and records the behavior after the Milestone 2–4/7 work:
 physical-key zoom matching, wheel-action classification, anchored viewport
 zoom, and the input diagnostics surface.

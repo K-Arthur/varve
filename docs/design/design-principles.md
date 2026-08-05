@@ -1,7 +1,7 @@
-# Strata Design Principles
+# Varve Design Principles
 
 **Status:** Adopted 2026-07-27
-**Scope:** `@varve/ui` internal product design system — Strata's own application chrome.
+**Scope:** `@varve/ui` internal product design system — Varve's own application chrome.
 **Related:** ADR-0002 (tokens), ADR-0011 (design system governance), `visual-direction.md` (adopted patterns).
 
 These principles resolve disagreements during component and layout design.

@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Varve.
 
 ## Current status: not yet open to external contributions
 
-Strata (now Varve) is not currently accepting external code contributions. The project
+Varve is not currently accepting external code contributions. The project
 is still stabilizing its own foundations (build, CI, and documentation), and
 the CLA/DCO infrastructure described below is not yet active. Everything in
 this document describes the process we intend to use once the project opens
@@ -19,7 +19,7 @@ This project follows a standard Code of Conduct. See [CODE_OF_CONDUCT.md](CODE_O
 
 ## Licensing and DCO
 
-Strata is licensed under the **Functional Source License, Version 1.1, MIT
+Varve is licensed under the **Functional Source License, Version 1.1, MIT
 Future License (FSL-1.1-MIT)**, with a change licence of **MIT** after two
 years. See [LICENSE](LICENSE) for full terms.
 
@@ -102,7 +102,7 @@ instructions, running, testing, and quality gates.
 ## Project governance
 
 For licensing questions, see the [licensing docs](docs/licensing/).
-Strata uses AI-assisted development tooling. AI-generated contributions
+Varve uses AI-assisted development tooling. AI-generated contributions
 are reviewed and committed by the project maintainer.
 
 ## Questions?

@@ -176,7 +176,7 @@
 | openHelpCenter | Help Center | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | whatIsThis | What's This? | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | startTour | Take a Tour | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| about | About Strata | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| about | About Varve | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | installDesktopApp | Install Desktop App | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 ## Edge Cases
