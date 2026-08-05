@@ -256,3 +256,59 @@ The `postinstall` script now resolves `onnxruntime-web/dist` from multiple pnpm 
 ### `ci-debug.mjs` fails with `No GitHub token available`
 
 Create a classic PAT with `repo` and `actions:read` scopes, or run `gh auth login`.
+
+### Typecheck fails on all platforms with `TS2307: Cannot find module ...` / `TS2305: no exported member`
+
+The pushed commit contained a broken intermediate state of a feature branch
+(e.g. icon-library files referenced before their restore/rename commit
+landed). The failing CI commit and the local `HEAD` are different — check:
+
+```bash
+git merge-base --is-ancestor <fix-commit> <failed-ci-commit> && echo fixed || echo still-broken
+```
+
+Note that an untracked scratch file under `packages/*/src` (e.g. a
+`__scratch__/probe.test.tsx` from a debugging session) breaks `pnpm typecheck`
+locally even though it is never committed. Do not delete the user's active
+scratch files mid-session — just verify it is untracked (`git status`) and
+never stage it.
+
+### E2E jobs fail on Windows with `ParserError: ...\temp\*.ps1:3` at the test step
+
+The `run:` block uses bash line continuations (`\` at end of line), but the
+default shell on Windows runners is PowerShell, which rejects them. Fix: add
+`shell: bash` to the step. Validated by `bash scripts/test-ci-shell-scripts.sh`
+for the scripts themselves; the YAML-level `shell:` fix is a manual workflow
+edit.
+
+### E2E tests die in `navigateToEditor` with `page.goto` / `.layers-panel` timeouts on the first test of a run
+
+The editor's module graph takes ~90-100s to transform on a cold vite cache
+(measured locally; CI runners are slower). Symptoms: the first test of every
+spec file times out at `page.goto` or the New-button/`.layers-panel` wait
+while later tests pass. Mitigations in place:
+
+- `tests/e2e/global-setup.ts` warm-up: loads the app and clicks through to a
+  real editor before any spec runs, so vite transforms the full graph once.
+- `playwright.config.ts` `timeout: 180000` (was 60s — the old value capped
+  every test below the measured cold first-paint).
+- `tests/e2e/shared.ts` `navigateToEditor` goto timeout raised to 120s.
+
+If the first test still fails on a warm server, check whether a parallel
+process is editing `packages/scene`/`packages/engine` — vite invalidates and
+re-transforms those modules mid-run, causing page reloads that reset the app
+state mid-test (a concurrent agent or the user's own session). Re-run after
+their edits settle.
+
+### Menu E2E assertions fail with `toContainText` / `toBeLessThanOrEqual` on the menubar
+
+Two historical classes, both fixed:
+
+- Type-ahead: after an arrow key (buffer reset), a single char must restart
+  the search from the first match — not cycle from the currently focused
+  item. Unit-tested in `packages/ui/src/utils/menuTypeAhead.test.ts`.
+- Object menu clipping: the logo geometry tools pushed the Object menu past
+  the viewport-constrained max height, clipping the final command. Grouped
+  under `Object > Path` (both `menu/defs.ts` and `Menubar.tsx` `buildMenus`).
+  Guarded by `tests/e2e/menus/visual-integrity.spec.ts`.
+
