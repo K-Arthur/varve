@@ -1,4 +1,4 @@
-# Elevation System — Strata Design Tokens
+# Elevation System — Varve Design Tokens
 
 ## Model
 

@@ -1,4 +1,4 @@
-# Strata Architecture Brief
+# Varve Architecture Brief
 
 Generated: 2026-07-25
 Scope: Everything an implementer needs to touch the following subsystems without re-deriving them.
@@ -11,27 +11,27 @@ Scope: Everything an implementer needs to touch the following subsystems without
 
 **File:** `packages/scene/src/types.ts`
 
-All nodes extend `NodeBase` (line 590) and are discriminated by `kind`:
+All nodes extend `NodeBase` (types.ts:904) and are discriminated by `kind`:
 
 | Node Type | Interface | Line | Distinctive |
 |-----------|-----------|------|-------------|
-| `'shape'` | `ShapeNode` | 653 | `shape: Shape`, `transform`, `strokes`, `effects`, `cornerRadius`, `cornerSmoothing` |
-| `'text'` | `TextNode` | 688 | `text: RichText`, `fontSize/family/weight`, `richText?`, `textMode?` |
-| `'group'` | `GroupNode` | 757 | `transform`, `children: NodeId[]`, `isolated?` |
-| `'frame'` | `FrameNode` | 813 | `transform`, `w`, `h`, `children: NodeId[]`, `componentId?`, `layoutStyle?`, `variant?` |
-| `'adjustment'` | `AdjustmentNode` | 979 | `adjustmentType`, `params`, `scope?` |
-| `'path'` | `PathNode` | 1005 | **Deprecated** — use ShapeNode |
-| `'rasterLayer'` | `RasterLayerNode` | 1025 | `width`, `height`, `pixelMode`, `tiles: Map<string, RasterTile>` |
+| `'shape'` | `ShapeNode` | 975 | `shape: Shape`, `transform`, `strokes`, `effects`, `cornerRadius`, `cornerSmoothing` |
+| `'text'` | `TextNode` | 1010 | `text: RichText`, `fontSize/family/weight`, `richText?`, `textMode?` |
+| `'group'` | `GroupNode` | 1099 | `transform`, `children: NodeId[]`, `isolated?` |
+| `'frame'` | `FrameNode` | 1155 | `transform`, `w`, `h`, `children: NodeId[]`, `componentId?`, `layoutStyle?`, `variant?` |
+| `'adjustment'` | `AdjustmentNode` | 1321 | `adjustmentType`, `params`, `scope?` |
+| `'path'` | `PathNode` | 1347 | **Deprecated** — use ShapeNode |
+| `'rasterLayer'` | `RasterLayerNode` | 1367 | `width`, `height`, `pixelMode`, `tiles: Map<string, RasterTile>` |
 
-Container types: `FrameNode | GroupNode` — `isContainer()` at line 1051.
+Container types: `FrameNode | GroupNode` — `isContainer()` at types.ts:1393.
 
-Non-node document-level types: `Page` (line 1076), `Spread` (line 1145), `MasterPage` (line 1117), `ComponentDefinition` (line 1228), `Style` union (line 1290).
+Non-node document-level types: `Page` (types.ts:1512), `Spread` (types.ts:1585), `MasterPage` (types.ts:1553), `ComponentDefinition` (types.ts:1668), `Style` union (types.ts:1730).
 
 ### ID scheme
 
 **File:** `packages/scene/src/node-id.ts`
 
-Node IDs are **monotonically incrementing integers with an `n` prefix** (line 3):
+Node IDs are **monotonically incrementing integers with an `n` prefix** (`nextNodeId()` in `packages/scene/src/node-id.ts:4`):
 ```
 function nextNodeId(doc) → { id: `n${doc.nextId}`, doc: { ...doc, nextId: doc.nextId + 1 } }
 ```
@@ -53,36 +53,38 @@ There is also an `IdGenerator` system (`packages/scene/src/ids.ts`) with labeled
 The document uses a **hybrid model**:
 - `nodes: Record<NodeId, SceneNode>` — flat map of ALL nodes
 - `rootChildren: NodeId[]` — ordered array of root-level nodes
-- `pages?: Page[]` — each Page has a `contentRoot` pointing to a GroupNode that holds page content (line 2282: `activePageNodes()`)
+- `pages?: Page[]` — each Page has a `contentRoot` pointing to a GroupNode that holds page content (`activePageNodes()` in `packages/scene/src/document-pages.ts:372`)
 - `globalChildren?: NodeId[]` — nodes visible on ALL pages
 
-Nodes are addressed **by flat ID lookup** only (O(1), `doc.nodes[id]`). There is no path-based addressing. Parent lookups use `getParent()` (line 737, O(n)) or `buildParentIndexMap()` (line 754, cached O(1) map).
+Nodes are addressed **by flat ID lookup** only (O(1), `doc.nodes[id]`). There is no path-based addressing. Parent lookups use `getParent()` (`packages/scene/src/document-utils.ts:67`, O(n)) or `buildParentIndexMap()` (`packages/scene/src/document.ts:809`, cached O(1) map).
 
-Tree walking: `walkNodes()` (line 720) — DFS in paint order, returns `Map<NodeId, NodeEntry>` with parent info and depth.
+Tree walking: `walkNodes()` (`packages/scene/src/document.ts:783`) — DFS in paint order, returns `Map<NodeId, NodeEntry>` with parent info and depth.
 
 ### Serialization format
 
 **File:** `packages/scene/src/documentCodec.ts`
 
-**Format:** JSON. Custom MIME type `application/vnd.strata+json` for clipboard.
+**Format:** JSON. Custom MIME type `application/vnd.varve+json` for clipboard
+(the legacy `application/vnd.strata+json` type is still read for
+compatibility).
 
 **Codec API:**
-- `DocumentCodec.decode(json)` (line 613) — parses, validates, runs migrations, normalizes, rehydrates assets, returns `DocumentDecodeResult`
-- `DocumentCodec.encode(doc)` (line 701) — normalizes, stamps version, strips redundant asset payloads, returns JSON string
+- `DocumentCodec.decode(json)` (documentCodec.ts:714) — parses, validates, runs migrations, normalizes, rehydrates assets, returns `DocumentDecodeResult`
+- `DocumentCodec.encode(doc)` (documentCodec.ts:802) — normalizes, stamps version, strips redundant asset payloads, returns JSON string
 
-**Schema version:** `CURRENT_DOCUMENT_VERSION = '2.7'` (`packages/scene/src/version.ts:3`)
+**Schema version:** `CURRENT_DOCUMENT_VERSION = '2.14'` (`packages/scene/src/version.ts:6`)
 
-**Supported versions:** 1.0 through 2.7 (line 5-25), plus implicit 0.9 base.
+**Supported versions:** 1.0 through 2.14 (`SUPPORTED_VERSIONS` in version.ts), plus implicit 0.9 base.
 
-**Migrations:** Ordered array of `DocumentMigration` objects (`version.ts:27-31`), applied by `migrateDocument()` (line 970). Each migration is a raw JSON transform function. Key migrations include 0.9→1.0 (canvas dimensions), 1.1→1.2 (page wrapping), 1.4→1.5 (ImageNode→ShapeNode), 2.0→2.1 (raster mask assets), 2.5→2.6 (external asset table).
+**Migrations:** Ordered array of `DocumentMigration` objects (version.ts), applied by `migrateDocumentDetailed()` (version.ts:1137). Each migration is a raw JSON transform function. Key migrations include 0.9→1.0 (canvas dimensions), 1.1→1.2 (page wrapping), 1.4→1.5 (ImageNode→ShapeNode), 2.0→2.1 (raster mask assets), 2.5→2.6 (external asset table).
 
-**Post-migration rehydration:** `rehydrateEmbeddedAssetSrc()` (line 619) restores `ImageFillData.src` from `Document.assets[assetId].dataUrl`.
+**Post-migration rehydration:** `rehydrateEmbeddedAssetSrc()` (`packages/scene/src/version.ts:763`) restores `ImageFillData.src` from `Document.assets[assetId].dataUrl`.
 
-**Serialize-time stripping:** `stripEmbeddedAssetPayloads()` (line 686) drops per-fill `src` when it matches the canonical asset entry — bytes stored once instead of per-placement.
+**Serialize-time stripping:** `stripEmbeddedAssetPayloads()` (version.ts:830) drops per-fill `src` when it matches the canonical asset entry — bytes stored once instead of per-placement.
 
 ### Document-level metadata
 
-**File:** `packages/scene/src/document.ts` (lines 71-192)
+**File:** `packages/scene/src/document.ts` (`Document` interface at line 139)
 
 The `Document` interface carries all metadata as optional fields:
 
@@ -226,16 +228,16 @@ No label/description field on the `SavedHistory` interface or `TransactionHooks`
 **Hybrid declarative/imperative:** The `Menubar` uses a declarative config array (`MenuItem[]`). Context menus use both the shared declarative `Menu` component and imperative hand-authored JSX.
 
 **Menubar:** `packages/editor/src/Menubar.tsx`
-- `buildMenus()` (line 56) returns `{ id: MenuId; items: MenuItem[] }[]`
-- `MenuItem` interface (line 21): `{ label, shortcut?, action?, disabled?, ariaKeyshortcut? }`
-- Rendered from config at lines 1447-1474
-- Wrapped in `useMemo` (line 1021) with dependency array of individual state fields
+- `buildMenus()` (Menubar.tsx:120) returns `{ id: MenuId; items: MenuItem[] }[]`
+- `MenuItem` interface (`packages/editor/src/menu/types.ts:82`): `{ label, shortcut?, action?, disabled?, ariaKeyshortcut? }`
+- Rendered from config in `Menubar` body
+- Wrapped in `useMemo` with dependency array of individual state fields
 
 **Shared UI `Menu` component:** `packages/ui/src/components/Menu.tsx`
-- `Menu` (line 491) takes `items: readonly MenuEntry[]` (data-driven)
-- `ContextMenu` (line 514) — same model, absolute positioned
-- `MenuEntry` union (line 59): `MenuItem | MenuSeparator | MenuItemCheckbox | MenuItemRadio | SubmenuItem`
-- Submenus are declarative via `SubmenuItem` (line 51): `{ type: 'submenu', submenu: readonly MenuEntry[] }`
+- `Menu` (Menu.tsx:675) takes `items: readonly MenuEntry[]` (data-driven)
+- `ContextMenu` — same model, absolute positioned
+- `MenuEntry` union (Menu.tsx:71): `MenuItem | MenuSeparator | MenuItemCheckbox | MenuItemRadio | SubmenuItem`
+- Submenus are declarative via `SubmenuItem` (Menu.tsx:62): `{ type: 'submenu', submenu: readonly MenuEntry[] }`
 
 **Context menus — various patterns:**
 - Shell canvas context menu (`Shell.tsx:682-796`): Imperative `MenuEntry[]` array, passed to `<ContextMenu>`
@@ -273,8 +275,8 @@ Computed **per-render** via pure function calls during render. No subscription-b
 | `ArrowLeft`/`ArrowRight` | Switch to prev/next menu |
 | `Home`/`End` | Jump first/last |
 
-**Shared UI `MenuInternal`** (`Menu.tsx:219-306`):
-All of the above plus: `Tab` closes all (line 299), **type-ahead** (line 221-236) matches letter keys against item labels with 500ms reset timer.
+**Shared UI `MenuInternal`** (`Menu.tsx:186`):
+All of the above plus: `Tab` closes the tree and walks global tab order (`handleTopTab`, Menu.tsx:232), **type-ahead** (Menu.tsx:336) matches letter keys against item labels with a 500ms reset timer.
 
 **NOT supported:** Mnemonics (Alt+F, etc.). No `accesskey` attributes anywhere.
 
@@ -282,19 +284,19 @@ All of the above plus: `Tab` closes all (line 299), **type-ahead** (line 221-236
 
 ### Accelerator representation
 
-**File:** `packages/editor/src/shortcuts/types.ts` (line 1-6):
+**File:** `packages/editor/src/shortcuts/types.ts` (lines 1-6):
 ```ts
 interface ShortcutBinding { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean; }
 ```
 
-**Shortcut definitions:** `packages/editor/src/shortcuts/ShortcutManager.ts` (lines 5-473) — `SHORTCUT_DEFS: Record<string, ShortcutDef>` with `binding`, `label`, `category`, optional `platform`, optional `context`.
+**Shortcut definitions:** `packages/editor/src/shortcuts/ShortcutManager.ts` — `SHORTCUT_DEFS: Record<string, ShortcutDef>` with `binding`, `label`, `category`, optional `platform`, optional `context`.
 
 **Platform mapping:**
-- `isMac()` at line 594: `navigator.platform?.toLowerCase().includes('mac')`
-- `captureKeyCombo()` at line 558: Maps `Ctrl` on non-Mac, `Cmd (Meta)` on Mac: `ctrl: isMac() ? e.metaKey : e.ctrlKey`
-- `formatShortcut()` at lines 646-667: Mac renders Unicode symbols (`\u2318` Cmd, `\u21E7` Shift, `\u2325` Alt); non-Mac renders `Ctrl+`, `Shift+`, `Alt+`.
+- `isMac()` at line 747: `navigator.platform?.toLowerCase().includes('mac')`
+- `captureKeyCombo()` at line 696: Maps `Ctrl` on non-Mac, `Cmd (Meta)` on Mac: `ctrl: isMac() ? e.metaKey : e.ctrlKey`
+- `formatShortcut()` at lines 847-868: Mac renders Unicode symbols (`\u2318` Cmd, `\u21E7` Shift, `\u2325` Alt); non-Mac renders `Ctrl+`, `Shift+`, `Alt+`.
 
-**Override system:** `setOverride()`, `clearOverride()`, `getEffectiveBinding()` (lines 518-538) — user-remapped shortcuts stored in `localStorage`.
+**Override system:** `setOverride()`, `clearOverride()`, `getEffectiveBinding()` — user-remapped shortcuts stored in `localStorage`.
 
 ### Tauri native menus
 

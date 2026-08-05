@@ -1,4 +1,4 @@
-# Strata Typography Platform
+# Varve Typography Platform
 
 ## Architecture
 
@@ -19,14 +19,14 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 ┌──────────────────────▼──────────────────────────────┐
 │                   Rust Layer                          │
 │                                                       │
-│  strata-print:                                        │
+│  varve-print:                                        │
 │    shaper.rs     → rustybuzz native shaping           │
 │    outline.rs    → ab_glyph glyph path extraction     │
 │    subset.rs     → font-subset font subsetting        │
 │    lib.rs        → PDF generation + font embedding    │
 │    cmyk.rs       → PDF/X-1a/X-4 export               │
 │                                                       │
-│  strata-sync: SQLite document storage                 │
+│  varve-sync: SQLite document storage                 │
 │  font.rs        → system font enumeration             │
 │  font_storage.rs → filesystem font persistence         │
 └──────────────────────────────────────────────────────┘
@@ -62,7 +62,7 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 
 ## Shaping Contract
 
-The native shaping contract (`crates/strata-print/src/shaper.rs`) provides:
+The native shaping contract (`crates/varve-print/src/shaper.rs`) provides:
 
 - **Input**: `ShapeRequest` — text, font bytes, face index, size, language, script, direction, OpenType features, variation axes
 - **Output**: `ShapedRun` — glyphs with real glyph IDs, advances, offsets, clusters, direction, COLR/CPAL flags, missing-glyph warnings
@@ -97,7 +97,7 @@ export interface ShapingCapabilities {
 ## Font Storage
 
 ### IndexedDB (all environments)
-- Database: `strata-fonts`, object store: `fonts`
+- Database: `varve-fonts`, object store: `fonts`
 - Records keyed by family name (lowercased)
 
 ### Filesystem (Tauri only)

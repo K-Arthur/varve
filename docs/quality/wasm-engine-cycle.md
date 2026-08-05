@@ -31,7 +31,7 @@ false;` — plain variable declarations, no fetch, no instantiation, no side eff
 **What ran on first call:** `createEngine('wasm')` (or `'auto'` without Tauri) →
 `await import('./wasmLoader')` → destructure `tryWasmEngine` → `tryWasmEngine(stubEngine)` →
 `loadWasmEngineModule()`, which: checked a module-level cache, then for each candidate WASM URL
-(`strata_wasm_simd_bg.wasm`, `strata_wasm_bg.wasm`): `fetch(HEAD)` → fetch the JS glue source as
+(`varve_wasm_simd_bg.wasm`, `varve_wasm_bg.wasm`): `fetch(HEAD)` → fetch the JS glue source as
 text → wrap it in a `Blob` → dynamically `import()` the resulting `blob:` URL (a second, unrelated
 dynamic import — this loads the wasm-bindgen-generated glue, not `wasmLoader.ts` itself) →
 `await mod.default({ module_or_path: fetch(...).then(r => r.arrayBuffer()) })` to instantiate the

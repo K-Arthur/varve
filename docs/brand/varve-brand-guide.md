@@ -75,10 +75,10 @@ All colour values are sRGB/linear. Themes: Light (default), Dark (`[data-theme="
 
 | Variant | Mark | Wordmark | Lockups | Source File |
 |---|---|---|---|---|
-| Full colour | ✓ | ✓ | Horizontal, stacked | `packages/ui/src/icons/strata-icon.svg` |
+| Full colour | ✓ | ✓ | Horizontal, stacked | `packages/ui/src/icons/varve-icon.svg` |
 | Inverted (dark bg) | ✓ | ✓ | Horizontal, stacked | `strata-wordmark-dark.svg` |
-| Monochrome/symbolic | ✓ | ✓ | Horizontal | `strata-icon-symbolic.svg`, `strata-wordmark-mono.svg` |
-| App icon (light bg) | ✓ | — | — | `strata-app-icon.svg` |
+| Monochrome/symbolic | ✓ | ✓ | Horizontal | `varve-icon-symbolic.svg`, `strata-wordmark-mono.svg` |
+| App icon (light bg) | ✓ | — | — | `varve-app-icon.svg` |
 | Wordmark only | — | ✓ | — | `strata-wordmark-only.svg` |
 
 ---
@@ -120,24 +120,18 @@ All colour values are sRGB/linear. Themes: Light (default), Dark (`[data-theme="
 
 | File | Purpose |
 |---|---|
-| `packages/ui/src/icons/strata-icon.svg` | Master full-colour mark (transparent bg) |
-| `packages/ui/src/icons/strata-icon-symbolic.svg` | Monochrome symbolic mark (Linux) |
-| `packages/ui/src/icons/strata-app-icon.svg` | Full-colour app icon with light bg |
-| `packages/ui/src/icons/strata-wordmark.svg` | Horizontal lockup (mark + "Varve") |
-| `packages/ui/src/icons/strata-wordmark-stacked.svg` | Stacked lockup (mark above wordmark) |
-| `packages/ui/src/icons/strata-wordmark-only.svg` | Wordmark only |
-| `packages/ui/src/icons/strata-wordmark-dark.svg` | Horizonal lockup, dark bg variant |
-| `packages/ui/src/icons/strata-wordmark-mono.svg` | Monochrome horizontal lockup |
-| `apps/desktop/public/icons/strata-icon.svg` | Web-served SVG icon |
-| `apps/desktop/public/icons/strata-wordmark.svg` | Web-served wordmark |
+| `packages/ui/src/icons/varve-icon.svg` | Master full-colour mark (transparent bg) |
+| `packages/ui/src/icons/varve-icon-symbolic.svg` | Monochrome symbolic mark (Linux) |
+| `packages/ui/src/icons/varve-app-icon.svg` | Full-colour app icon with light bg |
+| `packages/ui/src/icons/varve-app-icon-dark.svg` | Full-colour app icon with dark bg |
+| `packages/ui/src/icons/varve-icon-gradient.svg` | Mark only, per-layer gradients |
+| `packages/ui/src/icons/strata-wordmark*.svg` | Wordmark lockups (legacy file names, kept) |
+| `apps/desktop/public/icons/favicon.svg` | Web-served SVG icon (mark) |
 | `apps/desktop/public/icons/icon-192.png` | PWA icon (192, any purpose) |
 | `apps/desktop/public/icons/icon-512.png` | PWA icon (512, any purpose) |
-| `apps/desktop/public/icons/icon-maskable-192.png` | PWA maskable icon (192) |
-| `apps/desktop/public/icons/icon-maskable-512.png` | PWA maskable icon (512) |
+| `apps/desktop/public/icons/icon-192-maskable.png` | PWA maskable icon (192) |
+| `apps/desktop/public/icons/icon-512-maskable.png` | PWA maskable icon (512) |
 | `apps/desktop/public/icons/apple-touch-icon.png` | Apple Touch icon (180) |
-| `apps/desktop/public/icons/favicon.ico` | Multi-size favicon (16/32/48) |
-| `apps/desktop/public/icons/favicon-32.png` | PNG favicon (32) |
-| `apps/desktop/public/icons/favicon-192.png` | PNG favicon (192) |
 | `apps/desktop/src-tauri/icons/icon.ico` | Windows .ico (16–256) |
 | `apps/desktop/src-tauri/icons/icon.icns` | macOS .icns (all sizes) |
 | `apps/desktop/src-tauri/icons/icon.png` | Tauri app icon (512) |
@@ -166,7 +160,7 @@ just generate-icons
 ```
 
 Requirements: `rsvg-convert` (librsvg), `magick` (ImageMagick 7), `python3`.
-The script reads `packages/ui/src/icons/strata-app-icon.svg` and produces the
+The script reads `packages/ui/src/icons/varve-app-icon.svg` and produces the
 complete platform set deterministically.
 
 ---

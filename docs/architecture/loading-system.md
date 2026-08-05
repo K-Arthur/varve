@@ -1,13 +1,13 @@
 # Loading System Decision Framework
 
-This document establishes the official patterns for loading and perceived performance in Strata.
+This document establishes the official patterns for loading and perceived performance in Varve.
 
 ## The Principle
 > **Loading UI should communicate unavoidable latency, not advertise architectural inefficiency.**
 
 ## Decision Matrix
 
-| Category | Duration | Pattern | Strata Implementation |
+| Category | Duration | Pattern | Varve Implementation |
 | --- | --- | --- | --- |
 | **A. Near-Instant** | < 1s | No loader | Immediate transition / Optimistic UI |
 | **B. Brief Activity** | 1s – 3s | Indeterminate | `InlineActivityIndicator` / `RegionLoader` (debounced 300ms) |
@@ -39,10 +39,10 @@ Research: [Tauri 2 splashscreen guide](https://v2.tauri.app/learn/splashscreen/)
 
 | Stage | What the user sees | When it ends |
 | --- | --- | --- |
-| **Pre-JS fallback** | Inline `#strata-boot-fallback` in `index.html` (static SVG + CSS, no network) | `dismissBootFallback()` in `main.tsx` before React mount |
+| **Pre-JS fallback** | Inline `#varve-boot-fallback` in `index.html` (static SVG + CSS, no network) | `dismissBootFallback()` in `main.tsx` before React mount |
 | **In-app loader** | `StartupLoader` via `useStartup` | `HomeShell.onReady` |
 
-Cold-cache latency (bundle download) is dominated by network; the pre-JS fallback covers the gap before JS executes. Warm reload skips the branded loader via `sessionStorage` `strata-session-started`.
+Cold-cache latency (bundle download) is dominated by network; the pre-JS fallback covers the gap before JS executes. Warm reload skips the branded loader via `sessionStorage` `varve-session-started`.
 
 ### Reduced motion per engine
 
@@ -81,21 +81,21 @@ init → home_ready → editor_ready
 
 1. **App mount** (`init`): `useStartup` creates `BootManager`, records `performance.mark('app_mount')`. `StartupLoader` displays (unless warm restart or feature flag off).
 2. **Tauri:** Native `splashscreen.html` visible until home ready; then `close_splashscreen` + main show.
-3. **Browser:** `#strata-boot-fallback` removed in `main.tsx`; `StartupLoader` takes over.
+3. **Browser:** `#varve-boot-fallback` removed in `main.tsx`; `StartupLoader` takes over.
 4. **HomeShell fires `onReady`** (`init → home_ready`): Called once `useHomeView` completes its first data fetch. Loader begins exit animation (250ms fade-out).
-5. **File open** (`home_ready → editor_ready`): Called when `App.handleOpenFile` resolves. Marks total startup via `performance.measure('strata-startup')`.
+5. **File open** (`home_ready → editor_ready`): Called when `App.handleOpenFile` resolves. Marks total startup via `performance.measure('varve-startup')`.
 6. **Error** (`any → error`): Fatal boot error or 30s timeout. Loader shows error message + retry (`BootManager.reset()` + `retryCount` remounts `HomeShell`).
 
 ### Warm restart
 
-When `sessionStorage` already contains `strata-session-started` (e.g. browser dev reload, hot restart), the branded loader is skipped entirely and the boot transitions directly to `home_ready`.
+When `sessionStorage` already contains `varve-session-started` (e.g. browser dev reload, hot restart), the branded loader is skipped entirely and the boot transitions directly to `home_ready`.
 
 ## Feature Flag
 
 The branded startup loader can be disabled via `EditorSettings.startup.showBrandedLoader`:
 
 ```
-localStorage.setItem('strata-editor-settings', JSON.stringify({
+localStorage.setItem('varve-editor-settings', JSON.stringify({
   startup: { showBrandedLoader: false }
 }))
 ```

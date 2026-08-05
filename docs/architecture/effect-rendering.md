@@ -14,7 +14,7 @@ a specific subset of effect types via `if/else if` dispatch and
 
 The document-level `Effect` discriminated union is owned by `@varve/scene`.
 Each effect may carry a stable `id`; document normalization assigns missing IDs
-and repairs duplicates without changing valid IDs. The Rust `strata-core::Effect`
+and repairs duplicates without changing valid IDs. The Rust `varve-core::Effect`
 wire representation mirrors all nine TypeScript variants, retains optional IDs,
 and uses the same camelCase field names. Older documents without IDs remain
 valid and omit the field when serialized through Rust.

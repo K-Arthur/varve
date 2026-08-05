@@ -2,7 +2,7 @@
 
 ## Overview
 
-Strata's ONNX inference system provides on-device, offline-first AI features across
+Varve's ONNX inference system provides on-device, offline-first AI features across
 both browser (WASM/WebGL/WebGPU) and Tauri desktop (native onnxruntime) runtimes.
 
 The system is organized into four layers:
@@ -155,7 +155,7 @@ User Action
 ### Native Path (Tauri Desktop)
 
 1. Frontend calls Tauri IPC command
-2. Rust `strata-bgremove` or `strata-upscale` crate handles inference
+2. Rust `varve-bgremove` or `varve-upscale` crate handles inference
 3. `ort` crate (Rust ONNX Runtime bindings) with dynamic library loading
 4. Session pool with LRU eviction (max 2, 1.5 GB budget)
 5. SHA-256 verification of downloaded models
@@ -191,7 +191,7 @@ INT8 models are NOT automatically selected. The policy engine considers:
 1. **5 of 20+ manifest models have null SHA-256** — cannot be securely downloaded (mostly legacy/stub entries)
 2. **`fetch-onnxruntime.mjs`** silently exits with code 0 on any error
 3. **Rust session pool** limits are hardcoded (max 2 sessions, 2 concurrent, 1.5 GB)
-4. **ORT threads** hardcoded to 2 intra + 1 inter in `strata-upscale/src/ai.rs`
+4. **ORT threads** hardcoded to 2 intra + 1 inter in `varve-upscale/src/ai.rs`
 5. **WebKitGTK** does not support WebGPU; WebGL is unreliable
 6. **Large model WASM inference** (BiRefNet at 1024×1024) can cause `std::bad_alloc`
 

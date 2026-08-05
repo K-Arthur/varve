@@ -1,4 +1,4 @@
-# Strata Visual Direction — adopted patterns
+# Varve Visual Direction — adopted patterns
 
 Record of which §2 (Synthesis) patterns from the Visual Design Overhaul prompt
 were adopted, which were rejected, and why. Authored during Session 14
@@ -22,7 +22,7 @@ were adopted, which were rejected, and why. Authored during Session 14
 | Pattern | Reason |
 |---|---|
 | Fanned/depth-stacked card carousel (wellness app) | Wrong interaction model for a canvas tool; domain-specific to time-based schedule UI. |
-| Literal colour palette or iconography from any reference | Every pattern is expressed in Strata's own existing teal/neutral token language; no hex values copied from any reference. |
+| Literal colour palette or iconography from any reference | Every pattern is expressed in Varve's own existing teal/neutral token language; no hex values copied from any reference. |
 | Glassmorphism as dominant motif (wellness app) | The frosted/translucent layer is used once (floating toolbar backdrop-filter) — not expanded to the whole application. The hero glow serves a similar "depth" role without the overhead. |
 
 ## Token additions

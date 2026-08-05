@@ -2,7 +2,7 @@
   "name": "varve",
   "version": "0.1.0",
   "private": true,
-  "description": "Strata — local-first design suite for vector, layout, typography, motion, prototyping, and print production.",
+  "description": "Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print production.",
   "license": "FSL-1.1-MIT",
   "packageManager": "pnpm@11.9.0",
   "engines": {
@@ -25,6 +25,7 @@
     "format": "biome format --write .",
     "audit:tokens": "pnpm --filter @varve/ui audit:tokens",
     "audit:emoji": "node scripts/audit-emoji.mjs",
+    "audit:docs": "node scripts/audit-docs.mjs",
     "audit:a11y": "echo 'axe-core runs in Playwright E2E'",
     "audit:perf": "node scripts/audit-perf.mjs",
     "test:e2e": "playwright test",
