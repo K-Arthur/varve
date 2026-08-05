@@ -27,8 +27,10 @@ import {
   validateRasterMaskAsset,
   validateRasterMaskDocument,
 } from './masks';
+import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
 import { createEmptySelectionSetsData } from './selectionSet';
+import { emptyTableModel, normalizeTableModelDefensively } from './tableOps';
 import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
@@ -62,6 +64,8 @@ export interface DocumentClosure {
   assets?: Document['assets'];
   /** Icon assets referenced by the closure's nodes — see ./iconAsset.ts. */
   iconAssets?: Document['iconAssets'];
+  /** Mockup template assets referenced by the closure's nodes (v2.16+). */
+  mockupTemplates?: Document['mockupTemplates'];
 }
 
 function warning(
@@ -117,7 +121,9 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
 function maxNumericNodeId(nodes: Record<NodeId, SceneNode>): number {
   let max = 0;
   for (const id of Object.keys(nodes)) {
-    const match = /^n(\d+)$/.exec(id);
+    // Legacy sequential ids (`n12`) and minted collision-resistant ids
+    // (`n12_3fa9...`, ADR-0025) both carry a counter component.
+    const match = /^n(\d+)(?:_[0-9a-f]+)?$/.exec(id);
     if (match) max = Math.max(max, Number(match[1]));
   }
   return max;
@@ -551,6 +557,35 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
         }
       }
       nodes[id] = { ...node, id, children } as SceneNode;
+    } else if (node.kind === 'table') {
+      // Tables carry embedded models that must satisfy span invariants on
+      // load; repair defensively instead of trusting serialized data.
+      const tableNode = node as unknown as Record<string, unknown>;
+      const tableRaw = tableNode.table;
+      const { model, issues } = normalizeTableModelDefensively(tableRaw);
+      if (!model) {
+        warnings.push(
+          warning(
+            'document.invalid-table',
+            `Table node ${id} has no valid table model`,
+            'warning',
+            id,
+          ),
+        );
+        nodes[id] = { ...node, id, table: emptyTableModel() } as SceneNode;
+      } else {
+        if (issues.length > 0) {
+          warnings.push(
+            warning(
+              'document.table-repaired',
+              `Table node ${id} was repaired (${issues.length} issue(s))`,
+              'warning',
+              `${id}.table`,
+            ),
+          );
+        }
+        nodes[id] = { ...node, id, table: model } as SceneNode;
+      }
     } else {
       nodes[id] = { ...node, id } as SceneNode;
     }
@@ -655,6 +690,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
   document = sanitizeIconAssetState(document, warnings);
+  document = sanitizeMockupState(document, warnings);
   document = normalizeDocumentEffects(document);
   if (!document.selectionSets) {
     document = { ...document, selectionSets: createEmptySelectionSetsData() };
@@ -694,6 +730,15 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       const asset = assetId ? doc.assets?.[assetId] : undefined;
       if (assetId && asset) assets[assetId] = asset;
     }
+    if (node.kind === 'frame' && node.mockup) {
+      for (const binding of Object.values(node.mockup.surfaceBindings)) {
+        const asset =
+          binding.mode === 'snapshot' && binding.assetId
+            ? doc.assets?.[binding.assetId]
+            : undefined;
+        if (asset) assets[asset.id] = asset;
+      }
+    }
   }
   const iconAssets: NonNullable<Document['iconAssets']> = {};
   for (const node of Object.values(nodes)) {
@@ -701,12 +746,21 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     const asset = assetId ? doc.iconAssets?.[assetId] : undefined;
     if (assetId && asset) iconAssets[assetId] = asset;
   }
+  const mockupTemplates: NonNullable<Document['mockupTemplates']> = {};
+  for (const node of Object.values(nodes)) {
+    if (node.kind !== 'frame' || !node.mockup) continue;
+    const template = node.mockup.templateId
+      ? doc.mockupTemplates?.[node.mockup.templateId]
+      : undefined;
+    if (template) mockupTemplates[template.id] = template;
+  }
   return {
     nodeIds,
     nodes,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
     assets: Object.keys(assets).length > 0 ? assets : undefined,
     iconAssets: Object.keys(iconAssets).length > 0 ? iconAssets : undefined,
+    mockupTemplates: Object.keys(mockupTemplates).length > 0 ? mockupTemplates : undefined,
   };
 }
 
