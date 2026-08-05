@@ -6,8 +6,10 @@
  */
 
 export * from './codecs';
+export * from './diff';
 export * from './json';
 export * from './jsonPointer';
+export * from './merge';
 export * from './parse';
 export * from './refGraph';
 export * from './resolver';
