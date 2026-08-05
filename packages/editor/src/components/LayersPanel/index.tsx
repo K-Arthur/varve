@@ -582,7 +582,7 @@ interface BuildLayerMenuItemsArgs {
   invertMask: () => void;
   setSelection: (id: string) => void;
   openUpscaleDialog: () => void;
-  openVectorizeDialog: () => void;
+  openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeMenu: () => void;
   LAYER_COLORS: NonNullable<LayerColor>[];
   COLOR_LABELS: Record<NonNullable<LayerColor>, string>;
@@ -643,6 +643,21 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     { id: 'cut', label: 'Cut', badge: 'Ctrl+X', onAction: handleCut },
     { id: 'paste', label: 'Paste', badge: 'Ctrl+V', onAction: handlePaste },
   ];
+
+  if (contextMenuNode?.kind === 'group' && contextMenuNode.traceMetadata !== undefined) {
+    items.push(
+      { id: 'sep-retrace', separator: true },
+      {
+        id: 'retrace',
+        label: 'Edit Trace…',
+        onAction: () => {
+          setSelection(nodeId);
+          openVectorizeDialog({ replaceGroupId: nodeId });
+          closeMenu();
+        },
+      },
+    );
+  }
 
   if (
     contextMenuNode?.kind === 'shape' &&
