@@ -82,7 +82,7 @@ export const TIPS: Tip[] = [
   {
     id: 'shortcut-undo',
     title: 'Undo and redo',
-    body: 'Press Ctrl+Z to undo your last action. Press Ctrl+Shift+Z to redo. Strata supports unlimited undo history.',
+    body: 'Press Ctrl+Z to undo your last action. Press Ctrl+Shift+Z to redo. Varve supports unlimited undo history.',
     category: 'shortcuts',
     condition: () => true,
   },
