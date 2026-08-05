@@ -93,7 +93,9 @@ test('crash dialog offers recovery without sending and without consent inference
   // The synthetic crash hooks are dev-only; drive the controller directly.
   const dialogSeen = await page.evaluate(async () => {
     const hooks = (
-      window as unknown as { __varveCrashTest?: { simulateWorkerCrash: () => Promise<void> } }
+      window as unknown as {
+        __varveCrashTest?: { simulateWorkerCrash: (message?: string) => Promise<void> };
+      }
     ).__varveCrashTest;
     if (hooks) {
       await hooks.simulateWorkerCrash('e2e worker crash');
@@ -133,7 +135,9 @@ test('denied consent stays silent even when a report would be sent', async ({ pa
 
   await page.evaluate(async () => {
     const h = (
-      window as unknown as { __varveCrashTest?: { simulateWorkerCrash: () => Promise<void> } }
+      window as unknown as {
+        __varveCrashTest?: { simulateWorkerCrash: (message?: string) => Promise<void> };
+      }
     ).__varveCrashTest;
     if (h) await h.simulateWorkerCrash('e2e denied crash');
   });

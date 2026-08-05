@@ -331,6 +331,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                 const isFocused =
                   focusedPoint?.trackId === track.id && focusedPoint?.keyframeIndex === ki;
                 return (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: keyframes move during drag; index is the stable identity within the track (no model id)
                   <g key={ki}>
                     {/* Transparent HTML button overlaid for accessible keyframe interaction */}
                     <foreignObject

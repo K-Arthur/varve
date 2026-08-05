@@ -173,9 +173,9 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
         tabIndex={0}
         style={{ width: totalWidth }}
       >
-        {ticks.map((tick, i) => (
+        {ticks.map((tick) => (
           <div
-            key={i}
+            key={tick.x}
             className="timeline-ruler__tick"
             style={{ left: tick.x, position: 'absolute', top: 0 }}
           >
