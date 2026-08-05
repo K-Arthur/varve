@@ -242,6 +242,31 @@ export function setPageSize(
 }
 
 /**
+ * Set a page's pasteboard placement (world coordinates of the trim top-left).
+ * Placement is layout metadata only: no node transforms change (ADR-0124).
+ * Rejects non-finite or out-of-bounds coordinates; no-ops for unknown page
+ * ids.
+ */
+export function setPagePlacement(
+  doc: Document,
+  pageId: NodeId,
+  placement: import('./types').PagePlacement,
+): Document {
+  if (!doc.pages) return doc;
+  const idx = doc.pages.findIndex((p) => p.id === pageId);
+  if (idx < 0) return doc;
+
+  const x = Number(placement.x);
+  const y = Number(placement.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return doc;
+  if (Math.abs(x) > 1e7 || Math.abs(y) > 1e7) return doc;
+
+  const updatedPages = doc.pages.map((p, i) => (i === idx ? { ...p, placement: { x, y } } : p));
+
+  return { ...doc, pages: updatedPages };
+}
+
+/**
  * Update page dimensions and scale all content node transforms proportionally.
  * Computes the scale factor from old to new dimensions and multiplies each
  * node's affine transform in the page's content tree by that factor.
