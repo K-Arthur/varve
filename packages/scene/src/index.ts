@@ -92,6 +92,7 @@ export * from './nodeBounds';
 export * from './operations';
 export * from './pageNumbering';
 export * from './pageOwnership';
+export * from './pageScene';
 export * from './paint';
 export * from './pasteboardLayout';
 export * from './preflight';
