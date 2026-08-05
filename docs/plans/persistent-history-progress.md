@@ -13,8 +13,8 @@ and Git program defined in ADRs 0017-0046. Current-state summary:
 | 2 | Persistent identity | **Landed** | `ef16b31f`, restored `7c5ee704`; 12 identity tests + 9 migration tests |
 | 3 | Canonical serialization | **Landed** | `04722221`; NIST-verified SHA-256, goldens, fast-check properties, 26 tests |
 | 4 | Typed mutation pipeline (core) | **Landed** | `054af3b1`; registry + transaction coordinator + 7 operation families, 13 tests |
-| 5 | Immutable log and replay | Next | Storage contract per ADR-0020; revision records per ADR-0022 |
-| 6 | Snapshots and recovery | Next | ADR-0021/0046; converge platform versions per ADR-0024 |
+| 5 | Immutable log and replay | **Landed** | `@varve/history`: segments, `HistoryStore`, revisions, replay, entity index — 17 tests |
+| 6 | Snapshots and recovery | **Landed** | snapshots + scheduling, tail recovery, validation, legacy version import (ADR-0024) |
 | 7 | Persistent undo/redo | Next | ADR-0019 hybrid model |
 | 8 | History panel | Next | ADR-0043/0044 |
 | 9 | Checkpoints and branches | Next | ADR-0023 |
