@@ -18,7 +18,6 @@
 
 import {
   applyHomography,
-  type Homography,
   invertHomography,
   type Quad,
   quadBounds,
