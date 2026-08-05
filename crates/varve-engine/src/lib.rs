@@ -139,6 +139,8 @@ pub enum Primitive {
         #[serde(default, skip_serializing_if = "Option::is_none", rename = "fillRule")]
         fill_rule: Option<String>,
     },
+    #[serde(rename = "table")]
+    Table(Box<serde_json::Value>),
     #[serde(rename = "text")]
     Text {
         text: String,
@@ -309,6 +311,7 @@ fn primitive_of(shape: &Shape, corner_radius: Option<&serde_json::Value>) -> Pri
             holes: holes.clone(),
             fill_rule: fill_rule.clone(),
         },
+        Shape::Table(payload) => Primitive::Table(Box::new(payload.clone())),
         Shape::Text {
             text,
             font_size,
@@ -766,5 +769,34 @@ mod tests {
             }
         );
         assert_eq!(ir[0].transform, [1.0, 0.0, 0.0, 1.0, 40.0, 40.0]);
+    }
+
+    #[test]
+    fn table_primitive_round_trips_through_render_ir() {
+        let table_payload = serde_json::json!({
+            "kind": "table",
+            "x": 0.0,
+            "y": 0.0,
+            "w": 300.0,
+            "h": 120.0,
+            "cornerRadius": 4.0,
+            "borderColor": { "space": "rgb", "r": 10.0, "g": 10.0, "b": 10.0, "a": 255.0 },
+            "borderWidth": 1.0,
+            "dividerColor": { "space": "rgb", "r": 200.0, "g": 200.0, "b": 200.0, "a": 255.0 },
+            "dividerWidth": 1.0,
+            "colPositions": [0.0, 150.0, 300.0],
+            "rowPositions": [0.0, 40.0, 120.0],
+            "cells": [{
+                "x": 0.0, "y": 0.0, "w": 150.0, "h": 40.0,
+                "fill": { "space": "rgb", "r": 240.0, "g": 240.0, "b": 240.0, "a": 255.0 }
+            }]
+        });
+        let mut node = rect_node(1, 0.0, 0.0, 300.0, 120.0);
+        node.shape = Shape::Table(table_payload);
+        let ir = build_render_ir(&[node]);
+        let wire = serde_json::to_value(&ir[0]).expect("serialize IR");
+        assert_eq!(wire["primitive"]["kind"], "table");
+        assert_eq!(wire["primitive"]["w"], 300.0);
+        assert_eq!(wire["primitive"]["cells"][0]["w"], 150.0);
     }
 }
