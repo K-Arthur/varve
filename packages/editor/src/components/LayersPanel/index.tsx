@@ -34,6 +34,7 @@ import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTyp
 import './layers.css';
 import { VariablePanel } from '../../VariablePanel';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
+import { TokenSyncPanel } from '../TokenSync/TokenSyncPanel';
 import { SelectionSetsSection } from './SelectionSetsSection';
 
 export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
@@ -533,6 +534,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
       <div className="layers-panel__variables">
         <VariablePanel />
+        <TokenSyncPanel />
       </div>
 
       <SelectionSetsSection />
