@@ -47,6 +47,7 @@ import {
 } from './gridTypes';
 import { nextNodeId } from './node-id';
 import { createEmptySelectionSetsData } from './selectionSet';
+import { createTableModel, type TableColumnDefinition, type TableModel } from './table';
 import type {
   ContainerNode,
   DocumentGrid,
@@ -61,6 +62,7 @@ import type {
   SceneNode,
   ShapeNode,
   Style,
+  TableNode,
   TextNode,
 } from './types';
 import { isContainer } from './types';
@@ -281,6 +283,14 @@ export interface Document {
    * shared `Paint`. See `DocumentAsset` doc comment in ./types.
    */
   assets?: Record<string, import('./types').DocumentAsset>;
+
+  /**
+   * Mockup template assets keyed by template id (v2.16+). Templates are
+   * self-contained scene-slot contracts embedded in the document so
+   * save/reopen and offline use never depend on a library lookup. Referenced
+   * by `FrameNode.mockup.templateId`. See mockup/types.ts.
+   */
+  mockupTemplates?: Record<string, import('./mockup/types').MockupTemplateAsset>;
 
   /** Persisted linter configuration (v2.7+). Undefined for pre-v2.7 docs,
    *  in which case DEFAULT_LINTER_CONFIG applies at scan time. */
@@ -641,6 +651,74 @@ export function makeFrameNode(
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
     layoutStyle: opts.layoutStyle,
+  };
+}
+
+/**
+ * V2.15+: canonical factory for a native table node (ADR-0016).
+ */
+export function makeTableNode(
+  id: NodeId,
+  opts: Partial<
+    Pick<
+      TableNode,
+      | 'name'
+      | 'layerColor'
+      | 'transform'
+      | 'fill'
+      | 'visible'
+      | 'locked'
+      | 'opacity'
+      | 'blendMode'
+      | 'rotation'
+      | 'strokes'
+      | 'effects'
+      | 'order'
+      | 'w'
+      | 'h'
+      | 'clipContent'
+    >
+  > & {
+    table?: TableModel;
+    rows?: number;
+    columns?: number;
+    headerRows?: number;
+    headerColumns?: number;
+    frozenRows?: number;
+    frozenColumns?: number;
+    columnSizing?: TableColumnDefinition['sizing'];
+  } = {},
+): TableNode {
+  const rows = opts.rows ?? 4;
+  const columns = opts.columns ?? 4;
+  const table =
+    opts.table ??
+    createTableModel(rows, columns, {
+      headerRows: opts.headerRows,
+      headerColumns: opts.headerColumns,
+      frozenRows: opts.frozenRows,
+      frozenColumns: opts.frozenColumns,
+      columnSizing: opts.columnSizing,
+    });
+  return {
+    id,
+    kind: 'table',
+    name: opts.name ?? 'Table',
+    layerColor: opts.layerColor ?? null,
+    order: opts.order ?? 'a0',
+    visible: opts.visible ?? true,
+    locked: opts.locked ?? false,
+    opacity: opts.opacity ?? 1,
+    blendMode: opts.blendMode ?? 'normal',
+    rotation: opts.rotation ?? 0,
+    transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
+    fill: opts.fill ?? { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+    w: opts.w ?? 480,
+    h: opts.h ?? 240,
+    table,
+    clipContent: opts.clipContent ?? true,
+    strokes: opts.strokes ?? [],
+    effects: opts.effects ?? [],
   };
 }
 
