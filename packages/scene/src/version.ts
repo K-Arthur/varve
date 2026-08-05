@@ -4,7 +4,7 @@ import { textColorMigration } from './colorMigration';
 import { migrateV214ToV215 } from './modifiersMigration';
 import { migrateV212ToV213 } from './version-migrations';
 
-export const CURRENT_DOCUMENT_VERSION = '2.15';
+export const CURRENT_DOCUMENT_VERSION = '2.16';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -34,6 +34,7 @@ export const SUPPORTED_VERSIONS = [
   '2.13',
   '2.14',
   '2.15',
+  '2.16',
 ];
 
 export interface DocumentMigration {
@@ -755,6 +756,16 @@ const migrations: DocumentMigration[] = [
     from: '2.14',
     to: '2.15',
     migrate: (raw) => migrateV214ToV215(raw),
+  },
+  {
+    from: '2.15',
+    to: '2.16',
+    migrate: (raw) => {
+      // v2.16: optional GroupNode.traceMetadata (Image Trace provenance).
+      // The field is optional and only ever present on groups created by the
+      // trace workflow, so existing documents need no structural change.
+      return { ...raw, formatVersion: '2.16' };
+    },
   },
 ];
 

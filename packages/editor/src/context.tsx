@@ -1136,8 +1136,10 @@ export interface EditorContextValue {
   closeUpscaleDialog: () => void;
   /** Whether the Image Trace (vectorize) dialog is open. */
   vectorizeDialogOpen: boolean;
+  /** Re-trace target for the Image Trace dialog (Edit Trace workflow). */
+  vectorizeDialogPrefill: { replaceGroupId: string } | null;
   /** Open the Image Trace dialog for the selected image. */
-  openVectorizeDialog: () => void;
+  openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   /** Close the Image Trace dialog. */
   closeVectorizeDialog: () => void;
   /** Flatten/rasterize/merge the current selection (unified flatten system). */
@@ -2195,6 +2197,7 @@ export function EditorProvider({
       warpEdit: null,
       upscaleDialogOpen: false,
       vectorizeDialogOpen: false,
+      vectorizeDialogPrefill: null,
       debugOverlay: {
         enabled: false,
         channels: {
@@ -7435,11 +7438,12 @@ export function EditorProvider({
         patch({ upscaleDialogOpen: false });
       },
       vectorizeDialogOpen: state.vectorizeDialogOpen,
-      openVectorizeDialog: () => {
-        patch({ vectorizeDialogOpen: true });
+      vectorizeDialogPrefill: state.vectorizeDialogPrefill,
+      openVectorizeDialog: (prefill) => {
+        patch({ vectorizeDialogOpen: true, vectorizeDialogPrefill: prefill ?? null });
       },
       closeVectorizeDialog: () => {
-        patch({ vectorizeDialogOpen: false });
+        patch({ vectorizeDialogOpen: false, vectorizeDialogPrefill: null });
       },
 
       addPreset: (nodeId, preset) => {
