@@ -64,6 +64,19 @@ import Layout from '../layouts/Layout.astro';
       </section>
 
       <section class="product-section">
+        <h2>Who Varve is not for (yet)</h2>
+        <p>
+          Because Varve is in beta, it is not yet the right choice for every situation:
+        </p>
+        <ul>
+          <li><strong>Critical production deadlines:</strong> expect bugs, incomplete tools, and workflow changes. Keep backups and test before relying on it for paid work.</li>
+          <li><strong>Teams needing real-time collaboration:</strong> collaboration is not implemented — this is a single-user tool today.</li>
+          <li><strong>Arabic, Hebrew, or Devanagari text:</strong> complex script shaping is not supported yet.</li>
+          <li><strong>Linux or Windows on ARM:</strong> only x86_64 is supported on those platforms (macOS Apple Silicon works via Universal binaries).</li>
+        </ul>
+      </section>
+
+      <section class="product-section">
         <h2>Beta status</h2>
         <p>
           Varve is in active beta. Core features are functional and tested, but you may encounter bugs, incomplete tools, or changes to workflows and file formats as development continues. We recommend keeping backups of important work and not relying on Varve as the sole tool for critical production projects at this stage.
@@ -116,6 +129,26 @@ import Layout from '../layouts/Layout.astro';
   .product-section p {
     color: var(--text-secondary);
     line-height: 1.8;
+  }
+
+  .product-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+
+  .product-section li {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 0.6rem;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .product-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
   }
   
   .audience-grid {
