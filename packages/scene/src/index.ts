@@ -91,6 +91,7 @@ export * from './newDocument';
 export * from './nodeBounds';
 export * from './operations';
 export * from './paint';
+export * from './pasteboardLayout';
 export * from './preflight';
 export * from './presetToDocument';
 export * from './printPreflight';
