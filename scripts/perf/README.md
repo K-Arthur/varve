@@ -56,6 +56,26 @@ Measures the wall-clock of a single select-all + duplicate (Ctrl+A, Ctrl+D) at
 node scripts/perf/probe-duplication.mjs
 ```
 
+### Probe family (same diagnostics-ring interface as `probe-interaction.mjs`)
+
+Each probe drives a real browser against the local dev server and reports
+frame/interaction percentiles from the `?perf=1` ring buffer.
+
+| Script | What it measures | Notes |
+|---|---|---|
+| `probe-baseline.mjs` | Canvas frame timing at a fixed node count | `NODES` env var |
+| `probe-scale.mjs` | Frame cost + interaction response as node count scales | `[nodeCount]` arg |
+| `probe-large-doc.mjs` | Frame cost on a large `.strata` doc opened via the real Open dialog | `[nodeCount]` arg |
+| `probe-latency.mjs` | Interaction latency; fails (exit 1) on budget breach | CI-fence style check |
+| `probe-cpu-profile.mjs` | Self-time ranking of hot functions | `--callers=<fn>` attribution |
+
+All probes: `node scripts/perf/probe-*.mjs [nodeCount]` against a running dev
+server on `http://localhost:1430`.
+
+> One-off debugging dumps are not kept in this directory — they live only in
+> git history. If you need a throwaway probe, name it `probe-<what>.mjs` and
+> either graduate it into this README or leave it uncommitted.
+
 ## Baseline files
 
 - `.replay-browser-baseline.json` — ratio baselines for `bench-replay-browser.mjs`.
