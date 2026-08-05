@@ -89,6 +89,7 @@ export * from './motion';
 export * from './motion-types';
 export * from './newDocument';
 export * from './nodeBounds';
+export * from './operations';
 export * from './paint';
 export * from './preflight';
 export * from './presetToDocument';
