@@ -18,12 +18,12 @@ export function WelcomeDialog({
   onClose,
 }: WelcomeDialogProps) {
   return (
-    <Dialog open={open} onClose={onClose} title="Welcome to Strata">
+    <Dialog open={open} onClose={onClose} title="Welcome to Varve">
       <div className="welcome-dialog">
         <div className="welcome-dialog__logo">
-          <Icon name="Layers" size="2.5em" label="Strata logo" />
+          <Icon name="Layers" size="2.5em" label="Varve logo" />
         </div>
-        <h2 className="welcome-dialog__heading">Welcome to Strata</h2>
+        <h2 className="welcome-dialog__heading">Welcome to Varve</h2>
         <p className="welcome-dialog__subtitle">
           A local-first design application for vector, raster, layout, typography, motion, and
           print. Your work stays on your machine.

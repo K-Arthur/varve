@@ -186,7 +186,7 @@ export function createTutorialDocument(): Document {
   );
   doc = addChild(doc, frame3.id, txt3a);
 
-  const txt3b = makeTextNode('txt-3b', 'Strata supports PNG, SVG, PDF, and code export.', {
+  const txt3b = makeTextNode('txt-3b', 'Varve supports PNG, SVG, PDF, and code export.', {
     name: 'Export formats info',
     transform: translate(40, 180),
     fontSize: 14,

@@ -333,7 +333,7 @@ export function ModelManager() {
               size="sm"
               onClick={() => {
                 const report = [
-                  '--- Strata AI Runtime Diagnostics ---',
+                  '--- Varve AI Runtime Diagnostics ---',
                   ...diagnostics,
                   '',
                   'Installed Models:',
