@@ -15,10 +15,15 @@ import {
   type IconPackInfo,
   type IconSourceDescriptor,
   isBrandPack,
-  normalizeIconQuery,
 } from '@varve/engine';
+import {
+  collectIconAttribution,
+  generateAttributionReportMarkdown,
+  generateAttributionReportText,
+} from '@varve/scene';
 import { Button, Icon, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEditor } from '../../context';
 import { IconDetailsPanel } from './IconDetailsPanel';
 import { IconDiscoverySections } from './IconDiscoverySections';
 import { IconGrid, type IconGridItemView } from './IconGrid';
@@ -31,6 +36,7 @@ import {
   removeStoredIcon,
   saveFavourites,
 } from './iconStorage';
+import { IconPackManager } from './PackManager';
 import { loadRecents, type RecentIconEntry, recordRecentIcon } from './recents';
 import { MIN_QUERY_LENGTH, useIconSearch } from './useIconSearch';
 
@@ -91,6 +97,7 @@ export function IconBrowser({
   onOpenPackManager,
 }: IconBrowserProps) {
   const search = useIconSearch();
+  const editorCtx = useEditor();
   const acquisition = useRef(getIconAcquisitionService());
 
   const [query, setQuery] = useState('');
@@ -260,6 +267,10 @@ export function IconBrowser({
   // -------------------------------------------------------------------------
 
   const previewSignalRef = useRef<AbortController | null>(null);
+  /** Ids whose preview fetch already failed — not retried until the query changes. */
+  const failedPreviewIdsRef = useRef<Set<string>>(new Set());
+  /** Ids with an in-flight preview batch — same-range callbacks are no-ops. */
+  const pendingBatchIdsRef = useRef<Set<string>>(new Set());
 
   const handleVisibleRange = useCallback(
     (start: number, end: number) => {
@@ -281,12 +292,20 @@ export function IconBrowser({
           { signal: controller.signal },
         )
         .then((svgMap) => {
+          for (const item of visible)
+            pendingBatchIdsRef.current.delete(item.descriptor.canonicalId);
           if (controller.signal.aborted) return;
           setPreviews((prev) => {
             const next = new Map(prev);
             for (const [id, svg] of svgMap) next.set(id, svg);
             return next;
           });
+          // Icons that resolved with no body won't resolve on retry either.
+          for (const item of visible) {
+            if (!svgMap.has(item.descriptor.canonicalId)) {
+              failedPreviewIdsRef.current.add(item.descriptor.canonicalId);
+            }
+          }
           setLoadingPreviews((prev) => {
             const next = new Set(prev);
             for (const item of visible) next.delete(item.descriptor.canonicalId);
@@ -295,6 +314,9 @@ export function IconBrowser({
           void refreshLocal();
         })
         .catch(() => {
+          for (const item of visible)
+            pendingBatchIdsRef.current.delete(item.descriptor.canonicalId);
+          for (const item of visible) failedPreviewIdsRef.current.add(item.descriptor.canonicalId);
           setLoadingPreviews((prev) => {
             const next = new Set(prev);
             for (const item of visible) next.delete(item.descriptor.canonicalId);
@@ -351,6 +373,8 @@ export function IconBrowser({
     (value: string) => {
       setQuery(value);
       setBrowsingPack(null);
+      failedPreviewIdsRef.current.clear();
+      pendingBatchIdsRef.current.clear();
       search.search(value);
     },
     [search],
@@ -541,6 +565,27 @@ export function IconBrowser({
     return map;
   }, [localRecords, recents]);
 
+  const handleCopyAttributionReport = useCallback(() => {
+    try {
+      const doc = editorCtx?.state.document;
+      if (!doc) return;
+      const entries = collectIconAttribution(doc);
+      if (entries.length === 0) {
+        setInsertError('This document contains no icons with attribution requirements.');
+        return;
+      }
+      const text = generateAttributionReportText(entries);
+      const markdown = generateAttributionReportMarkdown(entries);
+      void navigator.clipboard.writeText(markdown).then(
+        () => announce('Attribution report copied to clipboard'),
+        () => announce('Could not copy the attribution report'),
+      );
+      void text;
+    } catch {
+      announce('Could not generate the attribution report');
+    }
+  }, [editorCtx, announce]);
+
   const handleSelectRecent = useCallback(
     (canonicalId: string) => {
       setSourceFilter('recent');
@@ -614,7 +659,7 @@ export function IconBrowser({
           <span
             className={`icon-browser__conn ${search.isOnline ? 'icon-browser__conn--online' : 'icon-browser__conn--offline'}`}
             title={search.isOnline ? 'Online' : 'Offline'}
-            aria-label={search.isOnline ? 'Connected' : 'Offline'}
+            role="img"
           />
           <button
             type="button"
@@ -798,6 +843,11 @@ export function IconBrowser({
               if (onOpenPackManager) onOpenPackManager();
               else setPackManagerOpen(true);
             }}
+            onCopyAttributionReport={handleCopyAttributionReport}
+            hasAttribution={Boolean(
+              editorCtx?.state?.document?.iconAssets &&
+                Object.keys(editorCtx.state.document.iconAssets).length > 0,
+            )}
           />
         </div>
       ) : (
@@ -847,10 +897,15 @@ export function IconBrowser({
       )}
 
       {packManagerOpen && !onOpenPackManager && (
-        <PackManagerOverlay
+        <IconPackManager
           packs={packs}
+          packsLoading={packsLoading}
           onClose={() => setPackManagerOpen(false)}
-          onDownload={(prefix) => void handleOpenPack(prefix)}
+          onBrowsePack={(prefix) => {
+            setPackManagerOpen(false);
+            void handleOpenPack(prefix);
+          }}
+          onStorageChanged={() => void refreshLocal()}
         />
       )}
     </div>
@@ -911,44 +966,4 @@ function readFavourites(): Set<string> {
   } catch {
     return new Set();
   }
-}
-
-/** Lightweight pack-manager overlay used when no host panel is provided. */
-function PackManagerOverlay({
-  packs,
-  onClose,
-  onDownload,
-}: {
-  packs: IconPackInfo[];
-  onClose: () => void;
-  onDownload: (prefix: string) => void;
-}) {
-  return (
-    <div className="icon-pack-overlay" role="dialog" aria-label="Icon pack manager">
-      <div className="icon-pack-overlay__header">
-        <h3>Icon packs</h3>
-        <button type="button" onClick={onClose} aria-label="Close pack manager">
-          <Icon name="X" size={16} />
-        </button>
-      </div>
-      <div className="icon-pack-overlay__list">
-        {packs.map((pack) => (
-          <div key={pack.prefix} className="icon-pack-overlay__row">
-            <span className="icon-pack-overlay__name">{pack.name}</span>
-            <span className="icon-pack-overlay__meta">
-              {pack.total} icons · {pack.licence?.spdxId ?? 'licence unknown'}
-            </span>
-            <Button variant="secondary" size="sm" onClick={() => onDownload(pack.prefix)}>
-              Browse
-            </Button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Kept for backward-compat with existing imports.
-export function normalizeQueryForUi(q: string): string {
-  return normalizeIconQuery(q);
 }

@@ -591,7 +591,7 @@ function findCyclicSymbolIds(root: ParsedElement): Set<string> {
 
   const collectUseTargets = (el: ParsedElement, targets: Set<string>): void => {
     if (el.tag === 'use') {
-      const href = el.attrs['href'] ?? el.attrs['xlink:href'] ?? '';
+      const href = el.attrs.href ?? el.attrs['xlink:href'] ?? '';
       const ref = href.trim().replace(/^#/, '');
       if (ref) targets.add(ref);
     }
@@ -723,7 +723,7 @@ function sanitizeElement(el: ParsedElement, ctx: SanitizeContext): ParsedElement
 
   // Detect recursive <use>/<symbol> reference cycles (pre-computed graph).
   if (tag === 'use') {
-    const href = el.attrs['href'] ?? el.attrs['xlink:href'] ?? '';
+    const href = el.attrs.href ?? el.attrs['xlink:href'] ?? '';
     const refId = href.trim().replace(/^#/, '');
     if (refId && ctx.cyclicSymbolIds.has(refId)) {
       ctx.warnings.push({

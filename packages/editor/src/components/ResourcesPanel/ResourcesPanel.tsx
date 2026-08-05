@@ -9,8 +9,7 @@
 import type { Document, Library } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { useState } from 'react';
-import { IconBrowser, type IconInsertPayload } from '../IconBrowser/IconBrowser';
-import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
+import { useEditor } from '../../context';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
 import './ResourcesPanel.css';
 
@@ -26,13 +25,9 @@ export interface ResourcesPanelProps {
 
 type ResourcesTab = 'libraries' | 'icons';
 
-export function ResourcesPanel({
-  doc,
-  onInstallLibrary,
-  onUninstallLibrary,
-  onInsertIcon,
-}: ResourcesPanelProps) {
+export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: ResourcesPanelProps) {
   const [activeTab, setActiveTab] = useState<ResourcesTab>('icons');
+  const editor = useEditor();
 
   return (
     <section className="resources-panel" aria-label="Resources">
@@ -64,7 +59,24 @@ export function ResourcesPanel({
         role="tabpanel"
         aria-label="Icons"
       >
-        <IconBrowser onInsert={onInsertIcon ?? (() => {})} />
+        <IconBrowser
+          onInsert={(payload) => {
+            void editor?.insertIconAsset({
+              name: payload.name,
+              providerId: payload.providerId,
+              prefix: payload.prefix,
+              svg: payload.svg,
+              licence: payload.licence,
+              spdxId: payload.spdxId,
+              licenceUrl: payload.licenceUrl,
+              attributionText: payload.attributionText,
+              author: payload.author,
+              sourceUrl: payload.sourceUrl,
+              sourceVersion: payload.sourceVersion,
+              paletteType: payload.paletteType,
+            });
+          }}
+        />
       </div>
       <div
         className={`resources-panel__pane ${activeTab === 'libraries' ? '' : 'resources-panel__pane--hidden'}`}
