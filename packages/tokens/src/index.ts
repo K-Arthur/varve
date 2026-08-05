@@ -9,6 +9,7 @@ export * from './codecs';
 export * from './json';
 export * from './jsonPointer';
 export * from './parse';
+export * from './refGraph';
 export * from './serialize';
 export * from './spec';
 export * from './types';

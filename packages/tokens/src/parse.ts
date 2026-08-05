@@ -102,7 +102,14 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
       message: 'A DTCG document must be a JSON object',
       sourceFileId,
     });
-    return { tokens, groups: [], diagnostics, specificationVersion: specVersion, sourceFileId };
+    return {
+      tokens,
+      groups: [],
+      diagnostics,
+      specificationVersion: specVersion,
+      sourceFileId,
+      sourceRoot: undefined,
+    };
   }
 
   const root = source.value as Record<string, unknown>;
@@ -347,7 +354,14 @@ export function parseFormatDocument(text: string, options: ParseFormatOptions = 
     }
   }
 
-  return { tokens, groups, diagnostics, specificationVersion: specVersion, sourceFileId };
+  return {
+    tokens,
+    groups,
+    diagnostics,
+    specificationVersion: specVersion,
+    sourceFileId,
+    sourceRoot: root,
+  };
 }
 
 function collectTokens(
