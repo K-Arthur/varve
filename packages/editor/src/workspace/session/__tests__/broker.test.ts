@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { SessionBroker } from '../broker';
+import { type BrokerCommandResult, SessionBroker } from '../broker';
 import {
   createEnvelope,
   MAX_ENVELOPE_PAYLOAD_BYTES,
@@ -61,8 +61,10 @@ function makeBroker(
     emit: (envelope) => sent.push(envelope),
     applyCommand,
     projectSnapshot: (windowId, hosted) => {
+      // Snapshot revision is decoupled from the broker's internal revision
+      // here — the wiring that ties them lives in the M8 provider bridge.
       const snapshot = makeSnapshot(windowId, hosted);
-      return { ...snapshot, revision: broker.getRevision() };
+      return { ...snapshot, revision: 0 };
     },
     canPanelCommand: (_panelInstanceId, _commandType) => true,
     createId: () => `evt-${sent.length + 1}`,
