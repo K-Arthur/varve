@@ -189,6 +189,7 @@ export function FillSection({ nodes }: FillSectionProps) {
       <div ref={bindingTriggerRef} className="insp-field-group">
         {fills.map((fill, i) => (
           <FillRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: fill rows have no stable id in the document model; index identifies the slot
             key={i}
             index={i}
             fill={fill}

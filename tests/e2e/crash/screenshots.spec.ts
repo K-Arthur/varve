@@ -5,7 +5,9 @@ test('capture crash UX screenshots', async ({ page }) => {
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 45000 });
   await page.evaluate(async () => {
     const h = (
-      window as unknown as { __varveCrashTest?: { simulateWorkerCrash: () => Promise<void> } }
+      window as unknown as {
+        __varveCrashTest?: { simulateWorkerCrash: (message?: string) => Promise<void> };
+      }
     ).__varveCrashTest;
     if (h) await h.simulateWorkerCrash('webgl context lost in render worker');
   });

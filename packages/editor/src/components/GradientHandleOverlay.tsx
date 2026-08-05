@@ -195,13 +195,13 @@ export function GradientHandleOverlay({
       aria-hidden
     >
       <title>Gradient handles</title>
-      {handles.map((h, hi) => {
+      {handles.map((h) => {
         const startW = worldToCanvas(h.cx - h.dx, h.cy - h.dy, zoom, pan);
         const endW = worldToCanvas(h.cx + h.dx, h.cy + h.dy, zoom, pan);
         const isDragging = dragging?.nodeId === h.nodeId && dragging?.fillIndex === h.fillIndex;
 
         return (
-          <g key={`gradient-${h.nodeId}-${hi}`}>
+          <g key={`gradient-${h.nodeId}-${h.fillIndex}`}>
             {/* Gradient direction line */}
             <line
               x1={startW.x}
@@ -221,6 +221,7 @@ export function GradientHandleOverlay({
               const sy = h.cy - h.dy + 2 * t * h.dy;
               const sw = worldToCanvas(sx, sy, zoom, pan);
               return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: gradient stops have no stable id; position/color change while editing (content keys would remount mid-drag)
                 <g key={`stop-${si}`}>
                   <circle
                     cx={sw.x}

@@ -65,6 +65,7 @@ export function NodeEditOverlay({
         const selected = selectedAnchors.has(i);
         const isSmooth = p.handleIn !== null || p.handleOut !== null;
         return (
+          // biome-ignore lint/suspicious/noArrayIndexKey: path points have no id; position in the path is the identity and points move during editing
           <g key={i}>
             {p.handleIn && (
               <>

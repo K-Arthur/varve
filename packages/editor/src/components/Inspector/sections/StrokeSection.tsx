@@ -178,6 +178,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
       ) : (
         Array.from({ length: minStrokes }, (_, i) => (
           <StrokeRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: stroke rows have no stable id in the document model; index identifies the slot
             key={i}
             index={i}
             nodes={strokeNodes}

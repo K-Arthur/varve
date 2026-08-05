@@ -853,7 +853,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           const [hx, hy] = handles[key];
           const [sx, sy] = simpleWorldToScreen(hx, hy, state.zoom, state.pan);
           return (
-            <Fragment key={i}>
+            <Fragment key={key}>
               <rect
                 x={sx - 8}
                 y={sy - 8}

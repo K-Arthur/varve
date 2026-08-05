@@ -357,7 +357,7 @@ function LinterTab() {
           </summary>
 
           <div className="intelligence-issue-list">
-            {issues.map((issue, i) => {
+            {issues.map((issue) => {
               const key = `${issue.ruleId}:${issue.nodeIds.join(',')}`;
               const sev =
                 issue.severity === 'error'
@@ -366,10 +366,7 @@ function LinterTab() {
                     ? 'warning'
                     : 'info';
               return (
-                <div
-                  key={`${key}-${i}`}
-                  className={`intelligence-issue intelligence-issue--${sev}`}
-                >
+                <div key={key} className={`intelligence-issue intelligence-issue--${sev}`}>
                   <Tooltip
                     label="Select this node"
                     disabledReason={
@@ -1002,9 +999,9 @@ function AuditTab() {
 
   return (
     <div className="intelligence-issue-list">
-      {issues.map((issue, i) => (
+      {issues.map((issue) => (
         <div
-          key={`${issue.nodeId}-${i}`}
+          key={`${issue.type}-${issue.nodeId}`}
           className={`intelligence-issue intelligence-issue--${issue.severity}`}
         >
           <Tooltip label="Select this node">
@@ -1142,15 +1139,16 @@ function buildHistogramBars(gaps: number[]) {
   }
 
   const maxFreq = Math.max(...bins, 1);
+  const binData = bins.map((freq, bin) => ({ start: bin * binWidth, freq }));
 
-  return bins.map((freq, i) => (
-    <Tooltip key={i} label={`${freq} gap(s)`}>
+  return binData.map(({ start, freq }) => (
+    <Tooltip key={start} label={`${freq} gap(s)`}>
       <div className="intelligence-histogram__bar-wrap" role="img" aria-label={`${freq} gap(s)`}>
         <div
           className="intelligence-histogram__bar"
           style={{ height: `${(freq / maxFreq) * 100}%` }}
         />
-        <span className="intelligence-histogram__tick">{i * binWidth}</span>
+        <span className="intelligence-histogram__tick">{start}</span>
       </div>
     </Tooltip>
   ));
@@ -1324,6 +1322,7 @@ function NamingTab() {
         <>
           <div className="intelligence-suggestion-list">
             {suggestions.map((s, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: suggestion names can repeat across nodes; rows are stateless (no id in NamingSuggestion)
               <div key={i} className="intelligence-suggestion">
                 <span className="intelligence-suggestion__name">{s.name}</span>
                 <span className={`intelligence-badge ${confidenceColor(s.confidence)}`}>
@@ -1413,9 +1412,9 @@ function GovernanceTab() {
             <span className="intelligence-section__count">{ruleIssues.length}</span>
           </summary>
           <div className="intelligence-issue-list">
-            {ruleIssues.map((issue, i) => (
+            {ruleIssues.map((issue) => (
               <div
-                key={`${issue.nodeId}-${i}`}
+                key={`${issue.ruleId}-${issue.nodeId ?? 'doc'}`}
                 className={`intelligence-issue intelligence-issue--${issue.severity}`}
               >
                 <Tooltip
@@ -1567,9 +1566,9 @@ function DebtTab() {
                 <span className="intelligence-section__count">{issues.length}</span>
               </summary>
               <div className="intelligence-issue-list">
-                {issues.map((issue, i) => (
+                {issues.map((issue) => (
                   <div
-                    key={`${issue.nodeId}-${i}`}
+                    key={`${issue.checkId}-${issue.nodeId ?? 'doc'}`}
                     className={`intelligence-issue intelligence-issue--${issue.severity}`}
                   >
                     <Tooltip
@@ -1633,9 +1632,9 @@ function PrototypeTab() {
 
   return (
     <div className="intelligence-issue-list">
-      {issues.map((issue, i) => (
+      {issues.map((issue) => (
         <div
-          key={`${issue.nodeId}-${i}`}
+          key={`${issue.code}-${issue.nodeId ?? ''}-${issue.interactionId ?? ''}`}
           className={`intelligence-issue intelligence-issue--${issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'info'}`}
         >
           <Tooltip
@@ -2290,8 +2289,8 @@ function ComponentsTab() {
             <span className="intelligence-section__title">Duplicates</span>
             <span className="intelligence-section__count">{groups.length}</span>
           </div>
-          {groups.map((group, i) => (
-            <details key={i} className="intelligence-section" open>
+          {groups.map((group) => (
+            <details key={group.nodeIds.join(',')} className="intelligence-section" open>
               <summary className="intelligence-section__header">
                 <span className="intelligence-section__title">{group.reason}</span>
                 <span className="intelligence-section__count">{group.nodeIds.length}</span>
