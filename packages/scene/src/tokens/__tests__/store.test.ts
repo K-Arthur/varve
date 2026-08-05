@@ -271,12 +271,11 @@ describe('persistence', () => {
       variableStore: { ...createVariableStore(), tokenSync: { ...tokenSync, store: withSource } },
     };
     const decoded = DocumentCodec.decode(serializeDocument(withSync));
-    const store = (
-      decoded as {
-        document: { variableStore: { tokenSync: { store: { sources: Record<string, unknown> } } } };
-      }
-    ).document.variableStore.tokenSync.store;
-    expect(store.sources['src_one']?.name).toBe('Brand tokens');
-    expect(store.sources['src_one']?.syncState.status).toBe('clean');
+    const decodedDoc = (
+      decoded as { document: { variableStore: { tokenSync: { store: typeof withSource } } } }
+    ).document;
+    const sources = decodedDoc.variableStore.tokenSync.store.sources;
+    expect(sources['src_one']?.name).toBe('Brand tokens');
+    expect(sources['src_one']?.syncState.status).toBe('clean');
   });
 });
