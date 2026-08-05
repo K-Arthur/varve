@@ -158,34 +158,29 @@ export interface CanvasOverlayConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Keyboard shortcut layers
+// Removed fields — read this before adding them back
 // ---------------------------------------------------------------------------
 
-export interface ShortcutLayer {
-  /** Extra shortcut bindings active only in this mode. */
-  extra?: Record<string, string>;
-  /** Shortcuts disabled in this mode (global shortcuts still work). */
-  disabled?: string[];
-}
-
-// ---------------------------------------------------------------------------
-// Performance preferences
-// ---------------------------------------------------------------------------
-
-export interface PerformanceConfig {
-  /** Enable worker-based rendering for non-structural scenes. */
-  useWorkerRenderer: boolean;
-  /** Enable subtree IR caching. */
-  useSubtreeCache: boolean;
-  /** Enable viewport culling. */
-  viewportCulling: boolean;
-  /** Maximum decoded image cache entries. */
-  imageCacheSize: number;
-  /** Enable thumbnails in layers panel. */
-  layerThumbnails: boolean;
-  /** Enable real-time preview during slider drags (vs. debounced). */
-  realTimePreview: boolean;
-}
+// `shortcuts: { extra, disabled }` was removed. `extra` declared per-mode key
+// bindings ('G' → toggleGraphEditor in Motion, and so on) that were never
+// registered with anything: `ShortcutManager` is a flat registry of action id
+// → one global binding, with no per-workspace layer to receive them. The
+// config therefore advertised shortcuts that did nothing when pressed.
+// `disabled` fed the shortcut-tip recommender, but was `[]` in all seven
+// built-ins; that suppression is now *derived* from the workspace's own
+// toolbar (tips for tools a workspace hides are suppressed — see
+// `suppressedTipShortcutIds` in workspaceShortcutLabel.ts), which cannot fall
+// out of date the way a hand-maintained list did.
+//
+// `performance: { useWorkerRenderer, useSubtreeCache, viewportCulling,
+// imageCacheSize, layerThumbnails, realTimePreview }` was removed. It had no
+// runtime consumer — only tests asserted on it, which made it read as a live
+// policy. Renderer behaviour is owned by the global render/performance
+// settings (`settings.ts`) and the adaptive memory budget
+// (`canvas/memoryBudget.ts`), which account for hardware capability, memory
+// pressure, and scene complexity. Letting a workspace switch silently
+// reconfigure the renderer would change rendering behaviour as a side effect
+// of a layout change, with none of that context.
 
 // ---------------------------------------------------------------------------
 // Mode-specific onboarding
@@ -194,8 +189,6 @@ export interface PerformanceConfig {
 export interface OnboardingConfig {
   /** Short description shown in workspace switcher tooltip. */
   description: string;
-  /** Keyboard shortcut hint for switching to this mode. */
-  shortcutHint: string;
   /** Tips shown on first switch to this mode. */
   tips?: string[];
 }
@@ -219,10 +212,6 @@ export interface WorkspaceConfig {
   statusSections: StatusSectionConfig[];
   /** Canvas overlays active by default. */
   canvasOverlays: CanvasOverlayConfig;
-  /** Keyboard shortcut layer. */
-  shortcuts: ShortcutLayer;
-  /** Performance preferences. */
-  performance: PerformanceConfig;
   /** Onboarding and mode metadata. */
   onboarding: OnboardingConfig;
   /** Show the floating toolbar. */
@@ -249,30 +238,8 @@ export interface WorkspacePreference {
 export type WorkspacePreferences = Record<WorkspaceMode, WorkspacePreference>;
 
 // ---------------------------------------------------------------------------
-// Mode switching state snapshot (for safe switching during interactions)
-// ---------------------------------------------------------------------------
-
-export interface WorkspaceSnapshot {
-  /** The mode being switched from. */
-  previousMode: WorkspaceMode;
-  /** The mode being switched to. */
-  nextMode: WorkspaceMode;
-  /** Timestamp of the switch. */
-  timestamp: number;
-}
-
-// ---------------------------------------------------------------------------
 // Built-in workspace configurations
 // ---------------------------------------------------------------------------
-
-const COMMON_PERFORMANCE: PerformanceConfig = {
-  useWorkerRenderer: true,
-  useSubtreeCache: true,
-  viewportCulling: true,
-  imageCacheSize: 200,
-  layerThumbnails: true,
-  realTimePreview: true,
-};
 
 export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   // ─── Design Mode (UI/UX, components, prototyping) ──────────────────────
@@ -354,12 +321,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
-    shortcuts: { extra: {}, disabled: [] },
-    performance: { ...COMMON_PERFORMANCE },
     onboarding: {
       description:
         'UI/UX design, components, tokens, responsive layouts, prototyping, and developer handoff.',
-      shortcutHint: 'Ctrl+Shift+D',
       tips: [
         'Use Frame (F) to create artboards and responsive containers.',
         'Create components with Ctrl+K, then use variants for state changes.',
@@ -448,18 +412,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
-    shortcuts: {
-      extra: {
-        'Ctrl+Shift+P': 'toggleFacingPages',
-        'Ctrl+Alt+M': 'createMaster',
-      },
-      disabled: [],
-    },
-    performance: { ...COMMON_PERFORMANCE },
     onboarding: {
       description:
         'Multi-page layouts, typography, preflight, colour management, and production output.',
-      shortcutHint: 'Ctrl+Shift+P',
       tips: [
         'Use Page Nav (bottom strip) to add, reorder, and navigate pages.',
         'Toggle Facing Pages in the View menu for book/magazine layouts.',
@@ -542,22 +497,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
-    shortcuts: {
-      extra: {
-        'Shift+P': 'toolPencil',
-        A: 'toolArrow',
-      },
-      disabled: [],
-    },
-    performance: {
-      ...COMMON_PERFORMANCE,
-      realTimePreview: true,
-      layerThumbnails: true,
-    },
     onboarding: {
       description:
         'Raster painting, vector freehand drawing, stylus input, brushes, masks, and drawing assists.',
-      shortcutHint: 'Ctrl+Shift+R',
       tips: [
         'Press B for the Brush tool. Use [ and ] to resize.',
         'Hold Shift while drawing for straight lines.',
@@ -650,23 +592,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
-    shortcuts: {
-      extra: {
-        'Ctrl+Y': 'toggleSoftProof',
-        'Ctrl+Shift+Y': 'toggleBeforeAfter',
-        Q: 'enterQuickMask',
-      },
-      disabled: [],
-    },
-    performance: {
-      ...COMMON_PERFORMANCE,
-      realTimePreview: true,
-      imageCacheSize: 300,
-    },
     onboarding: {
       description:
         'Nondestructive photo editing, retouching, selections, adjustments, masking, and compositing.',
-      shortcutHint: 'Ctrl+Shift+I',
       tips: [
         'Use adjustment layers (nondestructive) instead of direct edits.',
         'Press Q for Quick Mask mode to paint selections.',
@@ -759,14 +687,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
-    shortcuts: { extra: {}, disabled: [] },
-    // Codegen mode is text/spec output, not heavy canvas rendering -- no worker
-    // renderer needed (see workspaceTypes.test.ts).
-    performance: { ...COMMON_PERFORMANCE, useWorkerRenderer: false },
     onboarding: {
       description:
         'Design-to-code export, design audit, accessibility checks, and specification output.',
-      shortcutHint: 'Ctrl+Shift+9',
       tips: [
         'Select a node to view its code in HTML, Tailwind, or SVG.',
         'Use the Audit tab to check contrast, typography, and accessibility.',
@@ -853,12 +776,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
-    shortcuts: { extra: {}, disabled: [] },
-    performance: { ...COMMON_PERFORMANCE },
     onboarding: {
       description:
         'Logo design: wordmarks, marks, monograms, badges, clear-space, and brand systems on a transparent canvas.',
-      shortcutHint: 'Ctrl+Shift+6',
       tips: [
         'Logo canvases start transparent — export keeps alpha.',
         'Use Convert Text to Outlines (Text menu) before delivering final wordmarks.',
@@ -937,28 +857,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
-    shortcuts: {
-      extra: {
-        G: 'toggleGraphEditor',
-        Space: 'playPause',
-        'Alt+O': 'toggleOnionSkin',
-        'Alt+P': 'addPositionKeyframe',
-        'Alt+R': 'addRotationKeyframe',
-        'Alt+S': 'addScaleKeyframe',
-        'Alt+E': 'addOpacityKeyframe',
-        'Alt+K': 'toggleAutoKeyframe',
-      },
-      disabled: [],
-    },
-    performance: {
-      ...COMMON_PERFORMANCE,
-      realTimePreview: true,
-      useSubtreeCache: true,
-    },
     onboarding: {
       description:
         'Timeline-based animation, keyframe editing, easing curves, motion paths, and interactive prototyping.',
-      shortcutHint: 'Ctrl+Shift+M',
       tips: [
         'Press I to add a keyframe at the playhead for the selected property.',
         'Press O to toggle onion skinning — see previous/next frame ghosts.',
@@ -1047,16 +948,13 @@ export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
   logo: 6,
 };
 
-/** Mode-specific keyboard shortcuts for switching. */
-export const WORKSPACE_SHORTCUTS: Record<WorkspaceMode, string> = {
-  design: 'Ctrl+Shift+D',
-  print: 'Ctrl+Shift+P',
-  drawing: 'Ctrl+Shift+R',
-  image: 'Ctrl+Shift+I',
-  motion: 'Ctrl+Shift+M',
-  codegen: 'Ctrl+Shift+9',
-  logo: 'Ctrl+Shift+6',
-};
+// Workspace switching shortcuts are NOT declared here. They live in the
+// shortcut registry (`shortcuts/ShortcutManager.ts`) and are resolved for
+// display via `workspaceShortcutLabel(mode)`. A literal table here rotted
+// once already — it still claimed Ctrl+Shift+D/P/R/I/M long after those keys
+// were reassigned to Repeat Duplicate, Present, Invert Selection and Preview
+// Mode, so every tooltip built from it advertised a shortcut that did
+// something else entirely.
 
 // ---------------------------------------------------------------------------
 // Panel layout helpers

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getWorkspaceConfig, type WorkspaceMode } from '../workspace/workspaceTypes';
+import { suppressedTipShortcutIds } from '../workspace/workspaceShortcutLabel';
+import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import { getActionTracker } from './actionTracker';
 import { recommendShortcuts, type ShortcutRecommendation } from './shortcutRecommender';
 
@@ -57,9 +58,11 @@ export function useShortcutTips(
     if (!showTipsEnabled) return;
     if (shownThisSessionRef.current) return;
 
-    const config = getWorkspaceConfig(workspaceMode);
-    const disabledIds = config.shortcuts?.disabled ?? [];
-    const [top] = recommendShortcuts(trackerRef.current, 1, disabledIds);
+    const [top] = recommendShortcuts(
+      trackerRef.current,
+      1,
+      suppressedTipShortcutIds(workspaceMode),
+    );
 
     if (!top) return;
     if (dismissedRef.current.has(top.shortcutId)) return;
