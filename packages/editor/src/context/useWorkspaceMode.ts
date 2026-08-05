@@ -39,8 +39,8 @@ export function panelVisibilityPatch(config: WorkspaceConfig) {
 
 /**
  * Project the config's canvasOverlays defaults onto the state fields that
- * have runtime consumers (the rest — bleedGuides, layoutGrid — are
- * canvas-renderer concerns documented in the workspace-navigation doc).
+ * have runtime consumers (the rest — bleedGuides, layoutGrid — have none;
+ * tracked under Limitations in docs/architecture/workspace-system.md).
  */
 function overlayPatch(config: WorkspaceConfig) {
   const overlays = config.canvasOverlays;
