@@ -6,6 +6,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
+  mintId,
   type NodeId,
   type SceneNode,
 } from '@varve/scene';
@@ -221,7 +222,9 @@ function convertLayer(
 }
 
 function allocate(state: BuildState): NodeId {
-  const id = `n${state.nextId}`;
+  // ADR-0025: collision-resistant ids so two imports of the same file
+  // (or two branches) never collide.
+  const id = mintId('n', state.nextId);
   state.nextId += 1;
   return id;
 }
