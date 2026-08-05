@@ -13,6 +13,7 @@ import type { ManagedColor } from './colorManagement';
 import {
   addCellAt,
   DEFAULT_TABLE_APPEARANCE,
+  TABLE_DENSITY_PADDING,
   TABLE_SCHEMA_VERSION,
   type TableAppearance,
   type TableCellContent,
@@ -651,7 +652,9 @@ export function setAppearance(model: TableModel, partial: Partial<TableAppearanc
 }
 
 export function setDensity(model: TableModel, density: TableDensity): TableModel {
-  return setAppearance(model, { density });
+  // Density is a first-class sizing control: it owns the default cell
+  // padding so the layout engine can resolve it without extra state.
+  return setAppearance(model, { density, cellPadding: TABLE_DENSITY_PADDING[density] });
 }
 
 export function setZebra(model: TableModel, zebra: boolean): TableModel {
