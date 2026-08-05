@@ -1,9 +1,11 @@
-import { type MutableRefObject, useCallback } from 'react';
+import type { Platform } from '@varve/platform';
+import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import { loadSettings, updateSettings } from '../settings';
 import type { ToolId } from '../tools/types';
 import {
   getEffectiveWorkspaceConfig,
   getWorkspacePreferences,
+  hydrateWorkspacePreferencesFromPlatform,
   isModeCustomized,
   resetModePreferences,
   setPanelOverride,
@@ -96,7 +98,34 @@ export function useWorkspaceMode(
   toolRef: MutableRefObject<ToolId>,
   announcerRef: MutableRefObject<{ announce: (message: string) => void } | null>,
   workspaceSwitchInProgressRef: MutableRefObject<boolean>,
+  platform?: Platform,
 ) {
+  // Read by the async hydration below, which must not act on a mode the user
+  // has since switched away from.
+  const latestState = useRef(state);
+  latestState.current = state;
+
+  // Fold durable preferences (SQLite on desktop, IndexedDB on web) into the
+  // session snapshot once. localStorage alone is not enough: on WebKitGTK it
+  // has been observed not surviving between launches, which would silently
+  // discard every per-workspace customization on the primary Linux target.
+  useEffect(() => {
+    if (!platform) return;
+    let cancelled = false;
+    void hydrateWorkspacePreferencesFromPlatform(platform).then((changed) => {
+      if (cancelled || !changed) return;
+      // The panel booleans were seeded at boot from the pre-hydration
+      // snapshot, so re-project the now-current mode's effective config onto
+      // them. Read the mode from the ref rather than the closure: the read is
+      // async and the user may have switched while it was in flight.
+      const mode = latestState.current.workspaceMode;
+      patch(panelVisibilityPatch(getEffectiveWorkspaceConfig(mode)));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [platform, patch]);
+
   const __setWorkspaceModeUnsafe = useCallback(
     (mode: WorkspaceMode) => {
       applyWorkspaceConfig(getEffectiveWorkspaceConfig(mode), state.tool, patch, {
