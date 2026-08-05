@@ -12,6 +12,10 @@
     "./export": {
       "types": "./src/export/index.ts",
       "default": "./src/export/index.ts"
+    },
+    "./tokens": {
+      "types": "./src/tokens/index.ts",
+      "default": "./src/tokens/index.ts"
     }
   },
   "scripts": {
