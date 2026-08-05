@@ -74,6 +74,8 @@ export * from './liveTrace';
 export * from './logo/logoProject';
 export * from './maskCapability';
 export * from './masks';
+export * from './modifiers';
+export * from './modifiersMigration';
 export * from './motion';
 export * from './motion-types';
 export * from './newDocument';
