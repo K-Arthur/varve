@@ -70,6 +70,7 @@ export function GradientImportDialog({
           <div className="gmp-import__warnings" role="status">
             <ul>
               {warnings.map((w, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: stateless warning strings; content keys would collide on duplicates
                 <li key={`gmp-warn-${i}-${w.slice(0, 12)}`}>{w}</li>
               ))}
             </ul>

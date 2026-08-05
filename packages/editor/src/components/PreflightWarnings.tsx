@@ -209,9 +209,9 @@ export function PreflightWarnings() {
                   />
                   {group.label} ({group.issues.length})
                 </div>
-                {group.issues.map((issue, idx) => (
+                {group.issues.map((issue) => (
                   <div
-                    key={idx}
+                    key={`${issue.source}-${issue.nodeId ?? 'doc'}-${issue.category}-${issue.message}`}
                     className="preflight-warnings__issue"
                     style={{
                       padding: 'var(--space-1) var(--space-2)',

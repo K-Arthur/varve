@@ -825,6 +825,15 @@
     border-color var(--duration-quick) var(--ease-standard),
     background var(--duration-quick) var(--ease-standard);
 }
+.new-design__start-card-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .new-design__start-card:hover {
   border-color: var(--color-border-strong);
 }
@@ -832,7 +841,7 @@
   border-color: var(--color-interactive-focus-ring);
   background: var(--color-accent-subtle);
 }
-.new-design__start-card:focus-visible {
+.new-design__start-card:focus-within {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }

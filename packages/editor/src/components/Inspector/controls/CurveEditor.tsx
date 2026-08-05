@@ -400,9 +400,9 @@ export function CurveEditor({
           stroke="var(--color-border-subtle)"
           strokeWidth="1"
         />
-        {grid.map((l, i) => (
+        {grid.map((l) => (
           <line
-            key={i}
+            key={`${l.x1}-${l.y1}-${l.x2}-${l.y2}`}
             x1={l.x1}
             y1={l.y1}
             x2={l.x2}
@@ -412,9 +412,9 @@ export function CurveEditor({
             opacity="0.5"
           />
         ))}
-        {labels.map((l, i) => (
+        {labels.map((l) => (
           <text
-            key={i}
+            key={`${l.isX}-${l.x}-${l.y}`}
             x={l.isX ? l.x : l.x}
             y={l.isX ? l.y : l.y}
             fill="var(--color-text-muted)"
@@ -437,6 +437,7 @@ export function CurveEditor({
           const c = toSvgCoord(p);
           return (
             <circle
+              // biome-ignore lint/suspicious/noArrayIndexKey: control points move during drag; index is the stable identity (content keys would remount mid-interaction)
               key={i}
               cx={c.sx}
               cy={c.sy}

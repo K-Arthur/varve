@@ -229,6 +229,7 @@ function CodegenTab({ doc, selection }: CodePanelProps) {
           <pre>
             <code>
               {highlightedLines.map((html, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: line-numbered code; position in the rendered block is the identity (index = line number)
                 <span key={i} className="code-panel__line">
                   <span className="code-panel__line-num">
                     {String(i + 1).padStart(String(lineCount).length, ' ')}
@@ -298,9 +299,9 @@ function AuditTab({ doc }: { doc: Document }) {
           bySeverity[sev].length > 0 && (
             <section key={sev} className="code-panel__severity-group">
               <h4 className="code-panel__severity-heading">{SEVERITY_LABELS[sev]}</h4>
-              {bySeverity[sev].map((finding, i) => (
+              {bySeverity[sev].map((finding) => (
                 <div
-                  key={`${finding.nodeId}-${i}`}
+                  key={`${finding.nodeId}-${finding.category}-${finding.message}`}
                   className={`code-panel__finding code-panel__finding--${finding.severity}`}
                 >
                   <span className="code-panel__severity-dot" />
@@ -406,6 +407,7 @@ function ReadinessTab({ doc, selection }: CodePanelProps) {
           {readiness.issues.length > 0 && (
             <ul className="code-panel__readiness-issues">
               {readiness.issues.map((issue, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: stateless issue strings; content keys would collide on duplicates
                 <li key={i}>{issue}</li>
               ))}
             </ul>
@@ -439,6 +441,7 @@ function ReadinessTab({ doc, selection }: CodePanelProps) {
             {analysis.gaps.length > 0 && (
               <ul className="code-panel__format-gaps">
                 {analysis.gaps.slice(0, 5).map((gap, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: nodeName+feature can repeat across formats; rows are stateless
                   <li key={i} className="code-panel__format-gap">
                     <span className="code-panel__format-gap-node">{gap.nodeName}</span>
                     <span className="code-panel__format-gap-feature">{gap.feature}</span>

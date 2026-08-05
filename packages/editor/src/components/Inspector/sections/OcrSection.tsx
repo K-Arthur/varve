@@ -365,7 +365,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="ocr-results">
               {state_.editedWords.map((word, i) => (
                 <FieldRow
-                  key={`ocr-${i}-${word.text.slice(0, 8)}`}
+                  key={`ocr-${word.x}-${word.y}-${word.width}-${word.height}`}
                   label={`${Math.round(word.confidence * 100)}%`}
                   aria-label={`Recognized text ${i + 1}, confidence ${Math.round(word.confidence * 100)} percent`}
                 >

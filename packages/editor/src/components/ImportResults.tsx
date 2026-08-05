@@ -96,6 +96,7 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
             {expanded && (
               <ul className="import-results__list">
                 {result.results.map((file, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: file names can repeat across imports; rows are stateless (no id in BatchFileResult)
                   <li key={i} className="import-results__file">
                     <span className="import-results__file-icon">
                       {file.success ? (
@@ -136,6 +137,7 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
                     {expanded && file.warnings.length > 0 && (
                       <ul className="import-results__file-warning-list">
                         {file.warnings.map((w, j) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: stateless warning strings; content keys would collide on duplicates
                           <li key={j}>{w}</li>
                         ))}
                       </ul>

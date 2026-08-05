@@ -95,7 +95,7 @@ export function Select({
     const active = document.activeElement;
     const listbox = listboxRef.current;
     const trigger = triggerRef.current;
-    if (active && listbox && listbox.contains(active) && trigger) {
+    if (active && listbox?.contains(active) && trigger) {
       trigger.focus();
     }
     setOpen(false);
