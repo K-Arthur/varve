@@ -1,9 +1,14 @@
 /** @vitest-environment jsdom */
 
+import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  attachWorkspacePreferencePlatform,
+  flushWorkspacePreferences,
   getEffectiveWorkspaceConfig,
+  getWorkspacePersistenceError,
   getWorkspacePreferences,
+  hydrateWorkspacePreferencesFromPlatform,
   loadWorkspacePreferences,
   resetAllPreferences,
   resetModePreferences,
@@ -142,5 +147,130 @@ describe('workspaceStore — effective configuration', () => {
     unsubscribe();
     updateWorkspacePreferences((prefs) => prefs);
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('workspaceStore — durable (platform) persistence', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspacePreferenceCache();
+  });
+
+  /** Minimal stand-in for the app-setting slice of the Platform facade. */
+  function fakePlatform(initial?: string) {
+    const store = new Map<string, string>();
+    if (initial !== undefined) store.set('workspace-preferences', initial);
+    return {
+      store,
+      getAppSetting: vi.fn(async (k: string) => store.get(k) ?? null),
+      setAppSetting: vi.fn(async (k: string, v: string) => {
+        store.set(k, v);
+      }),
+    } as unknown as Platform & { store: Map<string, string> };
+  }
+
+  it('restores customizations when localStorage has been wiped', async () => {
+    // The WebKitGTK failure mode: platform storage survived the relaunch,
+    // localStorage did not.
+    const platform = fakePlatform(
+      JSON.stringify({
+        design: {
+          customized: true,
+          lastCustomized: 5,
+          panelOverrides: { layers: { visible: false } },
+        },
+      }),
+    );
+    expect(await hydrateWorkspacePreferencesFromPlatform(platform)).toBe(true);
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+  });
+
+  it('keeps the more recent customization per mode', async () => {
+    setWorkspacePreferences({
+      ...resetAllPreferences(),
+      design: {
+        customized: true,
+        lastCustomized: 900,
+        panelOverrides: { layers: { visible: true } },
+      },
+    });
+    const platform = fakePlatform(
+      JSON.stringify({
+        design: {
+          customized: true,
+          lastCustomized: 100,
+          panelOverrides: { layers: { visible: false } },
+        },
+      }),
+    );
+    await hydrateWorkspacePreferencesFromPlatform(platform);
+    // Local is newer, so the stale durable copy must not overwrite it.
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(true);
+  });
+
+  it('never lets an uncustomized durable copy erase a local customization', async () => {
+    setWorkspacePreferences({
+      ...resetAllPreferences(),
+      design: {
+        customized: true,
+        lastCustomized: 1,
+        panelOverrides: { layers: { visible: false } },
+      },
+    });
+    await hydrateWorkspacePreferencesFromPlatform(fakePlatform(JSON.stringify({})));
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+  });
+
+  it('survives a corrupt durable payload without losing local state', async () => {
+    setWorkspacePreferences({
+      ...resetAllPreferences(),
+      design: {
+        customized: true,
+        lastCustomized: 1,
+        panelOverrides: { layers: { visible: false } },
+      },
+    });
+    expect(await hydrateWorkspacePreferencesFromPlatform(fakePlatform('{not json'))).toBe(false);
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+    expect(getWorkspacePersistenceError()?.layer).toBe('platform');
+  });
+
+  it('sanitizes a durable payload the same way as the local mirror', async () => {
+    const platform = fakePlatform(
+      JSON.stringify({
+        design: {
+          customized: true,
+          lastCustomized: 9,
+          panelOverrides: { notAPanel: { visible: false } },
+        },
+      }),
+    );
+    await hydrateWorkspacePreferencesFromPlatform(platform);
+    const ov = getWorkspacePreferences().design.panelOverrides ?? {};
+    expect((ov as Record<string, unknown>).notAPanel).toBeUndefined();
+  });
+
+  it('coalesces bursty writes into one durable write', async () => {
+    const platform = fakePlatform();
+    attachWorkspacePreferencePlatform(platform);
+    for (const mode of ['design', 'print', 'logo'] as const) {
+      updateWorkspacePreferences((p) => setPanelOverride(p, mode, 'layers', { visible: false }));
+    }
+    expect(platform.setAppSetting).not.toHaveBeenCalled();
+    await flushWorkspacePreferences();
+    expect(platform.setAppSetting).toHaveBeenCalledTimes(1);
+  });
+
+  it('records a diagnostic instead of throwing when the durable write fails', async () => {
+    const platform = fakePlatform();
+    (platform.setAppSetting as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('quota exceeded'),
+    );
+    attachWorkspacePreferencePlatform(platform);
+    updateWorkspacePreferences((p) => setPanelOverride(p, 'design', 'layers', { visible: false }));
+    await flushWorkspacePreferences();
+    expect(getWorkspacePersistenceError()?.message).toContain('quota exceeded');
+    // …and the session snapshot is unaffected.
+    expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
   });
 });
