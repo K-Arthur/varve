@@ -1,9 +1,10 @@
 // COMPLEXITY: 214 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 import { textColorMigration } from './colorMigration';
+import { migrateV214ToV215 } from './modifiersMigration';
 import { migrateV212ToV213 } from './version-migrations';
 
-export const CURRENT_DOCUMENT_VERSION = '2.14';
+export const CURRENT_DOCUMENT_VERSION = '2.15';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -32,6 +33,7 @@ export const SUPPORTED_VERSIONS = [
   '2.12',
   '2.13',
   '2.14',
+  '2.15',
 ];
 
 export interface DocumentMigration {
@@ -749,6 +751,11 @@ const migrations: DocumentMigration[] = [
     migrate: (raw) => migrateV212ToV213(raw),
   },
   textColorMigration,
+  {
+    from: '2.14',
+    to: '2.15',
+    migrate: (raw) => migrateV214ToV215(raw),
+  },
 ];
 
 /**
