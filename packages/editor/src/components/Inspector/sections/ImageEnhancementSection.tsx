@@ -4,20 +4,19 @@ import { isImageShape } from '@varve/scene';
 import { Button, Select } from '@varve/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
-import { VectorizeDialog } from '../../Vectorize/VectorizeDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 
 export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   const {
     openUpscaleDialog,
+    openVectorizeDialog,
     traceSelectedImage,
     cancelImageProcessing,
     setSelectedLiveTraceParams,
     flattenSelectedLiveTrace,
     clearSelectedLiveTrace,
   } = useEditor();
-  const [vectorizeDialogOpen, setVectorizeDialogOpen] = useState(false);
   const node = nodes[0];
   const thresholdId = useId();
   const colorsId = useId();
@@ -177,12 +176,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           preparation, and a live preview.
         </p>
         <div className="insp-actions">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setVectorizeDialogOpen(true)}
-          >
+          <Button type="button" variant="secondary" size="sm" onClick={() => openVectorizeDialog()}>
             Open Vectorize Dialog…
           </Button>
         </div>
@@ -411,8 +405,6 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           {error}
         </p>
       )}
-
-      <VectorizeDialog open={vectorizeDialogOpen} onClose={() => setVectorizeDialogOpen(false)} />
     </DisclosureSection>
   );
 }
