@@ -88,6 +88,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0119-secret-storage-permissions.md` | Secret storage and permissions |
 | `adr/0120-browser-tauri-capability-model.md` | Browser vs Tauri capability model |
 | `adr/0121-performance-indexing.md` | Performance and indexing strategy |
+| `adr/0170-image-trace-native-engine.md` | Native Image Trace (raster-to-vector) engine |
 
 ## Architecture Docs (current state)
 
