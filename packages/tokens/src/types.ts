@@ -111,6 +111,9 @@ export interface DtcgDocument {
   specificationVersion: DtcgSpecificationVersion;
   /** File id this document was parsed from. */
   sourceFileId: string;
+  /** Raw parsed document value (null-prototype) for JSON Pointer
+   * resolution. Present when the document was parsed from text. */
+  sourceRoot?: unknown;
 }
 
 export interface ParseJsonOptions {
