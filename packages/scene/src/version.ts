@@ -3,8 +3,9 @@ import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 import { textColorMigration } from './colorMigration';
 import { migrateV214ToV215 } from './modifiersMigration';
 import { migrateV212ToV213 } from './version-migrations';
+import { migrateV216ToV217 } from './version-migrations-v217';
 
-export const CURRENT_DOCUMENT_VERSION = '2.15';
+export const CURRENT_DOCUMENT_VERSION = '2.17';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -34,6 +35,8 @@ export const SUPPORTED_VERSIONS = [
   '2.13',
   '2.14',
   '2.15',
+  '2.16',
+  '2.17',
 ];
 
 export interface DocumentMigration {
@@ -755,6 +758,11 @@ const migrations: DocumentMigration[] = [
     from: '2.14',
     to: '2.15',
     migrate: (raw) => migrateV214ToV215(raw),
+  },
+  {
+    from: '2.16',
+    to: '2.17',
+    migrate: (raw) => migrateV216ToV217(raw),
   },
 ];
 
