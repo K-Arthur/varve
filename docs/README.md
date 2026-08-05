@@ -35,6 +35,59 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0012-runtime-capability-abstraction.md` | Runtime capability abstraction |
 | `adr/0013-canonical-audit-finding-contract.md` | Canonical audit finding contract |
 | `adr/0014-font-detection-architecture.md` | Font detection architecture |
+| `adr/0016-tables-and-color-modifiers.md` | Tables and colour modifiers |
+| `adr/0017-authoritative-mutation-pipeline.md` | Typed command dispatcher for all document mutations |
+| `adr/0018-operation-vs-transaction.md` | Atomic operation vs transaction representation |
+| `adr/0019-undo-redo-semantics.md` | Undo/redo: movable cursor with branch-on-divergence |
+| `adr/0020-persistent-operation-storage.md` | Append-only log + atomic refs across runtimes |
+| `adr/0021-snapshot-content-addressing.md` | SHA-256 content-addressed snapshots |
+| `adr/0022-revision-dag.md` | Immutable revision DAG (genesis/one-parent/two-parent) |
+| `adr/0023-branch-checkpoint-refs.md` | Branch heads and checkpoint references |
+| `adr/0024-version-history-migration.md` | Existing version-history migration |
+| `adr/0025-persistent-identity-format.md` | Collision-resistant persistent IDs |
+| `adr/0026-legacy-id-migration.md` | Legacy sequential-ID migration |
+| `adr/0027-canonical-serialization.md` | Schema-aware canonical serialization |
+| `adr/0028-git-working-representation.md` | Single canonical text file as Git representation |
+| `adr/0029-portable-package.md` | Portable package representation |
+| `adr/0030-binary-asset-strategy.md` | Content-addressed binary asset strategy |
+| `adr/0031-semantic-diff-granularity.md` | Property-level semantic diff granularity |
+| `adr/0032-text-diff-strategy.md` | Grapheme-aware text diff strategy |
+| `adr/0033-ordered-child-merge-strategy.md` | Ordered-child merge strategy |
+| `adr/0034-three-way-conflict-rules.md` | Deterministic three-way conflict rules |
+| `adr/0035-conflict-representation.md` | Unresolved conflict representation |
+| `adr/0036-git-diff-driver.md` | Git text-conversion diff driver |
+| `adr/0037-git-merge-driver.md` | Git semantic merge driver |
+| `adr/0038-review-artifact-format.md` | Offline design review artifacts |
+| `adr/0039-collaboration-integration.md` | Operation log as collaboration protocol |
+| `adr/0040-browser-support.md` | Browser support for persistent history |
+| `adr/0041-compaction-gc.md` | Compaction and garbage collection |
+| `adr/0042-privacy-multimodal-consent.md` | Privacy and remote multimodal consent |
+| `adr/0043-history-panel-architecture.md` | History panel architecture |
+| `adr/0044-historical-preview-isolation.md` | Historical preview isolation |
+| `adr/0045-schema-operation-migrations.md` | Schema and operation migrations |
+| `adr/0046-failure-recovery.md` | Failure recovery and repair |
+| `adr/0100-design-token-model.md` | Canonical internal design-token model |
+| `adr/0101-variables-token-relationship.md` | Varve Variables vs DTCG tokens relationship |
+| `adr/0102-token-identity-path-mapping.md` | Stable identity and path mapping |
+| `adr/0103-source-preserving-parsing.md` | DTCG source-preserving parsing and serialization |
+| `adr/0104-reference-graph-expression-separation.md` | Reference graph and expression separation |
+| `adr/0105-resolver-documents.md` | DTCG resolver document support |
+| `adr/0106-modes-themes-platforms-density.md` | Modes, themes, brands, platforms, density |
+| `adr/0107-source-connection-model.md` | Token source connection model |
+| `adr/0108-three-way-semantic-merge.md` | Three-way semantic merge |
+| `adr/0109-rename-move-detection.md` | Rename and move detection |
+| `adr/0110-deletion-tombstones.md` | Deletion and tombstone semantics |
+| `adr/0111-local-file-watching.md` | Local file watching |
+| `adr/0112-atomic-filesystem-writes.md` | Atomic filesystem writes |
+| `adr/0113-git-integration-boundary.md` | Git integration boundary |
+| `adr/0114-adapter-architecture.md` | Token adapter architecture |
+| `adr/0115-generated-code-ownership.md` | Generated-code ownership |
+| `adr/0116-undo-redo-transactions.md` | Undo, redo, transaction semantics |
+| `adr/0117-collaboration-behavior.md` | Collaboration behavior |
+| `adr/0118-multimodal-proposal-boundary.md` | Multimodal proposal boundary |
+| `adr/0119-secret-storage-permissions.md` | Secret storage and permissions |
+| `adr/0120-browser-tauri-capability-model.md` | Browser vs Tauri capability model |
+| `adr/0121-performance-indexing.md` | Performance and indexing strategy |
 
 ## Architecture Docs (current state)
 
