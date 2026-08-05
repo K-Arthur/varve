@@ -3,10 +3,20 @@
 //! Research basis: Zhang, T. Y. and Suen, C. Y. "A fast parallel algorithm
 //! for thinning digital patterns." Communications of the ACM, 1984.
 
+use crate::{is_cancelled, TraceCancellation};
+
 /// Thin a binary image to 1-pixel-wide skeleton using Zhang-Suen.
 /// `binary` is a row-major bool array, width × height.
 /// Returns a thinned bool array of the same size.
-pub fn thin_image(binary: &[bool], width: u32, height: u32) -> Vec<bool> {
+///
+/// `cancel`, when provided, is polled once per thinning pass; a cancelled
+/// thinning returns the partial skeleton immediately.
+pub fn thin_image(
+    binary: &[bool],
+    width: u32,
+    height: u32,
+    cancel: Option<&TraceCancellation>,
+) -> Vec<bool> {
     let total = (width * height) as usize;
     if total == 0 || binary.len() < total {
         return Vec::new();
@@ -16,6 +26,9 @@ pub fn thin_image(binary: &[bool], width: u32, height: u32) -> Vec<bool> {
     let w = width as usize;
 
     loop {
+        if cancel.is_some_and(is_cancelled) {
+            break;
+        }
         let mut deleted = 0u32;
 
         // Sub-iteration 1: mark for deletion
@@ -140,11 +153,17 @@ fn neighbor_count_8(img: &[u8], w: usize, x: usize, y: usize) -> u32 {
 
 /// Extract a skeleton graph from a thinned image.
 /// Returns branches as polylines between endpoints/junctions.
+/// Extract a skeleton graph from a thinned image.
+/// Returns branches as polylines between endpoints/junctions.
+///
+/// `cancel`, when provided, is polled between branches; a cancelled
+/// extraction returns the branches collected so far.
 pub fn extract_skeleton(
     binary: &[bool],
     width: u32,
     height: u32,
     min_branch: f64,
+    cancel: Option<&TraceCancellation>,
 ) -> Vec<Vec<(f64, f64)>> {
     let total = (width * height) as usize;
     if total == 0 || binary.len() < total {
@@ -205,6 +224,9 @@ pub fn extract_skeleton(
     ];
 
     for &(sx, sy) in &endpoints {
+        if cancel.is_some_and(is_cancelled) {
+            break;
+        }
         let sidx = sy * w + sx;
         if visited[sidx] || img[sidx] == 0 {
             continue;
@@ -284,11 +306,11 @@ mod tests {
             binary[5 + x] = true;
         }
 
-        let thinned = thin_image(&binary, 5, 3);
+        let thinned = thin_image(&binary, 5, 3, None);
         let fg_count = thinned.iter().filter(|&&b| b).count();
         assert_eq!(fg_count, 5, "all 5 pixels should remain");
 
-        let branches = extract_skeleton(&thinned, 5, 3, 1.0);
+        let branches = extract_skeleton(&thinned, 5, 3, 1.0, None);
         assert_eq!(branches.len(), 1, "should be 1 branch");
         assert_eq!(branches[0].len(), 5, "branch should have 5 points");
     }
@@ -306,11 +328,11 @@ mod tests {
             binary[y * 7 + 3] = true;
         }
 
-        let thinned = thin_image(&binary, 7, 7);
+        let thinned = thin_image(&binary, 7, 7, None);
         let fg_count = thinned.iter().filter(|&&b| b).count();
         assert!(fg_count > 0, "cross should survive thinning");
 
-        let branches = extract_skeleton(&thinned, 7, 7, 1.0);
+        let branches = extract_skeleton(&thinned, 7, 7, 1.0, None);
         // A cross has 4 arms (up, down, left, right)
         assert!(
             branches.len() >= 3,
@@ -322,10 +344,10 @@ mod tests {
     #[test]
     fn empty_image() {
         let binary = vec![false; 100];
-        let thinned = thin_image(&binary, 10, 10);
+        let thinned = thin_image(&binary, 10, 10, None);
         assert!(!thinned.iter().any(|&b| b), "thinned empty should be empty");
 
-        let branches = extract_skeleton(&binary, 10, 10, 1.0);
+        let branches = extract_skeleton(&binary, 10, 10, 1.0, None);
         assert!(branches.is_empty(), "no branches from empty image");
     }
 
@@ -336,7 +358,7 @@ mod tests {
         let mut binary = vec![false; 9];
         binary[4] = true; // center pixel
 
-        let thinned = thin_image(&binary, 3, 3);
+        let thinned = thin_image(&binary, 3, 3, None);
         assert!(
             thinned[4],
             "isolated pixel should survive (B < 2 skips deletion)"
@@ -348,7 +370,7 @@ mod tests {
         // 1x5: single column of foreground pixels
         let binary = vec![true; 5];
 
-        let thinned = thin_image(&binary, 1, 5);
+        let thinned = thin_image(&binary, 1, 5, None);
         let fg_count = thinned.iter().filter(|&&b| b).count();
         // Vertical 1-pixel line should survive
         assert_eq!(fg_count, 5, "vertical line should survive thinning");
@@ -365,7 +387,7 @@ mod tests {
             }
         }
 
-        let thinned = thin_image(&binary, 6, 3);
+        let thinned = thin_image(&binary, 6, 3, None);
         let fg_count = thinned.iter().filter(|&&b| b).count();
         assert!(
             fg_count > 0 && fg_count < 12,
@@ -385,14 +407,14 @@ mod tests {
             binary[y * 7 + 3] = true;
         }
 
-        let thinned = thin_image(&binary, 7, 7);
+        let thinned = thin_image(&binary, 7, 7, None);
 
         // With min_branch=1.0, all branches should survive
-        let branches1 = extract_skeleton(&thinned, 7, 7, 1.0);
+        let branches1 = extract_skeleton(&thinned, 7, 7, 1.0, None);
         assert!(branches1.len() >= 2, "T-shape should have >=2 branches");
 
         // With min_branch=100.0, all branches should be pruned
-        let branches2 = extract_skeleton(&thinned, 7, 7, 100.0);
+        let branches2 = extract_skeleton(&thinned, 7, 7, 100.0, None);
         assert!(
             branches2.is_empty() || branches2.len() <= branches1.len(),
             "large min_branch should prune more"
@@ -425,7 +447,7 @@ mod tests {
     #[test]
     fn extract_skeleton_invalid_dimensions() {
         let binary = vec![false; 10];
-        let branches = extract_skeleton(&binary, 3, 3, 1.0);
+        let branches = extract_skeleton(&binary, 3, 3, 1.0, None);
         // 3*3 = 9 but binary has 10 → should return empty
         assert!(branches.is_empty());
     }
