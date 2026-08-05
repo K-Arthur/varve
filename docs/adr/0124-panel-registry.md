@@ -1,4 +1,4 @@
-# ADR-0019: Panel registry
+# ADR-0124: Panel registry
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -44,7 +44,7 @@ Create `packages/editor/src/workspace/panelRegistry.ts` owning:
 - `getPanelRegistry()`, `registerPanel(def)`, `assertPanelInvariants()`.
 
 Instance identity (`PanelInstanceId`) is assigned by the dock model
-(ADR-0020), not by the registry.
+(ADR-0125), not by the registry.
 
 ## Consequences
 
@@ -68,7 +68,7 @@ None; registry is pure TS.
 
 Registry is the capability gate: `detachable` + `documentRequirement`
 validation prevents a panel from being transferred to an invalid host
-(ADR-0040).
+(ADR-0145).
 
 ## Accessibility implications
 
@@ -79,7 +79,7 @@ announcements) so panel chrome and screen-reader text derive from one place.
 
 `loadPolicy` and `capabilities.requires*` drive auxiliary-window chunk
 loading: a Layers-only window loads the layers chunk, not the canvas/model
-chunks (ADR-0038).
+chunks (ADR-0143).
 
 ## Rejected shortcuts
 

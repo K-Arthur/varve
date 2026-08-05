@@ -1,4 +1,4 @@
-# ADR-0020: Stable window and panel-instance identity
+# ADR-0125: Stable window and panel-instance identity
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -26,12 +26,12 @@ across windows and generations.
 - Tauri window **labels** are derived and sanitized: `varve-w-<8 hex>` —
   bounded length, alphanumeric-safe, carrying no user content. The
   `WorkspaceWindowId` maps to the label via a broker registry
-  (ADR-0023); labels are re-derived on restore.
-- Panel instances carry `documentId` when pinned (deferred, ADR-0027) and a
+  (ADR-0128); labels are re-derived on restore.
+- Panel instances carry `documentId` when pinned (deferred, ADR-0132) and a
   `localStateRef` pointing at the versioned local-state blob during transfer
-  (ADR-0019).
+  (ADR-0124).
 - Idempotency keys for commands/transactions derive from
-  `sessionId + windowId + sequence` (ADR-0023), never from titles or
+  `sessionId + windowId + sequence` (ADR-0128), never from titles or
   indexes.
 - Monotonic counters are allowed only for *sequence numbers within a window
   generation*, never as identity.
@@ -39,7 +39,7 @@ across windows and generations.
 ## Consequences
 
 - Restoring a layout on another machine produces fresh window ids but
-  stable panel-instance ids, so logical layouts stay portable (ADR-0032).
+  stable panel-instance ids, so logical layouts stay portable (ADR-0137).
 - Crash reports use opaque ids; document names are excluded by default
   (privacy).
 
@@ -57,7 +57,7 @@ rules. Wayland/Windows/macOS see identical labels.
 
 No user-controlled content enters labels; `WorkspaceWindowId` is opaque;
 label injection and path/name leakage are prevented at the boundary
-(ADR-0040).
+(ADR-0145).
 
 ## Accessibility implications
 

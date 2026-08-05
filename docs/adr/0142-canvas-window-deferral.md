@@ -1,4 +1,4 @@
-# ADR-0037: Canvas-window deferral
+# ADR-0142: Canvas-window deferral
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -29,7 +29,7 @@ stack.
   policy, tool ownership, text-edit ownership, GPU/renderer resource
   budgets, worker scheduling, dirty-region routing, and export isolation —
   each item landing as its own milestone with benchmarks.
-- A canvas surface is a `DocumentView`, never a panel (ADR-0019
+- A canvas surface is a `DocumentView`, never a panel (ADR-0124
   registry `capabilities.requiresCanvas` marks canvas surfaces
   `allowedHosts: ['primary-sidebar']` only).
 - Prevent the same text node entering incompatible edit modes in two
@@ -63,7 +63,7 @@ None beyond existing.
 
 ## Performance implications
 
-MVP panel windows initialize no canvas systems (ADR-0038) — the largest
+MVP panel windows initialize no canvas systems (ADR-0143) — the largest
 single memory win of the program.
 
 ## Rejected shortcuts

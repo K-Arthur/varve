@@ -1,4 +1,4 @@
-# ADR-0029: Atomic panel transfer
+# ADR-0134: Atomic panel transfer
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -32,13 +32,13 @@ with rollback edges from every state back to IDLE, restoring the previous
 valid layout.
 
 - Flow: validate detach capability + singleton/document constraints
-  (ADR-0019/0027) → capture bounded, typed panel-local state
-  (`prepareForTransfer`, ADR-0019 codec) → `TransferTransactionId` →
+  (ADR-0124/0027) → capture bounded, typed panel-local state
+  (`prepareForTransfer`, ADR-0124 codec) → `TransferTransactionId` →
   mark source `transferring` (dimmed, still functional) → create or
-  identify destination window (ADR-0022) → wait for `WINDOW_HYDRATED`
+  identify destination window (ADR-0127) → wait for `WINDOW_HYDRATED`
   with startup timeout → send panel definition + instance id + local
   state → wait for `DESTINATION_ACKNOWLEDGED` → commit the layout change
-  atomically (pure dock ops, ADR-0021) → deactivate source mount →
+  atomically (pure dock ops, ADR-0126) → deactivate source mount →
   focus destination → COMPLETE.
 - Failures (window create fails, hydration timeout, duplicate ack, stale
   transaction, close-during-transfer) roll back: keep/restore the source,
@@ -48,15 +48,15 @@ valid layout.
   auxiliary window, or new window; previous host may no longer exist —
   the hint is validated before use.
 - When an auxiliary window's last panel transfers out, the empty window
-  closes only after the destination acknowledges (ADR-0030).
+  closes only after the destination acknowledges (ADR-0135).
 
 ## Consequences
 
 - Transfer is a first-class, tested state machine (every transition and
-  failure injection, ADR-0042).
+  failure injection, ADR-0147).
 - Panel-local state survives where safe; ambiguous input (IME, active
   pointer capture, open modal) blocks or resolves per panel policy
-  (ADR-0034).
+  (ADR-0139).
 
 ## Migration impact
 
@@ -70,7 +70,7 @@ transports.
 
 ## Security implications
 
-Transfer messages are validated envelopes (ADR-0023); a destination cannot
+Transfer messages are validated envelopes (ADR-0128); a destination cannot
 claim a panel it was not assigned; duplicate acks are idempotent.
 
 ## Accessibility implications

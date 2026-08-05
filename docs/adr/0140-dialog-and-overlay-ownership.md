@@ -1,4 +1,4 @@
-# ADR-0035: Dialog and overlay ownership
+# ADR-0140: Dialog and overlay ownership
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -30,7 +30,7 @@ blocking another) has no mechanism.
   preferences, authentication, fatal recovery, transfer-error dialogs —
   are broker-coordinated: one modal at a time per session; while a session
   modal is open, other windows' session-affecting shortcuts are gated and
-  session-commands are queued/rejected (ADR-0028); native file dialogs
+  session-commands are queued/rejected (ADR-0133); native file dialogs
   get the correct parent window where supported (`plugin:dialog` parent
   param, `tauri.ts` dialog calls).
 - Per-window z-index/stacking only; never attempt cross-window CSS

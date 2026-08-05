@@ -1,4 +1,4 @@
-# ADR-0041: Multimodal proposal boundary
+# ADR-0146: Multimodal proposal boundary
 
 - **Status:** Accepted
 - **Date:** 2026-08-05
@@ -25,7 +25,7 @@ orchestration.
   - **Stage A — deterministic inventory:** monitors/work areas/scales,
     current windows, panel instances + capabilities + singleton
     constraints, workspace mode, document context, memory profile —
-    collected via platform APIs (ADR-0022) and the registry (ADR-0019).
+    collected via platform APIs (ADR-0127) and the registry (ADR-0124).
     A model never infers what APIs already provide.
   - **Stage B — input classification:** Varve layout JSON | screenshot |
     photo | diagram | PDF | natural language | mixed. PDFs use structured
@@ -47,7 +47,7 @@ orchestration.
     confidence, assumptions; accept-all / accept-selected / edit /
     exclude / cancel.
   - **Stage G — transactional apply:** accepted selections execute
-    through the normal transfer state machine (ADR-0029) — **no AI
+    through the normal transfer state machine (ADR-0134) — **no AI
     mutation path exists**.
   - **Stage H — cancellation/staleness:** AbortSignal + requestId +
     sessionRevision + environmentFingerprint; latest-request-wins; stale
