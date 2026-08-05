@@ -112,32 +112,6 @@ them drags the whole module graph. Follow these rules:
 **No new import may be added to CanvasArea.tsx or Shell.tsx without first removing
 an existing import of equal or greater weight.** Enforced by `scripts/audit-health.mjs`.
 
-### Persistent history and version control (ADR-0017 through 0046)
-
-Milestones 1-4 landed 2026-08-05. Canonical docs:
-`docs/architecture/persistent-history.md` (current state),
-`docs/plans/persistent-history-progress.md` (tracker),
-`docs/audits/history-*-2026-08-05.md` (inventories + capability matrix),
-ADRs `docs/adr/0017-*` … `0046-*`.
-
-1. **New entity IDs are collision-resistant**: `<prefix><counter>_<16-hex-random>`
-   (`n12_3fa9c2e4d5b6a718`). Mint via `nextNodeId` / `mintId`
-   (`packages/scene/src/identity.ts`). Never parse IDs as `n<digits>`; never
-   reuse deleted IDs; legacy `n<N>`/`s<N>`/`col-<N>` IDs stay readable forever.
-2. **Canonical serialization** (`packages/scene/src/canonical.ts`) is
-   schema-ordered, deterministic, cross-platform; `canonicalHash(doc)`
-   (SHA-256, `sha256.ts`) is the revision/snapshot content hash. Never add
-   binary payloads or volatile runtime state to canonical output; authored
-   arrays are never sorted; `-0` → `0`; non-finite numbers are rejected.
-3. **All authored mutations must enter through the typed operation
-   pipeline** (`packages/scene/src/operations/`): versioned registry +
-   transaction coordinator (ADR-0017/0018/0045). Editor `updateDoc`/
-   `updateNode` are temporary adapters being migrated incrementally; do not
-   add new opaque `(doc) => doc` mutation callbacks for authored edits.
-4. Golden fixtures: `packages/scene/src/__goldens__/canonical-document.json`
-   (+`.sha256`) — regenerate with `UPDATE_GOLDENS=1` and review the diff;
-   biome ignores `__goldens__`/`__snapshots__` formatting.
-
 ### Cyclomatic complexity ceiling — ENFORCED
 
 | Context | Ceiling | Warning at | Block at |
@@ -430,7 +404,7 @@ See `docs/architecture/text-pipeline.md`.
 | Package | Status | Contents |
 |---|---|---|
 | `@varve/engine` | **Built** | Engine facade (stub/native/wasm), IR types, `replayIr`, geometry helpers |
-| `@varve/scene` | **Built** | Immutable Document model, nodes, ops, master pages, spreads; persistent identity (`identity.ts`), canonical serialization (`canonical.ts` + SHA-256), typed operation pipeline (`operations/`), legacy-ID migration (`migrateIds.ts`) |
+| `@varve/scene` | **Built** | Immutable Document model, nodes, ops, master pages, spreads |
 | `@varve/ui` | **Built** | Design tokens, icons (Lucide/Phosphor), APG components |
 | `@varve/editor` | **Built** | Shell (CSS Grid), EditorProvider, CanvasArea, LayersPanel, InspectorPanel, shortcuts |
 | `@varve/codegen` | **Built** | SVG, React, Flutter, SwiftUI code export |
