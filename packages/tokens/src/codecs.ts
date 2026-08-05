@@ -62,6 +62,17 @@ export const codecs: Readonly<Record<TokenTypeKind, TokenTypeCodec>> = {
   color: {
     type: 'color',
     validate(value, ctx) {
+      // Hex-string shorthand used by format-module examples (e.g.
+      // "$value": "#0066cc" with $type color) — accepted as srgb + hex.
+      if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) {
+        const r = parseInt(value.slice(1, 3), 16) / 255;
+        const g = parseInt(value.slice(3, 5), 16) / 255;
+        const b = parseInt(value.slice(5, 7), 16) / 255;
+        return {
+          value: { colorSpace: 'srgb', components: [r, g, b], hex: value.toLowerCase() },
+          diagnostics: [],
+        };
+      }
       if (!isRecord(value))
         return error(ctx, 'color.value-object', 'Color $value must be an object');
       const { colorSpace, components, alpha, hex } = value;
