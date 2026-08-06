@@ -69,6 +69,40 @@ update, not for someone reading the commit log.
 - Stale `strata-*` selectors across the E2E suite refreshed to the `varve-*` classes.
 - The colour WASM fallback referenced a build artifact that no longer exists
   (`/wasm/strata_colour_bg.wasm` → `varve_colour_bg.wasm`).
+- The release gate ran desktop cargo tests before the frontend existed, which
+  `tauri::generate_context!()` hard-fails on — the frontend is built first now,
+  and a workflow validator rejects any edit that moves desktop compilation
+  ahead of it again.
+- The release draft job generated no final `SHA256SUMS.txt` for the merged
+  multi-platform set — it is now generated last (over installers, manifest and
+  SBOMs) and the draft's uploaded bytes are downloaded and re-hashed before a
+  human can publish.
+- The SBOM generator still identified the application as Strata (tool vendor,
+  component name, purl, one `strata:` property) — it now emits Varve identity
+  and platform-scoped SBOMs with a structural validator.
+- `website-deploy.yml` held an unnecessary `actions: write` permission and had
+  no `release: published` trigger, so the download page could not rebuild from
+  a newly published release.
+
+### Distribution hardening
+
+- One canonical URL system (`apps/website/src/lib/siteUrl.ts`): every internal
+  link, asset, canonical URL, OG image, sitemap entry and robots location is
+  derived from `SITE_URL`/`SITE_BASE`, so the site builds identically as the
+  `/varve` GitHub Pages project site and as a root custom domain.
+- The download page is release-driven: on `release: published` the site is
+  rebuilt from the exact published assets via an explicit channel policy
+  (latest published stable, else latest published prerelease; drafts never
+  appear) with manifest/checksum verification — an unverifiable release fails
+  the deployment rather than inventing data.
+- Per-platform and combined CycloneDX 1.5 SBOMs ship with the release and are
+  covered by `SHA256SUMS.txt`.
+- Post-deployment smoke check: homepage, download, docs, sitemap, robots,
+  favicon, 404 and the `/varve` canonical prefix are verified against the live
+  URL with bounded retries after every Pages deploy.
+- Download page accessibility: tablist semantics with arrow-key navigation,
+  copy-to-clipboard checksums with announcements, `aria-current` navigation
+  state, explicit unverified-release state.
 
 ## [0.1.0] - 2026-08-04
 
@@ -84,8 +118,12 @@ where it cannot.
 | Platform | Status | What that means |
 |---|---|---|
 | Linux x86-64 (AppImage, `.deb`, `.rpm`) | **Supported** | Built, installed into clean Ubuntu 22.04 and Fedora 38 containers, and launched. Bugs get triaged. |
-| Windows 10/11 x86-64 (NSIS) | **Experimental** | Compiles and packages in CI. **Nobody has run it on a Windows machine.** Published so it can be tested, not because it has been. |
-| macOS | Not published | No Mac available to verify on. A build nobody has launched is not a release. |
+| Windows 10/11 x86-64 (NSIS) | **Experimental** | Built in CI. **Nobody has run it on a Windows machine.** Not published until a draft release passes the runner smoke pass. |
+| macOS (ARM64 DMG) | **Experimental** | Built in CI (aarch64 only; no Intel ONNX Runtime dylib). **Nobody has launched it.** Not published until a draft release passes the runner smoke pass. |
+
+"Built" means the release pipeline produced the package; it does not mean the
+application was launched on that platform. The draft-release smoke pass (mount,
+launch, uninstall on real runners) is the gate between "built" and "published".
 
 The Linux minimum is glibc 2.35, which covers Ubuntu 22.04, Debian 12 and
 Fedora 38 upward. The AppImage needs FUSE2; on systems without it, run with

@@ -173,7 +173,21 @@ repository owner as an explicit decision:
 | Microsoft Store enrolment | Identity verification, legal agreement | Start at `https://storedeveloper.microsoft.com`, choose Individual **or** Company (see §3.1) |
 | Apple Developer Program | USD $99 payment, legal agreement | Defer until a Mac is available |
 | Azure Artifact Signing | Paid Azure subscription, identity validation | Defer — Store path is free |
-| Domain purchase | Payment | See budget plan; defer to Scenario B trigger |
+| Domain purchase | Payment | See budget plan and `custom-domain-runbook.md`; defer to Scenario B trigger |
 | ~~Making the repository public~~ | — | **Done 2026-08-04.** Secret-audited first; CI and Pages are now free |
 | ~~Enabling GitHub Pages~~ | — | **Done 2026-08-04.** `build_type=workflow`; site at `https://k-arthur.github.io/varve/` |
 | Publishing any release | Public distribution | All release automation lands as **draft**; publishing stays manual |
+
+## 8. Decisions recorded 2026-08-06 (distribution hardening)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| GitHub Pages URL architecture | Project site at `k-arthur.github.io/varve/`; no repository rename | A repo named `K-Arthur.github.io` would be the owner-level site and is not required. All URLs derive from `SITE_URL`/`SITE_BASE`; a domain switch is configuration, not migration |
+| Custom domain | Deferred until purchased; `SITE_URL`/`SITE_BASE` + Pages settings + DNS when it happens | Runbook in `docs/release/custom-domain-runbook.md`; no committed `CNAME` (Actions deployments use repository settings) |
+| Security headers on Pages | Only what the host supports: CSP via `<meta>`; `_headers` file removed | GitHub Pages cannot set arbitrary headers; claims of X-Frame-Options/HSTS on this host would be false |
+| Release channel policy for the download page | Latest published **stable**; if none, latest published **prerelease**; drafts/deleted never | `fetch-website-release.mjs`; "latest release" endpoint alone is wrong when the first public release is a prerelease |
+| Website analytics | None by default; `ANALYTICS_DOMAIN` opt-in; GitHub download counts as aggregate metrics only | Existing decision (§6) reaffirmed; counts are not unique users/retention |
+| Release integrity order | Installers → manifests → SBOMs → `SHA256SUMS.txt` last → upload → re-download → re-hash → publish | `generate-final-checksums.mjs` + `verify-downloaded.mjs`; the checksum file covers every public asset except itself |
+| SBOM scope | Per-platform CycloneDX 1.5 SBOMs (bundle contents differ by OS) + explicit all-platforms combined SBOM | `generate-sbom.mjs --os/--arch/--scope`; structural validator `validate-sbom.mjs` |
+| Signing claims | `signed`/`notarized` stay false until signature verification succeeds; release notes derive from the manifest | No certificates owned; no aspirational labels; checksums ≠ code signing (stated on the download page) |
+| Update mechanism | Manual only: download page + release notes; no updater, no background checks, no in-app check at alpha | `update-strategy.md` |
