@@ -65,11 +65,12 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'shape':
     case 'connector':
     case 'comment':
+    case 'table':
+      return { kind: 'rect', x: 0, y: 0, w: 480, h: 240 };
     case 'backgroundRemoval':
     case 'clone':
     case 'contentAwareFill':
     case 'lasso':
-    case 'table':
     case 'warp':
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {

@@ -45,15 +45,19 @@ export function VariablePanel() {
 
   function handleAdd() {
     if (!newName.trim()) return;
+    // Infer a color type when the value looks like a hex color, so pasting
+    // #39d0c6 creates a color variable without a manual type pick.
+    const looksLikeColor = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/.test(newValue.trim());
+    const effectiveType = looksLikeColor ? 'color' : newType;
     const rawValue: string | number | boolean =
-      newType === 'number'
+      effectiveType === 'number'
         ? Number(newValue) || 0
-        : newType === 'boolean'
+        : effectiveType === 'boolean'
           ? newValue === 'true'
           : newValue;
     addVariable({
       name: newName.trim(),
-      type: newType,
+      type: effectiveType,
       valuesByMode: { [variableStore.activeMode]: rawValue },
     });
     setNewName('');
@@ -85,10 +89,8 @@ export function VariablePanel() {
     }
   }
 
-  // Hide entirely when no variables and not actively adding
-  if (vars.length === 0 && !adding) {
-    return null;
-  }
+  // When there are no variables yet, still render the header so the first
+  // variable can be created (the add form lives below the header).
 
   return (
     <div className="editor-inspector__group">

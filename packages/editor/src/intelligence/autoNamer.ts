@@ -88,6 +88,7 @@ const KIND_NAMES: Record<string, string> = {
   group: 'Group',
   image: 'Image',
   adjustment: 'Adjustment',
+  table: 'Table',
 };
 
 function isHeadingLike(node: SceneNode): boolean {
