@@ -12,6 +12,8 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { buildWebsiteReleaseData, formatCopy } from './website-release-data.mjs';
 
@@ -379,7 +381,7 @@ assert.throws(
       },
     ],
   };
-  const tmp = '/tmp/opencode/varve-sbom-fixture-valid.json';
+  const tmp = join(tmpdir(), 'varve-sbom-fixture-valid.json');
   writeFileSync(tmp, JSON.stringify(valid));
   assert.equal(runValidator([tmp]), 0, 'valid SBOM passes');
 
@@ -388,9 +390,9 @@ assert.throws(
   strata.metadata.component.name = 'Strata';
   strata.metadata.component['bom-ref'] = 'pkg:generic/strata@0.1.0';
   strata.metadata.tools[0].vendor = 'Strata';
-  writeFileSync('/tmp/opencode/varve-sbom-fixture-strata.json', JSON.stringify(strata));
+  writeFileSync(join(tmpdir(), 'varve-sbom-fixture-strata.json'), JSON.stringify(strata));
   assert.notEqual(
-    runValidator(['/tmp/opencode/varve-sbom-fixture-strata.json']),
+    runValidator([join(tmpdir(), 'varve-sbom-fixture-strata.json')]),
     0,
     'Strata identity fails',
   );
@@ -398,9 +400,9 @@ assert.throws(
   // strata: property names must fail
   const prop = JSON.parse(JSON.stringify(valid));
   prop.components[0].properties = [{ name: 'strata:provenanceStatus', value: 'unknown' }];
-  writeFileSync('/tmp/opencode/varve-sbom-fixture-prop.json', JSON.stringify(prop));
+  writeFileSync(join(tmpdir(), 'varve-sbom-fixture-prop.json'), JSON.stringify(prop));
   assert.notEqual(
-    runValidator(['/tmp/opencode/varve-sbom-fixture-prop.json']),
+    runValidator([join(tmpdir(), 'varve-sbom-fixture-prop.json')]),
     0,
     'strata: properties fail',
   );
@@ -408,9 +410,9 @@ assert.throws(
   // duplicate bom-refs must fail
   const dup = JSON.parse(JSON.stringify(valid));
   dup.components.push({ ...dup.components[0] });
-  writeFileSync('/tmp/opencode/varve-sbom-fixture-dup.json', JSON.stringify(dup));
+  writeFileSync(join(tmpdir(), 'varve-sbom-fixture-dup.json'), JSON.stringify(dup));
   assert.notEqual(
-    runValidator(['/tmp/opencode/varve-sbom-fixture-dup.json']),
+    runValidator([join(tmpdir(), 'varve-sbom-fixture-dup.json')]),
     0,
     'duplicate bom-refs fail',
   );
@@ -418,16 +420,20 @@ assert.throws(
   // malformed purl must fail
   const purl = JSON.parse(JSON.stringify(valid));
   purl.components[0].purl = 'not-a-purl';
-  writeFileSync('/tmp/opencode/varve-sbom-fixture-purl.json', JSON.stringify(purl));
+  writeFileSync(join(tmpdir(), 'varve-sbom-fixture-purl.json'), JSON.stringify(purl));
   assert.notEqual(
-    runValidator(['/tmp/opencode/varve-sbom-fixture-purl.json']),
+    runValidator([join(tmpdir(), 'varve-sbom-fixture-purl.json')]),
     0,
     'malformed purl fails',
   );
 
   // non-JSON must fail
-  writeFileSync('/tmp/opencode/varve-sbom-fixture-bad.json', '{not json');
-  assert.notEqual(runValidator(['/tmp/opencode/varve-sbom-fixture-bad.json']), 0, 'non-JSON fails');
+  writeFileSync(join(tmpdir(), 'varve-sbom-fixture-bad.json'), '{not json');
+  assert.notEqual(
+    runValidator([join(tmpdir(), 'varve-sbom-fixture-bad.json')]),
+    0,
+    'non-JSON fails',
+  );
 }
 
 // ── version.mjs agreement ─────────────────────────────────────────────────────
