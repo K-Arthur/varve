@@ -35,6 +35,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0012-runtime-capability-abstraction.md` | Runtime capability abstraction |
 | `adr/0013-canonical-audit-finding-contract.md` | Canonical audit finding contract |
 | `adr/0014-font-detection-architecture.md` | Font detection architecture |
+| `adr/0016-tables-and-color-modifiers.md` | Native tables + linked color modifiers |
 
 ## Architecture Docs (current state)
 
