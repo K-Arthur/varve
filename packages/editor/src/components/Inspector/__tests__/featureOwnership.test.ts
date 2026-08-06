@@ -22,6 +22,8 @@ describe('Inspector feature ownership', () => {
       'icon',
       'corner-radius',
       'constraints',
+      'table',
+      'table-cells',
       'layout',
       'appearance',
       'fills',
@@ -33,6 +35,8 @@ describe('Inspector feature ownership', () => {
       'document-proof',
       'document-grid',
       'isometric-grid',
+      'table-columns',
+      'table-rows',
     ]);
   });
 

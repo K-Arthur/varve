@@ -54,8 +54,10 @@ class Recorder {
   calls: string[] = [];
   font = '';
   fillStyle = '';
-  textBaseline = '';
-  textAlign: string = '';
+  textBaseline: CanvasTextBaseline = 'alphabetic';
+  textAlign: CanvasTextAlign = 'start';
+  lineCap: CanvasLineCap = 'butt';
+  lineJoin: CanvasLineJoin = 'miter';
   lineWidth = 0;
   strokeStyle = '';
   globalAlpha = 1;
@@ -106,7 +108,7 @@ class Recorder {
   fillText(text: string, x: number, y: number): void {
     this.calls.push(`fillText("${text}",${x},${y})`);
   }
-  canvas = null;
+  canvas: { width: number; height: number } | undefined = undefined;
   getTransform(): { a: number; b: number; c: number; d: number; e: number; f: number } {
     return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
   }
