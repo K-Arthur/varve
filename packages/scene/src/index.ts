@@ -56,6 +56,7 @@ export {
 } from './document';
 export * from './documentCodec';
 export * from './effects';
+export * from './expandWarp';
 export * from './export-types';
 export * from './expr';
 export * from './fills';
