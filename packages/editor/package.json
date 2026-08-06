@@ -29,6 +29,7 @@
     "@varve/prototype": "workspace:*",
     "@varve/scene": "workspace:*",
     "@varve/shared": "workspace:*",
+    "@varve/tokens": "workspace:*",
     "@varve/ui": "workspace:*",
     "@tanstack/react-virtual": "^3.14.4",
     "fflate": "^0.8.3",

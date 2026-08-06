@@ -6,7 +6,7 @@
  */
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import type { Document } from '@varve/scene';
 import { createDocument } from '@varve/scene';
 import { addSource, addToken, createEmptyTokenSynchronization } from '@varve/scene/tokens';
@@ -33,7 +33,7 @@ function seedDoc(
   const doc = createDocument('Token Sync Test') as Document & {
     variableStore: Record<string, unknown>;
   };
-  (doc as Record<string, unknown>).variableStore = {
+  (doc as unknown as Record<string, unknown>).variableStore = {
     variables: {},
     collections: {},
     activeCollectionId: '',
@@ -166,7 +166,7 @@ describe('TokenSyncPanel', () => {
       });
     });
     const tokenText = '{"spacing": {"$type": "dimension", "$value": {"value": 8, "unit": "px"}}}';
-    const sync = (doc as Record<string, unknown>).variableStore as {
+    const sync = (doc as unknown as Record<string, unknown>).variableStore as {
       tokenSync: ReturnType<typeof createEmptyTokenSynchronization>;
     };
     const preview = buildImportPreview(tokenText, 'brand.tokens.json', sync.tokenSync);
@@ -213,7 +213,7 @@ describe('TokenSyncPanel', () => {
         },
       } as never).store;
     });
-    const sync = (doc as Record<string, unknown>).variableStore as {
+    const sync = (doc as unknown as Record<string, unknown>).variableStore as {
       tokenSync: ReturnType<typeof createEmptyTokenSynchronization>;
     };
     const broken = buildImportPreview('{broken', 'bad.json', sync.tokenSync);
