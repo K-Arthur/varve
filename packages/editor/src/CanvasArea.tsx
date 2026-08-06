@@ -1065,6 +1065,7 @@ export function CanvasArea({
       setNodeEditTargetId,
       setNodeEditSelectedAnchors,
       setTextEditTargetId,
+      setTableEdit: (state) => e.setTableEdit(state),
 
       snapPosition: (bounds, _targets) => {
         if (!s.snapEnabled) {
