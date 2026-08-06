@@ -35,8 +35,16 @@ const WORKFLOWS_DIR = '.github/workflows';
 // Authoritative pin table. Each entry maps the action repo to the full 40-char
 // SHA of the release we use. These SHAs were resolved from the GitHub API on
 // 2026-08-01 and verified (action.yml present at the commit).
+//
+// 2026-08-06: actions/checkout moved v4.2.2 -> v6.0.3 (commit
+// df4cb1c069e1874edd31b4311f1884172cec0e10) because v4 targets Node 20, which
+// GitHub deprecated on hosted runners (2025-09-19 announcement; every run now
+// logs "actions/checkout@<sha> targets Node 20 but is being forced to run on
+// Node 24"). v6.0.3 runs on node24 natively. v6.1.0+ backports the
+// `allow-unsafe-pr-checkout` BREAKING change; this repo does not use
+// pull_request_target, so v6.0.3 is the conservative choice.
 const ACTION_SHAS = {
-  'actions/checkout': '11bd71901bbe5b1630ceea73d27597364c9af683', // v4.2.2
+  'actions/checkout': 'df4cb1c069e1874edd31b4311f1884172cec0e10', // v6.0.3 (node24)
   'actions/setup-node': '1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a', // v4.2.0
   'actions/upload-artifact': '65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08', // v4.6.0
   'actions/download-artifact': 'd3f86a106a0bac45b974a628896c90dbdf5c8093', // v4.3.0

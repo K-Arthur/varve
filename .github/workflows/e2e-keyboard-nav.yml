@@ -28,24 +28,45 @@ on:
   schedule:
     - cron: '0 6 * * 1' # Every Monday 06:00 UTC
 
-# Run full matrix weekly; path-filtered on push/PR.
+# Full matrix weekly; path-filtered on push/PR.
+#
+# On push/PR the matrix collapses to a single Linux/Chromium cell per job
+# (2 jobs total instead of 12). The full 3-OS x 3-browser matrix runs on the
+# weekly schedule and manual dispatch. This is deliberate queue-pressure
+# control: every push to master already fires CI (3-OS) + Build + Package
+# (3-OS) + Website Deploy + model workflows; an extra 12 jobs per push is what
+# starves the hosted runner pool during Actions incidents (2026-08-06).
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  plan:
+    name: Plan matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'matrix={"os":["ubuntu-latest","macos-latest","windows-latest"],"browser":["chromium","firefox","webkit"]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"os":["ubuntu-latest"],"browser":["chromium"]}' >> "$GITHUB_OUTPUT"
+          fi
+
   menu-keyboard-nav:
     name: Menu KB nav (${{ matrix.os }} / ${{ matrix.browser }})
+    needs: plan
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        browser: [chromium, firefox, webkit]
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
@@ -102,15 +123,16 @@ jobs:
 
   canvas-keyboard-nav:
     name: Canvas KB nav (${{ matrix.os }} / ${{ matrix.browser }})
+    needs: plan
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.plan.outputs.matrix).os }}
         browser: [chromium]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
