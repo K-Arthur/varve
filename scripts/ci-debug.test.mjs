@@ -5,7 +5,14 @@
  * Run: node scripts/ci-debug.test.mjs
  */
 import assert from 'node:assert';
-import { classifyJobFailure, extractFailures, isFailureLine, rankLine } from './ci-debug.mjs';
+import {
+  classifyJobFailure,
+  classifyRunFailures,
+  extractFailures,
+  isFailureLine,
+  isStuckQueued,
+  rankLine,
+} from './ci-debug.mjs';
 
 function assertTrue(condition, message) {
   if (!condition) {
@@ -112,5 +119,84 @@ assert.strictEqual(
   null,
   'skipped jobs are not classified',
 );
+
+// Runner-unavailable: GitHub never assigned a hosted runner.
+const runnerUnavailableAnnotations = [
+  {
+    annotation_level: 'failure',
+    message: 'The job was not acquired by Runner of type hosted even after multiple attempts',
+  },
+];
+assert.strictEqual(
+  classifyJobFailure({ conclusion: 'failure', steps: [] }, runnerUnavailableAnnotations),
+  'runner-unavailable',
+  'zero-step failed job with "not acquired" annotation is runner-unavailable',
+);
+
+// Stuck-queued: job accepted but never scheduled past the threshold.
+const NOW = Date.parse('2026-08-06T19:00:00Z');
+assert.strictEqual(
+  classifyJobFailure(
+    { conclusion: null, status: 'queued', started_at: '2026-08-06T18:00:00Z', steps: [] },
+    [],
+    NOW,
+  ),
+  'stuck-queued',
+  'queued > 30 min is stuck-queued',
+);
+assert.strictEqual(
+  classifyJobFailure(
+    { conclusion: null, status: 'queued', started_at: '2026-08-06T18:59:00Z', steps: [] },
+    [],
+    NOW,
+  ),
+  null,
+  'queued < 30 min is not yet stuck',
+);
+assertTrue(
+  isStuckQueued({ status: 'queued', started_at: '2026-08-06T18:00:00Z' }, NOW),
+  'isStuckQueued true for old queued run',
+);
+
+// classifyRunFailures: probe-mode aggregation.
+const probeJobs = [
+  { id: 1, name: 'Rust (ubuntu-latest)', conclusion: 'failure', steps: [{ name: 'cargo test' }] },
+  {
+    id: 2,
+    name: 'Build WASM engine',
+    conclusion: 'failure',
+    steps: [],
+  },
+  { id: 3, name: 'E2E', status: 'queued', started_at: '2026-08-06T18:00:00Z', steps: [] },
+];
+const probeAnnotations = new Map([
+  [2, runnerUnavailableAnnotations],
+  [3, []],
+]);
+const probed = classifyRunFailures(probeJobs, probeAnnotations);
+assert.deepStrictEqual(probed.real, ['Rust (ubuntu-latest)'], 'probe surfaces real failure names');
+assert.strictEqual(probed.infra.length, 2, 'probe counts infra blocks');
+assertTrue(
+  probed.infra.some((b) => b.kind === 'runner-unavailable'),
+  'probe attributes runner-unavailable',
+);
+assertTrue(
+  probed.infra.some((b) => b.kind === 'stuck-queued'),
+  'probe attributes stuck-queued',
+);
+
+const infraOnly = classifyRunFailures(
+  [
+    {
+      id: 4,
+      name: 'Manifest verification',
+      conclusion: 'failure',
+      steps: [],
+    },
+  ],
+  new Map([[4, runnerUnavailableAnnotations]]),
+);
+assert.deepStrictEqual(infraOnly.real, [], 'infra-only run has no real failures');
+assert.strictEqual(infraOnly.infra.length, 1, 'infra-only run keeps the block');
 
 console.log('ci-debug extraction tests passed.');
