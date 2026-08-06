@@ -129,9 +129,17 @@ act-dry WORKFLOW=".github/workflows/build.yml":
 ci-debug RUN_ID="":
     node scripts/ci-debug.mjs --run-id "{{RUN_ID}}"
 
-# Pipeline health: classify recent run failures (billing block / never-started / real)
+# Pipeline health: classify recent run failures (billing block / runner starvation / real)
 ci-health ARGS="":
     node scripts/ci-health.mjs {{ARGS}}
+
+# GitHub Actions incident status (githubstatus.com)
+ci-status:
+    node scripts/ci-health.mjs --status
+
+# Rerun runs stuck in the queue past 30 min (runner starvation). Needs --yes.
+ci-rerun-stuck:
+    node scripts/ci-health.mjs --rerun-stuck
 
 # GitHub Actions supply chain security
 pin-actions:
