@@ -6,7 +6,7 @@
 
 import { parseDelimitedText, parseMarkdownTable } from '@varve/import';
 import { makeTableNode, nextNodeId } from '@varve/scene';
-import { Icon } from '@varve/ui';
+import { Icon, Select } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 
@@ -158,18 +158,18 @@ export function CreateTableFromDataDialog() {
         <div className="insp-field-row__split" style={{ gap: 12, flexWrap: 'wrap' }}>
           <label style={{ fontSize: 12 }}>
             Format
-            <select
-              aria-label="Input format"
+            <Select
+              label="Input format"
               value={delimiter}
-              onChange={(e) => setDelimiter(e.target.value as typeof delimiter)}
-              style={{ marginLeft: 6 }}
-            >
-              <option value="auto">Auto-detect</option>
-              <option value="\t">Tab (TSV)</option>
-              <option value=",">Comma (CSV)</option>
-              <option value=";">Semicolon</option>
-              <option value="markdown">Markdown</option>
-            </select>
+              options={[
+                { value: 'auto', label: 'Auto-detect' },
+                { value: '\t', label: 'Tab (TSV)' },
+                { value: ',', label: 'Comma (CSV)' },
+                { value: ';', label: 'Semicolon' },
+                { value: 'markdown', label: 'Markdown' },
+              ]}
+              onChange={(v) => setDelimiter(v as typeof delimiter)}
+            />
           </label>
           <label style={{ fontSize: 12 }}>
             <input
