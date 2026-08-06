@@ -1,38 +1,118 @@
 {
-  "version": "2026-08-03",
-  "cycles": {},
+  "version": "2026-08-06",
+  "cycles": {
+    "shared": {
+      "count": 0,
+      "cycles": []
+    },
+    "engine": {
+      "count": 3,
+      "cycles": [
+        "filters.ts → types.ts",
+        "mockup/warpReplay.ts → replay.ts",
+        "replay.ts → shadowSource.ts"
+      ]
+    },
+    "scene": {
+      "count": 6,
+      "cycles": [
+        "mockup/types.ts → types.ts",
+        "component-sync.ts → document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document.ts",
+        "document-pages.ts → document.ts",
+        "document.ts → proof.ts"
+      ]
+    },
+    "ui": {
+      "count": 0,
+      "cycles": []
+    },
+    "compositor": {
+      "count": 0,
+      "cycles": []
+    },
+    "import": {
+      "count": 0,
+      "cycles": []
+    },
+    "prototype": {
+      "count": 0,
+      "cycles": []
+    },
+    "codegen": {
+      "count": 0,
+      "cycles": []
+    },
+    "layout": {
+      "count": 0,
+      "cycles": []
+    },
+    "platform": {
+      "count": 0,
+      "cycles": []
+    },
+    "help": {
+      "count": 0,
+      "cycles": []
+    },
+    "ai": {
+      "count": 0,
+      "cycles": []
+    },
+    "collab": {
+      "count": 0,
+      "cycles": []
+    },
+    "print": {
+      "count": 0,
+      "cycles": []
+    },
+    "home": {
+      "count": 0,
+      "cycles": []
+    },
+    "editor": {
+      "count": 3,
+      "cycles": [
+        "render/workerHost.ts → render/workerRenderSpan.ts",
+        "components/Inspector/sectionRegistry.ts → context/types.ts → tools/types.ts → workspace/workspaceTypes.ts",
+        "components/Inspector/sectionRegistry.ts → context/types.ts → hitTest/HitTestEngine.ts → hitTest/index.ts → tools/types.ts → warp/warpActions.ts → warp/warpContainerRender.ts → workspace/workspaceTypes.ts"
+      ]
+    }
+  },
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
-      "lines": 1006,
-      "imports": 50,
+      "lines": 1113,
+      "imports": 52,
       "overBudget": true
     },
     "packages/editor/src/CanvasArea.tsx": {
-      "lines": 3077,
-      "imports": 40,
-      "overBudget": false
+      "lines": 3366,
+      "imports": 48,
+      "overBudget": true
     },
     "packages/editor/src/Menubar.tsx": {
-      "lines": 2307,
+      "lines": 2285,
       "imports": 15,
       "overBudget": true
     },
     "packages/home/src/HomeShell.tsx": {
-      "lines": 1101,
+      "lines": 1167,
       "imports": 31,
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 8595,
-      "imports": 66,
+      "lines": 8823,
+      "imports": 67,
       "overBudget": true
     }
   },
   "complexity": {},
   "global": {
-    "max_cycles": 9,
-    "max_unstable": 5,
+    "max_cycles": 14,
+    "max_unstable": 46,
     "max_layer_violations": 0,
     "max_unused_exports": 10
   }
