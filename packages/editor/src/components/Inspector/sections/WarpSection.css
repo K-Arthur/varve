@@ -1,0 +1,172 @@
+/* Warp Inspector section + canvas overlay handles.
+ * All colors trace to design tokens; no hardcoded color values. */
+
+/* ── Canvas overlay ─────────────────────────────────────────── */
+.warp-overlay__handle {
+  transition: stroke-width 120ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .warp-overlay__handle {
+    transition: none;
+  }
+}
+
+.high-contrast-handles .warp-overlay__handle {
+  stroke-width: 2.5;
+  stroke: var(--color-on-surface);
+}
+
+.high-contrast-handles .warp-overlay__cage {
+  stroke: var(--color-on-surface);
+  stroke-dasharray: none;
+}
+
+/* ── Inspector section ──────────────────────────────────────── */
+.warp-section__stack {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.warp-section__item {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  background: var(--color-surface-default);
+  padding: 6px 8px;
+}
+
+.warp-section__item--active {
+  border-color: var(--color-interactive-default);
+  box-shadow: 0 0 0 1px var(--color-interactive-default);
+}
+
+.warp-section__item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.warp-section__name {
+  border: none;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warp-section__name:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+.warp-section__item-tools {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.warp-section__item-tools button,
+.warp-section__row button,
+.warp-section__danger button {
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.warp-section__item-tools button:hover,
+.warp-section__row button:hover,
+.warp-section__danger button:hover {
+  border-color: var(--color-interactive-default);
+}
+
+.warp-section__item-tools button:disabled,
+.warp-section__row button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.warp-section__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.warp-section__row > input {
+  flex: 1;
+  min-width: 120px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 6px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  padding: 4px 8px;
+  font: inherit;
+}
+
+.warp-section__corners {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.warp-section__corner-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  width: 22px;
+}
+
+.warp-section__hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.warp-section__warn {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--color-feedback-warning);
+}
+
+.warp-section__presets {
+  margin-top: 10px;
+}
+
+.warp-section__danger {
+  margin-top: 10px;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 8px;
+}
+
+.warp-section__danger button {
+  border-color: var(--color-feedback-danger);
+  color: var(--color-text-on-danger);
+  background: var(--color-feedback-danger);
+}
+
+.warp-section__danger button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
