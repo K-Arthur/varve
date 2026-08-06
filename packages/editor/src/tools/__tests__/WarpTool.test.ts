@@ -29,7 +29,10 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
   const updateNode = vi.fn((id: string, updater: (n: ShapeNode) => ShapeNode) => {
     const n = (withNode.nodes as Record<string, ShapeNode>)[id];
     if (n) (withNode.nodes as Record<string, ShapeNode>)[id] = updater(n);
-  });
+  }) as unknown as (
+    id: string,
+    updater: (n: import('@varve/scene').SceneNode) => import('@varve/scene').SceneNode,
+  ) => void;
   return {
     document: withNode,
     selection: [],
@@ -52,6 +55,8 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     hasCoalescedEvents: false,
     hasPredictedEvents: false,
     sourceEvents: [],
+    touchMultiSelect: { active: false, suspended: false },
+    createRasterLayer: vi.fn(() => null),
     foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
     maskPreviewMode: 'none',
     setMaskPreviewMode: vi.fn(),

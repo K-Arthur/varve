@@ -79,11 +79,6 @@ test.describe('Image Trace', () => {
     fs.unlinkSync(tmpFile);
   }
 
-  async function _selectImportedImage(page: import('@playwright/test').Page) {
-    await page.getByTestId('selection-quick-bar').waitFor({ timeout: 10000 });
-    await page.keyboard.press('Escape');
-  }
-
   test('traces a selected image through the Object menu and undoes in one step', async ({
     page,
   }) => {

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { EditorContextValue } from '../context/types';
 import {
   type DeepLinkDeps,
   handleDeepLink,
@@ -11,10 +12,9 @@ import {
   setCachedEditorContext,
   setupDeepLinkListener,
 } from './deepLinkHandler';
-import type { NavigationEditorContext } from './navigationCoordinator';
 import { createNavigationCoordinator } from './navigationCoordinator';
 
-function makeCtx(overrides: Partial<NavigationEditorContext> = {}): NavigationEditorContext {
+function makeCtx(overrides: Partial<EditorContextValue> = {}): EditorContextValue {
   return {
     state: {
       sessions: [{ id: 's1', name: 'Doc', dirty: false }],
@@ -28,7 +28,7 @@ function makeCtx(overrides: Partial<NavigationEditorContext> = {}): NavigationEd
     },
     showToast: vi.fn(),
     ...overrides,
-  } as unknown as NavigationEditorContext;
+  } as unknown as EditorContextValue;
 }
 
 function makeDeps(overrides: Partial<DeepLinkDeps> = {}): DeepLinkDeps {
@@ -89,7 +89,7 @@ describe('handleDeepLink — typed destinations', () => {
       makeCtx({
         state: {
           document: { nodes: {}, pages: [] },
-        } as unknown as NavigationEditorContext['state'],
+        } as unknown as EditorContextValue['state'],
       }),
     );
 
@@ -110,7 +110,7 @@ describe('handleDeepLink — typed destinations', () => {
       makeCtx({
         state: {
           document: { nodes: {}, pages: [] },
-        } as unknown as NavigationEditorContext['state'],
+        } as unknown as EditorContextValue['state'],
       }),
     );
     const r = await handleDeepLink('varve://navigate/workspace/print', makeDeps({ timeoutMs: 60 }));
