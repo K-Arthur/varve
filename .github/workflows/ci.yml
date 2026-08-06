@@ -170,6 +170,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
 
+  website-e2e:
+    name: Website E2E (dual deployment modes)
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+      # The website must build and pass its whole suite in BOTH deployment
+      # modes from the same source: the /varve GitHub Pages project site and a
+      # root custom domain. The e2e servers mount the project-site build beneath
+      # an actual /varve/ path — a server at / alone cannot detect base-path
+      # escapes.
+      - name: Build project-site mode
+        run: pnpm build:website
+      - name: Build custom-domain (root) mode
+        run: pnpm build:website:root
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Website E2E (both modes)
+        run: pnpm exec playwright test -c playwright.website.config.ts
+
   e2e:
     name: E2E (Playwright)
     timeout-minutes: 30

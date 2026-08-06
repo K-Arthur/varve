@@ -13,7 +13,8 @@
  *   node scripts/release/generate-sbom.mjs --out dist/release/varve-sbom.cdx.json
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -160,25 +161,53 @@ function npmComponents() {
  * inside the installer. Omitting these is the most common SBOM gap in a Tauri
  * app: the ONNX Runtime shared library and the AI model weights are the two
  * largest third-party things in the bundle and neither appears in a lockfile.
+ *
+ * `--os`/`--arch` scope the ONNX Runtime entry to the platform's own shared
+ * library (each platform ships a different binary); without them the entry
+ * describes the runtime generically.
  */
-function bundledBinaryComponents() {
+function bundledBinaryComponents(args) {
   const components = [];
 
   const ortScript = readFileSync(join(repoRoot, 'scripts/fetch-onnxruntime.mjs'), 'utf-8');
   const ortVersion = ortScript.match(/ORT_VERSION\s*=\s*'([^']+)'/)?.[1];
   if (ortVersion) {
+    const os = args.os ?? null;
+    const arch = args.arch ?? null;
+    const libDir =
+      os && arch
+        ? join(repoRoot, 'apps/desktop/src-tauri/onnxruntime-libs', `${os}-${arch}`)
+        : null;
+    const libName =
+      os === 'windows'
+        ? 'onnxruntime.dll'
+        : os === 'macos'
+          ? 'libonnxruntime.dylib'
+          : 'libonnxruntime.so';
+    const libPath = libDir ? join(libDir, libName) : null;
+    const libHash =
+      libPath && existsSync(libPath) && statSync(libPath).isFile()
+        ? createHash('sha256').update(readFileSync(libPath)).digest('hex')
+        : null;
+
     components.push({
       type: 'library',
-      'bom-ref': `pkg:generic/onnxruntime@${ortVersion}`,
+      'bom-ref': `pkg:generic/onnxruntime@${ortVersion}${os ? `+${os}-${arch}` : ''}`,
       name: 'onnxruntime',
       version: ortVersion,
       purl: `pkg:generic/onnxruntime@${ortVersion}`,
-      description: 'Native ONNX Runtime shared library, bundled as a Tauri resource',
+      description:
+        os && arch
+          ? `Native ONNX Runtime shared library (${os}/${arch}), bundled as a Tauri resource`
+          : 'Native ONNX Runtime shared library, bundled as a Tauri resource',
       licenses: [{ license: { id: 'MIT' } }],
       externalReferences: [{ type: 'vcs', url: 'https://github.com/microsoft/onnxruntime' }],
+      ...(libHash ? { hashes: [{ alg: 'SHA-256', content: libHash }] } : {}),
       properties: [
         { name: 'varve:ecosystem', value: 'generic' },
         { name: 'varve:origin', value: 'vendored-binary' },
+        ...(os ? [{ name: 'varve:buildOs', value: os }] : []),
+        ...(arch ? [{ name: 'varve:buildArch', value: arch }] : []),
       ],
     });
   }
@@ -199,7 +228,7 @@ function bundledBinaryComponents() {
         { name: 'varve:origin', value: 'bundled-model' },
         ...(model.remoteUrl ? [{ name: 'varve:sourceUrl', value: model.remoteUrl }] : []),
         {
-          name: 'strata:provenanceStatus',
+          name: 'varve:provenanceStatus',
           value: model.validation?.provenanceStatus ?? 'unknown',
         },
       ],
@@ -209,13 +238,71 @@ function bundledBinaryComponents() {
   return components;
 }
 
+/**
+ * Build metadata: the release version, the exact commit the installer was
+ * built from, and the platform/architecture the SBOM describes.
+ *
+ * A platform-scoped SBOM (`--os linux --arch x86_64`) describes the bundle
+ * that ships to that platform: the platform's own ONNX Runtime shared library
+ * and bundled models. A combined SBOM (`--scope all-platforms`) is emitted by
+ * the release assembly job and declares that scope explicitly.
+ */
+function buildMetadata(args, version) {
+  const gitSha = (() => {
+    try {
+      return execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: repoRoot,
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      return null;
+    }
+  })();
+
+  const os = args.os ?? null;
+  const arch = args.arch ?? null;
+  const scope = args.scope ?? (os ? `${os}-${arch}` : 'all-platforms');
+  const description =
+    'Local-first design suite for vector, layout, typography, motion, prototyping and print production';
+
+  return {
+    os,
+    arch,
+    scope,
+    gitSha,
+    version,
+    description,
+  };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const outPath = resolve(repoRoot, args.out ?? 'dist/release/varve-sbom.cdx.json');
   const version = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf-8')).version;
+  const meta = buildMetadata(args, version);
 
-  const components = [...rustComponents(), ...npmComponents(), ...bundledBinaryComponents()];
+  const components = [...rustComponents(), ...npmComponents(), ...bundledBinaryComponents(args)];
   components.sort((a, b) => a['bom-ref'].localeCompare(b['bom-ref']));
+
+  const component = {
+    type: 'application',
+    'bom-ref': `pkg:generic/varve@${version}`,
+    name: 'Varve',
+    version,
+    description: meta.description,
+    licenses: [{ license: { name: 'FSL-1.1-MIT' } }],
+    externalReferences: [
+      { type: 'vcs', url: 'https://github.com/K-Arthur/varve' },
+      ...(meta.gitSha ? [{ type: 'build-system', comment: `commit:${meta.gitSha}` }] : []),
+    ],
+    properties: [
+      { name: 'varve:scope', value: meta.scope },
+      ...(meta.os ? [{ name: 'varve:buildOs', value: meta.os }] : []),
+      ...(meta.arch ? [{ name: 'varve:buildArch', value: meta.arch }] : []),
+      ...(meta.gitSha ? [{ name: 'varve:gitCommit', value: meta.gitSha }] : []),
+    ],
+  };
 
   const sbom = {
     bomFormat: 'CycloneDX',
@@ -223,15 +310,21 @@ function main() {
     version: 1,
     metadata: {
       timestamp: new Date().toISOString(),
-      tools: [{ vendor: 'Strata', name: 'generate-sbom.mjs', version: '1.0.0' }],
-      component: {
-        type: 'application',
-        'bom-ref': `pkg:generic/strata@${version}`,
-        name: 'Strata',
-        version,
-        description: 'Local-first design suite for vector, layout, typography, motion and print',
-        licenses: [{ license: { name: 'FSL-1.1-MIT' } }],
-      },
+      tools: [
+        {
+          vendor: 'K-Arthur',
+          name: 'varve/generate-sbom.mjs',
+          version: '1.0.0',
+          externalReferences: [{ type: 'vcs', url: 'https://github.com/K-Arthur/varve' }],
+        },
+      ],
+      component,
+      properties: [
+        { name: 'varve:scope', value: meta.scope },
+        ...(meta.os ? [{ name: 'varve:buildOs', value: meta.os }] : []),
+        ...(meta.arch ? [{ name: 'varve:buildArch', value: meta.arch }] : []),
+        ...(meta.gitSha ? [{ name: 'varve:gitCommit', value: meta.gitSha }] : []),
+      ],
     },
     components,
   };
@@ -245,7 +338,7 @@ function main() {
     return acc;
   }, {});
 
-  process.stdout.write(`SBOM written to ${outPath}\n`);
+  process.stdout.write(`SBOM written to ${outPath} (scope: ${meta.scope})\n`);
   process.stdout.write(`  ${components.length} components total\n`);
   for (const [eco, count] of Object.entries(counts).sort()) {
     process.stdout.write(`    ${eco.padEnd(14)} ${count}\n`);
