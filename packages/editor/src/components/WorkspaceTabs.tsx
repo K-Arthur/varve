@@ -8,6 +8,21 @@
  * needed). Every mode stays reachable via the overflow menu, keyboard
  * shortcuts, and the command palette at every width.
  *
+ * ARIA: APG radiogroup pattern (segmented control). Roving tabindex:
+ * exactly one radio owns tabindex=0 (the focused/active one). Arrow keys
+ * move focus and activate (automatic activation), Home/End jump to the
+ * first/last, Enter/Space activate. The active workspace is never allowed
+ * into the overflow menu, so the checked radio is always visible.
+ *
+ * Focus contract:
+ * - Pointer activation never moves focus (no focus theft).
+ * - Keyboard activation keeps focus on the activated radio (roving).
+ * - Selecting a mode from the overflow menu moves focus to that mode's tab
+ *   (it becomes the visible active tab), and the Menu restores focus to
+ *   the "More" trigger when it closes without a selection.
+ * - If the focused tab is pushed into overflow by a relayout, focus moves
+ *   to the active tab.
+ *
  * Measurement: natural tab widths are captured on mount (all tabs visible)
  * and refreshed for visible tabs as the strip resizes; hidden tabs reuse
  * their cached natural width, so the calculation never reads zero-width
@@ -59,6 +74,10 @@ export function WorkspaceTabs() {
   const [layout, setLayout] = useState<WorkspaceLayoutResult>(INITIAL_LAYOUT);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
+  // Roving focus index: the radio owning tabindex=0. Follows focus moves and
+  // the active workspace (automatic activation ⇒ focus == selection).
+  const [focusId, setFocusId] = useState<WorkspaceMode | null>(state.workspaceMode);
+  const activatedFromOverflow = useRef(false);
 
   const measure = useCallback(() => {
     const wrap = wrapRef.current;
@@ -98,17 +117,82 @@ export function WorkspaceTabs() {
     return () => ro.disconnect();
   }, [measure]);
 
+  // Automatic activation: the active workspace is the focused radio, so
+  // tabindex=0 follows it when a switch happens outside this component
+  // (shortcut, command palette, deep link).
+  useEffect(() => {
+    setFocusId((f) => (f === state.workspaceMode ? f : state.workspaceMode));
+  }, [state.workspaceMode]);
+
+  // If the focused tab is pushed into overflow by a relayout, move focus to
+  // the active tab (always visible).
+  useEffect(() => {
+    if (focusId && !layout.visible.includes(focusId)) {
+      setFocusId(state.workspaceMode);
+    }
+  }, [layout, focusId, state.workspaceMode]);
+
+  const focusMode = useCallback((mode: WorkspaceMode) => {
+    setFocusId(mode);
+    const el = tabRefs.current[mode];
+    if (el) {
+      el.focus({ preventScroll: true });
+      el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    }
+  }, []);
+
   const handleSwitch = useCallback(
-    (mode: WorkspaceMode) => {
+    (mode: WorkspaceMode, opts?: { fromOverflow?: boolean }) => {
       setMoreOpen(false);
-      requestWorkspaceSwitch(mode);
+      if (opts?.fromOverflow) activatedFromOverflow.current = true;
+      // Promise.resolve, not a bare .then: a switch path that answers
+      // synchronously must not make the click handler throw.
+      void Promise.resolve(requestWorkspaceSwitch(mode)).then((ok) => {
+        if (ok && activatedFromOverflow.current) {
+          // Keyboard/AT users who chose a mode from "More" land on the mode's
+          // tab (now the active, visible radio) — deterministic next stop.
+          focusMode(mode);
+        }
+        activatedFromOverflow.current = false;
+      });
     },
-    [requestWorkspaceSwitch],
+    [requestWorkspaceSwitch, focusMode],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLButtonElement>, mode: WorkspaceMode) => {
+      const visible = layout.visible;
+      const idx = visible.indexOf(mode);
+      if (idx < 0) return;
+      switch (e.key) {
+        case 'ArrowRight':
+          e.preventDefault();
+          handleSwitch(visible[(idx + 1) % visible.length]!);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handleSwitch(visible[(idx - 1 + visible.length) % visible.length]!);
+          break;
+        case 'Home':
+          e.preventDefault();
+          if (visible.length > 0) handleSwitch(visible[0]!);
+          break;
+        case 'End':
+          e.preventDefault();
+          if (visible.length > 0) handleSwitch(visible[visible.length - 1]!);
+          break;
+        default:
+          break;
+      }
+    },
+    [layout.visible, handleSwitch],
   );
 
   const iconOnly = wrapRef.current
     ? wrapRef.current.clientWidth < WORKSPACE_ICON_ONLY_THRESHOLD
     : layout.iconOnly;
+
+  const rovingId = focusId ?? state.workspaceMode;
 
   return (
     <div ref={wrapRef} className="workspace-tabs">
@@ -128,8 +212,11 @@ export function WorkspaceTabs() {
               role="radio"
               aria-checked={state.workspaceMode === mode}
               aria-label={`${WORKSPACE_LABELS[mode]} workspace`}
+              tabIndex={rovingId === mode ? 0 : -1}
               className={`workspace-tabs__tab${state.workspaceMode === mode ? ' workspace-tabs__tab--active' : ''}`}
               onClick={() => handleSwitch(mode)}
+              onKeyDown={(e) => handleKeyDown(e, mode)}
+              onFocus={() => setFocusId(mode)}
             >
               <SolidIcon name={SOLID_CHROME_ICONS[SOLID_ICON_NAMES[mode]]} size={15} />
               {!iconOnly && <span className="workspace-tabs__label">{WORKSPACE_LABELS[mode]}</span>}
@@ -146,6 +233,7 @@ export function WorkspaceTabs() {
                 className={`workspace-tabs__more${moreOpen ? ' workspace-tabs__more--open' : ''}`}
                 aria-label="More workspaces"
                 aria-expanded={moreOpen}
+                aria-haspopup="menu"
                 onClick={() => setMoreOpen((o) => !o)}
               >
                 <SolidIcon name={SOLID_CHROME_ICONS.ellipsisVertical} size={15} />
@@ -163,7 +251,7 @@ export function WorkspaceTabs() {
           items={layout.overflow.map((mode) => ({
             id: mode,
             label: WORKSPACE_LABELS[mode],
-            onAction: () => handleSwitch(mode),
+            onAction: () => handleSwitch(mode, { fromOverflow: true }),
           }))}
         />
       )}

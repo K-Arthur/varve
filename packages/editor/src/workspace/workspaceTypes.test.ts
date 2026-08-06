@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { toolShortcutId } from '../shortcuts/toolShortcutLabel';
+import { suppressedTipShortcutIds, workspaceShortcutLabel } from './workspaceShortcutLabel';
 import {
   ALL_WORKSPACE_MODES,
   getDefaultInspectorTab,
@@ -11,7 +13,6 @@ import {
   WORKSPACE_CONFIGS,
   WORKSPACE_ICONS,
   WORKSPACE_LABELS,
-  WORKSPACE_SHORTCUTS,
   type WorkspaceMode,
 } from './workspaceTypes';
 
@@ -32,7 +33,6 @@ describe('workspaceTypes', () => {
       expect(Array.isArray(config.inspectorTabs)).toBe(true);
       expect(Array.isArray(config.statusSections)).toBe(true);
       expect(config.canvasOverlays).toBeDefined();
-      expect(config.performance).toBeDefined();
       expect(config.onboarding).toBeDefined();
     }
   });
@@ -54,9 +54,12 @@ describe('workspaceTypes', () => {
     expect(WORKSPACE_ICONS.image).toBe('Image');
   });
 
-  it('has shortcuts for all modes', () => {
+  // Resolved from the shortcut registry, never from a literal in this module:
+  // a hard-coded table here went stale and advertised keys that had been
+  // reassigned to other commands.
+  it('every mode has a switch shortcut resolvable from the registry', () => {
     for (const mode of ALL_WORKSPACE_MODES) {
-      expect(WORKSPACE_SHORTCUTS[mode]).toBeTruthy();
+      expect(workspaceShortcutLabel(mode)).toBeTruthy();
     }
   });
 
@@ -266,30 +269,28 @@ describe('workspaceTypes', () => {
     expect(hidden.has('healBrush')).toBe(false);
   });
 
-  // ─── Performance config ──────────────────────────────────────────────────
+  // ─── Derived tip suppression ─────────────────────────────────────────────
+  // Replaces the old hand-maintained `shortcuts.disabled` list, which was
+  // empty in every built-in workspace and therefore suppressed nothing.
 
-  it('all modes have worker renderer enabled (except codegen, which is intentionally lightweight)', () => {
+  it('suppresses tips for tools the workspace does not show', () => {
+    // Drawing hides the vector shape tools, so their shortcuts must not be
+    // recommended while the user is painting.
+    const drawing = suppressedTipShortcutIds('drawing');
+    expect(getHiddenTools('drawing').has('rect')).toBe(true);
+    expect(drawing).toContain('toolRect');
+    expect(drawing).toContain('toolEllipse');
+  });
+
+  it('never suppresses a tip for a tool the workspace does show', () => {
     for (const mode of ALL_WORKSPACE_MODES) {
-      if (mode === 'codegen') {
-        expect(getWorkspaceConfig(mode).performance.useWorkerRenderer).toBe(false);
-      } else {
-        expect(getWorkspaceConfig(mode).performance.useWorkerRenderer).toBe(true);
+      const suppressed = new Set(suppressedTipShortcutIds(mode));
+      const shown = getWorkspaceConfig(mode).toolbar.tools.map((t) => t.toolId);
+      for (const tool of shown) {
+        const id = toolShortcutId(tool);
+        if (id) expect(suppressed.has(id)).toBe(false);
       }
     }
-  });
-
-  it('all modes have viewport culling enabled', () => {
-    for (const mode of ALL_WORKSPACE_MODES) {
-      expect(getWorkspaceConfig(mode).performance.viewportCulling).toBe(true);
-    }
-  });
-
-  it('image mode has larger image cache size', () => {
-    const imageConfig = getWorkspaceConfig('image');
-    const designConfig = getWorkspaceConfig('design');
-    expect(imageConfig.performance.imageCacheSize).toBeGreaterThan(
-      designConfig.performance.imageCacheSize,
-    );
   });
 
   // ─── Onboarding ──────────────────────────────────────────────────────────
@@ -298,7 +299,6 @@ describe('workspaceTypes', () => {
     for (const mode of ALL_WORKSPACE_MODES) {
       const config = getWorkspaceConfig(mode);
       expect(config.onboarding.description).toBeTruthy();
-      expect(config.onboarding.shortcutHint).toBeTruthy();
     }
   });
 
