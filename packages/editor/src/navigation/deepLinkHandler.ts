@@ -1,6 +1,14 @@
 import { isTauriRuntime } from '@varve/platform';
 import type { AuditFinding } from '@varve/scene';
 import type { EditorContextValue } from '../context/types';
+import {
+  createNavigationCoordinator,
+  type NavigationCoordinator,
+  type NavigationDeps,
+  type NavigationEditorContext,
+} from './navigationCoordinator';
+import type { NavigationRequest } from './navigationRequest';
+import { parseNavigationTargetFromUrl } from './navigationTargets';
 
 export type DeepLinkType = 'finding' | 'unknown';
 
@@ -10,18 +18,44 @@ export interface DeepLinkRequest {
   raw: string;
 }
 
+/** Outcome of a handled deep link, for the caller to announce or ignore. */
+export type DeepLinkOutcome =
+  | { status: 'completed' }
+  | { status: 'blocked'; reason: string }
+  | { status: 'stale'; reason: string };
+
+/**
+ * Dependencies the deep-link handler needs beyond the editor context:
+ * the navigation coordinator plus the resolver hooks it consults.
+ */
+export interface DeepLinkDeps extends NavigationDeps {
+  /** Coordinator used to execute typed destinations. Defaults to the standard one. */
+  coordinator?: NavigationCoordinator;
+  /** How long to park a link while the document is still loading. */
+  timeoutMs?: number;
+}
+
 const DEEP_LINK_TIMEOUT_MS = 30000;
 const DEEP_LINK_POLL_MS = 100;
 
 interface PendingLink {
-  request: DeepLinkRequest;
+  href: string;
+  deps: DeepLinkDeps;
   createdAt: number;
-  resolve: (result: boolean) => void;
+  resolve: (outcome: DeepLinkOutcome) => void;
   reject: (error: Error) => void;
   timeoutId: ReturnType<typeof setTimeout>;
 }
 
 let pendingLink: PendingLink | null = null;
+
+/** Cancel any parked deep link (used by tests and teardown). */
+export function resetDeepLinkState(): void {
+  if (pendingLink) {
+    clearTimeout(pendingLink.timeoutId);
+    pendingLink = null;
+  }
+}
 
 export function parseDeepLink(href: string): DeepLinkRequest | null {
   try {
@@ -66,127 +100,140 @@ export function isFindingFromDifferentDocument(
   return !currentFindings.some((f) => f.findingId === findingId);
 }
 
-export async function handleDeepLink(
-  request: DeepLinkRequest,
-  ctx: EditorContextValue | null,
-  getFindings: () => AuditFinding[],
-  navigateToFinding: (finding: AuditFinding) => void,
-): Promise<boolean> {
+export async function handleDeepLink(href: string, deps: DeepLinkDeps): Promise<DeepLinkOutcome> {
   if (pendingLink) {
     clearTimeout(pendingLink.timeoutId);
     pendingLink.reject(new Error('Cancelled by new deep link'));
     pendingLink = null;
   }
 
-  if (!ctx) {
-    return new Promise<boolean>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        pendingLink = null;
-        reject(new Error('Deep link timed out: document never loaded'));
-      }, DEEP_LINK_TIMEOUT_MS);
-
-      pendingLink = {
-        request,
-        createdAt: Date.now(),
-        resolve,
-        reject,
-        timeoutId,
-      };
-
-      pollForContext(request, getFindings, navigateToFinding, resolve);
-    });
+  const parsed = parseNavigationTargetFromUrl(href);
+  if (!parsed.ok) {
+    return { status: 'blocked', reason: parsed.reason };
   }
 
-  return executeNavigation(request, ctx, getFindings, navigateToFinding);
+  const ctx = tryGetEditorContext();
+  if (!ctx || !isDocumentLoaded(ctx.state)) {
+    return parkUntilLoaded(href, deps);
+  }
+
+  return executeNavigation(href, deps, ctx);
+}
+
+function parkUntilLoaded(href: string, deps: DeepLinkDeps): Promise<DeepLinkOutcome> {
+  return new Promise<DeepLinkOutcome>((resolve, reject) => {
+    const timeoutMs = deps.timeoutMs ?? DEEP_LINK_TIMEOUT_MS;
+    const timeoutId = setTimeout(() => {
+      pendingLink = null;
+      resolve({ status: 'blocked', reason: 'document never loaded' });
+    }, timeoutMs);
+
+    pendingLink = {
+      href,
+      deps,
+      createdAt: Date.now(),
+      resolve,
+      reject,
+      timeoutId,
+    };
+
+    pollForContext(href, deps, resolve);
+  });
 }
 
 function pollForContext(
-  request: DeepLinkRequest,
-  getFindings: () => AuditFinding[],
-  navigateToFinding: (finding: AuditFinding) => void,
-  resolve: (result: boolean) => void,
+  href: string,
+  deps: DeepLinkDeps,
+  resolve: (outcome: DeepLinkOutcome) => void,
 ): void {
-  if (pendingLink && Date.now() - pendingLink.createdAt > DEEP_LINK_TIMEOUT_MS) {
+  if (!pendingLink) return;
+
+  const ctx = tryGetEditorContext();
+  if (ctx && isDocumentLoaded(ctx.state)) {
     clearTimeout(pendingLink.timeoutId);
     pendingLink = null;
-    resolve(false);
+    void executeNavigation(href, deps, ctx).then(resolve);
     return;
   }
 
-  const moduleCtx = tryGetEditorContext();
-  if (moduleCtx && isDocumentLoaded(moduleCtx.state)) {
-    clearTimeout(pendingLink!.timeoutId);
+  if (Date.now() - pendingLink.createdAt > DEEP_LINK_TIMEOUT_MS) {
+    clearTimeout(pendingLink.timeoutId);
     pendingLink = null;
-    executeNavigation(request, moduleCtx, getFindings, navigateToFinding).then(resolve);
+    resolve({ status: 'blocked', reason: 'document never loaded' });
     return;
   }
 
-  setTimeout(
-    () => pollForContext(request, getFindings, navigateToFinding, resolve),
-    DEEP_LINK_POLL_MS,
-  );
-}
-
-let cachedCtx: EditorContextValue | null = null;
-
-export function setCachedEditorContext(ctx: EditorContextValue | null): void {
-  cachedCtx = ctx;
-}
-
-function tryGetEditorContext(): EditorContextValue | null {
-  return cachedCtx;
+  setTimeout(() => pollForContext(href, deps, resolve), DEEP_LINK_POLL_MS);
 }
 
 async function executeNavigation(
-  request: DeepLinkRequest,
-  ctx: EditorContextValue,
-  getFindings: () => AuditFinding[],
-  navigateToFinding: (finding: AuditFinding) => void,
-): Promise<boolean> {
-  const findings = getFindings();
-  const finding = findings.find((f) => f.findingId === request.findingId);
-
-  if (!finding) {
-    if (isFindingFromDifferentDocument(request.findingId, findings)) {
-      ctx.showToast({
-        message: 'This finding belongs to a different document',
-        type: 'warning',
-      });
-    } else {
-      ctx.showToast({
-        message: 'Finding not found — re-run the audit to refresh findings',
-        type: 'warning',
-      });
-    }
-    return false;
+  href: string,
+  deps: DeepLinkDeps,
+  ctx: EditorContextValue | NavigationEditorContext,
+): Promise<DeepLinkOutcome> {
+  const parsed = parseNavigationTargetFromUrl(href);
+  if (!parsed.ok) {
+    return { status: 'blocked', reason: parsed.reason };
   }
 
-  navigateToFinding(finding);
-  return true;
+  const request: NavigationRequest = {
+    target: parsed.target,
+    source: 'deep-link',
+    activation: 'auto',
+    focus: 'canvas',
+    fit: parsed.target.kind === 'page' ? 'fit' : 'reveal',
+    history: 'record',
+    failure: 'silent',
+  };
+
+  const coordinator = deps.coordinator ?? createNavigationCoordinator();
+  const result = await coordinator(request, ctx as unknown as NavigationEditorContext, deps);
+
+  switch (result.status) {
+    case 'completed':
+    case 'partially-completed':
+      return { status: 'completed' };
+    case 'stale':
+      return { status: 'stale', reason: result.reason };
+    default:
+      return {
+        status: 'blocked',
+        reason: result.status === 'blocked' ? result.reason : result.status,
+      };
+  }
 }
 
-export function setupDeepLinkListener(
-  getFindings: () => AuditFinding[],
-  navigateToFinding: (finding: AuditFinding) => void,
-): () => void {
+let cachedCtx: EditorContextValue | NavigationEditorContext | null = null;
+
+export function setCachedEditorContext(
+  ctx: EditorContextValue | NavigationEditorContext | null,
+): void {
+  cachedCtx = ctx;
+}
+
+function tryGetEditorContext(): EditorContextValue | NavigationEditorContext | null {
+  return cachedCtx;
+}
+
+export function setupDeepLinkListener(deps: () => DeepLinkDeps): () => void {
   const handleHashChange = () => {
+    const currentDeps = deps();
     const request = parseDeepLink(window.location.href);
     if (request) {
-      const ctx = tryGetEditorContext();
-      handleDeepLink(request, ctx, getFindings, navigateToFinding);
+      void handleDeepLink(window.location.href, currentDeps);
     }
   };
 
   window.addEventListener('hashchange', handleHashChange);
   window.addEventListener('popstate', handleHashChange);
 
+  const initialDeps = deps();
   const initialRequest = parseDeepLink(window.location.href);
   if (initialRequest) {
-    const ctx = tryGetEditorContext();
-    handleDeepLink(initialRequest, ctx, getFindings, navigateToFinding);
+    void handleDeepLink(window.location.href, initialDeps);
   }
 
-  setupTauriDeepLink(getFindings, navigateToFinding);
+  setupTauriDeepLink(deps);
 
   return () => {
     window.removeEventListener('hashchange', handleHashChange);
@@ -194,10 +241,7 @@ export function setupDeepLinkListener(
   };
 }
 
-function setupTauriDeepLink(
-  _getFindings: () => AuditFinding[],
-  _navigateToFinding: (finding: AuditFinding) => void,
-): void {
+function setupTauriDeepLink(deps: () => DeepLinkDeps): void {
   if (isTauriRuntime()) {
     try {
       const tauri = (window as unknown as Record<string, unknown>).__TAURI__ as {
@@ -211,8 +255,7 @@ function setupTauriDeepLink(
       tauri.event.listen('deep-link', async (event: { payload: string }) => {
         const request = parseDeepLink(event.payload);
         if (request) {
-          const ctx = tryGetEditorContext();
-          await handleDeepLink(request, ctx, _getFindings, _navigateToFinding);
+          await handleDeepLink(event.payload, deps());
         }
       });
     } catch {
