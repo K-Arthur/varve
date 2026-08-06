@@ -2,7 +2,7 @@
  * Semantic diff tests (M10, ADR-0028).
  */
 
-import type { Document } from '@varve/scene';
+import type { Document, VariableStore } from '@varve/scene';
 import { createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { diffDocuments, lcsIndices, stableStringify } from '../diff';
@@ -74,7 +74,7 @@ describe('diffDocuments', () => {
     const target = clone(base);
     const extra = makeShapeNode(
       'n3_cccc',
-      { kind: 'ellipse', x: 10, y: 10, w: 20, h: 20 },
+      { kind: 'ellipse', cx: 10, cy: 10, rx: 10, ry: 10 },
       { name: 'Badge' },
     );
     target.nodes.n3_cccc = extra;
@@ -176,23 +176,20 @@ describe('diffDocuments', () => {
           id: 'c1_aaaa',
           name: 'Brand',
           variableIds: ['v1_aaaa'],
-          modes: { m1_aaaa: { id: 'm1_aaaa', name: 'Light' } },
+          modes: ['m1_aaaa'],
+          activeMode: 'm1_aaaa',
         },
       },
       activeCollectionId: 'c1_aaaa',
       modes: ['m1_aaaa'],
       activeMode: 'm1_aaaa',
     };
-    base.variableStore = structuredClone(variableStore) as typeof base.variableStore;
-    target.variableStore = structuredClone(variableStore) as typeof target.variableStore;
-    (
-      target.variableStore as {
-        collections: Record<string, { modes: Record<string, { name: string }> }>;
-      }
-    ).collections.c1_aaaa.modes.m1_aaaa.name = 'Daylight';
+    base.variableStore = structuredClone(variableStore) as VariableStore;
+    target.variableStore = structuredClone(variableStore) as VariableStore;
+    target.variableStore.collections.c1_aaaa!.name = 'Daylight';
     const diff = diffDocuments(base, target);
     const change = diff.changes.find(
-      (c) => c.propertyPath === 'variableStore.collections.c1_aaaa.modes.m1_aaaa.name',
+      (c) => c.propertyPath === 'variableStore.collections.c1_aaaa.name',
     );
     expect(change).toBeDefined();
     expect(change?.changeType).toBe('modified');
@@ -251,7 +248,7 @@ describe('diff-merge coherence', () => {
     (ours.nodes.n1_aaaa as { opacity: number }).opacity = 0.4;
     (ours.nodes.n2_bbbb as { name: string }).name = 'Renamed group';
     const theirs = clone(base);
-    (theirs.nodes.n1_aaaa as { x: number }).x = 50;
+    (theirs.nodes.n1_aaaa as { visible?: boolean }).visible = false;
     const a = mergeDocuments(base, ours, theirs);
     const b = mergeDocuments(base, ours, theirs);
     expect(a.mergedHash).toBe(b.mergedHash);

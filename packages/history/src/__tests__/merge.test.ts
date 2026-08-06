@@ -72,11 +72,11 @@ describe('mergeDocuments', () => {
     const ours = clone(base);
     (ours.nodes.n1_aaaa as { opacity: number }).opacity = 0.4;
     const theirs = clone(base);
-    (theirs.nodes.n1_aaaa as { x: number }).x = 50;
+    (theirs.nodes.n1_aaaa as { visible?: boolean }).visible = false;
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('clean');
     expect((result.mergedDocument.nodes.n1_aaaa as { opacity: number }).opacity).toBe(0.4);
-    expect((result.mergedDocument.nodes.n1_aaaa as { x: number }).x).toBe(50);
+    expect((result.mergedDocument.nodes.n1_aaaa as { visible?: boolean }).visible).toBe(false);
   });
 
   it('adopts identical edits on both sides once', () => {
@@ -99,11 +99,11 @@ describe('mergeDocuments', () => {
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('conflicted');
     expect(result.conflicts).toHaveLength(1);
-    expect(result.conflicts[0].conflictKind).toBe('scalar');
-    expect(result.conflicts[0].entityId).toBe('n1_aaaa');
-    expect(result.conflicts[0].propertyPath).toBe('nodes.n1_aaaa.opacity');
-    expect(result.conflicts[0].oursValue).toBe(0.4);
-    expect(result.conflicts[0].theirsValue).toBe(0.6);
+    expect(result.conflicts[0]!.conflictKind).toBe('scalar');
+    expect(result.conflicts[0]!.entityId).toBe('n1_aaaa');
+    expect(result.conflicts[0]!.propertyPath).toBe('nodes.n1_aaaa.opacity');
+    expect(result.conflicts[0]!.oursValue).toBe(0.4);
+    expect(result.conflicts[0]!.theirsValue).toBe(0.6);
     // ours value kept in the merged document
     expect((result.mergedDocument.nodes.n1_aaaa as { opacity: number }).opacity).toBe(0.4);
   });
@@ -140,7 +140,7 @@ describe('mergeDocuments', () => {
     theirs.rootChildren = ['n2_bbbb', 'n9_zzzz'];
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('conflicted');
-    expect(result.conflicts[0].conflictKind).toBe('add-vs-add');
+    expect(result.conflicts[0]!.conflictKind).toBe('add-vs-add');
   });
 
   it('merges concurrent node additions into the shared order', () => {
@@ -154,14 +154,11 @@ describe('mergeDocuments', () => {
     ours.nodes.n3_cccc = mine;
     ours.rootChildren = ['n2_bbbb', 'n3_cccc'];
     const theirs = clone(base);
-    const theirsNode = makeShapeNode('n4_dddd', {
-      kind: 'rect',
-      x: 0,
-      y: 0,
-      w: 10,
-      h: 10,
-      name: 'Theirs',
-    });
+    const theirsNode = makeShapeNode(
+      'n4_dddd',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: 'Theirs' },
+    );
     theirs.nodes.n4_dddd = theirsNode;
     theirs.rootChildren = ['n2_bbbb', 'n4_dddd'];
     const result = mergeDocuments(base, ours, theirs);
@@ -183,14 +180,11 @@ describe('mergeDocuments', () => {
     ours.nodes.n3_cccc = mine;
     ours.rootChildren = ['n3_cccc', 'n2_bbbb']; // inserted before the frame
     const theirs = clone(base);
-    const theirsNode = makeShapeNode('n4_dddd', {
-      kind: 'rect',
-      x: 0,
-      y: 0,
-      w: 10,
-      h: 10,
-      name: 'Theirs',
-    });
+    const theirsNode = makeShapeNode(
+      'n4_dddd',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: 'Theirs' },
+    );
     theirs.nodes.n4_dddd = theirsNode;
     theirs.rootChildren = ['n2_bbbb', 'n4_dddd']; // inserted after the frame
     const result = mergeDocuments(base, ours, theirs);
@@ -269,7 +263,7 @@ describe('mergeDocuments', () => {
     ];
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('conflicted');
-    expect(result.conflicts[0].conflictKind).toBe('reorder');
+    expect(result.conflicts[0]!.conflictKind).toBe('reorder');
   });
 
   it('merges disjoint text edits', () => {
@@ -311,7 +305,7 @@ describe('mergeDocuments', () => {
     } as typeof textNode;
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('conflicted');
-    expect(result.conflicts[0].conflictKind).toBe('text-overlap');
+    expect(result.conflicts[0]!.conflictKind).toBe('text-overlap');
   });
 
   it('conflicts rename vs rename', () => {
@@ -322,7 +316,7 @@ describe('mergeDocuments', () => {
     (theirs.nodes.n1_aaaa as { name: string }).name = 'B';
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('conflicted');
-    expect(result.conflicts[0].conflictKind).toBe('rename');
+    expect(result.conflicts[0]!.conflictKind).toBe('rename');
   });
 
   it('produces a valid, deterministic merged hash', () => {
