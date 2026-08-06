@@ -14,14 +14,17 @@
       ]
     },
     "scene": {
-      "count": 6,
+      "count": 9,
       "cycles": [
         "mockup/types.ts → types.ts",
         "component-sync.ts → document-components.ts → document-nodes.ts → document.ts",
         "document-components.ts → document-nodes.ts → document.ts",
         "document-components.ts → document.ts",
         "document-pages.ts → document.ts",
-        "document.ts → proof.ts"
+        "document-pages.ts → document.ts → pageNumbering.ts",
+        "document-pages.ts → document.ts → pasteboardLayout.ts",
+        "document.ts → proof.ts",
+        "document.ts → version-migrations-v217.ts → version.ts"
       ]
     },
     "ui": {
@@ -84,7 +87,7 @@
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
-      "lines": 1113,
+      "lines": 1129,
       "imports": 52,
       "overBudget": true
     },
@@ -104,14 +107,14 @@
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 8823,
-      "imports": 67,
+      "lines": 8828,
+      "imports": 66,
       "overBudget": true
     }
   },
   "complexity": {},
   "global": {
-    "max_cycles": 14,
+    "max_cycles": 17,
     "max_unstable": 46,
     "max_layer_violations": 0,
     "max_unused_exports": 10
