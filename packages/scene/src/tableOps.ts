@@ -922,7 +922,10 @@ export function normalizeTableModelDefensively(raw: unknown): {
             hiddenColumnIds: Array.isArray(r.hiddenColumnIds)
               ? r.hiddenColumnIds.filter((x): x is string => typeof x === 'string')
               : undefined,
-            density: r.density === 'compact' || r.density === 'spacious' ? r.density : undefined,
+            density:
+              r.density === 'compact' || r.density === 'spacious'
+                ? (r.density as TableDensity)
+                : undefined,
             columnOverrides:
               r.columnOverrides && typeof r.columnOverrides === 'object'
                 ? (r.columnOverrides as TableResponsiveRule['columnOverrides'])

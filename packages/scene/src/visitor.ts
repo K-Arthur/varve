@@ -6,6 +6,7 @@ import type {
   RasterLayerNode,
   SceneNode,
   ShapeNode,
+  TableNode,
   TextNode,
 } from './types';
 
@@ -18,6 +19,7 @@ export type NodeVisitor<T> = {
   adjustment: (node: AdjustmentNode) => T;
   path: (node: PathNode) => T;
   rasterLayer: (node: RasterLayerNode) => T;
+  table: (node: TableNode) => T;
 };
 
 /** Visit a SceneNode with type-safe dispatch. */
@@ -37,6 +39,8 @@ export function visitNode<T>(node: SceneNode, visitor: NodeVisitor<T>): T {
       return visitor.path(node as PathNode);
     case 'rasterLayer':
       return visitor.rasterLayer(node as RasterLayerNode);
+    case 'table':
+      return visitor.table(node as TableNode);
     default: {
       const _exhaustive: never = node;
       throw new Error(`Unhandled node kind: ${(_exhaustive as SceneNode).kind}`);
@@ -72,6 +76,8 @@ export function visitNodePartial<T>(
       const rlNode = node as import('./types').RasterLayerNode;
       return visitor.rasterLayer ? visitor.rasterLayer(rlNode) : fallback(node);
     }
+    case 'table':
+      return visitor.table ? visitor.table(node as TableNode) : fallback(node);
   }
   return fallback(node);
 }
