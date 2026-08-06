@@ -238,9 +238,7 @@ pub fn split_outers_holes(polys: &[Vec<Point>]) -> (Vec<Vec<Point>>, Vec<Vec<Poi
 ///
 /// Returns the compound paths plus the count of holes that could not be
 /// paired (when no outer exists, or a hole falls outside every outer).
-pub fn pair_compound_holes(
-    polys: &[Vec<Point>],
-) -> (Vec<hierarchy::CompoundContour>, usize) {
+pub fn pair_compound_holes(polys: &[Vec<Point>]) -> (Vec<hierarchy::CompoundContour>, usize) {
     let (outers, hole_rings) = split_outers_holes(polys);
     hierarchy::pair_holes(&outers, &hole_rings)
 }
