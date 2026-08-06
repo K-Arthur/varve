@@ -171,6 +171,15 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: cargo test
         run: cargo test --workspace --all-targets
+      # Ordering is load-bearing: anything that compiles the desktop crate
+      # expands `tauri::generate_context!()`, which reads tauri.conf.json and
+      # hard-fails if `frontendDist` ("../dist") does not exist. The frontend
+      # must be built first — see build.yml for the original failure post-
+      # mortem. scripts/validate-workflows.mjs enforces this ordering so an
+      # edit cannot silently move desktop compilation ahead of it again.
+      - name: Build frontend (required by tauri generate_context!)
+        run: pnpm build
+        working-directory: apps/desktop
       - name: cargo test (desktop)
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
       - name: typecheck
@@ -342,7 +351,7 @@ jobs:
             echo "::notice::Building UNSIGNED artifacts (RELEASE_EXPECT_SIGNED is not 'true')."
           fi
 
-      # ── Collect, rename, checksum ────────────────────────────────────────
+      # ── Collect, rename, checksum, SBOM ────────────────────────────────
       - name: Collect artifacts
         if: matrix.enabled
         run: |
@@ -352,6 +361,23 @@ jobs:
             --os ${{ matrix.os_slug }} \
             --arch ${{ matrix.arch_slug }}
         shell: bash
+
+      # Platform-specific SBOM: the bundle contents differ per platform (the
+      # ONNX Runtime shared library and models are platform-native), so each
+      # runner emits the SBOM for the bytes it actually bundled.
+      - name: Generate platform SBOM
+        if: matrix.enabled
+        run: |
+          node scripts/release/generate-sbom.mjs \
+            --out dist/release/varve-${{ needs.preflight.outputs.version }}-sbom-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.cdx.json \
+            --os ${{ matrix.os_slug }} \
+            --arch ${{ matrix.arch_slug }}
+
+      - name: Validate platform SBOM
+        if: matrix.enabled
+        run: |
+          node scripts/release/validate-sbom.mjs \
+            dist/release/varve-${{ needs.preflight.outputs.version }}-sbom-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.cdx.json
 
       - name: Upload release artifacts
         if: matrix.enabled
@@ -410,18 +436,41 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist/release
-          # Each runner produced its own release-manifest.json covering only its
-          # platform. Copy the binaries first, then rebuild the combined manifest
-          # and checksum file from the merged set so both describe exactly what
+          # Each runner produced its own release-manifest.json + SHA256SUMS.txt
+          # covering only its platform. Copy the binaries first, then rebuild the
+          # combined manifest from the merged set so it describes exactly what
           # is about to be uploaded.
           find staged -type f ! -name 'release-manifest.json' ! -name 'SHA256SUMS.txt' \
             -exec cp {} dist/release/ \;
           node scripts/release/merge-manifests.mjs --staged staged --out dist/release
 
-      - name: Generate SBOM
-        run: node scripts/release/generate-sbom.mjs --out dist/release/varve-${{ needs.preflight.outputs.version }}-sbom.cdx.json
+      # The combined SBOM describes the whole multi-platform release; its scope
+      # is declared explicitly in its metadata. Platform-specific SBOMs arrived
+      # with the bundle artifacts.
+      - name: Generate combined SBOM
+        run: |
+          node scripts/release/generate-sbom.mjs \
+            --out dist/release/varve-${{ needs.preflight.outputs.version }}-sbom.cdx.json \
+            --scope all-platforms
+
+      - name: Validate SBOMs
+        run: |
+          node scripts/release/validate-sbom.mjs dist/release/*.cdx.json
 
       - name: Verify artifacts against the manifest
+        run: |
+          node scripts/release/verify-artifacts.mjs \
+            --dir dist/release \
+            --expect-version ${{ needs.preflight.outputs.version }}
+
+      # The checksum file is generated LAST, after every artifact is in place,
+      # so it describes the exact bytes about to be uploaded. It covers every
+      # public asset except itself: installers, release-manifest.json, SBOMs.
+      - name: Generate final SHA256SUMS.txt
+        run: |
+          node scripts/release/generate-final-checksums.mjs --dir dist/release
+
+      - name: Final verification (checksums vs bytes on disk)
         run: |
           node scripts/release/verify-artifacts.mjs \
             --dir dist/release \
@@ -449,15 +498,31 @@ jobs:
           files: dist/release/*
           fail_on_unmatched_files: true
 
+      # The last gate before a human can publish: download the draft's assets
+      # and recompute every hash from the bytes GitHub actually serves. A
+      # truncated or substituted upload fails here, not after publication.
+      - name: Download and verify the uploaded bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p verify-download
+          gh release download "${{ needs.preflight.outputs.tag }}" \
+            --dir verify-download --pattern '*'
+          node scripts/release/verify-downloaded.mjs \
+            --dir verify-download \
+            --checksums dist/release/SHA256SUMS.txt
+
       - name: Summary
         run: |
+          SIGNED="$(node -e "const m=require('./dist/release/release-manifest.json');process.stdout.write(String(m.signed === true))")"
           {
             echo "### Draft release created"
             echo ""
             echo "- **Tag:** ${{ needs.preflight.outputs.tag }}"
             echo "- **Version:** ${{ needs.preflight.outputs.version }}"
             echo "- **Channel:** ${{ needs.preflight.outputs.channel }}"
-            echo "- **Signed:** no"
+            echo "- **Signed:** ${SIGNED}"
+            echo "- **Upload bytes verified:** yes"
             echo ""
             echo "Smoke-test the artifacts, then run the \`publish\` job to make it public."
           } >> "$GITHUB_STEP_SUMMARY"

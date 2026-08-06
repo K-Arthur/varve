@@ -7,5 +7,6 @@
       "@/*": ["./src/*"],
       "@varve/ui": ["../../packages/ui/src"]
     }
-  }
+  },
+  "exclude": ["dist", "dist-root", "node_modules", "tests"]
 }

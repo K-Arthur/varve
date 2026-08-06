@@ -189,6 +189,180 @@ function validateWorkflowStructure(content, filename) {
   return { valid: errors.length === 0, errors };
 }
 
+/**
+ * Varve-specific workflow rules, checked with line scanning (consistent with
+ * the heuristic YAML checker above — js-yaml is not resolvable from the root).
+ *
+ * These are regression guards for failure modes this repo has actually hit or
+ * must never hit:
+ *
+ *   - release.yml gate ordering: the desktop crate's `tauri::generate_context!`
+ *     reads `frontendDist` and hard-fails when apps/desktop/dist does not
+ *     exist. Any workflow that compiles the desktop crate MUST build the
+ *     frontend first (build.yml documents the original failure).
+ *   - website-deploy.yml: least-privilege permissions (no `actions: write`),
+ *     a `release: published` trigger, and a Pages artifact that contains the
+ *     built site.
+ *   - No workflow that can run on `pull_request` may publish releases or
+ *     upload release assets (a PR-triggered workflow has no business touching
+ *     releases, and a forked-PR context must never hold release write tokens).
+ */
+function validateVarveRules(content, filename) {
+  const errors = [];
+  const name = filename.split('/').pop();
+
+  const stepBlocks = extractStepBlocks(content);
+
+  if (name === 'release.yml') {
+    const gateSteps = stepBlocks.gate ?? [];
+    const frontendIdx = gateSteps.findIndex(
+      (s) => s.name.includes('frontend') && /pnpm build/.test(s.run),
+    );
+    const desktopCompileIdx = gateSteps.findIndex(
+      (s) => /cargo (test|clippy|build|run)/.test(s.run) && s.run.includes('src-tauri'),
+    );
+    if (frontendIdx === -1) {
+      errors.push(
+        'release.yml gate job: missing "Build frontend" step before desktop cargo tests ' +
+          '(tauri::generate_context!() requires apps/desktop/dist to exist)',
+      );
+    } else if (desktopCompileIdx === -1 || frontendIdx > desktopCompileIdx) {
+      errors.push(
+        'release.yml gate job: desktop compilation must come AFTER the frontend build ' +
+          'step (generate_context!() reads frontendDist at compile time)',
+      );
+    }
+  }
+
+  if (name === 'website-deploy.yml') {
+    const perms = content.match(/permissions:\n(?: {2}\w[^\n]*\n?)*/);
+    if (perms && /\bactions:\s*write\b/.test(perms[0])) {
+      errors.push('website-deploy.yml: `actions: write` is not needed for Pages deployment');
+    }
+    if (!/release:\s*\n\s+types:\s*(\[[^\]]*published|[\s\S]*?-\s+published)/.test(content)) {
+      errors.push(
+        'website-deploy.yml: missing `release: types: [published]` trigger — the download ' +
+          'page must redeploy when a release is published',
+      );
+    }
+    if (!/-\s*['"]?scripts\/release/.test(content)) {
+      errors.push(
+        'website-deploy.yml: missing scripts/release/** path trigger — release-manifest ' +
+          'generation changes must redeploy the site',
+      );
+    }
+    const pagesUpload = content.match(/upload-pages-artifact@[0-9a-f]{40}[\s\S]*?path:\s*(\S+)/);
+    if (pagesUpload && !pagesUpload[1].includes('dist')) {
+      errors.push(
+        `website-deploy.yml: Pages artifact path ${pagesUpload[1]} does not look like a build output`,
+      );
+    }
+    const uploadIdx = content.indexOf('upload-pages-artifact');
+    const buildIdx = content.indexOf('@varve/website build');
+    if (uploadIdx !== -1 && (buildIdx === -1 || buildIdx > uploadIdx)) {
+      errors.push(
+        'website-deploy.yml: the website must be built (pnpm --filter @varve/website build) ' +
+          'before its output is uploaded to Pages',
+      );
+    }
+  }
+
+  if (/on:[\s\S]*?pull_request/.test(content)) {
+    if (/action-gh-release@[0-9a-f]{40}/.test(content)) {
+      errors.push(
+        `${name}: uses action-gh-release but can run on pull_request — release publication ` +
+          'must never be possible from a PR-triggered workflow',
+      );
+    }
+    if (/gh release (create|edit|upload|delete)/.test(content)) {
+      errors.push(
+        `${name}: calls \`gh release ...\` but can run on pull_request — release writes ` +
+          'must never be possible from a PR-triggered workflow',
+      );
+    }
+  }
+
+  return errors;
+}
+
+export { validateVarveRules };
+
+/**
+ * Extract `steps:` entries per job as {name, run} pairs, line-scanned.
+ * Handles steps defined with `- name:` plus `run:` or `uses:` (name may be
+ * absent; run is the single source of truth for ordering checks).
+ */
+export function extractStepBlocks(content) {
+  const jobs = {};
+  const lines = content.split('\n');
+  let currentJob = null;
+  let currentStep = null;
+  let inSteps = false;
+
+  const flush = () => {
+    if (currentStep && currentJob) {
+      jobs[currentJob] ??= [];
+      jobs[currentJob].push(currentStep);
+    }
+    currentStep = null;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const jobMatch = line.match(/^ {2}(\S[^:]*):\s*$/);
+    if (jobMatch && !line.startsWith('    ') && !line.startsWith('#')) {
+      flush();
+      inSteps = false;
+      currentJob = jobMatch[1];
+      jobs[currentJob] ??= [];
+      continue;
+    }
+    if (currentJob && /^\s+steps:\s*$/.test(line)) {
+      flush();
+      inSteps = true;
+      continue;
+    }
+    if (inSteps) {
+      if (/^\s{4,6}-\s+name:\s*(.+)$/.test(line)) {
+        flush();
+        currentStep = { name: line.match(/^\s{4,6}-\s+name:\s*(.+)$/)[1], run: '' };
+        continue;
+      }
+      if (/^\s{4,6}-\s+uses:\s*(\S+)/.test(line)) {
+        flush();
+        currentStep = { name: line.match(/^\s{4,6}-\s+uses:\s*(\S+)/)[1], run: '' };
+        continue;
+      }
+      if (/^\s{4,6}-\s+run:\s*(\|?\s*)$/.test(line) && currentStep) {
+        // Multi-line block run: collect until the next step or dedent.
+        const body = [];
+        let j = i + 1;
+        while (j < lines.length && /^\s{6,}\S/.test(lines[j])) {
+          body.push(lines[j].trim());
+          j++;
+        }
+        currentStep.run = body.join('\n');
+        i = j - 1;
+        continue;
+      }
+      if (/^\s{4,6}-\s+run:\s*(.+)$/.test(line)) {
+        if (!currentStep) currentStep = { name: '', run: '' };
+        currentStep.run = line.match(/^\s{4,6}-\s+run:\s*(.+)$/)[1];
+        continue;
+      }
+      if (/^\s{6,}\S/.test(line) && currentStep && !currentStep.run) {
+        currentStep.run += line.trim();
+      }
+      if (/^\s{2,4}\S/.test(line)) {
+        // New section under this job (with, env, etc.) — keep the step open.
+        if (currentStep && !/^\s+steps:/.test(line)) continue;
+      }
+    }
+  }
+  flush();
+  return jobs;
+}
+
 function validateWorkflow(filename) {
   const content = readFileSync(filename, 'utf8');
 
@@ -202,6 +376,12 @@ function validateWorkflow(filename) {
   const structureResult = validateWorkflowStructure(content, filename);
   if (!structureResult.valid) {
     return { valid: false, errors: structureResult.errors };
+  }
+
+  // Varve-specific regression guards
+  const varveErrors = validateVarveRules(content, filename);
+  if (varveErrors.length > 0) {
+    return { valid: false, errors: varveErrors };
   }
 
   return { valid: true, errors: [] };
