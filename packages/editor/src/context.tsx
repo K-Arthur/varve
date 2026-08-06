@@ -121,6 +121,7 @@ import type {
   NodeId,
   Slot,
   SyncResult,
+  TableModel,
 } from '@varve/scene';
 import {
   type ArrangeOp,
@@ -205,6 +206,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTableNode,
   makeTextNode,
   markMaskStale,
   moveGuide as moveGuideDoc,
@@ -387,6 +389,7 @@ import type {
   RulerMode,
   SelectionOrigin,
   SessionMeta,
+  TableEditState,
   ToolId,
 } from './context/types';
 import {
@@ -453,6 +456,7 @@ import {
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import { createInitialMotionState } from './state/motion-state';
+import { applyTableModelOp, updateTableCellTextInDoc } from './table/tableDocOps';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
@@ -585,6 +589,14 @@ export interface EditorContextValue {
   /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
   setTool: (t: ToolId) => void;
+  /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
+  /** ADR-0016: open the Create Table From Data dialog (clipboard parse). */
+  openCreateTableFromDataDialog?: () => void;
+  setTableEdit: (state: TableEditState | null) => void;
+  /** ADR-0016: commit cell text through the normal undoable doc path. */
+  updateTableCellText: (cellId: string, text: string) => void;
+  /** ADR-0016: run an immutable table-model op on the owning node (undoable). */
+  tableOp: (tableId: string, op: (model: TableModel) => TableModel) => void;
   /** Commit zoom, pan, and rotation as one camera transaction. */
   setCamera: (camera: Camera) => void;
   setZoom: (z: number) => void;
@@ -2142,6 +2154,8 @@ export function EditorProvider({
       selectedGuideId: null,
       currentPageId: null,
       isolatedNodeId: null,
+      createTableFromDataOpen: false,
+      tableEdit: null,
       showOriginalBgNodeId: null,
       maskPreviewMode: 'checkerboard' as const,
       sectionVisibility: loadSettings().sections.sections,
@@ -3060,6 +3074,23 @@ export function EditorProvider({
         });
       },
 
+      // ADR-0016: table edit session + undoable table model ops.
+      setTableEdit: (tableEdit: import('./context/types').TableEditState | null) => {
+        patch({ tableEdit });
+      },
+      openCreateTableFromDataDialog: () => {
+        patch({ createTableFromDataOpen: true });
+      },
+      updateTableCellText: (cellId: string, text: string) => {
+        updateDoc((doc) => updateTableCellTextInDoc(doc, cellId, text));
+      },
+      tableOp: (
+        tableId: string,
+        op: (model: import('@varve/scene').TableModel) => import('@varve/scene').TableModel,
+      ) => {
+        updateDoc((doc) => applyTableModelOp(doc, tableId, op));
+      },
+
       // F1: additive = shift+click behaviour.
       // Read from stateRef.current.selection (not the closed-over state.selection)
       // so callers that batch setSelection + toggleSelection (e.g. selectAll)
@@ -3208,7 +3239,22 @@ export function EditorProvider({
 
           let node: SceneNode;
           let isFrame = false;
-          if (activeTool === 'frame' || activeTool === 'slice') {
+          if (activeTool === 'table') {
+            // ADR-0016: a native table with a data-backed model, header row,
+            // and fraction-filled columns sized to the dragged rect.
+            const w = Math.max(80, size?.w ?? 480);
+            const h = Math.max(60, size?.h ?? 240);
+            node = makeTableNode(id, {
+              name: 'Table',
+              transform,
+              rows: 4,
+              columns: 4,
+              headerRows: 1,
+              w,
+              h,
+              columnSizing: { kind: 'fraction', value: 1 },
+            });
+          } else if (activeTool === 'frame' || activeTool === 'slice') {
             node = makeFrameNode(id, {
               name: 'Node',
               transform,

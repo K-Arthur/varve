@@ -773,6 +773,9 @@ export type {
   StrokeAlign,
   StrokeCap,
   StrokeJoin,
+  TableCellIR,
+  TableCellTextIR,
+  TableShape,
   TextShaping,
 } from './types';
 export type { BidiClass, BidiDirection, BidiParagraph, BidiRun } from './unicode/bidi';

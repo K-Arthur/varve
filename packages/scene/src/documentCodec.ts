@@ -27,10 +27,10 @@ import {
   validateRasterMaskAsset,
   validateRasterMaskDocument,
 } from './masks';
-import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
 import { createEmptySelectionSetsData } from './selectionSet';
-import { emptyTableModel, normalizeTableModelDefensively } from './tableOps';
+import { emptyTableModel } from './table';
+import { normalizeTableModelDefensively } from './tableOps';
 import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
@@ -65,7 +65,6 @@ export interface DocumentClosure {
   /** Icon assets referenced by the closure's nodes — see ./iconAsset.ts. */
   iconAssets?: Document['iconAssets'];
   /** Mockup template assets referenced by the closure's nodes (v2.16+). */
-  mockupTemplates?: Document['mockupTemplates'];
 }
 
 function warning(
@@ -690,7 +689,6 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
   document = sanitizeIconAssetState(document, warnings);
-  document = sanitizeMockupState(document, warnings);
   document = normalizeDocumentEffects(document);
   if (!document.selectionSets) {
     document = { ...document, selectionSets: createEmptySelectionSetsData() };
@@ -746,21 +744,12 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     const asset = assetId ? doc.iconAssets?.[assetId] : undefined;
     if (assetId && asset) iconAssets[assetId] = asset;
   }
-  const mockupTemplates: NonNullable<Document['mockupTemplates']> = {};
-  for (const node of Object.values(nodes)) {
-    if (node.kind !== 'frame' || !node.mockup) continue;
-    const template = node.mockup.templateId
-      ? doc.mockupTemplates?.[node.mockup.templateId]
-      : undefined;
-    if (template) mockupTemplates[template.id] = template;
-  }
   return {
     nodeIds,
     nodes,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
     assets: Object.keys(assets).length > 0 ? assets : undefined,
     iconAssets: Object.keys(iconAssets).length > 0 ? iconAssets : undefined,
-    mockupTemplates: Object.keys(mockupTemplates).length > 0 ? mockupTemplates : undefined,
   };
 }
 
