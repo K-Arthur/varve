@@ -98,6 +98,7 @@ const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
 ];
 
 const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
+  { id: 'table', groupStart: true },
   { id: 'line' },
   { id: 'arrow' },
   { id: 'text' },
@@ -255,8 +256,15 @@ function DrawingToolbarControls() {
 }
 
 export function FloatingToolbar() {
-  const { state, setTool, booleanOp, selectedNodes, workspaceMode, setTouchMultiSelect } =
-    useEditor();
+  const {
+    state,
+    setTool,
+    booleanOp,
+    selectedNodes,
+    workspaceMode,
+    setTouchMultiSelect,
+    openCreateTableFromDataDialog,
+  } = useEditor();
   const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
   const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
@@ -309,6 +317,18 @@ export function FloatingToolbar() {
       <div className="floating-toolbar" data-testid="toolbar">
         <TooltipProvider>
           <Toolbar label="Drawing tools">
+            {state.tool === 'table' && (
+              <button
+                type="button"
+                className="floating-toolbar__btn floating-toolbar__btn--group-start"
+                aria-label="Table from data"
+                title="Create a table from pasted spreadsheet data"
+                data-tool="tableFromData"
+                onClick={() => openCreateTableFromDataDialog?.()}
+              >
+                <Icon name="FileSpreadsheet" size={16} />
+              </button>
+            )}
             <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
               <button
                 type="button"
