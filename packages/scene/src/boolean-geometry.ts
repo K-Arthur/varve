@@ -106,6 +106,15 @@ export function shapeToPolygon(
       ];
       break;
     }
+    case 'table': {
+      poly = [
+        { x: shape.x, y: shape.y },
+        { x: shape.x + shape.w, y: shape.y },
+        { x: shape.x + shape.w, y: shape.y + shape.h },
+        { x: shape.x, y: shape.y + shape.h },
+      ];
+      break;
+    }
     case 'ellipse': {
       const n = 48;
       poly = [];

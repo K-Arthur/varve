@@ -39,6 +39,7 @@ describe('visitNode', () => {
       adjustment: () => 'adjustment',
       path: () => 'path',
       rasterLayer: () => 'rasterLayer',
+      table: () => 'table',
     });
     expect(result).toBe(expected);
   });
@@ -53,6 +54,7 @@ describe('visitNode', () => {
       adjustment: () => 'nope',
       path: () => 'nope',
       rasterLayer: () => 'nope',
+      table: () => 'nope',
     });
     expect(result).toBe('s1');
   });
@@ -66,6 +68,7 @@ describe('visitNode', () => {
       adjustment: () => 'nope',
       path: () => 'nope',
       rasterLayer: () => 'nope',
+      table: () => 'nope',
     });
     expect(result).toBe('shape');
   });
@@ -81,6 +84,7 @@ describe('visitNode', () => {
         adjustment: () => '',
         path: () => '',
         rasterLayer: () => '',
+        table: () => '',
       }),
     ).toThrow('Unhandled node kind');
   });

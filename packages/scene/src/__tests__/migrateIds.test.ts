@@ -158,7 +158,7 @@ describe('migrateLegacyIds', () => {
 
   it('remaps variable ids and bindings including expression references', () => {
     const doc = legacyDoc();
-    const node = doc.nodes.n1! as Document.nodes[string];
+    const node = doc.nodes.n1! as Document['nodes'][string];
     doc.nodes.n1 = {
       ...node,
       bindings: { fill: { variableId: 'v1', expression: '{v1} * 2' } },

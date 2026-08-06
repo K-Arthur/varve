@@ -227,15 +227,13 @@ describe('variable-system baseline', () => {
       ...doc,
       variableStore: s2,
       nodes: {
+        ...doc.nodes,
         n1: {
-          id: 'n1',
+          ...(doc.nodes.n1 as import('../types').ShapeNode),
           name: 'Box',
-          kind: 'shape' as const,
           bindings: { fill: { variableId: variable.id } },
         },
       },
-      rootChildren: ['n1'],
-      nextId: 2,
     };
     const cleaned = deleteVariableFromDocument(withNode, variable.id);
     expect(cleaned.variableStore?.variables[variable.id]).toBeUndefined();
