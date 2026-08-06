@@ -17,6 +17,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/ci-health.test.mjs && node scripts/pin-github-actions.test.mjs && bash scripts/test-ci-shell-scripts.sh",
     "bench:canvas": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/replay.bench.ts",
+    "bench:table": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/tableReplay.bench.ts",
+    "bench:table-layout": "vitest run --config vitest.bench.config.ts packages/scene/src/__benchmarks__/tableLayout.bench.ts",
     "bench": "vitest bench --run --pool=forks",
     "typecheck": "pnpm -r --filter \"./packages/*\" typecheck && pnpm typecheck:e2e",
     "typecheck:e2e": "tsc -p tests/e2e/tsconfig.json --noEmit",
