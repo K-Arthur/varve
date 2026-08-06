@@ -35,6 +35,7 @@ import {
 import type { Document } from './document';
 import { buildParentIndexMap, getParent } from './document';
 import { nodeLocalBounds } from './nodeBounds';
+import { resolvePagePlacement, resolveSpreadPlacement } from './pasteboardLayout';
 import type { NodeId, SceneNode } from './types';
 
 // ── Re-exports (canonical location) ──────────────────────────────────────────
@@ -478,4 +479,77 @@ export function computeReparentPosition(
   const newTransform = computeReparentTransform(doc, nodeId, newParentId, parentIndex);
   if (!newTransform) return null;
   return [newTransform[4], newTransform[5]];
+}
+
+// ── Page and spread coordinate spaces (ADR-0123) ──────────────────────────────
+
+// Bounds helpers are canonical in pasteboardLayout (placement module);
+// re-exported here so all coordinate conversions live under one namespace.
+export { pageBoundsInWorld, spreadBoundsInWorld } from './pasteboardLayout';
+
+/**
+ * Convert a point in page-local coordinates (page trim origin at 0,0) to
+ * world/pasteboard coordinates. Uses the page's resolved placement; page
+ * placement is a translation only.
+ *
+ * Returns null when the page does not exist.
+ */
+export function pageToWorld(doc: Document, pageId: NodeId, point: Point): Point | null {
+  const placement = resolvePagePlacement(doc, pageId);
+  if (!placement) return null;
+  return [point[0] + placement.x, point[1] + placement.y];
+}
+
+/**
+ * Convert a world/pasteboard point to page-local coordinates. Inverse of
+ * {@link pageToWorld}. Returns null when the page does not exist.
+ */
+export function worldToPage(doc: Document, pageId: NodeId, point: Point): Point | null {
+  const placement = resolvePagePlacement(doc, pageId);
+  if (!placement) return null;
+  return [point[0] - placement.x, point[1] - placement.y];
+}
+
+/**
+ * Convert a point in spread-local coordinates (spread origin at 0,0) to
+ * world/pasteboard coordinates. The spread origin is the spread's explicit
+ * placement, or the first member page's placement.
+ *
+ * Spread ids fall back to single-page spreads: when no spread with the given
+ * id exists, the id is treated as a page id (pre-spread documents).
+ *
+ * Returns null when neither a spread nor a page matches.
+ */
+export function spreadToWorld(doc: Document, spreadId: NodeId, point: Point): Point | null {
+  const placement = resolveSpreadPlacement(doc, spreadId);
+  if (placement) return [point[0] + placement.x, point[1] + placement.y];
+  return pageToWorld(doc, spreadId, point);
+}
+
+/**
+ * Convert a world/pasteboard point to spread-local coordinates. Inverse of
+ * {@link spreadToWorld}.
+ */
+export function worldToSpread(doc: Document, spreadId: NodeId, point: Point): Point | null {
+  const placement = resolveSpreadPlacement(doc, spreadId);
+  if (placement) return [point[0] - placement.x, point[1] - placement.y];
+  return worldToPage(doc, spreadId, point);
+}
+
+/**
+ * World-space bounds of a node that sits inside a page's content root,
+ * equivalent to `nodeWorldBounds` on the placed scene (page placement is a
+ * pure translation, so content world bounds shift by the placement).
+ */
+export function nodeBoundsOnPage(
+  doc: Document,
+  pageId: NodeId,
+  nodeId: NodeId,
+  parentIndex?: Map<NodeId, NodeId>,
+): { x: number; y: number; w: number; h: number } | null {
+  const bounds = nodeWorldBounds(doc, nodeId, parentIndex);
+  if (!bounds) return null;
+  const placement = resolvePagePlacement(doc, pageId);
+  if (!placement) return bounds;
+  return { x: bounds.x + placement.x, y: bounds.y + placement.y, w: bounds.w, h: bounds.h };
 }
