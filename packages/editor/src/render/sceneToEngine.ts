@@ -28,6 +28,7 @@ import {
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { maskRenderUrl } from '../backgroundRemoval/maskRenderCache';
 import { nodeWorldTransform } from '../scene/world';
+import { compileTableToEngineNode } from './tableCompile';
 
 export interface SceneNodeConversionOptions {
   /** Preview-only bypass for comparing a background-removal source image. */
@@ -173,6 +174,11 @@ export function sceneNodeToEngineNode(
         tolerance: 4,
       },
     };
+  }
+
+  if (node.kind === 'table') {
+    // V2.15+: native tables compile to a single engine item (ADR-0016 D3).
+    return compileTableToEngineNode(node, { width: node.w ?? 480, height: node.h ?? 240 });
   }
 
   if (node.kind === 'frame') {

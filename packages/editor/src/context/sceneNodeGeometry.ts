@@ -65,6 +65,8 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'shape':
     case 'connector':
     case 'comment':
+    case 'table':
+      return { kind: 'rect', x: 0, y: 0, w: 480, h: 240 };
     case 'backgroundRemoval':
     case 'clone':
     case 'contentAwareFill':
