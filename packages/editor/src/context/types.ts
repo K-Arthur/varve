@@ -37,6 +37,8 @@ export interface TableEditState {
   activeCellId: string | null;
   /** Cell with the inline text editor open. */
   editingCellId: string | null;
+  /** Range anchor for shift-extended selections. */
+  anchorCellId: string | null;
 }
 
 export * from './selectionState';

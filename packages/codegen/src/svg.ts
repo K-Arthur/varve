@@ -19,8 +19,8 @@ import type {
   TextNode,
   VectorMaskData,
 } from '@varve/scene';
-import { isImageShape, resolveMask } from '@varve/scene';
-import { applyAffine, multiplyAffine } from '@varve/shared';
+import { computeTableLayout, isImageShape, resolveMask } from '@varve/scene';
+import { applyAffine, DEFAULT_ARTWORK_FONT_FAMILY, multiplyAffine, textWrap } from '@varve/shared';
 import {
   adjustmentStackTargetGaps,
   affineToSvg,
@@ -32,6 +32,12 @@ import {
   svgCompositing,
 } from './shared';
 import type { TargetGap } from './types';
+
+/** Deterministic number formatting for SVG output. */
+function fmt(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  return (Math.round(n * 100) / 100).toString();
+}
 
 function shapeBounds(shape: import('@varve/engine').Shape): {
   x: number;
@@ -1090,6 +1096,82 @@ ${shapeInner}`
         }
       }
       return `${indent}<g${groupAttrs}>\n${children}\n${indent}</g>`;
+    }
+    case 'table': {
+      // ADR-0016: native tables export as flattened cells (SVG has no table
+      // semantics); geometry and wrapping come from the shared deterministic
+      // layout so export matches the canvas exactly.
+      const tableNode = node as import('@varve/scene').TableNode;
+      const layout = computeTableLayout(tableNode.table, tableNode.w ?? 480);
+      const out: string[] = [`${indent}<g${withTransform}${compositingSuffix}>`];
+      const app = tableNode.table.appearance;
+      const padding = app.cellPadding ?? 8;
+      const fontSize = 13;
+      for (const cell of layout.cellLayouts) {
+        const fill = cell.isHeader
+          ? app.headerFill
+          : cell.zebra && app.zebra
+            ? app.alternateFill
+            : app.bodyFill;
+        out.push(
+          `${indent}  <rect x="${fmt(cell.x)}" y="${fmt(cell.y)}" width="${fmt(cell.w)}" height="${fmt(cell.h)}" fill="${rgba(fill)}" />`,
+        );
+        if (cell.content.kind === 'text' && cell.content.text) {
+          const color = cell.isHeader ? app.headerText : app.bodyText;
+          const weight = cell.isHeader ? 600 : 400;
+          const align = cell.style?.alignH ?? (cell.isHeader ? 'center' : 'left');
+          const anchor = align === 'center' ? 'middle' : align === 'right' ? 'end' : 'start';
+          const textX =
+            align === 'center'
+              ? cell.x + cell.w / 2
+              : align === 'right'
+                ? cell.x + cell.w - padding
+                : cell.x + padding;
+          const lines = textWrap(cell.content.text, Math.max(8, cell.w - padding * 2), {
+            fontSize,
+            fontFamily: DEFAULT_ARTWORK_FONT_FAMILY,
+            fontWeight: weight,
+            lineHeight: 1.35,
+          });
+          const lineH = fontSize * 1.35;
+          const totalH = lines.length * lineH;
+          const alignV = cell.style?.alignV ?? 'middle';
+          let textY = cell.y + padding + lineH - 3;
+          if (alignV === 'middle')
+            textY = cell.y + Math.max(padding, (cell.h - totalH) / 2) + lineH - 3;
+          else if (alignV === 'bottom') textY = cell.y + cell.h - padding - totalH + lineH - 3;
+          for (const line of lines) {
+            out.push(
+              `${indent}  <text x="${fmt(textX)}" y="${fmt(textY)}" fill="${rgba(color)}" font-size="${fontSize}" font-family="${escapeXml(DEFAULT_ARTWORK_FONT_FAMILY)}" font-weight="${weight}" text-anchor="${anchor}">${escapeXml(line.text)}</text>`,
+            );
+            textY += lineH;
+          }
+        }
+      }
+      // Inner dividers + outer border.
+      const divider = app.dividerWidth;
+      if (divider > 0) {
+        const half = divider / 2;
+        for (let i = 1; i < layout.colPositions.length; i++) {
+          const x = layout.colPositions[i] ?? 0;
+          out.push(
+            `${indent}  <rect x="${fmt(x - half)}" y="0" width="${fmt(divider)}" height="${fmt(layout.totalH)}" fill="${rgba(app.dividerColor)}" />`,
+          );
+        }
+        for (let i = 1; i < layout.rowPositions.length; i++) {
+          const y = layout.rowPositions[i] ?? 0;
+          out.push(
+            `${indent}  <rect x="0" y="${fmt(y - half)}" width="${fmt(layout.totalW)}" height="${fmt(divider)}" fill="${rgba(app.dividerColor)}" />`,
+          );
+        }
+      }
+      if (app.borderWidth > 0) {
+        out.push(
+          `${indent}  <rect x="0" y="0" width="${fmt(tableNode.w)}" height="${fmt(tableNode.h)}" fill="none" stroke="${rgba(app.borderColor)}" stroke-width="${fmt(app.borderWidth)}" />`,
+        );
+      }
+      out.push(`${indent}</g>`);
+      return out.join('\n');
     }
     case 'adjustment': {
       const asset = rasterAssets?.[node.id];

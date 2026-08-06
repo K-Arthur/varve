@@ -22,10 +22,12 @@ import type {
   SceneNode,
 } from '@varve/scene';
 import {
+  alphaModifierLabel,
   createEmbeddedAsset,
   gradientFill,
   imageFill,
   patternFill,
+  resolveBoundTokenColor,
   resolveNodeFills,
   solidFill,
 } from '@varve/scene';
@@ -42,6 +44,7 @@ import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
+import { VariableModifierPopover } from '../controls/VariableModifierPopover';
 import { commonValue, isMixed } from '../selection/selectionState';
 import { FillContrastIndicator } from './FillContrastIndicator';
 import { ImageFillControls } from './ImageFillControls';
@@ -49,6 +52,14 @@ import { PatternFillControls } from './PatternFillControls';
 
 export interface FillSectionProps {
   nodes: SceneNode[];
+}
+
+interface FillModifierState {
+  binding: import('@varve/scene').PropertyBinding;
+  tokenColor: import('@varve/scene').ManagedColor;
+  modifiers: import('@varve/scene').AlphaModifier[];
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  variableName: string;
 }
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
@@ -114,6 +125,8 @@ export function FillSection({ nodes }: FillSectionProps) {
     announce,
   } = editor;
   const [newFillType, setNewFillType] = useState<FillType>('solid');
+  const [fillModifierState, setFillModifierState] = useState<FillModifierState | null>(null);
+  const modifierAnchorRef = useRef<HTMLButtonElement | null>(null);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const fills = useMemo(() => {
@@ -201,6 +214,29 @@ export function FillSection({ nodes }: FillSectionProps) {
             canMoveDown={i < fills.length - 1}
             onEditStart={beginTransaction}
             onEditEnd={commitTransaction}
+            binding={
+              i === 0
+                ? (nodes[0]?.bindings?.fill as import('@varve/scene').PropertyBinding | undefined)
+                : undefined
+            }
+            modifierAnchorRef={modifierAnchorRef}
+            onOpenModifier={() => {
+              const binding = nodes[0]?.bindings?.fill;
+              if (!binding) return;
+              const store = docVariableStore(editor.state.document);
+              const tokenColor = resolveBoundTokenColor(store, binding);
+              if (!tokenColor) return;
+              const variableName = store.variables[binding.variableId]?.name ?? binding.variableId;
+              setFillModifierState({
+                binding,
+                tokenColor,
+                modifiers: (binding.modifiers ?? []).filter(
+                  (m): m is import('@varve/scene').AlphaModifier => m.kind === 'alpha',
+                ),
+                anchorRef: modifierAnchorRef,
+                variableName,
+              });
+            }}
           />
         ))}
       </div>
@@ -235,6 +271,24 @@ export function FillSection({ nodes }: FillSectionProps) {
           triggerRef={bindingTriggerRef}
         />
       )}
+      {fillModifierState && (
+        <VariableModifierPopover
+          tokenColor={fillModifierState.tokenColor}
+          modifiers={fillModifierState.modifiers}
+          anchorRef={fillModifierState.anchorRef}
+          onCommit={(modifiers) => {
+            const binding = fillModifierState.binding;
+            if (modifiers) {
+              editor.setSelectedBinding('fill', { ...binding, modifiers });
+            } else {
+              const { modifiers: _drop, ...rest } = binding;
+              editor.setSelectedBinding('fill', rest);
+            }
+            editor.announce(modifiers ? 'Alpha modifier applied' : 'Alpha modifier reset');
+          }}
+          onClose={() => setFillModifierState(null)}
+        />
+      )}
     </DisclosureSection>
   );
 }
@@ -250,6 +304,10 @@ interface FillRowProps {
   canMoveDown: boolean;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  /** V2.15+: the node's fill variable binding (badge + modifier popover). */
+  binding?: import('@varve/scene').PropertyBinding;
+  modifierAnchorRef?: React.RefObject<HTMLButtonElement | null>;
+  onOpenModifier?: () => void;
 }
 
 function FillRow({
@@ -263,9 +321,20 @@ function FillRow({
   canMoveDown,
   onEditStart,
   onEditEnd,
+  binding,
+  modifierAnchorRef,
+  onOpenModifier,
 }: FillRowProps) {
   const editor = useEditor();
   const label = index === 0 ? 'Fill' : `Fill ${index + 1}`;
+  const bindingStore = docVariableStore(editor.state.document);
+  const bindingVariableName = binding
+    ? (bindingStore.variables[binding.variableId]?.name ?? binding.variableId)
+    : null;
+  const bindingModifierLabel = binding?.modifiers?.[0]
+    ? alphaModifierLabel(binding.modifiers[0])
+    : null;
+  const bindingValid = binding ? resolveBoundTokenColor(bindingStore, binding) !== undefined : true;
 
   const visibleRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.visible ?? true);
   const typeRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.type ?? 'solid');
@@ -367,6 +436,59 @@ function FillRow({
                 : undefined
             }
           />
+        )}
+        {!binding && (
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-label="Link fill to a variable"
+            title="Link fill to a variable"
+            onClick={() => editor.setBindingField('fill')}
+          >
+            <Icon name="Link" label={undefined} size="0.9em" />
+          </button>
+        )}
+        {binding && onOpenModifier && (
+          <button
+            type="button"
+            ref={modifierAnchorRef}
+            className="varve-binding-badge"
+            aria-label={
+              bindingValid
+                ? 'Linked to ' +
+                  (bindingVariableName ?? '') +
+                  (bindingModifierLabel ? ', alpha ' + bindingModifierLabel : '')
+                : 'Variable ' + (bindingVariableName ?? '') + ' is missing or invalid'
+            }
+            title={
+              bindingValid
+                ? 'Linked to $' +
+                  bindingVariableName +
+                  (bindingModifierLabel ? ' · ' + bindingModifierLabel : '')
+                : 'Linked variable is missing or invalid — binding preserved'
+            }
+            style={{
+              fontSize: 11,
+              padding: '2px 6px',
+              borderRadius: 4,
+              border:
+                '1px solid ' +
+                (bindingValid ? 'var(--color-accent, #39d0c6)' : 'var(--color-danger, #d64545)'),
+              color: bindingValid ? 'var(--color-text, #292d36)' : 'var(--color-danger, #d64545)',
+              background: bindingValid
+                ? 'var(--color-surface-raised, #fff)'
+                : 'rgba(214,69,69,0.08)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              cursor: 'pointer',
+            }}
+            onClick={onOpenModifier}
+          >
+            <span>${bindingVariableName}</span>
+            {bindingModifierLabel && <strong>{bindingModifierLabel}</strong>}
+            {!bindingValid && <span>(invalid)</span>}
+          </button>
         )}
         {fill.type === 'solid' && fill.color && fill.color.space === 'rgb' && (
           <Tooltip label="Generate harmony colors">

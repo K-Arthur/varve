@@ -41,6 +41,38 @@ export interface FeatureOwnership {
 }
 
 export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
+  table: {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'frequent',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale: 'Native table structure, headers, frozen regions, density',
+  },
+  'table-cells': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'frequent',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale: 'Cell text, alignment, merge/split during table edit sessions',
+  },
+  'table-columns': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'frequent',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale: 'Column width modes and row height modes',
+  },
+  'table-rows': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'frequent',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale: 'Row height modes (alias of table-columns track editor)',
+  },
   'position-size': {
     surface: 'properties',
     scope: 'mixed-selection',
@@ -286,38 +318,6 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale:
       'Mockup composition is a multi-step prototyping workflow that needs its own surface.',
-  },
-  table: {
-    surface: 'properties',
-    scope: 'selection',
-    frequency: 'frequent',
-    complexity: 'moderate',
-    status: 'functional',
-    rationale: 'Native table structure, headers, frozen regions, density',
-  },
-  'table-cells': {
-    surface: 'properties',
-    scope: 'selection',
-    frequency: 'frequent',
-    complexity: 'moderate',
-    status: 'functional',
-    rationale: 'Cell text, alignment, merge/split during table edit sessions',
-  },
-  'table-columns': {
-    surface: 'properties',
-    scope: 'selection',
-    frequency: 'frequent',
-    complexity: 'moderate',
-    status: 'functional',
-    rationale: 'Column width modes and row height modes',
-  },
-  'table-rows': {
-    surface: 'properties',
-    scope: 'selection',
-    frequency: 'frequent',
-    complexity: 'moderate',
-    status: 'functional',
-    rationale: 'Row height modes (alias of table-columns track editor)',
   },
   'blend-images': {
     surface: 'adjustments',

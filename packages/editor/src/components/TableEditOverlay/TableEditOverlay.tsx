@@ -7,10 +7,9 @@
  * the overlay and the painted table always agree.
  */
 
-import { setCellContent, setColumnSizing } from '@varve/scene';
+import { setCellContent, setColumnSizing, TABLE_LAYOUT_MIN_TRACK } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useEditor } from '../../context';
-import { TABLE_LAYOUT_MIN_TRACK } from '../../layout/computeTableLayout';
 import {
   cellAtPoint,
   getTableLayout,
@@ -66,8 +65,9 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
           : moveCursor(tableNode.table, cursor, dir);
       const nextCell = cellsInRange(tableNode.table, next, next)[0];
       if (!nextCell) return;
-      if (extend && tableEdit.cellIds.length > 0) {
-        const anchor = cellCoordinateOf(tableNode.table, tableEdit.cellIds[0]!);
+      if (extend) {
+        const anchorId = tableEdit.anchorCellId ?? tableEdit.cellIds[0] ?? nextCell;
+        const anchor = cellCoordinateOf(tableNode.table, anchorId);
         if (anchor) {
           patchEdit({
             activeCellId: nextCell,
@@ -76,7 +76,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
           return;
         }
       }
-      patchEdit({ activeCellId: nextCell, cellIds: [nextCell] });
+      patchEdit({ activeCellId: nextCell, cellIds: [nextCell], anchorCellId: nextCell });
     },
     [tableNode, tableEdit, patchEdit],
   );
@@ -125,9 +125,10 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
           break;
         case 'Enter': {
           e.preventDefault();
-          const cellId = tableEdit.activeCellId;
+          const firstCell = Object.keys(tableNode.table.cellIndex)[0] ?? null;
+          const cellId = tableEdit.activeCellId ?? tableEdit.cellIds[0] ?? firstCell;
           if (cellId) {
-            patchEdit({ editingCellId: cellId });
+            patchEdit({ activeCellId: cellId, editingCellId: cellId });
             editor.announce('Editing cell');
           }
           break;
@@ -149,8 +150,10 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
           break;
       }
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    // Capture phase: cell navigation must win over the global shortcut
+    // system (shift+arrows are selection shortcuts app-wide).
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [tableEdit, tableNode, moveSelection, clearSelectionCells, patchEdit, editor]);
 
   // Column resize via pointer drag on handle lines.
@@ -191,22 +194,18 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
     (e: React.PointerEvent): void => {
       if (!tableNode || !tableEdit || !worldMat || !layout) return;
       if (dragRef.current) return;
-      const rect = (e.target as HTMLElement).getBoundingClientRect();
-      const local = worldToLocal(
-        worldMat,
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        zoom,
-        pan,
-        cameraRotation,
-      );
-      if (!local) return;
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const world = editor.canvasToWorld(e.clientX - rect.left, e.clientY - rect.top);
+      const local = { x: world.x - (worldMat[4] ?? 0), y: world.y - (worldMat[5] ?? 0) };
       const hit = cellAtPoint(layout, local.x, local.y);
       if (!hit) return;
       const cellId = tableNode.table.cellIndex[`${hit.rowIdx},${hit.columnIdx}`];
       if (!cellId) return;
       if (e.shiftKey && tableEdit.activeCellId) {
-        const anchor = cellCoordinateOf(tableNode.table, tableEdit.activeCellId) ?? {
+        const anchor = cellCoordinateOf(
+          tableNode.table,
+          tableEdit.anchorCellId ?? tableEdit.activeCellId,
+        ) ?? {
           row: hit.rowIdx,
           col: hit.columnIdx,
         };
@@ -214,7 +213,12 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
           cellIds: cellsInRange(tableNode.table, anchor, { row: hit.rowIdx, col: hit.columnIdx }),
         });
       } else {
-        patchEdit({ cellIds: [cellId], activeCellId: cellId, editingCellId: null });
+        patchEdit({
+          cellIds: [cellId],
+          activeCellId: cellId,
+          editingCellId: null,
+          anchorCellId: cellId,
+        });
       }
     },
     [tableNode, tableEdit, worldMat, layout, patchEdit, zoom, pan, cameraRotation],
@@ -343,18 +347,4 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
       </svg>
     </div>
   );
-}
-
-function worldToLocal(
-  worldMat: readonly number[],
-  clientX: number,
-  clientY: number,
-  zoom: number,
-  pan: { x: number; y: number },
-  cameraRotation: number,
-): { x: number; y: number } | null {
-  if (cameraRotation !== 0) return null;
-  const wx = (clientX - pan.x) / zoom;
-  const wy = (clientY - pan.y) / zoom;
-  return { x: wx - (worldMat[4] ?? 0), y: wy - (worldMat[5] ?? 0) };
 }
