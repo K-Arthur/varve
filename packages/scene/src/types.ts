@@ -13,17 +13,11 @@
  * per-corner radius, and stacked-fill type enums. All new fields have safe
  * defaults so existing documents deserialize correctly.
  */
-import type {
-  Adjustment,
-  Affine,
-  PathPoint,
-  Shape,
-  WarpModifier,
-  WarpSettings,
-} from '@varve/engine';
+import type { Adjustment, Affine, PathPoint, Shape } from '@varve/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 import type { VariableModifier } from './modifiers';
+import type { TableModel } from './table';
 
 export type {
   BaselineGrid,
@@ -984,17 +978,6 @@ export interface NodeBase {
    * the node into a plain editable group with no icon semantics.
    */
   iconAssetId?: string;
-  /**
-   * V2.16+: ordered, non-destructive geometry-modifier (warp) stack.
-   *
-   * The canonical source geometry is never rewritten; disabling or removing
-   * these restores the exact source. Controls are normalized to the source
-   * bounds unless a modifier sets `coordinateSpace: 'source-local'`. Only
-   * shape/text/group/frame nodes may carry warps (see warpOps).
-   */
-  warps?: WarpModifier[];
-  /** V2.16+: evaluation settings for the warp stack (quality/strokes/etc). */
-  warpSettings?: WarpSettings;
 }
 
 export interface ShapeNode extends NodeBase {
@@ -1795,6 +1778,8 @@ export type Style = ColorStyle | TextStyle | EffectStyle | LayoutStyleDef;
 /** Extract width from a Shape, returning 0 for non-sizeable shape kinds. */
 export function shapeWidth(shape: Shape): number {
   switch (shape.kind) {
+    case 'table':
+      return shape.w;
     case 'rect':
       return shape.w;
     case 'ellipse':
@@ -1820,6 +1805,8 @@ export function shapeWidth(shape: Shape): number {
 /** Extract height from a Shape. */
 export function shapeHeight(shape: Shape): number {
   switch (shape.kind) {
+    case 'table':
+      return shape.h;
     case 'rect':
       return shape.h;
     case 'ellipse':

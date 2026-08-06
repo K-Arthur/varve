@@ -37,6 +37,8 @@ import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
+import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
+import { TableSection } from './sections/TableSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
 
@@ -479,6 +481,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       workspaceMode: state.workspaceMode,
       activeTool: state.tool,
       prototypeMode: state.prototypeMode,
+      tableEdit: state.tableEdit,
     };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
     const add = (id: SectionId, el: React.ReactNode) => {
@@ -493,6 +496,15 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     // fill/stroke/legacy-effects sections expose unrelated NodeBase fields and
     // create a second, conflicting effects pipeline.
     if (node.kind === 'adjustment') return entries;
+
+    if (node.kind === 'table') {
+      add('table', <TableSection node={node as import('@varve/scene').TableNode} />);
+      add('table-cells', <TableCellsSection tableId={node.id} />);
+      add('table-columns', <TableTracksSection tableId={node.id} />);
+      add('table-rows', <TableTracksSection tableId={node.id} />);
+      add('appearance', <AppearanceSection nodes={nodes} />);
+      return entries.sort((a, b) => a.order - b.order);
+    }
 
     if (isComponentInstance)
       add('component', <ComponentSection node={node as import('@varve/scene').FrameNode} />);
@@ -542,6 +554,7 @@ function MultiSelectionPanel({
       workspaceMode: state.workspaceMode,
       activeTool: state.tool,
       prototypeMode: state.prototypeMode,
+      tableEdit: state.tableEdit,
     };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
     const add = (id: SectionId, el: React.ReactNode) => {

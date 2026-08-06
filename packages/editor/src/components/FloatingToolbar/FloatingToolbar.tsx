@@ -56,6 +56,7 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   smudge: 'Smudge',
   sam2Segment: 'Select Subject',
   lasso: 'Lasso',
+  table: 'Table',
 };
 
 /** Tools hidden in structured-layout modes (Print, Design): raster painting
@@ -92,6 +93,7 @@ const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'text' },
   { id: 'eyedropper' },
   { id: 'frame' },
+  { id: 'table' },
   { id: 'sam2Segment', groupStart: true },
 ];
 

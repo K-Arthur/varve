@@ -10,13 +10,10 @@
  * Research basis: Figma node geometry, Illustrator bounding-box conventions.
  */
 
-import { hasLiveWarps } from '@varve/engine';
 import type { Rect } from '@varve/shared';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
 import { deriveGeometryFromPaints, resolveNodePaints } from './paint';
 import type { Paint, SceneNode } from './types';
-import { nodeWarpedLocalBounds } from './warpBounds';
-import { warpsOnNode } from './warpOps';
 
 /**
  * Compute the axis-aligned bounding box of a node's geometry in its own local
@@ -26,32 +23,12 @@ import { warpsOnNode } from './warpOps';
  * scene model alone (e.g. groups whose bounds depend on children, or
  * arrow/path shapes without a clear box).
  *
- * Warp-aware: nodes with live warp modifiers return their conservative
- * evaluated bounds (warped geometry may extend far beyond the source bounds).
- * Layout dimensions (`w`/`h`, auto-layout) are never derived from these
- * bounds, so warp never triggers reflow loops.
- *
  * @param doc Optional document for resolving paintRefs on shapeless nodes.
  *            When provided, shapeless nodes with paintRefs resolve their
  *            geometry from the referenced paints. When omitted, only inline
  *            fills are used for shapeless geometry derivation.
  */
 export function nodeLocalBounds(
-  node: SceneNode,
-  doc?: { paints?: Record<string, Paint> },
-): Rect | null {
-  if (hasLiveWarps(warpsOnNode(node))) {
-    const warped = nodeWarpedLocalBounds(node, doc);
-    if (warped) return warped;
-  }
-  return nodeLocalBoundsSource(node, doc);
-}
-
-/**
- * Source (unwarped) local bounds — the canonical geometry bounds without any
- * warp evaluation. Used by the warp evaluator itself and by layout.
- */
-export function nodeLocalBoundsSource(
   node: SceneNode,
   doc?: { paints?: Record<string, Paint> },
 ): Rect | null {
@@ -180,13 +157,13 @@ export function nodeLocalBoundsSource(
       h: node.h ?? measured.height,
     };
   }
+  if (node.kind === 'table') {
+    return { x: 0, y: 0, w: node.w ?? 480, h: node.h ?? 240 };
+  }
   if (node.kind === 'frame') {
     const w = 'w' in node ? (node.w ?? 100) : 100;
     const h = 'h' in node ? (node.h ?? 100) : 100;
     return { x: 0, y: 0, w, h };
-  }
-  if (node.kind === 'table') {
-    return { x: 0, y: 0, w: node.w ?? 480, h: node.h ?? 240 };
   }
   if (node.kind === 'group') {
     return null;

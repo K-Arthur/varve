@@ -86,6 +86,8 @@ export function registerEditorActions(
     ['auditSelection', 'Audit Selection', 'object'],
     ['auditPage', 'Audit Page', 'object'],
     ['auditDocument', 'Audit Document', 'object'],
+    ['createTableFromClipboard', 'Create Table From Clipboard Data', 'insert'],
+    ['exportTableCsv', 'Export Table as TSV', 'file'],
     ['whatIsThis', 'What Is This?', 'help'],
     ['startTour', 'Start Tour', 'help'],
     ['about', 'About Varve', 'help'],

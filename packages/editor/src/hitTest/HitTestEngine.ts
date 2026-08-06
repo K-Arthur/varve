@@ -176,7 +176,7 @@ export class HitTestEngine {
         }
       }
 
-      if (n.kind === 'text' || n.kind === 'frame') {
+      if (n.kind === 'text' || n.kind === 'frame' || n.kind === 'table') {
         if (!this.policy.includeContainers && n.kind === 'frame') {
           continue;
         }
@@ -310,7 +310,7 @@ export class HitTestEngine {
             }
           }
         }
-      } else if (n.kind === 'text' || n.kind === 'frame') {
+      } else if (n.kind === 'text' || n.kind === 'frame' || n.kind === 'table') {
         const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
         if (bbox) {
           const expanded = {
