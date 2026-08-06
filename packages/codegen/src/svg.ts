@@ -42,6 +42,8 @@ function shapeBounds(shape: import('@varve/engine').Shape): {
   switch (shape.kind) {
     case 'rect':
       return { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
+    case 'table':
+      return { x: shape.x, y: shape.y, width: shape.w, height: shape.h };
     case 'ellipse':
       return {
         x: shape.cx - shape.rx,

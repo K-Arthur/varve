@@ -68,10 +68,10 @@ describe('undoRevision', () => {
   it('moves the head to the first parent', async () => {
     const chain = await commitChain(3);
     const result = await undoRevision(chain.store, chain.documentId, chain.branchId);
-    expect(result?.headRevisionId).toBe(chain.revisionIds[2]);
-    expect(result?.redoTargetRevisionId).toBe(chain.revisionIds[3]);
+    expect(result?.headRevisionId).toBe(chain.revisionIds[2]!);
+    expect(result?.redoTargetRevisionId).toBe(chain.revisionIds[3]!);
     const branch = await chain.store.getBranch(chain.documentId, chain.branchId);
-    expect(branch?.headRevisionId).toBe(chain.revisionIds[2]);
+    expect(branch?.headRevisionId).toBe(chain.revisionIds[2]!);
   });
 
   it('returns null at genesis', async () => {
@@ -99,14 +99,14 @@ describe('redoRevision', () => {
       chain.branchId,
       undo!.redoTargetRevisionId,
     );
-    expect(result.headRevisionId).toBe(chain.revisionIds[3]);
+    expect(result.headRevisionId).toBe(chain.revisionIds[3]!);
   });
 
   it('rejects a target that is not a child of the head', async () => {
     const chain = await commitChain(3);
     await undoRevision(chain.store, chain.documentId, chain.branchId);
     await expect(
-      redoRevision(chain.store, chain.documentId, chain.branchId, chain.revisionIds[0]),
+      redoRevision(chain.store, chain.documentId, chain.branchId, chain.revisionIds[0]!),
     ).rejects.toThrow(/not a child/);
   });
 });
@@ -116,15 +116,15 @@ describe('undoN', () => {
     const chain = await commitChain(5);
     const result = await undoN(chain.store, chain.documentId, chain.branchId, 3);
     expect(result.appliedSteps).toBe(3);
-    expect(result.headRevisionId).toBe(chain.revisionIds[2]);
-    expect(result.redoTargetRevisionId).toBe(chain.revisionIds[3]);
+    expect(result.headRevisionId).toBe(chain.revisionIds[2]!);
+    expect(result.redoTargetRevisionId).toBe(chain.revisionIds[3]!);
   });
 
   it('stops early at genesis', async () => {
     const chain = await commitChain(2);
     const result = await undoN(chain.store, chain.documentId, chain.branchId, 10);
     expect(result.appliedSteps).toBe(2);
-    expect(result.headRevisionId).toBe(chain.revisionIds[0]);
+    expect(result.headRevisionId).toBe(chain.revisionIds[0]!);
   });
 
   it('rejects negative counts', async () => {
@@ -142,11 +142,11 @@ describe('undoTo', () => {
       chain.store,
       chain.documentId,
       chain.branchId,
-      chain.revisionIds[1],
+      chain.revisionIds[1]!,
     );
-    expect(result.headRevisionId).toBe(chain.revisionIds[1]);
+    expect(result.headRevisionId).toBe(chain.revisionIds[1]!);
     expect(result.steps).toBe(3);
-    expect(result.redoTargetRevisionId).toBe(chain.revisionIds[4]);
+    expect(result.redoTargetRevisionId).toBe(chain.revisionIds[4]!);
   });
 
   it('rejects non-ancestor targets', async () => {
@@ -162,17 +162,17 @@ describe('undoTo', () => {
       chain.store,
       chain.documentId,
       chain.branchId,
-      chain.revisionIds[2],
+      chain.revisionIds[2]!,
     );
     expect(result.steps).toBe(0);
-    expect(result.headRevisionId).toBe(chain.revisionIds[2]);
+    expect(result.headRevisionId).toBe(chain.revisionIds[2]!);
   });
 });
 
 describe('history navigation', () => {
   it('firstParentChain returns oldest → newest', async () => {
     const chain = await commitChain(3);
-    const chainRevs = await firstParentChain(chain.store, chain.documentId, chain.revisionIds[3]);
+    const chainRevs = await firstParentChain(chain.store, chain.documentId, chain.revisionIds[3]!);
     expect(chainRevs.map((r) => r.revisionId)).toEqual(chain.revisionIds);
   });
 
@@ -194,7 +194,7 @@ describe('history navigation', () => {
     const doc = emptyDoc();
     const revision = buildRevision({
       documentId: chain.documentId,
-      parentRevisionIds: [chain.revisionIds[1]],
+      parentRevisionIds: [chain.revisionIds[1]!],
       document: doc,
       author: AUTHOR,
       origin: 'edit',
@@ -205,7 +205,7 @@ describe('history navigation', () => {
       moveBranchHead: { branchId: chain.branchId, headRevisionId: revision.revisionId },
     });
     const abandoned = await abandonedDescendants(chain.store, chain.documentId, chain.branchId);
-    expect(abandoned.map((r) => r.revisionId)).toEqual([chain.revisionIds[2]]);
+    expect(abandoned.map((r) => r.revisionId)).toEqual([chain.revisionIds[2]!]);
   });
 
   it('materializeDivergenceBranch creates a branch at the abandoned path', async () => {
@@ -214,7 +214,7 @@ describe('history navigation', () => {
     const doc = emptyDoc();
     const revision = buildRevision({
       documentId: chain.documentId,
-      parentRevisionIds: [chain.revisionIds[1]],
+      parentRevisionIds: [chain.revisionIds[1]!],
       document: doc,
       author: AUTHOR,
       origin: 'edit',
@@ -226,7 +226,7 @@ describe('history navigation', () => {
     });
     const branch = await materializeDivergenceBranch(chain.store, chain.documentId, chain.branchId);
     expect(branch).not.toBeNull();
-    expect(branch?.headRevisionId).toBe(chain.revisionIds[2]);
+    expect(branch?.headRevisionId).toBe(chain.revisionIds[2]!);
     expect(branch?.createdFromRevisionId).toBe(revision.revisionId);
     expect(branch?.name).toContain('abandoned');
   });
