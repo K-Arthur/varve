@@ -319,22 +319,6 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Row height modes (alias of table-columns track editor)',
   },
-  'table-appearance': {
-    surface: 'appearance',
-    scope: 'selection',
-    frequency: 'occasional',
-    complexity: 'compact',
-    status: 'functional',
-    rationale: 'Table frame, divider, and header styling live with other appearance.',
-  },
-  'variable-modifiers': {
-    surface: 'properties',
-    scope: 'selection',
-    frequency: 'frequent',
-    complexity: 'compact',
-    status: 'functional',
-    rationale: 'Linked variable modifiers surface the binding state of a property.',
-  },
   'blend-images': {
     surface: 'adjustments',
     scope: 'selection',
