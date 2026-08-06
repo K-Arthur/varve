@@ -404,7 +404,12 @@ import { useLogoProject } from './context/useLogoProject';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
-import { recordPanelVisibilityOverride, useWorkspaceMode } from './context/useWorkspaceMode';
+import {
+  BOOT_WORKSPACE_MODE,
+  initialPanelVisibility,
+  recordPanelVisibilityOverride,
+  useWorkspaceMode,
+} from './context/useWorkspaceMode';
 import {
   computeFitAllCamera,
   computeZoomStep,
@@ -458,7 +463,6 @@ import { applyTableModelOp, updateTableCellTextInDoc } from './table/tableDocOps
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
-import { getWorkspaceConfig, type WorkspaceMode } from './workspace/workspaceTypes';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -2129,27 +2133,23 @@ export function EditorProvider({
       selectedSMStateId: null,
       selectedSMTransitionId: null,
       softProofEnabled: false,
-      leftPanelVisible: loadSettings().panel.leftPanelVisible,
-      rightPanelVisible: loadSettings().panel.rightPanelVisible,
+      // Every panel boolean is a projection of the boot workspace's effective
+      // config (built-in defaults + that workspace's persisted overrides), so
+      // a per-workspace customization survives a restart and no other mode's
+      // layout can leak in through the global settings mirror.
+      ...initialPanelVisibility(BOOT_WORKSPACE_MODE),
       // Transient view state, not persisted — each session starts with full
       // chrome visible rather than silently reopening into a hidden-panel state.
       distractionFreeMode: false,
       beforeAfterCompare: false,
       logoPreviewDialogOpen: false,
-      // Hidden by default — motion/timeline editing is an opt-in workflow the
-      // user reaches via its own toggle, not something every document should
-      // open into.
+      // Hidden by default regardless of config — motion/timeline editing is an
+      // opt-in workflow the user reaches via its own toggle, not something
+      // every document should open into.
       timelinePanelVisible: false,
-      // Library panel visibility follows the current workspace config default.
-      libraryPanelVisible: getWorkspaceConfig('design').panels.library.visible,
-      // Codegen panel visibility follows the current workspace config default.
-      codegenPanelVisible: getWorkspaceConfig('design').panels.codegen.visible,
-      // Logo panel visibility follows the persisted preference (defaults to
-      // the design config default; the logo workspace opens it on switch).
-      logoPanelVisible: loadSettings().panel.logoPanelVisible,
       motion: createInitialMotionState(),
       canvasMode: 'full',
-      workspaceMode: 'design' as WorkspaceMode,
+      workspaceMode: BOOT_WORKSPACE_MODE,
       graphEditorVisible: false,
       // Hidden by default, same reasoning as timelinePanelVisible above:
       // state machines are a document-wide prototyping workflow, opt-in via
@@ -2754,6 +2754,7 @@ export function EditorProvider({
     toolRef,
     announcerRef,
     workspaceSwitchInProgressRef,
+    platform,
   );
 
   const value = useMemo<EditorContextValue>(
@@ -2924,6 +2925,8 @@ export function EditorProvider({
         };
         panAnimRef.current = requestAnimationFrame(tick);
       },
+      // Each toggle records a per-workspace override so the choice is
+      // re-applied the next time this mode is entered, and after a restart.
       toggleLeftPanel: () => {
         const next = !state.leftPanelVisible;
         patch({ leftPanelVisible: next });
