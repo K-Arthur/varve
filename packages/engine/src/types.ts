@@ -285,7 +285,8 @@ export type Shape =
       /** Additional closed hole rings (evenodd fill). Optional for back-compat. */
       holes?: PathPoint[][];
       fillRule?: 'nonzero' | 'evenodd';
-    };
+    }
+  | TableShape;
 
 export interface SceneNode {
   id: string;
@@ -580,7 +581,60 @@ export type Primitive =
        * falls back to rebuilding the whole layer, which is always correct.
        */
       layerId?: string;
-    };
+    }
+  | TableShape;
+
+// ── Native table primitive (ADR-0016) ───────────────────────────────────────
+
+/**
+ * Precomputed per-cell text payload. Lines are wrapped deterministically at
+ * compile time (editor layout), so replay needs no font measurement.
+ */
+export interface TableCellTextIR {
+  lines: string[];
+  fontSize: number;
+  fontFamily: string;
+  fontWeight: number;
+  fontStyle: 'normal' | 'italic';
+  color: EngineColor;
+  alignH: 'left' | 'center' | 'right';
+  alignV: 'top' | 'middle' | 'bottom';
+  padding: number;
+}
+
+/** One fully-positioned table cell in the render IR. */
+export interface TableCellIR {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fill: EngineColor;
+  /** Optional per-cell border override (header emphasis, selection). */
+  border?: { color: EngineColor; width: number };
+  text?: TableCellTextIR;
+}
+
+/**
+ * Compiled native table. The editor layout engine precomputes every cell
+ * rect, fill, border, and wrapped text line; the engine only paints.
+ * `colPositions`/`rowPositions` drive the inner dividers (first track edges
+ * are 0; dividers sit at the remaining edges).
+ */
+export interface TableShape {
+  kind: 'table';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cornerRadius: number;
+  borderColor: EngineColor;
+  borderWidth: number;
+  dividerColor: EngineColor;
+  dividerWidth: number;
+  colPositions: number[];
+  rowPositions: number[];
+  cells: TableCellIR[];
+}
 
 export type EngineRasterLayerPrimitive = Extract<Primitive, { kind: 'rasterLayer' }>;
 

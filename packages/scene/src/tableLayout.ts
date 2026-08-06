@@ -19,6 +19,8 @@
  * Research basis: CSS Table Layout Algorithm (auto table layout), Figma
  * table sizing semantics, spreadsheets' row-height synchronization.
  */
+
+import { DEFAULT_ARTWORK_FONT_FAMILY, textWrap } from '@varve/shared';
 import type {
   TableCellContent,
   TableCellStyle,
@@ -26,9 +28,8 @@ import type {
   TableDensity,
   TableModel,
   TableRowDefinition,
-} from '@varve/scene';
-import { activeResponsiveRule, TABLE_DENSITY_PADDING } from '@varve/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, type MeasureTextFn, textWrap } from '@varve/shared';
+} from './table';
+import { activeResponsiveRule, TABLE_DENSITY_PADDING } from './table';
 
 export const TABLE_LAYOUT_MAX_SPAN_PASSES = 8;
 export const TABLE_LAYOUT_MIN_TRACK = 8;
@@ -113,11 +114,7 @@ function wrappedHeight(text: string, availWidth: number, fontSize: number): numb
  * `width` is the layout target (table node width). When `width` is not
  * finite, fraction tracks fall back to content sizing.
  */
-export function computeTableLayout(
-  table: TableModel,
-  width: number,
-  measure: MeasureTextFn = (text, opts) => textWrap(text, Number.POSITIVE_INFINITY, opts),
-): TableLayoutResult {
+export function computeTableLayout(table: TableModel, width: number): TableLayoutResult {
   const availW = finite(width, 0);
   const rule = activeResponsiveRule(table.responsive.rules, availW);
   const density = rule?.density ?? table.appearance.density;
@@ -273,15 +270,16 @@ export function computeTableLayout(
 
   // Fraction columns fill the remainder.
   const remaining = Math.max(0, availW - fixedTotal - gapTotal);
-  const fractionSum = fractionColumns.reduce(
-    (sum, c) => sum + Math.max(0, effectiveColumns[c]!.definition.sizing.value),
-    0,
-  );
+  const fractionSum = fractionColumns.reduce((sum, c) => {
+    const sizing = effectiveColumns[c]!.definition.sizing;
+    return sizing.kind === 'fraction' ? sum + Math.max(0, sizing.value) : sum;
+  }, 0);
   if (fractionSum > 0 && availW > 0) {
     const perFr = remaining / fractionSum;
     let flexTotal = 0;
     for (const c of fractionColumns) {
-      const value = Math.max(0, effectiveColumns[c]!.definition.sizing.value);
+      const sizing = effectiveColumns[c]!.definition.sizing;
+      const value = sizing.kind === 'fraction' ? Math.max(0, sizing.value) : 0;
       colWidths[c] = clampTrack(
         perFr * value,
         effectiveColumns[c]!.definition.minWidth,
@@ -377,12 +375,7 @@ export function computeTableLayout(
     const text = cell.content.text;
     if (text.length > TABLE_MAX_TEXT_LENGTH) return fontSize * TABLE_DEFAULT_LINE_HEIGHT;
     return (
-      wrappedHeight(
-        text,
-        Math.max(TABLE_LAYOUT_MIN_TRACK, atWidth - cellPadding * 2),
-        fontSize,
-        measure,
-      ) +
+      wrappedHeight(text, Math.max(TABLE_LAYOUT_MIN_TRACK, atWidth - cellPadding * 2), fontSize) +
       cellPadding * 2
     );
   };

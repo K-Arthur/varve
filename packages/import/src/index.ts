@@ -2,6 +2,7 @@ export { createAiParser } from './ai';
 export type { BatchImportOptions, BatchImportResult } from './batch';
 export { batchImport } from './batch';
 export { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } from './bitmap';
+export * from './delimited';
 export { createEpsParser } from './eps';
 export * from './gradient';
 export { getBitmapInfo, importImageAsFill } from './image';
