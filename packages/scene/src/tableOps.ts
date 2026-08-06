@@ -923,7 +923,7 @@ export function normalizeTableModelDefensively(raw: unknown): {
               ? r.hiddenColumnIds.filter((x): x is string => typeof x === 'string')
               : undefined,
             density:
-              r.density === 'compact' || r.density === 'spacious'
+              r.density === 'compact' || r.density === 'spacious' || r.density === 'comfortable'
                 ? (r.density as TableDensity)
                 : undefined,
             columnOverrides:

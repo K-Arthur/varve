@@ -29,6 +29,7 @@ import { SliceTool } from '../tools/SliceTool';
 import { SmudgeTool } from '../tools/SmudgeTool';
 import { SpotHealTool } from '../tools/SpotHealTool';
 import { StarTool } from '../tools/StarTool';
+import { TableTool } from '../tools/TableTool';
 import { TextTool } from '../tools/TextTool';
 import { TrimapEditTool } from '../tools/TrimapEditTool';
 import { ZoomTool } from '../tools/ZoomTool';
@@ -68,6 +69,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('smudge', () => new SmudgeTool());
     toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
     toolManager.register('lasso', () => new LassoTool());
+    toolManager.register('table', () => new TableTool());
   }
   return toolManager;
 }

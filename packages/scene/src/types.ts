@@ -1844,6 +1844,8 @@ export type Style = ColorStyle | TextStyle | EffectStyle | LayoutStyleDef;
 /** Extract width from a Shape, returning 0 for non-sizeable shape kinds. */
 export function shapeWidth(shape: Shape): number {
   switch (shape.kind) {
+    case 'table':
+      return shape.w;
     case 'rect':
       return shape.w;
     case 'ellipse':
@@ -1858,8 +1860,6 @@ export function shapeWidth(shape: Shape): number {
       return Math.abs(shape.to[0] - shape.from[0]);
     case 'arrow':
       return Math.abs(shape.to[0] - shape.from[0]);
-    case 'table':
-      return shape.w;
     case 'path': {
       if (shape.points.length === 0) return 0;
       const xs = shape.points.map((p) => p.x);
@@ -1871,6 +1871,8 @@ export function shapeWidth(shape: Shape): number {
 /** Extract height from a Shape. */
 export function shapeHeight(shape: Shape): number {
   switch (shape.kind) {
+    case 'table':
+      return shape.h;
     case 'rect':
       return shape.h;
     case 'ellipse':
@@ -1885,8 +1887,6 @@ export function shapeHeight(shape: Shape): number {
       return Math.abs(shape.to[1] - shape.from[1]);
     case 'arrow':
       return Math.abs(shape.to[1] - shape.from[1]);
-    case 'table':
-      return shape.h;
     case 'path': {
       if (shape.points.length === 0) return 0;
       const ys = shape.points.map((p) => p.y);

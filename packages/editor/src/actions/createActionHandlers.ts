@@ -1,5 +1,6 @@
 import { exportDocumentToSvg } from '@varve/codegen';
 import { extractPalette as engineExtractPalette } from '@varve/engine';
+import { toDelimitedText } from '@varve/import';
 import type { TextNode } from '@varve/scene';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
@@ -102,6 +103,47 @@ export function createActionHandlers(
       URL.revokeObjectURL(url);
     },
     export: () => e.setShowExportDialog(true),
+    createTableFromClipboard: () => {
+      e.openCreateTableFromDataDialog?.();
+    },
+    exportTableCsv: () => {
+      // ADR-0016: export the selected table as formula-safe TSV (spreadsheet
+      // paste format), preserving header rows and spans' text.
+      const selectedId = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
+      if (!selectedId) return;
+      const node = e.state.document.nodes[selectedId];
+      if (!node || node.kind !== 'table') return;
+      const table = node.table;
+      const rows: string[][] = [];
+      for (const rowId of table.rowOrder) {
+        const cells: Array<{ text: string; col: number; span: number }> = [];
+        for (const [key, cellId] of Object.entries(table.cellIndex)) {
+          const cell = table.cells[cellId];
+          if (!cell || cell.rowId !== rowId) continue;
+          const m = /^(\d+),(\d+)$/.exec(key);
+          if (!m) continue;
+          cells.push({
+            text: cell.content.kind === 'text' ? cell.content.text : '',
+            col: Number(m[1]),
+            span: cell.columnSpan,
+          });
+        }
+        const rowLen = table.columnOrder.length;
+        const out = new Array<string>(rowLen).fill('');
+        for (const c of cells) {
+          out[c.col] = c.text;
+        }
+        rows.push(out);
+      }
+      const tsv = toDelimitedText(rows, '\t', { escapeFormulas: true });
+      const blob = new Blob([tsv], { type: 'text/tab-separated-values' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${node.name || 'table'}.tsv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
     home: () => cb.onBackToHome?.(),
     settings: () => cb.onOpenSettings?.(),
     reopenLast: () => cb.onReopenLast?.(),
@@ -441,6 +483,9 @@ export function createActionHandlers(
     },
     bindField: () => {
       if (e.focusedField) e.setBindingField(e.focusedField);
+      // With no focused field, bind the selected node's fill — the primary
+      // color-binding target (ADR-0016).
+      else if (e.state.selection.length > 0) e.setBindingField('fill');
     },
     enterFrame: () => {
       const sel = e.state.selection;

@@ -180,13 +180,13 @@ export function nodeLocalBoundsSource(
       h: node.h ?? measured.height,
     };
   }
+  if (node.kind === 'table') {
+    return { x: 0, y: 0, w: node.w ?? 480, h: node.h ?? 240 };
+  }
   if (node.kind === 'frame') {
     const w = 'w' in node ? (node.w ?? 100) : 100;
     const h = 'h' in node ? (node.h ?? 100) : 100;
     return { x: 0, y: 0, w, h };
-  }
-  if (node.kind === 'table') {
-    return { x: 0, y: 0, w: node.w ?? 480, h: node.h ?? 240 };
   }
   if (node.kind === 'group') {
     return null;

@@ -13,14 +13,14 @@
  */
 import type { SceneNode as EngineNode, TableCellIR, TableShape } from '@varve/engine';
 import type { ManagedColor, TableCellDefinition, TableCellStyle, TableModel } from '@varve/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, textWrap } from '@varve/shared';
 import {
   computeTableLayout,
   TABLE_CELL_FONT_SIZE,
   TABLE_DEFAULT_LINE_HEIGHT,
   type TableCellLayout,
   type TableLayoutResult,
-} from '../layout/computeTableLayout';
+} from '@varve/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY, textWrap } from '@varve/shared';
 
 const layoutCache = new WeakMap<object, { w: number; h: number; result: TableLayoutResult }>();
 
