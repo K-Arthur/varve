@@ -94,7 +94,6 @@ export function syncStatusLabel(status: TokenSyncStatus): string {
       return 'Invalid';
     case 'unavailable':
       return 'Source unavailable';
-    case 'disconnected':
     default:
       return 'Disconnected';
   }

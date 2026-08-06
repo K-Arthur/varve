@@ -119,7 +119,10 @@ export function VariableModifierPopover({
         </button>
       </div>
 
-      <div role="group" aria-label="Operation" style={{ display: 'flex', gap: 4 }}>
+      <fieldset
+        style={{ display: 'flex', gap: 4, margin: 0, padding: 0, border: 'none', minInlineSize: 0 }}
+      >
+        <legend className="varve-visually-hidden">Operation</legend>
         {OPERATIONS.map((op) => (
           <button
             key={op.value}
@@ -138,7 +141,7 @@ export function VariableModifierPopover({
             {op.label}
           </button>
         ))}
-      </div>
+      </fieldset>
 
       <label style={{ fontSize: 12 }}>
         {operation === 'multiply'

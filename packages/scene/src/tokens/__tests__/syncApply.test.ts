@@ -33,7 +33,7 @@ describe('sync apply', () => {
     expect(token?.value).toBe(42);
     expect(result.touchedVariableIds.length).toBeGreaterThan(0);
     const variableId = result.touchedVariableIds[0]!;
-    expect(result.variables?.variables[variableId]?.valuesByMode['default']).toBe(42);
+    expect(result.variables?.variables[variableId]?.valuesByMode.default).toBe(42);
   });
 
   it('preserves token ids across a merged rename (bindings stay intact)', () => {

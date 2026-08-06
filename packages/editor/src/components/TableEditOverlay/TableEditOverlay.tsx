@@ -56,7 +56,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
 
   const moveSelection = useCallback(
     (dir: 'up' | 'down' | 'left' | 'right' | 'tab', reverse: boolean, extend: boolean) => {
-      if (!tableNode || !tableEdit || !tableEdit.activeCellId) return;
+      if (!tableNode || !tableEdit?.activeCellId) return;
       const cursor = cellCoordinateOf(tableNode.table, tableEdit.activeCellId);
       if (!cursor) return;
       const next =
@@ -267,6 +267,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
         height="100%"
         style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
       >
+        <title>Table editing overlay</title>
         {cellLayouts.map((cell) => {
           if (!selectedSet.has(cell.id)) return null;
           const [sx, sy] = screenOf(cell.x, cell.y);
@@ -332,7 +333,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
         )}
         {boundaries.map((x, i) => (
           <line
-            key={`col-${i}`}
+            key={`col-${x}`}
             x1={screenOf(x, 0)[0]}
             y1={topLeft[1]}
             x2={screenOf(x, 0)[0]}
