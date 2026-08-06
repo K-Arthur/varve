@@ -79,7 +79,7 @@ describe('migrateV215ToV216', () => {
 
   it('survives documents with no nodes', () => {
     const out = migrateV215ToV216({ formatVersion: '2.15' });
-    expect(out.formatVersion).toBe('2.17');
+    expect(out.formatVersion).toBe('2.16');
   });
 });
 
