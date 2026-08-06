@@ -302,6 +302,9 @@ importers:
       '@varve/shared':
         specifier: workspace:*
         version: link:../shared
+      '@varve/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       '@varve/ui':
         specifier: workspace:*
         version: link:../ui
