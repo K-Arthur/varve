@@ -30,7 +30,7 @@ export interface SourcePrepSettings {
 export interface VectorizationSettings {
   /** Preset id this settings snapshot came from; null when hand-edited. */
   presetId: string | null;
-  mode: 'monochrome' | 'grayscale' | 'color';
+  mode: 'monochrome' | 'grayscale' | 'color' | 'pixel-art';
   traceMode: 'silhouette' | 'centerline';
   threshold: number;
   minArea: number;
@@ -307,6 +307,35 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         contrast: 1.05,
         brightness: 0,
         denoise: 1,
+        threshold: false,
+        ignoreTransparent: true,
+      },
+    },
+  },
+  {
+    id: 'pixel-art-sprite',
+    label: 'Pixel art sprite',
+    description: 'Hard pixel boundaries preserved; same-color regions merge into single polygons.',
+    settings: {
+      mode: 'pixel-art',
+      traceMode: 'silhouette',
+      threshold: 128,
+      minArea: 1,
+      simplifyTolerance: 0,
+      maxPaths: 1000,
+      maxColors: 16,
+      compoundHoles: true,
+      cornerAngle: 135,
+      foreground: 'dark',
+      alphaThreshold: 1,
+      centerlineWidth: 2,
+      centerlinePrune: 4,
+      prep: {
+        grayscale: false,
+        invert: false,
+        contrast: 1,
+        brightness: 0,
+        denoise: 0,
         threshold: false,
         ignoreTransparent: true,
       },

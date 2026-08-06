@@ -9,6 +9,7 @@
  * Storybook publish workflow, npm package distribution model.
  */
 
+import { mintId } from './identity';
 import type { ComponentDefinition, NodeId, SceneNode, Style } from './types';
 import { isContainer } from './types';
 
@@ -120,7 +121,7 @@ function remapSubtree(
   const nodes: Record<NodeId, SceneNode> = {};
 
   for (const oldId of Object.keys(subtree)) {
-    const newId = `n${nextId++}`;
+    const newId = mintId('n', nextId++);
     idMap.set(oldId, newId);
   }
 

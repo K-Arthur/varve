@@ -12,6 +12,7 @@
  * Evaluator is a Pratt parser (expr.ts) — no `eval`, no `Function`.
  */
 import { evaluate } from './expr';
+import { randomHex } from './identity';
 import type { PropertyBinding } from './types';
 
 export type VariableType = 'color' | 'number' | 'string' | 'boolean';
@@ -59,6 +60,12 @@ export interface VariableStore {
   modes: string[];
   /** Backward-compat: global active mode. */
   activeMode: string;
+  /**
+   * Design-token synchronization state (schema v1, ADR-0100).
+   * Optional additive field: absent for legacy documents, survives the
+   * document codec round trip because serialization spreads the document.
+   */
+  tokenSync?: import('./tokens/model').TokenSynchronization;
 }
 
 // ── Factory ─────────────────────────────────────────────────────────────────
@@ -75,14 +82,16 @@ export function createVariableStore(modes = ['default']): VariableStore {
 
 // ── Collection operations ───────────────────────────────────────────────────
 
-let _colIdCounter = 0;
+// ADR-0025: variable ids carry no persisted counter (module-level counters
+// reset per session, which could otherwise reuse ids across sessions and
+// branches). Ids are pure-random within the established prefix namespace.
+
 function nextColId(): string {
-  return `col-${++_colIdCounter}`;
+  return `col-${randomHex(8)}`;
 }
 
-let _groupIdCounter = 0;
 function nextGroupId(): string {
-  return `grp-${++_groupIdCounter}`;
+  return `grp-${randomHex(8)}`;
 }
 
 export function createCollection(
@@ -280,9 +289,8 @@ export function setCollectionMode(
 
 // ── Variable operations (backward-compat) ───────────────────────────────────
 
-let _varIdCounter = 0;
 function nextVarId(): string {
-  return `v${++_varIdCounter}`;
+  return `v-${randomHex(8)}`;
 }
 
 export function addVariable(
@@ -337,6 +345,11 @@ export function deleteVariable(store: VariableStore, id: string): VariableStore 
 /**
  * Merge variables from two stores.
  * Source takes priority on conflict (variables, collections, modes, activeMode).
+ *
+ * tokenSync is handled conservatively (ADR-0117 D4): when only one side has
+ * it, that side wins; when both differ, the base value is kept so a legacy
+ * two-way collab merge can never silently drop synchronization state. The
+ * real three-way merge lives in @varve/tokens.
  */
 export function mergeVariableStores(base: VariableStore, source: VariableStore): VariableStore {
   return {
@@ -345,7 +358,18 @@ export function mergeVariableStores(base: VariableStore, source: VariableStore):
     activeCollectionId: source.activeCollectionId || base.activeCollectionId,
     modes: source.modes.length > 0 ? source.modes : base.modes,
     activeMode: source.activeMode || base.activeMode || 'default',
+    tokenSync: mergeTokenSync(base.tokenSync, source.tokenSync),
   };
+}
+
+function mergeTokenSync(
+  base: VariableStore['tokenSync'],
+  source: VariableStore['tokenSync'],
+): VariableStore['tokenSync'] {
+  if (!base) return source;
+  if (!source) return base;
+  if (base === source) return base;
+  return base;
 }
 
 // ── Resolution ──────────────────────────────────────────────────────────────

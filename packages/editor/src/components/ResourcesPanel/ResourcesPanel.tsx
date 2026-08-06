@@ -8,11 +8,13 @@
 
 import type { Document, Library } from '@varve/scene';
 import { Icon } from '@varve/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
+import { getMockupsTabRequest, subscribeMockupsTab } from '../../mockup/mockupTabStore';
 import { IconBrowser } from '../IconBrowser/IconBrowser';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
+import { MockupsPanel } from '../Mockups/MockupsPanel';
 import './ResourcesPanel.css';
 
 /** Re-exported so Shell mounts the quick-insert dialog without a new import. */
@@ -24,11 +26,19 @@ export interface ResourcesPanelProps {
   onUninstallLibrary: (libraryId: string) => void;
 }
 
-type ResourcesTab = 'libraries' | 'icons';
+type ResourcesTab = 'libraries' | 'icons' | 'mockups';
 
 export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: ResourcesPanelProps) {
   const [activeTab, setActiveTab] = useState<ResourcesTab>('icons');
   const editor = useEditor();
+
+  // Mockups tab requests from context menu / command palette switch here.
+  // A request may land before this panel mounts (the request opens the
+  // panel), so replay the current request on mount as well.
+  useEffect(() => {
+    if (getMockupsTabRequest()) setActiveTab('mockups');
+    return subscribeMockupsTab(() => setActiveTab('mockups'));
+  }, []);
 
   return (
     <section className="resources-panel" aria-label="Resources">
@@ -52,6 +62,16 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
         >
           <Icon name="Library" size={14} />
           Libraries
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'mockups'}
+          className={`resources-panel__tab ${activeTab === 'mockups' ? 'resources-panel__tab--active' : ''}`}
+          onClick={() => setActiveTab('mockups')}
+        >
+          <Icon name="Smartphone" size={14} />
+          Mockups
         </button>
       </div>
 
@@ -89,6 +109,13 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
           onInstallLibrary={onInstallLibrary}
           onUninstallLibrary={onUninstallLibrary}
         />
+      </div>
+      <div
+        className={`resources-panel__pane ${activeTab === 'mockups' ? '' : 'resources-panel__pane--hidden'}`}
+        role="tabpanel"
+        aria-label="Mockups"
+      >
+        <MockupsPanel />
       </div>
     </section>
   );

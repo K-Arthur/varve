@@ -2,9 +2,16 @@
 // Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
 import { HelpBrowser } from '@varve/help';
 import type { Platform } from '@varve/platform';
-import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from '@varve/scene';
+import {
+  type Document,
+  getAllRules,
+  isImageShape,
+  registerBuiltinRules,
+  type SceneNode,
+} from '@varve/scene';
 import { ContextMenu, Icon, type MenuEntry, ToastProvider, Tooltip, useToast } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { getActionRegistry } from './actions/ActionRegistry';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { CanvasArea } from './CanvasArea';
@@ -44,6 +51,7 @@ import {
   OnboardingLayer,
   type OnboardingLayerHandle,
   RecoveryManager,
+  VectorizeDialogHost,
 } from './components/Shell';
 import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
 import './components/Shell/shellStyles.css';
@@ -819,6 +827,9 @@ function ShellInner({
           <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
         )}
 
+        {/* Image Trace dialog */}
+        {editor.vectorizeDialogOpen && <VectorizeDialogHost />}
+
         {/* Canvas right-click context menu */}
         {canvasContextMenu &&
           (() => {
@@ -831,6 +842,17 @@ function ShellInner({
               editor.state.selection.length === 1 &&
               selectedId !== undefined &&
               editor.state.document.nodes[selectedId]?.kind === 'group';
+            const selectedNode = selectedId ? editor.state.document.nodes[selectedId] : undefined;
+            const isSingleImage =
+              hasSelection &&
+              editor.state.selection.length === 1 &&
+              selectedNode?.kind === 'shape' &&
+              isImageShape(selectedNode);
+            const isSingleTraceGroup =
+              hasSelection &&
+              editor.state.selection.length === 1 &&
+              selectedNode?.kind === 'group' &&
+              selectedNode.traceMetadata !== undefined;
             const nodeCount = Object.keys(editor.state.document.nodes).length;
             const hasNodes = nodeCount >= 1;
             const hasMultipleNodes = nodeCount >= 2;
@@ -918,6 +940,20 @@ function ShellInner({
                     } satisfies MenuEntry,
                   ]
                 : []),
+              ...(hasSelection
+                ? [
+                    { id: 'ctx-sep-mockups', separator: true as const } satisfies MenuEntry,
+                    {
+                      id: 'ctx-mockups',
+                      label: 'Apply mockup…',
+                      onAction: () => {
+                        record('applyMockup');
+                        getActionRegistry().get('applyMockup')?.handler(undefined);
+                        closeMenu();
+                      },
+                    } satisfies MenuEntry,
+                  ]
+                : []),
               { id: 'ctx-sep4', separator: true as const } satisfies MenuEntry,
               {
                 id: 'ctx-selectall',
@@ -940,6 +976,36 @@ function ShellInner({
               ...(hasNodes
                 ? [
                     { id: 'ctx-sep5', separator: true as const } satisfies MenuEntry,
+                    ...(isSingleImage
+                      ? [
+                          {
+                            id: 'ctx-vectorize',
+                            label: 'Vectorize image…',
+                            onAction: () => {
+                              record('vectorize');
+                              editor.openVectorizeDialog();
+                              closeMenu();
+                            },
+                          } satisfies MenuEntry,
+                        ]
+                      : []),
+                    ...(isSingleTraceGroup
+                      ? [
+                          {
+                            id: 'ctx-retrace',
+                            label: 'Edit Trace…',
+                            onAction: () => {
+                              record('retrace');
+                              if (selectedNode?.kind === 'group') {
+                                editor.openVectorizeDialog({
+                                  replaceGroupId: selectedNode.id,
+                                });
+                              }
+                              closeMenu();
+                            },
+                          } satisfies MenuEntry,
+                        ]
+                      : []),
                     {
                       id: 'ctx-intel',
                       label: 'Intelligence',

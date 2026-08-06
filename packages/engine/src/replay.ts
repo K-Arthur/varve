@@ -29,6 +29,7 @@ import {
   type ImagePlacement,
   type ImagePlacementRect,
 } from './imagePlacement';
+import { paintWarpedImage, quadBoundsOf, resolveReplayImage } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { getRasterLayerCache } from './rasterLayerCache';
@@ -42,7 +43,7 @@ import {
   type ShadowOps,
 } from './shadowSource';
 import { layoutRichText } from './textLayout';
-import type { ArrowheadStyle, EngineColor, FillIR, RenderItem, Stroke } from './types';
+import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
 import { splitGraphemes } from './unicode/grapheme';
 
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;
@@ -935,24 +936,7 @@ function paintImageFill(
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
 
-  let image: CanvasImageSource | undefined;
-  if (imageLookupForCurrentReplay) {
-    // Worker path: use a pre-decoded ImageBitmap. All placement math below is
-    // deliberately shared with HTMLImageElement replay so worker selection
-    // cannot change document semantics.
-    image = imageLookupForCurrentReplay(fill.src);
-  } else {
-    const cache = getImageCache();
-    const imgEntry = cache.get(fill.src);
-    if (imgEntry?.state === 'loaded' && imgEntry.image) {
-      image = imgEntry.image;
-    } else if (!imgEntry || imgEntry.state === 'idle') {
-      // CanvasArea subscribes to cache changes and schedules another frame.
-      cache.load(fill.src).catch(() => {
-        /* errors recorded in cache entry */
-      });
-    }
-  }
+  const image = resolveReplayImage(fill.src, imageLookupForCurrentReplay, getImageCache());
 
   if (!target.drawImage) {
     target.fillRect(bounds.x, bounds.y, bw, bh);
@@ -1810,6 +1794,101 @@ function paintTiledGradientFill(
   paintShapeFill(target, item);
 }
 
+/**
+ * Paint a compiled native table (ADR-0016 D3): cell fills, per-cell text
+ * (pre-wrapped lines), inner dividers, and the outer border, clipped to the
+ * table bounds. Deterministic and font-measurement-free at render time.
+ */
+function paintTable(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'table' }>,
+): void {
+  if (p.w <= 0 || p.h <= 0) return;
+  target.save();
+
+  const traceTablePath = (): void => {
+    const radius = Math.max(0, p.cornerRadius);
+    if (radius > 0 && target.roundRect) {
+      target.roundRect(p.x, p.y, p.w, p.h, radius);
+    } else {
+      target.rect(p.x, p.y, p.w, p.h);
+    }
+  };
+
+  traceTablePath();
+  target.clip();
+
+  for (const cell of p.cells) {
+    target.fillStyle = rgba(cell.fill);
+    target.fillRect(cell.x, cell.y, cell.w, cell.h);
+    if (cell.border && cell.border.width > 0) {
+      target.strokeStyle = rgba(cell.border.color);
+      target.lineWidth = cell.border.width;
+      target.strokeRect(cell.x, cell.y, cell.w, cell.h);
+    }
+  }
+
+  for (const cell of p.cells) {
+    const t = cell.text;
+    if (!t || t.lines.length === 0) continue;
+    target.fillStyle = rgba(t.color);
+    target.font = `${t.fontStyle} ${t.fontWeight} ${t.fontSize}px ${t.fontFamily}`;
+    target.textBaseline = 'top';
+    const pad = Math.max(0, t.padding);
+    const lineH = t.fontSize * 1.35;
+    const totalTextH = t.lines.length * lineH;
+    let y = cell.y + pad;
+    if (t.alignV === 'middle') y = cell.y + Math.max(pad, (cell.h - totalTextH) / 2);
+    else if (t.alignV === 'bottom') y = cell.y + cell.h - pad - totalTextH;
+    target.save();
+    target.beginPath();
+    target.rect(
+      cell.x + pad,
+      cell.y + pad,
+      Math.max(0, cell.w - pad * 2),
+      Math.max(0, cell.h - pad * 2),
+    );
+    target.clip();
+    for (const line of t.lines) {
+      if (t.alignH === 'center') {
+        target.textAlign = 'center';
+        target.fillText(line, cell.x + cell.w / 2, y);
+      } else if (t.alignH === 'right') {
+        target.textAlign = 'right';
+        target.fillText(line, cell.x + cell.w - pad, y);
+      } else {
+        target.textAlign = 'left';
+        target.fillText(line, cell.x + pad, y);
+      }
+      y += lineH;
+    }
+    target.restore();
+  }
+
+  // Inner dividers sit at the shared track edges (collapse semantics).
+  if (p.dividerWidth > 0) {
+    target.fillStyle = rgba(p.dividerColor);
+    const half = p.dividerWidth / 2;
+    for (let i = 1; i < p.colPositions.length; i++) {
+      const x = p.colPositions[i]!;
+      target.fillRect(x - half, p.y, p.dividerWidth, p.h);
+    }
+    for (let i = 1; i < p.rowPositions.length; i++) {
+      const y = p.rowPositions[i]!;
+      target.fillRect(p.x, y - half, p.w, p.dividerWidth);
+    }
+  }
+
+  if (p.borderWidth > 0) {
+    target.strokeStyle = rgba(p.borderColor);
+    target.lineWidth = p.borderWidth;
+    traceTablePath();
+    target.stroke();
+  }
+
+  target.restore();
+}
+
 /** Render a raster layer by compositing its tiles onto an offscreen canvas. */
 function paintRasterLayer(
   target: ReplayTarget,
@@ -1965,8 +2044,16 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
     case 'text':
       paintText(target, p);
       break;
+    case 'table':
+      paintTable(target, p);
+      break;
     case 'rasterLayer':
       paintRasterLayer(target, p);
+      break;
+    case 'warpedImage':
+      paintWarpedImage(target, p, (src) =>
+        resolveReplayImage(src, imageLookupForCurrentReplay, getImageCache()),
+      );
       break;
     default:
       break;
@@ -3040,6 +3127,14 @@ function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
       target.rect(0, 0, p.width, p.height);
       break;
     }
+    case 'warpedImage': {
+      target.moveTo(p.quad[0][0], p.quad[0][1]);
+      target.lineTo(p.quad[1][0], p.quad[1][1]);
+      target.lineTo(p.quad[2][0], p.quad[2][1]);
+      target.lineTo(p.quad[3][0], p.quad[3][1]);
+      target.closePath();
+      break;
+    }
     default:
       break;
   }
@@ -3053,6 +3148,9 @@ export function primitiveBounds(p: RenderItem['primitive']): {
   h: number;
 } {
   switch (p.kind) {
+    case 'warpedImage': {
+      return quadBoundsOf(p as Extract<Primitive, { kind: 'warpedImage' }>);
+    }
     case 'rect':
       return { x: p.x, y: p.y, w: p.w, h: p.h };
     case 'ellipse':
@@ -3085,6 +3183,8 @@ export function primitiveBounds(p: RenderItem['primitive']): {
         h: p.outerRadius * 2,
       };
     case 'text':
+      return { x: p.x, y: p.y, w: p.w, h: p.h };
+    case 'table':
       return { x: p.x, y: p.y, w: p.w, h: p.h };
     case 'path': {
       let minX = Number.POSITIVE_INFINITY;

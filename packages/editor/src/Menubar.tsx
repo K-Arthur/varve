@@ -239,6 +239,7 @@ function buildMenus(
       case 'toolCrop':
       case 'extractPalette':
       case 'batchBgRemove':
+      case 'imageTrace':
         return !hasSelection;
       case 'createMaster':
         return currentPageIsMaster;
@@ -902,6 +903,13 @@ function buildMenus(
           action: 'extractPalette',
           disabled: dis('extractPalette'),
         },
+        {
+          label: 'Vectorize Image…',
+          shortcut: formatShortcut(SHORTCUT_DEFS.imageTrace.binding),
+          ariaKeyshortcut: ks('imageTrace'),
+          action: 'imageTrace',
+          disabled: dis('imageTrace'),
+        },
         { label: '---' },
         // Masks
         { label: 'Add Alpha Mask', action: 'addAlphaMask', disabled: dis('addAlphaMask') },
@@ -971,55 +979,58 @@ function buildMenus(
         { label: '---' },
         // Path operations
         {
-          label: 'Expand Stroke to Outline',
-          shortcut: formatShortcut(SHORTCUT_DEFS.expandStroke.binding),
-          ariaKeyshortcut: ks('expandStroke'),
-          action: 'expandStroke',
-          disabled: dis('expandStroke'),
-        },
-        {
-          label: 'Offset Path…',
-          shortcut: formatShortcut(SHORTCUT_DEFS.offsetPath.binding),
-          ariaKeyshortcut: ks('offsetPath'),
-          action: 'offsetPath',
-          disabled: dis('offsetPath'),
-        },
-        {
-          label: 'Round Path Corners…',
-          shortcut: formatShortcut(SHORTCUT_DEFS.roundCorners.binding),
-          ariaKeyshortcut: ks('roundCorners'),
-          action: 'roundCorners',
-          disabled: dis('roundCorners'),
-        },
-        {
-          label: 'Simplify Path…',
-          shortcut: formatShortcut(SHORTCUT_DEFS.simplifyPath.binding),
-          ariaKeyshortcut: ks('simplifyPath'),
-          action: 'simplifyPath',
-          disabled: dis('simplifyPath'),
-        },
-        { label: '---' },
-        // Duplicate transforms
-        {
-          label: 'Mirror Duplicate — Horizontal',
-          shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateHorizontal.binding),
-          ariaKeyshortcut: ks('mirrorDuplicateHorizontal'),
-          action: 'mirrorDuplicateHorizontal',
-          disabled: dis('mirrorDuplicateHorizontal'),
-        },
-        {
-          label: 'Mirror Duplicate — Vertical',
-          shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateVertical.binding),
-          ariaKeyshortcut: ks('mirrorDuplicateVertical'),
-          action: 'mirrorDuplicateVertical',
-          disabled: dis('mirrorDuplicateVertical'),
-        },
-        {
-          label: 'Radial Duplicate…',
-          shortcut: formatShortcut(SHORTCUT_DEFS.radialDuplicate.binding),
-          ariaKeyshortcut: ks('radialDuplicate'),
-          action: 'radialDuplicate',
-          disabled: dis('radialDuplicate'),
+          label: 'Path',
+          items: [
+            {
+              label: 'Expand Stroke to Outline',
+              shortcut: formatShortcut(SHORTCUT_DEFS.expandStroke.binding),
+              ariaKeyshortcut: ks('expandStroke'),
+              action: 'expandStroke',
+              disabled: dis('expandStroke'),
+            },
+            {
+              label: 'Offset Path…',
+              shortcut: formatShortcut(SHORTCUT_DEFS.offsetPath.binding),
+              ariaKeyshortcut: ks('offsetPath'),
+              action: 'offsetPath',
+              disabled: dis('offsetPath'),
+            },
+            {
+              label: 'Round Path Corners…',
+              shortcut: formatShortcut(SHORTCUT_DEFS.roundCorners.binding),
+              ariaKeyshortcut: ks('roundCorners'),
+              action: 'roundCorners',
+              disabled: dis('roundCorners'),
+            },
+            {
+              label: 'Simplify Path…',
+              shortcut: formatShortcut(SHORTCUT_DEFS.simplifyPath.binding),
+              ariaKeyshortcut: ks('simplifyPath'),
+              action: 'simplifyPath',
+              disabled: dis('simplifyPath'),
+            },
+            {
+              label: 'Mirror Duplicate — Horizontal',
+              shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateHorizontal.binding),
+              ariaKeyshortcut: ks('mirrorDuplicateHorizontal'),
+              action: 'mirrorDuplicateHorizontal',
+              disabled: dis('mirrorDuplicateHorizontal'),
+            },
+            {
+              label: 'Mirror Duplicate — Vertical',
+              shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateVertical.binding),
+              ariaKeyshortcut: ks('mirrorDuplicateVertical'),
+              action: 'mirrorDuplicateVertical',
+              disabled: dis('mirrorDuplicateVertical'),
+            },
+            {
+              label: 'Radial Duplicate…',
+              shortcut: formatShortcut(SHORTCUT_DEFS.radialDuplicate.binding),
+              ariaKeyshortcut: ks('radialDuplicate'),
+              action: 'radialDuplicate',
+              disabled: dis('radialDuplicate'),
+            },
+          ],
         },
         { label: '---' },
         // Intelligence
