@@ -22,9 +22,21 @@ destroy their work.
 - [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` pass
 - [ ] `cargo fmt --all -- --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace` pass
 - [ ] A Linux package built **in CI** (not on the dev machine — glibc)
+- [ ] The release workflow's automated gates all pass before a draft exists:
+      gate job (frontend built before desktop compile), bundle matrix,
+      `package-smoke` (`.deb`/`.rpm` install into clean ubuntu:22.04 and
+      fedora:38 containers; AppImage launches headlessly under Xvfb),
+      `platform-smoke` (Windows NSIS silent install + launch + uninstall on a
+      Windows runner; macOS DMG mount + structure/arch checks + launch +
+      unmount on a macOS runner)
+- [ ] Draft release created with: installers, `release-manifest.json`,
+      per-platform + combined SBOMs, `SHA256SUMS.txt` generated **last** from
+      the final upload set
 - [ ] `node scripts/release/verify-artifacts.mjs --dir dist/release` passes
+- [ ] `node scripts/release/verify-downloaded.mjs` passes against the draft's
+      re-downloaded assets (uploaded bytes reproduce every published hash)
 - [ ] SHA-256 checksums published and independently verified from a second machine
-- [ ] SBOM attached
+- [ ] SBOM validated with `node scripts/release/validate-sbom.mjs`
 
 **Install verification — on a machine that has never built Varve**
 
