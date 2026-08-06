@@ -375,7 +375,7 @@ describe('binding resolution with modifiers', () => {
     expect(normalizedAlpha(effectiveDefault)).toBeCloseTo(0.4, 2);
 
     // Switch collection mode to dark (alpha 0x56 = 86/255 ≈ 0.337)
-    store.collections['col1']!.activeMode = 'dark';
+    store.collections.col1!.activeMode = 'dark';
     const darkFill = rgbManaged(resolveBinding(store, { variableId: 'v1' }));
     const effectiveDark = applyAlphaModifiers(darkFill, [
       { kind: 'alpha', operation: 'multiply', value: 0.5 },
@@ -414,7 +414,7 @@ describe('binding resolution with modifiers', () => {
     expect(normalizedAlpha(fill!)).toBeCloseTo(0.4, 2);
 
     // Changing the alias target preserves the modifier.
-    store.variables['base']!.valuesByMode.default = '#336699ff';
+    store.variables.base!.valuesByMode.default = '#336699ff';
     const resolved2 = resolveBinding(store, { variableId: 'aliased' });
     const fill2 = resolveBoundFill(
       { variableId: 'aliased', modifiers: [{ kind: 'alpha', operation: 'multiply', value: 0.5 }] },
@@ -479,7 +479,7 @@ describe('2.14 → 2.15 migration', () => {
     };
     const migrated = migrateV214ToV215(raw);
     const nodes = migrated.nodes as Record<string, Record<string, unknown>>;
-    const binding = (nodes.n1?.bindings as Record<string, PropertyBinding>)['fill'];
+    const binding = (nodes.n1?.bindings as Record<string, PropertyBinding>).fill;
     expect(binding?.modifiers).toEqual([{ kind: 'alpha', operation: 'multiply', value: 0.5 }]);
   });
 });

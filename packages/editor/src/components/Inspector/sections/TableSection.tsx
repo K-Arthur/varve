@@ -74,7 +74,6 @@ export function TableSection({ node }: Props) {
           ),
       },
     ],
-    // biome-ignore lint/correctness/useExhaustiveDependencies: structural counts change with the node
     [node.id, rowCount, columnCount],
   );
 

@@ -112,7 +112,7 @@ export function createActionHandlers(
       const selectedId = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
       if (!selectedId) return;
       const node = e.state.document.nodes[selectedId];
-      if (!node || node.kind !== 'table') return;
+      if (node?.kind !== 'table') return;
       const table = node.table;
       const rows: string[][] = [];
       for (const rowId of table.rowOrder) {
