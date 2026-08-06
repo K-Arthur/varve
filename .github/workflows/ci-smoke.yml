@@ -1,0 +1,84 @@
+name: Pipeline Smoke
+
+# Cheap, single-job validation for confirming the pipeline is healthy after an
+# infrastructure block lifts (billing block resolved, GitHub Actions incident
+# cleared, runner starvation ends). Runs ONLY on manual dispatch — it is the
+# first thing to trigger after `just ci-health` stops showing BILLING/STUCK,
+# without burning the full 3-OS matrix of CI + Build + Package.
+#
+# Usage:
+#   1. node scripts/ci-health.mjs --status   # wait for Actions: operational
+#   2. gh workflow run pipeline-smoke.yml    # or dispatch from the UI
+#
+# It runs the same quality gates the pre-push hook runs (minus cargo clippy /
+# cargo test, which are covered by the full matrix once a real push happens).
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: pipeline-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Pipeline smoke (gate subset)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install just
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
+        with:
+          tool: just@1.54.0
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: just format-check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (JS)
+        run: pnpm lint
+
+      - name: JS tests
+        run: pnpm test
+
+      - name: Token gate
+        run: pnpm audit:tokens
+
+      - name: Emoji gate
+        run: pnpm audit:emoji
+
+      - name: Workflow + pin validation
+        run: |
+          node scripts/validate-workflows.mjs
+          node scripts/pin-github-actions.mjs --check
+
+      - name: CI tooling regression tests
+        run: |
+          node scripts/ci-debug.test.mjs
+          node scripts/ci-health.test.mjs
+          node scripts/pin-github-actions.test.mjs
+          bash scripts/test-ci-shell-scripts.sh
+
+      - name: Automated failure debug
+        if: failure()
+        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
