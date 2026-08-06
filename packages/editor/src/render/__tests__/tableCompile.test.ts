@@ -191,8 +191,9 @@ describe('compileTableToEngineNode', () => {
     ]);
     const layoutA = getTableLayout(nodeA, nodeA.table, 480, 240);
     const layoutB = getTableLayout(nodeB, nodeB.table, 480, 240);
-    // Same dimensions but different node identity → recomputed.
-    expect(layoutB.rowHeights).not.toEqual(layoutA.rowHeights);
+    // Same dimensions but different node identity → recomputed (new layout
+    // object; the deterministic values may still be equal).
+    expect(layoutB).not.toBe(layoutA);
     // Cache hit for the same node identity.
     expect(getTableLayout(nodeB, nodeB.table, 480, 240)).toBe(layoutB);
     // Different width → recomputed.
