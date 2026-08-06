@@ -29,9 +29,33 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      # Probe first: when every failure in the triggering run is
+      # infrastructure (billing block, runner never acquired, job stuck in
+      # queue during an Actions outage), generating a debug report adds
+      # nothing but another job to an already-starved runner pool. The probe
+      # exits 0 only when at least one real (code-level) failure exists.
+      - name: Probe for real (code-level) failures
+        id: probe
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/ci-debug.mjs \
+            --probe \
+            --run-id ${{ github.event.workflow_run.id }} \
+            --repo ${{ github.repository }}
+
+      - name: Skip report (infrastructure-only failure)
+        if: steps.probe.outcome == 'failure'
+        run: |
+          echo "All failures in run ${{ github.event.workflow_run.id }} are infrastructure"
+          echo "(billing / runner starvation / stuck queue) — no debug report generated."
+          echo "Check https://www.githubstatus.com and rerun when GitHub Actions recovers."
 
       - name: Generate debug report
+        if: steps.probe.outcome == 'success'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -45,6 +69,7 @@ jobs:
             --output ci-debug-report.md
 
       - name: Upload debug report
+        if: always() && steps.probe.outcome == 'success'
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: ci-debug-report-${{ github.event.workflow_run.id }}
