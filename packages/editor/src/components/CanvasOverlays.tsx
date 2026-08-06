@@ -436,7 +436,7 @@ export function CanvasOverlays({
         containerHeight={canvasSize.height}
       />
       {editor.state.createTableFromDataOpen && <CreateTableFromDataDialog />}
-      {editor.state.tableEdit && editor.state.tableEdit.editingCellId && (
+      {editor.state.tableEdit?.editingCellId && (
         <TableCellEditor
           cellId={editor.state.tableEdit.editingCellId}
           zoom={zoom}

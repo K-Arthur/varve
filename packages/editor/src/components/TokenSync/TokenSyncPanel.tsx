@@ -130,10 +130,7 @@ export function TokenSyncPanel() {
                       {row.tokenCount} tokens, {row.locallyModifiedCount} modified
                     </span>
                     {row.conflictCount > 0 && (
-                      <span
-                        className="token-sync-panel__conflict-count"
-                        aria-label={`${row.conflictCount} conflicts`}
-                      >
+                      <span className="token-sync-panel__conflict-count">
                         {row.conflictCount} conflicts
                       </span>
                     )}
@@ -168,10 +165,12 @@ export function TokenSyncPanel() {
           </div>
 
           {preview && (
-            <div className="token-sync-panel__preview" role="group" aria-label="Import preview">
+            <fieldset className="token-sync-panel__preview">
+              <legend className="varve-visually-hidden">Import preview</legend>
               {preview.diagnostics.length > 0 && (
                 <ul className="token-sync-panel__diagnostics">
                   {preview.diagnostics.slice(0, 5).map((message, index) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: diagnostics are stateless strings; duplicate messages would collide as content keys
                     <li key={`${index}-${message}`}>{message}</li>
                   ))}
                 </ul>
@@ -201,7 +200,7 @@ export function TokenSyncPanel() {
                   Cancel
                 </button>
               </div>
-            </div>
+            </fieldset>
           )}
         </div>
       )}

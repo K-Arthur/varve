@@ -156,7 +156,7 @@ export function CreateTableFromDataDialog() {
         />
 
         <div className="insp-field-row__split" style={{ gap: 12, flexWrap: 'wrap' }}>
-          <label style={{ fontSize: 12 }}>
+          <span style={{ fontSize: 12 }}>
             Format
             <Select
               label="Input format"
@@ -170,7 +170,7 @@ export function CreateTableFromDataDialog() {
               ]}
               onChange={(v) => setDelimiter(v as typeof delimiter)}
             />
-          </label>
+          </span>
           <label style={{ fontSize: 12 }}>
             <input
               type="checkbox"
@@ -206,6 +206,7 @@ export function CreateTableFromDataDialog() {
               <thead>
                 <tr>
                   {Array.from({ length: cols }, (_, c) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: preview columns are stateless; header labels can repeat
                     <th key={c} style={{ fontSize: 11, padding: '2px 6px', textAlign: 'left' }}>
                       {headerRow && rows[0]?.[c] ? rows[0][c] : `C${c + 1}`}
                     </th>
@@ -214,8 +215,10 @@ export function CreateTableFromDataDialog() {
               </thead>
               <tbody>
                 {previewRows.slice(headerRow ? 1 : 0).map((r, ri) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are stateless; cell content repeats across the table
                   <tr key={ri}>
                     {Array.from({ length: cols }, (_, c) => (
+                      // biome-ignore lint/suspicious/noArrayIndexKey: preview cells are stateless; content repeats across the table
                       <td key={c} style={{ fontSize: 11, padding: '2px 6px' }}>
                         {r[c] ?? ''}
                       </td>

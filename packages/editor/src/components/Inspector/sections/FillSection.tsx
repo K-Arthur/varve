@@ -457,14 +457,14 @@ function FillRow({
               bindingValid
                 ? 'Linked to ' +
                   (bindingVariableName ?? '') +
-                  (bindingModifierLabel ? ', alpha ' + bindingModifierLabel : '')
-                : 'Variable ' + (bindingVariableName ?? '') + ' is missing or invalid'
+                  (bindingModifierLabel ? `, alpha ${bindingModifierLabel}` : '')
+                : `Variable ${bindingVariableName ?? ''} is missing or invalid`
             }
             title={
               bindingValid
                 ? 'Linked to $' +
                   bindingVariableName +
-                  (bindingModifierLabel ? ' · ' + bindingModifierLabel : '')
+                  (bindingModifierLabel ? ` · ${bindingModifierLabel}` : '')
                 : 'Linked variable is missing or invalid — binding preserved'
             }
             style={{
