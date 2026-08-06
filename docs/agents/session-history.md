@@ -2325,3 +2325,52 @@ across home, editor, and the design-system package itself. Full audit matrix:
   reference `Ctrl+Shift+D…` and are historical records (not authoritative for bindings).
 - Tauri/WebKitGTK/WebView2/WKWebView tooltip behaviour and visual-regression baselines
   are not yet covered (separate scope).
+
+---
+
+## Session: Native responsive tables + linked variable color modifiers (ADR-0016)
+
+### What was done
+
+| Phase | Action | Key files |
+|---|---|---|
+| **ADR + audit** | ADR-0016 (tables + color modifiers), evidence-backed capability matrix | `docs/adr/0016-tables-and-color-modifiers.md`, `docs/audits/tables-color-modifiers-capability-audit-2026-08-05.md` |
+| **Scene modifiers** | Typed `VariableModifier` stack (alpha multiply/set/offset), `PropertyBinding.modifiers`, bit-depth-aware resolution, 2.14→2.15 migration; table appearance paints bindable via `table.*` keys | `scene/modifiers.ts`, `scene/bindings.ts`, `scene/modifiersMigration.ts` |
+| **Scene table model** | `TableNode` + data-backed `TableModel`: stable row/column/cell ids, span invariants, occupancy grid, validation, immutable structural ops (insert/remove/move/merge/split), paste id-remap, codec repair | `scene/table.ts`, `scene/tableOps.ts`, `scene/types.ts`, `scene/clone.ts`, `scene/documentCodec.ts` |
+| **Layout** | Deterministic `computeTableLayout` (fixed/content/fraction/percentage tracks, minmax, monotonic span expansion capped at 8 passes, hidden-column collapse, responsive rules, row-height synchronization, content-row floor) — moved to `@varve/scene` so codegen shares one geometry source | `scene/tableLayout.ts` |
+| **Engine** | Compiled `TableShape` primitive; `paintTable` in replay (cell fills, pre-wrapped text, dividers, border); Rust pass-through (bridge/core/engine) so desktop keeps native IR for tables | `engine/types.ts`, `engine/engine.ts`, `engine/replay.ts`, `crates/varve-bridge`, `varve-core`, `varve-engine`, `varve-print` |
+| **Editor interaction** | TableTool (drag-create), table edit session (double-click, keyboard nav with anchor-based range selection, inline cell editor, column-resize handles, frozen markers), Inspector Table/Cells/Columns&Rows sections, feature ownership | `editor/tools/TableTool.ts`, `TableEditOverlay/`, `Inspector/sections/TableSection.tsx`, `TableCellsSection.tsx` |
+| **Modifier UI** | Fill binding badge (`$var ×50%`, invalid-variable warning), `VariableModifierPopover` (multiply/set/offset, slider+numeric, token vs effective alpha, reset preserves binding), `=` binds the selected fill | `Inspector/controls/VariableModifierPopover.tsx`, `FillSection.tsx`, `actions/createActionHandlers.ts` |
+| **Import/export** | Deterministic TSV/CSV/Markdown parsing (RFC-4180 quoting, bounds, 50MB cap), formula-safe export, Create-Table-From-Data dialog (toolbar entry), SVG table export with geometry parity, `exportTableCsv` action | `import/delimited.ts`, `CreateTableFromDataDialog.tsx`, `codegen/svg.ts` |
+| **E2E** | 12 Playwright specs: tables (insert/edit/merge/nav/reload), linked opacity (badge/modifier/propagation/reset), structured import (TSV/CSV) | `tests/e2e/canvas/tables.spec.ts`, `linked-opacity.spec.ts`, `table-import.spec.ts` |
+| **Bench** | 10k-cell table replays at 24.5ms p50 (single IR item); layout bounded (10k cells 28ms, 1 pass); existing replay bench unchanged | `engine/bench/tableReplay.bench.ts`, `scene/__benchmarks__/tableLayout.bench.ts` |
+
+### Verification
+
+- `pnpm typecheck`: 14/15 packages pass; engine's only error is pre-existing
+  `geometry.ts` (parallel-session warp code, not touched by this branch)
+- `pnpm test`: 12,268 passed / 3 skipped / 0 failed
+- `pnpm lint`: 0 errors on touched files (13 warnings, all informational)
+- `audit:emoji` clean · `audit:docs` clean (ADR-0016 indexed) · `audit:tokens` 123/123
+- Rust: `cargo test --workspace` 414 passed; clippy + fmt clean
+- E2E: 12/12 Chromium (insert/edit/merge/keyboard/reload; badge/modifier/reset;
+  TSV/CSV import)
+- Bench: `pnpm bench:canvas` (replay regression gate) and `pnpm bench:table` /
+  `pnpm bench:table-layout` all pass
+
+### Notes / deferred
+
+- Work executed on branch `feat/tables-modifiers` (worktree
+  `.worktrees/tables-modifiers`) based at `67d94621` — the last fully-buildable
+  master commit. Master `1dedf62f..a649ae04` absorbed staged table/warp hunks
+  without their files and does not build there; the parallel session must
+  reconcile before merge.
+- `audit-architecture --ci` flags Shell/CanvasArea/Menubar/context import counts
+  over budget — counts are byte-identical to the base for Shell/CanvasArea/
+  Menubar (pre-existing); context.tsx +1 (feature cost).
+- Deferred: frozen-header scrolling viewport (model-level freeze + markers only),
+  rich content slots per cell, XLSX import, semantic HTML `<table>` codegen,
+  image/OCR table recognition (ADR-0016 §17 multimodal, schema planned).
+- The parallel session's warp feature is referenced by master's committed
+  editor files but its modules were never committed there; this branch vendors
+  none of it and its scene index drops the dangling warp exports.
