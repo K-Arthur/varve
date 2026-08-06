@@ -402,10 +402,164 @@ jobs:
           if-no-files-found: warn
           retention-days: 90
 
+  # ── 3b. Native package smoke (clean containers + headless launch) ─────────
+  # The container tests answer the compatibility-baseline question nothing
+  # else can: installability, dependency resolution, glibc floor, desktop
+  # entry, icons, MIME registration and clean uninstall on Ubuntu 22.04 and
+  # Fedora 38. The AppImage step launches the real bundled app headlessly
+  # under Xvfb — a launch smoke, not a GUI usability test. Both are explicit
+  # gates between "built" and "draft" for the Linux platform.
+  package-smoke:
+    name: Linux package smoke (containers + launch)
+    needs: [preflight, bundle]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-linux-x86_64
+          path: staged/linux
+
+      - name: Install container runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends podman fuse xvfb dbus-x11 at-spi2-core
+          podman info >/dev/null 2>&1 || echo "::warning::podman info failed — install tests will fail fast"
+
+      - name: Install-test .deb and .rpm in clean containers
+        run: |
+          node scripts/release/verify-package-install.sh \
+            --bundle-dir "$(pwd)/staged/linux"
+
+      - name: Launch smoke (AppImage under Xvfb)
+        run: |
+          set -euo pipefail
+          IMG="$(find staged/linux -name '*.AppImage' | head -1)"
+          if [[ -z "${IMG}" ]]; then
+            echo "::error::No AppImage found in staged/linux"
+            exit 1
+          fi
+          chmod +x "${IMG}"
+          echo "Launching ${IMG} headlessly for a bounded smoke test..."
+          dbus-run-session -- xvfb-run --auto-servernum \
+            timeout 60 "${IMG}" --appimage-extract-and-run &
+          PID=$!
+          sleep 25
+          if kill -0 "${PID}" 2>/dev/null; then
+            # Still running after 25s: the window loop is up. Kill cleanly.
+            kill "${PID}" 2>/dev/null || true
+            wait "${PID}" 2>/dev/null || true
+            echo "AppImage launch smoke PASSED (process stayed alive 25s)"
+          else
+            wait "${PID}"
+            echo "::error::AppImage exited early (code $?)"
+            exit 1
+          fi
+
+  # ── 3c. Native runner smoke (Windows NSIS, macOS DMG) ──────────────────────
+  # The matrix builds the packages; these jobs prove the packaged artifacts
+  # install/mount and launch far enough to run a bounded smoke test on the
+  # platform itself. This is the gate between "built" and "draft" for the
+  # non-Linux platforms. A launch smoke is not a usability test — that still
+  # needs humans on real hardware.
+  platform-smoke:
+    name: ${{ matrix.name }} runner smoke
+    needs: [preflight, bundle]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows
+            os: windows-latest
+            artifact: release-windows-x86_64
+            enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
+          - name: macos
+            os: macos-latest
+            artifact: release-macos-aarch64
+            enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        if: matrix.enabled
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - name: Download platform artifacts
+        if: matrix.enabled
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ matrix.artifact }}
+          path: staged
+
+      - name: Windows — silent install, launch smoke, uninstall
+        if: matrix.enabled && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Get-ChildItem -Path staged -Filter '*.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'No NSIS installer found in staged/' }
+          Write-Host "Installing $($exe.Name) silently..."
+          Start-Process -FilePath $exe.FullName -ArgumentList '/S' -Wait
+          $installed = Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter 'varve-desktop.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $installed) { throw 'varve-desktop.exe not found after silent install' }
+          $version = $installed.VersionInfo
+          Write-Host "Installed: $($installed.FullName)  product=$($version.ProductName)  version=$($version.FileVersion)"
+          $proc = Start-Process -FilePath $installed.FullName -PassThru
+          Start-Sleep -Seconds 20
+          if ($proc.HasExited) { throw "App exited early with code $($proc.ExitCode)" }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Write-Host 'Launch smoke PASSED (process stayed alive 20s)'
+          $uninstallKey = Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like 'Varve*' } | Select-Object -First 1
+          if (-not $uninstallKey) { throw 'No uninstall entry found in registry' }
+          Write-Host "Uninstall entry: $($uninstallKey.DisplayName)"
+          Start-Process -FilePath $uninstallKey.UninstallString -ArgumentList '/S' -Wait
+          if (Test-Path $installed.DirectoryName) { throw 'Installed files remain after uninstall' }
+          Write-Host 'Uninstall PASSED'
+
+      - name: macOS — mount DMG, structure/arch checks, launch smoke, unmount
+        if: matrix.enabled && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="$(find staged -name '*.dmg' | head -1)"
+          if [[ -z "${DMG}" ]]; then echo "::error::No DMG found in staged/"; exit 1; fi
+          MOUNT_POINT="$(mktemp -d /tmp/varve-dmg.XXXXXX)"
+          hdiutil attach "${DMG}" -nobrowse -mountpoint "${MOUNT_POINT}" >/dev/null
+          APP="$(find "${MOUNT_POINT}" -maxdepth 1 -name '*.app' | head -1)"
+          if [[ -z "${APP}" ]]; then echo "::error::No .app bundle inside DMG"; hdiutil detach "${MOUNT_POINT}" >/dev/null 2>&1 || true; exit 1; fi
+          BIN="${APP}/Contents/MacOS/varve-desktop"
+          [[ -x "${BIN}" ]] || { echo "::error::Executable missing in bundle"; exit 1; }
+          echo "Bundle identifier: $(plutil -extract CFBundleIdentifier raw "${APP}/Contents/Info.plist")"
+          echo "Executable arch:   $(file "${BIN}" | grep -oE 'arm64|x86_64' | head -1)"
+          echo "Bundle structure:  $(ls "${APP}/Contents/" | tr '\n' ' ')"
+          if [[ -f "${APP}/Contents/Resources/icon.icns" ]]; then echo "Icon resource:      present"; fi
+          "${BIN}" & APP_PID=$!
+          sleep 20
+          if kill -0 "${APP_PID}" 2>/dev/null; then
+            echo "Launch smoke PASSED (process stayed alive 20s)"
+            kill "${APP_PID}" 2>/dev/null || true
+            wait "${APP_PID}" 2>/dev/null || true
+          else
+            wait "${APP_PID}"
+            echo "::error::App exited early (code $?)"
+            hdiutil detach "${MOUNT_POINT}" >/dev/null 2>&1 || true
+            exit 1
+          fi
+          hdiutil detach "${MOUNT_POINT}" >/dev/null
+          rm -rf "${MOUNT_POINT}"
+          echo "DMG mounted, app launched, unmounted cleanly."
+
   # ── 4. Assemble, verify, draft ──────────────────────────────────────────────
   draft:
     name: Draft Release
-    needs: [preflight, bundle]
+    needs: [preflight, bundle, package-smoke, platform-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

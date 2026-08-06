@@ -1,7 +1,7 @@
 # Varve — Website Architecture and Launch Plan
 
 **Date:** 2026-08-04
-**Status:** implemented and building; not yet deployed
+**Status:** implemented, deployed and live at https://k-arthur.github.io/varve/ (project site). Custom-domain switch is configuration-only; see `custom-domain-runbook.md`.
 
 ---
 
@@ -30,29 +30,48 @@ files.
 ```
 apps/website/
 ├── astro.config.mjs           SITE_URL / SITE_BASE driven
-├── public/                    static passthrough (favicon, og-image, robots, _headers)
-└── src/
+├── public/                    static passthrough (favicon, og-image, llms.txt)
+├── src/
     ├── data/
     │   └── release-manifest.json    GENERATED — never hand-edited
-    ├── layouts/Layout.astro         meta, OG, CSP, opt-in analytics
+    ├── lib/siteUrl.ts               ONE URL system: sitePath/siteUrl/canonical
+    ├── layouts/Layout.astro         meta, OG, CSP, opt-in analytics, active nav
     ├── pages/
     │   ├── download.astro           renders from src/data/release-manifest.json
     │   ├── sitemap.xml.ts           generated from site + base + page files
+    │   ├── robots.txt.ts            generated from site + base (sitemap URL)
     │   ├── 404.astro
     │   └── … 40 more
-    └── test/releases.test.ts        guards manifest honesty
+    └── test/                        guards manifest honesty + URL rules
 ```
 
 ### The download manifest flow
 
+Two paths produce the website's release data; both write through
+`scripts/release/website-release-data.mjs`, both verify before writing, and
+both derive everything from real bytes:
+
 ```
-release.yml  →  dist/release/release-manifest.json   (hashes from real bytes)
+release.yml  →  dist/release/release-manifest.json + SHA256SUMS.txt + SBOMs
                         │
-                        ▼
-    scripts/release/update-website-manifest.mjs --tag v0.1.0
-                        │
-                        ▼
-    apps/website/src/data/release-manifest.json      (committed)
+                        ├─ CI path (release: published → website-deploy.yml)
+                        │    fetch-website-release.mjs
+                        │      • channel policy: latest published STABLE, else
+                        │        latest published prerelease; drafts never
+                        │        appear (deleted/withdrawn releases are drafts
+                        │        internally and are skipped too)
+                        │      • verifies manifest version == tag, every
+                        │        artifact hash == SHA256SUMS.txt, known formats,
+                        │        no unmanifested installers, SBOM coverage
+                        │      • any failure FAILS the deployment
+                        │      ▼
+                        └─ offline path (rehearsal/local)
+                             update-website-manifest.mjs --tag v0.1.0
+                              │
+                              ▼
+    apps/website/src/data/release-manifest.json      (written at build time;
+                                                       committed fallback is the
+                                                       honest no-release state)
                         │
                         ▼
     download.astro  →  cards, sizes, checksums, per-platform install steps
@@ -60,6 +79,9 @@ release.yml  →  dist/release/release-manifest.json   (hashes from real bytes)
 
 Nothing about a download is typed by hand. The page cannot advertise a file that
 was not built, a size that was not measured, or a checksum that was not computed.
+When a release cannot be verified (missing integrity files, hash mismatch,
+unknown artifact types, API outage) the deployment fails — an explicit error
+beats a download page that invents data.
 
 `hasRelease: false` is a first-class rendered state: before the first tag, the
 page says there is nothing to download and warns against Varve-branded builds
@@ -75,9 +97,19 @@ from elsewhere. This is the default committed state today.
 | Cloudflare Pages | Free | Genuine alternative: unlimited bandwidth, deploy previews, works with a private repo. Adds a second vendor and a second place credentials live. Switch if Pages bandwidth or repo visibility becomes a real constraint |
 | Anything else | — | No material advantage |
 
-**Deployment** is unchanged: `.github/workflows/website-deploy.yml` on pushes
-touching `apps/website/**`. With a custom domain later, set `SITE_URL` and
-`SITE_BASE: /` in that workflow — no source change.
+**Deployment** is `.github/workflows/website-deploy.yml`: pushes touching
+`apps/website/**` or `scripts/release/**`, plus `release: published` (the
+download page is rebuilt from the exact published assets), plus manual
+dispatch. The workflow runs the full quality gate (typecheck, unit tests,
+both-mode builds, axe/link e2e) before uploading, and smoke-checks the live
+URL after deploying (`scripts/website/smoke-pages.mjs`). With a custom domain
+later, set `SITE_URL` and `SITE_BASE: /` — no source change; see
+`custom-domain-runbook.md`.
+
+GitHub Pages cannot set arbitrary security headers (`_headers` files are
+ignored there — the old `public/_headers` was removed). CSP is enforced via
+the `<meta>` tag in `Layout.astro`; X-Frame-Options/HSTS are not settable on
+this host and are not claimed.
 
 ---
 
@@ -118,7 +150,8 @@ Present and accurate:
 Outstanding:
 
 - [ ] **Authentic screenshots.** The site currently has none of the application.
-      These must be real captures, not mockups
+      These must be real captures, not mockups — never generated mockups
+      presented as the product
 - [ ] Contact method that is not a personal address — needs the domain, or a
       GitHub-only channel in the interim
 - [ ] Third-party licence page rendering `THIRD_PARTY_NOTICES`
@@ -130,11 +163,13 @@ Outstanding:
 The repo already runs axe-core through Playwright. For the site specifically,
 verify before launch:
 
-- [ ] Keyboard-only path through the download flow, including the platform tabs
-- [ ] Visible focus on every interactive element
-- [ ] Platform tabs expose correct roles and state (currently plain `<button>`s
-      driving `.active` classes — needs `role="tab"`/`aria-selected` or a
-      non-tab pattern)
+- [x] Keyboard-only path through the download flow, including the platform tabs
+      (arrow-key tablist navigation, Home/End, focus management)
+- [x] Platform tabs expose `role="tablist"`/`role="tab"`/`aria-selected`/`aria-controls`
+- [x] Copy-checksum buttons announce results via an aria-live region
+- [x] Active navigation state (`aria-current="page"`)
+- [x] Escape-to-close and focus return for the mobile menu
+- [ ] Visible focus on every interactive element (axe covers most; visual pass pending)
 - [ ] Contrast ≥ 4.5:1 in light, dark and high-contrast themes
 - [ ] Headings form a sensible outline; one `<h1>` per page
 - [ ] Checksum `<details>` blocks are reachable and announced
