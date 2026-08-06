@@ -48,6 +48,43 @@ export function resolveBoundFill(
   return fillColor;
 }
 
+/** Table appearance paints bindable through the node's `bindings` record. */
+export type TablePaintKey =
+  | 'table.headerFill'
+  | 'table.bodyFill'
+  | 'table.alternateFill'
+  | 'table.borderColor'
+  | 'table.dividerColor'
+  | 'table.headerText'
+  | 'table.bodyText';
+
+export const TABLE_PAINT_BINDING_KEYS: readonly TablePaintKey[] = [
+  'table.headerFill',
+  'table.bodyFill',
+  'table.alternateFill',
+  'table.borderColor',
+  'table.dividerColor',
+  'table.headerText',
+  'table.bodyText',
+];
+
+function isTablePaintKey(property: string): property is TablePaintKey {
+  return (TABLE_PAINT_BINDING_KEYS as readonly string[]).includes(property);
+}
+
+type TableAppearancePaintKey =
+  | 'headerFill'
+  | 'bodyFill'
+  | 'alternateFill'
+  | 'borderColor'
+  | 'dividerColor'
+  | 'headerText'
+  | 'bodyText';
+
+function resolveTablePaintKey(key: TablePaintKey): TableAppearancePaintKey {
+  return key.slice('table.'.length) as TableAppearancePaintKey;
+}
+
 /**
  * Apply document variable bindings to a single node (non-destructive copy).
  */
@@ -100,6 +137,20 @@ export function applyBindingsToNode(node: SceneNode, store: VariableStore | unde
         next = { ...next, fontSize: resolved } as SceneNode;
       } else if (property === 'text' && typeof resolved === 'string' && next.kind === 'text') {
         next = { ...next, text: resolved } as SceneNode;
+      } else if (isTablePaintKey(property) && next.kind === 'table') {
+        // Table appearance paints resolve through the same variable pipeline
+        // (aliases, modes, modifiers) and are never materialized as literals.
+        const paintKey = resolveTablePaintKey(property);
+        const paintColor = resolveBoundFill(binding as PropertyBinding, resolved);
+        if (paintColor) {
+          next = {
+            ...next,
+            table: {
+              ...next.table,
+              appearance: { ...next.table.appearance, [paintKey]: paintColor },
+            },
+          } as SceneNode;
+        }
       }
     } catch {
       // Keep original value when binding is broken

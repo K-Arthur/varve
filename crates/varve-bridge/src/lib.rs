@@ -70,6 +70,11 @@ pub enum IpcShape {
     },
     #[serde(rename = "text")]
     Text(Box<IpcTextShape>),
+    /// V2.15+: compiled native table (ADR-0016 D3). The payload is opaque to
+    /// the bridge — it is produced by the editor layout engine and consumed
+    /// by the JS replay; Rust passes it through untouched.
+    #[serde(rename = "table")]
+    Table(serde_json::Value),
 }
 
 /// Text is boxed as one semantic record so adding typography fields does not
@@ -352,6 +357,7 @@ impl IpcShape {
                 holes,
                 fill_rule,
             },
+            IpcShape::Table(payload) => Shape::Table(payload),
             IpcShape::Text(text_shape) => {
                 let IpcTextShape {
                     text,
@@ -800,4 +806,63 @@ fn ipc_scene_node_reads_typescript_blend_mode_field() {
     assert_eq!(node.blend_mode, BlendMode::ColorDodge);
     let converted = convert_engine_nodes(vec![node]);
     assert_eq!(converted[0].blend_mode, BlendMode::ColorDodge);
+}
+
+#[test]
+fn ipc_table_shape_passes_through_unchanged() {
+    let table_payload = serde_json::json!({
+        "kind": "table",
+        "x": 0.0,
+        "y": 0.0,
+        "w": 300.0,
+        "h": 120.0,
+        "cornerRadius": 4.0,
+        "borderColor": { "space": "rgb", "r": 10.0, "g": 10.0, "b": 10.0, "a": 255.0 },
+        "borderWidth": 1.0,
+        "dividerColor": { "space": "rgb", "r": 200.0, "g": 200.0, "b": 200.0, "a": 255.0 },
+        "dividerWidth": 1.0,
+        "colPositions": [0.0, 150.0, 300.0],
+        "rowPositions": [0.0, 40.0, 120.0],
+        "cells": [
+            {
+                "x": 0.0,
+                "y": 0.0,
+                "w": 150.0,
+                "h": 40.0,
+                "fill": { "space": "rgb", "r": 240.0, "g": 240.0, "b": 240.0, "a": 255.0 },
+                "text": {
+                    "lines": ["Header A"],
+                    "fontSize": 13.0,
+                    "fontFamily": "Inter",
+                    "fontWeight": 600.0,
+                    "fontStyle": "normal",
+                    "color": { "space": "rgb", "r": 0.0, "g": 0.0, "b": 0.0, "a": 255.0 },
+                    "alignH": "left",
+                    "alignV": "middle",
+                    "padding": 8.0
+                }
+            }
+        ]
+    });
+
+    let json = serde_json::json!({
+        "id": "table-node",
+        "name": "Table",
+        "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+        "shape": table_payload,
+        "fill": { "space": "rgb", "r": 255.0, "g": 255.0, "b": 255.0, "a": 255.0 }
+    });
+
+    let node: IpcSceneNode = serde_json::from_value(json).expect("deserialize table node");
+    let converted = convert_engine_nodes(vec![node]);
+    let Shape::Table(payload) = &converted[0].shape else {
+        panic!("expected Shape::Table");
+    };
+    // IpcShape is internally tagged, so serde strips the kind field at parse
+    // time; the remaining table payload passes through unchanged. The engine
+    // Primitive (also internally tagged) re-adds the tag when serializing.
+    assert_eq!(payload["w"], 300.0);
+    assert_eq!(payload["cells"][0]["text"]["lines"][0], "Header A");
+    let wire = serde_json::to_value(&converted[0].shape).expect("serialize shape");
+    assert_eq!(wire["Table"]["w"], 300.0);
 }

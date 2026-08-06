@@ -26,6 +26,11 @@
       }
     },
     {
+      "includes": ["packages/**/__goldens__/**", "packages/**/__snapshots__/**"],
+      "formatter": { "enabled": false },
+      "linter": { "enabled": false }
+    },
+    {
       "includes": ["**/*.test.*", "**/__tests__/**", "tests/**", "scripts/**"],
       "linter": {
         "rules": {

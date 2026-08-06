@@ -13,6 +13,7 @@
 
 import { captureSyncBaseline } from './component-sync';
 import { addChild, type Document, isContainer } from './document';
+import { mintId } from './identity';
 import type {
   ComponentDefinition,
   ComponentProperty,
@@ -37,14 +38,19 @@ export function slotsSatisfied(
   return component.slots.every((s) => Object.hasOwn(frameSlots, s.id));
 }
 
-/** Mutable id generator for tree-clone operations. */
+/**
+ * Mutable id generator for tree-clone operations.
+ * Minted ids are collision-resistant across independently edited copies
+ * (ADR-0025): counter for per-document ordering, random component for
+ * branch safety.
+ */
 class IdGen {
   private counter: number;
   constructor(doc: Document) {
     this.counter = doc.nextId;
   }
   next(): NodeId {
-    return `n${this.counter++}`;
+    return mintId('n', this.counter++);
   }
   nextDoc(nextId: number): Pick<Document, 'nextId'> {
     return { nextId: Math.max(this.counter, nextId) };

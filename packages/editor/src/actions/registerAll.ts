@@ -1,4 +1,5 @@
 import type { EditorContextValue } from '../context';
+import { openMockupsWithSelection } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
@@ -162,6 +163,12 @@ export function registerEditorActions(
   reg('toggleLibraryPanel', 'Toggle Library Panel', 'panel', () => ctx.toggleLibraryPanel());
   reg('toggleCodegenPanel', 'Toggle Codegen Panel', 'panel', () => ctx.toggleCodegenPanel());
   reg('toggleLogoPanel', 'Toggle Logo Panel', 'panel', () => ctx.toggleLogoPanel());
+  reg('applyMockup', 'Apply Mockup…', 'object', () => {
+    openMockupsWithSelection(ctx);
+  });
+  reg('openMockupsPanel', 'Open Mockups Panel', 'panel', () => {
+    openMockupsWithSelection(ctx);
+  });
   if (handlers.home) reg('home', 'Go to Home', 'file', handlers.home);
   reg('togglePixelGrid', 'Toggle Pixel Grid', 'canvas', () =>
     ctx.setPixelGridEnabled(!ctx.state.pixelGridEnabled),
@@ -181,6 +188,27 @@ export function registerEditorActions(
         keywords: ['upscale', 'image', 'enlarge', 'ai', 'super-resolution', 'rescale'],
       },
       handlers.upscaleImage ?? (() => {}),
+    );
+  }
+  if (!r.has('imageTrace')) {
+    r.register(
+      {
+        id: 'imageTrace',
+        label: 'Vectorize Image',
+        category: 'object',
+        keywords: [
+          'trace',
+          'vectorize',
+          'image trace',
+          'raster to vector',
+          'outline',
+          'convert',
+          'autotrace',
+          'potrace',
+          'centerline',
+        ],
+      },
+      handlers.imageTrace ?? (() => {}),
     );
   }
   // Mask operations (reachable via Object menu and Layers context menu)

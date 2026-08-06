@@ -29,8 +29,18 @@ import {
   encodeRasterSurface,
   type RasterSurface,
 } from '@varve/engine';
-import type { Document, Effect, Fill, NodeId, SceneNode, ShapeNode } from '@varve/scene';
-import { findCommonAncestor, resolveAdjustmentScope } from '@varve/scene';
+import {
+  type Document,
+  type Effect,
+  type Fill,
+  findCommonAncestor,
+  isMockupFrame,
+  type NodeId,
+  resolveAdjustmentScope,
+  type SceneNode,
+  type ShapeNode,
+} from '@varve/scene';
+import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { replayStructuredScene } from '../render/replayScene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
 
@@ -818,6 +828,31 @@ function widenAdjustmentBoundaries(
  * version of this file) silently produced blank or wrong output for
  * anything beyond solid-fill rects.
  */
+/** Live-bound source ids of the given mockup frames (for export flattening). */
+function mockupLiveSourceIds(doc: Document, rootIds: readonly NodeId[]): NodeId[] {
+  const ids: NodeId[] = [];
+  const seen = new Set<NodeId>();
+  for (const id of rootIds) {
+    const node = doc.nodes[id];
+    if (!isMockupFrame(node)) continue;
+    for (const binding of Object.values(node.mockup.surfaceBindings)) {
+      if (binding.mode === 'live' && binding.nodeId && !seen.has(binding.nodeId)) {
+        seen.add(binding.nodeId);
+        ids.push(binding.nodeId);
+      }
+    }
+  }
+  return ids;
+}
+
+let exportMockupSurfaceCache: MockupSurfaceCache | null = null;
+
+/** Module-level export cache (export runs are sequential and infrequent). */
+function getExportMockupSurfaceCache(): MockupSurfaceCache {
+  if (!exportMockupSurfaceCache) exportMockupSurfaceCache = new MockupSurfaceCache();
+  return exportMockupSurfaceCache;
+}
+
 async function renderBoundaryToSurface(
   surface: RasterSurface,
   boundaryNodeId: NodeId,
@@ -826,8 +861,28 @@ async function renderBoundaryToSurface(
   exportScale: number,
   bounds: { x: number; y: number; w: number; h: number },
 ): Promise<void> {
-  const flattened = flattenSceneToEngine(doc, [boundaryNodeId]);
+  // Mockup frames present live-bound sources: include them in the flattened
+  // set so the surface bake can replay them at export resolution.
+  const sourceIds = mockupLiveSourceIds(doc, [boundaryNodeId]);
+  const flattened = flattenSceneToEngine(doc, [boundaryNodeId, ...sourceIds]);
   const ir = await eng.buildIr({ nodes: flattened.nodes });
+
+  const decorated = decorateMockupIr({
+    doc,
+    nodeIds: [boundaryNodeId, ...sourceIds],
+    items: ir,
+    renderSubtree: (ctx, nodeId) => {
+      replayStructuredScene(ctx, {
+        document: doc,
+        rootIds: [nodeId],
+        flattenedIds: flattened.ids,
+        items: ir,
+      });
+    },
+    qualityScale: exportScale,
+    cache: getExportMockupSurfaceCache(),
+    insertIntoList: false,
+  });
 
   const ctx = surface.context as CanvasRenderingContext2D;
   ctx.save();
@@ -838,6 +893,7 @@ async function renderBoundaryToSurface(
     rootIds: [boundaryNodeId],
     flattenedIds: flattened.ids,
     items: ir,
+    extrasByNodeId: decorated.extrasByNodeId,
   });
   ctx.restore();
 }

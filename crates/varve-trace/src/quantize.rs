@@ -73,6 +73,17 @@ fn linear_srgb_to_oklab(rgb: [f64; 3]) -> [f64; 3] {
     mul3x3(&M2, lms_cuberoot)
 }
 
+/// Perceptual Oklab distance between two sRGB colors (squared). Used by the
+/// pixel-art palette merger so perceptually-near colors cluster consistently.
+pub(crate) fn oklab_distance_sq(r1: u8, g1: u8, b1: u8, r2: u8, g2: u8, b2: u8) -> f64 {
+    let a = linear_srgb_to_oklab([srgb_to_linear(r1), srgb_to_linear(g1), srgb_to_linear(b1)]);
+    let b = linear_srgb_to_oklab([srgb_to_linear(r2), srgb_to_linear(g2), srgb_to_linear(b2)]);
+    let dl = a[0] - b[0];
+    let da = a[1] - b[1];
+    let db = a[2] - b[2];
+    dl * dl + da * da + db * db
+}
+
 /// Quantize RGBA pixels into a palette of at most `max_colors`.
 /// Pixels with alpha < alpha_threshold are skipped.
 /// Returns palette sorted by count descending.

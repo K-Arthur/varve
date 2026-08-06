@@ -42,13 +42,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         browser: [chromium, firefox, webkit]
-        include:
-          - os: ubuntu-latest
-            dev-command: xvfb-run --auto-servernum pnpm --filter @varve/desktop dev
-          - os: macos-latest
-            dev-command: pnpm --filter @varve/desktop dev
-          - os: windows-latest
-            dev-command: pnpm --filter @varve/desktop dev
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -79,6 +72,7 @@ jobs:
           pnpm --version
           test -f pnpm-lock.yaml && echo "lockfile present"
       - name: Run menu E2E tests
+        shell: bash
         run: |
           npx playwright test tests/e2e/menus \
             --project=${{ matrix.browser }} \
@@ -90,6 +84,21 @@ jobs:
           name: menu-e2e-artifacts-${{ matrix.os }}-${{ matrix.browser }}
           path: test-results/
           retention-days: 7
+      - name: Automated failure debug
+        if: failure()
+        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
+      - name: Upload debug report
+        if: failure()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: menu-e2e-debug-${{ matrix.os }}-${{ matrix.browser }}
+          path: ci-debug-report.md
+          if-no-files-found: ignore
+      - name: Post debug report to PR
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
 
   canvas-keyboard-nav:
     name: Canvas KB nav (${{ matrix.os }} / ${{ matrix.browser }})
@@ -123,6 +132,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: Run canvas E2E tests
+        shell: bash
         run: |
           npx playwright test tests/e2e/canvas/keyboard-nav.spec.ts \
             --project=chromium \
@@ -134,3 +144,18 @@ jobs:
           name: canvas-e2e-artifacts-${{ matrix.os }}
           path: test-results/
           retention-days: 7
+      - name: Automated failure debug
+        if: failure()
+        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
+      - name: Upload debug report
+        if: failure()
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: canvas-e2e-debug-${{ matrix.os }}
+          path: ci-debug-report.md
+          if-no-files-found: ignore
+      - name: Post debug report to PR
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
