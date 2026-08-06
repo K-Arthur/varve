@@ -114,6 +114,7 @@ export {
   activePageNodes,
   addGlobalChild,
   addPage,
+  deletePageWithPolicy,
   duplicatePage,
   getFormattedPageNumber,
   getPageNumber,
@@ -127,8 +128,10 @@ export {
   reorderPages,
   setActivePage,
   setFacingPagesEnabled,
+  setPagePlacement,
   setPageSize,
   setPageSizeWithContentScale,
+  spreadsFromProjection,
   toggleFacingPages,
 } from './document-pages';
 
@@ -264,6 +267,9 @@ export interface Document {
 
   /** Facing pages configuration. */
   facingPages?: import('./types').FacingPagesConfig;
+
+  /** Spread persistence model (ADR-0128). Defaults to derived. */
+  spreadModel?: import('./types').SpreadModel;
 
   /** Immutable PNG alpha-mask payloads keyed by asset id (v2.1+). */
   rasterMaskAssets?: Record<string, import('./types').RasterMaskAsset>;

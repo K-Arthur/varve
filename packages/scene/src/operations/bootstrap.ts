@@ -8,6 +8,7 @@
 
 import { registerDocumentAssetOperations } from './ops/documentAssetOps';
 import { registerNodeOperations } from './ops/nodeOps';
+import { registerPageOperations } from './ops/pageOps';
 
 let registered = false;
 
@@ -16,5 +17,6 @@ export function registerBuiltinOperations(): void {
   if (registered) return;
   registerNodeOperations();
   registerDocumentAssetOperations();
+  registerPageOperations();
   registered = true;
 }
