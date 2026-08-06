@@ -489,7 +489,12 @@ fn trace_mask_to_beziers(
         .iter()
         .map(|p| {
             let contour: Vec<(f64, f64)> = p.iter().map(|pt| (pt.x, pt.y)).collect();
-            let points = bezier_fit::fit_bezier_to_contour(&contour, true, opts.corner_angle, opts.max_error);
+            let points = bezier_fit::fit_bezier_to_contour(
+                &contour,
+                true,
+                opts.corner_angle,
+                opts.max_error,
+            );
             BezierPath {
                 points,
                 closed: true,
@@ -774,7 +779,8 @@ pub fn trace_to_beziers_cancellable(
         report("tracing", 0.5);
     }
     let mut omitted_holes = 0usize;
-    let result = trace_mask_to_beziers(&mask, width, height, opts, cancel, None, &mut omitted_holes);
+    let result =
+        trace_mask_to_beziers(&mask, width, height, opts, cancel, None, &mut omitted_holes);
     if is_cancelled_flag(cancel) {
         return TraceBezierResult {
             paths: Vec::new(),
@@ -903,7 +909,14 @@ mod tests {
         let pixels = donut_rgba(32, 32, 4, 14, 16, 16);
         let cancel = new_cancellation();
         cancel.store(true, Ordering::SeqCst);
-        let result = trace_to_beziers_cancellable(&pixels, 32, 32, &TraceOptions::default(), Some(&cancel), None);
+        let result = trace_to_beziers_cancellable(
+            &pixels,
+            32,
+            32,
+            &TraceOptions::default(),
+            Some(&cancel),
+            None,
+        );
         assert!(result.paths.is_empty());
     }
 
@@ -911,7 +924,14 @@ mod tests {
     fn cancellable_trace_matches_non_cancellable_when_not_aborted() {
         let pixels = donut_rgba(32, 32, 4, 14, 16, 16);
         let cancel = new_cancellation();
-        let a = trace_to_beziers_cancellable(&pixels, 32, 32, &TraceOptions::default(), Some(&cancel), None);
+        let a = trace_to_beziers_cancellable(
+            &pixels,
+            32,
+            32,
+            &TraceOptions::default(),
+            Some(&cancel),
+            None,
+        );
         let b = trace_to_beziers(&pixels, 32, 32, &TraceOptions::default());
         assert_eq!(a.paths.len(), b.len());
     }
