@@ -13,6 +13,59 @@ export const KNOWN_FORMATS = ['appimage', 'deb', 'rpm', 'nsis', 'msi', 'dmg'];
 export const KNOWN_OS = ['linux', 'macos', 'windows'];
 
 /**
+ * Channel policy for the download page (documented, not "latest release"):
+ *
+ *   1. Only PUBLISHED releases are eligible. Drafts — which is also how GitHub
+ *      internally represents deleted/withdrawn releases — never appear.
+ *   2. The highest semver STABLE release wins.
+ *   3. If no stable release exists, the highest semver PRERELEASE is shown,
+ *      clearly labelled as a preview.
+ *   4. A pinned tag must be an eligible published release or the selection
+ *      fails (a draft can never be advertised, even when explicitly pinned).
+ *
+ * @param {Array<{tag_name: string, draft: boolean}>} releases
+ * @param {string|null} pinnedTag
+ * @returns {object|null} the selected release, or null when none is eligible
+ */
+export function selectRelease(releases, pinnedTag = null) {
+  const published = (releases ?? []).filter((r) => r.draft === false);
+  if (published.length === 0) return null;
+
+  const semverOf = (tag) => {
+    const match = String(tag).match(/^v?(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+    if (!match) return null;
+    return {
+      major: Number(match[1]),
+      minor: Number(match[2]),
+      patch: Number(match[3]),
+      prerelease: match[4] ?? '',
+      isPrerelease: Boolean(match[4]),
+    };
+  };
+
+  const compare = (a, b) => {
+    const pa = semverOf(a);
+    const pb = semverOf(b);
+    if (!pa || !pb) return String(a).localeCompare(String(b));
+    if (pa.major !== pb.major) return pa.major - pb.major;
+    if (pa.minor !== pb.minor) return pa.minor - pb.minor;
+    if (pa.patch !== pb.patch) return pa.patch - pb.patch;
+    if (pa.isPrerelease !== pb.isPrerelease) return pa.isPrerelease ? -1 : 1;
+    return pa.prerelease.localeCompare(pb.prerelease);
+  };
+
+  if (pinnedTag) {
+    const pinned = published.find((r) => r.tag_name === pinnedTag);
+    return pinned ?? null;
+  }
+
+  const stable = published.filter((r) => !semverOf(r.tag_name)?.isPrerelease);
+  const pool = stable.length > 0 ? stable : published;
+  pool.sort((a, b) => compare(b.tag_name, a.tag_name));
+  return pool[0] ?? null;
+}
+
+/**
  * Parse a SHA256SUMS.txt body.
  *
  * Deterministic format: `<64-char lowercase sha256><two spaces><filename>`.
