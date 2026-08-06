@@ -184,6 +184,13 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('insertIcon'),
     },
     {
+      id: 'createTableFromClipboard',
+      labelKey: 'menu.file.createTableFromClipboard',
+      kind: 'command',
+      group: 'io',
+      run: () => runAction('createTableFromClipboard'),
+    },
+    {
       id: 'exportSvg',
       labelKey: 'menu.file.exportSvg',
       accelerator: a('e', true, true),

@@ -471,6 +471,9 @@ export function createActionHandlers(
     },
     bindField: () => {
       if (e.focusedField) e.setBindingField(e.focusedField);
+      // With no focused field, bind the selected node's fill — the primary
+      // color-binding target (ADR-0016).
+      else if (e.state.selection.length > 0) e.setBindingField('fill');
     },
     enterFrame: () => {
       const sel = e.state.selection;
