@@ -30,7 +30,8 @@ import {
 import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
 import { createEmptySelectionSetsData } from './selectionSet';
-import { emptyTableModel, normalizeTableModelDefensively } from './tableOps';
+import { emptyTableModel } from './table';
+import { normalizeTableModelDefensively } from './tableOps';
 import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,

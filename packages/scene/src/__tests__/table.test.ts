@@ -19,6 +19,7 @@ import {
   emptyTableModel,
   hasOverlappingSpans,
   occupancyGrid,
+  type TableCellDefinition,
   validateTableModel,
 } from '../table';
 import {
@@ -201,7 +202,6 @@ describe('structural ops preserve invariants', () => {
 describe('validation', () => {
   it('flags duplicate coordinates and overlapping spans', () => {
     const model = validModel();
-    const _cell = model.cells[cellAt(model, 0, 0)!.id]!;
     // Fabricate an overlap: second cell claims the same coordinate.
     const intruder = {
       ...model.cells[cellAt(model, 0, 1)!.id]!,
@@ -222,18 +222,19 @@ describe('validation', () => {
 
   it('flags orphaned cells and out-of-bounds indexes', () => {
     const model = validModel();
+    const ghostCell: TableCellDefinition = {
+      id: 'ghost',
+      rowId: 'missing',
+      columnId: 'c1',
+      rowSpan: 1,
+      columnSpan: 1,
+      content: { kind: 'empty' },
+    };
     const corrupt = {
       ...model,
       cells: {
         ...model.cells,
-        ghost: {
-          id: 'ghost',
-          rowId: 'missing',
-          columnId: 'c1',
-          rowSpan: 1,
-          columnSpan: 1,
-          content: { kind: 'empty' },
-        },
+        ghost: ghostCell,
       },
       cellIndex: { ...model.cellIndex, '99,99': 'ghost' },
     };
@@ -319,7 +320,9 @@ describe('remapTableModelIds', () => {
       c: c.columnSpan,
       t: c.content,
     }));
-    expect(after.sort(JSON.stringify)).toEqual(before.sort(JSON.stringify));
+    expect(after.map((c) => JSON.stringify(c)).sort()).toEqual(
+      before.map((c) => JSON.stringify(c)).sort(),
+    );
     // Ids are disjoint from the source ids.
     const allBefore = new Set([
       ...model.rowOrder,
@@ -335,7 +338,7 @@ describe('remapTableModelIds', () => {
   });
 
   it('deepCloneSubtree remaps table ids inside the node', () => {
-    const tableNode = makeTableNode('t1', { rows: 3, columns: 3 }) as SceneNode;
+    const tableNode = makeTableNode('t1', { rows: 3, columns: 3 }) as import('../types').TableNode;
     const source = {
       t1: tableNode,
       root: { ...tableNode, id: 'root' },

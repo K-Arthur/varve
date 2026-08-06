@@ -24,6 +24,7 @@ import type {
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 import type { VariableModifier } from './modifiers';
+import type { TableModel } from './table';
 
 export type {
   BaselineGrid,
@@ -1857,6 +1858,8 @@ export function shapeWidth(shape: Shape): number {
       return Math.abs(shape.to[0] - shape.from[0]);
     case 'arrow':
       return Math.abs(shape.to[0] - shape.from[0]);
+    case 'table':
+      return shape.w;
     case 'path': {
       if (shape.points.length === 0) return 0;
       const xs = shape.points.map((p) => p.x);
@@ -1882,6 +1885,8 @@ export function shapeHeight(shape: Shape): number {
       return Math.abs(shape.to[1] - shape.from[1]);
     case 'arrow':
       return Math.abs(shape.to[1] - shape.from[1]);
+    case 'table':
+      return shape.h;
     case 'path': {
       if (shape.points.length === 0) return 0;
       const ys = shape.points.map((p) => p.y);
