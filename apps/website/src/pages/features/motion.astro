@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Motion & Prototyping" description="Varve's motion design: timeline animation, keyframes, easing, Smart Animate, prototype interactions, and export to CSS, Lottie, and video.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb">
-        <a href="/features">Features</a> / Motion & Prototyping
+        <a href={sitePath('/features')}>Features</a> / Motion & Prototyping
       </nav>
 
       <h1>Motion & Prototyping</h1>
@@ -71,7 +72,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="feature-cta">
         <h2>Ready to animate?</h2>
-        <a href="/download" class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
       </div>
     </div>
   </div>

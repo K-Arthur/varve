@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Contribution Guidelines" description="Guidelines for contributing to Varve: code standards, testing requirements, commit conventions, and pull request process.">
@@ -150,7 +151,7 @@ chore: update dependencies to latest versions</code></pre>
           Varve is licensed under the
           <a href="https://fsl.software/">Functional Source License, Version 1.1, MIT Future License</a>
           (FSL-1.1-MIT) with a change licence of MIT after two years. See the
-          <a href="/about/license">license page</a> for full terms.
+          <a href={sitePath('/about/license')}>license page</a> for full terms.
         </p>
         <p>
           <strong>You retain copyright</strong> to your contributions. Once contributions open, by contributing

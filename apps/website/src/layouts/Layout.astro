@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath } from '../lib/siteUrl';
 
 interface Props {
   title: string;
@@ -20,17 +21,10 @@ const {
 } = Astro.props;
 
 // The base path is part of the deployed URL (GitHub Pages serves under /varve),
-// so absolute URLs must join site + base rather than assume the root.
-const basePath = import.meta.env.BASE_URL || '/';
-const origin = new URL(
-  basePath.endsWith('/') ? basePath : `${basePath}/`,
-  Astro.site ?? 'https://k-arthur.github.io',
-);
-const canonicalUrl = new URL(
-  Astro.url.pathname.replace(/\/$/, '') || '/',
-  origin,
-).href;
-const ogImageUrl = new URL(image.replace(/^\//, ''), origin).href;
+// so absolute URLs must join site + base rather than assume the root. The
+// helpers in lib/siteUrl.ts are the one place this joining lives.
+const canonicalUrl = canonicalUrlOf(Astro.url.pathname);
+const ogImageUrl = ogImageUrlOf(image);
 
 // Avoid "Features - Varve | Varve" duplication: only append the brand when the
 // page title does not already carry it.
@@ -40,9 +34,9 @@ const sitewideStructuredData = [
   {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    '@id': `${origin.href}#organization`,
+    '@id': `${siteOriginOf()}#organization`,
     name: 'Varve',
-    url: origin.href,
+    url: siteOriginOf(),
     logo: ogImageUrl,
     sameAs: [
       'https://github.com/K-Arthur/varve',
@@ -52,12 +46,12 @@ const sitewideStructuredData = [
   {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    '@id': `${origin.href}#website`,
-    url: origin.href,
+    '@id': `${siteOriginOf()}#website`,
+    url: siteOriginOf(),
     name: 'Varve',
     description:
       'Varve is a local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print. Free and source-available under FSL-1.1-MIT.',
-    publisher: { '@id': `${origin.href}#organization` },
+    publisher: { '@id': `${siteOriginOf()}#organization` },
     inLanguage: 'en',
   },
 ];
@@ -85,8 +79,8 @@ const csp = [
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/svg+xml" href={sitePath('/favicon.svg')} />
+    <link rel="icon" type="image/png" sizes="32x32" href={sitePath('/favicon-32x32.png')} />
     <meta name="generator" content={Astro.generator} />
     {noindex ? (
       <meta name="robots" content="noindex, nofollow" />
@@ -203,7 +197,7 @@ const csp = [
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <header class="site-header">
       <nav class="site-nav">
-        <a href="/" class="site-logo">
+        <a href={sitePath('/')} class="site-logo">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <!-- Varve logo: three parallelogram strata planes with consistent tilt -->
             <!-- Layer 1 (surface) - teal -->
@@ -216,12 +210,12 @@ const csp = [
           <span>Varve</span>
         </a>
         <ul class="nav-links" id="site-nav-links">
-          <li><a href="/product">Product</a></li>
-          <li><a href="/features">Features</a></li>
-          <li><a href="/download">Download</a></li>
-          <li><a href="/docs">Docs</a></li>
-          <li><a href="/support">Support</a></li>
-          <li><a href="/contribute">Contribute</a></li>
+          <li><a href={sitePath('/product')}>Product</a></li>
+          <li><a href={sitePath('/features')}>Features</a></li>
+          <li><a href={sitePath('/download')}>Download</a></li>
+          <li><a href={sitePath('/docs')}>Docs</a></li>
+          <li><a href={sitePath('/support')}>Support</a></li>
+          <li><a href={sitePath('/contribute')}>Contribute</a></li>
         </ul>
         <div class="nav-actions">
           <div class="theme-switcher" role="group" aria-label="Theme">
@@ -263,36 +257,36 @@ const csp = [
         <div class="footer-section">
           <h3>Product</h3>
           <ul>
-            <li><a href="/product">Overview</a></li>
-            <li><a href="/features">Features</a></li>
-            <li><a href="/download">Download</a></li>
-            <li><a href="/releases">Releases</a></li>
+            <li><a href={sitePath('/product')}>Overview</a></li>
+            <li><a href={sitePath('/features')}>Features</a></li>
+            <li><a href={sitePath('/download')}>Download</a></li>
+            <li><a href={sitePath('/releases')}>Releases</a></li>
           </ul>
         </div>
         <div class="footer-section">
           <h3>Learn</h3>
           <ul>
-            <li><a href="/docs">Documentation</a></li>
-            <li><a href="/learn/tutorials">Tutorials</a></li>
-            <li><a href="/learn/examples">Examples</a></li>
-            <li><a href="/learn/community">Community</a></li>
+            <li><a href={sitePath('/docs')}>Documentation</a></li>
+            <li><a href={sitePath('/learn/tutorials')}>Tutorials</a></li>
+            <li><a href={sitePath('/learn/examples')}>Examples</a></li>
+            <li><a href={sitePath('/learn/community')}>Community</a></li>
           </ul>
         </div>
         <div class="footer-section">
           <h3>Support</h3>
           <ul>
-            <li><a href="/support/faq">FAQ</a></li>
-            <li><a href="/support/troubleshooting">Troubleshooting</a></li>
-            <li><a href="/support/report-issue">Report Issue</a></li>
+            <li><a href={sitePath('/support/faq')}>FAQ</a></li>
+            <li><a href={sitePath('/support/troubleshooting')}>Troubleshooting</a></li>
+            <li><a href={sitePath('/support/report-issue')}>Report Issue</a></li>
           </ul>
         </div>
         <div class="footer-section">
           <h3>Project</h3>
           <ul>
-            <li><a href="/contribute">Contribute</a></li>
-            <li><a href="/support-project">Support Project</a></li>
-            <li><a href="/about">About</a></li>
-            <li><a href="/about/license">License (FSL-1.1-MIT)</a></li>
+            <li><a href={sitePath('/contribute')}>Contribute</a></li>
+            <li><a href={sitePath('/support-project')}>Support Project</a></li>
+            <li><a href={sitePath('/about')}>About</a></li>
+            <li><a href={sitePath('/about/license')}>License (FSL-1.1-MIT)</a></li>
           </ul>
         </div>
         <div class="footer-section">

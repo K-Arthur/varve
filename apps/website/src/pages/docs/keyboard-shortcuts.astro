@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Keyboard Shortcuts" description="The complete Varve keyboard shortcut reference: selection, tools, transform, layers, text, view, and workspace modes.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Keyboard Shortcuts
+        <a href={sitePath('/docs')}>Documentation</a> / Keyboard Shortcuts
       </nav>
 
       <h1>Keyboard Shortcuts</h1>
@@ -200,7 +201,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>More Documentation</h2>
-        <p>See the <a href="/docs">documentation hub</a> for more guides.</p>
+        <p>See the <a href={sitePath('/docs')}>documentation hub</a> for more guides.</p>
       </div>
     </div>
   </div>

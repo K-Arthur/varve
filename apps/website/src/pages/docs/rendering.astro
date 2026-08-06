@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Rendering Pipeline" description="How Varve renders: scene computation in a native Rust engine, compact IR, and efficient canvas2D replay with culling.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Rendering Pipeline
+        <a href={sitePath('/docs')}>Documentation</a> / Rendering Pipeline
       </nav>
 
       <h1>Rendering Pipeline</h1>
@@ -145,7 +146,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See <a href="/docs/architecture">Architecture Overview</a> for the broader system architecture, or <a href="/docs/tools/color">Color & Effects</a> for user-facing effect controls.</p>
+        <p>See <a href={sitePath('/docs/architecture')}>Architecture Overview</a> for the broader system architecture, or <a href={sitePath('/docs/tools/color')}>Color & Effects</a> for user-facing effect controls.</p>
       </div>
     </div>
   </div>

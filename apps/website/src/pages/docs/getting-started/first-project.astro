@@ -1,12 +1,13 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
 ---
 
 <Layout title="Your First Project" description="Create your first Varve document: choose a template, add shapes and text, and export your work.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / <a href="/docs/getting-started">Getting Started</a> / Your First Project
+        <a href={sitePath('/docs')}>Documentation</a> / <a href={sitePath('/docs/getting-started')}>Getting Started</a> / Your First Project
       </nav>
 
       <h1>Your First Project</h1>
@@ -131,7 +132,7 @@ import Layout from '../../../layouts/Layout.astro';
           <li>Choose a destination and click Export.</li>
         </ol>
         <p>
-          You can also generate code directly from your design. See <a href="/docs/tools/export">Export & Code Generation</a> for details on React, Tailwind, Flutter, and SwiftUI output.
+          You can also generate code directly from your design. See <a href={sitePath('/docs/tools/export')}>Export & Code Generation</a> for details on React, Tailwind, Flutter, and SwiftUI output.
         </p>
       </section>
 
@@ -142,7 +143,7 @@ import Layout from '../../../layouts/Layout.astro';
         </p>
         <ul>
           <li>Press <code>Ctrl+S</code> to save. The first time, you'll be prompted to choose a location.</li>
-          <li>Varve also auto-saves your work periodically (configurable in <a href="/docs/settings">Settings</a>).</li>
+          <li>Varve also auto-saves your work periodically (configurable in <a href={sitePath('/docs/settings')}>Settings</a>).</li>
           <li>Recovery points are created automatically, so you can restore from a previous state if needed.</li>
         </ul>
       </section>
@@ -156,7 +157,7 @@ import Layout from '../../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>You're Ready!</h2>
-        <p>You've completed your first project. Explore the <a href="/docs/tools/vector">Vector Tools</a> guide to learn more about what Varve can do.</p>
+        <p>You've completed your first project. Explore the <a href={sitePath('/docs/tools/vector')}>Vector Tools</a> guide to learn more about what Varve can do.</p>
       </div>
     </div>
   </div>

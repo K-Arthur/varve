@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Color & Effects" description="Varve's color management: RGB and CMYK with ICC profiles, blend modes, shadows, blur, adjustment layers, and halftone screening for print.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb">
-        <a href="/features">Features</a> / Color & Effects
+        <a href={sitePath('/features')}>Features</a> / Color & Effects
       </nav>
 
       <h1>Color & Effects</h1>
@@ -68,7 +69,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="feature-cta">
         <h2>Ready to create with color?</h2>
-        <a href="/download" class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
       </div>
     </div>
   </div>

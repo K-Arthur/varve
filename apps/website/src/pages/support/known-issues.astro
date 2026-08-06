@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Known Issues" description="Current known issues and limitations in Varve: complex script shaping, collaboration scaffolding, canvas bleed visualization, and platform constraints.">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb">
-        <a href="/support">Support</a> / Known Issues
+        <a href={sitePath('/support')}>Support</a> / Known Issues
       </nav>
 
       <h1>Known Issues</h1>
@@ -99,7 +100,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="known-issues-cta">
         <h2>Want to help fix these issues?</h2>
-        <p>See the <a href="/contribute">contribution guidelines</a> to help implement these features.</p>
+        <p>See the <a href={sitePath('/contribute')}>contribution guidelines</a> to help implement these features.</p>
       </div>
     </div>
   </div>

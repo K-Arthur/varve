@@ -88,10 +88,16 @@ describe('website release manifest', () => {
 });
 
 describe('robots.txt', () => {
-  it('exists and allows all', () => {
-    const robotsPath = path.resolve(__dirname, '../../public/robots.txt');
-    const content = fs.readFileSync(robotsPath, 'utf-8');
+  it('is generated from the configured site (not a static file)', () => {
+    const robotsSource = path.resolve(__dirname, '../pages/robots.txt.ts');
+    const content = fs.readFileSync(robotsSource, 'utf-8');
     expect(content).toContain('User-agent: *');
     expect(content).toContain('Allow: /');
+    // The sitemap location must be derived from the site config, never
+    // hardcoded — a stale host here is invisible to browsers and breaks SEO.
+    expect(content).not.toContain('k-arthur.github.io');
+    expect(content).toContain("siteUrl('/sitemap.xml')");
+    // The static file must not exist: it would silently shadow the endpoint.
+    expect(fs.existsSync(path.resolve(__dirname, '../../public/robots.txt'))).toBe(false);
   });
 });

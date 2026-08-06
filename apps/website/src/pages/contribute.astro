@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 ---
 
 <Layout title="Contribute" description="Contribute to Varve: code, documentation, testing, design, and translations. All contributions are welcome — the source is available on GitHub under FSL-1.1-MIT.">
@@ -21,7 +22,7 @@ import Layout from '../layouts/Layout.astro';
             <h3>Code Contributions</h3>
             <p>Fix bugs, add features, improve performance</p>
             <ul>
-              <li>Read the <a href="/contribute/guidelines">contribution guidelines</a></li>
+              <li>Read the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a></li>
               <li>Set up development environment (see <a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">AGENTS.md</a>)</li>
               <li>Check for "good first issue" labels on GitHub</li>
               <li>Submit pull requests with tests</li>
@@ -66,7 +67,7 @@ import Layout from '../layouts/Layout.astro';
       <section class="contribute-section">
         <h2>Getting Started</h2>
         <ol>
-          <li>Read the <a href="/contribute/guidelines">contribution guidelines</a> and code of conduct</li>
+          <li>Read the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a> and code of conduct</li>
           <li>Set up your development environment following <a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">AGENTS.md</a></li>
           <li>Check existing issues for "good first issue" labels</li>
           <li>Fork the repository and create a feature branch</li>
@@ -81,7 +82,7 @@ import Layout from '../layouts/Layout.astro';
           Once open, all contributions to Varve will need to be licensed under FSL-1.1-MIT. By contributing, you will grant a license for your code to be included in the project under the same license. You retain copyright to your contributions.
         </p>
         <p>
-          All contributions require a <a href="https://developercertificate.org/">Developer Certificate of Origin</a> (DCO) sign-off. See <a href="/contribute/guidelines">the contribution guidelines</a> for details.
+          All contributions require a <a href="https://developercertificate.org/">Developer Certificate of Origin</a> (DCO) sign-off. See <a href={sitePath('/contribute/guidelines')}>the contribution guidelines</a> for details.
         </p>
       </section>
 

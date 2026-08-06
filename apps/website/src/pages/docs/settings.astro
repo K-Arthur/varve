@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Settings & Preferences" description="Varve settings: theme, units, snapping, performance options, shortcuts, and per-platform preferences.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Settings & Preferences
+        <a href={sitePath('/docs')}>Documentation</a> / Settings & Preferences
       </nav>
 
       <h1>Settings & Preferences</h1>
@@ -113,7 +114,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See <a href="/docs/file-formats">File Formats</a> for export format details, or <a href="/docs/getting-started/interface">Interface Overview</a> for editor layout.</p>
+        <p>See <a href={sitePath('/docs/file-formats')}>File Formats</a> for export format details, or <a href={sitePath('/docs/getting-started/interface')}>Interface Overview</a> for editor layout.</p>
       </div>
     </div>
   </div>

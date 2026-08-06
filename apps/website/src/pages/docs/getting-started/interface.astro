@@ -1,12 +1,13 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
 ---
 
 <Layout title="Interface Overview" description="Tour the Varve interface: toolbar, canvas, layers panel, inspector, timeline, status bar, and workspace modes.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / <a href="/docs/getting-started">Getting Started</a> / Interface Overview
+        <a href={sitePath('/docs')}>Documentation</a> / <a href={sitePath('/docs/getting-started')}>Getting Started</a> / Interface Overview
       </nav>
 
       <h1>Interface Overview</h1>
@@ -60,7 +61,7 @@ import Layout from '../../../layouts/Layout.astro';
           <li><code>H</code> — Hand tool (pan canvas)</li>
           <li><code>Z</code> — Zoom tool</li>
         </ul>
-        <p>See the <a href="/docs/keyboard-shortcuts">full keyboard shortcuts reference</a> and <a href="/docs/tools/vector">Vector Tools</a> for detailed usage.</p>
+        <p>See the <a href={sitePath('/docs/keyboard-shortcuts')}>full keyboard shortcuts reference</a> and <a href={sitePath('/docs/tools/vector')}>Vector Tools</a> for detailed usage.</p>
       </section>
 
       <section class="docs-section">
@@ -140,7 +141,7 @@ import Layout from '../../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>Next Steps</h2>
-        <p>Continue with the <a href="/docs/getting-started/first-project">Your First Project</a> tutorial to put this knowledge into practice.</p>
+        <p>Continue with the <a href={sitePath('/docs/getting-started/first-project')}>Your First Project</a> tutorial to put this knowledge into practice.</p>
       </div>
     </div>
   </div>
