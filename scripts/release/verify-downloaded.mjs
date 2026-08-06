@@ -57,7 +57,10 @@ function main() {
   }
 
   // The upload must not have gained files the checksum file does not cover.
+  // SHA256SUMS.txt itself is the one legitimate extra: `gh release download
+  // --pattern '*'` fetches it alongside the assets.
   for (const extra of onDisk) {
+    if (extra === 'SHA256SUMS.txt') continue;
     problems.push(`Downloaded directory contains ${extra} which SHA256SUMS.txt does not list`);
   }
 

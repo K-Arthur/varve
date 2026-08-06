@@ -147,7 +147,6 @@ async function main() {
   }
 
   const tag = release.tag_name;
-  const version = tag.replace(/^v/, '');
   const assets = (release.assets ?? []).map((a) => ({ name: a.name, url: a.browser_download_url }));
 
   // 2. Download the integrity files. Missing either means the release is not
