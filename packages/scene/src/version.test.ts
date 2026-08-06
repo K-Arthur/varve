@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.15');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.16');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('stamps current version on new documents', () => {
@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.15');
+    expect(migrated.formatVersion).toBe('2.16');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.15');
+    expect(migrated.formatVersion).toBe('2.16');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.15');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.16');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -319,7 +319,7 @@ describe('Document Migration', () => {
     };
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
-    expect((result as Record<string, unknown>).formatVersion).toBe('2.15');
+    expect((result as Record<string, unknown>).formatVersion).toBe('2.16');
   });
 
   it('migrates v2.4 → v2.5: bakes rotation into transform', () => {
@@ -341,7 +341,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.15');
+    expect(result.formatVersion).toBe('2.16');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     // n1: rotation 90 baked into transform
     expect(nodes.n1!.rotation).toBe(0);
@@ -369,7 +369,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.15');
+    expect(result.formatVersion).toBe('2.16');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     const fills = nodes.n1!.fills as Record<string, unknown>[];
     const image = fills[0]!.image as Record<string, unknown>;
@@ -867,7 +867,7 @@ describe('v2.7 migration (image crop + transform fields)', () => {
       formatVersion: '2.6',
       nodes: {},
     });
-    expect(migrated!.formatVersion).toBe('2.15');
+    expect(migrated!.formatVersion).toBe('2.16');
   });
 
   it('normalizes an out-of-bounds crop rect', () => {
@@ -1091,5 +1091,41 @@ describe('v2.13 migration (glyph-level typography)', () => {
     const result = migrateDocument(raw) as Record<string, unknown>;
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     expect(nodes.n1!.kerningMode).toBe('bogus');
+  });
+});
+
+describe('v2.16 trace metadata', () => {
+  it('preserves traceMetadata through migration and serialization', () => {
+    const traceMetadata = {
+      schemaVersion: 1,
+      sourceNodeId: 'img-1',
+      mode: 'pixel-art',
+      traceMode: 'silhouette',
+      threshold: 128,
+      foreground: 'dark',
+      alphaThreshold: 1,
+      minArea: 1,
+      simplifyTolerance: 0,
+      maxPaths: 1000,
+      maxColors: 16,
+      compoundHoles: true,
+      cornerAngle: 135,
+      centerlineWidth: 2,
+      centerlinePrune: 4,
+      engine: 'native',
+      stats: { pathCount: 3, pointCount: 24, holeCount: 1, omittedHoles: 0 },
+      createdAt: 1234,
+    };
+    const doc = {
+      formatVersion: '2.15',
+      nodes: {
+        g1: { id: 'g1', kind: 'group', traceMetadata, children: [] },
+      },
+    };
+    const migrated = migrateDocument(doc);
+    const group = (migrated?.nodes as Record<string, { traceMetadata?: unknown }>)?.g1;
+    expect(migrated?.formatVersion).toBe('2.16');
+    expect(group?.traceMetadata).toEqual(traceMetadata);
+    expect(JSON.parse(serializeDocument(migrated ?? {})).formatVersion).toBe('2.16');
   });
 });

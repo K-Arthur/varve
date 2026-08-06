@@ -14,6 +14,19 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Image Trace (native raster-to-vector)** — trace a selected image into
+  editable vector artwork with presets (crisp logo, pixel-art sprite,
+  centerline sketch and more), live preview, and a result estimate. Desktop
+  builds run the native Rust engine on a background thread with progress and
+  cancellation; web builds fall back to bounded TypeScript providers with
+  honest capability gating (centerline is native-only). Modes: black-and-white
+  outline (threshold, despeckle, holes), grayscale, limited color (perceptual
+  Oklab palette), pixel art (hard pixel boundaries, nearest-neighbor
+  scaling), and centerline (stroked skeletons). Traces insert as one undoable
+  group beside the source; Edit Trace (context menus) re-opens with the
+  stored settings and replaces the result in place. Entry points: Object
+  menu, canvas/layers context menus, command palette (Ctrl+Alt+Shift+T),
+  Inspector, and QuickBar. See `docs/architecture/image-trace-system.md`.
 - **New Design experience** — the New File dialog is now "New design": an editable
   document name (untitled defaults with collision-free numbering), three starting
   points (Empty document / Start with a frame / Template), searchable frame presets

@@ -3,6 +3,8 @@
 Status: implemented (Level 1 + Level 2 vertical slice); Level 3-5 deferred.
 ADR: docs/architecture/adr/0015-mockup-system.md.
 Audit: docs/audits/mockup-capability-audit-2026-08-05.md.
+Slice report: docs/audits/mockup-vertical-slice-report-2026-08-05.md.
+Deferred multimodal plan: docs/plans/mockup-multimodal-deferred.md.
 
 ## Product definition
 

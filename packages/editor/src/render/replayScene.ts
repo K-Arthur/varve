@@ -36,6 +36,8 @@ export interface StructuredReplayInput {
   rootIds: readonly NodeId[];
   flattenedIds: readonly NodeId[];
   items: readonly RenderItem[];
+  /** Extra items painted right after a frame's own item (mockup surfaces). */
+  extrasByNodeId?: ReadonlyMap<NodeId, readonly RenderItem[]>;
 }
 
 function setMatrix(context: SceneContext, matrix: DOMMatrix): void {
@@ -431,6 +433,10 @@ export function replayStructuredScene(context: SceneContext, input: StructuredRe
 
     if (node.kind === 'frame') {
       if (item) replayIr(target as unknown as ReplayTarget, [item]);
+      const extras = input.extrasByNodeId?.get(nodeId);
+      if (extras) {
+        for (const extra of extras) replayIr(target as unknown as ReplayTarget, [extra]);
+      }
       if (node.children.length === 0) return;
       if (node.clipContent === false) {
         replayChildren(nodeId, target);

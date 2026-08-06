@@ -24,6 +24,11 @@ export const SHORTCUT_DEFS = {
     label: 'Upscale Image',
     category: 'Object',
   },
+  imageTrace: {
+    binding: { key: 't', ctrl: true, alt: true, shift: true },
+    label: 'Vectorize Image (Image Trace)',
+    category: 'Object',
+  },
   newDocument: { binding: { key: 'n', ctrl: true }, label: 'New', category: 'File' },
   open: { binding: { key: 'o', ctrl: true }, label: 'Open\u2026', category: 'File' },
   save: { binding: { key: 's', ctrl: true }, label: 'Save', category: 'File' },

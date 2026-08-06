@@ -13,7 +13,14 @@
  * per-corner radius, and stacked-fill type enums. All new fields have safe
  * defaults so existing documents deserialize correctly.
  */
-import type { Adjustment, Affine, PathPoint, Shape } from '@varve/engine';
+import type {
+  Adjustment,
+  Affine,
+  PathPoint,
+  Shape,
+  WarpModifier,
+  WarpSettings,
+} from '@varve/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 import type { VariableModifier } from './modifiers';
@@ -977,6 +984,17 @@ export interface NodeBase {
    * the node into a plain editable group with no icon semantics.
    */
   iconAssetId?: string;
+  /**
+   * V2.16+: ordered, non-destructive geometry-modifier (warp) stack.
+   *
+   * The canonical source geometry is never rewritten; disabling or removing
+   * these restores the exact source. Controls are normalized to the source
+   * bounds unless a modifier sets `coordinateSpace: 'source-local'`. Only
+   * shape/text/group/frame nodes may carry warps (see warpOps).
+   */
+  warps?: WarpModifier[];
+  /** V2.16+: evaluation settings for the warp stack (quality/strokes/etc). */
+  warpSettings?: WarpSettings;
 }
 
 export interface ShapeNode extends NodeBase {
@@ -1118,6 +1136,54 @@ export interface GroupNode extends NodeBase {
   isolated?: boolean;
   /** Effects applied to the group as a whole (shadows, blurs, glows). */
   effects: Effect[];
+  /**
+   * Lightweight provenance for groups created by Image Trace. Enables the
+   * Edit Trace / Re-trace workflow: the dialog can be reopened pre-filled
+   * with the original options, and re-traces replace this group in place.
+   * Deliberately stores no image bytes — only the source node id and a
+   * content hash for staleness checks.
+   */
+  traceMetadata?: TraceMetadata;
+}
+
+/**
+ * Versioned provenance for a traced group (see `GroupNode.traceMetadata`).
+ * Stored on the group so it survives save/load and undo without embedding
+ * raster data in the metadata.
+ */
+export interface TraceMetadata {
+  schemaVersion: 1;
+  /** The image node this trace was generated from. */
+  sourceNodeId: NodeId;
+  /** Content hash of the source pixels at trace time (sha256 hex), when known. */
+  sourceHash?: string;
+  /** Trace mode: monochrome outline / grayscale / limited color / pixel art. */
+  mode: 'monochrome' | 'grayscale' | 'color' | 'pixel-art';
+  /** Filled silhouette vs stroked centerline. */
+  traceMode: 'silhouette' | 'centerline';
+  threshold: number;
+  foreground: 'dark' | 'light';
+  alphaThreshold: number;
+  minArea: number;
+  simplifyTolerance: number;
+  maxPaths: number;
+  maxColors: number;
+  compoundHoles: boolean;
+  cornerAngle: number;
+  centerlineWidth: number;
+  centerlinePrune: number;
+  /** Which engine produced the result (native Rust / TS worker / WASM). */
+  engine: 'native' | 'worker' | 'wasm' | 'direct';
+  /** Result statistics at trace time. */
+  stats: {
+    pathCount: number;
+    pointCount: number;
+    holeCount: number;
+    omittedHoles: number;
+  };
+  /** Milliseconds spent tracing (engine time only, informational). */
+  traceMs?: number;
+  createdAt: number;
 }
 
 /** B2: TypeScript mirror of strata-layout LayoutStyle (Rust). */
@@ -1182,6 +1248,8 @@ export interface FrameNode extends NodeBase {
   propertyOverrides?: Record<string, string | boolean | NodeId>;
   /** Last-synced property snapshot for override detection (component instances). */
   syncBaseline?: Record<string, unknown>;
+  /** Mockup presentation instance (v2.16+). See mockup/types.ts. */
+  mockup?: import('./mockup/types').MockupInstanceData;
   /** F6: strokes on frame. */
   strokes: Stroke[];
   /** F6: effects on frame. */
@@ -1189,6 +1257,34 @@ export interface FrameNode extends NodeBase {
   /** Uniform or per-corner radius for frame corners. */
   cornerRadius?: number | [number, number, number, number];
   /** Corner smoothing percentage (0-100, Sketch-style continuous corners). */
+  cornerSmoothing?: number;
+}
+
+/**
+ * V2.15+: native responsive table (ADR-0016).
+ *
+ * A table is a semantic document capability, not a collection of frames.
+ * Content is data-backed (cells are lightweight records with stable ids);
+ * the render layer compiles the model into grid primitives per frame and the
+ * persistent document never flattens it. Row/column/cell ids are stable
+ * across edits, spans, reordering, undo, clipboard round trips, and
+ * collaboration.
+ */
+export interface TableNode extends NodeBase {
+  kind: 'table';
+  transform: Affine;
+  /** Table frame width (the layout target; tracks resolve against it). */
+  w: number;
+  /** Table frame height. */
+  h: number;
+  table: TableModel;
+  /** Clip cell content to the table bounds. Default true. */
+  clipContent?: boolean;
+  /** F6: strokes on the table frame. */
+  strokes: Stroke[];
+  /** F6: effects on the table frame. */
+  effects: Effect[];
+  cornerRadius?: number;
   cornerSmoothing?: number;
 }
 
@@ -1208,7 +1304,7 @@ export interface BackgroundRemovalState {
 // ── Live Trace Types ─────────────────────────────────────────────────────────
 
 export interface LiveTraceParams {
-  mode: 'monochrome' | 'grayscale' | 'color';
+  mode: 'monochrome' | 'grayscale' | 'color' | 'pixel-art';
   threshold: number;
   foreground: 'dark' | 'light';
   alphaThreshold: number;
@@ -1390,6 +1486,7 @@ export type SceneNode =
   | TextNode
   | GroupNode
   | FrameNode
+  | TableNode
   | AdjustmentNode
   | PathNode
   | RasterLayerNode;
@@ -1399,6 +1496,11 @@ export type ContainerNode = GroupNode | FrameNode;
 /** True if the node is a container (has a children array). */
 export function isContainer(node: SceneNode): node is ContainerNode {
   return node.kind === 'frame' || node.kind === 'group';
+}
+
+/** True if the node is a native table. */
+export function isTableNode(node: SceneNode): node is TableNode {
+  return node.kind === 'table';
 }
 
 // ── Document base type ──────────────────────────────────────────────────────
