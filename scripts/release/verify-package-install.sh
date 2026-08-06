@@ -26,15 +26,11 @@
 #
 #   ./scripts/release/verify-package-install.sh
 #   ./scripts/release/verify-package-install.sh --deb-only
+#   ./scripts/release/verify-package-install.sh --bundle-dir <dir>   # CI: downloaded artifacts
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUNDLE_DIR="${REPO_ROOT}/apps/desktop/src-tauri/target/release/bundle"
-
-# Compatibility baselines, not "latest". Testing on the newest Ubuntu would
-# prove nothing about the oldest release we claim to support.
-DEB_IMAGE="ubuntu:22.04"
-RPM_IMAGE="fedora:38"
 
 DEB_ONLY=0
 RPM_ONLY=0
@@ -42,9 +38,21 @@ for arg in "$@"; do
   case "$arg" in
     --deb-only) DEB_ONLY=1 ;;
     --rpm-only) RPM_ONLY=1 ;;
+    --bundle-dir)
+      shift
+      BUNDLE_DIR="$(realpath "$1")"
+      ;;
+    --bundle-dir=*)
+      BUNDLE_DIR="$(realpath "${arg#*=}")"
+      ;;
     *) echo "Unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
+
+# Compatibility baselines, not "latest". Testing on the newest Ubuntu would
+# prove nothing about the oldest release we claim to support.
+DEB_IMAGE="ubuntu:22.04"
+RPM_IMAGE="fedora:38"
 
 FAILURES=0
 pass() { printf '    \033[32mPASS\033[0m  %s\n' "$1"; }

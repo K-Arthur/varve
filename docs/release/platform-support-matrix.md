@@ -28,10 +28,10 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
 | **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
 | **Linux** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
-| **Windows 10/11** | x86-64 | ⚠️ never run | NSIS `.exe` | unsigned | ❌ no hardware | Win 10 1809 | **3** | Low |
+| **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ❌ no hardware, runner smoke pending | Win 10 1809 | **3** | Low |
 | **Windows** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
-| **macOS** | ARM64 | ⚠️ never run | `.dmg` | unsigned | ❌ no hardware | macOS 13 | **3** | Low |
-| **macOS** | x86-64 | ⚠️ never run | `.dmg` | unsigned | ❌ no hardware | macOS 13 | **3** | Very low |
+| **macOS** | ARM64 | ✅ built in CI (`macos-latest`, `aarch64-apple-darwin` DMG) | `.dmg` | unsigned, unnotarised | ❌ no hardware, runner smoke pending | macOS 13 | **3** | Low |
+| **macOS** | x86-64 | ❌ not built (no ONNX Runtime Intel dylib — audit H-3) | — | — | ❌ | — | **Not supported** | — |
 
 Legend: ✅ verified · ⚠️ configured but never successfully executed · ⬜ planned · ❌ absent
 
@@ -119,11 +119,20 @@ Untested and needing a VM pass before Tier 2 is claimed:
 
 ## 4. Windows — detail
 
-**Status: never built.** The `release.yml` windows job builds `nsis` on
-`windows-latest`, but no packaged Windows build has been run on a Windows
-machine yet (RB-2, release-readiness-audit). Everything below is a plan, not a
-verified result. (An earlier `publish.yml` that targeted `msi,nsis` was
-retired in P0-1 — `release.yml` is the only tag-triggered workflow.)
+**Status: built in CI, never launched.** The `release.yml` windows job builds
+the NSIS installer on `windows-latest`; no packaged Windows build has been run
+on a Windows machine and the workflow has not yet produced a release (there is
+no tag yet). Everything below is a plan, not a verified result. (An earlier
+`publish.yml` that targeted `msi,nsis` was retired in P0-1 — `release.yml` is
+the only tag-triggered workflow.)
+
+**CI smoke plan (when the first draft release exists):** install the NSIS
+bundle silently (`/S`), confirm the installed binary exists and starts far
+enough to complete a bounded smoke test, check version metadata/product name/
+icon/file association/uninstall entry, then uninstall. Until a draft release
+has been through that pass, Windows stays **Experimental — not published**,
+and the download page will not advertise it (nothing is published until a
+release is).
 
 | Decision | Choice | Reasoning |
 |---|---|---|
@@ -149,7 +158,13 @@ with a Microsoft-trusted identity — and, as of the current onboarding flow, co
 
 ## 5. macOS — detail
 
-**Status: never built. No Mac hardware available.**
+**Status: built in CI (aarch64 DMG), never launched. No Mac hardware
+available.** The release matrix builds `macos-latest` / `aarch64-apple-darwin`
+and the bundled ONNX Runtime has no Intel dylib, so only ARM64 is configured.
+Until a draft release has been mounted, launched and unmounted on a macOS
+runner (DMG creation, app bundle structure, architecture, bundle identifier,
+file association, resource loading), macOS stays **Experimental — not
+published**, and the changelog/download page will not claim otherwise.
 
 | Decision | Choice | Reasoning |
 |---|---|---|

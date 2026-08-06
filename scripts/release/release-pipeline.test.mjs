@@ -67,14 +67,13 @@ const FIXTURE_ASSETS = [
   'SHA256SUMS.txt',
 ];
 
-const FIXTURE_CHECKSUMS =
-  [
-    `${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage`,
-    `${HASH_B}  Varve-0.1.0-windows-x86_64.exe`,
-    `${sha256(Buffer.from('sbom-linux'))}  Varve-0.1.0-sbom-linux-x86_64.cdx.json`,
-    `${sha256(Buffer.from('sbom-windows'))}  Varve-0.1.0-sbom-windows-x86_64.cdx.json`,
-    `${sha256(Buffer.from('manifest'))}  release-manifest.json`,
-  ].join('\n') + '\n';
+const FIXTURE_CHECKSUMS = `${[
+  `${HASH_A}  Varve-0.1.0-linux-x86_64.AppImage`,
+  `${HASH_B}  Varve-0.1.0-windows-x86_64.exe`,
+  `${sha256(Buffer.from('sbom-linux'))}  Varve-0.1.0-sbom-linux-x86_64.cdx.json`,
+  `${sha256(Buffer.from('sbom-windows'))}  Varve-0.1.0-sbom-windows-x86_64.cdx.json`,
+  `${sha256(Buffer.from('manifest'))}  release-manifest.json`,
+].join('\n')}\n`;
 
 function verifyFixture(overrides = {}) {
   return verifyReleaseIntegrity({

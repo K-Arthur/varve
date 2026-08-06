@@ -47,6 +47,23 @@ check the releases page, and the app can (later) do a version check against a
 static JSON file and *link* to the download page without downloading anything.
 A notification is not an update channel and carries none of the risk.
 
+**What exists today (audited 2026-08-06):**
+
+- No updater plugin, no update keypair, no update endpoint — confirmed in
+  `tauri.conf.json` and `Cargo.toml`.
+- No in-app "Check for updates" action exists in the editor, and none is being
+  added at alpha: an update check that is not an update is a button that opens
+  the release page, and the download page already links the GitHub Releases
+  page from both the no-release state and every release state.
+- The website `/download` and `/releases` pages show the current published
+  version, tag, release date, channel (stable/prerelease) and full release
+  notes rendered from `CHANGELOG.md` — a manual check is: open the download
+  page and compare against the installed version shown in the app's About
+  dialog.
+- If an in-app check is added later it must (per the failure modes below) run
+  only when invoked, handle offline/rate-limit/prerelease/malformed/withdrawn
+  cases, and never download or execute anything.
+
 ---
 
 ## 3. When to add the updater

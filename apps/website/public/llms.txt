@@ -12,11 +12,11 @@
 
 ## Platforms and system requirements
 
-- Linux (x86_64): AppImage, deb, rpm, AUR. Requires glibc 2.35+ (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS).
-- macOS: Universal binary for Intel and Apple Silicon, macOS 13 Ventura or later.
-- Windows: 10 (1809) or 11, x86_64 (MSI and NSIS installers).
+- Linux (x86_64): AppImage, deb, rpm. Requires glibc 2.35+ (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS).
+- macOS: Apple Silicon (aarch64), macOS 13 Ventura or later. No Intel build yet.
+- Windows: 10 (1809) or 11, x86_64 (NSIS installer).
 - Minimum 4 GB RAM (8 GB recommended), 500 MB storage.
-- Linux ARM, Windows ARM, and code-signed builds are not yet available. macOS builds are not notarized.
+- Linux ARM, Windows ARM, and code-signed builds are not yet available. Windows builds are unsigned; macOS builds are unsigned and not notarized.
 
 ## Key facts (verified against the 2026-07-20 development build)
 
