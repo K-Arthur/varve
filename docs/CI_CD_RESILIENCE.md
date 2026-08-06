@@ -76,8 +76,17 @@ and `ci-health.mjs` classify every failed job as one of:
 | Class | Meaning |
 |---|---|
 | `billing-block` | Zero steps + check-run annotation matching the billing message. Not a code failure. |
-| `never-started` | Zero steps, no billing annotation (runner outage / infra). Not a code failure. |
+| `runner-unavailable` | Annotation *"The job was not acquired by Runner of type hosted even after multiple attempts"* — GitHub never assigned a hosted runner (capacity constraint / Actions outage). Not a code failure. |
+| `stuck-queued` | Job or run accepted by GitHub (`started_at` set) but still `queued` > 30 min. Runner starvation during an Actions incident. Not a code failure. |
+| `never-started` | Zero steps, no billing/runner annotation (runner outage / infra). Not a code failure. |
 | `real-failure` | At least one step ran and failed. Needs log analysis. |
+
+Note on GitHub's data model: jobs that never started are reported with
+`conclusion: "cancelled"` and zero steps — the check-run annotation is the
+**only** signal that distinguishes infra cancellation from a user/concurrency
+cancel. The classifiers use the annotation, not the conclusion, to make that
+call. User-cancelled runs (newer push superseding an older one via
+`concurrency`) stay unclassified.
 
 `ci-debug.mjs` fetches check-run annotations for failed jobs and, on a billing
 block, emits an **Infrastructure block detected** section at the top of the
@@ -93,12 +102,78 @@ just ci-health --runs 25
 just ci-health --workflow CI
 just ci-health --strict     # exit 1 when any infra block is found
 just ci-health --json       # machine-readable
+just ci-status              # GitHub Actions incident status (githubstatus.com)
+just ci-rerun-stuck         # rerun runs stuck in queue > 30 min (asks for confirmation)
 ```
 
 Every run of the health check classifies failed runs and prints a one-line
-verdict per run (`BILLING` / `INFRA` / `OK-CODE` / `OK`). The pre-push hook
-runs `ci-health --quiet` and prints an informational warning when remote CI is
-blocked, so a red push is never a surprise.
+verdict per run (`BILLING` / `STUCK` / `INFRA` / `OK-CODE` / `OK`). The
+pre-push hook runs `ci-health --quiet` **and** `ci-health --status --quiet` —
+it prints an informational warning when remote CI is blocked or GitHub Actions
+is in an incident, so a red push is never a surprise (both checks are
+warning-only; they never block the push).
+
+## Actions incident playbook (2026-08-06: major outage)
+
+On 2026-08-06 GitHub Actions suffered a multi-hour **major outage**
+(https://www.githubstatus.com, incident "Incident with Actions", impact:
+critical). Symptoms in this repo:
+
+- Runs stayed `queued` for 40 min to 2+ hours with zero steps started, then
+  died with *"The job was not acquired by Runner of type hosted even after
+  multiple attempts"* — on every workflow, including single-job ubuntu ones.
+- Setup steps failed with `Service Unavailable` / *"Failed to resolve action
+  download info"* (action-download service down).
+- A `timeout-minutes: 10` job ("Manifest & contract verification") exceeded
+  its budget because action resolution alone took > 10 min.
+
+**Diagnosis** (in order):
+
+```bash
+just ci-status                 # Actions: major_outage — stop, do not re-run
+just ci-health --runs 20       # runs show STUCK / INFRA (runner-unavailable)
+```
+
+**Response**:
+
+1. Do NOT rerun jobs during the outage — they only re-queue. Do NOT push new
+   commits expecting signal; the pre-push hook warns about the incident.
+2. Wait for `just ci-status` to report `operational`.
+3. Recover starved runs in one command:
+   ```bash
+   node scripts/ci-health.mjs --rerun-stuck --yes
+   ```
+   (lists runs queued > 30 min, then reruns each; `gh run rerun <id> --failed`
+   works for concluded runs with real failures.)
+4. If no run was ever queued, validate locally first: `just gate` + `just act-dry`.
+5. Trigger the cheap single-job smoke workflow to confirm the pipeline is
+   healthy before the full 3-OS matrix burns minutes again:
+   ```bash
+   gh workflow run pipeline-smoke.yml
+   ```
+
+**Hardening shipped after this incident:**
+
+- `ci-health.mjs` / `ci-debug.mjs` gained `runner-unavailable` and
+  `stuck-queued` classification (+ tests); `--status`, `--rerun-stuck`,
+  `--probe` modes.
+- `ci-debug.yml` now probes the triggering run first (`ci-debug.mjs --probe`):
+  if every failure is infrastructure, it skips the debug job instead of
+  adding another job to a starved runner pool.
+- `e2e-keyboard-nav.yml` collapses its 12-cell matrix to 2 jobs on push/PR
+  (full 3-OS x 3-browser only on schedule/dispatch).
+- `ci.yml` rust and `build.yml` build matrices got `max-parallel: 2` so not
+  every OS cell attempts runner acquisition simultaneously.
+- `model-validation.yml` "Manifest & contract verification" timeout raised
+  10 -> 25 min (headroom for slow action resolution during incidents).
+- `actions/checkout` re-pinned v4.2.2 -> v6.0.3 (Node 20 -> Node 24) — kills
+  the *"targets Node 20 but is being forced to run on Node 24"* deprecation
+  warning on every run.
+- New `ci-smoke.yml` (`workflow_dispatch`-only): single ubuntu job running
+  format-check + typecheck + lint + test + audits + workflow/pin validation —
+  the cheap health probe after any infra block lifts.
+- Pre-push hook warns when `ci-health --status` reports a GitHub Actions
+  incident.
 
 ## Local runner parity with `act`
 
