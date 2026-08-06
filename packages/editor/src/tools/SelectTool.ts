@@ -841,6 +841,18 @@ export class SelectTool extends BaseTool {
         ctx.announceOperation('Edit Text', node.name);
         ctx.setTextEditTargetId(hit.nodeId);
         ctx.setSelection(hit.nodeId);
+      } else if (node && node.kind === 'table') {
+        // ADR-0016: double-click enters table edit mode (cell selection,
+        // keyboard navigation, structural ops).
+        ctx.setSelection(hit.nodeId);
+        ctx.setTableEdit?.({
+          tableId: hit.nodeId,
+          cellIds: [],
+          activeCellId: null,
+          editingCellId: null,
+          anchorCellId: null,
+        });
+        ctx.announceOperation('Edit Table', node.name);
       } else if (node && (node.kind === 'frame' || node.kind === 'group')) {
         ctx.enterIsolation?.(hit.nodeId);
         ctx.setSelection(hit.nodeId);

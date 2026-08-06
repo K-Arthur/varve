@@ -562,6 +562,7 @@ function MultiSelectionPanel({
       workspaceMode: state.workspaceMode,
       activeTool: state.tool,
       prototypeMode: state.prototypeMode,
+      tableEdit: state.tableEdit,
     };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
     const add = (id: SectionId, el: React.ReactNode) => {

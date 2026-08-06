@@ -20,7 +20,7 @@ function parseHexColor(value: string): ManagedColor | undefined {
   return { space: 'rgb', r, g, b, a };
 }
 
-function bindingValueToFill(value: unknown): ManagedColor | undefined {
+export function bindingValueToFill(value: unknown): ManagedColor | undefined {
   if (typeof value === 'string') {
     return parseHexColor(value);
   }
@@ -28,6 +28,19 @@ function bindingValueToFill(value: unknown): ManagedColor | undefined {
     return value as ManagedColor;
   }
   return undefined;
+}
+
+/** Resolve the unmodified token color of a color binding (no modifiers). */
+export function resolveBoundTokenColor(
+  store: VariableStore | undefined,
+  binding: PropertyBinding,
+): ManagedColor | undefined {
+  if (!store) return undefined;
+  try {
+    return bindingValueToFill(resolveBinding(store, binding));
+  } catch {
+    return undefined;
+  }
 }
 
 /**
