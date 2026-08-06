@@ -111,6 +111,7 @@ export * from './styles';
 export * from './suppressions';
 export * from './swatches';
 export * from './table';
+export * from './tableLayout';
 export * from './tableOps';
 export * from './text/glyphAdjustments';
 export * from './text/grapheme';

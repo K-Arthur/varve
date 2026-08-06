@@ -194,6 +194,11 @@ export function sceneNodeToEngineNode(
     };
   }
 
+  if (node.kind === 'table') {
+    // V2.15+: native tables compile to a single engine item (ADR-0016 D3).
+    return compileTableToEngineNode(node, { width: node.w ?? 480, height: node.h ?? 240 });
+  }
+
   if (node.kind === 'frame') {
     return {
       ...base,
@@ -201,11 +206,6 @@ export function sceneNodeToEngineNode(
       cornerRadius: node.cornerRadius,
       cornerSmoothing: node.cornerSmoothing !== undefined ? node.cornerSmoothing / 100 : undefined,
     };
-  }
-
-  if (node.kind === 'table') {
-    // V2.15+: native tables compile to a single engine item (ADR-0016 D3).
-    return compileTableToEngineNode(node, { width: node.w ?? 480, height: node.h ?? 240 });
   }
 
   if (node.kind === 'adjustment') {

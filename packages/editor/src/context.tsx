@@ -121,6 +121,7 @@ import type {
   NodeId,
   Slot,
   SyncResult,
+  TableModel,
 } from '@varve/scene';
 import {
   type ArrangeOp,
@@ -388,6 +389,7 @@ import type {
   RulerMode,
   SelectionOrigin,
   SessionMeta,
+  TableEditState,
   ToolId,
 } from './context/types';
 import {
@@ -591,6 +593,14 @@ export interface EditorContextValue {
   /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
   setTool: (t: ToolId) => void;
+  /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
+  /** ADR-0016: open the Create Table From Data dialog (clipboard parse). */
+  openCreateTableFromDataDialog?: () => void;
+  setTableEdit: (state: TableEditState | null) => void;
+  /** ADR-0016: commit cell text through the normal undoable doc path. */
+  updateTableCellText: (cellId: string, text: string) => void;
+  /** ADR-0016: run an immutable table-model op on the owning node (undoable). */
+  tableOp: (tableId: string, op: (model: TableModel) => TableModel) => void;
   /** Commit zoom, pan, and rotation as one camera transaction. */
   setCamera: (camera: Camera) => void;
   setZoom: (z: number) => void;
@@ -646,15 +656,6 @@ export interface EditorContextValue {
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
   setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
-  /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
-  setTableEdit: (state: import('./context/types').TableEditState | null) => void;
-  /** ADR-0016: commit cell text through the normal undoable doc path. */
-  updateTableCellText: (cellId: string, text: string) => void;
-  /** ADR-0016: run an immutable table-model op on the owning node (undoable). */
-  tableOp: (
-    tableId: string,
-    op: (model: import('@varve/scene').TableModel) => import('@varve/scene').TableModel,
-  ) => void;
   /** Enter/exit warp edit mode (which node's modifier the overlay edits). */
   setWarpEdit: (target: { nodeId: NodeId; modifierId: string } | null) => void;
   /** Toggle one node in/out of the selection; additive keeps existing selection. */
@@ -1141,8 +1142,6 @@ export interface EditorContextValue {
   /** Show the export dialog modal. */
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
-  /** ADR-0016: open the Create Table From Data dialog (clipboard parse). */
-  openCreateTableFromDataDialog?: () => void;
   /** Show the archive dialog modal. */
   showArchiveDialog: boolean;
   archiveDialogMode: 'backup' | 'restore';
@@ -2165,6 +2164,8 @@ export function EditorProvider({
       selectedGuideId: null,
       currentPageId: null,
       isolatedNodeId: null,
+      createTableFromDataOpen: false,
+      tableEdit: null,
       showOriginalBgNodeId: null,
       maskPreviewMode: 'checkerboard' as const,
       sectionVisibility: loadSettings().sections.sections,
@@ -2210,8 +2211,6 @@ export function EditorProvider({
       themeRevision: 0,
       revision: 0,
       warpEdit: null,
-      createTableFromDataOpen: false,
-      tableEdit: null,
       upscaleDialogOpen: false,
       vectorizeDialogOpen: false,
       vectorizeDialogPrefill: null,
@@ -3099,6 +3098,9 @@ export function EditorProvider({
       // ADR-0016: table edit session + undoable table model ops.
       setTableEdit: (tableEdit: import('./context/types').TableEditState | null) => {
         patch({ tableEdit });
+      },
+      openCreateTableFromDataDialog: () => {
+        patch({ createTableFromDataOpen: true });
       },
       updateTableCellText: (cellId: string, text: string) => {
         updateDoc((doc) => updateTableCellTextInDoc(doc, cellId, text));

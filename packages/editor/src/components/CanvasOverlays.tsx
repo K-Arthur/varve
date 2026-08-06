@@ -27,6 +27,7 @@ import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './AlignmentOverla
 import { CanvasAccessibilityTree } from './CanvasAccessibilityTree';
 import { CollabCursorOverlay, type RemoteCursor } from './CollabCursorOverlay/CollabCursorOverlay';
 import { ColorBlindnessOverlay, type ColorBlindnessView } from './ColorBlindnessOverlay';
+import { CreateTableFromDataDialog } from './CreateTableFromDataDialog';
 import { CropOverlay } from './CropOverlay';
 import { DocumentGridOverlay } from './DocumentGridOverlay/DocumentGridOverlay';
 import { FloatingTextBar } from './FloatingTextBar/FloatingTextBar';
@@ -40,6 +41,8 @@ import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
 import { SnapGuidesOverlay } from './SnapGuidesOverlay';
 import { MeasureOverlay } from './SpecPanel/MeasureOverlay';
+import { TableCellEditor } from './TableEditOverlay/TableCellEditor';
+import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
 import { VariantBox } from './VariantBox/VariantBox';
 import { ZoomIndicator } from './ZoomIndicator';
@@ -428,6 +431,32 @@ export function CanvasOverlays({
         setNodeEditTargetId={setNodeEditTargetId}
         containerHeight={canvasSize.height}
       />
+      {editor.state.createTableFromDataOpen && <CreateTableFromDataDialog />}
+      {editor.state.tableEdit && editor.state.tableEdit.editingCellId && (
+        <TableCellEditor
+          cellId={editor.state.tableEdit.editingCellId}
+          zoom={zoom}
+          worldToScreen={(wx, wy) => {
+            const pt = editor.worldToCanvas(wx, wy);
+            return [pt.x, pt.y] as [number, number];
+          }}
+          onDone={() => {
+            const te = editor.state.tableEdit;
+            if (te) editor.setTableEdit({ ...te, editingCellId: null });
+          }}
+        />
+      )}
+      {editor.state.tableEdit && (
+        <TableEditOverlay
+          zoom={zoom}
+          pan={pan}
+          cameraRotation={cameraRotation ?? 0}
+          worldToScreen={(wx, wy) => {
+            const pt = editor.worldToCanvas(wx, wy);
+            return [pt.x, pt.y] as [number, number];
+          }}
+        />
+      )}
       {renderCropOverlay}
       {renderTextEdit}
       {isEmpty && (
