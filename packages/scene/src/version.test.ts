@@ -1124,8 +1124,8 @@ describe('v2.16 trace metadata', () => {
     };
     const migrated = migrateDocument(doc);
     const group = (migrated?.nodes as Record<string, { traceMetadata?: unknown }>)?.g1;
-    expect(migrated?.formatVersion).toBe('2.16');
+    expect(migrated?.formatVersion).toBe('2.17');
     expect(group?.traceMetadata).toEqual(traceMetadata);
-    expect(JSON.parse(serializeDocument(migrated ?? {})).formatVersion).toBe('2.16');
+    expect(JSON.parse(serializeDocument(migrated ?? {})).formatVersion).toBe('2.17');
   });
 });
