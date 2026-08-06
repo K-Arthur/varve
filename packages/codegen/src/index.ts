@@ -580,6 +580,8 @@ function svgElementForShape(s: import('@varve/engine').Shape): string {
     case 'polygon':
     case 'star':
       return `polygon points="${shapeVerticesToPoints(s, 3)}"`;
+    case 'table':
+      return `rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}"`;
     case 'path':
       return `path d="${shapePathToData(s, 3)}"`;
   }
