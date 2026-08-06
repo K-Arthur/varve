@@ -193,7 +193,7 @@ describe('diffDocuments', () => {
     );
     expect(change).toBeDefined();
     expect(change?.changeType).toBe('modified');
-    expect(change?.before).toBe('Light');
+    expect(change?.before).toBe('Brand');
     expect(change?.after).toBe('Daylight');
   });
 

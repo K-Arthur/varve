@@ -17,7 +17,7 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
 
-import { AlertDialog, Tooltip } from '@varve/ui';
+import { Dialog, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
 
@@ -40,7 +40,7 @@ function PlusIcon() {
 }
 
 export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () => void }) {
-  const { state, switchTab, closeTab, newTab } = useEditor();
+  const { state, switchTab, closeTab, newTab, save, showToast } = useEditor();
   const { sessions, activeId } = state;
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [confirmCloseId, setConfirmCloseId] = useState<string | null>(null);
@@ -70,6 +70,22 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
     if (!closeTab(id)) {
       setConfirmCloseId(id);
     }
+  }
+
+  async function saveAndClose(id: string) {
+    if (id !== activeId) switchTab(id);
+    const ok = await save();
+    if (ok) {
+      closeTab(id, true);
+      setConfirmCloseId(null);
+    } else {
+      showToast?.({ message: 'Save failed — the document stays open', type: 'error' });
+    }
+  }
+
+  function forceClose(id: string) {
+    closeTab(id, true);
+    setConfirmCloseId(null);
   }
 
   // After the session list changes with a pending focus target, move focus
@@ -192,21 +208,41 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
           const closeSess = sessions.find((s) => s.id === confirmCloseId);
           if (!closeSess) return null;
           return (
-            <AlertDialog
+            <Dialog
               open={true}
               onClose={() => {
                 pendingFocusRef.current = null;
                 setConfirmCloseId(null);
               }}
-              onConfirm={() => {
-                closeTab(confirmCloseId, true);
-                setConfirmCloseId(null);
-              }}
               title="Close document"
-              description={`Close "${closeSess.name}"? Unsaved changes will be lost.`}
-              confirmLabel="Close"
-              variant="danger"
-            />
+            >
+              <p className="varve-dialog__desc">
+                Save changes to &ldquo;{closeSess.name}&rdquo; before closing?
+              </p>
+              <div className="varve-dialog__actions">
+                <button
+                  type="button"
+                  className="varve-btn varve-btn--ghost"
+                  onClick={() => setConfirmCloseId(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="varve-btn varve-btn--ghost"
+                  onClick={() => forceClose(confirmCloseId)}
+                >
+                  Don&apos;t save
+                </button>
+                <button
+                  type="button"
+                  className="varve-btn varve-btn--primary"
+                  onClick={() => void saveAndClose(confirmCloseId)}
+                >
+                  Save
+                </button>
+              </div>
+            </Dialog>
           );
         })()}
       </div>
