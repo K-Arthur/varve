@@ -380,6 +380,12 @@ export function computeTableLayout(table: TableModel, width: number): TableLayou
     );
   };
 
+  // Content rows always keep a comfortable floor (padding + one text line),
+  // so empty tables still look like tables instead of collapsing to strips.
+  const contentFloor = Math.max(
+    TABLE_LAYOUT_MIN_TRACK,
+    cellPadding * 2 + fontSize * TABLE_DEFAULT_LINE_HEIGHT,
+  );
   for (const r of contentRows) {
     let maxContent = TABLE_LAYOUT_MIN_TRACK;
     for (const cell of placed) {
@@ -390,7 +396,11 @@ export function computeTableLayout(table: TableModel, width: number): TableLayou
         maxContent = Math.max(maxContent, measureCellHeight(cell, width));
       }
     }
-    rowHeights[r] = clampTrack(maxContent, rowDefs[r]?.minHeight, rowDefs[r]?.maxHeight);
+    rowHeights[r] = clampTrack(
+      Math.max(contentFloor, maxContent),
+      rowDefs[r]?.minHeight,
+      rowDefs[r]?.maxHeight,
+    );
   }
 
   // Row-span expansion pass (monotonic, capped).
