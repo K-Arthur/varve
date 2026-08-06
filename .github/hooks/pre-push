@@ -14,12 +14,19 @@ echo "Running pre-push gate (just gate)..."
 just gate
 
 # Informational pipeline health check. Never blocks the push — it warns when
-# remote CI cannot run (GitHub billing block / runner outage) so the developer
-# knows a red run is infra, not code.
+# remote CI cannot run (GitHub billing block / runner outage / Actions
+# incident) so the developer knows a red run is infra, not code.
 if node scripts/ci-health.mjs --quiet; then
   :
 else
   echo "(ci-health check unavailable — skipping pipeline health warning)"
+fi
+
+# GitHub Actions incident warning (e.g. "major_outage" — jobs queue forever
+# then die with "not acquired by Runner"). Pushing into an outage produces
+# zero signal, so surface it before the push. Still never blocks.
+if ! node scripts/ci-health.mjs --status --quiet; then
+  node scripts/ci-health.mjs --status || echo "(could not check githubstatus.com — skipping incident warning)"
 fi
 
 echo "Pre-push gate passed."
