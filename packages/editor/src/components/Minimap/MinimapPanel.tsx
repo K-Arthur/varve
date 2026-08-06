@@ -173,7 +173,7 @@ export function MinimapPanel() {
   /** Double-click: fit all content in viewport. */
   const handleDoubleClick = useCallback(() => {
     if (scene.entries.length === 0) return;
-    editor.revealSelection({ fit: true });
+    editor.fitAll();
   }, [editor, scene.entries.length]);
 
   /** Keyboard navigation. */
@@ -213,11 +213,11 @@ export function MinimapPanel() {
         case 'Enter':
         case ' ':
           e.preventDefault();
-          editor.revealSelection({ fit: true });
+          editor.fitAll();
           break;
         case 'Home':
           e.preventDefault();
-          editor.revealSelection({ fit: true });
+          editor.fitAll();
           break;
         case 'Escape':
           e.preventDefault();
@@ -303,7 +303,7 @@ export function MinimapPanel() {
         height={mmSize.height}
         tabIndex={0}
         role="img"
-        aria-label={`Document minimap showing ${nodeCount} objects. Use arrow keys to pan, Enter to fit all.`}
+        aria-label={`Document minimap showing ${nodeCount} objects. Double-click or press Enter to fit the whole document; arrow keys pan.`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
