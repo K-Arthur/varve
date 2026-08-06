@@ -1491,6 +1491,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -2486,6 +2493,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -3476,6 +3490,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -4880,6 +4901,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -6279,6 +6307,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -7585,6 +7620,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -8901,6 +8943,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -10128,6 +10177,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -11365,6 +11421,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -12468,6 +12531,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -13566,6 +13636,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -14942,6 +15019,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -16313,6 +16397,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -17308,6 +17399,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -18298,6 +18396,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -19702,6 +19807,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -21101,6 +21213,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -22407,6 +22526,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -23723,6 +23849,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -24950,6 +25083,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -26187,6 +26327,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -27290,6 +27437,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
       {
         "badge": undefined,
         "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "exportSvg",
         "label": "Export SVG…",
         "onAction": [Function],
@@ -28388,6 +28542,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
@@ -29759,6 +29920,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "disabled": false,
         "id": "insertIcon",
         "label": "Insert Icon…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "createTableFromClipboard",
+        "label": "Create Table From Clipboard",
         "onAction": [Function],
       },
       {
