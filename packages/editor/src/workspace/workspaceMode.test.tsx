@@ -139,10 +139,14 @@ describe('WorkspaceConfig', () => {
     expect(config.canvasOverlays.bleedGuides).toBe(true);
   });
 
-  it('design mode has performance config with worker renderer', () => {
-    const config = getWorkspaceConfig('design');
-    expect(config.performance.useWorkerRenderer).toBe(true);
-    expect(config.performance.viewportCulling).toBe(true);
+  // Renderer policy is deliberately NOT a workspace concern. It belongs to the
+  // global render/performance settings and the adaptive memory budget, which
+  // can see hardware capability, memory pressure, and scene complexity; a
+  // workspace switch is a layout change and must not reconfigure the renderer
+  // as a side effect. See the removal note in workspaceTypes.ts.
+  it('does not carry renderer policy', () => {
+    const config = getWorkspaceConfig('design') as unknown as Record<string, unknown>;
+    expect(config.performance).toBeUndefined();
   });
 
   it('each mode has unique toolbar tools', () => {

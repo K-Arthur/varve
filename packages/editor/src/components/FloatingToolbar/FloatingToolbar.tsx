@@ -4,7 +4,7 @@ import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip, TooltipProvider } from
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolShortcutLabel } from '../../shortcuts';
-import { WORKSPACE_CONFIGS } from '../../workspace/workspaceTypes';
+import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
 
@@ -259,8 +259,12 @@ export function FloatingToolbar() {
   const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
   const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
 
-  const config = WORKSPACE_CONFIGS[workspaceMode];
-  if (!config?.floatingToolbar) return null;
+  // Resolve through the effective config, not the raw WORKSPACE_CONFIGS map:
+  // that map has no entry for an unrecognized mode, so a stale persisted or
+  // future mode id silently removed the entire toolbar. The resolver falls
+  // back to Design and merges the user's overrides.
+  const config = useEffectiveWorkspaceConfig(workspaceMode);
+  if (!config.floatingToolbar) return null;
 
   const currentShape = (SHAPE_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
     ? state.tool
