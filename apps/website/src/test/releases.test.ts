@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { buildWebsiteReleaseData } from '../../../../scripts/release/website-release-data.mjs';
 
 /**
  * The download page renders entirely from this generated manifest
@@ -25,10 +26,18 @@ function loadManifest() {
 
 const SHA256 = /^[0-9a-f]{64}$/;
 
+interface ReleaseData {
+  hasRelease: boolean;
+  prerelease: boolean;
+  version: string | null;
+  integrity: string | null;
+  platforms: Record<string, Array<Record<string, unknown>>>;
+}
+
 describe('website release manifest', () => {
   it('is valid JSON with a known schema version', () => {
     const data = loadManifest();
-    expect(data.schemaVersion).toBe(1);
+    expect(data.schemaVersion).toBe(2);
     expect(typeof data.hasRelease).toBe('boolean');
   });
 
@@ -84,6 +93,107 @@ describe('website release manifest', () => {
         expect(artifact.caveat, `${artifact.filename} needs an unsigned-build caveat`).toBeTruthy();
       }
     }
+  });
+});
+
+describe('release data states (shared builder)', () => {
+  // The download page renders from the shape produced by
+  // scripts/release/website-release-data.mjs. These fixture tests pin every
+  // state the page must handle: stable, prerelease, and the integrity failures
+  // that must hide download cards rather than invent data.
+  const HASH = 'a'.repeat(64);
+  const HASH_OTHER = 'b'.repeat(64);
+
+  const artifact = (overrides: Record<string, unknown> = {}) => ({
+    filename: 'Varve-0.1.0-linux-x86_64.AppImage',
+    os: 'linux',
+    arch: 'x86_64',
+    format: 'appimage',
+    sizeBytes: 1024,
+    sha256: HASH,
+    ...overrides,
+  });
+
+  const manifest = (artifacts: Array<Record<string, unknown>>, version = '0.1.0') => ({
+    schemaVersion: 1,
+    version,
+    generatedAt: '2026-08-06T00:00:00.000Z',
+    signed: false,
+    notarized: false,
+    artifacts,
+  });
+
+  const checksums = (artifacts: Array<Record<string, unknown>>) =>
+    `${artifacts.map((a) => `${a.sha256}  ${a.filename}`).join('\n')}\n`;
+
+  it('stable release state', () => {
+    const data = buildWebsiteReleaseData({
+      repo: 'K-Arthur/varve',
+      tag: 'v0.1.0',
+      manifest: manifest([artifact()]),
+      checksumsText: checksums([artifact()]),
+      sbomFilenames: ['varve-0.1.0-sbom.cdx.json'],
+    }) as ReleaseData;
+    expect(data.hasRelease).toBe(true);
+    expect(data.prerelease).toBe(false);
+    expect(data.version).toBe('0.1.0');
+    expect(data.integrity).toBe('verified');
+    expect(data.platforms.linux).toHaveLength(1);
+  });
+
+  it('prerelease state is labelled as such', () => {
+    const data = buildWebsiteReleaseData({
+      repo: 'K-Arthur/varve',
+      tag: 'v0.1.0-alpha.1',
+      manifest: manifest([artifact()], '0.1.0-alpha.1'),
+      checksumsText: checksums([artifact()]),
+      sbomFilenames: [],
+    }) as ReleaseData;
+    expect(data.prerelease).toBe(true);
+  });
+
+  it('hash mismatch state throws (never advertises)', () => {
+    const broken = checksums([artifact({ sha256: HASH_OTHER })]);
+    expect(() =>
+      buildWebsiteReleaseData({
+        repo: 'K-Arthur/varve',
+        tag: 'v0.1.0',
+        manifest: manifest([artifact()]),
+        checksumsText: broken,
+        sbomFilenames: [],
+      }),
+    ).toThrow(/does not match SHA256SUMS/);
+  });
+
+  it('missing checksum for an advertised artifact throws', () => {
+    expect(() =>
+      buildWebsiteReleaseData({
+        repo: 'K-Arthur/varve',
+        tag: 'v0.1.0',
+        manifest: manifest([artifact()]),
+        checksumsText: '',
+        sbomFilenames: [],
+      }),
+    ).toThrow(/\(absent\)/);
+  });
+
+  it('unknown artifact format throws', () => {
+    expect(() =>
+      buildWebsiteReleaseData({
+        repo: 'K-Arthur/varve',
+        tag: 'v0.1.0',
+        manifest: manifest([artifact({ format: 'flatpak' })]),
+        checksumsText: checksums([artifact({ format: 'flatpak' })]),
+        sbomFilenames: [],
+      }),
+    ).toThrow(/unknown format/);
+  });
+
+  it('no-release state is the committed default', () => {
+    const data = loadManifest();
+    expect(data.hasRelease).toBe(false);
+    expect(data.version).toBeNull();
+    expect(data.integrity).toBeNull();
   });
 });
 

@@ -30,8 +30,7 @@ const ogImageUrl = ogImageUrlOf(image);
 // page title does not already carry it.
 const pageTitle = /\bVarve\b/.test(title) ? title : `${title} | Varve`;
 
-const sitewideStructuredData = [
-  {
+const sitewideStructuredData = [  {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     '@id': `${siteOriginOf()}#organization`,
@@ -59,6 +58,25 @@ const sitewideStructuredData = [
 // Empty unless deliberately configured at build time. See the analytics comment
 // in <head> — the default build makes no third-party requests at all.
 const analyticsDomain = import.meta.env.ANALYTICS_DOMAIN ?? '';
+
+// Active navigation state: the pathname arrives with the base prefix, so strip
+// it before comparing against the route list.
+const basePrefix = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+const currentPath = Astro.url.pathname.startsWith(basePrefix)
+  ? `/${Astro.url.pathname.slice(basePrefix.length)}`
+  : Astro.url.pathname;
+const navItems = [
+  { href: '/product', label: 'Product' },
+  { href: '/features', label: 'Features' },
+  { href: '/download', label: 'Download' },
+  { href: '/docs', label: 'Docs' },
+  { href: '/support', label: 'Support' },
+  { href: '/contribute', label: 'Contribute' },
+];
+function isCurrent(href: string): boolean {
+  if (href === '/') return currentPath === '/';
+  return currentPath === href || currentPath.startsWith(`${href}/`);
+}
 
 const csp = [
   "default-src 'self'",
@@ -210,12 +228,17 @@ const csp = [
           <span>Varve</span>
         </a>
         <ul class="nav-links" id="site-nav-links">
-          <li><a href={sitePath('/product')}>Product</a></li>
-          <li><a href={sitePath('/features')}>Features</a></li>
-          <li><a href={sitePath('/download')}>Download</a></li>
-          <li><a href={sitePath('/docs')}>Docs</a></li>
-          <li><a href={sitePath('/support')}>Support</a></li>
-          <li><a href={sitePath('/contribute')}>Contribute</a></li>
+          {navItems.map((item) => (
+            <li>
+              <a
+                href={sitePath(item.href)}
+                class:list={[{ 'nav-active': isCurrent(item.href) }]}
+                aria-current={isCurrent(item.href) ? 'page' : undefined}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))}
         </ul>
         <div class="nav-actions">
           <div class="theme-switcher" role="group" aria-label="Theme">
@@ -407,6 +430,11 @@ const csp = [
 
   .nav-links a:hover {
     color: var(--text-link);
+  }
+
+  .nav-links a.nav-active {
+    color: var(--text-link);
+    font-weight: 600;
   }
 
   .mobile-menu-toggle {
