@@ -57,6 +57,7 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   sam2Segment: 'Select Subject',
   lasso: 'Lasso',
   table: 'Table',
+  warp: 'Warp',
 };
 
 /** Tools hidden in structured-layout modes (Print, Design): raster painting
@@ -94,6 +95,7 @@ const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'eyedropper' },
   { id: 'frame' },
   { id: 'table' },
+  { id: 'warp' },
   { id: 'sam2Segment', groupStart: true },
 ];
 
@@ -113,6 +115,7 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'eyedropper' },
   { id: 'scale' },
   { id: 'inspect' },
+  { id: 'warp' },
   { id: 'sam2Segment', groupStart: true },
   { id: 'paint', groupStart: true },
   { id: 'eraser' },
