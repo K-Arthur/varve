@@ -84,7 +84,7 @@ describe('MockupsPanel', () => {
 
   it('toggles favourites', () => {
     render(<MockupsPanel />);
-    const star = screen.getAllByRole('button', { name: /favourites/i })[0];
+    const star = screen.getAllByRole('button', { name: /favourites/i })[0]!;
     fireEvent.click(star);
     expect(star.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(star);

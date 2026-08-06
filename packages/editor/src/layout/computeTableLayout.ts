@@ -94,8 +94,22 @@ function clampTrack(value: number, min?: number, max?: number): number {
   return Math.max(TABLE_LAYOUT_MIN_TRACK, v);
 }
 
-function wrappedHeight(text: string, availWidth: number, fontSize: number): number {
+function wrappedHeight(
+  text: string,
+  availWidth: number,
+  fontSize: number,
+  measure?: MeasureTextFn,
+): number {
   if (!text) return fontSize * TABLE_DEFAULT_LINE_HEIGHT;
+  if (measure) {
+    const m = measure(text, {
+      fontSize,
+      fontFamily: DEFAULT_ARTWORK_FONT_FAMILY,
+      fontWeight: 400,
+      lineHeight: TABLE_DEFAULT_LINE_HEIGHT,
+    });
+    return finite(m.height, fontSize * TABLE_DEFAULT_LINE_HEIGHT);
+  }
   const lines = textWrap(text, Math.max(TABLE_LAYOUT_MIN_TRACK, availWidth), {
     fontSize,
     fontFamily: DEFAULT_ARTWORK_FONT_FAMILY,
@@ -116,7 +130,16 @@ function wrappedHeight(text: string, availWidth: number, fontSize: number): numb
 export function computeTableLayout(
   table: TableModel,
   width: number,
-  measure: MeasureTextFn = (text, opts) => textWrap(text, Number.POSITIVE_INFINITY, opts),
+  measure: MeasureTextFn = (text, opts) => {
+    const lines = textWrap(text, Number.POSITIVE_INFINITY, opts);
+    return {
+      width: lines.reduce((m, l) => Math.max(m, finite(l.width, 0)), 0),
+      height: lines.reduce(
+        (s, l) => s + finite(l.height, TABLE_CELL_FONT_SIZE * TABLE_DEFAULT_LINE_HEIGHT),
+        0,
+      ),
+    };
+  },
 ): TableLayoutResult {
   const availW = finite(width, 0);
   const rule = activeResponsiveRule(table.responsive.rules, availW);
@@ -273,15 +296,16 @@ export function computeTableLayout(
 
   // Fraction columns fill the remainder.
   const remaining = Math.max(0, availW - fixedTotal - gapTotal);
-  const fractionSum = fractionColumns.reduce(
-    (sum, c) => sum + Math.max(0, effectiveColumns[c]!.definition.sizing.value),
-    0,
-  );
+  const fractionValue = (c: number): number => {
+    const sizing = effectiveColumns[c]!.definition.sizing;
+    return sizing.kind === 'fraction' ? sizing.value : 0;
+  };
+  const fractionSum = fractionColumns.reduce((sum, c) => sum + Math.max(0, fractionValue(c)), 0);
   if (fractionSum > 0 && availW > 0) {
     const perFr = remaining / fractionSum;
     let flexTotal = 0;
     for (const c of fractionColumns) {
-      const value = Math.max(0, effectiveColumns[c]!.definition.sizing.value);
+      const value = Math.max(0, fractionValue(c));
       colWidths[c] = clampTrack(
         perFr * value,
         effectiveColumns[c]!.definition.minWidth,

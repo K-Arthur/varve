@@ -56,7 +56,9 @@ export type ToolId =
   | 'backgroundRemoval'
   | 'clone'
   | 'contentAwareFill'
-  | 'lasso';
+  | 'lasso'
+  | 'table'
+  | 'warp';
 
 export type MaskPreviewMode =
   | 'checkerboard'
@@ -225,6 +227,12 @@ export interface ToolContext {
   setNodeEditSelectedAnchors: (anchors: ReadonlySet<number>) => void;
   /** Set the text node to be edited inline. */
   setTextEditTargetId: (id: string | null) => void;
+  /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
+  setTableEdit?: (state: import('../context/types').TableEditState | null) => void;
+  /** Enter/exit warp edit mode (which node's modifier the overlay edits). */
+  setWarpEdit?: (target: { nodeId: string; modifierId: string } | null) => void;
+  /** Apply a warp preset to the current selection. */
+  applyWarpToSelection?: (presetKind?: import('@varve/engine').WarpPresetKind) => boolean;
 
   snapPosition: (
     bounds: { x: number; y: number; w: number; h: number },

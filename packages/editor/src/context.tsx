@@ -205,6 +205,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTableNode,
   makeTextNode,
   markMaskStale,
   moveGuide as moveGuideDoc,
@@ -403,7 +404,7 @@ import { useLogoProject } from './context/useLogoProject';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
-import { useWorkspaceMode } from './context/useWorkspaceMode';
+import { recordPanelVisibilityOverride, useWorkspaceMode } from './context/useWorkspaceMode';
 import {
   computeFitAllCamera,
   computeZoomStep,
@@ -453,6 +454,7 @@ import {
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import { createInitialMotionState } from './state/motion-state';
+import { applyTableModelOp, updateTableCellTextInDoc } from './table/tableDocOps';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
@@ -640,6 +642,17 @@ export interface EditorContextValue {
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
   setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
+  /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
+  setTableEdit: (state: import('./context/types').TableEditState | null) => void;
+  /** ADR-0016: commit cell text through the normal undoable doc path. */
+  updateTableCellText: (cellId: string, text: string) => void;
+  /** ADR-0016: run an immutable table-model op on the owning node (undoable). */
+  tableOp: (
+    tableId: string,
+    op: (model: import('@varve/scene').TableModel) => import('@varve/scene').TableModel,
+  ) => void;
+  /** Enter/exit warp edit mode (which node's modifier the overlay edits). */
+  setWarpEdit: (target: { nodeId: NodeId; modifierId: string } | null) => void;
   /** Toggle one node in/out of the selection; additive keeps existing selection. */
   toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
   /** True if the given id is currently selected. */
@@ -1124,6 +1137,8 @@ export interface EditorContextValue {
   /** Show the export dialog modal. */
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
+  /** ADR-0016: open the Create Table From Data dialog (clipboard parse). */
+  openCreateTableFromDataDialog?: () => void;
   /** Show the archive dialog modal. */
   showArchiveDialog: boolean;
   archiveDialogMode: 'backup' | 'restore';
@@ -2195,6 +2210,8 @@ export function EditorProvider({
       themeRevision: 0,
       revision: 0,
       warpEdit: null,
+      createTableFromDataOpen: false,
+      tableEdit: null,
       upscaleDialogOpen: false,
       vectorizeDialogOpen: false,
       vectorizeDialogPrefill: null,
