@@ -4,16 +4,9 @@ import type { Document } from './document';
 import { removeNode } from './document-nodes';
 import { cryptoId, devValidate, makeGroupNode } from './document-utils';
 import { nextNodeId } from './node-id';
-import type {
-  FacingPagesConfig,
-  GroupNode,
-  NodeId,
-  Page,
-  PageNumberStyle,
-  PageSection,
-  PageSide,
-  Spread,
-} from './types';
+import { getPageNumbering } from './pageNumbering';
+import { projectSpreads } from './pasteboardLayout';
+import type { FacingPagesConfig, GroupNode, NodeId, Page, PageSide, Spread } from './types';
 import { isContainer } from './types';
 
 // ── Helper ─────────────────────────────────────────────────────────────────
@@ -71,8 +64,35 @@ export function addPage(
  * Remove a page from the document.
  * Removes the contentRoot node (and all descendants) and any background nodes.
  * Guards against removing the last page.
+ * Equivalent to `deletePageWithPolicy(doc, pageId, 'delete-content')`.
  */
 export function removePage(doc: Document, pageId: NodeId): Document {
+  return deletePageWithPolicy(doc, pageId, 'delete-content');
+}
+
+/**
+ * Page deletion policy (ADR-0126 D3). Explicit choice of what happens to the
+ * page's content instead of silent removal:
+ * - `delete-content`: remove the content subtree with the page (status quo).
+ * - `move-to-pasteboard`: reparent content children to the pasteboard
+ *   (rootChildren) before removing the page.
+ * - `move-to-page`: reparent content children to another page's content root
+ *   (transforms are preserved because page roots sit at identity).
+ */
+export type DeletePagePolicy = 'delete-content' | 'move-to-pasteboard' | 'move-to-page';
+
+/**
+ * Delete a page under an explicit content policy. Guards against removing
+ * the last page. When `policy` is `move-to-page`, `targetPageId` must name
+ * a surviving page (other than the deleted page); the policy falls back to
+ * `delete-content` when the target is missing.
+ */
+export function deletePageWithPolicy(
+  doc: Document,
+  pageId: NodeId,
+  policy: DeletePagePolicy,
+  targetPageId?: NodeId,
+): Document {
   if (!doc.pages || doc.pages.length <= 1) return doc;
   const idx = doc.pages.findIndex((p) => p.id === pageId);
   if (idx < 0) return doc;
@@ -87,6 +107,42 @@ export function removePage(doc: Document, pageId: NodeId): Document {
     pages: nextPages,
     activePageId: activePageStillExists ? doc.activePageId : fallbackPage?.id,
   };
+
+  // Resolve content destination before the page entry is gone.
+  const contentRoot = d.nodes[page.contentRoot] as GroupNode | undefined;
+  let targetRoot: NodeId | null = null;
+  if (policy === 'move-to-page' && targetPageId) {
+    const target = d.pages?.find((p) => p.id === targetPageId);
+    if (target && target.id !== pageId) targetRoot = target.contentRoot;
+  }
+  const moveToPasteboard =
+    policy === 'move-to-pasteboard' || (policy === 'move-to-page' && !targetRoot);
+
+  if (moveToPasteboard || targetRoot) {
+    const children = contentRoot?.children ?? [];
+    if (targetRoot) {
+      const targetNode = d.nodes[targetRoot] as GroupNode | undefined;
+      if (targetNode) {
+        d = {
+          ...d,
+          nodes: {
+            ...d.nodes,
+            [targetRoot]: { ...targetNode, children: [...targetNode.children, ...children] },
+          },
+        };
+      }
+    } else {
+      d = { ...d, rootChildren: [...d.rootChildren, ...children] };
+    }
+    // Sever the parent link so removeNode below does not cascade into the
+    // reparented children (they must survive the page deletion).
+    if (contentRoot) {
+      d = {
+        ...d,
+        nodes: { ...d.nodes, [page.contentRoot]: { ...contentRoot, children: [] } },
+      };
+    }
+  }
 
   // Remove background nodes
   for (const bgId of page.backgrounds) {
@@ -216,11 +272,40 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
     contentRoot: newContentRootId,
   };
 
-  return {
+  let result: Document = {
     ...d,
     pages: [...(d.pages ?? []), newPage],
     rootChildren: [...d.rootChildren, newContentRootId],
   };
+
+  // Text chains: frames of the duplicated page get fresh chain entries so the
+  // copied story stays linked within the copy and never silently joins the
+  // source story (ADR-0126 D4). The source chains keep their frame ids.
+  const chains = result.textChains as
+    | Record<string, { id: string; name?: string; frameIds: NodeId[] }>
+    | undefined;
+  if (chains && Object.keys(chains).length > 0) {
+    const mappedChains: typeof chains = {};
+    for (const chain of Object.values(chains)) {
+      if (!Array.isArray(chain?.frameIds)) continue;
+      const mapped = chain.frameIds
+        .map((fid) => (idMap.get(fid) ?? null) as NodeId | null)
+        .filter((fid): fid is NodeId => fid !== null);
+      if (mapped.length === 0) continue;
+      const chainId = cryptoId();
+      mappedChains[chainId] = {
+        id: chainId,
+        name: chain.name ? `${chain.name} Copy` : undefined,
+        frameIds: mapped,
+      };
+    }
+    if (Object.keys(mappedChains).length > 0) {
+      result = { ...result, textChains: { ...result.textChains, ...mappedChains } };
+    }
+  }
+
+  devValidate(result);
+  return result;
 }
 
 /**
@@ -237,6 +322,31 @@ export function setPageSize(
   if (idx < 0) return doc;
 
   const updatedPages = doc.pages.map((p, i) => (i === idx ? { ...p, width, height } : p));
+
+  return { ...doc, pages: updatedPages };
+}
+
+/**
+ * Set a page's pasteboard placement (world coordinates of the trim top-left).
+ * Placement is layout metadata only: no node transforms change (ADR-0124).
+ * Rejects non-finite or out-of-bounds coordinates; no-ops for unknown page
+ * ids.
+ */
+export function setPagePlacement(
+  doc: Document,
+  pageId: NodeId,
+  placement: import('./types').PagePlacement,
+): Document {
+  if (!doc.pages) return doc;
+  const idx = doc.pages.findIndex((p) => p.id === pageId);
+  if (idx < 0) return doc;
+
+  const x = Number(placement.x);
+  const y = Number(placement.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return doc;
+  if (Math.abs(x) > 1e7 || Math.abs(y) > 1e7) return doc;
+
+  const updatedPages = doc.pages.map((p, i) => (i === idx ? { ...p, placement: { x, y } } : p));
 
   return { ...doc, pages: updatedPages };
 }
@@ -384,59 +494,36 @@ export function activePageNodes(doc: Document): NodeId[] {
 // ── Editorial spreads ─────────────────────────────────────────────────────
 
 /**
+ * Build the derived spread projection with stable ids (ADR-0128 D3).
+ * Spread ids are deterministic (`spread-<index>`), never regenerated per
+ * rebuild — spread-level guides and identity survive toggles and reorders.
+ * The projection is a pure function of (pages, facing config).
+ */
+export function spreadsFromProjection(doc: Document, facingPages?: FacingPagesConfig): Spread[] {
+  const slots = projectSpreads(doc, facingPages);
+  return slots.map((spread, i) => ({
+    id: `spread-${i}`,
+    kind: spread.length === 1 ? ('single' as const) : ('facing' as const),
+    pageIds: spread.map((s) => s.pageId) as [NodeId] | [NodeId, NodeId],
+  }));
+}
+
+/**
  * Rebuild spread assignments based on facing pages configuration.
  * Assigns each page to a spread: single-page spreads when facing pages
  * are disabled, or two-page spreads with proper left/right ordering
  * when enabled.
+ *
+ * Derived projection with stable ids (ADR-0128). No-op when the document
+ * uses the `custom` spread model — user-authored spreads are never
+ * clobbered by the projection.
  */
 export function rebuildSpreads(doc: Document, facingPages?: FacingPagesConfig): Document {
   if (!doc.pages) return doc;
+  if (doc.spreadModel === 'custom') return doc;
 
   const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
-  const spreads: Spread[] = [];
-
-  if (!config.enabled) {
-    // Single-page spreads
-    for (const page of doc.pages) {
-      spreads.push({
-        id: cryptoId(),
-        pageIds: [page.id],
-      });
-    }
-  } else {
-    // Facing-page spreads
-    let i = 0;
-    const startOnRight = config.startOnRight ?? true;
-
-    // If first page should be on the right, put it alone
-    if (startOnRight && doc.pages.length > 0) {
-      spreads.push({
-        id: cryptoId(),
-        pageIds: [doc.pages[0]!.id],
-      });
-      i = 1;
-    }
-
-    // Process remaining pages in pairs
-    while (i < doc.pages.length) {
-      if (i + 1 < doc.pages.length) {
-        spreads.push({
-          id: cryptoId(),
-          pageIds: [doc.pages[i]!.id, doc.pages[i + 1]!.id],
-        });
-        i += 2;
-      } else {
-        // Single page at end
-        spreads.push({
-          id: cryptoId(),
-          pageIds: [doc.pages[i]!.id],
-        });
-        i += 1;
-      }
-    }
-  }
-
-  return { ...doc, spreads, facingPages: config };
+  return { ...doc, spreads: spreadsFromProjection(doc, config), facingPages: config };
 }
 
 /**
@@ -448,8 +535,11 @@ export function getSpreadForPage(doc: Document, pageId: NodeId): Spread | undefi
 }
 
 /**
- * Determine whether a page is left, right, or neither within facing-page spreads.
- * When facing pages are disabled, always returns 'none'.
+ * Determine whether a page is left, right, or neither within facing-page
+ * spreads (ADR-0129 D2). Side classification honors the binding direction:
+ * in RTL, the first slot of a pair is the right page and a leading
+ * single-page spread is a left page. When facing pages are disabled,
+ * always returns 'none'.
  */
 export function getPageSide(
   doc: Document,
@@ -459,6 +549,7 @@ export function getPageSide(
   const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
   if (!config.enabled) return 'none';
 
+  const rtl = config.bindingDirection === 'rtl';
   const spreads = doc.spreads;
   if (!spreads) return 'none';
 
@@ -466,11 +557,12 @@ export function getPageSide(
     const idx = spread.pageIds.indexOf(pageId);
     if (idx === -1) continue;
     if (spread.pageIds.length === 1) {
-      // Single-page spread: side depends on whether first page should be right
-      return config.startOnRight ? 'right' : 'left';
+      // Single-page spread: side depends on whether first page starts right
+      // (LTR) or left (RTL mirror).
+      return config.startOnRight ? (rtl ? 'left' : 'right') : rtl ? 'right' : 'left';
     }
-    if (idx === 0) return 'left';
-    if (idx === 1) return 'right';
+    if (idx === 0) return rtl ? 'right' : 'left';
+    if (idx === 1) return rtl ? 'left' : 'right';
   }
 
   return 'none';
@@ -493,126 +585,14 @@ export function isPageOnLeftSide(
  * Get the 1-indexed page number for a page, respecting section numbering.
  */
 export function getPageNumber(doc: Document, pageId: NodeId): number {
-  if (!doc.pages) return 0;
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return 0;
-
-  // Check for section-based numbering
-  const sections = doc.sections ?? [];
-  if (sections.length === 0) return pageIndex + 1;
-
-  // Find which section this page belongs to
-  let owningSection: PageSection | undefined;
-  let sectionStartIndex = 0;
-
-  for (const section of sections) {
-    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
-    if (sectionStartPageIdx !== -1 && sectionStartPageIdx <= pageIndex) {
-      owningSection = section;
-      sectionStartIndex = sectionStartPageIdx;
-    }
-  }
-
-  if (owningSection) {
-    const offset = pageIndex - sectionStartIndex;
-    return owningSection.startNumber + offset;
-  }
-
-  return pageIndex + 1;
-}
-
-/** Roman numeral mapping tables. */
-const ROMAN_NUMERALS: Array<[number, string]> = [
-  [1000, 'M'],
-  [900, 'CM'],
-  [500, 'D'],
-  [400, 'CD'],
-  [100, 'C'],
-  [90, 'XC'],
-  [50, 'L'],
-  [40, 'XL'],
-  [10, 'X'],
-  [9, 'IX'],
-  [5, 'V'],
-  [4, 'IV'],
-  [1, 'I'],
-];
-
-function toRoman(num: number): string {
-  if (num <= 0) return '';
-  let result = '';
-  let n = num;
-  for (const [value, numeral] of ROMAN_NUMERALS) {
-    while (n >= value) {
-      result += numeral;
-      n -= value;
-    }
-  }
-  return result;
+  return getPageNumbering(doc, pageId)?.number ?? 0;
 }
 
 /**
  * Get the formatted page number string (e.g. "1", "iii", "A-5") for a page.
  */
 export function getFormattedPageNumber(doc: Document, pageId: NodeId): string {
-  const num = getPageNumber(doc, pageId);
-
-  if (num === 0) return '';
-
-  if (!doc.pages) return String(num);
-
-  const page = doc.pages.find((p) => p.id === pageId);
-  if (!page) return '';
-
-  // Find the section for this page's numbering style
-  const sections = doc.sections ?? [];
-  let style: PageNumberStyle = 'decimal';
-  let prefix = '';
-
-  for (const section of sections) {
-    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
-    if (sectionStartPageIdx !== -1) {
-      const pageIdx = doc.pages.indexOf(page);
-      if (pageIdx >= sectionStartPageIdx) {
-        if (!section.showPageNumber) return '';
-        style = section.numberStyle;
-        prefix = section.prefix ?? '';
-      }
-    }
-  }
-
-  let formatted: string;
-  switch (style) {
-    case 'upperRoman':
-      formatted = toRoman(num);
-      break;
-    case 'lowerRoman':
-      formatted = toRoman(num).toLowerCase();
-      break;
-    case 'upperAlpha':
-      formatted = numToAlpha(num).toUpperCase();
-      break;
-    case 'lowerAlpha':
-      formatted = numToAlpha(num);
-      break;
-    default:
-      formatted = String(num);
-  }
-
-  return prefix ? `${prefix}${formatted}` : formatted;
-}
-
-/** Convert a number to an alphabetic string (1=a, 2=b, ..., 27=aa). */
-function numToAlpha(num: number): string {
-  let result = '';
-  let n = num;
-  while (n > 0) {
-    n -= 1;
-    result = String.fromCharCode(97 + (n % 26)) + result;
-    n = Math.floor(n / 26);
-  }
-  return result;
+  return getPageNumbering(doc, pageId)?.formatted ?? '';
 }
 
 // ── Toggle facing pages ───────────────────────────────────────────────────
