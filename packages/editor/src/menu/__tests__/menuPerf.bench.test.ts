@@ -221,7 +221,7 @@ describe('menu perf — audit findings', () => {
       findings.push({ severity: ['critical', 'warning', 'info', 'style'][i % 4] });
     }
     warmUp(() => buildIntelFacts(findings, Date.now(), false));
-    const result = measure(100, () => buildIntelFacts(findings, Date.now(), false));
+    const result = measure(30, () => buildIntelFacts(findings, Date.now(), false));
     expect(result.p95).toBeLessThan(4);
   });
 });

@@ -24,13 +24,23 @@ function solidImage(
 }
 
 describe('trace provider chain', () => {
-  it('prefers the full-featured worker path before direct, wasm, and native fallbacks', () => {
+  it('prefers the full-featured worker path before direct and wasm on web', () => {
+    // Under a non-Tauri runtime the chain is worker-first with TS fallbacks.
+    // Under Tauri the native engine is reordered to the front (native-first
+    // dispatch, see traceDispatch.ts) — that ordering is not observable from
+    // a jsdom test, so the gating contract is asserted separately below.
     expect(TRACE_PROVIDER_CHAIN.map((p) => p.id)).toEqual([
       'worker-trace',
       'direct-trace',
       'wasm-trace',
-      'native-trace',
     ]);
+  });
+
+  it('gates the native provider behind the Tauri runtime', async () => {
+    const { nativeTraceProvider } = await import('./traceDispatch');
+    expect(nativeTraceProvider.id).toBe('native-trace');
+    // Outside Tauri the native IPC provider must never claim availability.
+    expect(nativeTraceProvider.isAvailable({}, undefined)).toBe(false);
   });
 });
 

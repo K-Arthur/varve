@@ -1,4 +1,4 @@
-import { createDocument } from '@varve/scene';
+import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { getAllMenuDefs } from '../defs';
 import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from '../facts';
@@ -11,7 +11,14 @@ import {
 import type { MenuContext } from '../types';
 
 function createTestDoc() {
-  return createDocument('adapter-test');
+  const doc = createDocument('adapter-test');
+  const rect = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+  const rect2 = makeShapeNode('n2', { kind: 'rect', x: 120, y: 0, w: 100, h: 100 });
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, n1: rect, n2: rect2 },
+    rootChildren: [rect.id, rect2.id],
+  };
 }
 
 const TEST_SELECTION = ['n1', 'n2'];
