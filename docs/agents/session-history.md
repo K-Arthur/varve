@@ -2325,3 +2325,44 @@ across home, editor, and the design-system package itself. Full audit matrix:
   reference `Ctrl+Shift+D…` and are historical records (not authoritative for bindings).
 - Tauri/WebKitGTK/WebView2/WKWebView tooltip behaviour and visual-regression baselines
   are not yet covered (separate scope).
+
+## Session — Multi-window Workspace Foundation M1-M5 (2026-08-05)
+
+Detachable-panel / native multi-monitor workspace program: audit, ADRs, and
+the first five milestones (branch `feat/workspace-windows`, merged to master
+as `73b4a742`).
+
+### What was done
+
+| Phase | Action | Key files |
+|---|---|---|
+| **M1 audit** | Evidence-backed repository audit: shell/context/platform/Tauri maps, 18-surface panel inventory, state-scope inventory, 28-capability matrix; pre-existing desktop gap recorded (58 `home_*` commands invoked by `tauri.ts` with no Rust handler) | `docs/audits/multi-window-workspace-audit-2026-08-05.md` |
+| **M1 ADRs** | 26 ADRs (0122-0147 after renumbering past master's 0017-0121 range): session ownership, state partitioning, registry, identities, dock model, window service, protocol, sync, command routing, undo, selection, focus, transfer, close, recovery, persistence, monitors, browser fallback, dialogs, drag, canvas deferral, renderer isolation, collab, security, multimodal, test architecture | `docs/adr/0122-0147` |
+| **M1 baselines** | 23 tests pinning per-mode panel visibility, Shell mount contract, width clamps, workspaceStore round-trip, session boot/visibility persistence, tab-switch undo isolation, undo/redo, selection propagation | `workspace/__tests__/workspaceBaseline.test.ts`, `sessionBaseline.test.tsx` |
+| **M2 registry** | Declarative `PanelRegistry` + `DetachablePanelLifecycle` + local-state codec contract; invariants (detachable requires lifecycle, canvas panels cannot host in auxiliary windows); exactly the `PanelId` union registered, all `detachable: false` until M7 | `workspace/panelRegistry.ts`, `panelDefinitions.ts` |
+| **M3 dock model** | Pure split/tabs/panel/empty tree + window-set ops, normalization, validation (singleton enforcement), typed serialize/deserialize, sidebar migration; fast-check properties (random op sequences, no unreachable panels, round-trip, removal safety) | `workspace/dock/` |
+| **M4 window service** | `NativeWindowService` port in `@varve/platform`: memory (reference, monitor fixtures, hot-plug, crash sim), browser (honest `single-window` + UnsupportedOperationError), tauri (`__TAURI__.window`, sanitized labels, application-route-only); pure placement math (clamping, fingerprints, fuzzy matching, cascade) | `platform/src/windows/` |
+| **M5 protocol** | `SessionEnvelope` v1 (16 kinds, strict validation, payload caps), `SessionBroker` (generations, heartbeat, revisions, snapshots, coalescing patches, command pipeline with dedupe/stale/panel-capability checks, resync) | `workspace/session/` |
+
+### Verification
+
+- Focused suites: 236 workspace tests + 42 platform window tests green
+- `tsc --noEmit` exit 0 for editor + platform (M2-M5 initially shipped a type
+  gap caught by a full editor typecheck run; fixed in commit `846ea0b2`)
+- `audit:docs` clean (92 ADRs indexed), `audit:emoji` clean,
+  `audit-architecture` exit 0 (no new cycles/instability from this work)
+- Full editor suite: 4502 passed / 38 failed — all failures pre-existing at
+  base or load-induced perf thresholds; none reachable from the new modules
+
+### Notes / deferred
+
+- Milestones M6-M15 not started: auxiliary window shell, atomic transfer,
+  command routing to the canonical provider, monitor-aware persistence,
+  workspace manager, recovery hardening, browser fallback, cross-window
+  drag, multimodal proposals, native WDIO workflows.
+- Concurrent-agent issue recorded separately: master's `scene/src/index.ts`
+  referenced `./warpBounds` with the file uncommitted (other agent's warp
+  work) — transient test-load breakage, resolved once their `warp/` files
+  land.
+- ADRs were renumbered 0017-0042 → 0122-0147 to avoid colliding with an
+  independently authored ADR set that landed on master in the same range.
