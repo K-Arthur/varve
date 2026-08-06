@@ -32,6 +32,8 @@ export type SectionId =
   | 'background-removal'
   | 'stroke'
   | 'effects'
+  | 'warp'
+  | 'mockups'
   | 'typography'
   | 'interaction'
   | 'component'
@@ -59,6 +61,12 @@ export type SectionId =
   | 'ocr'
   | 'palette'
   | 'font-detect'
+  | 'table'
+  | 'table-cells'
+  | 'table-columns'
+  | 'table-rows'
+  | 'table-appearance'
+  | 'variable-modifiers'
   | 'ai-tools-hint';
 
 // ---------------------------------------------------------------------------
@@ -85,6 +93,8 @@ export interface SectionAvailabilityContext {
   workspaceMode: WorkspaceMode;
   activeTool: string;
   prototypeMode: boolean;
+  /** Active table edit session (ADR-0016), when editing a table. */
+  tableEdit?: { tableId: string } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +168,16 @@ function isRectNode(nodes: SceneNode[]): boolean {
   return Boolean(
     n && n.kind === 'shape' && (n as { shape?: { kind?: string } }).shape?.kind === 'rect',
   );
+}
+
+/** Single selected native table node. */
+function isTableNode(nodes: SceneNode[]): boolean {
+  return nodes.length === 1 && nodes[0]?.kind === 'table';
+}
+
+/** A table edit session is active (cell/column/row sections show). */
+function isTableEditActive(ctx: SectionAvailabilityContext): boolean {
+  return ctx.tableEdit !== undefined && ctx.tableEdit !== null;
 }
 
 function isAdjustmentNode(nodes: SceneNode[]): boolean {
@@ -310,6 +330,17 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     category: 'appearance',
     isAvailable: (ctx) => isAllEffectNodes(ctx.selectedNodes),
   },
+  {
+    id: 'warp',
+    title: 'Warp',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 255,
+    category: 'appearance',
+    isAvailable: (ctx) =>
+      hasNodes(ctx) && ctx.selectedNodes.some((n) => 'warps' in n || ctx.activeTool === 'warp'),
+  },
 
   // -- Content group --
   {
@@ -321,6 +352,20 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 300,
     category: 'content',
     isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
+  },
+  {
+    id: 'mockups',
+    title: 'Mockup',
+    defaultExpanded: true,
+    canHide: false,
+    essential: false,
+    order: 360,
+    category: 'content',
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) &&
+      isFrameNode(ctx.selectedNodes) &&
+      ctx.selectedNodes[0] != null &&
+      'mockup' in (ctx.selectedNodes[0] as unknown as Record<string, unknown>),
   },
   {
     id: 'component',
@@ -540,6 +585,46 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     category: 'advanced',
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
+  },
+  {
+    id: 'table',
+    title: 'Table',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 118,
+    category: 'geometry',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isTableNode(ctx.selectedNodes),
+  },
+  {
+    id: 'table-cells',
+    title: 'Cells',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 119,
+    category: 'content',
+    isAvailable: (ctx) => isTableEditActive(ctx),
+  },
+  {
+    id: 'table-columns',
+    title: 'Columns',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 1195,
+    category: 'content',
+    isAvailable: (ctx) => isTableEditActive(ctx),
+  },
+  {
+    id: 'table-rows',
+    title: 'Rows',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 1196,
+    category: 'content',
+    isAvailable: (ctx) => isTableEditActive(ctx),
   },
   {
     id: 'adaptive-contrast',

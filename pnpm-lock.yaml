@@ -215,6 +215,19 @@ importers:
         specifier: workspace:*
         version: link:../scene
 
+  packages/cli:
+    dependencies:
+      '@varve/history':
+        specifier: workspace:*
+        version: link:../history
+      '@varve/scene':
+        specifier: workspace:*
+        version: link:../scene
+    devDependencies:
+      esbuild:
+        specifier: ^0.25.12
+        version: 0.25.12
+
   packages/codegen:
     dependencies:
       '@varve/engine':
@@ -360,6 +373,12 @@ importers:
 
   packages/help: {}
 
+  packages/history:
+    dependencies:
+      '@varve/scene':
+        specifier: workspace:*
+        version: link:../scene
+
   packages/home:
     dependencies:
       '@dnd-kit/core':
@@ -468,12 +487,17 @@ importers:
       '@varve/shared':
         specifier: workspace:*
         version: link:../shared
+      '@varve/tokens':
+        specifier: workspace:*
+        version: link:../tokens
 
   packages/shared:
     dependencies:
       fractional-indexing:
         specifier: ^4.0.0
         version: 4.0.0
+
+  packages/tokens: {}
 
   packages/ui:
     dependencies:
@@ -13268,7 +13292,7 @@ snapshots:
       '@vitest/expect': 3.2.4
       '@vitest/spy': 3.2.4
       '@webcontainer/env': 1.1.1
-      esbuild: 0.28.1
+      esbuild: 0.25.12
       open: 10.2.0
       oxc-parser: 0.127.0
       oxc-resolver: 11.21.3

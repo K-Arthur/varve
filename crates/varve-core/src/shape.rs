@@ -128,6 +128,10 @@ pub enum Shape {
         #[serde(rename = "pathShape")]
         path_shape: Option<serde_json::Value>,
     },
+    /// V2.15+: compiled native table (ADR-0016 D3). The payload is opaque to
+    /// varve-core; the editor layout engine compiles it and JS replay paints
+    /// it. Rust passes it through the IR unchanged.
+    Table(serde_json::Value),
 }
 
 impl Shape {
@@ -210,6 +214,7 @@ impl Shape {
                     false
                 }
             }
+            Shape::Table(_) => false,
             Shape::Text { x, y, w, h, .. } => {
                 crate::geom::rect_contains(Rect::new(*x, *y, *x + *w, *y + *h), pt)
             }

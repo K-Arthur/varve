@@ -91,9 +91,9 @@ describe('matchMenuTypeAhead — repeated char cycling', () => {
     expect(result).toBe(0);
   });
 
-  it('"r" from index 0 cycles to next match (Revert)', () => {
+  it('single "r" from index 0 restarts at the first match (Redo)', () => {
     const result = matchMenuTypeAhead('r', cycleItems, 0);
-    expect(result).toBe(2);
+    expect(result).toBe(0);
   });
 
   it('"rr" cycles from index 0 to next match (Revert), not prefix "rr"', () => {
@@ -101,12 +101,12 @@ describe('matchMenuTypeAhead — repeated char cycling', () => {
     expect(result).toBe(2);
   });
 
-  it('cycles from last match back to first', () => {
+  it('single "r" from a mid-list match restarts at the first match', () => {
     const result = matchMenuTypeAhead('r', cycleItems, 2);
-    expect(result).toBe(3);
+    expect(result).toBe(0);
   });
 
-  it('wraps when at the last matching item', () => {
+  it('single "r" at the last matching item restarts at the first match', () => {
     const result = matchMenuTypeAhead('r', cycleItems, 3);
     expect(result).toBe(0);
   });

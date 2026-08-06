@@ -701,7 +701,7 @@ export type {
   RasterTracePoint,
   RasterTraceResult,
 } from './rasterTrace';
-export { quantizePalette, traceRasterToPaths } from './rasterTrace';
+export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
 export type { ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr } from './replay';
 export {
@@ -774,6 +774,7 @@ export type {
   EngineFill,
   FillIR,
   FilterIR,
+  GlyphAdjustmentIR,
   GradientTilingMode,
   PathPoint,
   Point,
@@ -788,6 +789,9 @@ export type {
   StrokeAlign,
   StrokeCap,
   StrokeJoin,
+  TableCellIR,
+  TableCellTextIR,
+  TableShape,
   TextShaping,
 } from './types';
 export type { BidiClass, BidiDirection, BidiParagraph, BidiRun } from './unicode/bidi';
@@ -829,6 +833,7 @@ export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
 export {
   dispatchTrace,
   TRACE_PROVIDER_CHAIN,
+  traceCapabilityReport,
 } from './upscaleProviders/traceDispatch';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
@@ -855,5 +860,6 @@ export {
   computeVideoFrameCount,
   exportTimelineToVideo,
 } from './videoExport';
+export * from './warp';
 export type { WasmTraceModule } from './wasmLoader';
 export { loadWasmEngineModule, prewarmWasmEngine, tryLoadTraceWasm } from './wasmLoader';
