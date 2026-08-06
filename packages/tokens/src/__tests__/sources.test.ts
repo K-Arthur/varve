@@ -3,9 +3,9 @@
  * write planner failure paths, watcher event coalescing, sync apply.
  */
 
-import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
+import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { executeAtomicWrites, type FileSystemIo } from '../atomicWrite';
 import { detectTokenFiles, globMatch, mergeTokenFiles } from '../sources';
@@ -71,7 +71,7 @@ describe('multi-file merge', () => {
     ]);
     expect(diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
     expect(document.tokens['color.brand']?.value).toBe('#222222');
-    expect(document.tokens['spacing']?.value).toEqual({ value: 8, unit: 'px' });
+    expect(document.tokens.spacing?.value).toEqual({ value: 8, unit: 'px' });
   });
 
   it('reports per-file errors and skips broken files', () => {
@@ -81,7 +81,7 @@ describe('multi-file merge', () => {
     ]);
     expect(diagnostics.some((d) => d.severity === 'error')).toBe(true);
     expect(parsedFiles).toEqual(['good.json']);
-    expect(document.tokens['a']).toBeDefined();
+    expect(document.tokens.a).toBeDefined();
   });
 });
 
@@ -245,7 +245,7 @@ describe('real filesystem atomic writes', () => {
       expect(readFileSync(target, 'utf8')).toBe('{"new": 2}');
       // no temp leftovers
       const leftovers = (() => {
-        const fs = require('fs') as typeof import('fs');
+        const fs = require('node:fs') as typeof import('fs');
         return fs.readdirSync(dir).filter((f) => f.includes('.tmp-'));
       })();
       expect(leftovers).toEqual([]);
