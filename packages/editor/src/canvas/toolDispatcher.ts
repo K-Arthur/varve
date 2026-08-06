@@ -32,6 +32,7 @@ import { StarTool } from '../tools/StarTool';
 import { TableTool } from '../tools/TableTool';
 import { TextTool } from '../tools/TextTool';
 import { TrimapEditTool } from '../tools/TrimapEditTool';
+import { WarpTool } from '../tools/WarpTool';
 import { ZoomTool } from '../tools/ZoomTool';
 
 let toolManager: ToolManager | null = null;
@@ -70,6 +71,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
     toolManager.register('lasso', () => new LassoTool());
     toolManager.register('table', () => new TableTool());
+    toolManager.register('warp', () => new WarpTool());
   }
   return toolManager;
 }

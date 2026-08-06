@@ -45,6 +45,7 @@ import { TableCellEditor } from './TableEditOverlay/TableCellEditor';
 import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
 import { VariantBox } from './VariantBox/VariantBox';
+import { WarpOverlay } from './WarpOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 
 export interface CanvasOverlaysProps {
@@ -382,6 +383,9 @@ export function CanvasOverlays({
             }
           }}
         />
+      )}
+      {editor.state.warpEdit && (
+        <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
       )}
       {showMeshWarp && warpMesh && (
         <MeshWarpOverlay
