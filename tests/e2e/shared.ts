@@ -10,8 +10,10 @@ import type { Page } from '@playwright/test';
 export async function navigateToEditor(page: Page, path = '/') {
   // Generous timeouts: under heavy concurrent dev-server load (many watched
   // files recompiling at once), first paint can take much longer than a
-  // quiet dev server without indicating any real problem.
-  await page.goto(path, { timeout: 45000, waitUntil: 'domcontentloaded' });
+  // quiet dev server without indicating any real problem. Measured cold
+  // first paint on a fresh vite transform cache: ~76s on this machine, so
+  // 45s was not enough and failed on every platform in CI.
+  await page.goto(path, { timeout: 120000, waitUntil: 'domcontentloaded' });
   const newBtn = page.getByRole('button', { name: /^new$/i });
   await newBtn.waitFor({ state: 'visible', timeout: 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
