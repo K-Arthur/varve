@@ -15,7 +15,7 @@ import type { RenderItem, TableShape } from '../types';
 import { estimateIrBytes, summarize, warmUp } from './benchUtils';
 
 function makeTableShape(rows: number, cols: number): TableShape {
-  const cells = [];
+  const cells: import('../types').TableCellIR[] = [];
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       cells.push({
