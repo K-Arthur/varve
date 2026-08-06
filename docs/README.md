@@ -115,6 +115,54 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0120-browser-tauri-capability-model.md` | Browser vs Tauri capability model |
 | `adr/0121-performance-indexing.md` | Performance and indexing strategy |
 | `adr/0170-image-trace-native-engine.md` | Native Image Trace (raster-to-vector) engine |
+| `adr/0155-persistent-geometry-modifier-model.md` | Persistent geometry-modifier (warp) model |
+| `adr/0156-warp-operation-order.md` | Warp operation order |
+| `adr/0157-warp-coordinate-spaces.md` | Warp coordinate-space model |
+| `adr/0158-warp-envelope-representation.md` | Four-edge Bézier envelope representation |
+| `adr/0159-warp-mesh-interpolation.md` | Mesh warp interpolation |
+| `adr/0160-warp-stroke-behavior.md` | Warp stroke behavior |
+| `adr/0161-warp-gradient-and-pattern-behavior.md` | Warp gradient and pattern behavior |
+| `adr/0162-warp-text-behavior.md` | Warped editable text |
+| `adr/0163-warp-group-and-component-behavior.md` | Warp groups and components |
+| `adr/0164-warp-layout-boundary-behavior.md` | Warp layout-boundary behavior |
+| `adr/0165-warp-hit-testing-strategy.md` | Warp hit testing |
+| `adr/0166-warp-export-and-expansion-policy.md` | Warp export and Expand Appearance policy |
+| `adr/0167-warp-compute-ownership.md` | CPU / WASM / worker / GPU ownership for warp |
+| `adr/0168-warp-multimodal-proposal-boundary.md` | Multimodal warp proposal boundary |
+| `adr/0169-warp-collaboration-granularity.md` | Warp collaboration granularity |
+| `adr/0171-page-vs-frame-semantics.md` | Page versus frame semantics |
+| `adr/0172-page-local-vs-world-coordinates.md` | Page-local versus world coordinates |
+| `adr/0173-pasteboard-page-placement.md` | Pasteboard page placement |
+| `adr/0174-page-order-vs-visual-placement.md` | Page order versus visual placement |
+| `adr/0175-page-ownership-of-scene-nodes.md` | Page ownership of scene nodes |
+| `adr/0176-global-and-pasteboard-content.md` | Global and pasteboard-only content |
+| `adr/0177-explicit-vs-derived-spreads.md` | Explicit versus derived spreads |
+| `adr/0178-facing-page-topology.md` | Facing-page topology |
+| `adr/0179-mixed-page-sizes.md` | Mixed page sizes |
+| `adr/0180-section-and-numbering-model.md` | Section and numbering model |
+| `adr/0181-master-projection.md` | Master projection |
+| `adr/0182-master-override-representation.md` | Master override representation |
+| `adr/0183-multiple-master-layers.md` | Multiple master layers |
+| `adr/0184-master-inheritance-and-cycle-prevention.md` | Master inheritance and cycle prevention |
+| `adr/0185-story-and-frame-separation.md` | Story and frame separation |
+| `adr/0186-text-composition-engine.md` | Text composition engine |
+| `adr/0187-persisted-vs-derived-text-ranges.md` | Persisted versus derived text ranges |
+| `adr/0188-incremental-reflow.md` | Incremental reflow |
+| `adr/0189-text-exclusion-and-shape-support.md` | Text exclusion and shape support |
+| `adr/0190-page-level-print-geometry.md` | Page-level print geometry |
+| `adr/0191-print-mark-representation.md` | Print-mark representation |
+| `adr/0192-pdf-page-box-mapping.md` | PDF page-box mapping |
+| `adr/0193-shared-canvas-rendering.md` | Shared canvas rendering |
+| `adr/0194-spatial-indexing-and-culling.md` | Spatial indexing and culling |
+| `adr/0195-selection-across-pages.md` | Selection across pages |
+| `adr/0196-page-movement-and-reordering.md` | Page movement and reordering |
+| `adr/0197-legacy-document-migration.md` | Legacy document migration |
+| `adr/0198-undo-and-history-integration.md` | Undo and history integration |
+| `adr/0199-semantic-diff-and-merge.md` | Semantic diff and merge behavior |
+| `adr/0200-collaboration-behavior.md` | Collaboration behavior |
+| `adr/0201-multimodal-proposal-pipeline.md` | Multimodal proposal pipeline |
+| `adr/0202-browser-vs-desktop-capabilities.md` | Browser versus desktop capabilities |
+| `adr/0203-performance-and-memory-limits.md` | Performance and memory limits |
 
 
 ## Architecture Docs (current state)
