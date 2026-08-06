@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
-import { parseChecksums, verifyReleaseIntegrity } from './verify-release-data.mjs';
+import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { buildWebsiteReleaseData, formatCopy } from './website-release-data.mjs';
 
 const runValidator = (files) => {
@@ -445,6 +445,31 @@ assert.throws(
     'verify v0.1.0 passes',
   );
   assert.throws(() => runVersion(['verify', 'v9.9.9']), undefined, 'verify wrong tag fails');
+}
+
+// ── channel policy (selectRelease) ───────────────────────────────────────────
+{
+  const rel = (tag, draft = false) => ({ tag_name: tag, draft });
+
+  // No releases at all → no-release state
+  assert.equal(selectRelease([]), null, 'no releases → null');
+  assert.equal(selectRelease([rel('v0.1.0', true)]), null, 'only drafts → null');
+
+  // Drafts are never eligible even when they are the newest
+  const withDraft = selectRelease([rel('v0.9.9', true), rel('v0.1.0')]);
+  assert.equal(withDraft.tag_name, 'v0.1.0', 'draft v0.9.9 must not shadow published v0.1.0');
+
+  // Stable preferred over prerelease
+  const stableWins = selectRelease([rel('v0.2.0-alpha.1'), rel('v0.1.0'), rel('v0.1.1')]);
+  assert.equal(stableWins.tag_name, 'v0.1.1', 'highest stable wins over prerelease');
+
+  // Prerelease fallback when no stable exists
+  const prereleaseOnly = selectRelease([rel('v0.1.0-beta.1'), rel('v0.1.0-alpha.5')]);
+  assert.equal(prereleaseOnly.tag_name, 'v0.1.0-beta.1', 'highest prerelease when no stable');
+
+  // Pinned tag: published passes, draft fails
+  assert.equal(selectRelease([rel('v0.1.0')], 'v0.1.0').tag_name, 'v0.1.0');
+  assert.equal(selectRelease([rel('v0.1.0', true)], 'v0.1.0'), null, 'pinned draft must fail');
 }
 
 process.stdout.write('release-pipeline.test.mjs: all assertions passed\n');
