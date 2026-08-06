@@ -164,7 +164,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0202-browser-vs-desktop-capabilities.md` | Browser versus desktop capabilities |
 | `adr/0203-performance-and-memory-limits.md` | Performance and memory limits |
 
-
+| `adr/0016-tables-and-color-modifiers.md` | Native tables + linked color modifiers |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
