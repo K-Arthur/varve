@@ -45,7 +45,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { repoSlug } from './product.mjs';
-import { verifyReleaseIntegrity } from './verify-release-data.mjs';
+import { selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { buildWebsiteReleaseData, emptyWebsiteReleaseData } from './website-release-data.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -56,30 +56,6 @@ function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i += 2) args[argv[i].replace(/^--/, '')] = argv[i + 1];
   return args;
-}
-
-function semverParts(tag) {
-  const match = String(tag).match(/^v?(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
-  if (!match) return null;
-  return {
-    major: Number(match[1]),
-    minor: Number(match[2]),
-    patch: Number(match[3]),
-    prerelease: match[4] ?? '',
-    isPrerelease: Boolean(match[4]),
-  };
-}
-
-/** Highest semver wins; prerelease tags sort below stable tags of the same core. */
-function compareTags(a, b) {
-  const pa = semverParts(a);
-  const pb = semverParts(b);
-  if (!pa || !pb) return String(a).localeCompare(String(b));
-  if (pa.major !== pb.major) return pa.major - pb.major;
-  if (pa.minor !== pb.minor) return pa.minor - pb.minor;
-  if (pa.patch !== pb.patch) return pa.patch - pb.patch;
-  if (pa.isPrerelease !== pb.isPrerelease) return pa.isPrerelease ? -1 : 1;
-  return pa.prerelease.localeCompare(pb.prerelease);
 }
 
 async function gh(url, token) {
@@ -113,9 +89,9 @@ async function main() {
   const token = args.token ?? process.env.GITHUB_TOKEN ?? '';
   const repo = args.repo ?? repoSlug();
   const pinnedTag = args.tag ?? null;
-
-  // 1. List published releases only (draft=false filters drafts AND withdrawn
-  //    releases, which GitHub marks as drafts internally after deletion).
+  // 1. Channel policy: published stable > published prerelease > no release.
+  //    Drafts (and withdrawn releases, which GitHub keeps as drafts) never
+  //    appear on the download page.
   let releases;
   try {
     const res = await gh(`${API}/repos/${repo}/releases?per_page=100`, token);
@@ -125,27 +101,20 @@ async function main() {
     process.exit(1);
   }
 
-  const published = (releases ?? []).filter((r) => r.draft === false);
-  if (published.length === 0) {
+  const release = selectRelease(releases, pinnedTag);
+  if (!release) {
+    if (pinnedTag) {
+      process.stderr.write(
+        `Tag ${pinnedTag} exists but is not a published release (draft or withdrawn). ` +
+          'Drafts never appear on the public download page.\n',
+      );
+      process.exit(1);
+    }
     // Honest no-release state.
     writeFileSync(OUT, `${JSON.stringify(emptyWebsiteReleaseData(repo), null, 2)}\n`);
     process.stdout.write('No published release — website keeps the no-release state.\n');
     return;
   }
-
-  const stable = published.filter((r) => !semverParts(r.tag_name)?.isPrerelease);
-  const pool = stable.length > 0 ? stable : published;
-  pool.sort((a, b) => compareTags(b.tag_name, a.tag_name));
-  const release = pinnedTag ? published.find((r) => r.tag_name === pinnedTag) : pool[0];
-
-  if (!release) {
-    process.stderr.write(
-      `Tag ${pinnedTag} exists but is not a published release (draft or withdrawn). ` +
-        'Drafts never appear on the public download page.\n',
-    );
-    process.exit(1);
-  }
-
   const tag = release.tag_name;
   const assets = (release.assets ?? []).map((a) => ({ name: a.name, url: a.browser_download_url }));
 
