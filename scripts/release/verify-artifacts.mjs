@@ -69,10 +69,12 @@ function main() {
     sums.set(match[2], match[1]);
   }
 
+  // Every file in the release directory — installers, SBOMs, the manifest —
+  // must be described by SHA256SUMS.txt and match its hash. The checksum file
+  // is the last thing generated before upload; anything it does not cover is
+  // a file that would ship unverified.
   const onDisk = new Set(
-    readdirSync(dir).filter(
-      (f) => f !== 'release-manifest.json' && f !== 'SHA256SUMS.txt' && !f.endsWith('.cdx.json'),
-    ),
+    readdirSync(dir).filter((f) => f !== 'release-manifest.json' && f !== 'SHA256SUMS.txt'),
   );
 
   for (const artifact of manifest.artifacts) {
@@ -121,7 +123,33 @@ function main() {
   }
 
   for (const orphan of onDisk) {
-    problems.push(`'${orphan}' is present in ${dir} but absent from the manifest`);
+    // SBOMs and the manifest itself are legitimate non-installer files, but
+    // they must still be covered by SHA256SUMS.txt with matching hashes.
+    const declaredSum = sums.get(orphan);
+    if (!declaredSum) {
+      problems.push(
+        `'${orphan}' is present in ${dir} but absent from SHA256SUMS.txt — it would ship ` +
+          'without an integrity record',
+      );
+      continue;
+    }
+    const actualHash = sha256(join(dir, orphan));
+    if (declaredSum !== actualHash) {
+      problems.push(
+        `'${orphan}': SHA256SUMS.txt hash ${declaredSum.slice(0, 16)}… does not match ` +
+          `the file on disk (${actualHash.slice(0, 16)}…)`,
+      );
+    }
+  }
+
+  // Anything SHA256SUMS.txt mentions must exist on disk (a phantom entry makes
+  // `sha256sum -c` fail for users — verify it here, on the real bytes).
+  for (const [name] of sums) {
+    if (name === 'SHA256SUMS.txt') continue;
+    const path = join(dir, name);
+    if (!existsSync(path) || !statSync(path).isFile()) {
+      problems.push(`SHA256SUMS.txt lists '${name}' which is not a file in ${dir}`);
+    }
   }
 
   // Signing claims must never be aspirational — an artifact labelled signed that
