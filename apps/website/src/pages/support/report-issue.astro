@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Report an Issue" description="How to report a Varve bug or feature request: what information to include, where to file it, and what response to expect from a solo-developer project.">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb">
-        <a href="/support">Support</a> / Report Issue
+        <a href={sitePath('/support')}>Support</a> / Report Issue
       </nav>
 
       <h1>Report an Issue</h1>
@@ -17,9 +18,9 @@ import Layout from '../../layouts/Layout.astro';
       <div class="report-section">
         <h2>Before Reporting</h2>
         <ul>
-          <li>Check the <a href="/support/faq">FAQ</a> for common questions</li>
-          <li>Check <a href="/support/troubleshooting">Troubleshooting</a> for known issues</li>
-          <li>Check <a href="/support/known-issues">Known Issues</a> to see if your issue is already tracked</li>
+          <li>Check the <a href={sitePath('/support/faq')}>FAQ</a> for common questions</li>
+          <li>Check <a href={sitePath('/support/troubleshooting')}>Troubleshooting</a> for known issues</li>
+          <li>Check <a href={sitePath('/support/known-issues')}>Known Issues</a> to see if your issue is already tracked</li>
           <li>Search <a href="https://github.com/K-Arthur/varve/issues">GitHub Issues</a> for similar reports</li>
         </ul>
       </div>

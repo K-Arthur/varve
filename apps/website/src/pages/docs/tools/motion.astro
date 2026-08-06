@@ -1,12 +1,13 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
 ---
 
 <Layout title="Motion & Prototyping" description="Animate in Varve: timelines, keyframes, easing, Smart Animate, prototype interactions, and export to CSS, Lottie, and video.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Tools / Motion & Prototyping
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Motion & Prototyping
       </nav>
 
       <h1>Motion & Prototyping</h1>
@@ -157,13 +158,13 @@ import Layout from '../../../layouts/Layout.astro';
           <li><strong>Lottie JSON</strong> — Lottie format for use with Lottie-web, Lottie-iOS, and Lottie-Android</li>
         </ul>
         <p>
-          See <a href="/docs/tools/export">Export & Code Generation</a> for detailed export instructions.
+          See <a href={sitePath('/docs/tools/export')}>Export & Code Generation</a> for detailed export instructions.
         </p>
       </section>
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See the <a href="/docs/tools/export">Export</a> documentation for animation export details.</p>
+        <p>See the <a href={sitePath('/docs/tools/export')}>Export</a> documentation for animation export details.</p>
       </div>
     </div>
   </div>

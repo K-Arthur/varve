@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Tutorials" description="Step-by-step Varve tutorials: getting started, vector design, layout, typography, motion, and print workflows.">
   <div class="container-custom">
     <div class="learn-page">
       <nav class="breadcrumb">
-        <a href="/learn">Learn</a> / Tutorials
+        <a href={sitePath('/learn')}>Learn</a> / Tutorials
       </nav>
 
       <h1>Tutorials</h1>
@@ -24,7 +25,7 @@ import Layout from '../../layouts/Layout.astro';
             <span class="tutorial-level">Beginner</span>
             <span class="tutorial-time">15 minutes</span>
           </div>
-          <a href="/docs/getting-started" class="btn-secondary">Start Tutorial</a>
+          <a href={sitePath('/docs/getting-started')} class="btn-secondary">Start Tutorial</a>
         </div>
 
         <div class="tutorial-card">
@@ -36,7 +37,7 @@ import Layout from '../../layouts/Layout.astro';
             <span class="tutorial-level">Beginner</span>
             <span class="tutorial-time">20 minutes</span>
           </div>
-          <a href="/features/vector-tools" class="btn-secondary">Learn More</a>
+          <a href={sitePath('/features/vector-tools')} class="btn-secondary">Learn More</a>
         </div>
 
         <div class="tutorial-card">
@@ -48,7 +49,7 @@ import Layout from '../../layouts/Layout.astro';
             <span class="tutorial-level">Intermediate</span>
             <span class="tutorial-time">25 minutes</span>
           </div>
-          <a href="/features/typography" class="btn-secondary">Learn More</a>
+          <a href={sitePath('/features/typography')} class="btn-secondary">Learn More</a>
         </div>
 
         <div class="tutorial-card">
@@ -60,7 +61,7 @@ import Layout from '../../layouts/Layout.astro';
             <span class="tutorial-level">Advanced</span>
             <span class="tutorial-time">30 minutes</span>
           </div>
-          <a href="/features/motion" class="btn-secondary">Learn More</a>
+          <a href={sitePath('/features/motion')} class="btn-secondary">Learn More</a>
         </div>
 
         <div class="tutorial-card">
@@ -72,13 +73,13 @@ import Layout from '../../layouts/Layout.astro';
             <span class="tutorial-level">Intermediate</span>
             <span class="tutorial-time">20 minutes</span>
           </div>
-          <a href="/features/export" class="btn-secondary">Learn More</a>
+          <a href={sitePath('/features/export')} class="btn-secondary">Learn More</a>
         </div>
       </div>
 
       <div class="learn-cta">
         <h2>Want to contribute?</h2>
-        <p>Help create tutorials for the community. See the <a href="/contribute">contribution guidelines</a>.</p>
+        <p>Help create tutorials for the community. See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
       </div>
     </div>
   </div>

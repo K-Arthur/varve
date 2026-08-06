@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Community" description="Connect with the Varve community: GitHub Discussions for questions and workflows, issue tracker for bugs and feature requests.">
   <div class="container-custom">
     <div class="learn-page">
       <nav class="breadcrumb">
-        <a href="/learn">Learn</a> / Community
+        <a href={sitePath('/learn')}>Learn</a> / Community
       </nav>
 
       <h1>Community</h1>
@@ -32,15 +33,15 @@ import Layout from '../../layouts/Layout.astro';
           <li><strong>Testing:</strong> Test on different platforms, report bugs</li>
           <li><strong>Design:</strong> Create UI mockups, icons, website improvements</li>
         </ul>
-        <a href="/contribute" class="btn-secondary">Learn How to Contribute</a>
+        <a href={sitePath('/contribute')} class="btn-secondary">Learn How to Contribute</a>
       </section>
 
       <section class="community-section">
         <h2>Support</h2>
         <p>Support the project financially or through non-financial contributions:</p>
         <ul>
-          <li><a href="/support-project">Financial Support</a> - GitHub Sponsors</li>
-          <li><a href="/contribute">Non-Financial Contribution</a> - Code, docs, testing, design</li>
+          <li><a href={sitePath('/support-project')}>Financial Support</a> - GitHub Sponsors</li>
+          <li><a href={sitePath('/contribute')}>Non-Financial Contribution</a> - Code, docs, testing, design</li>
         </ul>
       </section>
 

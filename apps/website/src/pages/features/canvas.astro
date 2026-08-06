@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Canvas & Rendering" description="Varve's canvas: infinite canvas, viewport culling, sticky snap, rulers, guides, grid overlays, view rotation, and multi-page documents — rendered by a native Rust engine.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb">
-        <a href="/features">Features</a> / Canvas & Rendering
+        <a href={sitePath('/features')}>Features</a> / Canvas & Rendering
       </nav>
 
       <h1>Canvas & Rendering</h1>
@@ -58,15 +59,15 @@ import Layout from '../../layouts/Layout.astro';
       <section class="feature-section">
         <h2>Related Documentation</h2>
         <ul>
-          <li><a href="/docs/architecture">Architecture Overview</a> - IR-replay architecture details</li>
-          <li><a href="/docs/rendering">Rendering Pipeline</a> - Canvas system internals</li>
+          <li><a href={sitePath('/docs/architecture')}>Architecture Overview</a> - IR-replay architecture details</li>
+          <li><a href={sitePath('/docs/rendering')}>Rendering Pipeline</a> - Canvas system internals</li>
           <li><a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/render-pipeline.md">Render Pipeline Documentation</a></li>
         </ul>
       </section>
 
       <div class="feature-cta">
         <h2>Ready to try it?</h2>
-        <a href="/download" class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
       </div>
     </div>
   </div>

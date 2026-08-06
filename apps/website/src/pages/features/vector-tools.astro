@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Vector Tools" description="Varve's vector design tools: shapes, pen and pencil with bezier handles, boolean operations, node editing, layers, groups, and frames.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb">
-        <a href="/features">Features</a> / Vector Tools
+        <a href={sitePath('/features')}>Features</a> / Vector Tools
       </nav>
 
       <h1>Vector Tools</h1>
@@ -59,7 +60,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="feature-cta">
         <h2>Ready to design?</h2>
-        <a href="/download" class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
       </div>
     </div>
   </div>

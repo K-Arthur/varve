@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 ---
 
 <Layout title="Documentation" description="Varve documentation: installation, getting started, interface overview, keyboard shortcuts, tools, and technical architecture.">
@@ -15,9 +16,9 @@ import Layout from '../layouts/Layout.astro';
           <h2>Getting Started</h2>
           <p>Installation, first steps, and basic workflows</p>
           <ul>
-            <li><a href="/docs/getting-started">Installation Guide</a></li>
-            <li><a href="/docs/getting-started/interface">Interface Overview</a></li>
-            <li><a href="/docs/getting-started/first-project">Your First Project</a></li>
+            <li><a href={sitePath('/docs/getting-started')}>Installation Guide</a></li>
+            <li><a href={sitePath('/docs/getting-started/interface')}>Interface Overview</a></li>
+            <li><a href={sitePath('/docs/getting-started/first-project')}>Your First Project</a></li>
           </ul>
         </div>
 
@@ -25,11 +26,11 @@ import Layout from '../layouts/Layout.astro';
           <h2>Tools & Features</h2>
           <p>Comprehensive guide to all tools and capabilities</p>
           <ul>
-            <li><a href="/docs/tools/vector">Vector Tools</a></li>
-            <li><a href="/docs/tools/typography">Typography</a></li>
-            <li><a href="/docs/tools/color">Color & Effects</a></li>
-            <li><a href="/docs/tools/motion">Motion & Prototyping</a></li>
-            <li><a href="/docs/tools/export">Export & Code Generation</a></li>
+            <li><a href={sitePath('/docs/tools/vector')}>Vector Tools</a></li>
+            <li><a href={sitePath('/docs/tools/typography')}>Typography</a></li>
+            <li><a href={sitePath('/docs/tools/color')}>Color & Effects</a></li>
+            <li><a href={sitePath('/docs/tools/motion')}>Motion & Prototyping</a></li>
+            <li><a href={sitePath('/docs/tools/export')}>Export & Code Generation</a></li>
           </ul>
         </div>
 
@@ -37,9 +38,9 @@ import Layout from '../layouts/Layout.astro';
           <h2>Reference</h2>
           <p>Quick reference for keyboard shortcuts and settings</p>
           <ul>
-            <li><a href="/docs/keyboard-shortcuts">Keyboard Shortcuts</a></li>
-            <li><a href="/docs/settings">Settings & Preferences</a></li>
-            <li><a href="/docs/file-formats">File Formats</a></li>
+            <li><a href={sitePath('/docs/keyboard-shortcuts')}>Keyboard Shortcuts</a></li>
+            <li><a href={sitePath('/docs/settings')}>Settings & Preferences</a></li>
+            <li><a href={sitePath('/docs/file-formats')}>File Formats</a></li>
           </ul>
         </div>
 
@@ -47,8 +48,8 @@ import Layout from '../layouts/Layout.astro';
           <h2>Technical</h2>
           <p>Architecture and technical documentation</p>
           <ul>
-            <li><a href="/docs/architecture">Architecture Overview</a></li>
-            <li><a href="/docs/rendering">Rendering Pipeline</a></li>
+            <li><a href={sitePath('/docs/architecture')}>Architecture Overview</a></li>
+            <li><a href={sitePath('/docs/rendering')}>Rendering Pipeline</a></li>
             <li><a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">Development Guide (AGENTS.md)</a></li>
           </ul>
         </div>
@@ -63,7 +64,7 @@ import Layout from '../layouts/Layout.astro';
         </p>
         <p>
           Want to help improve documentation? See the 
-          <a href="/contribute">contribution guidelines</a>.
+          <a href={sitePath('/contribute')}>contribution guidelines</a>.
         </p>
       </div>
     </div>
