@@ -70,15 +70,72 @@ const IGNORED_PATTERNS = [/\bgit\s+status\b.*clean/i, /\+\s*exit\s+0/i, /\bgit\s
 const BILLING_BLOCK_PATTERN =
   /recent account payments have failed|spending limit needs to be increased|spending limit|billing\s+&?\s*plans/i;
 
+// GitHub emits this when a job could not be scheduled on a hosted runner at
+// all — runner pool starvation (capacity constraints, Actions outages).
+const RUNNER_UNAVAILABLE_PATTERN = /was not acquired by Runner of type hosted/i;
+
+// A job/run still in `queued` state this long after GitHub accepted it means
+// no runner is coming — runner starvation during an Actions outage.
+const STUCK_QUEUED_THRESHOLD_MS = 30 * 60 * 1000;
+
+/**
+ * True when a job (or run — shape-compatible) was accepted by GitHub's queue
+ * (`started_at` set) but is still `queued` long past the threshold.
+ * @param {{status?: string, started_at?: string, conclusion?: string}} job
+ * @param {number} [nowMs]
+ */
+function isStuckQueued(job, nowMs = Date.now()) {
+  if (job?.status !== 'queued') return false;
+  if (job.conclusion) return false;
+  if (!job.started_at) return false;
+  const started = Date.parse(job.started_at);
+  if (Number.isNaN(started)) return false;
+  return nowMs - started > STUCK_QUEUED_THRESHOLD_MS;
+}
+
 // A failed job with zero recorded steps never started. There is nothing in the
 // logs to analyze — the failure is infra-level (billing block, runner outage).
-function classifyJobFailure(job, annotations) {
-  if (job.conclusion !== 'failure' && job.conclusion !== 'timed_out') return null;
+function classifyJobFailure(job, annotations, nowMs = Date.now()) {
+  if (job.conclusion !== 'failure' && job.conclusion !== 'timed_out') {
+    if (isStuckQueued(job, nowMs)) return 'stuck-queued';
+    // GitHub records never-started jobs as `cancelled` with zero steps — the
+    // annotation is the only signal that this was infra, not a user cancel.
+    if ((job.steps || []).length === 0) {
+      if (annotations.some((a) => BILLING_BLOCK_PATTERN.test(a.message || ''))) {
+        return 'billing-block';
+      }
+      if (annotations.some((a) => RUNNER_UNAVAILABLE_PATTERN.test(a.message || ''))) {
+        return 'runner-unavailable';
+      }
+    }
+    return null;
+  }
   if ((job.steps || []).length > 0) return 'real-failure';
   if (annotations.some((a) => BILLING_BLOCK_PATTERN.test(a.message || ''))) {
     return 'billing-block';
   }
+  if (annotations.some((a) => RUNNER_UNAVAILABLE_PATTERN.test(a.message || ''))) {
+    return 'runner-unavailable';
+  }
   return 'never-started';
+}
+
+/**
+ * Classify all jobs of a run into real failures and infra blocks. Pure
+ * function — unit-tested offline.
+ * @param {unknown[]} jobs
+ * @param {Map<number, {message?: string}[]>} annotationsByJob
+ * @returns {{real: string[], infra: {jobName: string, kind: string}[]}}
+ */
+function classifyRunFailures(jobs, annotationsByJob) {
+  const result = { real: [], infra: [] };
+  for (const job of jobs) {
+    const annotations = annotationsByJob.get(job.id) || [];
+    const kind = classifyJobFailure(job, annotations);
+    if (kind === 'real-failure') result.real.push(job.name);
+    else if (kind) result.infra.push({ jobName: job.name, kind });
+  }
+  return result;
 }
 
 function parseArgs() {
@@ -88,6 +145,7 @@ function parseArgs() {
     repo: process.env.GITHUB_REPOSITORY,
     output: 'ci-debug-report.md',
     json: false,
+    probe: false,
   };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -102,6 +160,8 @@ function parseArgs() {
       i += 1;
     } else if (arg === '--json') {
       flags.json = true;
+    } else if (arg === '--probe') {
+      flags.probe = true;
     }
   }
   return flags;
@@ -309,7 +369,9 @@ function readdirSyncSafe(dir) {
 function formatInfraBlockSection(infraBlocks) {
   if (infraBlocks.length === 0) return [];
   const lines = ['## Infrastructure block detected', ''];
-  lines.push('The following jobs **never started**. This is NOT a code or test failure:');
+  lines.push(
+    'The following jobs **never started** (or are stuck in the queue). This is NOT a code or test failure:',
+  );
   lines.push('');
   for (const block of infraBlocks) {
     if (block.kind === 'billing-block') {
@@ -319,6 +381,20 @@ function formatInfraBlockSection(infraBlocks) {
       lines.push(
         '  Fix: resolve billing at https://github.com/settings/billing and re-run the workflow.',
       );
+    } else if (block.kind === 'runner-unavailable') {
+      lines.push(
+        `- **${block.jobName}** — no hosted runner was ever assigned (runner pool starvation / GitHub Actions outage).`,
+      );
+      lines.push('  Check https://www.githubstatus.com for an Actions incident, then rerun with:');
+      lines.push(
+        '    `gh run rerun <id> --failed` or `node scripts/ci-health.mjs --rerun-stuck --yes`',
+      );
+    } else if (block.kind === 'stuck-queued') {
+      lines.push(
+        `- **${block.jobName}** — job accepted by GitHub but still queued > 30 min (runner starvation).`,
+      );
+      lines.push('  Check https://www.githubstatus.com for an Actions incident, then rerun with:');
+      lines.push('    `node scripts/ci-health.mjs --rerun-stuck --yes`');
     } else {
       lines.push(
         `- **${block.jobName}** — job concluded ${block.conclusion} with zero steps recorded.`,
@@ -336,6 +412,7 @@ function formatInfraBlockSection(infraBlocks) {
   lines.push('```bash');
   lines.push('just gate                 # full Cascade Review gate, no GitHub minutes');
   lines.push('just ci-health            # watch for the block lifting across recent runs');
+  lines.push('node scripts/ci-health.mjs --status   # GitHub Actions incident status');
   lines.push('```');
   lines.push('');
   return lines;
@@ -440,9 +517,11 @@ async function main() {
   const run = await getRunMeta(args.repo, args.runId, token);
   const jobs = await getJobs(args.repo, args.runId, token);
 
+  const annotationsByJob = new Map();
   const infraBlocks = [];
   for (const job of jobs) {
     const annotations = await getJobAnnotations(job, token);
+    annotationsByJob.set(job.id, annotations);
     const kind = classifyJobFailure(job, annotations);
     if (kind === 'billing-block') {
       const hit = annotations.find((a) => BILLING_BLOCK_PATTERN.test(a.message || ''));
@@ -452,9 +531,39 @@ async function main() {
         message: hit?.message || 'GitHub billing / spending-limit block',
         conclusion: job.conclusion,
       });
+    } else if (kind === 'runner-unavailable') {
+      infraBlocks.push({ jobName: job.name, kind, conclusion: job.conclusion });
+    } else if (kind === 'stuck-queued') {
+      infraBlocks.push({ jobName: job.name, kind, conclusion: job.conclusion });
     } else if (kind === 'never-started') {
       infraBlocks.push({ jobName: job.name, kind, conclusion: job.conclusion });
     }
+  }
+
+  // A run stuck at the run level (GitHub accepted it, never scheduled a job).
+  if (infraBlocks.length === 0 && isStuckQueued(run)) {
+    infraBlocks.push({ jobName: '(run)', kind: 'stuck-queued', conclusion: null });
+  }
+
+  if (args.probe) {
+    // Probe mode: exit 0 when the run contains at least one real (code-level)
+    // failure worth a debug report; exit 1 when every failure is
+    // infrastructure (billing / runner / stuck queue). Used by ci-debug.yml
+    // to skip debug jobs that would only re-report an outage.
+    const classified = classifyRunFailures(jobs, annotationsByJob);
+    console.log(
+      JSON.stringify(
+        {
+          runId: args.runId,
+          realFailures: classified.real,
+          infraBlocks: classified.infra,
+          stuckQueued: isStuckQueued(run),
+        },
+        null,
+        2,
+      ),
+    );
+    process.exit(classified.real.length > 0 ? 0 : 1);
   }
 
   console.log(`Downloading logs for run ${args.runId} (${run.name || ''})...`);
@@ -512,4 +621,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { classifyJobFailure, extractFailures, isFailureLine, rankLine };
+export {
+  classifyJobFailure,
+  classifyRunFailures,
+  extractFailures,
+  isFailureLine,
+  isStuckQueued,
+  rankLine,
+};
