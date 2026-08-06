@@ -53,14 +53,16 @@ const tableShape: TableShape = {
 class Recorder {
   calls: string[] = [];
   font = '';
-  fillStyle = '';
-  textBaseline = '';
-  textAlign: string = '';
+  fillStyle: string | CanvasGradient | CanvasPattern = '';
+  textBaseline: CanvasTextBaseline = 'alphabetic';
+  textAlign: CanvasTextAlign = 'start';
   lineWidth = 0;
-  strokeStyle = '';
+  lineCap: CanvasLineCap = 'butt';
+  lineJoin: CanvasLineJoin = 'miter';
+  strokeStyle: string | CanvasGradient | CanvasPattern = '';
   globalAlpha = 1;
   globalCompositeOperation = 'source-over';
-  filter = 'none';
+  filter: string = 'none';
   lineDashOffset = 0;
   setLineDash(): void {}
   save(): void {
@@ -106,7 +108,7 @@ class Recorder {
   fillText(text: string, x: number, y: number): void {
     this.calls.push(`fillText("${text}",${x},${y})`);
   }
-  canvas = null;
+  canvas: { width: number; height: number } | undefined = undefined;
   getTransform(): { a: number; b: number; c: number; d: number; e: number; f: number } {
     return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
   }

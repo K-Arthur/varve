@@ -428,6 +428,8 @@ export function shapeContains(shape: Shape, p: Point): boolean {
       );
     case 'arrow':
       return pointToSegmentDistSq(shape.from, shape.to, p) <= shape.tolerance * shape.tolerance;
+    case 'table':
+      return rectContains({ x: shape.x, y: shape.y, w: shape.w, h: shape.h }, p);
     case 'path':
       if (shape.closed) {
         const fillRule =
