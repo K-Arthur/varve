@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 ---
 
 <Layout title="Features - Varve" description="Explore what Varve can do today — vector design, raster editing, layout, typography, motion, prototyping, color management, and code export.">
@@ -11,37 +12,37 @@ import Layout from '../layouts/Layout.astro';
       </p>
 
       <div class="features-grid">
-        <a href="/features/canvas" class="feature-card">
+        <a href={sitePath('/features/canvas')} class="feature-card">
           <h2>Canvas & Rendering</h2>
           <p>Infinite canvas, viewport culling, sticky snap, rulers, guides, grid overlays, multi-page documents</p>
           <span class="status built">Built</span>
         </a>
 
-        <a href="/features/vector-tools" class="feature-card">
+        <a href={sitePath('/features/vector-tools')} class="feature-card">
           <h2>Vector Tools</h2>
           <p>Shapes, pen and pencil with bezier handles, boolean operations, node editing, layers, groups, frames</p>
           <span class="status built">Built</span>
         </a>
 
-        <a href="/features/typography" class="feature-card">
+        <a href={sitePath('/features/typography')} class="feature-card">
           <h2>Typography</h2>
           <p>Multi-line text, OpenType features, variable fonts, text-on-path, inline editing, CJK line breaking</p>
           <span class="status built">Built</span>
         </a>
 
-        <a href="/features/color-effects" class="feature-card">
+        <a href={sitePath('/features/color-effects')} class="feature-card">
           <h2>Color & Effects</h2>
           <p>RGB and CMYK color management, ICC profiles, blend modes, shadows, blur, adjustment layers, halftone</p>
           <span class="status built">Built</span>
         </a>
 
-        <a href="/features/motion" class="feature-card">
+        <a href={sitePath('/features/motion')} class="feature-card">
           <h2>Motion & Prototyping</h2>
           <p>Timeline animation, keyframes, easing, Smart Animate, prototype interactions, CSS/Lottie/video export</p>
           <span class="status built">Built</span>
         </a>
 
-        <a href="/features/export" class="feature-card">
+        <a href={sitePath('/features/export')} class="feature-card">
           <h2>Export & Code Generation</h2>
           <p>SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, per-node export settings</p>
           <span class="status built">Built</span>

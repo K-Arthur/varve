@@ -1,12 +1,13 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
 ---
 
 <Layout title="Color & Effects" description="Varve color tools: color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Tools / Color & Effects
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Color & Effects
       </nav>
 
       <h1>Color & Effects</h1>
@@ -135,7 +136,7 @@ import Layout from '../../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See <a href="/docs/tools/vector">Vector Tools</a> for shape creation, or <a href="/docs/file-formats">File Formats</a> for color mode considerations in export.</p>
+        <p>See <a href={sitePath('/docs/tools/vector')}>Vector Tools</a> for shape creation, or <a href={sitePath('/docs/file-formats')}>File Formats</a> for color mode considerations in export.</p>
       </div>
     </div>
   </div>

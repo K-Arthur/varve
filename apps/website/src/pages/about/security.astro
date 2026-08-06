@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Security" description="How to report security vulnerabilities in Varve: private disclosure via GitHub Security Advisory, response timeline, and coordinated disclosure practices.">
@@ -104,7 +105,7 @@ import Layout from '../../layouts/Layout.astro';
         <a href="https://github.com/K-Arthur/varve/security/advisories" class="btn-primary" target="_blank" rel="noopener noreferrer">
           Report a Vulnerability
         </a>
-        <a href="/about" class="btn-secondary">
+        <a href={sitePath('/about')} class="btn-secondary">
           Back to About
         </a>
       </div>

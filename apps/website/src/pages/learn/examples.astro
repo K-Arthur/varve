@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Examples" description="Example files and projects to learn from — real Varve documents you can open, inspect, and remix.">
   <div class="container-custom">
     <div class="learn-page">
       <nav class="breadcrumb">
-        <a href="/learn">Learn</a> / Examples
+        <a href={sitePath('/learn')}>Learn</a> / Examples
       </nav>
 
       <h1>Examples</h1>
@@ -73,7 +74,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="learn-cta">
         <h2>Want to contribute?</h2>
-        <p>Share your example files with the community. See the <a href="/contribute">contribution guidelines</a>.</p>
+        <p>Share your example files with the community. See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
       </div>
     </div>
   </div>

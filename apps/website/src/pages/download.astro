@@ -1,6 +1,7 @@
 ---
 import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 
 // Every download control on this page is rendered from the generated release
 // manifest (scripts/release/update-website-manifest.mjs). Nothing about
@@ -100,8 +101,8 @@ const first = available[0]?.id;
             <p>
               Expect bugs and incomplete tools. The <code>.strata</code> document format may still
               change in ways that break older files. <strong>Keep backups of anything you care
-              about.</strong> See <a href="/support/known-issues">known issues</a> and
-              <a href="/releases">release notes</a>.
+              about.</strong> See <a href={sitePath('/support/known-issues')}>known issues</a> and
+              <a href={sitePath('/releases')}>release notes</a>.
             </p>
           </div>
 

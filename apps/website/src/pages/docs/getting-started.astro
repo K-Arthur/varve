@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Getting Started" description="Install Varve on Linux, macOS, or Windows, and open your first document. System requirements and first steps.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Getting Started
+        <a href={sitePath('/docs')}>Documentation</a> / Getting Started
       </nav>
 
       <h1>Getting Started</h1>
@@ -16,7 +17,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <section class="docs-section">
         <h2>Installation</h2>
-        <p>Download Varve for your platform from the <a href="/download">download page</a>.</p>
+        <p>Download Varve for your platform from the <a href={sitePath('/download')}>download page</a>.</p>
         
         <h3>Linux</h3>
         <ul>
@@ -79,22 +80,22 @@ import Layout from '../../layouts/Layout.astro';
           <li><code>Ctrl+Z</code> - Undo</li>
           <li><code>Ctrl+Shift+Z</code> - Redo</li>
         </ul>
-        <p>See the <a href="/docs/keyboard-shortcuts">full keyboard shortcuts reference</a>.</p>
+        <p>See the <a href={sitePath('/docs/keyboard-shortcuts')}>full keyboard shortcuts reference</a>.</p>
       </section>
 
       <section class="docs-section">
         <h2>Next Steps</h2>
         <ul>
-          <li><a href="/docs/getting-started/interface">Interface Overview</a> - Learn about the Varve interface</li>
-          <li><a href="/docs/getting-started/first-project">Your First Project</a> - Tutorial for your first design</li>
-          <li><a href="/features">Features</a> - Deep dives into Varve's capabilities</li>
-          <li><a href="/support">Support</a> - Get help if you're stuck</li>
+          <li><a href={sitePath('/docs/getting-started/interface')}>Interface Overview</a> - Learn about the Varve interface</li>
+          <li><a href={sitePath('/docs/getting-started/first-project')}>Your First Project</a> - Tutorial for your first design</li>
+          <li><a href={sitePath('/features')}>Features</a> - Deep dives into Varve's capabilities</li>
+          <li><a href={sitePath('/support')}>Support</a> - Get help if you're stuck</li>
         </ul>
       </section>
 
       <div class="docs-cta">
         <h2>Need help?</h2>
-        <p>Check the <a href="/support/faq">FAQ</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
+        <p>Check the <a href={sitePath('/support/faq')}>FAQ</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
       </div>
     </div>
   </div>
