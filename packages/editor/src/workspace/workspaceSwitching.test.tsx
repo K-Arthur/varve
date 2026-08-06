@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { formatShortcut, getEffectiveBinding } from '../shortcuts/ShortcutManager';
+import { workspaceShortcutLabel } from './workspaceShortcutLabel';
 import {
   getVisibleInspectorTabs,
   getVisibleStatusSections,
@@ -43,17 +45,16 @@ describe('Workspace mode switching — motion mode', () => {
       expect(config.statusBar).toBe(true);
     });
 
-    it('has motion-specific shortcuts', () => {
-      const config = getWorkspaceConfig('motion');
-      expect(config.shortcuts.extra).toBeDefined();
-      expect(config.shortcuts.extra!.G).toBe('toggleGraphEditor');
-      expect(config.shortcuts.extra!.Space).toBe('playPause');
-      expect(config.shortcuts.extra!['Alt+O']).toBe('toggleOnionSkin');
-      expect(config.shortcuts.extra!['Alt+P']).toBe('addPositionKeyframe');
-      expect(config.shortcuts.extra!['Alt+R']).toBe('addRotationKeyframe');
-      expect(config.shortcuts.extra!['Alt+S']).toBe('addScaleKeyframe');
-      expect(config.shortcuts.extra!['Alt+E']).toBe('addOpacityKeyframe');
-      expect(config.shortcuts.extra!['Alt+K']).toBe('toggleAutoKeyframe');
+    // The workspace config no longer declares key bindings. It never had a
+    // mechanism to register them — ShortcutManager holds one global binding
+    // per action id — so the old assertions passed while the keys they named
+    // did nothing when pressed. What is worth locking in is that the mode's
+    // own switch shortcut resolves from the registry that actually fires.
+    it('resolves its switch shortcut from the live registry', () => {
+      expect(workspaceShortcutLabel('motion')).toBe(
+        formatShortcut(getEffectiveBinding('workspaceMotion')),
+      );
+      expect(workspaceShortcutLabel('motion')).toBeTruthy();
     });
 
     it('has motion-specific status sections', () => {
