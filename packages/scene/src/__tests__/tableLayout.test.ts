@@ -19,11 +19,7 @@ import {
   setRowSizing,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import {
-  computeTableLayout,
-  TABLE_LAYOUT_MIN_TRACK,
-  type TableLayoutResult,
-} from '../computeTableLayout';
+import { computeTableLayout, TABLE_LAYOUT_MIN_TRACK, type TableLayoutResult } from '../tableLayout';
 
 function model4x4(): TableModel {
   return createTableModel(4, 4, { headerRows: 1 });

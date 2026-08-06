@@ -28,6 +28,17 @@ import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 
+/** Active table edit session (ADR-0016): cell selection + keyboard focus. */
+export interface TableEditState {
+  tableId: NodeId;
+  /** Selected cell ids (single cell or rectangular range). */
+  cellIds: string[];
+  /** Keyboard cursor cell (may be inside a span owner). */
+  activeCellId: string | null;
+  /** Cell with the inline text editor open. */
+  editingCellId: string | null;
+}
+
 export * from './selectionState';
 export type { MaskPreviewMode, ToolId };
 
@@ -245,6 +256,13 @@ export interface EditorState {
    *  container's subtree. A view-mode flag, not a document mutation — not
    *  part of undo/redo history. */
   isolatedNodeId: NodeId | null;
+  /**
+   * Active table edit session (ADR-0016). When set, cell selection,
+   * keyboard navigation, and structural table ops are active for that
+   * table. Null when not editing a table.
+   */
+  createTableFromDataOpen: boolean;
+  tableEdit: TableEditState | null;
   showOriginalBgNodeId: NodeId | null;
   maskPreviewMode: MaskPreviewMode;
   /** Per-section collapse/hidden state for Inspector panels. Persisted in
@@ -441,6 +459,15 @@ export interface EditorContextValue {
   resetSectionOrder: () => void;
   // Selection
   setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
+  /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
+  setTableEdit: (state: TableEditState | null) => void;
+  /** ADR-0016: commit cell text through the normal undoable doc path. */
+  updateTableCellText: (cellId: string, text: string) => void;
+  /** ADR-0016: run an immutable table-model op on the owning node (undoable). */
+  tableOp: (
+    tableId: string,
+    op: (model: import('@varve/scene').TableModel) => import('@varve/scene').TableModel,
+  ) => void;
   toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
   isSelected: (id: NodeId) => boolean;
   selectedNodes: () => SceneNode[];
@@ -774,6 +801,8 @@ export interface EditorContextValue {
   // Export
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
+  /** ADR-0016: open the Create Table From Data dialog (clipboard parse). */
+  openCreateTableFromDataDialog?: () => void;
 
   // Upscale dialog
   upscaleDialogOpen: boolean;

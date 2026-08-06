@@ -59,6 +59,10 @@ export type SectionId =
   | 'ocr'
   | 'palette'
   | 'font-detect'
+  | 'table'
+  | 'table-cells'
+  | 'table-columns'
+  | 'table-rows'
   | 'ai-tools-hint';
 
 // ---------------------------------------------------------------------------
@@ -85,6 +89,8 @@ export interface SectionAvailabilityContext {
   workspaceMode: WorkspaceMode;
   activeTool: string;
   prototypeMode: boolean;
+  /** Active table edit session (ADR-0016), when editing a table. */
+  tableEdit?: { tableId: string } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -150,6 +156,16 @@ function isComponentInstance(nodes: SceneNode[]): boolean {
   if (!isFrameNode(nodes)) return false;
   const frame = nodes[0] as SceneNode & { componentId?: string };
   return Boolean(frame.componentId);
+}
+
+/** Single selected native table node. */
+function isTableNode(nodes: SceneNode[]): boolean {
+  return nodes.length === 1 && nodes[0]?.kind === 'table';
+}
+
+/** A table edit session is active (cell/column/row sections show). */
+function isTableEditActive(ctx: SectionAvailabilityContext): boolean {
+  return ctx.tableEdit !== undefined && ctx.tableEdit !== null;
 }
 
 function isRectNode(nodes: SceneNode[]): boolean {
@@ -529,6 +545,46 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     category: 'advanced',
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
+  },
+  {
+    id: 'table',
+    title: 'Table',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 118,
+    category: 'geometry',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isTableNode(ctx.selectedNodes),
+  },
+  {
+    id: 'table-cells',
+    title: 'Cells',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 119,
+    category: 'content',
+    isAvailable: (ctx) => isTableEditActive(ctx),
+  },
+  {
+    id: 'table-columns',
+    title: 'Columns',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 1195,
+    category: 'content',
+    isAvailable: (ctx) => isTableEditActive(ctx),
+  },
+  {
+    id: 'table-rows',
+    title: 'Rows',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 1196,
+    category: 'content',
+    isAvailable: (ctx) => isTableEditActive(ctx),
   },
   {
     id: 'font-detect',
