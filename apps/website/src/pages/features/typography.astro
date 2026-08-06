@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Typography" description="Varve's typography: multi-line text, OpenType features, variable fonts, text-on-path, inline editing, and CJK line breaking.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb">
-        <a href="/features">Features</a> / Typography
+        <a href={sitePath('/features')}>Features</a> / Typography
       </nav>
 
       <h1>Typography</h1>
@@ -68,7 +69,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="feature-cta">
         <h2>Ready to design with type?</h2>
-        <a href="/download" class="btn-primary">Download Varve</a>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
       </div>
     </div>
   </div>

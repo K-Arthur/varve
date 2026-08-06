@@ -1,6 +1,7 @@
 ---
 import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 
 // The release facts on this page come from the same generated manifest that
 // drives /download (scripts/release/update-website-manifest.mjs). Nothing
@@ -35,7 +36,7 @@ import Layout from '../layouts/Layout.astro';
               Watch the GitHub releases page
             </a>{' '}
             to be notified, or see the{' '}
-            <a href="/features">features overview</a> for what is already built.
+            <a href={sitePath('/features')}>features overview</a> for what is already built.
           </p>
         </div>
       )}
@@ -111,14 +112,14 @@ import Layout from '../layouts/Layout.astro';
             <strong>Source:</strong> <a href="https://github.com/K-Arthur/varve">GitHub</a>
           </li>
           <li>
-            <strong>Downloads:</strong> <a href="/download">Download page</a>
+            <strong>Downloads:</strong> <a href={sitePath('/download')}>Download page</a>
           </li>
         </ul>
       </div>
 
       <div class="release-cta">
         <h2>Download Current Release</h2>
-        <a href="/download" class="btn-primary">
+        <a href={sitePath('/download')} class="btn-primary">
           {release.hasRelease ? `Download Varve ${release.version}` : 'Go to the download page'}
         </a>
       </div>

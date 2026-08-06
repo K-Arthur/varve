@@ -1,12 +1,13 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
 ---
 
 <Layout title="Typography" description="Set type in Varve: multi-line text, OpenType features, variable fonts, text on path, and inline editing.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Tools / Typography
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Typography
       </nav>
 
       <h1>Typography</h1>
@@ -136,7 +137,7 @@ import Layout from '../../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See <a href="/docs/tools/color">Color & Effects</a> for styling text with fills and effects, or <a href="/docs/tools/export">Export</a> for generating code with typography preserved.</p>
+        <p>See <a href={sitePath('/docs/tools/color')}>Color & Effects</a> for styling text with fills and effects, or <a href={sitePath('/docs/tools/export')}>Export</a> for generating code with typography preserved.</p>
       </div>
     </div>
   </div>

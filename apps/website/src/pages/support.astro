@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 ---
 
 <Layout title="Support" description="Get help with Varve: documentation, FAQ, troubleshooting, known issues, and bug reporting. Community help is available on GitHub Discussions.">
@@ -15,10 +16,10 @@ import Layout from '../layouts/Layout.astro';
           <h2>Self-Service Resources</h2>
           <p>Find answers quickly through documentation and FAQs</p>
           <ul>
-            <li><a href="/docs">Documentation</a> - Comprehensive guides and tutorials</li>
-            <li><a href="/support/faq">FAQ</a> - Frequently asked questions</li>
-            <li><a href="/support/troubleshooting">Troubleshooting</a> - Common issues and solutions</li>
-            <li><a href="/support/known-issues">Known Issues</a> - Current limitations and workarounds</li>
+            <li><a href={sitePath('/docs')}>Documentation</a> - Comprehensive guides and tutorials</li>
+            <li><a href={sitePath('/support/faq')}>FAQ</a> - Frequently asked questions</li>
+            <li><a href={sitePath('/support/troubleshooting')}>Troubleshooting</a> - Common issues and solutions</li>
+            <li><a href={sitePath('/support/known-issues')}>Known Issues</a> - Current limitations and workarounds</li>
           </ul>
         </section>
 
@@ -37,7 +38,7 @@ import Layout from '../layouts/Layout.astro';
         <section class="support-section">
           <h2>Report a Bug</h2>
           <p>Help improve Varve by reporting issues with detailed information</p>
-          <a href="/support/report-issue" class="btn-primary">Report an Issue</a>
+          <a href={sitePath('/support/report-issue')} class="btn-primary">Report an Issue</a>
         </section>
 
         <section class="support-section">
@@ -53,7 +54,7 @@ import Layout from '../layouts/Layout.astro';
       <div class="support-cta">
         <h2>Still need help?</h2>
         <p>
-          Check the <a href="/docs">documentation</a> or search 
+          Check the <a href={sitePath('/docs')}>documentation</a> or search 
           <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a> for similar issues.
         </p>
       </div>

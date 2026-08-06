@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 
 // FAQPage structured data: mirrors the visible Q&As so answer engines can
 // extract and cite them. Keep the answers here in sync with the markup below —
@@ -100,7 +101,7 @@ const faqSchema = {
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb">
-        <a href="/support">Support</a> / FAQ
+        <a href={sitePath('/support')}>Support</a> / FAQ
       </nav>
 
       <h1>Frequently Asked Questions</h1>
@@ -120,7 +121,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>What does FSL-1.1-MIT mean?</h3>
-          <p>FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license. See the <a href="/about/license">license page</a> for details.</p>
+          <p>FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license. See the <a href={sitePath('/about/license')}>license page</a> for details.</p>
         </div>
 
         <div class="faq-item">
@@ -139,7 +140,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>Can I use Varve for professional print work?</h3>
-          <p>Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using for critical print production. See the <a href="/features/color-effects">Color & Effects</a> page for current status.</p>
+          <p>Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using for critical print production. See the <a href={sitePath('/features/color-effects')}>Color & Effects</a> page for current status.</p>
         </div>
 
         <div class="faq-item">
@@ -149,7 +150,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>What export formats does Varve support?</h3>
-          <p>Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href="/features/export">Export & Code Generation</a> page for details.</p>
+          <p>Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href={sitePath('/features/export')}>Export & Code Generation</a> page for details.</p>
         </div>
       </div>
 
@@ -158,17 +159,17 @@ const faqSchema = {
         
         <div class="faq-item">
           <h3>Who develops Varve?</h3>
-          <p>Varve is built by one designer-developer independently. See the <a href="/about">About page</a> for the full story.</p>
+          <p>Varve is built by one designer-developer independently. See the <a href={sitePath('/about')}>About page</a> for the full story.</p>
         </div>
 
         <div class="faq-item">
           <h3>How can I contribute?</h3>
-          <p>You can contribute code, documentation, testing, design, or translations. See the <a href="/contribute">contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
+          <p>You can contribute code, documentation, testing, design, or translations. See the <a href={sitePath('/contribute')}>contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
         </div>
 
         <div class="faq-item">
           <h3>How can I support the project financially?</h3>
-          <p>Varve accepts financial support via GitHub Sponsors. See the <a href="/support-project">Support Project</a> page for sponsorship tiers and what support enables.</p>
+          <p>Varve accepts financial support via GitHub Sponsors. See the <a href={sitePath('/support-project')}>Support Project</a> page for sponsorship tiers and what support enables.</p>
         </div>
 
         <div class="faq-item">
@@ -179,7 +180,7 @@ const faqSchema = {
 
       <div class="faq-cta">
         <h2>Still have questions?</h2>
-        <p>Check the <a href="/docs">documentation</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
+        <p>Check the <a href={sitePath('/docs')}>documentation</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
       </div>
     </div>
   </div>

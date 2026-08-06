@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Troubleshooting" description="Troubleshooting common Varve issues: installation, launch, rendering, export, and performance problems on Linux, macOS, and Windows.">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb">
-        <a href="/support">Support</a> / Troubleshooting
+        <a href={sitePath('/support')}>Support</a> / Troubleshooting
       </nav>
 
       <h1>Troubleshooting</h1>
@@ -64,7 +65,7 @@ import Layout from '../../layouts/Layout.astro';
         
         <div class="troubleshoot-item">
           <h3>Rich text not rendering correctly</h3>
-          <p><strong>Solution:</strong> Rich text, variable fonts, and OpenType features are declared in types but rendering is still in development. Use basic text styling (font family, size, weight) for now. See the <a href="/features/typography">Typography</a> page for current status.</p>
+          <p><strong>Solution:</strong> Rich text, variable fonts, and OpenType features are declared in types but rendering is still in development. Use basic text styling (font family, size, weight) for now. See the <a href={sitePath('/features/typography')}>Typography</a> page for current status.</p>
         </div>
 
         <div class="troubleshoot-item">
@@ -100,7 +101,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="troubleshoot-cta">
         <h2>Still need help?</h2>
-        <p>If your issue isn't covered here, <a href="/support/report-issue">report an issue</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
+        <p>If your issue isn't covered here, <a href={sitePath('/support/report-issue')}>report an issue</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
       </div>
     </div>
   </div>

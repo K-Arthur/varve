@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 ---
 
 <Layout title="Support the Project" description="Varve is built by one developer. Financial support via GitHub Sponsors enables platform support, stability work, and new features. Non-financial contributions are equally valuable.">
@@ -110,7 +111,7 @@ import Layout from '../layouts/Layout.astro';
           <li><strong>Design:</strong> Create UI mockups, icons, website improvements</li>
           <li><strong>Code:</strong> Fix bugs, add features, improve performance</li>
         </ul>
-        <a href="/contribute" class="btn-secondary">Learn How to Contribute</a>
+        <a href={sitePath('/contribute')} class="btn-secondary">Learn How to Contribute</a>
       </section>
 
       <section class="support-section">

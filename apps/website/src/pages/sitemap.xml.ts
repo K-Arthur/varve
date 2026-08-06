@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { siteUrl } from '../lib/siteUrl';
 
 /**
  * Generate the sitemap from the actual page files and the configured site URL.
@@ -51,15 +52,12 @@ export const GET: APIRoute = ({ site }) => {
     .filter((route): route is string => route !== null)
     .sort();
 
-  // `site` is only the origin; the base path is separate and matters on GitHub
-  // Pages, where a project repo serves from /<repo>/. Joining them here is what
-  // keeps the sitemap valid on both a Pages deployment and a custom domain.
-  const base = import.meta.env.BASE_URL || '/';
-  const origin = new URL(base.endsWith('/') ? base : `${base}/`, site);
-
+  // `siteUrl` joins the configured site origin with the base path — the same
+  // joining every link on the site uses, so a domain or base change updates
+  // the sitemap without any edit here.
   const urls = routes
     .map((route) => {
-      const loc = new URL(route.replace(/^\//, ''), origin).href;
+      const loc = siteUrl(route === '/' ? '' : route);
       return `  <url><loc>${loc}</loc><changefreq>weekly</changefreq><priority>${priority(route)}</priority></url>`;
     })
     .join('\n');

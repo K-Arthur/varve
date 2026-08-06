@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 ---
 
 <Layout title="Page Not Found" noindex description="The page you're looking for doesn't exist or has been moved.">
@@ -9,8 +10,8 @@ import Layout from '../layouts/Layout.astro';
       <h2>Page Not Found</h2>
       <p>The page you're looking for doesn't exist or has been moved.</p>
       <div class="error-actions">
-        <a href="/" class="btn-primary">Go Home</a>
-        <a href="/docs" class="btn-secondary">View Documentation</a>
+        <a href={sitePath('/')} class="btn-primary">Go Home</a>
+        <a href={sitePath('/docs')} class="btn-secondary">View Documentation</a>
       </div>
     </div>
   </div>

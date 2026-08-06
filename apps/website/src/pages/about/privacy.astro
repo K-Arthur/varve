@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Privacy Policy" description="Varve's privacy policy: no telemetry, no cookies, no analytics, no accounts. This website makes no third-party requests, and the app keeps your designs on your machine.">
@@ -106,7 +107,7 @@ import Layout from '../../layouts/Layout.astro';
       </section>
 
       <div class="privacy-cta">
-        <a href="/about" class="btn-secondary">Back to About</a>
+        <a href={sitePath('/about')} class="btn-secondary">Back to About</a>
       </div>
     </div>
   </div>
