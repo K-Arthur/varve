@@ -65,8 +65,6 @@ export type SectionId =
   | 'table-cells'
   | 'table-columns'
   | 'table-rows'
-  | 'table-appearance'
-  | 'variable-modifiers'
   | 'ai-tools-hint';
 
 // ---------------------------------------------------------------------------

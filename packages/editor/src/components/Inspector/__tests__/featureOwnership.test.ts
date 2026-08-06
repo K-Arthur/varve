@@ -37,7 +37,6 @@ describe('Inspector feature ownership', () => {
       'isometric-grid',
       'table-columns',
       'table-rows',
-      'variable-modifiers',
     ]);
   });
 
