@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
 ---
 
 <Layout title="Learn" description="Tutorials, examples, and community resources to help you get started with Varve — a free, local-first design suite for vector, layout, motion, and print.">
@@ -11,17 +12,17 @@ import Layout from '../layouts/Layout.astro';
       </p>
 
       <div class="learn-grid">
-        <a href="/learn/tutorials" class="learn-card">
+        <a href={sitePath('/learn/tutorials')} class="learn-card">
           <h2>Tutorials</h2>
           <p>Step-by-step tutorials to get started with Varve</p>
         </a>
 
-        <a href="/learn/examples" class="learn-card">
+        <a href={sitePath('/learn/examples')} class="learn-card">
           <h2>Examples</h2>
           <p>Example files and projects to learn from</p>
         </a>
 
-        <a href="/learn/community" class="learn-card">
+        <a href={sitePath('/learn/community')} class="learn-card">
           <h2>Community</h2>
           <p>Connect with the Varve community</p>
         </a>
@@ -29,8 +30,8 @@ import Layout from '../layouts/Layout.astro';
 
       <div class="learn-status">
         <h3>Learning Resources Status</h3>
-        <p>Tutorials and examples are being developed. In the meantime, check the <a href="/docs">documentation</a> for getting started guides.</p>
-        <p>Want to help create learning resources? See the <a href="/contribute">contribution guidelines</a>.</p>
+        <p>Tutorials and examples are being developed. In the meantime, check the <a href={sitePath('/docs')}>documentation</a> for getting started guides.</p>
+        <p>Want to help create learning resources? See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
       </div>
     </div>
   </div>

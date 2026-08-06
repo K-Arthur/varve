@@ -1,5 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="License" description="Varve is licensed under FSL-1.1-MIT: free to use, modify, and redistribute for any permitted purpose. After two years, each release converts to the MIT license.">
@@ -107,7 +108,7 @@ import Layout from '../../layouts/Layout.astro';
         <p>
           Contributions to Varve are accepted under FSL-1.1-MIT (and subsequently the
           MIT change license after two years). Contributors retain copyright to their work.
-          See the <a href="/contribute/guidelines">contribution guidelines</a> for the
+          See the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a> for the
           project's current status on external contributions.
         </p>
       </section>

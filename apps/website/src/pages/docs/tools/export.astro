@@ -1,12 +1,13 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
 ---
 
 <Layout title="Export & Code Generation" description="Export from Varve to SVG, React/Tailwind, Flutter, SwiftUI, and PDF with CMYK and PDF/X print profiles.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Tools / Export & Code Generation
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Export & Code Generation
       </nav>
 
       <h1>Export & Code Generation</h1>
@@ -124,7 +125,7 @@ import Layout from '../../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See <a href="/docs/file-formats">File Formats</a> for detailed format specifications, or <a href="/docs/settings">Settings</a> for export configuration.</p>
+        <p>See <a href={sitePath('/docs/file-formats')}>File Formats</a> for detailed format specifications, or <a href={sitePath('/docs/settings')}>Settings</a> for export configuration.</p>
       </div>
     </div>
   </div>

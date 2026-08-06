@@ -1,12 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
 ---
 
 <Layout title="Architecture Overview" description="Varve architecture: native Rust engine, IR-replay rendering, WASM web backend, and the Tauri 2 desktop shell.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
-        <a href="/docs">Documentation</a> / Architecture Overview
+        <a href={sitePath('/docs')}>Documentation</a> / Architecture Overview
       </nav>
 
       <h1>Architecture Overview</h1>
@@ -126,7 +127,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <div class="docs-cta">
         <h2>Related Guides</h2>
-        <p>See the <a href="/docs/rendering">Rendering Pipeline</a> page for a deep dive into the rendering system.</p>
+        <p>See the <a href={sitePath('/docs/rendering')}>Rendering Pipeline</a> page for a deep dive into the rendering system.</p>
       </div>
     </div>
   </div>
