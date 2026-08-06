@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
 
 /**
- * Product decision (docs/architecture/workspace-navigation.md):
+ * Product decision (docs/architecture/workspace-system.md):
  * the workspace mode is GLOBAL to the application, not remembered per
  * document. Switching tabs must therefore never change the workspace, and
  * switching workspaces must never change the active tab. This test locks

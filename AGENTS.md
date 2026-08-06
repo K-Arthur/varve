@@ -372,7 +372,9 @@ Complete timeline-based animation workspace. Canonical doc: `docs/architecture/m
 
 ## Workspace Mode System
 
-Five task-focused modes over the same document/scene/rendering/command/history systems.
+Seven task-focused modes over the same document/scene/rendering/command/history
+systems. Canonical contract, configuration resolution, persistence, and known
+gaps: `docs/architecture/workspace-system.md`.
 
 | Mode | Shortcut | Default Tool | Focus |
 |---|---|---|---|
@@ -404,6 +406,16 @@ never hard-code them.
 4. Safe interaction resolution — in-progress interactions committed before switch.
 5. All tools accessible via keyboard shortcuts or command palette.
 6. Shared commands — selection, transform, colour, layers, undo/redo, copy/paste identical.
+7. One resolver — every consumer reads `getEffectiveWorkspaceConfig(mode)` (or
+   the `useEffectiveWorkspaceConfig` hook), never `WORKSPACE_CONFIGS[mode]`
+   directly. The raw map has no entry for an unknown mode; the resolver falls
+   back to Design and merges the user's per-workspace overrides.
+8. One switch path — `requestWorkspaceSwitch` on the editor context. It owns
+   re-entrancy guarding, interaction resolution, and the announcement. Do not
+   add a second entry point that patches workspace state directly.
+9. No decorative config — every `WorkspaceConfig` field must have a runtime
+   consumer. Key bindings and renderer policy are deliberately *not* workspace
+   configuration; see the doc above for why.
 
 ## Text Pipeline
 

@@ -67,7 +67,7 @@ import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
-import { getWorkspaceConfig } from './workspace/workspaceTypes';
+import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */
 export interface OpenFileRequest {
@@ -299,7 +299,21 @@ function ShellInner({
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
-  const hidePageNav = !getWorkspaceConfig(workspaceMode).panels.pagenav.visible;
+  // Effective workspace config: built-in defaults merged with the user's
+  // persisted panel overrides. Governs status-bar, tab-strip, page-nav, and
+  // panel visibility below — no hard-coded conditions remain.
+  const effectiveConfig = useEffectiveWorkspaceConfig(workspaceMode);
+  const hidePageNav = !effectiveConfig.panels.pagenav.visible;
+  // Mode-preferred panel widths apply only when the user hasn't resized the
+  // panel (a saved width always wins over the mode default).
+  const layersPref = effectiveConfig.panels.layers.preferredWidth;
+  const inspectorPref = effectiveConfig.panels.inspector.preferredWidth;
+  if (widths.layers === null && layersPref) {
+    (gridStyle as Record<string, string>)['--sidebar-width'] = layersPref;
+  }
+  if (widths.inspector === null && inspectorPref) {
+    (gridStyle as Record<string, string>)['--inspector-width'] = inspectorPref;
+  }
 
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
@@ -335,7 +349,9 @@ function ShellInner({
           />
         )}
         <FloatingToolbar />
-        {!distractionFreeMode && <TabStrip onBackToHome={onBackToHome} />}
+        {!distractionFreeMode && effectiveConfig.tabStrip && (
+          <TabStrip onBackToHome={onBackToHome} />
+        )}
         {distractionFreeMode && (
           <Tooltip label="Exit distraction-free mode" shortcut="Ctrl+Shift+F">
             <button
@@ -541,7 +557,7 @@ function ShellInner({
             </ErrorBoundary>
           </div>
         )}
-        {!distractionFreeMode && (
+        {!distractionFreeMode && effectiveConfig.statusBar && (
           <>
             <SelectionInfoBar />
             <StatusBar

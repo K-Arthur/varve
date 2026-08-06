@@ -175,6 +175,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/motion-system.md` | Motion/animation architecture |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/loading-system.md` | Loading experience system |
+| `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/icon-system.md` | Icon infrastructure |
 | `architecture/typography-platform.md` | Typography platform |
