@@ -32,7 +32,7 @@ export function applyTableModelOp(
   op: (model: TableModel) => TableModel,
 ): Document {
   const node = doc.nodes[tableId];
-  if (!node || node.kind !== 'table') return doc;
+  if (node?.kind !== 'table') return doc;
   const table = op(node.table);
   if (table === node.table) return doc;
   return {
