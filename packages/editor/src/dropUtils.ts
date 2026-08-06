@@ -97,6 +97,8 @@ function shapeBounds(s: Shape): { x: number; y: number; w: number; h: number } |
         w: s.outerRadius * 2,
         h: s.outerRadius * 2,
       };
+    case 'table':
+      return { x: s.x, y: s.y, w: s.w, h: s.h };
     case 'path':
       return null; // approximated differently
   }

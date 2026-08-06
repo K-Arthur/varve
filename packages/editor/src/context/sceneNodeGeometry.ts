@@ -69,6 +69,8 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'clone':
     case 'contentAwareFill':
     case 'lasso':
+    case 'table':
+    case 'warp':
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
       const exhaustiveCheck: never = tool;
