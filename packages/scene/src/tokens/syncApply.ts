@@ -12,7 +12,7 @@
  * External files are never written here (ADR-0112 owns that).
  */
 import type { DtcgDocument, TokenMerge, TokenMergePlan } from '@varve/tokens';
-import type { VariableStore } from '../../variables';
+import type { VariableStore, VariableValue } from '../variables';
 import type {
   DesignTokenRecord,
   DesignTokenStore,
@@ -141,7 +141,7 @@ export function applyMergePlanToSync(
         store = bindVariableToToken(
           store,
           variableId,
-          variableIdTokenId(store, merge) ?? lastTokenId(store),
+          variableIdTokenId(merge) ?? lastTokenId(store),
         );
       }
     }
@@ -177,7 +177,7 @@ function mintLocalId(): `tok_${string}` {
   return `tok_${raw}` as `tok_${string}`;
 }
 
-function variableIdTokenId(store: DesignTokenStore, merge: { id?: string }): string | undefined {
+function variableIdTokenId(merge: { id?: string }): string | undefined {
   return merge.id;
 }
 
@@ -194,7 +194,7 @@ function upsertBackingVariable(
   touched: string[],
 ): string | undefined {
   const value = merge.result?.value;
-  if (value === undefined) return undefined;
+  if (value === undefined || value === null) return undefined;
   const name = merge.path[merge.path.length - 1] ?? 'untitled';
   const type =
     merge.result?.type === 'color' || merge.result?.type === 'fontFamily'
@@ -207,10 +207,21 @@ function upsertBackingVariable(
   // Find an existing backing variable by token link.
   for (const [variableId, tokenId] of Object.entries(store.variableLinks)) {
     if (tokenId === merge.id) {
-      variables.variables[variableId] = {
-        ...variables.variables[variableId],
-        valuesByMode: { ...(variables.variables[variableId]?.valuesByMode ?? {}), [mode]: value },
+      const existing = variables.variables[variableId];
+      const valuesByMode = {
+        ...(existing?.valuesByMode ?? {}),
+        [mode]: value as VariableValue,
       };
+      if (existing) {
+        variables.variables[variableId] = { ...existing, valuesByMode };
+      } else {
+        variables.variables[variableId] = {
+          id: variableId,
+          name,
+          type: type as 'number' | 'string' | 'boolean' | 'color',
+          valuesByMode,
+        };
+      }
       touched.push(variableId);
       return variableId;
     }
@@ -221,7 +232,7 @@ function upsertBackingVariable(
     id: variableId,
     name,
     type: type as 'number' | 'string' | 'boolean' | 'color',
-    valuesByMode: { [mode]: value },
+    valuesByMode: { [mode]: value as VariableValue },
   };
   touched.push(variableId);
   return variableId;
@@ -292,7 +303,7 @@ export function applyImportToSync(
   mode = 'default',
 ): ImportApplyResult {
   let store: DesignTokenStore = sync.store;
-  const source = store.sources[sourceId];
+  const source = store.sources[sourceId as `src_`];
   const touchedVariableIds: string[] = [];
   const diagnostics: string[] = [];
   let imported = 0;
@@ -391,7 +402,7 @@ function createBackingVariable(
     id: variableId,
     name: record.path[record.path.length - 1] ?? 'untitled',
     type: type as 'number' | 'string' | 'boolean' | 'color',
-    valuesByMode: { [mode]: record.value },
+    valuesByMode: { [mode]: record.value as VariableValue },
   };
   return variableId;
 }
