@@ -21,8 +21,8 @@ import {
   collectPanelInstances,
   createDefaultLayout,
   findNode,
-  findParent,
   findPanelInstance,
+  findParent,
   findWindowForPanel,
   insertPanelAdjacent,
   movePanelBetweenWindows,
@@ -33,6 +33,7 @@ import {
   splitNode,
   walkDockTree,
 } from '../dockOps';
+import type { DockNode, DockSplitNode } from '../dockTypes';
 import {
   clampRatio,
   createEmptyDockNode,
@@ -42,7 +43,6 @@ import {
   generateDockNodeId,
   resetDockNodeIdCounter,
 } from '../dockTypes';
-import type { DockNode, DockSplitNode, DockTabGroupNode } from '../dockTypes';
 
 // ---------------------------------------------------------------------------
 // Helpers
