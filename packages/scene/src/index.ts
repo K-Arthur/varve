@@ -98,6 +98,7 @@ export * from './paint';
 export * from './pasteboardLayout';
 export * from './preflight';
 export * from './presetToDocument';
+export * from './printGeometry';
 export * from './printPreflight';
 export * from './profiles';
 export * from './proof';
