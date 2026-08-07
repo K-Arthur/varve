@@ -203,6 +203,12 @@ export interface HalftoneAdjustment extends AdjustmentBase {
   threshold?: number;
   intensity?: number;
   softness?: number;
+  /** Invert the halftone output (swap ink and paper). Default false. */
+  invert?: boolean;
+  /** Foreground (ink) color as [r, g, b] (default [0, 0, 0] = black). */
+  foregroundColor?: [number, number, number];
+  /** Background (paper) color as [r, g, b] (default [255, 255, 255] = white). */
+  backgroundColor?: [number, number, number];
   /** Per-channel screen angle overrides (degrees). */
   channelAngles?: { c?: number; m?: number; y?: number; k?: number };
   /** Sub-pixel registration offset per channel. */
@@ -536,6 +542,9 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         threshold: adjustment.threshold,
         intensity: adjustment.intensity,
         softness: adjustment.softness,
+        invert: adjustment.invert,
+        foregroundColor: adjustment.foregroundColor,
+        backgroundColor: adjustment.backgroundColor,
         channelAngles: adjustment.channelAngles,
         registrationOffset: adjustment.registrationOffset,
         tacLimit: adjustment.tacLimit,
@@ -861,6 +870,9 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         threshold: 128,
         intensity: 1,
         softness: 0,
+        invert: false,
+        foregroundColor: [0, 0, 0] as [number, number, number],
+        backgroundColor: [255, 255, 255] as [number, number, number],
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'gradientMap':
       return {

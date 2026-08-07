@@ -40,6 +40,12 @@ export interface HalftoneParams {
   intensity?: number;
   /** Dot edge softness 0-1 (default 0 = hard binary). Higher = anti-aliased edges. */
   softness?: number;
+  /** Invert the halftone output (swap ink and paper). Default false. */
+  invert?: boolean;
+  /** Foreground (ink) color as [r, g, b] (default [0, 0, 0] = black). */
+  foregroundColor?: [number, number, number];
+  /** Background (paper) color as [r, g, b] (default [255, 255, 255] = white). */
+  backgroundColor?: [number, number, number];
 }
 
 // ── Standard CMYK Screen Angles ────────────────────────────────────────
@@ -299,13 +305,16 @@ export function applyAMScreening(
   // simultaneous screens), a single channel has no other screen to clash
   // with, so the user's own angle control fully governs screen rotation.
   const angle = params.angle;
+  const invert = params.invert ?? false;
+  const fg = params.foregroundColor ?? [0, 0, 0];
+  const bg = params.backgroundColor ?? [255, 255, 255];
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
       if (pixels[idx + 3]! === 0) continue; // skip transparent
 
       const gray = getChannelLuminance(pixels, idx, channel);
-      const inkCoverage = screenChannelAt(
+      let inkCoverage = screenChannelAt(
         x,
         y,
         gray,
@@ -316,17 +325,20 @@ export function applyAMScreening(
         threshold,
         softness,
       );
-      // inkCoverage: 0 = no ink (white), 1 = full ink (black)
-      const val = Math.round(255 * (1 - inkCoverage));
+      if (invert) inkCoverage = 1 - inkCoverage;
+      // inkCoverage: 0 = no ink (paper color), 1 = full ink (foreground color)
+      const fr = Math.round(bg[0] + (fg[0] - bg[0]) * inkCoverage);
+      const fg_ = Math.round(bg[1] + (fg[1] - bg[1]) * inkCoverage);
+      const fb = Math.round(bg[2] + (fg[2] - bg[2]) * inkCoverage);
 
       if (intensity < 1) {
-        pixels[idx] = Math.round(pixels[idx]! + (val - pixels[idx]!) * intensity);
-        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (val - pixels[idx + 1]!) * intensity);
-        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (val - pixels[idx + 2]!) * intensity);
+        pixels[idx] = Math.round(pixels[idx]! + (fr - pixels[idx]!) * intensity);
+        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (fg_ - pixels[idx + 1]!) * intensity);
+        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (fb - pixels[idx + 2]!) * intensity);
       } else {
-        pixels[idx] = val;
-        pixels[idx + 1] = val;
-        pixels[idx + 2] = val;
+        pixels[idx] = fr;
+        pixels[idx + 1] = fg_;
+        pixels[idx + 2] = fb;
       }
     }
   }
@@ -348,6 +360,9 @@ export function applyFMStochastic(data: ImageData, _params: HalftoneParams): voi
   const levels = 2; // 1-bit output for traditional halftone
   const threshold = _params.threshold ?? 128;
   const intensity = Math.max(0, Math.min(1, _params.intensity ?? 1));
+  const invert = _params.invert ?? false;
+  const fg = _params.foregroundColor ?? [0, 0, 0];
+  const bg = _params.backgroundColor ?? [255, 255, 255];
 
   if (intensity === 0) return;
 
@@ -381,16 +396,24 @@ export function applyFMStochastic(data: ImageData, _params: HalftoneParams): voi
       const quantized = Math.round(adjusted * (levels - 1)) / (levels - 1);
       const error = adjusted - quantized;
 
-      // Write output pixel
-      const outVal = Math.round(quantized * 255);
+      // inkCoverage: 0 = paper (bright), 1 = ink (dark)
+      // Invert: quantized=0 (dark) → ink, quantized=1 (bright) → paper
+      let inkCoverage = 1 - quantized;
+      if (invert) inkCoverage = 1 - inkCoverage;
+
+      // Map ink coverage to foreground/background color blend
+      const pr = Math.round(bg[0] + (fg[0] - bg[0]) * inkCoverage);
+      const pg = Math.round(bg[1] + (fg[1] - bg[1]) * inkCoverage);
+      const pb = Math.round(bg[2] + (fg[2] - bg[2]) * inkCoverage);
+
       if (intensity < 1) {
-        pixels[idx] = Math.round(pixels[idx]! + (outVal - pixels[idx]!) * intensity);
-        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (outVal - pixels[idx + 1]!) * intensity);
-        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (outVal - pixels[idx + 2]!) * intensity);
+        pixels[idx] = Math.round(pixels[idx]! + (pr - pixels[idx]!) * intensity);
+        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (pg - pixels[idx + 1]!) * intensity);
+        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (pb - pixels[idx + 2]!) * intensity);
       } else {
-        pixels[idx] = outVal;
-        pixels[idx + 1] = outVal;
-        pixels[idx + 2] = outVal;
+        pixels[idx] = pr;
+        pixels[idx + 1] = pg;
+        pixels[idx + 2] = pb;
       }
 
       // Floyd-Steinberg kernel
@@ -570,6 +593,9 @@ export function applyBayerDithering(
   const intensity = Math.max(0, Math.min(1, _params.intensity ?? 1));
   const softness = Math.max(0, Math.min(1, _params.softness ?? 0));
   const thresholdOffset = (threshold - 128) / 255;
+  const invert = _params.invert ?? false;
+  const fg = _params.foregroundColor ?? [0, 0, 0];
+  const bg = _params.backgroundColor ?? [255, 255, 255];
 
   if (intensity === 0) return;
 
@@ -594,30 +620,38 @@ export function applyBayerDithering(
       const my = ((docY % size) + size) % size;
       const thresholdVal = matrix[my]![mx]! / totalCells;
 
-      let val: number;
+      let inkCoverage: number;
       if (softness > 0) {
-        // Soft threshold: blend around the boundary
-        const diff = adjusted - thresholdVal;
+        // Soft threshold: blend around the boundary.
+        // Invert polarity: bright pixel → low ink coverage (paper),
+        // dark pixel → high ink coverage (foreground/ink).
+        const diff = thresholdVal - adjusted;
         const range = softness * 0.15;
         if (range > 0 && Math.abs(diff) < range) {
-          const blend = Math.max(0, Math.min(1, 0.5 + diff / (range * 2)));
-          val = Math.round(blend * 255);
+          inkCoverage = Math.max(0, Math.min(1, 0.5 + diff / (range * 2)));
         } else {
-          val = diff > 0 ? 255 : 0;
+          inkCoverage = diff > 0 ? 1 : 0;
         }
       } else {
-        // Binary dither: luminance > threshold → white, else black
-        val = adjusted > thresholdVal ? 255 : 0;
+        // Binary dither: bright pixel (> threshold) → no ink (paper);
+        // dark pixel (≤ threshold) → ink (foreground).
+        inkCoverage = adjusted > thresholdVal ? 0 : 1;
       }
+      if (invert) inkCoverage = 1 - inkCoverage;
+
+      // Map ink coverage to foreground/background color blend
+      const pr = Math.round(bg[0] + (fg[0] - bg[0]) * inkCoverage);
+      const pg = Math.round(bg[1] + (fg[1] - bg[1]) * inkCoverage);
+      const pb = Math.round(bg[2] + (fg[2] - bg[2]) * inkCoverage);
 
       if (intensity < 1) {
-        pixels[idx] = Math.round(pixels[idx]! + (val - pixels[idx]!) * intensity);
-        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (val - pixels[idx + 1]!) * intensity);
-        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (val - pixels[idx + 2]!) * intensity);
+        pixels[idx] = Math.round(pixels[idx]! + (pr - pixels[idx]!) * intensity);
+        pixels[idx + 1] = Math.round(pixels[idx + 1]! + (pg - pixels[idx + 1]!) * intensity);
+        pixels[idx + 2] = Math.round(pixels[idx + 2]! + (pb - pixels[idx + 2]!) * intensity);
       } else {
-        pixels[idx] = val;
-        pixels[idx + 1] = val;
-        pixels[idx + 2] = val;
+        pixels[idx] = pr;
+        pixels[idx + 1] = pg;
+        pixels[idx + 2] = pb;
       }
     }
   }
@@ -657,3 +691,133 @@ export function applyHalftone(
   }
   return data;
 }
+
+// ── Presets ─────────────────────────────────────────────────────────────
+
+export interface HalftonePreset {
+  id: string;
+  name: string;
+  description: string;
+  params: Partial<Omit<HalftoneParams, 'pattern'>> & { pattern: HalftonePattern };
+}
+
+export const HALFTONE_PRESETS: HalftonePreset[] = [
+  {
+    id: 'newspaper',
+    name: 'Newspaper',
+    description: 'Classic AM clustered-dot — traditional newspaper print look',
+    params: {
+      pattern: 'dot',
+      frequency: 35,
+      angle: 45,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+    },
+  },
+  {
+    id: 'fine-print',
+    name: 'Fine Print',
+    description: 'High-frequency AM — smooth offset magazine quality',
+    params: {
+      pattern: 'dot',
+      frequency: 85,
+      angle: 45,
+      dotShape: 'elliptical',
+      channel: 'k',
+      method: 'am',
+    },
+  },
+  {
+    id: 'comic-dots',
+    name: 'Comic Dots',
+    description: 'Large coarse dots — pop-art / comic book halftone',
+    params: {
+      pattern: 'dot',
+      frequency: 12,
+      angle: 15,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+    },
+  },
+  {
+    id: 'coarse-dots',
+    name: 'Coarse Dots',
+    description: 'Very large dots — heavy screen-print aesthetic',
+    params: {
+      pattern: 'dot',
+      frequency: 8,
+      angle: 0,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+    },
+  },
+  {
+    id: 'line-screen',
+    name: 'Lines',
+    description: 'Parallel line halftone — engraving / etching look',
+    params: {
+      pattern: 'line',
+      frequency: 25,
+      angle: 45,
+      dotShape: 'line',
+      channel: 'k',
+      method: 'am',
+    },
+  },
+  {
+    id: 'vintage-screen',
+    name: 'Vintage Screen',
+    description: 'Retro dot matrix — vintage print / risograph feel',
+    params: {
+      pattern: 'dot',
+      frequency: 20,
+      angle: 30,
+      dotShape: 'square',
+      channel: 'k',
+      method: 'am',
+      softness: 0.3,
+    },
+  },
+  {
+    id: 'stochastic-fine',
+    name: 'Stochastic Fine',
+    description: 'FM error diffusion — modern stochastic screening',
+    params: {
+      pattern: 'dot',
+      frequency: 50,
+      angle: 0,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'fm',
+    },
+  },
+  {
+    id: 'cross-hatch',
+    name: 'Cross Hatch',
+    description: 'Cross-shaped dots — decorative screen pattern',
+    params: {
+      pattern: 'cross',
+      frequency: 20,
+      angle: 0,
+      dotShape: 'cross',
+      channel: 'k',
+      method: 'am',
+    },
+  },
+  {
+    id: 'diamond-dots',
+    name: 'Diamond Dots',
+    description: 'Faceted diamond dots — textile / textile print',
+    params: {
+      pattern: 'dot',
+      frequency: 18,
+      angle: 30,
+      dotShape: 'diamond',
+      channel: 'k',
+      method: 'am',
+    },
+  },
+];

@@ -51,6 +51,7 @@ export function TableSection({ node }: Props) {
     () => [
       {
         label: 'Rows',
+        singular: 'Row',
         value: rowCount,
         onInsert: (n: number) => op((t) => insertRow(t, t.rowOrder.length, n)),
         onRemove: (n: number) =>
@@ -63,6 +64,7 @@ export function TableSection({ node }: Props) {
       },
       {
         label: 'Columns',
+        singular: 'Column',
         value: columnCount,
         onInsert: (n: number) => op((t) => insertColumn(t, t.columnOrder.length, n)),
         onRemove: (n: number) =>
@@ -80,79 +82,74 @@ export function TableSection({ node }: Props) {
   return (
     <DisclosureSection title="Table" sectionId="table">
       {structure.map((row) => (
-        <FieldRow key={row.label} label={row.label}>
-          <div className="insp-field-row__split">
-            <NumberField
-              label={`${row.label} count`}
-              value={row.value}
-              step={1}
-              min={0}
-              onChange={(v) => {
-                const diff = Math.floor(v) - row.value;
-                if (diff > 0) row.onInsert(diff);
-                else if (diff < 0) row.onRemove(-diff);
-              }}
-            />
-            <button
-              type="button"
-              className="insp-inline-btn"
-              aria-label={`Add ${row.label.toLowerCase()}`}
-              onClick={() => row.onInsert(1)}
-            >
-              + {row.label.slice(0, -1)}
-            </button>
-            <button
-              type="button"
-              className="insp-inline-btn"
-              aria-label={`Remove ${row.label.toLowerCase()}`}
-              onClick={() => row.onRemove(1)}
-            >
-              − {row.label.slice(0, -1)}
-            </button>
+        <div key={row.label} className="insp-field">
+          <label className="insp-field__label">{row.label}</label>
+          <div className="insp-field__control">
+            <div className="insp-field-row__split">
+              <NumberField
+                label={row.label}
+                value={row.value}
+                step={1}
+                min={0}
+                onChange={(v) => {
+                  const diff = Math.floor(v) - row.value;
+                  if (diff > 0) row.onInsert(diff);
+                  else if (diff < 0) row.onRemove(-diff);
+                }}
+              />
+              <button
+                type="button"
+                className="insp-inline-btn"
+                aria-label={`Add ${row.singular.toLowerCase()}`}
+                onClick={() => row.onInsert(1)}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="insp-inline-btn"
+                aria-label={`Remove ${row.singular.toLowerCase()}`}
+                onClick={() => row.onRemove(1)}
+              >
+                −
+              </button>
+            </div>
           </div>
-        </FieldRow>
+        </div>
       ))}
 
-      <FieldRow label="Header rows">
-        <NumberField
-          label="Header rows"
-          value={table.headerRows}
-          step={1}
-          min={0}
-          max={rowCount}
-          onChange={(v) => op((t) => setHeaderRows(t, v))}
-        />
-      </FieldRow>
-      <FieldRow label="Header columns">
-        <NumberField
-          label="Header columns"
-          value={table.headerColumns}
-          step={1}
-          min={0}
-          max={columnCount}
-          onChange={(v) => op((t) => setHeaderColumns(t, v))}
-        />
-      </FieldRow>
-      <FieldRow label="Frozen rows">
-        <NumberField
-          label="Frozen rows"
-          value={table.frozenRows}
-          step={1}
-          min={0}
-          max={rowCount}
-          onChange={(v) => op((t) => setFrozenRows(t, v))}
-        />
-      </FieldRow>
-      <FieldRow label="Frozen columns">
-        <NumberField
-          label="Frozen columns"
-          value={table.frozenColumns}
-          step={1}
-          min={0}
-          max={columnCount}
-          onChange={(v) => op((t) => setFrozenColumns(t, v))}
-        />
-      </FieldRow>
+      <NumberField
+        label="Header rows"
+        value={table.headerRows}
+        step={1}
+        min={0}
+        max={rowCount}
+        onChange={(v) => op((t) => setHeaderRows(t, v))}
+      />
+      <NumberField
+        label="Header columns"
+        value={table.headerColumns}
+        step={1}
+        min={0}
+        max={columnCount}
+        onChange={(v) => op((t) => setHeaderColumns(t, v))}
+      />
+      <NumberField
+        label="Frozen rows"
+        value={table.frozenRows}
+        step={1}
+        min={0}
+        max={rowCount}
+        onChange={(v) => op((t) => setFrozenRows(t, v))}
+      />
+      <NumberField
+        label="Frozen columns"
+        value={table.frozenColumns}
+        step={1}
+        min={0}
+        max={columnCount}
+        onChange={(v) => op((t) => setFrozenColumns(t, v))}
+      />
       <FieldRow label="Density">
         <SegmentedControl
           label="Density"
@@ -169,24 +166,20 @@ export function TableSection({ node }: Props) {
           onChange={(e) => op((t) => setZebra(t, e.target.checked))}
         />
       </FieldRow>
-      <FieldRow label="Row gap">
-        <NumberField
-          label="Row gap"
-          value={table.appearance.rowGap}
-          step={1}
-          min={0}
-          onChange={(v) => op((t) => setAppearance(t, { rowGap: v }))}
-        />
-      </FieldRow>
-      <FieldRow label="Column gap">
-        <NumberField
-          label="Column gap"
-          value={table.appearance.columnGap}
-          step={1}
-          min={0}
-          onChange={(v) => op((t) => setAppearance(t, { columnGap: v }))}
-        />
-      </FieldRow>
+      <NumberField
+        label="Row gap"
+        value={table.appearance.rowGap}
+        step={1}
+        min={0}
+        onChange={(v) => op((t) => setAppearance(t, { rowGap: v }))}
+      />
+      <NumberField
+        label="Column gap"
+        value={table.appearance.columnGap}
+        step={1}
+        min={0}
+        onChange={(v) => op((t) => setAppearance(t, { columnGap: v }))}
+      />
       <FieldRow label="Border mode">
         <SegmentedControl
           label="Border mode"
@@ -198,24 +191,20 @@ export function TableSection({ node }: Props) {
           onChange={(v) => op((t) => setAppearance(t, { borderCollapse: v }))}
         />
       </FieldRow>
-      <FieldRow label="Border width">
-        <NumberField
-          label="Border width"
-          value={table.appearance.borderWidth}
-          step={1}
-          min={0}
-          onChange={(v) => op((t) => setAppearance(t, { borderWidth: v }))}
-        />
-      </FieldRow>
-      <FieldRow label="Corner radius">
-        <NumberField
-          label="Corner radius"
-          value={table.appearance.cornerRadius}
-          step={1}
-          min={0}
-          onChange={(v) => op((t) => setAppearance(t, { cornerRadius: v }))}
-        />
-      </FieldRow>
+      <NumberField
+        label="Border width"
+        value={table.appearance.borderWidth}
+        step={1}
+        min={0}
+        onChange={(v) => op((t) => setAppearance(t, { borderWidth: v }))}
+      />
+      <NumberField
+        label="Corner radius"
+        value={table.appearance.cornerRadius}
+        step={1}
+        min={0}
+        onChange={(v) => op((t) => setAppearance(t, { cornerRadius: v }))}
+      />
       <FieldRow label="Distribute columns">
         <button
           type="button"
