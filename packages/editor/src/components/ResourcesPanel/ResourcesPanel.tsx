@@ -15,6 +15,7 @@ import { IconBrowser } from '../IconBrowser/IconBrowser';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
 import { MockupsPanel } from '../Mockups/MockupsPanel';
+import { PanelDragHandle } from '../PanelDragHandle';
 import './ResourcesPanel.css';
 
 /** Re-exported so Shell mounts the quick-insert dialog without a new import. */
@@ -42,38 +43,45 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
 
   return (
     <section className="resources-panel" aria-label="Resources">
-      <div className="resources-panel__tabs" role="tablist" aria-label="Resources">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'icons'}
-          className={`resources-panel__tab ${activeTab === 'icons' ? 'resources-panel__tab--active' : ''}`}
-          onClick={() => setActiveTab('icons')}
-        >
-          <Icon name="Shapes" size={14} />
-          Icons
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'libraries'}
-          className={`resources-panel__tab ${activeTab === 'libraries' ? 'resources-panel__tab--active' : ''}`}
-          onClick={() => setActiveTab('libraries')}
-        >
-          <Icon name="Library" size={14} />
-          Libraries
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === 'mockups'}
-          className={`resources-panel__tab ${activeTab === 'mockups' ? 'resources-panel__tab--active' : ''}`}
-          onClick={() => setActiveTab('mockups')}
-        >
-          <Icon name="Smartphone" size={14} />
-          Mockups
-        </button>
-      </div>
+      <PanelDragHandle
+        panelTypeId="library"
+        panelInstanceId="library-primary"
+        currentWindowId="main"
+        title="Assets"
+      >
+        <div className="resources-panel__tabs" role="tablist" aria-label="Resources">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'icons'}
+            className={`resources-panel__tab ${activeTab === 'icons' ? 'resources-panel__tab--active' : ''}`}
+            onClick={() => setActiveTab('icons')}
+          >
+            <Icon name="Shapes" size={14} />
+            Icons
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'libraries'}
+            className={`resources-panel__tab ${activeTab === 'libraries' ? 'resources-panel__tab--active' : ''}`}
+            onClick={() => setActiveTab('libraries')}
+          >
+            <Icon name="Library" size={14} />
+            Libraries
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'mockups'}
+            className={`resources-panel__tab ${activeTab === 'mockups' ? 'resources-panel__tab--active' : ''}`}
+            onClick={() => setActiveTab('mockups')}
+          >
+            <Icon name="Smartphone" size={14} />
+            Mockups
+          </button>
+        </div>
+      </PanelDragHandle>
 
       <div
         className={`resources-panel__pane ${activeTab === 'icons' ? '' : 'resources-panel__pane--hidden'}`}

@@ -17,6 +17,7 @@ import type { LogoConceptStatus, LogoVariantKind } from '@varve/scene';
 import { Button, EmptyState, Icon, Select, Tooltip } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
+import { PanelDragHandle } from '../PanelDragHandle';
 import { VectorizeWorkflow } from '../Vectorize/VectorizeWorkflow';
 import { ExportPackageSection } from './ExportPackageSection';
 import { LogoTypographySection } from './LogoTypographySection';
@@ -96,18 +97,25 @@ export function LogoPanel() {
 
   return (
     <section className="logo-panel" aria-label="Logo panel">
-      <header className="logo-panel__header">
-        <div className="logo-panel__title-row">
-          <Icon name="Stamp" size={16} />
-          <h2 className="logo-panel__title">Logo</h2>
-        </div>
-        {project && (
-          <span className="logo-panel__status" role="status">
-            {project.concepts.length} concept{project.concepts.length === 1 ? '' : 's'} ·{' '}
-            {project.variants.length} variant{project.variants.length === 1 ? '' : 's'}
-          </span>
-        )}
-      </header>
+      <PanelDragHandle
+        panelTypeId="logo"
+        panelInstanceId="logo-primary"
+        currentWindowId="main"
+        title="Logo"
+      >
+        <header className="logo-panel__header">
+          <div className="logo-panel__title-row">
+            <Icon name="Stamp" size={16} />
+            <h2 className="logo-panel__title">Logo</h2>
+          </div>
+          {project && (
+            <span className="logo-panel__status" role="status">
+              {project.concepts.length} concept{project.concepts.length === 1 ? '' : 's'} ·{' '}
+              {project.variants.length} variant{project.variants.length === 1 ? '' : 's'}
+            </span>
+          )}
+        </header>
+      </PanelDragHandle>
 
       {!project ? (
         <div className="logo-panel__empty">
