@@ -45,7 +45,7 @@ function replayRepresentative(c, w, h, seed) {
   // Text
   c.fillStyle = '#f8f9fa';
   c.font = '16px sans-serif';
-  c.fillText('varve probe ' + seed, 12, 24);
+  c.fillText(`varve probe ${seed}`, 12, 24);
   c.restore();
 }
 
@@ -190,11 +190,11 @@ self.onmessage = (e) => {
       return;
     }
 
-    reply.error = 'unknown message type ' + msg.type;
+    reply.error = `unknown message type ${msg.type}`;
     self.postMessage(reply);
   } catch (err) {
     reply.ok = false;
-    reply.error = String((err && err.stack) || err);
+    reply.error = String(err?.stack || err);
     self.postMessage(reply);
   }
 };
