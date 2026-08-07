@@ -774,6 +774,10 @@ function buildMenus(
           label: 'Reset Workspace to Default',
           action: 'resetWorkspace',
         },
+        {
+          label: 'Reset All Workspaces to Default',
+          action: 'resetAllWorkspaces',
+        },
         { label: '---' },
         // Focus modes
         {

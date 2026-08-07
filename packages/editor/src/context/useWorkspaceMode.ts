@@ -7,6 +7,7 @@ import {
   getWorkspacePreferences,
   hydrateWorkspacePreferencesFromPlatform,
   isModeCustomized,
+  resetAllPreferences,
   resetModePreferences,
   setPanelOverride,
   updateWorkspacePreferences,
@@ -184,10 +185,18 @@ export function useWorkspaceMode(
     announcerRef.current?.announce(`Reset ${mode} workspace to defaults`);
   }, [state.workspaceMode, state.tool, patch, announcerRef]);
 
+  const resetAllWorkspacesToDefaults = useCallback(() => {
+    const mode = state.workspaceMode;
+    updateWorkspacePreferences(() => resetAllPreferences());
+    applyWorkspaceConfig(getWorkspaceConfig(mode), state.tool, patch);
+    announcerRef.current?.announce('Reset all workspaces to defaults');
+  }, [state.workspaceMode, state.tool, patch, announcerRef]);
+
   return {
     __setWorkspaceModeUnsafe,
     requestWorkspaceSwitch,
     resetWorkspaceToDefault,
+    resetAllWorkspacesToDefaults,
   };
 }
 

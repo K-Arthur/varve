@@ -440,6 +440,7 @@ export interface EditorContextValue {
   __setWorkspaceModeUnsafe: (mode: WorkspaceMode) => void;
   requestWorkspaceSwitch: (mode: WorkspaceMode, options?: { force?: boolean }) => Promise<boolean>;
   resetWorkspaceToDefault: () => void;
+  resetAllWorkspacesToDefaults: () => void;
   // Section visibility
   toggleSectionCollapse: (
     sectionId: import('../components/Inspector/sectionRegistry').SectionId,
