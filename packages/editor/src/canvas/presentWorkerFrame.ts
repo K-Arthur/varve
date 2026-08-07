@@ -19,6 +19,11 @@ import type {
   RedrawCoordinator,
 } from './redrawCoordinator';
 
+// Re-exported so CanvasArea's present path and fallback path share one
+// decorations module without adding a hub-file import line (ADR-0144;
+// CanvasArea is at its import budget).
+export { drawPageDecorations } from './pageDecorations';
+
 interface WorkerBitmapRecord {
   bitmap: ImageBitmap;
   docVersion: number;

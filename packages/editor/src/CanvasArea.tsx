@@ -103,7 +103,6 @@ import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { useOverlayDraw } from './canvas/overlayManager';
-import { drawPageDecorations } from './canvas/pageDecorations';
 import {
   openFullRedraw,
   openMultiRectPartialClip,
@@ -138,7 +137,7 @@ import {
   setApplyFixtureHandler,
   startFrameTiming,
 } from './canvas/perfRuntime';
-import { tryPresentWorkerFrame } from './canvas/presentWorkerFrame';
+import { drawPageDecorations, tryPresentWorkerFrame } from './canvas/presentWorkerFrame';
 import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { getToolManager } from './canvas/toolDispatcher';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
