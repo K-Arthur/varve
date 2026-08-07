@@ -26,6 +26,7 @@ const TOOL_SHORTCUT_IDS: Partial<Record<ToolId, string>> = {
   patch: 'toolPatch',
   smudge: 'toolSmudge',
   sam2Segment: 'toolSam2Segment',
+  page: 'toolPage',
 };
 
 /** Registry action id that carries a tool's shortcut, if the tool has one. */

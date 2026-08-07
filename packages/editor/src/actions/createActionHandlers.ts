@@ -163,6 +163,8 @@ export function createActionHandlers(
     fitAll: () => e.fitAll(),
     fitSelection: () => e.revealSelection({ fit: true }),
     fitActivePage: () => e.fitActivePage(),
+    fitSpread: () => e.fitSpread(),
+    fitAllPages: () => e.fitAllPages(),
     fitActiveFrame: () => e.fitActiveFrame(),
     resetViewRotation: () => e.resetViewRotation(),
     rotateViewCW: () => e.rotateViewBy(Math.PI / 12),
@@ -248,6 +250,7 @@ export function createActionHandlers(
     toolSlice: setTool('slice'),
     toolCloneStamp: setTool('cloneStamp'),
     toolSam2Segment: setTool('sam2Segment'),
+    toolPage: setTool('page'),
 
     // ── Object ──
     group: () => e.groupSelected(),

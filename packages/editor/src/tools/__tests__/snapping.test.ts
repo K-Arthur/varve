@@ -1,4 +1,6 @@
+import { addPage, createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+import { pageSnapTargets } from '../snapping';
 import {
   createSnapSession,
   filterSnapTargets,
@@ -477,5 +479,33 @@ describe('snapPosition — sticky hysteresis', () => {
   it('allows placement near guide without snapping when outside threshold', () => {
     const result = snapPosition(12, 50, 100, 100, [box(0, 50, 100, 100)]);
     expect(result.x).toBe(12);
+  });
+});
+
+describe('pageSnapTargets (M6 — all pages on the pasteboard)', () => {
+  it('returns the placed trim bounds of every page', () => {
+    let doc = createDocument('snap', false);
+    doc = addPage(doc, {});
+    doc = {
+      ...doc,
+      pages: doc.pages!.map((p, i) => ({
+        ...p,
+        placement: { x: i * 2500, y: i * 1200 },
+      })),
+    };
+    const targets = pageSnapTargets(doc);
+    expect(targets).toHaveLength(2);
+    expect(targets[0]).toEqual({ x: 0, y: 0, w: doc.pages![0]!.width, h: doc.pages![0]!.height });
+    expect(targets[1]).toEqual({
+      x: 2500,
+      y: 1200,
+      w: doc.pages![1]!.width,
+      h: doc.pages![1]!.height,
+    });
+  });
+
+  it('returns no targets for flat documents without pages', () => {
+    const doc = createDocument('snap', true);
+    expect(pageSnapTargets(doc)).toEqual([]);
   });
 });

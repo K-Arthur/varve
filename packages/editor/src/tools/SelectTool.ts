@@ -21,6 +21,7 @@ import {
   isInIsolatedSubtree,
   type NodeId,
   walkNodes,
+  worldToPageAtPoint,
 } from '@varve/scene';
 import {
   cubicBezierClosestPoint,
@@ -258,6 +259,12 @@ export class SelectTool extends BaseTool {
       if (!e.shiftKey && !ctx.touchMultiSelect.active) {
         ctx.setSelection(null);
         ctx.announceSelection([]);
+      }
+      // M6: clicking a page's trim background activates that page (page
+      // navigation and page-scoped commands follow the active page).
+      const pageAt = worldToPageAtPoint(ctx.document, world);
+      if (pageAt && pageAt.pageId !== ctx.document.activePageId) {
+        ctx.setActivePage?.(pageAt.pageId);
       }
       this.marqueeActive = !ctx.touchMultiSelect.active;
       this.isMoveGesture = false;
@@ -514,18 +521,45 @@ export class SelectTool extends BaseTool {
                 ctx.reparentNode(selId, frameId, baseIndex + localIndex);
                 insertIndexByParent.set(frameId, localIndex + 1);
               }
-            } else if (!this.isAtTopLevel(selId, ctx)) {
-              // No containing frame: pop the node out to the page top level,
-              // but only if it is not already there. A top-level node's parent
-              // is the active page's contentRoot, not null, so a bare
-              // `parent !== null` check reparented every dragged node to the
-              // same contentRoot it already lived in — a redundant reparent
-              // that produced a new document and thus a no-op undo entry on
-              // top of the real move (one gesture then took two undos).
-              const baseIndex = ctx.rootNodes().length;
-              const localIndex = insertIndexByParent.get(null) ?? 0;
-              ctx.reparentNode(selId, null, baseIndex + localIndex);
-              insertIndexByParent.set(null, localIndex + 1);
+            } else {
+              // No containing frame: resolve the destination page under the
+              // drop point and reparent the node to that page's top level —
+              // the active page's contentRoot on a pasteboard/active-page
+              // drop (null), or the destination page's contentRoot for a
+              // cross-page drop (M6). Placement-aware world transforms
+              // convert the local transform, so the node keeps its visual
+              // world position across the move. A drop on the node's own
+              // page top level is a no-op (never reparent to the parent it
+              // already has — that would push a redundant document write and
+              // a no-op undo entry on top of the real move).
+              const currentParent = getParent(ctx.document, selId);
+              let destParent: NodeId | null = null;
+              let alreadyHome = false;
+              const destPage = worldToPageAtPoint(ctx.document, { x: centerX, y: centerY });
+              if (destPage) {
+                const dest = ctx.document.pages?.find((p) => p.id === destPage.pageId);
+                if (dest) {
+                  if (dest.contentRoot === currentParent) {
+                    alreadyHome = true;
+                  } else if (destPage.pageId === ctx.document.activePageId) {
+                    destParent = null;
+                  } else {
+                    destParent = dest.contentRoot;
+                  }
+                }
+              } else {
+                const activePage = ctx.document.pages?.find(
+                  (p) => p.id === ctx.document.activePageId,
+                );
+                if (activePage && currentParent === activePage.contentRoot) alreadyHome = true;
+              }
+              if (!alreadyHome && destParent !== currentParent) {
+                const parentKey = destParent ?? null;
+                const baseIndex = ctx.rootNodes().length;
+                const localIndex = insertIndexByParent.get(parentKey) ?? 0;
+                ctx.reparentNode(selId, destParent, baseIndex + localIndex);
+                insertIndexByParent.set(parentKey, localIndex + 1);
+              }
             }
           }
           ctx.commitTransaction();
@@ -628,18 +662,48 @@ export class SelectTool extends BaseTool {
               index: baseIndex + localIndex,
             });
             insertIndexByParent.set(frameId, localIndex + 1);
-          } else if (!frameId && !this.isAtTopLevel(selId, ctx)) {
-            // Same top-level equivalence as onDragEnd: a node already directly
-            // under the page contentRoot must not be reparented to "null"
-            // (which resolves back to that same contentRoot).
-            const baseIndex = ctx.rootNodes().length;
-            const localIndex = insertIndexByParent.get(null) ?? 0;
-            reparentOps.push({
-              id: selId,
-              parentId: null,
-              index: baseIndex + localIndex,
+          } else {
+            // Same top-level equivalence as onDragEnd, destination-aware:
+            // a nudge that stays on the node's own page top level is a
+            // no-op; a nudge onto another page's trim moves the node to
+            // THAT page's contentRoot (world position preserved, M6); a
+            // nudge onto the pasteboard pops to the active page's top
+            // level (null).
+            const currentParent = getParent(ctx.document, selId);
+            let destParent: NodeId | null = null;
+            let alreadyHome = false;
+            const destPage = worldToPageAtPoint(ctx.document, {
+              x: node.transform[4],
+              y: node.transform[5],
             });
-            insertIndexByParent.set(null, localIndex + 1);
+            if (destPage) {
+              const dest = ctx.document.pages?.find((p) => p.id === destPage.pageId);
+              if (dest) {
+                if (dest.contentRoot === currentParent) {
+                  alreadyHome = true;
+                } else if (destPage.pageId === ctx.document.activePageId) {
+                  destParent = null;
+                } else {
+                  destParent = dest.contentRoot;
+                }
+              }
+            } else {
+              const activePage = ctx.document.pages?.find(
+                (p) => p.id === ctx.document.activePageId,
+              );
+              if (activePage && currentParent === activePage.contentRoot) alreadyHome = true;
+            }
+            if (!alreadyHome && destParent !== currentParent) {
+              const parentKey = destParent ?? null;
+              const baseIndex = ctx.rootNodes().length;
+              const localIndex = insertIndexByParent.get(parentKey) ?? 0;
+              reparentOps.push({
+                id: selId,
+                parentId: destParent,
+                index: baseIndex + localIndex,
+              });
+              insertIndexByParent.set(parentKey, localIndex + 1);
+            }
           }
         }
         if (reparentOps.length > 0) {
