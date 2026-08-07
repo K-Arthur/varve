@@ -139,6 +139,7 @@ input[type="number"] {
     "tabs     tabs      tabs      logoarea"
     "layers   canvas    inspector logoarea"
     "timeline timeline  timeline  logoarea"
+    "history  history   history   logoarea"
     "pagenav  pagenav   pagenav   logoarea"
     "selinfo  selinfo   selinfo   logoarea"
     "status   status    status    logoarea";
@@ -1619,9 +1620,13 @@ input[type="number"] {
   cursor: pointer;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
-.history-panel__tab:hover { background: var(--elevation-surface-hover); }
+.history-panel__tab:hover {
+  background: var(--elevation-surface-hover);
+}
 .history-panel__tab--active {
   color: var(--text-primary);
   background: var(--elevation-surface-default);
@@ -1635,7 +1640,9 @@ input[type="number"] {
   min-height: 0;
 }
 
-.history-panel__search { padding: 6px 8px; }
+.history-panel__search {
+  padding: 6px 8px;
+}
 .history-panel__search-input {
   width: 100%;
   padding: 4px 8px;
@@ -1699,7 +1706,9 @@ input[type="number"] {
   cursor: pointer;
 }
 
-.history-panel__steps { padding: 2px 0; }
+.history-panel__steps {
+  padding: 2px 0;
+}
 
 .history-panel__step {
   display: flex;
@@ -1710,15 +1719,24 @@ input[type="number"] {
   border-left: 3px solid transparent;
   transition: background 0.1s;
 }
-.history-panel__step:hover { background: var(--elevation-surface-hover); }
-.history-panel__step:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+.history-panel__step:hover {
+  background: var(--elevation-surface-hover);
+}
+.history-panel__step:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
 .history-panel__step--head {
   background: var(--elevation-surface-active);
   border-left-color: var(--accent-primary);
   font-weight: 600;
 }
-.history-panel__step--checkpoint { border-left-color: var(--status-warning); }
-.history-panel__step--branch { border-left-color: var(--status-info); }
+.history-panel__step--checkpoint {
+  border-left-color: var(--status-warning);
+}
+.history-panel__step--branch {
+  border-left-color: var(--status-info);
+}
 
 .history-panel__step-main {
   display: flex;
@@ -1771,7 +1789,9 @@ input[type="number"] {
 }
 
 /* Branches */
-.history-panel__branches { padding: 4px 0; }
+.history-panel__branches {
+  padding: 4px 0;
+}
 .history-panel__branch {
   display: flex;
   align-items: center;
@@ -1785,9 +1805,18 @@ input[type="number"] {
   border-left-color: var(--accent-primary);
   font-weight: 600;
 }
-.history-panel__branch-main { display: flex; gap: 6px; align-items: center; }
-.history-panel__branch-name { color: var(--text-primary); }
-.history-panel__branch-status { color: var(--text-tertiary); font-size: 10px; }
+.history-panel__branch-main {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.history-panel__branch-name {
+  color: var(--text-primary);
+}
+.history-panel__branch-status {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
 .history-panel__branch-switch {
   padding: 2px 8px;
   border: 1px solid var(--border-default);
@@ -1797,7 +1826,9 @@ input[type="number"] {
   font-size: 10px;
   cursor: pointer;
 }
-.history-panel__branch-switch:hover { background: var(--elevation-surface-hover); }
+.history-panel__branch-switch:hover {
+  background: var(--elevation-surface-hover);
+}
 
 /* Checkpoints */
 .history-panel__section-title {
@@ -1808,7 +1839,9 @@ input[type="number"] {
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
-.history-panel__checkpoints { padding: 4px 0; }
+.history-panel__checkpoints {
+  padding: 4px 0;
+}
 .history-panel__checkpoint {
   display: flex;
   align-items: center;
@@ -1816,8 +1849,12 @@ input[type="number"] {
   padding: 5px 8px;
   cursor: pointer;
 }
-.history-panel__checkpoint:hover { background: var(--elevation-surface-hover); }
-.history-panel__checkpoint-name { color: var(--text-primary); }
+.history-panel__checkpoint:hover {
+  background: var(--elevation-surface-hover);
+}
+.history-panel__checkpoint-name {
+  color: var(--text-primary);
+}
 
 /* Compare */
 .history-panel__compare-form {
@@ -1850,7 +1887,10 @@ input[type="number"] {
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
-.history-panel__compare-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.history-panel__compare-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .history-panel__diff-summary {
   padding: 8px;
@@ -1862,9 +1902,15 @@ input[type="number"] {
   font-size: var(--font-size-xs);
   font-weight: 600;
 }
-.history-panel__diff-added { color: var(--status-success, #059669); }
-.history-panel__diff-removed { color: var(--status-error, #dc2626); }
-.history-panel__diff-modified { color: var(--status-warning, #d97706); }
+.history-panel__diff-added {
+  color: var(--status-success, #059669);
+}
+.history-panel__diff-removed {
+  color: var(--status-error, #dc2626);
+}
+.history-panel__diff-modified {
+  color: var(--status-warning, #d97706);
+}
 
 /* Keep this after the base panel declarations. Their position:relative used
  * to win the cascade and leave an "opened" mobile drawer in the zero-width
