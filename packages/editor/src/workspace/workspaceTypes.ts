@@ -233,6 +233,8 @@ export interface WorkspacePreference {
   inspectorTabOverrides?: Partial<Record<InspectorTabId, boolean>>;
   /** Mode-specific status section visibility overrides (section id → visible). */
   statusSectionOverrides?: Partial<Record<StatusSectionId, boolean>>;
+  /** Per-workspace panel widths (keyed by panel id, value in pixels). */
+  panelWidths?: Partial<Record<PanelId, number>>;
   /** Whether the user has customized this mode. */
   customized: boolean;
   /** Timestamp of last customization. */
