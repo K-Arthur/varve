@@ -157,6 +157,8 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
   }, [tableEdit, tableNode, moveSelection, clearSelectionCells, patchEdit, editor]);
 
   // Column resize via pointer drag on handle lines.
+  // Transaction coalescing: begin on first move, commit on pointer up →
+  // the whole drag is ONE coherent undo entry, matching NumberField scrubbing.
   const onHandlePointerDown = useCallback(
     (e: React.PointerEvent, columnIdx: number) => {
       if (!tableNode || !layout || !tableEdit) return;
@@ -168,17 +170,26 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
         startWidth: layout.colWidths[columnIdx] ?? TABLE_LAYOUT_MIN_TRACK,
       };
       const capture = (e.target as HTMLElement).ownerDocument;
+      let transactionOpen = false;
       const onMove = (ev: PointerEvent): void => {
         if (!dragRef.current) return;
         const dx = (ev.clientX - dragRef.current.startX) / zoom;
         const nextWidth = Math.max(TABLE_LAYOUT_MIN_TRACK, dragRef.current.startWidth + dx);
         const columnId = tableNode.table.columnOrder[columnIdx];
         if (!columnId) return;
+        if (!transactionOpen) {
+          editor.beginTransaction();
+          transactionOpen = true;
+        }
         editor.tableOp(tableEdit.tableId, (table) =>
           setColumnSizing(table, columnId, { kind: 'fixed', value: nextWidth }),
         );
       };
       const onUp = (): void => {
+        if (transactionOpen) {
+          editor.commitTransaction();
+          transactionOpen = false;
+        }
         dragRef.current = null;
         capture.removeEventListener('pointermove', onMove);
         capture.removeEventListener('pointerup', onUp);
