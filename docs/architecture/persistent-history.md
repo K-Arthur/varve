@@ -26,7 +26,7 @@ the planned milestones.
 | 14. Review bundles | Landed | `c25b9d65` |
 | 15. Collaboration integration | Deferred by directive (2026-08-05) | — |
 | 16. Multimodal assistance | Deferred by directive (2026-08-05) | — |
-| 17. Hardening | Partial (validation); fuzzing/a11y/RAM pending | — |
+| 17. Hardening | Landed (fuzz, fault injection, conflict matrix, CLI smoke, axe a11y, perf benches) | `a0447a` pending — see tracker |
 
 Tracker: `docs/plans/persistent-history-progress.md`.
 

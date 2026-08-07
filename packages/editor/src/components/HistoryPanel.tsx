@@ -314,7 +314,7 @@ export function HistoryPanel() {
             </div>
           )}
 
-          <div className="history-panel__steps" role="list">
+          <div className="history-panel__steps">
             {filteredSteps.map((step) => (
               <button
                 key={step.revision.revisionId}
@@ -455,7 +455,7 @@ export function HistoryPanel() {
             </div>
           )}
 
-          <div className="history-panel__checkpoints" role="list">
+          <div className="history-panel__checkpoints">
             {checkpoints.map((cp) => (
               <button
                 key={cp.checkpointId}
