@@ -76,7 +76,7 @@ export interface RichTextLayout {
   overset: boolean;
 }
 
-function buildFontString(
+export function buildFontString(
   fontSize: number,
   fontFamily: string,
   fontWeight?: number,
@@ -121,7 +121,7 @@ function getMeasureContext(): CanvasRenderingContext2D | null {
 }
 
 /** Measure text width using canvas measureText when available, else estimate. */
-function measureRunWidth(text: string, font: string, fontSize: number): number {
+export function measureRunWidth(text: string, font: string, fontSize: number): number {
   const ctx = getMeasureContext();
   if (ctx) {
     ctx.font = font;
