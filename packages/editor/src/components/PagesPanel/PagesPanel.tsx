@@ -22,6 +22,7 @@ import {
   removePage as removePageDoc,
   reorderPages as reorderPagesDoc,
 } from '@varve/scene';
+import { Icon } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { usePageThumbnail } from '../PageNav/usePageThumbnail';
@@ -296,7 +297,7 @@ function PageRow({
             onMove(-1);
           }}
         >
-          ↑
+          <Icon name="ArrowUp" size={12} aria-hidden />
         </button>
         <button
           type="button"
@@ -308,7 +309,7 @@ function PageRow({
             onMove(1);
           }}
         >
-          ↓
+          <Icon name="ArrowDown" size={12} aria-hidden />
         </button>
         <button
           type="button"
@@ -319,7 +320,7 @@ function PageRow({
             onDuplicate();
           }}
         >
-          ⧉
+          <Icon name="Copy" size={12} aria-hidden />
         </button>
         <button
           type="button"
@@ -330,7 +331,7 @@ function PageRow({
             onDelete();
           }}
         >
-          ×
+          <Icon name="X" size={12} aria-hidden />
         </button>
       </span>
     </li>

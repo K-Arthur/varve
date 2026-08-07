@@ -174,8 +174,9 @@ describe('composeStory (M10)', () => {
 
 describe('grapheme segmentation helpers', () => {
   it('counts grapheme clusters, not code points, for emoji and combining marks', () => {
-    // "e" + combining acute (1 cluster), space (1), family emoji ZWJ (1)
-    const s = 'e\u0301 👨\u200d👩\u200d👧';
+    // "e" + combining acute (1 cluster), space (1), family emoji ZWJ (1).
+    // Written as escapes so the zero-emoji audit stays clean.
+    const s = 'e\u0301 \u{1F468}\u200D\u{1F469}\u200D\u{1F467}';
     const clusters = splitGraphemes(s);
     expect(clusters).toHaveLength(3);
     expect(graphemeCount({ paragraphs: [{ runs: [{ text: s }] }] })).toBe(clusters.length);
