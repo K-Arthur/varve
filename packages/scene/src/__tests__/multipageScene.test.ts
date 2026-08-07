@@ -4,6 +4,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
+import type { GroupNode } from '../types';
 import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
 import { addMasterOverride, assignMasterToPage, createMaster } from '../document-components';
 import {
