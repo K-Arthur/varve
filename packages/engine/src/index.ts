@@ -732,6 +732,8 @@ export {
 export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
 // ── Text pipeline: shaping, BiDi, grapheme segmentation ──────────────────
 export { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
+export * from './storyComposition';
+export * from './textLayout';
 export type {
   EmbeddingRestriction,
   GlyphOutline,
