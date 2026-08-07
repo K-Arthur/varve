@@ -5,7 +5,7 @@
  * export/import, and monitor-aware restoration.
  */
 
-import type { DisplayInfo } from '@varve/platform/src/windows/types';
+import type { DisplayInfo } from '@varve/platform';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { NativeWorkspaceLayout } from '../dockTypes';
 import type { MachinePlacement } from '../layoutPersistence';
@@ -106,7 +106,7 @@ describe('layoutPersistence: machine placements', () => {
     saveMachinePlacements(placements);
     const loaded = loadMachinePlacements();
     expect(loaded).toHaveLength(1);
-    expect(loaded[0].windowId).toBe('main');
+    expect(loaded[0]!. windowId).toBe('main');
   });
 
   it('returns empty for corrupt data', () => {
@@ -141,7 +141,7 @@ describe('layoutPersistence: migration from current settings', () => {
     });
 
     expect(layout.panelInstances).toHaveLength(1);
-    expect(layout.panelInstances[0].panelTypeId).toBe('layers');
+    expect(layout.panelInstances[0]!. panelTypeId).toBe('layers');
   });
 
   it('creates a single-panel layout when only right visible', () => {
@@ -154,7 +154,7 @@ describe('layoutPersistence: migration from current settings', () => {
     });
 
     expect(layout.panelInstances).toHaveLength(1);
-    expect(layout.panelInstances[0].panelTypeId).toBe('inspector');
+    expect(layout.panelInstances[0]!. panelTypeId).toBe('inspector');
   });
 
   it('creates an empty layout when no panels visible', () => {
@@ -175,7 +175,7 @@ describe('layoutPersistence: restore against monitors', () => {
   it('restores windows with no saved placements to primary display', () => {
     const result = restoreLayoutAgainstMonitors(TEST_LAYOUT, [], TEST_DISPLAYS);
     expect(result.placements).toHaveLength(1);
-    expect(result.placements[0].displayId).toBe('display-1');
+    expect(result.placements[0]!. displayId).toBe('display-1');
   });
 
   it('restores windows to matched displays when fingerprint is available', () => {
@@ -197,17 +197,17 @@ describe('layoutPersistence: restore against monitors', () => {
     const result = restoreLayoutAgainstMonitors(TEST_LAYOUT, placements, TEST_DISPLAYS);
     expect(result.placements).toHaveLength(1);
     // Should be clamped to the secondary display's work area
-    expect(result.placements[0].logicalPosition.x).toBeGreaterThanOrEqual(1920);
+    expect(result.placements[0]!. logicalPosition.x).toBeGreaterThanOrEqual(1920);
   });
 });
 
 describe('layoutPersistence: export/import', () => {
   it('export strips machine-specific placement data', () => {
-    const layoutWithPlacement = {
+    const layoutWithPlacement: NativeWorkspaceLayout = {
       ...TEST_LAYOUT,
       windows: [
         {
-          ...TEST_LAYOUT.windows[0],
+          ...TEST_LAYOUT.windows[0]!,
           placement: {
             logicalPosition: { x: 0, y: 0 },
             logicalSize: { width: 1280, height: 800 },
@@ -219,7 +219,7 @@ describe('layoutPersistence: export/import', () => {
 
     const exported = exportLogicalLayout(layoutWithPlacement);
     const parsed = JSON.parse(exported);
-    expect(parsed.windows[0].placement).toBeUndefined();
+    expect(parsed.windows[0]!. placement).toBeUndefined();
   });
 
   it('import round-trips through export', () => {

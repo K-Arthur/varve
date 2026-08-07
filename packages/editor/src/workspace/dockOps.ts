@@ -25,9 +25,9 @@ import type {
   NativeWorkspaceLayout,
   PanelInstance,
   PanelInstanceNodeId,
-  PanelTypeId,
   WorkspaceWindowLayout,
 } from './dockTypes';
+import type { PanelTypeId } from './panelRegistry';
 import {
   clampRatio,
   createEmptyDockNode,
