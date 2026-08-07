@@ -744,6 +744,10 @@ function buildMenus(
           ariaKeyshortcut: ks('toggleLogoPanel'),
           action: 'toggleLogoPanel',
         },
+        {
+          label: 'History Panel',
+          action: 'toggleHistoryPanel',
+        },
         { label: '---' },
         // Workspace
         {

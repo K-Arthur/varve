@@ -27,6 +27,7 @@ export const ALL_PANEL_TYPES: readonly PanelTypeId[] = [
   'library',
   'codegen',
   'logo',
+  'history',
 ] as const;
 
 const definitions: PanelDefinition[] = [
@@ -224,6 +225,35 @@ const definitions: PanelDefinition[] = [
       moveTo: 'Move Logo panel to another window',
       close: 'Close Logo panel',
     },
+  },
+  {
+    id: 'history',
+    title: 'History',
+    icon: 'Clock',
+    instancePolicy: 'singleton',
+    documentRequirement: 'active-document',
+    selectionScope: 'none',
+    allowedHosts: ['primary-sidebar', 'auxiliary-window'],
+    detachable: false,
+    dockable: true,
+    minimumSize: { width: 200, height: 120 },
+    preferredSize: { width: 280, height: 320 },
+    loadPolicy: 'lazy',
+    inactivePolicy: 'unmount-with-state',
+    capabilities: {
+      requiresCanvas: false,
+      requiresRenderer: false,
+      requiresModels: false,
+      supportsMultipleInstances: false,
+      supportsDocumentPinning: false,
+    },
+    a11yLabels: {
+      detach: 'Detach History panel',
+      reattach: 'Reattach History panel',
+      moveTo: 'Move History panel to another window',
+      close: 'Close History panel',
+    },
+    emptyState: { title: 'No history', description: 'Open a document to see revision history.' },
   },
 ];
 
