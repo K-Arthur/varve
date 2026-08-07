@@ -15,9 +15,9 @@ and Git program defined in ADRs 0017-0046. Current-state summary:
 | 4 | Typed mutation pipeline (core) | **Landed** | `054af3b1`, restored `7c4cde64`; registry + transaction coordinator + 7 operation families, 13 tests |
 | 5 | Immutable log and replay | **Landed** | `1af1ef2e`; `@varve/history`: segments, `HistoryStore`, revisions, replay, entity index — 17 tests |
 | 6 | Snapshots and recovery | **Landed** | `1af1ef2e`; snapshots + scheduling, tail recovery, validation, legacy version import (ADR-0024) |
-| 7 | Persistent undo/redo | **Core landed, editor wiring pending** | `581eb7c7`; revision-DAG navigation (`undo.ts`): undo/redo/undoN/undoTo, first-parent chains, divergence branching (ADR-0019 Model A store core), 16 tests |
-| 8 | History panel | Next | ADR-0043/0044 — editor UI, requires `context.tsx` wiring |
-| 9 | Checkpoints and branches | **Core landed, UI pending** | `581eb7c7`; branch/checkpoint naming policy (`branchNames.ts`, ADR-0023), 8 tests; refs already in the store |
+| 7 | Persistent undo/redo + editor wiring | **Landed** | Store core `581eb7c7` (16 tests); editor session `5e382f17` (12 session tests): `EditorHistorySession` with attach/capture/undo/redo/divergence/mergeBase, `usePersistentHistory` watcher hook, context wiring, diff.ts undefined-array fix |
+| 8 | History panel | Next | ADR-0043/0044 — registered panel, requires `context.tsx` panel slot |
+| 9 | Checkpoints and branches | **Core landed, UI pending** | Store refs `581eb7c7` (8 tests); session API landed `5e382f17` (create/rename/pin/delete, protection rules); panel UI pending |
 | 10 | Semantic diff | **Landed** | `581eb7c7`; `diff.ts` (ADR-0028): entity/property-level changes keyed by persistent ids, ordered-collection LCS, property-specific epsilon policies, grapheme text ranges — 17 tests |
 | 11 | Three-way merge | **Landed** | `581eb7c7`; `merge.ts` (ADR-0034): conflict keys, edit-vs-delete/add-vs-add/rename/text-overlap/reorder conflicts, deterministic three-way order merge for id-keyed arrays, `commitMergeRevision` two-parent revisions — 27 tests |
 | 12 | Conflict resolver | Next | ADR-0035 — resolver UI over the merge manifest (base/ours/theirs values already captured per conflict) |
@@ -33,20 +33,25 @@ Milestones 15 (collaboration integration) and 16 (multimodal assistance) are
 explicitly out of scope per the session directive. Do not start them without
 a new instruction.
 
-## Known coordination notes (2026-08-05)
+## Known coordination notes (2026-08-05, updated 2026-08-07)
 
 The main working tree is shared with concurrent feature work (mockup/tables/
-tokens/warp). Milestones 1-2 content was swept out of the committed tree once
-by a concurrent index operation and re-landed as restore commits
-(`666ddb5e`, `7c5ee704`); M4 was swept once and restored (`7c4cde64`) —
-content identical to the originals. If the history-system modules
-(`identity.ts`, `migrateIds.ts`, `canonical.ts`, `sha256.ts`,
-`operations/`, `packages/history/`, `packages/cli/`) ever disappear from
-HEAD again without a persistent-history commit explaining it, re-land them
-from the commits listed above; do not assume removal was intentional.
+tokens/warp/multi-window). C1 and C2 (capture op + editor session) were
+committed in `a3c766fb` and `5e382f17` respectively — both were swept into
+the concurrent agent's commits due to shared-tree staging (content intact,
+commit messages describe the concurrent agent's changes). If the history
+system modules (`packages/history/`, `packages/editor/src/history/`,
+`packages/scene/src/operations/ops/captureOps.ts`) ever disappear from HEAD,
+re-land from `5e382f17`.
 
 ## Follow-up backlog
 
+- History panel as a workspace-registered panel (ADR-0043/0044) with steps
+  list, markers, search, preview, checkpoint/branch tabs.
+- Comparison workspace UI (ADR-0028/0035): base/target selectors, semantic
+  summary, changed-entity tree, canvas highlights, review artifact export.
+- Conflict resolver UI over the merge manifest (ADR-0035): pick
+  ours/theirs/base per conflict, visual previews, typed editors.
 - Migrate remaining editor mutation paths to typed dispatch by functional
   area (inspector setters → `node.patch`; text editing grouping per
   ADR-0018; prototype-playback undo pollution fix).
@@ -54,13 +59,8 @@ from the commits listed above; do not assume removal was intentional.
   `component.*`, `variable.set-value`, `path.*`, `timeline.*`.
 - Wire `VersionHistoryService` as a facade over the revision store
   (ADR-0024); migrate web versions + desktop localStorage versions.
-- Editor wiring for the undo core: bind undo/redo commands to
-  `undoRevision`/`redoRevision`, keyboard shortcuts, and the in-memory
-  editor undo stack interaction (ADR-0019).
-- History panel as a workspace-registered panel (ADR-0043/0044) and
-  checkpoints/branches UI (ADR-0023 refs are store-side; panels pending).
-- Conflict resolver UI over the merge manifest (ADR-0035): pick
-  ours/theirs/base per conflict, then `commitMergeRevision`.
 - Review bundle pixel previews via the headless renderer (deferred).
 - Hardening: fuzzing for diff/merge, cross-platform CLI smoke tests,
   a11y audit of the review viewer, 4 GB RAM benchmarks.
+- Persistence backends: IndexedDB store exists; SQLite (desktop), OPFS
+  (browser), and memory-for-test backends per platform package.

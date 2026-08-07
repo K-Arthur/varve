@@ -22,6 +22,7 @@ import type {
   SemanticNode,
 } from './ir-types';
 import { DEFAULT_BREAKPOINTS } from './ir-types';
+import { warpRequiresFlattening } from './warpBake';
 
 // ── Flattening Analysis (v2.1) ─────────────────────────────────────────────────
 
@@ -105,6 +106,10 @@ function computeFlattenInfo(node: SceneNode, _doc: Document): FlattenInfo {
       if (ak === 'gradientMap') reasons.push('gradient-map');
     }
   }
+
+  // No code target has an envelope/mesh primitive; emitting the source
+  // geometry natively would silently drop the deformation.
+  if (warpRequiresFlattening(node)) reasons.push('warp');
 
   const mustFlatten = reasons.length > 0;
   const flattensChildren =
