@@ -603,3 +603,107 @@ describe('filter compositing', () => {
     expect(target.filter).toBe('none');
   });
 });
+
+describe('halftone through the compositor (canvas preview + export parity path)', () => {
+  // Both the interactive canvas preview and the export rasterizer route the
+  // halftone FilterIR through applySoftwareFilter. These tests assert the
+  // shared path produces screened pixels with the expected tonal/color
+  // behavior.
+
+  function grayImage(w: number, h: number, gray: number, alpha = 255): ImageData {
+    const data = new Uint8ClampedArray(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+      data[i * 4] = gray;
+      data[i * 4 + 1] = gray;
+      data[i * 4 + 2] = gray;
+      data[i * 4 + 3] = alpha;
+    }
+    return new ImageData(data, w, h);
+  }
+
+  function fakeCtx(image: ImageData) {
+    let pixels = image.data;
+    return {
+      getImageData: () => new ImageData(new Uint8ClampedArray(pixels), image.width, image.height),
+      putImageData: (data: ImageData) => {
+        pixels = data.data;
+      },
+      drawImage: () => {},
+      filter: 'none',
+    } as unknown as CanvasRenderingContext2D;
+  }
+
+  const baseHalftone: FilterIR = {
+    kind: 'halftone',
+    pattern: 'dot',
+    frequency: 20,
+    angle: 45,
+    dotShape: 'round',
+    channel: 'k',
+    method: 'am',
+    opacity: 1,
+    blendMode: 'normal',
+  };
+
+  it('screens a mid-gray fill into dark dots on a light background', () => {
+    const image = grayImage(64, 64, 128);
+    const ctx = fakeCtx(image);
+    applySoftwareFilter(ctx, baseHalftone, 64, 64);
+
+    const out = ctx.getImageData(0, 0, 64, 64);
+    let dark = 0;
+    let light = 0;
+    for (let i = 0; i < out.data.length; i += 4) {
+      const g = out.data[i]!;
+      if (g < 110) dark++;
+      if (g > 145) light++;
+    }
+    expect(dark, 'screened output must contain dark dots').toBeGreaterThan(0);
+    expect(light, 'screened output must contain light gaps').toBeGreaterThan(0);
+    // Alpha is preserved by every screening path
+    for (let i = 3; i < out.data.length; i += 4) {
+      expect(out.data[i]).toBe(255);
+    }
+  });
+
+  it('honors foreground and background colors through the compositor', () => {
+    const image = grayImage(64, 64, 128);
+    const ctx = fakeCtx(image);
+    applySoftwareFilter(ctx, {
+      ...baseHalftone,
+      foregroundColor: [255, 0, 0],
+      backgroundColor: [0, 0, 255],
+    }, 64, 64);
+
+    const out = ctx.getImageData(0, 0, 64, 64);
+    let red = 0;
+    let blue = 0;
+    for (let i = 0; i < out.data.length; i += 4) {
+      const r = out.data[i]!;
+      const g = out.data[i + 1]!;
+      const b = out.data[i + 2]!;
+      if (r === 255 && g === 0 && b === 0) red++;
+      if (r === 0 && g === 0 && b === 255) blue++;
+    }
+    expect(red, 'red ink dots must appear').toBeGreaterThan(0);
+    expect(blue, 'blue paper must appear').toBeGreaterThan(0);
+  });
+
+  it('invert flips the ink/paper balance through the compositor', () => {
+    const ctxNormal = fakeCtx(grayImage(64, 64, 128));
+    const ctxInverted = fakeCtx(grayImage(64, 64, 128));
+    applySoftwareFilter(ctxNormal, baseHalftone, 64, 64);
+    applySoftwareFilter(ctxInverted, { ...baseHalftone, invert: true }, 64, 64);
+
+    const countDark = (img: ImageData): number => {
+      let n = 0;
+      for (let i = 0; i < img.data.length; i += 4) {
+        if (img.data[i]! < 110) n++;
+      }
+      return n;
+    };
+    const normal = ctxNormal.getImageData(0, 0, 64, 64);
+    const inverted = ctxInverted.getImageData(0, 0, 64, 64);
+    expect(countDark(inverted)).not.toBe(countDark(normal));
+  });
+});
