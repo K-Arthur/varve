@@ -9,7 +9,7 @@
  * This module defines TYPES ONLY. Operations are in `dockOps.ts`.
  */
 
-import type { PanelInstanceId, PanelTypeId } from './panelRegistry';
+import type { PanelTypeId } from './panelRegistry';
 
 // ---------------------------------------------------------------------------
 // Stable identity
