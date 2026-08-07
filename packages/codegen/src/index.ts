@@ -12,6 +12,7 @@ import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
 import { svgCompositing } from './shared';
 import { imageContentTransform, imagePlacementForShape, svgRect } from './svg';
+import { exportShapeOf } from './warpBake';
 
 export { timelineToCSSKeyframes } from './animation-css';
 export type { InteractiveExportOptions, InteractiveExportResult } from './animation-interactive';
@@ -65,6 +66,15 @@ export type { CodeEmitter, ExportMetadata, RasterAsset, TargetGap } from './type
 export type { VectorAuditFinding, VectorIssueType } from './vector-audit';
 export { runVectorAudit } from './vector-audit';
 export { exportNodeToVue, type VueExportOptions, vueTargetGaps } from './vue';
+export {
+  type BakedWarp,
+  bakeWarpedShape,
+  EXPORT_WARP_QUALITY,
+  exportShapeOf,
+  nodeHasLiveWarp,
+  unbakeableWarpKind,
+  warpRequiresFlattening,
+} from './warpBake';
 export {
   exportNodeToWebComponent,
   type WebComponentExportOptions,
@@ -228,7 +238,9 @@ function documentNodeBounds(
   let width = 100;
   let height = 100;
   if (node.kind === 'shape') {
-    const shape = node.shape;
+    // Bake first: warped geometry routinely extends past the source box, and
+    // measuring the source would crop it out of the document viewBox.
+    const shape = exportShapeOf(node, doc);
     switch (shape.kind) {
       case 'rect':
         ({ x, y, w: width, h: height } = shape);
@@ -611,7 +623,10 @@ function nodeToSvg(
 
   switch (node.kind) {
     case 'shape': {
-      const s = node.shape;
+      // Live warp modifiers bake to export-quality path geometry here, using
+      // the same canonical evaluator as the per-node emitter in svg.ts so the
+      // two export paths cannot resolve different geometry.
+      const s = exportShapeOf(node, doc);
       // Image fill: render <image> element instead of geometry shape.
       if (isImageShape(node)) {
         const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);

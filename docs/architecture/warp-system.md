@@ -50,7 +50,7 @@ Modifier kinds (`packages/engine/src/warp/types.ts`):
 | `skew` | skewX, skewY (deg), origin (normalized) | exact affine around pivot |
 | `perspective` | 4 corners (normalized) | exact homography (DLT) |
 | `envelope` | 4 corners + 8 edge controls | Coons-patch interior |
-| `mesh-warp` | rows/columns/points | bilinear cells (bicubic deferred) |
+| `mesh-warp` | rows/columns/points | bilinear cells; bicubic = Catmull–Rom |
 | `bend` | mode, amount, axis, origin, wavelength | arc/arch/bulge/shell/flag/wave/rise |
 
 Validation: known kinds sanitized on ingest (finite values, clamped ranges,
@@ -106,7 +106,14 @@ raster export, Expand Appearance. No backend may use a different order.
 - **Adaptive subdivision**: output-space flatness (mapped control points),
   mapped-endpoint reuse, depth + point budgets, exact-duplicate cleanup,
   non-finite fallback to source points. Quality profiles map to absolute
-  tolerances: draft 2 / interactive 0.5 / high 0.25 / export 0.1 px.
+  tolerances: draft 2 / interactive 0.5 / high 0.25 / export 0.1 px,
+  resolved by `resolveWarpTolerance` (the profile is the source of truth;
+  `DEFAULT_WARP_QUALITY` intentionally carries no explicit tolerance).
+  **Straight segments subdivide too** — a line is not straight after a
+  nonlinear map, so endpoint-only mapping would drop the deformation along
+  every edge of a rect/polygon. Affine and projective maps preserve
+  straightness, so they test flat on the first midpoint and cost one extra
+  evaluation per segment.
 - **Bounds**: conservative sampled bounds (points + 24×24 grid + pad) —
   `warpDomainBounds`, `warpBoundsOfPoints`, `warpBoundsOfWarpedPoints`.
 - **Foldover**: Jacobian determinant sampling (24×24 grid), inverted/
@@ -191,6 +198,18 @@ warped containers resolves to the container in v1.
   pivot + shear handles (skew), strength handle (bend); foldover warning
   (text + icon, never color-only); Escape aborts the drag
   (abortTransaction); pixel-grid snap when snapping is enabled.
+  Drag deltas convert through `screenDeltaToWorld`, so handles track the
+  cursor at any zoom or camera rotation.
+- **Keyboard**: every handle is a focus stop (`role="button"`, `tabIndex=0`).
+  Arrow keys nudge 1px, Shift+Arrow 10px — one undo step per press, routed
+  through the same `DragApply` function pointer dragging uses. Mesh points
+  take Space/Enter to toggle multi-selection. Focus and each move announce
+  through the editor's aria-live announcer, mesh points as
+  `Mesh point, row 2 of 4, column 3 of 4. X 64 percent, Y 41 percent.`
+- **Envelope edge parameterization**: the overlay draws each edge's control
+  polygon in the evaluator's direction (top/bottom left→right, left/right
+  top→bottom). Locked by a test — drawing a CCW perimeter loop instead makes
+  the cage disagree with the geometry it controls.
 - **Warp Section (Inspector)**: ordered stack (enable/rename/duplicate/
   reset/reorder/remove), per-kind numeric controls, preset quick-add,
   settings (stroke behavior, foldover policy, layout bounds), Expand
@@ -227,7 +246,6 @@ cancel — never a hang or silent memory exhaustion.
 
 - Text: multi-line/RTL/rich-text warp deferred; true glyph outlines via the
   Rust shaping backend.
-- Bicubic mesh interpolation: schema-validated, not evaluated.
 - `warp-appearance` stroke fidelity (variable width/dash/arrowheads).
 - `scale-approx` stroke mode and `canvas-fixed` gradient mode not shipped.
 - Warped-container Expand Appearance unsupported (use export flattening).
@@ -248,7 +266,12 @@ Editor: `tools/WarpTool.ts`, `components/WarpOverlay.tsx`,
 `hitTest/HitTestEngine.ts`, `CanvasArea.tsx` (gated container branch),
 `CanvasOverlays.tsx`, toolbar/shortcuts/palette/menus, Inspector registry,
 feature ownership, context state (`useWarpEdit`).
-Export: `packages/codegen/src/svg.ts` (warp bake), `flattening.ts`
-(mustFlatten `warp`), `ir-types.ts`; editor `SpecPanel/export.ts`
+Export: `packages/codegen/src/warpBake.ts` (single canonical export-time
+bake, `EXPORT_WARP_QUALITY`), consumed by both SVG emitters —
+`svg.ts` (`exportNodeToSvg`) and `index.ts` (`exportDocumentToSvg`,
+`computeDocumentBounds`) — plus `flattening.ts` / `ir-converter.ts`
+(mustFlatten reason `warp`) and `ir-types.ts`; editor `SpecPanel/export.ts`
 (PDF raster fallback).
 E2E: `tests/e2e/canvas/warp.spec.ts` (3 workflows).
+Export tests: `packages/codegen/src/__tests__/svg-warp-export.test.ts`;
+visual generator `__tests__/warp-visual-gen.test.ts` (`VARVE_WARP_VISUAL=1`).
