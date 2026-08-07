@@ -41,6 +41,13 @@ export interface PresentWorkerFrameArgs {
   frameStart: number;
   /** Identity transform for the composited bitmap; defaults to identity. */
   identityTransform?: Affine;
+  /**
+   * Optional paint hook called between the board fill and the worker bitmap
+   * composite. Page decorations (trim fills, shadows, labels) are not part
+   * of the worker IR, so the present-only path must repaint them here or
+   * they vanish whenever a presented frame replaces the surface.
+   */
+  paintUnderlays?: (ctx: CanvasRenderingContext2D) => void;
   coordinator: RedrawCoordinator;
   decision: FrameBeginDecision;
   snapshot: FrameStateSnapshot;
@@ -81,6 +88,7 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = boardColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  args.paintUnderlays?.(ctx);
   compositor.compositeRasterLayer('worker-frame', wb.bitmap, identityTransform, 'normal');
 
   const budget = endFrameTiming(args.frameStart);

@@ -81,7 +81,6 @@ import {
   toCamera as editorToCamera,
   viewportWorldRect,
 } from './canvas/cameraState';
-import { drawPageDecorations } from './canvas/pageDecorations';
 import {
   resizeCanvasBackingStore,
   subscribeToCanvasContextLifecycle,
@@ -104,6 +103,7 @@ import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { useOverlayDraw } from './canvas/overlayManager';
+import { drawPageDecorations } from './canvas/pageDecorations';
 import {
   openFullRedraw,
   openMultiRectPartialClip,
