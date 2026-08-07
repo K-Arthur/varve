@@ -4,8 +4,14 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
-import { addChild, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
-import { pagesVisibleInWorldRect, placedPages, worldToPageAtPoint } from '../pageScene';
+import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
+import {
+  buildPlacedScene,
+  multipageRootNodes,
+  pagesVisibleInWorldRect,
+  placedPages,
+  worldToPageAtPoint,
+} from '../pageScene';
 import { pageBoundsInWorld } from '../pasteboardLayout';
 
 function sceneDoc(count: number, manual = false): Document {
@@ -92,5 +98,115 @@ describe('Placed page scene (ADR-0144/0145)', () => {
   it('is deterministic across calls', () => {
     const doc = sceneDoc(4);
     expect(placedPages(doc)).toEqual(placedPages(doc));
+  });
+});
+
+describe('multipageRootNodes (ADR-0144 paint order)', () => {
+  it('falls back to globals + rootChildren on flat documents (no pages)', () => {
+    let doc = createDocument('m5', true);
+    // add a root child + a global so the fallback is observable
+    const { id: rootId, doc: withRoot } = nextNodeId(doc);
+    doc = addNode(withRoot, makeShapeNode(rootId, { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }));
+    const { id: globalId, doc: withGlobal } = nextNodeId(doc);
+    doc = addNode(withGlobal, makeShapeNode(globalId, { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }));
+    doc = { ...doc, globalChildren: [globalId] };
+    const roots = multipageRootNodes(doc);
+    expect(roots).toEqual([globalId, ...doc.rootChildren]);
+  });
+
+  it('paints globals first, then pasteboard items, then page background and content', () => {
+    let doc = sceneDoc(2, true);
+    const page0 = doc.pages![0]!;
+    const page1 = doc.pages![1]!;
+    const { id: bgId, doc: d1 } = nextNodeId(doc);
+    doc = { ...d1, pages: [{ ...page0, backgrounds: [bgId] }, page1] };
+    // bg node must exist in the node map (pasteboard-level node)
+    doc = addNode(doc, makeShapeNode(bgId, { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }));
+    const { id: globalId, doc: d2 } = nextNodeId(doc);
+    doc = addNode(d2, makeShapeNode(globalId, { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }));
+    doc = { ...doc, globalChildren: [globalId] };
+
+    const { id: pasteboardId, doc: d3 } = nextNodeId(doc);
+    doc = addNode(d3, makeShapeNode(pasteboardId, { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }));
+    doc = {
+      ...doc,
+      rootChildren: [doc.pages![0]!.contentRoot, doc.pages![1]!.contentRoot, pasteboardId],
+    };
+
+    // add one authored shape to each page content root
+    for (const page of doc.pages!) {
+      const { id, doc: d } = nextNodeId(doc);
+      doc = addChild(
+        d,
+        page.contentRoot,
+        makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      );
+    }
+
+    const roots = multipageRootNodes(doc);
+    expect(roots[0]).toBe(globalId);
+    expect(roots[1]).toBe(pasteboardId);
+    expect(roots).toContain(bgId);
+    expect(roots.indexOf(bgId)).toBeLessThan(roots.indexOf(pasteboardId) + 10);
+    // backgrounds precede page 0's content and page 0 precedes page 1
+    const scene = buildPlacedScene(doc);
+    expect(roots).toEqual([
+      globalId,
+      pasteboardId,
+      bgId,
+      ...scene.pages[0]!.contentNodes,
+      ...scene.pages[1]!.contentNodes,
+    ]);
+  });
+
+  it('culls pages outside the viewport world rect', () => {
+    let doc = sceneDoc(3, true);
+    for (const page of doc.pages!) {
+      const { id, doc: d } = nextNodeId(doc);
+      doc = addChild(
+        d,
+        page.contentRoot,
+        makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      );
+    }
+    // manual placement: page 0 at (0,0), page 1 at (300,0), page 2 at (0,300)
+    const scene = buildPlacedScene(doc);
+    const viewport = { x: 250, y: -10, w: 100, h: 100 };
+    const roots = multipageRootNodes(doc, { viewportWorldRect: viewport });
+    expect(roots.length).toBeGreaterThan(0);
+    for (const id of roots) {
+      // page 0 content (at x 0..200) and page 2 content (at y 300) are culled
+      expect(scene.pages[0]!.contentNodes.includes(id)).toBe(false);
+      expect(scene.pages[2]!.contentNodes.includes(id)).toBe(false);
+    }
+    expect(scene.pages[1]!.contentNodes.every((id) => roots.includes(id))).toBe(true);
+  });
+
+  it('includes all pages when no viewport is given', () => {
+    let doc = sceneDoc(4);
+    for (const page of doc.pages!) {
+      const { id, doc: d } = nextNodeId(doc);
+      doc = addChild(
+        d,
+        page.contentRoot,
+        makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      );
+    }
+    const scene = buildPlacedScene(doc);
+    const roots = multipageRootNodes(doc);
+    const allContent = scene.pages.flatMap((p) => p.contentNodes);
+    expect(allContent.length).toBe(4);
+    for (const id of allContent) expect(roots).toContain(id);
+  });
+
+  it('is deterministic across calls and placements resolve once per document', () => {
+    const doc = sceneDoc(4);
+    const scene = buildPlacedScene(doc);
+    expect(multipageRootNodes(doc)).toEqual(multipageRootNodes(doc));
+    // every placed page carries the same placement the map reports
+    for (const placed of scene.pages) {
+      expect(scene.placements.get(placed.page.id)).toEqual(placed.placement);
+    }
+    expect(scene.placements.size).toBe(4);
   });
 });
