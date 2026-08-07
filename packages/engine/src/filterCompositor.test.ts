@@ -669,11 +669,16 @@ describe('halftone through the compositor (canvas preview + export parity path)'
   it('honors foreground and background colors through the compositor', () => {
     const image = grayImage(64, 64, 128);
     const ctx = fakeCtx(image);
-    applySoftwareFilter(ctx, {
-      ...baseHalftone,
-      foregroundColor: [255, 0, 0],
-      backgroundColor: [0, 0, 255],
-    }, 64, 64);
+    applySoftwareFilter(
+      ctx,
+      {
+        ...baseHalftone,
+        foregroundColor: [255, 0, 0],
+        backgroundColor: [0, 0, 255],
+      },
+      64,
+      64,
+    );
 
     const out = ctx.getImageData(0, 0, 64, 64);
     let red = 0;
