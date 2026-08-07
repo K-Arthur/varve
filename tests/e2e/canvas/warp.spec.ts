@@ -171,7 +171,8 @@ test.describe('warp: non-destructive lifecycle', () => {
 
     // The group + mesh overlay are present.
     await expect(page.locator('.warp-section__stack')).toBeVisible();
-    const meshHandles = page.locator('[aria-label^="mesh point row"]');
+    // Accessible name format: "Mesh point, row 1 of 5, column 1 of 5. X .. percent, ..."
+    const meshHandles = page.locator('[aria-label^="Mesh point, row"]');
     const handleCount = await meshHandles.count();
     expect(handleCount).toBe(25);
 
@@ -198,9 +199,11 @@ test.describe('warp: non-destructive lifecycle', () => {
     await page.keyboard.press('Control+a');
     await page.keyboard.type('5');
     await page.waitForTimeout(300);
+    await expect(meshHandles).toHaveCount(30); // 6 rows of points × 5 columns
     await rowsInput.click({ timeout: 20000 });
     await page.keyboard.press('Control+a');
     await page.keyboard.type('4');
     await page.waitForTimeout(300);
+    await expect(meshHandles).toHaveCount(25); // restored 5 × 5 grid
   });
 });

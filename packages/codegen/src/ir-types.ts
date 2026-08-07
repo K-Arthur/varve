@@ -405,7 +405,13 @@ export type FlattenReason =
   | 'chromatic-aberration'
   | 'halftone'
   | 'lut'
-  | 'gradient-map';
+  | 'gradient-map'
+  /**
+   * A live nonlinear warp modifier. No CSS/Flutter/SwiftUI primitive can
+   * express an envelope or mesh deformation, so the node must be flattened
+   * rather than emitted as its unwarped source (ADR-0166).
+   */
+  | 'warp';
 
 export interface FlattenInfo {
   /** Whether this node (or its subtree) requires raster fallback. */

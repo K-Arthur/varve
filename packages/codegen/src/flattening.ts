@@ -8,6 +8,7 @@
 import type { Document, Effect, SceneNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
 import type { FlattenInfo, FlattenReason } from './ir-types';
+import { warpRequiresFlattening } from './warpBake';
 
 export type { FlattenInfo, FlattenReason };
 
@@ -120,6 +121,7 @@ export function analyzeNodeFlattening(
   if (hasMultipleVisibleFills(node)) reasons.push('stacked-fills');
   if (hasMultipleStrokes(node)) reasons.push('multiple-strokes');
   if (isImageShape(node)) reasons.push('image-node');
+  if (warpRequiresFlattening(node)) reasons.push('warp');
 
   const effects = (node as { effects?: Effect[] }).effects ?? [];
   if (effects.some((e) => e.type === 'glassMaterial')) reasons.push('glass-material');

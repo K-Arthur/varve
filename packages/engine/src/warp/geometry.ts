@@ -27,10 +27,27 @@ import {
   type MeshWarpModifier,
   type PerspectiveModifier,
   type SkewModifier,
+  WARP_QUALITY_TOLERANCE,
   type WarpModifier,
   type WarpQualitySettings,
   type WarpSettings,
 } from './types';
+
+/**
+ * Absolute subdivision tolerance in source-local units for a quality setting.
+ *
+ * `DEFAULT_WARP_QUALITY` deliberately carries no `tolerance`, so it must be
+ * derived from the profile (draft 2 / interactive 0.5 / high 0.25 / export
+ * 0.1 px). Reading `tolerance` directly yields `undefined`, and every
+ * `deviation <= undefined` comparison is false — which silently subdivides
+ * every segment to the maximum depth.
+ */
+export function resolveWarpTolerance(quality: WarpQualitySettings | undefined): number {
+  const explicit = quality?.tolerance;
+  if (typeof explicit === 'number' && Number.isFinite(explicit) && explicit > 0) return explicit;
+  const profile = quality?.profile ?? DEFAULT_WARP_QUALITY.profile;
+  return WARP_QUALITY_TOLERANCE[profile] ?? WARP_QUALITY_TOLERANCE.interactive;
+}
 
 export type WarpRect = { x: number; y: number; w: number; h: number };
 
@@ -84,9 +101,17 @@ function clampUnit(v: number): number {
 /** Normalized control (0..1) → source-local coordinate. */
 function normToLocal(
   bounds: WarpRect,
-  c: { x: number; y: number },
+  c: { x: number; y: number } | undefined,
   absolute: boolean,
 ): { x: number; y: number } {
+  // Modifiers reaching the evaluator are normally sanitized by
+  // validateWarpModifier, but a stack can also be built in code or arrive from
+  // a partial migration. A missing/non-finite control degrades to the source
+  // origin (an identity-ish contribution) instead of throwing — malformed data
+  // must never crash the renderer or the exporter.
+  if (!c || !isFiniteXY(c.x, c.y)) {
+    return absolute ? { x: bounds.x, y: bounds.y } : { x: bounds.x, y: bounds.y };
+  }
   if (absolute) return { x: c.x, y: c.y };
   return { x: bounds.x + c.x * bounds.w, y: bounds.y + c.y * bounds.h };
 }
@@ -218,6 +243,49 @@ function meshMap(
   }
   const local = points.map((p) => normToLocal(bounds, p, absolute));
   const v = (r: number, c: number) => r * (columns + 1) + c;
+  const pointAt = (row: number, column: number): { x: number; y: number } => {
+    // Catmull–Rom needs one sample beyond every edge. Linear extrapolation
+    // (rather than duplicated edge points) keeps a regular mesh exactly
+    // linear through the boundary cells.
+    const atColumn = (r: number, c: number): { x: number; y: number } => {
+      const clampedRow = Math.max(0, Math.min(rows, r));
+      if (c >= 0 && c <= columns) return local[v(clampedRow, c)]!;
+      if (c < 0) {
+        const first = local[v(clampedRow, 0)]!;
+        const next = local[v(clampedRow, 1)]!;
+        return { x: first.x + (first.x - next.x) * -c, y: first.y + (first.y - next.y) * -c };
+      }
+      const last = local[v(clampedRow, columns)]!;
+      const previous = local[v(clampedRow, columns - 1)]!;
+      return {
+        x: last.x + (last.x - previous.x) * (c - columns),
+        y: last.y + (last.y - previous.y) * (c - columns),
+      };
+    };
+    if (row >= 0 && row <= rows) return atColumn(row, column);
+    if (row < 0) {
+      const first = atColumn(0, column);
+      const next = atColumn(1, column);
+      return { x: first.x + (first.x - next.x) * -row, y: first.y + (first.y - next.y) * -row };
+    }
+    const last = atColumn(rows, column);
+    const previous = atColumn(rows - 1, column);
+    return {
+      x: last.x + (last.x - previous.x) * (row - rows),
+      y: last.y + (last.y - previous.y) * (row - rows),
+    };
+  };
+  const catmullRom = (p0: number, p1: number, p2: number, p3: number, t: number): number => {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return (
+      0.5 *
+      (2 * p1 +
+        (-p0 + p2) * t +
+        (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+        (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+    );
+  };
   return (x, y) => {
     const u = bounds.w === 0 ? 0 : clampUnit((x - bounds.x) / bounds.w);
     const vv = bounds.h === 0 ? 0 : clampUnit((y - bounds.y) / bounds.h);
@@ -233,10 +301,56 @@ function meshMap(
     const bottomX = bl.x + (br.x - bl.x) * tx;
     const mx = topX + (bottomX - topX) * ty;
     const topY = tl.y + (tr.y - tl.y) * tx;
-    const bottomY = bl.y + (br.y - bl.y) * ty;
+    const bottomY = bl.y + (br.y - bl.y) * tx;
     const my = topY + (bottomY - topY) * ty;
+    if (m.interpolation === 'bicubic') {
+      const sampleBicubic = (coordinate: 'x' | 'y') => {
+        const samples = [-1, 0, 1, 2].map((rowOffset) => {
+          const rowSamples = [-1, 0, 1, 2].map(
+            (columnOffset) => pointAt(row + rowOffset, col + columnOffset)[coordinate],
+          );
+          return catmullRom(rowSamples[0]!, rowSamples[1]!, rowSamples[2]!, rowSamples[3]!, tx);
+        });
+        return catmullRom(samples[0]!, samples[1]!, samples[2]!, samples[3]!, ty);
+      };
+      const bx = sampleBicubic('x');
+      const by = sampleBicubic('y');
+      return isFiniteXY(bx, by) ? [bx, by] : [x, y];
+    }
     return isFiniteXY(mx, my) ? [mx, my] : [x, y];
   };
+}
+
+/**
+ * Resize a mesh while preserving its visible deformation. New points are
+ * sampled from its current evaluator, so a topology edit remains a valid,
+ * source-preserving single operation.
+ */
+export function resampleMeshWarp(
+  modifier: MeshWarpModifier,
+  rows: number,
+  columns: number,
+  sourceBounds: WarpRect,
+): MeshWarpModifier {
+  const nextRows = Math.max(1, Math.min(32, Math.trunc(rows)));
+  const nextColumns = Math.max(1, Math.min(32, Math.trunc(columns)));
+  if (nextRows === modifier.rows && nextColumns === modifier.columns) return modifier;
+  const evaluation = buildWarpEvaluation([modifier], sourceBounds);
+  const absolute = modifier.coordinateSpace === 'source-local';
+  const points = Array.from({ length: (nextRows + 1) * (nextColumns + 1) }, (_, index) => {
+    const row = Math.floor(index / (nextColumns + 1));
+    const column = index % (nextColumns + 1);
+    const sourceX = sourceBounds.x + (sourceBounds.w * column) / nextColumns;
+    const sourceY = sourceBounds.y + (sourceBounds.h * row) / nextRows;
+    const [x, y] = evaluation.map(sourceX, sourceY);
+    return absolute
+      ? { x, y }
+      : {
+          x: sourceBounds.w === 0 ? 0 : (x - sourceBounds.x) / sourceBounds.w,
+          y: sourceBounds.h === 0 ? 0 : (y - sourceBounds.y) / sourceBounds.h,
+        };
+  });
+  return { ...modifier, rows: nextRows, columns: nextColumns, points };
 }
 
 /**
@@ -534,6 +648,66 @@ export function warpPathRing(
     out.push(point(mapped[0], mapped[1]));
   };
 
+  /**
+   * Adaptive subdivision of a straight source segment through the map.
+   * Recurses while the mapped midpoint deviates from the chord between the
+   * mapped endpoints by more than `tolerance`, bounded by the same depth and
+   * point budgets as the curve path. Emits the segment's endpoint last so a
+   * ring stays continuous.
+   */
+  const warpStraightSegment = (a: PathPoint, b: PathPoint) => {
+    if (capped) return;
+    const m0 = evalWarp.map(a.x, a.y);
+    const m1 = evalWarp.map(b.x, b.y);
+    const m0x = isFiniteXY(m0[0], m0[1]) ? m0[0] : a.x;
+    const m0y = isFiniteXY(m0[0], m0[1]) ? m0[1] : a.y;
+    const m1x = isFiniteXY(m1[0], m1[1]) ? m1[0] : b.x;
+    const m1y = isFiniteXY(m1[0], m1[1]) ? m1[1] : b.y;
+
+    const walk = (
+      ax: number,
+      ay: number,
+      max: number,
+      may: number,
+      bx: number,
+      by: number,
+      mbx: number,
+      mby: number,
+      depth: number,
+    ) => {
+      if (capped) return;
+      if (depth >= budget.maxDepth || out.length + 2 >= budget.maxPoints) {
+        if (depth < budget.maxDepth) capped = true;
+        emit(point(bx, by));
+        return;
+      }
+      const sx = (ax + bx) / 2;
+      const sy = (ay + by) / 2;
+      const mid = evalWarp.map(sx, sy);
+      const midX = isFiniteXY(mid[0], mid[1]) ? mid[0] : sx;
+      const midY = isFiniteXY(mid[0], mid[1]) ? mid[1] : sy;
+      // Perpendicular distance of the mapped midpoint from the mapped chord.
+      const ex = mbx - max;
+      const ey = mby - may;
+      const len2 = ex * ex + ey * ey;
+      const deviation =
+        len2 < 1e-12
+          ? Math.hypot(midX - max, midY - may)
+          : (() => {
+              const tt = Math.max(0, Math.min(1, ((midX - max) * ex + (midY - may) * ey) / len2));
+              return Math.hypot(midX - (max + tt * ex), midY - (may + tt * ey));
+            })();
+      if (deviation <= tolerance) {
+        emit(point(bx, by));
+        return;
+      }
+      walk(ax, ay, max, may, sx, sy, midX, midY, depth + 1);
+      walk(sx, sy, midX, midY, bx, by, mbx, mby, depth + 1);
+    };
+
+    walk(a.x, a.y, m0x, m0y, b.x, b.y, m1x, m1y, 0);
+  };
+
   const n = points.length;
   const segment = (fromIdx: number, toIdx: number) => {
     if (capped) return;
@@ -542,8 +716,14 @@ export function warpPathRing(
     const hasOut = a.handleOut && (a.handleOut[0] !== 0 || a.handleOut[1] !== 0);
     const hasIn = b.handleIn && (b.handleIn[0] !== 0 || b.handleIn[1] !== 0);
     if (!hasOut && !hasIn) {
-      // Straight segment: map endpoints.
-      emit(b);
+      // A straight source segment is NOT straight after a nonlinear map
+      // (envelope, mesh, bend). Mapping only its endpoints would silently drop
+      // the deformation along the whole edge — a rectangle would keep perfectly
+      // straight sides under an envelope. Subdivide it against the same
+      // output-space tolerance used for curves. Affine and projective maps do
+      // preserve straightness, so their midpoints test flat immediately and
+      // this costs one extra evaluation per segment.
+      warpStraightSegment(a, b);
       return;
     }
     const c1x = a.x + (a.handleOut?.[0] ?? 0);
@@ -682,7 +862,7 @@ export function warpShapeToPath(
     return { shape, evaluation, capped: false };
   }
   const quality = options.quality ?? options.settings?.quality ?? DEFAULT_WARP_QUALITY;
-  const tolerance = quality.tolerance ?? DEFAULT_WARP_QUALITY.tolerance!;
+  const tolerance = resolveWarpTolerance(quality);
   const budget = {
     maxDepth: quality.maxSubdivision ?? DEFAULT_WARP_QUALITY.maxSubdivision!,
     maxPoints: quality.maxGeneratedPoints ?? DEFAULT_WARP_QUALITY.maxGeneratedPoints!,
@@ -810,7 +990,7 @@ function finishBounds(
   options: WarpEvaluationOptions,
 ): { bounds: WarpRect } {
   const quality = options.quality ?? options.settings?.quality ?? DEFAULT_WARP_QUALITY;
-  const tolerance = quality.tolerance ?? 0.5;
+  const tolerance = resolveWarpTolerance(quality);
   const pad = Math.max(1, Math.max(sourceBounds.w, sourceBounds.h) * 0.01 + tolerance * 2);
   return {
     bounds: {
