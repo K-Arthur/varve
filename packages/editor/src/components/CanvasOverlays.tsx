@@ -41,6 +41,7 @@ import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
 import { SnapGuidesOverlay } from './SnapGuidesOverlay';
 import { MeasureOverlay } from './SpecPanel/MeasureOverlay';
+import { PrintOverlays } from './PrintOverlays';
 import { TableCellEditor } from './TableEditOverlay/TableCellEditor';
 import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
@@ -61,6 +62,8 @@ export interface CanvasOverlaysProps {
   gridOverlayMode: GridOverlayMode;
   colorBlindnessView: ColorBlindnessView;
   guidesVisible: boolean;
+  bleedGuidesVisible: boolean;
+  layoutGridVisible: boolean;
   selectedGuideId: string | null;
   unitType: 'px' | 'pt' | 'mm' | 'cm' | 'in' | '%';
   rulerMode?: RulerMode;
@@ -98,6 +101,8 @@ export function CanvasOverlays({
   gridOverlayMode,
   colorBlindnessView,
   guidesVisible,
+  bleedGuidesVisible,
+  layoutGridVisible,
   selectedGuideId,
   unitType,
   rulerMode,
@@ -129,6 +134,7 @@ export function CanvasOverlays({
     : undefined;
 
   const showGridOverlay = gridOverlayMode !== 'none';
+  const activePage = doc.pages?.find((p) => p.id === doc.activePageId);
   const isometricGrid: IsometricGrid | null = (() => {
     if (gridOverlayMode !== 'isometric') return null;
     const grids = doc.gridSettings?.isometricGrids;
@@ -315,6 +321,19 @@ export function CanvasOverlays({
           baselineStep={baselineGrid?.baselineStep}
           offset={baselineGrid?.offset}
           isometricGrid={isometricGrid}
+        />
+      )}
+      {bleedGuidesVisible && activePage && (
+        <PrintOverlays
+          pageWidth={activePage.width}
+          pageHeight={activePage.height}
+          zoom={zoom}
+          documentUnit={unitType as 'px' | 'pt' | 'mm' | 'cm' | 'in'}
+          dpi={96}
+          bleed={activePage.bleed}
+          safeArea={activePage.safeArea}
+          slug={activePage.slug}
+          pxPerUnit={1}
         />
       )}
       {showColorBlindness && (
