@@ -69,6 +69,7 @@ import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 import { useWorkspacePanelWidths } from './workspace/useWorkspacePanelWidths';
+import { WorkspaceCustomizeDialog } from './components/WorkspaceCustomizeDialog';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */
 export interface OpenFileRequest {
@@ -192,6 +193,7 @@ function ShellInner({
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [workspaceCustomizeOpen, setWorkspaceCustomizeOpen] = useState(false);
   const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     | 'general'
@@ -255,6 +257,7 @@ function ShellInner({
       onInsertIcon: () => setIconBrowserOpen(true),
       onOpenFile: () => fileRef.current?.click(),
       onImportFile: () => fileRef.current?.click(),
+      onCustomizeWorkspace: () => setWorkspaceCustomizeOpen(true),
     });
     if (staticActionsRegistered.current) return;
     staticActionsRegistered.current = true;
@@ -748,6 +751,12 @@ function ShellInner({
           onOnboardingReset={() => {
             resetOnboarding(platform);
           }}
+        />
+
+        {/* Workspace customization dialog */}
+        <WorkspaceCustomizeDialog
+          open={workspaceCustomizeOpen}
+          onClose={() => setWorkspaceCustomizeOpen(false)}
         />
 
         {/* Content-Aware Fill dialog */}

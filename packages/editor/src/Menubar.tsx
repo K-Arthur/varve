@@ -778,6 +778,10 @@ function buildMenus(
           label: 'Reset All Workspaces to Default',
           action: 'resetAllWorkspaces',
         },
+        {
+          label: 'Customize Workspace\u2026',
+          action: 'customizeWorkspace',
+        },
         { label: '---' },
         // Focus modes
         {
