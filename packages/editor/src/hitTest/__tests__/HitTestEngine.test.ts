@@ -1,4 +1,6 @@
 import {
+  addChild,
+  addPage as addPage2,
   createClippingMask,
   createDocument,
   makeFrameNode,
@@ -305,6 +307,56 @@ describe('HitTestEngine', () => {
       const largeMs = performance.now() - t1;
 
       expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 200));
+    });
+  });
+
+  describe('cross-page hit testing (ADR-0144 shared canvas)', () => {
+    it('hits content on any placed page, not just the active page', () => {
+      let doc = createDocument('test', false);
+      // Two pages with explicit placements, page 2 inactive.
+      const [p1] = doc.pages!;
+      const { doc: d1 } = nextNodeId(doc);
+      doc = addPage2(d1);
+      const [p1b, p2] = doc.pages!;
+      doc = {
+        ...doc,
+        pages: [
+          { ...p1b, placement: { x: 0, y: 0 } },
+          { ...p2, placement: { x: 220, y: 0 } },
+        ],
+      };
+      void p1;
+
+      // Shape on page 1 at page-local (10,10) and shape on page 2 at (10,10).
+      const { id: shapeA, doc: d2 } = nextNodeId(doc);
+      doc = addChild(
+        d2,
+        p1b.contentRoot,
+        makeShapeNode(
+          shapeA,
+          { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+          { transform: [1, 0, 0, 1, 10, 10] as Affine },
+        ),
+      );
+      const { id: shapeB, doc: d3 } = nextNodeId(doc);
+      doc = addChild(
+        d3,
+        p2.contentRoot,
+        makeShapeNode(
+          shapeB,
+          { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+          { transform: [1, 0, 0, 1, 10, 10] as Affine },
+        ),
+      );
+
+      const engine = new HitTestEngine(doc);
+      // World point inside page 2's placed bounds (page-local 30,30).
+      const hit = engine.hitTest({ x: 220 + 30, y: 30 });
+      expect(hit?.nodeId).toBe(shapeB);
+      // Active page stays page 1 — hit testing is not gated on it.
+      expect(doc.activePageId).toBe(p1b.id);
+      // Pasteboard point between pages hits nothing.
+      expect(engine.hitTest({ x: 210, y: 30 })).toBeNull();
     });
   });
 });
