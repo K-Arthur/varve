@@ -170,6 +170,11 @@ import {
 } from './render/canvasRenderAdapter';
 import { decorateMockupIr, MockupSurfaceCache } from './render/mockup/mockupIr';
 import {
+  collectMasterOffsets,
+  offsetWorldBounds,
+  offsetWorldTransform,
+} from './scene/masterOffsets';
+import {
   type FrameSpatialIndex,
   getOrCreateFrameSpatialIndex,
   getOrCreateSpatialIndex,
@@ -1462,6 +1467,10 @@ export function CanvasArea({
       // (over-inclusive under camera rotation — safe for culling).
       const viewportWorld = viewportWorldRect(s, { width: cssW, height: cssH });
       const entries = walkNodes(doc, multipageRootNodes(doc, { viewportWorldRect: viewportWorld }));
+      // Master projection offsets (M8, ADR-0132): projected master items
+      // render at their page's placement — master roots sit at the pasteboard
+      // origin, so the loop applies the containing page's translation.
+      const masterOffsets = collectMasterOffsets(doc);
       const nodeWork = createNodeWorkCounters();
       nodeWork.totalSceneNodes = Object.keys(doc.nodes).length;
       nodeWork.candidates = entries.size;
@@ -1601,8 +1610,13 @@ export function CanvasArea({
         if (n.kind === 'group') continue;
         if (hiddenByContainer.has(id)) continue;
         n = applyBindingsToNode(n, variableStore);
-        const world = getCachedWorldTransform(cache, doc, id);
-        const worldBounds = getCachedWorldBounds(cache, doc, id);
+        let world = getCachedWorldTransform(cache, doc, id);
+        let worldBounds = getCachedWorldBounds(cache, doc, id);
+        const masterOffset = masterOffsets.get(id);
+        if (masterOffset) {
+          world = offsetWorldTransform(world, masterOffset);
+          worldBounds = offsetWorldBounds(worldBounds, masterOffset);
+        }
         const styleOverrides = resolvedStyles.get(id);
         // Cull before converting to an engine node. appearancePaddingWorld reads
         // only `strokes`/`effects`; sceneNodeToEngineNode copies both by

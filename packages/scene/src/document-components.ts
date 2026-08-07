@@ -356,8 +356,11 @@ export function activePageNodesWithMaster(doc: Document, pageId: NodeId): NodeId
 
   for (const mChildId of masterChildren) {
     const override = overrides[mChildId];
+    // B3 (ADR-0132 D2): hidden/deleted overrides REMOVE the master item
+    // from the projection — a hidden master node must not render on the
+    // page, and a deleted one must not either. Only 'modified' overrides
+    // substitute the local replacement node.
     if (override && (override.type === 'hidden' || override.type === 'deleted')) {
-      result.push(mChildId);
       continue;
     }
     if (override && override.type === 'modified' && override.localNodeId) {
