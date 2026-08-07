@@ -30,6 +30,7 @@ import type { Affine, Rect } from '@varve/shared';
 import {
   applyAffine,
   computeFloatingOrigin,
+  screenDeltaToWorld,
   worldToScreen as sharedWorldToScreen,
 } from '@varve/shared';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
@@ -37,6 +38,22 @@ import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 import { useEditor } from '../context';
 
 const HANDLE_SIZE = 7;
+
+/** Spoken corner names — "tl" does not read usefully in a screen reader. */
+const CORNER_LABELS: Record<'tl' | 'tr' | 'br' | 'bl', string> = {
+  tl: 'top left',
+  tr: 'top right',
+  br: 'bottom right',
+  bl: 'bottom left',
+};
+
+/** Spoken envelope edge names. */
+const EDGE_LABELS: Record<'top' | 'right' | 'bottom' | 'left', string> = {
+  top: 'top',
+  right: 'right',
+  bottom: 'bottom',
+  left: 'left',
+};
 
 type DragApply = (
   dxWorld: number,
@@ -53,13 +70,22 @@ export function WarpOverlay({
   pan: { x: number; y: number };
   cameraRotation: number;
 }) {
-  const { state, updateDoc, beginTransaction, commitTransaction, abortTransaction } = useEditor();
+  const { state, updateDoc, beginTransaction, commitTransaction, abortTransaction, announce } =
+    useEditor();
   const doc = state.document;
   const target = state.warpEdit;
   const [drag, setDrag] = useState<{
     key: string;
     startClient: { x: number; y: number };
     apply: DragApply;
+    /**
+     * The modifier as it was when the drag began. Pointer moves carry the
+     * cumulative delta from `startClient`, so it must be applied to this
+     * snapshot; applying it to the live (already-moved) modifier re-adds the
+     * whole delta on every event and the handle accelerates away from the
+     * cursor.
+     */
+    startModifier: WarpModifier;
   } | null>(null);
   const dragRef = useRef(drag);
   dragRef.current = drag;
@@ -92,13 +118,20 @@ export function WarpOverlay({
     [worldMat],
   );
 
-  const normFromLocal = useCallback(
+  /**
+   * Node-local DELTA → normalized-source delta.
+   *
+   * Deliberately does not subtract `sourceBounds.x/y`: this converts a
+   * displacement, not a position. Subtracting the origin (as a point
+   * conversion would) adds a constant `-sourceBounds.x / w` bias to every
+   * drag for any node whose local bounds do not start at (0,0) — ellipses
+   * (`cx - rx`), stars, polygons and most paths. A rect authored at the
+   * origin has `sourceBounds.x === 0`, which hides the error.
+   */
+  const normDeltaFromLocal = useCallback(
     (lx: number, ly: number): NormalizedPoint => {
-      if (!sourceBounds || sourceBounds.w === 0 || sourceBounds.h === 0) return { x: 0.5, y: 0.5 };
-      return {
-        x: (lx - sourceBounds.x) / sourceBounds.w,
-        y: (ly - sourceBounds.y) / sourceBounds.h,
-      };
+      if (!sourceBounds || sourceBounds.w === 0 || sourceBounds.h === 0) return { x: 0, y: 0 };
+      return { x: lx / sourceBounds.w, y: ly / sourceBounds.h };
     },
     [sourceBounds],
   );
@@ -157,15 +190,74 @@ export function WarpOverlay({
     e.preventDefault();
     e.stopPropagation();
     beginTransaction();
-    setDrag({ key, startClient: { x: e.clientX, y: e.clientY }, apply });
+    setDrag({ key, startClient: { x: e.clientX, y: e.clientY }, apply, startModifier: modifier });
+  };
+
+  /**
+   * Apply a world-space delta through a handle's drag function as one atomic
+   * change, relative to `base`. Shared by pointer dragging (relative to the
+   * drag-start snapshot, inside an open transaction) and keyboard nudging
+   * (relative to the current value, opening and committing its own).
+   */
+  const applyHandleDelta = (
+    apply: DragApply,
+    dxWorld: number,
+    dyWorld: number,
+    base: WarpModifier,
+  ): boolean => {
+    if (!target) return false;
+    const patch = apply(dxWorld, dyWorld, base);
+    if (!patch) return false;
+    updateDoc((doc2) => updateWarp(doc2, target.nodeId, target.modifierId, patch as never));
+    return true;
   };
 
   const handleDragMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
-    if (!d || !modifier) return;
-    const patch = d.apply(e.clientX - d.startClient.x, e.clientY - d.startClient.y, modifier);
-    if (!patch) return;
-    updateDoc((doc2) => updateWarp(doc2, target!.nodeId, target!.modifierId, patch as never));
+    if (!d) return;
+    // Handle deltas are world-space. Converting here (rather than treating CSS
+    // pixels as world units) keeps the cage locked to the cursor at any zoom
+    // level or camera rotation.
+    const [dxWorld, dyWorld] = screenDeltaToWorld(
+      { zoom, pan, rotation: cameraRotation },
+      e.clientX - d.startClient.x,
+      e.clientY - d.startClient.y,
+    );
+    applyHandleDelta(d.apply, dxWorld, dyWorld, d.startModifier);
+  };
+
+  /**
+   * Keyboard equivalent of a drag: move the focused handle by whole world
+   * pixels. Each keypress is its own undo step, matching how nudging works
+   * elsewhere in the editor.
+   */
+  const nudgeHandle = (apply: DragApply, dxWorld: number, dyWorld: number) => {
+    if (!modifier) return;
+    beginTransaction();
+    // Relative to the current value: each keypress is a discrete step.
+    if (applyHandleDelta(apply, dxWorld, dyWorld, modifier)) commitTransaction();
+    else abortTransaction();
+  };
+
+  /**
+   * Arrow keys nudge (Shift = coarse, matching the editor-wide 1/10px step).
+   * Returns true when the key was consumed so canvas-level shortcuts do not
+   * also act on it.
+   */
+  const handleHandleKey = (e: React.KeyboardEvent, apply: DragApply, label: string): boolean => {
+    const step = e.shiftKey ? 10 : 1;
+    const delta = {
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+    }[e.key];
+    if (!delta) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    nudgeHandle(apply, delta[0]!, delta[1]!);
+    announce(`${label} moved ${step} pixel${step === 1 ? '' : 's'}`);
+    return true;
   };
 
   const snapToPixelGrid = (p: NormalizedPoint): NormalizedPoint => {
@@ -225,21 +317,30 @@ export function WarpOverlay({
     (dxW, dyW, m) => {
       if (m.kind !== 'perspective' && m.kind !== 'envelope') return null;
       const local = worldDeltaToLocal(dxW, dyW);
-      const delta = normFromLocal(local.x, local.y);
+      const delta = normDeltaFromLocal(local.x, local.y);
       const current = m.corners[corner];
       const snapped = snapToPixelGrid({ x: current.x + delta.x, y: current.y + delta.y });
       return { corners: { ...m.corners, [corner]: snapped } };
     };
 
+  /**
+   * A cage handle. Focusable and arrow-key operable so the whole warp can be
+   * edited without a pointer (WCAG 2.2 AA), with position announced as
+   * percentages of the source box — the same normalized space the Inspector
+   * fields use.
+   */
   const renderHandle = (
     key: string,
     point: NormalizedPoint,
-    onDown: (e: React.PointerEvent) => void,
+    apply: DragApply,
     size = HANDLE_SIZE,
+    label = `Warp handle ${key}`,
   ) => {
     const s = normToScreen(point);
+    const position = `X ${Math.round(point.x * 100)} percent, Y ${Math.round(point.y * 100)} percent`;
     return (
       <g key={key} transform={`translate(${s.x} ${s.y})`}>
+        {/* biome-ignore lint/a11y/useSemanticElements: SVG has no <button>; role+tabIndex is the standard way to make an SVG handle operable */}
         <rect
           x={-size - 3}
           y={-size - 3}
@@ -247,8 +348,12 @@ export function WarpOverlay({
           height={(size + 3) * 2}
           fill="transparent"
           style={{ pointerEvents: 'all', cursor: 'move' }}
-          onPointerDown={onDown}
-          aria-label={`warp handle ${key}`}
+          onPointerDown={(e) => startHandleDrag(e, key, apply)}
+          onKeyDown={(e) => handleHandleKey(e, apply, label)}
+          onFocus={() => announce(`${label}. ${position}`)}
+          tabIndex={0}
+          role="button"
+          aria-label={`${label}. ${position}`}
         />
         <rect
           className="warp-overlay__handle"
@@ -270,12 +375,19 @@ export function WarpOverlay({
   const polygon = cage.map(([x, y]) => `${x},${y}`).join(' ');
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: SVG root cannot be a <fieldset>
     <svg
       style={{
         position: 'absolute',
         inset: 0,
         pointerEvents: 'none',
-        zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
+        overflow: 'visible',
+        width: '100%',
+        height: '100%',
+        // SelectionOverlay is rendered later at the base interactive layer.
+        // Keep the active warp cage above it so its handles stay visible and
+        // receive pointer input instead of transform handles.
+        zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX + 1,
       }}
       onPointerMove={handleDragMove}
       onPointerUp={() => {
@@ -284,7 +396,11 @@ export function WarpOverlay({
       onPointerCancel={() => {
         if (dragRef.current) endDrag(false);
       }}
-      role="presentation"
+      // Not presentational: this subtree owns the focusable cage handles, so
+      // it has to be a labelled group for assistive technology to describe
+      // what the Tab stops inside it belong to.
+      role="group"
+      aria-label={`${modifier.kind} warp cage`}
     >
       <polygon
         className="warp-overlay__cage"
@@ -299,19 +415,25 @@ export function WarpOverlay({
         <SkewHandles
           modifier={modifier}
           startHandleDrag={startHandleDrag}
+          onHandleKey={handleHandleKey}
+          announce={announce}
           toScreen={toScreen}
           cagePoints={cagePoints}
           polygonPoints={polygon}
           sourceBounds={sourceBounds}
-          normFromLocal={normFromLocal}
+          normDeltaFromLocal={normDeltaFromLocal}
           worldDeltaToLocal={worldDeltaToLocal}
         />
       )}
 
       {modifier.kind === 'perspective' &&
         (['tl', 'tr', 'br', 'bl'] as const).map((c) =>
-          renderHandle(`corner-${c}`, modifier.corners[c], (e) =>
-            startHandleDrag(e, `corner-${c}`, cornerDrag(c)),
+          renderHandle(
+            `corner-${c}`,
+            modifier.corners[c],
+            cornerDrag(c),
+            HANDLE_SIZE,
+            `Perspective ${CORNER_LABELS[c]} corner`,
           ),
         )}
 
@@ -319,10 +441,9 @@ export function WarpOverlay({
         <EnvelopeHandles
           modifier={modifier as EnvelopeModifier}
           renderHandle={renderHandle}
-          startHandleDrag={startHandleDrag}
           normToScreen={normToScreen}
           snapToPixelGrid={snapToPixelGrid}
-          normFromLocal={normFromLocal}
+          normDeltaFromLocal={normDeltaFromLocal}
           worldDeltaToLocal={worldDeltaToLocal}
         />
       )}
@@ -333,9 +454,11 @@ export function WarpOverlay({
           selectedPoints={selectedPoints}
           setSelectedPoints={setSelectedPoints}
           startHandleDrag={startHandleDrag}
+          onHandleKey={handleHandleKey}
+          announce={announce}
           normToScreen={normToScreen}
           snapToPixelGrid={snapToPixelGrid}
-          normFromLocal={normFromLocal}
+          normDeltaFromLocal={normDeltaFromLocal}
           worldDeltaToLocal={worldDeltaToLocal}
           zoom={zoom}
         />
@@ -345,12 +468,14 @@ export function WarpOverlay({
         <BendHandles
           modifier={modifier as BendModifier}
           startHandleDrag={startHandleDrag}
+          onHandleKey={handleHandleKey}
+          announce={announce}
           sourceBounds={sourceBounds}
           worldMat={worldMat}
           zoom={zoom}
           pan={pan}
           cameraRotation={cameraRotation}
-          normFromLocal={normFromLocal}
+          normDeltaFromLocal={normDeltaFromLocal}
           worldDeltaToLocal={worldDeltaToLocal}
         />
       )}
@@ -393,20 +518,24 @@ function worldToScreen(
 function SkewHandles({
   modifier,
   startHandleDrag,
+  onHandleKey,
+  announce,
   toScreen,
   cagePoints,
   polygonPoints,
   sourceBounds,
-  normFromLocal,
+  normDeltaFromLocal,
   worldDeltaToLocal,
 }: {
   modifier: WarpModifier;
   startHandleDrag: (e: React.PointerEvent, key: string, apply: DragApply) => void;
+  onHandleKey: (e: React.KeyboardEvent, apply: DragApply, label: string) => boolean;
+  announce: (msg: string) => void;
   toScreen: (lx: number, ly: number) => { x: number; y: number };
   cagePoints: (m: WarpModifier) => Array<[number, number]>;
   polygonPoints: string;
   sourceBounds: Rect;
-  normFromLocal: (x: number, y: number) => NormalizedPoint;
+  normDeltaFromLocal: (x: number, y: number) => NormalizedPoint;
   worldDeltaToLocal: (dx: number, dy: number) => { x: number; y: number };
 }) {
   const m = modifier as SkewModifier;
@@ -421,39 +550,50 @@ function SkewHandles({
     sourceBounds.x + m.origin.x * sourceBounds.w,
     sourceBounds.y + m.origin.y * sourceBounds.h,
   );
-  const handle = (key: string, world: [number, number], axis: 'x' | 'y') => (
-    <g key={key} transform={`translate(${world[0]} ${world[1]})`}>
-      <rect
-        x={-10}
-        y={-10}
-        width={20}
-        height={20}
-        fill="transparent"
-        style={{ pointerEvents: 'all', cursor: 'ns-resize' }}
-        onPointerDown={(e) =>
-          startHandleDrag(e, key, (dxW, dyW, mm) => {
-            if (mm.kind !== 'skew') return null;
-            const local = worldDeltaToLocal(dxW, dyW);
-            const delta = normFromLocal(local.x, local.y);
-            if (axis === 'x') {
-              return { skewX: Math.max(-89.9, Math.min(89.9, mm.skewX + delta.x * 60)) };
-            }
-            return { skewY: Math.max(-89.9, Math.min(89.9, mm.skewY - delta.y * 60)) };
-          })
-        }
-      />
-      <rect
-        x={-4}
-        y={-4}
-        width={8}
-        height={8}
-        fill="var(--color-interactive-default)"
-        stroke="var(--color-surface-overlay)"
-        rx={1}
-        transform="rotate(45)"
-      />
-    </g>
-  );
+  const handle = (key: string, world: [number, number], axis: 'x' | 'y') => {
+    const apply: DragApply = (dxW, dyW, mm) => {
+      if (mm.kind !== 'skew') return null;
+      const local = worldDeltaToLocal(dxW, dyW);
+      const delta = normDeltaFromLocal(local.x, local.y);
+      if (axis === 'x') {
+        return { skewX: Math.max(-89.9, Math.min(89.9, mm.skewX + delta.x * 60)) };
+      }
+      return { skewY: Math.max(-89.9, Math.min(89.9, mm.skewY - delta.y * 60)) };
+    };
+    const label =
+      axis === 'x'
+        ? `Horizontal skew, ${Math.round(m.skewX)} degrees`
+        : `Vertical skew, ${Math.round(m.skewY)} degrees`;
+    return (
+      <g key={key} transform={`translate(${world[0]} ${world[1]})`}>
+        {/* biome-ignore lint/a11y/useSemanticElements: SVG has no <button>; role+tabIndex is the standard way to make an SVG handle operable */}
+        <rect
+          x={-10}
+          y={-10}
+          width={20}
+          height={20}
+          fill="transparent"
+          style={{ pointerEvents: 'all', cursor: 'ns-resize' }}
+          onPointerDown={(e) => startHandleDrag(e, key, apply)}
+          onKeyDown={(e) => onHandleKey(e, apply, label)}
+          onFocus={() => announce(label)}
+          tabIndex={0}
+          role="button"
+          aria-label={label}
+        />
+        <rect
+          x={-4}
+          y={-4}
+          width={8}
+          height={8}
+          fill="var(--color-interactive-default)"
+          stroke="var(--color-surface-overlay)"
+          rx={1}
+          transform="rotate(45)"
+        />
+      </g>
+    );
+  };
   return (
     <>
       <polygon
@@ -480,23 +620,22 @@ function SkewHandles({
 function EnvelopeHandles({
   modifier,
   renderHandle,
-  startHandleDrag,
   normToScreen,
   snapToPixelGrid,
-  normFromLocal,
+  normDeltaFromLocal,
   worldDeltaToLocal,
 }: {
   modifier: EnvelopeModifier;
   renderHandle: (
     key: string,
     point: NormalizedPoint,
-    onDown: (e: React.PointerEvent) => void,
+    apply: DragApply,
     size?: number,
+    label?: string,
   ) => React.ReactNode;
-  startHandleDrag: (e: React.PointerEvent, key: string, apply: DragApply) => void;
   normToScreen: (p: NormalizedPoint) => { x: number; y: number };
   snapToPixelGrid: (p: NormalizedPoint) => NormalizedPoint;
-  normFromLocal: (x: number, y: number) => NormalizedPoint;
+  normDeltaFromLocal: (x: number, y: number) => NormalizedPoint;
   worldDeltaToLocal: (dx: number, dy: number) => { x: number; y: number };
 }) {
   const m = modifier;
@@ -522,6 +661,16 @@ function EnvelopeHandles({
     }
     return out.join(' ');
   };
+  /**
+   * Control polygon of one envelope edge, in the SAME parameterization the
+   * Coons evaluator uses (see envelopeMap): top and bottom both run left to
+   * right, left and right both run top to bottom — each edge matches the
+   * direction of the edge opposite it, not a CCW perimeter loop.
+   *
+   * Drawing bottom/left reversed made the rendered cage disagree with the
+   * geometry it controls as soon as an edge's two controls differed, which
+   * an identity (straight) envelope hides.
+   */
   const edgePoints = (edge: 'top' | 'right' | 'bottom' | 'left'): NormalizedPoint[] => {
     const c = m.corners;
     const e = m.edges;
@@ -531,38 +680,42 @@ function EnvelopeHandles({
       case 'right':
         return [c.tr, e.right[0], e.right[1], c.br];
       case 'bottom':
-        return [c.br, e.bottom[0], e.bottom[1], c.bl];
+        return [c.bl, e.bottom[0], e.bottom[1], c.br];
       case 'left':
-        return [c.bl, e.left[0], e.left[1], c.tl];
+        return [c.tl, e.left[0], e.left[1], c.bl];
     }
   };
   const edgeHandle = (edge: 'top' | 'right' | 'bottom' | 'left', i: 0 | 1) =>
     renderHandle(
       `edge-${edge}-${i}`,
       m.edges[edge][i]!,
-      (e) =>
-        startHandleDrag(e, `edge-${edge}-${i}`, (dxW, dyW, mm) => {
-          if (mm.kind !== 'envelope') return null;
-          const local = worldDeltaToLocal(dxW, dyW);
-          const delta = normFromLocal(local.x, local.y);
-          const current = mm.edges[edge][i]!;
-          const next = snapToPixelGrid({ x: current.x + delta.x, y: current.y + delta.y });
-          const edges = { ...mm.edges };
-          edges[edge] = i === 0 ? [next, mm.edges[edge][1]] : [mm.edges[edge][0], next];
-          return { edges };
-        }),
-      6,
-    );
-  const cornerHandle = (corner: 'tl' | 'tr' | 'br' | 'bl') =>
-    renderHandle(`corner-${corner}`, m.corners[corner], (e) =>
-      startHandleDrag(e, `corner-${corner}`, (dxW, dyW, mm) => {
+      (dxW, dyW, mm) => {
         if (mm.kind !== 'envelope') return null;
         const local = worldDeltaToLocal(dxW, dyW);
-        const delta = normFromLocal(local.x, local.y);
+        const delta = normDeltaFromLocal(local.x, local.y);
+        const current = mm.edges[edge][i]!;
+        const next = snapToPixelGrid({ x: current.x + delta.x, y: current.y + delta.y });
+        const edges = { ...mm.edges };
+        edges[edge] = i === 0 ? [next, mm.edges[edge][1]] : [mm.edges[edge][0], next];
+        return { edges };
+      },
+      6,
+      `Envelope ${EDGE_LABELS[edge]} edge control ${i + 1} of 2`,
+    );
+  const cornerHandle = (corner: 'tl' | 'tr' | 'br' | 'bl') =>
+    renderHandle(
+      `corner-${corner}`,
+      m.corners[corner],
+      (dxW, dyW, mm) => {
+        if (mm.kind !== 'envelope') return null;
+        const local = worldDeltaToLocal(dxW, dyW);
+        const delta = normDeltaFromLocal(local.x, local.y);
         const current = mm.corners[corner];
         const snapped = snapToPixelGrid({ x: current.x + delta.x, y: current.y + delta.y });
         return { corners: { ...mm.corners, [corner]: snapped } };
-      }),
+      },
+      HANDLE_SIZE,
+      `Envelope ${CORNER_LABELS[corner]} corner`,
     );
   return (
     <>
@@ -595,9 +748,11 @@ function MeshHandles({
   selectedPoints,
   setSelectedPoints,
   startHandleDrag,
+  onHandleKey,
+  announce,
   normToScreen,
   snapToPixelGrid,
-  normFromLocal,
+  normDeltaFromLocal,
   worldDeltaToLocal,
   zoom,
 }: {
@@ -605,9 +760,11 @@ function MeshHandles({
   selectedPoints: Set<number>;
   setSelectedPoints: (s: Set<number>) => void;
   startHandleDrag: (e: React.PointerEvent, key: string, apply: DragApply) => void;
+  onHandleKey: (e: React.KeyboardEvent, apply: DragApply, label: string) => boolean;
+  announce: (msg: string) => void;
   normToScreen: (p: NormalizedPoint) => { x: number; y: number };
   snapToPixelGrid: (p: NormalizedPoint) => NormalizedPoint;
-  normFromLocal: (x: number, y: number) => NormalizedPoint;
+  normDeltaFromLocal: (x: number, y: number) => NormalizedPoint;
   worldDeltaToLocal: (dx: number, dy: number) => { x: number; y: number };
   zoom: number;
 }) {
@@ -626,15 +783,15 @@ function MeshHandles({
     (dxW, dyW, mm) => {
       if (mm.kind !== 'mesh-warp') return null;
       const local = worldDeltaToLocal(dxW, dyW);
-      const delta = normFromLocal(local.x, local.y);
+      const delta = normDeltaFromLocal(local.x, local.y);
       const set = selectedPoints.size > 0 ? selectedPoints : new Set([index]);
       const next = [...mm.points];
       for (const i of set) {
         const p = mm.points[i];
         if (!p) continue;
         next[i] = snapToPixelGrid({
-          x: Math.max(0, Math.min(1, p.x + delta.x)),
-          y: Math.max(0, Math.min(1, p.y + delta.y)),
+          x: Math.max(-2, Math.min(3, p.x + delta.x)),
+          y: Math.max(-2, Math.min(3, p.y + delta.y)),
         });
       }
       return { points: next };
@@ -660,9 +817,23 @@ function MeshHandles({
       {points.map((p, i) => {
         const s = normToScreen(p);
         const selected = selectedPoints.has(i);
+        const row = Math.floor(i / (columns + 1)) + 1;
+        const column = (i % (columns + 1)) + 1;
+        // Grid position first, then coordinates — a mesh point is only
+        // meaningful relative to its row and column.
+        const label = `Mesh point, row ${row} of ${rows + 1}, column ${column} of ${columns + 1}`;
+        const description = `${label}. X ${Math.round(p.x * 100)} percent, Y ${Math.round(p.y * 100)} percent.${selected ? ' Selected.' : ''}`;
+        const toggleSelection = () => {
+          const next = new Set(selectedPoints);
+          if (next.has(i)) next.delete(i);
+          else next.add(i);
+          setSelectedPoints(next);
+          announce(next.has(i) ? `${label}. Selected.` : `${label}. Deselected.`);
+        };
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: mesh point index is the stable grid identity (row-major)
           <g key={`pt-${i}`} transform={`translate(${s.x} ${s.y})`}>
+            {/* biome-ignore lint/a11y/useSemanticElements: SVG has no <button>; role+tabIndex is the standard way to make an SVG handle operable */}
             <rect
               x={-8}
               y={-8}
@@ -673,15 +844,27 @@ function MeshHandles({
               onPointerDown={(e) => {
                 if (e.shiftKey) {
                   e.stopPropagation();
-                  const next = new Set(selectedPoints);
-                  if (next.has(i)) next.delete(i);
-                  else next.add(i);
-                  setSelectedPoints(next);
+                  toggleSelection();
                   return;
                 }
                 startHandleDrag(e, `mesh-${i}`, dragSelected(i));
               }}
-              aria-label={`mesh point row ${Math.floor(i / (columns + 1)) + 1} of ${rows + 1}, column ${(i % (columns + 1)) + 1} of ${columns + 1}`}
+              onKeyDown={(e) => {
+                // Space/Enter is the keyboard equivalent of shift-clicking:
+                // multi-select without needing a pointer.
+                if (e.key === ' ' || e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleSelection();
+                  return;
+                }
+                onHandleKey(e, dragSelected(i), label);
+              }}
+              onFocus={() => announce(description)}
+              tabIndex={0}
+              role="button"
+              aria-pressed={selected}
+              aria-label={description}
             />
             <circle
               r={selected ? 4.5 : 3.2}
@@ -700,27 +883,39 @@ function MeshHandles({
 function BendHandles({
   modifier,
   startHandleDrag,
+  onHandleKey,
+  announce,
   sourceBounds,
   worldMat,
   zoom,
   pan,
   cameraRotation,
-  normFromLocal,
+  normDeltaFromLocal,
   worldDeltaToLocal,
 }: {
   modifier: BendModifier;
   startHandleDrag: (e: React.PointerEvent, key: string, apply: DragApply) => void;
+  onHandleKey: (e: React.KeyboardEvent, apply: DragApply, label: string) => boolean;
+  announce: (msg: string) => void;
   sourceBounds: Rect;
   worldMat: Affine;
   zoom: number;
   pan: { x: number; y: number };
   cameraRotation: number;
-  normFromLocal: (x: number, y: number) => NormalizedPoint;
+  normDeltaFromLocal: (x: number, y: number) => NormalizedPoint;
   worldDeltaToLocal: (dx: number, dy: number) => { x: number; y: number };
 }) {
   const m = modifier;
   const w = applyAffine(worldMat, [sourceBounds.x + 0.5 * sourceBounds.w, sourceBounds.y]);
   const s = worldToScreen(w[0], w[1], zoom, pan, cameraRotation);
+  const bendApply: DragApply = (dxW, dyW, mm) => {
+    if (mm.kind !== 'bend') return null;
+    const local = worldDeltaToLocal(dxW, dyW);
+    const delta = normDeltaFromLocal(local.x, local.y);
+    const amount = mm.axis === 'horizontal' ? mm.amount - delta.y * 6 : mm.amount + delta.x * 6;
+    return { amount: Math.max(-1, Math.min(1, amount)) };
+  };
+  const bendLabel = `${m.mode} bend strength, ${Math.round(m.amount * 100)} percent`;
   return (
     <>
       <line
@@ -734,6 +929,7 @@ function BendHandles({
         strokeOpacity={0.6}
       />
       <g transform={`translate(${s.x} ${s.y - 30})`}>
+        {/* biome-ignore lint/a11y/useSemanticElements: SVG has no <button>; role+tabIndex is the standard way to make an SVG handle operable */}
         <rect
           x={-10}
           y={-10}
@@ -741,16 +937,12 @@ function BendHandles({
           height={20}
           fill="transparent"
           style={{ pointerEvents: 'all', cursor: 'ns-resize' }}
-          onPointerDown={(e) =>
-            startHandleDrag(e, 'bend-strength', (dxW, dyW, mm) => {
-              if (mm.kind !== 'bend') return null;
-              const local = worldDeltaToLocal(dxW, dyW);
-              const delta = normFromLocal(local.x, local.y);
-              const amount =
-                mm.axis === 'horizontal' ? mm.amount - delta.y * 6 : mm.amount + delta.x * 6;
-              return { amount: Math.max(-1, Math.min(1, amount)) };
-            })
-          }
+          onPointerDown={(e) => startHandleDrag(e, 'bend-strength', bendApply)}
+          onKeyDown={(e) => onHandleKey(e, bendApply, bendLabel)}
+          onFocus={() => announce(bendLabel)}
+          tabIndex={0}
+          role="button"
+          aria-label={bendLabel}
         />
         <circle
           r={5}

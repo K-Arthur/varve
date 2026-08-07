@@ -161,7 +161,7 @@ export interface MeshWarpModifier extends WarpModifierBase {
    * source-local per `coordinateSpace`).
    */
   points: WarpMeshPoint[];
-  /** 'bilinear' only in this version; 'bicubic' is validated but unsupported. */
+  /** Bilinear is cell-local; bicubic uses smooth Catmull–Rom interpolation. */
   interpolation: 'bilinear' | 'bicubic';
 }
 
@@ -239,6 +239,10 @@ function isNormalizedPointPair(
 // edges bulge outside the cage). Bounded to keep corrupt data from exploding.
 const ENVELOPE_CONTROL_LO = -2;
 const ENVELOPE_CONTROL_HI = 3;
+// A mesh must be able to extend past its source box (for perspective and
+// outward bulges). Keep the same bounded editing domain as envelope handles.
+const MESH_CONTROL_LO = -2;
+const MESH_CONTROL_HI = 3;
 
 function isCorners(v: unknown, absolute: boolean): v is PerspectiveCorners {
   if (typeof v !== 'object' || v === null) return false;
@@ -357,7 +361,7 @@ export function validateWarpModifier(raw: unknown): WarpModifier | null {
       if (!Array.isArray(m.points) || m.points.length !== expected) return null;
       const points: WarpMeshPoint[] = [];
       for (const p of m.points) {
-        if (!isNormalizedPoint(p, absolute)) return null;
+        if (!isNormalizedPoint(p, absolute, MESH_CONTROL_LO, MESH_CONTROL_HI)) return null;
         points.push({ x: p.x, y: p.y });
       }
       const interpolation = m.interpolation === 'bicubic' ? 'bicubic' : 'bilinear';

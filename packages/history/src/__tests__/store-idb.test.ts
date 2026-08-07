@@ -6,6 +6,8 @@
  * transaction), failure injection (aborted append must not be observable),
  * persistence across store instances (reload simulation), and tail
  * truncation via setSegments.
+ *
+ * `indexedDB` is provided globally by the vitest setup (fake-indexeddb).
  */
 import 'fake-indexeddb/auto';
 import type { IDBPDatabase } from 'idb';

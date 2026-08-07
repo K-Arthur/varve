@@ -9,17 +9,19 @@
 
 import {
   MAX_WARPS_PER_NODE,
+  resampleMeshWarp,
   WARP_PRESET_DESCRIPTIONS,
   type WarpModifier,
   type WarpPresetKind,
 } from '@varve/engine';
-import type { SceneNode } from '@varve/scene';
 import {
   clearWarps,
   duplicateWarp,
+  nodeLocalBoundsSource,
   renameWarp,
   reorderWarps,
   resetWarp,
+  type SceneNode,
   setWarpEnabled,
   setWarpSettings,
   updateWarp,
@@ -128,18 +130,31 @@ export function WarpSection({ nodes, node }: WarpSectionProps) {
       case 'mesh-warp': {
         const rows = m.rows;
         const columns = m.columns;
+        // Changing the grid resamples the existing deformation onto the new
+        // topology, so a row/column edit preserves the visible warp instead of
+        // snapping it back to an undeformed grid.
+        const resizeMesh = (nextRows: number, nextColumns: number) => {
+          const bounds = nodeLocalBoundsSource(primary, state.document);
+          if (!bounds) return;
+          const {
+            rows: r,
+            columns: c,
+            points,
+          } = resampleMeshWarp(m, nextRows, nextColumns, bounds);
+          patch(m.id, { rows: r, columns: c, points });
+        };
         return (
           <>
             <div className="warp-section__row">
               <NumberField
                 label="Rows"
                 value={rows}
-                onChange={(v) => patch(m.id, { rows: Math.max(1, Math.min(32, Math.round(v))) })}
+                onChange={(v) => resizeMesh(Math.max(1, Math.min(32, Math.round(v))), columns)}
               />
               <NumberField
                 label="Columns"
                 value={columns}
-                onChange={(v) => patch(m.id, { columns: Math.max(1, Math.min(32, Math.round(v))) })}
+                onChange={(v) => resizeMesh(rows, Math.max(1, Math.min(32, Math.round(v))))}
               />
             </div>
             <p className="warp-section__hint">
