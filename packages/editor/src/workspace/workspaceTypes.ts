@@ -229,6 +229,10 @@ export interface WorkspaceConfig {
 export interface WorkspacePreference {
   /** Mode-specific panel overrides. */
   panelOverrides?: Partial<Record<PanelId, Partial<PanelConfig>>>;
+  /** Mode-specific inspector tab visibility overrides (tab id → visible). */
+  inspectorTabOverrides?: Partial<Record<InspectorTabId, boolean>>;
+  /** Mode-specific status section visibility overrides (section id → visible). */
+  statusSectionOverrides?: Partial<Record<StatusSectionId, boolean>>;
   /** Whether the user has customized this mode. */
   customized: boolean;
   /** Timestamp of last customization. */
