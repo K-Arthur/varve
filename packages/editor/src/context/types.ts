@@ -1077,6 +1077,14 @@ export interface EditorContextValue {
   setActivePage: (pageId: NodeId) => void;
   setCurrentPageId: (id: string | null) => void;
   activePageNodes: () => NodeId[];
+  /** Move a page on the pasteboard (placement metadata only, ADR-0124). */
+  movePageOnPasteboard: (pageId: string, x: number, y: number) => void;
+  /** Resize a page's trim without scaling its content (page-only resize). */
+  resizePage: (pageId: string, width: number, height: number) => void;
+  /** Fit the viewport to the active page's spread bounds. */
+  fitSpread: () => void;
+  /** Fit the viewport to every page (pasteboard bounds). */
+  fitAllPages: () => void;
 
   // Master page methods
   createMaster: (name: string, width: number, height: number) => void;

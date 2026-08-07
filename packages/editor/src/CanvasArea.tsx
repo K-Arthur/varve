@@ -193,6 +193,7 @@ import type { RefineMaskTool } from './tools/RefineMaskTool';
 import {
   createSnapSession,
   filterSnapTargets,
+  pageSnapTargets,
   type SnapGuide,
   type SnapSession,
   snapPosition,
@@ -1007,6 +1008,9 @@ export function CanvasArea({
       setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
       setNodeSize: (id, w, h) => e.setNodeSize(id, w, h),
       updateNode: (id, updater) => e.updateNode(id, updater),
+      setActivePage: (pageId) => e.setActivePage(pageId),
+      movePageOnPasteboard: (pageId, x, y) => e.movePageOnPasteboard(pageId, x, y),
+      resizePage: (pageId, w, h) => e.resizePage(pageId, w, h),
       removeSelected: () => e.removeSelected(),
       duplicateSelected: () => e.duplicateSelected(),
       reparentNode: (id, newParentId, toIndex) => e.reparentNode(id, newParentId, toIndex),
@@ -1149,20 +1153,10 @@ export function CanvasArea({
           semanticCandidates: filtered.length,
         });
 
-        const pageBoundsTargets: Array<{ x: number; y: number; w: number; h: number }> = [];
-        const activePageId = doc.activePageId;
-        const pages = doc.pages;
-        if (activePageId && pages) {
-          const activePage = pages.find((p) => p.id === activePageId);
-          if (activePage) {
-            pageBoundsTargets.push({
-              x: 0,
-              y: 0,
-              w: activePage.width,
-              h: activePage.height,
-            });
-          }
-        }
+        // Page trim snap targets (M6): every placed page's trim bounds, so
+        // nodes snap to page edges on any page of the pasteboard — not only
+        // the active page's trim at the origin.
+        const pageBoundsTargets = pageSnapTargets(doc);
         if (draggedId) {
           const parentId = parentIdx.get(draggedId);
           if (parentId) {

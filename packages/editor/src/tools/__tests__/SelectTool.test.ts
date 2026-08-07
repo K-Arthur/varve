@@ -1,4 +1,6 @@
 import {
+  addChild,
+  addPage,
   createClippingMask,
   createDocument,
   makeGroupNode,
@@ -1227,5 +1229,87 @@ describe('SelectTool marquee-select scaling', () => {
     const largeMs = performance.now() - t1;
 
     expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 300));
+  });
+});
+
+describe('SelectTool — M6 page interactions', () => {
+  it('activates a non-active page under an empty click', () => {
+    const tool = new SelectTool();
+    let doc = createDocument('test');
+    doc = addPage(doc, {});
+    doc = {
+      ...doc,
+      pages: doc.pages!.map((p, i) => ({ ...p, placement: { x: i * 2500, y: 0 } })),
+    };
+    const page2 = doc.pages![1]!;
+    const setActivePage = vi.fn();
+    const ctx = makeCtx({ document: doc, hitTest: vi.fn().mockReturnValue(null), setActivePage });
+    // Click on page 2's trim (world 2550, 100).
+    tool.onPointerDown({ clientX: 2550, clientY: 100, pointerId: 1, button: 0 } as any, ctx);
+    expect(ctx.setSelection).toHaveBeenCalledWith(null);
+    expect(setActivePage).toHaveBeenCalledWith(page2.id);
+  });
+
+  it('reparents a node dropped on another page\'s empty trim into that page', () => {
+    const tool = new SelectTool();
+    let doc = createDocument('test');
+    doc = addPage(doc, {});
+    doc = {
+      ...doc,
+      pages: doc.pages!.map((p, i) => ({ ...p, placement: { x: i * 2500, y: 0 } })),
+    };
+    const [page1, page2] = [doc.pages![0]!, doc.pages![1]!];
+    const nodeId = 'nCross';
+    doc = addChild(doc, page1.contentRoot, makeShapeNode(nodeId, { kind: 'rect', x: 10, y: 10, w: 40, h: 40 }));
+    const reparentNode = vi.fn();
+    const setNodePosition = vi.fn((id: string, x: number, y: number) => {
+      const n = doc.nodes[id] as { transform?: number[] } | undefined;
+      if (n) n.transform = [1, 0, 0, 1, x, y];
+    });
+    const ctx = makeCtx({
+      document: doc,
+      selection: [nodeId],
+      isSelected: vi.fn().mockReturnValue(true),
+      hitTest: vi.fn().mockReturnValue({ nodeId, node: doc.nodes[nodeId] }),
+      findContainingFrame: vi.fn().mockReturnValue(null),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      reparentNode,
+      setNodePosition,
+    });
+
+    // Drag the node's center to page 2's empty trim (world 2550, 30).
+    tool.onPointerDown({ clientX: 30, clientY: 30, pointerId: 1, button: 0 } as any, ctx);
+    tool.onPointerMove({ clientX: 2550, clientY: 30, pointerId: 1, button: 0 } as any, ctx);
+    tool.onPointerUp({ clientX: 2550, clientY: 30, pointerId: 1, button: 0 } as any, ctx);
+
+    expect(reparentNode).toHaveBeenCalledWith(nodeId, page2.contentRoot, 0);
+  });
+
+  it('does not reparent a node dropped back on its own page', () => {
+    const tool = new SelectTool();
+    let doc = createDocument('test');
+    doc = addPage(doc, {});
+    doc = {
+      ...doc,
+      pages: doc.pages!.map((p, i) => ({ ...p, placement: { x: i * 2500, y: 0 } })),
+    };
+    const [page1] = [doc.pages![0]!];
+    const nodeId = 'nHome';
+    doc = addChild(doc, page1.contentRoot, makeShapeNode(nodeId, { kind: 'rect', x: 10, y: 10, w: 40, h: 40 }));
+    const reparentNode = vi.fn();
+    const ctx = makeCtx({
+      document: doc,
+      hitTest: vi.fn().mockReturnValue({ nodeId, node: doc.nodes[nodeId] }),
+      findContainingFrame: vi.fn().mockReturnValue(null),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      reparentNode,
+    });
+
+    tool.onPointerDown({ clientX: 30, clientY: 30, pointerId: 1, button: 0 } as any, ctx);
+    tool.onPointerMove({ clientX: 30, clientY: 30, pointerId: 1, button: 0 } as any, ctx);
+    // Drop stays on page 1's trim — node is already page-1-owned.
+    tool.onPointerUp({ clientX: 200, clientY: 200, pointerId: 1, button: 0 } as any, ctx);
+
+    expect(reparentNode).not.toHaveBeenCalled();
   });
 });

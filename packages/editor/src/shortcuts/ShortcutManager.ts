@@ -53,6 +53,8 @@ export const SHORTCUT_DEFS = {
   fitAll: { binding: { key: '1', shift: true }, label: 'Fit All', category: 'View' },
   fitSelection: { binding: { key: '2', shift: true }, label: 'Fit Selection', category: 'View' },
   fitActivePage: { binding: { key: '3', shift: true }, label: 'Fit Active Page', category: 'View' },
+  fitSpread: { binding: { key: '5', shift: true }, label: 'Fit Spread', category: 'View' },
+  fitAllPages: { binding: { key: '6', shift: true }, label: 'Fit All Pages', category: 'View' },
   fitActiveFrame: {
     binding: { key: '4', shift: true },
     label: 'Fit Active Frame',
@@ -254,6 +256,7 @@ export const SHORTCUT_DEFS = {
   toolSlice: { binding: { key: 'k' }, label: 'Slice tool', category: 'Tools' },
   toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
   toolSam2Segment: { binding: { key: 'm' }, label: 'Select Subject tool', category: 'Tools' },
+  toolPage: { binding: { key: 'q' }, label: 'Page tool', category: 'Tools' },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
   import: { binding: { key: 'i', ctrl: true }, label: 'Import\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },

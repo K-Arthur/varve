@@ -1090,6 +1090,7 @@ export function getHiddenTools(mode: WorkspaceMode): Set<ToolId> {
     'eraser',
     'smudge',
     'lasso',
+    'page',
   ];
   const hidden = new Set<ToolId>();
   for (const id of ALL_TOOLS) {
