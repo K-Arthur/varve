@@ -381,6 +381,9 @@ importers:
       '@varve/scene':
         specifier: workspace:*
         version: link:../scene
+      idb:
+        specifier: ^8.0.0
+        version: 8.0.3
 
   packages/home:
     dependencies:
