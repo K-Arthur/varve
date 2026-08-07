@@ -213,8 +213,10 @@ export class EditorHistorySession {
       return this.finishAttach(genesis, branch, false, issues);
     }
 
-    // Recovery pass: rewind corrupt tails before trusting the head.
-    const recovery = await recoverTail(this.store, this.documentId);
+    // Recovery pass: rewind corrupt tails before trusting the head. The
+    // truncation is APPLIED so the store never replays garbage; the report
+    // records exactly what was discarded.
+    const recovery = await recoverTail(this.store, this.documentId, { applyTruncation: true });
     if (recovery.warnings.length > 0 || recovery.truncatedSegments.length > 0) {
       issues.push({
         severity: 'warning',
