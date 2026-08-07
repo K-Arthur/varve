@@ -67,7 +67,11 @@ function createBroadcastTransport(sessionId: string, onMessage: Listener): Trans
 
   return {
     send(eventId, payload) {
-      channel.postMessage({ eventId, payload });
+      try {
+        channel.postMessage({ eventId, payload });
+      } catch {
+        // Channel closed (window unloading) — drop the message.
+      }
     },
     close() {
       channel.removeEventListener('message', handle);
