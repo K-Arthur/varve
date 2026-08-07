@@ -59,6 +59,21 @@
   top: var(--space-2);
 }
 
+/* ── Native number-input stepper chrome ──────────────────
+ * The browser's built-in up/down spinbuttons are unstylable across engines
+ * and read as raw OS chrome against the design system. All number fields in
+ * the editor keep keyboard stepping (ArrowUp/Down) and the places that need
+ * visible +/- controls provide their own styled buttons. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* ── Offline banner ──────────────────────────────────── */
 .editor-offline-banner {
   position: fixed;
@@ -290,6 +305,20 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* Left rail (home mark + menus). flex: 1 1 0 mirrors the right controls
+ * segment: both flexible sides claim exactly half of the free space, so the
+ * document title between them sits at the true midpoint of the bar. The
+ * title stays in normal flow (not absolutely positioned) so it truncates
+ * with an ellipsis instead of overlapping the workspace controls. */
+.editor-menubar__side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: flex-start;
 }
 
 .editor-menubar__menu {
@@ -1159,15 +1188,15 @@
 }
 
 /* ── Center section (document identity) ──
- * In normal flex flow (not absolutely positioned) so the title truncates
- * with an ellipsis instead of overlapping the workspace controls: the
- * center claims the flexible middle, and the controls sit in the remaining
- * space with min-width: 0 so they can never collide. */
+ * The center claims only its content width (flex: 0 1 auto); the left rail
+ * and the controls both grow with flex: 1 1 0, so the title is centered
+ * exactly on the bar's midpoint while still truncating with an ellipsis
+ * instead of overlapping the workspace controls at narrow widths. */
 .editor-menubar__center {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   padding: 0 var(--space-2);
 }
@@ -1309,12 +1338,15 @@
 .editor-menubar__controls {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-1);
-  /* Grows to fill the space right of the title segment; the workspace tabs
-     wrapper inside absorbs the flexible remainder (flex: 1 1 0), so the
-     tabs' available width is flex-determined — never content-determined,
-     which would collapse the overflow measurement in a feedback loop. */
-  flex: 1 1 auto;
+  /* flex: 1 1 0 mirrors the left rail so both sides own exactly half the
+     free space — that symmetry is what puts the document title on the bar's
+     true midpoint. The workspace tabs wrapper inside absorbs the flexible
+     remainder (flex: 1 1 0), so the tabs' available width is
+     flex-determined — never content-determined, which would collapse the
+     overflow measurement in a feedback loop. */
+  flex: 1 1 0;
   min-width: 0;
 }
 
