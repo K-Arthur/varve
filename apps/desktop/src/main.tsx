@@ -55,7 +55,8 @@ async function bootstrap() {
 
   // Panel-window popups load the same bundle with a surface param and
   // render the minimal auxiliary shell instead of the full app.
-  const isPanelWindow = new URLSearchParams(window.location.search).get('surface') === 'panel-window';
+  const isPanelWindow =
+    new URLSearchParams(window.location.search).get('surface') === 'panel-window';
 
   createRoot(root).render(
     <StrictMode>
