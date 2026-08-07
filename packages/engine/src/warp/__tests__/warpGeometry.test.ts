@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Shape } from '../../types';
-import { shapeToPathPoints, warpShapeToPath } from '../geometry';
+import {
+  buildWarpEvaluation,
+  resampleMeshWarp,
+  shapeToPathPoints,
+  warpShapeToPath,
+} from '../geometry';
 import { type PerspectiveModifier, validateWarpModifiers, type WarpModifier } from '../types';
 
 const BOUNDS = { x: 0, y: 0, w: 200, h: 100 };
@@ -154,6 +159,64 @@ describe('warpShapeToPath — perspective', () => {
   });
 });
 
+describe('envelope edge parameterization', () => {
+  /**
+   * Locks the direction each edge's two controls are interpolated in. The
+   * canvas overlay draws the same control polygons, so if this convention
+   * changes the cage and the geometry it controls silently disagree.
+   *
+   * Convention: top and bottom both run left→right; left and right both run
+   * top→bottom (each edge parallels the edge opposite it).
+   */
+  it('interpolates bottom left-to-right and left top-to-bottom', () => {
+    const asymmetric: WarpModifier = {
+      id: 'm1',
+      kind: 'envelope',
+      corners: {
+        tl: { x: 0, y: 0 },
+        tr: { x: 1, y: 0 },
+        br: { x: 1, y: 1 },
+        bl: { x: 0, y: 1 },
+      },
+      edges: {
+        top: [
+          { x: 1 / 3, y: 0 },
+          { x: 2 / 3, y: 0 },
+        ],
+        right: [
+          { x: 1, y: 1 / 3 },
+          { x: 1, y: 2 / 3 },
+        ],
+        // Only the control nearest bl is displaced. If the bottom edge were
+        // read right-to-left, the bulge would appear near br instead.
+        bottom: [
+          { x: 1 / 3, y: 1.5 },
+          { x: 2 / 3, y: 1 },
+        ],
+        // Likewise, only the control nearest tl is displaced.
+        left: [
+          { x: -0.5, y: 1 / 3 },
+          { x: 0, y: 2 / 3 },
+        ],
+      },
+      interpolation: 'coons',
+    };
+    const evaluation = buildWarpEvaluation(modifier(asymmetric), BOUNDS);
+
+    // Quarter-way along the bottom edge (near bl) must dip further than the
+    // three-quarter point (near br).
+    const nearBl = evaluation.map(BOUNDS.w * 0.25, BOUNDS.h)[1];
+    const nearBr = evaluation.map(BOUNDS.w * 0.75, BOUNDS.h)[1];
+    expect(nearBl).toBeGreaterThan(nearBr);
+
+    // Quarter-way down the left edge (near tl) must bulge further left than
+    // the three-quarter point (near bl).
+    const nearTl = evaluation.map(0, BOUNDS.h * 0.25)[0];
+    const nearBlX = evaluation.map(0, BOUNDS.h * 0.75)[0];
+    expect(nearTl).toBeLessThan(nearBlX);
+  });
+});
+
 describe('warpShapeToPath — envelope', () => {
   it('maps boundary points exactly onto the configured edge curves', () => {
     const e: WarpModifier = {
@@ -230,8 +293,8 @@ describe('warpShapeToPath — mesh', () => {
       rows: 1,
       columns: 1,
       points: [
-        { x: 0, y: 0 },
-        { x: 1, y: 0 },
+        { x: -0.1, y: 0 },
+        { x: 1.1, y: 0 },
         { x: 0, y: 1 },
         { x: 1, y: 1 },
       ],
@@ -243,6 +306,66 @@ describe('warpShapeToPath — mesh', () => {
     if (shape.kind !== 'path') throw new Error('expected path');
     expect(shape.points[2]!.x).toBeCloseTo(200, 3);
     expect(shape.points[2]!.y).toBeCloseTo(100, 3);
+  });
+
+  it('uses both cell axes for bilinear interpolation', () => {
+    const m: WarpModifier = {
+      id: 'm1',
+      kind: 'mesh-warp',
+      rows: 1,
+      columns: 1,
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 0.5 },
+      ],
+      interpolation: 'bilinear',
+    };
+    const [x, y] = buildWarpEvaluation([m], BOUNDS).map(50, 50);
+    expect(x).toBeCloseTo(50, 6);
+    expect(y).toBeCloseTo(43.75, 6);
+  });
+
+  it('keeps an identity mesh exactly linear with bicubic interpolation', () => {
+    const points = Array.from({ length: 9 }, (_, index) => ({
+      x: (index % 3) / 2,
+      y: Math.floor(index / 3) / 2,
+    }));
+    const m: WarpModifier = {
+      id: 'm1',
+      kind: 'mesh-warp',
+      rows: 2,
+      columns: 2,
+      points,
+      interpolation: 'bicubic',
+    };
+    const [x, y] = buildWarpEvaluation([m], BOUNDS).map(57, 83);
+    expect(x).toBeCloseTo(57, 6);
+    expect(y).toBeCloseTo(83, 6);
+  });
+
+  it('resamples topology as a valid mesh without changing its outer control points', () => {
+    const m = {
+      id: 'm1',
+      kind: 'mesh-warp' as const,
+      rows: 1,
+      columns: 1,
+      points: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 0.8 },
+      ],
+      interpolation: 'bilinear' as const,
+    };
+    const resized = resampleMeshWarp(m, 2, 3, BOUNDS);
+    expect(resized.points).toHaveLength(12);
+    expect(resized.points[0]).toEqual(m.points[0]);
+    expect(resized.points[3]).toEqual(m.points[1]);
+    expect(resized.points[8]).toEqual(m.points[2]);
+    expect(resized.points[11]).toEqual(m.points[3]);
+    expect(validateWarpModifiers([resized]).modifiers).toHaveLength(1);
   });
 });
 

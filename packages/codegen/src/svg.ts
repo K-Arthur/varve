@@ -32,6 +32,7 @@ import {
   svgCompositing,
 } from './shared';
 import type { TargetGap } from './types';
+import { exportShapeOf, unbakeableWarpKind } from './warpBake';
 
 /** Deterministic number formatting for SVG output. */
 function fmt(n: number): string {
@@ -184,7 +185,10 @@ function pathToData(shape: Extract<import('@varve/engine').Shape, { kind: 'path'
   ): string[] => {
     const first = points[0];
     if (!first) return [];
-    const commands = [`M ${first.x} ${first.y}`];
+    // Coordinates are rounded to 0.01px. Warp baking subdivides curves into
+    // many points, and emitting each at full float precision both bloats the
+    // file and leaks arithmetic noise (`4.6e-15` for an exact zero).
+    const commands = [`M ${fmt(first.x)} ${fmt(first.y)}`];
     for (let index = 1; index < points.length; index += 1) {
       const previous = points[index - 1] as import('@varve/engine').PathPoint;
       const current = points[index] as import('@varve/engine').PathPoint;
@@ -193,9 +197,11 @@ function pathToData(shape: Extract<import('@varve/engine').Shape, { kind: 'path'
         const c1y = previous.y + (previous.handleOut?.[1] ?? 0);
         const c2x = current.x + (current.handleIn?.[0] ?? 0);
         const c2y = current.y + (current.handleIn?.[1] ?? 0);
-        commands.push(`C ${c1x} ${c1y} ${c2x} ${c2y} ${current.x} ${current.y}`);
+        commands.push(
+          `C ${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(current.x)} ${fmt(current.y)}`,
+        );
       } else {
-        commands.push(`L ${current.x} ${current.y}`);
+        commands.push(`L ${fmt(current.x)} ${fmt(current.y)}`);
       }
     }
     if (closed) commands.push('Z');
@@ -325,15 +331,18 @@ function nodeSvgBounds(
     );
   }
   if (node.kind !== 'shape') return null;
-  const bounds = shapeBounds(node.shape);
+  // Warped geometry routinely extends past the source box, so bounds must be
+  // measured on the baked result or the viewBox would clip the export.
+  const exported = exportShapeOf(node, doc);
+  const bounds = shapeBounds(exported);
   const points: Array<readonly [number, number]> = [
     [bounds.x, bounds.y],
     [bounds.x + bounds.width, bounds.y],
     [bounds.x + bounds.width, bounds.y + bounds.height],
     [bounds.x, bounds.y + bounds.height],
   ];
-  if (node.shape.kind === 'path') {
-    for (const point of node.shape.points) {
+  if (exported.kind === 'path') {
+    for (const point of exported.points) {
       if (point.handleIn) points.push([point.x + point.handleIn[0], point.y + point.handleIn[1]]);
       if (point.handleOut)
         points.push([point.x + point.handleOut[0], point.y + point.handleOut[1]]);
@@ -904,6 +913,17 @@ function buildMaskedNode(
   return `${indent}<g ${attr}="${maskId}">\n${inner}\n${indent}</g>`;
 }
 
+/**
+ * Marker for a live warp this exporter could not bake (text, group, frame).
+ * The element is emitted undeformed, so the output says so rather than
+ * looking like a faithful export.
+ */
+function warpNotBakedComment(node: SceneNode): string {
+  const kind = unbakeableWarpKind(node);
+  if (!kind) return '';
+  return `<!-- varve: live warp not baked into this ${kind === 'text' ? 'text' : 'container'}; exported undeformed -->\n`;
+}
+
 function nodeToSvgTag(
   node: SceneNode,
   doc: SceneDocument,
@@ -937,7 +957,9 @@ function nodeToSvgTag(
 
   switch (node.kind) {
     case 'shape': {
-      const s = node.shape;
+      // Live warp modifiers bake to export-quality path geometry here (SVG has
+      // no envelope-distort primitive). Unwarped nodes pass through unchanged.
+      const s = exportShapeOf(node, doc);
       const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
       if (imgFill?.image) {
         const img = imgFill.image;
@@ -1005,9 +1027,15 @@ ${shapeInner}`
         case 'star':
           shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
           break;
-        case 'path':
-          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
+        case 'path': {
+          // Holes are emitted as extra subpaths, so the fill rule has to ride
+          // along or a compound path renders solid. Matches the document
+          // emitter in index.ts.
+          const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
+          const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
+          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${fillRuleAttr}${withTransform}${compositingSuffix} />`;
           break;
+        }
         default:
           shapeInner = '';
       }
@@ -1071,7 +1099,7 @@ ${shapeInner}`
       if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
 
       const content = buildTextContent(textNode, indent);
-      const textTag = `${indent}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
+      const textTag = `${indent}${warpNotBakedComment(node)}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
       return buildMaskedNode(textTag, node, doc, indent);
     }
     case 'frame':
@@ -1095,7 +1123,7 @@ ${shapeInner}`
           groupAttrs = ` mask="${maskId}"${groupAttrs}`;
         }
       }
-      return `${indent}<g${groupAttrs}>\n${children}\n${indent}</g>`;
+      return `${indent}${warpNotBakedComment(node)}<g${groupAttrs}>\n${children}\n${indent}</g>`;
     }
     case 'table': {
       // ADR-0016: native tables export as flattened cells (SVG has no table
@@ -1218,7 +1246,7 @@ export function exportNodeToSvg(
       : '  <rect width="100%" height="100%" fill="#ffffff" />';
   const svg = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${pos.x} ${pos.y} ${pos.w} ${pos.h}" width="${pos.w}" height="${pos.h}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${fmt(pos.x)} ${fmt(pos.y)} ${fmt(pos.w)} ${fmt(pos.h)}" width="${fmt(pos.w)}" height="${fmt(pos.h)}">`,
     backdrop,
     defsSection,
     inner,
@@ -1283,6 +1311,22 @@ export function svgTargetGaps(
       feature: 'pattern fill',
       severity: 'warning',
       fallback: 'Use an SVG <pattern> element with patternUnits="userSpaceOnUse"',
+    });
+  }
+
+  // Shape leaves bake to path data; text and containers cannot yet, and must
+  // not be reported as clean when their deformation was not applied.
+  const unbakeable = unbakeableWarpKind(node);
+  if (unbakeable) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: unbakeable === 'text' ? 'warped text' : 'warped group or frame',
+      severity: 'warning',
+      fallback:
+        unbakeable === 'text'
+          ? 'SVG <text> cannot carry a nonlinear warp — outline the text (Expand Appearance) or rasterize before export; it currently exports undeformed'
+          : 'Container warps are not baked per child — Expand Appearance on the leaves, or rasterize the group; it currently exports undeformed',
     });
   }
 
