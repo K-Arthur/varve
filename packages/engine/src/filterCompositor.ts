@@ -34,6 +34,17 @@ import {
   type HalftoneMethod,
   type HalftonePattern,
 } from './halftone';
+import { applyBloom } from './liveEffects/bloom';
+import { applyCaustics } from './liveEffects/caustics';
+import { applyCrt } from './liveEffects/crt';
+import { applyDither, type CoordSpace } from './liveEffects/dither';
+import { applyLensFlare } from './liveEffects/lensFlare';
+import { applyLightLeak } from './liveEffects/lightLeak';
+import { applyLightShafts } from './liveEffects/lightShafts';
+import { applyPaletteSnap } from './liveEffects/paletteSnap';
+import type { EffectQuality } from './liveEffects/quality';
+import { applyRgbSplit } from './liveEffects/rgbSplit';
+import { applyVhs } from './liveEffects/vhs';
 import { applyLutToImageData } from './lut/apply';
 import { deserializeLutTransform } from './lut/codec';
 import { applyPosterize } from './posterize';
@@ -41,6 +52,17 @@ import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
 import { applyThreshold } from './threshold';
 import { applyTritone } from './tritone';
 import type { FilterIR } from './types';
+
+/**
+ * Render options for a filter chain: the caller's quality tier (the serialized
+ * per-effect `quality` param resolves against this) and the coordinate-space
+ * mapping used to anchor doc-space parameters (dither cells, split offsets,
+ * bloom radii) so effects don't change when the canvas is panned or zoomed.
+ */
+export interface FilterRenderOptions {
+  quality?: EffectQuality;
+  coordSpace?: CoordSpace;
+}
 
 /**
  * Apply a filter chain to a canvas context with per-filter opacity and blend mode.
@@ -56,6 +78,7 @@ export function applyFilterWithCompositing(
   filters: FilterIR[],
   width: number,
   height: number,
+  options: FilterRenderOptions = {},
 ): void {
   if (filters.length === 0) return;
 
@@ -67,7 +90,7 @@ export function applyFilterWithCompositing(
     // affect a future draw and leave the existing pixels unchanged. Use the
     // portable software path when an intermediate surface is unavailable.
     for (const filter of filters) {
-      applySoftwareFilter(target, filter, width, height);
+      applySoftwareFilter(target, filter, width, height, options);
     }
     return;
   }
@@ -81,7 +104,7 @@ export function applyFilterWithCompositing(
       filtered.context.drawImage(current.canvas, 0, 0);
     } else {
       filtered.context.drawImage(current.canvas, 0, 0);
-      applySoftwareFilter(filtered.context, f, width, height);
+      applySoftwareFilter(filtered.context, f, width, height, options);
     }
 
     if ((f.opacity ?? 1) >= 1 && (!f.blendMode || f.blendMode === 'normal')) {
@@ -122,6 +145,7 @@ export function applySoftwareFilter(
   filter: FilterIR,
   width: number,
   height: number,
+  options: FilterRenderOptions = {},
 ): void {
   const imageData = ctx.getImageData(0, 0, width, height);
 
@@ -384,20 +408,41 @@ export function applySoftwareFilter(
         circle: 'circle',
       };
       const effectiveDotShape = patternToDotShape[hf.pattern] ?? (hf.dotShape as HalftoneDotShape);
-      applyHalftone(imageData, {
-        pattern: hf.pattern as HalftonePattern,
-        frequency: hf.frequency ?? 20,
-        angle: hf.angle ?? 45,
-        dotShape: effectiveDotShape,
-        channel: hf.channel as HalftoneChannel,
-        method: hf.method as HalftoneMethod,
-        threshold: hf.threshold,
-        intensity: hf.intensity,
-        softness: hf.softness,
-        invert: hf.invert,
-        foregroundColor: hf.foregroundColor,
-        backgroundColor: hf.backgroundColor,
-      });
+      // Document anchoring: the preview rasterizes the adjustment backdrop in
+      // viewport-anchored device pixels, so the region's document-space origin
+      // and the camera scale must reach the screening engine. Without this,
+      // panning shifts the pattern phase relative to the artwork (swimming)
+      // and zooming changes the dot density. Export (no coordSpace) keeps the
+      // plain full-document behavior.
+      const coord = options.coordSpace;
+      let offsetX: number | undefined;
+      let offsetY: number | undefined;
+      let pixelScale = 1;
+      if (coord && coord.scale > 0) {
+        pixelScale = coord.scale;
+        offsetX = (coord.regionX - coord.originX) / coord.scale;
+        offsetY = (coord.regionY - coord.originY) / coord.scale;
+      }
+      applyHalftone(
+        imageData,
+        {
+          pattern: hf.pattern as HalftonePattern,
+          frequency: hf.frequency ?? 20,
+          angle: hf.angle ?? 45,
+          dotShape: effectiveDotShape,
+          channel: hf.channel as HalftoneChannel,
+          method: hf.method as HalftoneMethod,
+          threshold: hf.threshold,
+          intensity: hf.intensity,
+          softness: hf.softness,
+          invert: hf.invert,
+          foregroundColor: hf.foregroundColor,
+          backgroundColor: hf.backgroundColor,
+        },
+        offsetX,
+        offsetY,
+        pixelScale,
+      );
       ctx.putImageData(imageData, 0, 0);
       break;
     }
@@ -590,6 +635,66 @@ export function applySoftwareFilter(
           // Parse failure: leave image unchanged
         }
       }
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'dither': {
+      const df = filter as Parameters<typeof applyDither>[1];
+      applyDither(imageData, df, options.coordSpace);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'paletteSnap': {
+      const pf = filter as Parameters<typeof applyPaletteSnap>[1];
+      applyPaletteSnap(imageData, pf, options.coordSpace);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'bloom': {
+      const bf = filter as Parameters<typeof applyBloom>[1];
+      applyBloom(imageData, bf, { quality: options.quality, coordSpace: options.coordSpace });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'rgbSplit': {
+      const rf = filter as Parameters<typeof applyRgbSplit>[1];
+      applyRgbSplit(imageData, rf, options.coordSpace);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'crt': {
+      const cf = filter as Parameters<typeof applyCrt>[1];
+      applyCrt(imageData, cf);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'vhs': {
+      const vf = filter as Parameters<typeof applyVhs>[1];
+      applyVhs(imageData, vf, { quality: options.quality });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'lightShafts': {
+      const lf = filter as Parameters<typeof applyLightShafts>[1];
+      applyLightShafts(imageData, lf, { quality: options.quality });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'lensFlare': {
+      const lf = filter as Parameters<typeof applyLensFlare>[1];
+      applyLensFlare(imageData, lf, { quality: options.quality });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'lightLeak': {
+      const lf = filter as Parameters<typeof applyLightLeak>[1];
+      applyLightLeak(imageData, lf);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'caustics': {
+      const cf = filter as Parameters<typeof applyCaustics>[1];
+      applyCaustics(imageData, cf, { quality: options.quality, coordSpace: options.coordSpace });
       ctx.putImageData(imageData, 0, 0);
       break;
     }

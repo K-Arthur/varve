@@ -166,11 +166,17 @@ export function generateAMMatrix(size: number, dotShape: HalftoneDotShape): Uint
  */
 /**
  * Screen a single ink channel at a given rotation and return whether the
- * ink dot is "on" (deposited) at pixel (x, y).
+ * ink dot is "on" (deposited) at document position (docX, docY).
+ *
+ * All coordinates are DOCUMENT-space (doc px): the caller converts image
+ * pixels to document coordinates before calling. This makes the screen
+ * phase invariant under viewport pan AND zoom — the same document position
+ * always maps to the same matrix entry, and the cell count across an object
+ * is independent of the zoom factor.
  */
 function screenChannelAt(
-  x: number,
-  y: number,
+  docX: number,
+  docY: number,
   gray: number,
   angle: number,
   cellSize: number,
@@ -181,8 +187,8 @@ function screenChannelAt(
 ): number {
   const rad = (angle * Math.PI) / 180;
   // Rotate coordinates for screen angle
-  const rx = x * Math.cos(rad) - y * Math.sin(rad);
-  const ry = x * Math.sin(rad) + y * Math.cos(rad);
+  const rx = docX * Math.cos(rad) - docY * Math.sin(rad);
+  const ry = docX * Math.sin(rad) + docY * Math.cos(rad);
   const sx = Math.round(rx / cellSize) % matrixSize;
   const sy = Math.round(ry / cellSize) % matrixSize;
   const mx = ((sx % matrixSize) + matrixSize) % matrixSize;
@@ -200,6 +206,25 @@ function screenChannelAt(
     return diff > 0 ? 1 : 0;
   }
   return adjustedGray > matrixVal ? 1 : 0;
+}
+
+/**
+ * Convert an image-space pixel to document coordinates.
+ *
+ * @param x Image-space x (0..width)
+ * @param y Image-space y (0..height)
+ * @param pixelScale Image pixels per document pixel (1.0 at zoom 1 / doc res)
+ * @param offsetX Document-space x origin of the image region
+ * @param offsetY Document-space y origin of the image region
+ */
+function toDocCoord(
+  x: number,
+  y: number,
+  pixelScale: number,
+  offsetX: number,
+  offsetY: number,
+): [number, number] {
+  return [x / pixelScale + offsetX, y / pixelScale + offsetY];
 }
 
 // ── Parameter sanitization ─────────────────────────────────────────────
@@ -228,10 +253,24 @@ function sanitizeThreshold(value: number | undefined): number {
   return Math.max(0, Math.min(255, value));
 }
 
+/**
+ * Apply AM screening to pixel data.
+ *
+ * @param data ImageData to process (in-place)
+ * @param params Halftone parameters
+ * @param pixelScale Image pixels per document pixel (1.0 at zoom 1; the
+ *   live preview passes the camera scale so the screen resolves in device
+ *   pixels while staying anchored in document space)
+ * @param offsetX Document-space x origin of the image region (0 = image
+ *   origin is the document origin)
+ * @param offsetY Document-space y origin of the image region
+ */
 export function applyAMScreening(
   data: ImageData,
   params: HalftoneParams,
   pixelScale: number = 1,
+  offsetX: number = 0,
+  offsetY: number = 0,
 ): void {
   const { dotShape, channel } = params;
   const w = data.width;
@@ -241,9 +280,14 @@ export function applyAMScreening(
   const intensity = Math.max(0, Math.min(1, params.intensity ?? 1));
   const softness = Math.max(0, Math.min(1, params.softness ?? 0));
 
-  // Determine effective LPI based on pixel density
-  const lpi = Math.max(1, sanitizeFrequency(params.frequency) * pixelScale);
-  const cellSize = Math.max(2, Math.round(72 / lpi)); // pixels per cell at 72 DPI
+  // Cell size is defined in DOCUMENT pixels (LPI is a physical-unit screen
+  // frequency). Image-space rendering resolves it via pixelScale; the cell
+  // count across any object is therefore zoom-invariant.
+  const frequency = sanitizeFrequency(params.frequency);
+  const cellSize = Math.max(1, Math.round(72 / frequency));
+  const safeScale = Number.isFinite(pixelScale) && pixelScale > 0 ? pixelScale : 1;
+  const safeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
+  const safeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
 
   // Generate threshold matrix for the dot shape
   const matrixSize = nextPowerOfTwo(cellSize * 2);
@@ -261,9 +305,10 @@ export function applyAMScreening(
         const idx = (y * w + x) * 4;
         if (pixels[idx + 3]! === 0) continue; // skip transparent
 
+        const [docX, docY] = toDocCoord(x, y, safeScale, safeOffsetX, safeOffsetY);
         const c = screenChannelAt(
-          x,
-          y,
+          docX,
+          docY,
           getChannelLuminance(pixels, idx, 'c'),
           STANDARD_ANGLES.c!,
           cellSize,
@@ -273,8 +318,8 @@ export function applyAMScreening(
           softness,
         );
         const m = screenChannelAt(
-          x,
-          y,
+          docX,
+          docY,
           getChannelLuminance(pixels, idx, 'm'),
           STANDARD_ANGLES.m!,
           cellSize,
@@ -284,8 +329,8 @@ export function applyAMScreening(
           softness,
         );
         const yInk = screenChannelAt(
-          x,
-          y,
+          docX,
+          docY,
           getChannelLuminance(pixels, idx, 'y'),
           STANDARD_ANGLES.y!,
           cellSize,
@@ -295,8 +340,8 @@ export function applyAMScreening(
           softness,
         );
         const k = screenChannelAt(
-          x,
-          y,
+          docX,
+          docY,
           getChannelLuminance(pixels, idx, 'k'),
           STANDARD_ANGLES.k!,
           cellSize,
@@ -340,9 +385,10 @@ export function applyAMScreening(
       if (pixels[idx + 3]! === 0) continue; // skip transparent
 
       const gray = getChannelLuminance(pixels, idx, channel);
+      const [docX, docY] = toDocCoord(x, y, safeScale, safeOffsetX, safeOffsetY);
       let inkCoverage = screenChannelAt(
-        x,
-        y,
+        docX,
+        docY,
         gray,
         angle,
         cellSize,
@@ -608,6 +654,7 @@ export function applyBayerDithering(
   _params: HalftoneParams,
   offsetX: number = 0,
   offsetY: number = 0,
+  pixelScale: number = 1,
 ): void {
   const w = data.width;
   const h = data.height;
@@ -622,6 +669,9 @@ export function applyBayerDithering(
   const invert = _params.invert ?? false;
   const fg = _params.foregroundColor ?? [0, 0, 0];
   const bg = _params.backgroundColor ?? [255, 255, 255];
+  const safeScale = Number.isFinite(pixelScale) && pixelScale > 0 ? pixelScale : 1;
+  const safeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
+  const safeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
 
   if (intensity === 0) return;
 
@@ -637,13 +687,13 @@ export function applyBayerDithering(
       const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
       const adjusted = luminance + thresholdOffset;
 
-      // Document-relative coordinates — stable under viewport pan/zoom
-      const docX = x + offsetX;
-      const docY = y + offsetY;
+      // Document-absolute coordinates — stable under viewport pan/zoom:
+      // image px → doc px via pixelScale, then the region's doc origin.
+      const [docX, docY] = toDocCoord(x, y, safeScale, safeOffsetX, safeOffsetY);
 
       // Index into Bayer matrix with document-relative coords
-      const mx = ((docX % size) + size) % size;
-      const my = ((docY % size) + size) % size;
+      const mx = ((Math.floor(docX) % size) + size) % size;
+      const my = ((Math.floor(docY) % size) + size) % size;
       const thresholdVal = matrix[my]![mx]! / totalCells;
 
       let inkCoverage: number;
@@ -696,24 +746,35 @@ export function applyBayerDithering(
  *
  * @param data ImageData to process (in-place)
  * @param params Halftone parameters
- * @param offsetX Document-space x offset (providing this enables Bayer preview path)
- * @param offsetY Document-space y offset
+ * @param offsetX Document-space x offset of the render region (document
+ *   anchoring: panning the viewport never shifts the pattern phase)
+ * @param offsetY Document-space y offset of the render region
+ * @param pixelScale Image pixels per document pixel (live preview passes
+ *   the camera scale so cell geometry resolves in device pixels while
+ *   staying anchored in document space; default 1)
  */
 export function applyHalftone(
   data: ImageData,
   params: HalftoneParams,
   offsetX?: number,
   offsetY?: number,
+  pixelScale: number = 1,
 ): ImageData {
+  const hasOffset = offsetX !== undefined && offsetY !== undefined;
   if (params.method === 'fm') {
-    const hasOffset = offsetX !== undefined && offsetY !== undefined;
     if (hasOffset) {
-      applyBayerDithering(data, params, offsetX, offsetY);
+      applyBayerDithering(data, params, offsetX, offsetY, pixelScale);
     } else {
       applyFMStochastic(data, params);
     }
   } else {
-    applyAMScreening(data, params);
+    applyAMScreening(
+      data,
+      params,
+      pixelScale,
+      hasOffset ? (offsetX as number) : 0,
+      hasOffset ? (offsetY as number) : 0,
+    );
   }
   return data;
 }
