@@ -354,8 +354,15 @@ export type {
   HalftoneMethod,
   HalftoneParams,
   HalftonePattern,
+  HalftonePreset,
 } from './halftone';
-export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
+export {
+  applyBayerDithering,
+  applyHalftone,
+  BAYER_DEFAULT_SIZE,
+  bayerMatrix,
+  HALFTONE_PRESETS,
+} from './halftone';
 export type {
   ConvertedImage,
   ExportImageResource,

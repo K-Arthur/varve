@@ -358,6 +358,9 @@ export function applySoftwareFilter(
         threshold?: number;
         intensity?: number;
         softness?: number;
+        invert?: boolean;
+        foregroundColor?: [number, number, number];
+        backgroundColor?: [number, number, number];
         channelAngles?: { c?: number; m?: number; y?: number; k?: number };
         registrationOffset?: {
           c?: [number, number];
@@ -391,6 +394,9 @@ export function applySoftwareFilter(
         threshold: hf.threshold,
         intensity: hf.intensity,
         softness: hf.softness,
+        invert: hf.invert,
+        foregroundColor: hf.foregroundColor,
+        backgroundColor: hf.backgroundColor,
       });
       ctx.putImageData(imageData, 0, 0);
       break;

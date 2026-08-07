@@ -59,6 +59,7 @@ export {
   mergeDocuments,
   spliceClusterRange,
 } from './merge';
+export { findBranchMergeBase, findMergeBase } from './mergeBase';
 export {
   recoverTail,
   validateHistory,
