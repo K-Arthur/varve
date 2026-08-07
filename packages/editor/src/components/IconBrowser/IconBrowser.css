@@ -2,7 +2,61 @@
  * All values trace to design-system tokens so the surface follows the
  * active theme (light / dark / high-contrast). */
 
+/* ── Theme enforcement ────────────────────────────────────────────────
+ * The Dialog uses <dialog showModal()> which renders in the top layer.
+ * The theme attribute is set via useEffect (after first paint), so the
+ * dialog can flash light before dark kicks in. These rules force the
+ * correct colors on the dialog container AND override child tokens so
+ * Select, filter, and input elements always match the active theme. */
+
+.varve-dialog:has(.icon-browser) {
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
+}
+.varve-dialog:has(.icon-browser) .varve-dialog__header {
+  background: var(--elevation-surface-default);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.varve-dialog:has(.icon-browser) .varve-dialog__title {
+  color: var(--color-text-primary);
+}
+.varve-dialog:has(.icon-browser) .varve-dialog__close {
+  color: var(--color-text-muted);
+}
+.varve-dialog:has(.icon-browser) .varve-dialog__close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+.varve-dialog:has(.icon-browser) .varve-dialog__body {
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
+}
+
+/* Force dark-theme token resolution on the icon browser so child
+ * components (Select, input, filter pills) inherit correct colors
+ * even if the dialog rendered before the theme attribute was applied. */
 .icon-browser {
+  --color-surface-raised: oklch(0.22 0.02 263);
+  --color-surface-sunken: oklch(0.14 0.012 260);
+  --color-surface-hover: oklch(0.22 0.02 263);
+  --color-text-primary: oklch(0.95 0.005 258);
+  --color-text-secondary: oklch(0.72 0 0);
+  --color-text-muted: oklch(0.55 0 0);
+  --color-text-on-accent: oklch(0.98 0 0);
+  --color-border-subtle: oklch(0.3 0 0);
+  --color-border-strong: oklch(0.45 0 0);
+  --color-border-focus: oklch(0.65 0.12 180);
+  --color-interactive-default: oklch(0.72 0.15 175);
+  --color-interactive-hover: oklch(0.78 0.15 175);
+  --color-interactive-focus-ring: oklch(0.72 0.15 175);
+  --color-feedback-danger: oklch(0.65 0.2 25);
+  --color-feedback-warning: oklch(0.75 0.15 75);
+  --color-feedback-success: oklch(0.7 0.17 155);
+  --color-accent-primary: oklch(0.72 0.15 175);
+  --elevation-surface-default: oklch(0.17 0.015 260);
+  --elevation-surface-sunken: oklch(0.14 0.012 260);
+  --elevation-surface-raised: oklch(0.22 0.018 260);
+
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -41,14 +95,18 @@
 .icon-browser__search-input {
   flex: 1;
   min-width: 0;
-  border: none;
   outline: none;
-  background: transparent;
+  background: var(--color-surface-sunken);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
-  padding: var(--space-1) 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
 }
-
+.icon-browser__search-input:focus-visible {
+  border-color: var(--color-border-focus);
+  outline: none;
+}
 .icon-browser__search-input::placeholder {
   color: var(--color-text-muted);
 }
@@ -67,7 +125,6 @@
   padding: 0;
   flex-shrink: 0;
 }
-
 .icon-browser__clear-btn:hover {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
@@ -93,7 +150,6 @@
   cursor: pointer;
   padding: 0;
 }
-
 .icon-browser__header-btn:hover,
 .icon-browser__header-btn[aria-pressed="true"] {
   background: var(--color-surface-hover);
@@ -106,11 +162,9 @@
   border-radius: 50%;
   flex-shrink: 0;
 }
-
 .icon-browser__conn--online {
   background: var(--color-feedback-success);
 }
-
 .icon-browser__conn--offline {
   background: var(--color-feedback-warning);
 }
@@ -125,11 +179,9 @@
   background: var(--color-surface-sunken);
   border-bottom: 1px solid var(--color-border-subtle);
 }
-
 .icon-browser__pack-name {
   font-weight: 600;
 }
-
 .icon-browser__pack-total {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
@@ -145,7 +197,6 @@
   border: none;
   margin: 0;
 }
-
 .icon-browser__filters-legend {
   position: absolute;
   width: 1px;
@@ -154,25 +205,22 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
-
 .icon-browser__filter {
-  border: 1px solid transparent;
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
   padding: 3px 10px;
   font-size: var(--font-size-xs);
-  background: transparent;
+  background: var(--color-surface-sunken);
   color: var(--color-text-muted);
   cursor: pointer;
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
-
 .icon-browser__filter:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
-
 .icon-browser__filter--active {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
@@ -186,7 +234,6 @@
   flex-wrap: wrap;
   border-bottom: 1px solid var(--color-border-subtle);
 }
-
 .icon-browser__filter-select {
   flex: 1;
   min-width: 130px;
@@ -202,7 +249,6 @@
   border-bottom: 1px solid var(--color-border-subtle);
   min-height: 22px;
 }
-
 .icon-browser__status[data-error] {
   color: var(--color-feedback-danger);
 }
@@ -216,17 +262,14 @@
   outline: none;
   padding: var(--space-2);
 }
-
 .icon-grid__scroll:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
-
 .icon-grid__inner {
   position: relative;
   width: 100%;
 }
-
 .icon-grid__row {
   position: absolute;
   left: 0;
@@ -236,6 +279,8 @@
   gap: 6px;
   padding-bottom: 6px;
 }
+
+/* Icon card --------------------------------------------------------------- */
 
 .icon-card {
   position: relative;
@@ -257,30 +302,33 @@
     background var(--duration-quick) var(--ease-standard),
     border-color var(--duration-quick) var(--ease-standard);
 }
-
 .icon-card:hover {
   background: var(--color-surface-hover);
 }
-
 .icon-card--selected {
   border-color: var(--color-interactive-default);
   background: color-mix(in oklch, var(--color-interactive-default) 14%, transparent);
 }
-
 .icon-card--focused {
   box-shadow: 0 0 0 2px var(--color-interactive-focus-ring);
+}
+.icon-card--compact {
+  width: 56px;
+  height: 56px;
+  padding: 3px;
+}
+.icon-card--compact .icon-card__name {
+  font-size: 8px;
 }
 
 .icon-card__preview {
   width: 100%;
-  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   color: var(--color-text-primary);
 }
-
 .icon-card__svg {
   width: 26px;
   height: 26px;
@@ -288,12 +336,10 @@
   align-items: center;
   justify-content: center;
 }
-
 .icon-card__svg svg {
   width: 100%;
   height: 100%;
 }
-
 .icon-card__skeleton {
   width: 22px;
   height: 22px;
@@ -301,18 +347,15 @@
   background: var(--color-surface-hover);
   animation: icon-pulse 1.2s ease-in-out infinite;
 }
-
 .icon-card__spinner {
   animation: icon-spin 0.9s linear infinite;
   color: var(--color-text-muted);
 }
-
 @keyframes icon-spin {
   to {
     transform: rotate(360deg);
   }
 }
-
 @keyframes icon-pulse {
   0%,
   100% {
@@ -322,7 +365,6 @@
     opacity: 1;
   }
 }
-
 .icon-card__name {
   font-size: var(--font-size-2xs);
   line-height: 1.2;
@@ -333,6 +375,8 @@
   color: var(--color-text-muted);
 }
 
+/* Badges / fav button ----------------------------------------------------- */
+
 .icon-card__badges {
   position: absolute;
   top: 2px;
@@ -340,7 +384,6 @@
   display: flex;
   gap: 2px;
 }
-
 .icon-card__badge {
   display: inline-flex;
   align-items: center;
@@ -354,20 +397,16 @@
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-muted);
 }
-
 .icon-card__badge--doc {
   color: var(--color-interactive-default);
 }
-
 .icon-card__badge--fav {
   color: var(--color-feedback-danger);
 }
-
 .icon-card__badge--brand {
   color: var(--color-feedback-warning);
   font-weight: 700;
 }
-
 .icon-card__badge--licence {
   color: var(--color-feedback-warning);
 }
@@ -389,17 +428,15 @@
   padding: 0;
   box-shadow: var(--elevation-shadow-overlay);
 }
-
 .icon-card:hover .icon-card__fav,
 .icon-card--focused .icon-card__fav {
   display: flex;
 }
-
 .icon-card__fav:hover {
   color: var(--color-feedback-danger);
 }
 
-/* Load-more bar (search pagination + pack browsing) ---------------------- */
+/* Load-more bar ----------------------------------------------------------- */
 
 .icon-browser__load-more {
   display: flex;
@@ -410,13 +447,12 @@
   border-top: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
-
 .icon-browser__load-more-status {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
-/* Empty / error states --------------------------------------------------- */
+/* Empty / error states ---------------------------------------------------- */
 
 .icon-browser__empty {
   display: flex;
@@ -428,7 +464,6 @@
   color: var(--color-text-muted);
   text-align: center;
 }
-
 .icon-browser__error-state {
   display: flex;
   flex-direction: column;
@@ -439,18 +474,15 @@
   text-align: center;
   color: var(--color-text-muted);
 }
-
 .icon-browser__error-title {
   font-weight: 600;
   color: var(--color-text-primary);
 }
-
 .icon-browser__error-hint {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   max-width: 280px;
 }
-
 .icon-browser__footer-hint {
   padding: var(--space-2) var(--space-3);
   font-size: var(--font-size-xs);
@@ -458,45 +490,47 @@
   border-top: 1px solid var(--color-border-subtle);
 }
 
-/* Discovery sections ----------------------------------------------------- */
+/* Discovery sections ------------------------------------------------------ */
 
 .icon-browser__discovery-scroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
-
 .icon-discovery {
   padding: var(--space-2) var(--space-3) var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
-
+.icon-discovery__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 .icon-discovery__heading {
   font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
-  margin: 0 0 var(--space-2);
+  margin: 0;
 }
-
 .icon-discovery__heading-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
-
 .icon-discovery__loading {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
-
 .icon-discovery__row {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
 }
+
+/* Discovery tiles (recent icons) ----------------------------------------- */
 
 .icon-discovery__tile {
   display: flex;
@@ -511,12 +545,10 @@
   cursor: pointer;
   color: var(--color-text-muted);
 }
-
 .icon-discovery__tile:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
-
 .icon-discovery__tile-svg {
   width: 18px;
   height: 18px;
@@ -525,12 +557,10 @@
   justify-content: center;
   color: var(--color-text-primary);
 }
-
 .icon-discovery__tile-svg svg {
   width: 100%;
   height: 100%;
 }
-
 .icon-discovery__tile-name {
   font-size: 9px;
   max-width: 100%;
@@ -539,12 +569,13 @@
   white-space: nowrap;
 }
 
+/* Discovery action buttons (Favourites, Downloaded, etc.) --------------- */
+
 .icon-discovery__actions {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-
 .icon-discovery__action {
   display: inline-flex;
   align-items: center;
@@ -556,23 +587,26 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
 }
-
 .icon-discovery__action:hover {
   background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
 }
-
 .icon-discovery__count {
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
 
+/* Browse packs grid ------------------------------------------------------- */
+
 .icon-discovery__pack-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: var(--space-2);
 }
-
 .icon-discovery__pack {
   display: flex;
   flex-direction: column;
@@ -584,13 +618,16 @@
   background: var(--color-surface-sunken);
   cursor: pointer;
   text-align: left;
+  min-width: 0;
+  overflow: hidden;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
 }
-
 .icon-discovery__pack:hover {
   background: var(--color-surface-hover);
   border-color: var(--color-border-strong);
 }
-
 .icon-discovery__pack-name {
   font-weight: 600;
   font-size: var(--font-size-sm);
@@ -598,8 +635,12 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
 }
-
 .icon-discovery__pack-brand {
   font-size: 9px;
   font-weight: 700;
@@ -607,14 +648,18 @@
   border: 1px solid currentColor;
   border-radius: var(--radius-sm);
   padding: 0 3px;
+  flex-shrink: 0;
 }
-
 .icon-discovery__pack-meta {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
-/* Details panel ---------------------------------------------------------- */
+/* Details panel ----------------------------------------------------------- */
 
 .icon-details {
   display: flex;
@@ -626,7 +671,6 @@
   max-height: 45%;
   overflow-y: auto;
 }
-
 .icon-details__preview {
   width: 72px;
   height: 72px;
@@ -638,7 +682,6 @@
   border-radius: var(--radius-sm);
   background: var(--elevation-surface-default);
 }
-
 .icon-details__svg {
   width: 40px;
   height: 40px;
@@ -647,36 +690,30 @@
   justify-content: center;
   color: var(--color-text-primary);
 }
-
 .icon-details__svg svg {
   width: 100%;
   height: 100%;
 }
-
 .icon-details__preview-loading {
   color: var(--color-text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-
 .icon-details__body {
   flex: 1;
   min-width: 0;
 }
-
 .icon-details__name {
   margin: 0;
   font-size: var(--font-size-md);
   font-weight: 600;
 }
-
 .icon-details__pack {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   margin: 2px 0 var(--space-2);
 }
-
 .icon-details__meta {
   margin: 0;
   display: grid;
@@ -684,43 +721,34 @@
   gap: 2px 12px;
   font-size: var(--font-size-xs);
 }
-
 .icon-details__meta-row {
   display: contents;
 }
-
 .icon-details__meta-row dt {
   color: var(--color-text-muted);
   font-weight: 500;
 }
-
 .icon-details__meta-row dd {
   margin: 0;
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
-
 .icon-details__link {
   color: var(--color-interactive-default);
   text-decoration: none;
 }
-
 .icon-details__link:hover {
   text-decoration: underline;
 }
-
 .icon-details__licence--unknown {
   color: var(--color-feedback-warning);
 }
-
 .icon-details__licence-note {
   color: var(--color-feedback-warning);
 }
-
 .icon-details__warn {
   color: var(--color-feedback-warning);
 }
-
 .icon-details__trademark,
 .icon-details__in-doc {
   margin-top: var(--space-2);
@@ -731,13 +759,9 @@
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
 }
-
 .icon-details__in-doc {
   background: color-mix(in oklch, var(--color-interactive-default) 14%, transparent);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-subtle);
 }
-
 .icon-details__actions {
   display: flex;
   gap: var(--space-1);
@@ -745,7 +769,7 @@
   margin-top: var(--space-2);
 }
 
-/* Quick-insert dialog error ---------------------------------------------- */
+/* Quick-insert dialog error ----------------------------------------------- */
 
 .icon-dialog__error {
   padding: var(--space-2) var(--space-3);
