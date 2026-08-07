@@ -12,16 +12,19 @@ page-level print geometry program. Canonical docs: the audit
 | 2 | Coordinate architecture | **Done** | `ac794646` feat(scene): page-aware coordinate spaces |
 | 3 | Page ownership and placement | **Done** | `6a2e34e8` ownership/deletion/duplicate remap; `2a9ce091` page.* ops + v2.17 migration |
 | 4 | Spread and section model | **Done** | `004d8474` persistent spread topology + numbering resolver |
-| 5 | Multipage canvas rendering | **Done** | foundation `ed900d7e`; editor integration `b7ce54f5`, `aa28b072`, `c2c` hit-test commit, `e2e` spec (see below) |
-| 6 | Page interactions (Page Tool, cross-page) | Pending | |
-| 7 | Pages/Spreads panel | Pending | |
-| 8 | Master-page hardening (projection fix, overrides UI) | Pending | |
-| 9 | Story/frame separation | Pending | |
-| 10 | Production text composition | Pending | |
-| 11 | Text-thread frontend | Pending | |
-| 12 | Page-level print geometry | Pending | |
-| 13 | Print marks and PDF boxes | Pending | |
-| 14 | Import/export integration | Pending | |
+| 5 | Multipage canvas rendering | **Done** | foundation `ed900d7e`; editor integration `b7ce54f5`, `aa28b072`, `5ab5456e`, `9954902a`, `e2e` spec |
+| 6 | Page interactions (Page Tool, cross-page) | **Done** | `91253130` PageTool/cross-page/snapping/fit; `aa28b072`-era overlays |
+| 7 | Pages/Spreads panel | **Done** | PagesPanel (windowed rows, thumbnails, reorder, a11y) |
+| 8 | Master-page hardening (projection fix, overrides UI) | **Done (projection)** | `7df1d198` B3 fix + master rendering with per-page placement; override UI in a later pass |
+| 9 | Story/frame separation | **Done** | `fa877f04` story model + v2.18 migration + ops |
+| 10 | Production text composition | **Done (core)** | `a414888d` deterministic composition + keys; worker/incremental reflow pending |
+| 11 | Text-thread frontend | **Done** | `d2279ed8` overlay + link/unlink commands + overset badges |
+| 12 | Page-level print geometry | **Done** | `f4d47376` resolution + previews + inspector |
+| 13 | Print marks and PDF boxes | **Partial** | `40076986` page ranges + filename tokens; crate-side multipage PDF pending |
+| 14 | Import/export integration | **Partial** | `788768a8` capability reporting; `462d8fa7` page-based start mode; native multipage PDF import pending |
+| 15 | History/diff/merge/collab integration | Pending (depends on the history package now landed by the workspace track) | |
+| 16 | Multimodal layout assistance | Pending | |
+| 17 | Hardening | In progress | `reports/multipage-screenshots/` review captures |
 | 15 | History/diff/merge/collab integration | Pending | |
 | 16 | Multimodal layout assistance | Pending | |
 | 17 | Hardening | Pending | |
