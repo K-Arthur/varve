@@ -180,6 +180,7 @@ import {
   getOrCreateSpatialIndex,
   queryRect,
   type SpatialIndex,
+  updateSpatialIndexNodes,
 } from './scene/spatialIndex';
 import {
   createTransformCache,
@@ -571,6 +572,11 @@ export function CanvasArea({
         // payloads those reach) until FIFO eviction would drop them.
         engineNodeMemoRef.current.clear();
         frameIndexRef.current = getOrCreateFrameSpatialIndex(state.document, frameIndexRef.current);
+        // The snap index caches a parent map, which a structural edit
+        // invalidates — drop it so the next snap rebuilds against the new
+        // hierarchy. Structural edits are not per-frame, so a rebuild here
+        // costs nothing on the drag path.
+        snapIndexRef.current = null;
       } else {
         invalidateNodes(transformCacheRef.current, plan.changedIds);
         for (const id of plan.changedIds) {
@@ -578,6 +584,14 @@ export function CanvasArea({
           engineNodeMemoRef.current.invalidate(id);
         }
         // Frame spatial index is unchanged — container bounds haven't changed.
+        // The snap index is *not* unchanged: it is keyed by cell, so a node
+        // that moved now sits in the wrong cells. Left stale, it silently
+        // stops being a snap target once it leaves its original cells. Update
+        // just the moved nodes — O(changed), not O(document).
+        const snapIndex = snapIndexRef.current;
+        if (snapIndex) {
+          updateSpatialIndexNodes(snapIndex.index, state.document, plan.changedIds);
+        }
       }
     }
     prevDrawDocRef.current = state.document;

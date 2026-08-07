@@ -343,3 +343,37 @@ Reproduce: `node scripts/perf/run-production-workload.mjs` and
 
 Known gap found by this run: wheel, keyboard and hover interactions produce no
 traces at all — `beginInteraction` fires only on pointerdown.
+
+## Benchmark-gate integrity and snap-index freshness (2026-08-07)
+
+Full write-up:
+[`2026-08-07-benchmark-integrity-and-snap-index.md`](2026-08-07-benchmark-integrity-and-snap-index.md).
+
+This pass produced one correctness fix and two benchmark-infrastructure fixes.
+No app-wide speedup is claimed: the snap fix removes a defect and adds bounded
+per-frame work; the other two make the mandatory `pnpm bench` gate trustworthy
+and runnable for the first time in this program.
+
+| Workload | Before | After | Environment | Confidence | Notes |
+|---|---|---|---|---|---|
+| `pnpm bench` file discovery | 90 `.bench.ts` files, 81 under `.worktrees` | 9 root files, 0 under `.worktrees` | CachyOS, Node 26.4, vitest 2.1.9 | high | exact counts; `vitest bench` reads `test.benchmark.*`, not `test.exclude` |
+| `pnpm bench` completion | never completed (killed at 400 s, then 900 s) | exit 0 | Same | high | root cause was fixture construction, not runner teardown |
+| `spatialIndex.bench.ts` alone | >300 s timeout | 55.5 s, all 13 groups report | Same | high | O(n^2) `addNode` fold at module scope, ~400M property copies at the 20k tier |
+| Snap candidates for a node that has moved | **0** | 1 (correct) | jsdom/Vitest | high | deterministic; asserted by `snapIndexFreshness.test.ts`, shown failing without the fix |
+| Snap-index maintenance per drag frame | none (index never refreshed) | <=8 grid touches for one moved node | jsdom/Vitest | high | work-count assertion, load-independent |
+| `snapPosition`, 5,000 unfiltered candidates | recorded as 1.75 s mean | 52.6 ms mean, 133 ms p99 | Same | medium | **correction** — the 1.75 s figure did not reproduce; it was measured while bench discovery was walking `.worktrees` |
+
+**Correction to the 2026-08-01 part-3 entry.** That entry recorded "5K-candidate
+snapping at 1.75 s mean" as a scale cliff (finding P3-18). A clean root-only run
+measures 52.6 ms mean / 133 ms p99. The earlier figure was collected while
+`vitest bench` was also executing worktree copies of the same suite. P3-18's
+proposed change — spatially prefilter candidates — is additionally already
+implemented in the app path: `CanvasArea` runs `queryRect` plus
+`filterSnapTargets` before calling `snapPosition`, so a real drag never passes
+5,000 candidates. The benchmark measures the unfiltered function only.
+
+**Not fixed, observed:** two wall-clock assertions flake under host contention
+(`HitTestEngine` near-linear scaling and `cacheSystem.bench.test.ts` cache-hit
+under 10 ms). Both failed once at load ~50-58 and passed on rerun; neither is
+related to the changes above. They are recorded as fragile gates, not as
+regressions.
