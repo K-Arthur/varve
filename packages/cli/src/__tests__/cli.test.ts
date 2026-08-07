@@ -3,7 +3,7 @@
  * driver contract, and review bundle generation.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { diffDocuments } from '@varve/history';
@@ -259,5 +259,85 @@ describe('git integration docs', () => {
         canonicalizeDocument(normalized(doc)),
       );
     }
+  });
+});
+
+describe('headless smoke tests (M17)', () => {
+  it('rejects missing files with a clear error', () => {
+    const dir = tempDir();
+    expect(() => loadDocumentFile(join(dir, 'missing.varve'))).toThrow(
+      /no such file|ENOENT|invalid document/,
+    );
+  });
+
+  it('merge driver returns error exit code 2 for a missing base file', () => {
+    const dir = tempDir();
+    const ours = writeDoc(dir, 'ours.varve', baseDoc());
+    const theirs = writeDoc(dir, 'theirs.varve', baseDoc());
+    let caught: unknown;
+    try {
+      runMergeDriver(join(dir, 'missing-base.varve'), ours, theirs);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeDefined();
+    expect((caught as { exitCode?: number }).exitCode).toBe(2);
+  });
+
+  it('merge driver handles file paths containing spaces and unicode', () => {
+    const dir = tempDir();
+    const sub = join(dir, 'my design ü');
+    mkdirSync(sub, { recursive: true });
+    const basePath = writeDoc(sub, 'base file.varve', baseDoc());
+    const ours = clone(baseDoc());
+    (ours.nodes.n1_aaaa as { opacity: number }).opacity = 0.4;
+    const currentPath = writeDoc(sub, 'current file.varve', ours);
+    const theirs = clone(baseDoc());
+    (theirs.nodes.n2_bbbb as { name: string }).name = 'Renamed';
+    const incomingPath = writeDoc(sub, 'incoming file.varve', theirs);
+    const result = runMergeDriver(basePath, currentPath, incomingPath);
+    expect(result.status).toBe('clean');
+    expect(result.exitCode).toBe(0);
+  });
+
+  it('textconv output is canonical JSON with no volatile fields', () => {
+    const dir = tempDir();
+    const path = writeDoc(dir, 'a.varve', baseDoc());
+    const canonical = runCanonicalize(path);
+    // Canonical serialization excludes runtime counters and volatile state.
+    expect(canonical).toContain('"name":"Base"');
+    expect(canonical).not.toContain('dataUrl');
+  });
+
+  it('review bundles are reproducible (byte-identical across runs)', () => {
+    const dir = tempDir();
+    const base = baseDoc();
+    const target = clone(base);
+    (target.nodes.n1_aaaa as { opacity: number }).opacity = 0.5;
+    const out1 = join(dir, 'r1');
+    const out2 = join(dir, 'r2');
+    mkdirSync(out1, { recursive: true });
+    mkdirSync(out2, { recursive: true });
+    const { files: f1 } = buildReviewBundle(base, target, out1);
+    const { files: f2 } = buildReviewBundle(base, target, out2);
+    expect(f1).toEqual(f2);
+    for (const file of f1) {
+      expect(readFileSync(join(out1, file), 'utf8')).toBe(readFileSync(join(out2, file), 'utf8'));
+    }
+  });
+
+  it('review bundle marks structural integrity and schema versions', () => {
+    const dir = tempDir();
+    const base = baseDoc();
+    const target = clone(base);
+    (target.nodes.n1_aaaa as { opacity: number }).opacity = 0.5;
+    const { files } = buildReviewBundle(base, target, dir);
+    const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
+    expect(manifest.baseHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(manifest.targetHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(manifest.schema).toBe('varve-review-bundle/1');
+    const diffJson = JSON.parse(readFileSync(join(dir, 'diff.json'), 'utf8'));
+    expect(Array.isArray(diffJson.changes)).toBe(true);
+    expect(diffJson.baseHash).toMatch(/^[0-9a-f]{64}$/);
   });
 });
