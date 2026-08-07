@@ -114,33 +114,18 @@ export function PaletteSection() {
 
   if (!isVisible) return null;
 
-  const swatchStyle: React.CSSProperties = {
-    width: 20,
-    height: 20,
-    borderRadius: 3,
-    border: '1px solid var(--color-border-subtle)',
-    flexShrink: 0,
-  };
-
   return (
     <DisclosureSection title="Extract Palette" sectionId="palette">
-      <div
-        style={{
-          padding: 'var(--space-1) var(--space-2)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-1)',
-        }}
-      >
-        <label style={{ fontSize: '0.85em' }}>
+      <div className="palette-section__controls">
+        <label className="palette-section__field-label">
           Color count
           <input
+            className="palette-section__count-input"
             type="number"
             min={2}
             max={24}
             value={extraction.colorCount}
             onChange={handleColorCountChange}
-            style={{ width: '100%', padding: '2px 4px', marginTop: 2 }}
             aria-label="Number of colors to extract"
           />
         </label>
@@ -156,13 +141,13 @@ export function PaletteSection() {
         </button>
 
         {extraction.status === 'loading' && (
-          <div aria-live="polite" style={{ fontSize: '0.85em', opacity: 0.6 }}>
-            Extracting colors\u2026
+          <div aria-live="polite" className="palette-section__status">
+            Extracting...
           </div>
         )}
 
         {extraction.status === 'error' && extraction.errorMessage && (
-          <div role="alert" style={{ fontSize: '0.85em', color: 'var(--color-text-critical)' }}>
+          <div role="alert" className="palette-section__error">
             {extraction.errorMessage}
           </div>
         )}
@@ -170,21 +155,22 @@ export function PaletteSection() {
         {extraction.status === 'done' &&
           extraction.result &&
           (extraction.result.colors.length === 0 ? (
-            <p style={{ fontSize: '0.85em', opacity: 0.6 }}>
+            <p className="palette-section__hint">
               No colors extracted. Try a different image or increase the color count.
             </p>
           ) : (
             <>
-              <p style={{ fontSize: '0.8em', opacity: 0.6 }}>
+              <p className="palette-section__hint">
                 {extraction.result.colors.length} colors (
                 {Math.round(extraction.result.coverage * 100)}% coverage)
               </p>
-              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+              <div className="palette-section__swatches">
                 {extraction.result.colors.map((color, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: extracted swatch colors can repeat; swatches are stateless
                   <Tooltip key={`pal-${i}`} label={managedColorToCss(color)}>
                     <div
-                      style={{ ...swatchStyle, background: managedColorToCss(color) }}
+                      className="palette-section__swatch"
+                      style={{ background: managedColorToCss(color) }}
                       role="img"
                       aria-label={`Color ${i + 1}: ${managedColorToCss(color)}`}
                     />
@@ -193,12 +179,6 @@ export function PaletteSection() {
               </div>
             </>
           ))}
-
-        {extraction.status === 'idle' && selectedImageNode && (
-          <p style={{ fontSize: '0.8em', opacity: 0.6 }}>
-            Extract a color palette from the selected image.
-          </p>
-        )}
       </div>
     </DisclosureSection>
   );
