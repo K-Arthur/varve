@@ -1871,44 +1871,55 @@ function paintTable(
   if (p.dividerWidth > 0) {
     target.fillStyle = rgba(p.dividerColor);
     const half = p.dividerWidth / 2;
-    const spansCol = (colIdx: number, rowIdx: number): boolean =>
-      p.cells.some(
-        (c) =>
-          c.columnSpan > 1 &&
-          colIdx > c.columnIdx &&
-          colIdx < c.columnIdx + c.columnSpan &&
-          rowIdx >= c.rowIdx &&
-          rowIdx < c.rowIdx + c.rowSpan,
-      );
-    const spansRow = (rowIdx: number, colIdx: number): boolean =>
-      p.cells.some(
-        (c) =>
-          c.rowSpan > 1 &&
-          rowIdx > c.rowIdx &&
-          rowIdx < c.rowIdx + c.rowSpan &&
-          colIdx >= c.columnIdx &&
-          colIdx < c.columnIdx + c.columnSpan,
-      );
-    for (let i = 1; i < p.colPositions.length - 1; i++) {
-      const x = p.colPositions[i]!;
-      // Split the divider into row segments so a merged cell in one row
-      // doesn't erase the divider in the rows that are not spanned.
-      for (let r = 0; r < p.rowPositions.length - 1; r++) {
-        if (spansCol(i, r)) continue;
-        const y0 = p.rowPositions[r]!;
-        const y1 = p.rowPositions[r + 1]!;
-        if (y1 <= y0) continue;
-        target.fillRect(x - half, y0, p.dividerWidth, y1 - y0);
+    const hasSpans = p.cells.some((c) => c.rowSpan > 1 || c.columnSpan > 1);
+    if (!hasSpans) {
+      // Fast path (no merged cells — the common case): draw every divider
+      // full-length like the original implementation, one rect per track.
+      for (let i = 1; i < p.colPositions.length - 1; i++) {
+        const x = p.colPositions[i]!;
+        target.fillRect(x - half, p.y, p.dividerWidth, p.h);
       }
-    }
-    for (let i = 1; i < p.rowPositions.length - 1; i++) {
-      const y = p.rowPositions[i]!;
-      for (let c = 0; c < p.colPositions.length - 1; c++) {
-        if (spansRow(i, c)) continue;
-        const x0 = p.colPositions[c]!;
-        const x1 = p.colPositions[c + 1]!;
-        if (x1 <= x0) continue;
-        target.fillRect(x0, y - half, x1 - x0, p.dividerWidth);
+      for (let i = 1; i < p.rowPositions.length - 1; i++) {
+        const y = p.rowPositions[i]!;
+        target.fillRect(p.x, y - half, p.w, p.dividerWidth);
+      }
+    } else {
+      // Span path: precompute the covered divider segments ONCE (a cell with
+      // a span suppresses the dividers running through it), then draw the
+      // remaining segments. O(spans × area) up front, O(1) per segment.
+      const colCovered = new Set<string>();
+      const rowCovered = new Set<string>();
+      for (const c of p.cells) {
+        for (let rr = c.rowIdx; rr < c.rowIdx + c.rowSpan; rr++) {
+          for (let cc = c.columnIdx + 1; cc < c.columnIdx + c.columnSpan; cc++) {
+            colCovered.add(`${cc},${rr}`);
+          }
+        }
+        for (let cc = c.columnIdx; cc < c.columnIdx + c.columnSpan; cc++) {
+          for (let rr = c.rowIdx + 1; rr < c.rowIdx + c.rowSpan; rr++) {
+            rowCovered.add(`${rr},${cc}`);
+          }
+        }
+      }
+      for (let i = 1; i < p.colPositions.length - 1; i++) {
+        const x = p.colPositions[i]!;
+        for (let r = 0; r < p.rowPositions.length - 1; r++) {
+          if (colCovered.has(`${i},${r}`)) continue;
+          const y0 = p.rowPositions[r]!;
+          const y1 = p.rowPositions[r + 1]!;
+          if (y1 <= y0) continue;
+          target.fillRect(x - half, y0, p.dividerWidth, y1 - y0);
+        }
+      }
+      for (let i = 1; i < p.rowPositions.length - 1; i++) {
+        const y = p.rowPositions[i]!;
+        for (let c = 0; c < p.colPositions.length - 1; c++) {
+          if (rowCovered.has(`${i},${c}`)) continue;
+          const x0 = p.colPositions[c]!;
+          const x1 = p.colPositions[c + 1]!;
+          if (x1 <= x0) continue;
+          target.fillRect(x0, y - half, x1 - x0, p.dividerWidth);
+        }
       }
     }
   }

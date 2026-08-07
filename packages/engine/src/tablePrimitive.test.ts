@@ -200,8 +200,11 @@ describe('table primitive replay', () => {
     const rec = new Recorder();
     replayIr(rec, [tableItem()]);
     const calls = rec.calls;
-    // 4 cell fills + 4 inner dividers (2 vertical + 2 horizontal)
-    expect(calls.filter((c) => c.startsWith('fillRect(')).length).toBe(8);
+    // 4 cell fills + 2 inner dividers (1 vertical + 1 horizontal). Table-edge
+    // positions are NOT painted as dividers (the outer border covers them),
+    // and with no spans the fast path draws each divider as one full-length
+    // rect — visually identical to the previous per-segment rendering.
+    expect(calls.filter((c) => c.startsWith('fillRect(')).length).toBe(6);
     // Header text with middle vertical alignment
     const textCalls = calls.filter((c) => c.startsWith('fillText('));
     expect(textCalls).toHaveLength(1);
