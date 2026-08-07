@@ -974,9 +974,12 @@ export function getOrderedPanels(mode: WorkspaceMode): PanelId[] {
 }
 
 /** Get visible status sections sorted by order. */
-export function getVisibleStatusSections(mode: WorkspaceMode): StatusSectionId[] {
-  const config = getWorkspaceConfig(mode);
-  return config.statusSections
+export function getVisibleStatusSections(
+  mode: WorkspaceMode,
+  config?: WorkspaceConfig,
+): StatusSectionId[] {
+  const cfg = config ?? getWorkspaceConfig(mode);
+  return cfg.statusSections
     .filter((s) => s.visible)
     .sort((a, b) => a.order - b.order)
     .map((s) => s.id);
