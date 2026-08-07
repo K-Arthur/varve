@@ -35,6 +35,7 @@ import { MasterPanel } from './components/MasterPanel/MasterPanel';
 import { Menubar } from './components/Menubar';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { PageNav } from './components/PageNav/PageNav';
+import { PagesPanel } from './components/PagesPanel/PagesPanel';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { PromptDialog, promptDialog } from './components/PromptDialog';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
@@ -412,6 +413,7 @@ function ShellInner({
               <PresenceIndicator presences={collabPresences} />
               <MinimapPanel />
               <MasterPanel />
+              <PagesPanel />
               <SpreadSettings />
               <LayersPanel dndRef={layersDndRef} />
             </ErrorBoundary>
