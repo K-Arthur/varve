@@ -3,6 +3,12 @@
  * coordinator, and built-in operation families.
  */
 export { registerBuiltinOperations } from './bootstrap';
+export type {
+  CapturedChange,
+  CapturedChangeType,
+  CapturedTextRanges,
+  TransactionCapturePayload,
+} from './ops/captureOps';
 export { isAllowedPropertyPath, type NodeCreatePayload } from './ops/nodeOps';
 export {
   affectedEntitiesOf,
