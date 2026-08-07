@@ -178,11 +178,12 @@ Fixture `perf-vector-100` (100 nodes, checksum `fnv1a32-a70c2c0b`), canvas
 
 The drag residue is **deterministic** — identical across three runs: 4,800
 pixels, `maxDelta` 202, bounding box `{x: 420, y: 288, w: 196, h: 40}`. A
-`maxDelta` of 202 is a wholly different colour, not antialiasing: these are
-retained pixels of the object at a position it has left.
+`maxDelta` of 202 is a wholly different colour, not antialiasing.
 
 This is the reported symptom, on the reported runtime, in the code path every
-Linux user was on before this change.
+Linux user was on before this change. Note that "after-image" turned out to be
+the wrong mental model for it — see the root cause below, which is the reverse:
+pixels were being *erased*, not retained.
 
 **The oracle is sensitivity-checked, not merely green.** A control step paints
 a 140x90 magenta rectangle directly onto the surface and forces the repaint;
@@ -192,20 +193,65 @@ that grabbed nothing cannot masquerade as a pass — the initial run was caught
 this way (`drag` moved 0 px until the hit point was computed from the fixture's
 140px grid instead of guessed).
 
-### What this means
+### Root cause — the prune region did not cover the cleared region
 
-Enabling the verified worker path on WebKitGTK (§6) moves Linux users onto the
-path that shows **zero** residue on all four gestures. The main-thread residue
-is *not* thereby fixed — it remains on the fallback path used when the worker
-is refused (scene needs structural compositing, worker admission refused,
-probe unverified, `?webkitWorker=0`). It is a real open bug with an exact,
-deterministic reproduction attached.
+Two experiments killed the obvious hypotheses:
 
-**Not root-caused.** A `dragSlow` variant intended to test whether the residue
-scales with per-frame displacement returned `movedPixels: 0` — the preceding
-drag had already displaced the object, so the second gesture grabbed nothing.
-That result is vacuous and no conclusion is drawn from it. The harness needs
-per-gesture document reset before that question can be answered.
+| Variant | Residue | Conclusion |
+| --- | ---: | --- |
+| drag, partial redraw | 4,800 px | baseline |
+| drag, **full redraw every frame** | 3,360 px | not the partial-redraw path |
+| drag in 2px steps instead of 8px | 4,800 px | not per-frame displacement |
+
+Cropping the differing region and looking at it settled the question. The
+residue is **not** a ghost — it is the *opposite*. Neighbouring rectangles were
+reduced to their top and right edge slivers, interiors missing; the forced
+repaint restored them as solid fills. Pixels were being **erased**, not
+retained.
+
+`computeDirtyPruneDecision` (`canvas/dirtyQuery.ts`) returned two regions:
+
+- `screenRects` = `worldRectsToScreen(merged.rects, …, margin = 40)` — what the
+  paint path **clears and clips**;
+- `worldRects` = `merged.rects`, **unexpanded** — what selects nodes for
+  **replay**.
+
+So a 40-screen-pixel band was cleared on every partial frame but never
+replayed. A node inside that band was erased outright; a node straddling its
+boundary kept only the sliver lying outside the cleared area — exactly the edge
+slivers observed.
+
+This is the same invariant the module's own header states ("pruning without a
+partial paint … erases every node outside the dirty region"), violated in the
+other direction: the paint cleared *more* than the prune replayed.
+
+**Fix:** `worldRects` is now expanded by the world-space equivalent of the same
+margin, derived from `worldToScreen` itself so the two cannot disagree about
+the camera, with the margin hoisted to a shared `DIRTY_SCREEN_MARGIN` constant.
+Over-inclusion replays a few extra nodes; under-inclusion destroys pixels.
+
+**Verified after the fix**, same harness, same fixture, main-thread path:
+
+| Gesture | Before | After |
+| --- | ---: | ---: |
+| object drag | 4,800 | **0** |
+| drag, full redraw per frame | 3,360 | **0** |
+| drag, small steps | 4,800 | **0** |
+| drag + auto-pan / pan / zoom | 0 | 0 |
+
+Corroboration: `gestureMovedPixels` for the drag fell from 10,944 to 6,144 — a
+drop of exactly 4,800, the residue count. 6,144 is 2 x (64x48), one object's
+old plus new footprint, which is precisely what a clean move should touch.
+
+### Why the existing Chromium oracle never caught it
+
+`tests/e2e/visual/partial-redraw-oracle.spec.ts` computes its pruned subsets
+**in the spec**, with its own copy of the bounds rule — by design, so it
+validates the pruning *contract* rather than the query implementation. It
+therefore never executes `computeDirtyPruneDecision` and could not observe the
+margin mismatch. The new unit tests in
+`canvas/__tests__/surfaceValidity.test.ts` call the production function
+directly, including at 2x and 0.5x zoom where the world-space margin scales.
 
 The existing surface-identity fix (`9d47771b`) was audited and is treated as a
 regression boundary; nothing here weakens it.
@@ -295,10 +341,8 @@ rendered through the worker, with `fallbackReason: none`.
    because a measured latency win was demonstrated on this host. Re-run
    `scripts/perf/run-production-workload.mjs` on an idle machine to quantify
    it; the `?webkitWorker=0` opt-out exists to make that an A/B.
-2. **Main-thread drag ghosting is reproduced but not root-caused** (§5). The
-   worker path — now the default on WebKitGTK — is clean, so Linux users no
-   longer hit it, but the fallback path is still wrong. This is the single
-   most valuable open item, and it now has a deterministic reproduction.
+2. **Root-caused and fixed** (§5) — the prune/paint margin mismatch. Both the
+   worker and main-thread paths now report zero residue on every gesture.
 3. **The oracle runs one gesture sequence per launch with no document reset**,
    so a gesture can be invalidated by the one before it (this is exactly how
    the `dragSlow` variant became vacuous). Per-gesture reset is needed before
