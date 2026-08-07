@@ -246,8 +246,16 @@ export interface Document {
 
   // ── Typography: Linked text frames (v1.7) ───────────────────────────────────
 
-  /** Text flow chains for linked text frames. */
+  /**
+   * Text flow chains for linked text frames (v1.7, legacy). Superseded by
+   * `stories` (v2.18, ADR-0159): one authoritative story owns the text and
+   * frames reference it through thread bindings. Migrated documents carry
+   * stories; chains remain readable for pre-2.18 documents.
+   */
   textChains?: Record<string, unknown>;
+
+  /** Authoritative text stories (v2.18, ADR-0159), keyed by story id. */
+  stories?: Record<NodeId, import('./types').TextStory>;
 
   // ── Brush presets (v1.10+) ──────────────────────────────────────────────────
 
