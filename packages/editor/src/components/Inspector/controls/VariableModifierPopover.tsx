@@ -46,12 +46,30 @@ export function VariableModifierPopover({
   const [value, setValue] = useState<number>(() => {
     const m = modifiers[0];
     if (!m) return 0.5;
-    if (m.operation === 'offset') return -0.2;
-    return m.operation === 'set' ? 0.5 : 0.5;
+    // Preserve the stored modifier value so reopening the popover shows
+    // the actual applied value, not a fresh default.
+    return m.operation === 'offset' ? m.value : m.value;
   });
 
   const anchor = anchorRef.current;
   const rect = anchor?.getBoundingClientRect();
+
+  // Position below the anchor, clamped to the viewport. When there is not
+  // enough room below (the anchor badge sits at the bottom of a scrolled
+  // inspector), flip above the anchor instead so the popover never renders
+  // off-screen.
+  const POPOVER_W = 300;
+  const POPOVER_H_EST = 300;
+  const left = rect
+    ? Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - POPOVER_W - 8))
+    : 8;
+  const spaceBelow = rect ? window.innerHeight - rect.bottom - 6 : 0;
+  const top =
+    rect && spaceBelow < POPOVER_H_EST
+      ? Math.max(8, rect.top - POPOVER_H_EST - 6)
+      : rect
+        ? rect.bottom + 6
+        : 8;
 
   const tokenAlpha = normalizedAlpha(tokenColor);
   const effectiveAlpha = useMemo(() => {
@@ -78,7 +96,7 @@ export function VariableModifierPopover({
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const displayValue = operation === 'offset' ? value * 100 : value * 100;
+  const displayValue = value * 100;
 
   const sliderMin = operation === 'multiply' ? 0 : operation === 'set' ? 0 : -100;
   const sliderMax = operation === 'multiply' ? 200 : operation === 'set' ? 100 : 100;
@@ -97,11 +115,11 @@ export function VariableModifierPopover({
       aria-label="Alpha modifier"
       style={{
         position: 'fixed',
-        left: rect ? Math.max(8, rect.left) : 8,
-        top: rect ? rect.bottom + 6 : 8,
+        left,
+        top,
         zIndex: 1000,
         minWidth: 240,
-        maxWidth: 300,
+        maxWidth: POPOVER_W,
         background: 'var(--color-surface-raised, #fff)',
         border: '1px solid var(--color-border-strong, #cdd3de)',
         borderRadius: 8,

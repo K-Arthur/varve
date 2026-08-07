@@ -7,10 +7,10 @@
 
 import { nextNodeId } from './node-id';
 import { remapTableModelIds } from './tableOps';
+import { tableContentNodeIds } from './table';
 import type {
   ContainerNode,
   FrameNode,
-  GroupNode,
   NodeId,
   RasterLayerNode,
   SceneNode,
@@ -26,6 +26,75 @@ export interface CloneResult {
   nextId: number;
 }
 
+export interface CloneOptions {
+  /**
+   * When true (cross-document paste), mask/scope references that point
+   * outside the cloned subtree are dropped instead of being kept verbatim:
+   * a pasted clipped item must not reference a matte from the source
+   * document, and a pasted adjustment must not target foreign nodes.
+   * When false (duplicate within the same document), unmapped references
+   * remain valid and are preserved.
+   */
+  dropForeignReferences?: boolean;
+}
+
+/**
+ * Remap an explicit-targets scope's target list through the clone idMap.
+ * When `dropForeignReferences` is set, targets outside the subtree are
+ * dropped; otherwise they are preserved (valid in the same document).
+ */
+function remapTargetList(
+  ids: readonly NodeId[],
+  idMap: Map<NodeId, NodeId>,
+  dropForeign: boolean,
+): NodeId[] {
+  const remapped: NodeId[] = [];
+  for (const id of ids) {
+    const mapped = idMap.get(id);
+    if (mapped) {
+      remapped.push(mapped);
+    } else if (!dropForeign) {
+      remapped.push(id);
+    }
+  }
+  return remapped;
+}
+
+/**
+ * Remap an adjustment's `scope` through the clone idMap.
+ *
+ * - `image-local`: the single target node is remapped; when it lies outside
+ *   the subtree and `dropForeign` is set, the scope is removed (the pasted
+ *   adjustment falls back to legacy sibling-below resolution).
+ * - `explicit-targets`: targets are remapped individually; an empty result
+ *   under `dropForeign` removes the scope.
+ * - `container-descendant`: the container is remapped; a foreign container
+ *   under `dropForeign` removes the scope.
+ * - `document` is invariant.
+ */
+function remapScope(
+  scope: import('./types').AdjustmentScope,
+  idMap: Map<NodeId, NodeId>,
+  dropForeign: boolean,
+): import('./types').AdjustmentScope | undefined {
+  if (scope.mode === 'image-local') {
+    const mapped = idMap.get(scope.targetNodeId);
+    if (mapped) return { ...scope, targetNodeId: mapped };
+    return dropForeign ? undefined : scope;
+  }
+  if (scope.mode === 'explicit-targets') {
+    const remapped = remapTargetList(scope.targetNodeIds, idMap, dropForeign);
+    if (remapped.length === 0 && dropForeign) return undefined;
+    return { ...scope, targetNodeIds: remapped };
+  }
+  if (scope.mode === 'container-descendant') {
+    const mapped = idMap.get(scope.containerId);
+    if (mapped) return { ...scope, containerId: mapped };
+    return dropForeign ? undefined : scope;
+  }
+  return scope;
+}
+
 /**
  * Deep-clone a subtree rooted at `rootId`.
  *
@@ -39,7 +108,9 @@ export function deepCloneSubtree(
   nodes: Record<NodeId, SceneNode>,
   nextIdCounter: number,
   rootId: NodeId,
+  options?: CloneOptions,
 ): CloneResult {
+  const dropForeign = options?.dropForeignReferences === true;
   const idMap = new Map<NodeId, NodeId>();
   const newNodes: Record<NodeId, SceneNode> = {};
   let currentDoc = { nextId: nextIdCounter };
@@ -76,19 +147,11 @@ export function deepCloneSubtree(
         (cloned as FrameNode).slots =
           Object.keys(remappedSlots).length > 0 ? remappedSlots : undefined;
       }
-
-      // Remap mask reference
-      if ('mask' in container && container.mask) {
-        const mask = container.mask;
-        const srcId = mask.sourceNodeId;
-        if (srcId) {
-          const newSourceId = idMap.get(srcId) ?? srcId;
-          (cloned as FrameNode | GroupNode).mask = {
-            ...mask,
-            sourceNodeId: newSourceId,
-          };
-        }
-      }
+    } else if (node.kind === 'adjustment') {
+      // Adjustment nodes are not ContainerNodes; the container branch above
+      // does not visit them. Their spatial mask and scope carry node IDs
+      // remapped in the post-pass below.
+      cloned = { ...node, id: newId } as SceneNode;
     } else if (node.kind === 'rasterLayer') {
       const rl = node as RasterLayerNode;
       const newTiles = new Map<string, import('./types').RasterTile>();
@@ -102,10 +165,41 @@ export function deepCloneSubtree(
     } else if (node.kind === 'table') {
       // Tables carry their own stable row/column/cell ids; remap them so a
       // pasted table never collides with the source document's identities.
+      // Rich scene-content cells reference nodes by id — those referenced
+      // nodes are cloned too (recursively) and the cell references remapped.
       const tableNode = node as TableNode;
       const remapped = remapTableModelIds(tableNode.table, currentDoc.nextId);
       currentDoc = { ...currentDoc, nextId: remapped.nextId };
-      cloned = { ...tableNode, id: newId, table: remapped.model } as SceneNode;
+      let tableModel = remapped.model;
+      // Remap scene-content references: each referenced node is walked
+      // (cloned into newNodes) and the cell content points at the clone.
+      const contentIds = tableContentNodeIds(tableModel);
+      if (contentIds.length > 0) {
+        const remap = new Map<string, string>();
+        for (const contentId of contentIds) {
+          if (idMap.has(contentId)) {
+            remap.set(contentId, idMap.get(contentId)!);
+          } else {
+            const clonedId = walkNode(contentId);
+            if (clonedId) remap.set(contentId, clonedId);
+          }
+        }
+        if (remap.size > 0) {
+          const cells = { ...tableModel.cells };
+          let changed = false;
+          for (const [cellId, cell] of Object.entries(cells)) {
+            if (cell.content.kind === 'scene') {
+              const mapped = remap.get(cell.content.nodeId);
+              if (mapped) {
+                cells[cellId] = { ...cell, content: { kind: 'scene', nodeId: mapped } };
+                changed = true;
+              }
+            }
+          }
+          if (changed) tableModel = { ...tableModel, cells };
+        }
+      }
+      cloned = { ...tableNode, id: newId, table: tableModel } as SceneNode;
     } else {
       // Leaf node: simple id replacement
       cloned = { ...node, id: newId } as SceneNode;
@@ -119,6 +213,51 @@ export function deepCloneSubtree(
 
   if (!newRootId) {
     return { nodes: {}, idMap, rootId, nextId: currentDoc.nextId };
+  }
+
+  // Post-pass: remap node-to-node references once the whole subtree has been
+  // walked and the idMap is complete. Mask sources and scope targets may live
+  // anywhere in the subtree (an adjustment's spatial mask may reference any
+  // node, and scopes may target arbitrary nodes), so remapping during the
+  // walk could observe an incomplete idMap.
+  //
+  // A mask whose source lies outside the subtree is only legal for
+  // adjustment containers: under `dropForeign` (cross-document paste) such a
+  // mask must not leak a source-document ID — the reference is dropped, and
+  // when the mask would lose its only geometry source the mask is removed
+  // entirely (the pasted item is released from clipping). Without
+  // `dropForeign` (in-document duplicate) unmapped references stay valid.
+  const remapMaskReference = (clonedNode: SceneNode, srcId: NodeId): SceneNode => {
+    const mask = (clonedNode as { mask?: import('./types').Mask }).mask;
+    if (!mask) return clonedNode;
+    const mapped = idMap.get(srcId);
+    if (mapped) {
+      return { ...clonedNode, mask: { ...mask, sourceNodeId: mapped } } as SceneNode;
+    }
+    if (!dropForeign) return clonedNode;
+    if (mask.vectorMask && mask.vectorMask.points.length > 0 && mask.rasterMask === undefined) {
+      // Keep the vector geometry; only the visual source is foreign.
+      return { ...clonedNode, mask: { ...mask, sourceNodeId: undefined } } as SceneNode;
+    }
+    return { ...clonedNode, mask: undefined } as SceneNode;
+  };
+
+  for (const [newId, node] of Object.entries(newNodes)) {
+    const originalId = [...idMap.entries()].find(([, v]) => v === newId)?.[0];
+    if (!originalId) continue;
+    const original = nodes[originalId];
+    if (!original) continue;
+    const originalMask = (original as { mask?: { sourceNodeId?: NodeId } }).mask;
+    if (originalMask?.sourceNodeId) {
+      newNodes[newId] = remapMaskReference(node, originalMask.sourceNodeId);
+    }
+    if (original.kind === 'adjustment') {
+      const originalScope = (original as { scope?: import('./types').AdjustmentScope }).scope;
+      if (originalScope) {
+        const remapped = remapScope(originalScope, idMap, dropForeign);
+        (newNodes[newId] as import('./types').AdjustmentNode).scope = remapped;
+      }
+    }
   }
 
   return { nodes: newNodes, idMap, rootId: newRootId, nextId: currentDoc.nextId };

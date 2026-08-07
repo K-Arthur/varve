@@ -8,9 +8,11 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTableNode,
   makeTextNode,
   nextNodeId,
 } from '../document';
+import { setCellSceneContent } from '../tableOps';
 import type { FrameNode, GroupNode, NodeId, ShapeNode } from '../types';
 
 function shape(doc: Document, name: string, opts?: Partial<ShapeNode>) {
@@ -368,5 +370,44 @@ describe('deepCloneSubtree', () => {
     const cloned = result.nodes[result.rootId] as import('../types').TextNode;
     // pathId references a node outside the subtree, so it's preserved verbatim
     expect(cloned.pathId).toBe(pathNode.id);
+  });
+
+  it('remaps scene-content cell references and clones the referenced nodes', () => {
+    let doc = createDocument();
+    // Content node (image) referenced by a table cell.
+    const content = frame(doc, 'Cell image');
+    doc = content.doc;
+    doc = addNode(doc, content.node);
+    // Table node with a scene-content cell.
+    const tableNode = makeTableNode('', { rows: 2, columns: 2 });
+    const { id: tableId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const table: import('../types').TableNode = {
+      ...tableNode,
+      id: tableId,
+      name: 'Table 1',
+      table: setCellSceneContent(
+        tableNode.table,
+        Object.keys(tableNode.table.cells)[0]!,
+        content.id,
+      ),
+    };
+    doc = addNode(doc, table);
+
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, tableId);
+
+    const cloned = result.nodes[result.rootId] as import('../types').TableNode;
+    // Cell reference points at the CLONED content node, not the original.
+    const clonedContentId = Object.values(cloned.table.cells)[0]!.content;
+    expect(clonedContentId.kind).toBe('scene');
+    if (clonedContentId.kind === 'scene') {
+      expect(clonedContentId.nodeId).not.toBe(content.id);
+      expect(result.nodes[clonedContentId.nodeId]).toBeDefined();
+    }
+    // The content node was cloned into the result map.
+    const clonedContent =
+      result.nodes[clonedContentId.kind === 'scene' ? clonedContentId.nodeId : ''];
+    expect(clonedContent).toBeDefined();
+    expect(clonedContent?.id).not.toBe(content.id);
   });
 });

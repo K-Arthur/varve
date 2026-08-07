@@ -631,6 +631,12 @@ export interface TableCellIR {
   /** Optional per-cell border override (header emphasis, selection). */
   border?: { color: EngineColor; width: number };
   text?: TableCellTextIR;
+  /**
+   * Rich scene content: a compiled item in the cell's local coordinate
+   * space (the table transform is NOT applied again). Painted after the
+   * cell fill, clipped to the cell rect (minus padding).
+   */
+  content?: RenderItem;
   /** Grid coordinates of the cell's top-left corner. */
   rowIdx: number;
   columnIdx: number;
@@ -1100,6 +1106,204 @@ export type FilterIR =
   | {
       kind: 'threshold';
       level: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'dither';
+      algorithm:
+        | 'floyd-steinberg'
+        | 'atkinson'
+        | 'jarvis-judice-ninke'
+        | 'stucki'
+        | 'sierra'
+        | 'bayer'
+        | 'blue-noise';
+      paletteMode: 'none' | 'levels' | 'custom';
+      levels: number;
+      colors: readonly (readonly number[])[];
+      metric: 'rgb' | 'linear-rgb' | 'lab' | 'oklab';
+      serpentine: boolean;
+      strength: number;
+      bayerSize: number;
+      cellSize: number;
+      alphaCutoff: number;
+      seed: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'paletteSnap';
+      colors: readonly (readonly number[])[];
+      metric: 'rgb' | 'linear-rgb' | 'lab' | 'oklab';
+      amount: number;
+      dither: boolean;
+      ditherAlgorithm:
+        | 'floyd-steinberg'
+        | 'atkinson'
+        | 'jarvis-judice-ninke'
+        | 'stucki'
+        | 'sierra'
+        | 'bayer'
+        | 'blue-noise';
+      ditherStrength: number;
+      alphaCutoff: number;
+      seed: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'bloom';
+      threshold: number;
+      softKnee: number;
+      intensity: number;
+      radius: number;
+      diffusion: number;
+      tint: readonly [number, number, number] | null;
+      tintAmount: number;
+      composite: 'screen' | 'add';
+      streakEnabled: boolean;
+      streakAngle: number;
+      streakLength: number;
+      streakIntensity: number;
+      streakAspect: number;
+      quality?: 'auto' | 'interactive' | 'normal' | 'export';
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'rgbSplit';
+      mode: 'offset' | 'radial';
+      redX: number;
+      redY: number;
+      greenX: number;
+      greenY: number;
+      blueX: number;
+      blueY: number;
+      amount: number;
+      centerX: number;
+      centerY: number;
+      falloff: number;
+      fringeAngle: number;
+      borderMode: 'transparent' | 'clamp' | 'mirror' | 'wrap';
+      intensity: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'crt';
+      curvature: number;
+      cornerRadius: number;
+      scanlinePeriod: number;
+      scanlineStrength: number;
+      scanlineSoftness: number;
+      phosphorMask: 'none' | 'rgb-stripe' | 'bgr-stripe' | 'aperture-grille' | 'shadow-mask';
+      phosphorPitch: number;
+      phosphorIntensity: number;
+      glow: number;
+      vignette: number;
+      vignetteRadius: number;
+      convergenceX: number;
+      convergenceY: number;
+      brightness: number;
+      contrast: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'vhs';
+      lumaNoise: number;
+      chromaNoise: number;
+      chromaBleed: number;
+      jitter: number;
+      tracking: number;
+      dropouts: number;
+      headSwitching: number;
+      tearing: number;
+      signalBlur: number;
+      timeInstability: number;
+      seed: number;
+      time: number;
+      frameRate: number;
+      quality?: 'auto' | 'interactive' | 'normal' | 'export';
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'lightShafts';
+      lightX: number;
+      lightY: number;
+      lightType: 'point' | 'directional';
+      direction: number;
+      intensity: number;
+      exposure: number;
+      decay: number;
+      density: number;
+      weight: number;
+      sampleCount: number;
+      scattering: number;
+      tint: readonly [number, number, number] | null;
+      occlusionSource: 'luminance' | 'alpha';
+      quality?: 'auto' | 'interactive' | 'normal' | 'export';
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'lensFlare';
+      sourceX: number;
+      sourceY: number;
+      brightness: number;
+      scale: number;
+      ghostCount: number;
+      ghostSpacing: number;
+      halo: number;
+      apertureBlades: number;
+      apertureRotation: number;
+      streakIntensity: number;
+      anamorphicRatio: number;
+      chromaticDispersion: number;
+      seed: number;
+      quality?: 'auto' | 'interactive' | 'normal' | 'export';
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'lightLeak';
+      seed: number;
+      x: number;
+      y: number;
+      angle: number;
+      size: number;
+      softness: number;
+      hue: number;
+      saturation: number;
+      lightness: number;
+      intensity: number;
+      noiseScale: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'caustics';
+      scale: number;
+      depth: number;
+      waveCount: number;
+      complexity: number;
+      refractionAmount: number;
+      sharpness: number;
+      lightAngle: number;
+      brightness: number;
+      contrast: number;
+      dispersion: number;
+      distortionAmount: number;
+      output: 'combined' | 'lighting' | 'refraction';
+      waterTint: readonly [number, number, number] | null;
+      surfaceTint: readonly [number, number, number] | null;
+      seed: number;
+      time: number;
+      animationSpeed: number;
+      tileable: boolean;
+      quality?: 'auto' | 'interactive' | 'normal' | 'export';
       opacity: number;
       blendMode: string;
     };
