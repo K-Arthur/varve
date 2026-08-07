@@ -452,18 +452,17 @@ function compareValue(
         }
       }
       const consumed = new Set(Object.keys(specs));
-      for (const key of unionKeys(
-        baseVal as Record<string, unknown>,
-        targetVal as Record<string, unknown>,
-      )) {
+      const baseRec = (baseVal ?? {}) as Record<string, unknown>;
+      const targetRec = (targetVal ?? {}) as Record<string, unknown>;
+      for (const key of unionKeys(baseRec, targetRec)) {
         if (consumed.has(key)) continue;
         compareValue(
           ctx,
           entityType,
           entityId,
           `${path}.${key}`,
-          recordAt(baseVal, key),
-          recordAt(targetVal, key),
+          recordAt(baseRec, key),
+          recordAt(targetRec, key),
         );
       }
       return;
