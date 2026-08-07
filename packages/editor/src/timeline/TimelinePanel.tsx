@@ -2,6 +2,7 @@ import type { Timeline } from '@varve/scene';
 import type { EasingDefinition } from '@varve/shared';
 import { Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { type FC, useCallback, useMemo, useRef, useState } from 'react';
+import { PanelDragHandle } from '../components/PanelDragHandle';
 import { GraphEditor } from './GraphEditor';
 import { PlaybackControls } from './PlaybackControls';
 import { TimelineRuler } from './TimelineRuler';
@@ -160,82 +161,89 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
 
   return (
     <div className="timeline-panel" onWheel={handleWheel}>
-      <div className="timeline-panel__header">
-        <Select
-          label="Select timeline"
-          value={activeTimelineId ?? ''}
-          options={[
-            { value: '', label: 'No timeline' },
-            ...timelineIds.map((id) => ({ value: id, label: timelines[id]?.name ?? id })),
-          ]}
-          onChange={handleTimelineSelect}
-        />
-        {onCreateTimeline && (
-          <button
-            type="button"
-            className="timeline-panel__create-btn"
-            aria-label="Create timeline"
-            data-testid="timeline-create"
-            onClick={onCreateTimeline}
-          >
-            New timeline
-          </button>
-        )}
-
-        <TooltipProvider>
-          <div className="timeline-panel__zoom-controls">
-            <Tooltip label="Zoom out">
-              <button
-                type="button"
-                className="timeline-panel__zoom-btn"
-                onClick={handleZoomOut}
-                disabled={zoom <= ZOOM_LEVELS[0]!}
-                aria-label="Zoom out"
-              >
-                −
-              </button>
-            </Tooltip>
-            <span className="timeline-panel__zoom-label">{Math.round(zoom * 100)}%</span>
-            <Tooltip label="Zoom in">
-              <button
-                type="button"
-                className="timeline-panel__zoom-btn"
-                onClick={handleZoomIn}
-                disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!}
-                aria-label="Zoom in"
-              >
-                +
-              </button>
-            </Tooltip>
-          </div>
-
-          {onToggleGraphEditor && (
-            <Tooltip label="Graph editor" shortcut="G">
-              <button
-                type="button"
-                className={`timeline-panel__toggle-btn ${graphEditorVisible ? 'timeline-panel__toggle-btn--active' : ''}`}
-                onClick={onToggleGraphEditor}
-                aria-label="Toggle graph editor"
-                aria-pressed={graphEditorVisible}
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  role="img"
-                  aria-label="Graph editor"
-                >
-                  <title>Graph editor</title>
-                  <path d="M1 13 C4 4, 10 10, 13 1" />
-                </svg>
-              </button>
-            </Tooltip>
+      <PanelDragHandle
+        panelTypeId="timeline"
+        panelInstanceId="timeline-primary"
+        currentWindowId="main"
+        title="Timeline"
+      >
+        <div className="timeline-panel__header">
+          <Select
+            label="Select timeline"
+            value={activeTimelineId ?? ''}
+            options={[
+              { value: '', label: 'No timeline' },
+              ...timelineIds.map((id) => ({ value: id, label: timelines[id]?.name ?? id })),
+            ]}
+            onChange={handleTimelineSelect}
+          />
+          {onCreateTimeline && (
+            <button
+              type="button"
+              className="timeline-panel__create-btn"
+              aria-label="Create timeline"
+              data-testid="timeline-create"
+              onClick={onCreateTimeline}
+            >
+              New timeline
+            </button>
           )}
-        </TooltipProvider>
-      </div>
+
+          <TooltipProvider>
+            <div className="timeline-panel__zoom-controls">
+              <Tooltip label="Zoom out">
+                <button
+                  type="button"
+                  className="timeline-panel__zoom-btn"
+                  onClick={handleZoomOut}
+                  disabled={zoom <= ZOOM_LEVELS[0]!}
+                  aria-label="Zoom out"
+                >
+                  −
+                </button>
+              </Tooltip>
+              <span className="timeline-panel__zoom-label">{Math.round(zoom * 100)}%</span>
+              <Tooltip label="Zoom in">
+                <button
+                  type="button"
+                  className="timeline-panel__zoom-btn"
+                  onClick={handleZoomIn}
+                  disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!}
+                  aria-label="Zoom in"
+                >
+                  +
+                </button>
+              </Tooltip>
+            </div>
+
+            {onToggleGraphEditor && (
+              <Tooltip label="Graph editor" shortcut="G">
+                <button
+                  type="button"
+                  className={`timeline-panel__toggle-btn ${graphEditorVisible ? 'timeline-panel__toggle-btn--active' : ''}`}
+                  onClick={onToggleGraphEditor}
+                  aria-label="Toggle graph editor"
+                  aria-pressed={graphEditorVisible}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    role="img"
+                    aria-label="Graph editor"
+                  >
+                    <title>Graph editor</title>
+                    <path d="M1 13 C4 4, 10 10, 13 1" />
+                  </svg>
+                </button>
+              </Tooltip>
+            )}
+          </TooltipProvider>
+        </div>
+      </PanelDragHandle>
 
       {!activeTimeline ? (
         <div className="timeline-panel__empty">

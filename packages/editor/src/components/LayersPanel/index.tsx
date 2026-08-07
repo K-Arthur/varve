@@ -24,6 +24,7 @@ import {
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
 import { loadSettings, updateSettings } from '../../settings';
+import { PanelDragHandle } from '../PanelDragHandle';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
@@ -374,73 +375,80 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   return (
     <div className="editor-layers layers-panel">
-      <div className="layers-panel__header">
-        <span>Layers</span>
-        <TooltipProvider>
-          <div className="layers-panel__header-actions">
-            <Tooltip
-              label={
-                layerSettings.autoReveal
-                  ? 'Disable auto-reveal in Layers panel'
-                  : 'Enable auto-reveal in Layers panel'
-              }
-            >
-              <button
-                type="button"
-                className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
-                onClick={() =>
-                  updateSettings({ layers: { autoReveal: !layerSettings.autoReveal } })
+      <PanelDragHandle
+        panelTypeId="layers"
+        panelInstanceId="layers-primary"
+        currentWindowId="main"
+        title="Layers"
+      >
+        <div className="layers-panel__header">
+          <span>Layers</span>
+          <TooltipProvider>
+            <div className="layers-panel__header-actions">
+              <Tooltip
+                label={
+                  layerSettings.autoReveal
+                    ? 'Disable auto-reveal in Layers panel'
+                    : 'Enable auto-reveal in Layers panel'
                 }
-                aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
-                aria-pressed={layerSettings.autoReveal}
               >
-                <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
-              </button>
-            </Tooltip>
-            <Tooltip
-              label={
-                layerSettings.marqueeContainment
-                  ? 'Marquee selects only fully-contained objects'
-                  : 'Marquee selects any intersecting object'
-              }
-            >
-              <button
-                type="button"
-                className={`layers-panel__auto-reveal-btn ${layerSettings.marqueeContainment ? 'layers-panel__auto-reveal-btn--active' : ''}`}
-                onClick={() =>
-                  updateSettings({
-                    layers: { marqueeContainment: !layerSettings.marqueeContainment },
-                  })
+                <button
+                  type="button"
+                  className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
+                  onClick={() =>
+                    updateSettings({ layers: { autoReveal: !layerSettings.autoReveal } })
+                  }
+                  aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
+                  aria-pressed={layerSettings.autoReveal}
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
+                </button>
+              </Tooltip>
+              <Tooltip
+                label={
+                  layerSettings.marqueeContainment
+                    ? 'Marquee selects only fully-contained objects'
+                    : 'Marquee selects any intersecting object'
                 }
-                aria-label={`Marquee containment: ${layerSettings.marqueeContainment ? 'enabled' : 'disabled'}`}
-                aria-pressed={layerSettings.marqueeContainment}
               >
-                <SolidIcon name={SOLID_CHROME_ICONS.crosshair} size="0.85em" />
-              </button>
-            </Tooltip>
-            <Tooltip label="Collapse all layers">
-              <button
-                type="button"
-                className="layers-panel__collapse-all-btn"
-                onClick={handleCollapseAll}
-                aria-label="Collapse all layers"
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
-              </button>
-            </Tooltip>
-            <Tooltip label="Insert icon">
-              <button
-                type="button"
-                className="layers-panel__collapse-all-btn"
-                onClick={() => setIconBrowserOpen(true)}
-                aria-label="Insert icon from library"
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.image} size="0.85em" />
-              </button>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
-      </div>
+                <button
+                  type="button"
+                  className={`layers-panel__auto-reveal-btn ${layerSettings.marqueeContainment ? 'layers-panel__auto-reveal-btn--active' : ''}`}
+                  onClick={() =>
+                    updateSettings({
+                      layers: { marqueeContainment: !layerSettings.marqueeContainment },
+                    })
+                  }
+                  aria-label={`Marquee containment: ${layerSettings.marqueeContainment ? 'enabled' : 'disabled'}`}
+                  aria-pressed={layerSettings.marqueeContainment}
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.crosshair} size="0.85em" />
+                </button>
+              </Tooltip>
+              <Tooltip label="Collapse all layers">
+                <button
+                  type="button"
+                  className="layers-panel__collapse-all-btn"
+                  onClick={handleCollapseAll}
+                  aria-label="Collapse all layers"
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
+                </button>
+              </Tooltip>
+              <Tooltip label="Insert icon">
+                <button
+                  type="button"
+                  className="layers-panel__collapse-all-btn"
+                  onClick={() => setIconBrowserOpen(true)}
+                  aria-label="Insert icon from library"
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.image} size="0.85em" />
+                </button>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
+        </div>
+      </PanelDragHandle>
 
       <IconBrowserDialog open={iconBrowserOpen} onClose={() => setIconBrowserOpen(false)} />
 
