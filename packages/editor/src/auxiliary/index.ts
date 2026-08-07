@@ -11,9 +11,6 @@ export type {
   AuxiliarySessionState,
 } from './AuxiliaryProvider';
 export { AuxiliarySessionProvider, useAuxiliarySession } from './AuxiliaryProvider';
-export type {
-  AuxiliaryRootProps,
-  AuxiliaryShellProps,
-  AuxiliaryWindowInfo,
-} from './AuxiliaryShell';
-export { AuxiliaryRoot, AuxiliaryShell, parseAuxiliaryWindowParams } from './AuxiliaryShell';
+export type { AuxiliaryRootProps, AuxiliaryWindowInfo } from './AuxiliaryShell';
+export { AuxiliaryRoot, parseAuxiliaryWindowParams } from './AuxiliaryShell';
+export { renderAuxiliaryPanel } from './panelContentRegistry';
