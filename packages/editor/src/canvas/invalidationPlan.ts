@@ -11,7 +11,7 @@
  */
 import type { Document, NodeId } from '@varve/scene';
 import { buildParentIndexMap } from '@varve/scene';
-import { computeDocumentDirtyRegion } from './dirtyRegion';
+import { computeDocumentDirtyRegion, pagePlacementChanged } from './dirtyRegion';
 
 export interface InvalidationPlan {
   isStructural: boolean;
@@ -21,7 +21,13 @@ export interface InvalidationPlan {
 
 export function computeInvalidationPlan(previous: Document, next: Document): InvalidationPlan {
   const dirty = computeDocumentDirtyRegion(previous, next);
-  const isStructural = dirty.kind === 'full' || previous.rootChildren !== next.rootChildren;
+  // A page placement/size change shifts every node on the page in world
+  // space without changing node identity, so it must wipe the transform
+  // cache even though the node diff would classify it as non-structural.
+  const isStructural =
+    dirty.kind === 'full' ||
+    previous.rootChildren !== next.rootChildren ||
+    pagePlacementChanged(previous, next);
   if (isStructural) return { isStructural: true, changedIds: [] };
 
   const changedIds = new Set<NodeId>();

@@ -10,11 +10,13 @@ import type { Document, NodeId, RasterLayerNode } from '@varve/scene';
 import {
   buildParentIndexMap,
   isContainer,
+  pageBoundsInWorld,
   parseTileKey,
   resolveAllStyles,
   TILE_SIZE,
 } from '@varve/scene';
 import type { Rect } from '@varve/shared';
+import { PAGE_LABEL_BAND } from './pageDecorations';
 import { nodeVisualWorldBounds } from './visualBounds';
 
 export type DirtyRegion =
@@ -32,7 +34,9 @@ export type DirtyRectReason =
   | 'node-after'
   | 'node-added'
   | 'node-removed'
-  | 'raster-tile';
+  | 'raster-tile'
+  | 'page-before'
+  | 'page-after';
 
 export interface DirtyRectRecord {
   rect: Rect;
@@ -94,6 +98,68 @@ function rasterTileWorldBounds(tileKey: string): Rect {
     w: TILE_SIZE,
     h: TILE_SIZE,
   };
+}
+
+/**
+ * Page trim bounds expanded by the decoration band: the drop shadow and the
+ * label band below the page are decoration pixels that move with the page,
+ * so placement-driven dirty regions must cover them.
+ */
+function expandPageDecorationBounds(bounds: Rect): Rect {
+  return {
+    x: bounds.x - PAGE_LABEL_BAND,
+    y: bounds.y - PAGE_LABEL_BAND,
+    w: bounds.w + PAGE_LABEL_BAND * 2,
+    h: bounds.h + PAGE_LABEL_BAND * 2,
+  };
+}
+
+export interface ChangedPageBounds {
+  pageId: NodeId;
+  before: Rect | null;
+  after: Rect | null;
+}
+
+/**
+ * Pages present in both documents whose placed trim bounds differ. Empty
+ * when the pages arrays are identical, when no shared page moved or
+ * resized, or when a page only appears on one side (its content-root group
+ * identity change drives the node diff instead).
+ */
+export function changedPageBounds(previous: Document, next: Document): ChangedPageBounds[] {
+  if (previous.pages === next.pages) return [];
+  const nextPagesById = new Map<NodeId, NonNullable<Document['pages']>[number]>(
+    (next.pages ?? []).map((p) => [p.id, p]),
+  );
+  const result: ChangedPageBounds[] = [];
+  for (const prevPage of previous.pages ?? []) {
+    const nextPage = nextPagesById.get(prevPage.id);
+    if (!nextPage) continue;
+    const before = pageBoundsInWorld(previous, prevPage.id);
+    const after = pageBoundsInWorld(next, nextPage.id);
+    if (!before && !after) continue;
+    if (
+      before &&
+      after &&
+      before.x === after.x &&
+      before.y === after.y &&
+      before.w === after.w &&
+      before.h === after.h
+    ) {
+      continue;
+    }
+    result.push({ pageId: prevPage.id, before, after });
+  }
+  return result;
+}
+
+/**
+ * Whether any page's placed bounds changed between the two documents —
+ * the signal that every cached world transform on those pages is stale
+ * (placement/size move page-owned subtrees without node identity changes).
+ */
+export function pagePlacementChanged(previous: Document, next: Document): boolean {
+  return changedPageBounds(previous, next).length > 0;
 }
 
 function changedRasterTileBounds(before: RasterLayerNode, after: RasterLayerNode): Rect[] {
@@ -172,6 +238,34 @@ export function computeDocumentDirtyRegion(
           bounds = unionBounds(bounds, beforeBounds);
           rectCount++;
         }
+      }
+    }
+  }
+
+  // Page placement/size changes (ADR-0124): the page moves every node on it
+  // without changing any node identity — content roots keep their local
+  // geometry — so the per-node diff below would report 'none' and leave
+  // stale pixels everywhere. Compare the placed trim bounds of every page id
+  // present in both documents and contribute old+new bounds (expanded by the
+  // label band, which also covers the drop shadow) when they differ. Page
+  // add/remove/reorder still surface through node identity changes (new or
+  // removed content-root groups are containers -> full redraw), and page
+  // number/name/active-page changes surface as doc changes with a 'none'
+  // dirty region, which the paint path treats as a full redraw.
+  if (previous.pages !== next.pages) {
+    for (const { before, after, pageId } of changedPageBounds(previous, next)) {
+      changed = true;
+      if (before) {
+        const expanded = expandPageDecorationBounds(before);
+        recorder?.add(expanded, 'page-before', pageId);
+        bounds = unionBounds(bounds, expanded);
+        rectCount++;
+      }
+      if (after) {
+        const expanded = expandPageDecorationBounds(after);
+        recorder?.add(expanded, 'page-after', pageId);
+        bounds = unionBounds(bounds, expanded);
+        rectCount++;
       }
     }
   }
