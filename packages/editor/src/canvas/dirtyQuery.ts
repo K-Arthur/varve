@@ -90,9 +90,53 @@ export function computeDirtyPruneDecision(opts: {
   const screenRects = worldRectsToScreen(merged!.rects, worldToScreen, viewportW, viewportH);
   return {
     screenRects: screenRects.length > 0 ? screenRects : null,
-    worldRects: screenRects.length > 0 ? merged!.rects : null,
+    // The paint path clears and clips `screenRects`, which carry a 40px
+    // anti-aliasing margin. Selecting replay candidates against the UNexpanded
+    // world rects would leave a margin-wide band that is cleared but never
+    // replayed: any node inside it is erased outright, and a node straddling
+    // the boundary keeps only the sliver lying outside the cleared area.
+    //
+    // Expanding the world rects by the same margin makes the two gates cover
+    // the same region. Over-inclusion is safe here — it replays a few extra
+    // nodes — whereas under-inclusion destroys pixels.
+    worldRects:
+      screenRects.length > 0 ? expandWorldRectsByScreenMargin(merged!.rects, worldToScreen) : null,
   };
 }
+
+/**
+ * Grow world rects by the world-space equivalent of the paint path's screen
+ * margin. The scale is derived from `worldToScreen` itself rather than passed
+ * in, so the two can never disagree about the camera.
+ */
+function expandWorldRectsByScreenMargin(
+  rects: readonly Rect[],
+  worldToScreen: (wx: number, wy: number) => readonly [number, number],
+  margin = DIRTY_SCREEN_MARGIN,
+): Rect[] {
+  const [originX, originY] = worldToScreen(0, 0);
+  const [unitX, unitY] = worldToScreen(1, 1);
+  const scaleX = Math.abs(unitX - originX);
+  const scaleY = Math.abs(unitY - originY);
+  // A degenerate or unreadable scale must not silently shrink the region.
+  const marginX = scaleX > 1e-6 ? margin / scaleX : margin;
+  const marginY = scaleY > 1e-6 ? margin / scaleY : margin;
+  return rects.map((r) => ({
+    x: r.x - marginX,
+    y: r.y - marginY,
+    w: r.w + marginX * 2,
+    h: r.h + marginY * 2,
+  }));
+}
+
+/**
+ * Anti-aliasing margin, in screen pixels, applied to every dirty rect.
+ *
+ * Shared by the paint path (which clears and clips this region) and the
+ * candidate query (which must replay every node inside it). One constant so
+ * the two cannot drift apart — a cleared-but-not-replayed band erases pixels.
+ */
+export const DIRTY_SCREEN_MARGIN = 40;
 
 /** Half-open rectangle overlap; edge-touching rects do not intersect. */
 export function rectsIntersectAny(
@@ -212,7 +256,7 @@ export function worldRectsToScreen(
   worldToScreen: (wx: number, wy: number) => readonly [number, number],
   viewportW: number,
   viewportH: number,
-  margin = 40,
+  margin = DIRTY_SCREEN_MARGIN,
 ): Rect[] {
   const out: Rect[] = [];
   for (const rect of rects) {
