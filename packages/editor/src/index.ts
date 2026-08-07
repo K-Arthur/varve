@@ -1,3 +1,5 @@
+import './workspace/bootstrap';
+
 export { ErrorBoundary } from './components/ErrorBoundary';
 export type { EditorContextValue, EditorState, SessionMeta, ToolId } from './context';
 export { EditorProvider, useEditor } from './context';
