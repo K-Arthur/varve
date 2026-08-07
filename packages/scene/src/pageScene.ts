@@ -5,15 +5,16 @@
  * Pure functions only: no editor imports, no mutation. The renderer walks
  * `placedPages` once per frame, culls at the page level, and resolves node
  * lists per page. Placement comes from `pasteboardLayout`.
+ *
+ * `buildPlacedScene` is the single-pass entry point: placement, numbering,
+ * spread membership and bounds are resolved exactly once per document, so
+ * per-page consumers never re-run the auto layout (O(pages²) if called
+ * per page).
  */
 
 import type { Document } from './document';
 import { computePageNumbering } from './pageNumbering';
-import {
-  pageBoundsInWorld,
-  resolvePagePlacement,
-  resolveSpreadPlacement,
-} from './pasteboardLayout';
+import { autoPageLayout } from './pasteboardLayout';
 import type { GroupNode, NodeId, Page, PagePlacement } from './types';
 
 export interface PlacedPage {
@@ -34,34 +35,57 @@ export interface PlacedPage {
   exportEnabled: boolean;
 }
 
+export interface PlacedScene {
+  /** Placed pages in document order. */
+  pages: PlacedPage[];
+  /** Resolved placement per page id (explicit or auto). */
+  placements: Map<NodeId, PagePlacement>;
+}
+
 /**
- * Build the placed scene for every page in order. Deterministic: same
- * document revision produces the same scene.
+ * Build the placed scene in one pass. Deterministic: the same document
+ * revision produces the same scene, and the same placement map.
+ *
+ * Resolution rule (matches `pasteboardLayout`): explicit `Page.placement`
+ * wins; otherwise the deterministic auto layout. Spread origin: explicit
+ * `Spread.placement` wins; otherwise the first member page's resolved
+ * placement.
  */
-export function placedPages(doc: Document): PlacedPage[] {
+export function buildPlacedScene(doc: Document): PlacedScene {
   const pages = doc.pages ?? [];
-  if (pages.length === 0) return [];
+  if (pages.length === 0) return { pages: [], placements: new Map() };
 
   const numbering = computePageNumbering(doc);
-  const result: PlacedPage[] = [];
-
+  const auto = autoPageLayout(doc);
+  const placements = new Map<NodeId, PagePlacement>();
   for (const page of pages) {
-    const bounds = pageBoundsInWorld(doc, page.id);
-    if (!bounds) continue;
-    const placement = resolvePagePlacement(doc, page.id);
+    const placement = page.placement ?? auto.get(page.id);
+    if (placement) placements.set(page.id, placement);
+  }
+
+  const spreadByPage = new Map<NodeId, NonNullable<Document['spreads']>[number]>();
+  for (const spread of doc.spreads ?? []) {
+    for (const pageId of spread.pageIds) spreadByPage.set(pageId, spread);
+  }
+
+  const result: PlacedPage[] = [];
+  for (const page of pages) {
+    const placement = placements.get(page.id);
     if (!placement) continue;
 
     const contentRoot = doc.nodes[page.contentRoot] as GroupNode | undefined;
     const numberEntry = numbering.get(page.id);
-    const spread = doc.spreads?.find((s) => s.pageIds.includes(page.id));
-    const spreadPlacement = spread
-      ? (resolveSpreadPlacement(doc, spread.id) ?? undefined)
-      : undefined;
+    const spread = spreadByPage.get(page.id);
+    let spreadPlacement: PagePlacement | undefined;
+    if (spread) {
+      const firstPage = spread.pageIds[0];
+      spreadPlacement = spread.placement ?? (firstPage ? placements.get(firstPage) : undefined);
+    }
 
     result.push({
       page,
       placement,
-      bounds,
+      bounds: { x: placement.x, y: placement.y, w: page.width, h: page.height },
       contentNodes: contentRoot?.children ?? [],
       backgroundNodes: page.backgrounds.filter((bgId) => Boolean(doc.nodes[bgId])),
       pageNumber: numberEntry?.formatted ?? '',
@@ -70,7 +94,15 @@ export function placedPages(doc: Document): PlacedPage[] {
     });
   }
 
-  return result;
+  return { pages: result, placements };
+}
+
+/**
+ * Build the placed scene for every page in order. Deterministic: same
+ * document revision produces the same scene.
+ */
+export function placedPages(doc: Document): PlacedPage[] {
+  return buildPlacedScene(doc).pages;
 }
 
 /**
@@ -107,4 +139,56 @@ export function worldToPageAtPoint(
     };
   }
   return null;
+}
+
+export interface MultipageSceneOptions {
+  /**
+   * Viewport in world coordinates. When provided, pages whose placed trim
+   * bounds do not intersect it are culled from the scene root list (they
+   * never reach the renderer's per-node loop).
+   */
+  viewportWorldRect?: { x: number; y: number; w: number; h: number } | null;
+}
+
+/**
+ * Paint-order root node ids for the shared multipage canvas (ADR-0144):
+ *
+ *   1. global children (world-space, painted first — behind everything)
+ *   2. pasteboard items (rootChildren not owned by a page content root)
+ *   3. per visible page: background layer nodes, then content-root children
+ *
+ * Pages are painted in document order (later pages on top). Deterministic:
+ * the same document revision and viewport produce the same list. A document
+ * without pages falls back to globals + rootChildren — identical to
+ * `activePageNodes` on flat documents, so pre-page documents render
+ * unchanged.
+ */
+export function multipageRootNodes(doc: Document, options: MultipageSceneOptions = {}): NodeId[] {
+  const ids: NodeId[] = [];
+  for (const gid of doc.globalChildren ?? []) ids.push(gid);
+
+  const pages = doc.pages ?? [];
+  if (pages.length === 0) {
+    for (const rid of doc.rootChildren) ids.push(rid);
+    return ids;
+  }
+
+  const contentRoots = new Set<NodeId>();
+  for (const page of pages) contentRoots.add(page.contentRoot);
+  for (const rid of doc.rootChildren) {
+    if (!contentRoots.has(rid)) ids.push(rid);
+  }
+
+  const viewport = options.viewportWorldRect ?? null;
+  for (const placed of buildPlacedScene(doc).pages) {
+    const b = placed.bounds;
+    if (viewport) {
+      const overlapX = b.x < viewport.x + viewport.w && viewport.x < b.x + b.w;
+      const overlapY = b.y < viewport.y + viewport.h && viewport.y < b.y + b.h;
+      if (!overlapX || !overlapY) continue;
+    }
+    for (const bgId of placed.backgroundNodes) ids.push(bgId);
+    for (const childId of placed.contentNodes) ids.push(childId);
+  }
+  return ids;
 }
