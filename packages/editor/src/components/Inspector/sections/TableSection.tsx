@@ -29,6 +29,7 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { SegmentedControl, type SegmentedOption } from '../controls/SegmentedControl';
+import { TableAppearanceSection } from './TableAppearanceSection';
 
 interface Props {
   node: TableNode;
@@ -249,6 +250,12 @@ export function TableSection({ node }: Props) {
         </button>
       </FieldRow>
       <ResponsiveRulesSection table={table} onOp={op} />
+      <TableAppearanceSection
+        tableId={node.id}
+        table={table}
+        onSetAppearance={op}
+        onSetBinding={(property, binding) => editor.setSelectedBinding(property, binding)}
+      />
     </DisclosureSection>
   );
 }
