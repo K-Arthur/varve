@@ -18,6 +18,7 @@ import { NodeEditTool } from '../tools/NodeEditTool';
 import { PaintTool } from '../tools/PaintTool';
 import { PatchTool } from '../tools/PatchTool';
 import { PencilTool } from '../tools/PencilTool';
+import { PageTool } from '../tools/PageTool';
 import { PenTool } from '../tools/PenTool';
 import { PolygonTool } from '../tools/PolygonTool';
 import { RectangleTool } from '../tools/RectangleTool';
@@ -58,6 +59,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('slice', () => new SliceTool());
     toolManager.register('eyedropper', () => new EyedropperTool());
     toolManager.register('nodeEdit', () => new NodeEditTool());
+    toolManager.register('page', () => new PageTool());
     toolManager.register('cloneStamp', () => new CloneStampTool());
     toolManager.register('healBrush', () => new HealingBrushTool());
     toolManager.register('spotHeal', () => new SpotHealTool());

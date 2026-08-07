@@ -260,6 +260,11 @@ import {
   setLiveTraceResolved as setLiveTraceResolvedDoc,
   setMaskDensity as setMaskDensityDoc,
   setMaskFeather as setMaskFeatherDoc,
+  setPagePlacement as setPagePlacementDoc,
+  setPageSize as setPageSizeDoc,
+  spreadBoundsInWorld,
+  pageBoundsInWorld,
+  pasteboardBounds,
   setMaskFillRule as setMaskFillRuleDoc,
   setMaskHideSource as setMaskHideSourceDoc,
   setMaskInverted as setMaskInvertedDoc,
@@ -1441,6 +1446,14 @@ export interface EditorContextValue {
 
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
+  /** Move a page on the pasteboard (placement metadata only, ADR-0124). */
+  movePageOnPasteboard: (pageId: string, x: number, y: number) => void;
+  /** Resize a page's trim without scaling its content (page-only resize). */
+  resizePage: (pageId: string, width: number, height: number) => void;
+  /** Fit the viewport to the active page's spread bounds. */
+  fitSpread: () => void;
+  /** Fit the viewport to every page (pasteboard bounds). */
+  fitAllPages: () => void;
 
   /** Create a new master page with the given name and dimensions. */
   createMaster: (name: string, width: number, height: number) => void;
@@ -5559,6 +5572,42 @@ export function EditorProvider({
       },
       setCurrentPageId: (id) => {
         patch({ currentPageId: id });
+      },
+
+      movePageOnPasteboard: (pageId, x, y) => {
+        updateDoc((doc) => setPagePlacementDoc(doc, pageId, { x, y }));
+      },
+      resizePage: (pageId, width, height) => {
+        const w = Number(width);
+        const h = Number(height);
+        if (!Number.isFinite(w) || !Number.isFinite(h)) return;
+        updateDoc((doc) => setPageSizeDoc(doc, pageId, w, h));
+      },
+      fitSpread: () => {
+        const doc = state.document;
+        const pageId = doc.activePageId;
+        const spread = pageId ? doc.spreads?.find((s) => s.pageIds.includes(pageId)) : undefined;
+        const bounds = spread
+          ? spreadBoundsInWorld(doc, spread.id)
+          : pageId
+            ? pageBoundsInWorld(doc, pageId)
+            : null;
+        if (!bounds) return;
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        patch(fitBoundsToState(bounds, vp));
+      },
+      fitAllPages: () => {
+        const doc = state.document;
+        const bounds = pasteboardBounds(doc);
+        if (!bounds) return;
+        const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+        const vp: Viewport = canvasEl
+          ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+          : { width: window.innerWidth, height: window.innerHeight - 120 };
+        patch(fitBoundsToState(bounds, vp));
       },
 
       activePageNodes: () => {
