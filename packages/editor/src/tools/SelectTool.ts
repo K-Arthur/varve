@@ -73,20 +73,6 @@ export class SelectTool extends BaseTool {
   /** Whether this pointer down already fired a long-press action. */
   private longPressFired = false;
 
-  /**
-   * True when a node already sits at the active page's top level, i.e. its
-   * parent is either `null` (raw root) or the active page's contentRoot group.
-   * `reparentNode(id, null, ...)` resolves `null` back to that contentRoot, so
-   * without this equivalence the drag-end/nudge auto-reparent would reparent a
-   * top-level node to the parent it already has — a redundant document write.
-   */
-  private isAtTopLevel(id: string, ctx: ToolContext): boolean {
-    const parent = getParent(ctx.document, id);
-    if (parent === null) return true;
-    const activePage = ctx.document.pages?.find((p) => p.id === ctx.document.activePageId);
-    return parent === activePage?.contentRoot;
-  }
-
   private visibilityHandler: (() => void) | null = null;
 
   override onActivate(_ctx: ToolContext): void {
