@@ -631,6 +631,14 @@
   cursor: ew-resize;
   user-select: none;
 }
+/* Long labels (e.g. "Distribute columns", "Responsive rules"): wrap inside
+ * the label column instead of overflowing into the control and overlapping
+ * the adjacent buttons. */
+.insp-field__label--wrap {
+  white-space: normal;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
 .insp-field__label--disabled {
   cursor: default;
   opacity: 0.6;
@@ -641,6 +649,25 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
+}
+
+/* Horizontal split inside a field control: label + value + inline buttons
+ * share one row without overflowing. Every element shrinks so long labels
+ * (e.g. "Distribute columns") never overlap the controls next to them. */
+.insp-field-row__split {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+.insp-field-row__split > * {
+  min-width: 0;
+  flex-shrink: 1;
+}
+.insp-field-row__split > .insp-num,
+.insp-field-row__split > .insp-field {
+  flex: 1 1 0;
 }
 
 /* ---------- NumberField (APG Spinbutton) ---------- */
@@ -3099,4 +3126,12 @@
 }
 .intelligence-filter-chip--clear:hover {
   border-style: solid;
+}
+
+/* Mask section: soft-edge hint for clip masks with feather/density. */
+.insp-field__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+  line-height: 1.4;
+  margin: 0 0 var(--space-2);
 }

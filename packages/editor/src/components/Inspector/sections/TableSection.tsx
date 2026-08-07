@@ -87,38 +87,33 @@ export function TableSection({ node }: Props) {
     <DisclosureSection title="Table" sectionId="table">
       {structure.map((row) => (
         <div key={row.label} className="insp-field">
-          <label className="insp-field__label">{row.label}</label>
-          <div className="insp-field__control">
-            <div className="insp-field-row__split">
-              <NumberField
-                label={row.label}
-                value={row.value}
-                step={1}
-                min={0}
-                onChange={(v) => {
-                  const diff = Math.floor(v) - row.value;
-                  if (diff > 0) row.onInsert(diff);
-                  else if (diff < 0) row.onRemove(-diff);
-                }}
-              />
-              <button
-                type="button"
-                className="insp-inline-btn"
-                aria-label={`Add ${row.singular.toLowerCase()}`}
-                onClick={() => row.onInsert(1)}
-              >
-                +
-              </button>
-              <button
-                type="button"
-                className="insp-inline-btn"
-                aria-label={`Remove ${row.singular.toLowerCase()}`}
-                onClick={() => row.onRemove(1)}
-              >
-                −
-              </button>
-            </div>
-          </div>
+          <NumberField
+            label={row.label}
+            value={row.value}
+            step={1}
+            min={0}
+            onChange={(v) => {
+              const diff = Math.floor(v) - row.value;
+              if (diff > 0) row.onInsert(diff);
+              else if (diff < 0) row.onRemove(-diff);
+            }}
+          />
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-label={`Add ${row.singular.toLowerCase()}`}
+            onClick={() => row.onInsert(1)}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-label={`Remove ${row.singular.toLowerCase()}`}
+            onClick={() => row.onRemove(1)}
+          >
+            −
+          </button>
         </div>
       ))}
 
@@ -209,7 +204,7 @@ export function TableSection({ node }: Props) {
         min={0}
         onChange={(v) => op((t) => setAppearance(t, { cornerRadius: v }))}
       />
-      <FieldRow label="Distribute columns">
+      <FieldRow label="Distribute columns" wrapLabel>
         <button
           type="button"
           className="insp-inline-btn"
@@ -229,7 +224,7 @@ export function TableSection({ node }: Props) {
           Equal widths
         </button>
       </FieldRow>
-      <FieldRow label="Distribute rows">
+      <FieldRow label="Distribute rows" wrapLabel>
         <button
           type="button"
           className="insp-inline-btn"
@@ -304,7 +299,7 @@ function ResponsiveRulesSection({
 
   return (
     <div className="insp-field">
-      <div className="insp-field__label">Responsive rules</div>
+      <div className="insp-field__label insp-field__label--wrap">Responsive rules</div>
       <div className="insp-field__control">
         {rules.length === 0 && (
           <div className="insp-empty-message">

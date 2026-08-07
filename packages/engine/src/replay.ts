@@ -1865,6 +1865,25 @@ function paintTable(
     target.restore();
   }
 
+  // Rich scene content (images, components, groups) rendered inside the
+  // cell, clipped to the padded cell rect. The item is already in
+  // cell-local coordinates; translate the target to the cell origin.
+  for (const cell of p.cells) {
+    const content = cell.content;
+    if (!content) continue;
+    const pad = Math.max(0, cell.w > 0 && cell.h > 0 ? 0 : 0);
+    target.save();
+    try {
+      target.translate(cell.x, cell.y);
+      target.beginPath();
+      target.rect(pad, pad, Math.max(0, cell.w - pad * 2), Math.max(0, cell.h - pad * 2));
+      target.clip();
+      replayIr(target, [content], imageLookupForCurrentReplay ?? undefined);
+    } finally {
+      target.restore();
+    }
+  }
+
   // Inner dividers sit at the shared track edges (collapse semantics).
   // Merged cells suppress the dividers that would otherwise cut through
   // them: a divider segment is skipped when a cell with a span covers it.

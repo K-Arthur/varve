@@ -88,7 +88,7 @@ export function TableAppearanceSection({ tableId, table, onSetAppearance, onSetB
 
   return (
     <div className="insp-field" style={{ gap: 6 }}>
-      <div className="insp-field__label">Appearance variables</div>
+      <div className="insp-field__label insp-field__label--wrap">Appearance variables</div>
       <div
         className="insp-field__control"
         style={{ display: 'flex', flexDirection: 'column', gap: 6 }}

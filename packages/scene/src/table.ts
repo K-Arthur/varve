@@ -88,7 +88,20 @@ export interface TableCellDefinition {
   locked?: boolean;
 }
 
-export type TableCellContent = { kind: 'text'; text: string } | { kind: 'empty' };
+export type TableCellContent =
+  | { kind: 'text'; text: string }
+  | { kind: 'empty' }
+  | {
+      /**
+       * Rich scene content: a reference to a scene node (image, component
+       * instance, group…) rendered inside the cell, clipped to its bounds.
+       * The node lives in the document node graph (NOT in the table's cell
+       * records) so it participates in rendering, hit testing, clipboard
+       * closure, and asset pruning like any other node.
+       */
+      kind: 'scene';
+      nodeId: string;
+    };
 
 export interface TableCellStyle {
   alignH?: 'left' | 'center' | 'right';
@@ -96,6 +109,8 @@ export interface TableCellStyle {
   padding?: number;
   fill?: ManagedColor;
   borderColor?: ManagedColor;
+  /** Per-cell border stroke width; 0 disables the cell border. */
+  borderWidth?: number;
   fontWeight?: number;
   fontStyle?: 'normal' | 'italic';
 }
@@ -356,6 +371,19 @@ export function hasOverlappingSpans(model: TableModel): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Scene node ids referenced by rich cell content (kind 'scene').
+ * Used by clone/remap and asset pruning so referenced nodes are copied
+ * with the table and never orphaned.
+ */
+export function tableContentNodeIds(model: TableModel): string[] {
+  const ids = new Set<string>();
+  for (const cell of Object.values(model.cells)) {
+    if (cell.content.kind === 'scene') ids.add(cell.content.nodeId);
+  }
+  return [...ids];
 }
 
 // ── Validation ──────────────────────────────────────────────────────────────
