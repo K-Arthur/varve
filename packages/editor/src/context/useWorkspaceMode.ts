@@ -40,8 +40,7 @@ export function panelVisibilityPatch(config: WorkspaceConfig) {
 
 /**
  * Project the config's canvasOverlays defaults onto the state fields that
- * have runtime consumers (the rest — bleedGuides, layoutGrid — have none;
- * tracked under Limitations in docs/architecture/workspace-system.md).
+ * have runtime consumers.
  */
 function overlayPatch(config: WorkspaceConfig) {
   const overlays = config.canvasOverlays;
@@ -49,6 +48,8 @@ function overlayPatch(config: WorkspaceConfig) {
     guidesVisible: overlays.guides,
     pixelGridEnabled: overlays.pixelGrid,
     dotGridEnabled: overlays.dotGrid,
+    bleedGuidesVisible: overlays.bleedGuides,
+    layoutGridVisible: overlays.layoutGrid,
     gridOverlayMode: overlays.baselineGrid ? ('baseline' as const) : ('none' as const),
   };
 }

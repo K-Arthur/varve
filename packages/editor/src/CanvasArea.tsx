@@ -43,7 +43,6 @@ import {
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
 import {
-  activePageNodes,
   addNode,
   applyBindingsToNode,
   buildAllVariantCaches,
@@ -59,6 +58,7 @@ import {
   isImageShape,
   isWarpedContainer,
   makeRasterLayerNode,
+  multipageRootNodes,
   type NodeId,
   nextNodeId,
   resolveAdjustmentScope,
@@ -76,7 +76,12 @@ import {
 } from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeProfile, resetProfile } from './canvas/adaptiveProfile';
-import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
+import {
+  applyEditorCameraToCtx,
+  toCamera as editorToCamera,
+  viewportWorldRect,
+} from './canvas/cameraState';
+import { drawPageDecorations } from './canvas/pageDecorations';
 import {
   resizeCanvasBackingStore,
   subscribeToCanvasContextLifecycle,
@@ -1408,7 +1413,9 @@ export function CanvasArea({
         }
       }
 
-      // Present-only path: composite the worker bitmap, nothing else.
+      // Present-only path: composite the worker bitmap, nothing else. Page
+      // decorations are not part of the worker IR, so they repaint through
+      // the paintUnderlays hook between the board fill and the bitmap.
       if (frameDecision.kind === 'present') {
         const presented = tryPresentWorkerFrame({
           ctx,
@@ -1425,6 +1432,17 @@ export function CanvasArea({
           decision: frameDecision,
           snapshot: frameSnapshot,
           cacheDiag: subtreeIrCacheRef.current.diagnostics(),
+          paintUnderlays: (decorCtx) =>
+            drawPageDecorations(
+              decorCtx,
+              doc,
+              s,
+              { width: cssW, height: cssH },
+              {
+                themeRevision: s.themeRevision,
+                activePageId: doc.activePageId ?? null,
+              },
+            ),
         });
         if (presented) {
           pendingPresentRef.current = false;
@@ -1444,7 +1462,13 @@ export function CanvasArea({
         }
       }
 
-      const entries = walkNodes(doc, activePageNodes(doc));
+      // Shared multipage scene (ADR-0144): walk every visible page's
+      // content and backgrounds plus pasteboard/global items, culling pages
+      // whose placed trim bounds miss the viewport before they reach the
+      // per-node loop. The world rect is the AABB of the viewport corners
+      // (over-inclusive under camera rotation — safe for culling).
+      const viewportWorld = viewportWorldRect(s, { width: cssW, height: cssH });
+      const entries = walkNodes(doc, multipageRootNodes(doc, { viewportWorldRect: viewportWorld }));
       const nodeWork = createNodeWorkCounters();
       nodeWork.totalSceneNodes = Object.keys(doc.nodes).length;
       nodeWork.candidates = entries.size;
@@ -1865,6 +1889,22 @@ export function CanvasArea({
       } else {
         openFullRedraw(ctx, canvas.width, canvas.height, boardColor, () => applyCam(ctx));
       }
+
+      // Page decorations (ADR-0144): trim fills, shadows, active ring and
+      // labels for every visible page. Drawn inside the dirty clip after the
+      // board fill and before content replay, so the trim fill sits under
+      // authored content; placement/size-driven dirty regions already cover
+      // the decoration band (see computeDocumentDirtyRegion).
+      drawPageDecorations(
+        ctxNN,
+        doc,
+        s,
+        { width: cssW, height: cssH },
+        {
+          themeRevision: s.themeRevision,
+          activePageId: doc.activePageId ?? null,
+        },
+      );
 
       dirtyRectRef.current = null;
 
@@ -3316,6 +3356,8 @@ export function CanvasArea({
         gridOverlayMode={state.gridOverlayMode}
         colorBlindnessView={state.colorBlindnessView}
         guidesVisible={state.guidesVisible}
+        bleedGuidesVisible={state.bleedGuidesVisible}
+        layoutGridVisible={state.layoutGridVisible}
         selectedGuideId={state.selectedGuideId}
         unitType={state.unitType}
         rulerMode={state.rulerMode}
