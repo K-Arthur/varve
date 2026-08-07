@@ -2082,6 +2082,9 @@ export function EditorProvider({
   initialFileId,
   initialFilePath,
   platform,
+  externalState,
+  onMutation,
+  onSelectionChange,
 }: {
   children: ReactNode;
   onBackToHome?: () => void;
@@ -2099,6 +2102,26 @@ export function EditorProvider({
   initialFileId?: string;
   initialFilePath?: string;
   platform?: Platform;
+  /**
+   * Remote-session sync (auxiliary windows, ADR-0204).
+   *
+   * When provided, the provider replaces its document and selection with
+   * the incoming values WITHOUT pushing undo steps (the primary window is
+   * the undo authority). `revision` is used to skip stale/duplicate
+   * applications. Null = no external state pending.
+   */
+  externalState?: { documentJson: string; selection: string[]; revision: number } | null;
+  /**
+   * Remote-session mutation callback (auxiliary windows).
+   *
+   * Called with the serialized document AFTER every local document
+   * mutation. The auxiliary bridge forwards it to the primary window's
+   * broker, which applies it as the authoritative edit. No-op in the
+   * primary window (callback not provided there).
+   */
+  onMutation?: (documentJson: string) => void;
+  /** Remote-session selection callback (auxiliary windows). */
+  onSelectionChange?: (selection: string[]) => void;
 }) {
   const [state, setState] = useState<EditorState>(() => {
     let doc = createDocument(initialDocumentName ?? 'Untitled');
@@ -2352,8 +2375,7 @@ export function EditorProvider({
   // When the persistent history session is attached with history, undo/redo
   // state derives from the revision store, not the shadow stacks.
   const persistentSessionActive =
-    persistentHistoryRef.current !== null &&
-    persistentHistoryRef.current.attached &&
+    persistentHistoryRef.current?.attached &&
     ((persistentHistoryRef.current.session?.canUndo ?? false) ||
       (persistentHistoryRef.current.session?.canRedo ?? false));
   const derivedCanUndo = persistentSessionActive
@@ -2551,6 +2573,45 @@ export function EditorProvider({
     computeFitAllCamera,
   );
 
+  // Remote-session sync (auxiliary windows, ADR-0204): mutation + selection
+  // callbacks are kept in refs so updateDoc/setSelection stay dependency-free.
+  const onMutationRef = useRef(onMutation);
+  onMutationRef.current = onMutation;
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
+  const lastMutatedDocRef = useRef<string | null>(null);
+  const lastExternalRevisionRef = useRef(-1);
+
+  // Forward local mutations to the auxiliary bridge (post-commit drain).
+  useEffect(() => {
+    if (lastMutatedDocRef.current !== null) {
+      onMutationRef.current?.(lastMutatedDocRef.current);
+      lastMutatedDocRef.current = null;
+    }
+  });
+
+  // Apply externally-sourced document/selection (primary → auxiliary).
+  // Never pushes undo steps — the primary window is the undo authority.
+  useEffect(() => {
+    if (!externalState) return;
+    if (externalState.revision <= lastExternalRevisionRef.current) return;
+    lastExternalRevisionRef.current = externalState.revision;
+    const decoded = DocumentCodec.decode(externalState.documentJson);
+    if (!decoded.ok) return;
+    const synced = editorGridFromDoc(decoded.document);
+    setState((s) => ({
+      ...s,
+      document: decoded.document,
+      documentGrid: synced.documentGrid,
+      isometricGrid: synced.isometricGrid,
+      snapGrid: synced.documentGrid.spacingX,
+      selection: externalState.selection,
+      primaryId: externalState.selection[0] ?? null,
+      focusedNodeId: externalState.selection[0] ?? null,
+      selectionRevision: s.selectionRevision + 1,
+    }));
+  }, [externalState]);
+
   function editorGridFromDoc(doc: Document) {
     const initialized = sceneInitializeGridSettings(doc);
     const dg = initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
@@ -2579,6 +2640,9 @@ export function EditorProvider({
         redoLabelsRef.current = [];
       }
       const newDoc = fn(s.document);
+      if (onMutationRef.current) {
+        lastMutatedDocRef.current = JSON.stringify(newDoc);
+      }
       const synced = editorGridFromDoc(newDoc);
       return {
         ...s,
@@ -3228,6 +3292,9 @@ export function EditorProvider({
           selectionRevision: state.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
         });
+        if (onSelectionChangeRef.current) {
+          onSelectionChangeRef.current(newSelection);
+        }
       },
 
       // ADR-0016: table edit session + undoable table model ops.

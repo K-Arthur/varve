@@ -1,80 +1,60 @@
 /**
- * Auxiliary window context — minimal provider tree for panel-only windows.
+ * Auxiliary window context — the session bridge (ADR-0204).
  *
- * An auxiliary window does NOT mount the full EditorProvider (which owns
- * document state, undo, selection, canvas, etc.). Instead it receives
- * a synchronized projection from the primary window via the session
- * protocol and renders only the hosted panel(s).
+ * Connects the auxiliary window to the primary window's session broker
+ * over the session transport:
  *
- * This module provides:
- * - `AuxiliarySession` context with synchronized shared state
- * - `useAuxiliarySession()` hook for panels to read shared state
- * - `useSubmitCommand()` hook for panels to submit commands to the primary
+ * Downstream (primary → aux):
+ * - session-snapshot → initial document/selection/mode for EditorProvider
+ * - session-patch   → externalState for EditorProvider (revision-guarded)
+ *
+ * Upstream (aux → primary):
+ * - EditorProvider onMutation       → aux-doc-changed (document JSON)
+ * - EditorProvider onSelectionChange → aux-selection-changed
+ * - reattach request                → request-reattach, then window.close()
+ *
+ * The primary window remains the single authority for document state,
+ * undo, and redo; the auxiliary EditorProvider is a live projection.
  */
 
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import type { BrokerSnapshot } from '../workspace/sessionBroker';
+import { createSessionTransport, type Transport } from '../workspace/sessionTransport';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** Minimal shared state that panel windows need. */
 export interface AuxiliarySessionState {
-  /** Active document identity. */
-  activeDocumentId: string;
-  /** Document name for display. */
-  activeDocumentName: string;
-  /** Current workspace mode. */
-  workspaceMode: string;
-  /** Current selection (node ids). */
-  selection: string[];
-  /** Theme. */
-  theme: string;
-  /** Locale. */
-  locale: string;
-  /** Can undo in the primary session. */
-  canUndo: boolean;
-  /** Can redo in the primary session. */
-  canRedo: boolean;
-  /** Protocol revision of the last received snapshot/patch. */
-  lastRevision: number;
-  /** Window generation (incremented on reload). */
-  generation: number;
+  connected: boolean;
+  /** Latest snapshot received from the primary window. */
+  snapshot: BrokerSnapshot | null;
+  /** External state for EditorProvider (revision-guarded). */
+  externalState: { documentJson: string; selection: string[]; revision: number } | null;
+  /** Incremented on every received patch/snapshot. */
+  revision: number;
 }
 
 export interface AuxiliarySessionContextValue {
   state: AuxiliarySessionState;
-  /** Submit a command to the primary window's command authority. */
-  submitCommand: (commandType: string, payload: unknown) => void;
   /** Request undo from the primary window. */
   requestUndo: () => void;
   /** Request redo from the primary window. */
   requestRedo: () => void;
-  /** Whether the session is connected to the primary window. */
-  connected: boolean;
+  /** Reattach this window's panel(s) back to the primary window. */
+  reattach: () => void;
+  /** Send an arbitrary event upstream (bridge for the shell). */
+  send: (eventId: string, payload: unknown) => void;
 }
-
-// ---------------------------------------------------------------------------
-// Default state
-// ---------------------------------------------------------------------------
-
-const DEFAULT_STATE: AuxiliarySessionState = {
-  activeDocumentId: '',
-  activeDocumentName: '',
-  workspaceMode: 'design',
-  selection: [],
-  theme: 'light',
-  locale: 'en',
-  canUndo: false,
-  canRedo: false,
-  lastRevision: 0,
-  generation: 0,
-};
-
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
 
 const AuxiliarySessionContext = createContext<AuxiliarySessionContextValue | null>(null);
 
@@ -90,100 +70,129 @@ export function useAuxiliarySession(): AuxiliarySessionContextValue {
 
 export interface AuxiliarySessionProviderProps {
   children: ReactNode;
-  /** Initial state from the session snapshot. */
-  initialState?: Partial<AuxiliarySessionState>;
-  /** Callback to send messages to the primary window. */
-  onSendMessage?: (eventId: string, payload: unknown) => void;
+  windowId: string;
+  sessionId: string;
+  panelTypeIds: string[];
 }
 
 export function AuxiliarySessionProvider({
   children,
-  initialState,
-  onSendMessage,
+  windowId,
+  sessionId,
+  panelTypeIds,
 }: AuxiliarySessionProviderProps) {
-  const [state, setState] = useState<AuxiliarySessionState>({
-    ...DEFAULT_STATE,
-    ...initialState,
-  });
   const [connected, setConnected] = useState(false);
-  const generationRef = useRef(0);
+  const [snapshot, setSnapshot] = useState<BrokerSnapshot | null>(null);
+  const [externalState, setExternalState] = useState<AuxiliarySessionState['externalState']>(null);
+  const revisionRef = useRef(0);
+  const transportRef = useRef<Transport | null>(null);
+  // snapshotRef so the patch handler can read the latest snapshot.
+  const snapshotRef = useRef<BrokerSnapshot | null>(null);
+  snapshotRef.current = snapshot;
 
-  // Handle incoming patches from the primary window
-  const handlePatch = useCallback((patches: Array<{ path: string; value: unknown }>) => {
-    setState((prev) => {
-      const next = { ...prev };
-      for (const patch of patches) {
-        const key = patch.path.split('.')[0]!;
-        if (key in next) {
-          (next as Record<string, unknown>)[key] = patch.value;
+  const handleMessage = useCallback(
+    (eventId: string, payload: unknown) => {
+      switch (eventId) {
+        case 'session-snapshot': {
+          const msg = payload as { target?: string; snapshot?: BrokerSnapshot } | null;
+          if (!msg?.snapshot || (msg.target && msg.target !== windowId)) return;
+          revisionRef.current += 1;
+          setSnapshot(msg.snapshot);
+          setExternalState({
+            documentJson: msg.snapshot.documentJson,
+            selection: msg.snapshot.selection,
+            revision: revisionRef.current,
+          });
+          setConnected(true);
+          break;
         }
+        case 'session-patch': {
+          const msg = payload as { patch?: Partial<BrokerSnapshot> } | null;
+          if (!msg?.patch) return;
+          revisionRef.current += 1;
+          if (msg.patch.documentJson || msg.patch.selection) {
+            setExternalState({
+              documentJson: msg.patch.documentJson ?? snapshotRef.current?.documentJson ?? '',
+              selection: msg.patch.selection ?? snapshotRef.current?.selection ?? [],
+              revision: revisionRef.current,
+            });
+          }
+          if (msg.patch.workspaceMode || msg.patch.canUndo !== undefined) {
+            setSnapshot((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    ...msg.patch,
+                  }
+                : prev,
+            );
+          }
+          break;
+        }
+        case 'reattach-ack':
+          // Primary confirmed: close this window.
+          window.close();
+          break;
+        default:
+          break;
       }
-      next.lastRevision = (next.lastRevision || 0) + 1;
-      return next;
-    });
-  }, []);
-
-  // Handle fresh snapshot from the primary window
-  const handleSnapshot = useCallback((snapshot: Partial<AuxiliarySessionState>) => {
-    setState((prev) => ({
-      ...prev,
-      ...snapshot,
-      lastRevision: ((snapshot as Record<string, unknown>).revision as number) ?? prev.lastRevision,
-    }));
-    setConnected(true);
-  }, []);
-
-  // Handle connection state changes
-  const handleConnect = useCallback(() => setConnected(true), []);
-  const handleDisconnect = useCallback(() => setConnected(false), []);
-
-  // Handle window reload (increment generation)
-  const handleReload = useCallback(() => {
-    generationRef.current += 1;
-    setState((prev) => ({ ...prev, generation: generationRef.current }));
-  }, []);
-
-  const submitCommand = useCallback(
-    (commandType: string, payload: unknown) => {
-      onSendMessage?.('submit-command', {
-        kind: 'submit-command',
-        commandType,
-        payload,
-      });
     },
-    [onSendMessage],
+    [windowId],
   );
 
+  // Connect transport once.
+  useEffect(() => {
+    const transport = createSessionTransport(sessionId, handleMessage);
+    transportRef.current = transport;
+
+    // Register with the primary window.
+    transport.send('window-ready', { windowId, generation: 1, panelTypeIds });
+
+    const onBeforeUnload = () => {
+      transport.send('window-close', { windowId });
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      transport.send('window-close', { windowId });
+      transport.close();
+      transportRef.current = null;
+    };
+  }, [sessionId, windowId, panelTypeIds, handleMessage]);
+
+  const send = useCallback((eventId: string, payload: unknown) => {
+    transportRef.current?.send(eventId, payload);
+  }, []);
+
   const requestUndo = useCallback(() => {
-    onSendMessage?.('request-undo', { kind: 'request-undo' });
-  }, [onSendMessage]);
+    transportRef.current?.send('request-undo', { windowId });
+  }, [windowId]);
 
   const requestRedo = useCallback(() => {
-    onSendMessage?.('request-redo', { kind: 'request-redo' });
-  }, [onSendMessage]);
+    transportRef.current?.send('request-redo', { windowId });
+  }, [windowId]);
 
-  // Expose handlers for the transport layer to call
-  useEffect(() => {
-    const w = window as unknown as Record<string, unknown>;
-    w.__auxiliarySessionHandlers = {
-      onPatch: handlePatch,
-      onSnapshot: handleSnapshot,
-      onConnect: handleConnect,
-      onDisconnect: handleDisconnect,
-      onReload: handleReload,
-    };
-    return () => {
-      delete w.__auxiliarySessionHandlers;
-    };
-  }, [handlePatch, handleSnapshot, handleConnect, handleDisconnect, handleReload]);
+  const reattach = useCallback(() => {
+    // The primary window owns the detached-panels store: it clears the
+    // record in broker.reattachPanel and broadcasts; this window closes on
+    // reattach-ack.
+    transportRef.current?.send('request-reattach', {
+      windowId,
+      panelTypeId: panelTypeIds[0],
+    });
+  }, [windowId, panelTypeIds]);
 
-  const value: AuxiliarySessionContextValue = {
-    state,
-    submitCommand,
-    requestUndo,
-    requestRedo,
-    connected,
-  };
+  const value = useMemo<AuxiliarySessionContextValue>(
+    () => ({
+      state: { connected, snapshot, externalState, revision: revisionRef.current },
+      requestUndo,
+      requestRedo,
+      reattach,
+      send,
+    }),
+    [connected, snapshot, externalState, requestUndo, requestRedo, reattach, send],
+  );
 
   return (
     <AuxiliarySessionContext.Provider value={value}>{children}</AuxiliarySessionContext.Provider>

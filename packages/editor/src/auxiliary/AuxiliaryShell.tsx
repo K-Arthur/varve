@@ -1,34 +1,34 @@
 /**
- * Auxiliary window shell — minimal React component for panel-only windows.
+ * Auxiliary window shell (ADR-0204/0206).
  *
- * This shell:
- * 1. Reads window identity from URL params
- * 2. Registers with the session broker
- * 3. Receives and applies session snapshots
- * 4. Renders the hosted panel(s) from the dock tree
- * 5. Shows recovery/empty states
+ * A panel-only auxiliary window:
+ * 1. Parses its identity (windowId, session, panels) from URL params
+ * 2. Connects to the primary window's session broker
+ * 3. Mounts a REAL EditorProvider hydrated from the session snapshot —
+ *    editor-coupled panels (Layers, Inspector, ...) work unchanged; the
+ *    provider's externalState/onMutation/onSelectionChange props bridge
+ *    document + selection sync with the primary (single authority)
+ * 4. Renders the hosted panel(s) via the panel content registry
  *
- * Does NOT initialize: canvas, renderer, models, collaboration, full editor.
+ * Deliberately NOT initialized: canvas, renderer, models, collaboration,
+ * global shortcuts, dialogs. Panel-only windows stay lean.
  */
 
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { EditorProvider } from '../context';
 import { AuxiliarySessionProvider, useAuxiliarySession } from './AuxiliaryProvider';
+import { renderAuxiliaryPanel } from './panelContentRegistry';
 
 // ---------------------------------------------------------------------------
-// Types
+// URL parameter parsing
 // ---------------------------------------------------------------------------
 
 export interface AuxiliaryWindowInfo {
   windowId: string;
   sessionId: string;
   panelTypeIds: string[];
-  layout: unknown;
 }
-
-// ---------------------------------------------------------------------------
-// URL parameter parsing
-// ---------------------------------------------------------------------------
 
 export function parseAuxiliaryWindowParams(url?: string): AuxiliaryWindowInfo | null {
   const params = new URLSearchParams(url ?? window.location.search);
@@ -39,129 +39,83 @@ export function parseAuxiliaryWindowParams(url?: string): AuxiliaryWindowInfo | 
   const sessionId = params.get('session');
   if (!windowId || !sessionId) return null;
 
-  const panelTypes = params.get('panels')?.split(',').filter(Boolean) ?? [];
+  const panelTypes = (params.get('panels') ?? '').split(',').filter(Boolean);
 
-  return {
-    windowId,
-    sessionId,
-    panelTypeIds: panelTypes,
-    layout: null, // will be populated from snapshot
-  };
+  return { windowId, sessionId, panelTypeIds: panelTypes };
 }
 
 // ---------------------------------------------------------------------------
-// Panel renderer (stub — will be wired to real panels in M7+)
+// Panel host
 // ---------------------------------------------------------------------------
 
 function PanelHost({ panelTypeId }: { panelTypeId: string }) {
-  const { state, connected } = useAuxiliarySession();
+  const content = useMemo(() => renderAuxiliaryPanel(panelTypeId), [panelTypeId]);
 
-  if (!connected) {
+  if (content === null) {
     return (
-      <div style={styles.pending}>
-        <div style={styles.pendingIcon}>...</div>
-        <div>Connecting to editor session...</div>
+      <div style={styles.unsupported}>
+        <strong>{panelTypeId}</strong> is not supported in a panel window yet.
       </div>
     );
   }
 
-  return (
-    <div style={styles.panelHost} data-panel-type={panelTypeId}>
-      <div style={styles.panelHeader}>
-        <span style={styles.panelTitle}>{panelTypeId}</span>
-        <span style={styles.panelDoc}>{state.activeDocumentName || 'No document'}</span>
-      </div>
-      <div style={styles.panelContent}>
-        <div style={styles.panelPlaceholder}>
-          Panel "{panelTypeId}" will render here once wired to the real component.
-          <br />
-          <small>
-            Document: {state.activeDocumentId || 'none'} | Selection: {state.selection.length} items
-            | Mode: {state.workspaceMode}
-          </small>
-        </div>
-      </div>
-    </div>
-  );
+  return <div style={styles.panelHost}>{content}</div>;
 }
 
 // ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
-
-function EmptyAuxiliaryWindow() {
-  return (
-    <div style={styles.empty}>
-      <div style={styles.emptyIcon}>[]</div>
-      <h2 style={styles.emptyTitle}>No panels</h2>
-      <p style={styles.emptyDescription}>
-        Drag a panel here or use the Window menu to detach a panel into this window.
-      </p>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Error state
-// ---------------------------------------------------------------------------
-
-function AuxiliaryError({ error }: { error: string }) {
-  return (
-    <div style={styles.error}>
-      <div style={styles.errorIcon}>!</div>
-      <h2 style={styles.errorTitle}>Connection lost</h2>
-      <p style={styles.errorDescription}>{error}</p>
-      <button style={styles.errorButton} onClick={() => window.location.reload()} type="button">
-        Reconnect
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Recovery banner
-// ---------------------------------------------------------------------------
-
-function RecoveryBanner({
-  onReattach,
-  onGather,
-}: {
-  onReattach: () => void;
-  onGather: () => void;
-}) {
-  return (
-    <div style={styles.recoveryBanner} role="alert">
-      <span>Some panels could not be restored.</span>
-      <button style={styles.recoveryButton} onClick={onReattach} type="button">
-        Reattach All
-      </button>
-      <button style={styles.recoveryButton} onClick={onGather} type="button">
-        Gather Windows
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Custom title bar (minimal)
+// Title bar
 // ---------------------------------------------------------------------------
 
 function AuxiliaryTitleBar({
-  panelTypeIds,
+  title,
   documentName,
+  onReattach,
 }: {
-  panelTypeIds: string[];
+  title: string;
   documentName: string;
+  onReattach: () => void;
 }) {
   return (
-    <div style={styles.titleBar} data-tauri-drag-region>
-      <div style={styles.titleBarLeft}>
-        <span style={styles.titleBarIcon}>V</span>
-        <span style={styles.titleBarText}>
-          {panelTypeIds.length > 0 ? panelTypeIds.join(' + ') : 'Panel Window'}
-          {documentName ? ` — ${documentName}` : ''}
-        </span>
-      </div>
+    <div style={styles.titleBar}>
+      <span style={styles.titleIcon}>V</span>
+      <span style={styles.titleText}>
+        {title}
+        {documentName ? ` — ${documentName}` : ''}
+      </span>
+      <button
+        type="button"
+        onClick={onReattach}
+        data-testid="reattach-panel"
+        aria-label={`Reattach ${title} to the main window`}
+        style={styles.reattachBtn}
+      >
+        Reattach
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Connecting / empty / error states
+// ---------------------------------------------------------------------------
+
+function ConnectingState() {
+  return (
+    <div style={styles.state}>
+      <div style={styles.stateIcon}>...</div>
+      <div>Connecting to editor session...</div>
+    </div>
+  );
+}
+
+function EmptyState({ onReattach }: { onReattach: () => void }) {
+  return (
+    <div style={styles.state}>
+      <h2 style={styles.stateTitle}>No panels</h2>
+      <p style={styles.stateBody}>Drag a panel here or detach one from the main window.</p>
+      <button type="button" onClick={onReattach} style={styles.reattachBtn}>
+        Reattach all
+      </button>
     </div>
   );
 }
@@ -170,67 +124,69 @@ function AuxiliaryTitleBar({
 // Main shell
 // ---------------------------------------------------------------------------
 
-export interface AuxiliaryShellProps {
-  windowInfo: AuxiliaryWindowInfo;
-}
+function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
+  const { state, reattach, send } = useAuxiliarySession();
+  const [editorMounted, setEditorMounted] = useState(false);
 
-export function AuxiliaryShell({ windowInfo }: AuxiliaryShellProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [needsRecovery, setNeedsRecovery] = useState(false);
-  const { state, connected } = useAuxiliarySession();
+  // Forward local mutations + selection upstream to the primary.
+  const handleMutation = useCallback(
+    (documentJson: string) => {
+      send('aux-doc-changed', { windowId: info.windowId, documentJson });
+    },
+    [send, info.windowId],
+  );
 
-  // Register with session broker on mount
+  const handleSelectionChange = useCallback(
+    (selection: string[]) => {
+      send('aux-selection-changed', { windowId: info.windowId, selection });
+    },
+    [send, info.windowId],
+  );
+
+  const snapshot = state.snapshot;
+  const connected = state.connected;
+
+  // Mount the editor exactly once the first snapshot arrives.
   useEffect(() => {
-    const handlers = (window as unknown as Record<string, unknown>).__auxiliarySessionHandlers as
-      | { onDisconnect?: () => void; onReload?: () => void }
-      | undefined;
-
-    const handleBeforeUnload = () => {
-      // Notify primary window we're closing
-      const w = window as unknown as Record<string, unknown>;
-      const send = w.__sendToPrimary as ((eventId: string, payload: unknown) => void) | undefined;
-      send?.('window-close', { kind: 'window-close', windowId: windowInfo.windowId });
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      handlers?.onDisconnect?.();
-    };
-  }, [windowInfo.windowId]);
-
-  // Handle connection loss
-  useEffect(() => {
-    if (!connected && state.lastRevision > 0) {
-      setError('Lost connection to the primary editor window.');
-    } else if (connected) {
-      setError(null);
+    if (connected && snapshot && !editorMounted) {
+      setEditorMounted(true);
     }
-  }, [connected, state.lastRevision]);
+  }, [connected, snapshot, editorMounted]);
 
-  if (error) {
-    return <AuxiliaryError error={error} />;
-  }
+  const title =
+    info.panelTypeIds.length > 0
+      ? info.panelTypeIds.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' + ')
+      : 'Panel Window';
 
   return (
     <div style={styles.shell}>
       <AuxiliaryTitleBar
-        panelTypeIds={windowInfo.panelTypeIds}
-        documentName={state.activeDocumentName}
+        title={title}
+        documentName={snapshot?.activeDocumentName ?? ''}
+        onReattach={reattach}
       />
-      {needsRecovery && (
-        <RecoveryBanner
-          onReattach={() => setNeedsRecovery(false)}
-          onGather={() => setNeedsRecovery(false)}
-        />
+
+      {!connected || !snapshot ? (
+        <ConnectingState />
+      ) : info.panelTypeIds.length === 0 ? (
+        <EmptyState onReattach={reattach} />
+      ) : (
+        <div style={styles.content}>
+          {editorMounted && (
+            <EditorProvider
+              initialDocumentJson={snapshot.documentJson}
+              initialDocumentName={snapshot.activeDocumentName || undefined}
+              externalState={state.externalState}
+              onMutation={handleMutation}
+              onSelectionChange={handleSelectionChange}
+            >
+              {info.panelTypeIds.map((panelTypeId) => (
+                <PanelHost key={panelTypeId} panelTypeId={panelTypeId} />
+              ))}
+            </EditorProvider>
+          )}
+        </div>
       )}
-      <div style={styles.panelArea}>
-        {windowInfo.panelTypeIds.length > 0 ? (
-          windowInfo.panelTypeIds.map((id) => <PanelHost key={id} panelTypeId={id} />)
-        ) : (
-          <EmptyAuxiliaryWindow />
-        )}
-      </div>
     </div>
   );
 }
@@ -252,20 +208,23 @@ export function AuxiliaryRoot({ windowInfo: overrideInfo }: AuxiliaryRootProps =
         windowId: 'unknown',
         sessionId: 'unknown',
         panelTypeIds: [],
-        layout: null,
       },
     [overrideInfo],
   );
 
   return (
-    <AuxiliarySessionProvider>
-      <AuxiliaryShell windowInfo={info} />
+    <AuxiliarySessionProvider
+      windowId={info.windowId}
+      sessionId={info.sessionId}
+      panelTypeIds={info.panelTypeIds}
+    >
+      <AuxiliaryShellInner info={info} />
     </AuxiliarySessionProvider>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Styles (inline to avoid CSS import overhead in auxiliary windows)
+// Styles (inline — the auxiliary bundle does not load editor.css)
 // ---------------------------------------------------------------------------
 
 const styles: Record<string, CSSProperties> = {
@@ -283,124 +242,60 @@ const styles: Record<string, CSSProperties> = {
   titleBar: {
     display: 'flex',
     alignItems: 'center',
-    height: 32,
+    gap: 8,
+    height: 34,
     padding: '0 12px',
     background: 'var(--color-surface-elevated, #f5f5f5)',
     borderBottom: '1px solid var(--color-border, #e0e0e0)',
     userSelect: 'none',
     flexShrink: 0,
   },
-  titleBarLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-  },
-  titleBarIcon: {
-    fontWeight: 700,
-    color: 'var(--color-accent, #3d9b8f)',
-  },
-  titleBarText: {
+  titleIcon: { fontWeight: 700, color: 'var(--color-accent, #3d9b8f)' },
+  titleText: {
     fontSize: 12,
-    opacity: 0.7,
-  },
-  panelArea: {
+    opacity: 0.75,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
     flex: 1,
-    overflow: 'auto',
+  },
+  reattachBtn: {
+    marginLeft: 'auto',
+    padding: '3px 10px',
+    border: '1px solid var(--color-border, #e0e0e0)',
+    borderRadius: 5,
+    background: 'var(--color-surface, #fff)',
+    cursor: 'pointer',
+    fontSize: 11,
+  },
+  content: {
+    flex: 1,
     display: 'flex',
     flexDirection: 'column',
+    overflow: 'hidden',
   },
   panelHost: {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
+    minHeight: 0,
   },
-  panelHeader: {
+  state: {
+    flex: 1,
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '8px 12px',
-    borderBottom: '1px solid var(--color-border, #e0e0e0)',
-    fontSize: 12,
-    fontWeight: 600,
+    justifyContent: 'center',
+    gap: 10,
+    opacity: 0.55,
   },
-  panelTitle: {},
-  panelDoc: { fontWeight: 400, opacity: 0.6 },
-  panelContent: { flex: 1, overflow: 'auto', padding: 12 },
-  panelPlaceholder: {
+  stateIcon: { fontSize: 26 },
+  stateTitle: { fontSize: 15, fontWeight: 600, margin: 0 },
+  stateBody: { fontSize: 13, margin: 0, maxWidth: 300, textAlign: 'center' },
+  unsupported: {
     padding: 24,
     textAlign: 'center',
-    opacity: 0.5,
-    lineHeight: 1.6,
-  },
-  empty: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    opacity: 0.5,
-  },
-  emptyIcon: { fontSize: 32, opacity: 0.3 },
-  emptyTitle: { fontSize: 16, fontWeight: 600, margin: 0 },
-  emptyDescription: { fontSize: 13, margin: 0, maxWidth: 300, textAlign: 'center' },
-  error: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  errorIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: '50%',
-    background: 'var(--color-error, #e53935)',
-    color: '#fff',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 24,
-    fontWeight: 700,
-  },
-  errorTitle: { fontSize: 16, fontWeight: 600, margin: 0 },
-  errorDescription: { fontSize: 13, margin: 0, opacity: 0.7 },
-  errorButton: {
-    marginTop: 8,
-    padding: '6px 16px',
-    border: '1px solid var(--color-border, #e0e0e0)',
-    borderRadius: 6,
-    background: 'var(--color-surface, #fff)',
-    cursor: 'pointer',
-    fontSize: 13,
-  },
-  pending: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    opacity: 0.5,
-  },
-  pendingIcon: { fontSize: 24 },
-  recoveryBanner: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '6px 12px',
-    background: 'var(--color-warning-bg, #fff3e0)',
-    borderBottom: '1px solid var(--color-warning-border, #ffb74d)',
-    fontSize: 12,
-  },
-  recoveryButton: {
-    padding: '2px 8px',
-    border: '1px solid var(--color-border, #e0e0e0)',
-    borderRadius: 4,
-    background: 'var(--color-surface, #fff)',
-    cursor: 'pointer',
-    fontSize: 11,
+    opacity: 0.6,
   },
 };

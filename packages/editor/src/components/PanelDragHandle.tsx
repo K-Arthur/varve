@@ -25,6 +25,7 @@ import { getWindowService } from '@varve/platform';
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip, TooltipProvider } from '@varve/ui';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { markPanelDetached } from '../workspace/detachedPanelsStore';
 import { isPanelDetachable, type PanelTypeId } from '../workspace/panelRegistry';
 import { TransferStateMachine } from '../workspace/transferStateMachine';
 
@@ -144,6 +145,9 @@ async function executeDetach(
     transferStateMachine.advance(tx.id, 'committing');
     transferStateMachine.advance(tx.id, 'removing-source');
     transferStateMachine.complete(tx.id);
+
+    // The primary window stops rendering this panel (Shell subscribes).
+    markPanelDetached(panelTypeId as PanelTypeId, panelInstanceId, newWindow.id);
 
     // Screen reader announcement
     const announcement = document.createElement('div');
