@@ -6,6 +6,7 @@ import '@fontsource-variable/geist/index.css';
 import '@fontsource-variable/ibm-plex-sans/index.css';
 
 import { ErrorBoundary } from '@varve/editor';
+import { AuxiliaryRoot } from '@varve/editor/auxiliary';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
@@ -51,11 +52,14 @@ async function bootstrap() {
 
   const root = document.getElementById('root');
   if (!root) throw new Error('Root element not found');
+
+  // Panel-window popups load the same bundle with a surface param and
+  // render the minimal auxiliary shell instead of the full app.
+  const isPanelWindow = new URLSearchParams(window.location.search).get('surface') === 'panel-window';
+
   createRoot(root).render(
     <StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
+      <ErrorBoundary>{isPanelWindow ? <AuxiliaryRoot /> : <App />}</ErrorBoundary>
     </StrictMode>,
   );
 }
