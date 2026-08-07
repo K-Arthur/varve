@@ -13,6 +13,7 @@ import {
 } from './render/compositorDiagnosticsStore';
 import { formatShortcut, getEffectiveBinding } from './shortcuts/ShortcutManager';
 import { getVisibleStatusSections } from './workspace/workspaceTypes';
+import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 
 interface StatusBarProps {
   onOpenPalette?: (shortcutId?: string) => void;
@@ -38,6 +39,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
     rootNodes,
     clearAllGuides,
   } = useEditor();
+  const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const compositorDiag = useSyncExternalStore(
     subscribeCompositorDiagnostics,
     getCompositorDiagnosticsSnapshot,
@@ -56,7 +58,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
   }
 
   const singleSel = sel.length === 1;
-  const statusSectionIds = getVisibleStatusSections(state.workspaceMode);
+  const statusSectionIds = getVisibleStatusSections(state.workspaceMode, effectiveConfig);
   const showPreflight = statusSectionIds.includes('preflight');
   const showDebtBadge = statusSectionIds.includes('debt');
   const showTipChip = statusSectionIds.includes('shortcutTip');
