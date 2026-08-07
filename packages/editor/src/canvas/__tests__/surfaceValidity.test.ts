@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { computeDirtyPruneDecision } from '../dirtyQuery';
 import {
   type PaintedSurfaceIdentity,
+  paintedSurfaceAfterFrame,
   resolveFullRedrawReason,
   surfaceMatchesBackingStore,
 } from '../dirtyRegion';
@@ -147,5 +148,42 @@ describe('computeDirtyPruneDecision surface gate', () => {
 
   it('defaults to pruning when no surface match is supplied', () => {
     expect(computeDirtyPruneDecision(opts).worldRects).not.toBeNull();
+  });
+});
+
+describe('paintedSurfaceAfterFrame', () => {
+  const surface: PaintedSurfaceIdentity = {
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+    rotation: 0,
+    dpr: 2,
+    surfaceW: 800,
+    surfaceH: 600,
+  };
+
+  it('records the surface when the frame rendered it authoritatively', () => {
+    expect(paintedSurfaceAfterFrame(surface, true)).toEqual(surface);
+  });
+
+  it('records nothing when the frame only approximated the camera', () => {
+    // The reprojected-worker-bitmap path: a resampled older frame composited
+    // under a camera it was never rendered for.
+    expect(paintedSurfaceAfterFrame(surface, false)).toBeNull();
+  });
+
+  it('forces a full redraw on the next frame after an approximated one', () => {
+    // The invariant that matters: an approximated frame must not authorise a
+    // partial redraw over its own non-authoritative pixels. 'never-painted' is
+    // already pinned above as refusing both the paint and the prune gate.
+    const recorded = paintedSurfaceAfterFrame(surface, false);
+    expect(surfaceMatchesBackingStore(recorded, surface)).toBe('never-painted');
+  });
+
+  it('keeps an authoritative frame on the partial-redraw path', () => {
+    // The fix must not turn every worker frame into a full redraw: an exact
+    // camera match still retains its pixels.
+    const recorded = paintedSurfaceAfterFrame(surface, true);
+    expect(surfaceMatchesBackingStore(recorded, surface)).toBe('match');
   });
 });

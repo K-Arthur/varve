@@ -60,14 +60,35 @@ reports, cached once per page:
   OffscreenCanvas support is unreliable across point releases)
 - `hasWebGL`, `hasWebGPU`, `hasWorker`, `deviceMemory`, `hardwareConcurrency`
 
-Fallbacks already in place:
+Fallbacks in place:
 
-- The render worker is disabled on WebKitGTK: `profileForTier` requires
-  `hasWorker && hasOffscreenCanvas && !isWebKitGTK` (quality/balanced tiers).
-  `createRenderWorkerHost` additionally feature-detects OffscreenCanvas and
-  returns null (main-thread Canvas2D) rather than retrying a worker that can
-  only fail.
-- These are also visible in the Performance settings tab and `window.__strataPerf`.
+- Worker eligibility is **capability-gated, not UA-gated**
+  (`render/workerEligibility.ts`). The former blanket `!isWebKitGTK` ban was
+  replaced on 2026-08-07 after the full OffscreenCanvas chain was verified on
+  WebKitGTK 2.52.5 — construct in worker, 2D context, replay,
+  `transferToImageBitmap`, transfer back, **pixels verified exact**, 1,000
+  frames, resize. See
+  [`2026-08-07-webkitgtk-render-path.md`](2026-08-07-webkitgtk-render-path.md).
+- On WebKitGTK the worker requires a **verified** probe result
+  (`render/offscreenCapabilityProbe.ts`) *and* an explicit opt-in
+  (`?webkitWorker=1` or `localStorage['varve.webkitRenderWorker'] = 'on'`).
+  Verified means correct, not proven faster; activation stays off by default
+  until a latency comparison exists from an uncontended host.
+- `createRenderWorkerHost` still feature-detects and returns null rather than
+  retrying a worker that can only fail. Note it **does not** return null on
+  WebKitGTK 2.52.5 — the profile policy is the gate that actually decides.
+- Do not gate on `webKitVersion`: WebKitGTK reports the frozen
+  Safari-compatibility token `605.1.15` regardless of the real library version.
+- Visible in the Performance settings tab and via
+  `window.__strataPerf.renderPath()`, which reports the actual backend and the
+  deciding gate (e.g. `"webkit -> main-canvas2d (webkit-policy)"`).
+
+## Measurement limitation — 1 ms clock
+
+`performance.now()` in WebKitGTK 2.52.5 is quantised to **1 ms** (Chromium:
+~5 µs). Sub-millisecond spans are unmeasurable; a `0`/`1 ms` span means "below
+clock resolution", not "fast". Aggregate over many samples or label the result
+`lower-bound`.
 
 ## Trace correlation
 
