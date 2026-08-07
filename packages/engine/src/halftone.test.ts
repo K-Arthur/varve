@@ -1726,6 +1726,131 @@ describe('halftone malformed parameter robustness', () => {
   });
 });
 
+// ── Document anchoring: pan/zoom phase stability ───────────────────────
+
+describe('halftone document anchoring', () => {
+  function flatGray(w: number, h: number, gray: number): ImageData {
+    const data = new ImageData(w, h);
+    for (let i = 0; i < data.data.length; i += 4) {
+      data.data[i] = gray;
+      data.data[i + 1] = gray;
+      data.data[i + 2] = gray;
+      data.data[i + 3] = 255;
+    }
+    return data;
+  }
+
+  it('AM pattern phase is invariant under region offsets (pan stability)', () => {
+    // The same flat fill screened at region origin (0,0) and at region
+    // origin (10,5) must produce identical pixels at matching document
+    // positions: doc (x+10, y+5) in the offset image == doc (x, y) in the
+    // origin image.
+    const w = 64;
+    const h = 64;
+    const origin = flatGray(w, h, 128);
+    const offset = flatGray(w, h, 128);
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 12,
+      angle: 25,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+    };
+    applyAMScreening(origin, params, 1, 0, 0);
+    applyAMScreening(offset, params, 1, 10, 5);
+
+    // Offset-image pixel (x, y) sits at doc (x+10, y+5); origin-image pixel
+    // (x+10, y+5) sits at the same document position. Both must be equal.
+    for (let y = 0; y < h - 5; y++) {
+      for (let x = 0; x < w - 10; x++) {
+        const iOrigin = ((y + 5) * w + (x + 10)) * 4;
+        const iOffset = (y * w + x) * 4;
+        expect(offset.data[iOffset]!).toBe(origin.data[iOrigin]!);
+        expect(offset.data[iOffset + 1]!).toBe(origin.data[iOrigin + 1]!);
+      }
+    }
+  });
+
+  it('AM cell count across an object is zoom-invariant', () => {
+    // Zoom 1: 64 device px cover 64 doc px. Zoom 2: 128 device px cover
+    // the same 64 doc px. The number of dark/light transitions across the
+    // full row must be identical — dot density is a document-space
+    // property, not a viewport one.
+    const zoom1 = flatGray(64, 64, 128);
+    const zoom2 = flatGray(128, 128, 128);
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 16,
+      angle: 0,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+    };
+    applyAMScreening(zoom1, params, 1, 0, 0);
+    applyAMScreening(zoom2, params, 2, 0, 0);
+
+    const transitions = (d: ImageData, row: number): number => {
+      let n = 0;
+      let prev: 'dark' | 'light' | null = null;
+      for (let x = 0; x < d.width; x++) {
+        const i = (row * d.width + x) * 4;
+        const cur = d.data[i]! < 110 ? 'dark' : 'light';
+        if (prev && cur !== prev) n++;
+        prev = cur;
+      }
+      return n;
+    };
+    const t1 = transitions(zoom1, 32);
+    const t2 = transitions(zoom2, 64);
+    expect(t1).toBeGreaterThan(0);
+    expect(t2).toBe(t1);
+  });
+
+  it('Bayer FM pattern phase is invariant under region offsets (pan stability)', () => {
+    const w = 64;
+    const h = 64;
+    const origin = flatGray(w, h, 128);
+    const offset = flatGray(w, h, 128);
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 10,
+      angle: 0,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'fm',
+    };
+    applyBayerDithering(origin, params, 0, 0);
+    applyBayerDithering(offset, params, 10, 5);
+
+    // Offset-image pixel (x, y) sits at doc (x+10, y+5); origin-image pixel
+    // (x+10, y+5) sits at the same document position. Both must be equal.
+    for (let y = 0; y < h - 5; y++) {
+      for (let x = 0; x < w - 10; x++) {
+        const iOrigin = ((y + 5) * w + (x + 10)) * 4;
+        const iOffset = (y * w + x) * 4;
+        expect(offset.data[iOffset]!).toBe(origin.data[iOrigin]!);
+      }
+    }
+  });
+
+  it('applyHalftone forwards document offsets and pixelScale to the AM path', () => {
+    const viaDispatch = flatGray(32, 32, 128);
+    const direct = flatGray(32, 32, 128);
+    const params: HalftoneParams = {
+      pattern: 'dot',
+      frequency: 12,
+      angle: 30,
+      dotShape: 'round',
+      channel: 'k',
+      method: 'am',
+    };
+    applyHalftone(viaDispatch, params, 7, 3, 2);
+    applyAMScreening(direct, params, 2, 7, 3);
+    expect(Array.from(viaDispatch.data)).toEqual(Array.from(direct.data));
+  });
+});
+
 function fillGradient(data: ImageData, w: number, h: number): void {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
