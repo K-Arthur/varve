@@ -250,6 +250,8 @@ export interface EditorState {
   /** Logo preview dialog (small-size / surface / mode preview) visibility. */
   logoPreviewDialogOpen: boolean;
   timelinePanelVisible: boolean;
+  /** History panel visibility (M8 — persistent revision history). */
+  historyPanelVisible: boolean;
   codegenPanelVisible: boolean;
   /** Logo panel visibility (persisted; follows the workspace config on switch). */
   logoPanelVisible: boolean;
@@ -1002,6 +1004,7 @@ export interface EditorContextValue {
   renameTimeline: (id: string, name: string) => void;
   removeTrack: (timelineId: string, trackId: string) => void;
   toggleTimelinePanel: () => void;
+  toggleHistoryPanel: () => void;
   addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
   removeTimelineMarker: (timelineId: string, markerId: string) => void;
   renameTimelineMarker: (timelineId: string, markerId: string, name: string) => void;

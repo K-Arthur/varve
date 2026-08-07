@@ -40,12 +40,16 @@ import type {
   BranchRef,
   CheckpointRef,
   HistoryStore,
+  MergeConflict,
+  MergeResolution,
   MergeResult,
   RevisionOrigin,
   RevisionRecord,
   StoredOperation,
 } from '@varve/history';
 import {
+  applyMergeResolutions,
+  commitMergeRevision,
   createCheckpoint,
   createGenesisRevision,
   createSnapshot,
@@ -66,7 +70,9 @@ import {
   validateBranchName,
   validateCheckpointName,
   validateHistory,
+  validateMergeResolutions,
   validateRevisionGraph,
+  verifyResolvedDocument,
 } from '@varve/history';
 import type { Document, NodeId } from '@varve/scene';
 import {
@@ -722,6 +728,108 @@ export class EditorHistorySession {
       merged.theirsHead,
     );
     return mergeDocuments(baseDoc, oursDoc, theirsDoc);
+  }
+
+  /**
+   * Complete a three-way merge of the attached branch with another branch.
+   * A clean merge commits a two-parent revision immediately. A conflicted
+   * merge applies the given per-conflict resolutions (M12) and commits with
+   * the remaining unresolved count; conflicts the resolver cannot apply are
+   * returned for the UI to keep resolving. Failed or invalid merges never
+   * move the branch head.
+   */
+  async completeMerge(
+    theirsBranchId: string,
+    resolutions: MergeResolution[] = [],
+  ): Promise<{
+    status: 'clean' | 'conflicted' | 'invalid' | 'error';
+    revision?: RevisionRecord;
+    conflicts?: MergeConflict[];
+    warnings: string[];
+  }> {
+    await this.lastCapturePromise;
+    if (!this.attachedBranch) return { status: 'error', warnings: ['no attached branch'] };
+    const merged = await findBranchMergeBase(
+      this.store,
+      this.documentId,
+      this.attachedBranch.branchId,
+      theirsBranchId,
+    );
+    if (!merged) {
+      return { status: 'error', warnings: ['no merge base found (unrelated histories?)'] };
+    }
+    const baseDoc = await this.loadCachedDocument(merged.base.revisionId, merged.base);
+    const oursDoc = await this.loadCachedDocument(merged.oursHead.revisionId, merged.oursHead);
+    const theirsDoc = await this.loadCachedDocument(
+      merged.theirsHead.revisionId,
+      merged.theirsHead,
+    );
+    const result = mergeDocuments(baseDoc, oursDoc, theirsDoc);
+    const warnings = [...result.warnings];
+
+    if (result.status === 'clean') {
+      const revision = await commitMergeRevision(this.store, {
+        documentId: this.documentId,
+        branchId: this.attachedBranch.branchId,
+        baseRevisionId: merged.base.revisionId,
+        oursRevisionId: merged.oursHead.revisionId,
+        theirsRevisionId: merged.theirsHead.revisionId,
+        mergedDocument: result.mergedDocument,
+        conflictCount: 0,
+        author: { actorId: this.actorId, kind: 'local-user' },
+      });
+      this.headRevisionId = revision.revisionId;
+      this.redoTarget = null;
+      this.undoableState = true;
+      this.lastUndoLabelState = revision.semanticSummary.label;
+      this.rememberDocument(revision.revisionId, result.mergedDocument);
+      return { status: 'clean', revision, warnings };
+    }
+
+    if (result.status === 'conflicted') {
+      if (result.invalid) {
+        return { status: 'invalid', conflicts: result.conflicts, warnings };
+      }
+      const validated = validateMergeResolutions(result.conflicts, resolutions);
+      if (!validated.valid) {
+        return {
+          status: 'conflicted',
+          conflicts: result.conflicts,
+          warnings: [...warnings, ...validated.errors],
+        };
+      }
+      const resolved = applyMergeResolutions(result.mergedDocument, result.conflicts, resolutions);
+      warnings.push(...resolved.warnings);
+      if (resolved.unresolvedConflictIds.length > 0) {
+        return {
+          status: 'conflicted',
+          conflicts: result.conflicts,
+          warnings,
+        };
+      }
+      if (!verifyResolvedDocument(resolved.document)) {
+        return { status: 'invalid', conflicts: result.conflicts, warnings };
+      }
+      const revision = await commitMergeRevision(this.store, {
+        documentId: this.documentId,
+        branchId: this.attachedBranch.branchId,
+        baseRevisionId: merged.base.revisionId,
+        oursRevisionId: merged.oursHead.revisionId,
+        theirsRevisionId: merged.theirsHead.revisionId,
+        mergedDocument: resolved.document,
+        conflictCount: 0,
+        author: { actorId: this.actorId, kind: 'local-user' },
+        note: 'Merge conflicts resolved in the Varve conflict resolver',
+      });
+      this.headRevisionId = revision.revisionId;
+      this.redoTarget = null;
+      this.undoableState = true;
+      this.lastUndoLabelState = revision.semanticSummary.label;
+      this.rememberDocument(revision.revisionId, resolved.document);
+      return { status: 'clean', revision, warnings };
+    }
+
+    return { status: 'invalid', conflicts: result.conflicts, warnings };
   }
 
   /** Integrity check over the whole persisted history. */

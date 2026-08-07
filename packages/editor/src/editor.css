@@ -1912,6 +1912,151 @@ input[type="number"] {
   color: var(--status-warning, #d97706);
 }
 
+.history-panel__branch-actions {
+  display: flex;
+  gap: 4px;
+}
+.history-panel__merge-status {
+  padding: 6px 8px;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  border-bottom: var(--border-micro);
+}
+
+/* ── Conflict resolver (M12) ─────────────────────────────────────────────── */
+.conflict-resolver {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  min-width: 520px;
+  max-width: 720px;
+  max-height: 70vh;
+}
+.conflict-resolver__title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  margin: 0;
+}
+.conflict-resolver__subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin: 0;
+}
+.conflict-resolver__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  max-height: 50vh;
+}
+.conflict-resolver__item {
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--elevation-surface-subtle);
+}
+.conflict-resolver__item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.conflict-resolver__item-kind {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: var(--status-warning-bg, #fef3c7);
+  color: var(--status-warning-text, #92400e);
+}
+.conflict-resolver__item-summary {
+  font-size: var(--font-size-xs);
+}
+.conflict-resolver__item-values {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.conflict-resolver__value {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding: 6px;
+  background: var(--elevation-surface-default);
+  overflow: hidden;
+}
+.conflict-resolver__value-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+.conflict-resolver__value--base .conflict-resolver__value-label {
+  color: var(--text-tertiary);
+}
+.conflict-resolver__value--ours .conflict-resolver__value-label {
+  color: var(--accent-primary);
+}
+.conflict-resolver__value--theirs .conflict-resolver__value-label {
+  color: var(--status-info-text, #1e40af);
+}
+.conflict-resolver__value-code {
+  font-size: 11px;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.conflict-resolver__item-choices {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.conflict-resolver__choice {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.conflict-resolver__choice input {
+  accent-color: var(--accent-primary);
+}
+.conflict-resolver__error {
+  color: var(--status-error-text, #dc2626);
+  font-size: var(--font-size-xs);
+}
+.conflict-resolver__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: var(--border-micro);
+  padding-top: 10px;
+}
+.conflict-resolver__btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  background: var(--elevation-surface-default);
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.conflict-resolver__btn:hover {
+  background: var(--elevation-surface-hover);
+}
+.conflict-resolver__btn--primary {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--text-on-accent);
+}
+.conflict-resolver__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Keep this after the base panel declarations. Their position:relative used
  * to win the cascade and leave an "opened" mobile drawer in the zero-width
  * inspector grid column, entirely outside the viewport. */
