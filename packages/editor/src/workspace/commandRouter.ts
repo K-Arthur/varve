@@ -175,7 +175,6 @@ export function validateCommandSubmission(options: {
     originPanelInstanceId,
     activeDocumentId,
     payload,
-    panelCapabilities,
   } = options;
 
   if (!commandType) {
