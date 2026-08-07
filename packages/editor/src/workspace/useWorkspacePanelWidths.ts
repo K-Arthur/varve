@@ -10,22 +10,12 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import {
-  clampPanelWidth,
   clampPanelWidthToViewport,
   defaultPanelWidth,
   type PanelSide,
 } from '../components/PanelResizeHandle';
-import { updateSettings } from '../settings';
-import { savePanelWidths, getPanelWidths, getWorkspacePreferences } from './workspaceStore';
+import { getPanelWidths, getWorkspacePreferences, savePanelWidths } from './workspaceStore';
 import type { PanelId, WorkspaceMode } from './workspaceTypes';
-
-/**
- * Map PanelSide ('layers' | 'inspector') to PanelId ('layers' | 'inspector').
- */
-const SIDE_TO_PANEL: Record<PanelSide, PanelId> = {
-  layers: 'layers',
-  inspector: 'inspector',
-};
 
 export function useWorkspacePanelWidths(
   workspaceMode: WorkspaceMode,
@@ -55,8 +45,7 @@ export function useWorkspacePanelWidths(
       const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
 
       if (savedWidths.layers !== undefined) {
-        const otherWidth =
-          widths.inspector ?? defaultPanelWidth('inspector', viewport);
+        const otherWidth = widths.inspector ?? defaultPanelWidth('inspector', viewport);
         const clamped = clampPanelWidthToViewport(
           'layers',
           savedWidths.layers,
@@ -66,8 +55,7 @@ export function useWorkspacePanelWidths(
         setWidth('layers', clamped);
       }
       if (savedWidths.inspector !== undefined) {
-        const otherWidth =
-          widths.layers ?? defaultPanelWidth('layers', viewport);
+        const otherWidth = widths.layers ?? defaultPanelWidth('layers', viewport);
         const clamped = clampPanelWidthToViewport(
           'inspector',
           savedWidths.inspector,
@@ -98,8 +86,7 @@ export function useWorkspacePanelWidths(
       const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
 
       if (savedWidths.layers !== undefined) {
-        const otherWidth =
-          widths.inspector ?? defaultPanelWidth('inspector', viewport);
+        const otherWidth = widths.inspector ?? defaultPanelWidth('inspector', viewport);
         const clamped = clampPanelWidthToViewport(
           'layers',
           savedWidths.layers,
@@ -109,8 +96,7 @@ export function useWorkspacePanelWidths(
         setWidth('layers', clamped);
       }
       if (savedWidths.inspector !== undefined) {
-        const otherWidth =
-          widths.layers ?? defaultPanelWidth('layers', viewport);
+        const otherWidth = widths.layers ?? defaultPanelWidth('layers', viewport);
         const clamped = clampPanelWidthToViewport(
           'inspector',
           savedWidths.inspector,

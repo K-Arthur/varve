@@ -7,28 +7,26 @@
  * reverts to built-in defaults.
  */
 import { Dialog } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 import { useEditor } from '../context';
 import {
-  getEffectiveWorkspaceConfig,
-  getWorkspacePreferences,
-  resetModePreferences,
+  useEffectiveWorkspaceConfig,
+  useWorkspaceCustomizations,
+} from '../workspace/useWorkspaceConfig';
+import {
   setInspectorTabOverride,
   setPanelOverride,
-  setToolbarToolOverride,
   setStatusSectionOverride,
+  setToolbarToolOverride,
   updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
 import {
-  ALL_WORKSPACE_MODES,
   getWorkspaceConfig,
   type InspectorTabId,
   type PanelId,
   type StatusSectionId,
   WORKSPACE_LABELS,
-  WORKSPACE_ICONS,
 } from '../workspace/workspaceTypes';
-import { useEffectiveWorkspaceConfig, useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
 
 export function WorkspaceCustomizeDialog({
   open,
@@ -45,18 +43,14 @@ export function WorkspaceCustomizeDialog({
 
   const handleTogglePanel = useCallback(
     (panelId: PanelId, visible: boolean) => {
-      updateWorkspacePreferences((prefs) =>
-        setPanelOverride(prefs, mode, panelId, { visible }),
-      );
+      updateWorkspacePreferences((prefs) => setPanelOverride(prefs, mode, panelId, { visible }));
     },
     [mode],
   );
 
   const handleToggleInspectorTab = useCallback(
     (tabId: InspectorTabId, visible: boolean) => {
-      updateWorkspacePreferences((prefs) =>
-        setInspectorTabOverride(prefs, mode, tabId, visible),
-      );
+      updateWorkspacePreferences((prefs) => setInspectorTabOverride(prefs, mode, tabId, visible));
     },
     [mode],
   );
@@ -72,9 +66,7 @@ export function WorkspaceCustomizeDialog({
 
   const handleToggleTool = useCallback(
     (toolId: string, visible: boolean) => {
-      updateWorkspacePreferences((prefs) =>
-        setToolbarToolOverride(prefs, mode, toolId, visible),
-      );
+      updateWorkspacePreferences((prefs) => setToolbarToolOverride(prefs, mode, toolId, visible));
     },
     [mode],
   );
@@ -103,12 +95,8 @@ export function WorkspaceCustomizeDialog({
   return (
     <Dialog open={open} onClose={onClose} label={`Customize ${WORKSPACE_LABELS[mode]} workspace`}>
       <div className="workspace-customize">
-        <h2 className="workspace-customize__title">
-          Customize {WORKSPACE_LABELS[mode]} Workspace
-        </h2>
-        <p className="workspace-customize__description">
-          {builtIn.onboarding.description}
-        </p>
+        <h2 className="workspace-customize__title">Customize {WORKSPACE_LABELS[mode]} Workspace</h2>
+        <p className="workspace-customize__description">{builtIn.onboarding.description}</p>
 
         {/* Panel visibility */}
         <section className="workspace-customize__section">
@@ -183,18 +171,10 @@ export function WorkspaceCustomizeDialog({
           >
             Reset {WORKSPACE_LABELS[mode]}
           </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--danger"
-            onClick={handleResetAll}
-          >
+          <button type="button" className="varve-btn varve-btn--danger" onClick={handleResetAll}>
             Reset All Workspaces
           </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--primary"
-            onClick={onClose}
-          >
+          <button type="button" className="varve-btn varve-btn--primary" onClick={onClose}>
             Done
           </button>
         </div>
