@@ -126,6 +126,12 @@ jobs:
         run: node scripts/ci-debug.test.mjs
       - name: Verify health classifier
         run: node scripts/ci-health.test.mjs
+      - name: Verify release version consistency
+        # Version drift across the five manifests (package.json x2,
+        # tauri.conf.json, workspace + desktop Cargo.toml) must never land on
+        # master silently — release.yml only catches it at tag time, when a
+        # fix means another commit + tag. Cheap and dependency-free.
+        run: node scripts/release/version.mjs verify
       - name: Verify pin-table integrity
         run: node scripts/pin-github-actions.test.mjs
       - name: Verify CI shell scripts
