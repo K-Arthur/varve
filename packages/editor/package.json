@@ -9,6 +9,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./auxiliary": {
+      "types": "./src/auxiliary/index.ts",
+      "default": "./src/auxiliary/index.ts"
+    },
     "./editor.css": "./src/editor.css"
   },
   "scripts": {
