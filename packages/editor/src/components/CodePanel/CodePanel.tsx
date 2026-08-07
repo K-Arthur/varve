@@ -27,6 +27,7 @@ import {
 import type { Document, SceneNode } from '@varve/scene';
 import { CopyButton, Icon, type IconName, type Tab, Tabs } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
+import { PanelDragHandle } from '../PanelDragHandle';
 import { buildFilename, downloadBlob } from '../SpecPanel/export';
 import { highlight } from '../SpecPanel/syntax';
 
@@ -468,9 +469,16 @@ export function CodePanel({ doc, selection }: CodePanelProps) {
 
   return (
     <div className="code-panel">
-      <div className="code-panel__header">
-        <h2 className="code-panel__title">Codegen & Audit</h2>
-      </div>
+      <PanelDragHandle
+        panelTypeId="codegen"
+        panelInstanceId="codegen-primary"
+        currentWindowId="main"
+        title="Code"
+      >
+        <div className="code-panel__header">
+          <h2 className="code-panel__title">Codegen & Audit</h2>
+        </div>
+      </PanelDragHandle>
 
       <div className="code-panel__tabs" role="tablist" aria-label="Code panel tabs">
         {PRIMARY_TABS.map((t) => (

@@ -17,8 +17,9 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { setInspectorTabHandler, useEditor } from '../../context';
 import type { InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
-import { getDefaultInspectorTab, getVisibleInspectorTabs } from '../../workspace/workspaceTypes';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
+import { getDefaultInspectorTab, getVisibleInspectorTabs } from '../../workspace/workspaceTypes';
+import { PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
@@ -226,28 +227,35 @@ export function PropertiesPanel() {
 
   return (
     <section className="editor-inspector" aria-label="Inspector">
-      <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
-        {visibleTabs.map((t) => (
-          <button
-            type="button"
-            key={t}
-            ref={(element) => {
-              if (element) tabRefs.current.set(t, element);
-              else tabRefs.current.delete(t);
-            }}
-            id={`insp-tab-${t}`}
-            role="tab"
-            className="insp-panel__tab"
-            aria-selected={tab === t}
-            aria-controls={`insp-tabpanel-${t}`}
-            tabIndex={tab === t ? 0 : -1}
-            onClick={() => activateTab(t)}
-            onKeyDown={(e) => handleTabKeyDown(e, visibleTabs.indexOf(t))}
-          >
-            {FALLBACK_TAB_LABELS[t]}
-          </button>
-        ))}
-      </div>
+      <PanelDragHandle
+        panelTypeId="inspector"
+        panelInstanceId="inspector-primary"
+        currentWindowId="main"
+        title="Inspector"
+      >
+        <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
+          {visibleTabs.map((t) => (
+            <button
+              type="button"
+              key={t}
+              ref={(element) => {
+                if (element) tabRefs.current.set(t, element);
+                else tabRefs.current.delete(t);
+              }}
+              id={`insp-tab-${t}`}
+              role="tab"
+              className="insp-panel__tab"
+              aria-selected={tab === t}
+              aria-controls={`insp-tabpanel-${t}`}
+              tabIndex={tab === t ? 0 : -1}
+              onClick={() => activateTab(t)}
+              onKeyDown={(e) => handleTabKeyDown(e, visibleTabs.indexOf(t))}
+            >
+              {FALLBACK_TAB_LABELS[t]}
+            </button>
+          ))}
+        </div>
+      </PanelDragHandle>
 
       {tab === 'properties' && (
         <div

@@ -321,7 +321,18 @@ function ResponsiveRulesSection({
               aria-label={`Remove responsive rule ${rule.id}`}
               onClick={() => remove(rule.id)}
             >
-              ×
+              <svg
+                width="0.8em"
+                height="0.8em"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                role="img"
+                aria-hidden="true"
+              >
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
             </button>
           </div>
         ))}
