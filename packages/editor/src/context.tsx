@@ -594,6 +594,8 @@ export interface EditorContextValue {
   state: EditorState;
   /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
+  /** Persistent revision history session (M7/M8). */
+  persistentHistory: PersistentHistoryApi;
   setTool: (t: ToolId) => void;
   /** ADR-0016: enter/exit table edit mode (cell selection + navigation). */
   /** ADR-0016: open the Create Table From Data dialog (clipboard parse). */
@@ -1341,6 +1343,7 @@ export interface EditorContextValue {
     startProgress?: number,
   ) => void;
   toggleTimelinePanel: () => void;
+  toggleHistoryPanel: () => void;
   addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
   removeTimelineMarker: (timelineId: string, markerId: string) => void;
   renameTimelineMarker: (timelineId: string, markerId: string, name: string) => void;
@@ -2152,6 +2155,7 @@ export function EditorProvider({
       // opt-in workflow the user reaches via its own toggle, not something
       // every document should open into.
       timelinePanelVisible: false,
+      historyPanelVisible: false,
       motion: createInitialMotionState(),
       canvasMode: 'full',
       workspaceMode: BOOT_WORKSPACE_MODE,
@@ -3004,6 +3008,11 @@ export function EditorProvider({
         patch({ logoPanelVisible: next });
         recordPanelVisibilityOverride(state.workspaceMode, 'logo', next);
         updateSettings({ panel: { logoPanelVisible: next } });
+      },
+      toggleHistoryPanel: () => {
+        const next = !state.historyPanelVisible;
+        patch({ historyPanelVisible: next });
+        recordPanelVisibilityOverride(state.workspaceMode, 'history', next);
       },
       toggleDistractionFreeMode: () => {
         const next = !state.distractionFreeMode;

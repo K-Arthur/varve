@@ -302,6 +302,11 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Timeline Panel',
     category: 'View',
   },
+  toggleHistoryPanel: {
+    binding: { key: 'h', ctrl: true, alt: true },
+    label: 'Toggle History Panel',
+    category: 'View',
+  },
   toggleGraphEditor: {
     binding: { key: 'g' },
     label: 'Toggle Graph Editor',

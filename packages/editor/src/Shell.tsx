@@ -24,6 +24,7 @@ import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
 import { MissingFontController } from './components/FontBrowser/MissingFontController';
+import { HistoryPanel } from './components/HistoryPanel';
 import { ImageCompareOverlay } from './components/ImageCompareOverlay';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
@@ -58,6 +59,7 @@ import './components/Shell/shellStyles.css';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
 import { StateMachinePanel } from './components/StateMachinePanel';
+import { WorkspaceCustomizeDialog } from './components/WorkspaceCustomizeDialog';
 import { EditorProvider, setToastHandler, useEditor } from './context';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { LayersPanel } from './LayersPanel';
@@ -69,7 +71,6 @@ import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 import { useWorkspacePanelWidths } from './workspace/useWorkspacePanelWidths';
-import { WorkspaceCustomizeDialog } from './components/WorkspaceCustomizeDialog';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */
 export interface OpenFileRequest {
@@ -557,6 +558,13 @@ function ShellInner({
                 }}
                 getNodeName={(nodeId) => editor.state.document.nodes[nodeId]?.name}
               />
+            </ErrorBoundary>
+          </div>
+        )}
+        {editor.state.historyPanelVisible && !distractionFreeMode && (
+          <div className="editor__history-panel" data-panel="history" data-testid="history-panel">
+            <ErrorBoundary>
+              <HistoryPanel />
             </ErrorBoundary>
           </div>
         )}

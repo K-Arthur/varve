@@ -32,7 +32,7 @@ import {
   type SemanticChange,
 } from './diff';
 import { buildRevision } from './revisions';
-import { commitRevision, type HistoryStore, mintHistoryId } from './store';
+import { commitRevision, type HistoryStore } from './store';
 import type { RevisionRecord } from './types';
 
 export type MergeStatus = 'clean' | 'conflicted';
@@ -808,8 +808,24 @@ function unionKeys<T>(a: Map<string, T>, b: Map<string, T>): string[] {
 function addConflict(ctx: MergeContext, conflict: Omit<MergeConflict, 'conflictId'>): void {
   ctx.conflicts.push({
     ...conflict,
-    conflictId: mintHistoryId('cf'),
+    // Deterministic id: re-running the same three-way merge must produce
+    // the same conflict set (ADR-0034/0035 — resolution choices survive
+    // across a recomputed merge). The key is unique per change pair.
+    conflictId: conflictIdOf(conflict),
   });
+}
+
+/** Deterministic conflict id: kind + entity + property path. */
+function conflictIdOf(conflict: Omit<MergeConflict, 'conflictId'>): string {
+  const key = [
+    conflict.conflictKind,
+    conflict.entityId,
+    conflict.entityType,
+    conflict.propertyPath ?? '',
+  ]
+    .map((part) => part.replace(/[^A-Za-z0-9_-]/g, '_'))
+    .join('|');
+  return `cf-${key}`;
 }
 
 function byDepth(a: SemanticChange, b: SemanticChange): number {

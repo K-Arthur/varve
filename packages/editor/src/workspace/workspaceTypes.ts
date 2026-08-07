@@ -44,7 +44,8 @@ export type PanelId =
   | 'pagenav'
   | 'library'
   | 'codegen'
-  | 'logo';
+  | 'logo'
+  | 'history';
 
 export interface PanelConfig {
   /** Whether this panel is visible by default in this mode. */
@@ -261,6 +262,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
       logo: { visible: false, collapsed: false, order: 6 },
+      history: { visible: false, collapsed: false, order: 7 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -352,6 +354,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
       logo: { visible: false, collapsed: false, order: 6 },
+      history: { visible: false, collapsed: false, order: 7 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -444,6 +447,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
       logo: { visible: false, collapsed: false, order: 6 },
+      history: { visible: false, collapsed: false, order: 7 },
     },
     defaultTool: 'paint',
     floatingToolbar: true,
@@ -529,6 +533,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
       logo: { visible: false, collapsed: false, order: 6 },
+      history: { visible: false, collapsed: false, order: 7 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -625,6 +630,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       library: { visible: true, collapsed: false, order: 4 },
       codegen: { visible: true, collapsed: false, order: 5, preferredWidth: '100%' },
       logo: { visible: false, collapsed: false, order: 6 },
+      history: { visible: false, collapsed: false, order: 7 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -719,6 +725,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
       logo: { visible: true, collapsed: false, order: 6 },
+      history: { visible: false, collapsed: false, order: 7 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -807,6 +814,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
       logo: { visible: false, collapsed: false, order: 6 },
+      history: { visible: false, collapsed: false, order: 7 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
