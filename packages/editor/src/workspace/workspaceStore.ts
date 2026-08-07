@@ -21,8 +21,10 @@ import {
   getWorkspaceConfig,
   isValidWorkspaceConfig,
   migrateWorkspaceConfig,
+  type InspectorTabId,
   type PanelConfig,
   type PanelId,
+  type StatusSectionId,
   WORKSPACE_CONFIG_VERSION,
   type WorkspaceConfig,
   type WorkspaceMode,
@@ -100,8 +102,39 @@ function sanitizePreference(
       if (Object.keys(entry).length > 0) clean[panelId] = entry;
     }
   }
+
+  // Sanitize inspector tab overrides — only boolean visibility flips for known tabs
+  const baseTabIds = new Set(base ? getWorkspaceConfig(mode).inspectorTabs.map((t) => t.id) : []);
+  const tabRaw = pref.inspectorTabOverrides;
+  const cleanTabs: Partial<Record<InspectorTabId, boolean>> = {};
+  if (tabRaw && typeof tabRaw === 'object') {
+    for (const [tabId, val] of Object.entries(tabRaw)) {
+      if (baseTabIds.has(tabId as InspectorTabId) && typeof val === 'boolean') {
+        cleanTabs[tabId as InspectorTabId] = val;
+      }
+    }
+  }
+
+  // Sanitize status section overrides — only boolean visibility flips for known sections
+  const baseSectionIds = new Set(
+    base ? getWorkspaceConfig(mode).statusSections.map((s) => s.id) : [],
+  );
+  const sectionRaw = pref.statusSectionOverrides;
+  const cleanSections: Partial<Record<StatusSectionId, boolean>> = {};
+  if (sectionRaw && typeof sectionRaw === 'object') {
+    for (const [sectionId, val] of Object.entries(sectionRaw)) {
+      if (baseSectionIds.has(sectionId as StatusSectionId) && typeof val === 'boolean') {
+        cleanSections[sectionId as StatusSectionId] = val;
+      }
+    }
+  }
+
   return {
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
+    ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
+    ...(cleanSections && Object.keys(cleanSections).length > 0
+      ? { statusSectionOverrides: cleanSections }
+      : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
   };
@@ -335,9 +368,9 @@ export function getEffectivePanelConfig(
 /**
  * Effective workspace configuration = built-in config + user overrides.
  *
- * Only the panel layout participates in overrides today; every other field
- * is the built-in config, so the runtime honors the same shape everywhere
- * without duplicating merge logic per consumer.
+ * Panels, inspector tabs, and status sections each accept per-workspace
+ * user overrides. The merge is shallow per field — the built-in config
+ * provides the full shape; user overrides only flip visibility.
  */
 export function getEffectiveWorkspaceConfig(
   mode: WorkspaceMode,
@@ -345,21 +378,49 @@ export function getEffectiveWorkspaceConfig(
 ): WorkspaceConfig {
   const base = getWorkspaceConfig(mode);
   const modePrefs = prefs[mode];
-  if (!modePrefs?.panelOverrides || Object.keys(modePrefs.panelOverrides).length === 0) {
-    return base;
+  if (!modePrefs) return base;
+
+  let result = base;
+
+  // Panel overrides
+  if (modePrefs.panelOverrides && Object.keys(modePrefs.panelOverrides).length > 0) {
+    result = {
+      ...result,
+      panels: {
+        ...result.panels,
+        ...(Object.fromEntries(
+          Object.entries(modePrefs.panelOverrides).map(([id, ov]) => [
+            id,
+            { ...result.panels[id as PanelId], ...ov },
+          ]),
+        ) as Record<PanelId, PanelConfig>),
+      },
+    };
   }
-  return {
-    ...base,
-    panels: {
-      ...base.panels,
-      ...(Object.fromEntries(
-        Object.entries(modePrefs.panelOverrides).map(([id, ov]) => [
-          id,
-          { ...base.panels[id as PanelId], ...ov },
-        ]),
-      ) as Record<PanelId, PanelConfig>),
-    },
-  };
+
+  // Inspector tab overrides — flip visibility per tab id
+  if (modePrefs.inspectorTabOverrides && Object.keys(modePrefs.inspectorTabOverrides).length > 0) {
+    result = {
+      ...result,
+      inspectorTabs: result.inspectorTabs.map((tab) => {
+        const override = modePrefs.inspectorTabOverrides![tab.id as InspectorTabId];
+        return override !== undefined ? { ...tab, visible: override } : tab;
+      }),
+    };
+  }
+
+  // Status section overrides — flip visibility per section id
+  if (modePrefs.statusSectionOverrides && Object.keys(modePrefs.statusSectionOverrides).length > 0) {
+    result = {
+      ...result,
+      statusSections: result.statusSections.map((section) => {
+        const override = modePrefs.statusSectionOverrides![section.id as StatusSectionId];
+        return override !== undefined ? { ...section, visible: override } : section;
+      }),
+    };
+  }
+
+  return result;
 }
 
 /** Record a panel customization for a mode. */
@@ -374,6 +435,42 @@ export function setPanelOverride(
   const panelOverrides = { ...(modePrefs.panelOverrides ?? {}) };
   panelOverrides[panelId] = { ...(panelOverrides[panelId] ?? {}), ...override };
   modePrefs.panelOverrides = panelOverrides;
+  modePrefs.customized = true;
+  modePrefs.lastCustomized = Date.now();
+  updated[mode] = modePrefs;
+  return updated;
+}
+
+/** Record an inspector tab visibility override for a mode. */
+export function setInspectorTabOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  tabId: InspectorTabId,
+  visible: boolean,
+): WorkspacePreferences {
+  const updated = { ...prefs };
+  const modePrefs = { ...updated[mode] };
+  const tabOverrides = { ...(modePrefs.inspectorTabOverrides ?? {}) };
+  tabOverrides[tabId] = visible;
+  modePrefs.inspectorTabOverrides = tabOverrides;
+  modePrefs.customized = true;
+  modePrefs.lastCustomized = Date.now();
+  updated[mode] = modePrefs;
+  return updated;
+}
+
+/** Record a status section visibility override for a mode. */
+export function setStatusSectionOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  sectionId: StatusSectionId,
+  visible: boolean,
+): WorkspacePreferences {
+  const updated = { ...prefs };
+  const modePrefs = { ...updated[mode] };
+  const sectionOverrides = { ...(modePrefs.statusSectionOverrides ?? {}) };
+  sectionOverrides[sectionId] = visible;
+  modePrefs.statusSectionOverrides = sectionOverrides;
   modePrefs.customized = true;
   modePrefs.lastCustomized = Date.now();
   updated[mode] = modePrefs;

@@ -23,7 +23,9 @@ export {
   resetAllPreferences,
   resetModePreferences,
   saveWorkspacePreferences,
+  setInspectorTabOverride,
   setPanelOverride,
+  setStatusSectionOverride,
   subscribeWorkspacePreferences,
 } from './workspaceStore';
 export {
