@@ -81,7 +81,7 @@ export const TOOL_ICONS = {
   sam2Segment: 'Scan',
   lasso: 'LassoSelect',
   table: 'Table',
-  warp: 'Wand',
+  warp: 'Grid3x3',
 } as const satisfies Record<string, IconName>;
 
 /** Filled-style tool icons (design system refresh — replaces outline TOOL_ICONS). */
@@ -127,7 +127,7 @@ export const SOLID_TOOL_ICONS = {
   sam2Segment: 'MagnifyingGlass',
   lasso: 'SelectionForeground',
   table: 'Table',
-  warp: 'Wand',
+  warp: 'GridFour',
 } as const satisfies Record<string, SolidIconName>;
 
 /** General chrome icons. */
