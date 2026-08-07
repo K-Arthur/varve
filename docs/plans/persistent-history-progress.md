@@ -25,7 +25,7 @@ and Git program defined in ADRs 0017-0046. Current-state summary:
 | 14 | Review bundles | **Landed** | `c25b9d65`; `review` command: manifest.json + diff.json + summary.md + standalone accessible index.html (ADR-0042); pixel previews deferred (headless render follow-up) |
 | 15 | Collaboration integration | **Deferred by directive** | Out of scope for now (user directive 2026-08-05) |
 | 16 | Multimodal assistance | **Deferred by directive** | Out of scope for now (user directive 2026-08-05) |
-| 17 | Hardening | Partial | Validation passes (`invalid` flag on merge, `validateHistory`), fuzzing/a11y/RAM benchmarks pending |
+| 17 | Hardening | **Landed** | Fuzz properties (`properties.fuzz.test.ts`, 9 fast-check properties: canonicalize idempotence, diff(A,A) empty, merge fast paths, merge determinism, id uniqueness, input immutability); merge conflict matrix (`mergeMatrix.test.ts`, 20 cases incl. edit-vs-delete both directions, add-vs-add, rename, text-overlap + adopt-both, reorder, id-less array rewrites, geometry, node-type replacement semantics); fault injection (`faultInjection.test.ts`, 9 cases: corrupt tail/middle segments, missing snapshot, dangling heads, orphaned ops, recovery-never-incomplete); CLI smoke tests (exit code 2, unicode/space paths, textconv canonicality, review-bundle reproducibility); axe-core a11y scans on all three panel views (3/3 zero violations); perf benchmarks (`__benchmarks__/history.bench.ts`: hash/diff/merge at 100/1k/10k nodes) |
 
 ## Deferred by directive (2026-08-05)
 
