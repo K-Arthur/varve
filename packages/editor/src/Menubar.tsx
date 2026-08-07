@@ -1989,159 +1989,161 @@ export function Menubar({
 
   return (
     <div className="editor-menubar" data-testid="menubar">
-      <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
-        <button
-          type="button"
-          className="editor-menubar__home"
-          aria-label="Home"
-          onClick={() => onBackToHome?.()}
-        >
-          <VarveLogo size={16} />
-        </button>
-      </Tooltip>
-      <div
-        className="editor-menubar__left"
-        role="menubar"
-        aria-label="Application"
-        ref={menuRef}
-        onKeyDown={handleMenuKeyDown}
-      >
-        {menus.map((menu, i) => (
+      <div className="editor-menubar__side">
+        <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
           <button
-            key={menu.id}
-            ref={(el) => {
-              topLevelRefs.current[i] = el;
-            }}
-            role="menuitem"
-            className="editor-menubar__item"
-            aria-haspopup="true"
-            aria-expanded={openMenu === menu.id}
-            tabIndex={focusedIndex === i ? 0 : -1}
             type="button"
-            onClick={() => {
-              setOpenMenu(openMenu === menu.id ? null : menu.id);
-              setFocusedIndex(i);
-              setActiveItemIndex(0);
-            }}
-            onMouseEnter={() => {
-              if (openMenu && openMenu !== menu.id) {
-                setOpenMenu(menu.id);
+            className="editor-menubar__home"
+            aria-label="Home"
+            onClick={() => onBackToHome?.()}
+          >
+            <VarveLogo size={16} />
+          </button>
+        </Tooltip>
+        <div
+          className="editor-menubar__left"
+          role="menubar"
+          aria-label="Application"
+          ref={menuRef}
+          onKeyDown={handleMenuKeyDown}
+        >
+          {menus.map((menu, i) => (
+            <button
+              key={menu.id}
+              ref={(el) => {
+                topLevelRefs.current[i] = el;
+              }}
+              role="menuitem"
+              className="editor-menubar__item"
+              aria-haspopup="true"
+              aria-expanded={openMenu === menu.id}
+              tabIndex={focusedIndex === i ? 0 : -1}
+              type="button"
+              onClick={() => {
+                setOpenMenu(openMenu === menu.id ? null : menu.id);
+                setFocusedIndex(i);
+                setActiveItemIndex(0);
+              }}
+              onMouseEnter={() => {
+                if (openMenu && openMenu !== menu.id) {
+                  setOpenMenu(menu.id);
+                  setOpenSubmenu(null);
+                  setActiveItemIndex(0);
+                  setActiveSubmenuIndex(0);
+                }
+              }}
+            >
+              {menu.id}
+            </button>
+          ))}
+          {openMenu && openMenuIndex >= 0 && (
+            <FloatingPortal
+              anchorRef={openMenuAnchorRef}
+              open
+              onClose={() => {
+                setOpenMenu(null);
                 setOpenSubmenu(null);
                 setActiveItemIndex(0);
                 setActiveSubmenuIndex(0);
-              }
-            }}
-          >
-            {menu.id}
-          </button>
-        ))}
-        {openMenu && openMenuIndex >= 0 && (
-          <FloatingPortal
-            anchorRef={openMenuAnchorRef}
-            open
-            onClose={() => {
-              setOpenMenu(null);
-              setOpenSubmenu(null);
-              setActiveItemIndex(0);
-              setActiveSubmenuIndex(0);
-            }}
-            className="editor-menubar__menu"
-          >
-            <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
-              {menus[openMenuIndex]?.items.map((item, itemIdx) => {
-                if (item.label === '---') {
+              }}
+              className="editor-menubar__menu"
+            >
+              <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
+                {menus[openMenuIndex]?.items.map((item, itemIdx) => {
+                  if (item.label === '---') {
+                    return (
+                      <hr
+                        key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
+                        className="editor-menubar__menu-sep"
+                        tabIndex={-1}
+                      />
+                    );
+                  }
+                  const role = itemRole(item);
+                  const isChecked = itemAriaChecked(item, state);
+                  const isActive =
+                    (item.action?.startsWith('theme:') && currentTheme === item.action.slice(6)) ||
+                    isChecked;
+                  const hasSubmenu = !!item.items;
+                  const isSubmenuOpen = openSubmenu === itemIdx;
                   return (
-                    <hr
-                      key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
-                      className="editor-menubar__menu-sep"
-                      tabIndex={-1}
-                    />
-                  );
-                }
-                const role = itemRole(item);
-                const isChecked = itemAriaChecked(item, state);
-                const isActive =
-                  (item.action?.startsWith('theme:') && currentTheme === item.action.slice(6)) ||
-                  isChecked;
-                const hasSubmenu = !!item.items;
-                const isSubmenuOpen = openSubmenu === itemIdx;
-                return (
-                  <div
-                    key={item.label}
-                    role="none"
-                    className="editor-menubar__menu-item-wrapper"
-                    onMouseEnter={() => {
-                      if (hasSubmenu) {
-                        setOpenSubmenu(itemIdx);
-                        setActiveSubmenuIndex(0);
-                      }
-                    }}
-                  >
-                    {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
-                    <button
-                      role={hasSubmenu ? 'menuitem' : role}
-                      type="button"
-                      aria-haspopup={hasSubmenu ? true : undefined}
-                      aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
-                      aria-checked={
-                        !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
-                          ? isChecked
-                          : undefined
-                      }
-                      aria-keyshortcuts={item.ariaKeyshortcut}
-                      disabled={item.disabled && !hasSubmenu}
-                      tabIndex={activeItemIndex === itemIdx ? 0 : -1}
-                      className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
-                      onClick={() => {
+                    <div
+                      key={item.label}
+                      role="none"
+                      className="editor-menubar__menu-item-wrapper"
+                      onMouseEnter={() => {
                         if (hasSubmenu) {
-                          setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                          setOpenSubmenu(itemIdx);
                           setActiveSubmenuIndex(0);
-                        } else {
-                          handleAction(item.action ?? '');
                         }
                       }}
                     >
-                      <span className="editor-menubar__menu-label">{item.label}</span>
-                      {hasSubmenu && (
-                        <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
-                      )}
-                      {!hasSubmenu && item.shortcut && (
-                        <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
-                      )}
-                    </button>
-                    {hasSubmenu && isSubmenuOpen && item.items && (
-                      <MenubarSubmenu
-                        items={item.items}
-                        parentLabel={item.label}
-                        open
-                        activeSubmenuIndex={activeSubmenuIndex}
-                        anchorRef={dropdownMenuRef}
-                        submenuRef={submenuRef}
-                        currentTheme={currentTheme}
-                        state={state}
-                        onClose={() => {
-                          setOpenSubmenu(null);
-                          setActiveSubmenuIndex(0);
-                          // Return focus to the parent item when the submenu
-                          // had it (outside-click close).
-                          const active = document.activeElement;
-                          if (active && submenuRef.current?.contains(active)) {
-                            const parentItems =
-                              dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
-                                MENU_ITEM_SELECTOR,
-                              );
-                            parentItems?.[activeItemIndex]?.focus();
+                      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
+                      <button
+                        role={hasSubmenu ? 'menuitem' : role}
+                        type="button"
+                        aria-haspopup={hasSubmenu ? true : undefined}
+                        aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
+                        aria-checked={
+                          !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
+                            ? isChecked
+                            : undefined
+                        }
+                        aria-keyshortcuts={item.ariaKeyshortcut}
+                        disabled={item.disabled && !hasSubmenu}
+                        tabIndex={activeItemIndex === itemIdx ? 0 : -1}
+                        className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
+                        onClick={() => {
+                          if (hasSubmenu) {
+                            setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                            setActiveSubmenuIndex(0);
+                          } else {
+                            handleAction(item.action ?? '');
                           }
                         }}
-                        handleAction={handleAction}
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </FloatingPortal>
-        )}
+                      >
+                        <span className="editor-menubar__menu-label">{item.label}</span>
+                        {hasSubmenu && (
+                          <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
+                        )}
+                        {!hasSubmenu && item.shortcut && (
+                          <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
+                        )}
+                      </button>
+                      {hasSubmenu && isSubmenuOpen && item.items && (
+                        <MenubarSubmenu
+                          items={item.items}
+                          parentLabel={item.label}
+                          open
+                          activeSubmenuIndex={activeSubmenuIndex}
+                          anchorRef={dropdownMenuRef}
+                          submenuRef={submenuRef}
+                          currentTheme={currentTheme}
+                          state={state}
+                          onClose={() => {
+                            setOpenSubmenu(null);
+                            setActiveSubmenuIndex(0);
+                            // Return focus to the parent item when the submenu
+                            // had it (outside-click close).
+                            const active = document.activeElement;
+                            if (active && submenuRef.current?.contains(active)) {
+                              const parentItems =
+                                dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
+                                  MENU_ITEM_SELECTOR,
+                                );
+                              parentItems?.[activeItemIndex]?.focus();
+                            }
+                          }}
+                          handleAction={handleAction}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </FloatingPortal>
+          )}
+        </div>
       </div>
 
       {/* ── Center: Document name ── */}

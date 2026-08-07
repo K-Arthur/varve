@@ -175,12 +175,24 @@ if (!UPDATE) {
       const absPath = `${ROOT}${filePath}`;
       if (!existsSync(absPath)) continue;
 
-      // Rough check: count new branch additions in the diff
+      // Rough check: count new branch additions in the diff.
+      // Exclude reindent-only lines (same trimmed content appears in removed set)
+      // so that wrapping changes that legitimately re-indent a block don't
+      // produce false positives.
       const diff = execSync(`git diff --cached -- "${filePath}"`, { encoding: 'utf-8' });
-      const addedLines = diff.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++'));
-      const addedBranches = addedLines.filter(
-        (l) => /\b(if|else if|catch|case )\b/.test(l) || /\?[^:]*:/.test(l),
-      ).length;
+      const diffLines = diff.split('\n');
+      const removedContents = new Set(
+        diffLines
+          .filter((l) => l.startsWith('-') && !l.startsWith('---'))
+          .map((l) => l.slice(1).trim()),
+      );
+      const addedBranches = diffLines
+        .filter((l) => l.startsWith('+') && !l.startsWith('+++'))
+        .filter(
+          (l) =>
+            (/\b(if|else if|catch|case )\b/.test(l) || /\?[^:]*:/.test(l)) &&
+            !removedContents.has(l.slice(1).trim()),
+        ).length;
 
       if (addedBranches > 10) {
         errors.push(
