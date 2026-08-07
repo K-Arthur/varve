@@ -91,6 +91,7 @@ import { computeDirtyPruneDecision, rectsIntersectAny } from './canvas/dirtyQuer
 import {
   DirtyRegionRecorder,
   type PaintedSurfaceIdentity,
+  paintedSurfaceAfterFrame,
   type RedrawReason,
   resolveFullRedrawReason,
   resolveRedrawReason,
@@ -131,6 +132,7 @@ import {
   recordNodeWork,
   recordPruneScreenRects,
   recordSnapMetrics,
+  registerPaintedSurfaceInvalidator,
   registerRedrawCoordinator,
   resolveDirtyScreenRect,
   scheduleCanvasFrame,
@@ -713,6 +715,17 @@ export function CanvasArea({
   }, []);
 
   useEffect(() => subscribeToDevicePixelRatio(setDisplayDpr), []);
+
+  // Oracle seam: drop the painted-surface identity so the next frame is an
+  // authoritative full redraw of the *same* document and camera. The
+  // incremental-vs-full comparison depends on changing nothing else.
+  useEffect(() => {
+    registerPaintedSurfaceInvalidator(() => {
+      paintedSurfaceRef.current = null;
+      requestContentDrawRef.current?.('oracle-full-redraw', 'backing-store-recovery');
+    });
+    return () => registerPaintedSurfaceInvalidator(null);
+  }, []);
 
   useEffect(() => {
     const canvas = contentCanvasRef.current;
@@ -1886,6 +1899,11 @@ export function CanvasArea({
       );
       compositorFrameOpen = frameBackend !== null;
 
+      // Whether this frame's pixels are an authoritative render of
+      // `currentSurface`. Cleared by any path that paints an approximation
+      // (today: a reprojected worker bitmap), so the painted-surface identity
+      // is only recorded when retained pixels are genuinely reusable.
+      let surfaceIsAuthoritative = true;
       const dirtyRect = dirtyRectRef.current;
       const usePartialRedraw =
         profile.enablePartialRedraw &&
@@ -2723,6 +2741,14 @@ export function CanvasArea({
                 delta,
                 'normal',
               );
+              // This surface now shows a RESAMPLED older frame, not an
+              // authoritative render of the current camera: regions the camera
+              // just exposed contain stretched edge content, not scene content.
+              // Recording it as a matching painted surface would let the next
+              // frame take the partial path and composite fresh dirty rects
+              // over non-authoritative pixels — the stale-pixel failure mode
+              // 9d47771b fixed for the main-thread path, on the worker path.
+              surfaceIsAuthoritative = false;
             } else {
               compositorRef.current?.drawVectorItems(ir);
             }
@@ -2790,7 +2816,13 @@ export function CanvasArea({
       // The surface now shows this camera: a full redraw repainted everything,
       // and a partial redraw repainted the dirty rects over pixels that were
       // already valid for this same camera (surfaceMatch === 'match').
-      paintedSurfaceRef.current = currentSurface;
+      //
+      // Unless this frame only approximated it. A reprojected worker bitmap is
+      // a resampled older frame; claiming it as painted-at-this-camera would
+      // authorise a partial redraw over pixels that were never rendered for
+      // this camera. Leaving the identity null costs one full redraw and keeps
+      // the incremental-equals-full invariant intact.
+      paintedSurfaceRef.current = paintedSurfaceAfterFrame(currentSurface, surfaceIsAuthoritative);
       prevCameraForRedrawRef.current = {
         zoom: s.zoom,
         pan: s.pan,
