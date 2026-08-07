@@ -83,6 +83,7 @@ export function registerEditorActions(
     ['clearGuides', 'Clear Guides', 'view'],
     ['resetWorkspace', 'Reset Workspace', 'view'],
     ['resetAllWorkspaces', 'Reset All Workspaces', 'view'],
+    ['customizeWorkspace', 'Customize Workspace', 'view'],
     ['batchBgRemove', 'Batch Background Removal', 'object'],
     ['extractPalette', 'Extract Color Palette', 'object'],
     ['auditSelection', 'Audit Selection', 'object'],

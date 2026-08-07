@@ -3876,3 +3876,49 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-muted);
   line-height: 1.5;
 }
+
+/* ── Workspace customize dialog ── */
+.workspace-customize {
+  padding: var(--space-4);
+  max-width: 400px;
+}
+.workspace-customize__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-1);
+}
+.workspace-customize__description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+.workspace-customize__section {
+  margin-bottom: var(--space-4);
+}
+.workspace-customize__section h3 {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-2);
+}
+.workspace-customize__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.workspace-customize__toggle input[type="checkbox"] {
+  accent-color: var(--color-interactive-default);
+}
+.workspace-customize__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+}
