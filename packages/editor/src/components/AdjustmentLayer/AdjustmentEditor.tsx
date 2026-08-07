@@ -1,6 +1,7 @@
 import type { Color, CurvePoint } from '@varve/engine';
 import {
   COLOR_HALFTONE_PRESETS,
+  HALFTONE_PRESETS,
   LUT_INPUT_SPACE_LABELS,
   parseLutFile,
   serializeLutForDocument,
@@ -1022,8 +1023,43 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     }
   };
 
+  const currentPresetId = useMemo(() => {
+    const match = HALFTONE_PRESETS.find(
+      (p) =>
+        p.params.pattern === adj.pattern &&
+        p.params.frequency === adj.frequency &&
+        p.params.angle === adj.angle &&
+        p.params.dotShape === adj.dotShape &&
+        p.params.channel === adj.channel &&
+        p.params.method === adj.method,
+    );
+    return match?.id ?? '';
+  }, [adj]);
+
+  const handlePresetSelect = (value: string) => {
+    const preset = HALFTONE_PRESETS.find((p) => p.id === value);
+    if (preset) {
+      const { pattern, ...rest } = preset.params;
+      onChange({ pattern, ...rest } as unknown as Partial<Adjustment>);
+    }
+  };
+
+  const fgColor = adj.foregroundColor ?? [0, 0, 0];
+  const bgColor = adj.backgroundColor ?? [255, 255, 255];
+  const isMonoChannel = adj.channel !== 'cmyk';
+
   return (
     <div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Preset</span>
+        <Select
+          label="Halftone preset"
+          value={currentPresetId}
+          placeholder="Custom"
+          options={HALFTONE_PRESETS.map((p) => ({ value: p.id, label: p.name }))}
+          onChange={handlePresetSelect}
+        />
+      </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Method</span>
         <Select
@@ -1166,6 +1202,50 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           aria-label="Dot edge softness"
         />
       </div>
+      <div className="adj-editor__row">
+        <label className="adj-editor__label" htmlFor="halftone-invert">
+          <input
+            id="halftone-invert"
+            type="checkbox"
+            checked={adj.invert ?? false}
+            onChange={(e) =>
+              onChange({ invert: e.target.checked } as unknown as Partial<Adjustment>)
+            }
+            aria-label="Invert halftone output"
+          />
+          Invert
+        </label>
+      </div>
+      {isMonoChannel && (
+        <>
+          <div className="adj-editor__row">
+            <span className="adj-editor__label">Ink Color</span>
+            <ColorPicker
+              value={rgbFromTuple(fgColor as [number, number, number])}
+              onChange={(c: ManagedColor) => {
+                const rgb = managedColorToRgba(c);
+                onChange({
+                  foregroundColor: [rgb.r, rgb.g, rgb.b],
+                } as unknown as Partial<Adjustment>);
+              }}
+              label="Foreground (ink) color"
+            />
+          </div>
+          <div className="adj-editor__row">
+            <span className="adj-editor__label">Paper Color</span>
+            <ColorPicker
+              value={rgbFromTuple(bgColor as [number, number, number])}
+              onChange={(c: ManagedColor) => {
+                const rgb = managedColorToRgba(c);
+                onChange({
+                  backgroundColor: [rgb.r, rgb.g, rgb.b],
+                } as unknown as Partial<Adjustment>);
+              }}
+              label="Background (paper) color"
+            />
+          </div>
+        </>
+      )}
       {adj.channel === 'cmyk' && (
         <div className="adj-editor__row">
           <span
