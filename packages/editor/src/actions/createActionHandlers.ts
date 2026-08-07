@@ -22,6 +22,7 @@ export interface ActionHandlerCallbacks {
   onBatchBgRemove?: () => void;
   onReopenLast?: () => void;
   onFindReplace?: () => void;
+  onCustomizeWorkspace?: () => void;
 }
 
 export function createActionHandlers(
@@ -628,6 +629,9 @@ export function createActionHandlers(
     },
     findReplace: () => {
       cb.onFindReplace?.();
+    },
+    customizeWorkspace: () => {
+      cb.onCustomizeWorkspace?.();
     },
 
     // ── Other ──
