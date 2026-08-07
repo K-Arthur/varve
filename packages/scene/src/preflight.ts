@@ -67,6 +67,9 @@ export function runCombinedPreflight(
   const requiredColorMode = doc.colorConfig?.mode === 'cmyk' ? 'cmyk' : undefined;
   const fontsAvailable = !!options.availableFonts && options.availableFonts.size > 0;
 
+  // v2.18 (ADR-0159): stories are authoritative for migrated documents;
+  // legacy chains remain readable for pre-2.18 documents.
+  const stories = doc.stories;
   const textChains = doc.textChains as Record<string, import('./typography').TextChain> | undefined;
   const chains = textChains
     ? new Map(Object.entries(textChains).filter((entry) => !!entry[1]))
@@ -76,6 +79,7 @@ export function runCombinedPreflight(
   const typographyResult = runTypographyPreflight(doc, {
     availableFonts: options.availableFonts,
     chains,
+    stories,
   });
 
   const issues: CombinedPreflightIssue[] = [

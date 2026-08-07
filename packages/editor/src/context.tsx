@@ -160,7 +160,7 @@ import {
   createSelectionSet as createSelectionSetDoc,
   createSpotLibrary as createSpotLibraryDoc,
   createStateMachine,
-  createTextChain as createTextChainDoc,
+  createStory as createStoryDoc,
   createVariableStore,
   createVariant as createVariantDoc,
   type Document,
@@ -201,6 +201,7 @@ import {
   isContainer,
   isImageShape,
   isPageOnLeftSide as isPageOnLeftSideDoc,
+  linkFrame as linkFrameDoc,
   type MaskType,
   makeAdjustmentNode,
   makeFrameNode,
@@ -212,6 +213,8 @@ import {
   moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
+  pageBoundsInWorld,
+  pasteboardBounds,
   pasteGuides as pasteGuidesDoc,
   promoteToRichText as promoteToRichTextOp,
   pushMasterChanges as pushMasterChangesDoc,
@@ -260,11 +263,6 @@ import {
   setLiveTraceResolved as setLiveTraceResolvedDoc,
   setMaskDensity as setMaskDensityDoc,
   setMaskFeather as setMaskFeatherDoc,
-  setPagePlacement as setPagePlacementDoc,
-  setPageSize as setPageSizeDoc,
-  spreadBoundsInWorld,
-  pageBoundsInWorld,
-  pasteboardBounds,
   setMaskFillRule as setMaskFillRuleDoc,
   setMaskHideSource as setMaskHideSourceDoc,
   setMaskInverted as setMaskInvertedDoc,
@@ -274,6 +272,8 @@ import {
   setMaskVectorPath as setMaskVectorPathDoc,
   setMaskVisible as setMaskVisibleDoc,
   setMasterAppliesTo as setMasterAppliesToDoc,
+  setPagePlacement as setPagePlacementDoc,
+  setPageSize as setPageSizeDoc,
   setPropertyOverride as setPropertyOverrideDoc,
   setSMStateEntry,
   setSMTransitionCondition,
@@ -284,6 +284,7 @@ import {
   setVariantForInstance as setVariantForInstanceDoc,
   shapeHeight,
   shapeWidth,
+  spreadBoundsInWorld,
   swapInstance as swapInstanceDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
@@ -2716,9 +2717,19 @@ export function EditorProvider({
   // Typography: Text chain operations
   const createTextChain = useCallback(
     (name: string, frameIds: NodeId[]) => {
+      // v2.18 (ADR-0159): chains are created as authoritative stories —
+      // the first frame's rich text seeds the story, and every frame is
+      // linked into its thread.
       updateDoc((doc) => {
-        const { doc: updatedDoc } = createTextChainDoc(doc, name, frameIds);
-        return updatedDoc;
+        const firstFrame = doc.nodes[frameIds[0] ?? ''];
+        const content =
+          firstFrame && firstFrame.kind === 'text' && firstFrame.richText
+            ? firstFrame.richText
+            : { paragraphs: [] as import('@varve/scene').Paragraph[] };
+        const { story, doc: withStory } = createStoryDoc(doc, { name, content });
+        let d = withStory;
+        for (const fid of frameIds) d = linkFrameDoc(d, story.id, fid);
+        return d;
       });
     },
     [updateDoc],

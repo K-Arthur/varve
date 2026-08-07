@@ -217,21 +217,27 @@ export function runPrintPreflight(
     }
   }
 
-  // ── Text chain checks ─────────────────────────────────────────────────
+  // ── Text chain/story checks (v2.18 stories authoritative) ─────────────
   const textChains = doc.textChains as Record<string, import('./typography').TextChain> | undefined;
-  if (opts.checkFonts && textChains) {
+  const chainFrameIds: NodeId[] = [];
+  if (textChains) {
     for (const entry of Object.entries(textChains)) {
       const chain = entry[1];
-      if (!chain) continue;
-      for (const frameId of chain.frameIds) {
-        if (!doc.nodes[frameId]) {
-          issues.push({
-            severity: 'error',
-            category: 'font',
-            message: `Text chain references missing frame ${frameId}`,
-            nodeId: frameId,
-          });
-        }
+      if (chain) chainFrameIds.push(...chain.frameIds);
+    }
+  }
+  for (const story of Object.values(doc.stories ?? {})) {
+    if (story) chainFrameIds.push(...story.thread);
+  }
+  if (opts.checkFonts) {
+    for (const frameId of chainFrameIds) {
+      if (!doc.nodes[frameId]) {
+        issues.push({
+          severity: 'error',
+          category: 'font',
+          message: `Text chain/story references missing frame ${frameId}`,
+          nodeId: frameId,
+        });
       }
     }
   }

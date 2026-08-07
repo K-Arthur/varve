@@ -111,6 +111,7 @@ export * from './state-machine';
 export * from './state-machine-runtime';
 export * from './state-machine-types';
 export * from './state-machine-validation';
+export * from './storyOps';
 export * from './styles';
 export * from './suppressions';
 export * from './swatches';
