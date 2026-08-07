@@ -70,8 +70,11 @@ import { nodeLocalBounds } from './scene/world';
 import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
-import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
-import { useWorkspacePanelWidths } from './workspace/useWorkspacePanelWidths';
+import {
+  useDetachedPanels,
+  useEffectiveWorkspaceConfig,
+  useWorkspacePanelWidths,
+} from './workspace/shellHooks';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */
 export interface OpenFileRequest {
@@ -114,6 +117,7 @@ function ShellInner({
 }) {
   const editor = useEditor();
   const editorHelp = useEditorHelp(editor.state.tool);
+  const { isDetached } = useDetachedPanels(editor);
   const { paletteOpen, closePalette, openPalette, quickActionsOpen, setQuickActionsOpen } =
     useShortcuts(editor, onBackToHome, active, {
       onOpenContextualHelp: editorHelp.openContextualHelp,
@@ -415,7 +419,7 @@ function ShellInner({
               <MasterPanel />
               <PagesPanel />
               <SpreadSettings />
-              <LayersPanel dndRef={layersDndRef} />
+              {!isDetached('layers') && <LayersPanel dndRef={layersDndRef} />}
             </ErrorBoundary>
             <PanelResizeHandle
               side="layers"
@@ -432,9 +436,7 @@ function ShellInner({
             data-collapsed={!rightPanelVisible || undefined}
             {...(!rightPanelVisible ? { inert: true } : {})}
           >
-            <ErrorBoundary>
-              <PropertiesPanel />
-            </ErrorBoundary>
+            <ErrorBoundary>{!isDetached('inspector') && <PropertiesPanel />}</ErrorBoundary>
             <PanelResizeHandle
               side="inspector"
               width={widths.inspector}
@@ -442,7 +444,7 @@ function ShellInner({
             />
           </div>
         )}
-        {libraryPanelVisible && !distractionFreeMode && (
+        {libraryPanelVisible && !distractionFreeMode && !isDetached('library') && (
           <div className="editor__library-panel" data-panel="library">
             <ResourcesPanel
               doc={editor.state.document}
@@ -451,17 +453,17 @@ function ShellInner({
             />
           </div>
         )}
-        {codegenPanelVisible && !distractionFreeMode && (
+        {codegenPanelVisible && !distractionFreeMode && !isDetached('codegen') && (
           <div className="editor__codegen-panel" data-panel="codegen">
             <CodePanel doc={editor.state.document} selection={editor.selectedNodes()} />
           </div>
         )}
-        {editor.state.logoPanelVisible && !distractionFreeMode && (
+        {editor.state.logoPanelVisible && !distractionFreeMode && !isDetached('logo') && (
           <div className="editor__logo-panel" data-panel="logo" data-testid="logo-panel">
             <LogoPanel />
           </div>
         )}
-        {editor.state.timelinePanelVisible && !distractionFreeMode && (
+        {editor.state.timelinePanelVisible && !distractionFreeMode && !isDetached('timeline') && (
           <div className="editor__timeline-panel" data-panel="timeline">
             <ErrorBoundary>
               <TimelinePanel
