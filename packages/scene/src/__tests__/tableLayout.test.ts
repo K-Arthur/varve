@@ -10,6 +10,7 @@ import {
   mergeCells,
   removeColumns,
   setAppearance,
+  setCellSceneContent,
   setCellText,
   setColumnHidden,
   setColumnSizing,
@@ -17,6 +18,7 @@ import {
   setFrozenRows,
   setHeaderRows,
   setRowSizing,
+  tableContentNodeIds,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeTableLayout, TABLE_LAYOUT_MIN_TRACK, type TableLayoutResult } from '../tableLayout';
@@ -181,6 +183,52 @@ describe('spans', () => {
       expect(cell.h).toBeGreaterThanOrEqual(0);
       expect(Number.isFinite(cell.x + cell.y + cell.w + cell.h)).toBe(true);
     }
+  });
+});
+
+describe('scene content cells', () => {
+  function contentModelWithScene(): TableModel {
+    let model = model4x4();
+    model = setColumnSizing(model, model.columnOrder[0]!, { kind: 'content' });
+    const firstCell = Object.keys(model.cells)[0]!;
+    model = setCellSceneContent(model, firstCell, 'img-1');
+    return model;
+  }
+
+  it('content tracks measure the referenced node via measureContent', () => {
+    const model = contentModelWithScene();
+    const layout = computeTableLayout(model, 480, {
+      measureContent: (id) => (id === 'img-1' ? { w: 260, h: 180 } : undefined),
+    });
+    const cell = cellRect(layout, 0, 0);
+    expect(cell.w).toBeGreaterThanOrEqual(260);
+    expect(cell.h).toBeGreaterThanOrEqual(180);
+  });
+
+  it('falls back to a conservative default without a measurer', () => {
+    const model = contentModelWithScene();
+    const layout = computeTableLayout(model, 480);
+    const cell = cellRect(layout, 0, 0);
+    // Default 120x32 + padding; never collapses to the track minimum alone.
+    expect(cell.w).toBeGreaterThan(120);
+    expect(cell.h).toBeGreaterThan(32);
+  });
+
+  it('unknown content node ids do not throw', () => {
+    let model = model4x4();
+    model = setColumnSizing(model, model.columnOrder[0]!, { kind: 'content' });
+    const firstCell = Object.keys(model.cells)[0]!;
+    model = setCellSceneContent(model, firstCell, 'missing-node');
+    expect(() => computeTableLayout(model, 480)).not.toThrow();
+  });
+
+  it('tableContentNodeIds collects scene references', () => {
+    let model = model4x4();
+    const cells = Object.keys(model.cells);
+    model = setCellSceneContent(model, cells[0]!, 'a');
+    model = setCellSceneContent(model, cells[5]!, 'b');
+    const ids = tableContentNodeIds(model);
+    expect(ids.sort()).toEqual(['a', 'b']);
   });
 });
 

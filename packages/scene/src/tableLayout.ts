@@ -110,11 +110,28 @@ function wrappedHeight(text: string, availWidth: number, fontSize: number): numb
 }
 
 /**
+ * Options for deterministic table layout. `measureContent` lets the host
+ * supply intrinsic sizes for rich scene-content cells (images, components);
+ * when absent, scene cells contribute a conservative default so content
+ * tracks never collapse.
+ */
+export interface TableLayoutOptions {
+  measureContent?: (nodeId: string) => { w: number; h: number } | undefined;
+}
+
+/** Conservative intrinsic size used when no measurer is supplied. */
+const SCENE_CONTENT_DEFAULT = { w: 120, h: 32 };
+
+/**
  * Compute the deterministic layout for a table model at the given width.
  * `width` is the layout target (table node width). When `width` is not
  * finite, fraction tracks fall back to content sizing.
  */
-export function computeTableLayout(table: TableModel, width: number): TableLayoutResult {
+export function computeTableLayout(
+  table: TableModel,
+  width: number,
+  options: TableLayoutOptions = {},
+): TableLayoutResult {
   const availW = finite(width, 0);
   const rule = activeResponsiveRule(table.responsive.rules, availW);
   const density = rule?.density ?? table.appearance.density;
@@ -217,7 +234,16 @@ export function computeTableLayout(table: TableModel, width: number): TableLayou
 
   // ── Pass 1: column widths ─────────────────────────────────────────────────
   const fontSize = TABLE_CELL_FONT_SIZE;
+  const sceneSize = (cell: PlacedCell): { w: number; h: number } => {
+    if (cell.content.kind !== 'scene') return { w: 0, h: 0 };
+    const measured = options.measureContent?.(cell.content.nodeId);
+    if (measured && Number.isFinite(measured.w) && Number.isFinite(measured.h)) {
+      return { w: Math.max(TABLE_LAYOUT_MIN_TRACK, measured.w), h: Math.max(0, measured.h) };
+    }
+    return SCENE_CONTENT_DEFAULT;
+  };
   const measureCellWidth = (cell: PlacedCell): number => {
+    if (cell.content.kind === 'scene') return sceneSize(cell).w + cellPadding * 2;
     if (cell.content.kind !== 'text') return 0;
     const text = cell.content.text;
     if (text.length > TABLE_MAX_TEXT_LENGTH) return TABLE_LAYOUT_MIN_TRACK;
@@ -371,6 +397,9 @@ export function computeTableLayout(table: TableModel, width: number): TableLayou
   }
 
   const measureCellHeight = (cell: PlacedCell, atWidth: number): number => {
+    if (cell.content.kind === 'scene') {
+      return sceneSize(cell).h + cellPadding * 2;
+    }
     if (cell.content.kind !== 'text') return 0;
     const text = cell.content.text;
     if (text.length > TABLE_MAX_TEXT_LENGTH) return fontSize * TABLE_DEFAULT_LINE_HEIGHT;

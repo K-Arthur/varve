@@ -5,9 +5,12 @@
 
 import type { TableNode } from '@varve/scene';
 import {
+  makeImageNode,
   makeTableNode,
   mergeCells,
   setAppearance,
+  setCellSceneContent,
+  setCellStyle,
   setCellText,
   setColumnSizing,
   setDensity,
@@ -98,6 +101,91 @@ describe('compileTableToEngineNode', () => {
     // First body row (row 1) is not striped; the next body row is.
     expect(row1Cell.fill).toEqual(node.table.appearance.bodyFill);
     expect(row2Cell.fill).toEqual(node.table.appearance.alternateFill);
+  });
+
+  it('emits a per-cell border when the style sets border color or width', () => {
+    let node = table4x4();
+    const cellId = Object.keys(node.table.cells)[0]!;
+    node = {
+      ...node,
+      table: setCellStyle(node.table, cellId, {
+        borderColor: { space: 'rgb', r: 214, g: 69, b: 69, a: 255 },
+        borderWidth: 3,
+      }),
+    };
+    const engineNode = compileTableToEngineNode(node, { width: 480, height: 240 });
+    const shape = engineNode.shape;
+    if (shape?.kind !== 'table') throw new Error('expected table shape');
+    const styled = shape.cells.find((c) => c.columnIdx === 0 && c.rowIdx === 0);
+    expect(styled?.border).toBeDefined();
+    expect(styled?.border?.width).toBe(3);
+    expect(styled?.border?.color).toEqual({
+      space: 'rgb',
+      r: 214,
+      g: 69,
+      b: 69,
+      a: 255,
+    });
+    // Cells without a style border carry no border override.
+    const plain = shape.cells.find((c) => c.columnIdx === 1 && c.rowIdx === 0);
+    expect(plain?.border).toBeUndefined();
+  });
+
+  it('compiles rich scene content into the cell when document nodes are given', () => {
+    let node = table4x4();
+    const cellId = Object.keys(node.table.cells)[0]!;
+    node = { ...node, table: setCellSceneContent(node.table, cellId, 'img-1') };
+    const imageNode = makeImageNode('img-1', {
+      w: 200,
+      h: 120,
+      src: 'data:image/png;base64,AAAA',
+    });
+    const nodes = { 'img-1': imageNode };
+    const engineNode = compileTableToEngineNode(node, {
+      width: 480,
+      height: 240,
+      nodes,
+      toEngineNode: (n) =>
+        ({
+          id: n.id,
+          name: n.name ?? '',
+          kind: 'image',
+          fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+          transform: [1, 0, 0, 1, 0, 0],
+          opacity: 1,
+          blendMode: 'normal',
+          rotation: 0,
+          strokes: [],
+          effects: [],
+          shape: {
+            kind: 'image',
+            src: (n as { src?: string }).src ?? '',
+            x: 0,
+            y: 0,
+            w: 200,
+            h: 120,
+          },
+        }) as never,
+    });
+    const shape = engineNode.shape;
+    if (shape?.kind !== 'table') throw new Error('expected table shape');
+    const cell = shape.cells.find((c) => c.columnIdx === 0 && c.rowIdx === 0);
+    expect(cell?.content).toBeDefined();
+    expect(cell?.content?.id).toBe('img-1');
+    // Content is anchored at the padded cell origin (cell-local space).
+    expect(cell?.content?.transform[4]).toBe(8);
+    expect(cell?.content?.transform[5]).toBe(8);
+  });
+
+  it('renders scene-content cells as empty when document nodes are absent', () => {
+    let node = table4x4();
+    const cellId = Object.keys(node.table.cells)[0]!;
+    node = { ...node, table: setCellSceneContent(node.table, cellId, 'img-1') };
+    const engineNode = compileTableToEngineNode(node, { width: 480, height: 240 });
+    const shape = engineNode.shape;
+    if (shape?.kind !== 'table') throw new Error('expected table shape');
+    const cell = shape.cells.find((c) => c.columnIdx === 0 && c.rowIdx === 0);
+    expect(cell?.content).toBeUndefined();
   });
 
   it('wraps long text into lines at compile time', () => {

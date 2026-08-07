@@ -37,7 +37,6 @@ import { MeshWarpOverlay } from './MeshWarpOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
-import { PagePrintOverlays } from './PagePrintOverlays';
 import { PageToolOverlay } from './PageToolOverlay';
 import { PrintOverlays } from './PrintOverlays';
 import { Ruler } from './Ruler/Ruler';
