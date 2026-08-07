@@ -40,8 +40,6 @@ export interface CapturedPanelDomState {
   extra?: Record<string, unknown>;
 }
 
-const _PANEL_ROOT_SELECTOR = '[data-panel-root]';
-
 export function capturePanelDomState(panelTypeId: string): CapturedPanelDomState {
   const root = document.querySelector(`[data-panel-root="${panelTypeId}"]`);
   if (!root) return {};
@@ -66,7 +64,9 @@ export function capturePanelDomState(panelTypeId: string): CapturedPanelDomState
 
   const expanded = root.querySelectorAll('[data-panel-expanded="true"]');
   if (expanded.length > 0) {
-    state.expandedNodeIds = [...expanded].map((el) => el.dataset.nodeId ?? '').filter(Boolean);
+    state.expandedNodeIds = [...expanded]
+      .map((el) => (el instanceof HTMLElement ? el.dataset.nodeId : undefined) ?? '')
+      .filter(Boolean);
   }
 
   const extraEl =

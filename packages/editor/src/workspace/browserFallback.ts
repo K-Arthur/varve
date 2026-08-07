@@ -175,16 +175,6 @@ export function computeGridRegions(
     floating: { area: 'floating', x: centerX + 40, y: centerY + 40, width: 320, height: 400 },
   };
 
-  const _rows = hasBottom ? `1fr ${bottomHeight}px` : '1fr';
-  const _cols =
-    hasLeft && hasRight
-      ? `${leftWidth}px 1fr ${rightWidth}px`
-      : hasLeft
-        ? `${leftWidth}px 1fr`
-        : hasRight
-          ? `1fr ${rightWidth}px`
-          : '1fr';
-
   const template = `"${hasLeft ? 'left ' : ''}center ${hasRight ? 'right' : ''}" ${
     hasBottom ? `/ "bottom"` : ''
   }`.trim();
@@ -281,7 +271,7 @@ export function browserToLogicalLayout(
     });
     root =
       leftNodes.length === 1
-        ? leftNodes[0]
+        ? leftNodes[0]!
         : {
             kind: 'tab-group',
             id: `dn-tg-left-${dockIndex++}`,
@@ -306,7 +296,7 @@ export function browserToLogicalLayout(
     });
     const rightNode =
       rightNodes.length === 1
-        ? rightNodes[0]
+        ? rightNodes[0]!
         : {
             kind: 'tab-group' as const,
             id: `dn-tg-right-${dockIndex++}`,
@@ -339,7 +329,7 @@ export function browserToLogicalLayout(
     });
     const bottomNode =
       bottomNodes.length === 1
-        ? bottomNodes[0]
+        ? bottomNodes[0]!
         : {
             kind: 'tab-group' as const,
             id: `dn-tg-bottom-${dockIndex++}`,

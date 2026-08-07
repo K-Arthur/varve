@@ -174,20 +174,20 @@ export interface AuxiliaryShellProps {
   windowInfo: AuxiliaryWindowInfo;
 }
 
-function AuxiliaryShellInner({ windowInfo }: AuxiliaryShellProps) {
+export function AuxiliaryShell({ windowInfo }: AuxiliaryShellProps) {
   const [error, setError] = useState<string | null>(null);
   const [needsRecovery, setNeedsRecovery] = useState(false);
   const { state, connected } = useAuxiliarySession();
 
   // Register with session broker on mount
   useEffect(() => {
-    const handlers = (window as Record<string, unknown>).__auxiliarySessionHandlers as
+    const handlers = (window as unknown as Record<string, unknown>).__auxiliarySessionHandlers as
       | { onDisconnect?: () => void; onReload?: () => void }
       | undefined;
 
     const handleBeforeUnload = () => {
       // Notify primary window we're closing
-      const w = window as Record<string, unknown>;
+      const w = window as unknown as Record<string, unknown>;
       const send = w.__sendToPrimary as ((eventId: string, payload: unknown) => void) | undefined;
       send?.('window-close', { kind: 'window-close', windowId: windowInfo.windowId });
     };
@@ -259,7 +259,7 @@ export function AuxiliaryRoot({ windowInfo: overrideInfo }: AuxiliaryRootProps =
 
   return (
     <AuxiliarySessionProvider>
-      <AuxiliaryShellInner windowInfo={info} />
+      <AuxiliaryShell windowInfo={info} />
     </AuxiliarySessionProvider>
   );
 }
@@ -287,7 +287,6 @@ const styles: Record<string, CSSProperties> = {
     padding: '0 12px',
     background: 'var(--color-surface-elevated, #f5f5f5)',
     borderBottom: '1px solid var(--color-border, #e0e0e0)',
-    WebkitAppRegion: 'drag' as unknown as string,
     userSelect: 'none',
     flexShrink: 0,
   },

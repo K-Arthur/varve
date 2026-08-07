@@ -164,7 +164,7 @@ export function AuxiliarySessionProvider({
 
   // Expose handlers for the transport layer to call
   useEffect(() => {
-    const w = window as Record<string, unknown>;
+    const w = window as unknown as Record<string, unknown>;
     w.__auxiliarySessionHandlers = {
       onPatch: handlePatch,
       onSnapshot: handleSnapshot,
