@@ -52,6 +52,7 @@ export interface PanelCapabilities {
 
 /** Context provided to a panel during a transfer transaction (ADR-0029). */
 export interface PanelTransferContext {
+  panelTypeId: PanelTypeId;
   panelInstanceId: string;
   originHostId: string;
   destinationHostId: string;
