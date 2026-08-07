@@ -4,10 +4,9 @@
 
 /* ── Theme enforcement ────────────────────────────────────────────────
  * The Dialog uses <dialog showModal()> which renders in the top layer.
- * The theme attribute is set via useEffect (after first paint), so the
- * dialog can flash light before dark kicks in. These rules force the
- * correct colors on the dialog container AND override child tokens so
- * Select, filter, and input elements always match the active theme. */
+ * The theme attribute is now set synchronously in index.html before
+ * React mounts, so tokens resolve correctly from the first paint.
+ * These rules ensure the dialog container inherits the right colors. */
 
 .varve-dialog:has(.icon-browser) {
   background: var(--elevation-surface-default);
@@ -32,31 +31,7 @@
   color: var(--color-text-primary);
 }
 
-/* Force dark-theme token resolution on the icon browser so child
- * components (Select, input, filter pills) inherit correct colors
- * even if the dialog rendered before the theme attribute was applied. */
 .icon-browser {
-  --color-surface-raised: oklch(0.22 0.02 263);
-  --color-surface-sunken: oklch(0.14 0.012 260);
-  --color-surface-hover: oklch(0.22 0.02 263);
-  --color-text-primary: oklch(0.95 0.005 258);
-  --color-text-secondary: oklch(0.72 0 0);
-  --color-text-muted: oklch(0.55 0 0);
-  --color-text-on-accent: oklch(0.98 0 0);
-  --color-border-subtle: oklch(0.3 0 0);
-  --color-border-strong: oklch(0.45 0 0);
-  --color-border-focus: oklch(0.65 0.12 180);
-  --color-interactive-default: oklch(0.72 0.15 175);
-  --color-interactive-hover: oklch(0.78 0.15 175);
-  --color-interactive-focus-ring: oklch(0.72 0.15 175);
-  --color-feedback-danger: oklch(0.65 0.2 25);
-  --color-feedback-warning: oklch(0.75 0.15 75);
-  --color-feedback-success: oklch(0.7 0.17 155);
-  --color-accent-primary: oklch(0.72 0.15 175);
-  --elevation-surface-default: oklch(0.17 0.015 260);
-  --elevation-surface-sunken: oklch(0.14 0.012 260);
-  --elevation-surface-raised: oklch(0.22 0.018 260);
-
   display: flex;
   flex-direction: column;
   height: 100%;
