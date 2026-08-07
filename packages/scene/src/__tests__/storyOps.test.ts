@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
-import { addNode, createDocument, makeTextNode, nextNodeId } from '../document';
+import { addNode, createDocument, makeTextNode } from '../document';
 import {
   createStory,
   insertFrameInThread,
