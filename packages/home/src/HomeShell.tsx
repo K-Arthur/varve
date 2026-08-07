@@ -536,7 +536,12 @@ export function HomeShell({
         );
       void createDocumentFromRequest({
         documentName: name,
-        startMode: preset.id === BLANK_DOCUMENT_PRESET.id ? 'empty' : 'framePreset',
+        startMode:
+          preset.id === BLANK_DOCUMENT_PRESET.id
+            ? 'empty'
+            : preset.colorMode === 'cmyk'
+              ? 'pages'
+              : 'framePreset',
         preset,
       });
     },
