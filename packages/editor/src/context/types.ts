@@ -22,6 +22,11 @@ import { createDefaultDocumentGrid } from '@varve/scene';
 import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@varve/shared';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { LayerNavigationCommands } from '../components/LayersPanel/layerNavigationCommands';
+import type {
+  EditorHistorySession,
+  HistoryIssue,
+  HistoryStepView,
+} from '../history/editorHistorySession';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
@@ -52,6 +57,34 @@ export type InspectorTab =
   | 'export'
   | 'audit'
   | 'fonts';
+
+/** Persistent revision history surface exposed on the editor context. */
+export interface PersistentHistoryApi {
+  /** The attached session (null until attach resolves). */
+  session: EditorHistorySession | null;
+  /** True once the session is attached to the active document. */
+  attached: boolean;
+  /** Integrity/recovery issues surfaced at attach. */
+  attachIssues: HistoryIssue[];
+  /** True when attach created a reconciliation revision. */
+  reconciled: boolean;
+  /** Bumped after every history mutation (panel refresh signal). */
+  version: number;
+  /** Route a committed transaction into the persistent log. */
+  capture: (before: Document, after: Document, label: string, kind: string) => void;
+  /** Persistent undo; returns true when a revision was loaded. */
+  undo: () => Promise<boolean>;
+  /** Persistent redo; returns true when a revision was loaded. */
+  redo: () => Promise<boolean>;
+  /** Move the working head to an ancestor revision (undo-to). */
+  undoTo: (revisionId: string) => Promise<boolean>;
+  /** Checkout an arbitrary revision (explicit navigation). */
+  checkout: (revisionId: string) => Promise<boolean>;
+  /** Load a revision's document for preview (no head movement). */
+  previewRevision: (revisionId: string) => Promise<Document | null>;
+  /** Refresh step rows for the panel. */
+  steps: () => Promise<HistoryStepView[]>;
+}
 
 export type IntelligenceTab =
   | 'audit'
@@ -399,6 +432,10 @@ export interface EditorState {
 export interface EditorContextValue {
   state: EditorState;
   platform?: Platform;
+  /** Persistent revision history session (ADR-0019/0020, M7 wiring). When
+   *  attached, undo/redo route through the revision store; the panel and
+   *  comparison/merge surfaces read session state from here. */
+  persistentHistory: PersistentHistoryApi;
   // Tool
   setTool: (t: ToolId) => void;
   // Viewport

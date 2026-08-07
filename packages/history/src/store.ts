@@ -59,11 +59,15 @@ export interface HistoryStore {
   putBranch(branch: BranchRef): Promise<void>;
   getBranch(documentId: string, branchId: string): Promise<BranchRef | null>;
   listBranches(documentId: string): Promise<BranchRef[]>;
+  /** Delete a branch ref (ADR-0023); the caller validates safety first. */
+  deleteBranch?(branchId: string): Promise<void>;
 
   // ── checkpoint refs ────────────────────────────────────────────────────────
   putCheckpoint(checkpoint: CheckpointRef): Promise<void>;
   getCheckpoint(documentId: string, checkpointId: string): Promise<CheckpointRef | null>;
   listCheckpoints(documentId: string): Promise<CheckpointRef[]>;
+  /** Delete a checkpoint ref (ADR-0023); the caller validates safety first. */
+  deleteCheckpoint?(checkpointId: string): Promise<void>;
 
   // ── snapshots (content-addressed by canonical hash) ────────────────────────
   putSnapshot(snapshot: SnapshotRecord): Promise<void>;
@@ -278,6 +282,15 @@ export function createMemoryHistoryStore(): HistoryStore {
       return [...(state.branches.get(documentId)?.values() ?? [])];
     },
 
+    async deleteBranch(branchId) {
+      for (const map of state.branches.values()) {
+        if (map.has(branchId)) {
+          map.delete(branchId);
+          break;
+        }
+      }
+    },
+
     async putCheckpoint(checkpoint) {
       const map = state.checkpoints.get(checkpoint.documentId) ?? new Map();
       map.set(checkpoint.checkpointId, checkpoint);
@@ -290,6 +303,15 @@ export function createMemoryHistoryStore(): HistoryStore {
 
     async listCheckpoints(documentId) {
       return [...(state.checkpoints.get(documentId)?.values() ?? [])];
+    },
+
+    async deleteCheckpoint(checkpointId) {
+      for (const map of state.checkpoints.values()) {
+        if (map.has(checkpointId)) {
+          map.delete(checkpointId);
+          break;
+        }
+      }
     },
 
     async putSnapshot(snapshot) {

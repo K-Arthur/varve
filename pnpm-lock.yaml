@@ -287,6 +287,9 @@ importers:
       '@varve/help':
         specifier: workspace:*
         version: link:../help
+      '@varve/history':
+        specifier: workspace:*
+        version: link:../history
       '@varve/import':
         specifier: workspace:*
         version: link:../import

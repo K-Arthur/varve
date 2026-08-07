@@ -274,6 +274,11 @@ export function createIndexedDbHistoryStore(
       return all.filter((branch) => branch.documentId === documentId);
     },
 
+    async deleteBranch(branchId) {
+      const database = await connect;
+      await database.delete(STORE_BRANCHES, branchId);
+    },
+
     // ── checkpoint refs ──────────────────────────────────────────────────────
     async putCheckpoint(checkpoint) {
       const database = await connect;
@@ -292,6 +297,11 @@ export function createIndexedDbHistoryStore(
       const database = await connect;
       const all = (await database.getAll(STORE_CHECKPOINTS)) as CheckpointRef[];
       return all.filter((checkpoint) => checkpoint.documentId === documentId);
+    },
+
+    async deleteCheckpoint(checkpointId) {
+      const database = await connect;
+      await database.delete(STORE_CHECKPOINTS, checkpointId);
     },
 
     // ── snapshots (content-addressed by canonical hash) ──────────────────────

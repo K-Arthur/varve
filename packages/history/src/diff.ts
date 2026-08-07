@@ -478,7 +478,16 @@ function compareValue(
   }
 
   if (Array.isArray(baseVal) || Array.isArray(targetVal)) {
-    compareArray(ctx, entityType, entityId, path, baseVal as unknown[], targetVal as unknown[]);
+    // One side may be undefined when a collection was added/removed;
+    // normalize to empty arrays so the comparison is total (never throws).
+    compareArray(
+      ctx,
+      entityType,
+      entityId,
+      path,
+      (baseVal ?? []) as unknown[],
+      (targetVal ?? []) as unknown[],
+    );
     return;
   }
 
