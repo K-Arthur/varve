@@ -208,6 +208,19 @@ package-rpm: prune-runtimes
 package-appimage: prune-runtimes
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai
 
+# Dev/test bundles with a snapshot version (<release>-dev.<short-sha>) instead
+# of the committed release version. The tauri config merge overrides only the
+# bundle version — nothing committed changes, so the repo stays release-clean
+# while test installers are distinguishable from the last release and from
+# each other (no ambiguous same-version reinstall of different content).
+package-linux-dev: prune-runtimes
+    #!/usr/bin/env bash
+    set -euo pipefail
+    V="$(node scripts/release/version.mjs snapshot)"
+    echo "Building dev bundles as ${V}..."
+    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb --ci --features ai --config "{\"version\":\"${V}\"}"
+    echo "Dev bundles written to apps/desktop/src-tauri/target/release/bundle/"
+
 # Build macOS dmg (run on macOS only).
 package-dmg: prune-runtimes
     cd apps/desktop && pnpm tauri build --bundles dmg --ci --features ai
@@ -234,6 +247,17 @@ release-version TAG="":
 release-set-version VERSION:
     node scripts/release/version.mjs set {{VERSION}}
     @echo "Now run: cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml"
+
+# Bump MAJOR/MINOR/PATCH across all manifests (0.1.0 -> bump patch -> 0.1.1).
+release-bump PART:
+    node scripts/release/version.mjs bump {{PART}}
+    @echo "Now run: cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml"
+
+# Deterministic dev-build version for the current HEAD (read-only):
+# <release>-dev.<short-sha>. Test bundles built with it never collide with a
+# released version, so installers/upgrades are unambiguous.
+release-snapshot:
+    node scripts/release/version.mjs snapshot
 
 # Upload the large on-demand AI models to the models-v1 release.
 # Needs `git lfs pull --include="models-source/*.onnx"` first.
