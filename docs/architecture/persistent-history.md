@@ -16,12 +16,12 @@ the planned milestones.
 | 4. Typed operation pipeline (core) | Landed | `054af3b1` (restored `7c4cde64`) |
 | 5. Immutable log + replay + storage | Landed | `@varve/history` (`1af1ef2e`) |
 | 6. Snapshots + recovery | Landed | `@varve/history` (`1af1ef2e`) |
-| 7. Persistent undo/redo | Core landed (store-level); editor wiring pending | `581eb7c7` |
-| 8. History panel | Next | — |
-| 9. Checkpoints + branches | Core landed (naming policy + store refs); UI pending | `581eb7c7` |
+| 7. Persistent undo/redo + editor wiring | Landed | `581eb7c7` + `5e382f17` (session + watcher hook) |
+| 8. History panel | Landed | `cb8636ba` (registered panel + E2E specs) |
+| 9. Checkpoints + branches UI | Landed | `cb8636ba` (branch/checkpoint management in panel) |
 | 10. Semantic diff | Landed | `581eb7c7` |
-| 11. Three-way merge | Landed | `581eb7c7` |
-| 12. Conflict resolver | Next | — |
+| 11. Three-way merge | Landed | `581eb7c7` + `cb8636ba` (deterministic conflict ids) |
+| 12. Conflict resolver | Landed | `cb8636ba` (resolveMerge + completeMerge + dialog) |
 | 13. Git working format + drivers | Landed | `c25b9d65` |
 | 14. Review bundles | Landed | `c25b9d65` |
 | 15. Collaboration integration | Deferred by directive (2026-08-05) | — |
