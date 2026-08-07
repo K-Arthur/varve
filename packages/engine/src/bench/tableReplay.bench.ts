@@ -23,6 +23,10 @@ function makeTableShape(rows: number, cols: number): TableShape {
         y: r * 24,
         w: 80,
         h: 24,
+        rowIdx: r,
+        columnIdx: c,
+        rowSpan: 1,
+        columnSpan: 1,
         fill:
           r === 0
             ? { space: 'rgb', r: 240, g: 243, b: 247, a: 255 }

@@ -631,6 +631,12 @@ export interface TableCellIR {
   /** Optional per-cell border override (header emphasis, selection). */
   border?: { color: EngineColor; width: number };
   text?: TableCellTextIR;
+  /** Grid coordinates of the cell's top-left corner. */
+  rowIdx: number;
+  columnIdx: number;
+  /** Span extents (1 = no span). Used to suppress dividers through merged cells. */
+  rowSpan: number;
+  columnSpan: number;
 }
 
 /**
