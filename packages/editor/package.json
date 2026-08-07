@@ -28,6 +28,7 @@
     "@varve/crash": "workspace:*",
     "@varve/engine": "workspace:*",
     "@varve/help": "workspace:*",
+    "@varve/history": "workspace:*",
     "@varve/import": "workspace:*",
     "@varve/platform": "workspace:*",
     "@varve/prototype": "workspace:*",

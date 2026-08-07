@@ -386,6 +386,7 @@ import type {
   GridOverlayMode,
   InspectorTab,
   IntelligenceTab,
+  PersistentHistoryApi,
   RulerMode,
   SelectionOrigin,
   SessionMeta,
@@ -404,6 +405,7 @@ import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import { usePersistence } from './context/usePersistence';
+import { usePersistentHistory } from './context/usePersistentHistory';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
 import {
@@ -2260,6 +2262,12 @@ export function EditorProvider({
   const redoSelStackRef = useRef<NodeId[][]>([]);
   const undoLabelsRef = useRef<string[]>([]);
   const redoLabelsRef = useRef<string[]>([]);
+  /** Persistent-history API ref (assigned after the hook runs; used by
+   *  stable callbacks and the derived undo-state sync below). */
+  const persistentHistoryRef = useRef<PersistentHistoryApi | null>(null);
+  /** One-shot skip signal for the persistent-history document watcher: set
+   *  when a transaction commit already captured the transition. */
+  const historySkipRef = useRef(false);
   /** F2: snapshots of all inactive sessions, keyed by session ID. */
   const sessionStoreRef = useRef<Map<string, SavedSession>>(new Map());
   /** Shared aria-live announcer for screen-reader messages. */
@@ -2312,10 +2320,25 @@ export function EditorProvider({
   });
   const undoLen = undoStackRef.current.length;
   const redoLen = redoStackRef.current.length;
-  const derivedCanUndo = undoLen > 0;
-  const derivedCanRedo = redoLen > 0;
-  const derivedUndoLabel = undoLabelsRef.current[undoLen - 1] ?? 'Undo';
-  const derivedRedoLabel = redoLabelsRef.current[redoLen - 1] ?? 'Redo';
+  // When the persistent history session is attached with history, undo/redo
+  // state derives from the revision store, not the shadow stacks.
+  const persistentSessionActive =
+    persistentHistoryRef.current !== null &&
+    persistentHistoryRef.current.attached &&
+    ((persistentHistoryRef.current.session?.canUndo ?? false) ||
+      (persistentHistoryRef.current.session?.canRedo ?? false));
+  const derivedCanUndo = persistentSessionActive
+    ? (persistentHistoryRef.current?.session?.canUndo ?? false)
+    : undoLen > 0;
+  const derivedCanRedo = persistentSessionActive
+    ? (persistentHistoryRef.current?.session?.canRedo ?? false)
+    : redoLen > 0;
+  const derivedUndoLabel = persistentSessionActive
+    ? (persistentHistoryRef.current?.session?.undoLabel ?? 'Undo')
+    : (undoLabelsRef.current[undoLen - 1] ?? 'Undo');
+  const derivedRedoLabel = persistentSessionActive
+    ? (persistentHistoryRef.current?.session?.redoLabel ?? 'Redo')
+    : (redoLabelsRef.current[redoLen - 1] ?? 'Redo');
   useEffect(() => {
     const last = lastSyncedUndo.current;
     if (
@@ -2643,6 +2666,15 @@ export function EditorProvider({
           redoStackRef.current = [];
           redoSelStackRef.current = [];
           redoLabelsRef.current = [];
+          // Persistent history (M7): route the committed transaction into the
+          // revision store. Diffed against the begin-state document; empty
+          // transactions are suppressed by the reference check above.
+          const before = txSnapshotRef.current;
+          const persistentNow = persistentHistoryRef.current;
+          if (before && persistentNow?.attached) {
+            historySkipRef.current = true;
+            persistentNow.capture(before, current.document, 'Edit', 'modify');
+          }
         }
         txSnapshotRef.current = null;
         txSelRef.current = null;
@@ -2760,10 +2792,21 @@ export function EditorProvider({
     platform,
   );
 
+  const persistentHistory = usePersistentHistory({
+    document: state.document,
+    selection: state.selection,
+    patch,
+    inTransactionRef,
+    historySkipRef,
+  });
+  /** Ref to the persistent-history API for use inside stable callbacks. */
+  persistentHistoryRef.current = persistentHistory;
+
   const value = useMemo<EditorContextValue>(
     () => ({
       state,
       platform,
+      persistentHistory,
       updateDoc,
       patch,
       insertIconAsset: iconAssets.insertIconAsset,
@@ -5161,6 +5204,14 @@ export function EditorProvider({
       removeFrameFromChain,
 
       undo: () => {
+        // Persistent history (ADR-0019 Model A): when attached, undo moves
+        // the branch head through the revision store. Falls back to the
+        // in-memory stack for mutation paths not yet migrated.
+        const persistent = persistentHistoryRef.current;
+        if (persistent?.attached && persistent.session?.canUndo) {
+          void persistent.undo();
+          return;
+        }
         const prev = undoStackRef.current.pop();
         const prevSel = undoSelStackRef.current.pop();
         const prevLabel = undoLabelsRef.current.pop();
@@ -5183,6 +5234,13 @@ export function EditorProvider({
       },
 
       redo: () => {
+        // Persistent history: redo returns to the most recently abandoned
+        // child of the current head.
+        const persistent = persistentHistoryRef.current;
+        if (persistent?.attached && persistent.session?.canRedo) {
+          void persistent.redo();
+          return;
+        }
         const next = redoStackRef.current.pop();
         const nextSel = redoSelStackRef.current.pop();
         const nextLabel = redoLabelsRef.current.pop();
@@ -8467,6 +8525,7 @@ export function EditorProvider({
     [
       state,
       patch,
+      persistentHistory,
       setCamera,
       updateDoc,
       rootNodes,

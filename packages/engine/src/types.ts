@@ -954,6 +954,9 @@ export type FilterIR =
       threshold?: number;
       intensity?: number;
       softness?: number;
+      invert?: boolean;
+      foregroundColor?: [number, number, number];
+      backgroundColor?: [number, number, number];
       channelAngles?: { c?: number; m?: number; y?: number; k?: number };
       registrationOffset?: {
         c?: [number, number];
