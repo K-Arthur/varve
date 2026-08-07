@@ -168,7 +168,13 @@ export function NewDesignDialog({
         preset: selectedPreset,
       };
     } else {
-      request = { documentName: trimmed || defaultName, startMode: 'empty' };
+      // Print intent (or a non-RGB color mode) creates a PAGED document —
+      // print/publication work needs pages, spreads and print geometry
+      // (M14). Screen intent stays on the flat infinite canvas.
+      request = {
+        documentName: trimmed || defaultName,
+        startMode: intent === 'print' || colorMode !== 'rgb' ? 'pages' : 'empty',
+      };
     }
 
     if (intent === 'print' || colorMode !== 'rgb') {
