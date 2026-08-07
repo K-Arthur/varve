@@ -1086,6 +1086,11 @@ export interface EditorContextValue {
   /** Fit the viewport to every page (pasteboard bounds). */
   fitAllPages: () => void;
 
+  /** Link the selected text frames into one story (ADR-0159). */
+  linkSelectedTextFrames: () => void;
+  /** Remove the selected frames from their stories. */
+  unlinkSelectedTextFrames: () => void;
+
   // Master page methods
   createMaster: (name: string, width: number, height: number) => void;
   deleteMaster: (masterId: NodeId) => void;
