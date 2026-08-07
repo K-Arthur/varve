@@ -1,13 +1,15 @@
 /**
  * Built-in panel definitions (ADR-0019).
  *
- * Registers exactly the seven panels of the existing `PanelId` union so the
+ * Registers exactly the eight panels of the existing `PanelId` union so the
  * registry and the shell can never drift (assertPanelInvariants enforces
  * the identity of the two sets).
  *
- * Every panel starts with `detachable: false`: detachment flips on
- * per-panel in M7, only after the panel's `DetachablePanelLifecycle` and
- * local-state codec are implemented and covered by tests.
+ * Every panel is detachable: the generic lifecycle + bounded local-state
+ * codec (panelLifecycle.ts) satisfies the registry's detach contract, and
+ * the transfer state machine guards the transaction. Panels opt out by
+ * setting `detachable: false` when they need canvas/renderer access or
+ * custom lifecycle behavior.
  *
  * Metadata mirrors the 2026-08-05 audit:
  * - layers/inspector stay mounted when hidden (inactivePolicy
@@ -17,6 +19,7 @@
  * - Width floors come from PANEL_LIMITS (layers 180, inspector 240).
  */
 
+import { getBuiltinDetachableWiring } from './panelLifecycle';
 import { type PanelDefinition, type PanelTypeId, registerPanel } from './panelRegistry';
 
 export const ALL_PANEL_TYPES: readonly PanelTypeId[] = [
@@ -38,7 +41,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'shared',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 180, height: 160 },
     preferredSize: { width: 288, height: 480 },
@@ -66,7 +69,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'shared',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 240, height: 160 },
     preferredSize: { width: 320, height: 560 },
@@ -97,7 +100,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'shared',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 320, height: 120 },
     preferredSize: { width: 720, height: 240 },
@@ -124,7 +127,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'none',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 160, height: 100 },
     preferredSize: { width: 220, height: 140 },
@@ -151,7 +154,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'none',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 220, height: 160 },
     preferredSize: { width: 300, height: 480 },
@@ -179,7 +182,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'shared',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 260, height: 160 },
     preferredSize: { width: 360, height: 480 },
@@ -206,7 +209,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'shared',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 240, height: 160 },
     preferredSize: { width: 320, height: 480 },
@@ -234,7 +237,7 @@ const definitions: PanelDefinition[] = [
     documentRequirement: 'active-document',
     selectionScope: 'none',
     allowedHosts: ['primary-sidebar', 'auxiliary-window'],
-    detachable: false,
+    detachable: true,
     dockable: true,
     minimumSize: { width: 200, height: 120 },
     preferredSize: { width: 280, height: 320 },
@@ -258,8 +261,13 @@ const definitions: PanelDefinition[] = [
 ];
 
 export function registerBuiltinPanels(): void {
+  const wiring = getBuiltinDetachableWiring();
   for (const def of definitions) {
-    registerPanel(def);
+    registerPanel({
+      ...def,
+      lifecycle: wiring.lifecycle,
+      localStateCodec: wiring.localStateCodec,
+    });
   }
 }
 

@@ -109,11 +109,16 @@ describe('panel registry: built-in registration', () => {
     expect([...union].sort()).toEqual(registered);
   });
 
-  it('M2 contract: no built-in panel is detachable yet', () => {
+  it('M7+ contract: every built-in panel is detachable with lifecycle + codec', () => {
     registerBuiltinPanels();
-    expect(listDetachablePanels()).toEqual([]);
+    const detachable = listDetachablePanels();
+    expect(detachable).toHaveLength(ALL_PANEL_TYPES.length);
     for (const id of ALL_PANEL_TYPES) {
-      expect(isPanelDetachable(id)).toBe(false);
+      const def = getPanelDefinition(id);
+      expect(isPanelDetachable(id)).toBe(true);
+      expect(def.lifecycle?.prepareForTransfer).toBeDefined();
+      expect(def.lifecycle?.restoreFromTransfer).toBeDefined();
+      expect(def.localStateCodec).toBeDefined();
     }
   });
 
@@ -274,11 +279,12 @@ describe('panel registry: queries and derived commands', () => {
     }
   });
 
-  it('non-detachable panels expose no detach/move commands', () => {
+  it('every built-in panel exposes detach/move commands (M7+)', () => {
     for (const id of ALL_PANEL_TYPES) {
       const commands = getPanelCommandIds(id);
-      expect(commands.detach).toBeUndefined();
-      expect(commands.moveTo).toBeUndefined();
+      expect(commands.detach).toBe(`panel.${id}.detach`);
+      expect(commands.moveTo).toBe(`panel.${id}.moveTo`);
+      expect(commands.reattach).toBe(`panel.${id}.reattach`);
     }
   });
 
