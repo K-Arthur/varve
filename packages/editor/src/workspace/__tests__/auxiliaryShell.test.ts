@@ -17,7 +17,6 @@ describe('auxiliary: URL parameter parsing', () => {
       windowId: 'aux-1',
       sessionId: 'sess-123',
       panelTypeIds: ['layers', 'inspector'],
-      layout: null,
     });
   });
 
