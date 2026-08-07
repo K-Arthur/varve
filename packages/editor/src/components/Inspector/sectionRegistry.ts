@@ -61,6 +61,7 @@ export type SectionId =
   | 'ocr'
   | 'palette'
   | 'font-detect'
+  | 'page-print'
   | 'table'
   | 'table-cells'
   | 'table-columns'
@@ -706,6 +707,18 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
       ctx.activeTool === 'eraser' ||
       ctx.activeTool === 'pencil' ||
       ctx.activeTool === 'smudge',
+  },
+
+  // -- Page-focused inspector (Page tool active) --
+  {
+    id: 'page-print',
+    title: 'Page Print',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 590,
+    category: 'geometry',
+    isAvailable: (ctx) => ctx.activeTool === 'page',
   },
 
   // -- Canvas (empty selection) --
