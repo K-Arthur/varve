@@ -88,7 +88,7 @@ describe('browserFallback: createDefaultInPageDockLayout', () => {
 
     const visible = layout.slots.filter((s) => s.visible);
     expect(visible).toHaveLength(4);
-    expect(layout.slots[4].visible).toBe(false);
+    expect(layout.slots[4]!.visible).toBe(false);
   });
 
   it('defaults to not in focus mode', () => {
@@ -137,9 +137,9 @@ describe('browserFallback: panel visibility', () => {
   it('toggles panel visibility', () => {
     const layout = createDefaultInPageDockLayout([{ id: 'pi-1', typeId: 'layers' }]);
     const toggled = togglePanelVisibility(layout, 'pi-1');
-    expect(toggled.slots[0].visible).toBe(false);
+    expect(toggled.slots[0]!. visible).toBe(false);
     const toggledBack = togglePanelVisibility(toggled, 'pi-1');
-    expect(toggledBack.slots[0].visible).toBe(true);
+    expect(toggledBack.slots[0]!. visible).toBe(true);
   });
 
   it('showPanel sets visible and exits focus mode', () => {
@@ -147,13 +147,13 @@ describe('browserFallback: panel visibility', () => {
     layout = toggleFocusMode(layout);
     layout = showPanel(layout, 'pi-1');
     expect(layout.focusMode).toBe(false);
-    expect(layout.slots[0].visible).toBe(true);
+    expect(layout.slots[0]!. visible).toBe(true);
   });
 
   it('hidePanel sets invisible', () => {
     const layout = createDefaultInPageDockLayout([{ id: 'pi-1', typeId: 'layers' }]);
     const hidden = hidePanel(layout, 'pi-1');
-    expect(hidden.slots[0].visible).toBe(false);
+    expect(hidden.slots[0]!. visible).toBe(false);
   });
 });
 
@@ -265,7 +265,7 @@ describe('browserFallback: browserToLogicalLayout', () => {
 
     const logical = browserToLogicalLayout(browser);
     expect(logical.windows).toHaveLength(1);
-    expect(logical.windows[0].role).toBe('primary');
+    expect(logical.windows[0]!. role).toBe('primary');
     expect(logical.panelInstances).toHaveLength(2);
   });
 
@@ -290,7 +290,7 @@ describe('browserFallback: browserToLogicalLayout', () => {
 
     const logical = browserToLogicalLayout(browser);
     expect(logical.panelInstances).toHaveLength(1);
-    expect(logical.panelInstances[0].id).toBe('pi-2');
+    expect(logical.panelInstances[0]!. id).toBe('pi-2');
   });
 
   it('excludes focus-mode-hidden panels', () => {
@@ -312,7 +312,7 @@ describe('browserFallback: browserToLogicalLayout', () => {
     ]);
 
     const logical = browserToLogicalLayout(browser);
-    const root = logical.windows[0].dockRoot;
+    const root = logical.windows[0]!. dockRoot;
     // Should not have empty+empty splits after normalization
     expect(root.kind).not.toBe('empty');
   });

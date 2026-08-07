@@ -82,6 +82,7 @@ const MOUNT_CONTRACT: Record<PanelId, 'keep-mounted' | 'unmount'> = {
   library: 'unmount',
   codegen: 'unmount',
   logo: 'unmount',
+  history: 'unmount',
 };
 
 describe('workspace panel baseline: per-mode visibility', () => {

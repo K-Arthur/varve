@@ -16,7 +16,7 @@ import {
   pickDisplayForFingerprint,
 } from '@varve/platform';
 import { normalizeDockTree } from './dockOps';
-import type { DockNode, NativeWorkspaceLayout } from './dockTypes';
+import type { DockNode, NativeWorkspaceLayout, PanelInstance } from './dockTypes';
 import { WORKSPACE_LAYOUT_VERSION } from './dockTypes';
 import type { PanelTypeId } from './panelRegistry';
 

@@ -173,8 +173,9 @@ describe('dockOps: insertPanelAdjacent', () => {
     const root = makePanel('a');
     const result = insertPanelAdjacent(root, root.id, 'pi-new', 'before');
     expect(result.kind).toBe('split');
-    expect(result.first.kind).toBe('panel');
-    expect(result.second.kind).toBe('panel');
+    const split = result as DockSplitNode;
+    expect(split.first.kind).toBe('panel');
+    expect(split.second.kind).toBe('panel');
   });
 
   it('inserts after creates correct order', () => {

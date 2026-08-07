@@ -93,7 +93,7 @@ describe('recoveryManager: crash tracking', () => {
       activePanels: [],
       error: 'OOM in renderer',
     });
-    expect(next.crashes[0].error).toBe('OOM in renderer');
+    expect(next.crashes[0]!. error).toBe('OOM in renderer');
   });
 });
 
@@ -162,7 +162,7 @@ describe('recoveryManager: orphaned panel detection', () => {
 
     const orphaned = findOrphanedPanels(layout);
     expect(orphaned).toHaveLength(1);
-    expect(orphaned[0].panelInstanceId).toBe('pi-orphan');
+    expect(orphaned[0]!. panelInstanceId).toBe('pi-orphan');
   });
 
   it('returns empty when all panels are referenced', () => {
@@ -185,8 +185,8 @@ describe('recoveryManager: orphaned panel detection', () => {
 
     const missing = findMissingPanels(layout);
     expect(missing).toHaveLength(1);
-    expect(missing[0].panelInstanceId).toBe('pi-missing');
-    expect(missing[0].windowId).toBe('main');
+    expect(missing[0]!. panelInstanceId).toBe('pi-missing');
+    expect(missing[0]!. windowId).toBe('main');
   });
 
   it('returns empty when no panels are missing', () => {
@@ -213,7 +213,7 @@ describe('recoveryManager: cleanOrphanedPanels', () => {
 
     const cleaned = cleanOrphanedPanels(layout);
     expect(cleaned.panelInstances).toHaveLength(1);
-    expect(cleaned.panelInstances[0].id).toBe('pi-1');
+    expect(cleaned.panelInstances[0]!. id).toBe('pi-1');
   });
 
   it('preserves all panels when none are orphaned', () => {
@@ -232,7 +232,7 @@ describe('recoveryManager: createSafeModeLayout', () => {
     const layout = createSafeModeLayout();
     expect(layout.name).toBe('Safe Mode');
     expect(layout.windows).toHaveLength(1);
-    expect(layout.windows[0].role).toBe('primary');
+    expect(layout.windows[0]!. role).toBe('primary');
     expect(layout.panelInstances.length).toBeGreaterThanOrEqual(2);
 
     const types = layout.panelInstances.map((p) => p.panelTypeId);
@@ -242,7 +242,7 @@ describe('recoveryManager: createSafeModeLayout', () => {
 
   it('dock root is a split', () => {
     const layout = createSafeModeLayout();
-    expect(layout.windows[0].dockRoot.kind).toBe('split');
+    expect(layout.windows[0]!. dockRoot.kind).toBe('split');
   });
 
   it('carries forward safe panel types from previous layout', () => {
@@ -307,7 +307,7 @@ describe('recoveryManager: repairLayout', () => {
     });
 
     const repaired = repairLayout(layout);
-    expect(repaired.windows[0].dockRoot.kind).toBe('empty');
+    expect(repaired.windows[0]!. dockRoot.kind).toBe('empty');
   });
 
   it('creates a default window when all windows are removed', () => {
@@ -318,14 +318,14 @@ describe('recoveryManager: repairLayout', () => {
 
     const repaired = repairLayout(layout);
     expect(repaired.windows).toHaveLength(1);
-    expect(repaired.windows[0].id).toBe('main');
+    expect(repaired.windows[0]!. id).toBe('main');
   });
 
   it('handles layout with no windows and no panels', () => {
     const layout = makeLayout({ windows: [], panelInstances: [] });
     const repaired = repairLayout(layout);
     expect(repaired.windows).toHaveLength(1);
-    expect(repaired.windows[0].dockRoot.kind).toBe('empty');
+    expect(repaired.windows[0]!. dockRoot.kind).toBe('empty');
   });
 
   it('preserves healthy windows', () => {
@@ -338,6 +338,6 @@ describe('recoveryManager: repairLayout', () => {
 
     const repaired = repairLayout(layout);
     expect(repaired.windows).toHaveLength(1);
-    expect(repaired.windows[0].dockRoot.kind).toBe('panel');
+    expect(repaired.windows[0]!. dockRoot.kind).toBe('panel');
   });
 });

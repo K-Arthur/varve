@@ -103,6 +103,16 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const getStore = useMemo(() => createStoreFactory(), []);
 
+  /**
+   * In-flight attach dedupe: React StrictMode double-mounts effects in dev,
+   * and document switches can re-run the effect before the previous attach
+   * settled. Two concurrent attaches would each see "no branches" and
+   * create duplicate genesis revisions and duplicate main branches. A
+   * shared in-flight promise per document id makes attach idempotent: the
+   * second caller awaits the first attach and reuses its session.
+   */
+  const inflightAttachRef = useRef<Map<string, Promise<EditorHistorySession>>>(new Map());
+
   useEffect(() => {
     let cancelled = false;
     if (!documentId || !document) {
@@ -112,14 +122,48 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
       setAttachIssues([]);
       return;
     }
+    const inflight = inflightAttachRef.current.get(documentId);
+    if (inflight) {
+      // A previous attach for this document is still running; reuse it so
+      // genesis/branches are never created twice (StrictMode double-mount,
+      // rapid document switches).
+      const existing = inflight.then((session) => {
+        if (cancelled) return;
+        sessionRef.current = session;
+        setAttached(true);
+        setReconciled(session.lastAttach?.reconciled ?? false);
+        setAttachIssues(session.lastAttach?.issues ?? []);
+        bump();
+      });
+      attachPromiseRef.current = existing as unknown as Promise<void>;
+      prevDocumentRef.current = { documentId, document };
+      return () => {
+        cancelled = true;
+      };
+    }
     const session = new EditorHistorySession({
       store: getStore(),
       documentId,
       authorActorId: 'local-user',
     });
     sessionRef.current = session;
-    const attachPromise = session
-      .attach(document)
+    const attachPromise = session.attach(document);
+    const tracked = attachPromise
+      .then(() => session)
+      .catch((err) => {
+        if (cancelled) throw err;
+        console.warn('[history] attach failed; history disabled for this document', err);
+        setAttachIssues([
+          { severity: 'error', code: 'history.attach-failed', message: String(err) },
+        ]);
+        setAttached(false);
+        throw err;
+      });
+    inflightAttachRef.current.set(documentId, tracked);
+    tracked.finally(() => {
+      inflightAttachRef.current.delete(documentId);
+    });
+    void attachPromise
       .then(() => {
         if (cancelled) return;
         setAttached(true);
@@ -127,15 +171,11 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
         setAttachIssues(session.lastAttach?.issues ?? []);
         bump();
       })
-      .catch((err) => {
+      .catch(() => {
         if (cancelled) return;
-        console.warn('[history] attach failed; history disabled for this document', err);
-        setAttachIssues([
-          { severity: 'error', code: 'history.attach-failed', message: String(err) },
-        ]);
         setAttached(false);
       });
-    attachPromiseRef.current = attachPromise;
+    attachPromiseRef.current = tracked as unknown as Promise<void>;
     prevDocumentRef.current = { documentId, document };
     return () => {
       cancelled = true;
