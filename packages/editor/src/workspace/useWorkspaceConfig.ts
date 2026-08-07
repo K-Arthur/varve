@@ -7,16 +7,42 @@
  * threading the preferences through EditorState.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   getEffectiveWorkspaceConfig,
   getWorkspacePreferences,
+  isModeCustomized,
   subscribeWorkspacePreferences,
 } from './workspaceStore';
-import type { WorkspaceConfig, WorkspaceMode } from './workspaceTypes';
+import type { WorkspaceConfig, WorkspaceMode, WorkspacePreferences } from './workspaceTypes';
 
 export function useEffectiveWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
   const [prefs, setPrefs] = useState(getWorkspacePreferences);
   useEffect(() => subscribeWorkspacePreferences(() => setPrefs(getWorkspacePreferences())), []);
   return getEffectiveWorkspaceConfig(mode, prefs);
+}
+
+/**
+ * Reactive per-mode customization flags. Returns a map from mode → boolean
+ * so workspace tabs can show a "customized" dot without each tab subscribing
+ * independently.
+ */
+export function useWorkspaceCustomizations(): Record<WorkspaceMode, boolean> {
+  const [prefs, setPrefs] = useState(getWorkspacePreferences);
+  useEffect(() => subscribeWorkspacePreferences(() => setPrefs(getWorkspacePreferences())), []);
+  return useMemo(() => {
+    const result = {} as Record<WorkspaceMode, boolean>;
+    for (const mode of [
+      'design',
+      'print',
+      'drawing',
+      'image',
+      'motion',
+      'codegen',
+      'logo',
+    ] as WorkspaceMode[]) {
+      result[mode] = isModeCustomized(prefs, mode);
+    }
+    return result;
+  }, [prefs]);
 }
