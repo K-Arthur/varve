@@ -108,7 +108,7 @@ Everything in Alpha, plus:
 1. [ ] Branch from the **release tag**, not from `master`
 2. [ ] Fix only the one thing. Resist everything else
 3. [ ] Add a regression test that fails without the fix
-4. [ ] `node scripts/release/version.mjs set <X.Y.Z+1>` and update `CHANGELOG.md`
+4. [ ] `just release-bump patch` (or `node scripts/release/version.mjs set <X.Y.Z+1>` for a specific number), then `cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` to refresh the lockfiles, and update `CHANGELOG.md`
 5. [ ] Run the full quality gate — a hotfix is not an excuse to skip it
 6. [ ] Tag, let `release.yml` build the draft
 7. [ ] Verify the specific fix in the built artifact, on the affected platform
