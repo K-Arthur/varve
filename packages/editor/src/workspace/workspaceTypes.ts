@@ -235,6 +235,8 @@ export interface WorkspacePreference {
   statusSectionOverrides?: Partial<Record<StatusSectionId, boolean>>;
   /** Per-workspace panel widths (keyed by panel id, value in pixels). */
   panelWidths?: Partial<Record<PanelId, number>>;
+  /** Mode-specific toolbar tool visibility overrides (tool id → visible). */
+  toolbarToolOverrides?: Partial<Record<string, boolean>>;
   /** Whether the user has customized this mode. */
   customized: boolean;
   /** Timestamp of last customization. */

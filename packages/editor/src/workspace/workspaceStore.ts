@@ -129,11 +129,28 @@ function sanitizePreference(
     }
   }
 
+  // Sanitize toolbar tool overrides — only boolean visibility values for known tools
+  const baseToolIds = new Set(
+    base ? getWorkspaceConfig(mode).toolbar.tools.map((t) => t.toolId) : [],
+  );
+  const toolRaw = pref.toolbarToolOverrides;
+  const cleanTools: Partial<Record<string, boolean>> = {};
+  if (toolRaw && typeof toolRaw === 'object') {
+    for (const [toolId, val] of Object.entries(toolRaw)) {
+      if (baseToolIds.has(toolId) && typeof val === 'boolean') {
+        cleanTools[toolId] = val;
+      }
+    }
+  }
+
   return {
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
     ...(cleanSections && Object.keys(cleanSections).length > 0
       ? { statusSectionOverrides: cleanSections }
+      : {}),
+    ...(cleanTools && Object.keys(cleanTools).length > 0
+      ? { toolbarToolOverrides: cleanTools }
       : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
@@ -423,6 +440,20 @@ export function getEffectiveWorkspaceConfig(
     };
   }
 
+  // Toolbar tool overrides — filter tools by visibility
+  if (modePrefs.toolbarToolOverrides && Object.keys(modePrefs.toolbarToolOverrides).length > 0) {
+    result = {
+      ...result,
+      toolbar: {
+        ...result.toolbar,
+        tools: result.toolbar.tools.filter((t) => {
+          const override = modePrefs.toolbarToolOverrides![t.toolId];
+          return override !== false; // visible unless explicitly hidden
+        }),
+      },
+    };
+  }
+
   return result;
 }
 
@@ -501,6 +532,24 @@ export function getPanelWidths(
   mode: WorkspaceMode,
 ): Partial<Record<PanelId, number>> {
   return prefs[mode]?.panelWidths ?? {};
+}
+
+/** Toggle a toolbar tool's visibility for a workspace. */
+export function setToolbarToolOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  toolId: string,
+  visible: boolean,
+): WorkspacePreferences {
+  const updated = { ...prefs };
+  const modePrefs = { ...updated[mode] };
+  const toolOverrides = { ...(modePrefs.toolbarToolOverrides ?? {}) };
+  toolOverrides[toolId] = visible;
+  modePrefs.toolbarToolOverrides = toolOverrides;
+  modePrefs.customized = true;
+  modePrefs.lastCustomized = Date.now();
+  updated[mode] = modePrefs;
+  return updated;
 }
 
 /** Reset a mode's preferences to defaults. */
