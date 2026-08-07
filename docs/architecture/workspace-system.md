@@ -166,21 +166,22 @@ These are known gaps, not settled design:
   simply reduced to "switch to Select". `requestWorkspaceSwitch` returns
   `Promise<boolean>` rather than a typed result that can express *blocked* or
   *failed* with a reason.
-- **Panel overrides cover visibility only.** Order, collapse, and width are in
-  the `PanelConfig` type and resolve through the merge, but no UI writes them,
-  and user-resized widths are still global rather than per workspace.
-- **Inspector tab and status section overrides are now wired.** The resolver
-  merges `inspectorTabOverrides` and `statusSectionOverrides` from user
-  preferences. The override writers (`setInspectorTabOverride`,
-  `setStatusSectionOverride`) exist, but there is no dedicated UI panel for
-  toggling them — they are settable programmatically and via the command
-  palette.
-- **Toolbar composition has no override surface.** It resolves through the
-  built-in config; the resolver is ready to accept overrides when one is added.
-- **`canvasOverlays.bleedGuides` and `layoutGrid`** have no runtime consumer;
-  only `guides`, `pixelGrid`, `dotGrid`, and `baselineGrid` are projected onto
-  state.
-- **Workspace customization UI is partial.** Reset exists
-  (`resetWorkspaceToDefault`, `resetAllWorkspacesToDefaults`), and a
-  "customized" dot indicator is shown on workspace tabs, but there is no
-  dedicated panel for editing a workspace's full configuration interactively.
+- **Panel overrides now support visibility, widths, inspector tabs, status
+  sections, and toolbar tools.** The full override surface is wired:
+  - `panelOverrides` — visibility per panel
+  - `panelWidths` — per-workspace panel pixel widths, saved on switch
+  - `inspectorTabOverrides` — visibility per inspector tab
+  - `statusSectionOverrides` — visibility per status bar section
+  - `toolbarToolOverrides` — visibility per toolbar tool
+  All are persisted and restored on workspace switch. A dedicated customization
+  dialog (`WorkspaceCustomizeDialog`) provides a toggle UI accessible from
+  View > Customize Workspace or the command palette.
+- **`canvasOverlays.bleedGuides` and `layoutGrid` now have runtime consumers.**
+  `bleedGuidesVisible` controls `PrintOverlays` rendering on the canvas.
+  Both are projected from workspace config via `overlayPatch` and persisted
+  in viewport settings.
+- **Workspace customization is now complete for the supported surfaces.**
+  Reset exists (`resetWorkspaceToDefault`, `resetAllWorkspacesToDefaults`),
+  a "customized" dot indicator is shown on workspace tabs, and the
+  `WorkspaceCustomizeDialog` provides panel, toolbar, inspector, and status
+  section toggles with immediate application and persistence.
