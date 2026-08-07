@@ -19,14 +19,13 @@
  */
 
 import type {
-  DockEmptyNode,
   DockNode,
-  DockPanelNode,
   DockSplitNode,
   DockTabGroupNode,
   NativeWorkspaceLayout,
   PanelInstance,
   PanelInstanceNodeId,
+  PanelTypeId,
   WorkspaceWindowLayout,
 } from './dockTypes';
 import {
@@ -134,7 +133,7 @@ export function addTabToGroup(
   activate = false,
 ): DockNode | undefined {
   const found = findNode(root, tabGroupId);
-  if (!found || found.node.kind !== 'tab-group') return undefined;
+  if (found?.node.kind !== 'tab-group') return undefined;
   const group = found.node;
   const newTabs = [...group.tabs, panelInstanceId];
   const newGroup: DockTabGroupNode = {
@@ -206,7 +205,7 @@ export function removePanelFromTabGroup(
   panelInstanceId: PanelInstanceNodeId,
 ): DockNode {
   const found = findNode(root, tabGroupId);
-  if (!found || found.node.kind !== 'tab-group') return root;
+  if (found?.node.kind !== 'tab-group') return root;
 
   const group = found.node;
   const newTabs = group.tabs.filter((t) => t !== panelInstanceId);
@@ -262,8 +261,8 @@ export function splitNode(
  */
 export function normalizeDockTree(node: DockNode): DockNode {
   if (node.kind === 'split') {
-    let first = normalizeDockTree(node.first);
-    let second = normalizeDockTree(node.second);
+    const first = normalizeDockTree(node.first);
+    const second = normalizeDockTree(node.second);
 
     // Collapse single-child splits
     if (first.kind === 'empty' && second.kind === 'empty') {
@@ -459,7 +458,7 @@ export function createDefaultLayout(
     ],
     panelInstances: panelTypes.map((pt) => ({
       id: pt.instanceId,
-      panelTypeId: pt.typeId as any, // validated at registration
+      panelTypeId: pt.typeId as PanelTypeId, // validated at registration
       hostNodeId: pt.hostNodeId,
     })),
     createdAt: Date.now(),
