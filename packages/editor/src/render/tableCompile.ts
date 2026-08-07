@@ -87,6 +87,10 @@ function compileCell(
     w: cell.w,
     h: cell.h,
     fill: cellFill(cell, table),
+    rowIdx: cell.rowIdx,
+    columnIdx: cell.columnIdx,
+    rowSpan: cell.rowSpan,
+    columnSpan: cell.columnSpan,
   };
   if (lines.length > 0) {
     ir.text = {
