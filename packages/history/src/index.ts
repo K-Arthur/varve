@@ -103,6 +103,12 @@ export {
   type RevisionCommit,
   type RevisionCommitResult,
 } from './store';
+export {
+  createIndexedDbHistoryStore,
+  HISTORY_DB_NAME,
+  HISTORY_DB_VERSION,
+  openHistoryDb,
+} from './store-idb';
 export type {
   BranchRef,
   CheckpointRef,
