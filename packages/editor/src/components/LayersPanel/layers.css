@@ -535,7 +535,7 @@
 .layers-row__variant-badge {
   font-size: var(--font-size-2xs);
   color: var(--color-interactive-default);
-  background: var(--color-interactive-subtle);
+  background: var(--color-accent-subtle);
   border-radius: var(--radius-sm);
   padding: 0 var(--space-1);
   flex-shrink: 0;
@@ -577,7 +577,7 @@
 .layers-row__adjustment-badge {
   font-size: var(--font-size-2xs);
   color: var(--color-interactive-default);
-  background: var(--color-interactive-subtle);
+  background: var(--color-accent-subtle);
   border-radius: var(--radius-sm);
   padding: 0 var(--space-1);
   flex-shrink: 0;
