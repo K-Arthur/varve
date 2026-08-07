@@ -314,10 +314,10 @@ describe('HitTestEngine', () => {
     it('hits content on any placed page, not just the active page', () => {
       let doc = createDocument('test', false);
       // Two pages with explicit placements, page 2 inactive.
-      const [p1] = doc.pages!;
+      const [p1] = [doc.pages![0]!];
       const { doc: d1 } = nextNodeId(doc);
       doc = addPage2(d1);
-      const [p1b, p2] = doc.pages!;
+      const [p1b, p2] = [doc.pages![0]!, doc.pages![1]!];
       doc = {
         ...doc,
         pages: [
