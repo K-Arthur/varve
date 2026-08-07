@@ -38,6 +38,7 @@ import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { PageToolOverlay } from './PageToolOverlay';
+import { PagePrintOverlays } from './PagePrintOverlays';
 import { PrintOverlays } from './PrintOverlays';
 import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
