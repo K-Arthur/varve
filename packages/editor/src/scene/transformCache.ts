@@ -3,6 +3,8 @@ import { buildParentIndexMap } from '@varve/scene';
 import type { Affine, Rect } from '@varve/shared';
 import { identity, multiplyAffine, rotateDeg, transformRect } from '@varve/shared';
 import { nodeLocalBounds } from './nodeBounds';
+import type { PagePlacementMap } from './pagePlacement';
+import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
 
 export interface TransformCache {
   worldTransform: Map<NodeId, Affine>;
@@ -17,6 +19,13 @@ export interface TransformCache {
    * it never goes stale relative to the doc.
    */
   parentIndex: Map<NodeId, NodeId> | null;
+  /**
+   * Node -> page placement map (ADR-0123), memoized per `doc.pages` identity.
+   * Page placement is appended to composed world transforms so the cached
+   * world space is the pasteboard.
+   */
+  placementMap: PagePlacementMap | null;
+  placementPages: unknown;
 }
 
 export function createTransformCache(): TransformCache {
@@ -26,7 +35,21 @@ export function createTransformCache(): TransformCache {
     dirty: new Set(),
     generation: 0,
     parentIndex: null,
+    placementMap: null,
+    placementPages: undefined,
   };
+}
+
+const translate = (x: number, y: number): Affine => [1, 0, 0, 1, x, y];
+
+function getPlacementMap(cache: TransformCache, doc: Document): PagePlacementMap {
+  if (cache.placementMap !== null && cache.placementPages === doc.pages) {
+    return cache.placementMap;
+  }
+  const map = buildPagePlacementMap(doc);
+  cache.placementMap = map;
+  cache.placementPages = doc.pages;
+  return map;
 }
 
 function getCacheParentIndex(cache: TransformCache, doc: Document): Map<NodeId, NodeId> {
@@ -62,6 +85,12 @@ function computeWorldTransform(cache: TransformCache, doc: Document, id: NodeId)
     if (!m) continue;
     world = multiplyAffine(world, m);
   }
+
+  // Page placement (ADR-0123): the containing page's placement translation
+  // is the root-level offset of the page-owned subtree. It is not part of
+  // any node transform, so it is appended after composition.
+  const placement = pagePlacementForNode(getPlacementMap(cache, doc), id);
+  if (placement) world = multiplyAffine(translate(placement.x, placement.y), world);
   return world;
 }
 

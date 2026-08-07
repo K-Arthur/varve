@@ -1,5 +1,6 @@
 import {
   addNode,
+  addPage,
   compositeDabOnNode,
   createDocument,
   defaultBrushPreset,
@@ -226,6 +227,97 @@ describe('computeDocumentDirtyRegion large-document cost', () => {
     const p50 = timeRuns(() => computeDocumentDirtyRegion(before, after), 5);
     // Pre-fix this was O(n²): ~7.3s at 900 nodes on the dev machine.
     expect(p50).toBeLessThan(1000);
+  });
+});
+
+describe('page placement/size dirty regions (ADR-0124)', () => {
+  function pagedDoc(): Document {
+    let doc = createDocument('Dirty', false);
+    // Explicit placement makes the test independent of auto layout.
+    doc = { ...doc, pages: [{ ...doc.pages![0]!, placement: { x: 0, y: 0 } }] };
+    return doc;
+  }
+
+  it('contributes old and new page bounds on placement change', () => {
+    const before = pagedDoc();
+    const after = { ...before, pages: [{ ...before.pages![0]!, placement: { x: 400, y: 200 } }] };
+    const dirty = computeDocumentDirtyRegion(before, after);
+    expect(dirty.kind).toBe('partial');
+    if (dirty.kind !== 'partial') return;
+    // old bounds (0,0,1920,1080) and new bounds (400,200,1920,1080), each
+    // expanded by the label band (26) — shadow + label pixels move too.
+    const pad = 26;
+    expect(dirty.bounds).toEqual({
+      x: -pad,
+      y: -pad,
+      w: 1920 + 400 + pad * 2,
+      h: 1080 + 200 + pad * 2,
+    });
+    expect(dirty.rectCount).toBe(2);
+  });
+
+  it('contributes page bounds when only the page size changes (no node edits)', () => {
+    const before = pagedDoc();
+    const after = {
+      ...before,
+      pages: [{ ...before.pages![0]!, width: 1024, height: 768, placement: { x: 0, y: 0 } }],
+    };
+    const dirty = computeDocumentDirtyRegion(before, after);
+    expect(dirty.kind).toBe('partial');
+    if (dirty.kind !== 'partial') return;
+    expect(dirty.rectCount).toBe(2);
+  });
+
+  it('reports none for page metadata edits that do not move decoration pixels', () => {
+    const before = pagedDoc();
+    const after = { ...before, pages: [{ ...before.pages![0]!, name: 'Renamed' }] };
+    // No node identity change and no placement/size change: the paint path
+    // treats a doc change with a 'none' region as a full redraw, so page
+    // number/name changes still repaint labels.
+    expect(computeDocumentDirtyRegion(before, after)).toEqual({ kind: 'none' });
+  });
+
+  it('reports none when the pages array identity changes but bounds are stable', () => {
+    const before = pagedDoc();
+    const after = {
+      ...before,
+      pages: [{ ...before.pages![0]!, placement: { x: 0, y: 0 } }],
+    };
+    expect(computeDocumentDirtyRegion(before, after)).toEqual({ kind: 'none' });
+  });
+
+  it('ignores page add/remove for the placement branch (structural path handles it)', () => {
+    const before = pagedDoc();
+    // Adding a page creates a new content-root group: a container node
+    // change, which the node diff reports as a full redraw.
+    const after = addPage(before, {});
+    const dirty = computeDocumentDirtyRegion(before, after);
+    expect(dirty.kind).toBe('full');
+  });
+
+  it('combines placement changes with concurrent leaf edits in one region', () => {
+    let before = pagedDoc();
+    before = addNode(
+      before,
+      makeShapeNode(
+        'shape',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { transform: [1, 0, 0, 1, 10, 15] as const },
+      ),
+    );
+    before = { ...before, nodes: { ...before.nodes, shape: before.nodes.shape } };
+    const after = {
+      ...before,
+      pages: [{ ...before.pages![0]!, placement: { x: 300, y: 0 } }],
+      nodes: {
+        ...before.nodes,
+        shape: { ...before.nodes.shape!, transform: [1, 0, 0, 1, 60, 15] as const },
+      },
+    };
+    const dirty = computeDocumentDirtyRegion(before, after);
+    expect(dirty.kind).toBe('partial');
+    if (dirty.kind !== 'partial') return;
+    expect(dirty.rectCount).toBeGreaterThanOrEqual(2);
   });
 });
 
