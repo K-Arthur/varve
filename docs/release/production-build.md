@@ -198,6 +198,44 @@ The honest way to get a first result for either is to run
 
 ---
 
+## 6b. Versioning between releases: push gate + dev snapshot builds
+
+Releases are versioned by tag (`v0.1.0` stable, `v0.1.0-alpha.1` prerelease;
+channel policy in `update-website-manifest.mjs`). Between releases, the
+committed version is the last released one, and three things keep that from
+becoming a lie:
+
+1. **Push-time drift gate.** ci.yml `pipeline-validate` runs
+   `node scripts/release/version.mjs verify` on every push/PR, and the
+   pre-push hook prints a warning on drift. Version changes among the five
+   manifests (root + app `package.json`, `tauri.conf.json`, workspace +
+   desktop `Cargo.toml`) can no longer land on master silently and surface
+   only at tag time.
+
+2. **Post-release bump.** After a release publishes, bump the committed
+   version so the tree always carries the NEXT number:
+   ```sh
+   just release-bump patch        # 0.1.0 -> 0.1.1 (major|minor|patch)
+   cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+   # commit manifests + both lockfiles + CHANGELOG
+   ```
+   `bump` drops any prerelease suffix (`0.1.0-beta.2` -> `bump patch` ->
+   `0.1.1`); use `release-set-version` for explicit numbers.
+
+3. **Dev/test builds get snapshot versions.** `just package-linux-dev`
+   builds AppImage + deb with version `<release>-dev.<short-sha>` (from
+   `version.mjs snapshot`, deterministic per HEAD, read-only — nothing
+   committed changes):
+   ```sh
+   just package-linux-dev
+   # -> Varve_0.1.0-dev.c5920958b894_amd64.AppImage etc.
+   ```
+   A dev bundle is therefore distinguishable from the last release and from
+   every other dev bundle — no ambiguous same-version reinstall of different
+   content, and no testing an artifact you cannot name.
+
+---
+
 ## 7. Collect, checksum, verify — VERIFIED
 
 Verified end-to-end against synthetic bundles (collect → merge → verify →
