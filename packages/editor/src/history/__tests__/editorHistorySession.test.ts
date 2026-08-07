@@ -141,6 +141,7 @@ describe('EditorHistorySession', () => {
       label: 'Old head',
       kind: 'modify',
     });
+    void _rev2;
     doc = next2;
 
     await session.undo(); // head → Old path
@@ -344,5 +345,179 @@ describe('EditorHistorySession', () => {
     const merged = await session.mergeWithBranch(branch!.branchId);
     expect(merged).not.toBeNull();
     expect(merged!.status).toBe('clean');
+  });
+
+  it('completeMerge creates a two-parent merge revision for a clean merge', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    await session.attach(baseDoc());
+    let doc = baseDoc();
+    const rev1 = await session.capture(
+      doc,
+      applyOperation(doc, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.5,
+      }),
+      [],
+      { label: 'Base', kind: 'modify' },
+    );
+    doc = applyOperation(doc, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'opacity',
+      value: 0.5,
+    });
+    await session.capture(
+      doc,
+      applyOperation(doc, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'name',
+        value: 'Main Name',
+      }),
+      [],
+      { label: 'Rename on main', kind: 'modify' },
+    );
+    const branch = await session.createBranch('alt', rev1!.revisionId);
+    await session.switchBranch(branch!.branchId);
+    const altDoc = await session.loadRevisionDocument(rev1!.revisionId);
+    await session.capture(
+      altDoc!,
+      applyOperation(altDoc!, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.7,
+      }),
+      [],
+      { label: 'Opacity on alt', kind: 'modify' },
+    );
+    await session.switchBranch(
+      (await store.listBranches(DOC_ID)).find((b) => b.name === 'main')!.branchId,
+    );
+
+    const result = await session.completeMerge(branch!.branchId);
+    expect(result.status).toBe('clean');
+    expect(result.revision).toBeDefined();
+    expect(result.revision!.parentRevisionIds).toHaveLength(2);
+    const steps = await session.steps();
+    expect(steps[steps.length - 1]!.revision.parentRevisionIds).toHaveLength(2);
+    expect(steps[steps.length - 1]!.label).toMatch(/merge/i);
+  });
+
+  it('completeMerge resolves scalar conflicts through resolutions', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    await session.attach(baseDoc());
+    let doc = baseDoc();
+    const rev1 = await session.capture(
+      doc,
+      applyOperation(doc, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.5,
+      }),
+      [],
+      { label: 'Base', kind: 'modify' },
+    );
+    doc = applyOperation(doc, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'opacity',
+      value: 0.5,
+    });
+    // Both branches change the SAME property differently → scalar conflict.
+    await session.capture(
+      doc,
+      applyOperation(doc, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.2,
+      }),
+      [],
+      { label: 'Ours opacity', kind: 'modify' },
+    );
+    const branch = await session.createBranch('alt', rev1!.revisionId);
+    await session.switchBranch(branch!.branchId);
+    const altDoc = await session.loadRevisionDocument(rev1!.revisionId);
+    await session.capture(
+      altDoc!,
+      applyOperation(altDoc!, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.9,
+      }),
+      [],
+      { label: 'Theirs opacity', kind: 'modify' },
+    );
+    await session.switchBranch(
+      (await store.listBranches(DOC_ID)).find((b) => b.name === 'main')!.branchId,
+    );
+
+    const preMerge = await session.mergeWithBranch(branch!.branchId);
+    expect(preMerge!.status).toBe('conflicted');
+    expect(preMerge!.conflicts).toHaveLength(1);
+
+    const conflict = preMerge!.conflicts[0]!;
+    const result = await session.completeMerge(branch!.branchId, [
+      { conflictId: conflict.conflictId, choice: 'theirs' },
+    ]);
+    expect(result.status).toBe('clean');
+    expect(result.revision!.parentRevisionIds).toHaveLength(2);
+    // The merged document carries the chosen (theirs) opacity.
+    const headDoc = await session.loadRevisionDocument(result.revision!.revisionId);
+    expect((headDoc!.nodes['n1_aaaa'] as { opacity?: number }).opacity).toBe(0.9);
+  });
+
+  it('completeMerge refuses to commit when conflicts remain unresolved', async () => {
+    const store = createMemoryHistoryStore();
+    const session = newSession(store);
+    await session.attach(baseDoc());
+    let doc = baseDoc();
+    const rev1 = await session.capture(
+      doc,
+      applyOperation(doc, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.5,
+      }),
+      [],
+      { label: 'Base', kind: 'modify' },
+    );
+    doc = applyOperation(doc, 'node.patch', {
+      nodeId: 'n1_aaaa',
+      path: 'opacity',
+      value: 0.5,
+    });
+    await session.capture(
+      doc,
+      applyOperation(doc, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.2,
+      }),
+      [],
+      { label: 'Ours opacity', kind: 'modify' },
+    );
+    const branch = await session.createBranch('alt', rev1!.revisionId);
+    await session.switchBranch(branch!.branchId);
+    const altDoc = await session.loadRevisionDocument(rev1!.revisionId);
+    await session.capture(
+      altDoc!,
+      applyOperation(altDoc!, 'node.patch', {
+        nodeId: 'n1_aaaa',
+        path: 'opacity',
+        value: 0.9,
+      }),
+      [],
+      { label: 'Theirs opacity', kind: 'modify' },
+    );
+    await session.switchBranch(
+      (await store.listBranches(DOC_ID)).find((b) => b.name === 'main')!.branchId,
+    );
+
+    // No resolutions → merge stays conflicted, no revision is committed.
+    const result = await session.completeMerge(branch!.branchId);
+    expect(result.status).toBe('conflicted');
+    expect(result.revision).toBeUndefined();
+    const steps = await session.steps();
+    expect(steps[steps.length - 1]!.revision.parentRevisionIds).toHaveLength(1);
   });
 });

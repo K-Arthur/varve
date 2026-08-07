@@ -192,6 +192,7 @@ export function createActionHandlers(
     toggleCodegenPanel: () => e.toggleCodegenPanel(),
     toggleLogoPanel: () => e.toggleLogoPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
+    toggleHistoryPanel: () => e.toggleHistoryPanel(),
     toggleGraphEditor: () => e.toggleGraphEditor(),
     toggleStateMachinePanel: () => e.toggleStateMachinePanel(),
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),
