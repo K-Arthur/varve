@@ -27,13 +27,13 @@ import type {
   PanelInstanceNodeId,
   WorkspaceWindowLayout,
 } from './dockTypes';
-import type { PanelTypeId } from './panelRegistry';
 import {
   clampRatio,
   createEmptyDockNode,
   createPanelDockNode,
   createSplitDockNode,
 } from './dockTypes';
+import type { PanelTypeId } from './panelRegistry';
 
 // ---------------------------------------------------------------------------
 // Tree traversal

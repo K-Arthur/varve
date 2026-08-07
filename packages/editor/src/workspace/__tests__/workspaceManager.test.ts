@@ -92,8 +92,8 @@ describe('workspaceManager: named layout CRUD', () => {
     const layout = makeLayout();
     const next = saveNamedLayout(state, 'My Layout', layout);
     expect(next.namedLayouts).toHaveLength(1);
-    expect(next.namedLayouts[0]!. name).toBe('My Layout');
-    expect(next.namedLayouts[0]!. layout.id).toBe(layout.id);
+    expect(next.namedLayouts[0]!.name).toBe('My Layout');
+    expect(next.namedLayouts[0]!.layout.id).toBe(layout.id);
   });
 
   it('updates an existing layout with the same name', () => {
@@ -102,7 +102,7 @@ describe('workspaceManager: named layout CRUD', () => {
     const state1 = saveNamedLayout(state, 'My Layout', layout1);
     const state2 = saveNamedLayout(state1, 'My Layout', layout2);
     expect(state2.namedLayouts).toHaveLength(1);
-    expect(state2.namedLayouts[0]!. layout.name).toBe('V2');
+    expect(state2.namedLayouts[0]!.layout.name).toBe('V2');
   });
 
   it('is case-insensitive on name matching', () => {
@@ -115,7 +115,7 @@ describe('workspaceManager: named layout CRUD', () => {
   it('loads a layout by id', () => {
     const layout = makeLayout();
     const next = saveNamedLayout(state, 'Test', layout);
-    expect(loadNamedLayout(next, next.namedLayouts[0]!. id)).toBeDefined();
+    expect(loadNamedLayout(next, next.namedLayouts[0]!.id)).toBeDefined();
   });
 
   it('loads returns undefined for unknown id', () => {
@@ -125,7 +125,7 @@ describe('workspaceManager: named layout CRUD', () => {
   it('deletes a layout', () => {
     const layout = makeLayout();
     let next = saveNamedLayout(state, 'Test', layout);
-    const layoutId = next.namedLayouts[0]!. id;
+    const layoutId = next.namedLayouts[0]!.id;
     next = deleteNamedLayout(next, layoutId);
     expect(next.namedLayouts).toHaveLength(0);
   });
@@ -133,7 +133,7 @@ describe('workspaceManager: named layout CRUD', () => {
   it('clears activeLayoutId when deleting active layout', () => {
     const layout = makeLayout();
     let next = saveNamedLayout(state, 'Test', layout);
-    const layoutId = next.namedLayouts[0]!. id;
+    const layoutId = next.namedLayouts[0]!.id;
     next = setActiveLayout(next, layoutId);
     next = deleteNamedLayout(next, layoutId);
     expect(next.activeLayoutId).toBeNull();
@@ -142,9 +142,9 @@ describe('workspaceManager: named layout CRUD', () => {
   it('renames a layout', () => {
     const layout = makeLayout();
     let next = saveNamedLayout(state, 'Old Name', layout);
-    const layoutId = next.namedLayouts[0]!. id;
+    const layoutId = next.namedLayouts[0]!.id;
     next = renameNamedLayout(next, layoutId, 'New Name');
-    expect(next.namedLayouts[0]!. name).toBe('New Name');
+    expect(next.namedLayouts[0]!.name).toBe('New Name');
   });
 
   it('lists layouts sorted by name', () => {
@@ -171,7 +171,7 @@ describe('workspaceManager: active layout tracking', () => {
   it('sets active layout', () => {
     const layout = makeLayout();
     let next = saveNamedLayout(state, 'Test', layout);
-    const layoutId = next.namedLayouts[0]!. id;
+    const layoutId = next.namedLayouts[0]!.id;
     next = setActiveLayout(next, layoutId);
     expect(next.activeLayoutId).toBe(layoutId);
   });
@@ -184,7 +184,7 @@ describe('workspaceManager: active layout tracking', () => {
   it('gets active layout', () => {
     const layout = makeLayout();
     let next = saveNamedLayout(state, 'Test', layout);
-    const layoutId = next.namedLayouts[0]!. id;
+    const layoutId = next.namedLayouts[0]!.id;
     next = setActiveLayout(next, layoutId);
     const active = getActiveLayout(next);
     expect(active).toBeDefined();
@@ -198,7 +198,7 @@ describe('workspaceManager: active layout tracking', () => {
   it('clears active layout', () => {
     const layout = makeLayout();
     let next = saveNamedLayout(state, 'Test', layout);
-    next = setActiveLayout(next, next.namedLayouts[0]!. id);
+    next = setActiveLayout(next, next.namedLayouts[0]!.id);
     next = clearActiveLayout(next);
     expect(next.activeLayoutId).toBeNull();
     expect(getActiveLayout(next)).toBeUndefined();
