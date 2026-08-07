@@ -9,8 +9,9 @@
  * - B1: pages have no pasteboard placement; every content root sits at world
  *       origin, so all pages overlap (ADR-0124).
  * - B2: spread IDs are regenerated on every rebuild (ADR-0128).
- * - B3: hidden/deleted master overrides still list the master node in
- *       activePageNodesWithMaster (ADR-0132 D2).
+ * - B3 (FIXED 2026-08-07, M8): hidden/deleted master overrides now remove
+ *       the master node from activePageNodesWithMaster (ADR-0132 D2); the
+ *       two tests below pin the corrected projection.
  * - B4: text flow splits by character count, not geometry (ADR-0137 D1).
  * - B5: duplicate page does not remap text-chain frame references (ADR-0126 D4).
  * - B6: page deletion silently removes content (ADR-0126 D3).
@@ -124,7 +125,7 @@ describe('Baseline B3 — master override projection (defect pin)', () => {
     return { doc: d2, masterChildId: nodeId };
   }
 
-  it('hidden override still lists the master node in the projection (defect)', () => {
+  it('hidden override removes the master node from the projection (B3 fixed)', () => {
     let doc = createDocument();
     doc = createMaster(doc, { name: 'M', width: 1920, height: 1080 });
     const page = firstPage(doc);
@@ -134,11 +135,11 @@ describe('Baseline B3 — master override projection (defect pin)', () => {
     doc = addMasterOverride(doc, page.id, masterChildId, 'hidden');
 
     const projected = activePageNodesWithMaster(doc, page.id);
-    expect(projected).toContain(masterChildId);
+    expect(projected).not.toContain(masterChildId);
     expect(projected).not.toContain(page.contentRoot);
   });
 
-  it('deleted override behaves the same (defect)', () => {
+  it('deleted override removes the master node from the projection (B3 fixed)', () => {
     let doc = createDocument();
     doc = createMaster(doc, { name: 'M', width: 1920, height: 1080 });
     const page = firstPage(doc);
@@ -148,7 +149,7 @@ describe('Baseline B3 — master override projection (defect pin)', () => {
     doc = addMasterOverride(doc, page.id, masterChildId, 'deleted');
 
     const projected = activePageNodesWithMaster(doc, page.id);
-    expect(projected).toContain(masterChildId);
+    expect(projected).not.toContain(masterChildId);
   });
 
   it('modified override substitutes the local node', () => {
