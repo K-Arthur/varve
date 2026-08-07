@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { computeDirtyPruneDecision } from '../dirtyQuery';
+import { computeDirtyPruneDecision, rectsIntersectAny } from '../dirtyQuery';
 import {
   type PaintedSurfaceIdentity,
   paintedSurfaceAfterFrame,
@@ -185,5 +185,71 @@ describe('paintedSurfaceAfterFrame', () => {
     // camera match still retains its pixels.
     const recorded = paintedSurfaceAfterFrame(surface, true);
     expect(surfaceMatchesBackingStore(recorded, surface)).toBe('match');
+  });
+});
+
+describe('prune region covers the cleared region', () => {
+  // The paint path clears `screenRects` (world rect + 40px AA margin) and the
+  // candidate query selects nodes against `worldRects`. If worldRects is the
+  // unexpanded rect, a margin-wide band is cleared but never replayed, and
+  // every node in it is erased. Reproduced on WebKitGTK as rectangles reduced
+  // to their edge slivers after a drag.
+  const merged: DirtyMergeResult = {
+    rects: [{ x: 100, y: 100, w: 40, h: 40 }],
+    beforeCount: 1,
+    afterCount: 1,
+    sumAreaBefore: 1600,
+    sumAreaAfter: 1600,
+    unionAreaAfter: 1600,
+    amplification: 1,
+    overflowed: 0,
+    mergesApplied: 0,
+    fallback: 'none',
+  };
+
+  /** Identity camera: 1 world unit == 1 screen px. */
+  const identity = (wx: number, wy: number) => [wx, wy] as const;
+
+  const decision = (worldToScreen: (wx: number, wy: number) => readonly [number, number]) =>
+    computeDirtyPruneDecision({
+      dirtyKind: 'partial',
+      merged,
+      profileEnablePartialRedraw: true,
+      rotation: 0,
+      dirtyScreenRect: { x: 100, y: 100, w: 40, h: 40 },
+      viewportW: 1000,
+      viewportH: 1000,
+      workerWillRender: false,
+      surfaceMatch: 'match',
+      worldToScreen,
+    });
+
+  it('expands the replay region to cover the cleared margin at zoom 1', () => {
+    const { worldRects } = decision(identity);
+    expect(worldRects).not.toBeNull();
+    const r = worldRects![0]!;
+    // 40px margin on each side of a 40x40 rect at (100,100).
+    expect(r).toEqual({ x: 60, y: 60, w: 120, h: 120 });
+  });
+
+  it('a node inside the cleared margin band is selected for replay', () => {
+    const { worldRects } = decision(identity);
+    // Sits entirely in the margin band: outside the dirty rect, inside the
+    // region the paint path clears. Under the old behaviour this node was
+    // erased and never redrawn.
+    const neighbour = { x: 70, y: 110, w: 20, h: 20 };
+    expect(rectsIntersectAny(neighbour, worldRects!)).toBe(true);
+  });
+
+  it('scales the margin into world units when zoomed in', () => {
+    // At 2x zoom, 40 screen px is 20 world units.
+    const { worldRects } = decision((wx, wy) => [wx * 2, wy * 2] as const);
+    expect(worldRects![0]).toEqual({ x: 80, y: 80, w: 80, h: 80 });
+  });
+
+  it('scales the margin into world units when zoomed out', () => {
+    // At 0.5x zoom, 40 screen px is 80 world units.
+    const { worldRects } = decision((wx, wy) => [wx * 0.5, wy * 0.5] as const);
+    expect(worldRects![0]).toEqual({ x: 20, y: 20, w: 200, h: 200 });
   });
 });

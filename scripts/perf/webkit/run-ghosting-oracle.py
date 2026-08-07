@@ -204,6 +204,18 @@ ORACLE_JS = r"""
           for (let i = 0; i < 30; i++) { send('pointermove', hitX + i * 8, hitY + i * 2); await frame(); }
           send('pointerup', hitX + 240, hitY + 60);
         },
+        // A1: identical drag, but every frame is forced to a full redraw. If
+        // the residue vanishes here, the partial-redraw path is the cause and
+        // the scene/tool state is exonerated.
+        async dragFullRedraw() {
+          send('pointerdown', hitX, hitY);
+          for (let i = 0; i < 30; i++) {
+            send('pointermove', hitX + i * 8, hitY + i * 2);
+            p.forceFullRedraw();
+            await frame();
+          }
+          send('pointerup', hitX + 240, hitY + 60);
+        },
         // A2: the same total travel in small per-frame steps. If the residue
         // disappears here it is a dirty-region coverage problem proportional
         // to per-frame displacement, not a clearing bug.
@@ -241,13 +253,44 @@ ORACLE_JS = r"""
         } catch { return null; }
       };
 
+      // Dirty-region evidence for the failing gesture. If the recorded dirty
+      // rects do NOT cover the residue bounding box, the dirty region
+      // under-covers the swept area (a coverage bug). If they DO cover it, the
+      // region was right and the clear/clip path failed (a paint bug). These
+      // are the two candidate causes and this discriminates between them.
+      function dirtyEvidence() {
+        try {
+          const nw = p.nodeWork ? p.nodeWork.getSamples(40) : null;
+          const frames = p.getFrames ? p.getFrames(40) : [];
+          return {
+            dirtyRects: nw && nw.dirtyRects ? nw.dirtyRects.rects.slice(-24) : null,
+            dirtyTruncated: nw && nw.dirtyRects ? nw.dirtyRects.truncated : null,
+            mergedDirty: nw ? nw.mergedDirty : null,
+            pruneScreenRects: nw ? nw.pruneScreenRects : null,
+            partialFrames: frames.filter(f => f.partialRedraw).length,
+            fullFrames: frames.filter(f => !f.partialRedraw && f.wasDirty).length,
+            lastDirtyScreenRects: frames.slice(-12).map(f => f.dirtyScreenRect),
+            lastReasons: frames.slice(-12).map(f => f.redrawReason),
+            latestRatios: nw ? nw.latestRatios : null,
+          };
+        } catch (e) { return { error: String(e) }; }
+      }
+
       const results = {};
       const cameraTrace = {};
       for (const name of Object.keys(gestures)) {
+        // Reset the document before every gesture. Without this a gesture is
+        // silently invalidated by the one before it — the earlier `dragSlow`
+        // run grabbed nothing because the preceding drag had already moved the
+        // object out from under the hit point.
+        try { await p.fixtures.apply('vector-100'); } catch (e) { log.push('reset failed: ' + e); }
+        await settle(10);
         const t0 = capture(cv);
         await gestures[name]();
         await settle(8);
+        if (name === 'drag') results.__dragDirty = dirtyEvidence();
         const before = capture(cv);
+        if (name === 'drag') window.__beforeCap = before;
         // Did the gesture actually change anything? A gesture that moved no
         // pixels makes its oracle result vacuous, so it is reported.
         const moved = diff(t0, before, 2);
@@ -256,6 +299,37 @@ ORACLE_JS = r"""
         const after = capture(cv);
         results[name] = diff(before, after, 2);
         results[name].gestureMovedPixels = moved.differing;
+        // Crop the differing region out of both captures so the residue can be
+        // looked at, not just counted. A pixel count cannot tell a stale
+        // silhouette from a legitimately transient overlay.
+        if (name === 'drag' && results[name].bbox) {
+          const b = results[name].bbox;
+          const pad = 24;
+          const bx = Math.max(0, b.x - pad), by = Math.max(0, b.y - pad);
+          const bw = Math.min(cv.width - bx, b.w + pad * 2);
+          const bh = Math.min(cv.height - by, b.h + pad * 2);
+          const crop = (img) => {
+            const oc = document.createElement('canvas');
+            oc.width = bw; oc.height = bh;
+            const octx = oc.getContext('2d');
+            const tmp = document.createElement('canvas');
+            tmp.width = img.width; tmp.height = img.height;
+            tmp.getContext('2d').putImageData(img, 0, 0);
+            octx.drawImage(tmp, bx, by, bw, bh, 0, 0, bw, bh);
+            return oc.toDataURL('image/png');
+          };
+          results.__crops = {
+            region: { x: bx, y: by, w: bw, h: bh },
+            before: crop(before),
+            after: crop(after),
+            full: (() => {
+              const oc = document.createElement('canvas');
+              oc.width = cv.width; oc.height = cv.height;
+              oc.getContext('2d').putImageData(before, 0, 0);
+              return oc.toDataURL('image/png');
+            })(),
+          };
+        }
         cameraTrace[name] = camera();
         log.push(name + ': ' + JSON.stringify(results[name]));
       }
