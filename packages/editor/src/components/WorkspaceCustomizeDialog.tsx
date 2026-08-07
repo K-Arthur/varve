@@ -15,6 +15,7 @@ import {
   resetModePreferences,
   setInspectorTabOverride,
   setPanelOverride,
+  setToolbarToolOverride,
   setStatusSectionOverride,
   updateWorkspacePreferences,
 } from '../workspace/workspaceStore';
@@ -69,6 +70,15 @@ export function WorkspaceCustomizeDialog({
     [mode],
   );
 
+  const handleToggleTool = useCallback(
+    (toolId: string, visible: boolean) => {
+      updateWorkspacePreferences((prefs) =>
+        setToolbarToolOverride(prefs, mode, toolId, visible),
+      );
+    },
+    [mode],
+  );
+
   const handleReset = useCallback(() => {
     resetWorkspaceToDefault();
     onClose();
@@ -113,6 +123,24 @@ export function WorkspaceCustomizeDialog({
               <span>{panel.label}</span>
             </label>
           ))}
+        </section>
+
+        {/* Toolbar tools */}
+        <section className="workspace-customize__section">
+          <h3>Toolbar Tools</h3>
+          {builtIn.toolbar.tools.map((tool) => {
+            const isVisible = effectiveConfig.toolbar.tools.some((t) => t.toolId === tool.toolId);
+            return (
+              <label key={tool.toolId} className="workspace-customize__toggle">
+                <input
+                  type="checkbox"
+                  checked={isVisible}
+                  onChange={(e) => handleToggleTool(tool.toolId, e.target.checked)}
+                />
+                <span>{tool.toolId}</span>
+              </label>
+            );
+          })}
         </section>
 
         {/* Inspector tabs */}
