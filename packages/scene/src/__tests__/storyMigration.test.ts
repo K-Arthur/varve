@@ -53,16 +53,21 @@ describe('v2.18 story migration', () => {
   });
 
   it('falls back to the first frame richText, then plain text', () => {
-    const raw = chainDocRaw();
-    delete (raw.textChains as Record<string, { richText?: unknown }>)['chain-1']!.richText;
+    const raw = chainDocRaw() as Record<string, unknown> & {
+      textChains?: Record<string, { richText?: unknown }>;
+    };
+    delete raw.textChains!['chain-1']!.richText;
     const migrated = migrateV217ToV218(raw);
     const stories = migrated.stories as Record<string, { content: { paragraphs: unknown[] } }>;
     expect(stories['chain-1']!.content.paragraphs).toHaveLength(1);
 
     // Strip the frame richText too: plain text becomes a single run.
-    const raw2 = chainDocRaw();
-    delete (raw2.textChains as Record<string, { richText?: unknown }>)['chain-1']!.richText;
-    const nodes = raw2.nodes as Record<string, { richText?: unknown }>;
+    const raw2 = chainDocRaw() as Record<string, unknown> & {
+      textChains?: Record<string, { richText?: unknown }>;
+      nodes: Record<string, { richText?: unknown }>;
+    };
+    delete raw2.textChains!['chain-1']!.richText;
+    const nodes = raw2.nodes;
     delete nodes.f1!.richText;
     const migrated2 = migrateV217ToV218(raw2);
     const s2 = migrated2.stories as Record<
@@ -73,7 +78,9 @@ describe('v2.18 story migration', () => {
   });
 
   it('stamps documents without chains and is idempotent', () => {
-    const raw = { ...chainDocRaw() };
+    const raw = { ...chainDocRaw() } as Record<string, unknown> & {
+      textChains?: unknown;
+    };
     delete raw.textChains;
     const migrated = migrateV217ToV218(raw);
     expect(migrated.formatVersion).toBe('2.18');

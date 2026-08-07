@@ -34,7 +34,9 @@ export type PageRangeSpec =
   | { kind: 'current' }
   | { kind: 'selected' }
   | { kind: 'section'; name: string }
-  | { kind: 'explicit'; pageIds: NodeId[] };
+  | { kind: 'explicit'; pageIds: NodeId[] }
+  | { kind: 'numbers'; values: string[]; parity?: 'odd' | 'even' }
+  | { kind: 'prefixes'; prefix: string; values: string[] };
 
 const MAX_RANGE_TOKENS = 512;
 
