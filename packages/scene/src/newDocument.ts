@@ -40,7 +40,7 @@ import type { NodeId } from './types';
  *  fixed-96dpi world unit. Mirrors the engine's practical scene limits. */
 export const MAX_FRAME_DIMENSION = 100_000;
 
-export type NewDocumentStartMode = 'empty' | 'framePreset' | 'customFrame' | 'template';
+export type NewDocumentStartMode = 'empty' | 'pages' | 'framePreset' | 'customFrame' | 'template';
 
 export interface NewDocumentCustomFrame {
   width: number;
@@ -159,7 +159,12 @@ export function createNewDocument(request: NewDocumentRequest): NewDocumentReque
 
   // Base: an infinite-canvas, page-less document. Never carries a default
   // page size — dimensions arrive only via an initial frame or template.
-  let doc = createDocument(request.documentName?.trim() || 'Untitled', { flat: true });
+  // 'pages' start mode (M14): a paged document with one default page — the
+  // entry point for print/publication documents.
+  let doc =
+    startMode === 'pages'
+      ? createDocument(request.documentName?.trim() || 'Untitled', false)
+      : createDocument(request.documentName?.trim() || 'Untitled', { flat: true });
 
   let initialFrameId: NodeId | undefined;
   if (
