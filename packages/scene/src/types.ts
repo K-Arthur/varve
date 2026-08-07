@@ -858,6 +858,35 @@ export interface RichText {
   paragraphs: Paragraph[];
 }
 
+// ── Text Stories (v2.18, ADR-0159) ─────────────────────────────────────────
+
+/**
+ * Authoritative story model: one story owns the text content; linked text
+ * frames reference it through a thread binding and display derived ranges
+ * from composition (M10). The story is the single source of truth — frame
+ * text is never duplicated across linked frames.
+ */
+export interface TextStory {
+  id: NodeId;
+  name: string;
+  /** Authoritative rich-text content. */
+  content: RichText;
+  /** Ordered frame ids in the thread (paint/composition order). */
+  thread: NodeId[];
+  /** Language tag for shaping/hyphenation (e.g. "en", "ar"). */
+  language?: string;
+}
+
+/**
+ * A frame's membership in a story thread. Frames without a binding keep
+ * their own `richText` (single-frame default, pre-story documents).
+ */
+export interface TextFrameBinding {
+  storyId: NodeId;
+  /** Index into the story's thread array. */
+  threadIndex: number;
+}
+
 /**
  * Per-cluster glyph adjustment for wordmark-level typography.
  *
@@ -1095,6 +1124,8 @@ export interface TextNode extends NodeBase {
   variableAxes?: Record<string, number>;
   /** Rich text content (paragraphs with runs). When set, overrides `text`. */
   richText?: RichText;
+  /** Story thread membership (v2.18, ADR-0159); absent for single-frame text. */
+  storyBinding?: TextFrameBinding;
   /** Text mode: point, area, path, or auto. */
   textMode?: TextMode;
   /** Path text settings (when textMode === 'path'). */

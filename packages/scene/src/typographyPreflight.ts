@@ -42,6 +42,8 @@ export function runTypographyPreflight(
   options: {
     availableFonts?: Set<string>;
     chains?: Map<string, import('./typography').TextChain>;
+    /** v2.18 story threads (ADR-0159); checked alongside legacy chains. */
+    stories?: Record<NodeId, import('./types').TextStory>;
     oversetMap?: Map<NodeId, import('./typography').OversetInfo>;
     supportedAxes?: Map<string, Set<string>>;
     fontMetadata?: Map<string, { glyphCount?: number; supportedAxes?: Set<string> }>;
@@ -134,6 +136,23 @@ export function runTypographyPreflight(
           chainId,
           frameId,
         });
+      }
+    }
+  }
+
+  if (options.stories) {
+    for (const story of Object.values(options.stories)) {
+      if (!story) continue;
+      for (const frameId of story.thread) {
+        if (!doc.nodes[frameId]) {
+          issues.push({
+            severity: 'error',
+            category: 'broken-chain',
+            message: `Story "${story.name}" references missing frame ${frameId}`,
+            chainId: story.id,
+            frameId,
+          });
+        }
       }
     }
   }

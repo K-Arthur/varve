@@ -83,6 +83,7 @@ const DOCUMENT_KEY_ORDER: readonly string[] = [
   'motionExtensions',
   'motionPresets',
   'textChains',
+  'stories',
   'brushPresets',
   'rasterMaskAssets',
   'iconAssets',
