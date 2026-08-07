@@ -68,7 +68,10 @@ export class SessionBroker {
   private patchDirty = false;
   private closed = false;
 
+  private sessionId: string;
+
   constructor(sessionId: string) {
+    this.sessionId = sessionId;
     this.transport = createSessionTransport(sessionId, (eventId, payload) =>
       this.handleMessage(eventId, payload),
     );
@@ -77,6 +80,14 @@ export class SessionBroker {
   /** Attach the editor API. */
   attach(editorApi: BrokerEditorApi): void {
     this.editorApi = editorApi;
+    // StrictMode double-mount: detach() closes the transport; re-attach
+    // must bring up a fresh channel or every send fails.
+    if (this.closed) {
+      this.closed = false;
+      this.transport = createSessionTransport(this.sessionId, (eventId, payload) =>
+        this.handleMessage(eventId, payload),
+      );
+    }
   }
 
   detach(): void {
