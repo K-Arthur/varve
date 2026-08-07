@@ -47,6 +47,7 @@ import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
 import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
+import { PageToolOverlay } from './PageToolOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 
 export interface CanvasOverlaysProps {
@@ -102,7 +103,6 @@ export function CanvasOverlays({
   colorBlindnessView,
   guidesVisible,
   bleedGuidesVisible,
-  layoutGridVisible,
   selectedGuideId,
   unitType,
   rulerMode,
@@ -529,6 +529,13 @@ export function CanvasOverlays({
         />
       )}
       <ZoomIndicator zoom={zoom} />
+      <PageToolOverlay
+        document={doc}
+        activePageId={editor.state.document.activePageId ?? null}
+        tool={tool}
+        zoom={zoom}
+        worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
+      />
       <div
         className="editor-canvas__announcer"
         ref={announcerRef}
