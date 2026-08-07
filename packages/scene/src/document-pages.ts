@@ -6,7 +6,15 @@ import { cryptoId, devValidate, makeGroupNode } from './document-utils';
 import { nextNodeId } from './node-id';
 import { getPageNumbering } from './pageNumbering';
 import { projectSpreads } from './pasteboardLayout';
-import type { FacingPagesConfig, GroupNode, NodeId, Page, PageSide, Spread } from './types';
+import type {
+  FacingPagesConfig,
+  GroupNode,
+  NodeId,
+  Page,
+  PageSide,
+  SceneNode,
+  Spread,
+} from './types';
 import { isContainer } from './types';
 
 // ── Helper ─────────────────────────────────────────────────────────────────
@@ -278,9 +286,54 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
     rootChildren: [...d.rootChildren, newContentRootId],
   };
 
-  // Text chains: frames of the duplicated page get fresh chain entries so the
-  // copied story stays linked within the copy and never silently joins the
-  // source story (ADR-0126 D4). The source chains keep their frame ids.
+  // Text chains (legacy): frames of the duplicated page get fresh chain
+  // entries so the copied story stays linked within the copy and never
+  // silently joins the source story (ADR-0126 D4). The source chains keep
+  // their frame ids.
+
+  // v2.18 stories (ADR-0159): duplicate each story thread restricted to the
+  // cloned frames — a story spanning pages inside the duplicated page is
+  // preserved; frames outside the page drop out of the copy's thread. Frame
+  // bindings on the clones point at the fresh story.
+  const stories = result.stories as
+    | Record<
+        string,
+        { id: string; name?: string; content: import('./types').RichText; thread: NodeId[] }
+      >
+    | undefined;
+  if (stories && Object.keys(stories).length > 0) {
+    const mappedStories: Record<string, import('./types').TextStory> = {};
+    for (const story of Object.values(stories)) {
+      if (!Array.isArray(story?.thread)) continue;
+      const mapped = story.thread
+        .map((fid) => (idMap.get(fid) ?? null) as NodeId | null)
+        .filter((fid): fid is NodeId => fid !== null);
+      if (mapped.length === 0) continue;
+      const storyId = cryptoId();
+      mappedStories[storyId] = {
+        ...story,
+        id: storyId,
+        name: story.name ? `${story.name} Copy` : 'Story',
+        thread: mapped,
+      };
+      for (let i = 0; i < mapped.length; i++) {
+        const frameId = mapped[i]!;
+        const frame = result.nodes[frameId] as Record<string, unknown> | undefined;
+        if (frame && frame.kind === 'text') {
+          result = {
+            ...result,
+            nodes: {
+              ...result.nodes,
+              [frameId]: { ...frame, storyBinding: { storyId, threadIndex: i } } as SceneNode,
+            },
+          };
+        }
+      }
+    }
+    if (Object.keys(mappedStories).length > 0) {
+      result = { ...result, stories: { ...result.stories, ...mappedStories } };
+    }
+  }
   const chains = result.textChains as
     | Record<string, { id: string; name?: string; frameIds: NodeId[] }>
     | undefined;
