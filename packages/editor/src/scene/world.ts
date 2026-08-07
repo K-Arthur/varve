@@ -5,8 +5,11 @@
  * coordinate space and the world coordinate space used by the renderer,
  * hit-tester, selection overlay, and reveal logic.
  *
- * Canonical implementations now live in @varve/scene's coordinateService.
- * This file re-exports for backward compatibility.
+ * Canonical implementations live in @varve/scene's coordinateService. This
+ * file re-exports them for backward compatibility, wrapping them so that
+ * page placement (ADR-0123) is applied: the editor's world space is the
+ * pasteboard, so page-owned nodes carry their containing page's placement
+ * translation. Pasteboard/global items are unaffected.
  *
  * Research basis: scene-graph transform composition (standard affine chain).
  * Each node's `transform` is a local→parent affine; the world matrix is the
@@ -15,46 +18,87 @@
 
 import type { Document, NodeId } from '@varve/scene';
 import {
-  groupWorldBounds as sceneGroupWorldBounds,
   nodeWorldBounds as sceneNodeWorldBounds,
   nodeWorldTransform as sceneNodeWorldTransform,
 } from '@varve/scene';
 import type { Affine, Rect } from '@varve/shared';
+import { multiplyAffine } from '@varve/shared';
+import type { PagePlacementMap } from './pagePlacement';
+import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
 
 export { nodeLocalBounds } from './nodeBounds';
 
+const translate = (x: number, y: number): Affine => [1, 0, 0, 1, x, y];
+
+// Module-level memo of the node -> placement map, keyed by the pages-array
+// identity. Documents are immutable with structural sharing, so a fresh
+// `doc.pages` reference is the sole signal that the map could be stale.
+let placementMemoPages: unknown;
+let placementMemoMap: PagePlacementMap = { nodes: new Map(), contentRoots: new Set() };
+
+function placementMapFor(doc: Document): PagePlacementMap {
+  if (placementMemoPages !== doc.pages) {
+    placementMemoPages = doc.pages;
+    placementMemoMap = buildPagePlacementMap(doc);
+  }
+  return placementMemoMap;
+}
+
 /**
- * @deprecated Import from @varve/scene instead. This re-export is for
- * backward compatibility during the phased migration.
+ * Placed-world transform: the composed scene transform plus the containing
+ * page's placement translation (identity for pasteboard/global items).
  */
 export function nodeWorldTransform(
   doc: Document,
   id: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
 ): Affine {
-  return sceneNodeWorldTransform(doc, id, parentIndex);
+  const world = sceneNodeWorldTransform(doc, id, parentIndex);
+  const placement = pagePlacementForNode(placementMapFor(doc), id);
+  return placement ? multiplyAffine(translate(placement.x, placement.y), world) : world;
 }
 
 /**
- * @deprecated Import from @varve/scene instead. This re-export is for
- * backward compatibility during the phased migration.
+ * Placed-world group bounds: union of children's placed-world bounds
+ * (groups have no own geometry). Implemented here rather than delegated to
+ * the scene so the union includes each child's placement.
  */
 export function groupWorldBounds(
   doc: Document,
   groupId: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
 ): Rect | null {
-  return sceneGroupWorldBounds(doc, groupId, parentIndex);
+  const node = doc.nodes[groupId];
+  if (node?.kind !== 'group') return null;
+  let union: Rect | null = null;
+  for (const childId of node.children) {
+    const b = nodeWorldBounds(doc, childId, parentIndex);
+    if (!b) continue;
+    if (!union) {
+      union = { x: b.x, y: b.y, w: b.w, h: b.h };
+    } else {
+      const minX = Math.min(union.x, b.x);
+      const minY = Math.min(union.y, b.y);
+      const maxX = Math.max(union.x + union.w, b.x + b.w);
+      const maxY = Math.max(union.y + union.h, b.y + b.h);
+      union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+  }
+  return union;
 }
 
 /**
- * @deprecated Import from @varve/scene instead. This re-export is for
- * backward compatibility during the phased migration.
+ * Placed-world bounds for any node: the scene bounds shifted by the
+ * containing page's placement (pasteboard items keep scene bounds).
  */
 export function nodeWorldBounds(
   doc: Document,
   id: NodeId,
   parentIndex?: Map<NodeId, NodeId>,
 ): Rect | null {
-  return sceneNodeWorldBounds(doc, id, parentIndex);
+  const bounds = sceneNodeWorldBounds(doc, id, parentIndex);
+  if (!bounds) return null;
+  const placement = pagePlacementForNode(placementMapFor(doc), id);
+  if (!placement) return bounds;
+  return { x: bounds.x + placement.x, y: bounds.y + placement.y, w: bounds.w, h: bounds.h };
 }
