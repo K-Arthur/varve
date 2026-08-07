@@ -11,6 +11,7 @@ import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
+import { PagePrintSection } from '../sections/PagePrintSection';
 
 export function whiteForMode(mode: ColorMode): ManagedColor {
   switch (mode) {
@@ -47,6 +48,7 @@ export function DocumentPanel() {
 
   return (
     <>
+      <PagePrintSection />
       <DisclosureSection title="Canvas" sectionId="canvas-background" defaultExpanded>
         <div className="insp-canvas-props">
           <div className="insp-field">
