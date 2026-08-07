@@ -30,6 +30,7 @@ export type {
   GradientMapStop,
   GrayscaleAdjustment,
   HalftoneAdjustment,
+  HalftonePreset,
   HueRotateAdjustment,
   InvertAdjustment,
   LevelsAdjustment,
