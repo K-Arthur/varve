@@ -81,12 +81,15 @@ export function AuditBadge() {
     };
   }, [runQuickScan]);
 
-  // Don't render if no findings
-  if (status.errorCount === 0 && status.warningCount === 0) return null;
-
   const handleClick = useCallback(() => {
     setInspectorTab('audit', 'audit');
   }, [setInspectorTab]);
+
+  // Don't render if no findings. The early return must stay after every
+  // hook — a conditional hook call here previously threw React error #310
+  // ("Rendered more hooks than during the previous render") the first time
+  // a scan produced findings.
+  if (status.errorCount === 0 && status.warningCount === 0) return null;
 
   const hasErrors = status.errorCount > 0;
 
