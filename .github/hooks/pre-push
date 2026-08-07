@@ -29,4 +29,13 @@ if ! node scripts/ci-health.mjs --status --quiet; then
   node scripts/ci-health.mjs --status || echo "(could not check githubstatus.com — skipping incident warning)"
 fi
 
+# Version drift warning: the five version manifests must agree or the next
+# release dies at its tag gate. Warn (never block) — a drift fix is one
+# `just release-bump` + `cargo check` away.
+if ! node scripts/release/version.mjs verify; then
+  echo "Version manifests disagree — fix before releasing with:"
+  echo "  just release-bump <major|minor|patch>   # or"
+  echo "  node scripts/release/version.mjs set <semver>"
+fi
+
 echo "Pre-push gate passed."
