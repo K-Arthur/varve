@@ -169,13 +169,7 @@ export function validateCommandSubmission(options: {
   panelCapabilities?: { requiresCanvas?: boolean; requiresRenderer?: boolean };
 }): CommandValidationError[] {
   const errors: CommandValidationError[] = [];
-  const {
-    commandType,
-    originWindowId,
-    originPanelInstanceId,
-    activeDocumentId,
-    payload,
-  } = options;
+  const { commandType, originWindowId, originPanelInstanceId, activeDocumentId, payload } = options;
 
   if (!commandType) {
     errors.push({ field: 'commandType', message: 'must be non-empty' });
