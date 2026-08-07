@@ -597,6 +597,22 @@ export function getViewMenu(
       run: () => runAction('fitActivePage'),
     },
     {
+      id: 'fitSpread',
+      labelKey: 'menu.view.fitSpread',
+      accelerator: a('5', true, false, true),
+      kind: 'command',
+      group: 'viewport',
+      run: () => runAction('fitSpread'),
+    },
+    {
+      id: 'fitAllPages',
+      labelKey: 'menu.view.fitAllPages',
+      accelerator: a('6', true, false, true),
+      kind: 'command',
+      group: 'viewport',
+      run: () => runAction('fitAllPages'),
+    },
+    {
       id: 'fitActiveFrame',
       labelKey: 'menu.view.fitActiveFrame',
       accelerator: a('1', true, false, true),
