@@ -13,7 +13,7 @@ import { type ComposeStoryResult, composeStory } from '@varve/engine';
 import type { Document, NodeId } from '@varve/scene';
 import { storyById } from '@varve/scene';
 
-const DEFAULT_FONT_FAMILY = 'sans-serif';
+
 
 export interface ComposeStoryForDocResult extends ComposeStoryResult {
   storyId: NodeId;
@@ -38,7 +38,6 @@ export function composeStoryForDoc(
     const w = node.w ?? 300;
     const h = node.h ?? 100;
     const fontSize = node.fontSize ?? defaultFontSize;
-    const fontFamily = node.fontFamily ?? DEFAULT_FONT_FAMILY;
     frames.push({
       frameId,
       width: w,
@@ -52,7 +51,7 @@ export function composeStoryForDoc(
     storyId,
     content,
     frames,
-    defaultFont: { fontSize: defaultFontSize, fontFamily: DEFAULT_FONT_FAMILY },
+    defaultFont: { fontSize: defaultFontSize, fontFamily: 'sans-serif' },
     language: story.language,
   });
 
