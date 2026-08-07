@@ -26,10 +26,10 @@ import {
 } from '@varve/engine';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import {
+  activePageNodes,
   buildParentIndexMap,
   deriveGeometryFromPaints,
   isWarpedContainer,
-  multipageRootNodes,
   nodeLocalBoundsSource,
   resolveNodePaints,
   walkNodes,
@@ -144,7 +144,7 @@ export class HitTestEngine {
   hitTest(world: { x: number; y: number }): HitResult | null {
     const candidates = this.queryWithTolerance(world.x, world.y);
 
-    const entries = walkNodes(this.doc, multipageRootNodes(this.doc));
+    const entries = walkNodes(this.doc, activePageNodes(this.doc));
     const ordered = [...entries.values()].reverse();
     let bestHit: HitResult | null = null;
     let bestDepth = -1;
@@ -287,7 +287,7 @@ export class HitTestEngine {
   findNodesAtPoint(world: { x: number; y: number }, policy?: HitTestPolicy): HitResult[] {
     const activePolicy = policy ?? this.policy;
     const candidates = this.queryWithTolerance(world.x, world.y);
-    const entries = walkNodes(this.doc, multipageRootNodes(this.doc));
+    const entries = walkNodes(this.doc, activePageNodes(this.doc));
     const ordered = [...entries.values()].reverse();
     const results: HitResult[] = [];
     const maxCandidates = activePolicy.maxCandidates;
