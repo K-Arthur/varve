@@ -27,6 +27,17 @@ export function createPdfParser(): ImportParser {
           document: createDocument('Imported PDF'),
           nodeIds: [],
           warnings: ['PDF parsing requires binary data'],
+          capabilities: {
+            format: 'pdf',
+            multipage: false,
+            pageDimensions: false,
+            vectors: false,
+            text: true,
+            images: false,
+            masters: false,
+            textThreads: false,
+            notes: ['Text-only extraction; page geometry and vectors are not parsed'],
+          },
         };
       }
 
@@ -35,6 +46,17 @@ export function createPdfParser(): ImportParser {
           document: createDocument('Imported PDF'),
           nodeIds: [],
           warnings: ['File too small to be a valid PDF'],
+          capabilities: {
+            format: 'pdf',
+            multipage: false,
+            pageDimensions: false,
+            vectors: false,
+            text: false,
+            images: false,
+            masters: false,
+            textThreads: false,
+            notes: ['Invalid or truncated PDF'],
+          },
         };
       }
 
@@ -43,7 +65,22 @@ export function createPdfParser(): ImportParser {
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error';
         warnings.push(`PDF parsing failed: ${msg}`);
-        return { document: createDocument('Imported PDF'), nodeIds: [], warnings };
+        return {
+          document: createDocument('Imported PDF'),
+          nodeIds: [],
+          warnings,
+          capabilities: {
+            format: 'pdf',
+            multipage: false,
+            pageDimensions: false,
+            vectors: false,
+            text: false,
+            images: false,
+            masters: false,
+            textThreads: false,
+            notes: [`PDF parsing failed: ${msg}`],
+          },
+        };
       }
     },
   };
@@ -98,7 +135,25 @@ function parsePdfSync(data: Uint8Array, opts: ImportOptions, warnings: string[])
     nodeIds.push(id);
   }
 
-  return { document: doc, nodeIds, warnings };
+  return {
+    document: doc,
+    nodeIds,
+    warnings,
+    capabilities: {
+      format: 'pdf',
+      multipage: false,
+      pageDimensions: false,
+      vectors: false,
+      text: true,
+      images: false,
+      masters: false,
+      textThreads: false,
+      notes: [
+        'Text-only extraction: page geometry, vectors and images are not parsed',
+        'Multipage PDF import (one Varve page per PDF page) requires the native lopdf path',
+      ],
+    },
+  };
 }
 
 function extractPdfText(
