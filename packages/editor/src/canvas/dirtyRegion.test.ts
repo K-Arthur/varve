@@ -305,7 +305,7 @@ describe('page placement/size dirty regions (ADR-0124)', () => {
         { transform: [1, 0, 0, 1, 10, 15] as const },
       ),
     );
-    before = { ...before, nodes: { ...before.nodes, shape: before.nodes.shape } };
+    before = { ...before, nodes: { ...before.nodes, shape: before.nodes.shape! } };
     const after = {
       ...before,
       pages: [{ ...before.pages![0]!, placement: { x: 300, y: 0 } }],

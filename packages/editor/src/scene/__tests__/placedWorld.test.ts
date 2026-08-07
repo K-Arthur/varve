@@ -4,7 +4,7 @@
  * while pasteboard/global items keep scene coordinates.
  */
 import type { Document } from '@varve/scene';
-import { addChild, addPage, createDocument, makeShapeNode, nextNodeId } from '@varve/scene';
+import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { buildPagePlacementMap, pagePlacementForNode } from '../pagePlacement';
@@ -39,7 +39,7 @@ function placedDoc(): Document {
 describe('placed world transforms (ADR-0123)', () => {
   it('appends the containing page placement to node world transforms', () => {
     const doc = placedDoc();
-    const [page1, page2] = doc.pages!;
+    const [page1, page2] = [doc.pages![0]!, doc.pages![1]!];
     const child1 = (doc.nodes[page1.contentRoot] as { children: string[] }).children[0]!;
     const child2 = (doc.nodes[page2.contentRoot] as { children: string[] }).children[0]!;
 
@@ -58,14 +58,14 @@ describe('placed world transforms (ADR-0123)', () => {
   it('leaves pasteboard items at scene coordinates', () => {
     let doc = createDocument('flat', true);
     const { id, doc: d } = nextNodeId(doc);
-    doc = addChild(d, null, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
+    doc = addNode(d, makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
     expect(nodeWorldTransform(doc, id)).toEqual([1, 0, 0, 1, 0, 0]);
   });
 
   it('buildPagePlacementMap covers content roots, backgrounds and descendants', () => {
     const doc = placedDoc();
     const map = buildPagePlacementMap(doc);
-    const [page1, page2] = doc.pages!;
+    const [page1, page2] = [doc.pages![0]!, doc.pages![1]!];
     expect(map.contentRoots.has(page1.contentRoot)).toBe(true);
     expect(pagePlacementForNode(map, page1.contentRoot)).toEqual({ x: 0, y: 0 });
     expect(pagePlacementForNode(map, page2.contentRoot)).toEqual({ x: 500, y: 300 });
