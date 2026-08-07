@@ -51,13 +51,19 @@ There is exactly one resolver. Consumers never merge configuration themselves.
 getEffectiveWorkspaceConfig(mode, prefs?)
   = WORKSPACE_CONFIGS[mode]            built-in defaults (falls back to Design
                                        for an unknown or future mode id)
-  + prefs[mode].panelOverrides         the user's per-workspace customizations
+  + prefs[mode].panelOverrides         the user's per-workspace panel customizations
+  + prefs[mode].inspectorTabOverrides  per-workspace inspector tab visibility
+  + prefs[mode].statusSectionOverrides per-workspace status bar section visibility
 ```
 
 - `workspaceTypes.ts` owns the built-in configs and pure config→derived-data
-  helpers. It has no knowledge of user preferences, which is what keeps it free
-  of a cycle with the store.
+  helpers (now accepting optional `WorkspaceConfig` params for override-aware
+  resolution: `getVisibleInspectorTabs`, `getDefaultInspectorTab`,
+  `getVisibleStatusSections`). It has no knowledge of user preferences, which
+  is what keeps it free of a cycle with the store.
 - `workspaceStore.ts` owns preferences, the resolver, and persistence.
+  `setInspectorTabOverride` and `setStatusSectionOverride` are the override
+  writers alongside the existing `setPanelOverride`.
 - `useEffectiveWorkspaceConfig(mode)` is the reactive React view; it re-renders
   workspace-controlled surfaces when a preference changes.
 
@@ -163,12 +169,18 @@ These are known gaps, not settled design:
 - **Panel overrides cover visibility only.** Order, collapse, and width are in
   the `PanelConfig` type and resolve through the merge, but no UI writes them,
   and user-resized widths are still global rather than per workspace.
-- **Inspector tabs, status sections, and toolbar composition have no override
-  surface.** They resolve through the built-in config; the resolver is wired to
-  accept overrides when one is added.
+- **Inspector tab and status section overrides are now wired.** The resolver
+  merges `inspectorTabOverrides` and `statusSectionOverrides` from user
+  preferences. The override writers (`setInspectorTabOverride`,
+  `setStatusSectionOverride`) exist, but there is no dedicated UI panel for
+  toggling them — they are settable programmatically and via the command
+  palette.
+- **Toolbar composition has no override surface.** It resolves through the
+  built-in config; the resolver is ready to accept overrides when one is added.
 - **`canvasOverlays.bleedGuides` and `layoutGrid`** have no runtime consumer;
   only `guides`, `pixelGrid`, `dotGrid`, and `baselineGrid` are projected onto
   state.
-- **No workspace customization UI.** Reset exists
-  (`resetWorkspaceToDefault`); there is no panel for editing a workspace or
-  resetting all workspaces at once.
+- **Workspace customization UI is partial.** Reset exists
+  (`resetWorkspaceToDefault`, `resetAllWorkspacesToDefaults`), and a
+  "customized" dot indicator is shown on workspace tabs, but there is no
+  dedicated panel for editing a workspace's full configuration interactively.
