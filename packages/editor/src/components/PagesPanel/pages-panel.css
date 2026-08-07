@@ -1,0 +1,218 @@
+/* ── Pages Panel (M7) ─────────────────────────────────── */
+/* Neo-Bento: collapsible, virtualized page list sharing the left sidebar
+ * column with the layers tree. Windowed rows keep a 1,000-page document
+ * cheap (30-row window + overscan). */
+
+.pages-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  max-height: 34vh;
+  flex: 0 1 auto;
+}
+
+.pages-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pages-panel__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.pages-panel__count {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-subtle);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+}
+
+.pages-panel__add-btn {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-on-accent);
+  background: var(--color-accent-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.pages-panel__add-btn:hover {
+  background: var(--color-accent-primary-hover);
+}
+
+.pages-panel__add-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.pages-panel__list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-radius: var(--radius-sm);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pages-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.pages-panel__row:hover {
+  background: var(--color-surface-hover);
+}
+
+.pages-panel__row:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.pages-panel__row--active {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent-primary);
+}
+
+.pages-panel__thumb {
+  width: 40px;
+  height: 30px;
+  flex: 0 0 40px;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.pages-panel__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pages-panel__thumb-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-raised) 0%,
+    var(--color-surface-sunken) 100%
+  );
+}
+
+.pages-panel__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.pages-panel__name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pages-panel__number {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
+.pages-panel__badges {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.pages-panel__badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-hover);
+  border-radius: 999px;
+  padding: 0 var(--space-1);
+}
+
+.pages-panel__badge--section {
+  color: var(--color-accent-on-subtle, var(--color-accent-primary));
+  background: var(--color-accent-subtle);
+}
+
+.pages-panel__actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-default);
+}
+
+.pages-panel__row:hover .pages-panel__actions,
+.pages-panel__row:focus-within .pages-panel__actions {
+  opacity: 1;
+}
+
+.pages-panel__icon-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.pages-panel__icon-btn:hover:not(:disabled) {
+  background: var(--color-surface-overlay);
+}
+
+.pages-panel__icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pages-panel__icon-btn--danger:hover:not(:disabled) {
+  color: var(--color-feedback-danger);
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
+}
+
+.pages-panel__icon-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.pages-panel__empty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+  padding: var(--space-2);
+}
