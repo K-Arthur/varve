@@ -80,7 +80,7 @@ export function IconDetailsPanel({
         <div className="icon-details__pack">
           {descriptor.packId}
           {descriptor.width && descriptor.height
-            ? ` 00b7 ${descriptor.width}x${descriptor.height}`
+            ? ` · ${descriptor.width}x${descriptor.height}`
             : ''}
         </div>
 
