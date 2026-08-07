@@ -41,6 +41,14 @@ export interface FeatureOwnership {
 }
 
 export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
+  'page-print': {
+    surface: 'properties',
+    scope: 'active-tool',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale: 'Page-level bleed/slug/safe-area overrides while the Page tool is active',
+  },
   table: {
     surface: 'properties',
     scope: 'selection',
