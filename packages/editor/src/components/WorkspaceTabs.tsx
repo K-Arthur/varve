@@ -39,11 +39,13 @@ import {
 } from '../workspace/workspaceOverflow';
 import { workspaceShortcutLabel } from '../workspace/workspaceShortcutLabel';
 import {
+  WORKSPACE_CONFIGS,
   WORKSPACE_LABELS,
   WORKSPACE_OVERFLOW_ORDER,
   WORKSPACE_OVERFLOW_PRIORITY,
   type WorkspaceMode,
 } from '../workspace/workspaceTypes';
+import { getEffectiveBinding, formatShortcut } from '../shortcuts/ShortcutManager';
 
 /** Gap between tabs + container padding, added to each measured tab. */
 const TAB_GAP = 6;
@@ -67,7 +69,7 @@ const INITIAL_LAYOUT: WorkspaceLayoutResult = {
 };
 
 export function WorkspaceTabs() {
-  const { state, requestWorkspaceSwitch } = useEditor();
+  const { state, requestWorkspaceSwitch, resetWorkspaceToDefault } = useEditor();
   const wrapRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<WorkspaceMode, HTMLButtonElement | null>>>({});
   const naturalWidths = useRef<Partial<Record<WorkspaceMode, number>>>({});
@@ -212,6 +214,7 @@ export function WorkspaceTabs() {
               role="radio"
               aria-checked={state.workspaceMode === mode}
               aria-label={`${WORKSPACE_LABELS[mode]} workspace`}
+              aria-keyshortcuts={workspaceShortcutLabel(mode)}
               tabIndex={rovingId === mode ? 0 : -1}
               className={`workspace-tabs__tab${state.workspaceMode === mode ? ' workspace-tabs__tab--active' : ''}`}
               onClick={() => handleSwitch(mode)}
@@ -248,11 +251,23 @@ export function WorkspaceTabs() {
           open={moreOpen}
           onClose={() => setMoreOpen(false)}
           label="More workspaces"
-          items={layout.overflow.map((mode) => ({
-            id: mode,
-            label: WORKSPACE_LABELS[mode],
-            onAction: () => handleSwitch(mode, { fromOverflow: true }),
-          }))}
+          items={[
+            ...layout.overflow.map((mode) => ({
+              id: mode,
+              label: WORKSPACE_LABELS[mode],
+              type: 'radio' as const,
+              group: 'workspace-overflow' as const,
+              checked: state.workspaceMode === mode,
+              badge: workspaceShortcutLabel(mode),
+              onAction: () => handleSwitch(mode, { fromOverflow: true }),
+            })),
+            { id: 'sep', separator: true as const },
+            {
+              id: 'reset-workspace',
+              label: 'Reset Workspace to Default',
+              onAction: () => resetWorkspaceToDefault(),
+            },
+          ]}
         />
       )}
     </div>
