@@ -983,15 +983,21 @@ export function getVisibleStatusSections(mode: WorkspaceMode): StatusSectionId[]
 }
 
 /** Get visible inspector tabs for a mode. */
-export function getVisibleInspectorTabs(mode: WorkspaceMode): InspectorTabId[] {
-  const config = getWorkspaceConfig(mode);
-  return config.inspectorTabs.filter((t) => t.visible).map((t) => t.id);
+export function getVisibleInspectorTabs(
+  mode: WorkspaceMode,
+  config?: WorkspaceConfig,
+): InspectorTabId[] {
+  const cfg = config ?? getWorkspaceConfig(mode);
+  return cfg.inspectorTabs.filter((t) => t.visible).map((t) => t.id);
 }
 
 /** Get the default inspector tab for a mode. */
-export function getDefaultInspectorTab(mode: WorkspaceMode): InspectorTabId {
-  const config = getWorkspaceConfig(mode);
-  return config.inspectorTabs.find((t) => t.default)?.id ?? 'properties';
+export function getDefaultInspectorTab(
+  mode: WorkspaceMode,
+  config?: WorkspaceConfig,
+): InspectorTabId {
+  const cfg = config ?? getWorkspaceConfig(mode);
+  return cfg.inspectorTabs.find((t) => t.default)?.id ?? 'properties';
 }
 
 /** Get inspector tab configs grouped by visual group, preserving per-group order. */
