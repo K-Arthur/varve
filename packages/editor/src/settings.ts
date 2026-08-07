@@ -78,6 +78,8 @@ export interface ViewportSettingsStore {
   pixelGridEnabled: boolean;
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
+  bleedGuidesVisible: boolean;
+  layoutGridVisible: boolean;
   rulerMode: 'global' | 'artboard';
   gridOverlayMode: 'none' | 'document' | 'baseline' | 'isometric';
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
@@ -173,6 +175,8 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   pixelGridEnabled: false,
   pixelGridSnapEnabled: false,
   dotGridEnabled: false,
+  bleedGuidesVisible: false,
+  layoutGridVisible: false,
   rulerMode: 'artboard',
   gridOverlayMode: 'none',
   unitType: 'px',

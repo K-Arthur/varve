@@ -1761,6 +1761,8 @@ function persistViewportPrefs(s: EditorState): void {
       pixelGridEnabled: s.pixelGridEnabled,
       pixelGridSnapEnabled: s.pixelGridSnapEnabled,
       dotGridEnabled: s.dotGridEnabled,
+      bleedGuidesVisible: s.bleedGuidesVisible,
+      layoutGridVisible: s.layoutGridVisible,
       rulerMode: s.rulerMode,
       gridOverlayMode: s.gridOverlayMode,
       unitType: s.unitType,
@@ -2111,6 +2113,8 @@ export function EditorProvider({
       pixelGridEnabled: vpDefaults.pixelGridEnabled,
       pixelGridSnapEnabled: false,
       dotGridEnabled: false,
+      bleedGuidesVisible: vpDefaults.bleedGuidesVisible ?? false,
+      layoutGridVisible: vpDefaults.layoutGridVisible ?? false,
       findingsOverlayVisible: false,
       findingsProviderOverrides: {},
       canUndo: false,
@@ -6926,6 +6930,12 @@ export function EditorProvider({
       },
       setDotGridEnabled: (v: boolean) => {
         patch({ dotGridEnabled: v });
+      },
+      setBleedGuidesVisible: (v: boolean) => {
+        patch({ bleedGuidesVisible: v });
+      },
+      setLayoutGridVisible: (v: boolean) => {
+        patch({ layoutGridVisible: v });
       },
       setDocumentGrid: (settings) => {
         const grid = {

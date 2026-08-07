@@ -177,6 +177,10 @@ export interface EditorState {
   pixelGridEnabled: boolean;
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
+  /** Show bleed/trim/slug print guides on canvas. */
+  bleedGuidesVisible: boolean;
+  /** Show layout grid overlays on canvas (distinct from document-level layout grids). */
+  layoutGridVisible: boolean;
   findingsOverlayVisible: boolean;
   findingsProviderOverrides: Record<string, boolean | undefined>;
   canUndo: boolean;
@@ -806,6 +810,8 @@ export interface EditorContextValue {
   setPixelGridSnapEnabled: (v: boolean) => void;
   resetGridOrigin: () => void;
   setDotGridEnabled: (v: boolean) => void;
+  setBleedGuidesVisible: (v: boolean) => void;
+  setLayoutGridVisible: (v: boolean) => void;
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
   setDocumentGrid: (settings: DocumentGridSettings) => void;
