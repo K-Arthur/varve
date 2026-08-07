@@ -1,0 +1,72 @@
+/**
+ * Page-level print geometry resolution (M12, ADR-0166).
+ */
+
+import { describe, expect, it } from 'vitest';
+import type { Document } from '../document';
+import { createDocument } from '../document';
+import { resolvePagePrintGeometry } from '../printGeometry';
+
+function docWithDefaults(): Document {
+  return {
+    ...createDocument('print-geometry', false),
+    bleed: { top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' },
+  };
+}
+
+describe('resolvePagePrintGeometry (M12)', () => {
+  it('inherits document bleed defaults when the page has no override', () => {
+    const doc = docWithDefaults();
+    const resolved = resolvePagePrintGeometry(doc, doc.pages![0]!.id);
+    expect(resolved.bleed).toMatchObject({
+      top: (3 * 96) / 25.4,
+      right: (3 * 96) / 25.4,
+      bottom: (3 * 96) / 25.4,
+      left: (3 * 96) / 25.4,
+    });
+  });
+
+  it('page overrides win per-edge and per-config', () => {
+    let doc = docWithDefaults();
+    const page = doc.pages![0]!;
+    doc = {
+      ...doc,
+      pages: [
+        { ...page, bleed: { top: 10, right: 3, bottom: 3, left: 3, linked: false, unit: 'px' } },
+      ],
+    };
+    const resolved = resolvePagePrintGeometry(doc, page.id);
+    // The page override is a full config in px — all edges win over the
+    // document's mm defaults.
+    expect(resolved.bleed.top).toBeCloseTo(10, 5);
+    expect(resolved.bleed.left).toBeCloseTo(3, 5);
+  });
+
+  it('resolves safe area and slug defaults', () => {
+    const doc = docWithDefaults();
+    const resolved = resolvePagePrintGeometry(doc, doc.pages![0]!.id);
+    expect(resolved.safeArea.enabled).toBe(false);
+    expect(resolved.slug.enabled).toBe(false);
+    expect(resolved.slug.top).toBe(0);
+  });
+
+  it('applies page safe area and slug overrides', () => {
+    let doc = docWithDefaults();
+    const page = doc.pages![0]!;
+    doc = {
+      ...doc,
+      pages: [
+        {
+          ...page,
+          safeArea: { top: 5, right: 5, bottom: 5, left: 5, unit: 'mm', enabled: true },
+          slug: { top: 12, right: 0, bottom: 0, left: 0, unit: 'mm', enabled: true },
+        },
+      ],
+    };
+    const resolved = resolvePagePrintGeometry(doc, page.id);
+    expect(resolved.safeArea.enabled).toBe(true);
+    expect(resolved.safeArea.top).toBeCloseTo((5 * 96) / 25.4, 5);
+    expect(resolved.slug.enabled).toBe(true);
+    expect(resolved.slug.top).toBeCloseTo((12 * 96) / 25.4, 5);
+  });
+});
