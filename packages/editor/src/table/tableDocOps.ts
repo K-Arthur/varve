@@ -41,6 +41,44 @@ export function applyTableModelOp(
   };
 }
 
+/**
+ * Embed a scene node as rich content in a table cell (one undoable op).
+ *
+ * The content node is removed from the document's root children so it
+ * renders ONLY inside the cell (its render position is the cell's local
+ * space). The node stays in the document graph, so it participates in
+ * hit testing, export, clipboard closure, and undo like any other node.
+ */
+export function embedSceneContentInCell(
+  doc: Document,
+  tableId: string,
+  cellId: string,
+  nodeId: string,
+): Document {
+  const node = doc.nodes[tableId];
+  if (node?.kind !== 'table') return doc;
+  const cell = node.table.cells[cellId];
+  if (!cell) return doc;
+  const contentNode = doc.nodes[nodeId];
+  if (!contentNode) return doc;
+
+  const table: TableModel = {
+    ...node.table,
+    cells: {
+      ...node.table.cells,
+      [cellId]: { ...cell, content: { kind: 'scene', nodeId } },
+    },
+  };
+  const rootChildren = doc.rootChildren.includes(nodeId)
+    ? doc.rootChildren.filter((id) => id !== nodeId)
+    : doc.rootChildren;
+  return {
+    ...doc,
+    rootChildren,
+    nodes: { ...doc.nodes, [tableId]: { ...node, table } as SceneNode },
+  };
+}
+
 /** Find the table node that owns a cell id. */
 export function tableNodeForCell(
   doc: Document,

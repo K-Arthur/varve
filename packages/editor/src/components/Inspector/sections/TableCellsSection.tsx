@@ -13,6 +13,7 @@ import { useEditor } from '../../../context';
 import { cellCoordinateOf } from '../../../table/tableNav';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import { SegmentedControl } from '../controls/SegmentedControl';
 
@@ -201,6 +202,54 @@ export function TableCellsSection({ tableId }: Props) {
           <button type="button" className="insp-add-btn" onClick={split}>
             Split cell
           </button>
+        </FieldRow>
+      )}
+      {selection.length === 1 && owner && (
+        <FieldRow label="Cell border">
+          <div className="insp-field-row__split">
+            <InspectorColorPopover
+              label="Cell border colour"
+              value={owner.style?.borderColor ?? table.appearance.dividerColor}
+              onChange={(c) =>
+                patchCells((cell, t) => setCellStyle(t, cell.id, { borderColor: c }))
+              }
+              documentColorMode={editor.documentColorMode}
+            />
+            <NumberField
+              label="Border width"
+              value={owner.style?.borderWidth ?? table.appearance.dividerWidth}
+              step={0.5}
+              min={0}
+              onChange={(v) =>
+                patchCells((cell, t) => setCellStyle(t, cell.id, { borderWidth: v }))
+              }
+            />
+          </div>
+        </FieldRow>
+      )}
+      {selection.length === 1 && owner && (
+        <FieldRow label="Rich content" wrapLabel>
+          {owner.content.kind === 'scene' ? (
+            <span className="insp-empty-message">Cell shows node #{owner.content.nodeId}</span>
+          ) : (
+            <button
+              type="button"
+              className="insp-add-btn"
+              onClick={() => {
+                const nodeIds = editor.state.selection.filter(
+                  (id) => id !== tableId && editor.state.document.nodes[id],
+                );
+                if (nodeIds.length === 0) {
+                  editor.announce('Select a layer on the canvas to embed it in this cell');
+                  return;
+                }
+                editor.embedSceneContentInCell(tableId, owner.id, nodeIds[0]!);
+                editor.announce('Embedded selection as cell content');
+              }}
+            >
+              Use selection as content
+            </button>
+          )}
         </FieldRow>
       )}
       <div className="insp-empty-message">

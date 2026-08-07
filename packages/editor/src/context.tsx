@@ -476,7 +476,11 @@ import {
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import { createInitialMotionState } from './state/motion-state';
-import { applyTableModelOp, updateTableCellTextInDoc } from './table/tableDocOps';
+import {
+  applyTableModelOp,
+  embedSceneContentInCell as embedSceneContentInCellDoc,
+  updateTableCellTextInDoc,
+} from './table/tableDocOps';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
@@ -536,7 +540,13 @@ function insertImportedSubtree(
   rootId: NodeId,
   adjustRoot: (node: SceneNode) => SceneNode,
 ): { doc: Document; rootId: NodeId } | null {
-  const cloned = deepCloneSubtree(sourceDoc.nodes, targetDoc.nextId, rootId);
+  // Cross-document import/clipboard paste: mask and scope references that
+  // point outside the pasted subtree must not leak source-document IDs —
+  // foreign mattes/targets are dropped (the item is pasted unclipped) rather
+  // than left dangling.
+  const cloned = deepCloneSubtree(sourceDoc.nodes, targetDoc.nextId, rootId, {
+    dropForeignReferences: true,
+  });
   const root = cloned.nodes[cloned.rootId];
   if (!root || Object.keys(cloned.nodes).length === 0) return null;
 
@@ -618,6 +628,12 @@ export interface EditorContextValue {
   updateTableCellText: (cellId: string, text: string) => void;
   /** ADR-0016: run an immutable table-model op on the owning node (undoable). */
   tableOp: (tableId: string, op: (model: TableModel) => TableModel) => void;
+  /**
+   * ADR-0016: embed a scene node as rich content in a table cell. The node
+   * is removed from the document roots (renders inside the cell only) and
+   * the cell content references it — one undoable op.
+   */
+  embedSceneContentInCell: (tableId: string, cellId: string, nodeId: string) => void;
   /** Commit zoom, pan, and rotation as one camera transaction. */
   setCamera: (camera: Camera) => void;
   setZoom: (z: number) => void;
@@ -669,6 +685,8 @@ export interface EditorContextValue {
   ) => Promise<boolean>;
   /** Reset current workspace to its default panel/tool configuration. */
   resetWorkspaceToDefault: () => void;
+  /** Reset every workspace to its default panel/tool configuration. */
+  resetAllWorkspacesToDefaults: () => void;
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
@@ -3312,6 +3330,9 @@ export function EditorProvider({
         op: (model: import('@varve/scene').TableModel) => import('@varve/scene').TableModel,
       ) => {
         updateDoc((doc) => applyTableModelOp(doc, tableId, op));
+      },
+      embedSceneContentInCell: (tableId, cellId, nodeId) => {
+        updateDoc((doc) => embedSceneContentInCellDoc(doc, tableId, cellId, nodeId));
       },
 
       // F1: additive = shift+click behaviour.

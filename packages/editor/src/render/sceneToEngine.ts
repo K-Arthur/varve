@@ -74,7 +74,7 @@ function resolvePaintRefs(
 export function sceneNodeToEngineNode(
   node: SceneNode,
   options: SceneNodeConversionOptions = {},
-  doc?: Pick<Document, 'paints' | 'rasterMaskAssets'>,
+  doc?: Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes'>,
 ): EngineNode {
   // Resolve paintRefs → paints → fills before converting
   const resolvedNode = resolvePaintRefs(node, doc);
@@ -196,7 +196,13 @@ export function sceneNodeToEngineNode(
 
   if (node.kind === 'table') {
     // V2.15+: native tables compile to a single engine item (ADR-0016 D3).
-    return compileTableToEngineNode(node, { width: node.w ?? 480, height: node.h ?? 240 });
+    // Pass document context when available so scene-content cells render.
+    const docNodes = (doc as { nodes?: Record<string, SceneNode> } | undefined)?.nodes;
+    return compileTableToEngineNode(node, {
+      width: node.w ?? 480,
+      height: node.h ?? 240,
+      ...(docNodes ? { nodes: docNodes } : {}),
+    });
   }
 
   if (node.kind === 'frame') {
@@ -268,7 +274,20 @@ export function flattenSceneToEngine(
     let effective = getEffectiveNode(document, id, variantCaches) ?? raw;
     effective = applyBindingsToNode(effective, variableStore);
 
-    if (effective.kind !== 'group') {
+    if (effective.kind === 'table') {
+      // Native tables compile with document context so rich scene-content
+      // cells (images, components) resolve and render inside their cells.
+      const contentToEngine = (contentNode: SceneNode): EngineNode =>
+        sceneNodeToEngineNode(contentNode, options, document);
+      const compiled = compileTableToEngineNode(effective, {
+        width: effective.w ?? 480,
+        height: effective.h ?? 240,
+        nodes: document.nodes,
+        toEngineNode: contentToEngine,
+      });
+      ids.push(id);
+      nodes.push(compiled as unknown as EngineNode);
+    } else if (effective.kind !== 'group') {
       let engineNode = sceneNodeToEngineNode(effective, options, document);
       engineNode = { ...engineNode, transform: nodeWorldTransform(document, id) };
       const styleOverrides = resolvedStyles.get(id);

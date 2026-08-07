@@ -100,7 +100,9 @@ class Recorder {
     this.calls.push('restore');
   }
   transform(): void {}
-  translate(): void {}
+  translate(x?: number, y?: number): void {
+    this.calls.push(`translate(${x ?? 0},${y ?? 0})`);
+  }
   rotate(): void {}
   scale(): void {}
   beginPath(): void {
@@ -283,5 +285,35 @@ describe('table primitive replay', () => {
     expect(rects.some((c) => c.startsWith('fillRect(150,39.5,150,1)'))).toBe(true);
     // Table-edge dividers (x=300 / y=120) are not painted — border covers them.
     expect(rects.some((c) => c.startsWith('fillRect(299.5'))).toBe(false);
+  });
+
+  it('paints rich scene content inside the cell, clipped to it', () => {
+    const contentShape: TableShape = {
+      ...tableShape,
+      cells: [
+        {
+          ...tableShape.cells[0]!,
+          content: {
+            id: 'img-1',
+            name: 'Cell image',
+            kind: 'image',
+            fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+            transform: [1, 0, 0, 1, 8, 8],
+            opacity: 1,
+            blendMode: 'normal',
+            rotation: 0,
+            strokes: [],
+            effects: [],
+            primitive: { kind: 'rect', x: 0, y: 0, w: 134, h: 24 },
+          },
+        },
+      ],
+    };
+    const rec = new Recorder();
+    replayIr(rec, [{ ...tableItem(), primitive: contentShape }]);
+    // The content item is replayed after a translate to the cell origin and
+    // a clip to the padded cell rect: expect a translate and an extra clip.
+    expect(rec.calls.some((c) => c.startsWith('translate(0,0)'))).toBe(true);
+    expect(rec.calls.filter((c) => c === 'clip').length).toBeGreaterThanOrEqual(2);
   });
 });
