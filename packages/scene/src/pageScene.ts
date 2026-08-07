@@ -27,6 +27,15 @@ export interface PlacedPage {
   contentNodes: NodeId[];
   /** Background layer node ids (painted behind content). */
   backgroundNodes: NodeId[];
+  /**
+   * Master content node ids projected onto this page (painted behind
+   * page content, after backgrounds), with hidden/deleted overrides
+   * removed and 'modified' overrides substituted (ADR-0132). Master
+   * nodes render at the page's placement — the renderer applies the
+   * placement translation because master roots sit at the pasteboard
+   * origin (one master serves many pages).
+   */
+  masterNodes: NodeId[];
   /** Display number ('' when hidden). */
   pageNumber: string;
   /** Resolved spread origin for this page, when a spread exists. */
@@ -88,6 +97,7 @@ export function buildPlacedScene(doc: Document): PlacedScene {
       bounds: { x: placement.x, y: placement.y, w: page.width, h: page.height },
       contentNodes: contentRoot?.children ?? [],
       backgroundNodes: page.backgrounds.filter((bgId) => Boolean(doc.nodes[bgId])),
+      masterNodes: projectMasterNodes(doc, page),
       pageNumber: numberEntry?.formatted ?? '',
       ...(spreadPlacement ? { spreadPlacement } : {}),
       exportEnabled: !page.printSettings?.excludeFromExport,
@@ -95,6 +105,33 @@ export function buildPlacedScene(doc: Document): PlacedScene {
   }
 
   return { pages: result, placements };
+}
+
+/**
+ * Master content projected onto a page (ADR-0132 D2): the master's content
+ * root children with sparse overrides applied — 'hidden' and 'deleted'
+ * overrides remove the item (B3), 'modified' substitutes the page-local
+ * replacement node, and unoverridden items inherit. Returns the flat node
+ * id list in master paint order.
+ */
+export function projectMasterNodes(doc: Document, page: Page): NodeId[] {
+  if (!page.masterPageId) return [];
+  const master = doc.masters?.[page.masterPageId];
+  if (!master) return [];
+  const masterRoot = doc.nodes[master.contentRoot] as GroupNode | undefined;
+  const masterChildren = masterRoot?.children ?? [];
+  const overrides = page.masterOverrides ?? {};
+  const result: NodeId[] = [];
+  for (const mChildId of masterChildren) {
+    const override = overrides[mChildId];
+    if (override && (override.type === 'hidden' || override.type === 'deleted')) continue;
+    if (override && override.type === 'modified' && override.localNodeId) {
+      result.push(override.localNodeId);
+      continue;
+    }
+    result.push(mChildId);
+  }
+  return result;
 }
 
 /**
@@ -155,7 +192,8 @@ export interface MultipageSceneOptions {
  *
  *   1. global children (world-space, painted first — behind everything)
  *   2. pasteboard items (rootChildren not owned by a page content root)
- *   3. per visible page: background layer nodes, then content-root children
+ *   3. per visible page: background layer nodes, then projected master
+ *      content (ADR-0132), then content-root children
  *
  * Pages are painted in document order (later pages on top). Deterministic:
  * the same document revision and viewport produce the same list. A document
@@ -188,6 +226,7 @@ export function multipageRootNodes(doc: Document, options: MultipageSceneOptions
       if (!overlapX || !overlapY) continue;
     }
     for (const bgId of placed.backgroundNodes) ids.push(bgId);
+    for (const masterId of placed.masterNodes) ids.push(masterId);
     for (const childId of placed.contentNodes) ids.push(childId);
   }
   return ids;
