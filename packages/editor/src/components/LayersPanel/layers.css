@@ -388,7 +388,59 @@
   height: 1.25rem;
   flex-shrink: 0;
   cursor: pointer;
-  color: inherit;
+  /* Explicit reset: this is a real <button>. Without these the browser's UA
+     buttonface background and chiseled border render as an unstyled gray box
+     that looks broken against the design system. */
+  border: none;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.layers-row__icon-area:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+.layers-row--selected .layers-row__icon-area {
+  background: color-mix(in oklch, var(--color-text-on-accent) 14%, transparent);
+  color: var(--color-text-on-accent);
+}
+.layers-row__icon-area:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+/* ─── Selection checkbox ─────────────────────────────────────── */
+.layers-row__selection-checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-4);
+  height: var(--space-4);
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  opacity: 0.55;
+  transition:
+    opacity var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.layers-row:hover .layers-row__selection-checkbox,
+.layers-row:focus-within .layers-row__selection-checkbox {
+  opacity: 1;
+  color: var(--color-text-primary);
+}
+.layers-row__selection-checkbox--selected {
+  opacity: 1;
+  color: var(--color-interactive-default);
+}
+.layers-row--selected .layers-row__selection-checkbox,
+.layers-row--selected .layers-row__selection-checkbox--selected {
+  opacity: 1;
+  color: var(--color-text-on-accent);
 }
 
 /* ─── Type icon ─────────────────────────────────────────────── */
@@ -410,6 +462,28 @@
 }
 [data-theme="high-contrast"] .layers-row__type-icon {
   opacity: 1;
+}
+/* HC: icon badge stays visible against the dark row surface */
+[data-theme="high-contrast"] .layers-row__icon-area {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+}
+[data-theme="high-contrast"] .layers-row--selected .layers-row__icon-area {
+  background: var(--color-surface-raised);
+  color: var(--color-text-on-accent);
+}
+/* HC: checkbox always visible; use explicit border for contrast */
+[data-theme="high-contrast"] .layers-row__selection-checkbox {
+  opacity: 1;
+  color: var(--color-text-secondary);
+}
+[data-theme="high-contrast"] .layers-row__selection-checkbox--selected {
+  color: var(--color-interactive-default);
+}
+[data-theme="high-contrast"] .layers-row--selected .layers-row__selection-checkbox,
+[data-theme="high-contrast"] .layers-row--selected .layers-row__selection-checkbox--selected {
+  color: var(--color-text-on-accent);
 }
 
 /* ─── Name ──────────────────────────────────────────────────── */
