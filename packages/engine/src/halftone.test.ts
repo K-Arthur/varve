@@ -1575,6 +1575,157 @@ describe('halftone presets', () => {
   });
 });
 
+// ── Malformed parameter robustness (persisted-document tolerance) ──────
+
+describe('halftone malformed parameter robustness', () => {
+  it('NaN frequency does not throw and still produces screened output (AM)', () => {
+    const data = new ImageData(32, 32);
+    fillGradient(data, 32, 32);
+    expect(() =>
+      applyAMScreening(data, {
+        pattern: 'dot',
+        frequency: Number.NaN,
+        angle: 45,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'am',
+      }),
+    ).not.toThrow();
+    // Degrades to the default 45 LPI — dots still appear
+    let dark = 0;
+    let light = 0;
+    for (let i = 0; i < data.data.length; i += 4) {
+      if (data.data[i]! < 110) dark++;
+      if (data.data[i]! > 145) light++;
+    }
+    expect(dark).toBeGreaterThan(0);
+    expect(light).toBeGreaterThan(0);
+  });
+
+  it('NaN angle does not throw (AM)', () => {
+    const data = new ImageData(32, 32);
+    fillGradient(data, 32, 32);
+    expect(() =>
+      applyAMScreening(data, {
+        pattern: 'dot',
+        frequency: 20,
+        angle: Number.NaN,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'am',
+      }),
+    ).not.toThrow();
+  });
+
+  it('NaN threshold degrades to 128 (AM)', () => {
+    const dataDefault = new ImageData(32, 32);
+    const dataNan = new ImageData(32, 32);
+    fillGradient(dataDefault, 32, 32);
+    fillGradient(dataNan, 32, 32);
+    const base = {
+      pattern: 'dot' as const,
+      frequency: 20,
+      angle: 45,
+      dotShape: 'round' as const,
+      channel: 'k' as const,
+      method: 'am' as const,
+    };
+    applyAMScreening(dataDefault, base);
+    applyAMScreening(dataNan, { ...base, threshold: Number.NaN });
+    expect(Array.from(dataDefault.data)).toEqual(Array.from(dataNan.data));
+  });
+
+  it('infinite threshold does not throw (Bayer)', () => {
+    const data = new ImageData(32, 32);
+    fillGradient(data, 32, 32);
+    expect(() =>
+      applyBayerDithering(
+        data,
+        {
+          pattern: 'dot',
+          frequency: 10,
+          angle: 0,
+          dotShape: 'round',
+          channel: 'k',
+          method: 'fm',
+          threshold: Number.POSITIVE_INFINITY,
+        },
+        0,
+        0,
+      ),
+    ).not.toThrow();
+  });
+
+  it('negative and >360 angles render without throwing and are periodic', () => {
+    const dataNeg = new ImageData(32, 32);
+    const dataPos = new ImageData(32, 32);
+    fillGradient(dataNeg, 32, 32);
+    fillGradient(dataPos, 32, 32);
+    const base = {
+      pattern: 'dot' as const,
+      frequency: 20,
+      dotShape: 'round' as const,
+      channel: 'k' as const,
+      method: 'am' as const,
+    };
+    // -30deg and 330deg are the same screen orientation
+    applyAMScreening(dataNeg, { ...base, angle: -30 });
+    applyAMScreening(dataPos, { ...base, angle: 330 });
+    expect(Array.from(dataNeg.data)).toEqual(Array.from(dataPos.data));
+  });
+
+  it('zero-size ImageData does not throw across all paths', () => {
+    const empty = new ImageData(0, 0);
+    const base = {
+      pattern: 'dot' as const,
+      frequency: 20,
+      angle: 45,
+      dotShape: 'round' as const,
+      channel: 'k' as const,
+      method: 'am' as const,
+    };
+    expect(() => applyAMScreening(empty, base)).not.toThrow();
+    expect(() => applyFMStochastic(empty, base)).not.toThrow();
+    expect(() => applyBayerDithering(empty, base, 0, 0)).not.toThrow();
+  });
+
+  it('extreme frequency values clamp instead of corrupting (AM)', () => {
+    const data = new ImageData(32, 32);
+    fillGradient(data, 32, 32);
+    expect(() =>
+      applyAMScreening(data, {
+        pattern: 'dot',
+        frequency: 1e9,
+        angle: 45,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'am',
+      }),
+    ).not.toThrow();
+    for (let i = 0; i < data.data.length; i += 4) {
+      expect(data.data[i]!).toBeGreaterThanOrEqual(0);
+      expect(data.data[i]!).toBeLessThanOrEqual(255);
+    }
+  });
+
+  it('negative intensity and softness clamp to their safe ranges (FM)', () => {
+    const data = new ImageData(32, 32);
+    fillGradient(data, 32, 32);
+    expect(() =>
+      applyFMStochastic(data, {
+        pattern: 'dot',
+        frequency: 10,
+        angle: 0,
+        dotShape: 'round',
+        channel: 'k',
+        method: 'fm',
+        intensity: -5,
+        softness: -1,
+      }),
+    ).not.toThrow();
+  });
+});
+
 function fillGradient(data: ImageData, w: number, h: number): void {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
