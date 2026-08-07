@@ -163,6 +163,16 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0201-multimodal-proposal-pipeline.md` | Multimodal proposal pipeline |
 | `adr/0202-browser-vs-desktop-capabilities.md` | Browser versus desktop capabilities |
 | `adr/0203-performance-and-memory-limits.md` | Performance and memory limits |
+| `adr/0204-multi-window-canonical-session.md` | Canonical session in multi-window |
+| `adr/0205-multi-window-state-partitioning.md` | Multi-window state partitioning |
+| `adr/0206-multi-window-dock-tree.md` | Multi-window dock tree |
+| `adr/0207-multi-window-protocol.md` | Multi-window protocol |
+| `adr/0208-multi-window-transfer.md` | Multi-window panel transfer |
+| `adr/0209-multi-window-focus-shortcuts.md` | Multi-window focus and shortcuts |
+| `adr/0210-multi-window-persistence.md` | Multi-window persistence |
+| `adr/0211-multi-window-close-recovery.md` | Multi-window close recovery |
+| `adr/0212-multi-window-browser-fallback.md` | Multi-window browser fallback |
+| `adr/0213-multi-window-multimodal-pipeline.md` | Multi-window multimodal pipeline |
 
 | `adr/0016-tables-and-color-modifiers.md` | Native tables + linked color modifiers |
 ## Architecture Docs (current state)
@@ -187,6 +197,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/interaction-systems-2026-07-27.md` | Interaction systems |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
+| `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
 
 ## Release Engineering (current state)
 
