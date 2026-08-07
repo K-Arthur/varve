@@ -13,6 +13,25 @@ import { useEditor } from '../context';
 import type { HistoryStepView } from '../history/editorHistorySession';
 import { ConflictResolver } from './ConflictResolver';
 
+interface CompareChange {
+  entityId: string;
+  entityType: string;
+  changeType: string;
+  propertyPath?: string;
+  summary: string;
+}
+
+/** Group a change list by persistent entity id, preserving change order. */
+function groupByEntity(changes: CompareChange[]): Array<[string, CompareChange[]]> {
+  const groups = new Map<string, CompareChange[]>();
+  for (const change of changes) {
+    const list = groups.get(change.entityId) ?? [];
+    list.push(change);
+    groups.set(change.entityId, list);
+  }
+  return [...groups.entries()];
+}
+
 export function HistoryPanel() {
   const editor = useEditor();
   const { persistentHistory } = editor;
@@ -32,6 +51,10 @@ export function HistoryPanel() {
     added: number;
     removed: number;
     modified: number;
+    renamed: number;
+    reordered: number;
+    text: number;
+    changes: CompareChange[];
   } | null>(null);
   const [mergeTargetBranch, setMergeTargetBranch] = useState<BranchRef | null>(null);
   const [mergeConflicts, setMergeConflicts] = useState<MergeConflict[]>([]);
@@ -115,8 +138,36 @@ export function HistoryPanel() {
   const handleCompare = useCallback(async () => {
     if (!session || !compareBase || !compareTarget) return;
     const diff = await session.compareRevision(compareBase, compareTarget);
-    if (diff) setDiffResult(diff.summary);
+    if (diff) {
+      setDiffResult({
+        added: diff.summary.added,
+        removed: diff.summary.removed,
+        modified: diff.summary.modified,
+        renamed: diff.summary.renamed,
+        reordered: diff.summary.reordered,
+        text: diff.summary.text,
+        changes: diff.changes.map((c) => ({
+          entityId: c.entityId,
+          entityType: c.entityType,
+          changeType: c.changeType,
+          propertyPath: c.propertyPath,
+          summary: c.summary,
+        })),
+      });
+    }
   }, [session, compareBase, compareTarget]);
+
+  /** Select a changed entity on the live canvas when it exists in the
+   *  current working document. */
+  const handleShowOnCanvas = useCallback(
+    (entityId: string) => {
+      const nodes = editor.state.document.nodes;
+      if (nodes[entityId as keyof typeof nodes]) {
+        editor.patch({ selection: [entityId as string], primaryId: entityId as string });
+      }
+    },
+    [editor],
+  );
 
   /** Start a merge of the current branch with the given branch. Opens the
    *  conflict resolver when the merge produces conflicts. */
@@ -474,11 +525,63 @@ export function HistoryPanel() {
           </div>
 
           {diffResult && (
-            <div className="history-panel__diff-summary" role="status" aria-live="polite">
-              <div className="history-panel__diff-stat">
-                <span className="history-panel__diff-added">+{diffResult.added}</span>
-                <span className="history-panel__diff-removed">-{diffResult.removed}</span>
-                <span className="history-panel__diff-modified">~{diffResult.modified}</span>
+            <div className="history-panel__diff-result">
+              <div className="history-panel__diff-summary" role="status" aria-live="polite">
+                <div className="history-panel__diff-stat">
+                  <span className="history-panel__diff-added">+{diffResult.added}</span>
+                  <span className="history-panel__diff-removed">-{diffResult.removed}</span>
+                  <span className="history-panel__diff-modified">~{diffResult.modified}</span>
+                  {diffResult.renamed > 0 && (
+                    <span className="history-panel__diff-renamed">↻{diffResult.renamed}</span>
+                  )}
+                  {diffResult.reordered > 0 && (
+                    <span className="history-panel__diff-reordered">⇅{diffResult.reordered}</span>
+                  )}
+                  {diffResult.text > 0 && (
+                    <span className="history-panel__diff-text">T{diffResult.text}</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Changed-entity tree (M10): grouped by persistent entity id. */}
+              <div className="history-panel__entities" role="list">
+                {groupByEntity(diffResult.changes).map(([entityId, changes]) => (
+                  <div key={entityId} role="listitem" className="history-panel__entity">
+                    <div className="history-panel__entity-head">
+                      <span className="history-panel__entity-id" title={entityId}>
+                        {entityId}
+                      </span>
+                      <span className="history-panel__entity-type">
+                        {changes[0]?.entityType ?? ''}
+                      </span>
+                      <span className="history-panel__entity-count">{changes.length}</span>
+                      <button
+                        type="button"
+                        className="history-panel__entity-show"
+                        onClick={() => handleShowOnCanvas(entityId)}
+                      >
+                        Show on canvas
+                      </button>
+                    </div>
+                    <ul className="history-panel__entity-changes">
+                      {changes.map((change, i) => (
+                        <li key={i} className="history-panel__entity-change">
+                          <span
+                            className={`history-panel__change-badge history-panel__change-badge--${change.changeType}`}
+                          >
+                            {change.changeType}
+                          </span>
+                          <span className="history-panel__change-summary">{change.summary}</span>
+                          {change.propertyPath && (
+                            <code className="history-panel__change-path">
+                              {change.propertyPath}
+                            </code>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
               </div>
             </div>
           )}
