@@ -43,6 +43,18 @@ export default defineConfig({
       '**/__tests__/parity.test.ts',
       '**/*.bench.ts',
     ],
+    // `vitest bench` does NOT read `test.include`/`test.exclude` — it reads
+    // `test.benchmark.*`, whose defaults exclude only node_modules/dist/.git.
+    // Without this block a `pnpm bench` run discovers every `.bench.ts` inside
+    // `.worktrees/`, so another agent's checkout both contaminates the numbers
+    // and multiplies the forked workers (measured 2026-08-07: 90 files
+    // discovered, 81 of them under `.worktrees`). Keep in sync with the
+    // `test.exclude` worktree guard above. Guarded by
+    // `tests/unit/benchDiscovery.test.ts`.
+    benchmark: {
+      include: ['packages/**/src/**/*.bench.{ts,tsx}'],
+      exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**'],
+    },
     environment: 'node',
     environmentMatchGlobs: [
       ['packages/ui/src/components/**', 'jsdom'],
