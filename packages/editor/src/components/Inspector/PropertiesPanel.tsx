@@ -18,6 +18,7 @@ import { setInspectorTabHandler, useEditor } from '../../context';
 import type { InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
 import { getDefaultInspectorTab, getVisibleInspectorTabs } from '../../workspace/workspaceTypes';
+import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
@@ -90,13 +91,14 @@ const TAB_ORDER: InspectorTab[] = [
 export function PropertiesPanel() {
   const { selectedNodes, state, platform } = useEditor();
   const { addPreset, updatePreset, removePreset, setShowExportDialog } = useEditor();
+  const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
   const hasLockedSelection = selNodes.some((node) => node.locked);
   const hasHiddenSelection = selNodes.some((node) => node.visible === false);
   const configuredTabs = useMemo(
-    () => getVisibleInspectorTabs(state.workspaceMode) as InspectorTab[],
-    [state.workspaceMode],
+    () => getVisibleInspectorTabs(state.workspaceMode, effectiveConfig) as InspectorTab[],
+    [state.workspaceMode, effectiveConfig],
   );
   const [requestedTab, setRequestedTab] = useState<InspectorTab | null>(null);
   const visibleTabs = useMemo(() => {
@@ -132,7 +134,7 @@ export function PropertiesPanel() {
   }, [configuredTabs, requestedTab, selNodes, state.workspaceMode, state.prototypeMode]);
 
   const [tab, setTab] = useState<InspectorTab>(
-    () => getDefaultInspectorTab(state.workspaceMode) as InspectorTab,
+    () => getDefaultInspectorTab(state.workspaceMode, effectiveConfig) as InspectorTab,
   );
   const tabRefs = useRef(new Map<InspectorTab, HTMLButtonElement>());
 
@@ -187,9 +189,9 @@ export function PropertiesPanel() {
 
   useEffect(() => {
     if (!visibleTabs.includes(tab)) {
-      setTab(getDefaultInspectorTab(state.workspaceMode) as InspectorTab);
+      setTab(getDefaultInspectorTab(state.workspaceMode, effectiveConfig) as InspectorTab);
     }
-  }, [state.workspaceMode, tab, visibleTabs]);
+  }, [state.workspaceMode, effectiveConfig, tab, visibleTabs]);
 
   useEffect(() => {
     if (state.tool === 'inspect') setExportSubTab('code');
