@@ -1,0 +1,28 @@
+/* ── Page Print section (M12) ─────────────────────────── */
+.page-print {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.page-print__sub {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: var(--space-1) 0 0;
+}
+
+.page-print__edges {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1) var(--space-2);
+}
+
+.page-print__toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
