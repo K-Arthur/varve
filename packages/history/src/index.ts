@@ -77,6 +77,15 @@ export {
   verifySegments,
 } from './replay';
 export {
+  applyMergeResolutions,
+  bulkResolve,
+  type MergeResolution,
+  type MergeResolutionChoice,
+  type MergeResolutionResult,
+  validateMergeResolutions,
+  verifyResolvedDocument,
+} from './resolveMerge';
+export {
   buildRevision,
   type CreateRevisionInput,
   createCheckpoint,
