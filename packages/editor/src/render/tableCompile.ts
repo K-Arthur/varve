@@ -29,10 +29,13 @@ export function getTableLayout(
   table: TableModel,
   w: number,
   h: number,
+  options: { measureContent?: (nodeId: string) => { w: number; h: number } | undefined } = {},
 ): TableLayoutResult {
   const cached = layoutCache.get(node);
   if (cached && cached.w === w && cached.h === h) return cached.result;
-  const result = computeTableLayout(table, w);
+  const result = computeTableLayout(table, w, {
+    measureContent: options.measureContent,
+  });
   layoutCache.set(node, { w, h, result });
   return result;
 }
@@ -40,6 +43,14 @@ export function getTableLayout(
 interface CompileOptions {
   width: number;
   height: number;
+  /**
+   * Document node graph used to resolve rich scene-content cells
+   * (`{ kind: 'scene'; nodeId }`). When absent, scene cells render as
+   * empty cells (content still affects layout via the default size).
+   */
+  nodes?: Record<string, import('@varve/scene').SceneNode>;
+  /** Conversion entry used to compile nested content nodes. */
+  toEngineNode?: (node: import('@varve/scene').SceneNode) => EngineNode;
 }
 
 function cellTextColor(header: boolean, table: TableModel): ManagedColor {
@@ -75,6 +86,8 @@ function compileCell(
   table: TableModel,
   padding: number,
   width: number,
+  nodes: Record<string, import('@varve/scene').SceneNode> | undefined,
+  toEngineNode: ((node: import('@varve/scene').SceneNode) => EngineNode) | undefined,
 ): TableCellIR {
   const content = cell.content.kind === 'text' ? cell.content.text : '';
   const style = cell.style;
@@ -92,6 +105,32 @@ function compileCell(
     rowSpan: cell.rowSpan,
     columnSpan: cell.columnSpan,
   };
+  // Per-cell border: only emitted when the style sets a border color OR a
+  // border width (borderColor alone defaults to the table divider width).
+  if (style?.borderColor || style?.borderWidth !== undefined) {
+    ir.border = {
+      color: style?.borderColor ?? table.appearance.dividerColor,
+      width: style?.borderWidth ?? table.appearance.dividerWidth,
+    };
+  }
+  // Rich scene content: compile the referenced node into cell-local space.
+  // The node's own transform is replaced with a translation to the padded
+  // cell origin so content anchors deterministically inside its cell.
+  if (cell.content.kind === 'scene' && nodes && toEngineNode) {
+    const contentNode = nodes[cell.content.nodeId];
+    if (contentNode && contentNode.id !== undefined) {
+      const compiled = toEngineNode(contentNode);
+      const pad = Math.max(0, padding);
+      const cw = Math.max(0, cell.w - pad * 2);
+      const ch = Math.max(0, cell.h - pad * 2);
+      ir.content = {
+        ...compiled,
+        transform: [1, 0, 0, 1, pad, pad],
+      };
+      void cw;
+      void ch;
+    }
+  }
   if (lines.length > 0) {
     ir.text = {
       lines,
@@ -114,13 +153,30 @@ export function compileTableToEngineNode(
   options: CompileOptions,
 ): EngineNode {
   const table = node.table;
-  const layout = getTableLayout(node, table, options.width, options.height);
+  const measureContent = options.nodes
+    ? (nodeId: string): { w: number; h: number } | undefined => {
+        const contentNode = options.nodes?.[nodeId];
+        if (!contentNode) return undefined;
+        const w = 'w' in contentNode ? (contentNode as { w?: number }).w : undefined;
+        const h = 'h' in contentNode ? (contentNode as { h?: number }).h : undefined;
+        if (
+          typeof w === 'number' &&
+          typeof h === 'number' &&
+          Number.isFinite(w) &&
+          Number.isFinite(h)
+        ) {
+          return { w, h };
+        }
+        return undefined;
+      }
+    : undefined;
+  const layout = getTableLayout(node, table, options.width, options.height, { measureContent });
   const padding =
     table.appearance.cellPadding ??
     (layout.density === 'compact' ? 4 : layout.density === 'spacious' ? 14 : 8);
 
   const cells: TableCellIR[] = layout.cellLayouts.map((cell) =>
-    compileCell(cell, table, padding, cell.w),
+    compileCell(cell, table, padding, cell.w, options.nodes, options.toEngineNode),
   );
 
   const shape: TableShape = {

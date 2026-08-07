@@ -114,16 +114,21 @@ export function remapTableModelIds(
     if (!newRowId || !newColumnId) continue;
     const newId = `cell${nextId()}`;
     cellMap.set(cell.id, newId);
+    let content: TableCellContent = { kind: 'empty' };
+    if (cell.content.kind === 'text') {
+      content = { kind: 'text', text: cell.content.text };
+    } else if (cell.content.kind === 'scene') {
+      // Preserve rich scene content; the referenced node id is remapped by
+      // the clone/copy caller (it owns the node-id map for the subtree).
+      content = { kind: 'scene', nodeId: cell.content.nodeId };
+    }
     cells[newId] = {
       ...cell,
       id: newId,
       rowId: newRowId,
       columnId: newColumnId,
       style: cell.style ? { ...cell.style } : undefined,
-      content:
-        cell.content.kind === 'text'
-          ? { kind: 'text', text: cell.content.text }
-          : { kind: 'empty' },
+      content,
     };
   }
 
@@ -414,6 +419,11 @@ export function setCellContent(
 
 export function setCellText(model: TableModel, cellId: string, text: string): TableModel {
   return setCellContent(model, cellId, { kind: 'text', text });
+}
+
+/** Attach a scene node as rich cell content (image, component, group…). */
+export function setCellSceneContent(model: TableModel, cellId: string, nodeId: string): TableModel {
+  return setCellContent(model, cellId, { kind: 'scene', nodeId });
 }
 
 export function setCellStyle(
@@ -833,15 +843,15 @@ export function normalizeTableModelDefensively(raw: unknown): {
       issues.push(`cell ${cellId} overlaps another cell`);
       continue;
     }
-    const content =
-      cc.content &&
-      typeof cc.content === 'object' &&
-      (cc.content as Record<string, unknown>).kind === 'text'
-        ? {
-            kind: 'text' as const,
-            text: String((cc.content as Record<string, unknown>).text ?? ''),
-          }
-        : { kind: 'empty' as const };
+    const rawContent = cc.content as Record<string, unknown> | undefined;
+    const content: TableCellContent =
+      rawContent && typeof rawContent === 'object' && rawContent.kind === 'text'
+        ? { kind: 'text', text: String(rawContent.text ?? '') }
+        : rawContent && typeof rawContent === 'object' && rawContent.kind === 'scene'
+          ? typeof rawContent.nodeId === 'string' && rawContent.nodeId.length > 0
+            ? { kind: 'scene', nodeId: rawContent.nodeId }
+            : { kind: 'empty' }
+          : { kind: 'empty' };
     const style =
       cc.style && typeof cc.style === 'object' ? (cc.style as TableCellStyle) : undefined;
     const role =

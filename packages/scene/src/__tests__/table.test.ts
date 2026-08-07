@@ -33,6 +33,7 @@ import {
   remapTableModelIds,
   removeColumns,
   removeRows,
+  setCellSceneContent,
   setCellText,
   splitCell,
 } from '../tableOps';
@@ -293,6 +294,45 @@ describe('normalizeTableModelDefensively', () => {
     expect(normalizeTableModelDefensively(42).model).toBeUndefined();
   });
 
+  it('preserves valid scene content and drops invalid references', () => {
+    const source = {
+      rowOrder: ['r1', 'r2'],
+      columnOrder: ['c1'],
+      rows: {
+        r1: { id: 'r1', sizing: { kind: 'content' } },
+        r2: { id: 'r2', sizing: { kind: 'content' } },
+      },
+      columns: { c1: { id: 'c1', sizing: { kind: 'fixed', value: 100 } } },
+      cells: {
+        good: {
+          id: 'good',
+          rowId: 'r1',
+          columnId: 'c1',
+          rowSpan: 1,
+          columnSpan: 1,
+          content: { kind: 'scene', nodeId: 'img-1' },
+        },
+        bad: {
+          id: 'bad',
+          rowId: 'r2',
+          columnId: 'c1',
+          rowSpan: 1,
+          columnSpan: 1,
+          content: { kind: 'scene', nodeId: 42 },
+        },
+      },
+      cellIndex: { '0,0': 'good', '1,0': 'bad' },
+      headerRows: 0,
+      appearance: {},
+    };
+    const { model, issues } = normalizeTableModelDefensively(source);
+    expect(issues).toHaveLength(0);
+    expect(model!.cells.good?.content).toEqual({ kind: 'scene', nodeId: 'img-1' });
+    // Invalid nodeId type is dropped to empty content.
+    expect(model!.cells.bad?.content).toEqual({ kind: 'empty' });
+    expect(validateTableModel(model!)).toHaveLength(0);
+  });
+
   it('round trips a valid model', () => {
     const model = mergeCells(validModel(), 1, 1, 2, 2);
     const { model: round, issues } = normalizeTableModelDefensively(
@@ -304,6 +344,16 @@ describe('normalizeTableModelDefensively', () => {
 });
 
 describe('remapTableModelIds', () => {
+  it('preserves scene content references across remap', () => {
+    let model = validModel();
+    const firstCell = Object.keys(model.cells)[0]!;
+    model = setCellSceneContent(model, firstCell, 'img-1');
+    const { model: remapped } = remapTableModelIds(model, 1000);
+    const cell = Object.values(remapped.cells)[0]!;
+    expect(cell.content).toEqual({ kind: 'scene', nodeId: 'img-1' });
+    expect(validateTableModel(remapped)).toHaveLength(0);
+  });
+
   it('remaps every id and keeps the structure isomorphic', () => {
     const model = mergeCells(validModel(), 0, 0, 2, 2);
     const { model: remapped } = remapTableModelIds(model, 1000);
