@@ -26,6 +26,10 @@ const tableShape: TableShape = {
       w: 150,
       h: 40,
       fill: { space: 'rgb', r: 240, g: 240, b: 240, a: 255 },
+      rowIdx: 0,
+      columnIdx: 0,
+      rowSpan: 1,
+      columnSpan: 1,
       text: {
         lines: ['Header A'],
         fontSize: 13,
@@ -44,9 +48,33 @@ const tableShape: TableShape = {
       w: 150,
       h: 40,
       fill: { space: 'rgb', r: 240, g: 240, b: 240, a: 255 },
+      rowIdx: 0,
+      columnIdx: 1,
+      rowSpan: 1,
+      columnSpan: 1,
     },
-    { x: 0, y: 40, w: 150, h: 80, fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
-    { x: 150, y: 40, w: 150, h: 80, fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+    {
+      x: 0,
+      y: 40,
+      w: 150,
+      h: 80,
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+      rowIdx: 1,
+      columnIdx: 0,
+      rowSpan: 1,
+      columnSpan: 1,
+    },
+    {
+      x: 150,
+      y: 40,
+      w: 150,
+      h: 80,
+      fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+      rowIdx: 1,
+      columnIdx: 1,
+      rowSpan: 1,
+      columnSpan: 1,
+    },
   ],
 };
 
@@ -196,5 +224,61 @@ describe('table primitive replay', () => {
     const rec = new Recorder();
     replayIr(rec, [{ ...tableItem(), primitive: { ...tableShape, w: 0, h: 0 } }]);
     expect(rec.calls.filter((c) => c.startsWith('fillRect(')).length).toBe(0);
+  });
+
+  it('suppresses dividers through merged cells only in the spanned rows', () => {
+    // 2x2 table where the header row cells merge across both columns.
+    const mergedShape: TableShape = {
+      ...tableShape,
+      cells: [
+        {
+          x: 0,
+          y: 0,
+          w: 300,
+          h: 40,
+          fill: { space: 'rgb', r: 240, g: 240, b: 240, a: 255 },
+          rowIdx: 0,
+          columnIdx: 0,
+          rowSpan: 1,
+          columnSpan: 2,
+        },
+        {
+          x: 0,
+          y: 40,
+          w: 150,
+          h: 80,
+          fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+          rowIdx: 1,
+          columnIdx: 0,
+          rowSpan: 1,
+          columnSpan: 1,
+        },
+        {
+          x: 150,
+          y: 40,
+          w: 150,
+          h: 80,
+          fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+          rowIdx: 1,
+          columnIdx: 1,
+          rowSpan: 1,
+          columnSpan: 1,
+        },
+      ],
+    };
+    const rec = new Recorder();
+    replayIr(rec, [{ ...tableItem(), primitive: mergedShape }]);
+    const rects = rec.calls.filter((c) => c.startsWith('fillRect('));
+    // The vertical divider at x=150 (drawn at 149.5, width 1) must appear
+    // only in the body row band (y=40..120), NOT through the merged header
+    // cell (y=0..40).
+    expect(rects.some((c) => c.startsWith('fillRect(149.5,40,1,80)'))).toBe(true);
+    expect(rects.some((c) => c.startsWith('fillRect(149.5,0,1,40)'))).toBe(false);
+    // Horizontal divider still spans the full width in the unmerged band
+    // (drawn as per-column segments).
+    expect(rects.some((c) => c.startsWith('fillRect(0,39.5,150,1)'))).toBe(true);
+    expect(rects.some((c) => c.startsWith('fillRect(150,39.5,150,1)'))).toBe(true);
+    // Table-edge dividers (x=300 / y=120) are not painted — border covers them.
+    expect(rects.some((c) => c.startsWith('fillRect(299.5'))).toBe(false);
   });
 });
