@@ -402,6 +402,26 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
 export function getTextMenu(runAction: (id: string) => void): MenuItemDef[] {
   return [
     {
+      id: 'linkTextFrames',
+      labelKey: 'menu.text.linkTextFrames',
+      accelerator: a('k', true, false, true),
+      kind: 'command',
+      group: 'threading',
+      workspaces: ['design', 'print'],
+      enabled: enabledWithSelection,
+      run: () => runAction('linkTextFrames'),
+    },
+    {
+      id: 'unlinkTextFrames',
+      labelKey: 'menu.text.unlinkTextFrames',
+      accelerator: a('k', true, true, true),
+      kind: 'command',
+      group: 'threading',
+      workspaces: ['design', 'print'],
+      enabled: enabledWithSelection,
+      run: () => runAction('unlinkTextFrames'),
+    },
+    {
       id: 'textBold',
       labelKey: 'menu.text.bold',
       accelerator: a('b', true, true),

@@ -285,12 +285,14 @@ import {
   shapeHeight,
   shapeWidth,
   spreadBoundsInWorld,
+  storyForFrame,
   swapInstance as swapInstanceDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
   toggleFacingPages as toggleFacingPagesDoc,
   toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
+  unlinkFrame as unlinkFrameDoc,
   updateInteraction as updateInteractionDoc,
   updateSelectionSetNodes as updateSelectionSetNodesDoc,
   updateSpotDef as updateSpotDefDoc,
@@ -459,6 +461,11 @@ import {
 } from './scene/parentIndexCache';
 import { resizeNodeGeometry } from './scene/resizeGeometry';
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
+import {
+  planLinkSelection,
+  planUnlinkSelection,
+  storySeedForFrame,
+} from './scene/textThreadActions';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -1447,6 +1454,10 @@ export interface EditorContextValue {
 
   /** Get node IDs visible on the active page (page content + global children). */
   activePageNodes: () => NodeId[];
+  /** Link the selected text frames into one story (ADR-0159). */
+  linkSelectedTextFrames: () => void;
+  /** Remove the selected frames from their stories. */
+  unlinkSelectedTextFrames: () => void;
   /** Move a page on the pasteboard (placement metadata only, ADR-0124). */
   movePageOnPasteboard: (pageId: string, x: number, y: number) => void;
   /** Resize a page's trim without scaling its content (page-only resize). */
@@ -2735,6 +2746,50 @@ export function EditorProvider({
     [updateDoc],
   );
 
+  const linkSelectedTextFrames = useCallback(() => {
+    const sel = stateRef.current.selection;
+    if (sel.length === 0) return;
+    updateDoc((doc) => {
+      const plan = planLinkSelection(doc, sel);
+      if (plan.kind === 'noop') {
+        announcerRef.current?.announce(plan.reason);
+        return doc;
+      }
+      if (plan.kind === 'create-story') {
+        const { story, doc: d1 } = createStoryDoc(doc, {
+          name: plan.name,
+          content: storySeedForFrame(doc, plan.frames[0]!),
+        });
+        let d = d1;
+        for (const fid of plan.frames) d = linkFrameDoc(d, story.id, fid);
+        announcerRef.current?.announce(`Text frames linked into story "${story.name}"`);
+        return d;
+      }
+      let d = doc;
+      for (const fid of plan.frames) d = linkFrameDoc(d, plan.storyId, fid);
+      announcerRef.current?.announce('Text frames linked to existing story');
+      return d;
+    });
+  }, [updateDoc, announcerRef]);
+
+  const unlinkSelectedTextFrames = useCallback(() => {
+    const sel = stateRef.current.selection;
+    if (sel.length === 0) return;
+    updateDoc((doc) => {
+      let d = doc;
+      let count = 0;
+      for (const fid of planUnlinkSelection(doc, sel)) {
+        const story = storyForFrame(d, fid);
+        if (story) {
+          d = unlinkFrameDoc(d, story.id, fid);
+          count++;
+        }
+      }
+      if (count > 0)
+        announcerRef.current?.announce(`${count} text frame${count === 1 ? '' : 's'} unlinked`);
+      return d;
+    });
+  }, [updateDoc, announcerRef]);
   const deleteTextChain = useCallback(
     (chainId: string) => {
       updateDoc((doc) => deleteTextChainDoc(doc, chainId));
@@ -5232,6 +5287,8 @@ export function EditorProvider({
 
       // Text chain operations
       createTextChain,
+      linkSelectedTextFrames,
+      unlinkSelectedTextFrames,
       deleteTextChain,
       appendFrameToChain,
       removeFrameFromChain,
@@ -8677,6 +8734,8 @@ export function EditorProvider({
       commitTransaction: value.commitTransaction,
       abortTransaction: value.abortTransaction,
       createTextChain: value.createTextChain,
+      linkSelectedTextFrames: value.linkSelectedTextFrames,
+      unlinkSelectedTextFrames: value.unlinkSelectedTextFrames,
       deleteTextChain: value.deleteTextChain,
       appendFrameToChain: value.appendFrameToChain,
       removeFrameFromChain: value.removeFrameFromChain,

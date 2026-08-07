@@ -257,6 +257,16 @@ export const SHORTCUT_DEFS = {
   toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
   toolSam2Segment: { binding: { key: 'm' }, label: 'Select Subject tool', category: 'Tools' },
   toolPage: { binding: { key: 'q' }, label: 'Page tool', category: 'Tools' },
+  linkTextFrames: {
+    binding: { key: 'k', ctrl: true, shift: true },
+    label: 'Link Text Frames',
+    category: 'Text',
+  },
+  unlinkTextFrames: {
+    binding: { key: 'k', ctrl: true, alt: true, shift: true },
+    label: 'Unlink Text Frames',
+    category: 'Text',
+  },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
   import: { binding: { key: 'i', ctrl: true }, label: 'Import\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },

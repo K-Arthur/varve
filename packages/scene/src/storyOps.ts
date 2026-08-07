@@ -9,6 +9,7 @@
  */
 
 import type { Document } from './document';
+import { cryptoId } from './document-utils';
 import type { NodeId, RichText, TextStory } from './types';
 
 export interface StoryThreadIssue {
@@ -38,7 +39,7 @@ export function createStory(
   opts: { id?: NodeId; name?: string; content: RichText; language?: string },
 ): { story: TextStory; doc: Document } {
   const story: TextStory = {
-    id: opts.id ?? `story-${doc.nextId}`,
+    id: opts.id ?? cryptoId(),
     name: opts.name ?? 'Story',
     content: opts.content,
     thread: [],
