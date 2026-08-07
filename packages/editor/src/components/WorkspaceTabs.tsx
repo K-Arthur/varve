@@ -38,6 +38,7 @@ import {
   type WorkspaceLayoutResult,
 } from '../workspace/workspaceOverflow';
 import { workspaceShortcutLabel } from '../workspace/workspaceShortcutLabel';
+import { useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
 import {
   WORKSPACE_CONFIGS,
   WORKSPACE_LABELS,
@@ -45,7 +46,6 @@ import {
   WORKSPACE_OVERFLOW_PRIORITY,
   type WorkspaceMode,
 } from '../workspace/workspaceTypes';
-import { getEffectiveBinding, formatShortcut } from '../shortcuts/ShortcutManager';
 
 /** Gap between tabs + container padding, added to each measured tab. */
 const TAB_GAP = 6;
@@ -70,6 +70,7 @@ const INITIAL_LAYOUT: WorkspaceLayoutResult = {
 
 export function WorkspaceTabs() {
   const { state, requestWorkspaceSwitch, resetWorkspaceToDefault } = useEditor();
+  const customizations = useWorkspaceCustomizations();
   const wrapRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<WorkspaceMode, HTMLButtonElement | null>>>({});
   const naturalWidths = useRef<Partial<Record<WorkspaceMode, number>>>({});
@@ -223,6 +224,9 @@ export function WorkspaceTabs() {
             >
               <SolidIcon name={SOLID_CHROME_ICONS[SOLID_ICON_NAMES[mode]]} size={15} />
               {!iconOnly && <span className="workspace-tabs__label">{WORKSPACE_LABELS[mode]}</span>}
+              {customizations[mode] && (
+                <span className="workspace-tabs__customized-dot" aria-label="customized" />
+              )}
             </button>
           </Tooltip>
         ))}

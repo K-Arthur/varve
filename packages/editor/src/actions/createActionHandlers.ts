@@ -203,6 +203,7 @@ export function createActionHandlers(
     workspaceCodegen: () => e.requestWorkspaceSwitch('codegen'),
     workspaceLogo: () => e.requestWorkspaceSwitch('logo'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
+    resetAllWorkspaces: () => e.resetAllWorkspacesToDefaults(),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
     canvasModeFull: () => {
