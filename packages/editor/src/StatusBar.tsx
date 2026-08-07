@@ -12,8 +12,8 @@ import {
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
 import { formatShortcut, getEffectiveBinding } from './shortcuts/ShortcutManager';
-import { getVisibleStatusSections } from './workspace/workspaceTypes';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
+import { getVisibleStatusSections } from './workspace/workspaceTypes';
 
 interface StatusBarProps {
   onOpenPalette?: (shortcutId?: string) => void;
