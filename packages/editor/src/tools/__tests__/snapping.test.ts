@@ -1,4 +1,3 @@
-import { addPage, createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { pageSnapTargets } from '../snapping';
 import {
@@ -360,6 +359,7 @@ describe('snapPosition — snapExcludedIds (D-03)', () => {
 });
 
 import {
+  addPage,
   createDocument,
   makeShapeNode,
   setSnapExcluded as sceneSetSnapExcluded,
