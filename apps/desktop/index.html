@@ -11,6 +11,17 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <script>
+      // Apply saved theme BEFORE React mounts so CSS custom properties
+      // resolve to the correct theme from the first paint.
+      (function () {
+        var saved = localStorage.getItem('varve-theme') ||
+                    localStorage.getItem('strata-theme');
+        if (saved && /^(light|dark|high-contrast)$/.test(saved)) {
+          document.documentElement.dataset.theme = saved;
+        }
+      })();
+    </script>
+    <script>
       if (typeof performance !== 'undefined' && performance.mark) {
         performance.mark('varve-html-paint');
       }
