@@ -37,17 +37,18 @@ import { MeshWarpOverlay } from './MeshWarpOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
+import { PageToolOverlay } from './PageToolOverlay';
+import { PrintOverlays } from './PrintOverlays';
 import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
 import { SnapGuidesOverlay } from './SnapGuidesOverlay';
 import { MeasureOverlay } from './SpecPanel/MeasureOverlay';
-import { PrintOverlays } from './PrintOverlays';
 import { TableCellEditor } from './TableEditOverlay/TableCellEditor';
 import { TableEditOverlay } from './TableEditOverlay/TableEditOverlay';
 import { TextEditOverlay } from './TextEditOverlay';
+import { TextThreadOverlay } from './TextThreadOverlay';
 import { VariantBox } from './VariantBox/VariantBox';
 import { WarpOverlay } from './WarpOverlay';
-import { PageToolOverlay } from './PageToolOverlay';
 import { ZoomIndicator } from './ZoomIndicator';
 
 export interface CanvasOverlaysProps {
@@ -534,6 +535,11 @@ export function CanvasOverlays({
         activePageId={editor.state.document.activePageId ?? null}
         tool={tool}
         zoom={zoom}
+        worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
+      />
+      <TextThreadOverlay
+        document={doc}
+        selection={selection}
         worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
       />
       <div
