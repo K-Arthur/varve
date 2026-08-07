@@ -47,6 +47,35 @@ export function editorScreenToWorld(
   return screenToWorld(cam, cx, cy, viewport, origin);
 }
 
+/**
+ * Axis-aligned world-space rect covering the viewport, from its four screen
+ * corners. With a rotated camera the AABB of the corners is strictly larger
+ * than the visible area, so page culling against it is always safe
+ * (over-inclusive, never under-inclusive).
+ */
+export function viewportWorldRect(
+  state: EditorCameraState,
+  viewport: Viewport,
+): { x: number; y: number; w: number; h: number } {
+  const corners = [
+    editorScreenToWorld(state, 0, 0, viewport),
+    editorScreenToWorld(state, viewport.width, 0, viewport),
+    editorScreenToWorld(state, 0, viewport.height, viewport),
+    editorScreenToWorld(state, viewport.width, viewport.height, viewport),
+  ];
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const [x, y] of corners) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
 export function editorWorldToScreen(
   state: EditorCameraState,
   wx: number,
