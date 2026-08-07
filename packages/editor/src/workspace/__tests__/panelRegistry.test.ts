@@ -84,7 +84,7 @@ describe('panel registry: built-in registration', () => {
 
   it('registers every built-in panel with the PanelId set', () => {
     registerBuiltinPanels();
-    expect(listPanelDefinitions()).toHaveLength(7);
+    expect(listPanelDefinitions()).toHaveLength(8);
     expect(assertPanelInvariants(ALL_PANEL_TYPES)).toEqual([]);
     for (const id of ALL_PANEL_TYPES) {
       expect(getPanelDefinition(id).id).toBe(id);
@@ -101,6 +101,7 @@ describe('panel registry: built-in registration', () => {
       'library',
       'codegen',
       'logo',
+      'history',
     ];
     const registered = listPanelDefinitions()
       .map((d) => d.id)
