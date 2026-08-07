@@ -46,15 +46,17 @@ export function SafeSvg({ svg, label, className, asImage, onSanitizeWarning }: S
     return <img className={className} src={svgToDataUrl(safe.svg)} alt={label ?? ''} {...attrs} />;
   }
 
-  // Inner content only (strip the outer <svg> so the consumer controls the
-  // box) — content is guaranteed sanitized at this point.
-  const inner = safe.svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>$/, '');
-
+  // Render the FULL sanitized SVG (root preserved). SVG geometry only draws
+  // when its elements live in the SVG namespace — that requires a real
+  // <svg> root. Injecting just the inner <path>/<title> into a plain span
+  // parses them as HTML elements (HTMLUnknownElement) and nothing renders.
+  // The consumer sizes the box via CSS (.icon-card__svg svg { width/height:
+  // 100% }); the svg root's own width/height attributes lose to CSS.
   return (
     <span
       className={className}
       // Content is guaranteed sanitized by sanitizeSvg above.
-      dangerouslySetInnerHTML={{ __html: inner }}
+      dangerouslySetInnerHTML={{ __html: safe.svg }}
       {...attrs}
     />
   );

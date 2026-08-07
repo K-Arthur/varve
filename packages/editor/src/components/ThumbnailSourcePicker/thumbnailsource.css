@@ -57,7 +57,7 @@
 }
 
 .thumbnail-source-picker__option--active {
-  background: var(--color-interactive-subtle);
+  background: var(--color-accent-subtle);
   border-color: var(--color-interactive-default);
 }
 

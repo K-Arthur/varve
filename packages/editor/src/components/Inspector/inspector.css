@@ -909,7 +909,7 @@
   outline-offset: 1px;
 }
 .insp-btn-sm[aria-pressed="true"] {
-  background: var(--color-interactive-subtle);
+  background: var(--color-accent-subtle);
   border-color: var(--color-interactive-default);
 }
 
@@ -2482,7 +2482,7 @@
   gap: var(--space-1);
 }
 .binding-menu__item--highlighted {
-  background: var(--color-interactive-subtle);
+  background: var(--color-accent-subtle);
 }
 .binding-menu__item-name {
   font-weight: var(--font-weight-medium);
@@ -2655,7 +2655,7 @@
   gap: var(--space-1);
 }
 .binding-menu__item--highlighted {
-  background: var(--color-interactive-subtle);
+  background: var(--color-accent-subtle);
 }
 .binding-menu__item-name {
   font-weight: var(--font-weight-medium);

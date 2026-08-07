@@ -679,7 +679,7 @@ export function IconBrowser({
             aria-label={viewDensity === 'comfortable' ? 'Compact grid' : 'Comfortable grid'}
             aria-pressed={viewDensity === 'compact'}
           >
-            <Icon name={viewDensity === 'comfortable' ? 'PanelTop' : 'LayoutGrid'} size={16} />
+            <Icon name={viewDensity === 'comfortable' ? 'LayoutGrid' : 'Rows3'} size={16} />
           </button>
         </div>
       </div>
@@ -796,36 +796,37 @@ export function IconBrowser({
           </Button>
         </div>
       ) : browsingPack ? (
-        <IconGrid
-          items={filteredItems}
-          selectedId={selectedId}
-          acquiringIds={acquiringIds}
-          onSelect={handleSelect}
-          onInsert={(id) => void handleInsert(id)}
-          onToggleFavourite={handleToggleFavourite}
-          onVisibleRangeChange={handleVisibleRange}
-          ariaLabel={`Icons in pack ${browsingPack}`}
-          emptyState={
-            <div className="icon-browser__empty">
-              <Icon name="PackageX" size={32} />
-              <p>No icons in this pack match your filters.</p>
-            </div>
-          }
-        />
-      ) : browsingPack ? (
-        <div className="icon-browser__load-more">
-          {packLoading ? (
-            <span className="icon-browser__load-more-status">Loading…</span>
-          ) : !packExhausted ? (
-            <Button variant="secondary" size="sm" onClick={() => void handleLoadMorePack()}>
-              Load more ({Math.max(0, packTotal - packPage.length).toLocaleString()} remaining)
-            </Button>
-          ) : (
-            <span className="icon-browser__load-more-status">
-              {packTotal.toLocaleString()} icons loaded
-            </span>
-          )}
-        </div>
+        <>
+          <IconGrid
+            items={filteredItems}
+            selectedId={selectedId}
+            acquiringIds={acquiringIds}
+            onSelect={handleSelect}
+            onInsert={(id) => void handleInsert(id)}
+            onToggleFavourite={handleToggleFavourite}
+            onVisibleRangeChange={handleVisibleRange}
+            ariaLabel={`Icons in pack ${browsingPack}`}
+            emptyState={
+              <div className="icon-browser__empty">
+                <Icon name="PackageX" size={32} />
+                <p>No icons in this pack match your filters.</p>
+              </div>
+            }
+          />
+          <div className="icon-browser__load-more">
+            {packLoading ? (
+              <span className="icon-browser__load-more-status">Loading…</span>
+            ) : !packExhausted ? (
+              <Button variant="secondary" size="sm" onClick={() => void handleLoadMorePack()}>
+                Load more ({Math.max(0, packTotal - packPage.length).toLocaleString()} remaining)
+              </Button>
+            ) : (
+              <span className="icon-browser__load-more-status">
+                {packTotal.toLocaleString()} icons loaded
+              </span>
+            )}
+          </div>
+        </>
       ) : !query && sourceFilter === 'all' ? (
         <div className="icon-browser__discovery-scroll">
           <IconDiscoverySections
@@ -851,23 +852,37 @@ export function IconBrowser({
           />
         </div>
       ) : (
-        <IconGrid
-          items={filteredItems}
-          selectedId={selectedId}
-          acquiringIds={acquiringIds}
-          onSelect={handleSelect}
-          onInsert={(id) => void handleInsert(id)}
-          onToggleFavourite={handleToggleFavourite}
-          onVisibleRangeChange={handleVisibleRange}
-          cardSize={viewDensity === 'compact' ? 56 : 68}
-          ariaLabel="Icon results"
-          emptyState={
-            <div className="icon-browser__empty">
-              <Icon name="SearchX" size={32} />
-              <p>{query ? 'No icons match your search.' : 'No icons here yet.'}</p>
+        <>
+          <IconGrid
+            items={filteredItems}
+            selectedId={selectedId}
+            acquiringIds={acquiringIds}
+            onSelect={handleSelect}
+            onInsert={(id) => void handleInsert(id)}
+            onToggleFavourite={handleToggleFavourite}
+            onVisibleRangeChange={handleVisibleRange}
+            cardSize={viewDensity === 'compact' ? 56 : 68}
+            ariaLabel="Icon results"
+            emptyState={
+              <div className="icon-browser__empty">
+                <Icon name="SearchX" size={32} />
+                <p>{query ? 'No icons match your search.' : 'No icons here yet.'}</p>
+              </div>
+            }
+          />
+          {query && !search.exhausted && (
+            <div className="icon-browser__load-more">
+              {search.isLoadingMore ? (
+                <span className="icon-browser__load-more-status">Loading…</span>
+              ) : (
+                <Button variant="secondary" size="sm" onClick={() => void search.loadMore()}>
+                  Load more ({Math.max(0, search.total - search.results.length).toLocaleString()}{' '}
+                  remaining)
+                </Button>
+              )}
             </div>
-          }
-        />
+          )}
+        </>
       )}
 
       {!query &&
