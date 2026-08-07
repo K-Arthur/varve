@@ -255,3 +255,50 @@ describe('diff-merge coherence', () => {
     expect(a.status).toBe('clean');
   });
 });
+
+describe('diffDocuments null-safety', () => {
+  it('does not throw when a nested collection record appears from undefined', () => {
+    // Regression: adding the first variable makes `variableStore` transition
+    // from undefined to a record; the nested-collection branch must not
+    // pass undefined into unionKeys (Object.keys crash).
+    const base = baseDoc();
+    const target = clone(base);
+    const store: VariableStore = {
+      variables: {
+        v_0001: {
+          id: 'v_0001',
+          name: 'Brand',
+          type: 'color',
+          valuesByMode: { default: '#39d0c6' },
+        },
+      },
+      collections: {},
+      activeCollectionId: '',
+      modes: ['default'],
+      activeMode: 'default',
+    };
+    target.variableStore = store;
+    expect(() => diffDocuments(base, target)).not.toThrow();
+    const diff = diffDocuments(base, target);
+    expect(diff.changed).toBe(true);
+    // The variable fields are reported as changes against undefined.
+    expect(
+      diff.changes.some((c) => c.propertyPath?.startsWith('variableStore.variables.')),
+    ).toBe(true);
+  });
+
+  it('does not throw when a nested collection record is removed to undefined', () => {
+    const base = baseDoc();
+    const store: VariableStore = {
+      variables: { v_0001: { id: 'v_0001', name: 'Brand', type: 'color', valuesByMode: {} } },
+      collections: {},
+      activeCollectionId: '',
+      modes: ['default'],
+      activeMode: 'default',
+    };
+    base.variableStore = store;
+    const target = clone(base);
+    delete (target as { variableStore?: VariableStore }).variableStore;
+    expect(() => diffDocuments(base, target)).not.toThrow();
+  });
+});
