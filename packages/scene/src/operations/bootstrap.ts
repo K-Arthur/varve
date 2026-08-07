@@ -6,6 +6,7 @@
  * never by mutating the document directly.
  */
 
+import { registerCaptureOperation } from './ops/captureOps';
 import { registerDocumentAssetOperations } from './ops/documentAssetOps';
 import { registerNodeOperations } from './ops/nodeOps';
 import { registerPageOperations } from './ops/pageOps';
@@ -18,5 +19,6 @@ export function registerBuiltinOperations(): void {
   registerNodeOperations();
   registerDocumentAssetOperations();
   registerPageOperations();
+  registerCaptureOperation();
   registered = true;
 }

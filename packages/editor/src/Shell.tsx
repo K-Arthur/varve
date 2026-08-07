@@ -68,6 +68,7 @@ import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
+import { useWorkspacePanelWidths } from './workspace/useWorkspacePanelWidths';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */
 export interface OpenFileRequest {
@@ -207,6 +208,7 @@ function ShellInner({
   const findReplaceLayerRef = useRef<FindReplaceLayerHandle | null>(null);
   const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
   const { shellStyle, widths, setWidth } = usePanelWidths();
+  useWorkspacePanelWidths(editor.state.workspaceMode, widths, setWidth);
 
   // Crash-center deep link: "Privacy and diagnostics settings" in the crash
   // dialogs opens this dialog on the privacy section.

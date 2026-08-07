@@ -15,6 +15,7 @@ export {
   // Effective configuration — the one resolver (built-in + user overrides)
   getEffectivePanelConfig,
   getEffectiveWorkspaceConfig,
+  getPanelWidths,
   getWorkspacePreferences,
   isModeCustomized,
   // Persistence
@@ -22,6 +23,7 @@ export {
   recoverWorkspaceConfig,
   resetAllPreferences,
   resetModePreferences,
+  savePanelWidths,
   saveWorkspacePreferences,
   setInspectorTabOverride,
   setPanelOverride,

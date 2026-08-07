@@ -16,7 +16,8 @@
     "test": "cd ../.. && vitest run packages/history"
   },
   "dependencies": {
-    "@varve/scene": "workspace:*"
+    "@varve/scene": "workspace:*",
+    "idb": "^8.0.0"
   },
   "license": "FSL-1.1-MIT"
 }

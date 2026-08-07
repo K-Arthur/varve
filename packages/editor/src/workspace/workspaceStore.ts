@@ -410,7 +410,10 @@ export function getEffectiveWorkspaceConfig(
   }
 
   // Status section overrides — flip visibility per section id
-  if (modePrefs.statusSectionOverrides && Object.keys(modePrefs.statusSectionOverrides).length > 0) {
+  if (
+    modePrefs.statusSectionOverrides &&
+    Object.keys(modePrefs.statusSectionOverrides).length > 0
+  ) {
     result = {
       ...result,
       statusSections: result.statusSections.map((section) => {
@@ -475,6 +478,29 @@ export function setStatusSectionOverride(
   modePrefs.lastCustomized = Date.now();
   updated[mode] = modePrefs;
   return updated;
+}
+
+/** Save per-workspace panel widths (pixels). */
+export function savePanelWidths(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  widths: Partial<Record<PanelId, number>>,
+): WorkspacePreferences {
+  const updated = { ...prefs };
+  const modePrefs = { ...updated[mode] };
+  modePrefs.panelWidths = { ...(modePrefs.panelWidths ?? {}), ...widths };
+  modePrefs.customized = true;
+  modePrefs.lastCustomized = Date.now();
+  updated[mode] = modePrefs;
+  return updated;
+}
+
+/** Get per-workspace panel widths for a mode. */
+export function getPanelWidths(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+): Partial<Record<PanelId, number>> {
+  return prefs[mode]?.panelWidths ?? {};
 }
 
 /** Reset a mode's preferences to defaults. */
