@@ -202,21 +202,47 @@ function screenChannelAt(
   return adjustedGray > matrixVal ? 1 : 0;
 }
 
+// ── Parameter sanitization ─────────────────────────────────────────────
+//
+// Persisted documents can contain malformed values (NaN from JSON round
+// trips, hand-edited garbage, future-format extremes). Every screening
+// entry point sanitizes its parameters so a bad value degrades to a safe
+// default instead of silently blanking the output or throwing.
+
+/** Clamp frequency to a finite, sane LPI (1–1000). NaN/Infinity → 45. */
+function sanitizeFrequency(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 45;
+  return Math.max(1, Math.min(1000, value));
+}
+
+/** Normalize an angle to a finite value in [0, 360). NaN/Infinity → 0. */
+function sanitizeAngle(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 0;
+  const normalized = ((value % 360) + 360) % 360;
+  return normalized;
+}
+
+/** Clamp an 8-bit tone threshold; NaN/Infinity → 128. */
+function sanitizeThreshold(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 128;
+  return Math.max(0, Math.min(255, value));
+}
+
 export function applyAMScreening(
   data: ImageData,
   params: HalftoneParams,
   pixelScale: number = 1,
 ): void {
-  const { frequency, dotShape, channel } = params;
+  const { dotShape, channel } = params;
   const w = data.width;
   const h = data.height;
   const pixels = data.data;
-  const threshold = params.threshold ?? 128;
+  const threshold = sanitizeThreshold(params.threshold);
   const intensity = Math.max(0, Math.min(1, params.intensity ?? 1));
   const softness = Math.max(0, Math.min(1, params.softness ?? 0));
 
   // Determine effective LPI based on pixel density
-  const lpi = Math.max(1, frequency * pixelScale);
+  const lpi = Math.max(1, sanitizeFrequency(params.frequency) * pixelScale);
   const cellSize = Math.max(2, Math.round(72 / lpi)); // pixels per cell at 72 DPI
 
   // Generate threshold matrix for the dot shape
@@ -304,7 +330,7 @@ export function applyAMScreening(
   // Unlike the cmyk path (where fixed standard angles prevent moiré between
   // simultaneous screens), a single channel has no other screen to clash
   // with, so the user's own angle control fully governs screen rotation.
-  const angle = params.angle;
+  const angle = sanitizeAngle(params.angle);
   const invert = params.invert ?? false;
   const fg = params.foregroundColor ?? [0, 0, 0];
   const bg = params.backgroundColor ?? [255, 255, 255];
@@ -358,7 +384,7 @@ export function applyFMStochastic(data: ImageData, _params: HalftoneParams): voi
   const h = data.height;
   const pixels = data.data;
   const levels = 2; // 1-bit output for traditional halftone
-  const threshold = _params.threshold ?? 128;
+  const threshold = sanitizeThreshold(_params.threshold);
   const intensity = Math.max(0, Math.min(1, _params.intensity ?? 1));
   const invert = _params.invert ?? false;
   const fg = _params.foregroundColor ?? [0, 0, 0];
@@ -589,7 +615,7 @@ export function applyBayerDithering(
   const matrix = bayerMatrix(BAYER_DEFAULT_SIZE);
   const size = matrix.length;
   const totalCells = size * size;
-  const threshold = _params.threshold ?? 128;
+  const threshold = sanitizeThreshold(_params.threshold);
   const intensity = Math.max(0, Math.min(1, _params.intensity ?? 1));
   const softness = Math.max(0, Math.min(1, _params.softness ?? 0));
   const thresholdOffset = (threshold - 128) / 255;
