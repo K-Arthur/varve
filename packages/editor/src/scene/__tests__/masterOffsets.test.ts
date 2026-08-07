@@ -21,11 +21,11 @@ function masterTwoPageDoc(): Document {
   let doc = createDocument('offsets', false);
   doc = createMaster(doc, { name: 'M', width: 1920, height: 1080 });
   const master = Object.values(doc.masters!)[0]!;
-  const masterRoot = doc.nodes[master.contentRoot] as { children: string[] };
+  const masterRoot = doc.nodes[master.contentRoot] as { id: string; children: string[] };
   const { id: headerId, doc: d1 } = nextNodeId(doc);
   doc = addChild(
     d1,
-    masterRoot.id as string,
+    masterRoot.id,
     makeShapeNode(headerId, { kind: 'rect', x: 0, y: 0, w: 100, h: 20 }),
   );
   doc = addPage(doc, {});
@@ -44,7 +44,7 @@ describe('collectMasterOffsets (M8)', () => {
   it('maps every projected master item to its page placement', () => {
     const doc = masterTwoPageDoc();
     const master = Object.values(doc.masters!)[0]!;
-    const masterRoot = doc.nodes[master.contentRoot] as { children: string[] };
+    const masterRoot = doc.nodes[master.contentRoot] as { id: string; children: string[] };
     const headerId = masterRoot.children[0]!;
     const offsets = collectMasterOffsets(doc);
     // The same master node serves both pages — the map records the LAST
@@ -55,7 +55,7 @@ describe('collectMasterOffsets (M8)', () => {
   it('applies the placement to the master world transform', () => {
     const doc = masterTwoPageDoc();
     const master = Object.values(doc.masters!)[0]!;
-    const masterRoot = doc.nodes[master.contentRoot] as { children: string[] };
+    const masterRoot = doc.nodes[master.contentRoot] as { id: string; children: string[] };
     const headerId = masterRoot.children[0]!;
     const offsets = collectMasterOffsets(doc);
     const world: Affine = [1, 0, 0, 1, 40, 60];
@@ -72,7 +72,7 @@ describe('collectMasterOffsets (M8)', () => {
   it('excludes hidden/deleted overrides from the offsets map (B3)', () => {
     let doc = masterTwoPageDoc();
     const master = Object.values(doc.masters!)[0]!;
-    const masterRoot = doc.nodes[master.contentRoot] as { children: string[] };
+    const masterRoot = doc.nodes[master.contentRoot] as { id: string; children: string[] };
     const headerId = masterRoot.children[0]!;
     doc = addMasterOverride(doc, doc.pages![0]!.id, headerId, 'hidden');
     const offsets = collectMasterOffsets(doc);
