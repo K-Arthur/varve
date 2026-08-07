@@ -14,16 +14,27 @@
  *   node scripts/release/version.mjs set 0.1.0      # write to all targets
  *   node scripts/release/version.mjs verify         # all targets agree?
  *   node scripts/release/version.mjs verify v0.1.0  # ...and match this tag?
+ *   node scripts/release/version.mjs bump patch     # 0.1.0 -> 0.1.1 (writes all)
+ *   node scripts/release/version.mjs snapshot       # 0.1.0-dev.<sha> (read-only)
  *
  * `verify` is the CI gate. It exits non-zero with a diff-style report rather
  * than "fixing" anything, because a release workflow silently rewriting version
  * numbers is how you ship an artifact nobody meant to build.
+ *
+ * Version drift between pushes is caught by the push gate: ci.yml
+ * `pipeline-validate` runs `verify` on every push/PR, and the pre-push hook
+ * warns on drift before the commit leaves the machine.
  */
+import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+// Test hook: point VARVE_VERSION_ROOT at a fixture tree so `set`/`bump` write
+// there instead of the real repo (release-pipeline.test.mjs uses this).
+const repoRoot = process.env.VARVE_VERSION_ROOT
+  ? resolve(process.env.VARVE_VERSION_ROOT)
+  : join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 /** Semver core (major.minor.patch) plus optional prerelease, no build metadata.
  *  Build metadata is excluded deliberately: `+` is illegal in a Debian version
@@ -124,8 +135,66 @@ function normaliseTag(tag) {
   return tag.startsWith('v') ? tag.slice(1) : tag;
 }
 
+/**
+ * Increment one part of a semver core. Any prerelease suffix is dropped —
+ * bumping is for the NEXT version, and the next version has no suffix until
+ * someone deliberately adds one with `set`.
+ * @param {string} version
+ * @param {'major'|'minor'|'patch'} part
+ * @returns {string}
+ */
+function incrementVersion(version, part) {
+  const core = version.split('-')[0];
+  const [major, minor, patch] = core.split('.').map(Number);
+  if (part === 'major') return `${major + 1}.0.0`;
+  if (part === 'minor') return `${major}.${minor + 1}.0`;
+  if (part === 'patch') return `${major}.${minor}.${patch + 1}`;
+  throw new Error(`Unknown bump part '${part}' — use major, minor or patch.`);
+}
+
+function gitShortSha() {
+  try {
+    const result = spawnSync('git', ['rev-parse', '--short=12', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    const sha = result.status === 0 ? result.stdout.trim() : '';
+    return /^[0-9a-f]{7,40}$/.test(sha) ? sha : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A deterministic dev-build version for the current HEAD, read-only: the
+ * released version core plus `-dev.<short-sha>`. Never touches a manifest, so
+ * committed files stay release-clean while dev/test bundles are
+ * distinguishable from the last release and from each other.
+ * @param {string} version - current committed version (root package.json)
+ * @returns {string}
+ */
+function snapshotVersion(version) {
+  const core = version.split('-')[0];
+  const sha = gitShortSha();
+  return `${core}-dev.${sha || 'local'}`;
+}
+
 function cmdGet() {
   process.stdout.write(`${currentVersion()}\n`);
+}
+
+/** Shared write path for `set` and `bump`: all targets + lockfile reminder. */
+function applyVersion(version, actionLabel) {
+  for (const target of TARGETS) {
+    writeTarget(target, version);
+    process.stdout.write(`  updated ${target.path}\n`);
+  }
+  process.stdout.write(`\n${actionLabel} ${version}.\n`);
+  process.stdout.write(
+    'Cargo.lock still records the old version — run `cargo check --workspace` and\n' +
+      '`cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` to refresh it,\n' +
+      'then commit both lockfiles with the version bump.\n',
+  );
 }
 
 function cmdSet(version) {
@@ -137,16 +206,16 @@ function cmdSet(version) {
         'is rejected because deb and MSI cannot represent it.',
     );
   }
-  for (const target of TARGETS) {
-    writeTarget(target, version);
-    process.stdout.write(`  updated ${target.path}\n`);
-  }
-  process.stdout.write(`\nVersion set to ${version}.\n`);
-  process.stdout.write(
-    'Cargo.lock still records the old version — run `cargo check --workspace` and\n' +
-      '`cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml` to refresh it,\n' +
-      'then commit both lockfiles with the version bump.\n',
-  );
+  applyVersion(version, 'Version set to');
+}
+
+function cmdBump(part) {
+  const next = incrementVersion(currentVersion(), part);
+  applyVersion(next, `Bumped ${part} to`);
+}
+
+function cmdSnapshot() {
+  process.stdout.write(`${snapshotVersion(currentVersion())}\n`);
 }
 
 function cmdVerify(tag) {
@@ -204,21 +273,29 @@ function cmdVerify(tag) {
   process.stdout.write(`\nAll version manifests agree on ${expected}.\n`);
 }
 
-const [command, argument] = process.argv.slice(2);
-try {
-  if (command === 'get') cmdGet();
-  else if (command === 'set') cmdSet(argument);
-  else if (command === 'verify') cmdVerify(argument);
-  else {
-    process.stderr.write(
-      'Usage:\n' +
-        '  node scripts/release/version.mjs get\n' +
-        '  node scripts/release/version.mjs set <semver>\n' +
-        '  node scripts/release/version.mjs verify [tag]\n',
-    );
-    process.exit(2);
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const [command, argument] = process.argv.slice(2);
+  try {
+    if (command === 'get') cmdGet();
+    else if (command === 'set') cmdSet(argument);
+    else if (command === 'bump') cmdBump(argument);
+    else if (command === 'snapshot') cmdSnapshot();
+    else if (command === 'verify') cmdVerify(argument);
+    else {
+      process.stderr.write(
+        'Usage:\n' +
+          '  node scripts/release/version.mjs get\n' +
+          '  node scripts/release/version.mjs set <semver>\n' +
+          '  node scripts/release/version.mjs bump <major|minor|patch>\n' +
+          '  node scripts/release/version.mjs snapshot\n' +
+          '  node scripts/release/version.mjs verify [tag]\n',
+      );
+      process.exit(2);
+    }
+  } catch (err) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(1);
   }
-} catch (err) {
-  process.stderr.write(`${err.message}\n`);
-  process.exit(1);
 }
+
+export { incrementVersion, normaliseTag, snapshotVersion };
