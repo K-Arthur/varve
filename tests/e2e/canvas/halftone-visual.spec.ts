@@ -23,9 +23,7 @@ async function navigateToEditor(page: Page) {
   const newBtn = page.getByRole('button', { name: /^new$/i });
   await newBtn.waitFor({ state: 'visible', timeout: 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
-  const createBtn = page
-    .locator('dialog[open]')
-    .getByRole('button', { name: /^create design$/i });
+  const createBtn = page.locator('dialog[open]').getByRole('button', { name: /^create design$/i });
   await createBtn.waitFor({ timeout: 15000 });
   await createBtn.click({ force: true, timeout: 30000 });
   await page.locator('.layers-panel').waitFor({ timeout: 120000 });
@@ -125,7 +123,9 @@ async function sampleRect(
 ): Promise<PixelSample> {
   return page.evaluate(
     ({ x, y, w, h }) => {
-      const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
       if (!canvas) throw new Error('content canvas not found');
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('no 2d context');
@@ -193,7 +193,9 @@ async function scanlineTransitions(
 ): Promise<number> {
   return page.evaluate(
     ({ x, y, w, h }) => {
-      const canvas = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
       if (!canvas) return 0;
       const ctx = canvas.getContext('2d');
       if (!ctx) return 0;
