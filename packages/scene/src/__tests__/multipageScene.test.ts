@@ -5,6 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
 import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
+import { addMasterOverride, assignMasterToPage, createMaster } from '../document-components';
 import {
   buildPlacedScene,
   multipageRootNodes,
@@ -13,6 +14,10 @@ import {
   worldToPageAtPoint,
 } from '../pageScene';
 import { pageBoundsInWorld } from '../pasteboardLayout';
+
+function firstMaster(doc: Document) {
+  return doc.masters ? Object.values(doc.masters)[0] : undefined;
+}
 
 function sceneDoc(count: number, manual = false): Document {
   let doc = createDocument('m5', false);
@@ -208,5 +213,73 @@ describe('multipageRootNodes (ADR-0144 paint order)', () => {
       expect(scene.placements.get(placed.page.id)).toEqual(placed.placement);
     }
     expect(scene.placements.size).toBe(4);
+  });
+});
+
+describe('master projection into the placed scene (M8, ADR-0132)', () => {
+  function masterDoc(): Document {
+    let doc = createDocument('m8', false);
+    doc = createMaster(doc, { name: 'Body', width: 1920, height: 1080 });
+    const master = firstMaster(doc)!;
+    const masterRoot = doc.nodes[master.contentRoot] as GroupNode;
+    const { id: headerId, doc: d1 } = nextNodeId(doc);
+    doc = addChild(
+      d1,
+      masterRoot.id,
+      makeShapeNode(headerId, { kind: 'rect', x: 0, y: 0, w: 100, h: 20 }),
+    );
+    const { id: footerId, doc: d2 } = nextNodeId(doc);
+    doc = addChild(
+      d2,
+      masterRoot.id,
+      makeShapeNode(footerId, { kind: 'rect', x: 0, y: 0, w: 100, h: 20 }),
+    );
+    doc = assignMasterToPage(doc, doc.pages![0]!.id, master.id);
+    return doc;
+  }
+
+  it('projects master children onto assigned pages', () => {
+    const doc = masterDoc();
+    const placed = placedPages(doc)[0]!;
+    expect(placed.masterNodes.length).toBe(2);
+  });
+
+  it('hidden and deleted overrides remove master items (B3)', () => {
+    let doc = masterDoc();
+    const master = firstMaster(doc)!;
+    const masterRoot = doc.nodes[master.contentRoot] as GroupNode;
+    const [headerId, footerId] = masterRoot.children;
+    const page = doc.pages![0]!;
+    doc = addMasterOverride(doc, page.id, headerId!, 'hidden');
+    doc = addMasterOverride(doc, page.id, footerId!, 'deleted');
+    const placed = placedPages(doc)[0]!;
+    expect(placed.masterNodes).toEqual([]);
+  });
+
+  it('modified overrides substitute the local replacement node', () => {
+    let doc = masterDoc();
+    const master = firstMaster(doc)!;
+    const masterRoot = doc.nodes[master.contentRoot] as GroupNode;
+    const headerId = masterRoot.children[0]!;
+    doc = addMasterOverride(doc, doc.pages![0]!.id, headerId, 'modified', 'local-header');
+    const placed = placedPages(doc)[0]!;
+    expect(placed.masterNodes).toContain('local-header');
+    expect(placed.masterNodes).not.toContain(headerId);
+  });
+
+  it('includes master nodes in the multipage paint order, behind page content', () => {
+    const doc = masterDoc();
+    const roots = multipageRootNodes(doc);
+    const master = firstMaster(doc)!;
+    const masterRoot = doc.nodes[master.contentRoot] as GroupNode;
+    for (const mChildId of masterRoot.children) {
+      expect(roots).toContain(mChildId);
+    }
+  });
+
+  it('projects nothing for unassigned pages', () => {
+    const doc = createDocument('m8', false);
+    const placed = placedPages(doc)[0]!;
+    expect(placed.masterNodes).toEqual([]);
   });
 });
