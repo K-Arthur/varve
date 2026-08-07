@@ -11,10 +11,11 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
+import { incrementVersion } from './version.mjs';
 import { buildWebsiteReleaseData, formatCopy } from './website-release-data.mjs';
 
 const runValidator = (files) => {
@@ -438,10 +439,11 @@ assert.throws(
 
 // ── version.mjs agreement ─────────────────────────────────────────────────────
 {
-  const runVersion = (argv) =>
+  const runVersion = (argv, env = {}) =>
     execFileSync(process.execPath, ['scripts/release/version.mjs', ...argv], {
       encoding: 'utf-8',
       stdio: ['ignore', 'pipe', 'ignore'],
+      env: { ...process.env, ...env },
     }).trim();
   assert.equal(runVersion(['get']), '0.1.0', 'current version is 0.1.0');
   // The tag the release pipeline will actually verify against must agree.
@@ -451,6 +453,67 @@ assert.throws(
     'verify v0.1.0 passes',
   );
   assert.throws(() => runVersion(['verify', 'v9.9.9']), undefined, 'verify wrong tag fails');
+  // Build metadata is illegal in deb/MSI versions — must be rejected up front.
+  assert.throws(
+    () => runVersion(['set', '1.0.0+build.7']),
+    undefined,
+    'set rejects build metadata (+...)',
+  );
+
+  // incrementVersion pure logic — no files touched.
+  assert.equal(incrementVersion('0.1.0', 'patch'), '0.1.1', 'bump patch');
+  assert.equal(incrementVersion('0.1.0', 'minor'), '0.2.0', 'bump minor');
+  assert.equal(incrementVersion('0.1.0', 'major'), '1.0.0', 'bump major');
+  assert.equal(incrementVersion('0.1.0-alpha.3', 'patch'), '0.1.1', 'bump drops prerelease');
+  assert.throws(
+    () => incrementVersion('0.1.0', 'nonsense'),
+    /Unknown bump part/,
+    'bump rejects unknown part',
+  );
+
+  // snapshot: deterministic, read-only, never a bare release version.
+  const snap1 = runVersion(['snapshot']);
+  const snap2 = runVersion(['snapshot']);
+  assert.equal(snap1, snap2, 'snapshot is deterministic for the same HEAD');
+  assert.match(snap1, /^0\.1\.0-dev\.(?:[0-9a-f]{7,}|local)$/, 'snapshot format');
+  assert.equal(runVersion(['get']), '0.1.0', 'snapshot never writes manifests');
+
+  // set/bump write-path integration against a fixture tree (VARVE_VERSION_ROOT):
+  // the exact in-place JSON + TOML-section rewrites must round-trip.
+  const versionTargets = [
+    'package.json',
+    'apps/desktop/package.json',
+    'apps/desktop/src-tauri/tauri.conf.json',
+    'Cargo.toml',
+    'apps/desktop/src-tauri/Cargo.toml',
+  ];
+  {
+    const tmp = join(tmpdir(), `varve-version-${process.pid}`);
+    rmSync(tmp, { recursive: true, force: true });
+    for (const rel of versionTargets) {
+      const abs = join(tmp, rel);
+      mkdirSync(dirname(abs), { recursive: true });
+      copyFileSync(rel, abs);
+    }
+    const env = { VARVE_VERSION_ROOT: tmp };
+    runVersion(['set', '1.2.3'], env);
+    assert.match(
+      runVersion(['verify'], env),
+      /All version manifests agree on 1\.2\.3\./,
+      'fixture verify after set',
+    );
+    runVersion(['bump', 'minor'], env);
+    assert.equal(runVersion(['get'], env), '1.3.0', 'fixture bump minor -> 1.3.0');
+    runVersion(['bump', 'patch'], env);
+    assert.equal(runVersion(['get'], env), '1.3.1', 'fixture bump patch -> 1.3.1');
+    runVersion(['set', '2.0.0-beta.1'], env);
+    assert.match(
+      runVersion(['verify', 'v2.0.0-beta.1'], env),
+      /agree on 2\.0\.0-beta\.1\./,
+      'fixture prerelease set + verify',
+    );
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 // ── channel policy (selectRelease) ───────────────────────────────────────────
