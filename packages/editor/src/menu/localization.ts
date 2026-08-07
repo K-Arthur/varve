@@ -77,6 +77,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
 
   // ── Text ───────────────────────────────────────────────────────────────────
   'menu.text.bold': 'Bold',
+  'menu.text.linkTextFrames': 'Link Text Frames',
+  'menu.text.unlinkTextFrames': 'Unlink Text Frames',
   'menu.text.italic': 'Italic',
   'menu.text.underline': 'Underline',
   'menu.text.increaseSize': 'Increase Font Size',

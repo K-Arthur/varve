@@ -162,6 +162,8 @@ export function createActionHandlers(
     zoom400: () => e.zoomTo(4),
     fitAll: () => e.fitAll(),
     fitSelection: () => e.revealSelection({ fit: true }),
+    linkTextFrames: () => e.linkSelectedTextFrames(),
+    unlinkTextFrames: () => e.unlinkSelectedTextFrames(),
     fitActivePage: () => e.fitActivePage(),
     fitSpread: () => e.fitSpread(),
     fitAllPages: () => e.fitAllPages(),
