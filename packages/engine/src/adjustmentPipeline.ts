@@ -370,6 +370,76 @@ const FILTER_PROPERTIES: Record<string, FilterProperties> = {
     hasCssPath: false,
     requiresRasterExport: true,
   },
+  dither: {
+    name: 'Dither',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  paletteSnap: {
+    name: 'Palette Snap',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  bloom: {
+    name: 'Bloom',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  rgbSplit: {
+    name: 'RGB Split',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  crt: {
+    name: 'CRT',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  vhs: {
+    name: 'VHS',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  lightShafts: {
+    name: 'Light Shafts',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  lensFlare: {
+    name: 'Lens Flare',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  lightLeak: {
+    name: 'Light Leak',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
+  caustics: {
+    name: 'Caustics',
+    capabilities: ['software-cpu', 'raster-export'],
+    hasGpuPath: false,
+    hasCssPath: false,
+    requiresRasterExport: true,
+  },
   chain: {
     name: 'Filter Chain',
     capabilities: ['software-cpu', 'raster-export'],
@@ -428,6 +498,50 @@ export function effectPixelExpansion(filter: FilterIR): [number, number, number,
     case 'halftone': {
       const cellSize = Math.max(2, Math.round(72 / Math.max(1, filter.frequency)));
       return [cellSize, cellSize, cellSize, cellSize];
+    }
+    case 'bloom': {
+      const radius = Math.ceil(filter.radius ?? 0);
+      const streak = Math.ceil((filter.streakLength ?? 0) * (filter.streakIntensity ?? 0) * 0.5);
+      const pad = Math.max(radius, streak);
+      return [pad, pad, pad, pad];
+    }
+    case 'rgbSplit': {
+      const offsets = [
+        Math.abs(filter.redX ?? 0),
+        Math.abs(filter.redY ?? 0),
+        Math.abs(filter.greenX ?? 0),
+        Math.abs(filter.greenY ?? 0),
+        Math.abs(filter.blueX ?? 0),
+        Math.abs(filter.blueY ?? 0),
+      ];
+      const off = Math.ceil(
+        Math.max(...offsets, filter.mode === 'radial' ? (filter.amount ?? 0) : 0),
+      );
+      return [off, off, off, off];
+    }
+    case 'dither':
+    case 'paletteSnap': {
+      const cell = Math.ceil((filter as { cellSize?: number }).cellSize ?? 1);
+      return [cell, cell, cell, cell];
+    }
+    case 'caustics': {
+      const pad = Math.ceil(32 * (filter.depth ?? 0) + (filter.refractionAmount ?? 0) * 24);
+      return [pad, pad, pad, pad];
+    }
+    case 'crt':
+    case 'vhs': {
+      return [8, 8, 8, 8];
+    }
+    case 'lightShafts': {
+      return [16, 16, 16, 16];
+    }
+    case 'lensFlare': {
+      const pad = Math.ceil(128 * (filter.scale ?? 1) + (filter.streakIntensity ?? 0) * 64);
+      return [pad, pad, pad, pad];
+    }
+    case 'lightLeak': {
+      const pad = Math.ceil(64 * (filter.size ?? 1));
+      return [pad, pad, pad, pad];
     }
     default:
       return [0, 0, 0, 0];

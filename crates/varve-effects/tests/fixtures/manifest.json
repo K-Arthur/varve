@@ -1,0 +1,84 @@
+{
+  "cases": [
+    {
+      "name": "dither-bayer",
+      "file": "dither-bayer.json"
+    },
+    {
+      "name": "dither-floyd",
+      "file": "dither-floyd.json"
+    },
+    {
+      "name": "paletteSnap-custom",
+      "file": "paletteSnap-custom.json"
+    },
+    {
+      "name": "paletteSnap-dither",
+      "file": "paletteSnap-dither.json"
+    },
+    {
+      "name": "rgbSplit-offset",
+      "file": "rgbSplit-offset.json"
+    },
+    {
+      "name": "rgbSplit-radial",
+      "file": "rgbSplit-radial.json"
+    },
+    {
+      "name": "crt-classic",
+      "file": "crt-classic.json"
+    },
+    {
+      "name": "crt-mask",
+      "file": "crt-mask.json"
+    },
+    {
+      "name": "bloom-normal",
+      "file": "bloom-normal.json"
+    },
+    {
+      "name": "bloom-streak",
+      "file": "bloom-streak.json"
+    },
+    {
+      "name": "vhs-default",
+      "file": "vhs-default.json"
+    },
+    {
+      "name": "vhs-heavy",
+      "file": "vhs-heavy.json"
+    },
+    {
+      "name": "lightShafts-point",
+      "file": "lightShafts-point.json"
+    },
+    {
+      "name": "lightShafts-directional",
+      "file": "lightShafts-directional.json"
+    },
+    {
+      "name": "lensFlare-auto",
+      "file": "lensFlare-auto.json"
+    },
+    {
+      "name": "lensFlare-fixed",
+      "file": "lensFlare-fixed.json"
+    },
+    {
+      "name": "lightLeak-warm",
+      "file": "lightLeak-warm.json"
+    },
+    {
+      "name": "lightLeak-cool",
+      "file": "lightLeak-cool.json"
+    },
+    {
+      "name": "caustics-pool",
+      "file": "caustics-pool.json"
+    },
+    {
+      "name": "caustics-tileable",
+      "file": "caustics-tileable.json"
+    }
+  ]
+}

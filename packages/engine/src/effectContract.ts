@@ -56,6 +56,8 @@ export interface EffectContractEntry {
   cssFilterEquivalent: string | null;
   /** GPU compute path status */
   gpuStatus: 'not-implemented' | 'implemented' | 'partial';
+  /** Native (Rust) path status (absent = not implemented) */
+  nativeStatus?: 'not-implemented' | 'implemented' | 'partial';
 }
 
 const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
@@ -349,10 +351,126 @@ const EFFECT_CONTRACTS: Record<string, EffectContractEntry> = {
     cssFilterEquivalent: null,
     gpuStatus: 'not-implemented',
   },
+  dither: {
+    name: 'Dither',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: true,
+    previewTolerance: 2,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'partial',
+    nativeStatus: 'implemented',
+  },
+  paletteSnap: {
+    name: 'Palette Snap',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  bloom: {
+    name: 'Bloom',
+    workingSpace: 'linear-light',
+    alphaConvention: 'straight',
+    hasApproximatePreview: true,
+    previewTolerance: 2,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  rgbSplit: {
+    name: 'RGB Split',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'premultiplied-internal',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  crt: {
+    name: 'CRT',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'premultiplied-internal',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  vhs: {
+    name: 'VHS',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: true,
+    previewTolerance: 3,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  lightShafts: {
+    name: 'Light Shafts',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: true,
+    previewTolerance: 3,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  lensFlare: {
+    name: 'Lens Flare',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: true,
+    previewTolerance: 3,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  lightLeak: {
+    name: 'Light Leak',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: false,
+    previewTolerance: 0,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
+  caustics: {
+    name: 'Caustics',
+    workingSpace: 'srgb-gamma',
+    alphaConvention: 'straight',
+    hasApproximatePreview: true,
+    previewTolerance: 3,
+    requiresRasterForExport: true,
+    cssFilterEquivalent: null,
+    gpuStatus: 'implemented',
+    nativeStatus: 'implemented',
+  },
 };
 
 export function getEffectContract(kind: string): EffectContractEntry | undefined {
-  return EFFECT_CONTRACTS[kind];
+  const entry = EFFECT_CONTRACTS[kind];
+  if (!entry) return undefined;
+  return {
+    ...entry,
+    gpuStatus: entry.gpuStatus ?? 'not-implemented',
+    nativeStatus: entry.nativeStatus ?? 'not-implemented',
+  };
 }
 
 export function getEffectContracts(): Record<string, EffectContractEntry> {
