@@ -408,9 +408,17 @@ export function validateMaskSource(
     if (mask.type !== 'alpha') return 'A raster mask must use alpha mask type';
     if (
       mask.rasterMask.coordinateSpace !== 'source-image-pixels' &&
-      mask.rasterMask.coordinateSpace !== 'legacy-preview-pixels'
+      mask.rasterMask.coordinateSpace !== 'legacy-preview-pixels' &&
+      mask.rasterMask.coordinateSpace !== 'container-local-pixels'
     ) {
       return 'A raster mask must use a supported pixel coordinate space';
+    }
+    if (
+      mask.rasterMask.coordinateSpace === 'container-local-pixels' &&
+      (mask.rasterMask.sourceIdentity?.kind !== 'source-metadata' ||
+        mask.rasterMask.sourceIdentity.locator !== 'container-local')
+    ) {
+      return 'A container-local raster mask must carry the container-local source identity';
     }
     if (
       mask.rasterMask.coordinateSpace === 'legacy-preview-pixels' &&
@@ -535,8 +543,8 @@ export function validateRasterMaskDocument(doc: Document): string | null {
     }
     const error = validateMaskSource(doc, node.mask);
     if (error) return `${node.id}: ${error}`;
-    if (node.mask.rasterMask && !isImageShape(doc, node)) {
-      return `${node.id}: Raster masks may only attach to image-filled shape nodes`;
+    if (node.mask.rasterMask && !isImageShape(doc, node) && node.kind !== 'frame') {
+      return `${node.id}: Raster masks may only attach to image-filled shape nodes or frames`;
     }
     if (node.mask.rasterMask) {
       const asset = getOwnRasterMaskAsset(doc, node.mask.rasterMask.assetId);
@@ -559,7 +567,7 @@ export function validateRasterMaskDocument(doc: Document): string | null {
 /** Return the effective mask for a container or eligible image leaf. */
 export function resolveMask(node: SceneNode, doc?: Pick<Document, 'paints'>): Mask | null {
   if (!node.mask || node.mask.visible === false) return null;
-  if (node.kind === 'shape' && node.mask.rasterMask && isImageShape(doc ?? {}, node)) {
+  if (node.mask.rasterMask && (isImageShape(doc ?? {}, node) || node.kind === 'frame')) {
     return validateMaskSource(undefined, node.mask) ? null : node.mask;
   }
   if (node.kind !== 'frame' && node.kind !== 'group' && node.kind !== 'adjustment') return null;
@@ -580,11 +588,14 @@ export function resolveMask(node: SceneNode, doc?: Pick<Document, 'paints'>): Ma
     }
     return node.mask;
   }
+  // A container-local raster mask (brush-painted layer mask on a frame) has
+  // no child source and no vector geometry — it is a complete mask on its own.
+  if (node.mask.rasterMask) return node.mask;
   // Mask has neither vectorMask nor sourceNodeId — incomplete
   return null;
 }
 
-/** Resolve an active leaf raster mask to its document-owned PNG payload. */
+/** Resolve an active leaf/container raster mask to its document-owned PNG payload. */
 export function resolveRasterMaskAsset(
   doc: Pick<Document, 'paints' | 'rasterMaskAssets'>,
   node: SceneNode,
@@ -597,7 +608,7 @@ export function resolveRasterMaskAsset(
     'sourceNodeId' in mask ||
     'vectorMask' in mask ||
     !ASSET_ID_PATTERN.test(mask.rasterMask.assetId) ||
-    !isImageShape(doc, node)
+    (!isImageShape(doc, node) && node.kind !== 'frame')
   ) {
     return null;
   }
@@ -781,17 +792,27 @@ export function addRasterMaskAsset(
   nodeId: NodeId,
   asset: RasterMaskAsset,
   rasterMask?: Partial<Omit<RasterMaskData, 'assetId' | 'coordinateSpace'>>,
+  opts?: { coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' },
 ): Document {
   const node = doc.nodes[nodeId];
-  if (!node || !isImageShape(doc, node) || validateRasterMaskAsset(asset)) return doc;
+  const isImage = node !== undefined && isImageShape(doc, node);
+  const isFrame = node?.kind === 'frame';
+  const coordinateSpace = opts?.coordinateSpace ?? 'source-image-pixels';
+  if (!node || (!isImage && !isFrame) || validateRasterMaskAsset(asset)) return doc;
+  if (coordinateSpace === 'container-local-pixels' && !isFrame) return doc;
+  if (coordinateSpace === 'source-image-pixels' && !isImage) return doc;
   const existing = getOwnRasterMaskAsset(doc, asset.id);
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;
 
   const revision = rasterMask?.sourceIdentity?.revision ?? 1;
+  const sourceIdentity =
+    coordinateSpace === 'container-local-pixels'
+      ? ({ kind: 'source-metadata', locator: 'container-local', revision } as const)
+      : (rasterMask?.sourceIdentity ?? imageSourceIdentity(doc, node as ShapeNode, revision));
   const maskData: RasterMaskData = {
     assetId: asset.id,
-    coordinateSpace: 'source-image-pixels',
-    sourceIdentity: rasterMask?.sourceIdentity ?? imageSourceIdentity(doc, node, revision),
+    coordinateSpace,
+    sourceIdentity,
     ...(rasterMask?.editRevision !== undefined ? { editRevision: rasterMask.editRevision } : {}),
     ...(rasterMask?.staleReason !== undefined ? { staleReason: rasterMask.staleReason } : {}),
     ...(rasterMask?.provenance !== undefined ? { provenance: rasterMask.provenance } : {}),
@@ -828,7 +849,9 @@ export function updateRasterMaskAsset(
   const node = doc.nodes[nodeId];
   const currentMask = node?.mask;
   const current = currentMask?.rasterMask;
-  if (!node || !currentMask || !current || !isImageShape(doc, node)) return doc;
+  if (!node || !currentMask || !current || !(isImageShape(doc, node) || node.kind === 'frame')) {
+    return doc;
+  }
   if (validateRasterMaskAsset(asset)) return doc;
   const existing = getOwnRasterMaskAsset(doc, asset.id);
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;

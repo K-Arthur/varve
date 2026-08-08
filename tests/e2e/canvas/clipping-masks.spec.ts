@@ -558,3 +558,149 @@ test.describe('webgpu fallback', () => {
     await page.screenshot({ path: SHOT.canvas('11-webgpu-fallback') });
   });
 });
+
+test.describe('brush masks', () => {
+  test('paint a brush mask on a frame: create, undo, redo, persist', async ({ page }) => {
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToCleanEditor(page);
+
+    // Frame with a child rect inside.
+    await page.keyboard.press('f');
+    await dragOnCanvas(page, 100, 100, 400, 300);
+    await page.waitForTimeout(300);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 150, 150, 350, 250);
+    await page.waitForTimeout(300);
+
+    // Select the frame (first tree row).
+    await page.locator('.layers-panel [role="treeitem"]').first().click();
+    await page.waitForTimeout(300);
+
+    const plain = await settledHash(page);
+
+    // Activate the brush-mask tool and paint a stroke inside the frame.
+    const setTool = await callEditor(page, 'setTool', 'refineMask');
+    expect(setTool).not.toBeNull();
+    await page.waitForTimeout(400);
+    const box = await page.locator('canvas.editor-canvas__content-layer').boundingBox();
+    if (!box) throw new Error('content canvas not found');
+    await page.mouse.move(box.x + 200, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 260, box.y + 220, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    // The mask was committed to the document (container-local raster mask).
+    const maskState = await page.evaluate(() => {
+      const container = document.getElementById('root');
+      if (!container) return null;
+      const fiberKey = Object.keys(container).find(
+        (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
+      );
+      if (!fiberKey) return null;
+      function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+        if (!fiber) return null;
+        for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+          const p = props as Record<string, unknown> | undefined;
+          if (
+            p?.value &&
+            typeof p.value === 'object' &&
+            'createAdjustmentLayer' in (p.value as Record<string, unknown>)
+          ) {
+            return p.value as Record<string, unknown>;
+          }
+        }
+        return (
+          walk(fiber.child as Record<string, unknown> | null) ||
+          walk(fiber.sibling as Record<string, unknown> | null)
+        );
+      }
+      const ctx = walk(
+        (container as unknown as Record<string, unknown>)[fiberKey] as Record<
+          string,
+          unknown
+        > | null,
+      ) as { state?: { document?: unknown } } | null;
+      const doc = ctx?.state?.document as
+        | {
+            nodes?: Record<
+              string,
+              {
+                kind?: string;
+                mask?: { rasterMask?: { coordinateSpace?: string; assetId?: string } };
+              }
+            >;
+          }
+        | undefined;
+      for (const node of Object.values(doc?.nodes ?? {})) {
+        if (node.kind === 'frame' && node.mask?.rasterMask) {
+          return node.mask.rasterMask;
+        }
+      }
+      return null;
+    });
+    expect(maskState?.coordinateSpace).toBe('container-local-pixels');
+    expect(maskState?.assetId).toBeTruthy();
+
+    const masked = await settledHash(page);
+    expect(masked).not.toBe(plain);
+    await page.screenshot({ path: SHOT.canvas('12-brush-mask') });
+
+    // Undo removes the mask; redo restores it.
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+    expect(await settledHash(page)).toBe(plain);
+    await page.keyboard.press('Control+Shift+z');
+    await page.waitForTimeout(500);
+    expect(await settledHash(page)).toBe(masked);
+
+    // Serialize → reload: the painted mask survives.
+    const json = (await callEditor(page, 'serializeDocument')) as string | null;
+    expect(json).toBeTruthy();
+    expect(json).toContain('"coordinateSpace":"container-local-pixels"');
+    const loaded = await page.evaluate(
+      ({ docJson }) => {
+        const container = document.getElementById('root');
+        if (!container) return false;
+        const fiberKey = Object.keys(container).find(
+          (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
+        );
+        if (!fiberKey) return false;
+        function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+          if (!fiber) return null;
+          for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+            const p = props as Record<string, unknown> | undefined;
+            if (
+              p?.value &&
+              typeof p.value === 'object' &&
+              'loadDocument' in (p.value as Record<string, unknown>)
+            ) {
+              return p.value as Record<string, unknown>;
+            }
+          }
+          return (
+            walk(fiber.child as Record<string, unknown> | null) ||
+            walk(fiber.sibling as Record<string, unknown> | null)
+          );
+        }
+        const ctx = walk(
+          (container as unknown as Record<string, unknown>)[fiberKey] as Record<
+            string,
+            unknown
+          > | null,
+        );
+        if (!ctx || typeof ctx.loadDocument !== 'function') return false;
+        (ctx.loadDocument as (json: string) => void)(docJson);
+        return true;
+      },
+      { docJson: json as string },
+    );
+    expect(loaded).toBe(true);
+    await page.waitForTimeout(800);
+    const reloaded = await settledHash(page);
+    expect(reloaded).not.toBe('no-canvas');
+    const names = await treeItemNames(page);
+    expect(names.length).toBeGreaterThanOrEqual(2);
+    await page.screenshot({ path: SHOT.canvas('13-brush-mask-reloaded') });
+  });
+});

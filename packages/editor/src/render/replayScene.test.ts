@@ -14,6 +14,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { replayStructuredScene } from './replayScene';
 import { flattenSceneToEngine } from './sceneToEngine';
 
+const LEVELS_PARAMS = {
+  channel: 'rgb' as const,
+  inputBlack: 0,
+  inputWhite: 255,
+  gamma: 1,
+  outputBlack: 0,
+  outputWhite: 255,
+};
+
 describe('replayStructuredScene', () => {
   it('clips frame descendants in world space while painting the frame first', async () => {
     let sceneDocument = createDocument('Frame export', true);
@@ -155,10 +164,17 @@ describe('replayStructuredScene', () => {
       { kind: 'rect', x: 0, y: 0, w: 60, h: 40 },
       { transform: [1, 0, 0, 1, 20, 20] },
     );
-    const adj = {
-      ...makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }),
+    const adj: import('@varve/scene').AdjustmentNode = {
+      ...makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS),
       adjustments: [
-        { kind: 'brightness', value: 50, opacity: 1, blendMode: 'normal', visible: true },
+        {
+          id: 'b1',
+          kind: 'brightness' as const,
+          value: 50,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
       ],
       scope: { mode: 'image-local' as const, targetNodeId: 'target' },
     };
@@ -197,10 +213,17 @@ describe('replayStructuredScene', () => {
     let sceneDocument = createDocument('Masked adjustment export', true);
     const target = makeShapeNode('target', { kind: 'rect', x: 0, y: 0, w: 60, h: 40 });
     const matte = makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 30, h: 30 });
-    const adj = {
-      ...makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }),
+    const adj: import('@varve/scene').AdjustmentNode = {
+      ...makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS),
       adjustments: [
-        { kind: 'brightness', value: 50, opacity: 1, blendMode: 'normal', visible: true },
+        {
+          id: 'b1',
+          kind: 'brightness' as const,
+          value: 50,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
       ],
       scope: { mode: 'image-local' as const, targetNodeId: 'target' },
       mask: { type: 'clip' as const, visible: true, sourceNodeId: 'matte' },

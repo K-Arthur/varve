@@ -14,7 +14,8 @@ import {
   addMask,
   addNode,
   createDocument,
-  deepCloneSubtree,
+  type Document,
+  type Mask,
   makeAdjustmentNode,
   makeGroupNode,
   makeShapeNode,
@@ -23,8 +24,17 @@ import {
   validateMasks,
 } from '../index';
 
-function maskOf(doc: import('../types').Document, id: string) {
-  return (doc.nodes[id] as { mask?: import('../types').Mask }).mask;
+const LEVELS_PARAMS = {
+  channel: 'rgb' as const,
+  inputBlack: 0,
+  inputWhite: 255,
+  gamma: 1,
+  outputBlack: 0,
+  outputWhite: 255,
+};
+
+function maskOf(doc: Document, id: string) {
+  return (doc.nodes[id] as { mask?: Mask }).mask;
 }
 
 /**
@@ -33,11 +43,11 @@ function maskOf(doc: import('../types').Document, id: string) {
  * child from rootChildren). addChild alone leaves the node in both
  * rootChildren and the container, which defeats getParent.
  */
-function nest(doc: import('../types').Document, childId: string, parentId: string, index: number) {
+function nest(doc: Document, childId: string, parentId: string, index: number) {
   return reparentNode(doc, childId, parentId, index);
 }
 
-function clipGroupFixture(): import('../types').Document {
+function clipGroupFixture(): Document {
   let doc = createDocument('clip-fixture', true);
   doc = addNode(doc, makeGroupNode('root', { children: [] }));
   doc = addNode(doc, makeGroupNode('g', { children: [] }));
@@ -54,8 +64,8 @@ describe('mask invariants', () => {
     // Only adjustments may mask arbitrary nodes, so the only reachable
     // cycle is two adjustments masking each other.
     let doc = createDocument('adj-cycle', true);
-    const adjA = makeAdjustmentNode('adjA', 'levels', { channel: 'rgb' });
-    const adjB = makeAdjustmentNode('adjB', 'levels', { channel: 'rgb' });
+    const adjA = makeAdjustmentNode('adjA', 'levels', LEVELS_PARAMS);
+    const adjB = makeAdjustmentNode('adjB', 'levels', LEVELS_PARAMS);
     doc = addNode(doc, adjA);
     doc = addNode(doc, adjB);
 
@@ -69,9 +79,9 @@ describe('mask invariants', () => {
 
   it('setMaskSourceNode rejects a cycle introduced by retargeting', () => {
     let doc = createDocument('adj-cycle-2', true);
-    const adjA = makeAdjustmentNode('adjA', 'levels', { channel: 'rgb' });
-    const adjB = makeAdjustmentNode('adjB', 'levels', { channel: 'rgb' });
-    const adjC = makeAdjustmentNode('adjC', 'levels', { channel: 'rgb' });
+    const adjA = makeAdjustmentNode('adjA', 'levels', LEVELS_PARAMS);
+    const adjB = makeAdjustmentNode('adjB', 'levels', LEVELS_PARAMS);
+    const adjC = makeAdjustmentNode('adjC', 'levels', LEVELS_PARAMS);
     const leaf = makeShapeNode('leaf', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
     doc = addNode(doc, adjA);
     doc = addNode(doc, adjB);
@@ -102,7 +112,7 @@ describe('mask invariants', () => {
   it('rejects a frame/group mask whose source is an adjustment node', () => {
     let doc = createDocument('adj-source', true);
     doc = addNode(doc, makeGroupNode('g', { children: [] }));
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 'adj', 'g', 0);
 
     doc = addMask(doc, 'g', 'adj', 'clip');
@@ -114,7 +124,7 @@ describe('mask invariants', () => {
     let doc = createDocument('adj-source-2', true);
     doc = addNode(doc, makeGroupNode('g', { children: [] }));
     doc = addNode(doc, makeShapeNode('s', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 's', 'g', 0);
     doc = nest(doc, 'adj', 'g', 1);
 
