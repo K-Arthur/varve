@@ -75,6 +75,9 @@ __pycache__/
 # --- Generated review artifacts (screenshots, mutation outputs) ---
 reports/
 
+# --- Transient GPU-verify Chrome profile (verify-gpu-effects.mjs) ---
+.tmp-gpu-verify-profile/
+
 # --- Local AI tool config (personal paths, no secrets) ---
 .claude/
 

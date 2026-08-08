@@ -100,11 +100,10 @@ export function ConflictResolver({
           every conflict is resolved.
         </p>
 
-        <div className="conflict-resolver__list" role="list">
+        <ul className="conflict-resolver__list">
           {conflicts.map((conflict, index) => (
-            <div
+            <li
               key={conflict.conflictId}
-              role="listitem"
               className="conflict-resolver__item"
               aria-label={`Conflict ${index + 1} of ${conflicts.length}: ${conflict.summary}`}
             >
@@ -155,9 +154,9 @@ export function ConflictResolver({
                   </label>
                 ))}
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
 
         {error && (
           <p className="conflict-resolver__error" role="alert">
@@ -166,10 +165,16 @@ export function ConflictResolver({
         )}
 
         <div className="conflict-resolver__actions">
-          <button className="conflict-resolver__btn" onClick={onClose} disabled={busy}>
+          <button
+            type="button"
+            className="conflict-resolver__btn"
+            onClick={onClose}
+            disabled={busy}
+          >
             Cancel
           </button>
           <button
+            type="button"
             className="conflict-resolver__btn conflict-resolver__btn--primary"
             onClick={() => void handleComplete()}
             disabled={busy || resolvedCount !== conflicts.length}

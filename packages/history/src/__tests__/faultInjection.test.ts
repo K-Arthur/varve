@@ -11,12 +11,13 @@
 import type { Document } from '@varve/scene';
 import { canonicalHash } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
+import type { LogSegment } from '../log';
 import { buildSegment } from '../log';
 import { recoverTail, validateHistory } from '../recovery';
 import { ReplayError, replayAndVerify, verifySegments } from '../replay';
 import { validateRevisionGraph } from '../revisions';
 import { createMemoryHistoryStore } from '../store';
-import type { LogSegment, RevisionRecord, StoredOperation } from '../types';
+import type { RevisionRecord, StoredOperation } from '../types';
 
 const DOC_ID = 'fault-doc';
 

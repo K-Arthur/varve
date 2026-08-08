@@ -201,7 +201,7 @@ fn causticsComposite(@builtin(global_invocation_id) gid: vec3u) {
     void resolveQuality;
     const scale = request.coordSpace && request.coordSpace.scale > 0 ? request.coordSpace.scale : 1;
     const params = new Float32Array(25);
-    let o = pack.f(params, 0, Math.max(4, (q.scale ?? 24) * scale), 24);
+    let o = pack.f(params, 0, Math.max(4, Number(q.scale ?? 24) * scale), 24);
     o = pack.f(params, o, q.depth, 0.5);
     o = pack.f(params, o, q.waveCount, 4);
     o = pack.f(params, o, q.complexity, 0);

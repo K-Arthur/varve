@@ -180,20 +180,21 @@ describe('memory window service: native behaviors', () => {
 // Browser service specifics
 // ---------------------------------------------------------------------------
 
-describeWindowContract('browser', () => createBrowserWindowService(), 'single-window');
+describeWindowContract('browser', () => createBrowserWindowService(), 'browser-popup');
 
-describe('browser window service: honest single-window fallback (ADR-0034)', () => {
-  let service: NativeWindowService;
-
-  beforeEach(() => {
-    service = createBrowserWindowService();
+describe('browser window service: honest popup capability (ADR-0034)', () => {
+  it('reports popup capability in a windowed runtime', () => {
+    const service = createBrowserWindowService();
+    expect(service.capability).toBe('browser-popup');
   });
 
-  it('reports single-window capability', () => {
+  it('reports single-window capability when popups are disabled', () => {
+    const service = createBrowserWindowService(false);
     expect(service.capability).toBe('single-window');
   });
 
-  it('never silently no-ops native operations', async () => {
+  it('never silently no-ops native operations when popups are disabled', async () => {
+    const service = createBrowserWindowService(false);
     await expect(
       service.createWindow({ title: 'x', size: { width: 300, height: 200 } }),
     ).rejects.toThrow(UnsupportedOperationError);
@@ -208,7 +209,15 @@ describe('browser window service: honest single-window fallback (ADR-0034)', () 
     ).rejects.toThrow(UnsupportedOperationError);
   });
 
+  it('degrades honestly when the popup is blocked at open time', async () => {
+    const service = createBrowserWindowService();
+    await expect(
+      service.createWindow({ title: 'x', size: { width: 300, height: 200 } }),
+    ).rejects.toThrow(UnsupportedOperationError);
+  });
+
   it('reports the single current window', async () => {
+    const service = createBrowserWindowService(false);
     const windows = await service.listWindows();
     expect(windows).toHaveLength(1);
     expect(windows[0]?.id).toBe('main');

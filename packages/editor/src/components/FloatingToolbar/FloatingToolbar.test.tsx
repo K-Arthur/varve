@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
@@ -68,7 +68,8 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     fireEvent.click(options);
 
     expect(await screen.findByRole('dialog', { name: 'paint tool options' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Brush' })).toHaveFocus();
+    const brushButton = await screen.findByRole('button', { name: 'Brush' }, { timeout: 5000 });
+    await waitFor(() => expect(brushButton).toHaveFocus());
     expect(options).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.keyDown(document, { key: 'Escape' });

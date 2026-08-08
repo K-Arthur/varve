@@ -16,6 +16,8 @@ describe('viewportSession', () => {
     guidesVisible: false,
     snapGrid: 16,
     gridVisible: false,
+    bleedGuidesVisible: false,
+    layoutGridVisible: false,
   };
 
   it('captureViewport copies all fields', () => {

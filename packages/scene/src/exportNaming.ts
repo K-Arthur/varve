@@ -64,6 +64,7 @@ export function pageExportNameContext(doc: Document, pageId: NodeId): PageExport
   };
 }
 
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Windows forbids control chars (U+0000-U+001F) in filenames — intentional range.
 const WINDOWS_RESERVED = /[<>:"/\\|?*\u0000-\u001f]/g;
 const TRAILING_DOTS = /[. ]+$/g;
 const RESERVED_DEVICE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;

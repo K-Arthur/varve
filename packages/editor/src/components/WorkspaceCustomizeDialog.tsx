@@ -93,7 +93,7 @@ export function WorkspaceCustomizeDialog({
   ];
 
   return (
-    <Dialog open={open} onClose={onClose} label={`Customize ${WORKSPACE_LABELS[mode]} workspace`}>
+    <Dialog open={open} onClose={onClose} title={`Customize ${WORKSPACE_LABELS[mode]} workspace`}>
       <div className="workspace-customize">
         <h2 className="workspace-customize__title">Customize {WORKSPACE_LABELS[mode]} Workspace</h2>
         <p className="workspace-customize__description">{builtIn.onboarding.description}</p>

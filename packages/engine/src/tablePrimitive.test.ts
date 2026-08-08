@@ -294,14 +294,10 @@ describe('table primitive replay', () => {
         {
           ...tableShape.cells[0]!,
           content: {
-            id: 'img-1',
-            name: 'Cell image',
-            kind: 'image',
             fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
             transform: [1, 0, 0, 1, 8, 8],
             opacity: 1,
             blendMode: 'normal',
-            rotation: 0,
             strokes: [],
             effects: [],
             primitive: { kind: 'rect', x: 0, y: 0, w: 134, h: 24 },
