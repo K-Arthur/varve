@@ -266,6 +266,10 @@ describe('Subtree Clone Performance', () => {
     () => {
       const { doc: subtreeDoc, rootId } = build1kSubtreeDoc();
 
+      // Warm up once: the first call pays JIT + allocation setup, and on a
+      // contended box that cost alone blew the 100ms budget (2026-08-08).
+      deepCloneSubtree(subtreeDoc.nodes, subtreeDoc.nextId, rootId);
+
       const start = performance.now();
       const result = deepCloneSubtree(subtreeDoc.nodes, subtreeDoc.nextId, rootId);
       const elapsed = performance.now() - start;
