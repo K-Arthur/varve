@@ -14,6 +14,10 @@ test('no internal link or asset escapes the site base path', async ({ page, base
   await page.goto('/');
   const escaped = await page.evaluate((origin) => {
     const sameOrigin = new URL(origin).origin;
+    // The base path differs per project: /varve on Pages, / at the root.
+    // An "escape" is a same-origin link whose path sits OUTSIDE the base
+    // (on the project-site build, href="/" or href="/download" would 404).
+    const base = new URL(origin).pathname.replace(/\/$/, '') || '/';
     const hrefs = [...document.querySelectorAll('a[href]')]
       .map((a) => a.getAttribute('href'))
       .filter((h): h is string => !!h);
@@ -22,7 +26,10 @@ test('no internal link or asset escapes the site base path', async ({ page, base
       if (/^[a-z][a-z0-9+.-]*:/i.test(h)) return false;
       if (h.startsWith('//')) return false;
       const url = new URL(h, origin);
-      return url.origin === sameOrigin && url.pathname === '/';
+      if (url.origin !== sameOrigin) return false;
+      // On a root deployment every path is inside the base; nothing escapes.
+      if (base === '/') return false;
+      return !url.pathname.startsWith(`${base}/`) && url.pathname !== base;
     });
   }, baseURL);
   expect(escaped).toEqual([]);
@@ -96,11 +103,23 @@ test('no horizontal overflow at 320px', async ({ page }) => {
 
 test('keyboard-only path to the download page', async ({ page }) => {
   await page.goto('/');
-  for (let i = 0; i < 40 && !page.url().includes('/download'); i++) {
+  // Tab through the page; when the Download link is focused, activate it.
+  // Pressing Tab alone never navigates — Enter on the focused anchor does.
+  let reached = false;
+  for (let i = 0; i < 80; i++) {
+    const href = await page.evaluate(() => {
+      const el = document.activeElement;
+      return el instanceof HTMLAnchorElement ? el.getAttribute('href') : null;
+    });
+    if (href?.includes('/download')) {
+      await page.keyboard.press('Enter');
+      reached = true;
+      break;
+    }
     await page.keyboard.press('Tab');
   }
-  expect(page.url()).toContain('/download');
-  await expect(page.locator('h1')).toContainText(/download/i);
+  expect(reached, 'the Download link must be reachable by keyboard alone').toBe(true);
+  await expect(page).toHaveURL(/\/download/);
 });
 
 test('skip link is the first focusable element and targets main content', async ({ page }) => {
