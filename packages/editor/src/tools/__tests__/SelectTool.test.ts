@@ -1250,7 +1250,7 @@ describe('SelectTool — M6 page interactions', () => {
     expect(setActivePage).toHaveBeenCalledWith(page2.id);
   });
 
-  it('reparents a node dropped on another page\'s empty trim into that page', () => {
+  it("reparents a node dropped on another page's empty trim into that page", () => {
     const tool = new SelectTool();
     let doc = createDocument('test');
     doc = addPage(doc, {});
@@ -1260,7 +1260,11 @@ describe('SelectTool — M6 page interactions', () => {
     };
     const [page1, page2] = [doc.pages![0]!, doc.pages![1]!];
     const nodeId = 'nCross';
-    doc = addChild(doc, page1.contentRoot, makeShapeNode(nodeId, { kind: 'rect', x: 10, y: 10, w: 40, h: 40 }));
+    doc = addChild(
+      doc,
+      page1.contentRoot,
+      makeShapeNode(nodeId, { kind: 'rect', x: 10, y: 10, w: 40, h: 40 }),
+    );
     const reparentNode = vi.fn();
     const setNodePosition = vi.fn((id: string, x: number, y: number) => {
       const n = doc.nodes[id] as { transform?: number[] } | undefined;
@@ -1295,7 +1299,11 @@ describe('SelectTool — M6 page interactions', () => {
     };
     const [page1] = [doc.pages![0]!];
     const nodeId = 'nHome';
-    doc = addChild(doc, page1.contentRoot, makeShapeNode(nodeId, { kind: 'rect', x: 10, y: 10, w: 40, h: 40 }));
+    doc = addChild(
+      doc,
+      page1.contentRoot,
+      makeShapeNode(nodeId, { kind: 'rect', x: 10, y: 10, w: 40, h: 40 }),
+    );
     const reparentNode = vi.fn();
     const ctx = makeCtx({
       document: doc,

@@ -282,9 +282,9 @@ describe('diffDocuments null-safety', () => {
     const diff = diffDocuments(base, target);
     expect(diff.changed).toBe(true);
     // The variable fields are reported as changes against undefined.
-    expect(
-      diff.changes.some((c) => c.propertyPath?.startsWith('variableStore.variables.')),
-    ).toBe(true);
+    expect(diff.changes.some((c) => c.propertyPath?.startsWith('variableStore.variables.'))).toBe(
+      true,
+    );
   });
 
   it('does not throw when a nested collection record is removed to undefined', () => {
