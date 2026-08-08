@@ -57,7 +57,7 @@ fn lensFlareMain(@builtin(global_invocation_id) gid: vec3u) {
   let ly = f32(h) * clamp01(p[12]);
   let ax = f32(w) / 2.0 - lx;
   let ay = f32(h) / 2.0 - ly;
-  let axisLen = sqrt(ax * ax + ay * ay);
+  var axisLen = sqrt(ax * ax + ay * ay);
   if (axisLen < 0.000001) { axisLen = 1.0; }
   let ux = ax / axisLen;
   let uy = ay / axisLen;

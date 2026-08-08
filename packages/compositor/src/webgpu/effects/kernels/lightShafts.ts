@@ -14,7 +14,7 @@
  *   [10] direction (deg) [11] sampleCount [12] tintMix (0/1)
  *   [13] tintR [14] tintG [15] tintB (0..1)
  */
-import type { GpuKernelSpec } from '../runner';
+import type { EffectPass, GpuKernelSpec } from '../runner';
 import { pack, resolveQuality } from '../runner';
 import { WGSL_HELPERS } from './shared';
 
@@ -63,12 +63,13 @@ fn lightShaftsRay(@builtin(global_invocation_id) gid: vec3u) {
   } else {
     let ddx = lightX - px;
     let ddy = lightY - py;
-    let d = sqrt(ddx * ddx + ddy * ddy);
+    var d = sqrt(ddx * ddx + ddy * ddy);
     if (d <= 0.000001) { d = 1.0; }
     rayX = ddx / d;
     rayY = ddy / d;
   }
-  let distToLight = isDirectional ? maxDist : sqrt((lightX - px) * (lightX - px) + (lightY - py) * (lightY - py));
+  var distToLight = sqrt((lightX - px) * (lightX - px) + (lightY - py) * (lightY - py));
+  if (isDirectional) { distToLight = maxDist; }
   let stepLen = max(1.0, distToLight / f32(steps));
 
   var acc: f32 = 0.0;
@@ -161,7 +162,7 @@ fn lightShaftsComposite(@builtin(global_invocation_id) gid: vec3u) {
   );
 }
 `,
-  buildPasses(request) {
+  buildPasses(request, _surface) {
     const q = request.params;
     const tier = resolveQuality(q, request.quality);
     const factor = tier === 'interactive' ? 0.5 : tier === 'export' ? 2 : 1;
@@ -180,7 +181,7 @@ fn lightShaftsComposite(@builtin(global_invocation_id) gid: vec3u) {
     o = pack.f(
       params,
       o,
-      Math.max(4, Math.min(96, Math.round((q.sampleCount ?? 24) * factor))),
+      Math.max(4, Math.min(96, Math.round(((q.sampleCount as number | undefined) ?? 24) * factor))),
       24,
     );
     const hasTint = Array.isArray(q.tint);
@@ -196,7 +197,7 @@ fn lightShaftsComposite(@builtin(global_invocation_id) gid: vec3u) {
       pack.f(params, o, 1, 1);
     }
     const scattering = typeof q.scattering === 'number' ? q.scattering : 0.5;
-    return [
+    const passes: EffectPass[] = [
       {
         entry: 'lightShaftsRay',
         params,
@@ -204,24 +205,23 @@ fn lightShaftsComposite(@builtin(global_invocation_id) gid: vec3u) {
         sampler: 'nearest',
         workgroup: [8, 8, 1],
       },
-      ...(scattering > 0
-        ? [
-            {
-              entry: 'lightShaftsBlur' as const,
-              params,
-              textures: ['b', 'a'],
-              sampler: 'nearest',
-              workgroup: [8, 8, 1] as [number, number, number],
-            },
-          ]
-        : []),
-      {
-        entry: 'lightShaftsComposite',
+    ];
+    if (scattering > 0) {
+      passes.push({
+        entry: 'lightShaftsBlur',
         params,
-        textures: ['out', scattering > 0 ? 'b' : 'a', 'src'],
+        textures: ['b', 'a'],
         sampler: 'nearest',
         workgroup: [8, 8, 1],
-      },
-    ];
+      });
+    }
+    passes.push({
+      entry: 'lightShaftsComposite',
+      params,
+      textures: ['out', scattering > 0 ? 'b' : 'a', 'src'],
+      sampler: 'nearest',
+      workgroup: [8, 8, 1],
+    });
+    return passes;
   },
 };

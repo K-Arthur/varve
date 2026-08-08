@@ -32,7 +32,7 @@ describe('applyTableModelOp', () => {
   });
 
   it('returns the doc unchanged when the table id is missing', () => {
-    const { doc, cellId } = docWithTable();
+    const { doc } = docWithTable();
     const next = applyTableModelOp(doc, 'nope', (t) => t);
     expect(next).toBe(doc);
   });

@@ -171,7 +171,7 @@ describe('compileTableToEngineNode', () => {
     if (shape?.kind !== 'table') throw new Error('expected table shape');
     const cell = shape.cells.find((c) => c.columnIdx === 0 && c.rowIdx === 0);
     expect(cell?.content).toBeDefined();
-    expect(cell?.content?.id).toBe('img-1');
+    expect((cell?.content as unknown as { id?: string } | undefined)?.id).toBe('img-1');
     // Content is anchored at the padded cell origin (cell-local space).
     expect(cell?.content?.transform[4]).toBe(8);
     expect(cell?.content?.transform[5]).toBe(8);

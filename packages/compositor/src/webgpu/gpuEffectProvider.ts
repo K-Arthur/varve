@@ -12,7 +12,7 @@ import type { EffectDispatchRequest, LiveEffectProvider } from '@varve/engine';
 import { registerEffectKernels } from './effects/kernels';
 import { type GpuEffectRunner, getSharedEffectRunner } from './effects/runner';
 
-async function runnerFor(options?: {
+async function runnerFor(_options?: {
   requireHardwareAdapter?: boolean;
 }): Promise<GpuEffectRunner | null> {
   const runner = await getSharedEffectRunner();

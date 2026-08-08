@@ -40,7 +40,6 @@ import {
 } from '../workspace/workspaceOverflow';
 import { workspaceShortcutLabel } from '../workspace/workspaceShortcutLabel';
 import {
-  WORKSPACE_CONFIGS,
   WORKSPACE_LABELS,
   WORKSPACE_OVERFLOW_ORDER,
   WORKSPACE_OVERFLOW_PRIORITY,

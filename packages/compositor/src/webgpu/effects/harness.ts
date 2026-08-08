@@ -357,9 +357,6 @@ export async function runHarness(
       entries: effects.map((e) => ({ effect: e, gpuReady: false, stats: null })),
     };
   }
-  // The GPU process on loaded machines can drop the very first compute
-  // submission after a fresh launch (observed as all-zero output with no
-  // error). Warm up with a trivial apply and discard it.
   try {
     const warm = CASES.rgbSplit ?? Object.values(CASES)[0];
     if (warm) {

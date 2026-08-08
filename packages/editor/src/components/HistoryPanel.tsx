@@ -423,11 +423,10 @@ export function HistoryPanel() {
             </div>
           )}
 
-          <div className="history-panel__branches" role="list">
+          <ul className="history-panel__branches">
             {branches.map((branch) => (
-              <div
+              <li
                 key={branch.branchId}
-                role="listitem"
                 className={`history-panel__branch ${
                   session?.branch?.branchId === branch.branchId
                     ? 'history-panel__branch--current'
@@ -456,9 +455,9 @@ export function HistoryPanel() {
                     </button>
                   </div>
                 )}
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
 
           <h3 className="history-panel__section-title">Checkpoints</h3>
           <div className="history-panel__actions">
@@ -582,9 +581,9 @@ export function HistoryPanel() {
               </div>
 
               {/* Changed-entity tree (M10): grouped by persistent entity id. */}
-              <div className="history-panel__entities" role="list">
+              <ul className="history-panel__entities">
                 {groupByEntity(diffResult.changes).map(([entityId, changes]) => (
-                  <div key={entityId} role="listitem" className="history-panel__entity">
+                  <li key={entityId} className="history-panel__entity">
                     <div className="history-panel__entity-head">
                       <span className="history-panel__entity-id" title={entityId}>
                         {entityId}
@@ -618,9 +617,9 @@ export function HistoryPanel() {
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
         </div>
