@@ -41,6 +41,7 @@ function makeAdjustmentNode(id: string, adjustments: Array<Record<string, unknow
       ],
     },
     clipping: false,
+    scope: { mode: 'image-local', targetNodeId: 'n1' },
   };
   return {
     ...base,
@@ -49,6 +50,7 @@ function makeAdjustmentNode(id: string, adjustments: Array<Record<string, unknow
       kind: a.kind as string,
       visible: a.visible !== false,
       opacity: (a.opacity as number) ?? 1,
+      ...a,
     })),
   } as unknown as SceneNode;
 }
@@ -127,5 +129,100 @@ describe('flattenForExport', () => {
     const doc = makeDoc([adj]);
     const result = await flattenForExport([adj], doc, { scale: 100 });
     expect(result.assets).toBeDefined();
+  });
+});
+
+describe('flattenForExport with live effects', () => {
+  it('expands the rasterized bounds for bloom and applies export quality', async () => {
+    // Bloom with radius 100 must expand the exported asset region by its
+    // support radius (100px per side), so the glow is not clipped.
+    const adj = makeAdjustmentNode('adj1', [
+      {
+        kind: 'bloom',
+        visible: true,
+        opacity: 1,
+        threshold: 0.5,
+        softKnee: 0.2,
+        intensity: 1,
+        radius: 100,
+        diffusion: 0.5,
+        tint: null,
+        tintAmount: 0,
+        composite: 'screen',
+        streakEnabled: false,
+        streakAngle: 0,
+        streakLength: 64,
+        streakIntensity: 0.5,
+        streakAspect: 2,
+        quality: 'auto',
+      },
+    ]);
+    const doc = makeDoc([makeNode('n1'), adj]);
+    const result = await flattenForExport([adj], doc, { scale: 1 });
+    const asset = Object.values(result.assets)[0];
+    expect(asset).toBeDefined();
+    // The surface is expanded by the bloom support radius (100px per side).
+    expect(asset!.pixelWidth).toBe(300);
+    expect(asset!.pixelHeight).toBe(300);
+    expect(asset!.expansion).toEqual({ left: 100, top: 100, right: 100, bottom: 100 });
+  });
+
+  it('expands for rgbSplit channel offsets', async () => {
+    const adj = makeAdjustmentNode('adj1', [
+      {
+        kind: 'rgbSplit',
+        visible: true,
+        opacity: 1,
+        mode: 'offset',
+        redX: 0,
+        redY: 0,
+        greenX: 0,
+        greenY: 0,
+        blueX: -24,
+        blueY: 0,
+        amount: 24,
+        centerX: 0.5,
+        centerY: 0.5,
+        falloff: 1,
+        fringeAngle: 0,
+        borderMode: 'transparent',
+        intensity: 1,
+      },
+    ]);
+    const doc = makeDoc([makeNode('n1'), adj]);
+    const result = await flattenForExport([adj], doc, { scale: 1 });
+    const asset = Object.values(result.assets)[0];
+    expect(asset).toBeDefined();
+    expect(asset!.pixelWidth).toBe(148);
+    expect(asset!.expansion?.left).toBe(24);
+  });
+
+  it('rasterizes dither at the requested export scale', async () => {
+    const adj = makeAdjustmentNode('adj1', [
+      {
+        kind: 'dither',
+        visible: true,
+        opacity: 1,
+        algorithm: 'bayer',
+        paletteMode: 'levels',
+        levels: 4,
+        colors: [],
+        metric: 'rgb',
+        serpentine: false,
+        strength: 1,
+        bayerSize: 8,
+        cellSize: 1,
+        alphaCutoff: 0,
+        seed: 0,
+      },
+    ]);
+    const doc = makeDoc([makeNode('n1'), adj]);
+    const result = await flattenForExport([adj], doc, { scale: 2 });
+    const asset = Object.values(result.assets)[0];
+    expect(asset).toBeDefined();
+    // Dither expands by its cell size (1px per side) at export too.
+    expect(asset!.pixelWidth).toBe(204);
+    expect(asset!.pixelHeight).toBe(204);
+    expect(asset!.expansion).toEqual({ left: 1, top: 1, right: 1, bottom: 1 });
   });
 });

@@ -8,6 +8,14 @@
  * Research basis: CSS filter functions, SVG filters, Photoshop adjustment layers.
  */
 
+import type { BloomComposite } from './liveEffects/bloom';
+import type { CausticsOutput } from './liveEffects/caustics';
+import type { PhosphorMask } from './liveEffects/crt';
+import type { DitherAlgorithm, DitherPaletteMode } from './liveEffects/dither';
+import type { LightShaftOcclusion } from './liveEffects/lightShafts';
+import type { ColorMetric } from './liveEffects/paletteCore';
+import type { EffectQualityParam } from './liveEffects/quality';
+import type { BorderMode, RgbSplitMode } from './liveEffects/rgbSplit';
 import type { LutInputSpace, LutInterpolation } from './lut/types';
 import type { Color, FilterIR } from './types';
 
@@ -40,7 +48,17 @@ export type AdjustmentKind =
   | 'blackAndWhite'
   | 'posterize'
   | 'threshold'
-  | 'lut';
+  | 'lut'
+  | 'dither'
+  | 'paletteSnap'
+  | 'bloom'
+  | 'rgbSplit'
+  | 'crt'
+  | 'vhs'
+  | 'lightShafts'
+  | 'lensFlare'
+  | 'lightLeak'
+  | 'caustics';
 
 export type AdjustmentBlendMode =
   | 'normal'
@@ -404,6 +422,219 @@ export interface LutAdjustment extends AdjustmentBase {
   linearize: boolean;
 }
 
+// ── Live effects (non-destructive procedural) ──────────────────────────────
+// These kinds render through the same Adjustment → FilterIR → CPU-kernel
+// pipeline as every other adjustment. Parameters are plain JSON; seeds are
+// explicit integers so output is deterministic per (params, time, surface).
+
+export interface DitherAdjustment extends AdjustmentBase {
+  kind: 'dither';
+  algorithm: DitherAlgorithm;
+  paletteMode: DitherPaletteMode;
+  /** Bits per channel when paletteMode === 'levels' (1..8). */
+  levels: number;
+  /** Explicit palette when paletteMode === 'custom'. */
+  colors: readonly (readonly number[])[];
+  metric: ColorMetric;
+  serpentine: boolean;
+  /** 0..1 error/pattern strength. */
+  strength: number;
+  /** Bayer matrix size (2 | 4 | 8). */
+  bayerSize: number;
+  /** Pattern cell size in document pixels. */
+  cellSize: number;
+  /** Pixels below this alpha are forced fully transparent (0..1). */
+  alphaCutoff: number;
+  seed: number;
+}
+
+export interface PaletteSnapAdjustment extends AdjustmentBase {
+  kind: 'paletteSnap';
+  colors: readonly (readonly number[])[];
+  metric: ColorMetric;
+  /** 0..1 snap mix. */
+  amount: number;
+  dither: boolean;
+  ditherAlgorithm: DitherAlgorithm;
+  ditherStrength: number;
+  alphaCutoff: number;
+  seed: number;
+}
+
+export interface BloomAdjustment extends AdjustmentBase {
+  kind: 'bloom';
+  /** 0..1 luminance threshold. */
+  threshold: number;
+  /** 0..1 soft-knee width. */
+  softKnee: number;
+  /** 0..4 intensity. */
+  intensity: number;
+  /** Glow radius in document pixels. */
+  radius: number;
+  /** 0..1 weight toward wide pyramid levels. */
+  diffusion: number;
+  tint: readonly [number, number, number] | null;
+  tintAmount: number;
+  composite: BloomComposite;
+  streakEnabled: boolean;
+  /** Streak angle in degrees. */
+  streakAngle: number;
+  /** Streak length in document pixels. */
+  streakLength: number;
+  streakIntensity: number;
+  /** 1..8 streak anisotropy. */
+  streakAspect: number;
+  quality: EffectQualityParam;
+}
+
+export interface RgbSplitAdjustment extends AdjustmentBase {
+  kind: 'rgbSplit';
+  mode: RgbSplitMode;
+  /** Offset mode channel displacement in document pixels. */
+  redX: number;
+  redY: number;
+  greenX: number;
+  greenY: number;
+  blueX: number;
+  blueY: number;
+  /** Radial separation at max radius (document px). */
+  amount: number;
+  /** Radial optical centre (normalized 0..1). */
+  centerX: number;
+  centerY: number;
+  /** 0..1+ falloff exponent. */
+  falloff: number;
+  /** Fringe axis rotation in degrees. */
+  fringeAngle: number;
+  borderMode: BorderMode;
+  /** 0..1 global intensity. */
+  intensity: number;
+}
+
+export interface CrtAdjustment extends AdjustmentBase {
+  kind: 'crt';
+  curvature: number;
+  cornerRadius: number;
+  scanlinePeriod: number;
+  scanlineStrength: number;
+  scanlineSoftness: number;
+  phosphorMask: PhosphorMask;
+  phosphorPitch: number;
+  phosphorIntensity: number;
+  glow: number;
+  vignette: number;
+  vignetteRadius: number;
+  convergenceX: number;
+  convergenceY: number;
+  brightness: number;
+  contrast: number;
+}
+
+export interface VhsAdjustment extends AdjustmentBase {
+  kind: 'vhs';
+  lumaNoise: number;
+  chromaNoise: number;
+  chromaBleed: number;
+  jitter: number;
+  tracking: number;
+  dropouts: number;
+  headSwitching: number;
+  tearing: number;
+  signalBlur: number;
+  timeInstability: number;
+  seed: number;
+  /** Time in seconds (animatable). */
+  time: number;
+  frameRate: number;
+  quality: EffectQualityParam;
+}
+
+export interface LightShaftsAdjustment extends AdjustmentBase {
+  kind: 'lightShafts';
+  /** Light position normalized 0..1. */
+  lightX: number;
+  lightY: number;
+  lightType: 'point' | 'directional';
+  /** Directional angle in degrees. */
+  direction: number;
+  intensity: number;
+  exposure: number;
+  decay: number;
+  density: number;
+  weight: number;
+  /** 8..96 ray-march steps. */
+  sampleCount: number;
+  /** 0..1 scattering spread. */
+  scattering: number;
+  tint: readonly [number, number, number] | null;
+  occlusionSource: LightShaftOcclusion;
+  quality: EffectQualityParam;
+}
+
+export interface LensFlareAdjustment extends AdjustmentBase {
+  kind: 'lensFlare';
+  /** Normalized 0..1; negative = auto (brightest pixel). */
+  sourceX: number;
+  sourceY: number;
+  brightness: number;
+  scale: number;
+  ghostCount: number;
+  ghostSpacing: number;
+  halo: number;
+  /** 0 = none, 3..12 aperture blades. */
+  apertureBlades: number;
+  apertureRotation: number;
+  streakIntensity: number;
+  anamorphicRatio: number;
+  chromaticDispersion: number;
+  seed: number;
+  quality: EffectQualityParam;
+}
+
+export interface LightLeakAdjustment extends AdjustmentBase {
+  kind: 'lightLeak';
+  seed: number;
+  /** Position normalized 0..1. */
+  x: number;
+  y: number;
+  /** Orientation in degrees. */
+  angle: number;
+  /** 0..2 size. */
+  size: number;
+  softness: number;
+  hue: number;
+  saturation: number;
+  lightness: number;
+  intensity: number;
+  noiseScale: number;
+}
+
+export interface CausticsAdjustment extends AdjustmentBase {
+  kind: 'caustics';
+  /** Wave scale in document pixels. */
+  scale: number;
+  depth: number;
+  waveCount: number;
+  complexity: number;
+  refractionAmount: number;
+  sharpness: number;
+  /** Light angle in degrees. */
+  lightAngle: number;
+  brightness: number;
+  contrast: number;
+  dispersion: number;
+  distortionAmount: number;
+  output: CausticsOutput;
+  waterTint: readonly [number, number, number] | null;
+  surfaceTint: readonly [number, number, number] | null;
+  seed: number;
+  /** Time in seconds (animatable). */
+  time: number;
+  animationSpeed: number;
+  tileable: boolean;
+  quality: EffectQualityParam;
+}
+
 export type Adjustment =
   | BrightnessAdjustment
   | ContrastAdjustment
@@ -433,7 +664,17 @@ export type Adjustment =
   | BlackAndWhiteAdjustment
   | PosterizeAdjustment
   | ThresholdAdjustment
-  | LutAdjustment;
+  | LutAdjustment
+  | DitherAdjustment
+  | PaletteSnapAdjustment
+  | BloomAdjustment
+  | RgbSplitAdjustment
+  | CrtAdjustment
+  | VhsAdjustment
+  | LightShaftsAdjustment
+  | LensFlareAdjustment
+  | LightLeakAdjustment
+  | CausticsAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   const base = { opacity: adjustment.opacity, blendMode: adjustment.blendMode };
@@ -669,6 +910,190 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         linearize: adjustment.linearize,
         ...base,
       };
+    case 'dither':
+      return {
+        kind: 'dither',
+        algorithm: adjustment.algorithm,
+        paletteMode: adjustment.paletteMode,
+        levels: adjustment.levels,
+        colors: adjustment.colors,
+        metric: adjustment.metric,
+        serpentine: adjustment.serpentine,
+        strength: adjustment.strength,
+        bayerSize: adjustment.bayerSize,
+        cellSize: adjustment.cellSize,
+        alphaCutoff: adjustment.alphaCutoff,
+        seed: adjustment.seed,
+        ...base,
+      };
+    case 'paletteSnap':
+      return {
+        kind: 'paletteSnap',
+        colors: adjustment.colors,
+        metric: adjustment.metric,
+        amount: adjustment.amount,
+        dither: adjustment.dither,
+        ditherAlgorithm: adjustment.ditherAlgorithm,
+        ditherStrength: adjustment.ditherStrength,
+        alphaCutoff: adjustment.alphaCutoff,
+        seed: adjustment.seed,
+        ...base,
+      };
+    case 'bloom':
+      return {
+        kind: 'bloom',
+        threshold: adjustment.threshold,
+        softKnee: adjustment.softKnee,
+        intensity: adjustment.intensity,
+        radius: adjustment.radius,
+        diffusion: adjustment.diffusion,
+        tint: adjustment.tint,
+        tintAmount: adjustment.tintAmount,
+        composite: adjustment.composite,
+        streakEnabled: adjustment.streakEnabled,
+        streakAngle: adjustment.streakAngle,
+        streakLength: adjustment.streakLength,
+        streakIntensity: adjustment.streakIntensity,
+        streakAspect: adjustment.streakAspect,
+        quality: adjustment.quality,
+        ...base,
+      };
+    case 'rgbSplit':
+      return {
+        kind: 'rgbSplit',
+        mode: adjustment.mode,
+        redX: adjustment.redX,
+        redY: adjustment.redY,
+        greenX: adjustment.greenX,
+        greenY: adjustment.greenY,
+        blueX: adjustment.blueX,
+        blueY: adjustment.blueY,
+        amount: adjustment.amount,
+        centerX: adjustment.centerX,
+        centerY: adjustment.centerY,
+        falloff: adjustment.falloff,
+        fringeAngle: adjustment.fringeAngle,
+        borderMode: adjustment.borderMode,
+        intensity: adjustment.intensity,
+        ...base,
+      };
+    case 'crt':
+      return {
+        kind: 'crt',
+        curvature: adjustment.curvature,
+        cornerRadius: adjustment.cornerRadius,
+        scanlinePeriod: adjustment.scanlinePeriod,
+        scanlineStrength: adjustment.scanlineStrength,
+        scanlineSoftness: adjustment.scanlineSoftness,
+        phosphorMask: adjustment.phosphorMask,
+        phosphorPitch: adjustment.phosphorPitch,
+        phosphorIntensity: adjustment.phosphorIntensity,
+        glow: adjustment.glow,
+        vignette: adjustment.vignette,
+        vignetteRadius: adjustment.vignetteRadius,
+        convergenceX: adjustment.convergenceX,
+        convergenceY: adjustment.convergenceY,
+        brightness: adjustment.brightness,
+        contrast: adjustment.contrast,
+        ...base,
+      };
+    case 'vhs':
+      return {
+        kind: 'vhs',
+        lumaNoise: adjustment.lumaNoise,
+        chromaNoise: adjustment.chromaNoise,
+        chromaBleed: adjustment.chromaBleed,
+        jitter: adjustment.jitter,
+        tracking: adjustment.tracking,
+        dropouts: adjustment.dropouts,
+        headSwitching: adjustment.headSwitching,
+        tearing: adjustment.tearing,
+        signalBlur: adjustment.signalBlur,
+        timeInstability: adjustment.timeInstability,
+        seed: adjustment.seed,
+        time: adjustment.time,
+        frameRate: adjustment.frameRate,
+        quality: adjustment.quality,
+        ...base,
+      };
+    case 'lightShafts':
+      return {
+        kind: 'lightShafts',
+        lightX: adjustment.lightX,
+        lightY: adjustment.lightY,
+        lightType: adjustment.lightType,
+        direction: adjustment.direction,
+        intensity: adjustment.intensity,
+        exposure: adjustment.exposure,
+        decay: adjustment.decay,
+        density: adjustment.density,
+        weight: adjustment.weight,
+        sampleCount: adjustment.sampleCount,
+        scattering: adjustment.scattering,
+        tint: adjustment.tint,
+        occlusionSource: adjustment.occlusionSource,
+        quality: adjustment.quality,
+        ...base,
+      };
+    case 'lensFlare':
+      return {
+        kind: 'lensFlare',
+        sourceX: adjustment.sourceX,
+        sourceY: adjustment.sourceY,
+        brightness: adjustment.brightness,
+        scale: adjustment.scale,
+        ghostCount: adjustment.ghostCount,
+        ghostSpacing: adjustment.ghostSpacing,
+        halo: adjustment.halo,
+        apertureBlades: adjustment.apertureBlades,
+        apertureRotation: adjustment.apertureRotation,
+        streakIntensity: adjustment.streakIntensity,
+        anamorphicRatio: adjustment.anamorphicRatio,
+        chromaticDispersion: adjustment.chromaticDispersion,
+        seed: adjustment.seed,
+        quality: adjustment.quality,
+        ...base,
+      };
+    case 'lightLeak':
+      return {
+        kind: 'lightLeak',
+        seed: adjustment.seed,
+        x: adjustment.x,
+        y: adjustment.y,
+        angle: adjustment.angle,
+        size: adjustment.size,
+        softness: adjustment.softness,
+        hue: adjustment.hue,
+        saturation: adjustment.saturation,
+        lightness: adjustment.lightness,
+        intensity: adjustment.intensity,
+        noiseScale: adjustment.noiseScale,
+        ...base,
+      };
+    case 'caustics':
+      return {
+        kind: 'caustics',
+        scale: adjustment.scale,
+        depth: adjustment.depth,
+        waveCount: adjustment.waveCount,
+        complexity: adjustment.complexity,
+        refractionAmount: adjustment.refractionAmount,
+        sharpness: adjustment.sharpness,
+        lightAngle: adjustment.lightAngle,
+        brightness: adjustment.brightness,
+        contrast: adjustment.contrast,
+        dispersion: adjustment.dispersion,
+        distortionAmount: adjustment.distortionAmount,
+        output: adjustment.output,
+        waterTint: adjustment.waterTint,
+        surfaceTint: adjustment.surfaceTint,
+        seed: adjustment.seed,
+        time: adjustment.time,
+        animationSpeed: adjustment.animationSpeed,
+        tileable: adjustment.tileable,
+        quality: adjustment.quality,
+        ...base,
+      };
     default:
       return { kind: 'opacity', value: 100, opacity: 1, blendMode: 'normal' };
   }
@@ -724,6 +1149,17 @@ export function filterToCss(filter: FilterIR): string | null {
       return null;
     case 'lut':
       return null; // LUT has no CSS equivalent; software-only
+    case 'dither':
+    case 'paletteSnap':
+    case 'bloom':
+    case 'rgbSplit':
+    case 'crt':
+    case 'vhs':
+    case 'lightShafts':
+    case 'lensFlare':
+    case 'lightLeak':
+    case 'caustics':
+      return null; // Live effects are software kernels only; no CSS equivalent
     case 'chain':
       return filterChainToCss(filter.filters);
     default:
@@ -778,6 +1214,26 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Posterize';
     case 'threshold':
       return 'Threshold';
+    case 'dither':
+      return 'Dither';
+    case 'paletteSnap':
+      return 'Palette Snap';
+    case 'bloom':
+      return 'Bloom';
+    case 'rgbSplit':
+      return 'RGB Split';
+    case 'crt':
+      return 'CRT';
+    case 'vhs':
+      return 'VHS';
+    case 'lightShafts':
+      return 'Light Shafts';
+    case 'lensFlare':
+      return 'Lens Flare';
+    case 'lightLeak':
+      return 'Light Leak';
+    case 'caustics':
+      return 'Caustics';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -945,6 +1401,189 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         interpolation: 'tetrahedral' as LutInterpolation,
         intensity: 1,
         linearize: false,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'dither':
+      return {
+        ...base,
+        algorithm: 'floyd-steinberg',
+        paletteMode: 'levels',
+        levels: 4,
+        colors: [],
+        metric: 'rgb',
+        serpentine: true,
+        strength: 1,
+        bayerSize: 8,
+        cellSize: 1,
+        alphaCutoff: 0,
+        seed: 0,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'paletteSnap':
+      return {
+        ...base,
+        colors: [
+          [0, 0, 0],
+          [255, 255, 255],
+          [255, 0, 0],
+          [0, 255, 0],
+          [0, 0, 255],
+          [255, 255, 0],
+          [0, 255, 255],
+          [255, 0, 255],
+        ],
+        metric: 'oklab',
+        amount: 1,
+        dither: false,
+        ditherAlgorithm: 'floyd-steinberg',
+        ditherStrength: 0.6,
+        alphaCutoff: 0,
+        seed: 0,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'bloom':
+      return {
+        ...base,
+        threshold: 0.6,
+        softKnee: 0.2,
+        intensity: 1,
+        radius: 24,
+        diffusion: 0.5,
+        tint: null,
+        tintAmount: 0,
+        composite: 'screen',
+        streakEnabled: false,
+        streakAngle: 0,
+        streakLength: 64,
+        streakIntensity: 0.5,
+        streakAspect: 2,
+        quality: 'auto',
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'rgbSplit':
+      return {
+        ...base,
+        mode: 'offset',
+        redX: 4,
+        redY: 0,
+        greenX: 0,
+        greenY: 0,
+        blueX: -4,
+        blueY: 0,
+        amount: 4,
+        centerX: 0.5,
+        centerY: 0.5,
+        falloff: 1,
+        fringeAngle: 0,
+        borderMode: 'transparent',
+        intensity: 1,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'crt':
+      return {
+        ...base,
+        curvature: 0.1,
+        cornerRadius: 0.3,
+        scanlinePeriod: 3,
+        scanlineStrength: 0.5,
+        scanlineSoftness: 0.5,
+        phosphorMask: 'rgb-stripe',
+        phosphorPitch: 4,
+        phosphorIntensity: 0.5,
+        glow: 0.35,
+        vignette: 0.35,
+        vignetteRadius: 0.5,
+        convergenceX: 0.5,
+        convergenceY: 0,
+        brightness: 0,
+        contrast: 1.1,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'vhs':
+      return {
+        ...base,
+        lumaNoise: 0.25,
+        chromaNoise: 0.2,
+        chromaBleed: 0.3,
+        jitter: 0.25,
+        tracking: 0.2,
+        dropouts: 0.1,
+        headSwitching: 0.3,
+        tearing: 0.15,
+        signalBlur: 0.15,
+        timeInstability: 0.2,
+        seed: 1,
+        time: 0,
+        frameRate: 24,
+        quality: 'auto',
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'lightShafts':
+      return {
+        ...base,
+        lightX: 0.5,
+        lightY: 0.1,
+        lightType: 'point',
+        direction: 0,
+        intensity: 1,
+        exposure: 0,
+        decay: 0.88,
+        density: 0.15,
+        weight: 0.85,
+        sampleCount: 24,
+        scattering: 0.3,
+        tint: null,
+        occlusionSource: 'luminance',
+        quality: 'auto',
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'lensFlare':
+      return {
+        ...base,
+        sourceX: 0.5,
+        sourceY: 0.3,
+        brightness: 1,
+        scale: 1,
+        ghostCount: 4,
+        ghostSpacing: 0.8,
+        halo: 0.5,
+        apertureBlades: 0,
+        apertureRotation: 0,
+        streakIntensity: 0.5,
+        anamorphicRatio: 0.2,
+        chromaticDispersion: 0.4,
+        seed: 0,
+        quality: 'auto',
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'lightLeak':
+      return {
+        ...base,
+        seed: 4,
+        x: 0.15,
+        y: 0.4,
+        angle: 20,
+        size: 1,
+        softness: 0.65,
+        hue: 25,
+        saturation: 0.85,
+        lightness: 0.6,
+        intensity: 0.6,
+        noiseScale: 0.5,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'caustics':
+      return {
+        ...base,
+        scale: 28,
+        depth: 0.5,
+        waveCount: 4,
+        complexity: 0.3,
+        refractionAmount: 0.4,
+        sharpness: 0.5,
+        lightAngle: 60,
+        brightness: 1,
+        contrast: 1.1,
+        dispersion: 0.1,
+        distortionAmount: 0.8,
+        output: 'combined',
+        waterTint: null,
+        surfaceTint: null,
+        seed: 3,
+        time: 0,
+        animationSpeed: 0.5,
+        tileable: false,
+        quality: 'auto',
       } as Omit<Adjustment, 'id' | 'kind'>;
     default:
       return { ...base } as Omit<Adjustment, 'id' | 'kind'>;

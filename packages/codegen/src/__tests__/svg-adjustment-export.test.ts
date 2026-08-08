@@ -5,7 +5,7 @@ import { exportNodeToSvg, svgTargetGaps } from '../svg';
 
 function makeAdjustmentNode(
   id: string,
-  adjustments: Array<{ kind: string; visible?: boolean; opacity?: number }>,
+  adjustments: Array<Record<string, unknown>>,
   overrides: Record<string, unknown> = {},
 ): SceneNode {
   return {
@@ -144,5 +144,66 @@ describe('exportNodeToSvg with rasterAssets', () => {
     expect(svg).toContain('width="200"');
     expect(svg).toContain('height="150"');
     expect(svg).toContain('href="data:image/png;base64,abc123');
+  });
+});
+
+describe('SVG raster asset placement with effect expansion', () => {
+  it('places expanded bloom assets at the negative expansion offset', () => {
+    const node = makeAdjustmentNode('adj1', [
+      {
+        kind: 'bloom',
+        visible: true,
+        opacity: 1,
+        radius: 100,
+        threshold: 0.5,
+        softKnee: 0.2,
+        intensity: 1,
+        diffusion: 0.5,
+        tint: null,
+        tintAmount: 0,
+        composite: 'screen',
+        streakEnabled: false,
+        streakAngle: 0,
+        streakLength: 64,
+        streakIntensity: 0.5,
+        streakAspect: 2,
+        quality: 'auto',
+      },
+    ]);
+    const doc = makeDoc([node]);
+    const svg = exportNodeToSvg(node, doc, {
+      rasterAssets: {
+        adj1: {
+          nodeId: 'adj1',
+          dataUrl: 'data:image/png;base64,AAAA',
+          pixelWidth: 300,
+          pixelHeight: 300,
+          cssWidth: 100,
+          cssHeight: 100,
+          expansion: { left: 100, top: 100, right: 100, bottom: 100 },
+        },
+      },
+    });
+    expect(svg).toContain('x="-100" y="-100" width="300" height="300"');
+  });
+
+  it('keeps legacy placement when no expansion is recorded', () => {
+    const node = makeAdjustmentNode('adj1', [
+      { kind: 'posterize', visible: true, opacity: 1, levels: 4 },
+    ]);
+    const doc = makeDoc([node]);
+    const svg = exportNodeToSvg(node, doc, {
+      rasterAssets: {
+        adj1: {
+          nodeId: 'adj1',
+          dataUrl: 'data:image/png;base64,AAAA',
+          pixelWidth: 100,
+          pixelHeight: 100,
+          cssWidth: 100,
+          cssHeight: 100,
+        },
+      },
+    });
+    expect(svg).toContain('x="0" y="0" width="100" height="100"');
   });
 });
