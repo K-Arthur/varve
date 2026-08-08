@@ -10,27 +10,13 @@ import type { Viewport } from '@varve/shared';
 import { useCallback } from 'react';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
-import type { EditorState, SessionFileMeta } from './types';
+// LoadDocumentMeta lives in ./types alongside SessionMeta/SessionFileMeta:
+// types.ts is the leaf of this package's type graph, and declaring it here
+// would make types.ts depend back on this module (import cycle).
+import type { EditorState, LoadDocumentMeta, SessionFileMeta } from './types';
 import { getCanvasViewport } from './viewportOps';
 
-/**
- * Where a loaded document lands, and which file the tab is bound to afterwards.
- *
- * The default is deliberately the *safe* one: a loaded document arrives
- * unbound unless the caller states an identity. A caller that forgets gets a
- * Save As prompt on first save; the opposite default silently writes the newly
- * loaded document over whichever file the tab happened to hold before.
- */
-export interface LoadDocumentMeta extends SessionFileMeta {
-  /**
-   * Keep the active tab's current fileId/filePath instead of rebinding to
-   * `meta`. For callers replacing the *same* file's content — rename,
-   * version/backup restore in place, crash recovery.
-   */
-  keepIdentity?: boolean;
-  /** Load into its own tab, leaving the active document open and untouched. */
-  newSession?: boolean;
-}
+export type { LoadDocumentMeta };
 
 export interface PersistenceAPI {
   serializeDocument: () => string;
