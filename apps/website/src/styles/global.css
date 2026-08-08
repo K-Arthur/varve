@@ -280,6 +280,19 @@
     border-color: var(--border-strong);
   }
 
+  /* On narrow screens the fractional 1fr columns round beyond the container
+     and overflow by a few px; collapse to a single column (spans become
+     irrelevant). */
+  @media (max-width: 640px) {
+    .bento-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .bento-cell {
+      grid-column: span 1;
+    }
+  }
+
   .bento-cell h1,
   .bento-cell h2,
   .bento-cell h3,
