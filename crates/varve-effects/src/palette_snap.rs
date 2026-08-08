@@ -15,8 +15,10 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params) {
     }
 
     let raw = p.rgb_list("colors");
-    let colors_f64: Vec<[f64; 3]> =
-        raw.iter().map(|c| [c[0] as f64, c[1] as f64, c[2] as f64]).collect();
+    let colors_f64: Vec<[f64; 3]> = raw
+        .iter()
+        .map(|c| [c[0] as f64, c[1] as f64, c[2] as f64])
+        .collect();
     let colors = palette_core::sanitize_palette(&colors_f64);
     let amount = clamp01(p.f("amount", 1.0));
     let alpha_cutoff = clamp01(p.f("alphaCutoff", 0.0));
@@ -41,10 +43,8 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params) {
             out[o + 2] = c[2];
         } else {
             out[o] = clamp_byte(out[o] as f64 + (c[0] as f64 - out[o] as f64) * amount);
-            out[o + 1] =
-                clamp_byte(out[o + 1] as f64 + (c[1] as f64 - out[o + 1] as f64) * amount);
-            out[o + 2] =
-                clamp_byte(out[o + 2] as f64 + (c[2] as f64 - out[o + 2] as f64) * amount);
+            out[o + 1] = clamp_byte(out[o + 1] as f64 + (c[1] as f64 - out[o + 1] as f64) * amount);
+            out[o + 2] = clamp_byte(out[o + 2] as f64 + (c[2] as f64 - out[o + 2] as f64) * amount);
         }
     }
 

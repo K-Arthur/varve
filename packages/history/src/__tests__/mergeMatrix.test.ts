@@ -135,7 +135,7 @@ describe('merge conflict matrix', () => {
     const theirs = patch(base, 'n1_aaaa', 'text', 'Hello wide world');
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('clean');
-    const node = result.mergedDocument.nodes['n1_aaaa'] as { text?: string };
+    const node = result.mergedDocument.nodes.n1_aaaa as { text?: string };
     expect(node.text).toBe('Hello brave wide world');
   });
 
@@ -145,7 +145,7 @@ describe('merge conflict matrix', () => {
     const theirs = patch(base, 'n1_aaaa', 'text', 'Hi world');
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('clean');
-    const node = result.mergedDocument.nodes['n1_aaaa'] as { text?: string };
+    const node = result.mergedDocument.nodes.n1_aaaa as { text?: string };
     expect(node.text).toBe('Hi world!');
   });
 
@@ -234,7 +234,7 @@ describe('merge conflict matrix', () => {
     const theirs = patch(base, 'n1_aaaa', 'opacity', 0.5);
     const result = expectDeterministic(base, replaced, theirs);
     expect(result.status).toBe('clean');
-    const node = result.mergedDocument.nodes['n1_aaaa'] as { opacity?: number };
+    const node = result.mergedDocument.nodes.n1_aaaa as { opacity?: number };
     expect(node.opacity).toBe(0.5);
   });
 
@@ -244,7 +244,7 @@ describe('merge conflict matrix', () => {
     const theirs = patch(base, 'n1_aaaa', 'opacity', 0.33);
     const result = mergeDocuments(base, ours, theirs);
     expect(result.status).toBe('clean');
-    const node = result.mergedDocument.nodes['n1_aaaa'] as { opacity?: number };
+    const node = result.mergedDocument.nodes.n1_aaaa as { opacity?: number };
     expect(node.opacity).toBe(0.33);
   });
 
@@ -283,7 +283,7 @@ describe('merge conflict matrix', () => {
     const theirs = patch(base, 'n1_aaaa', 'opacity', 0.6);
     const result = expectDeterministic(base, ours, theirs);
     expect(result.status).toBe('clean');
-    const node = result.mergedDocument.nodes['n1_aaaa'] as { name?: string; opacity?: number };
+    const node = result.mergedDocument.nodes.n1_aaaa as { name?: string; opacity?: number };
     expect(node.name).toBe('Renamed');
     expect(node.opacity).toBe(0.6);
   });

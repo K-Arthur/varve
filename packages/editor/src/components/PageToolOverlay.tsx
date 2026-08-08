@@ -71,9 +71,9 @@ export const PageToolOverlay = memo(function PageToolOverlay({
           boxShadow: '0 0 0 1px rgba(0,0,0,0.08)',
         }}
       />
-      {corners.map((c, i) => (
+      {corners.map((c) => (
         <div
-          key={i}
+          key={`${c.x},${c.y}`}
           style={{
             position: 'absolute',
             left: c.x - half,

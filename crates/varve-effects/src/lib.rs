@@ -17,8 +17,8 @@
 //! Deterministic by construction: no wall-clock state, no floats from
 //! division of independent paths — same input, same bytes.
 
-pub mod blur;
 pub mod bloom;
+pub mod blur;
 pub mod caustics;
 pub mod crt;
 pub mod dither;
@@ -112,13 +112,7 @@ pub fn clamp_byte(v: f64) -> u8 {
 
 /// Clamp to [0, 1], matching the TS `clamp01` helper.
 pub fn clamp01(v: f64) -> f64 {
-    if v < 0.0 {
-        0.0
-    } else if v > 1.0 {
-        1.0
-    } else {
-        v
-    }
+    v.clamp(0.0, 1.0)
 }
 
 /// Typed accessor over the `params` JSON object with TS-style defaults.
@@ -178,11 +172,7 @@ impl<'a> Params<'a> {
         if arr.len() < 3 {
             return None;
         }
-        Some([
-            arr[0].as_f64()?,
-            arr[1].as_f64()?,
-            arr[2].as_f64()?,
-        ])
+        Some([arr[0].as_f64()?, arr[1].as_f64()?, arr[2].as_f64()?])
     }
 
     /// Array of RGB triplets (palette), e.g. `palette: [[r,g,b], ...]`.
@@ -192,11 +182,9 @@ impl<'a> Params<'a> {
             for item in arr {
                 if let Some(triple) = item.as_array() {
                     if triple.len() >= 3 {
-                        if let (Some(r), Some(g), Some(b)) = (
-                            triple[0].as_f64(),
-                            triple[1].as_f64(),
-                            triple[2].as_f64(),
-                        ) {
+                        if let (Some(r), Some(g), Some(b)) =
+                            (triple[0].as_f64(), triple[1].as_f64(), triple[2].as_f64())
+                        {
                             out.push([r as u8, g as u8, b as u8]);
                         }
                     }
@@ -225,25 +213,62 @@ pub fn validate_surface(width: u32, height: u32, rgba_len: usize) -> Result<(), 
 }
 
 /// Apply a live effect to RGBA bytes in place, returning the result.
-pub fn apply_effect(
-    request: &EffectRequest,
-    rgba: &[u8],
-) -> Result<Vec<u8>, String> {
+pub fn apply_effect(request: &EffectRequest, rgba: &[u8]) -> Result<Vec<u8>, String> {
     validate_surface(request.width, request.height, rgba.len())?;
     let params = Params::new(&request.params);
     let coord = request.coord_space.unwrap_or_default();
     let mut out = rgba.to_vec();
     match request.effect {
-        EffectKind::Dither => dither::apply(&mut out, request.width, request.height, &params, coord),
-        EffectKind::PaletteSnap => palette_snap::apply(&mut out, request.width, request.height, &params),
-        EffectKind::Bloom => bloom::apply(&mut out, request.width, request.height, &params, request.quality, coord)?,
-        EffectKind::RgbSplit => rgb_split::apply(&mut out, request.width, request.height, &params, coord),
+        EffectKind::Dither => {
+            dither::apply(&mut out, request.width, request.height, &params, coord)
+        }
+        EffectKind::PaletteSnap => {
+            palette_snap::apply(&mut out, request.width, request.height, &params)
+        }
+        EffectKind::Bloom => bloom::apply(
+            &mut out,
+            request.width,
+            request.height,
+            &params,
+            request.quality,
+            coord,
+        )?,
+        EffectKind::RgbSplit => {
+            rgb_split::apply(&mut out, request.width, request.height, &params, coord)
+        }
         EffectKind::Crt => crt::apply(&mut out, request.width, request.height, &params),
-        EffectKind::Vhs => vhs::apply(&mut out, request.width, request.height, &params, request.quality),
-        EffectKind::LightShafts => light_shafts::apply(&mut out, request.width, request.height, &params, request.quality),
-        EffectKind::LensFlare => lens_flare::apply(&mut out, request.width, request.height, &params, request.quality),
-        EffectKind::LightLeak => light_leak::apply(&mut out, request.width, request.height, &params),
-        EffectKind::Caustics => caustics::apply(&mut out, request.width, request.height, &params, request.quality, coord)?,
+        EffectKind::Vhs => vhs::apply(
+            &mut out,
+            request.width,
+            request.height,
+            &params,
+            request.quality,
+        ),
+        EffectKind::LightShafts => light_shafts::apply(
+            &mut out,
+            request.width,
+            request.height,
+            &params,
+            request.quality,
+        ),
+        EffectKind::LensFlare => lens_flare::apply(
+            &mut out,
+            request.width,
+            request.height,
+            &params,
+            request.quality,
+        ),
+        EffectKind::LightLeak => {
+            light_leak::apply(&mut out, request.width, request.height, &params)
+        }
+        EffectKind::Caustics => caustics::apply(
+            &mut out,
+            request.width,
+            request.height,
+            &params,
+            request.quality,
+            coord,
+        )?,
     }
     Ok(out)
 }

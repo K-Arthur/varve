@@ -65,49 +65,185 @@ struct KernelEntry {
 }
 
 const FLOYD_STEINBERG: &[KernelEntry] = &[
-    KernelEntry { dx: 1, dy: 0, weight: 7.0 / 16.0 },
-    KernelEntry { dx: -1, dy: 1, weight: 3.0 / 16.0 },
-    KernelEntry { dx: 0, dy: 1, weight: 5.0 / 16.0 },
-    KernelEntry { dx: 1, dy: 1, weight: 1.0 / 16.0 },
+    KernelEntry {
+        dx: 1,
+        dy: 0,
+        weight: 7.0 / 16.0,
+    },
+    KernelEntry {
+        dx: -1,
+        dy: 1,
+        weight: 3.0 / 16.0,
+    },
+    KernelEntry {
+        dx: 0,
+        dy: 1,
+        weight: 5.0 / 16.0,
+    },
+    KernelEntry {
+        dx: 1,
+        dy: 1,
+        weight: 1.0 / 16.0,
+    },
 ];
 
 const ATKINSON: &[KernelEntry] = &[
-    KernelEntry { dx: 1, dy: 0, weight: 1.0 / 8.0 },
-    KernelEntry { dx: 2, dy: 0, weight: 1.0 / 8.0 },
-    KernelEntry { dx: -1, dy: 1, weight: 1.0 / 8.0 },
-    KernelEntry { dx: 0, dy: 1, weight: 1.0 / 8.0 },
-    KernelEntry { dx: 1, dy: 1, weight: 1.0 / 8.0 },
-    KernelEntry { dx: 0, dy: 2, weight: 1.0 / 8.0 },
+    KernelEntry {
+        dx: 1,
+        dy: 0,
+        weight: 1.0 / 8.0,
+    },
+    KernelEntry {
+        dx: 2,
+        dy: 0,
+        weight: 1.0 / 8.0,
+    },
+    KernelEntry {
+        dx: -1,
+        dy: 1,
+        weight: 1.0 / 8.0,
+    },
+    KernelEntry {
+        dx: 0,
+        dy: 1,
+        weight: 1.0 / 8.0,
+    },
+    KernelEntry {
+        dx: 1,
+        dy: 1,
+        weight: 1.0 / 8.0,
+    },
+    KernelEntry {
+        dx: 0,
+        dy: 2,
+        weight: 1.0 / 8.0,
+    },
 ];
 
 const JARVIS_JUDICE_NINKE: &[KernelEntry] = &[
-    KernelEntry { dx: 1, dy: 0, weight: 7.0 / 48.0 },
-    KernelEntry { dx: 2, dy: 0, weight: 5.0 / 48.0 },
-    KernelEntry { dx: -2, dy: 1, weight: 3.0 / 48.0 },
-    KernelEntry { dx: -1, dy: 1, weight: 5.0 / 48.0 },
-    KernelEntry { dx: 0, dy: 1, weight: 7.0 / 48.0 },
-    KernelEntry { dx: 1, dy: 1, weight: 5.0 / 48.0 },
-    KernelEntry { dx: 2, dy: 1, weight: 3.0 / 48.0 },
-    KernelEntry { dx: -2, dy: 2, weight: 1.0 / 48.0 },
-    KernelEntry { dx: -1, dy: 2, weight: 3.0 / 48.0 },
-    KernelEntry { dx: 0, dy: 2, weight: 5.0 / 48.0 },
-    KernelEntry { dx: 1, dy: 2, weight: 3.0 / 48.0 },
-    KernelEntry { dx: 2, dy: 2, weight: 1.0 / 48.0 },
+    KernelEntry {
+        dx: 1,
+        dy: 0,
+        weight: 7.0 / 48.0,
+    },
+    KernelEntry {
+        dx: 2,
+        dy: 0,
+        weight: 5.0 / 48.0,
+    },
+    KernelEntry {
+        dx: -2,
+        dy: 1,
+        weight: 3.0 / 48.0,
+    },
+    KernelEntry {
+        dx: -1,
+        dy: 1,
+        weight: 5.0 / 48.0,
+    },
+    KernelEntry {
+        dx: 0,
+        dy: 1,
+        weight: 7.0 / 48.0,
+    },
+    KernelEntry {
+        dx: 1,
+        dy: 1,
+        weight: 5.0 / 48.0,
+    },
+    KernelEntry {
+        dx: 2,
+        dy: 1,
+        weight: 3.0 / 48.0,
+    },
+    KernelEntry {
+        dx: -2,
+        dy: 2,
+        weight: 1.0 / 48.0,
+    },
+    KernelEntry {
+        dx: -1,
+        dy: 2,
+        weight: 3.0 / 48.0,
+    },
+    KernelEntry {
+        dx: 0,
+        dy: 2,
+        weight: 5.0 / 48.0,
+    },
+    KernelEntry {
+        dx: 1,
+        dy: 2,
+        weight: 3.0 / 48.0,
+    },
+    KernelEntry {
+        dx: 2,
+        dy: 2,
+        weight: 1.0 / 48.0,
+    },
 ];
 
 const STUCKI: &[KernelEntry] = &[
-    KernelEntry { dx: 1, dy: 0, weight: 8.0 / 42.0 },
-    KernelEntry { dx: 2, dy: 0, weight: 4.0 / 42.0 },
-    KernelEntry { dx: -2, dy: 1, weight: 2.0 / 42.0 },
-    KernelEntry { dx: -1, dy: 1, weight: 4.0 / 42.0 },
-    KernelEntry { dx: 0, dy: 1, weight: 8.0 / 42.0 },
-    KernelEntry { dx: 1, dy: 1, weight: 4.0 / 42.0 },
-    KernelEntry { dx: 2, dy: 1, weight: 2.0 / 42.0 },
-    KernelEntry { dx: -2, dy: 2, weight: 1.0 / 42.0 },
-    KernelEntry { dx: -1, dy: 2, weight: 2.0 / 42.0 },
-    KernelEntry { dx: 0, dy: 2, weight: 4.0 / 42.0 },
-    KernelEntry { dx: 1, dy: 2, weight: 2.0 / 42.0 },
-    KernelEntry { dx: 2, dy: 2, weight: 1.0 / 42.0 },
+    KernelEntry {
+        dx: 1,
+        dy: 0,
+        weight: 8.0 / 42.0,
+    },
+    KernelEntry {
+        dx: 2,
+        dy: 0,
+        weight: 4.0 / 42.0,
+    },
+    KernelEntry {
+        dx: -2,
+        dy: 1,
+        weight: 2.0 / 42.0,
+    },
+    KernelEntry {
+        dx: -1,
+        dy: 1,
+        weight: 4.0 / 42.0,
+    },
+    KernelEntry {
+        dx: 0,
+        dy: 1,
+        weight: 8.0 / 42.0,
+    },
+    KernelEntry {
+        dx: 1,
+        dy: 1,
+        weight: 4.0 / 42.0,
+    },
+    KernelEntry {
+        dx: 2,
+        dy: 1,
+        weight: 2.0 / 42.0,
+    },
+    KernelEntry {
+        dx: -2,
+        dy: 2,
+        weight: 1.0 / 42.0,
+    },
+    KernelEntry {
+        dx: -1,
+        dy: 2,
+        weight: 2.0 / 42.0,
+    },
+    KernelEntry {
+        dx: 0,
+        dy: 2,
+        weight: 4.0 / 42.0,
+    },
+    KernelEntry {
+        dx: 1,
+        dy: 2,
+        weight: 2.0 / 42.0,
+    },
+    KernelEntry {
+        dx: 2,
+        dy: 2,
+        weight: 1.0 / 42.0,
+    },
 ];
 
 struct OrderedState {
@@ -136,7 +272,13 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
     let phase_y = if coord_valid { coord.region_y } else { 0.0 };
     let origin_x = if coord_valid { coord.origin_x } else { 0.0 };
     let origin_y = if coord_valid { coord.origin_y } else { 0.0 };
-    let resolved = CoordSpace { scale, origin_x, origin_y, region_x: phase_x, region_y: phase_y };
+    let resolved = CoordSpace {
+        scale,
+        origin_x,
+        origin_y,
+        region_x: phase_x,
+        region_y: phase_y,
+    };
 
     if algorithm == "bayer" || algorithm == "blue-noise" {
         let st = OrderedState {
@@ -164,8 +306,10 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
     let mut lookup: Option<PaletteLookup> = None;
     if p.s("paletteMode", "levels") == "custom" {
         let raw = p.rgb_list("colors");
-        let colors_f64: Vec<[f64; 3]> =
-            raw.iter().map(|c| [c[0] as f64, c[1] as f64, c[2] as f64]).collect();
+        let colors_f64: Vec<[f64; 3]> = raw
+            .iter()
+            .map(|c| [c[0] as f64, c[1] as f64, c[2] as f64])
+            .collect();
         let colors = palette_core::sanitize_palette(&colors_f64);
         if !colors.is_empty() {
             lookup = Some(PaletteLookup::build(&colors, metric));
@@ -206,9 +350,17 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
                     js_round(g * 255.0) as u8,
                     js_round(b * 255.0) as u8,
                 );
-                (c[0] as f64 / 255.0, c[1] as f64 / 255.0, c[2] as f64 / 255.0)
+                (
+                    c[0] as f64 / 255.0,
+                    c[1] as f64 / 255.0,
+                    c[2] as f64 / 255.0,
+                )
             } else {
-                (js_round(r / step) * step, js_round(g / step) * step, js_round(b / step) * step)
+                (
+                    js_round(r / step) * step,
+                    js_round(g / step) * step,
+                    js_round(b / step) * step,
+                )
             };
             out[o] = clamp_byte(clamp01(qr) * 255.0);
             out[o + 1] = clamp_byte(clamp01(qg) * 255.0);
@@ -218,7 +370,11 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, coord: CoordSpace) {
             let eg = (g - qg) * strength;
             let eb = (b - qb) * strength;
             for entry in kernel {
-                let nx = if ltr { x as i64 + entry.dx } else { x as i64 - entry.dx };
+                let nx = if ltr {
+                    x as i64 + entry.dx
+                } else {
+                    x as i64 - entry.dx
+                };
                 let ny = y as i64 + entry.dy;
                 if nx < 0 || nx >= w as i64 || ny >= h as i64 {
                     continue;
@@ -240,15 +396,19 @@ fn apply_ordered(out: &mut [u8], w: u32, h: u32, p: &Params, st: &OrderedState, 
     let mut lookup: Option<PaletteLookup> = None;
     if p.s("paletteMode", "levels") == "custom" {
         let raw = p.rgb_list("colors");
-        let colors_f64: Vec<[f64; 3]> =
-            raw.iter().map(|c| [c[0] as f64, c[1] as f64, c[2] as f64]).collect();
+        let colors_f64: Vec<[f64; 3]> = raw
+            .iter()
+            .map(|c| [c[0] as f64, c[1] as f64, c[2] as f64])
+            .collect();
         let colors = palette_core::sanitize_palette(&colors_f64);
         if !colors.is_empty() {
             lookup = Some(PaletteLookup::build(&colors, metric));
         }
     }
     let bayer = if p.s("algorithm", "floyd-steinberg") == "bayer" {
-        Some(bayer_threshold_matrix(p.f("bayerSize", 4.0).clamp(2.0, 8.0)))
+        Some(bayer_threshold_matrix(
+            p.f("bayerSize", 4.0).clamp(2.0, 8.0),
+        ))
     } else {
         None
     };
@@ -284,8 +444,9 @@ fn apply_ordered(out: &mut [u8], w: u32, h: u32, p: &Params, st: &OrderedState, 
                 };
                 threshold = (t - 0.5) * st.strength * step * 1.5;
             } else {
-                threshold =
-                    (hash2(cell_idx_x as i32, cell_idx_y as i32, st.seed) - 0.5) * st.strength * step;
+                threshold = (hash2(cell_idx_x as i32, cell_idx_y as i32, st.seed) - 0.5)
+                    * st.strength
+                    * step;
             }
             let r = clamp01((out[o] as f64) / 255.0 + threshold);
             let g = clamp01((out[o + 1] as f64) / 255.0 + threshold);

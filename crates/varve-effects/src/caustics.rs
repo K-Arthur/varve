@@ -8,11 +8,11 @@
 //! vectors so the field is exactly periodic in space.
 
 use crate::prng::seeded01;
-use crate::{clamp_byte, clamp01, js_round, CoordSpace, EffectQuality, Params};
+use crate::{clamp01, clamp_byte, js_round, CoordSpace, EffectQuality, Params};
 
 /// Deterministic wave set — port of `buildCausticWaves`.
 fn build_caustic_waves(p: &Params, scale_px: f64) -> Vec<(f64, f64, f64, f64, f64)> {
-    let count = js_round(p.f("waveCount", 4.0)).max(2.0).min(8.0) as i64;
+    let count = js_round(p.f("waveCount", 4.0)).clamp(2.0, 8.0) as i64;
     let seed = js_round(p.f("seed", 0.0)) as i64 as u32;
     let tileable = p.b("tileable", false);
     let period = scale_px * 4.0;
@@ -20,14 +20,12 @@ fn build_caustic_waves(p: &Params, scale_px: f64) -> Vec<(f64, f64, f64, f64, f6
     for i in 0..count {
         let iu = i as u32;
         let (kx, ky): (f64, f64) = if tileable {
-            let nx = js_round(
-                seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(1))) * 3.0,
-            )
-            .max(1.0);
-            let my = js_round(
-                seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(2))) * 3.0,
-            )
-            .max(1.0);
+            let nx =
+                js_round(seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(1))) * 3.0)
+                    .max(1.0);
+            let my =
+                js_round(seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(2))) * 3.0)
+                    .max(1.0);
             let kx = (nx * 2.0 * std::f64::consts::PI) / period;
             let ky = (my * 2.0 * std::f64::consts::PI) / period;
             let kx = if (i & 1) == 0 { -kx } else { kx };
@@ -40,8 +38,9 @@ fn build_caustic_waves(p: &Params, scale_px: f64) -> Vec<(f64, f64, f64, f64, f6
                 * (0.7 + seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(7))) * 0.6);
             (angle.cos() * freq, angle.sin() * freq)
         };
-        let phase =
-            seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(3))) * std::f64::consts::PI * 2.0;
+        let phase = seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(3)))
+            * std::f64::consts::PI
+            * 2.0;
         let speed = (seeded01(seed.wrapping_add(iu.wrapping_mul(101).wrapping_add(5))) - 0.5)
             * 2.0
             * p.f("animationSpeed", 1.0);
@@ -103,12 +102,22 @@ pub fn apply(
     let waves = build_caustic_waves(p, scale_px);
 
     // Deterministic per-call field evaluation at quality resolution.
-    let field_w = (w as f64 * if tier == EffectQuality::Interactive { 0.5 } else { 1.0 })
-        .floor()
-        .max(8.0) as u32;
-    let field_h = (h as f64 * if tier == EffectQuality::Interactive { 0.5 } else { 1.0 })
-        .floor()
-        .max(8.0) as u32;
+    let field_w = (w as f64
+        * if tier == EffectQuality::Interactive {
+            0.5
+        } else {
+            1.0
+        })
+    .floor()
+    .max(8.0) as u32;
+    let field_h = (h as f64
+        * if tier == EffectQuality::Interactive {
+            0.5
+        } else {
+            1.0
+        })
+    .floor()
+    .max(8.0) as u32;
     let step_x = w as f64 / field_w as f64;
     let step_y = h as f64 / field_h as f64;
     let field_n = (field_w * field_h) as usize;
@@ -145,15 +154,15 @@ pub fn apply(
     if complexity_raw > 0.0 {
         let c = clamp01(complexity_raw);
         let seed_raw = p.f("seed", 0.0);
-        for gi in 0..field_n {
+        for (gi, value) in lap.iter_mut().enumerate() {
             let gx = gi as u32 % field_w;
             let gy = gi as u32 / field_w;
             let n = seeded01(
-                ((js_round(lap[gi] * 4096.0) as i64)
+                ((js_round(*value * 4096.0) as i64)
                     ^ (seed_raw + gy as f64 * 31.0 + gx as f64 * 7.0) as i64)
                     as u32,
             );
-            lap[gi] = lap[gi] * (1.0 - c) + (n - 0.5) * 0.05 * c;
+            *value = *value * (1.0 - c) + (n - 0.5) * 0.05 * c;
         }
     }
 

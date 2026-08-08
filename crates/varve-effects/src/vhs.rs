@@ -89,7 +89,8 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, caller: EffectQuality) 
         let slice_h = ((h as f64 / tear_count as f64).floor()).max(4.0) as i64;
         for s in 0..tear_count {
             let y0 = s * slice_h;
-            let offset = js_round((hash3(0, s as i32, 2, seed) - 0.5) * 2.0 * tearing * 48.0) as i32;
+            let offset =
+                js_round((hash3(0, s as i32, 2, seed) - 0.5) * 2.0 * tearing * 48.0) as i32;
             for y in y0..(y0 + slice_h).min(h as i64) {
                 tear_offsets[y as usize] = offset;
             }
@@ -116,13 +117,12 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, caller: EffectQuality) 
         } else {
             0
         };
-        let track_offset: i64 = if tracking > 0.0
-            && ((y - tracking_y).abs() as f64) < (h as f64 * 0.03).max(2.0)
-        {
-            js_round((hash3(0, y as i32, 5, seed) - 0.5) * 2.0 * tracking * 24.0) as i64
-        } else {
-            0
-        };
+        let track_offset: i64 =
+            if tracking > 0.0 && ((y - tracking_y).abs() as f64) < (h as f64 * 0.03).max(2.0) {
+                js_round((hash3(0, y as i32, 5, seed) - 0.5) * 2.0 * tracking * 24.0) as i64
+            } else {
+                0
+            };
         for x in 0..w as i64 {
             let o = ((y * wu as i64 + x) * 4) as usize;
             let a = src[o + 3];
@@ -180,7 +180,11 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, caller: EffectQuality) 
 
     // Chroma bleed: horizontal smear of the colour channels, luma untouched.
     if bleed > 0.0 {
-        let factor = if tier == EffectQuality::Interactive { 0.5 } else { 1.0 };
+        let factor = if tier == EffectQuality::Interactive {
+            0.5
+        } else {
+            1.0
+        };
         let radius = js_round(bleed * 12.0 * factor).max(1.0) as i64;
         for y in 0..hf {
             for x in 0..w as i64 {
@@ -214,8 +218,10 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, caller: EffectQuality) 
         let m = signal_blur * 0.6;
         for i in (0..out.len()).step_by(4) {
             out[i] = clamp_byte(out[i] as f64 + (blurred[i] as f64 - out[i] as f64) * m);
-            out[i + 1] = clamp_byte(out[i + 1] as f64 + (blurred[i + 1] as f64 - out[i + 1] as f64) * m);
-            out[i + 2] = clamp_byte(out[i + 2] as f64 + (blurred[i + 2] as f64 - out[i + 2] as f64) * m);
+            out[i + 1] =
+                clamp_byte(out[i + 1] as f64 + (blurred[i + 1] as f64 - out[i + 1] as f64) * m);
+            out[i + 2] =
+                clamp_byte(out[i + 2] as f64 + (blurred[i + 2] as f64 - out[i + 2] as f64) * m);
         }
     }
 }
