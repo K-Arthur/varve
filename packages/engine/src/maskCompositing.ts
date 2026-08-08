@@ -198,6 +198,134 @@ function applyBoxBlur(pixels: Uint8ClampedArray, w: number, h: number, radius: n
   }
 }
 
+// ── Mask surface pool ────────────────────────────────────────────────────────
+
+/**
+ * Bounded reuse pool for offscreen mask-compositing surfaces.
+ *
+ * Masked containers allocate full-viewport offscreen canvases per frame in
+ * the live renderer; without reuse that is one `document.createElement` +
+ * backing-store allocation per masked container per frame. The pool recycles
+ * surfaces between frames (keyed by size) while keeping the total number of
+ * retained surfaces bounded, so documents with many masks do not accumulate
+ * unbounded scratch memory. Surfaces are cleared on acquire (reset width,
+ * which also discards stale alpha — destination-in composites depend on
+ * receiving a clean surface).
+ */
+const POOLED_SURFACE_LIMIT = 16;
+const pooledSurfaces: HTMLCanvasElement[] = [];
+
+export function acquireMaskSurface(width: number, height: number): HTMLCanvasElement {
+  const w = Math.max(1, Math.ceil(width));
+  const h = Math.max(1, Math.ceil(height));
+  let surface: HTMLCanvasElement | undefined;
+  // Reuse the smallest pooled surface that fits the request.
+  let bestIndex = -1;
+  for (let i = 0; i < pooledSurfaces.length; i++) {
+    const c = pooledSurfaces[i]!;
+    if (c.width >= w && c.height >= h) {
+      if (
+        bestIndex < 0 ||
+        c.width * c.height < pooledSurfaces[bestIndex]!.width * pooledSurfaces[bestIndex]!.height
+      ) {
+        bestIndex = i;
+      }
+    }
+  }
+  if (bestIndex >= 0) {
+    surface = pooledSurfaces.splice(bestIndex, 1)[0];
+  }
+  if (!surface) surface = document.createElement('canvas');
+  // Resetting width clears the surface (both pixels and any clip/transform
+  // state) — mandatory before destination-in compositing.
+  surface.width = w;
+  surface.height = h;
+  return surface;
+}
+
+export function releaseMaskSurface(surface: HTMLCanvasElement | null | undefined): void {
+  if (!surface) return;
+  if (pooledSurfaces.length >= POOLED_SURFACE_LIMIT) return;
+  pooledSurfaces.push(surface);
+}
+
+/** Drop every pooled surface (document close, renderer replacement, tests). */
+export function clearMaskSurfacePool(): void {
+  pooledSurfaces.length = 0;
+}
+
+// ── In-place mask application ────────────────────────────────────────────────
+
+export interface MaskAlphaApplyOptions {
+  luminance?: boolean;
+  inverted?: boolean;
+  feather?: number;
+  density?: number;
+}
+
+/**
+ * Apply a rendered mask to the target canvas in place via `destination-in`:
+ * the target's alpha becomes `targetAlpha * maskAlpha`.
+ *
+ * Used for spatial masks on adjustment layers, where the filtered backdrop
+ * must keep its original pixels (and thus its original backdrop) everywhere
+ * the mask is transparent — the mask only modulates where the adjustment
+ * result is visible.
+ *
+ * The caller is responsible for the transform state: `drawMask` receives the
+ * mask surface's context with the identity transform and must apply the mask
+ * source's own transform (e.g. the world transform of the mask source node).
+ *
+ * When no post-processing is needed (no luminance/invert/feather/density),
+ * the mask is composited directly from the rendered pixels — no ImageData
+ * round-trip — which keeps the common "plain clip" case allocation-free
+ * beyond the single pooled surface.
+ */
+export function applyMaskAlpha(
+  target: CanvasRenderingContext2D,
+  drawMask: (maskCtx: CanvasRenderingContext2D) => void,
+  options?: MaskAlphaApplyOptions,
+): void {
+  const w = target.canvas.width;
+  const h = target.canvas.height;
+  if (w === 0 || h === 0) return;
+
+  const opts = options ?? {};
+  const needPostProcess =
+    opts.luminance ||
+    opts.inverted ||
+    (opts.feather ?? 0) > 0 ||
+    (opts.density !== undefined && opts.density < 1);
+
+  const maskCanvas = acquireMaskSurface(w, h);
+  try {
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
+    drawMask(maskCtx);
+
+    if (needPostProcess) {
+      try {
+        const imageData = maskCtx.getImageData(0, 0, w, h);
+        applyMaskPostProcess(imageData, opts);
+        maskCtx.putImageData(imageData, 0, 0);
+      } catch {
+        // getImageData may fail on tainted canvases — fall through with the
+        // raw mask alpha (matches renderEnhancedMask behavior).
+      }
+    }
+
+    target.save();
+    try {
+      target.globalCompositeOperation = 'destination-in';
+      target.drawImage(maskCanvas, 0, 0);
+    } finally {
+      target.restore();
+    }
+  } finally {
+    releaseMaskSurface(maskCanvas);
+  }
+}
+
 // ── Enhanced mask rendering ─────────────────────────────────────────────────
 
 export interface EnhancedMaskOptions {
@@ -239,55 +367,56 @@ export function renderEnhancedMask(
     (opts.feather ?? 0) > 0 ||
     (opts.density !== undefined && opts.density < 1);
 
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = w;
-  maskCanvas.height = h;
-  const maskCtx = maskCanvas.getContext('2d');
-  if (!maskCtx) return;
+  const maskCanvas = acquireMaskSurface(w, h);
+  const contentCanvas = acquireMaskSurface(w, h);
+  try {
+    const maskCtx = maskCanvas.getContext('2d');
+    if (!maskCtx) return;
 
-  const contentCanvas = document.createElement('canvas');
-  contentCanvas.width = w;
-  contentCanvas.height = h;
-  const contentCtx = contentCanvas.getContext('2d');
-  if (!contentCtx) return;
+    const contentCtx = contentCanvas.getContext('2d');
+    if (!contentCtx) return;
 
-  // Render mask source content
-  // Apply unlinked mask transform if specified
-  if (opts.unlinked && opts.maskTransform) {
-    maskCtx.save();
-    maskCtx.setTransform(
-      opts.maskTransform[0],
-      opts.maskTransform[1],
-      opts.maskTransform[2],
-      opts.maskTransform[3],
-      opts.maskTransform[4],
-      opts.maskTransform[5],
-    );
-  }
-  maskSource.draw(maskCtx);
-  if (opts.unlinked && opts.maskTransform) {
-    maskCtx.restore();
-  }
-
-  // Post-process the mask pixels if needed
-  if (needPostProcess) {
-    try {
-      const imageData = maskCtx.getImageData(0, 0, w, h);
-      applyMaskPostProcess(imageData, opts);
-      maskCtx.putImageData(imageData, 0, 0);
-    } catch {
-      // getImageData may fail for tainted canvases (cross-origin images)
-      // Fall through with unprocessed mask in that case
+    // Render mask source content
+    // Apply unlinked mask transform if specified
+    if (opts.unlinked && opts.maskTransform) {
+      maskCtx.save();
+      maskCtx.setTransform(
+        opts.maskTransform[0],
+        opts.maskTransform[1],
+        opts.maskTransform[2],
+        opts.maskTransform[3],
+        opts.maskTransform[4],
+        opts.maskTransform[5],
+      );
     }
+    maskSource.draw(maskCtx);
+    if (opts.unlinked && opts.maskTransform) {
+      maskCtx.restore();
+    }
+
+    // Post-process the mask pixels if needed
+    if (needPostProcess) {
+      try {
+        const imageData = maskCtx.getImageData(0, 0, w, h);
+        applyMaskPostProcess(imageData, opts);
+        maskCtx.putImageData(imageData, 0, 0);
+      } catch {
+        // getImageData may fail for tainted canvases (cross-origin images)
+        // Fall through with unprocessed mask in that case
+      }
+    }
+
+    // Render content
+    content.draw(contentCtx);
+
+    // Composite: destination-in keeps content only where mask has non-zero alpha
+    contentCtx.globalCompositeOperation = 'destination-in';
+    contentCtx.drawImage(maskCanvas, 0, 0);
+
+    // Draw the composited result onto the main canvas
+    ctx.drawImage(contentCanvas, 0, 0);
+  } finally {
+    releaseMaskSurface(contentCanvas);
+    releaseMaskSurface(maskCanvas);
   }
-
-  // Render content
-  content.draw(contentCtx);
-
-  // Composite: destination-in keeps content only where mask has non-zero alpha
-  contentCtx.globalCompositeOperation = 'destination-in';
-  contentCtx.drawImage(maskCanvas, 0, 0);
-
-  // Draw the composited result onto the main canvas
-  ctx.drawImage(contentCanvas, 0, 0);
 }
