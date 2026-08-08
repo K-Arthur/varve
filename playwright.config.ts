@@ -71,6 +71,29 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       testMatch: /tauri\/.*\.spec\.ts/,
     },
+    // WebGPU compute agreement (tests/e2e/effects/gpu-agreement.spec.ts):
+    // Playwright's default headless-shell build ships without WebGPU, and
+    // its default --no-startup-window flag prevents GPU process init
+    // entirely. Drop the flag and enable the Vulkan/SwiftShader adapter
+    // path; the spec skips when no adapter is available.
+    {
+      name: 'chromium-gpu',
+      use: {
+        ...devices['Desktop Chrome'],
+        retries: process.env.CI ? 3 : 1,
+        launchOptions: {
+          ignoreDefaultArgs: ['--no-startup-window'],
+          args: [
+            '--enable-features=Vulkan',
+            '--use-angle=vulkan',
+            '--enable-unsafe-swiftshader',
+            '--enable-logging=stderr',
+            '--v=0',
+          ],
+        },
+      },
+      testMatch: /effects\/gpu-agreement\.spec\.ts/,
+    },
     {
       name: 'firefox',
       use: {
