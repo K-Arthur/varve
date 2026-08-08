@@ -1,0 +1,76 @@
+name: Visual Baselines
+
+on:
+  # Regenerate the website visual test baselines ON runner infrastructure.
+  #
+  # Why this exists: the committed PNGs are compared against rendering on
+  # ubuntu-latest CI runners, and Playwright screenshots are pixel-exact —
+  # fonts, fontconfig and subpixel rendering differ between machines, so a
+  # baseline generated on a developer machine (e.g. CachyOS) fails on the
+  # runner even for a visually identical site. Baselines must be produced by
+  # the same platform that compares them.
+  #
+  # Run it after any intentional visual change: dispatch → it commits the
+  # refreshed PNGs to master → the normal website-deploy flow re-runs.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: visual-baselines
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: '11.9.0'
+  NODE_VERSION: '26'
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: master
+
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies (frozen)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build project-site mode
+        run: pnpm build:website
+
+      - name: Build custom-domain (root) mode
+        run: pnpm build:website:root
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Regenerate visual baselines
+        run: |
+          pnpm exec playwright test -c playwright.website.config.ts \
+            --project=ghpages apps/website/tests/e2e/visual.spec.ts \
+            --update-snapshots
+
+      - name: Commit refreshed baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/website/tests/e2e/visual.spec.ts-snapshots/
+          if git diff --cached --quiet; then
+            echo "No baseline changes."
+          else
+            git commit -m "chore(website): refresh visual baselines on runner infrastructure"
+            git push
+            echo "Baselines committed."
+          fi
