@@ -331,7 +331,7 @@ describe('headless smoke tests (M17)', () => {
     const base = baseDoc();
     const target = clone(base);
     (target.nodes.n1_aaaa as { opacity: number }).opacity = 0.5;
-    const { files } = buildReviewBundle(base, target, dir);
+    buildReviewBundle(base, target, dir);
     const manifest = JSON.parse(readFileSync(join(dir, 'manifest.json'), 'utf8'));
     expect(manifest.baseHash).toMatch(/^[0-9a-f]{64}$/);
     expect(manifest.targetHash).toMatch(/^[0-9a-f]{64}$/);

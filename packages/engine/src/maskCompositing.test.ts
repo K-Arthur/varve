@@ -18,7 +18,11 @@ import {
   srgbToLuminance,
 } from './index';
 
-function fakeImageData(width: number, height: number, fill: (i: number) => number[]): ImageData {
+function fakeImageData(
+  width: number,
+  height: number,
+  fill: (i: number) => [number, number, number, number],
+): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);
   for (let p = 0; p < width * height; p++) {
     const [r, g, b, a] = fill(p);

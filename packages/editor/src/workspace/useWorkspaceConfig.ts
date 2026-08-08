@@ -14,7 +14,7 @@ import {
   isModeCustomized,
   subscribeWorkspacePreferences,
 } from './workspaceStore';
-import type { WorkspaceConfig, WorkspaceMode, WorkspacePreferences } from './workspaceTypes';
+import type { WorkspaceConfig, WorkspaceMode } from './workspaceTypes';
 
 export function useEffectiveWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
   const [prefs, setPrefs] = useState(getWorkspacePreferences);

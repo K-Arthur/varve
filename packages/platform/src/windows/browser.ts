@@ -70,9 +70,17 @@ export class BrowserWindowService implements NativeWindowService {
     };
   }
 
-  createWindow(options: CreateWorkspaceWindowOptions): Promise<WorkspaceWindowInfo> {
+  private requirePopups(op: string): void {
     if (this.capability !== 'browser-popup') {
-      return Promise.reject(new UnsupportedOperationError('createWindow', this.capability));
+      throw new UnsupportedOperationError(op, this.capability);
+    }
+  }
+
+  createWindow(options: CreateWorkspaceWindowOptions): Promise<WorkspaceWindowInfo> {
+    try {
+      this.requirePopups('createWindow');
+    } catch (error) {
+      return Promise.reject(error);
     }
 
     this.counter += 1;
@@ -126,6 +134,11 @@ export class BrowserWindowService implements NativeWindowService {
   }
 
   closeWindow(windowId: WorkspaceWindowId): Promise<void> {
+    try {
+      this.requirePopups('closeWindow');
+    } catch (error) {
+      return Promise.reject(error);
+    }
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.resolve();
     try {
@@ -139,6 +152,11 @@ export class BrowserWindowService implements NativeWindowService {
   }
 
   focusWindow(windowId: WorkspaceWindowId): Promise<void> {
+    try {
+      this.requirePopups('focusWindow');
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.reject(new Error(`unknown window '${windowId}'`));
@@ -152,6 +170,11 @@ export class BrowserWindowService implements NativeWindowService {
   }
 
   showWindow(windowId: WorkspaceWindowId): Promise<void> {
+    try {
+      this.requirePopups('showWindow');
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.reject(new Error(`unknown window '${windowId}'`));
@@ -160,6 +183,11 @@ export class BrowserWindowService implements NativeWindowService {
   }
 
   hideWindow(windowId: WorkspaceWindowId): Promise<void> {
+    try {
+      this.requirePopups('hideWindow');
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
     const popup = this.popups.get(windowId);
     if (!popup) return Promise.reject(new Error(`unknown window '${windowId}'`));
@@ -206,6 +234,11 @@ export class BrowserWindowService implements NativeWindowService {
   }
 
   setWindowPlacement(windowId: WorkspaceWindowId, placement: WindowPlacement): Promise<void> {
+    try {
+      this.requirePopups('setWindowPlacement');
+    } catch (error) {
+      return Promise.reject(error);
+    }
     if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
     const popup = this.popups.get(windowId);
     if (!popup?.win) return Promise.reject(new Error(`unknown window '${windowId}'`));
@@ -237,6 +270,6 @@ export class BrowserWindowService implements NativeWindowService {
   }
 }
 
-export function createBrowserWindowService(): NativeWindowService {
-  return new BrowserWindowService();
+export function createBrowserWindowService(popupsEnabled?: boolean): NativeWindowService {
+  return new BrowserWindowService(popupsEnabled);
 }

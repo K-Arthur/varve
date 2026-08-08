@@ -27,7 +27,8 @@ const BORDER_WRAP = 3;
 export const RGB_SPLIT_KERNEL: GpuKernelSpec = {
   id: 'rgbSplit',
   wgsl:
-    `
+    WGSL_HELPERS +
+    /* wgsl */ `
 fn remapCoord(v: f32, w: i32, border: u32) -> f32 {
   let i = i32(floor(v));
   if (border == 3u) {
@@ -48,14 +49,6 @@ fn remapCoord(v: f32, w: i32, border: u32) -> f32 {
 @group(2) @binding(0) var dst: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var src: texture_2d<f32>;
 @group(2) @binding(2) var samp: sampler;
-
-fn sampleBilinearClamped(tex: texture_2d<f32>, samp: sampler, x: f32, y: f32, w: i32, h: i32) -> vec4f {
-  let cx = clamp(x, 0.0, f32(w - 1));
-  let cy = clamp(y, 0.0, f32(h - 1));
-  let u = (cx + 0.5) / f32(w);
-  let v = (cy + 0.5) / f32(h);
-  return textureSampleLevel(tex, samp, vec2f(u, v), 0.0);
-}
 
 fn sampleChannel(src: texture_2d<f32>, samp: sampler, x: f32, y: f32, w: i32, h: i32, border: u32) -> vec4f {
   if (border == 0u) {

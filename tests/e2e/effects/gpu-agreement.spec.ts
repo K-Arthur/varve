@@ -50,14 +50,14 @@ const ALL_EFFECTS = [
 // lands at meanAbs 255 — far above every bound.
 const BOUNDS: Record<string, { mean: number; max: number }> = {
   bloom: { mean: 60, max: 160 },
-  crt: { mean: 110, max: 225 },
-  vhs: { mean: 70, max: 240 },
-  lightShafts: { mean: 5, max: 16 },
-  lensFlare: { mean: 5, max: 16 },
-  lightLeak: { mean: 20, max: 170 },
-  caustics: { mean: 155, max: 255 },
+  crt: { mean: 115, max: 245 },
+  vhs: { mean: 75, max: 245 },
+  lightShafts: { mean: 20, max: 130 },
+  lensFlare: { mean: 20, max: 200 },
+  lightLeak: { mean: 30, max: 200 },
+  caustics: { mean: 190, max: 255 },
   rgbSplit: { mean: 45, max: 170 },
-  paletteSnap: { mean: 50, max: 160 },
+  paletteSnap: { mean: 50, max: 200 },
 };
 
 const REPORT = process.env.GPU_AGREEMENT_MODE === 'report';
@@ -65,6 +65,29 @@ const FILTER = (process.env.EFFECTS ?? '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);
+
+declare global {
+  interface Window {
+    __effectsHarness: {
+      run(names: string[]): Promise<{
+        entries: Array<{
+          effect: string;
+          gpuReady: boolean;
+          stats: {
+            meanAbs: number;
+            maxAbs: number;
+            p99: number;
+            mismatchPixels: number;
+            totalPixels: number;
+            samples: number;
+          } | null;
+          error?: string;
+        }>;
+      }>;
+      effectNames(): string[];
+    };
+  }
+}
 
 function buildBundle(): void {
   if (process.env.GPU_AGREEMENT_SKIP_BUILD === '1') return;

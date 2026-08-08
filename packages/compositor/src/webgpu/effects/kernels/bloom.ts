@@ -97,7 +97,7 @@ fn bloomBlurH(@builtin(global_invocation_id) gid: vec3u) {
   if (gx * 2 >= w || gy * 2 >= h) { return; }
   let py = gy * 2;
   let px = gx * 2;
-  let sum = vec4f(0.0);
+  var sum = vec4f(0.0);
   let weights = array<f32, 5>(0.05, 0.2, 0.5, 0.2, 0.05);
   for (var k: i32 = -2; k <= 2; k = k + 1) {
     let nx = clamp(px + k * 2, 0, w - 1);
@@ -118,7 +118,7 @@ fn bloomBlurV(@builtin(global_invocation_id) gid: vec3u) {
   if (gx * 2 >= w || gy * 2 >= h) { return; }
   let py = gy * 2;
   let px = gx * 2;
-  let sum = vec4f(0.0);
+  var sum = vec4f(0.0);
   let weights = array<f32, 5>(0.05, 0.2, 0.5, 0.2, 0.05);
   for (var k: i32 = -2; k <= 2; k = k + 1) {
     let ny = clamp(py + k * 2, 0, h - 1);
@@ -217,7 +217,7 @@ fn bloomComposite(@builtin(global_invocation_id) gid: vec3u) {
     const q = request.params;
     const coordScale =
       request.coordSpace && request.coordSpace.scale > 0 ? request.coordSpace.scale : 1;
-    const radius = Math.max(0.5, (q.radius ?? 24) * coordScale);
+    const radius = Math.max(0.5, Number(q.radius ?? 24) * coordScale);
     const params = new Float32Array(15);
     let o = pack.f(params, 0, q.threshold, 0.7);
     o = pack.f(params, o, q.softKnee, 0.2);
@@ -239,10 +239,10 @@ fn bloomComposite(@builtin(global_invocation_id) gid: vec3u) {
     const streakEnabled = q.streakEnabled === true;
     o = pack.b(params, o, q.streakEnabled, false);
     o = pack.f(params, o, q.streakAngle, 0);
-    o = pack.f(params, o, (q.streakLength ?? 64) * coordScale, 64);
+    o = pack.f(params, o, Number(q.streakLength ?? 64) * coordScale, 64);
     o = pack.f(params, o, q.streakIntensity, 0.5);
     pack.f(params, o, q.streakAspect, 2);
-    const passes = [
+    const passes: Array<{ entry: string; textures: string[] }> = [
       { entry: 'bloomBright' as const, textures: ['b1', 'src'] },
       { entry: 'bloomDown' as const, textures: ['b2', 'b1'] },
       { entry: 'bloomDown' as const, textures: ['b3', 'b2'] },
@@ -251,7 +251,7 @@ fn bloomComposite(@builtin(global_invocation_id) gid: vec3u) {
       { entry: 'bloomBlurH' as const, textures: ['c3', 'b3'] },
       { entry: 'bloomBlurV' as const, textures: ['b3', 'c3'] },
     ];
-    if (streakEnabled && (q.streakIntensity ?? 0.5) > 0) {
+    if (streakEnabled && Number(q.streakIntensity ?? 0.5) > 0) {
       passes.push({ entry: 'bloomStreak' as const, textures: ['b3', 'b3'] });
     }
     return [

@@ -143,7 +143,6 @@ export const pack = {
   },
 };
 const MAX_PALETTE = 128;
-const FULL_RES = Symbol('full-res');
 
 /** Small stable code for enum-ish string params (mode, algorithm, ...). */
 export function stringCode(s: string): number {
@@ -343,7 +342,7 @@ export class GpuEffectRunner {
     if (needsSrc) {
       device.queue.writeTexture(
         { texture: srcTex },
-        rgba,
+        rgba as unknown as GPUAllowSharedBufferSource,
         { bytesPerRow: width * 4 },
         { width, height },
       );
