@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { pageSnapTargets } from '../snapping';
 import {
   createSnapSession,
   filterSnapTargets,
+  pageSnapTargets,
   snapPosition,
   snapSize,
   snapTargetSearchRect,
