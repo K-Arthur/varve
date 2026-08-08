@@ -29,6 +29,7 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const WORKFLOWS_DIR = '.github/workflows';
 
@@ -364,7 +365,7 @@ async function main() {
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     console.error(`pin-github-actions failed: ${err.message}`);
     process.exit(1);

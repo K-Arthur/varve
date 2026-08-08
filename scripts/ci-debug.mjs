@@ -29,6 +29,7 @@ import {
 import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const API_BASE = 'https://api.github.com';
 
@@ -614,7 +615,7 @@ async function main() {
   console.log(`\nDebug report written to ${args.output}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => {
     console.error(`ci-debug failed: ${err.message}`);
     process.exit(1);
