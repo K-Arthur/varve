@@ -117,7 +117,12 @@ function licenseEntries(expression) {
 function npmComponents() {
   let raw;
   try {
-    raw = run('pnpm', ['list', '--recursive', '--depth', 'Infinity', '--json', '--prod']);
+    raw = run(
+      // On Windows the pnpm launcher is pnpm.cmd; execFileSync does not do
+      // PATHEXT resolution for .cmd shims, so a bare 'pnpm' is ENOENT there.
+      process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+      ['list', '--recursive', '--depth', 'Infinity', '--json', '--prod'],
+    );
   } catch (err) {
     throw new Error(`pnpm list failed: ${err.stderr?.toString().trim() ?? err.message}`);
   }
