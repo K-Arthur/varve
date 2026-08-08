@@ -439,7 +439,9 @@ jobs:
       - name: Install container runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends podman fuse xvfb dbus-x11 at-spi2-core
+          sudo apt-get install -y --no-install-recommends \
+            podman fuse xvfb dbus-x11 at-spi2-core \
+            libegl1 libgl1 libgles2 libgbm1 libxkbcommon0
           podman info >/dev/null 2>&1 || echo "::warning::podman info failed — install tests will fail fast"
 
       - name: Install-test .deb and .rpm in clean containers
