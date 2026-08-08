@@ -34,6 +34,21 @@ import type { EffectQuality } from './quality';
 import { applyRgbSplit } from './rgbSplit';
 import { applyVhs } from './vhs';
 
+export const LIVE_EFFECT_KINDS = new Set<FilterKind>([
+  'dither',
+  'paletteSnap',
+  'bloom',
+  'rgbSplit',
+  'crt',
+  'vhs',
+  'lightShafts',
+  'lensFlare',
+  'lightLeak',
+  'caustics',
+]);
+
+type FilterKind = LiveEffectKind;
+
 export type LiveEffectKind =
   | 'dither'
   | 'paletteSnap'
