@@ -1,0 +1,252 @@
+# Live Effects System — Non-Destructive Procedural Effects
+
+**Status:** current · **Introduced:** 2026-08-07
+
+The live effects family is the coherent, registry-driven extension of Varve's
+existing non-destructive adjustment pipeline. Ten new effect kinds cover seven
+feature areas:
+
+| Feature | Effect kind(s) |
+| --- | --- |
+| Live dithering | `dither` |
+| Palette snapping | `paletteSnap` |
+| Optical bloom / diffusion | `bloom` |
+| RGB split / chromatic aberration | `rgbSplit` |
+| CRT / analog screen | `crt` |
+| VHS / tape artifacts | `vhs` |
+| Volumetric light shafts | `lightShafts` |
+| Lens flares | `lensFlare` |
+| Light leaks | `lightLeak` |
+| Water caustics / refraction | `caustics` |
+
+None of these are isolated one-off filters. Every kind flows through the same
+architecture as every other adjustment in Varve, which buys the entire feature
+set — non-destructiveness, editability, reordering, undo/redo, persistence,
+export, masking, scoping, and blending — for free.
+
+---
+
+## 1. Architecture
+
+```
+Adjustment (scene/engine filters.ts)          ← serialized in the document
+      │  adjustmentToFilter()
+      ▼
+FilterIR (engine/types.ts)                    ← portable render IR
+      │  applyFilterWithCompositing(target, filters, w, h, { quality, coordSpace })
+      ▼
+applySoftwareFilter (filterCompositor.ts)     ← dispatch by kind
+      │
+      ▼
+liveEffects/<kernel>.ts                       ← deterministic ImageData kernels
+```
+
+- **Kernels** live in `packages/engine/src/liveEffects/`:
+  `prng.ts` (seeded randomness), `quality.ts` (tiers + down/upsample),
+  `paletteCore.ts` (shared quantization: metrics, nearest-colour lookup with a
+  uniform-grid LUT for large palettes, median-cut + k-means generation),
+  one module per effect, `presets.ts` (plain parameter presets), `index.ts`.
+- **Metadata** lives in three registries, extended with one entry per kind:
+  - `effectContract.ts` — working colour space, alpha convention, preview
+    tolerance, `requiresRasterForExport`, CSS equivalent (always `null`),
+    GPU status.
+  - `adjustmentPipeline.ts` — `FILTER_PROPERTIES` capability classification
+    and `effectPixelExpansion` bounds expansion per kind.
+  - `filters.ts` — `AdjustmentKind`, per-kind interfaces, defaults, and the
+    `Adjustment → FilterIR` mapper.
+- **UI** is one new file, `LiveEffectEditors.tsx`, plus 10 menu entries in
+  `AdjustmentPanel.tsx`. Controls reuse the existing `adj-editor__*` classes
+  and the panel's drag-transaction batching (one slider drag = one undo
+  entry). Presets populate ordinary parameters — no renderer branches.
+
+**Adding a new effect** = add the kind to `filters.ts` + `types.ts` +
+`filterCompositor.ts` dispatch + the two registries + one editor component.
+No hub file (CanvasArea/Shell) changes.
+
+---
+
+## 2. Renderer capability matrix
+
+| Effect | WebGPU | CPU/Canvas2D | Native | Export | Notes |
+| --- | --- | --- | --- | --- | --- |
+| dither | not-implemented | yes | no | raster | error diffusion is sequential; CPU row-major |
+| paletteSnap | not-implemented | yes | no | raster | LUT-accelerated lookup |
+| bloom | not-implemented | yes | no | raster | linear-light blur; gamma composite (repo convention) |
+| rgbSplit | not-implemented | yes | no | raster | premultiplied sampling |
+| crt | not-implemented | yes | no | raster | analytic patterns only |
+| vhs | not-implemented | yes | no | raster | seeded, frame-locked |
+| lightShafts | not-implemented | yes | no | raster | screen-space ray marching |
+| lensFlare | not-implemented | yes | no | raster | procedural components |
+| lightLeak | not-implemented | yes | no | raster | seeded fBm + HSL |
+| caustics | not-implemented | yes | no | raster | multi-wave interference |
+
+This matches the repository's established strategy (ADR-0003, effects memory
+doc): WebGPU is unavailable on the primary platform (Linux Tauri/WebKitGTK),
+the present canvas is always Canvas2D, and every existing filter is classified
+`gpuStatus: 'not-implemented'`. The registry makes a future GPU path a
+per-effect addition without touching the CPU kernels. A missing GPU can never
+destroy content: there is no GPU-only path, so nothing to fall back from.
+
+---
+
+## 3. Quality tiers
+
+`interactive` < `normal` < `export` (`liveEffects/quality.ts`). The serialized
+per-effect `quality` param (`auto` | `interactive` | `normal` | `export`)
+resolves against the caller's tier — `auto` means "normal in preview, export
+at export". Export call sites (`flattenForExport`,
+`exportRasterizedSubtree`) always pass `export`, so preview shortcuts can
+never leak into exported output. Tier effects today: bloom pyramid levels and
+internal resolution, light-shaft step counts, caustic field resolution, VHS
+bleed radius, flare intensity.
+
+---
+
+## 4. Coordinate spaces and zoom stability
+
+The Canvas2D adjustment path passes a `coordSpace`
+(`{ scale, originX, originY, regionX, regionY }`) into the filter chain,
+derived from the current canvas transform. Kernels use it to interpret
+parameters in **document pixels**:
+
+- dither cells / Bayer phase — anchored to the document grid (no pattern
+  swimming under pan/zoom; verified by unit test),
+- rgbSplit offsets — a 4px split stays 4px at any zoom,
+- bloom radius / caustic scale — document units.
+
+The adjustment backdrop region itself was corrected to device space (the
+previous code mixed document and device units, misplacing effects at
+zoom ≠ 100%). Effects with unbounded influence (bloom, flares, streaks) use
+the registry-driven `effectPixelExpansion`, applied with a 512px cap for
+live-preview memory safety; export applies the full expansion.
+
+The IR path (`replay.ts`) now derives the same coordSpace from the current
+canvas transform when compositing adjustment filters, so zoom stability holds
+on the worker/IR path as well. On nested offscreen surfaces the transform is
+identity and parameters interpret in the surface's own pixel space, which is
+self-consistent.
+
+---
+
+## 5. Colour and alpha semantics
+
+- **dither / paletteSnap / rgbSplit / crt / vhs / caustics lighting** — sRGB
+  gamma space, straight alpha at kernel boundaries.
+- **bloom** — threshold and soft-knee computed on linearized luma; the blur
+  pyramid runs in linear light (reusing the engine's
+  `gaussianBlurLinearLight`); the glow is composited in gamma space, matching
+  the repository's documented convention (compositing in gamma, blur in
+  linear — see the effects memory doc).
+- **rgbSplit / crt** — premultiplied sampling internally so displaced or
+  warped channels never produce dark/white fringes at semi-transparent edges.
+- No kernel ever mutates the alpha channel except the explicit
+  `alphaCutoff` policy (pixels below the cutoff are forced fully transparent
+  in dither/paletteSnap).
+- Dithering never switches the document to indexed colour — it is purely a
+  render-time quantisation of the source pixels.
+
+---
+
+## 6. Determinism
+
+All procedural output derives from integer seeds via `liveEffects/prng.ts`
+(mulberry32, integer hashes, value noise, fBm) — no `Math.random()` anywhere
+in kernels or presets. The same `(seed, time, frameRate, params, quality,
+surface)` triple produces byte-identical output:
+
+- VHS separates `seed` (pattern identity), `time` (animation), and
+  `frameRate` (frame-locked noise).
+- Caustics separate `seed`, `time`, `animationSpeed`; tileable mode uses
+  integer-lattice wave vectors for exact spatial periodicity.
+- Error-diffusion dithering is pure arithmetic (seed-independent by design,
+  documented in the kernel tests).
+
+---
+
+## 7. Serialization and migration
+
+Effects are plain JSON on the `AdjustmentNode.adjustments` stack — no new
+schema version was required (additive kinds only). Unknown future kinds
+degrade gracefully: `adjustmentToFilter`'s default arm maps them to a no-op
+and the document stays readable. Existing migration infrastructure preserves
+unknown fields. Palette data is embedded inline (from imported files or
+document swatches at edit time), so rendering never depends on external
+files.
+
+---
+
+## 8. Export
+
+All ten kinds are classified `requiresRasterForExport`, so the existing
+SVG/PDF rasterization paths flatten the affected subtree, apply the filter
+stack at export quality, and embed the result. Effect bounds expansion is now
+threaded through the live export pipeline end to end:
+
+- `composeFlattenedRasterAssetsForNode` (the SVG/PDF export path) pads the
+  raster surface by the registry-driven expansion for boundaries with
+  adjustment filters, anchors the content at the expansion offset, and
+  records `expansion` on the `RasterAsset`.
+- The SVG emitters place such images at `x = -left, y = -top` with the
+  expanded size, so bloom spill and RGB displacement are visible in the
+  exported file instead of being clipped at the content rectangle.
+- `flattenForExport` records the same metadata; assets without an
+  `expansion` field keep the legacy placement, so older consumers are
+  unaffected.
+
+Covered by `flattenForExport` and `svg-adjustment-export` unit tests plus the
+E2E export test. PDF raster fallback (per-node PNG-in-PDF) remains
+content-bounds.
+
+---
+
+## 9. Palette files
+
+`@varve/shared/paletteFormats.ts` gained an Adobe Color Table (`.act`) parser
+with untrusted-input validation (length checks, clamped colour counts,
+bounded allocation) plus a `parsePaletteFile` dispatcher reusing the existing
+`.gpl`/`.ase`/`.aco` parsers. The Palette Snap editor imports all four
+formats and can pull the document's own swatches. The palette is embedded in
+the effect parameters, so export and reload never need the original file.
+
+---
+
+## 9b. Validation
+
+- **GPU-disabled fallback (E2E):** `navigator.gpu` is removed before the app
+  boots; bloom renders identically and toggling the effect returns the source
+  appearance. The live-effects E2E spec also runs an axe-core scan
+  (wcag2a/2aa/21a/21aa) over every effect editor — zero violations.
+- **Memory safety (unit):** 1024×1024 dither and bloom (export quality, with
+  streaks) complete with bounded, finite byte output; the palette LUT cache
+  is keyed per palette identity and cannot grow unboundedly.
+- **Test isolation:** the E2E spec clears localStorage and blocks the
+  `varve-recovery` / `varve-crash-reports` IndexedDB opens at page start so
+  crashed runs cannot restore documents or show recovery dialogs.
+
+## 10. Performance notes
+
+- Error diffusion runs one sequential pass; the LUT-accelerated palette
+  lookup makes per-pixel quantisation O(1) for large palettes.
+- Bloom uses a downsample pyramid (3 levels, 4 at export) instead of a giant
+  kernel; streak mode smears only the coarsest level.
+- Ray marching in light shafts caps at 96 steps; interactive tier halves the
+  count.
+- The adjustment backdrop surface is bounded by the 512px preview cap; the
+  live canvas reuses the existing dirty-region replay (effects re-run only
+  for the affected subtree region).
+- Benchmarks: see `docs/perf/` for the canvas baselines; the kernels are
+  covered by `pnpm bench`-style unit tests where timing-sensitive.
+
+## 11. Known limitations
+
+- Per-item IR-path effects lack zoom-aware coordSpace (use adjustment layers).
+- Preview tiers are approximations: interactive-quality output differs
+  slightly from export-quality output (tolerances in `effectContract.ts`).
+- WebGPU compute paths are not implemented (registry-classified).
+- No native (Rust) acceleration — CPU kernels are fast enough for the
+  adjustment path, and no new crate was added.
+- Deep water caustics are a 2D interference approximation — no ray tracing
+  or depth estimation.
+- Export asset metadata records content bounds; the rendered surface is
+  expanded (bloom spill is inside the PNG but downstream placement uses the
+  content rect).
