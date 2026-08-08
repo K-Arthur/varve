@@ -173,6 +173,24 @@ export interface SessionMeta {
   fileId?: string;
 }
 
+/**
+ * Which file a session is bound to — the identity `save()` writes back to.
+ *
+ * Always passed explicitly when a document enters a tab. A session must never
+ * inherit identity from whatever happened to be open before it, or saving
+ * writes the new document over the previous one.
+ */
+export interface SessionFileMeta {
+  name?: string;
+  filePath?: string;
+  fileId?: string;
+}
+
+/** Collision-free session id (two tabs can be created within the same ms). */
+export function newSessionId(): string {
+  return `session-${crypto.randomUUID()}`;
+}
+
 export interface EditorState {
   tool: ToolId;
   zoom: number;
@@ -675,7 +693,7 @@ export interface EditorContextValue {
   newDocument: () => void;
   serializeDocument: () => string;
   updateDoc: (fn: (doc: Document) => Document) => void;
-  loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
+  loadDocument: (json: string, meta?: import('./usePersistence').LoadDocumentMeta) => void;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
