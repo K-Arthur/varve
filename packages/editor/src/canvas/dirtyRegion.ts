@@ -446,6 +446,27 @@ export type SurfaceMatch = 'match' | 'never-painted' | 'camera-moved' | 'surface
  * Exact equality is deliberate — a sub-pixel pan still shifts content, and a
  * tolerance here trades a correctness guarantee for at most one repaint.
  */
+/**
+ * What to record as the painted surface after a frame completes.
+ *
+ * A frame may paint an *approximation* of the current camera rather than an
+ * authoritative render of it — today that is the reprojected worker bitmap
+ * path, which composites a resampled older frame while the worker produces a
+ * fresh one. Those pixels are not reusable: regions the camera just exposed
+ * contain stretched edge content, and a later partial redraw would composite
+ * fresh dirty rects over them.
+ *
+ * Recording `null` for such a frame costs exactly one full redraw and keeps
+ * the invariant that retained pixels always equal what a full redraw of the
+ * same state would have produced.
+ */
+export function paintedSurfaceAfterFrame(
+  surface: PaintedSurfaceIdentity,
+  authoritative: boolean,
+): PaintedSurfaceIdentity | null {
+  return authoritative ? surface : null;
+}
+
 export function surfaceMatchesBackingStore(
   painted: PaintedSurfaceIdentity | null,
   current: PaintedSurfaceIdentity,
