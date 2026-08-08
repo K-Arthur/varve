@@ -13,6 +13,7 @@ import { createEmptyDockNode, createPanelDockNode } from '../dockTypes';
 import {
   captureCurrentLayout,
   clearActiveLayout,
+  clearPanelPlacement,
   createInitialState,
   deleteNamedLayout,
   diagnoseWindows,
@@ -21,10 +22,13 @@ import {
   getActiveLayout,
   listNamedLayouts,
   loadNamedLayout,
+  loadPanelPlacement,
+  loadPanelPlacements,
   moveWindowToDisplay,
   primaryDisplayForLayout,
   renameNamedLayout,
   saveNamedLayout,
+  savePanelPlacement,
   setActiveLayout,
 } from '../workspaceManager';
 
@@ -441,5 +445,71 @@ describe('workspaceManager: moveWindowToDisplay', () => {
     const result = moveWindowToDisplay('w1', undefined, undefined, DISPLAY_PRIMARY);
     expect(result.width).toBe(400);
     expect(result.height).toBe(600);
+  });
+});
+
+describe('workspaceManager: per-panel placement persistence', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('saves and loads a panel placement', () => {
+    savePanelPlacement({
+      panelTypeId: 'layers',
+      windowId: 'browser-popup-1',
+      logicalPosition: { x: 100, y: 200 },
+      logicalSize: { width: 320, height: 480 },
+      state: 'normal',
+      updatedAt: 1,
+    });
+    const loaded = loadPanelPlacement('layers');
+    expect(loaded).not.toBeNull();
+    expect(loaded!.logicalPosition).toEqual({ x: 100, y: 200 });
+    expect(loaded!.logicalSize).toEqual({ width: 320, height: 480 });
+  });
+
+  it('later saves replace earlier ones for the same panel', () => {
+    savePanelPlacement({
+      panelTypeId: 'layers',
+      windowId: 'w1',
+      logicalPosition: { x: 0, y: 0 },
+      logicalSize: { width: 320, height: 480 },
+      state: 'normal',
+      updatedAt: 1,
+    });
+    savePanelPlacement({
+      panelTypeId: 'layers',
+      windowId: 'w2',
+      logicalPosition: { x: 50, y: 60 },
+      logicalSize: { width: 400, height: 600 },
+      state: 'normal',
+      updatedAt: 2,
+    });
+    const all = loadPanelPlacements();
+    expect(all).toHaveLength(1);
+    expect(all[0]!.windowId).toBe('w2');
+  });
+
+  it('returns null for unknown panel', () => {
+    expect(loadPanelPlacement('nope')).toBeNull();
+  });
+
+  it('clearPanelPlacement removes the record', () => {
+    savePanelPlacement({
+      panelTypeId: 'layers',
+      windowId: 'w1',
+      logicalPosition: { x: 0, y: 0 },
+      logicalSize: { width: 320, height: 480 },
+      state: 'normal',
+      updatedAt: 1,
+    });
+    clearPanelPlacement('layers');
+    expect(loadPanelPlacement('layers')).toBeNull();
+  });
+
+  it('survives corrupt storage', () => {
+    localStorage.setItem('varve-panel-placements', 'not json');
+    expect(loadPanelPlacements()).toEqual([]);
+    expect(loadPanelPlacement('layers')).toBeNull();
   });
 });

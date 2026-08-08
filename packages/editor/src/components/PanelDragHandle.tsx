@@ -24,10 +24,12 @@
 import { getWindowService } from '@varve/platform';
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip, TooltipProvider } from '@varve/ui';
 import type React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { markPanelDetached } from '../workspace/detachedPanelsStore';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getDetachedPanels, markPanelDetached } from '../workspace/detachedPanelsStore';
 import { isPanelDetachable, type PanelTypeId } from '../workspace/panelRegistry';
+import { getSessionBroker } from '../workspace/sessionBroker';
 import { TransferStateMachine } from '../workspace/transferStateMachine';
+import { loadPanelPlacement } from '../workspace/workspaceManager';
 
 export interface PanelDragHandleProps {
   panelTypeId: PanelTypeId;
@@ -138,6 +140,21 @@ async function executeDetach(
       route: `?surface=panel-window&windowId=${tx.id}&session=current&panels=${panelTypeId}`,
     });
 
+    // Restore the panel's remembered placement (per-panel, cross-session).
+    const saved = loadPanelPlacement(panelTypeId);
+    if (saved) {
+      try {
+        await windowService.setWindowPlacement(newWindow.id, {
+          displayId: newWindow.id,
+          logicalPosition: saved.logicalPosition,
+          logicalSize: saved.logicalSize,
+          state: saved.state,
+        });
+      } catch {
+        // Placement is best-effort (popup blockers / Wayland).
+      }
+    }
+
     transferStateMachine.advance(tx.id, 'creating-destination');
     transferStateMachine.advance(tx.id, 'waiting-ready');
     transferStateMachine.advance(tx.id, 'hydrating');
@@ -170,6 +187,53 @@ async function executeDetach(
 }
 
 // ---------------------------------------------------------------------------
+// Move-to-window execution
+// ---------------------------------------------------------------------------
+
+/** Group detached panels by their hosting window (live read of the store). */
+function groupDetachedWindows(): Array<{ windowId: string; label: string }> {
+  const byWindow = new Map<string, string[]>();
+  for (const record of getDetachedPanels()) {
+    const list = byWindow.get(record.windowId) ?? [];
+    list.push(record.panelTypeId);
+    byWindow.set(record.windowId, list);
+  }
+  return [...byWindow.entries()].map(([windowId, panels]) => ({
+    windowId,
+    label: panels.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' + '),
+  }));
+}
+
+async function executeMoveToWindow(
+  panelTypeId: string,
+  panelInstanceId: string,
+  title: string,
+  targetWindowId: string,
+): Promise<void> {
+  // The primary window stops rendering this panel (Shell subscribes).
+  markPanelDetached(panelTypeId as PanelTypeId, panelInstanceId, targetWindowId);
+
+  // Tell the target auxiliary window it now hosts this panel.
+  getSessionBroker('current')?.broadcastPanelAdded(panelTypeId, targetWindowId);
+
+  // Focus the destination window so the user lands on the moved panel.
+  const windowService = getWindowService();
+  try {
+    await windowService.focusWindow(targetWindowId);
+  } catch {
+    // Best-effort focus
+  }
+
+  const announcement = document.createElement('div');
+  announcement.setAttribute('role', 'status');
+  announcement.setAttribute('aria-live', 'polite');
+  announcement.className = 'sr-only';
+  announcement.textContent = `${title} panel moved to another window`;
+  document.body.appendChild(announcement);
+  setTimeout(() => announcement.remove(), 3000);
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -185,11 +249,37 @@ export function PanelDragHandle({
   const [dragging, setDragging] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement>(null);
+  const detachBtnRef = useRef<HTMLButtonElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const ghostRef = useRef<HTMLDivElement | null>(null);
   const detachable = isPanelDetachable(panelTypeId);
   const DRAG_THRESHOLD = 10;
+
+  // Existing auxiliary windows this panel could move into (grouped by id).
+  const existingWindows = useMemo(() => groupDetachedWindows(), [menuOpen]);
+
+  // Close the menu on outside click / Escape.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   useEffect(() => {
     return () => {
@@ -298,8 +388,7 @@ export function PanelDragHandle({
     [dragging, panelInstanceId, panelTypeId, currentWindowId, title, onDetached],
   );
 
-  const handleDetachClick = useCallback(async () => {
-    if (!detachable || transferring) return;
+  const detachToNewWindow = useCallback(async () => {
     const check = canDetach();
     if (!check.ok) {
       setError(check.reason ?? 'Cannot detach');
@@ -324,7 +413,54 @@ export function PanelDragHandle({
     } finally {
       setTransferring(false);
     }
-  }, [detachable, transferring, panelTypeId, panelInstanceId, currentWindowId, title, onDetached]);
+  }, [panelTypeId, panelInstanceId, currentWindowId, title, onDetached]);
+
+  const handleDetachClick = useCallback(async () => {
+    if (!detachable || transferring) return;
+
+    // Read the detached store LIVE — the memoized list can be stale if the
+    // component hasn't re-rendered since another panel detached.
+    const liveWindows = groupDetachedWindows();
+
+    // If other panel windows exist, offer "move into window X" — never
+    // silently create a second window.
+    if (liveWindows.length > 0) {
+      const rect = detachBtnRef.current?.getBoundingClientRect();
+      if (rect) {
+        setMenuPos({
+          x: Math.min(rect.left, window.innerWidth - 200),
+          y: rect.bottom + 4,
+        });
+      }
+      setMenuOpen((open) => !open);
+      return;
+    }
+
+    await detachToNewWindow();
+  }, [detachable, transferring, detachToNewWindow]);
+
+  const handleMoveToWindow = useCallback(
+    async (targetWindowId: string) => {
+      setMenuOpen(false);
+      const check = canDetach();
+      if (!check.ok) {
+        setError(check.reason ?? 'Cannot move panel');
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+      setTransferring(true);
+      setError(null);
+      try {
+        await executeMoveToWindow(panelTypeId, panelInstanceId, title, targetWindowId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Move failed');
+        setTimeout(() => setError(null), 3000);
+      } finally {
+        setTransferring(false);
+      }
+    },
+    [panelTypeId, panelInstanceId, title],
+  );
 
   if (!detachable) return <div className={className}>{children}</div>;
 
@@ -344,11 +480,14 @@ export function PanelDragHandle({
         >
           <button
             type="button"
+            ref={detachBtnRef}
             className="panel-detach-btn"
             onClick={handleDetachClick}
             onPointerDown={(e) => e.stopPropagation()}
             disabled={transferring}
             aria-label={`Detach ${title} panel`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             data-testid={`detach-${panelTypeId}`}
             style={{
               display: 'inline-flex',
@@ -369,6 +508,66 @@ export function PanelDragHandle({
           </button>
         </Tooltip>
       </TooltipProvider>
+      {menuOpen && (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label={`Move ${title} panel`}
+          data-testid={`detach-menu-${panelTypeId}`}
+          style={{
+            position: 'fixed',
+            left: menuPos.x,
+            top: menuPos.y,
+            zIndex: 9999,
+            minWidth: 190,
+            background: 'var(--color-surface-elevated, #f5f5f5)',
+            border: '1px solid var(--color-border, #e0e0e0)',
+            borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+            padding: 4,
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuOpen(false);
+              void detachToNewWindow();
+            }}
+            data-testid={`detach-new-window-${panelTypeId}`}
+            style={styles.menuItem}
+          >
+            Detach to new window
+          </button>
+          {existingWindows.map((w) => (
+            <button
+              key={w.windowId}
+              type="button"
+              role="menuitem"
+              onClick={() => handleMoveToWindow(w.windowId)}
+              data-testid={`move-to-${w.windowId}-${panelTypeId}`}
+              style={styles.menuItem}
+            >
+              Move to window: {w.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  menuItem: {
+    display: 'block',
+    width: '100%',
+    textAlign: 'left',
+    padding: '6px 10px',
+    border: 'none',
+    background: 'transparent',
+    borderRadius: 5,
+    cursor: 'pointer',
+    fontSize: 12,
+    color: 'var(--color-text, #1a1a1a)',
+  },
+};

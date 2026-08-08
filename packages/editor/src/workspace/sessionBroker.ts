@@ -113,6 +113,16 @@ export class SessionBroker {
     }, 50);
   }
 
+  /** Tell the target auxiliary window it now hosts an additional panel. */
+  broadcastPanelAdded(panelTypeId: string, windowId: string): void {
+    this.transport.send('panel-added', { panelTypeId, windowId });
+  }
+
+  /** Tell auxiliary windows a panel left a window (reattach/close). */
+  broadcastPanelRemoved(panelTypeId: string, windowId: string): void {
+    this.transport.send('panel-removed', { panelTypeId, windowId });
+  }
+
   // -------------------------------------------------------------------------
   // Message handling
   // -------------------------------------------------------------------------
@@ -156,13 +166,15 @@ export class SessionBroker {
         editorApi.requestRedo();
         break;
       case 'request-reattach': {
-        const msg = payload as { windowId?: string; panelTypeId?: string } | null;
-        if (!msg?.windowId || !msg.panelTypeId) return;
+        const msg = payload as { windowId?: string; panelTypeIds?: string[] } | null;
+        if (!msg?.windowId || !msg.panelTypeIds || msg.panelTypeIds.length === 0) return;
         this.windows.delete(msg.windowId);
-        editorApi.reattachPanel(msg.panelTypeId);
+        for (const panelTypeId of msg.panelTypeIds) {
+          editorApi.reattachPanel(panelTypeId);
+        }
         this.transport.send('reattach-ack', {
           windowId: msg.windowId,
-          panelTypeId: msg.panelTypeId,
+          panelTypeIds: msg.panelTypeIds,
           accepted: true,
         });
         break;
