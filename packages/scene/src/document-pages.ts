@@ -6,15 +6,7 @@ import { cryptoId, devValidate, makeGroupNode } from './document-utils';
 import { nextNodeId } from './node-id';
 import { getPageNumbering } from './pageNumbering';
 import { projectSpreads } from './pasteboardLayout';
-import type {
-  FacingPagesConfig,
-  GroupNode,
-  NodeId,
-  Page,
-  PageSide,
-  SceneNode,
-  Spread,
-} from './types';
+import type { FacingPagesConfig, GroupNode, NodeId, Page, PageSide, Spread } from './types';
 import { isContainer } from './types';
 
 // ── Helper ─────────────────────────────────────────────────────────────────
@@ -330,13 +322,16 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
       };
       for (let i = 0; i < mapped.length; i++) {
         const frameId = mapped[i]!;
-        const frame = result.nodes[frameId] as Record<string, unknown> | undefined;
-        if (frame && frame.kind === 'text') {
+        const frame = result.nodes[frameId];
+        // Narrowing on `kind` types storyBinding directly — the previous cast
+        // through Record<string, unknown> is rejected by stricter configs
+        // (apps/desktop) because SceneNode has no index signature.
+        if (frame?.kind === 'text') {
           result = {
             ...result,
             nodes: {
               ...result.nodes,
-              [frameId]: { ...frame, storyBinding: { storyId, threadIndex: i } } as SceneNode,
+              [frameId]: { ...frame, storyBinding: { storyId, threadIndex: i } },
             },
           };
         }
