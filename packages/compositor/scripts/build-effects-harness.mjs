@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 /**
@@ -42,3 +43,9 @@ await build({
 });
 
 console.log(`harness bundle written to ${outfile}`);
+
+// Harness page (loads the bundle, reads ?effects= from the query string).
+const pageSrc = join(root, '..', '..', 'tests', 'e2e', 'effects', 'gpu-harness-page.html');
+const pageOut = join(root, 'dist', 'gpu-harness.html');
+copyFileSync(pageSrc, pageOut);
+console.log(`harness page written to ${pageOut}`);
