@@ -69,23 +69,44 @@ No hub file (CanvasArea/Shell) changes.
 
 | Effect | WebGPU | CPU/Canvas2D | Native | Export | Notes |
 | --- | --- | --- | --- | --- | --- |
-| dither | not-implemented | yes | no | raster | error diffusion is sequential; CPU row-major |
-| paletteSnap | not-implemented | yes | no | raster | LUT-accelerated lookup |
-| bloom | not-implemented | yes | no | raster | linear-light blur; gamma composite (repo convention) |
-| rgbSplit | not-implemented | yes | no | raster | premultiplied sampling |
-| crt | not-implemented | yes | no | raster | analytic patterns only |
-| vhs | not-implemented | yes | no | raster | seeded, frame-locked |
-| lightShafts | not-implemented | yes | no | raster | screen-space ray marching |
-| lensFlare | not-implemented | yes | no | raster | procedural components |
-| lightLeak | not-implemented | yes | no | raster | seeded fBm + HSL |
-| caustics | not-implemented | yes | no | raster | multi-wave interference |
+| dither | partial | yes | yes | raster | error diffusion is sequential; GPU path = CPU |
+| paletteSnap | implemented | yes | yes | raster | LUT-accelerated lookup |
+| bloom | implemented | yes | yes | raster | GPU: 2-level pyramid; CPU: 3-4 levels |
+| rgbSplit | implemented | yes | yes | raster | premultiplied sampling |
+| crt | implemented | yes | yes | raster | analytic patterns only |
+| vhs | implemented | yes | yes | raster | seeded, frame-locked; GPU noise is hash-per-pixel |
+| lightShafts | implemented | yes | yes | raster | screen-space ray marching |
+| lensFlare | implemented | yes | yes | raster | procedural components |
+| lightLeak | implemented | yes | yes | raster | seeded fBm + HSL |
+| caustics | implemented | yes | yes | raster | GPU evaluates the field at full res |
 
-This matches the repository's established strategy (ADR-0003, effects memory
-doc): WebGPU is unavailable on the primary platform (Linux Tauri/WebKitGTK),
-the present canvas is always Canvas2D, and every existing filter is classified
-`gpuStatus: 'not-implemented'`. The registry makes a future GPU path a
-per-effect addition without touching the CPU kernels. A missing GPU can never
-destroy content: there is no GPU-only path, so nothing to fall back from.
+Three backends, one dispatch:
+
+```
+Adjustment → FilterIR → applyFilterWithCompositing (sync, interactive preview: CPU)
+                        └─ export path (async): dispatchLiveEffect
+                             ├─ nativeEffectProvider  (Tauri IPC → crates/varve-effects)
+                             ├─ gpuEffectProvider     (WebGPU compute, @varve/compositor)
+                             └─ cpuEffectProvider     (TS reference kernels)
+```
+
+- The interactive preview stays synchronous CPU — the adjustment backdrop runs
+  in CanvasArea's per-frame sync path; routing it through async IPC/GPU would
+  change the per-frame hot path. Export (`flattenForExport`) applies live
+  effects through the async chain, order-preserving per filter, falling back
+  to the software path per filter on failure.
+- Native kernels live in `crates/varve-effects` (f64, JS-compatible rounding,
+  u32-wrapping hashes) and are exposed via the `apply_live_effect_binary`
+  Tauri command (raw RGBA body + `x-varve-effect` JSON header). All 20
+  fixture agreement cases pass (byte-exact for dither/paletteSnap/rgbSplit).
+- GPU kernels live in `packages/compositor/src/webgpu/effects/` — a compute
+  runner + one WGSL kernel per effect (dither error diffusion is sequential,
+  so its GPU tier falls back to CPU). Offline naga compilation in
+  `varve-bridge` validates every kernel in CI; a CDP-based verification
+  harness (`packages/compositor/scripts/verify-gpu-effects.mjs`) compares
+  GPU output against the CPU kernels in a real browser.
+- A missing backend can never destroy content: the dispatch chain always
+  ends at the CPU reference kernels.
 
 ---
 
@@ -242,9 +263,14 @@ the effect parameters, so export and reload never need the original file.
 - Per-item IR-path effects lack zoom-aware coordSpace (use adjustment layers).
 - Preview tiers are approximations: interactive-quality output differs
   slightly from export-quality output (tolerances in `effectContract.ts`).
-- WebGPU compute paths are not implemented (registry-classified).
-- No native (Rust) acceleration — CPU kernels are fast enough for the
-  adjustment path, and no new crate was added.
+- Dither error diffusion is sequential and stays CPU on the GPU tier
+  (`gpuStatus: 'partial'`); the native tier implements all 7 algorithms.
+- GPU kernels are f32 (the CPU reference is f64) and approximate a few
+  structures: bloom uses a 2-level pyramid instead of 3-4, VHS noise is
+  hash-per-pixel instead of a sequential RNG stream, caustics evaluates the
+  wave field at full resolution instead of a quality grid, lens flare with
+  an auto-source falls back to the screen centre. Visual equivalence is
+  asserted by the CDP verification harness against per-effect bounds.
 - Deep water caustics are a 2D interference approximation — no ray tracing
   or depth estimation.
 - Export asset metadata records content bounds; the rendered surface is
