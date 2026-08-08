@@ -162,15 +162,58 @@ describe('sessionBroker: reattach', () => {
     broker.attach(api);
 
     transport.send('window-ready', { windowId: 'aux-1', generation: 1 });
-    transport.send('request-reattach', { windowId: 'aux-1', panelTypeId: 'layers' });
+    transport.send('request-reattach', {
+      windowId: 'aux-1',
+      panelTypeIds: ['layers', 'inspector'],
+    });
     await flush();
 
     expect(api.reattachPanel).toHaveBeenCalledWith('layers');
+    expect(api.reattachPanel).toHaveBeenCalledWith('inspector');
     expect(broker.getRegisteredWindows()).toHaveLength(0);
 
     const ack = spy.mock.calls.find(([eventId]) => eventId === 'reattach-ack');
     expect(ack).toBeDefined();
     expect((ack![1] as { accepted: boolean }).accepted).toBe(true);
+    expect((ack![1] as { panelTypeIds: string[] }).panelTypeIds).toEqual(['layers', 'inspector']);
+
+    transport.close();
+    broker.detach();
+  });
+});
+
+describe('sessionBroker: panel membership broadcasts', () => {
+  it('broadcasts panel-added so the target window hosts the panel', async () => {
+    const api = makeEditorApi();
+    const spy = vi.fn();
+    const transport = createSessionTransport('test-session', spy);
+    const broker = new SessionBroker('test-session');
+    broker.attach(api);
+
+    broker.broadcastPanelAdded('inspector', 'aux-1');
+    await flush();
+
+    const msg = spy.mock.calls.find(([eventId]) => eventId === 'panel-added');
+    expect(msg).toBeDefined();
+    expect(msg![1]).toEqual({ panelTypeId: 'inspector', windowId: 'aux-1' });
+
+    transport.close();
+    broker.detach();
+  });
+
+  it('broadcasts panel-removed when a panel leaves a window', async () => {
+    const api = makeEditorApi();
+    const spy = vi.fn();
+    const transport = createSessionTransport('test-session', spy);
+    const broker = new SessionBroker('test-session');
+    broker.attach(api);
+
+    broker.broadcastPanelRemoved('layers', 'aux-1');
+    await flush();
+
+    const msg = spy.mock.calls.find(([eventId]) => eventId === 'panel-removed');
+    expect(msg).toBeDefined();
+    expect(msg![1]).toEqual({ panelTypeId: 'layers', windowId: 'aux-1' });
 
     transport.close();
     broker.detach();

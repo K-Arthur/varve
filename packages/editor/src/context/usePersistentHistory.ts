@@ -46,6 +46,11 @@ interface UsePersistentHistoryOptions {
   /** One-shot skip signal set by context.tsx when the commit boundary has
    *  already captured a transition (consumed by the document watcher). */
   historySkipRef: { current: boolean };
+  /** Disable persistent history entirely (auxiliary panel projections —
+   *  ADR-0204). The auxiliary window must NOT write revisions to the
+   *  canonical branch: its externalState applications would create phantom
+   *  revisions and abandon the primary window's undo/redo targets. */
+  disabled?: boolean;
 }
 
 /** Singleton store factory: IndexedDB when available, memory fallback. */
@@ -81,7 +86,7 @@ function syncGridFromDocument(document: Document) {
 }
 
 export function usePersistentHistory(options: UsePersistentHistoryOptions): PersistentHistoryApi {
-  const { document, selection, patch, inTransactionRef, historySkipRef } = options;
+  const { document, selection, patch, inTransactionRef, historySkipRef, disabled } = options;
   const documentId = document?.id ?? null;
 
   const sessionRef = useRef<EditorHistorySession | null>(null);
@@ -102,6 +107,25 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const [version, bump] = useReducer((v: number) => v + 1, 0);
 
   const getStore = useMemo(() => createStoreFactory(), []);
+
+  // Disabled (auxiliary projection): never attach, never capture, never
+  // touch the canonical history branch. All history stays in the primary.
+  if (disabled) {
+    return {
+      session: null,
+      attached: false,
+      attachIssues: [],
+      reconciled: false,
+      version,
+      capture: () => {},
+      undo: async () => false,
+      redo: async () => false,
+      undoTo: async () => false,
+      checkout: async () => false,
+      previewRevision: async () => null,
+      steps: async () => [],
+    } satisfies PersistentHistoryApi;
+  }
 
   /**
    * In-flight attach dedupe: React StrictMode double-mounts effects in dev,
@@ -267,7 +291,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const undo = useCallback(async (): Promise<boolean> => {
     const session = sessionRef.current;
-    if (!session || !session.attached) return false;
+    if (!session?.attached) return false;
     await attachPromiseRef.current;
     const result = await session.undo();
     if (!result) return false;
@@ -277,7 +301,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const redo = useCallback(async (): Promise<boolean> => {
     const session = sessionRef.current;
-    if (!session || !session.attached) return false;
+    if (!session?.attached) return false;
     await attachPromiseRef.current;
     const result = await session.redo();
     if (!result) return false;
@@ -288,7 +312,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const undoTo = useCallback(
     async (revisionId: string): Promise<boolean> => {
       const session = sessionRef.current;
-      if (!session || !session.attached) return false;
+      if (!session?.attached) return false;
       await attachPromiseRef.current;
       const result = await session.undoToRevision(revisionId);
       if (!result) return false;
@@ -301,7 +325,7 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
   const checkout = useCallback(
     async (revisionId: string): Promise<boolean> => {
       const session = sessionRef.current;
-      if (!session || !session.attached) return false;
+      if (!session?.attached) return false;
       await attachPromiseRef.current;
       const result = await session.checkout(revisionId);
       if (!result) return false;
@@ -313,13 +337,13 @@ export function usePersistentHistory(options: UsePersistentHistoryOptions): Pers
 
   const previewRevision = useCallback(async (revisionId: string): Promise<Document | null> => {
     const session = sessionRef.current;
-    if (!session || !session.attached) return null;
+    if (!session?.attached) return null;
     return session.loadRevisionDocument(revisionId);
   }, []);
 
   const steps = useCallback(async (): Promise<HistoryStepView[]> => {
     const session = sessionRef.current;
-    if (!session || !session.attached) return [];
+    if (!session?.attached) return [];
     return session.steps();
   }, []);
 
