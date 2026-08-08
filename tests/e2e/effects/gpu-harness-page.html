@@ -8,12 +8,14 @@
     <pre id="result">pending</pre>
     <script src="/home/kevina/CodingProjects/varve/packages/compositor/dist/effects-harness.js"></script>
     <script>
+      // Auto-run only when ?effects= is given (standalone use). The CDP
+      // verifier loads the page bare and drives the run explicitly, so the
+      // two never race.
       var params = new URLSearchParams(window.location.search);
-      var effects = params.get('effects')
-        ? params.get('effects').split(',')
-        : window.__effectsHarness.effectNames();
+      var effects = params.get('effects');
+      if (!effects) return;
       window.__effectsHarness
-        .run(effects)
+        .run(effects.split(','))
         .then(function (r) {
           document.getElementById('result').textContent = 'HARNESS_OK ' + JSON.stringify(r);
         })
