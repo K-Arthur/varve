@@ -938,6 +938,28 @@
   background: var(--color-interactive-hover);
 }
 
+/* Clip-into drop preview: the target row is a clipping mask source, so the
+   drop will clip the dragged layer(s) to it. The hint chip is rendered by
+   the virtualizer wrapper (sibling of the row) while the preview is active. */
+.layers-row__clip-hint {
+  position: absolute;
+  top: 50%;
+  right: var(--space-2);
+  transform: translateY(-50%);
+  z-index: 3;
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-interactive-default);
+  color: var(--color-text-primary-on-default, var(--color-text-primary));
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .layers-row--dragging {
   opacity: 0.3;
   pointer-events: none;

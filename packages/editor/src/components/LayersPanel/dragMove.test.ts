@@ -14,9 +14,15 @@ import {
   makeFrameNode,
   makeShapeNode,
   nextNodeId,
+  reparentNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { computeDropZone, computeMultiMoveSteps, resolveDragMoveIds } from './LayersTree';
+import {
+  computeDropZone,
+  computeMultiMoveSteps,
+  resolveDragMoveIds,
+  resolveDropClipTarget,
+} from './LayersTree';
 import type { FlatEntry } from './useFlatTree';
 import { flattenTree } from './useFlatTree';
 
@@ -173,5 +179,84 @@ describe('computeMultiMoveSteps', () => {
       arr.splice(index, 0, id);
     }
     expect(arr).toEqual(['A', 'B', 'C', 'X', 'Y']);
+  });
+});
+
+describe('resolveDropClipTarget', () => {
+  it('clips into the matte when dropping on a clipping mask source row', () => {
+    let doc = createDocument('clip-drop', true);
+    doc = addNode(doc, makeFrameNode('g', { w: 100, h: 100, children: [], name: 'Group' }));
+    doc = addNode(doc, makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
+    doc = addNode(doc, makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
+    doc = reparentNode(doc, 'matte', 'g', 0);
+    doc = reparentNode(doc, 'a', 'g', 1);
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        g: {
+          ...(doc.nodes.g as Record<string, unknown>),
+          mask: { type: 'clip', visible: true, sourceNodeId: 'matte' },
+        } as never,
+      },
+    } as typeof doc;
+
+    const target = resolveDropClipTarget(doc, 'matte', 'into');
+    expect(target).not.toBeNull();
+    expect(target!.clipInto).toBe(true);
+    expect(target!.parentId).toBe('g');
+    // Insertion right after the matte, keeping the matte at the head.
+    expect(target!.index).toBe(1);
+  });
+
+  it('does not clip when dropping before/after the matte row', () => {
+    let doc = createDocument('clip-drop-2', true);
+    doc = addNode(doc, makeFrameNode('g', { w: 100, h: 100, children: [], name: 'Group' }));
+    doc = addNode(doc, makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
+    doc = reparentNode(doc, 'matte', 'g', 0);
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        g: {
+          ...(doc.nodes.g as Record<string, unknown>),
+          mask: { type: 'clip', visible: true, sourceNodeId: 'matte' },
+        } as never,
+      },
+    } as typeof doc;
+
+    expect(resolveDropClipTarget(doc, 'matte', 'before')?.clipInto).toBe(false);
+    expect(resolveDropClipTarget(doc, 'matte', 'after')?.clipInto).toBe(false);
+  });
+
+  it('treats a plain container drop as a normal reparent (no clip semantics)', () => {
+    let doc = createDocument('clip-drop-3', true);
+    doc = addNode(doc, makeFrameNode('g', { w: 100, h: 100, children: [], name: 'Group' }));
+    doc = addNode(doc, makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
+    doc = reparentNode(doc, 'a', 'g', 0);
+
+    const target = resolveDropClipTarget(doc, 'g', 'into');
+    expect(target).not.toBeNull();
+    expect(target!.clipInto).toBe(false);
+    expect(target!.parentId).toBeNull();
+  });
+
+  it('does not clip when the mask is disabled', () => {
+    let doc = createDocument('clip-drop-4', true);
+    doc = addNode(doc, makeFrameNode('g', { w: 100, h: 100, children: [], name: 'Group' }));
+    doc = addNode(doc, makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }));
+    doc = reparentNode(doc, 'matte', 'g', 0);
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        g: {
+          ...(doc.nodes.g as Record<string, unknown>),
+          mask: { type: 'clip', visible: false, sourceNodeId: 'matte' },
+        } as never,
+      },
+    } as typeof doc;
+
+    expect(resolveDropClipTarget(doc, 'matte', 'into')?.clipInto).toBe(false);
   });
 });
