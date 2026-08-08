@@ -12,11 +12,16 @@
  *                 Canvas 2D ImageData compositing.
  */
 import { createBrushMask } from '@varve/engine';
-import type { ShapeNode } from '@varve/scene';
+import type { FrameNode, ShapeNode } from '@varve/scene';
 import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@varve/scene';
+import { tryInvertAffine } from '@varve/shared';
+import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import { prepareImageMaskMapper } from './imageMaskCoordinates';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
+
+/** Container-local masks are capped at 2048px per side (documented). */
+const MAX_CONTAINER_MASK_DIMENSION = 2048;
 
 interface RefineMaskOptions {
   brushSize: number;
@@ -35,6 +40,13 @@ function cloneImageData(src: ImageData): ImageData {
   return copy;
 }
 
+/** A fresh fully-transparent mask — painting reveals, Alt+painting hides. */
+function transparentImageData(width: number, height: number): ImageData {
+  const data = new ImageData(Math.max(1, width), Math.max(1, height));
+  data.data.fill(0);
+  return data;
+}
+
 export class RefineMaskTool extends BaseTool {
   id = 'refineMask' as const;
 
@@ -49,6 +61,7 @@ export class RefineMaskTool extends BaseTool {
   private lastPaintedPoint: { x: number; y: number } | null = null;
   private pendingLoad = false;
   private mapper: MapperState | null = null;
+  private coordinateSpace: 'source-image-pixels' | 'container-local-pixels' = 'source-image-pixels';
 
   override onActivate(ctx: ToolContext): void {
     this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
@@ -56,12 +69,7 @@ export class RefineMaskTool extends BaseTool {
   }
 
   override onDeactivate(_ctx: ToolContext): void {
-    this.maskData = null;
-    this.maskSnapshot = null;
-    this.nodeId = null;
-    this.lastPaintedPoint = null;
-    this.pendingLoad = false;
-    this.mapper = null;
+    this.resetState();
   }
 
   override cursor(state: ToolCursorState): CursorSpec {
@@ -105,7 +113,7 @@ export class RefineMaskTool extends BaseTool {
       this.loadMask(ctx);
     }
     if (!this.maskData || !this.nodeId) {
-      ctx.announce('Select an image with background removal applied first');
+      ctx.announce('Select an image or frame to paint a mask');
       return { consumed: false };
     }
 
@@ -176,38 +184,42 @@ export class RefineMaskTool extends BaseTool {
   private loadMask(ctx: ToolContext): void {
     const selectedId = ctx.selection?.[0];
     if (!selectedId) {
-      this.maskData = null;
-      this.nodeId = null;
-      this.mapper = null;
+      this.resetState();
       return;
     }
 
-    const node = ctx.getNode(selectedId) as ShapeNode | undefined;
-    if (!node || !isImageShape(node)) {
-      this.maskData = null;
-      this.nodeId = null;
-      this.mapper = null;
+    const node = ctx.getNode(selectedId) as ShapeNode | FrameNode | undefined;
+    if (!node || (node.kind !== 'frame' && !isImageShape(node))) {
+      ctx.announce('Select an image or frame to paint a mask');
+      this.resetState();
       return;
     }
 
+    const isFrame = node.kind === 'frame';
     const rasterMask = node.mask?.rasterMask;
-    if (!rasterMask?.assetId) {
-      this.maskData = null;
-      this.nodeId = null;
-      this.mapper = null;
-      return;
-    }
-
-    const asset = getOwnRasterMaskAsset(ctx.document, rasterMask.assetId);
+    const asset = rasterMask?.assetId
+      ? getOwnRasterMaskAsset(ctx.document, rasterMask.assetId)
+      : undefined;
     const maskDataUrl = asset?.dataUrl;
-    if (!maskDataUrl) {
-      this.maskData = null;
-      this.nodeId = null;
-      this.mapper = null;
+    this.nodeId = node.id;
+    this.coordinateSpace = isFrame ? 'container-local-pixels' : 'source-image-pixels';
+
+    if (isFrame) {
+      // Container-local painted mask: mask pixels map 1:1 to the frame's
+      // local units, capped for memory safety. Painting creates the mask
+      // on demand when none exists.
+      const fw = Math.max(1, node.w ?? 256);
+      const fh = Math.max(1, node.h ?? 256);
+      const maskW = Math.min(MAX_CONTAINER_MASK_DIMENSION, Math.max(1, Math.ceil(fw)));
+      const maskH = Math.min(MAX_CONTAINER_MASK_DIMENSION, Math.max(1, Math.ceil(fh)));
+      this.mapper = this.makeFrameMapper(ctx, node, maskW, maskH);
+      if (maskDataUrl) {
+        this.loadAssetIntoMask(maskDataUrl);
+      } else {
+        this.maskData = transparentImageData(maskW, maskH);
+      }
       return;
     }
-
-    this.nodeId = node.id;
 
     const imageFill = resolveNodePaints(
       { paintRefs: node.paintRefs, fills: node.fills, fill: { ...node.fill } },
@@ -227,6 +239,42 @@ export class RefineMaskTool extends BaseTool {
       ? { mapWorldPoint: prepared.mapWorldPoint, sourceWidth, sourceHeight }
       : null;
 
+    if (maskDataUrl) {
+      this.loadAssetIntoMask(maskDataUrl);
+    } else {
+      // Paint-to-create: images without a mask start with a fresh
+      // transparent mask at source resolution.
+      this.maskData = transparentImageData(sourceWidth, sourceHeight);
+    }
+  }
+
+  /** Container-local world → mask-pixel mapper for frames. */
+  private makeFrameMapper(
+    ctx: ToolContext,
+    node: FrameNode,
+    maskWidth: number,
+    maskHeight: number,
+  ): MapperState | null {
+    const world = nodeWorldTransform(ctx.document, node.id);
+    const inverse = tryInvertAffine(world);
+    if (!inverse) return null;
+    const fw = Math.max(1, node.w ?? 1);
+    const fh = Math.max(1, node.h ?? 1);
+    return {
+      mapWorldPoint: (p: { x: number; y: number }) => {
+        const lx = inverse[0] * p.x + inverse[2] * p.y + inverse[4];
+        const ly = inverse[1] * p.x + inverse[3] * p.y + inverse[5];
+        return {
+          x: (lx / fw) * maskWidth,
+          y: (ly / fh) * maskHeight,
+        };
+      },
+      sourceWidth: maskWidth,
+      sourceHeight: maskHeight,
+    };
+  }
+
+  private loadAssetIntoMask(dataUrl: string): void {
     this.pendingLoad = true;
     const img = new Image();
     img.onload = () => {
@@ -247,7 +295,16 @@ export class RefineMaskTool extends BaseTool {
       this.pendingLoad = false;
       this.maskData = null;
     };
-    img.src = maskDataUrl;
+    img.src = dataUrl;
+  }
+
+  private resetState(): void {
+    this.maskData = null;
+    this.maskSnapshot = null;
+    this.nodeId = null;
+    this.lastPaintedPoint = null;
+    this.pendingLoad = false;
+    this.mapper = null;
   }
 
   private getCoalescedStrokes(
@@ -332,7 +389,13 @@ export class RefineMaskTool extends BaseTool {
     const newDataUrl = this.encodeMask(this.maskData);
     if (!newDataUrl) return;
 
-    ctx.commitRasterMask?.(this.nodeId, newDataUrl, this.maskData.width, this.maskData.height);
+    ctx.commitRasterMask?.(
+      this.nodeId,
+      newDataUrl,
+      this.maskData.width,
+      this.maskData.height,
+      this.coordinateSpace,
+    );
   }
 
   private encodeMask(imageData: ImageData): string | null {

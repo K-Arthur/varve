@@ -12,19 +12,30 @@ import {
   addMask,
   addNode,
   createDocument,
+  type Document,
   deepCloneSubtree,
   makeAdjustmentNode,
   makeGroupNode,
   makeShapeNode,
   reparentNode,
+  type SceneNode,
   validateMasks,
 } from '../index';
 
-function nest(doc: import('../types').Document, childId: string, parentId: string, index: number) {
+function nest(doc: Document, childId: string, parentId: string, index: number) {
   return reparentNode(doc, childId, parentId, index);
 }
 
-function clipGroupFixture(): import('../types').Document {
+const LEVELS_PARAMS = {
+  channel: 'rgb' as const,
+  inputBlack: 0,
+  inputWhite: 255,
+  gamma: 1,
+  outputBlack: 0,
+  outputWhite: 255,
+};
+
+function clipGroupFixture(): Document {
   let doc = createDocument('clone-fixture', true);
   doc = addNode(doc, makeGroupNode('root', { children: [] }));
   doc = addNode(doc, makeGroupNode('g', { children: [] }));
@@ -94,11 +105,11 @@ describe('deepCloneSubtree mask/scope remapping', () => {
               fillRule: 'nonzero' as const,
             },
           },
-        },
+        } as SceneNode,
       },
     };
     // Clone the group alone (matte outside the subtree).
-    const nodesWithoutMatte = { ...withVector.nodes };
+    const nodesWithoutMatte: Record<string, SceneNode> = withVector.nodes;
     delete nodesWithoutMatte.matte;
     const cloned = deepCloneSubtree(nodesWithoutMatte, withVector.nextId, 'g', {
       dropForeignReferences: true,
@@ -117,7 +128,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
 
   it('duplicate remaps explicit-target adjustment scope to cloned targets', () => {
     let doc = clipGroupFixture();
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 'adj', 'root', 1);
     const adj = doc.nodes.adj as import('../types').AdjustmentNode;
     const withScope = {
@@ -148,7 +159,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
 
   it('paste drops explicit targets outside the subtree', () => {
     let doc = clipGroupFixture();
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 'adj', 'root', 1);
     const adj = doc.nodes.adj as import('../types').AdjustmentNode;
     const withScope = {
@@ -165,7 +176,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
       },
     };
     // Paste the adjustment alone: both targets are foreign → scope dropped.
-    const nodesOnly = { ...withScope.nodes };
+    const nodesOnly: Record<string, SceneNode> = { ...withScope.nodes };
     delete nodesOnly.content;
     delete nodesOnly.matte;
     delete nodesOnly.g;
@@ -181,7 +192,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
     // Promote content to the root so it can be pasted together with the
     // adjustment without dragging the clipping group along.
     doc = reparentNode(doc, 'content', 'root', 1);
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 'adj', 'root', 2);
     const adj = doc.nodes.adj as import('../types').AdjustmentNode;
     const withScope = {
@@ -199,7 +210,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
     };
     // Paste root + content + adj (matte and the clipping group left behind):
     // matte is dropped from the target list, content is remapped.
-    const nodesOnly = { ...withScope.nodes };
+    const nodesOnly: Record<string, SceneNode> = { ...withScope.nodes };
     delete nodesOnly.matte;
     delete nodesOnly.g;
     const cloned = deepCloneSubtree(nodesOnly, withScope.nextId, 'root', {
@@ -214,7 +225,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
 
   it('paste drops an image-local scope pointing outside the subtree', () => {
     let doc = clipGroupFixture();
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 'adj', 'root', 1);
     const adj = doc.nodes.adj as import('../types').AdjustmentNode;
     const withScope = {
@@ -227,7 +238,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
         },
       },
     };
-    const nodesOnly = { ...withScope.nodes };
+    const nodesOnly: Record<string, SceneNode> = { ...withScope.nodes };
     delete nodesOnly.content;
     delete nodesOnly.matte;
     delete nodesOnly.g;
@@ -241,7 +252,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
   it('paste remaps an image-local scope whose target is inside the subtree', () => {
     let doc = clipGroupFixture();
     doc = reparentNode(doc, 'content', 'root', 1);
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 'adj', 'root', 2);
     const adj = doc.nodes.adj as import('../types').AdjustmentNode;
     const withScope = {
@@ -254,7 +265,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
         },
       },
     };
-    const nodesOnly = { ...withScope.nodes };
+    const nodesOnly: Record<string, SceneNode> = { ...withScope.nodes };
     delete nodesOnly.matte;
     delete nodesOnly.g;
     const cloned = deepCloneSubtree(nodesOnly, withScope.nextId, 'root', {
@@ -269,7 +280,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
 
   it('paste drops a spatial mask whose source is outside the subtree', () => {
     let doc = clipGroupFixture();
-    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+    doc = addNode(doc, makeAdjustmentNode('adj', 'levels', LEVELS_PARAMS));
     doc = nest(doc, 'adj', 'root', 1);
     const adj = doc.nodes.adj as import('../types').AdjustmentNode;
     const withMask = {
@@ -282,7 +293,7 @@ describe('deepCloneSubtree mask/scope remapping', () => {
         },
       },
     };
-    const nodesOnly = { ...withMask.nodes };
+    const nodesOnly: Record<string, SceneNode> = { ...withMask.nodes };
     delete nodesOnly.matte;
     delete nodesOnly.g;
     delete nodesOnly.content;
@@ -291,8 +302,6 @@ describe('deepCloneSubtree mask/scope remapping', () => {
     });
     const newAdj = cloned.nodes[cloned.rootId] as { mask?: { sourceNodeId?: string } };
     expect(newAdj.mask).toBeUndefined();
-    expect(
-      validateMasks({ ...withMask, nodes: cloned.nodes } as import('../types').Document),
-    ).toEqual([]);
+    expect(validateMasks({ ...withMask, nodes: cloned.nodes } as Document)).toEqual([]);
   });
 });

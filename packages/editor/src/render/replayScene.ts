@@ -20,6 +20,7 @@ import {
   CompositeCanvas,
   createRasterSurface,
   gaussianBlurSeparable,
+  getImageCache,
   mapBlendMode,
   primitiveBounds,
   type RenderItem,
@@ -280,11 +281,12 @@ export function replayStructuredScene(context: SceneContext, input: StructuredRe
     const maskUsableSource =
       maskSourceId === undefined || maskSource === undefined || maskSource.kind !== 'adjustment';
     const maskHasVector = !!mask?.vectorMask && mask.vectorMask.points.length > 0;
+    const maskHasRaster = mask?.rasterMask !== undefined;
     if (
       node.kind !== 'adjustment' &&
       'children' in node &&
       mask &&
-      (maskSourceId || maskHasVector) &&
+      (maskSourceId || maskHasVector || maskHasRaster) &&
       maskUsableSource
     ) {
       const clipFrameQuad = (ctx: SceneContext): void => {
@@ -364,6 +366,21 @@ export function replayStructuredScene(context: SceneContext, input: StructuredRe
             traceVectorMaskPoints(maskSurfaceCtx, mask);
             maskSurfaceCtx.fillStyle = 'rgba(255,255,255,1)';
             maskSurfaceCtx.fill(mask.vectorMask!.fillRule ?? 'nonzero');
+          } else if (maskHasRaster && mask.rasterMask && 'w' in node) {
+            // Container-local painted mask: the asset stretches over the
+            // frame's local box under the container's world transform.
+            const asset = input.document.rasterMaskAssets?.[mask.rasterMask.assetId];
+            const img = asset ? getImageCache().getImage(asset.dataUrl) : null;
+            if (asset && !img) {
+              getImageCache()
+                .load(asset.dataUrl)
+                .catch(() => undefined);
+            }
+            if (img) {
+              const cw = nodeWorldTransform(input.document, nodeId);
+              maskSurfaceCtx.setTransform(cw[0], cw[1], cw[2], cw[3], cw[4], cw[5]);
+              maskSurfaceCtx.drawImage(img, 0, 0, node.w, node.h);
+            }
           }
           setMatrix(contentSurfaceCtx, target.getTransform());
           // Frame quad clip composes with the mask (intersection).

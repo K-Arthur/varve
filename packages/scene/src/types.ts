@@ -148,7 +148,16 @@ export type RasterMaskSourceIdentity =
 /** Placement and source-revision metadata for a raster alpha mask. */
 export interface RasterMaskData {
   assetId: string;
-  coordinateSpace: 'source-image-pixels' | 'legacy-preview-pixels';
+  /**
+   * Pixel coordinate space of the mask payload:
+   * - `source-image-pixels`: 1:1 with the masked image's source pixels
+   *   (image-filled shape nodes).
+   * - `legacy-preview-pixels`: v2.1 legacy background-removal previews.
+   * - `container-local-pixels`: mask pixels map 1:1 to the frame's local
+   *   units (0..w, 0..h), stretched with the container transform — the
+   *   brush-painted layer-mask form for FrameNodes.
+   */
+  coordinateSpace: 'source-image-pixels' | 'legacy-preview-pixels' | 'container-local-pixels';
   sourceIdentity: RasterMaskSourceIdentity;
   editRevision?: number;
   staleReason?: 'source-replaced' | 'source-changed' | 'legacy-preview-resolution';

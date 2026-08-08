@@ -34,6 +34,12 @@ export interface RasterMaskCommitFields {
   decontaminate?: boolean;
   /** Source locator and decoded dimensions captured with this mask. */
   sourceLocator?: string;
+  /**
+   * Pixel coordinate space of the committed mask. Defaults to
+   * `source-image-pixels` (image shapes). Frames use
+   * `container-local-pixels` (brush-painted layer masks).
+   */
+  coordinateSpace?: 'source-image-pixels' | 'container-local-pixels';
 }
 
 function dataUrlByteLength(dataUrl: string): number {
@@ -151,10 +157,16 @@ export function commitRasterMask(
   }
 
   const asset = makeAsset(`mask-${nodeId}`, fields);
-  const updated = addRasterMaskAsset(sourceAlignedDoc, nodeId, asset, {
-    provenance: makeProvenance(fields),
-    editRevision: 1,
-  });
+  const updated = addRasterMaskAsset(
+    sourceAlignedDoc,
+    nodeId,
+    asset,
+    {
+      provenance: makeProvenance(fields),
+      editRevision: 1,
+    },
+    { coordinateSpace: fields.coordinateSpace },
+  );
   return updated === sourceAlignedDoc ? doc : updated;
 }
 
