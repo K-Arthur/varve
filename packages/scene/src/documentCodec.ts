@@ -189,8 +189,8 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
     }
     const error =
       validateMaskSource(candidate, node.mask!) ??
-      (!hasImageFill(candidate, node)
-        ? 'Raster masks may only attach to image-filled shape nodes'
+      (!hasImageFill(candidate, node) && node.kind !== 'frame'
+        ? 'Raster masks may only attach to image-filled shape nodes or frames'
         : null);
     if (error) {
       warnings.push(

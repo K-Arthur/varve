@@ -13,22 +13,21 @@
  *  - reparenting a matte out of a clipping group releases the mask
  */
 import fc from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 import {
   addMask,
   addNode,
   createDocument,
+  type Document,
   deepCloneSubtree,
   detectMaskCycles,
   makeAdjustmentNode,
   makeGroupNode,
-  makeShapeNode,
   removeNode,
   reparentNode,
   setMaskSourceNode,
   validateMasks,
 } from '../index';
-import type { Document } from '../types';
 
 const IDS = ['a', 'b', 'c', 'd'] as const;
 const OPS = ['addMask', 'setSource', 'reparent', 'reorder', 'clone', 'delete'] as const;
@@ -52,7 +51,17 @@ function baseDoc(): Document {
   doc = addNode(doc, makeGroupNode('g2', { children: [] }));
   doc = addNode(doc, makeGroupNode('g3', { children: [] }));
   doc = addNode(doc, makeGroupNode('g4', { children: [] }));
-  doc = addNode(doc, makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }));
+  doc = addNode(
+    doc,
+    makeAdjustmentNode('adj', 'levels', {
+      channel: 'rgb' as const,
+      inputBlack: 0,
+      inputWhite: 255,
+      gamma: 1,
+      outputBlack: 0,
+      outputWhite: 255,
+    }),
+  );
   return doc;
 }
 

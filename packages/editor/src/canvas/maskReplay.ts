@@ -9,6 +9,7 @@
 import {
   acquireMaskSurface,
   applyMaskAlpha,
+  getImageCache,
   mapBlendMode,
   releaseMaskSurface,
   renderEnhancedMask,
@@ -216,6 +217,7 @@ export function replayMaskedContainer(
     maskSrcId,
     maskChild,
     itemTransform,
+    doc,
     baseTransform,
     replayNode,
     getWorldTransform,
@@ -253,10 +255,32 @@ export function replayMaskedContainer(
       (maskChild !== null && maskChild !== undefined && maskChild.kind !== 'adjustment');
     const maskSourceMissing = maskSrcId !== null && maskChild == null;
     const maskSourceUsable = maskSourceIsRenderable && !maskSourceMissing;
+    // Container-local raster masks (brush-painted layer masks on frames)
+    // need the decoded asset before compositing. If the decode is not ready,
+    // kick the load and render the children unmasked this frame — a mask
+    // must never make content vanish because its image is still loading.
+    const rasterAsset = mask.rasterMask
+      ? (doc.rasterMaskAssets?.[mask.rasterMask.assetId] ?? null)
+      : null;
+    const rasterMaskImage = rasterAsset ? getImageCache().getImage(rasterAsset.dataUrl) : null;
+    if (rasterAsset && !rasterMaskImage) {
+      getImageCache()
+        .load(rasterAsset.dataUrl)
+        .catch(() => undefined);
+    }
     if (
       (mask.type === 'alpha' || mask.type === 'luminance' || clipNeedsAlphaPath) &&
       maskSourceUsable
     ) {
+      if (mask.rasterMask && !rasterMaskImage) {
+        // Asset still decoding — replay the subtree unmasked and return.
+        const children = (n as import('@varve/scene').ContainerNode).children;
+        for (const childId of children) {
+          if (childId !== maskSrcId) replayNode(childId, targetCtx);
+        }
+        if (!mask.hideMaskSource && maskSrcId) replayNode(maskSrcId, targetCtx);
+        return;
+      }
       const result = acquireMaskSurface(targetCtx.canvas.width, targetCtx.canvas.height);
       try {
         const resultCtx = result.getContext('2d');
@@ -274,6 +298,18 @@ export function replayMaskedContainer(
                 traceVectorMaskPoints(maskCtx, mask.vectorMask.points, mask.vectorMask.closed);
                 maskCtx.fillStyle = 'rgba(255,255,255,1)';
                 maskCtx.fill(mask.vectorMask.fillRule ?? 'nonzero');
+              } else if (mask.rasterMask && rasterMaskImage) {
+                // Container-local painted mask: the asset stretches over the
+                // frame's local box (0..w, 0..h) under its world transform.
+                const cw = getWorldTransform(n.id);
+                maskCtx.setTransform(cw[0], cw[1], cw[2], cw[3], cw[4], cw[5]);
+                maskCtx.drawImage(
+                  rasterMaskImage,
+                  0,
+                  0,
+                  'w' in n && typeof n.w === 'number' ? n.w : 1,
+                  'h' in n && typeof n.h === 'number' ? n.h : 1,
+                );
               }
             },
           },

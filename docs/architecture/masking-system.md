@@ -20,7 +20,8 @@ deliberately one coherent subsystem, not a pile of per-feature special cases.
 | **Vector clip / clip path** | A geometric path (`vectorMask` or a traced node outline) that decides inside/outside with a fill rule (`nonzero`/`evenodd`). |
 | **Alpha mask** | Mask alpha (`A`) controls target opacity. |
 | **Luminance mask** | Mask luminance (`L·A`, BT.709 coefficients in linear RGB) controls target opacity (SVG 1.1 §14.4 semantics). |
-| **Raster mask** | A document-owned PNG payload (`Document.rasterMaskAssets`) supplying mask pixels. Attaches to image-filled shape nodes only; must be `type: 'alpha'`. |
+| **Raster mask** | A document-owned PNG payload (`Document.rasterMaskAssets`) supplying mask pixels. Attaches to image-filled shape nodes (`source-image-pixels` space) or frames (`container-local-pixels` space); must be `type: 'alpha'`. |
+| **Brush mask** | A raster mask created/edited by painting with the brush tool (`refineMask`): paint reveals, Alt+paint hides, pressure/coalesced events supported. Images and frames both support paint-to-create — no background removal required. |
 | **Layer mask** | A mask attached to a single node (leaf raster masks; container masks). |
 | **Group mask** | A mask attached to a group: group children composite, then the mask modulates the group's result. |
 | **Effect mask** | A mask attached to an **adjustment node**: it limits *where* the adjustment's result is visible. |
@@ -201,6 +202,7 @@ use the post-processing path. Implemented in the live canvas
 | Group opacity/blend after mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Frame clip ∩ mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Raster mask (leaf image) | ✓ (engine `alphaMask`) | ✓ | ✓ via engine IR | ✓ | ✓ |
+| Brush mask (frame, container-local) | ✓ (alpha path) | ✓ | falls back | ✓ | ✓ `<mask>`+`<image>` |
 | Adjustment scope | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
 | Spatial mask on adjustment | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
 
@@ -310,11 +312,43 @@ into a leaf raster mask when requested.
 | `evenodd` vector clip | Filled/clipped with `evenodd` |
 | Mask source deleted | `removeNode()` clears the mask |
 | Mask source reparented out of the container | `reparentNode()` releases the mask |
+| Brush mask on a group | Rejected (`addRasterMaskAsset` is frame/image-only) |
+| Frame brush mask asset still decoding | Container renders unmasked this frame, decode kicked |
+| Frame brush mask source identity | Must be `{kind:'source-metadata', locator:'container-local'}` |
 | Mask cycle (adjustment↔adjustment) | Rejected by `addMask`/`setMaskSourceNode` |
 | Unlinked mask transform | Mask uses its independent `transform` |
 | SVG export of inverted clip masks | `<mask>` with white rect + black clip shape |
 | SVG export of an active-page clipping group | Editable `<clipPath>`, hidden source omitted from children |
 | Old document with an adjustment mask source | Loads; mask ignored by renderers; `validateMasks` reports it |
+
+## 10d. Brush masks (painted raster masks)
+
+Brush painting is the pixel-level mask editing surface:
+
+- **Where it works:** image-filled shapes (mask space = `source-image-pixels`,
+  1:1 with the source image) and frames (mask space =
+  `container-local-pixels`, 1:1 with the frame's local units, stretched with
+  the container transform; capped at 2048px per side).
+- **Paint-to-create:** the tool creates a fresh fully-transparent mask when
+  the selected image/frame has none — no background removal required. Paint
+  reveals, Alt+paint hides, `[`/`]` resize the brush, `Shift+[`/`]` adjust
+  hardness, pressure modulates opacity, coalesced pointer events keep
+  strokes seamless.
+- **Commit & undo:** each stroke commits through `commitRasterMask`
+  (immutable versioned assets `mask-{nodeId}[-v{N}]`) inside one
+  transaction — one gesture, one undo step.
+- **Entry points:** canvas right-click → Paint Mask… (images and frames),
+  Mask section (frames) → Paint mask… / Create brush mask…; the tool leaves
+  via `Escape`/`V`.
+- **Rendering:** the live canvas and export replay draw the asset stretched
+  over the frame's local box under its world transform (alpha path with
+  invert/feather/density post-processing available); while an asset decodes,
+  the container renders unmasked rather than disappearing. SVG export emits
+  `<mask maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">`
+  with an embedded `<image>` over the frame's box.
+- **Quick-mask mode** (transient selection-editing coverage in editor state)
+  is a separate, still-unwired concept — it is not a document mask and is
+  not part of this pipeline.
 
 ## 11. Adding a future mask type
 
