@@ -273,14 +273,37 @@ export function multipageRootNodes(doc: Document, options: MultipageSceneOptions
     return ids;
   }
 
-  const contentRoots = new Set<NodeId>();
-  for (const page of pages) contentRoots.add(page.contentRoot);
-  for (const rid of doc.rootChildren) {
-    if (!contentRoots.has(rid)) ids.push(rid);
+  // Paint in document order. Pasteboard items and pages are interleaved by
+  // their position in `rootChildren`, so a pasteboard item created after a
+  // page paints in front of it and the layer tree the user sees is the
+  // z-order they get. Previously every pasteboard item was emitted before
+  // every page, which pinned pasteboard content behind all page content
+  // regardless of stacking — an item dragged off a page onto the pasteboard
+  // silently jumped behind it.
+  const placedByContentRoot = new Map<NodeId, PlacedPage>();
+  for (const placed of buildPlacedScene(doc).pages) {
+    placedByContentRoot.set(placed.page.contentRoot, placed);
   }
 
   const viewport = options.viewportWorldRect ?? null;
-  for (const placed of buildPlacedScene(doc).pages) {
+  for (const rid of doc.rootChildren) {
+    const placed = placedByContentRoot.get(rid);
+    if (!placed) {
+      // A pasteboard item: an ordinary world-space root node.
+      ids.push(rid);
+      continue;
+    }
+    if (viewport && !pageIntersectsViewport(doc, placed, viewport)) continue;
+    for (const bgId of placed.backgroundNodes) ids.push(bgId);
+    for (const masterId of placed.masterNodes) ids.push(masterId);
+    for (const childId of placed.contentNodes) ids.push(childId);
+  }
+
+  // A page whose content root is missing from `rootChildren` would otherwise
+  // vanish. Emit any such page after the ordered pass so a malformed document
+  // degrades to "painted last" rather than "not painted".
+  for (const placed of placedByContentRoot.values()) {
+    if (doc.rootChildren.includes(placed.page.contentRoot)) continue;
     if (viewport && !pageIntersectsViewport(doc, placed, viewport)) continue;
     for (const bgId of placed.backgroundNodes) ids.push(bgId);
     for (const masterId of placed.masterNodes) ids.push(masterId);
