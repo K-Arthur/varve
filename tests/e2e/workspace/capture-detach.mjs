@@ -8,9 +8,9 @@
  * Run: node tests/e2e/workspace/capture-detach.mjs
  */
 
-import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { chromium } from '@playwright/test';
 
 const BASE = 'http://localhost:1421';
 const OUT_DIR = join(process.cwd(), 'docs', 'screenshots', 'detach-flow');
@@ -31,11 +31,14 @@ async function main() {
       }),
     );
   });
-  await page.getByRole('button', { name: /^new$/i }).waitFor({ state: 'visible', timeout: 180_000 });
+  await page
+    .getByRole('button', { name: /^new$/i })
+    .waitFor({ state: 'visible', timeout: 180_000 });
   await page.getByRole('button', { name: /^new$/i }).click({ timeout: 30_000 });
   const dlg = page.locator('dialog[open]');
   const cb = dlg.getByRole('button', { name: /^create design$/i });
-  if (await cb.isVisible({ timeout: 10_000 }).catch(() => false)) await cb.click({ timeout: 30_000 });
+  if (await cb.isVisible({ timeout: 10_000 }).catch(() => false))
+    await cb.click({ timeout: 30_000 });
   await page.locator('.layers-panel').waitFor({ timeout: 180_000 });
   await page.waitForTimeout(1500);
 
@@ -62,7 +65,10 @@ async function main() {
   let visible = false;
   for (let i = 0; i < 12; i++) {
     await new Promise((r) => setTimeout(r, 10_000));
-    visible = await popup.locator('.layers-panel').isVisible().catch(() => false);
+    visible = await popup
+      .locator('.layers-panel')
+      .isVisible()
+      .catch(() => false);
     if (visible) break;
   }
   await popup.waitForTimeout(1500);
