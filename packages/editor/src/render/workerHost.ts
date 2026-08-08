@@ -149,17 +149,22 @@ export function createRenderWorkerHost(
   onPermanentFailure?: () => void,
   options: RenderWorkerHostOptions = {},
 ): RenderWorkerHost | null {
-  // OffscreenCanvas support is not uniform across the webview engines this app
-  // ships on — current research (2026-07) found WebKitGTK's OffscreenCanvas
-  // status is unreliable/inconsistently tracked across point releases, unlike
-  // Chromium/WebView2/Firefox/Safari 17+ which all have mature support. The
-  // worker module (`renderWorker.ts`) calls `new OffscreenCanvas(...)`
+  // The worker module (`renderWorker.ts`) calls `new OffscreenCanvas(...)`
   // unguarded on its first message; on an engine without it, that throws
   // inside the worker's `onmessage` handler and only surfaces via `onerror`,
   // which would otherwise burn through 5 retries with exponential backoff
   // (up to ~30s each) before falling back to main-thread rendering — a
   // problem retrying can never fix. Feature-detecting here skips straight to
   // the main-thread fallback instead.
+  //
+  // This is a presence check only, and presence is not usability. Whether the
+  // full chain (construct in worker, 2D context, replay,
+  // transferToImageBitmap, transfer back with pixels intact) actually works is
+  // established by `offscreenCapabilityProbe.ts` and enforced by
+  // `workerEligibility.ts`. Measured 2026-08-07: WebKitGTK 2.52.5 passes every
+  // stage, and this guard does NOT reject it — the profile policy is the gate
+  // that keeps that engine on the main thread. See
+  // docs/perf/2026-08-07-webkitgtk-render-path.md.
   if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') return null;
 
   let worker: Worker | null = null;

@@ -34,6 +34,13 @@ import {
   PRESENTATION_EVIDENCE_BY_RUNTIME,
   RefreshIntervalEstimator,
 } from '../performance/presentationTiming';
+import {
+  getOffscreenCapability,
+  getOffscreenProbeDetail,
+  probeOffscreenCapability,
+} from '../render/offscreenCapabilityProbe';
+import { describeRenderPath, resolveRenderPathDiagnostic } from '../render/renderPathDiagnostics';
+import { resolveWorkerEligibility } from '../render/workerEligibility';
 import { getRegisteredWorkerHost } from '../render/workerHost';
 import {
   computeProfile,
@@ -47,6 +54,7 @@ import {
   recordPruneScreenRects as drawDiagnosticsRecordPruneScreenRects,
   enableDrawDiagnostics,
   type FrameDiagnostics,
+  getRecentFrames,
   installPerfDiagnosticsHandle as installDrawDiagnosticsHandle,
   renderDrawDiagnostics,
   resolveDirtyScreenRect,
@@ -231,6 +239,52 @@ export function stopPresentationObserver(): void {
   disposePresentationObserver = null;
 }
 
+/**
+ * Compose the render-path picture from live state.
+ *
+ * Pull-based by design: the eligibility chain is re-resolved here rather than
+ * pushed from the frame path, so a runtime that never opens diagnostics pays
+ * nothing for them. `describeRenderPath` gives probes and bug reports a single
+ * quotable line ("webkit -> main-canvas2d (webkit-policy)") instead of leaving
+ * the render path to be inferred.
+ */
+export function buildRenderPathSnapshot(): ReturnType<typeof resolveRenderPathDiagnostic> & {
+  summary: string;
+} {
+  const caps = detectPlatformCapabilities();
+  const eligibility = resolveWorkerEligibility(caps);
+  const diagnostic = resolveRenderPathDiagnostic({
+    engine: caps.engine,
+    engineVersionToken: caps.webKitVersion,
+    hasWorker: caps.hasWorker,
+    hasOffscreenCanvas: caps.hasOffscreenCanvas,
+    hasWebGPU: caps.hasWebGPU,
+    offscreenCapability: getOffscreenCapability(),
+    eligibility,
+    workerHostCreated: getRegisteredWorkerHost() !== null,
+    recentFramePaths: getRecentFrames(120).map((f) => f.renderPath),
+  });
+  return { ...diagnostic, summary: describeRenderPath(diagnostic) };
+}
+
+// ── Painted-surface invalidation seam ───────────────────────────────────────
+// CanvasArea owns the painted-surface identity as a ref; the oracle needs to
+// drop it without reaching into the component. Registered on mount, cleared on
+// unmount, mirroring `setApplyFixtureHandler`.
+
+let paintedSurfaceInvalidator: (() => void) | null = null;
+
+export function registerPaintedSurfaceInvalidator(fn: (() => void) | null): void {
+  paintedSurfaceInvalidator = fn;
+}
+
+/** Returns false when no canvas is mounted to invalidate. */
+function invalidatePaintedSurface(): boolean {
+  if (!paintedSurfaceInvalidator) return false;
+  paintedSurfaceInvalidator();
+  return true;
+}
+
 export function installPerfDiagnosticsHandle(): void {
   // The draw-diagnostics handle also flips snap metrics and interaction
   // tracing on so interaction probes reading window.__strataPerf see frame,
@@ -289,6 +343,20 @@ function augmentPerfDiagnosticsHandle(): void {
       overBudgetCount: () => getOverBudgetCount(),
     },
     capabilities: () => detectPlatformCapabilities(),
+    // Which backend is actually drawing, and which gate decided it. Composed
+    // on demand from the capability cache, the eligibility decision and the
+    // observed frame ring — nothing is recorded per frame to support this.
+    renderPath: () => buildRenderPathSnapshot(),
+    // Run (or re-read) the verified OffscreenCanvas probe. Returns the cached
+    // detail once resolved; safe to call repeatedly.
+    probeOffscreen: () => probeOffscreenCapability(),
+    offscreenProbe: () => getOffscreenProbeDetail(),
+    // Invalidate the painted-surface identity so the next frame is an
+    // authoritative full redraw. This is the app-side hook the incremental-
+    // vs-full-repaint oracle needs: without it a harness can only force a
+    // full redraw by moving the camera, which changes the very state the
+    // oracle is trying to hold constant.
+    forceFullRedraw: () => invalidatePaintedSurface(),
     workerBitmapBudget: () => getRegisteredWorkerHost()?.getBitmapBudgetState() ?? null,
     // Presentation evidence is reported with its class and limits so a probe
     // cannot mistake the rAF lower bound for a measured presentation time.
