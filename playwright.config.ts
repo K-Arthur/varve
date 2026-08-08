@@ -80,15 +80,16 @@ export default defineConfig({
       name: 'chromium-gpu',
       use: {
         ...devices['Desktop Chrome'],
+        channel: 'chromium',
         retries: process.env.CI ? 3 : 1,
         launchOptions: {
+          pipe: false,
           ignoreDefaultArgs: ['--no-startup-window'],
           args: [
             '--enable-features=Vulkan',
             '--use-angle=vulkan',
             '--enable-unsafe-swiftshader',
-            '--enable-logging=stderr',
-            '--v=0',
+            '--remote-debugging-port=0',
           ],
         },
       },

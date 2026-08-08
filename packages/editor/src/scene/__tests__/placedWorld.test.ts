@@ -4,7 +4,14 @@
  * while pasteboard/global items keep scene coordinates.
  */
 import type { Document } from '@varve/scene';
-import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  addPage,
+  createDocument,
+  makeShapeNode,
+  nextNodeId,
+} from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { buildPagePlacementMap, pagePlacementForNode } from '../pagePlacement';

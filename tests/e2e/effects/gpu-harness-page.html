@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Varve GPU effects harness</title>
+  </head>
+  <body>
+    <pre id="result">pending</pre>
+    <script src="/home/kevina/CodingProjects/varve/packages/compositor/dist/effects-harness.js"></script>
+    <script>
+      var params = new URLSearchParams(window.location.search);
+      var effects = params.get('effects')
+        ? params.get('effects').split(',')
+        : window.__effectsHarness.effectNames();
+      window.__effectsHarness
+        .run(effects)
+        .then(function (r) {
+          document.getElementById('result').textContent = 'HARNESS_OK ' + JSON.stringify(r);
+        })
+        .catch(function (e) {
+          document.getElementById('result').textContent =
+            'HARNESS_ERR ' + (e && e.message ? e.message : String(e));
+        });
+    </script>
+  </body>
+</html>
