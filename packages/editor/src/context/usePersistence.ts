@@ -5,29 +5,38 @@ import {
   resolveManifestAgainstCatalog,
 } from '@varve/engine/font';
 import { type Platform, upsertPreservingMeta } from '@varve/platform';
-import {
-  createDocument,
-  createNewDocument,
-  type Document,
-  DocumentCodec,
-  validateDocument,
-} from '@varve/scene';
+import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback } from 'react';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
-import type { EditorState } from './types';
+import type { EditorState, SessionFileMeta } from './types';
 import { getCanvasViewport } from './viewportOps';
 
-// Canonical empty-document fallback (never fails; guard keeps TS narrow).
-const EMPTY_DOCUMENT_FACTORY = (): Document => createDocument('Untitled', true);
+/**
+ * Where a loaded document lands, and which file the tab is bound to afterwards.
+ *
+ * The default is deliberately the *safe* one: a loaded document arrives
+ * unbound unless the caller states an identity. A caller that forgets gets a
+ * Save As prompt on first save; the opposite default silently writes the newly
+ * loaded document over whichever file the tab happened to hold before.
+ */
+export interface LoadDocumentMeta extends SessionFileMeta {
+  /**
+   * Keep the active tab's current fileId/filePath instead of rebinding to
+   * `meta`. For callers replacing the *same* file's content — rename,
+   * version/backup restore in place, crash recovery.
+   */
+  keepIdentity?: boolean;
+  /** Load into its own tab, leaving the active document open and untouched. */
+  newSession?: boolean;
+}
 
 export interface PersistenceAPI {
-  newDocument: () => void;
   serializeDocument: () => string;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
-  loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
+  loadDocument: (json: string, meta?: LoadDocumentMeta) => void;
 }
 
 export function usePersistence(
@@ -35,8 +44,10 @@ export function usePersistence(
   patch: (partial: Partial<EditorState>) => void,
   stateRef: React.MutableRefObject<EditorState>,
   platform: Platform | undefined,
-  snapshotSession: () => void,
   resetUndo: () => void,
+  /** Session mechanics stay in the editor context; persistence only asks for
+   *  a new tab when a caller explicitly wants one (backup "restore a copy"). */
+  openInNewSession: (doc: Document, meta?: SessionFileMeta) => void,
   recoveryRef: React.MutableRefObject<RecoveryManager | null>,
   // The document format has no saved camera, so opening a file whose content
   // lives far from world origin needs an explicit fit-to-content fallback —
@@ -48,18 +59,6 @@ export function usePersistence(
     viewport: Viewport,
   ) => { zoom: number; pan: { x: number; y: number } } | null,
 ): PersistenceAPI {
-  const newDocument = useCallback(() => {
-    snapshotSession();
-    resetUndo();
-    // Canonical creation service: an empty, infinite-canvas (flat, page-less)
-    // document — no default page geometry, no initial frame.
-    const created = createNewDocument({});
-    patch({
-      document: created.ok ? created.result.document : EMPTY_DOCUMENT_FACTORY(),
-      selection: [],
-    });
-  }, [patch, snapshotSession, resetUndo]);
-
   const serializeDocument = useCallback(() => {
     return DocumentCodec.encode(stateRef.current.document);
   }, [stateRef]);
@@ -74,9 +73,13 @@ export function usePersistence(
       const s = stateRef.current;
       const meta = s.sessions.find((sess) => sess.id === s.activeId);
       const json = DocumentCodec.encode(s.document);
-      if (meta?.fileId) {
+      // A session bound only to a path (opened from Recent, or from disk)
+      // already has a home on disk — mint its app-store id on first save
+      // instead of falling back to a Save As prompt.
+      const fileId = meta?.fileId ?? (meta?.filePath ? crypto.randomUUID() : undefined);
+      if (meta && fileId) {
         // App-store copy (recents, thumbnails, home screen) — always kept.
-        await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
+        await upsertPreservingMeta(platform, fileId, meta.name, json);
         // Figma/Photoshop behavior: a document opened from disk saves back
         // to its original path. When the runtime supports path writes,
         // keep the external file in sync too; unsupported runtimes (web)
@@ -101,7 +104,7 @@ export function usePersistence(
         saveState: 'saved',
         lastSavedAt: Date.now(),
         sessions: s.sessions.map((sess) =>
-          sess.id === s.activeId ? { ...sess, dirty: false } : sess,
+          sess.id === s.activeId ? { ...sess, dirty: false, fileId } : sess,
         ),
       });
       return true;
@@ -116,7 +119,7 @@ export function usePersistence(
   }, [platform, stateRef, recoveryRef, patch]);
 
   const loadDocument = useCallback(
-    (json: string, meta?: { name?: string; filePath?: string }) => {
+    (json: string, meta?: LoadDocumentMeta) => {
       try {
         const decoded = DocumentCodec.decode(json);
         if (!decoded.ok) throw new Error(decoded.error);
@@ -126,11 +129,23 @@ export function usePersistence(
           console.warn('[Strata] loadDocument: validation warnings:', result.errors);
         }
         const resolvedDoc = resolveFontManifest(doc);
-        resetUndo();
         const name = meta?.name ?? doc.name;
-        const filePath = meta?.filePath;
+
+        if (meta?.newSession) {
+          openInNewSession(resolvedDoc, { name, filePath: meta.filePath, fileId: meta.fileId });
+          return;
+        }
+
+        resetUndo();
+        const active = state.sessions.find((s) => s.id === state.activeId);
+        // Rebind the tab to the incoming file unless the caller is replacing
+        // the content of the file the tab already holds. Never merge the two:
+        // a half-inherited identity is what makes save() write the wrong file.
+        const identity: SessionFileMeta = meta?.keepIdentity
+          ? { filePath: active?.filePath, fileId: active?.fileId }
+          : { filePath: meta?.filePath, fileId: meta?.fileId };
         const sessions = state.sessions.map((s) =>
-          s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
+          s.id === state.activeId ? { ...s, ...identity, name, dirty: false } : s,
         );
         const cam = computeFitAllCamera(resolvedDoc, getCanvasViewport());
         patch({
@@ -144,10 +159,10 @@ export function usePersistence(
         // invalid JSON — ignore silently
       }
     },
-    [patch, resetUndo, state.sessions, state.activeId, computeFitAllCamera],
+    [patch, resetUndo, state.sessions, state.activeId, computeFitAllCamera, openInNewSession],
   );
 
-  return { newDocument, serializeDocument, save, saveAs, loadDocument };
+  return { serializeDocument, save, saveAs, loadDocument };
 }
 
 /**
