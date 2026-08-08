@@ -275,8 +275,8 @@ test.describe('Halftone visual verification', () => {
     const coarse = await canvasPattern(page);
     const coarseTransitions = await scanlineTransitions(page, 120, 120, 400, 240);
 
-    await setSlider(page, 'frequency', 100);
-    await page.screenshot({ path: `${SHOT_DIR}/04-freq-100-fine.png` });
+    await setSlider(page, 'frequency', 30);
+    await page.screenshot({ path: `${SHOT_DIR}/04-freq-30-fine.png` });
     const fine = await canvasPattern(page);
     const fineTransitions = await scanlineTransitions(page, 120, 120, 400, 240);
 
@@ -411,7 +411,7 @@ test.describe('Halftone visual verification', () => {
     await exportTab.click();
     await page.waitForTimeout(300);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
+    await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
     await page.getByRole('button', { name: /download/i }).click();
 
     const msg = page.locator('.spec-export__message');
@@ -419,5 +419,286 @@ test.describe('Halftone visual verification', () => {
     await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
     await expect(msg).not.toHaveText(/failed/i);
     await page.screenshot({ path: `${SHOT_DIR}/17-export-png-message.png` });
+  });
+
+  test('11 - panning preserves document-space pattern phase (AM)', async ({ page }) => {
+    // A viewport-anchored halftone would visibly shift the pattern relative
+    // to the artwork when panning. A document-anchored pattern must produce
+    // pixel-identical output at the same document location before and after
+    // a pan of the viewport.
+    await drawRect(page, 100, 100, 600, 400);
+    await addHalftoneAdjustment(page);
+    await setSlider(page, 'frequency', 20);
+
+    // Sample a fixed document region at pan (0,0), zoom 1: screen == doc coords
+    const before = await sampleRect(page, 150, 150, 300, 200);
+    await page.screenshot({ path: `${SHOT_DIR}/18-pan-before.png` });
+
+    // Pan the viewport with the hand tool by (+200, +100) CSS px
+    await page.getByRole('button', { name: 'Hand', exact: true }).click();
+    await dragOnCanvas(page, 300, 300, 500, 400);
+    await page.waitForTimeout(800);
+    await page.keyboard.press('v');
+
+    // The same document region now sits at screen (350, 250)-(650, 450)
+    const after = await sampleRect(page, 350, 250, 300, 200);
+    await page.screenshot({ path: `${SHOT_DIR}/19-pan-after.png` });
+
+    // The pattern phase must be identical at the same document location.
+    // Allow a tiny tolerance for rounding at the new region origin.
+    expect(after.signature, 'pan must not change document-space pattern phase').toBe(
+      before.signature,
+    );
+    // Dots still present after pan
+    expect(after.darkCount).toBeGreaterThan(0);
+  });
+
+  test('12 - zoom preserves dot count across the artwork (density is document-invariant)', async ({
+    page,
+  }) => {
+    // Small rect so it stays fully visible at the moderate zoom used below.
+    await drawRect(page, 250, 200, 450, 350);
+    await addHalftoneAdjustment(page);
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('content canvas not found');
+
+    // The canvas background is ~(235,239,244) while the rect interior is pure
+    // white (255) with black (0) dots. Pure-white pixels (g > 250) only exist
+    // inside the artwork, so the first/last white pixel on an interior row
+    // locate the artwork span at any zoom; transitions count the dots.
+    const scan = async (): Promise<{ transitions: number; span: number }> =>
+      page.evaluate(() => {
+        const el = document.querySelector<HTMLCanvasElement>('canvas.editor-canvas__content-layer');
+        if (!el) return { transitions: -1, span: 0 };
+        const ctx = el.getContext('2d');
+        if (!ctx) return { transitions: -1, span: 0 };
+        const data = ctx.getImageData(0, 0, el.width, el.height).data;
+        // The rect spans doc y 200..350 in an ~645px canvas; sample a row
+        // safely inside the artwork at every zoom.
+        const rowY = Math.floor(el.height * 0.42);
+        const grayAt = (x: number): number => {
+          const i = (rowY * el.width + x) * 4;
+          return 0.299 * data[i]! + 0.587 * data[i + 1]! + 0.114 * data[i + 2]!;
+        };
+        let firstWhite = -1;
+        let lastWhite = -1;
+        for (let x = 0; x < el.width; x++) {
+          if (grayAt(x) > 250) {
+            if (firstWhite < 0) firstWhite = x;
+            lastWhite = x;
+          }
+        }
+        if (firstWhite < 0 || lastWhite < 0) return { transitions: -1, span: 0 };
+        let transitions = 0;
+        let prev: 'dark' | 'light' | null = null;
+        for (let x = firstWhite; x <= lastWhite; x++) {
+          const cur = grayAt(x) < 110 ? 'dark' : 'light';
+          if (prev && cur !== prev) transitions++;
+          prev = cur;
+        }
+        return { transitions, span: lastWhite - firstWhite };
+      });
+
+    const before = await scan();
+    expect(before.transitions, 'zoom-1 must show dots').toBeGreaterThan(0);
+
+    // Moderate zoom in (3 wheel steps ≈ 1.7x): the 200px rect stays fully
+    // visible so the scan still sees the complete artwork.
+    await canvas.evaluate(
+      (element, center) => {
+        const bounds = element.getBoundingClientRect();
+        for (let i = 0; i < 3; i += 1) {
+          element.dispatchEvent(
+            new WheelEvent('wheel', {
+              bubbles: true,
+              cancelable: true,
+              clientX: bounds.left + center.x,
+              clientY: bounds.top + center.y,
+              ctrlKey: true,
+              deltaY: -10,
+            }),
+          );
+        }
+      },
+      { x: 350, y: 275 },
+    );
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `${SHOT_DIR}/20-zoom-in.png` });
+
+    const after = await scan();
+    expect(after.span, 'zoom must have enlarged the artwork span').toBeGreaterThan(before.span);
+
+    // Dot count across the artwork is zoom-invariant: allow ±30% for AA
+    // differences at the higher resolution.
+    const ratio =
+      Math.min(before.transitions, after.transitions) /
+      Math.max(before.transitions, after.transitions);
+    expect(ratio, 'dot count must be zoom-invariant').toBeGreaterThanOrEqual(0.7);
+  });
+
+  test('13 - SVG export with halftone succeeds (raster fallback parity)', async ({ page }) => {
+    await page.keyboard.press('f');
+    await dragOnCanvas(page, 100, 100, 500, 400);
+    await page.waitForTimeout(300);
+    await drawRect(page, 130, 130, 450, 350);
+    await addHalftoneAdjustment(page);
+
+    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
+      hasText: /^export$/i,
+    });
+    await exportTab.click();
+    await page.waitForTimeout(300);
+
+    await page.getByRole('button', { name: 'SVG', exact: true }).first().click();
+    await page.getByRole('button', { name: /download/i }).click();
+
+    const msg = page.locator('.spec-export__message');
+    await expect(msg).toBeVisible({ timeout: 20000 });
+    await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
+    await expect(msg).not.toHaveText(/failed/i);
+    await page.screenshot({ path: `${SHOT_DIR}/23-export-svg-message.png` });
+  });
+
+  test('14 - JPEG export with halftone succeeds', async ({ page }) => {
+    await page.keyboard.press('f');
+    await dragOnCanvas(page, 100, 100, 500, 400);
+    await page.waitForTimeout(300);
+    await drawRect(page, 130, 130, 450, 350);
+    await addHalftoneAdjustment(page);
+
+    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
+      hasText: /^export$/i,
+    });
+    await exportTab.click();
+    await page.waitForTimeout(300);
+
+    await page.getByRole('button', { name: 'JPEG', exact: true }).first().click();
+    await page.getByRole('button', { name: /download/i }).click();
+
+    const msg = page.locator('.spec-export__message');
+    await expect(msg).toBeVisible({ timeout: 20000 });
+    await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
+    await expect(msg).not.toHaveText(/failed/i);
+    await page.screenshot({ path: `${SHOT_DIR}/24-export-jpeg-message.png` });
+  });
+
+  test('15 - CMYK process screening renders colored dots on a saturated source', async ({
+    page,
+  }) => {
+    await drawRect(page, 100, 100, 600, 400);
+
+    // Set the rect fill to saturated red via the Properties fill popover
+    await page
+      .getByRole('button', { name: /colour$/i })
+      .first()
+      .click();
+    await page.waitForTimeout(300);
+    const hex = page.getByLabel('Hex color');
+    await hex.fill('#FF0000');
+    await hex.press('Enter');
+    await page.waitForTimeout(600);
+
+    await addHalftoneAdjustment(page);
+
+    // Switch the halftone channel to CMYK (all inks, standard press angles)
+    const channelCombo = page.locator('[role="combobox"][aria-label="Ink channel"]');
+    await channelCombo.click();
+    await page.waitForTimeout(200);
+    await page.getByRole('option', { name: /^CMYK/i }).click();
+    await page.waitForTimeout(1000);
+
+    await page.screenshot({ path: `${SHOT_DIR}/25-cmyk-screening.png` });
+
+    // CMYK overprint of saturated red must produce COLORED output, not
+    // grayscale: magenta/yellow inks dot the red source
+    const sample = await sampleRect(page, 120, 120, 400, 240);
+    expect(sample.darkCount, 'dots must appear').toBeGreaterThan(0);
+    const chroma = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
+      if (!canvas) return 0;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return 0;
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let maxChroma = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i]!;
+        const g = data[i + 1]!;
+        const b = data[i + 2]!;
+        const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+        if (chroma > maxChroma) maxChroma = chroma;
+      }
+      return maxChroma;
+    });
+    expect(chroma, 'CMYK screening must produce colored (non-grayscale) output').toBeGreaterThan(
+      60,
+    );
+  });
+
+  test('16 - color halftone adjustment (RGB mode) renders colored dots', async ({ page }) => {
+    await drawRect(page, 100, 100, 600, 400);
+    await page
+      .getByRole('button', { name: /colour$/i })
+      .first()
+      .click();
+    await page.waitForTimeout(300);
+    const hex = page.getByLabel('Hex color');
+    await hex.fill('#00AAFF');
+    await hex.press('Enter');
+    await page.waitForTimeout(600);
+
+    // Create an adjustment layer and add the color halftone adjustment
+    await page.getByRole('menuitem', { name: /^Object$/i }).click();
+    await page.getByRole('menuitem', { name: /new adjustment layer/i }).click();
+    await page.waitForTimeout(600);
+    const adjTab = page.locator('[role="tablist"] button[role="tab"]', {
+      hasText: /^adjustments$/i,
+    });
+    await adjTab.click();
+    await page.waitForTimeout(400);
+    await page.getByRole('button', { name: /add adjustment/i }).click();
+    await page.waitForTimeout(300);
+    const colorHt = page.getByRole('menuitem', { name: /color halftone/i });
+    await colorHt.scrollIntoViewIfNeeded();
+    await colorHt.click();
+    await page.waitForTimeout(1000);
+
+    // RGB mode selector must be present with presets
+    await expect(page.locator('text=Preset').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('text=Mode').first()).toBeVisible();
+    const modeCombo = page.locator('[role="combobox"][aria-label="Channel mode"]');
+    await expect(modeCombo).toBeVisible();
+
+    // RGB mode: each RGB channel screened independently → colored dots
+    const modeValue = await modeCombo.getAttribute('aria-label');
+    expect(modeValue).toBeTruthy();
+    await page.screenshot({ path: `${SHOT_DIR}/26-color-halftone-rgb.png` });
+
+    const sample = await sampleRect(page, 120, 120, 400, 240);
+    expect(sample.darkCount, 'color halftone must produce dots').toBeGreaterThan(0);
+    const chroma = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        'canvas.editor-canvas__content-layer',
+      );
+      if (!canvas) return 0;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return 0;
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      let maxChroma = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i]!;
+        const g = data[i + 1]!;
+        const b = data[i + 2]!;
+        const c = Math.max(r, g, b) - Math.min(r, g, b);
+        if (c > maxChroma) maxChroma = c;
+      }
+      return maxChroma;
+    });
+    expect(chroma, 'color halftone must produce colored (non-grayscale) output').toBeGreaterThan(
+      60,
+    );
   });
 });

@@ -106,51 +106,79 @@ export function generateAMMatrix(size: number, dotShape: HalftoneDotShape): Uint
       const dx = cx / half;
       const dy = cy / half;
 
-      let dist: number;
+      // The threshold is derived from the dot shape's COVERAGE function:
+      // f(dist) = fraction of the cell already covered when the growing dot
+      // reaches this pixel. Mapping threshold = 255 * f makes the matrix
+      // CDF uniform over 1..255, so ink coverage is proportional to source
+      // tone (area-proportional thresholding, as used by real AM screening).
+      // The naive `round(dist * 255)` produced only 2-3 distinct levels at
+      // small matrix sizes, which made light tones render almost no dots.
+      //
+      // Coordinates span the cell [-1,1]^2 (area 4), so each coverage
+      // formula normalizes by 4. Thresholds live in [1,255] so a 0-luminance
+      // source never inks (0 >= 1 is false) and 255-luminance always inks
+      // (255 >= 255 is true) — no strict-inequality corner holes.
+      let coverage: number;
       switch (dotShape) {
-        case 'round':
-          dist = Math.sqrt(dx * dx + dy * dy);
+        case 'round': {
+          // Ink disk of radius r covers c = pi*r^2 / 4 of the cell; the
+          // pixel is reached when dist <= r, so c = pi * dist^2 / 4.
+          const d2 = dx * dx + dy * dy;
+          coverage = Math.min(1, (Math.PI * d2) / 4);
           break;
-        case 'elliptical':
-          // Elliptical: stretch along one axis for smoother midtones
-          dist = Math.sqrt(dx * dx * 1.5 + dy * dy * 0.67);
+        }
+        case 'elliptical': {
+          // Stretched round dot: anisotropic coverage for smoother midtones.
+          const d2 = dx * dx * 1.5 + dy * dy * 0.67;
+          coverage = Math.min(1, (Math.PI * d2) / 4);
           break;
-        case 'square':
-          dist = Math.max(Math.abs(dx), Math.abs(dy));
+        }
+        case 'square': {
+          // Growing square of half-size s covers c = s^2; reached when
+          // max(|dx|,|dy|) <= s, so c = max^2.
+          const m = Math.max(Math.abs(dx), Math.abs(dy));
+          coverage = Math.min(1, m * m);
           break;
-        case 'diamond':
-          dist = (Math.abs(dx) + Math.abs(dy)) / Math.SQRT2;
+        }
+        case 'diamond': {
+          // Growing diamond of half-diagonal s covers c = s^2 / 2; reached
+          // when |dx|+|dy| <= s, so c = (|dx|+|dy|)^2 / 2.
+          const ad = Math.abs(dx) + Math.abs(dy);
+          coverage = Math.min(1, (ad * ad) / 2);
           break;
-        case 'line':
-          // Line screen: threshold along one axis only
-          dist = Math.abs(dy);
+        }
+        case 'line': {
+          // Line screen: stripe of half-width s covers c = s; reached when
+          // |dy| <= s, so c = |dy|.
+          coverage = Math.min(1, Math.abs(dy));
           break;
+        }
         case 'cross': {
-          // Cross-shaped dot: extends further along x and y axes (+ shape)
-          // Off-axis (diagonal) areas get higher thresholds so the cross
-          // arms grow before the corners fill in.
+          // Cross-shaped dot: arms along x/y grow first, corners fill last.
+          // Sum of axis distances approximates the cross coverage.
           const adx = Math.abs(dx);
           const ady = Math.abs(dy);
           const axisDist = Math.min(adx, ady);
           const radialDist = Math.sqrt(adx * adx + ady * ady);
-          dist = radialDist + axisDist * 0.5;
+          const d = radialDist + axisDist * 0.5;
+          coverage = Math.min(1, (d * d * 1.2) / 4);
           break;
         }
         case 'circle': {
-          // Circle / bullseye dot: concentric ring (Fresnel-like) pattern.
-          // The threshold alternates with radial distance, creating
-          // concentric rings instead of a single growing dot cluster.
+          // Circle / bullseye dot: concentric rings instead of a single
+          // growing cluster (decorative). Normalized radial bands.
           const rad = Math.sqrt(dx * dx + dy * dy);
           const ringPhase = Math.sin(rad * Math.PI * 6);
-          dist = rad + ringPhase * 0.3;
+          const d = rad + ringPhase * 0.3;
+          coverage = Math.min(1, Math.max(0, d * 0.8));
           break;
         }
         default:
-          dist = Math.sqrt(dx * dx + dy * dy);
+          coverage = Math.min(1, (Math.PI * (dx * dx + dy * dy)) / 4);
       }
 
-      // Normalize to 0-255 threshold value
-      const threshold = Math.max(0, Math.min(255, Math.round(dist * 255)));
+      // Normalize to 1-255 threshold value (1..255, never 0)
+      const threshold = Math.max(1, Math.min(255, Math.round(coverage * 254) + 1));
       matrix[y * size + x] = threshold;
     }
   }
@@ -203,9 +231,12 @@ function screenChannelAt(
     if (range > 0 && Math.abs(diff) < range) {
       return Math.max(0, Math.min(1, 0.5 + diff / (range * 2)));
     }
-    return diff > 0 ? 1 : 0;
+    return diff >= 0 ? 1 : 0;
   }
-  return adjustedGray > matrixVal ? 1 : 0;
+  // >= (not >): matrix values live in [1,255], so 255-luminance fully inks
+  // (255 >= 255) and 0-luminance never inks (0 >= 1 is false) — no corner
+  // holes at the tone extremes.
+  return adjustedGray >= matrixVal ? 1 : 0;
 }
 
 /**
@@ -236,20 +267,20 @@ function toDocCoord(
 
 /** Clamp frequency to a finite, sane LPI (1–1000). NaN/Infinity → 45. */
 function sanitizeFrequency(value: number | undefined): number {
-  if (!Number.isFinite(value)) return 45;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 45;
   return Math.max(1, Math.min(1000, value));
 }
 
 /** Normalize an angle to a finite value in [0, 360). NaN/Infinity → 0. */
 function sanitizeAngle(value: number | undefined): number {
-  if (!Number.isFinite(value)) return 0;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0;
   const normalized = ((value % 360) + 360) % 360;
   return normalized;
 }
 
 /** Clamp an 8-bit tone threshold; NaN/Infinity → 128. */
 function sanitizeThreshold(value: number | undefined): number {
-  if (!Number.isFinite(value)) return 128;
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 128;
   return Math.max(0, Math.min(255, value));
 }
 
@@ -289,8 +320,13 @@ export function applyAMScreening(
   const safeOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
   const safeOffsetY = Number.isFinite(offsetY) ? offsetY : 0;
 
-  // Generate threshold matrix for the dot shape
-  const matrixSize = nextPowerOfTwo(cellSize * 2);
+  // Generate threshold matrix for the dot shape. A 2x2 matrix degenerates
+  // (all four cells are equidistant from the center → one threshold value →
+  // no tone response), so clamp to >= 4. At 72 dpi, LPI above ~36 yields
+  // sub-2px cells; the matrix then spans several cells, so the effective
+  // screen frequency is lower than the requested LPI — a physical
+  // resolution limit, not a code defect.
+  const matrixSize = Math.max(4, nextPowerOfTwo(cellSize * 2));
   const matrix = cachedAMMatrix(matrixSize, dotShape);
 
   if (intensity === 0) return;
