@@ -13,8 +13,6 @@ import { type ComposeStoryResult, composeStory } from '@varve/engine';
 import type { Document, NodeId } from '@varve/scene';
 import { storyById } from '@varve/scene';
 
-
-
 export interface ComposeStoryForDocResult extends ComposeStoryResult {
   storyId: NodeId;
 }

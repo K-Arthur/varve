@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   type AseColorEntry,
   exportAcoPalette,
+  exportActPalette,
   exportAsePalette,
   exportGplPalette,
   type GplColorEntry,
   parseAcoPalette,
+  parseActPalette,
   parseAsePalette,
   parseGplPalette,
+  parsePaletteFile,
 } from './paletteFormats';
 
 /** Build an ASE binary buffer from high-level descriptor. */
@@ -300,5 +303,105 @@ describe('parseAcoPalette', () => {
     expect(() => parseAcoPalette(v2buf.buffer)).not.toThrow();
     const result = parseAcoPalette(v2buf.buffer);
     expect(result).toHaveLength(1);
+  });
+});
+
+describe('ACT palette parsing', () => {
+  function buildAct(colors: [number, number, number][], declared?: number): ArrayBuffer {
+    const buf = new ArrayBuffer(774);
+    const view = new DataView(buf);
+    colors.forEach(([r, g, b], i) => {
+      view.setUint8(i * 3, r);
+      view.setUint8(i * 3 + 1, g);
+      view.setUint8(i * 3 + 2, b);
+    });
+    view.setUint16(768, declared ?? colors.length, false);
+    return buf;
+  }
+
+  it('parses a full 256-color ACT table', () => {
+    const colors: [number, number, number][] = [];
+    for (let i = 0; i < 256; i += 1) colors.push([i, 255 - i, i]);
+    const parsed = parseActPalette(buildAct(colors));
+    expect(parsed.colors).toHaveLength(256);
+    expect(parsed.colors[0]).toEqual({ r: 0, g: 255, b: 0 });
+    expect(parsed.colors[255]).toEqual({ r: 255, g: 0, b: 255 });
+  });
+
+  it('honors the declared color count', () => {
+    const parsed = parseActPalette(
+      buildAct(
+        [
+          [10, 20, 30],
+          [40, 50, 60],
+          [70, 80, 90],
+        ],
+        2,
+      ),
+    );
+    expect(parsed.colors).toHaveLength(2);
+    expect(parsed.colors[1]).toEqual({ r: 40, g: 50, b: 60 });
+  });
+
+  it('reads the transparent index when valid', () => {
+    const buf = buildAct(
+      [
+        [0, 0, 0],
+        [255, 255, 255],
+      ],
+      2,
+    );
+    new DataView(buf).setUint16(772, 1, false);
+    expect(parseActPalette(buf).transparentIndex).toBe(1);
+  });
+
+  it('ignores an out-of-range transparent index', () => {
+    const buf = buildAct([[0, 0, 0]], 1);
+    new DataView(buf).setUint16(772, 7, false);
+    expect(parseActPalette(buf).transparentIndex).toBeUndefined();
+  });
+
+  it('rejects truncated files instead of reading garbage', () => {
+    expect(() => parseActPalette(new ArrayBuffer(10))).toThrow(/at least 768 bytes/);
+  });
+
+  it('clamps absurd declared counts to 256', () => {
+    const parsed = parseActPalette(
+      buildAct(
+        [
+          [1, 2, 3],
+          [4, 5, 6],
+        ],
+        0,
+      ),
+    );
+    expect(parsed.colors).toHaveLength(256);
+  });
+
+  it('round-trips through exportActPalette', () => {
+    const colors = [
+      { r: 1, g: 2, b: 3 },
+      { r: 250, g: 128, b: 0 },
+    ];
+    const round = parseActPalette(exportActPalette(colors));
+    expect(round.colors).toEqual(colors);
+  });
+
+  it('dispatches .gpl and .act through parsePaletteFile', () => {
+    const gpl = parsePaletteFile('pal.gpl', 'GIMP Palette\nName: Test\n1 2 3 First\n4 5 6\n');
+    expect(gpl.format).toBe('gpl');
+    expect(gpl.name).toBe('Test');
+    expect(gpl.colors).toEqual([
+      [1, 2, 3],
+      [4, 5, 6],
+    ]);
+
+    const act = parsePaletteFile('pal.act', buildAct([[9, 8, 7]], 1));
+    expect(act.format).toBe('act');
+    expect(act.colors).toEqual([[9, 8, 7]]);
+  });
+
+  it('rejects unknown palette extensions', () => {
+    expect(() => parsePaletteFile('pal.xyz', 'x')).toThrow(/Unsupported palette format/);
   });
 });
