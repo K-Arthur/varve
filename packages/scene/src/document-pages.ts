@@ -330,7 +330,7 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
       };
       for (let i = 0; i < mapped.length; i++) {
         const frameId = mapped[i]!;
-        const frame = result.nodes[frameId] as Record<string, unknown> | undefined;
+        const frame = result.nodes[frameId];
         if (frame && frame.kind === 'text') {
           result = {
             ...result,
