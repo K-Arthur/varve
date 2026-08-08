@@ -34,18 +34,20 @@ BUNDLE_DIR="${REPO_ROOT}/apps/desktop/src-tauri/target/release/bundle"
 
 DEB_ONLY=0
 RPM_ONLY=0
-for arg in "$@"; do
-  case "$arg" in
-    --deb-only) DEB_ONLY=1 ;;
-    --rpm-only) RPM_ONLY=1 ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --deb-only) DEB_ONLY=1; shift ;;
+    --rpm-only) RPM_ONLY=1; shift ;;
     --bundle-dir)
       shift
       BUNDLE_DIR="$(realpath "$1")"
+      shift
       ;;
     --bundle-dir=*)
-      BUNDLE_DIR="$(realpath "${arg#*=}")"
+      BUNDLE_DIR="$(realpath "${1#*=}")"
+      shift
       ;;
-    *) echo "Unknown argument: $arg" >&2; exit 2 ;;
+    *) echo "Unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
