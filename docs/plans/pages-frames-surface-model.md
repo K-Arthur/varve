@@ -347,3 +347,27 @@ behaviour is pinned by a test.
 Still open: which call sites opt in. Drag-drop and paste-at-point are the
 intended ones; the modifier-to-suppress and the never-reparent-on-nudge rules
 from the edge-case list are not implemented yet.
+
+### 4. UI: progressive disclosure and page sizing (implemented)
+
+**Page navigation** now appears when the workspace calls for it (Print) *or*
+the document is genuinely multi-page. The trigger is `pages.length > 1`, not
+`> 0`, because `createDocument` seeds every document with one page — a
+`> 0` rule would reveal the navigator in every design document and disclose
+nothing. Keying it off the document rather than the mode alone is the point: a
+design document that gains a second page previously had no way to navigate it.
+
+Once pages become genuinely additive (move 2 above), the trigger becomes
+`> 0` and this comment is the reminder to change it.
+
+**Page size** is now editable like any other surface, in the page-focused
+inspector: width/height fields, a preset dropdown, and a "swap orientation"
+action. Presets come from the shared `BUILTIN_PRESET_GROUPS` — the same source
+the new-document flow uses, so document sizes and page sizes cannot drift
+apart — with physical units converted at the CSS 96dpi reference (A4 ->
+794 x 1123, verified by test). Presets apply one-way and never become a stored
+mode: editing width or height afterwards simply clears the match.
+
+Resizing **anchors top-left**; content keeps its size and position. Rescaling a
+laid-out page because the paper size changed is destructive, so content scaling
+stays a separate explicit action.
