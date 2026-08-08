@@ -86,7 +86,7 @@ export interface DocumentContextValue {
   newDocument: () => void;
   serializeDocument: () => string;
   updateDoc: (fn: (doc: Document) => Document) => void;
-  loadDocument: (json: string, meta?: import('./usePersistence').LoadDocumentMeta) => void;
+  loadDocument: (json: string, meta?: import('./types').LoadDocumentMeta) => void;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
