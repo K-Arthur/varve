@@ -375,6 +375,7 @@ jobs:
       # runner emits the SBOM for the bytes it actually bundled.
       - name: Generate platform SBOM
         if: matrix.enabled
+        shell: bash
         run: |
           node scripts/release/generate-sbom.mjs \
             --out dist/release/varve-${{ needs.preflight.outputs.version }}-sbom-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.cdx.json \
@@ -383,6 +384,7 @@ jobs:
 
       - name: Validate platform SBOM
         if: matrix.enabled
+        shell: bash
         run: |
           node scripts/release/validate-sbom.mjs \
             dist/release/varve-${{ needs.preflight.outputs.version }}-sbom-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.cdx.json
