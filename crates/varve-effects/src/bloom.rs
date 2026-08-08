@@ -10,10 +10,10 @@
 use crate::blur::gaussian_blur_linear_light;
 use crate::prng::srgb_to_linear01;
 use crate::quality::{downsample_box, quality_resolution_factor, upsample_bilinear};
-use crate::{clamp_byte, clamp01, js_round, CoordSpace, EffectQuality, Params};
+use crate::{clamp01, clamp_byte, js_round, CoordSpace, EffectQuality, Params};
 
 fn srgb_back(linear: f64) -> f64 {
-    let v = linear.max(0.0).min(1.0);
+    let v = linear.clamp(0.0, 1.0);
     let srgb = if v <= 0.0031308 {
         v * 12.92
     } else {
@@ -50,7 +50,7 @@ fn streak_smear(
         linear[i * 3 + 2] = lin_lut[data[o + 2] as usize];
     }
     let mut out = vec![0.0f64; n * 3];
-    let steps = js_round(length_px / 3.0).max(3.0).min(32.0) as i64;
+    let steps = js_round(length_px / 3.0).clamp(3.0, 32.0) as i64;
     let step_px = length_px / steps as f64;
     for y in 0..h {
         for x in 0..w {
@@ -152,8 +152,8 @@ pub fn apply(
 
     // Linearized-luma LUT (256 entries) for the threshold test.
     let mut lin_lut = [0.0f64; 256];
-    for v in 0..256 {
-        lin_lut[v] = srgb_to_linear01(v as f64);
+    for (v, slot) in lin_lut.iter_mut().enumerate() {
+        *slot = srgb_to_linear01(v as f64);
     }
 
     // Bright pass.
@@ -209,7 +209,7 @@ pub fn apply(
         lsrc = data.clone();
         lw = dw;
         lh = dh;
-        let blur_radius = js_round(radius / 2f64.powi(k as i32)).max(1.0);
+        let blur_radius = js_round(radius / 2f64.powi(k)).max(1.0);
         let blurred = gaussian_blur_linear_light(&data, lw, lh, blur_radius.min(32.0) as i64);
         let weight = 1.0 + (level_count - k) as f64 * diffusion * 0.35;
         levels.push(Level {
@@ -231,7 +231,7 @@ pub fn apply(
             top.width,
             top.height,
             streak_angle,
-            streak_length / 2f64.powi((level_count - 1) as i32),
+            streak_length / 2f64.powi(level_count - 1),
             streak_intensity,
             streak_aspect,
             &lin_lut,
@@ -245,17 +245,16 @@ pub fn apply(
     for level in &levels {
         upsample_bilinear(&level.data, level.width, level.height, &mut half, sw, sh);
         let lwgt = level.weight;
-        for i in 0..n {
+        for (i, count) in glow_count.iter_mut().enumerate() {
             let o = i * 4;
             glow[o] += half[o] as f64 * lwgt;
             glow[o + 1] += half[o + 1] as f64 * lwgt;
             glow[o + 2] += half[o + 2] as f64 * lwgt;
-            glow_count[i] += lwgt;
+            *count += lwgt;
         }
     }
-    for i in 0..n {
+    for (i, &c) in glow_count.iter().enumerate() {
         let o = i * 4;
-        let c = glow_count[i];
         let cnt = if c == 0.0 { 1.0 } else { c };
         glow[o] /= cnt;
         glow[o + 1] /= cnt;

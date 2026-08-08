@@ -104,7 +104,7 @@ describe('large-image behaviour (memory safety)', () => {
   });
 
   it('1024x1024 bloom stays within its pyramid and never overflows bytes', () => {
-    const img = makeImage(1024, 1024, (x, y) =>
+    const img = makeImage(1024, 1024, (x, _y) =>
       x < 512 ? [255, 255, 255, 255] : [24, 40, 60, 255],
     );
     applyBloom(img, {
@@ -479,7 +479,7 @@ describe('bloom', () => {
 
   it('brightens highlights and is deterministic', () => {
     const run = () => {
-      const img = makeImage(32, 32, (x, y) => (x < 16 ? [255, 255, 255, 255] : [10, 10, 10, 255]));
+      const img = makeImage(32, 32, (x, _y) => (x < 16 ? [255, 255, 255, 255] : [10, 10, 10, 255]));
       applyBloom(img, {
         threshold: 0.4,
         softKnee: 0.2,
@@ -773,7 +773,7 @@ describe('vhs', () => {
 describe('lightShafts', () => {
   it('is deterministic per quality tier', () => {
     const run = () => {
-      const img = makeImage(24, 24, (x, y) => (x < 8 ? [30, 30, 30, 255] : [220, 220, 220, 255]));
+      const img = makeImage(24, 24, (x, _y) => (x < 8 ? [30, 30, 30, 255] : [220, 220, 220, 255]));
       applyLightShafts(img, {
         lightX: 0.5,
         lightY: 0.05,

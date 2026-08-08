@@ -10,7 +10,7 @@ import {
   requiresRasterExport,
 } from '../../adjustmentPipeline';
 import { getEffectContract } from '../../effectContract';
-import { adjustmentDefaults, adjustmentToFilter, makeAdjustment } from '../../filters';
+import { adjustmentToFilter, makeAdjustment } from '../../filters';
 
 const KINDS = [
   'dither',

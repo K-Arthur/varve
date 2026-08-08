@@ -463,7 +463,7 @@ describe('EditorHistorySession', () => {
     expect(result.revision!.parentRevisionIds).toHaveLength(2);
     // The merged document carries the chosen (theirs) opacity.
     const headDoc = await session.loadRevisionDocument(result.revision!.revisionId);
-    expect((headDoc!.nodes['n1_aaaa'] as { opacity?: number }).opacity).toBe(0.9);
+    expect((headDoc!.nodes.n1_aaaa as { opacity?: number }).opacity).toBe(0.9);
   });
 
   it('completeMerge refuses to commit when conflicts remain unresolved', async () => {
