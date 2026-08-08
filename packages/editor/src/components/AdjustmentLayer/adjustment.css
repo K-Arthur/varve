@@ -985,3 +985,51 @@
   font-size: var(--font-size-2xs, 10px);
   color: var(--color-text-muted);
 }
+
+.adj-editor__swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  margin: 6px 0;
+}
+.adj-editor__swatch {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  border: 1px solid var(--color-border, rgba(128, 128, 128, 0.35));
+  cursor: pointer;
+}
+.adj-editor__swatch--active {
+  outline: 2px solid var(--color-accent, #14b8a6);
+  outline-offset: 1px;
+}
+.adj-editor__palette-input {
+  width: 100%;
+  min-height: 72px;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-2xs, 11px);
+  resize: vertical;
+  background: var(--color-surface-2, transparent);
+  color: var(--color-text, inherit);
+  border: 1px solid var(--color-border, rgba(128, 128, 128, 0.35));
+  border-radius: 4px;
+  padding: 6px;
+}
+.adj-editor__palette-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: var(--font-size-2xs, 11px);
+  color: var(--color-text-muted);
+}
+.adj-editor__hint {
+  font-size: var(--font-size-2xs, 11px);
+  color: var(--color-text-muted);
+  margin: 2px 0 6px;
+}
+.adj-editor__hint {
+  font-size: var(--font-size-2xs, 11px);
+  color: var(--color-text-muted);
+  margin: 4px 0;
+  line-height: 1.4;
+}

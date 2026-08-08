@@ -1073,6 +1073,48 @@ async fn upscale_image_command(
     Ok(Response::new(result))
 }
 
+/// Native live-effect kernels — raw RGBA request body, `x-varve-effect` JSON
+/// header (kind, dimensions, quality, coord space, params). Returns raw RGBA
+/// bytes via the octet-stream response channel. Bounded like trace/upscale:
+/// pixel-count ceiling before any allocation; runs on a blocking thread so
+/// the UI thread stays free.
+#[tauri::command]
+async fn apply_live_effect_binary(request: tauri::ipc::Request<'_>) -> Result<Response, String> {
+    const OPTIONS_HEADER: &str = "x-varve-effect";
+    const MAX_EFFECT_PIXELS: u64 = 33_554_432; // 8192x4096 — export ceiling
+    let rgba = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err("Binary effect requires an application/octet-stream body".into())
+        }
+    };
+    let options_json = request
+        .headers()
+        .get(OPTIONS_HEADER)
+        .ok_or_else(|| format!("Missing {OPTIONS_HEADER} header"))?
+        .to_str()
+        .map_err(|_| format!("Invalid {OPTIONS_HEADER} header"))?
+        .to_owned();
+    let effect_request: varve_effects::EffectRequest =
+        serde_json::from_str(&options_json).map_err(|e| format!("Invalid effect options: {e}"))?;
+    drop(request);
+
+    let pixels = u64::from(effect_request.width) * u64::from(effect_request.height);
+    if pixels > MAX_EFFECT_PIXELS {
+        return Err(format!(
+            "Effect surface contains {pixels} pixels; the native limit is {MAX_EFFECT_PIXELS} pixels"
+        ));
+    }
+
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        varve_effects::apply_effect(&effect_request, &rgba)
+    })
+    .await
+    .map_err(|e| format!("Effect task panicked: {e}"))??;
+
+    Ok(Response::new(result))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn upscale_image_impl(
     pixels: &[u8],
@@ -2524,6 +2566,7 @@ pub fn run() {
             cancel_trace,
             upscale_image,
             upscale_image_binary,
+            apply_live_effect_binary,
             begin_upscale_job,
             cancel_upscale,
             export_node_pdf,

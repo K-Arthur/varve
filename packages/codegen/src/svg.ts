@@ -938,11 +938,18 @@ function nodeToSvgTag(
   // (angular, diamond) and effects that SVG cannot represent natively.
   const rasterAsset = rasterAssets?.[node.id];
   if (rasterAsset) {
-    const w = rasterAsset.cssWidth;
-    const h = rasterAsset.cssHeight;
+    // Effects that spill outside the source bounds render on a padded
+    // surface; the image must be placed at the expansion offset with the
+    // expanded size so the spill is visible and the content lands exactly
+    // on the node bounds.
+    const exp = rasterAsset.expansion;
+    const x = exp ? -exp.left : 0;
+    const y = exp ? -exp.top : 0;
+    const w = exp ? rasterAsset.cssWidth + exp.left + exp.right : rasterAsset.cssWidth;
+    const h = exp ? rasterAsset.cssHeight + exp.top + exp.bottom : rasterAsset.cssHeight;
     const href = escapeXml(rasterAsset.dataUrl);
     const t = affineToSvg(transform);
-    return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" transform="${t}" />`;
+    return `${indent}<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}" transform="${t}" />`;
   }
 
   const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
@@ -1204,10 +1211,13 @@ ${shapeInner}`
     case 'adjustment': {
       const asset = rasterAssets?.[node.id];
       if (asset) {
-        const w = asset.cssWidth;
-        const h = asset.cssHeight;
+        const exp = asset.expansion;
+        const x = exp ? -exp.left : 0;
+        const y = exp ? -exp.top : 0;
+        const w = exp ? asset.cssWidth + exp.left + exp.right : asset.cssWidth;
+        const h = exp ? asset.cssHeight + exp.top + exp.bottom : asset.cssHeight;
         const href = escapeXml(asset.dataUrl);
-        return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}"${withTransform} />`;
+        return `${indent}<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}"${withTransform} />`;
       }
       return '';
     }

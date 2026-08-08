@@ -7,7 +7,7 @@ import {
   serializeLutForDocument,
   TRITONE_PRESETS,
 } from '@varve/engine';
-import type { Adjustment, ManagedColor } from '@varve/scene';
+import type { Adjustment, Document, ManagedColor } from '@varve/scene';
 import { rgbFromTuple } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import { Select } from '@varve/ui';
@@ -16,6 +16,18 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
+import {
+  BloomEditor,
+  CausticsEditor,
+  CrtEditor,
+  DitherEditor,
+  LensFlareEditor,
+  LightLeakEditor,
+  LightShaftsEditor,
+  PaletteSnapEditor,
+  RgbSplitEditor,
+  VhsEditor,
+} from './LiveEffectEditors';
 import './adjustment.css';
 
 export interface AdjustmentEditorProps {
@@ -23,6 +35,8 @@ export interface AdjustmentEditorProps {
   onChange: (patch: Partial<Adjustment>) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
+  /** Document for palette import sources (document swatches). */
+  doc?: Document;
 }
 
 export function AdjustmentEditor({
@@ -30,6 +44,7 @@ export function AdjustmentEditor({
   onChange,
   onEditStart,
   onEditEnd,
+  doc,
 }: AdjustmentEditorProps) {
   const handleSlider = useCallback(
     (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -479,6 +494,36 @@ export function AdjustmentEditor({
           onEditEnd={onEditEnd}
         />
       );
+
+    case 'dither':
+      return <DitherEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'paletteSnap':
+      return <PaletteSnapEditor adjustment={adjustment} onChange={onChange} doc={doc} />;
+
+    case 'bloom':
+      return <BloomEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'rgbSplit':
+      return <RgbSplitEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'crt':
+      return <CrtEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'vhs':
+      return <VhsEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'lightShafts':
+      return <LightShaftsEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'lensFlare':
+      return <LensFlareEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'lightLeak':
+      return <LightLeakEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'caustics':
+      return <CausticsEditor adjustment={adjustment} onChange={onChange} />;
 
     default:
       return (
