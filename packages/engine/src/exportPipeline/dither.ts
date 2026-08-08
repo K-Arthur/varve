@@ -17,6 +17,8 @@
 
 import type { DitherAlgorithm, DitherChannelMode } from '@varve/shared';
 
+export type { DitherAlgorithm, DitherChannelMode } from '@varve/shared';
+
 export interface DitherImageOptions {
   algorithm?: DitherAlgorithm;
   /** 0..1 diffusion strength (error scaling) / ordered-pattern depth. */
@@ -44,7 +46,7 @@ interface KernelEntry {
 }
 
 /** 1-row high kernels; mirrored horizontally for serpentine scanning. */
-const KERNELS: Record<
+export const KERNELS: Record<
   'floyd-steinberg' | 'atkinson' | 'jarvis-judice-ninke' | 'stucki',
   KernelEntry[]
 > = {

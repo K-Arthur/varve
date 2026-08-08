@@ -132,9 +132,12 @@ export async function exportRasterizedSubtree(
   renderTarget(context as CanvasRenderingContext2D);
   context.restore();
 
-  // Apply filter stack
+  // Apply filter stack at full export quality — never interactive preview
+  // quality (see docs/architecture/live-effects-system.md).
   if (filters.length > 0) {
-    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH);
+    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH, {
+      quality: 'export',
+    });
   }
 
   // Encode to PNG data URL
@@ -192,7 +195,9 @@ export function exportRasterizedSubtreeSync(
   context.restore();
 
   if (filters.length > 0) {
-    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH);
+    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH, {
+      quality: 'export',
+    });
   }
 
   const dataUrl = surfaceToDataUrlSync(canvas);

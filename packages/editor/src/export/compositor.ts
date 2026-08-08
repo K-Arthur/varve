@@ -28,6 +28,7 @@ import {
   type Engine,
   encodeRasterSurface,
   type RasterSurface,
+  totalEffectExpansion,
 } from '@varve/engine';
 import {
   type Document,
@@ -860,6 +861,7 @@ async function renderBoundaryToSurface(
   eng: Engine,
   exportScale: number,
   bounds: { x: number; y: number; w: number; h: number },
+  expansion?: RasterAsset['expansion'],
 ): Promise<void> {
   // Mockup frames present live-bound sources: include them in the flattened
   // set so the surface bake can replay them at export resolution.
@@ -887,7 +889,10 @@ async function renderBoundaryToSurface(
   const ctx = surface.context as CanvasRenderingContext2D;
   ctx.save();
   ctx.scale(exportScale, exportScale);
-  ctx.translate(-bounds.x, -bounds.y);
+  // The surface is padded by the effect expansion; anchor the content at
+  // the expansion offset so the source bounds land at their true position
+  // inside the padded image.
+  ctx.translate(-bounds.x + (expansion?.left ?? 0), -bounds.y + (expansion?.top ?? 0));
   replayStructuredScene(ctx, {
     document: doc,
     rootIds: [boundaryNodeId],
@@ -896,6 +901,13 @@ async function renderBoundaryToSurface(
     extrasByNodeId: decorated.extrasByNodeId,
   });
   ctx.restore();
+}
+
+/** Visible adjustments attached to a node (kind + base fields). */
+function collectVisibleAdjustments(node: SceneNode): Array<Record<string, unknown>> {
+  const adjustments = (node as unknown as { adjustments?: Array<Record<string, unknown>> })
+    .adjustments;
+  return (adjustments ?? []).filter((a) => a.visible !== false && (a.opacity as number) > 0);
 }
 
 // ── Main entry point ─────────────────────────────────────────────────────────
@@ -940,8 +952,28 @@ async function rasterizeBoundaries(
 
     const cssWidth = Math.max(1, bounds.w);
     const cssHeight = Math.max(1, bounds.h);
-    const pixelW = Math.max(1, Math.round(cssWidth * exportScale));
-    const pixelH = Math.max(1, Math.round(cssHeight * exportScale));
+
+    // Effect expansion: effects that generate pixels outside the source
+    // bounds (bloom, flares, RGB displacement) must render on a padded
+    // surface or the export clips them at the boundary rectangle. The
+    // expansion is recorded on the asset so emitters can place the image
+    // with the correct offset and size.
+    let expansion: RasterAsset['expansion'];
+    if (boundary.hasAdjustmentFilters) {
+      const filters = adjustmentsToFilters(
+        collectVisibleAdjustments(boundary.node) as unknown as Parameters<
+          typeof adjustmentsToFilters
+        >[0],
+      );
+      const [expL, expT, expR, expB] = totalEffectExpansion(filters);
+      if (expL > 0 || expT > 0 || expR > 0 || expB > 0) {
+        expansion = { left: expL, top: expT, right: expR, bottom: expB };
+      }
+    }
+    const expandedCssW = cssWidth + (expansion?.left ?? 0) + (expansion?.right ?? 0);
+    const expandedCssH = cssHeight + (expansion?.top ?? 0) + (expansion?.bottom ?? 0);
+    const pixelW = Math.max(1, Math.round(expandedCssW * exportScale));
+    const pixelH = Math.max(1, Math.round(expandedCssH * exportScale));
 
     // Skip if exceeds pixel budget (32 MiB = 33,554,432 pixels)
     if (pixelW * pixelH > 33_554_432) {
@@ -977,8 +1009,9 @@ async function rasterizeBoundaries(
 
     // Render the boundary through the real IR-replay pipeline so
     // gradients, images, masks, blend modes, and adjustment compositing
-    // match the live document exactly.
-    await renderBoundaryToSurface(surface, node.id, doc, eng, exportScale, bounds);
+    // match the live document exactly. Content is anchored at the expansion
+    // offset inside the padded surface.
+    await renderBoundaryToSurface(surface, node.id, doc, eng, exportScale, bounds, expansion);
 
     let dataUrl: string;
     try {
@@ -996,11 +1029,12 @@ async function rasterizeBoundaries(
     rasterAssets[node.id] = {
       nodeId: node.id,
       dataUrl,
-      pixelWidth: Math.round(cssWidth * exportScale),
-      pixelHeight: Math.round(cssHeight * exportScale),
+      pixelWidth: Math.round(expandedCssW * exportScale),
+      pixelHeight: Math.round(expandedCssH * exportScale),
       cssWidth,
       cssHeight,
       dpi,
+      ...(expansion ? { expansion } : {}),
     };
     rasterizedIds.add(node.id);
   }

@@ -31,6 +31,11 @@
       "linter": { "enabled": false }
     },
     {
+      "includes": ["crates/**/tests/fixtures/**"],
+      "formatter": { "enabled": false },
+      "linter": { "enabled": false }
+    },
+    {
       "includes": ["**/*.test.*", "**/__tests__/**", "tests/**", "scripts/**"],
       "linter": {
         "rules": {

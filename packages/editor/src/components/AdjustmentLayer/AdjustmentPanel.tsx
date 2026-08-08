@@ -40,6 +40,16 @@ const ADJUSTMENT_KINDS: AdjustmentKind[] = [
   'tritone',
   'colorHalftone',
   'lut',
+  'dither',
+  'paletteSnap',
+  'bloom',
+  'rgbSplit',
+  'crt',
+  'vhs',
+  'lightShafts',
+  'lensFlare',
+  'lightLeak',
+  'caustics',
 ];
 
 const ADJUSTMENT_BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [
@@ -396,6 +406,7 @@ export function AdjustmentPanel() {
             onChange={handleUpdateAdjustment(selectedAdj.id)}
             onEditStart={startEditTransaction}
             onEditEnd={finishEditTransaction}
+            doc={state.document}
           />
           <div className="adj-panel__effect-controls">
             <label className="adj-editor__slider-row">
