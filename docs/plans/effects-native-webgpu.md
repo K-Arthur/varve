@@ -68,21 +68,22 @@ replicate the TS `??` defaults.
 
 - [ ] Crate skeleton: Cargo.toml, lib.rs (request types, params reader,
       js_round, u32 hash helpers), prng.rs, quality.rs, blur.rs, palette_core.rs
-- [ ] Fixture generator (vitest, env-gated) + committed fixtures
-- [ ] Rust kernels: dither, paletteSnap, rgbSplit (exact class)
-- [ ] Rust kernels: crt, vhs, lightLeak, lightShafts (tolerant class)
-- [ ] Rust kernels: bloom, lensFlare, caustics (tolerant class)
-- [ ] Tauri command `apply_live_effect_binary` + registration
-- [ ] TS providers + dispatch (`liveEffects/dispatch.ts`), registry update
-- [ ] Export wiring in `flattenForExport.ts` (order-preserving interleave)
-- [ ] WebGPU runner + WGSL kernels (9 effects)
-- [ ] GPU agreement harness (Playwright, skip-if-no-GPU)
-- [ ] Docs update + full regression gates
+- [x] Fixture generator (vitest, env-gated) + committed fixtures
+- [x] Rust kernels: dither, paletteSnap, rgbSplit (exact class)
+- [x] Rust kernels: crt, vhs, lightLeak, lightShafts (tolerant class)
+- [x] Rust kernels: bloom, lensFlare, caustics (tolerant class)
+- [x] Tauri command `apply_live_effect_binary` + registration
+- [x] TS providers + dispatch (`liveEffects/dispatch.ts`), registry update
+- [x] Export wiring in `flattenForExport.ts` (order-preserving interleave)
+- [x] WebGPU runner + WGSL kernels (9 effects; dither GPU tier falls back to CPU)
+- [x] GPU agreement harness (CDP verifier + Playwright spec + naga offline validation)
+- [x] Docs update + full regression gates
 
 ## Next items (deferred from live-effects round, now completed by this work)
 
-1. WebGPU compute paths for all effects (registry-classified) — this plan
-2. Native (Rust) acceleration — this plan
-3. Registry capability columns (gpuStatus/nativeStatus) truthfully populated
-4. Dither documented as sequential (CPU-only) with a partial GPU status
-5. Agreement regression net for all three backends
+1. WebGPU compute paths for all effects — done (9 kernels, dither partial)
+2. Native (Rust) acceleration — done (10 kernels, 20 fixture agreement cases)
+3. Registry capability columns (gpuStatus/nativeStatus) — done
+4. Dither documented as sequential (CPU-only) with a partial GPU status — done
+5. Agreement regression net — done (Rust fixtures, CDP GPU verifier, naga
+   offline validation, Playwright spec)
