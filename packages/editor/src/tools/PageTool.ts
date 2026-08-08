@@ -118,8 +118,8 @@ export class PageTool extends BaseTool {
     if (pageAt) {
       ctx.setActivePage?.(pageAt.pageId);
       const page = ctx.document.pages?.find((p) => p.id === pageAt.pageId);
-      const startPlacement =
-        page?.placement ?? resolvePagePlacement(ctx.document, pageAt.pageId) ?? { x: 0, y: 0 };
+      const startPlacement = page?.placement ??
+        resolvePagePlacement(ctx.document, pageAt.pageId) ?? { x: 0, y: 0 };
       this.gesture = { kind: 'move', pageId: pageAt.pageId, startPlacement };
       ctx.beginTransaction();
       return { consumed: true, captured: true };

@@ -228,6 +228,8 @@ export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
 export type {
   AcoColorEntry,
+  ActColorEntry,
+  ActPalette,
   AseColorEntry,
   AsePalette,
   GplColorEntry,
@@ -235,10 +237,15 @@ export type {
 } from './paletteFormats';
 export {
   exportAcoPalette,
+  exportActPalette,
   exportGplPalette,
+  type PaletteFileFormat,
+  paletteFileFormat,
   parseAcoPalette,
+  parseActPalette,
   parseAsePalette,
   parseGplPalette,
+  parsePaletteFile,
 } from './paletteFormats';
 export type { PathSample } from './pathProjection';
 export {
