@@ -626,15 +626,10 @@ jobs:
         run: |
           node scripts/release/validate-sbom.mjs dist/release/*.cdx.json
 
-      - name: Verify artifacts against the manifest
-        run: |
-          node scripts/release/verify-artifacts.mjs \
-            --dir dist/release \
-            --expect-version ${{ needs.preflight.outputs.version }}
-
       # The checksum file is generated LAST, after every artifact is in place,
       # so it describes the exact bytes about to be uploaded. It covers every
       # public asset except itself: installers, release-manifest.json, SBOMs.
+      # Verification happens after it, in one pass, so SBOMs are covered too.
       - name: Generate final SHA256SUMS.txt
         run: |
           node scripts/release/generate-final-checksums.mjs --dir dist/release
