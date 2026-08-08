@@ -184,11 +184,15 @@ describe('Page model hygiene', () => {
       expect(doc.nodes[contentRootId]).toBeDefined();
     });
 
-    it('removePage prevents removal of last page', () => {
+    it('removePage removes the last page, leaving a plain canvas', () => {
+      // Pages are additive: a single-page document must not be a state the
+      // user can enter but never leave. Zero pages is the flat-document shape
+      // both activePageNodes and multipageRootNodes already handle.
       const doc = createDocument('test', false);
       const pageId = (doc.pages?.[0] as Page).id;
       const result = removePage(doc, pageId);
-      expect(result.pages?.length).toBe(1);
+      expect(result.pages ?? []).toHaveLength(0);
+      expect(result.activePageId).toBeUndefined();
     });
 
     it('setActivePage switches active page by Page.id', () => {

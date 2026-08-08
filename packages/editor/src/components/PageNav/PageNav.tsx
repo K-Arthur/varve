@@ -251,7 +251,6 @@ export function PageNav() {
   // explicitly labelled command rather than a confirmation dialog.
   const handleDeletePage = useCallback(() => {
     if (!ctxPageId) return;
-    if (pages.length <= 1) return;
     pendingFocusRef.current = 'active';
     updateDoc((doc) => deletePageWithPolicy(doc, ctxPageId, 'move-to-pasteboard'));
     closeContextMenu();
@@ -259,7 +258,6 @@ export function PageNav() {
 
   const handleDeletePageAndContents = useCallback(() => {
     if (!ctxPageId) return;
-    if (pages.length <= 1) return;
     pendingFocusRef.current = 'active';
     updateDoc((doc) => deletePageWithPolicy(doc, ctxPageId, 'delete-content'));
     closeContextMenu();
@@ -277,12 +275,14 @@ export function PageNav() {
       id: 'delete',
       label: 'Delete page (keep contents)',
       onAction: handleDeletePage,
-      disabled: pages.length <= 1,
     },
     {
       id: 'delete-with-contents',
       label: 'Delete page and contents',
       onAction: handleDeletePageAndContents,
+      // Removing the final page returns the document to a plain canvas; the
+      // scene layer forces content preservation in that case, so this can
+      // never empty the document in one step.
       disabled: pages.length <= 1,
     },
   ];

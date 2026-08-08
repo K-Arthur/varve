@@ -101,9 +101,21 @@ export function deletePageWithPolicy(
   policy: DeletePagePolicy,
   targetPageId?: NodeId,
 ): Document {
-  if (!doc.pages || doc.pages.length <= 1) return doc;
+  if (!doc.pages || doc.pages.length === 0) return doc;
   const idx = doc.pages.findIndex((p) => p.id === pageId);
   if (idx < 0) return doc;
+
+  // Deleting the final page is allowed: pages are additive, so removing the
+  // last one returns the document to a plain canvas rather than being a state
+  // the user can enter but never leave. `multipageRootNodes` and
+  // `activePageNodes` both already treat "no pages" as the flat-document
+  // shape, so nothing downstream needs a special case.
+  //
+  // It must not be a way to lose everything by accident, though: on the last
+  // page the content policy is forced to preserve content. Discarding it stays
+  // possible by deleting the content first.
+  const isLastPage = doc.pages.length === 1;
+  const effectivePolicy: DeletePagePolicy = isLastPage ? 'move-to-pasteboard' : policy;
 
   const page = doc.pages[idx]!;
   const nextPages = doc.pages.filter((p) => p.id !== pageId);
@@ -119,12 +131,12 @@ export function deletePageWithPolicy(
   // Resolve content destination before the page entry is gone.
   const contentRoot = d.nodes[page.contentRoot] as GroupNode | undefined;
   let targetRoot: NodeId | null = null;
-  if (policy === 'move-to-page' && targetPageId) {
+  if (effectivePolicy === 'move-to-page' && targetPageId) {
     const target = d.pages?.find((p) => p.id === targetPageId);
     if (target && target.id !== pageId) targetRoot = target.contentRoot;
   }
   const moveToPasteboard =
-    policy === 'move-to-pasteboard' || (policy === 'move-to-page' && !targetRoot);
+    effectivePolicy === 'move-to-pasteboard' || (effectivePolicy === 'move-to-page' && !targetRoot);
 
   if (moveToPasteboard || targetRoot) {
     const children = contentRoot?.children ?? [];

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
 import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
 import { addMasterOverride, assignMasterToPage, createMaster } from '../document-components';
+import { deletePageWithPolicy } from '../document-pages';
 import {
   buildPlacedScene,
   multipageRootNodes,
@@ -356,5 +357,68 @@ describe('page culling must not drop content outside the trim', () => {
     const { doc, id, trim } = docWithOutsideContent(1200);
     const roots = multipageRootNodes(doc, { viewportWorldRect: trim });
     expect(roots).toContain(id);
+  });
+});
+
+describe('deleting the final page', () => {
+  it('removes the last page and keeps its content on the canvas', () => {
+    // Pages are additive, so a single-page document must not be a state the
+    // user can enter but never leave. The content has to survive: it is the
+    // whole document at that point.
+    let doc = createDocument('last-page', false);
+    const page = doc.pages![0]!;
+    const { id, doc: d1 } = nextNodeId(doc);
+    doc = addChild(
+      d1,
+      page.contentRoot,
+      makeShapeNode(
+        id,
+        { kind: 'rect', x: 0, y: 0, w: 40, h: 40 },
+        {
+          transform: [1, 0, 0, 1, 10, 10],
+        },
+      ),
+    );
+
+    const after = deletePageWithPolicy(doc, page.id, 'move-to-pasteboard');
+
+    expect(after.pages ?? []).toHaveLength(0);
+    expect(after.activePageId).toBeUndefined();
+    expect(after.nodes[id]).toBeTruthy();
+    expect(after.rootChildren).toContain(id);
+    // The document still renders: no pages means the flat-document path.
+    expect(multipageRootNodes(after)).toContain(id);
+  });
+
+  it('preserves content even when asked to discard it, on the last page only', () => {
+    // Forcing the policy here is deliberate: deleting the final page must not
+    // be a one-click way to empty the entire document.
+    let doc = createDocument('last-page-2', false);
+    const page = doc.pages![0]!;
+    const { id, doc: d1 } = nextNodeId(doc);
+    doc = addChild(
+      d1,
+      page.contentRoot,
+      makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+    );
+
+    const after = deletePageWithPolicy(doc, page.id, 'delete-content');
+    expect(after.nodes[id]).toBeTruthy();
+    expect(after.rootChildren).toContain(id);
+  });
+
+  it('still honours delete-content while other pages remain', () => {
+    let doc = addPage(createDocument('multi', false), {});
+    const first = doc.pages![0]!;
+    const { id, doc: d1 } = nextNodeId(doc);
+    doc = addChild(
+      d1,
+      first.contentRoot,
+      makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+    );
+
+    const after = deletePageWithPolicy(doc, first.id, 'delete-content');
+    expect(after.pages).toHaveLength(1);
+    expect(after.nodes[id]).toBeUndefined();
   });
 });

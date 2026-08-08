@@ -150,14 +150,17 @@ describe('PageNav', () => {
     expect(screen.getByText('Delete page and contents')).toBeTruthy();
   });
 
-  it('disables delete in context menu for the last remaining page', () => {
+  it('allows deleting the last page but not discarding its contents', () => {
     const pages = [makePage('p1', 'Page 1')];
     mockEditor({ pages, currentPageId: 'p1' });
 
     render(<PageNav />);
     fireEvent.contextMenu(screen.getByRole('tab'));
 
-    expect(screen.getByText('Delete page (keep contents)').closest('button')).toBeDisabled();
+    // Removing the final page returns the document to a plain canvas, so it
+    // stays available; discarding the content of the only page does not,
+    // since that content is the whole document.
+    expect(screen.getByText('Delete page (keep contents)').closest('button')).not.toBeDisabled();
     expect(screen.getByText('Delete page and contents').closest('button')).toBeDisabled();
   });
 
