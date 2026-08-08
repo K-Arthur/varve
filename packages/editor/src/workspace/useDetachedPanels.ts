@@ -16,6 +16,7 @@
  * integration (keeps Shell's import budget intact).
  */
 
+import { getWindowService } from '@varve/platform';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EditorContextValue } from '../context';
 import {
@@ -27,6 +28,7 @@ import {
 import type { PanelTypeId } from './panelRegistry';
 import type { BrokerSnapshot } from './sessionBroker';
 import { attachSessionBroker, getSessionBroker } from './sessionBroker';
+import { savePanelPlacement } from './workspaceManager';
 
 export interface DetachedPanelsController {
   /** Panel type ids currently hosted in auxiliary windows. */
@@ -106,6 +108,43 @@ export function useDetachedPanels(editor: EditorContextValue): DetachedPanelsCon
     state.canRedo,
     state.activeId,
   ]);
+
+  // Remember panel-window placements so detached panels restore their
+  // position/size on the next detach (per-panel, cross-session).
+  useEffect(() => {
+    let active = true;
+    let unsubscribe: (() => void) | null = null;
+    void getWindowService()
+      .listenToWindowEvents((event) => {
+        if (!active) return;
+        if (event.type !== 'moved' && event.type !== 'resized') return;
+        const record = getDetachedPanels().find((r) => r.windowId === event.windowId);
+        if (!record) return;
+        void getWindowService()
+          .getWindowPlacement(event.windowId)
+          .then((placement) => {
+            if (!active || !placement) return;
+            savePanelPlacement({
+              panelTypeId: record.panelTypeId,
+              windowId: event.windowId,
+              logicalPosition: placement.logicalPosition,
+              logicalSize: placement.logicalSize,
+              state: placement.state,
+              updatedAt: Date.now(),
+            });
+          })
+          .catch(() => {});
+      })
+      .then((unsub) => {
+        if (active) unsubscribe = unsub;
+        else unsub();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, []);
 
   return useMemo(
     () => ({

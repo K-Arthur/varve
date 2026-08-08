@@ -46,6 +46,12 @@ export interface AuxiliarySessionState {
 
 export interface AuxiliarySessionContextValue {
   state: AuxiliarySessionState;
+  /** Panel type ids currently hosted in THIS window (mutable). */
+  panelTypeIds: string[];
+  /** Add a panel hosted in this window (primary-driven, panel-added). */
+  addPanelType: (panelTypeId: string) => void;
+  /** Remove a panel from this window (primary-driven, panel-removed). */
+  removePanelType: (panelTypeId: string) => void;
   /** Request undo from the primary window. */
   requestUndo: () => void;
   /** Request redo from the primary window. */
@@ -84,11 +90,20 @@ export function AuxiliarySessionProvider({
   const [connected, setConnected] = useState(false);
   const [snapshot, setSnapshot] = useState<BrokerSnapshot | null>(null);
   const [externalState, setExternalState] = useState<AuxiliarySessionState['externalState']>(null);
+  const [membership, setMembership] = useState<string[]>(() => [...panelTypeIds]);
   const revisionRef = useRef(0);
   const transportRef = useRef<Transport | null>(null);
   // snapshotRef so the patch handler can read the latest snapshot.
   const snapshotRef = useRef<BrokerSnapshot | null>(null);
   snapshotRef.current = snapshot;
+
+  const addPanelType = useCallback((panelTypeId: string) => {
+    setMembership((prev) => (prev.includes(panelTypeId) ? prev : [...prev, panelTypeId]));
+  }, []);
+
+  const removePanelType = useCallback((panelTypeId: string) => {
+    setMembership((prev) => prev.filter((id) => id !== panelTypeId));
+  }, []);
 
   const handleMessage = useCallback(
     (eventId: string, payload: unknown) => {
@@ -129,6 +144,20 @@ export function AuxiliarySessionProvider({
           }
           break;
         }
+        case 'panel-added': {
+          const msg = payload as { panelTypeId?: string; windowId?: string } | null;
+          if (msg?.panelTypeId && msg.windowId === windowId) {
+            addPanelType(msg.panelTypeId);
+          }
+          break;
+        }
+        case 'panel-removed': {
+          const msg = payload as { panelTypeId?: string; windowId?: string } | null;
+          if (msg?.panelTypeId && msg.windowId === windowId) {
+            removePanelType(msg.panelTypeId);
+          }
+          break;
+        }
         case 'reattach-ack':
           // Primary confirmed: close this window.
           window.close();
@@ -137,10 +166,11 @@ export function AuxiliarySessionProvider({
           break;
       }
     },
-    [windowId],
+    [windowId, addPanelType, removePanelType],
   );
 
-  // Connect transport once.
+  // Connect transport once (registration is a one-shot; membership changes
+  // are driven by the primary via panel-added/panel-removed).
   useEffect(() => {
     const transport = createSessionTransport(sessionId, handleMessage);
     transportRef.current = transport;
@@ -159,7 +189,8 @@ export function AuxiliarySessionProvider({
       transport.close();
       transportRef.current = null;
     };
-  }, [sessionId, windowId, panelTypeIds, handleMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, windowId, handleMessage]);
 
   const send = useCallback((eventId: string, payload: unknown) => {
     transportRef.current?.send(eventId, payload);
@@ -175,23 +206,42 @@ export function AuxiliarySessionProvider({
 
   const reattach = useCallback(() => {
     // The primary window owns the detached-panels store: it clears the
-    // record in broker.reattachPanel and broadcasts; this window closes on
+    // records in broker.reattachPanel and broadcasts; this window closes on
     // reattach-ack.
-    transportRef.current?.send('request-reattach', {
-      windowId,
-      panelTypeId: panelTypeIds[0],
+    setMembership((current) => {
+      if (current.length > 0) {
+        transportRef.current?.send('request-reattach', {
+          windowId,
+          panelTypeIds: current,
+        });
+      }
+      return current;
     });
-  }, [windowId, panelTypeIds]);
+  }, [windowId]);
 
   const value = useMemo<AuxiliarySessionContextValue>(
     () => ({
       state: { connected, snapshot, externalState, revision: revisionRef.current },
+      panelTypeIds: membership,
+      addPanelType,
+      removePanelType,
       requestUndo,
       requestRedo,
       reattach,
       send,
     }),
-    [connected, snapshot, externalState, requestUndo, requestRedo, reattach, send],
+    [
+      connected,
+      snapshot,
+      externalState,
+      membership,
+      addPanelType,
+      removePanelType,
+      requestUndo,
+      requestRedo,
+      reattach,
+      send,
+    ],
   );
 
   return (

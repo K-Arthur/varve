@@ -183,11 +183,43 @@ export class BrowserWindowService implements NativeWindowService {
     return Promise.resolve([singleDisplayInfo()]);
   }
 
-  getWindowPlacement(_windowId: WorkspaceWindowId): Promise<WindowPlacement | null> {
-    return Promise.resolve(null);
+  getWindowPlacement(windowId: WorkspaceWindowId): Promise<WindowPlacement | null> {
+    if (windowId === CURRENT_WINDOW_ID) {
+      return Promise.resolve({
+        logicalPosition: { x: window.screenX, y: window.screenY },
+        logicalSize: { width: window.outerWidth, height: window.outerHeight },
+        state: 'normal',
+      });
+    }
+    const popup = this.popups.get(windowId);
+    if (!popup?.win) return Promise.resolve(null);
+    try {
+      const win = popup.win;
+      return Promise.resolve({
+        logicalPosition: { x: win.screenX, y: win.screenY },
+        logicalSize: { width: win.outerWidth, height: win.outerHeight },
+        state: 'normal',
+      });
+    } catch {
+      return Promise.resolve(null);
+    }
   }
 
-  setWindowPlacement(_windowId: WorkspaceWindowId, _placement: WindowPlacement): Promise<void> {
+  setWindowPlacement(windowId: WorkspaceWindowId, placement: WindowPlacement): Promise<void> {
+    if (windowId === CURRENT_WINDOW_ID) return Promise.resolve();
+    const popup = this.popups.get(windowId);
+    if (!popup?.win) return Promise.reject(new Error(`unknown window '${windowId}'`));
+    try {
+      const win = popup.win;
+      win.moveTo(Math.round(placement.logicalPosition.x), Math.round(placement.logicalPosition.y));
+      win.resizeTo(
+        Math.max(240, Math.round(placement.logicalSize.width)),
+        Math.max(160, Math.round(placement.logicalSize.height)),
+      );
+    } catch {
+      // Browsers may refuse cross-window positioning — best effort.
+    }
+    this.emit({ type: 'moved', windowId, placement });
     return Promise.resolve();
   }
 
