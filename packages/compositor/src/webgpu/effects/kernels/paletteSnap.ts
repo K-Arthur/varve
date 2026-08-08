@@ -154,7 +154,6 @@ fn paletteSnapMain(@builtin(global_invocation_id) gid: vec3u) {
     if (err.y > 0.0 && (err.y / 255.0) > th) { outG = min(255.0, outG + 255.0); }
     if (err.z > 0.0 && (err.z / 255.0) > th) { outB = min(255.0, outB + 255.0); }
   }
-  void(seed);
 
   textureStore(
     dst,

@@ -316,7 +316,7 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   toggleHistoryPanel: {
-    binding: { key: 'h', ctrl: true, alt: true },
+    binding: { key: 'y', ctrl: true, alt: true },
     label: 'Toggle History Panel',
     category: 'View',
   },

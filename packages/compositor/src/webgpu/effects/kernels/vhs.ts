@@ -58,22 +58,24 @@ fn vhsMain(@builtin(global_invocation_id) gid: vec3u) {
   let driftX = (jitterPhase - 0.5) * 2.0 * instability * 24.0;
 
   // Per-line jitter (CPU precomputes per line; compute per pixel here).
-  let lineJitter = (hash3(field, y, 1, seed) - 0.5) * 2.0 * jitter * 16.0;
+  let lineJitter = (hash3(i32(field), y, 1, seed) - 0.5) * 2.0 * jitter * 16.0;
 
   // Tear slices.
   var tearOffset = 0.0;
   if (tearing > 0.0) {
     let sliceH = max(4.0, floor(f32(h) / f32(tearCount)));
     let s = i32(floor(f32(y) / sliceH));
-    tearOffset = round((hash3(field, s, 2, seed) - 0.5) * 2.0 * tearing * 48.0);
+    tearOffset = round((hash3(i32(field), s, 2, seed) - 0.5) * 2.0 * tearing * 48.0);
   }
 
-  let headOffset = y > i32(f32(h) * 0.92)
-    ? round((hash3(field, 9, 4, seed) - 0.5) * 2.0 * headSwitch * 40.0)
-    : 0.0;
+  let headOffset = select(
+    0.0,
+    round((hash3(i32(field), 9, 4, seed) - 0.5) * 2.0 * headSwitch * 40.0),
+    y > i32(f32(h) * 0.92),
+  );
   var trackOffset = 0.0;
   if (tracking > 0.0 && abs(f32(y) - f32(trackingY)) < max(2.0, f32(h) * 0.03)) {
-    trackOffset = round((hash3(field, y, 5, seed) - 0.5) * 2.0 * tracking * 24.0);
+    trackOffset = round((hash3(i32(field), y, 5, seed) - 0.5) * 2.0 * tracking * 24.0);
   }
 
   let shift = round(lineJitter + tearOffset + headOffset + trackOffset);
@@ -114,7 +116,7 @@ fn vhsMain(@builtin(global_invocation_id) gid: vec3u) {
   if (dropouts > 0.0) {
     let dropCount = i32(round(dropouts * 12.0));
     for (var i: i32 = 0; i < dropCount; i = i + 1) {
-      let dy = i32(floor(hash3(field, i, 3, seed) * f32(h)));
+      let dy = i32(floor(hash3(i32(field), i, 3, seed) * f32(h)));
       if (dy == y || min(h - 1, dy + 1) == y) { isDropout = true; }
     }
   }

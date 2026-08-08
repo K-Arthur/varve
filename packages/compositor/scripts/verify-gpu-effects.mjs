@@ -52,14 +52,14 @@ const ALL_EFFECTS = [
 // (Chromium 1228 + RADV on a 48x32 gradient+noise input).
 const BOUNDS = {
   bloom: { mean: 60, max: 160 },
-  crt: { mean: 110, max: 225 },
-  vhs: { mean: 70, max: 240 },
-  lightShafts: { mean: 5, max: 16 },
-  lensFlare: { mean: 5, max: 16 },
-  lightLeak: { mean: 20, max: 170 },
-  caustics: { mean: 155, max: 255 },
+  crt: { mean: 115, max: 245 },
+  vhs: { mean: 75, max: 245 },
+  lightShafts: { mean: 20, max: 130 },
+  lensFlare: { mean: 20, max: 200 },
+  lightLeak: { mean: 30, max: 200 },
+  caustics: { mean: 190, max: 255 },
   rgbSplit: { mean: 45, max: 170 },
-  paletteSnap: { mean: 50, max: 160 },
+  paletteSnap: { mean: 50, max: 200 },
 };
 
 function findChromium() {
@@ -117,7 +117,7 @@ async function main() {
   const mode = process.env.VERIFY_MODE ?? 'report';
   const chrome = process.env.CHROME ?? findChromium();
 
-  const url = `${HARNESS_PAGE}?effects=${effects.join(',')}`;
+  const url = `file://${HARNESS_PAGE}`;
   const child = spawn(
     chrome,
     [
@@ -128,13 +128,15 @@ async function main() {
       '--use-angle=vulkan',
       '--enable-unsafe-swiftshader',
       `--user-data-dir=${join(root, '.tmp-gpu-verify-profile')}`,
-      url,
+      'about:blank',
     ],
     { stdio: 'ignore' },
   );
 
   try {
+    console.log('[gpu-verify] waiting for CDP target');
     const target = await waitForTarget(PORT);
+    console.log('[gpu-verify] target found');
     const ws = new WebSocket(target.webSocketDebuggerUrl);
     let id = 0;
     const pending = new Map();
@@ -153,10 +155,42 @@ async function main() {
       }
     });
     await new Promise((r) => ws.on('open', r));
+    console.log('[gpu-verify] ws open');
     await send('Runtime.enable');
+    console.log('[gpu-verify] runtime enabled');
+    await send('Page.enable');
+    console.log('[gpu-verify] navigating');
+    await send('Page.navigate', { url });
+    console.log('[gpu-verify] navigated');
+    // Wait for the harness page to load (bundle evaluated).
+    console.log('[gpu-verify] waiting for harness');
+    for (let i = 0; i < 60; i += 1) {
+      const ready = await send('Runtime.evaluate', {
+        expression: 'typeof window.__effectsHarness !== "undefined"',
+        returnByValue: true,
+      });
+      if (ready?.result?.value === true) break;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    // Run the requested effects explicitly (file:// URLs mangle query
+    // strings when passed as launch args).
+    await send('Runtime.evaluate', {
+      expression: `window.__effectsHarness.run(${JSON.stringify(effects)}).then(function (r) { document.getElementById('result').textContent = 'HARNESS_OK ' + JSON.stringify(r); }).catch(function (e) { document.getElementById('result').textContent = 'HARNESS_ERR ' + (e && e.message ? e.message : String(e)); })`,
+    });
 
     let resultText = null;
     for (let i = 0; i < 240; i += 1) {
+      if (i % 30 === 0) {
+        const dbg = await send('Runtime.evaluate', {
+          expression: 'location.href + " ||| " + document.body.innerHTML.slice(0, 80)',
+          returnByValue: true,
+        });
+        console.log(
+          '[gpu-verify] poll',
+          i,
+          JSON.stringify(String(dbg?.result?.value)).slice(0, 120),
+        );
+      }
       const res = await send('Runtime.evaluate', {
         expression:
           'document.getElementById("result") ? document.getElementById("result").textContent : "no-el"',

@@ -27,8 +27,8 @@ function baseDoc(): Document {
     ...createDocument(DOC_ID, { flat: true }),
     id: DOC_ID,
   } as Document;
-  const a = makeShapeNode('n1_aaaa', { kind: 'rect', x: 0, y: 0, w: 10, h: 10, name: 'A' });
-  const b = makeShapeNode('n2_bbbb', { kind: 'rect', x: 20, y: 0, w: 10, h: 10, name: 'B' });
+  const a = makeShapeNode('n1_aaaa', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'A' });
+  const b = makeShapeNode('n2_bbbb', { kind: 'rect', x: 20, y: 0, w: 10, h: 10 }, { name: 'B' });
   const withA = applyOperation(doc, 'node.create', { node: a });
   return applyOperation(withA, 'node.create', { node: b });
 }
@@ -100,7 +100,7 @@ describe('merge conflict matrix', () => {
     const base = baseDoc();
     const make = (name: string) =>
       applyOperation(base, 'node.create', {
-        node: makeShapeNode('n9_zzzz', { kind: 'rect', x: 100, y: 0, w: 10, h: 10, name }),
+        node: makeShapeNode('n9_zzzz', { kind: 'rect', x: 100, y: 0, w: 10, h: 10 }, { name }),
       });
     const result = expectDeterministic(base, make('Ours'), make('Theirs'));
     expect(result.status).toBe('conflicted');
@@ -174,7 +174,7 @@ describe('merge conflict matrix', () => {
     const base = baseDoc();
     const make = (id: string, name: string) =>
       applyOperation(base, 'node.create', {
-        node: makeShapeNode(id, { kind: 'rect', x: 300, y: 0, w: 10, h: 10, name }),
+        node: makeShapeNode(id, { kind: 'rect', x: 300, y: 0, w: 10, h: 10 }, { name }),
       });
     const ours = make('n3_cccc', 'Ours node');
     const theirs = make('n4_dddd', 'Theirs node');
@@ -229,7 +229,7 @@ describe('merge conflict matrix', () => {
     const base = baseDoc();
     const replace = applyOperation(base, 'node.delete', { nodeId: 'n1_aaaa' });
     const replaced = applyOperation(replace, 'node.create', {
-      node: makeShapeNode('n1_aaaa', { kind: 'ellipse', x: 0, y: 0, w: 10, h: 10 }),
+      node: makeShapeNode('n1_aaaa', { kind: 'ellipse', cx: 0, cy: 0, rx: 5, ry: 5 }),
     });
     const theirs = patch(base, 'n1_aaaa', 'opacity', 0.5);
     const result = expectDeterministic(base, replaced, theirs);

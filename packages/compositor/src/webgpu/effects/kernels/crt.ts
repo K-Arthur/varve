@@ -12,7 +12,7 @@
  *   [9]  vignetteRadius   [10] convergenceX    [11] convergenceY
  *   [12] brightness       [13] contrast
  */
-import type { GpuKernelSpec } from '../runner';
+import type { EffectPass, GpuKernelSpec } from '../runner';
 import { pack } from '../runner';
 import { WGSL_HELPERS } from './shared';
 
@@ -248,7 +248,7 @@ fn crtBlendMain(@builtin(global_invocation_id) gid: vec3u) {
     o = pack.f(params, o, q.brightness, 0);
     pack.f(params, o, q.contrast, 1);
     const glow = typeof q.glow === 'number' && Number.isFinite(q.glow) ? q.glow : 0;
-    return [
+    const passes: EffectPass[] = [
       {
         entry: 'crtWarpMain',
         params,
@@ -270,6 +270,7 @@ fn crtBlendMain(@builtin(global_invocation_id) gid: vec3u) {
         sampler: 'nearest',
         workgroup: [8, 8, 1],
       },
-    ].filter((pass, i) => (i === 1 ? glow > 0 : true));
+    ];
+    return passes.filter((_pass, i) => (i === 1 ? glow > 0 : true));
   },
 };

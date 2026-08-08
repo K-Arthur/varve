@@ -16,12 +16,13 @@
  */
 
 import type { Platform } from '@varve/platform';
+import type { ToolId } from '../tools/types';
 import {
   ALL_WORKSPACE_MODES,
   getWorkspaceConfig,
+  type InspectorTabId,
   isValidWorkspaceConfig,
   migrateWorkspaceConfig,
-  type InspectorTabId,
   type PanelConfig,
   type PanelId,
   type StatusSectionId,
@@ -137,7 +138,7 @@ function sanitizePreference(
   const cleanTools: Partial<Record<string, boolean>> = {};
   if (toolRaw && typeof toolRaw === 'object') {
     for (const [toolId, val] of Object.entries(toolRaw)) {
-      if (baseToolIds.has(toolId) && typeof val === 'boolean') {
+      if (baseToolIds.has(toolId as ToolId) && typeof val === 'boolean') {
         cleanTools[toolId] = val;
       }
     }

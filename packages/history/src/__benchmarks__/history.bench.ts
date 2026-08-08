@@ -32,14 +32,17 @@ function docWithNodes(count: number): Document {
     id: DOC_ID,
   } as Document;
   for (let i = 0; i < count; i++) {
-    const node = makeShapeNode(`n${i}_aaaa${i.toString(16).padStart(3, '0')}`, {
-      kind: 'rect',
-      x: i * 10,
-      y: 0,
-      w: 10,
-      h: 10,
-      name: `Node ${i}`,
-    });
+    const node = makeShapeNode(
+      `n${i}_aaaa${i.toString(16).padStart(3, '0')}`,
+      {
+        kind: 'rect',
+        x: i * 10,
+        y: 0,
+        w: 10,
+        h: 10,
+      },
+      { name: `Node ${i}` },
+    );
     doc = applyOperation(doc, 'node.create', { node });
   }
   return doc;
