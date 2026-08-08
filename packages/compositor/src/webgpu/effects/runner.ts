@@ -22,6 +22,15 @@
  *
  * Multi-pass kernels (bloom) declare several passes; intermediate textures
  * are allocated from a per-run pool keyed by name + size.
+ *
+ * Dawn build quirks observed on Chromium 1228 headless + RADV (all three
+ * bite SILENTLY — dispatch runs, texture stays uninitialized, no error):
+ * - storage buffers MUST be declared `var<storage, read_write>` in kernels;
+ *   `read`-only storage buffers no-op the dispatch.
+ * - the shader entry point must EXACTLY match `pass.entry` — a missing
+ *   entry point no-ops instead of throwing.
+ * - the palette bind group is always bound (even for passes without a
+ *   palette) because unbound group layouts can no-op the dispatch.
  */
 
 import type { CoordSpace, EffectQuality } from '@varve/engine';
