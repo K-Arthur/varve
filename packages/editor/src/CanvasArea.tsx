@@ -1275,9 +1275,11 @@ export function CanvasArea({
       },
       applySam2Segmentation: (params) => e.applySam2Segmentation(params),
       cancelSam2Segmentation: () => e.cancelSam2Segmentation(),
-      commitRasterMask: (nodeId, dataUrl, width, height) => {
+      commitRasterMask: (nodeId, dataUrl, width, height, coordinateSpace) => {
         import('./backgroundRemoval/commitRasterMask').then(({ commitRasterMask }) => {
-          e.updateDoc((doc) => commitRasterMask(doc, nodeId, { dataUrl, width, height }));
+          e.updateDoc((doc) =>
+            commitRasterMask(doc, nodeId, { dataUrl, width, height, coordinateSpace }),
+          );
         });
       },
       createRasterLayer: (width, height) => {
@@ -1955,7 +1957,9 @@ export function CanvasArea({
         if (
           n.kind !== 'adjustment' &&
           mask &&
-          (maskSrcId || (mask.vectorMask && mask.vectorMask.points.length > 0))
+          (maskSrcId ||
+            (mask.vectorMask && mask.vectorMask.points.length > 0) ||
+            mask.rasterMask !== undefined)
         ) {
           replayForceAll = true;
           replayMaskedContainer(targetCtx, {

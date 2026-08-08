@@ -408,6 +408,21 @@ function docBuildMaskDef(doc: Document, containerId: string, mask: Mask): string
         : undefined;
     if (asset?.dataUrl) {
       const container = doc.nodes[containerId];
+      // Container-local painted masks (frames): the asset stretches over the
+      // frame's local box under the frame element's own transform, matching
+      // the live-canvas semantics (maskContentUnits = userSpaceOnUse).
+      if (container?.kind === 'frame') {
+        const fw = container.w ?? 1;
+        const fh = container.h ?? 1;
+        lines.push(
+          `    <mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="${fw}" height="${fh}" style="mask-type: alpha">`,
+        );
+        lines.push(
+          `      <image href="${escapeXml(asset.dataUrl)}" x="0" y="0" width="${fw}" height="${fh}" preserveAspectRatio="none" />`,
+        );
+        lines.push(`    </mask>`);
+        return lines.join('\n');
+      }
       const imageFill =
         container?.kind === 'shape'
           ? container.fills?.find((fill) => fill.type === 'image' && fill.image)?.image

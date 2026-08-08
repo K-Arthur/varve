@@ -206,9 +206,7 @@ describe('RefineMaskTool', () => {
     );
 
     expect(result.consumed).toBe(false);
-    expect(ctx.announce).toHaveBeenCalledWith(
-      'Select an image with background removal applied first',
-    );
+    expect(ctx.announce).toHaveBeenCalledWith('Select an image or frame to paint a mask');
   });
 
   it('Escape exits refine mask mode', () => {
@@ -333,5 +331,110 @@ describe('RefineMaskTool', () => {
     const paintedIdx = 16 * maskData.width + 16;
     const pixelAt16 = maskData.data[paintedIdx * 4];
     expect(pixelAt16).not.toBe(initialPixel);
+  });
+});
+
+function makeMockFrameNode(overrides?: Record<string, unknown>) {
+  return {
+    id: 'frame-1',
+    kind: 'frame' as const,
+    name: 'Test Frame',
+    w: 60,
+    h: 40,
+    children: ['child-1'],
+    transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+    strokes: [],
+    effects: [],
+    opacity: 1,
+    blendMode: 'normal' as const,
+    visible: true,
+    locked: false,
+    ...overrides,
+  };
+}
+
+describe('RefineMaskTool brush-mask creation', () => {
+  function frameCtx() {
+    const frameNode = makeMockFrameNode();
+    return {
+      selection: ['frame-1'],
+      getNode: vi.fn(() => frameNode),
+      commitRasterMask: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      announce: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+      setDraft: vi.fn(),
+      setPointerCapture: vi.fn(),
+      altKey: false,
+      document: {
+        id: 'test-doc',
+        rootChildren: ['frame-1'],
+        nodes: { 'frame-1': frameNode, 'child-1': { id: 'child-1', kind: 'shape' } },
+        assets: {},
+      },
+    } as any;
+  }
+
+  it('creates a fresh transparent mask when a frame has no mask (paint-to-create)', () => {
+    const tool = new RefineMaskTool();
+    const ctx = frameCtx();
+    tool.onActivate(ctx);
+    const maskData = (tool as any).maskData as ImageData | null;
+    expect(maskData).not.toBeNull();
+    expect(maskData!.width).toBe(60);
+    expect(maskData!.height).toBe(40);
+    // Fully transparent: painting reveals, Alt+paint hides.
+    let max = 0;
+    for (let i = 0; i < maskData!.data.length; i += 4) {
+      max = Math.max(max, maskData!.data[i]!);
+    }
+    expect(max).toBe(0);
+  });
+
+  it('commits a container-local mask on drag end', () => {
+    const tool = new RefineMaskTool();
+    const ctx = frameCtx();
+    tool.onActivate(ctx);
+    tool.onPointerDown(
+      { altKey: false, clientX: 30, clientY: 20, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+    expect(ctx.commitRasterMask).toHaveBeenCalledTimes(1);
+    const args = ctx.commitRasterMask.mock.calls[0];
+    expect(args[0]).toBe('frame-1');
+    expect(args[4]).toBe('container-local-pixels');
+  });
+
+  it('creates a mask for an image without background removal (paint-to-create)', () => {
+    const tool = new RefineMaskTool();
+    const node = makeMockImageNode();
+    const noMask = { ...node, mask: undefined };
+    const ctx = {
+      selection: ['img-1'],
+      getNode: vi.fn(() => noMask),
+      commitRasterMask: vi.fn(),
+      canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
+      announce: vi.fn(),
+      beginTransaction: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+      setDraft: vi.fn(),
+      setPointerCapture: vi.fn(),
+      altKey: false,
+      document: { id: 'test-doc', rootChildren: ['img-1'], nodes: { 'img-1': noMask }, assets: {} },
+    } as any;
+    tool.onActivate(ctx);
+    const maskData = (tool as any).maskData as ImageData | null;
+    expect(maskData).not.toBeNull();
+    tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+    expect(ctx.commitRasterMask).toHaveBeenCalledTimes(1);
+    expect(ctx.commitRasterMask.mock.calls[0][4]).toBe('source-image-pixels');
   });
 });
