@@ -415,7 +415,7 @@ import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
-import { usePersistence } from './context/usePersistence';
+import { resolveFontManifest, usePersistence } from './context/usePersistence';
 import { usePersistentHistory } from './context/usePersistentHistory';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
@@ -975,7 +975,9 @@ export interface EditorContextValue {
    * fresh blank document (new-file flow).
    */
   openFile: (
-    fileId: string,
+    /** App-store id; omit for a file known only by path (Open Recent) or by
+     *  neither (browser file picker) — save() mints one on first save. */
+    fileId: string | undefined,
     name: string,
     filePath: string | undefined,
     json: string | null,
@@ -7613,7 +7615,9 @@ export function EditorProvider({
       },
 
       openFile: (
-        fileId: string,
+        /** App-store id; omit for a file known only by path (Open Recent) or by
+         *  neither (browser file picker) — save() mints one on first save. */
+        fileId: string | undefined,
         name: string,
         filePath: string | undefined,
         json: string | null,
@@ -7633,6 +7637,10 @@ export function EditorProvider({
               console.warn('[Strata] openFile: validation warnings:', result.errors);
             }
           }
+          // Re-resolve fonts against this device's catalog, as loadDocument
+          // does — a document authored elsewhere arrives with a manifest
+          // pointing at fonts this machine may not have.
+          doc = resolveFontManifest(doc);
         } catch {
           doc = createDocument(name || 'Untitled');
         }

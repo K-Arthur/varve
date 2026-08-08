@@ -1451,6 +1451,7 @@ export function Menubar({
     newDocument,
     serializeDocument,
     loadDocument,
+    openFile,
     undo,
     redo,
     setZoom,
@@ -1665,7 +1666,10 @@ export function Menubar({
             const text = await invoke<string>('home_read_text_file', {
               path: entry.locator.path,
             });
-            loadDocument(text, { name: entry.label, filePath: entry.locator.path });
+            // Its own tab, like Figma/Photoshop — and openFile switches to the
+            // existing tab when this file is already open rather than
+            // duplicating it. No app-store id yet; save() mints one.
+            openFile(undefined, entry.label, entry.locator.path, text);
             return;
           } catch {
             setMissingFileDialog({
@@ -1714,7 +1718,7 @@ export function Menubar({
           }
           const file = await handle.getFile();
           const text = await file.text();
-          loadDocument(text, { name: entry.label });
+          openFile(undefined, entry.label, undefined, text);
         } catch (err) {
           if (err instanceof DOMException && err.name === 'NotFoundError') {
             setMissingFileDialog({
@@ -1733,7 +1737,7 @@ export function Menubar({
 
       loadDocument('', { name: entry.label });
     },
-    [loadDocument],
+    [loadDocument, openFile],
   );
 
   const handleAction = useCallback(
