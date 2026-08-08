@@ -186,6 +186,25 @@ export interface SessionFileMeta {
   fileId?: string;
 }
 
+/**
+ * Where a loaded document lands, and which file the tab is bound to afterwards.
+ *
+ * The default is deliberately the *safe* one: a loaded document arrives
+ * unbound unless the caller states an identity. A caller that forgets gets a
+ * Save As prompt on first save; the opposite default silently writes the newly
+ * loaded document over whichever file the tab happened to hold before.
+ */
+export interface LoadDocumentMeta extends SessionFileMeta {
+  /**
+   * Keep the active tab's current fileId/filePath instead of rebinding to
+   * `meta`. For callers replacing the *same* file's content — rename,
+   * version/backup restore in place, crash recovery.
+   */
+  keepIdentity?: boolean;
+  /** Load into its own tab, leaving the active document open and untouched. */
+  newSession?: boolean;
+}
+
 /** Collision-free session id (two tabs can be created within the same ms). */
 export function newSessionId(): string {
   return `session-${crypto.randomUUID()}`;
@@ -693,7 +712,7 @@ export interface EditorContextValue {
   newDocument: () => void;
   serializeDocument: () => string;
   updateDoc: (fn: (doc: Document) => Document) => void;
-  loadDocument: (json: string, meta?: import('./usePersistence').LoadDocumentMeta) => void;
+  loadDocument: (json: string, meta?: LoadDocumentMeta) => void;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
