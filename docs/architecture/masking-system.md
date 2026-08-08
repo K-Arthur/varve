@@ -1,268 +1,341 @@
-# Masking System Architecture
+# Masking System — Architecture & Canonical Semantics
 
-## Overview
+Status: current-state documentation (2026-08-07). Supersedes the ad-hoc mask
+notes spread across session docs.
 
-Varve's masking subsystem provides three mask types (clip, alpha, luminance) applied to
-container nodes (FrameNode, GroupNode, AdjustmentNode). The architecture follows the
-Section 0 mandate to extend existing rendering/content-model/colour/effects infrastructure
-rather than introducing parallel systems.
+This document defines Varve's masking/clipping model, its invariants, the
+canonical compositing order, renderer parity, export semantics, and the
+effect-targeting system. Read it before adding mask behavior: the system is
+deliberately one coherent subsystem, not a pile of per-feature special cases.
 
-## Design Principles
+---
 
-1. **Non-destructive**: Masks are properties on containers, not permanent pixel modifications.
-   The mask source node (if any) remains independently editable.
-2. **Figma-like visibility model**: Mask sources render visibly by default (contributing both
-   to the mask effect and to the visible output), matching professional design tool conventions.
-   `hideMaskSource` provides Photoshop-like behavior when needed.
-3. **Three mask types from a single taxonomy**: clip (vector), alpha (raster channel),
-   luminance (perceptually-weighted brightness).
-4. **Container ownership**: Only FrameNode, GroupNode, and AdjustmentNode can own masks.
-   ShapeNode and TextNode cannot own masks directly (they participate as mask sources
-   inside containers).
-5. **Child-based or self-contained mask source**: Masks may reference a child node by
-   `sourceNodeId`, or carry self-contained `VectorMaskData` for resolution-independent
-   vector masks. Both may be present: the vector path provides geometry, the source node
-   provides optional visual content.
-6. **Mask graph cycle prevention**: `addMask()` checks for cycles before committing any
-   mask change. `detectMaskCycles()` detects self-referencing and mutual mask references
-   via depth-first search.
+## 1. Canonical terminology
 
-## Architectural Inheritance (Section 0)
+| Term | Meaning |
+|---|---|
+| **Mask** | A single object attached to a container node (`mask` on `NodeBase`). Exactly one of three source forms: a **child node** (`sourceNodeId`), a self-contained **vector path** (`vectorMask`), or a **raster PNG** (`rasterMask`). |
+| **Clipping mask (clip group)** | A `GroupNode`/`FrameNode` whose `mask.type === 'clip'` and whose `sourceNodeId` points at one of its own children. Every *other* child is clipped to the matte. This is the "create clipping mask" workflow. |
+| **Matte / mask source** | The node supplying mask data. It remains a real, editable scene node. |
+| **Vector clip / clip path** | A geometric path (`vectorMask` or a traced node outline) that decides inside/outside with a fill rule (`nonzero`/`evenodd`). |
+| **Alpha mask** | Mask alpha (`A`) controls target opacity. |
+| **Luminance mask** | Mask luminance (`L·A`, BT.709 coefficients in linear RGB) controls target opacity (SVG 1.1 §14.4 semantics). |
+| **Raster mask** | A document-owned PNG payload (`Document.rasterMaskAssets`) supplying mask pixels. Attaches to image-filled shape nodes only; must be `type: 'alpha'`. |
+| **Layer mask** | A mask attached to a single node (leaf raster masks; container masks). |
+| **Group mask** | A mask attached to a group: group children composite, then the mask modulates the group's result. |
+| **Effect mask** | A mask attached to an **adjustment node**: it limits *where* the adjustment's result is visible. |
+| **Adjustment scope** | Controls *what* content an adjustment processes (`AdjustmentScope`). Distinct from any spatial mask: scope = input set, mask = output region. They compose (see §6). |
+| **Frame clipping** | `FrameNode.clipContent` (default true) clips children to the frame quad. Composes with a mask as an intersection. |
+| **Hide mask source** | `hideMaskSource`: the matte still supplies mask data but is not rendered as visible content. |
+| **Boolean operations** | Path union/intersection/subtract are destructive geometry operations — not masks. They are modeled separately and never conflated. |
 
-This system extends existing architecture rather than introducing parallel representations:
+**Not conflated:** a "clipping mask" (relationship between sibling scene
+objects) is *not* the same as an alpha mask, a luminance mask, a vector clip,
+or an effect target scope. The model has separate, typed concepts for each.
 
-| Existing System | How Masking Inherits |
-|----------------|---------------------|
-| Canvas2D rendering backend | All mask compositing (alpha, luminance, clip inversion) uses Canvas2D `save/restore/clip/destination-in` primitives through the existing `replaySubtreeToCtx` / `replayIr` pipeline |
-| Scene graph + immutable Document pattern | Mask CRUD operations follow the existing `updateDoc` pattern from `packages/scene/src/masks.ts` |
-| `ManagedColor` / colour pipeline | Luminance mask conversion uses proper linear-RGB maths (IEC 61966-2-1) routed through `packages/engine/src/maskCompositing.ts` — not a separate ad-hoc formula |
-| Effects architecture | Masks compose before group isolation / blend mode compositing. Effects on the masked container apply to the composited (masked) result. This ordering is consistent with existing `sceneCompositing.ts` rules |
-| Existing `Mask` type in types.ts | Extended with `hideMaskSource` rather than introducing a separate mechanism |
-| `renderAlphaMask` / `renderEnhancedMask` | All alpha/luminance compositing builds on these existing primitives |
+## 2. The clipping relationship
 
-## Mask Data Model (v1.9)
+Representation (option C in the design space — a dedicated container):
 
-```typescript
-type MaskType = 'clip' | 'alpha' | 'luminance';
-type MaskFillRule = 'nonzero' | 'evenodd';
-
-interface VectorMaskData {
-  points: PathPoint[];              // control points in mask-local coordinates
-  closed: boolean;                  // whether last point connects back to first
-  fillRule: MaskFillRule;           // fill rule for interior vs exterior
-}
-
-interface Mask {
-  type: MaskType;
-  sourceNodeId?: NodeId;            // child node providing the mask (optional for vector masks)
-  vectorMask?: VectorMaskData;      // self-contained vector path (overrides sourceNodeId for geometry)
-  visible: boolean;                 // toggle mask on/off
-  fillRule?: MaskFillRule;          // nonzero (default) or evenodd for clip/vector masks
-  inverted?: boolean;               // invert the mask effect
-  feather?: number;                 // Gaussian blur radius on mask alpha (world-space px)
-  density?: number;                 // overall mask strength 0-1
-  linked?: boolean;                 // mask transforms with content (default true)
-  transform?: Affine;               // independent mask transform when unlinked
-  hideMaskSource?: boolean;         // hide the mask source from direct rendering
-}
+```
+GroupNode / FrameNode (mask: { type: 'clip', sourceNodeId: <matte>, hideMaskSource: true })
+├── Matte (child 0 by convention, a real editable node)
+├── Clipped content A   (every other child is clipped content)
+├── Clipped content B
+└── Clipped content C
 ```
 
-`sourceNodeId` is now optional. When `vectorMask` with non-empty points is provided,
-the mask geometry comes from the path data rather than from a child node. When both
-are present, `vectorMask` defines the clipping geometry and `sourceNodeId` provides
-optional visual content (rendered if `hideMaskSource` is false).
+- The relationship lives entirely in the container's `mask` + its children
+  list; there is no separate edge entity to keep in sync.
+- **One matte clips any number of siblings** — inserting another ordinary
+  item into the run just clips it (no migration needed). Moving the matte
+  within the run keeps the relationship (it must remain a direct child).
+- `canBeClipMaskSource` governs which nodes can be mattes: shapes (except
+  line/arrow and open paths), and frames. Live text and groups are excluded
+  (no tracable outline); text must be outlined first — this is an explicit
+  limitation, not an oversight.
+- **Adjustment nodes cannot be mask sources for frame/group containers**
+  (they have no renderable geometry). An adjustment's *own* mask may
+  reference any node.
 
-## Mask Types
+### Invariants (enforced)
 
-### Clip Mask (`type: 'clip'`)
-Uses the mask source's geometric outline as a clipping region. Children inside the
-clip region are visible; children outside are hidden.
+- A mask source must be a direct child of its container (frames/groups;
+  adjustments may reference any node).
+- `sourceNodeId` may never dangle: `removeNode` clears masks referencing a
+  removed node; `reparentNode` **releases the container's mask when the
+  matte leaves the container** (a plain drag/reorder can never corrupt the
+  graph); in-container reorders keep the mask.
+- Mask reference graph is acyclic: `addMask` and `setMaskSourceNode` both
+  run `detectMaskCycles` and reject cyclic masks. The only reachable cycle
+  shape is adjustment↔adjustment (only adjustments may mask arbitrary
+  nodes).
+- `validateMasks`/`validateClippingMasks` detect dangling sources,
+  adjustment-as-source, and structural violations; malformed documents load
+  without crashing (the renderer treats a missing source as "no mask").
 
-- Inverted clip masks use offscreen canvas compositing: children render to an offscreen
-  canvas, then the mask source shape is filled with `destination-out` to punch the clip
-  region out (keeping content outside the clip).
-- Canvas2D `clip()` is used for the non-inverted case (fast, hardware-accelerated).
-- No feather support for clip masks (feather uses alpha compositing which requires
-  rasterisation).
+### Editing behavior
 
-### Alpha Mask (`type: 'alpha'`)
-Uses the mask source's alpha channel as a per-pixel opacity modulator. Where the mask
-source is transparent, the masked content is hidden; where opaque, content is visible.
+| Operation | Behavior |
+|---|---|
+| Reorder inside the run | Relationship preserved. |
+| Insert between clipped layers | New item is clipped too. |
+| Move matte within container | Preserved (still a child). |
+| Move matte out of container | Mask released (container shows content unclipped); matte itself untouched. |
+| Delete matte | `removeNode` clears the mask; group content renders unclipped. Undo restores everything. |
+| Duplicate (in-document) | Matte id and scope target ids remap to the cloned copies. |
+| Copy/paste (cross-document) | Ids inside the pasted subtree remap; **foreign mask sources/targets are dropped** (the item is pasted unclipped; a vector mask keeps its geometry). |
+| Group / ungroup | Standard container ops; group becomes a clipped child of the run. |
+| Undo/redo | One gesture = one history entry (all mask ops are single `updateDoc` mutations). |
 
-- Implemented via `renderEnhancedMask()` which uses offscreen canvas double-buffering
-  with `destination-in` compositing.
-- Supports inversion, feather (3-pass box blur approximating Gaussian), and density.
+## 3. Mask parameters
 
-### Luminance Mask (`type: 'luminance'`)
-Like alpha mask, but converts the mask source's RGB values to luminance using perceptually
-correct linear-RGB math (IEC 61966-2-1: linearize sRGB, then apply ITU-R BT.709
-coefficients: L = 0.2126*R_lin + 0.7152*G_lin + 0.0722*B_lin).
+| Parameter | Semantics |
+|---|---|
+| `inverted` | `mask = 1 - mask`. For clips: content inside the region is hidden, outside visible. |
+| `density` (0..1) | Scales mask contribution; 1 = full effect, 0 = no effect. Works on clip masks too (partial clip via alpha compositing). |
+| `feather` | Gaussian blur of the mask alpha. Units: world pixels (mask-local), so it does not vary with viewport zoom. Works on clip masks (soft edge). |
+| `linked` | Default true: the mask follows the matte's world transform. `false`: the mask uses its own `transform`. |
+| `transform` | The independent mask transform when `linked === false`. |
+| `hideMaskSource` | Matte supplies mask data without rendering as content. Hit-testing and editability of the matte are unaffected. |
+| `visible` | When false the mask is ignored entirely. |
+| `fillRule` | `nonzero` (default) / `evenodd` for clip and vector masks. |
 
-- Same compositing pipeline as alpha masks.
-- Uses the same inversion, feather, density, and unlinked transform support.
+## 4. Canonical compositing order
 
-## Rendering Order
+For a masked container:
 
-1. Check for mask on container node
-2. If mask exists and is visible:
-   a. For alpha/luminance: render mask source to offscreen canvas → post-process
-      (luminance conversion → feather → invert → density) → composite content
-      with `destination-in` → draw result
-   b. For clip: trace mask source outline → `clip()` (or offscreen `destination-out`
-      for inverted) → render non-mask-source children → render mask source on top
-      (unless `hideMaskSource`)
-3. Render frame clipping (`clipContent`)
-4. Render group isolation (blend mode, opacity, effects)
-5. Recurse into children
-
-## Editor Context Methods
-
-| Method | Description |
-|--------|-------------|
-| `addMaskToSelected(type)` | Add a mask using the first child as source (or vector mask if no children) |
-| `removeMaskFromSelected()` | Remove the mask (source node preserved) |
-| `toggleMask()` | Toggle mask visibility on/off |
-| `invertMask()` | Toggle mask inversion |
-| `setMaskFeather(radius)` | Set feather radius |
-| `setMaskDensity(density)` | Set mask strength (0-1) |
-| `setMaskHideSource(hidden)` | Toggle mask source visibility |
-| `setMaskLinked(linked)` | Toggle mask-content transform linking |
-| `setMaskType(type)` | Change mask type |
-| `setMaskSourceNode(id)` | Change which child provides the mask |
-| `setMaskFillRule(fillRule)` | Set fill rule (nonzero/evenodd) for clip/vector masks |
-| `setMaskVectorPath(points, closed)` | Set vector mask path data (independent of child node) |
-
-## Quick-Mask Mode
-
-Quick-mask is a transient editor state for selection editing. It is NOT persisted
-to the document model.
-
-```typescript
-interface QuickMaskState {
-  active: boolean;
-  color: [number, number, number, number];  // overlay RGBA
-  coverage: Uint8Array | null;               // per-pixel coverage (0=protected, 255=selected)
-  width: number;
-  height: number;
-}
+```
+container children (matte + clipped content, each: source content → local
+effects → own layer mask) 
+→ clip/mask application (clip path, alpha, or luminance; invert → feather →
+density order)
+→ [matte rendered on top unless hideMaskSource]
+→ group opacity / blend mode / isolation
+→ parent composition → adjustment layers → group masks
 ```
 
-| Method | Description |
-|--------|-------------|
-| `enterQuickMask()` | Activate quick-mask mode, allocate coverage buffer |
-| `exitQuickMask(convertToMask?)` | Deactivate, optionally convert coverage to raster mask |
-| `setQuickMaskCoverage(coverage, w, h)` | Replace coverage buffer |
-| `paintQuickMask(x, y, radius, value)` | Paint circular dab in coverage buffer |
-| `fillQuickMask(value)` | Fill entire coverage buffer with value |
-| `invertQuickMask()` | Invert all coverage pixels (255 - v) |
-| `isQuickMaskActive()` | Return whether quick-mask mode is active |
+Decisions (each was settled by the renderer's existing structure and is
+tested — see `replayScene.test.ts` and the E2E corpus):
 
-Quick-mask state is cleared on document close and is not part of undo/redo history.
+1. **A layer's own effects run before clipping.** Effects (blur, bloom,
+   shadow) expand within the node, and the clip constrains the expanded
+   output: clipped effects cannot escape the matte. There is no per-effect
+   "escape" toggle — effect output is always confined by the matte. This is
+   uniform across live canvas, export replay, and SVG codegen.
+2. **A layer mask (on a leaf) and a clipping mask compose as an
+   intersection** — the leaf renders with its own mask, then the clip
+   boundary applies.
+3. **Matte effects contribute to mask alpha.** The matte is replayed as
+   ordinary content into the mask surface, so its fills, strokes, effects,
+   and transforms all shape the mask (alpha/luminance) or its outline
+   (clip).
+4. **Matte opacity does not affect clipping strength.** Clip type uses the
+   geometry; alpha/luminance types use the rendered matte pixels. Use
+   `density` to weaken a mask.
+5. **A hidden matte still clips.** `visible === false` on the *matte node*
+   hides its content but the mask stays active (the mask has its own
+   `visible` flag). `hideMaskSource` is the explicit "invisible matte" mode.
+6. **Group opacity applies after masking** (masked surface composites with
+   the group's opacity/blend); isolated groups composite their masked
+   surface before blending.
+7. **Frame quad clip ∩ mask** = intersection (content must satisfy both).
+8. **Adjustments inside a clipped run are confined by the matte** — the
+   adjustment's filtered backdrop is composited inside the clip scope, so
+   its output cannot leak outside the matte.
+9. **Raster masks apply only to image-filled shapes** and are resolved to
+   `FillIR.alphaMask`; they never conflict with structural masks.
 
-## Mask Graph Safety
+## 5. Effect targeting
 
-Masks form a directed graph from containers to their source nodes. The system
-prevents cycles:
+`AdjustmentNode.scope` (v2.3+) is the single targeting mechanism:
 
-- `detectMaskCycles(doc)` — depth-first search that returns an array of cycle paths.
-  Empty array when no cycles exist.
-- `addMask()` rejects masks that would create a cycle, returning the document
-  unchanged.
-- `removeNode()` automatically clears mask references to removed nodes.
+```ts
+type AdjustmentScope =
+  | { mode: 'image-local'; targetNodeId }          // the layer below, explicitly
+  | { mode: 'explicit-targets'; targetNodeIds[] }  // arbitrary set, stable ids
+  | { mode: 'container-descendant'; containerId; includeNested }
+  | { mode: 'document' };
+```
 
-Helper functions:
-- `getAllMaskSourceIds(doc)` — collect all source node IDs referenced by any mask.
-- `hasVectorMask(mask)` — true if mask has non-empty vector path data.
-- `hasSourceNode(mask)` — true if mask references a child node.
+- Scopes store **ids, never names or computed lists** — renaming, reparenting,
+  and moving targets is safe; save/reopen is stable.
+- Missing/deleted targets are silently dropped at resolution; one dead target
+  never fails the whole adjustment. Undo restores deleted targets.
+- Recursive target graphs are structurally impossible (a target list cannot
+  contain the adjustment's own subtree via `resolveAdjustmentScope`, which
+  skips adjustment children; cycle prevention mirrors the mask graph).
+- `resolveAdjustmentScope` is the only resolver; the editor live renderer,
+  export flattening, and the inspector all consume it.
 
-## Vector Masks
+### Spatial mask × scope compose
 
-Vector masks carry self-contained `PathPoint[]` data rather than referencing a
-child node. They are:
+```
+Adjustment
+├── scope     → WHAT content is processed (input set)
+└── mask      → WHERE the result is visible (output region)
+```
 
-- Resolution-independent (editable vector paths)
-- Rendered via `traceVectorMaskPoints()` in CanvasArea.tsx, which handles bezier
-  handles (`handleIn`/`handleOut`) as cubic bezier curves
-- Subject to `fillRule` (nonzero/evenodd)
-- Able to be converted to SVG `<clipPath>` / `<mask>` elements on export
-- Edited via the Pen/Pencil tools or NodeEditTool
+The mask is applied to the filtered backdrop in place (`destination-in`):
+outside the mask the backdrop keeps its original pixels, so the underlying
+content shows through untouched. A plain hard clip skips the ImageData
+round-trip; alpha/luminance masks (and clips with invert/feather/density)
+use the post-processing path. Implemented in the live canvas
+(`CanvasArea.tsx` adjustment branch) and the export replay
+(`replayScene.ts`), with unit tests in both.
 
-## Document Validation & Migration
+## 6. Renderer support matrix
 
-Masks are checked by `validateMasks()` which finds dangling references to non-existent
-source nodes. When a node is removed via `removeNode()`, any masks referencing it are
-automatically cleared (`clearMaskSource()`). Deep clone remaps mask `sourceNodeId` values.
+| Capability | Canvas2D (live) | Canvas2D (export `replayScene`) | WebGPU compositor | Native (Tauri webview) | SVG codegen |
+|---|---|---|---|---|---|
+| Vector clip (hard) | ✓ `ctx.clip()` | ✓ `ctx.clip()` | falls back to structural Canvas2D | ✓ (webview Canvas2D) | ✓ `<clipPath>` |
+| Alpha mask | ✓ destination-in | ✓ destination-in | falls back | ✓ | ✓ `<mask mask-type="alpha">` |
+| Luminance mask | ✓ | ✓ | falls back | ✓ | ✓ `<mask>` |
+| Invert | ✓ | ✓ | falls back | ✓ | ✓ |
+| Feather | ✓ | ✓ | falls back | ✓ | ✓ (feGaussianBlur) |
+| Density | ✓ | ✓ | falls back | ✓ | ✓ (alpha rect) |
+| Unlinked transform | ✓ | ✓ | falls back | ✓ | ✓ (`maskUnits=userSpaceOnUse`) |
+| Hide mask source | ✓ | ✓ | falls back | ✓ | ✓ |
+| Nested masks | ✓ | ✓ | falls back | ✓ | ✓ |
+| Clipping stack (multi-content) | ✓ | ✓ | falls back | ✓ | ✓ |
+| Group opacity/blend after mask | ✓ | ✓ | falls back | ✓ | ✓ |
+| Frame clip ∩ mask | ✓ | ✓ | falls back | ✓ | ✓ |
+| Raster mask (leaf image) | ✓ (engine `alphaMask`) | ✓ | ✓ via engine IR | ✓ | ✓ |
+| Adjustment scope | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
+| Spatial mask on adjustment | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
 
-v1.9 migration (from 1.8):
-- Adds `fillRule: 'nonzero'` to existing clip masks without one
-- Adds `fillRule: 'nonzero'` to existing vector masks without one
-- Preserves all existing mask properties
+**WebGPU:** the compositor renders leaf IR primitives only. Structural
+compositing — masks, clips, flattening, adjustments — is Canvas2D by
+design and forces the structural path (`sceneNeedsStructuralCompositing`).
+This is a documented fallback, not a bug: WebGPU-active documents retain
+full mask fidelity through the 2D structural path, and GPU loss preserves
+document state (mask relationships, parameters, and scopes live in the
+document, never in GPU resources).
 
-## SVG/PDF Export Implications
+**Native (Tauri):** the native side renders IR through the same webview
+replay; mask semantics are identical to the web build. The Rust crates are
+mask-blind at the IR level (only `alphaMask` on image fills crosses the
+wire) — masks are a scene-graph semantic applied by the webview renderer
+for every backend.
 
-- **SVG** (via `packages/codegen/src/svg.ts`):
-  - Clip masks map to `<clipPath>` elements in `<defs>`
-  - Alpha masks map to `<mask mask-type="alpha">`
-  - Luminance masks map to `<mask mask-type="luminance">` (SVG default)
-  - Inverted clip masks use `<mask>` with white rect + black clip shape
-  - Vector masks are converted to SVG `<path d="..." />` with bezier handles
-  - Feather maps to `feGaussianBlur` filter on the mask
-  - Density maps to opacity compensation
-  - `hideMaskSource` filters the source node from children
-  - Active-page artwork and legacy flat-root artwork share one export-root resolver,
-    so page-scoped clipping groups are not omitted from standalone SVGs
-  - Standalone SVG bounds intersect ordinary clipping-group content with the mask
-    source bounds, preventing hidden out-of-mask pixels from inflating the viewBox
-  - `fillRule="evenodd"` adds `clip-rule="evenodd"`
-  - Unlinked masks use `maskUnits="userSpaceOnUse"` for independent transform
-  - Pre-1.9 SVG export did NOT include scene-graph masks; this is new in v1.9
-- **PDF (current)**: structural clip/alpha/luminance masks are rejected by preflight;
-  the Rust writer does not yet emit clipping operators or PDF 1.4 soft masks. A raster
-  fallback exists for raster masks but still requires artifact-level verification.
-  PDF/X-1a cannot express soft masks and must use an explicit flattening strategy.
-- **Raster export (PNG/JPEG/WebP)**: export uses the structural Canvas replay path. Clip
-  masks share the editor's path tracing and fill-rule behavior; alpha/luminance export
-  parity remains under active conformance testing.
+## 7. Export semantics
 
-## Performance Considerations
+- **Raster (PNG/JPG/WebP):** `exportNodeAsRaster` replays through
+  `replayStructuredScene` — the same structural renderer as the live canvas.
+  Masks, clipped effects, adjustment scopes, and spatial masks reproduce
+  exactly. Adjustment layers render (filtered backdrop composite) rather
+  than being dropped.
+- **SVG:** `@varve/codegen` emits native constructs — `<clipPath>` for
+  vector clips, `<mask>` for alpha/luminance, `feGaussianBlur` for feather,
+  density rects, inversion rects, `userSpaceOnUse` for unlinked masks.
+  Mask sources referenced by the group are omitted when
+  `hideMaskSource` is set.
+- **PDF/print:** unsupported mask combinations are rasterized at the
+  smallest possible boundary (the flatten compositor widens adjustment
+  boundaries to the shared ancestor of scope targets); masks are never
+  silently dropped. Preflight still flags structural clip/alpha/luminance
+  masks for PDF targets where the Rust writer has no native clipping
+  operator or soft-mask support (raster fallback covers those combinations);
+  PDF/X-1a cannot express soft masks at all and requires explicit
+  flattening.
+- **Limitation:** a spatial mask whose source lies outside the exported
+  subtree cannot render in raster export (the source isn't flattened into
+  the boundary surface). The common case — adjustment + matte inside one
+  container — is fully supported.
 
-- Masked scenes always render on the main thread (worker path cannot access DOM canvas
-  APIs for offscreen compositing).
-- Feather uses 3-pass box blur (O(n)) approximating Gaussian — acceptable for interactive
-  use at moderate radii.
-- Offscreen canvases are created per masked container per frame — no persistent cache
-  (potential future optimisation: LRU cache of mask surfaces keyed by content hash).
+## 8. Hit-testing and selection
 
-## Edge Case Handling
+- `HitTestEngine.isPointVisibleThroughClipMasks` walks ancestors and
+  excludes points outside active clip masks (respecting unlinked
+  transforms, fill rules, and inversion). Clipped-away pixels do not steal
+  ordinary canvas clicks; the Layers panel always allows selecting hidden
+  or fully clipped objects.
+- Selection/transform bounds intentionally remain **source bounds**:
+  a 4000×3000 photo inside a circle matte stays movable/resizable beyond
+  the matte (the photo is never destructively cropped). Bounds intersect
+  only for export/crop decisions (`imageBounds.ts`).
+
+## 9. Performance notes
+
+- The ordinary no-mask path is untouched: the mask branch runs only for
+  masked containers; plain hard clips use `ctx.clip()` with no offscreen
+  allocation.
+- Offscreen mask surfaces come from a bounded pool
+  (`acquireMaskSurface`/`releaseMaskSurface`, 16 surfaces max) instead of
+  per-frame `document.createElement`; `renderEnhancedMask` and
+  `applyMaskAlpha` use the pool.
+- Feathered/alpha/luminance masks cost one full-viewport surface per masked
+  container per frame; inverted clips reuse the same path. Whole-canvas
+  invalidation is avoided by existing dirty-region pruning (mask subtrees
+  force full-subtree replay only for themselves).
+- The hot per-node switch in `CanvasArea.tsx` was not restructured for
+  masks (the mask branch is a prelude, not part of the leaf dispatch).
+
+## 10. Accessibility
+
+- Layers rows expose the relationship textually: the matte row is labelled
+  as clip source and clipped rows as clipped content (aria + visible chips),
+  not just indentation/color.
+- All mask operations are keyboard- and menu-reachable:
+  `Ctrl+7` create, `Ctrl+Alt+7` release, plus Object menu, Layers context
+  menu, canvas context menu, and command palette entries for
+  add/remove/toggle/invert mask and mask parameters.
+- The drop preview on a matte row announces "Clip to <name>" and the drop
+  announces the resulting relationship via the live region.
+
+## 10b. Quick-mask mode
+
+Quick-mask is a transient editor state for selection editing (painting mask
+coverage over the canvas). It is NOT part of the document model: it is never
+serialized, is cleared on document close, and does not participate in
+undo/redo. `exitQuickMask(convertToMask?)` may convert the coverage buffer
+into a leaf raster mask when requested.
+
+## 10c. Edge-case matrix
 
 | Case | Behavior |
-|------|----------|
-| Empty/open path as mask source | Rejected for clipping-mask creation |
+|---|---|
+| Empty/open path as mask source | Rejected for clipping-mask creation (`canBeClipMaskSource`) |
 | Fully transparent mask source | Alpha mask hides all masked content |
 | Fully opaque mask source | Alpha mask reveals all masked content |
-| Mask source not a child | `resolveMask()` returns null, mask is ignored |
-| Inverted clip with no children | Mask source `destination-out` path has no effect |
-| Zero-size offscreen canvas | `renderEnhancedMask` returns early (no-op) |
-| Masks on invisible containers | Container visibility check happens before mask check |
-| Deeply nested masks | Each container's mask is resolved independently per render pass |
-| Cross-origin images in mask | `getImageData` may fail (tainted canvas); falls through to basic `destination-in` |
-| Vector mask with no child source | Mask is purely geometric; no visual content rendered |
-| Both sourceNodeId and vectorMask present | Vector path provides geometry, source node provides visual content |
-| Vector mask clip with evenodd fill rule | Path is rendered with `clip('evenodd')` via Path2D |
-| Mask source deletion | Mask is automatically cleared by `removeNode()` |
-| Mask cycle detection | `addMask()` rejects cycles; `detectMaskCycles()` finds them |
-| Quick-mask active during tool switch | Quick-mask mode persists; user must explicitly exit |
-| Quick-mask with no selection | Coverage buffer is null; paint/fill/invert are no-ops |
-| Unlinked mask transform | Mask uses independent `transform` separate from content |
-| SVG export of inverted clip masks | Uses `<mask>` with white rect + inverted black clip shape |
-| SVG export of active-page clipping group | Preserves an editable `<clipPath>` and omits a hidden source from rendered children |
+| Mask source not a child (frames/groups) | `resolveMask()` returns null; mask ignored |
+| Adjustment node as mask source | Rejected at `addMask`/`setMaskSourceNode`; `validateMasks` flags legacy docs; renderers skip the clip (content renders unmasked, never vanishes) |
+| Inverted clip with no children | Alpha-path inversion has no visible effect |
+| Zero-size offscreen canvas | `renderEnhancedMask`/`applyMaskAlpha` return early |
+| Masks on invisible containers | Container visibility check runs first |
+| Deeply nested masks | Each container's mask resolves independently per pass |
+| Cross-origin images in a mask | `getImageData` may fail (tainted canvas); falls back to unprocessed `destination-in` |
+| Vector mask with no child source | Purely geometric; no visual content rendered |
+| Both `sourceNodeId` and `vectorMask` present | Vector path = geometry, source node = visual content |
+| `evenodd` vector clip | Filled/clipped with `evenodd` |
+| Mask source deleted | `removeNode()` clears the mask |
+| Mask source reparented out of the container | `reparentNode()` releases the mask |
+| Mask cycle (adjustment↔adjustment) | Rejected by `addMask`/`setMaskSourceNode` |
+| Unlinked mask transform | Mask uses its independent `transform` |
+| SVG export of inverted clip masks | `<mask>` with white rect + black clip shape |
+| SVG export of an active-page clipping group | Editable `<clipPath>`, hidden source omitted from children |
+| Old document with an adjustment mask source | Loads; mask ignored by renderers; `validateMasks` reports it |
 
-## Future Mask Types
+## 11. Adding a future mask type
 
-To add a new mask type:
-1. Add to `MaskType` union in `types.ts`
-2. Add branch in `renderEnhancedMask` or clip mask render path
-3. Add to `VALID_MASK_TYPES` in `masks.ts`
-4. Add UI selector in `MaskSection.tsx`
-5. Add SVG/PDF export mapping
-6. Add tests
+1. Extend `MaskType` and the `Mask` union in `packages/scene/src/types.ts`;
+   add a migration step in `packages/scene/src/version.ts` (version table +
+   `version-migrations.ts`).
+2. Extend `validateMaskSource` / `validateMasks` invariants.
+3. Extend `renderEnhancedMask`/`applyMaskAlpha` post-processing in
+   `packages/engine/src/maskCompositing.ts` (all renderers share it).
+4. Extend `maskCapability.ts` per-format declarations and the SVG codegen
+   emitter; raster export picks it up automatically via `replayScene.ts`.
+5. Add the parameter surface to `MaskSection.tsx` and E2E coverage.
+
+## 12. Known limitations
+
+- Live text and groups cannot be mattes (`canBeClipMaskSource`); text must
+  be outlined first.
+- Per-effect masks on ordinary layers (masking a single bloom on an image
+  without a layer mask) are not modeled; use a masked adjustment layer for
+  that workflow.
+- Spatial-mask sources outside the exported subtree are not rasterized in
+  export.
+- The mask cache is document-version-keyed (full re-render on any document
+  change); no per-mask raster cache yet.
