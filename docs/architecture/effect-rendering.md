@@ -107,3 +107,13 @@ Each pass iterates `item.effects` in array order. Type dispatch determines which
 pass handles each effect. Cross-pass order is hardcoded by the pass structure; it
 is deterministic, but it is not equivalent to a globally reorderable effect
 stack.
+
+## Live effects (2026-08-07)
+
+The procedural effects family (dither, paletteSnap, bloom, rgbSplit, crt,
+vhs, lightShafts, lensFlare, lightLeak, caustics) renders through the
+existing adjustment pipeline — `Adjustment → FilterIR → applySoftwareFilter`
+— with per-kind kernels in `packages/engine/src/liveEffects/`. Metadata,
+bounds expansion, quality tiers, coordinate-space anchoring, determinism,
+and export behaviour are documented in
+[docs/architecture/live-effects-system.md](live-effects-system.md).
