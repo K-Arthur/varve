@@ -4,7 +4,6 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
-import type { GroupNode } from '../types';
 import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
 import { addMasterOverride, assignMasterToPage, createMaster } from '../document-components';
 import {
@@ -15,6 +14,7 @@ import {
   worldToPageAtPoint,
 } from '../pageScene';
 import { pageBoundsInWorld } from '../pasteboardLayout';
+import type { GroupNode } from '../types';
 
 function firstMaster(doc: Document) {
   return doc.masters ? Object.values(doc.masters)[0] : undefined;
