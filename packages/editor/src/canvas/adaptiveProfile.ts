@@ -12,6 +12,9 @@
  * switching. A cooldown period prevents rapid re-evaluation.
  */
 
+import { probeOffscreenCapability } from '../render/offscreenCapabilityProbe';
+import { resolveWorkerEligibility } from '../render/workerEligibility';
+
 export type ProfileTier = 'quality' | 'balanced' | 'performance' | 'constrained';
 
 export interface PerformanceProfile {
@@ -114,6 +117,19 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
     hardwareConcurrency:
       typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined,
   };
+
+  // Engines whose worker eligibility depends on verified capability start the
+  // probe here, once, on the first capability read. It is a single disposable
+  // worker and one 8x8 round trip; until it resolves, eligibility reports
+  // `offscreen-unverified` and the conservative main-thread path is used.
+  if (
+    cachedCapabilities.isWebKitGTK &&
+    cachedCapabilities.hasWorker &&
+    cachedCapabilities.hasOffscreenCanvas
+  ) {
+    void probeOffscreenCapability();
+  }
+
   return cachedCapabilities;
 }
 
@@ -149,7 +165,7 @@ function profileForTier(tier: ProfileTier, caps: PlatformCapabilities): Performa
         tier: 'quality',
         renderScale: 1,
         cacheMultiplier: 2,
-        enableWorker: caps.hasWorker && caps.hasOffscreenCanvas && !caps.isWebKitGTK,
+        enableWorker: resolveWorkerEligibility(caps).allowed,
         enablePartialRedraw: true,
         enableCulling: true,
         backdropBlurQuality: 'high',
@@ -164,7 +180,7 @@ function profileForTier(tier: ProfileTier, caps: PlatformCapabilities): Performa
         tier: 'balanced',
         renderScale: 1,
         cacheMultiplier: 1,
-        enableWorker: caps.hasWorker && caps.hasOffscreenCanvas && !caps.isWebKitGTK,
+        enableWorker: resolveWorkerEligibility(caps).allowed,
         enablePartialRedraw: true,
         enableCulling: true,
         backdropBlurQuality: 'medium',
