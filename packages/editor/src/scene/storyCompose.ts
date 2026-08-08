@@ -32,7 +32,7 @@ export function composeStoryForDoc(
   const frames: StoryFrameGeometry[] = [];
   for (const frameId of story.thread) {
     const node = doc.nodes[frameId];
-    if (!node || node.kind !== 'text') return null;
+    if (node?.kind !== 'text') return null;
     const w = node.w ?? 300;
     const h = node.h ?? 100;
     const fontSize = node.fontSize ?? defaultFontSize;

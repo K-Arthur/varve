@@ -57,7 +57,7 @@ export function migrateV217ToV218(raw: Record<string, unknown>): Record<string, 
     for (let i = 0; i < chain.frameIds.length; i++) {
       const frameId = chain.frameIds[i]!;
       const frame = nextNodes[frameId] as Record<string, unknown> | undefined;
-      if (!frame || frame.kind !== 'text') continue;
+      if (frame?.kind !== 'text') continue;
       changedNodes = true;
       nextNodes[frameId] = {
         ...frame,

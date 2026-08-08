@@ -68,13 +68,6 @@ pub fn load_all() -> Vec<Fixture> {
     out
 }
 
-pub fn load_named(name: &str) -> Fixture {
-    let dir = fixtures_dir();
-    let raw = fs::read_to_string(dir.join(format!("{name}.json"))).unwrap();
-    let v: Value = serde_json::from_str(&raw).unwrap();
-    parse_one(v)
-}
-
 fn parse_one(v: Value) -> Fixture {
     let input: Vec<u8> = v["input"]
         .as_array()
@@ -105,7 +98,10 @@ fn parse_one(v: Value) -> Fixture {
         params: v["params"].clone(),
         input,
         expected,
-        mode: v["tolerance"]["mode"].as_str().unwrap_or("exact").to_string(),
+        mode: v["tolerance"]["mode"]
+            .as_str()
+            .unwrap_or("exact")
+            .to_string(),
         max_delta: v["tolerance"]["maxDelta"].as_u64().unwrap_or(0) as u8,
     }
 }
@@ -121,7 +117,8 @@ pub fn run_and_compare(fx: &Fixture) -> Result<(), String> {
         coord_space: fx.coord_space,
         params: fx.params.clone(),
     };
-    let actual = apply_effect(&request, &fx.input).map_err(|e| format!("apply_effect failed: {e}"))?;
+    let actual =
+        apply_effect(&request, &fx.input).map_err(|e| format!("apply_effect failed: {e}"))?;
     if actual.len() != fx.expected.len() {
         return Err(format!(
             "length mismatch: got {}, expected {}",

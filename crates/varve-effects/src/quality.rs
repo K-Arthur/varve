@@ -59,14 +59,7 @@ pub fn downsample_box(src: &[u8], w: u32, h: u32, factor: u32) -> (Vec<u8>, u32,
 /// Bilinear-upsample a buffer into a destination sized w×h (deterministic) —
 /// port of `upsampleBilinear`.
 #[allow(clippy::too_many_arguments)]
-pub fn upsample_bilinear(
-    src: &[u8],
-    sw: u32,
-    sh: u32,
-    dst: &mut [u8],
-    w: u32,
-    h: u32,
-) {
+pub fn upsample_bilinear(src: &[u8], sw: u32, sh: u32, dst: &mut [u8], w: u32, h: u32) {
     let sx_scale = sw as f64 / w as f64;
     let sy_scale = sh as f64 / h as f64;
     for y in 0..h {

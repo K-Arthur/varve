@@ -26,7 +26,7 @@ import { UnsupportedOperationError } from '../types';
 function describeWindowContract(
   name: string,
   factory: () => NativeWindowService,
-  kind: 'native' | 'single-window',
+  kind: 'native' | 'single-window' | 'browser-popup',
 ) {
   describe(`window service contract: ${name}`, () => {
     let service: NativeWindowService;

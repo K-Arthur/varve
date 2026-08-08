@@ -258,7 +258,7 @@ describe('halftone persistence — malformed data tolerance', () => {
     expect(decoded.ok, 'corrupted halftone params must not fail document load').toBe(true);
     if (!decoded.ok) return;
     // The adjustment survives (renderer falls back to defaults at draw time)
-    const restored = decoded.document.nodes['adj1'] as AdjustmentNode;
+    const restored = decoded.document.nodes.adj1 as AdjustmentNode;
     expect(restored.adjustments).toHaveLength(1);
   });
 

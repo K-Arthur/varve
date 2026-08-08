@@ -71,7 +71,9 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, caller: EffectQuality) 
     let steps = (js_round(p.f("sampleCount", 24.0)) * sample_factor).clamp(4.0, 96.0) as u32;
 
     // sRGB LUT (float32 storage matches the TS Float32Array).
-    let lin_lut: Vec<f32> = (0..256u32).map(|v| srgb_to_linear01(v as f64) as f32).collect();
+    let lin_lut: Vec<f32> = (0..256u32)
+        .map(|v| srgb_to_linear01(v as f64) as f32)
+        .collect();
 
     // Precompute the occlusion mask (0..1): how strongly each pixel scatters.
     let mut occ = vec![0.0f32; (w * h) as usize];
@@ -147,7 +149,12 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, caller: EffectQuality) 
 
     // Optional diffuse pass: blur the scatter map by the scattering amount.
     if scattering > 0.0 {
-        blur_scatter(&mut scatter, w, h, js_round(scattering * 6.0).max(1.0) as i64);
+        blur_scatter(
+            &mut scatter,
+            w,
+            h,
+            js_round(scattering * 6.0).max(1.0) as i64,
+        );
     }
 
     let gain = intensity * 2f64.powf(exposure);

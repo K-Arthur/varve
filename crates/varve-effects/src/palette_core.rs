@@ -56,7 +56,11 @@ pub fn linear_srgb_to_oklab(rgb: [f64; 3]) -> [f64; 3] {
 
 fn to_lab_space(r: f64, g: f64, b: f64, metric: ColorMetric) -> [f64; 3] {
     if metric == ColorMetric::Oklab {
-        return linear_srgb_to_oklab([srgb_to_linear01(r), srgb_to_linear01(g), srgb_to_linear01(b)]);
+        return linear_srgb_to_oklab([
+            srgb_to_linear01(r),
+            srgb_to_linear01(g),
+            srgb_to_linear01(b),
+        ]);
     }
     // Lab via XYZ D65 (matches @varve/shared analytical conversion path).
     let rl = srgb_to_linear01(r);
@@ -83,7 +87,15 @@ fn f_lab(t: f64) -> f64 {
 
 /// Squared distance between an sRGB byte colour and a palette colour —
 /// port of `paletteDistance`.
-pub fn palette_distance(r: f64, g: f64, b: f64, pr: f64, pg: f64, pb: f64, metric: ColorMetric) -> f64 {
+pub fn palette_distance(
+    r: f64,
+    g: f64,
+    b: f64,
+    pr: f64,
+    pg: f64,
+    pb: f64,
+    metric: ColorMetric,
+) -> f64 {
     match metric {
         ColorMetric::Rgb => {
             let dr = r - pr;
@@ -108,7 +120,13 @@ pub fn palette_distance(r: f64, g: f64, b: f64, pr: f64, pg: f64, pb: f64, metri
     }
 }
 
-fn nearest_brute(colors: &[PaletteColor], metric: ColorMetric, r: f64, g: f64, b: f64) -> PaletteColor {
+fn nearest_brute(
+    colors: &[PaletteColor],
+    metric: ColorMetric,
+    r: f64,
+    g: f64,
+    b: f64,
+) -> PaletteColor {
     let mut best = colors[0];
     let mut best_d = f64::INFINITY;
     for c in colors {
@@ -150,10 +168,18 @@ pub struct PaletteLookup {
 impl PaletteLookup {
     pub fn build(colors: &[PaletteColor], metric: ColorMetric) -> PaletteLookup {
         if colors.is_empty() {
-            return PaletteLookup { colors: vec![], metric, lut: None };
+            return PaletteLookup {
+                colors: vec![],
+                metric,
+                lut: None,
+            };
         }
         if colors.len() < LUT_THRESHOLD {
-            return PaletteLookup { colors: colors.to_vec(), metric, lut: None };
+            return PaletteLookup {
+                colors: colors.to_vec(),
+                metric,
+                lut: None,
+            };
         }
         let mut lut = vec![0u16; LUT_GRID * LUT_GRID * LUT_GRID];
         let step = 256.0 / LUT_GRID as f64;
@@ -169,7 +195,11 @@ impl PaletteLookup {
                 }
             }
         }
-        PaletteLookup { colors: colors.to_vec(), metric, lut: Some(lut) }
+        PaletteLookup {
+            colors: colors.to_vec(),
+            metric,
+            lut: Some(lut),
+        }
     }
 
     /// Nearest palette color for an sRGB byte triple.
@@ -210,7 +240,7 @@ pub fn generate_palette(
     metric: ColorMetric,
     seed: u32,
 ) -> Vec<PaletteColor> {
-    let count = (color_count.round()).max(1.0).min(256.0) as usize;
+    let count = color_count.round().clamp(1.0, 256.0) as usize;
     let sample = sample_pixels(pixels, w, h);
     if sample.is_empty() {
         return vec![[0, 0, 0]];
@@ -236,7 +266,11 @@ pub fn generate_palette(
                 g += *pg as u64;
                 b += *pb as u64;
             }
-            let n = if leaf.pixels.is_empty() { 1 } else { leaf.pixels.len() as u64 };
+            let n = if leaf.pixels.is_empty() {
+                1
+            } else {
+                leaf.pixels.len() as u64
+            };
             [
                 (r as f64 / n as f64).round() as u8,
                 (g as f64 / n as f64).round() as u8,
@@ -346,7 +380,15 @@ fn make_box(pixels: Vec<PaletteColor>) -> Box {
             b_max = *b;
         }
     }
-    Box { pixels, r_min, r_max, g_min, g_max, b_min, b_max }
+    Box {
+        pixels,
+        r_min,
+        r_max,
+        g_min,
+        g_max,
+        b_min,
+        b_max,
+    }
 }
 
 fn kmeans_refine(
@@ -389,7 +431,8 @@ fn kmeans_refine(
             .map(|(i, _c)| {
                 let s = sums[i];
                 if s[3] == 0 {
-                    let jitter = (seeded01(seed.wrapping_add((iter * 7919) as u32)) * 255.0).round() as u8;
+                    let jitter =
+                        (seeded01(seed.wrapping_add((iter * 7919) as u32)) * 255.0).round() as u8;
                     [jitter, jitter, jitter]
                 } else {
                     [
@@ -427,9 +470,9 @@ pub fn dedupe_palette(colors: &[PaletteColor]) -> Vec<PaletteColor> {
 pub fn sanitize_palette(colors: &[[f64; 3]]) -> Vec<PaletteColor> {
     let mut out = Vec::new();
     for c in colors {
-        let r = (c[0].max(0.0).min(255.0).round()) as u8;
-        let g = (c[1].max(0.0).min(255.0).round()) as u8;
-        let b = (c[2].max(0.0).min(255.0).round()) as u8;
+        let r = c[0].clamp(0.0, 255.0).round() as u8;
+        let g = c[1].clamp(0.0, 255.0).round() as u8;
+        let b = c[2].clamp(0.0, 255.0).round() as u8;
         out.push([r, g, b]);
         if out.len() >= 256 {
             break;

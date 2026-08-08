@@ -39,7 +39,10 @@ export function planLinkSelection(doc: Document, selection: NodeId[]): LinkPlan 
   }
   if (storyIds.size === 1) {
     const storyId = [...storyIds][0]!;
-    const story = doc.stories?.[storyId]!;
+    const story = doc.stories?.[storyId];
+    if (!story) {
+      throw new Error('invariant: linked story missing from document');
+    }
     const frames = textFrames.filter((id) => !story.thread.includes(id));
     if (frames.length === 0) {
       return { kind: 'noop', reason: 'selected frames are already linked' };
