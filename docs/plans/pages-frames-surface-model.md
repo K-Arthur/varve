@@ -296,3 +296,54 @@ Pages get the same Position & Size treatment frames get, plus print presets:
    after every edit. If it shows up in profiles, the fix is a per-page bounds
    revision (bump on subtree mutation), not a weaker cache key — see the
    comment in `pageContentWorldBounds` for why a node-identity key is unsound.
+
+---
+
+## Decisions taken (implemented 2026-08-08)
+
+The three items flagged as needing a decision are resolved as follows.
+
+### 1. Z-order — document order, ADR-0144 paint order amended
+
+`multipageRootNodes` emitted every pasteboard item before every page, pinning
+pasteboard content behind all page content regardless of the layer tree. An
+object dragged off a page onto the pasteboard disappeared behind the page
+background — the same "content vanished" family as the culling bug.
+
+Now: globals first (unchanged), then `rootChildren` in document order with each
+page expanded in place as `[backgrounds, masters, content]`. Rendered z-order
+matches the tree the user is looking at, in both directions — pinned by tests
+for an item authored after the pages (paints in front) and before them (paints
+behind). A page whose content root is missing from `rootChildren` is emitted
+last rather than dropped, so a malformed document degrades visibly.
+
+### 2. Page deletion — content preserved by default
+
+`deletePageWithPolicy` already supported `delete-content` /
+`move-to-pasteboard` / `move-to-page`; the UI called plain `removePage` and
+destroyed the subtree. Page content can sit outside the trim, where it is
+invisible on the page yet still owned by it, so deletion could silently
+discard work the user could not see.
+
+Now two explicit commands instead of a confirmation dialog:
+**"Delete page (keep contents)"** (default, `move-to-pasteboard`) and
+**"Delete page and contents"** (`delete-content`). Both undoable, both
+labelled, neither destructive by accident.
+
+### 3. Drop-target adoption — opt-in, not global
+
+Dropping onto a page should make the page the owner, so the node exports with
+the page it visually belongs to. `findContainingFrameInDoc` gained an
+`adoptIntoPage` option returning the page content root when no frame or group
+contains the point.
+
+**Off by default, and that matters.** Every caller shares this resolver —
+including draw-to-create — and `createDocument` always yields a page, so
+defaulting it on would silently reparent every newly drawn shape in every
+document into a page content root. That is a far larger semantic change than
+drag-drop adoption, so it belongs to the call sites that opt in. Existing
+behaviour is pinned by a test.
+
+Still open: which call sites opt in. Drag-drop and paste-at-point are the
+intended ones; the modifier-to-suppress and the never-reparent-on-nudge rules
+from the edge-case list are not implemented yet.

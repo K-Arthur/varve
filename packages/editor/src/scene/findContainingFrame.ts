@@ -6,16 +6,47 @@ import {
   activePageNodes as getActivePageNodes,
   type NodeId,
   walkNodes,
+  worldToPageAtPoint,
 } from '@varve/scene';
 import { type Affine, transformRect } from '@varve/shared';
 import type { FrameSpatialIndex } from './spatialIndex';
 import { nodeLocalBounds, nodeWorldTransform } from './world';
 
-/** Deepest containing frame/group at the given world point. Skips locked/hidden. */
+export interface FindContainingSurfaceOptions {
+  /**
+   * Fall back to the page under the point when no frame or group contains it.
+   *
+   * Off by default, deliberately. Every caller shares this resolver, including
+   * draw-to-create, and `createDocument` always yields a page — so defaulting
+   * this on would silently reparent every newly drawn shape in every document
+   * into a page content root. That is a much larger semantic change than the
+   * drag-drop adoption it exists for, and it belongs to whichever call sites
+   * opt in.
+   */
+  adoptIntoPage?: boolean;
+}
+
+/**
+ * Deepest containing surface at the given world point.
+ *
+ * A frame or group containing the point always wins (deepest first). With
+ * `adoptIntoPage`, a point over a page with no frame under it resolves to that
+ * page's content root, so dropping onto a page makes the page the owner and
+ * the node exports with the page it visually belongs to. Otherwise the result
+ * is null and the caller parents to the document root — which is what keeps
+ * bare pasteboard placement working.
+ *
+ * A frame is never invented for a bare drop: neither Figma nor Illustrator
+ * does that, and a surprise container breaks later transforms and export
+ * membership.
+ *
+ * Locked and hidden nodes are skipped.
+ */
 export function findContainingFrameInDoc(
   doc: Document,
   world: { x: number; y: number },
   frameIndex?: FrameSpatialIndex | null,
+  options: FindContainingSurfaceOptions = {},
 ): NodeId | null {
   let deepest: NodeId | null = null;
   let deepestDepth = -1;
@@ -91,5 +122,17 @@ export function findContainingFrameInDoc(
       }
     }
   }
-  return deepest;
+  if (deepest) return deepest;
+  if (!options.adoptIntoPage) return null;
+
+  // No frame or group under the point. On a page-based document the page
+  // itself is a surface that can adopt content, so fall back to its content
+  // root. Off every page this returns null and the caller uses the document
+  // root (the pasteboard), which is what keeps bare canvas placement working.
+  const page = worldToPageAtPoint(doc, world);
+  if (!page) return null;
+  const owner = doc.pages?.find((p) => p.id === page.pageId);
+  const contentRoot = owner ? doc.nodes[owner.contentRoot] : undefined;
+  if (!contentRoot || contentRoot.locked || contentRoot.visible === false) return null;
+  return owner ? owner.contentRoot : null;
 }
