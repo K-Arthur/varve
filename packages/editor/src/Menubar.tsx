@@ -1558,7 +1558,6 @@ export function Menubar({
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const [activeSubmenuIndex, setActiveSubmenuIndex] = useState(0);
   const [editingName, setEditingName] = useState(false);
-  const [confirmNewDoc, setConfirmNewDoc] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [missingFileDialog, setMissingFileDialog] = useState<{
     message: string;
@@ -1650,7 +1649,9 @@ export function Menubar({
       const json = serializeDocument();
       const doc = JSON.parse(json);
       doc.name = trimmed;
-      loadDocument(JSON.stringify(doc), { name: trimmed });
+      // Renaming the open document — same file, so keep its binding (passing
+      // no identity here would silently unbind the tab from its path).
+      loadDocument(JSON.stringify(doc), { name: trimmed, keepIdentity: true });
     }
   }, [nameDraft, state.document.name, serializeDocument, loadDocument]);
 
@@ -1750,7 +1751,9 @@ export function Menubar({
       // Menubar-specific actions (not in the registry or with different behavior)
       switch (action) {
         case 'new':
-          setConfirmNewDoc(true);
+          // Opens its own tab — the current document stays open and intact,
+          // so there is nothing to confirm.
+          newDocument();
           return;
         case 'settings':
           onOpenSettings?.();
@@ -2234,19 +2237,6 @@ export function Menubar({
       </div>
 
       <AlertDialog
-        open={confirmNewDoc}
-        onClose={() => setConfirmNewDoc(false)}
-        onConfirm={() => {
-          setConfirmNewDoc(false);
-          newDocument();
-        }}
-        title="New Document"
-        description="Create a new document? Unsaved changes will be lost."
-        confirmLabel="Create"
-        variant="danger"
-      />
-
-      <AlertDialog
         open={missingFileDialog !== null}
         onClose={() => setMissingFileDialog(null)}
         onConfirm={() => {
@@ -2289,7 +2279,10 @@ export function Menubar({
         }}
         onRestoreArchive={(result) => {
           if (result.document) {
-            loadDocument(JSON.stringify(result.document), { name: result.document.name });
+            loadDocument(JSON.stringify(result.document), {
+              name: result.document.name,
+              keepIdentity: true,
+            });
           }
         }}
       />

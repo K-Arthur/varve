@@ -157,6 +157,7 @@ import {
   createEmptySelectionSetsData,
   createGuideId,
   createMaster as createMasterDoc,
+  createNewDocument,
   createSelectionSet as createSelectionSetDoc,
   createSpotLibrary as createSpotLibraryDoc,
   createStateMachine,
@@ -397,6 +398,7 @@ import type {
   PersistentHistoryApi,
   RulerMode,
   SelectionOrigin,
+  SessionFileMeta,
   SessionMeta,
   TableEditState,
   ToolId,
@@ -404,6 +406,7 @@ import type {
 import {
   createDefaultDocumentGridSettings,
   DEFAULT_SELECTION_ORIGIN,
+  newSessionId,
   nextSelectionPrimary,
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
@@ -957,7 +960,7 @@ export interface EditorContextValue {
   /** Look up the icon asset referenced by a node, if any. */
   getIconAssetForNode: (nodeId: NodeId) => import('@varve/scene').DocumentIconAsset | undefined;
   /** Load a document from a JSON string. */
-  loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
+  loadDocument: (json: string, meta?: import('./context/usePersistence').LoadDocumentMeta) => void;
   /** Save the current document via the platform. */
   save: () => Promise<boolean>;
   /** Save As the current document via the platform. */
@@ -2355,23 +2358,6 @@ export function EditorProvider({
   /** Selection history for back/forward navigation. */
   const selectionHistory = useSelectionHistory();
 
-  /** Snapshot current session into the session store (for tab switching). */
-  const snapshotSession = useCallback(() => {
-    const sid = stateRef.current.activeId;
-    if (sid) {
-      sessionStoreRef.current.set(
-        sid,
-        snapshotEditorSession(
-          stateRef.current,
-          undoStackRef.current,
-          redoStackRef.current,
-          undoSelStackRef.current,
-          redoSelStackRef.current,
-        ),
-      );
-    }
-  }, [stateRef, sessionStoreRef]);
-
   /** Reset undo/redo stacks. */
   const resetUndo = useCallback(() => {
     undoStackRef.current = [];
@@ -2381,6 +2367,89 @@ export function EditorProvider({
     undoLabelsRef.current = [];
     redoLabelsRef.current = [];
   }, []);
+
+  /**
+   * Open `doc` in a brand-new session (tab) and make it active.
+   *
+   * Every "create a document" entry point funnels through here — the tab
+   * strip's "+" button and File → New / Ctrl+N alike. Creating a document must
+   * never replace the active tab's document in place: that session keeps its
+   * fileId and filePath, so the next save (manual or autosave) would write the
+   * new empty document over the file the user still had open.
+   *
+   * `meta` binds the new tab to a file. Omit it (the create-a-document case)
+   * and the tab stays unbound, so its first save routes through Save As.
+   */
+  const openInNewSession = useCallback((doc: Document, meta?: SessionFileMeta) => {
+    setState((s) => {
+      sessionStoreRef.current.set(
+        s.activeId,
+        snapshotEditorSession(
+          s,
+          undoStackRef.current,
+          redoStackRef.current,
+          undoSelStackRef.current,
+          redoSelStackRef.current,
+        ),
+      );
+      const syncedSessions = s.sessions.map((sess) =>
+        sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
+      );
+      const newId = newSessionId();
+      const newDocGrid = doc.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
+      const vpDefaults = loadSettings().viewport;
+      undoStackRef.current = [];
+      redoStackRef.current = [];
+      undoSelStackRef.current = [];
+      redoSelStackRef.current = [];
+      undoLabelsRef.current = [];
+      redoLabelsRef.current = [];
+      return {
+        ...s,
+        document: doc,
+        selection: [],
+        selectedGuideId: null,
+        zoom: 1,
+        pan: { x: 0, y: 0 },
+        cameraRotation: 0,
+        snapEnabled: vpDefaults.snapEnabled,
+        pixelGridEnabled: vpDefaults.pixelGridEnabled,
+        pixelGridSnapEnabled: false,
+        dotGridEnabled: vpDefaults.dotGridEnabled ?? false,
+        snapGrid: vpDefaults.snapGrid,
+        rulerMode: vpDefaults.rulerMode,
+        gridOverlayMode: vpDefaults.gridOverlayMode,
+        unitType: vpDefaults.unitType,
+        guidesVisible: vpDefaults.guidesVisible,
+        documentGrid: { ...newDocGrid, visible: vpDefaults.gridVisible ?? newDocGrid.visible },
+        isometricGrid: createDefaultIsometricGrid(),
+        dirty: false,
+        // Identity comes only from `meta`; it is never inherited from the
+        // previously active tab, so a new session can't save over the
+        // document that tab was pointing at.
+        sessions: [
+          ...syncedSessions,
+          {
+            id: newId,
+            name: meta?.name ?? doc.name,
+            dirty: false,
+            filePath: meta?.filePath,
+            fileId: meta?.fileId,
+          },
+        ],
+        activeId: newId,
+      };
+    });
+  }, []);
+
+  /**
+   * File → New / Ctrl+N. Uses the canonical creation service (an empty,
+   * infinite-canvas document) and opens it in its own tab.
+   */
+  const newDocument = useCallback(() => {
+    const created = createNewDocument({});
+    openInNewSession(created.ok ? created.result.document : createDocument('Untitled', true));
+  }, [openInNewSession]);
 
   // After each render, sync canUndo/canRedo/undoLabel/redoLabel if they
   // diverge from the derived values. Uses a ref to track what we last synced
@@ -2583,13 +2652,13 @@ export function EditorProvider({
   }, []);
 
   /** Persistence (save/load/document lifecycle). */
-  const { newDocument, serializeDocument, save, saveAs, loadDocument } = usePersistence(
+  const { serializeDocument, save, saveAs, loadDocument } = usePersistence(
     state,
     patch,
     stateRef,
     platform,
-    snapshotSession,
     resetUndo,
+    openInNewSession,
     recoveryRef,
     computeFitAllCamera,
   );
@@ -7488,55 +7557,7 @@ export function EditorProvider({
         updateDoc((doc) => setVariableModeOnDocumentDoc(doc, mode));
       },
 
-      newTab: () => {
-        setState((s) => {
-          sessionStoreRef.current.set(
-            s.activeId,
-            snapshotEditorSession(
-              s,
-              undoStackRef.current,
-              redoStackRef.current,
-              undoSelStackRef.current,
-              redoSelStackRef.current,
-            ),
-          );
-          const syncedSessions = s.sessions.map((sess) =>
-            sess.id === s.activeId ? { ...sess, dirty: s.dirty } : sess,
-          );
-          const newId = `session-${Date.now()}`;
-          const newDoc = createDocument('Untitled');
-          const newDocGrid =
-            newDoc.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
-          const vpDefaults = loadSettings().viewport;
-          undoStackRef.current = [];
-          redoStackRef.current = [];
-          undoSelStackRef.current = [];
-          redoSelStackRef.current = [];
-          return {
-            ...s,
-            document: newDoc,
-            selection: [],
-            selectedGuideId: null,
-            zoom: 1,
-            pan: { x: 0, y: 0 },
-            cameraRotation: 0,
-            snapEnabled: vpDefaults.snapEnabled,
-            pixelGridEnabled: vpDefaults.pixelGridEnabled,
-            pixelGridSnapEnabled: false,
-            dotGridEnabled: vpDefaults.dotGridEnabled ?? false,
-            snapGrid: vpDefaults.snapGrid,
-            rulerMode: vpDefaults.rulerMode,
-            gridOverlayMode: vpDefaults.gridOverlayMode,
-            unitType: vpDefaults.unitType,
-            guidesVisible: vpDefaults.guidesVisible,
-            documentGrid: { ...newDocGrid, visible: vpDefaults.gridVisible ?? newDocGrid.visible },
-            isometricGrid: createDefaultIsometricGrid(),
-            dirty: false,
-            sessions: [...syncedSessions, { id: newId, name: 'Untitled', dirty: false }],
-            activeId: newId,
-          };
-        });
-      },
+      newTab: () => openInNewSession(createDocument('Untitled')),
 
       switchTab: (id) => {
         setState((s) => {
@@ -7718,7 +7739,7 @@ export function EditorProvider({
           }
 
           snapshotCurrent();
-          const newId = `session-${Date.now()}`;
+          const newId = newSessionId();
           return {
             ...s,
             document: doc,
@@ -8693,9 +8714,11 @@ export function EditorProvider({
         const entry = await svc.getBackupDocument(backupId);
         if (!entry) return false;
         if (asCopy) {
-          // Load as a new session — never overwrites current work.
+          // Its own tab, bound to no file: the current work stays open, and
+          // saving the copy routes through Save As rather than the original.
           loadDocument(entry.documentJson, {
             name: `${entry.manifest.sourceName} (restored)`,
+            newSession: true,
           });
         } else {
           // Replace mode: create a safety snapshot first.
@@ -8714,8 +8737,11 @@ export function EditorProvider({
           } catch {
             // Safety snapshot failure should not block restore
           }
+          // Replace mode: same file, older content — keep the binding so the
+          // restore saves back where it came from.
           loadDocument(entry.documentJson, {
             name: entry.manifest.sourceName,
+            keepIdentity: true,
           });
         }
         return true;
