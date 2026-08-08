@@ -12,6 +12,8 @@
  * per page).
  */
 
+import type { Rect } from '@varve/shared';
+import { groupWorldBounds } from './coordinateService';
 import type { Document } from './document';
 import { computePageNumbering } from './pageNumbering';
 import { autoPageLayout } from './pasteboardLayout';
@@ -201,6 +203,66 @@ export interface MultipageSceneOptions {
  * `activePageNodes` on flat documents, so pre-page documents render
  * unchanged.
  */
+function rectsOverlap(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/**
+ * World bounds of a page's content, memoized per document revision.
+ *
+ * Keyed on the Document, not on the content-root node. Keying on the node
+ * looks cheaper — untouched pages would keep their entry across edits — but
+ * it is wrong: moving a *descendant* produces a new node for that descendant
+ * while the content root keeps the same object identity (its `children` array
+ * is unchanged), so the cached bounds would go stale and the page could be
+ * culled against a position its content has left. That is the same class of
+ * bug this function exists to fix.
+ *
+ * The document key is exact: documents are immutable, so a new revision means
+ * a genuinely different scene. Cost is bounded — the walk runs only for pages
+ * that already failed the trim test, and at most once per revision per page.
+ */
+const pageContentBoundsCache = new WeakMap<Document, Map<NodeId, Rect | null>>();
+
+function pageContentWorldBounds(doc: Document, page: Page): Rect | null {
+  let perDoc = pageContentBoundsCache.get(doc);
+  if (!perDoc) {
+    perDoc = new Map();
+    pageContentBoundsCache.set(doc, perDoc);
+  }
+  const cached = perDoc.get(page.id);
+  if (cached !== undefined) return cached;
+  const bounds = groupWorldBounds(doc, page.contentRoot);
+  perDoc.set(page.id, bounds);
+  return bounds;
+}
+
+/**
+ * Whether a page contributes anything to this viewport.
+ *
+ * The trim box is NOT sufficient. Page content is free to sit outside the
+ * trim — dragged onto the pasteboard, placed for a bleed, or simply moved
+ * away — and culling the page by its trim dropped every one of its content
+ * nodes with it. Scrolling to such an object showed nothing while the
+ * selection overlay (which resolves world bounds independently of this walk)
+ * still drew its handles: content silently absent, not clipped.
+ *
+ * Backgrounds and masters are bounded by the trim by construction, so only
+ * content extends the test.
+ */
+function pageIntersectsViewport(
+  doc: Document,
+  placed: PlacedPage,
+  viewport: { x: number; y: number; w: number; h: number },
+): boolean {
+  if (rectsOverlap(placed.bounds, viewport)) return true;
+  const content = pageContentWorldBounds(doc, placed.page);
+  return content !== null && rectsOverlap(content, viewport);
+}
+
 export function multipageRootNodes(doc: Document, options: MultipageSceneOptions = {}): NodeId[] {
   const ids: NodeId[] = [];
   for (const gid of doc.globalChildren ?? []) ids.push(gid);
@@ -219,12 +281,7 @@ export function multipageRootNodes(doc: Document, options: MultipageSceneOptions
 
   const viewport = options.viewportWorldRect ?? null;
   for (const placed of buildPlacedScene(doc).pages) {
-    const b = placed.bounds;
-    if (viewport) {
-      const overlapX = b.x < viewport.x + viewport.w && viewport.x < b.x + b.w;
-      const overlapY = b.y < viewport.y + viewport.h && viewport.y < b.y + b.h;
-      if (!overlapX || !overlapY) continue;
-    }
+    if (viewport && !pageIntersectsViewport(doc, placed, viewport)) continue;
     for (const bgId of placed.backgroundNodes) ids.push(bgId);
     for (const masterId of placed.masterNodes) ids.push(masterId);
     for (const childId of placed.contentNodes) ids.push(childId);
