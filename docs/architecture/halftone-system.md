@@ -105,7 +105,7 @@ to the `[-1, 1]²` cell area:
 |---|---|
 | round / elliptical | `min(1, π·d²/4)` (stretched for elliptical) |
 | square | `min(1, max(\|dx\|,\|dy\|)²)` |
-| diamond | `min(1, (\|dx\|+\|dy\|)²/2)` |
+| diamond | `min(1, (abs(dx)+abs(dy))²/2)` |
 | line | `min(1, \|dy\|)` |
 | cross / circle | decorative normalizations |
 
