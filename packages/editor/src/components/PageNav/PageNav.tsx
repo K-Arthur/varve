@@ -3,10 +3,10 @@ import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dn
 import { CSS } from '@dnd-kit/utilities';
 import {
   addPage as addPageFn,
+  deletePageWithPolicy,
   duplicatePage,
   type NodeId,
   type Page,
-  removePage,
   reorderPages,
 } from '@varve/scene';
 import { ContextMenu, type MenuEntry } from '@varve/ui';
@@ -244,11 +244,24 @@ export function PageNav() {
     setCtxPageId(null);
   }, []);
 
+  // Deleting a page must not silently destroy work. A page's content can sit
+  // outside its trim (staged on the pasteboard, placed for a bleed), where it
+  // is invisible on the page yet still owned by it, so the default keeps the
+  // content and only removes the page. Discarding content is a separate,
+  // explicitly labelled command rather than a confirmation dialog.
   const handleDeletePage = useCallback(() => {
     if (!ctxPageId) return;
     if (pages.length <= 1) return;
     pendingFocusRef.current = 'active';
-    updateDoc((doc) => removePage(doc, ctxPageId));
+    updateDoc((doc) => deletePageWithPolicy(doc, ctxPageId, 'move-to-pasteboard'));
+    closeContextMenu();
+  }, [ctxPageId, pages.length, updateDoc, closeContextMenu]);
+
+  const handleDeletePageAndContents = useCallback(() => {
+    if (!ctxPageId) return;
+    if (pages.length <= 1) return;
+    pendingFocusRef.current = 'active';
+    updateDoc((doc) => deletePageWithPolicy(doc, ctxPageId, 'delete-content'));
     closeContextMenu();
   }, [ctxPageId, pages.length, updateDoc, closeContextMenu]);
 
@@ -262,8 +275,14 @@ export function PageNav() {
     { id: 'duplicate', label: 'Duplicate page', onAction: handleDuplicatePage },
     {
       id: 'delete',
-      label: 'Delete page',
+      label: 'Delete page (keep contents)',
       onAction: handleDeletePage,
+      disabled: pages.length <= 1,
+    },
+    {
+      id: 'delete-with-contents',
+      label: 'Delete page and contents',
+      onAction: handleDeletePageAndContents,
       disabled: pages.length <= 1,
     },
   ];

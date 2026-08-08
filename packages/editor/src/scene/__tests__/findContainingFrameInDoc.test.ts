@@ -125,3 +125,43 @@ describe('findContainingFrameInDoc', () => {
     expect(result).toBe('f2');
   });
 });
+
+describe('page surfaces as drop targets', () => {
+  it('adopts a drop over a page with no frame under it into that page', () => {
+    // Dropping onto a page must make the page the owner, otherwise the node
+    // renders on the canvas but never exports with the page it looks like it
+    // belongs to.
+    const doc = createDocument('page-drop');
+    const page = doc.pages?.[0];
+    expect(page).toBeTruthy();
+    const inside = { x: 10, y: 10 };
+    expect(findContainingFrameInDoc(doc, inside, null, { adoptIntoPage: true })).toBe(
+      page!.contentRoot,
+    );
+  });
+
+  it('returns null on bare pasteboard so the caller parents to the document root', () => {
+    // The rule that keeps raw canvas placement working: no surface under the
+    // point means world space, never an invented frame.
+    const doc = createDocument('page-drop-2');
+    const page = doc.pages?.[0];
+    const outside = { x: (page?.width ?? 1000) + 5_000, y: (page?.height ?? 1000) + 5_000 };
+    expect(findContainingFrameInDoc(doc, outside, null, { adoptIntoPage: true })).toBeNull();
+  });
+
+  it('leaves parenting unchanged when adoption is not requested', () => {
+    // The default must stay exactly as it was: draw-to-create and every other
+    // shared caller keep resolving to the document root over a bare page.
+    const doc = createDocument('page-drop-default');
+    expect(findContainingFrameInDoc(doc, { x: 10, y: 10 })).toBeNull();
+  });
+
+  it('prefers a frame over the page that contains it', () => {
+    // Deepest surface wins; the page must not shadow a frame sitting on it.
+    let doc = createDocument('page-drop-3');
+    doc = addFrame(doc, 'f1', 20, 20, 100, 100);
+    expect(findContainingFrameInDoc(doc, { x: 60, y: 60 }, null, { adoptIntoPage: true })).toBe(
+      'f1',
+    );
+  });
+});
