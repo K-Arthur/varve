@@ -395,3 +395,143 @@ export function exportAcoPalette(colors: AcoColorEntry[]): ArrayBuffer {
   }
   return buf;
 }
+
+// ── ACT (Adobe Color Table) ────────────────────────────────────────────────
+
+/** A color parsed from an ACT file. */
+export interface ActColorEntry {
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** A complete ACT palette. */
+export interface ActPalette {
+  name: string;
+  colors: ActColorEntry[];
+  /** Transparent index (0-255) when declared, else undefined. */
+  transparentIndex?: number;
+}
+
+export const ACT_HEADER_BYTES = 768;
+export const ACT_MAX_COLORS = 256;
+
+/**
+ * Parse an Adobe Color Table (.act) file.
+ *
+ * Format: 256 RGB triples (768 bytes), then u16 BE color count at 768, u16 BE
+ * transparent index at 772. Files with no color-count header declare all 256.
+ *
+ * Untrusted-input rules: the buffer length is checked before any read, the
+ * declared color count is clamped to [1, 256], and values are validated
+ * against the 768-byte minimum. No allocation is driven by file metadata.
+ */
+export function parseActPalette(buffer: ArrayBuffer, name = 'Untitled'): ActPalette {
+  const view = new DataView(buffer);
+  if (view.byteLength < ACT_HEADER_BYTES) {
+    throw new Error(
+      `Invalid ACT palette: expected at least ${ACT_HEADER_BYTES} bytes, got ${view.byteLength}`,
+    );
+  }
+  let colorCount = ACT_MAX_COLORS;
+  if (view.byteLength >= 770) {
+    const declared = view.getUint16(768, false);
+    if (declared >= 1 && declared <= ACT_MAX_COLORS) {
+      colorCount = declared;
+    }
+  }
+  let transparentIndex: number | undefined;
+  if (view.byteLength >= 774) {
+    const idx = view.getUint16(772, false);
+    if (idx < colorCount) transparentIndex = idx;
+  }
+  const colors: ActColorEntry[] = [];
+  for (let i = 0; i < colorCount; i += 1) {
+    const r = view.getUint8(i * 3);
+    const g = view.getUint8(i * 3 + 1);
+    const b = view.getUint8(i * 3 + 2);
+    colors.push({ r, g, b });
+  }
+  return { name, colors, transparentIndex };
+}
+
+/**
+ * Export RGB colors to Adobe Color Table (.act) binary.
+ */
+export function exportActPalette(colors: ActColorEntry[]): ArrayBuffer {
+  const count = Math.min(ACT_MAX_COLORS, Math.max(1, colors.length));
+  const buf = new ArrayBuffer(774);
+  const view = new DataView(buf);
+  for (let i = 0; i < count; i += 1) {
+    const c = colors[i]!;
+    view.setUint8(i * 3, Math.max(0, Math.min(255, Math.round(c.r))));
+    view.setUint8(i * 3 + 1, Math.max(0, Math.min(255, Math.round(c.g))));
+    view.setUint8(i * 3 + 2, Math.max(0, Math.min(255, Math.round(c.b))));
+  }
+  view.setUint16(768, count, false);
+  view.setUint16(770, 0, false);
+  return buf;
+}
+
+export type PaletteFileFormat = 'gpl' | 'act' | 'ase' | 'aco' | 'unknown';
+
+/** Route a palette file to the correct parser by extension. */
+export function paletteFileFormat(fileName: string): PaletteFileFormat {
+  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
+  switch (ext) {
+    case 'gpl':
+      return 'gpl';
+    case 'act':
+      return 'act';
+    case 'ase':
+      return 'ase';
+    case 'aco':
+      return 'aco';
+    default:
+      return 'unknown';
+  }
+}
+
+/** Parse a palette file (text or binary) into a uniform color list. */
+export function parsePaletteFile(
+  fileName: string,
+  data: ArrayBuffer | string,
+): { colors: [number, number, number][]; format: PaletteFileFormat; name: string } {
+  const format = paletteFileFormat(fileName);
+  switch (format) {
+    case 'gpl': {
+      const parsed = parseGplPalette(
+        typeof data === 'string' ? data : new TextDecoder().decode(data),
+      );
+      return {
+        name: parsed.name,
+        format,
+        colors: parsed.colors.map((c) => [c.r, c.g, c.b] as [number, number, number]),
+      };
+    }
+    case 'act': {
+      if (typeof data === 'string') {
+        throw new Error('ACT palette requires binary data');
+      }
+      const parsed = parseActPalette(data, fileName);
+      return { name: parsed.name, format, colors: parsed.colors.map((c) => [c.r, c.g, c.b]) };
+    }
+    case 'ase': {
+      if (typeof data === 'string') {
+        throw new Error('ASE palette requires binary data');
+      }
+      const parsed = parseAsePalette(data);
+      const colors = [...parsed.colors, ...parsed.groups.flatMap((g) => g.colors)];
+      return { name: parsed.name, format, colors: colors.map((c) => [c.r, c.g, c.b]) };
+    }
+    case 'aco': {
+      if (typeof data === 'string') {
+        throw new Error('ACO palette requires binary data');
+      }
+      const parsed = parseAcoPalette(data);
+      return { name: fileName, format, colors: parsed.map((c) => [c.r, c.g, c.b]) };
+    }
+    default:
+      throw new Error(`Unsupported palette format: ${fileName}`);
+  }
+}
