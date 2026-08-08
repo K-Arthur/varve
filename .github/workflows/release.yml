@@ -444,7 +444,7 @@ jobs:
 
       - name: Install-test .deb and .rpm in clean containers
         run: |
-          node scripts/release/verify-package-install.sh \
+          bash scripts/release/verify-package-install.sh \
             --bundle-dir "$(pwd)/staged/linux"
 
       - name: Launch smoke (AppImage under Xvfb)
