@@ -14,6 +14,7 @@ import type { HistoryStepView } from '../history/editorHistorySession';
 import { ConflictResolver } from './ConflictResolver';
 
 interface CompareChange {
+  changeId: string;
   entityId: string;
   entityType: string;
   changeType: string;
@@ -147,6 +148,7 @@ export function HistoryPanel() {
         reordered: diff.summary.reordered,
         text: diff.summary.text,
         changes: diff.changes.map((c) => ({
+          changeId: c.changeId,
           entityId: c.entityId,
           entityType: c.entityType,
           changeType: c.changeType,
