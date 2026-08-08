@@ -862,11 +862,40 @@ export function replayIr(
           );
           if (complexFilters.length > 0) {
             const targetCanvas = target as unknown as CanvasRenderingContext2D;
+            // Adjustment layers reach the IR as zero-geometry items whose
+            // filters composite over the whole surface. The current transform
+            // maps doc units to device pixels (camera + floating origin), so
+            // it is the correct coordSpace for zoom-stable effect parameters
+            // (dither cells, split offsets, bloom radii). On nested surfaces
+            // the transform is identity and parameters interpret in the
+            // surface's own pixel space, which is self-consistent.
+            let coordSpace:
+              | {
+                  scale: number;
+                  originX: number;
+                  originY: number;
+                  regionX: number;
+                  regionY: number;
+                }
+              | undefined;
+            try {
+              const cam = targetCanvas.getTransform();
+              coordSpace = {
+                scale: Math.abs(cam.a) || 1,
+                originX: cam.e,
+                originY: cam.f,
+                regionX: 0,
+                regionY: 0,
+              };
+            } catch {
+              coordSpace = undefined;
+            }
             applyFilterWithCompositing(
               targetCanvas,
               complexFilters,
               targetCanvas.canvas?.width ?? 100,
               targetCanvas.canvas?.height ?? 100,
+              { coordSpace },
             );
           }
         }

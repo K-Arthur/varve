@@ -14,6 +14,7 @@ members = [
     "crates/varve-bgremove",
     "crates/varve-bridge",
     "crates/varve-colour",
+    "crates/varve-effects",
     "crates/varve-wasm",
 ]
 

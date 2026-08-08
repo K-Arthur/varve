@@ -36,6 +36,17 @@ export interface RasterAsset {
   cssWidth: number;
   cssHeight: number;
   dpi?: number;
+  /**
+   * Effect expansion in CSS/document units: effects that generate pixels
+   * outside the source bounds (bloom, flares, RGB displacement) render on a
+   * padded surface. The PNG therefore contains `cssWidth + left + right` ×
+   * `cssHeight + top + bottom` CSS units of content, with the source content
+   * anchored at `(left, top)` inside the image. Emitters must place the
+   * image at `x = -left, y = -top` with the expanded size; absent this field
+   * the image contains exactly `cssWidth` × `cssHeight` units anchored at
+   * the origin (legacy behaviour).
+   */
+  expansion?: { left: number; top: number; right: number; bottom: number };
 }
 
 /**

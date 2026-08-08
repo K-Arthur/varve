@@ -348,7 +348,9 @@ export async function flattenForExport(
 
     context.restore();
 
-    applyFilters(context as CanvasRenderingContext2D, irFilters, pixelW, pixelH);
+    applyFilters(context as CanvasRenderingContext2D, irFilters, pixelW, pixelH, {
+      quality: 'export',
+    });
 
     let dataUrl: string;
     try {
@@ -363,14 +365,20 @@ export async function flattenForExport(
       continue;
     }
 
+    const expansion =
+      expL > 0 || expT > 0 || expR > 0 || expB > 0
+        ? { left: expL, top: expT, right: expR, bottom: expB }
+        : undefined;
+
     assets[adjNode.id] = {
       nodeId: adjNode.id,
       dataUrl,
-      pixelWidth: Math.round(cssWidth * scale),
-      pixelHeight: Math.round(cssHeight * scale),
+      pixelWidth: Math.round(expandedCssW * scale),
+      pixelHeight: Math.round(expandedCssH * scale),
       cssWidth,
       cssHeight,
       dpi: opts.dpi,
+      ...(expansion ? { expansion } : {}),
     };
   }
 

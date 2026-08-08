@@ -1,0 +1,18 @@
+[package]
+name = "varve-effects"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Native live-effects kernels: deterministic RGBA image filters ported from the @varve/engine TS kernels (dither, paletteSnap, bloom, rgbSplit, crt, vhs, lightShafts, lensFlare, lightLeak, caustics)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.151"
+
+[dev-dependencies]
+
+[lints]
+workspace = true
