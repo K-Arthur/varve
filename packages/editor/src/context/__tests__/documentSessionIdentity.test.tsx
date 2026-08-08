@@ -113,6 +113,85 @@ describe('newDocument — File > New / Ctrl+N', () => {
   });
 });
 
+describe('openFile — multiple documents open at once', () => {
+  it('opens a second file in its own tab, keeping the first open', () => {
+    const getCtx = mountEditor();
+    openFileInActiveTab(getCtx, 'file-a', 'Design A', '/docs/a.varve');
+    const firstId = getCtx().state.activeId;
+    const beforeCount = getCtx().state.sessions.length;
+
+    act(() => {
+      getCtx().openFile('file-b', 'Design B', '/docs/b.varve', DOC_JSON);
+    });
+
+    expect(getCtx().state.sessions).toHaveLength(beforeCount + 1);
+    expect(getCtx().state.activeId).not.toBe(firstId);
+    expect(getCtx().state.sessions.find((s) => s.id === firstId)).toMatchObject({
+      name: 'Design A',
+      fileId: 'file-a',
+    });
+  });
+
+  it('switches to the existing tab instead of opening the same file twice', () => {
+    const getCtx = mountEditor();
+    openFileInActiveTab(getCtx, 'file-a', 'Design A', '/docs/a.varve');
+    const firstId = getCtx().state.activeId;
+
+    act(() => {
+      getCtx().openFile('file-b', 'Design B', '/docs/b.varve', DOC_JSON);
+    });
+    const countWithBoth = getCtx().state.sessions.length;
+
+    act(() => {
+      getCtx().openFile('file-a', 'Design A', '/docs/a.varve', DOC_JSON);
+    });
+
+    expect(getCtx().state.sessions).toHaveLength(countWithBoth);
+    expect(getCtx().state.activeId).toBe(firstId);
+  });
+
+  // Open Recent and the browser file picker have no app-store id to pass.
+  it('opens a file known only by path, deduping on that path', () => {
+    const getCtx = mountEditor();
+
+    act(() => {
+      getCtx().openFile(undefined, 'Recent.varve', '/docs/recent.varve', DOC_JSON);
+    });
+    const openedId = getCtx().state.activeId;
+    const countAfterOpen = getCtx().state.sessions.length;
+    expect(activeSession(getCtx())).toMatchObject({ filePath: '/docs/recent.varve' });
+
+    act(() => {
+      getCtx().openFile(undefined, 'Recent.varve', '/docs/recent.varve', DOC_JSON);
+    });
+
+    expect(getCtx().state.sessions).toHaveLength(countAfterOpen);
+    expect(getCtx().state.activeId).toBe(openedId);
+  });
+
+  it('keeps each tab on its own document when switching between them', () => {
+    const getCtx = mountEditor();
+    openFileInActiveTab(getCtx, 'file-a', 'Design A', '/docs/a.varve');
+    const firstId = getCtx().state.activeId;
+
+    act(() => {
+      getCtx().openFile('file-b', 'Design B', '/docs/b.varve', DOC_JSON);
+    });
+    const secondId = getCtx().state.activeId;
+    const secondDocName = getCtx().state.document.name;
+
+    act(() => {
+      getCtx().switchTab(firstId);
+    });
+    expect(getCtx().state.document.name).toBe('Design A');
+
+    act(() => {
+      getCtx().switchTab(secondId);
+    });
+    expect(getCtx().state.document.name).toBe(secondDocName);
+  });
+});
+
 describe('loadDocument — file identity is explicit, never inherited', () => {
   it('rebinds the tab to the incoming file by default', () => {
     const getCtx = mountEditor();
