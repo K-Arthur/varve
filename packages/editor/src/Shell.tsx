@@ -2,16 +2,9 @@
 // Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
 import { HelpBrowser } from '@varve/help';
 import type { Platform } from '@varve/platform';
-import {
-  type Document,
-  getAllRules,
-  isImageShape,
-  registerBuiltinRules,
-  type SceneNode,
-} from '@varve/scene';
-import { ContextMenu, Icon, type MenuEntry, ToastProvider, Tooltip, useToast } from '@varve/ui';
+import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from '@varve/scene';
+import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getActionRegistry } from './actions/ActionRegistry';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { CanvasArea } from './CanvasArea';
@@ -56,6 +49,7 @@ import {
   VectorizeDialogHost,
 } from './components/Shell';
 import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
+import { buildCanvasContextMenuItems } from './menu/canvasContextMenu';
 import './components/Shell/shellStyles.css';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
@@ -870,227 +864,8 @@ function ShellInner({
         {/* Canvas right-click context menu */}
         {canvasContextMenu &&
           (() => {
-            const hasSelection = editor.state.selection.length > 0;
-            const hasMultiple = editor.state.selection.length > 1;
             const closeMenu = () => setCanvasContextMenu(null);
-            const selectedId = editor.state.selection[0];
-            const isSingleGroup =
-              hasSelection &&
-              editor.state.selection.length === 1 &&
-              selectedId !== undefined &&
-              editor.state.document.nodes[selectedId]?.kind === 'group';
-            const selectedNode = selectedId ? editor.state.document.nodes[selectedId] : undefined;
-            const isSingleImage =
-              hasSelection &&
-              editor.state.selection.length === 1 &&
-              selectedNode?.kind === 'shape' &&
-              isImageShape(selectedNode);
-            const isSingleTraceGroup =
-              hasSelection &&
-              editor.state.selection.length === 1 &&
-              selectedNode?.kind === 'group' &&
-              selectedNode.traceMetadata !== undefined;
-            const nodeCount = Object.keys(editor.state.document.nodes).length;
-            const hasNodes = nodeCount >= 1;
-            const hasMultipleNodes = nodeCount >= 2;
-            const record = (actionId: string) => editor.recordAction(`menu:${actionId}`);
-            const items: MenuEntry[] = [
-              ...(hasSelection
-                ? [
-                    {
-                      id: 'ctx-cut',
-                      label: 'Cut',
-                      onAction: () => {
-                        record('cut');
-                        editor.cutSelected();
-                        closeMenu();
-                      },
-                    } satisfies MenuEntry,
-                    {
-                      id: 'ctx-copy',
-                      label: 'Copy',
-                      onAction: () => {
-                        record('copy');
-                        editor.copySelected();
-                        closeMenu();
-                      },
-                    } satisfies MenuEntry,
-                  ]
-                : []),
-              {
-                id: 'ctx-paste',
-                label: 'Paste',
-                onAction: () => {
-                  record('paste');
-                  editor.paste();
-                  closeMenu();
-                },
-              } satisfies MenuEntry,
-              ...(hasSelection
-                ? [
-                    { id: 'ctx-sep1', separator: true as const } satisfies MenuEntry,
-                    {
-                      id: 'ctx-dup',
-                      label: 'Duplicate',
-                      onAction: () => {
-                        record('duplicate');
-                        editor.duplicateSelected();
-                        closeMenu();
-                      },
-                    } satisfies MenuEntry,
-                    {
-                      id: 'ctx-del',
-                      label: 'Delete',
-                      onAction: () => {
-                        record('delete');
-                        editor.removeSelected();
-                        closeMenu();
-                      },
-                    } satisfies MenuEntry,
-                  ]
-                : []),
-              ...(hasMultiple
-                ? [
-                    { id: 'ctx-sep2', separator: true as const } satisfies MenuEntry,
-                    {
-                      id: 'ctx-group',
-                      label: 'Group Selection',
-                      onAction: () => {
-                        record('group');
-                        editor.groupSelected();
-                        closeMenu();
-                      },
-                    } satisfies MenuEntry,
-                  ]
-                : []),
-              ...(isSingleGroup
-                ? [
-                    { id: 'ctx-sep3', separator: true as const } satisfies MenuEntry,
-                    {
-                      id: 'ctx-ungroup',
-                      label: 'Ungroup',
-                      onAction: () => {
-                        record('ungroup');
-                        editor.ungroupSelected();
-                        closeMenu();
-                      },
-                    } satisfies MenuEntry,
-                  ]
-                : []),
-              ...(hasSelection
-                ? [
-                    { id: 'ctx-sep-mockups', separator: true as const } satisfies MenuEntry,
-                    {
-                      id: 'ctx-mockups',
-                      label: 'Apply mockup…',
-                      onAction: () => {
-                        record('applyMockup');
-                        getActionRegistry().get('applyMockup')?.handler(undefined);
-                        closeMenu();
-                      },
-                    } satisfies MenuEntry,
-                  ]
-                : []),
-              { id: 'ctx-sep4', separator: true as const } satisfies MenuEntry,
-              {
-                id: 'ctx-selectall',
-                label: 'Select All',
-                onAction: () => {
-                  record('selectAll');
-                  const nodes = editor.rootNodes();
-                  if (nodes.length === 0) {
-                    closeMenu();
-                    return;
-                  }
-                  editor.setSelection(nodes[0]?.id ?? null);
-                  for (let i = 1; i < nodes.length; i++) {
-                    const n = nodes[i];
-                    if (n) editor.toggleSelection(n.id, true);
-                  }
-                  closeMenu();
-                },
-              } satisfies MenuEntry,
-              ...(hasNodes
-                ? [
-                    { id: 'ctx-sep5', separator: true as const } satisfies MenuEntry,
-                    ...(isSingleImage
-                      ? [
-                          {
-                            id: 'ctx-vectorize',
-                            label: 'Vectorize image…',
-                            onAction: () => {
-                              record('vectorize');
-                              editor.openVectorizeDialog();
-                              closeMenu();
-                            },
-                          } satisfies MenuEntry,
-                        ]
-                      : []),
-                    ...(isSingleTraceGroup
-                      ? [
-                          {
-                            id: 'ctx-retrace',
-                            label: 'Edit Trace…',
-                            onAction: () => {
-                              record('retrace');
-                              if (selectedNode?.kind === 'group') {
-                                editor.openVectorizeDialog({
-                                  replaceGroupId: selectedNode.id,
-                                });
-                              }
-                              closeMenu();
-                            },
-                          } satisfies MenuEntry,
-                        ]
-                      : []),
-                    {
-                      id: 'ctx-intel',
-                      label: 'Intelligence',
-                      type: 'submenu',
-                      submenu: [
-                        {
-                          id: 'ctx-intel-audit',
-                          label: 'Audit',
-                          onAction: () => {
-                            editor.setInspectorTab?.('audit', 'audit');
-                            closeMenu();
-                          },
-                          disabled: !hasNodes,
-                        },
-                        {
-                          id: 'ctx-intel-scan',
-                          label: 'Scan for Debt',
-                          onAction: () => {
-                            editor.setInspectorTab?.('audit', 'debt');
-                            closeMenu();
-                          },
-                          disabled: !hasNodes,
-                        },
-                        {
-                          id: 'ctx-intel-names',
-                          label: 'Suggest Names',
-                          onAction: () => {
-                            editor.setInspectorTab?.('audit', 'naming');
-                            closeMenu();
-                          },
-                          disabled: !hasSelection,
-                        },
-                        {
-                          id: 'ctx-intel-dupes',
-                          label: hasSelection
-                            ? 'Detect Duplicates in Selection'
-                            : 'Detect Duplicates on Page',
-                          onAction: () => {
-                            editor.setInspectorTab?.('audit', 'components');
-                            closeMenu();
-                          },
-                          disabled: !hasMultipleNodes,
-                        },
-                      ],
-                    } satisfies MenuEntry,
-                  ]
-                : []),
-            ];
+            const items = buildCanvasContextMenuItems({ editor, closeMenu });
             return (
               <ContextMenu
                 items={items}

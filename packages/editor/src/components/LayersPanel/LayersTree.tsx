@@ -34,7 +34,13 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities';
 import { useVirtualizer, type Virtualizer } from '@tanstack/react-virtual';
 import type { ContainerNode, Document, NodeId } from '@varve/scene';
-import { getInstanceStatus, getKeyframeCount, getNodesInTimeline, isContainer } from '@varve/scene';
+import {
+  getInstanceStatus,
+  getKeyframeCount,
+  getNodesInTimeline,
+  getParent,
+  isContainer,
+} from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import type React from 'react';
 import {
@@ -299,6 +305,51 @@ export function computeDropZone(
   return relativeY < 0.5 ? 'before' : 'after';
 }
 
+export interface DropClipTarget {
+  /** True when the drop clips the dragged layer(s) to the mask source. */
+  clipInto: boolean;
+  /** The container to reparent into when clipInto (the matte's parent). */
+  parentId: NodeId | null;
+  /** The insertion index inside parentId (immediately after the matte). */
+  index: number;
+}
+
+/**
+ * Resolve the semantic target of a drop whose zone is 'into':
+ *
+ * - Dropping into the middle band of a clipping **mask source** row clips
+ *   the dragged layer(s) to that matte: they become siblings of the matte,
+ *   ordered immediately after it (the matte must stay at the head of the
+ *   run). The mask already applies to every other child, so no mask mutation
+ *   is needed — only a reparent/reorder.
+ * - Any other 'into' drop is a plain container drop (reparent into the
+ *   container itself).
+ *
+ * Returns null when the target cannot be resolved (dangling node).
+ */
+export function resolveDropClipTarget(
+  doc: Document,
+  overId: NodeId,
+  zone: 'before' | 'after' | 'into',
+): DropClipTarget | null {
+  const overNode = doc.nodes[overId];
+  if (!overNode) return null;
+  if (zone !== 'into') return { clipInto: false, parentId: null, index: 0 };
+
+  const overParentId = getParent(doc, overId);
+  const overParent = overParentId ? doc.nodes[overParentId] : undefined;
+  const overParentMask = overParent
+    ? (overParent as { mask?: { visible?: boolean; sourceNodeId?: NodeId } }).mask
+    : undefined;
+  const isMatteRow = overParentMask?.visible !== false && overParentMask?.sourceNodeId === overId;
+  if (isMatteRow && overParentId && overParent && isContainer(overParent)) {
+    const siblings = (overParent as ContainerNode).children;
+    const sourceIdx = siblings.indexOf(overId);
+    return { clipInto: true, parentId: overParentId, index: sourceIdx + 1 };
+  }
+  return { clipInto: false, parentId: null, index: 0 };
+}
+
 /**
  * The sibling list for "top level of the active page" — NOT doc.rootChildren,
  * which holds each page's contentRoot group id, not page content. Must match
@@ -340,7 +391,13 @@ export interface LayersDnDHandle {
   handleDragOver: (event: DragOverEvent) => void;
   handleDragEnd: (event: DragEndEvent) => void;
   activeId: NodeId | null;
-  dropIndicator: { nodeId: NodeId; zone: 'before' | 'after' | 'into' } | null;
+  dropIndicator: {
+    nodeId: NodeId;
+    zone: 'before' | 'after' | 'into';
+    /** True when the drop target is a clipping mask source and the zone is
+     *  'into' — the drop will clip the dragged layer(s) to that matte. */
+    clipInto?: boolean;
+  } | null;
   collapseAll: () => void;
   collapseOthers: (containerId: NodeId) => void;
   startRename: (id: NodeId) => void;
@@ -419,6 +476,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   const [dropIndicator, setDropIndicator] = useState<{
     nodeId: NodeId;
     zone: 'before' | 'after' | 'into';
+    clipInto?: boolean;
   } | null>(null);
 
   // Search index: patched incrementally on property-only document changes
@@ -1080,7 +1138,12 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         })(activeNodeId, overId);
 
       const zone = computeDropZone(relativeY, !!overIsContainer, !!isDescendant);
-      setDropIndicator({ nodeId: overId, zone });
+
+      // Dropping into the middle band of a clipping mask source row means
+      // "clip the dragged layer(s) to this matte" — the drop preview signals
+      // the resulting clipping relationship, not a plain reorder.
+      const clipInto = resolveDropClipTarget(doc, overId, zone)?.clipInto ?? false;
+      setDropIndicator({ nodeId: overId, zone, clipInto });
 
       if (!isDescendant && overIsContainer && zone === 'into' && !expanded.has(overId)) {
         startAutoExpand(overId);
@@ -1158,6 +1221,30 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       const isMulti = moveIds.length > 1;
 
       if (zone === 'into') {
+        // Dropping onto the middle band of a clipping mask source row clips
+        // the dragged layer(s) to that matte: they become siblings of the
+        // matte, ordered immediately after it (the matte itself must stay at
+        // the head of the run so the relationship stays legible). The mask
+        // already applies to every other child, so no mask mutation is
+        // needed — only a reparent/reorder.
+        const dropTarget = resolveDropClipTarget(doc, overId, zone);
+        if (dropTarget?.clipInto && dropTarget.parentId) {
+          const overParentNode = doc.nodes[dropTarget.parentId];
+          const siblings = (overParentNode as ContainerNode).children;
+          const steps = computeMultiMoveSteps(siblings, moveIds, dropTarget.index);
+
+          if (isMulti) beginTransaction();
+          for (const step of steps) reparentNode(step.id, dropTarget.parentId, step.index);
+          if (isMulti) commitTransaction();
+
+          announce(
+            isMulti
+              ? `Moved ${moveIds.length} layers into the clipping group`
+              : `Clipped ${activeNode.name} to ${overNode.name}`,
+          );
+          return;
+        }
+
         const overContainer = doc.nodes[overId];
         const children =
           overContainer && isContainer(overContainer)
@@ -1365,6 +1452,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               const isExpanded = expanded.has(node.id);
               const dropClass =
                 dropIndicator?.nodeId === node.id ? `layers-row--drop-${dropIndicator.zone}` : '';
+              const dropClip = dropIndicator?.nodeId === node.id && dropIndicator.clipInto === true;
 
               return (
                 <SortableVirtualRow
@@ -1378,6 +1466,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   virtualItem={virtualItem}
                   virtualizer={virtualizer}
                   dropClass={dropClass}
+                  dropClip={dropClip}
                   hasMotion={animatedNodes.has(node.id)}
                   keyframeCount={keyframeCounts.get(node.id) ?? 0}
                   maskRole={maskRole}
@@ -1474,6 +1563,10 @@ interface SortableVirtualRowProps {
   virtualItem: import('@tanstack/react-virtual').VirtualItem;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   dropClass: string;
+  /** True while the drop preview targets a clipping mask source row — the
+   *  row shows a "clip" hint so the user sees the resulting relationship
+   *  before releasing the pointer. */
+  dropClip: boolean;
   hasMotion: boolean;
   keyframeCount: number;
   maskRole?: 'source' | 'content';
@@ -1508,6 +1601,7 @@ function SortableVirtualRow({
   virtualItem,
   virtualizer,
   dropClass,
+  dropClip,
   hasMotion,
   keyframeCount,
   maskRole,
@@ -1604,6 +1698,11 @@ function SortableVirtualRow({
       style={style}
       className={dropClass}
     >
+      {dropClip ? (
+        <span className="layers-row__clip-hint" role="status">
+          Clip to {node.name}
+        </span>
+      ) : null}
       <LayersRow
         node={node}
         doc={editorState.document}
