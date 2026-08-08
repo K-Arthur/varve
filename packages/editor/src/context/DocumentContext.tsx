@@ -92,7 +92,9 @@ export interface DocumentContextValue {
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
   openFile: (
-    fileId: string,
+    /** App-store id; omit for a file known only by path (Open Recent) or by
+     *  neither (browser file picker) — save() mints one on first save. */
+    fileId: string | undefined,
     name: string,
     filePath: string | undefined,
     json: string | null,

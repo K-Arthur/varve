@@ -166,7 +166,12 @@ export function usePersistence(
 }
 
 /**
- * Re-resolve a document's font manifest against the current device's font catalog.
+ * Re-resolve a document's font manifest against the current device's font
+ * catalog. Exported so every path that brings a document in from outside —
+ * loadDocument and the editor context's openFile — resolves fonts the same
+ * way; a document opened on a different machine otherwise keeps the authoring
+ * machine's unresolved manifest.
+ *
  *
  * If the document already has a font manifest, its entries are re-resolved
  * against the locally available fonts (handles cross-device opening). If the
@@ -174,7 +179,7 @@ export function usePersistence(
  *
  * Returns the document with an updated `fontManifest` field.
  */
-function resolveFontManifest(doc: Document): Document {
+export function resolveFontManifest(doc: Document): Document {
   if (hasTextNodes(doc) === false) {
     return doc;
   }
