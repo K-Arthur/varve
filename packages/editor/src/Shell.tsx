@@ -661,7 +661,10 @@ function ShellInner({
             const reader = new FileReader();
             reader.onload = () => {
               const text = reader.result as string;
-              editor.loadDocument(text);
+              // File > Open lands in its own tab (Figma/Photoshop), leaving
+              // the current document open. The picker gives us no path or
+              // app-store id, so the tab stays unbound until it is saved.
+              editor.openFile(undefined, file.name, undefined, text);
             };
             reader.readAsText(file);
             e.target.value = '';
