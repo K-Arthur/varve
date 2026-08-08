@@ -12,6 +12,14 @@
     "./font": {
       "types": "./src/font/index.ts",
       "default": "./src/font/index.ts"
+    },
+    "./liveEffects": {
+      "types": "./src/liveEffects/index.ts",
+      "default": "./src/liveEffects/index.ts"
+    },
+    "./gpuAdapter": {
+      "types": "./src/gpuAdapter.ts",
+      "default": "./src/gpuAdapter.ts"
     }
   },
   "scripts": {

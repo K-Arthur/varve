@@ -70,7 +70,7 @@ fn sampleChannel(src: texture_2d<f32>, samp: sampler, x: f32, y: f32, w: i32, h:
 }
 
 @compute @workgroup_size(8, 8, 1)
-fn probe3jMain(@builtin(global_invocation_id) gid: vec3u) {
+fn rgbSplitMain(@builtin(global_invocation_id) gid: vec3u) {
   let size = textureDimensions(src);
   let w = i32(size.x);
   let h = i32(size.y);
@@ -135,7 +135,7 @@ fn probe3jMain(@builtin(global_invocation_id) gid: vec3u) {
       {
         entry: 'rgbSplitMain',
         params,
-        textures: ['probe3jout', 'src'],
+        textures: ['out', 'src'],
         sampler: 'linear',
         workgroup: [8, 8, 1],
       },
