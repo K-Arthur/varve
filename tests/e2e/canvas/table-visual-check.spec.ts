@@ -93,5 +93,8 @@ test('table visual check with inspector', async ({ page }) => {
   await page.waitForTimeout(200);
 
   // Screenshot 8: full inspector
-  await page.screenshot({ path: 'test-results/visual/check-08-inspector-bottom.png', fullPage: false });
+  await page.screenshot({
+    path: 'test-results/visual/check-08-inspector-bottom.png',
+    fullPage: false,
+  });
 });
