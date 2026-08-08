@@ -117,7 +117,9 @@ describe('PagesPanel', () => {
   });
 
   it('adds a page through updateDoc', () => {
-    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) => fn({ pages: [makePage('p1', 'Page 1', 'a0')] }));
+    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) =>
+      fn({ pages: [makePage('p1', 'Page 1', 'a0')] }),
+    );
     mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], updateDoc });
     render(<PagesPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Add page' }));
@@ -125,7 +127,9 @@ describe('PagesPanel', () => {
   });
 
   it('duplicates a page through updateDoc', () => {
-    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) => fn({ pages: [makePage('p1', 'Page 1', 'a0')] }));
+    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) =>
+      fn({ pages: [makePage('p1', 'Page 1', 'a0')] }),
+    );
     mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], updateDoc });
     render(<PagesPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Duplicate Page 1' }));
@@ -133,7 +137,9 @@ describe('PagesPanel', () => {
   });
 
   it('deletes a page through updateDoc', () => {
-    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) => fn({ pages: [makePage('p1', 'Page 1', 'a0')] }));
+    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) =>
+      fn({ pages: [makePage('p1', 'Page 1', 'a0')] }),
+    );
     mockEditor({ pages: [makePage('p1', 'Page 1', 'a0')], updateDoc });
     render(<PagesPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Delete Page 1' }));
@@ -155,8 +161,13 @@ describe('PagesPanel', () => {
   });
 
   it('moves a page earlier through updateDoc', () => {
-    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) => fn({ pages: [makePage('p1', 'Page 1', 'a0'), makePage('p2', 'Page 2', 'a1')] }));
-    mockEditor({ pages: [makePage('p1', 'Page 1', 'a0'), makePage('p2', 'Page 2', 'a1')], updateDoc });
+    const updateDoc = vi.fn((fn: (doc: unknown) => unknown) =>
+      fn({ pages: [makePage('p1', 'Page 1', 'a0'), makePage('p2', 'Page 2', 'a1')] }),
+    );
+    mockEditor({
+      pages: [makePage('p1', 'Page 1', 'a0'), makePage('p2', 'Page 2', 'a1')],
+      updateDoc,
+    });
     render(<PagesPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Move Page 2 earlier' }));
     expect(updateDoc).toHaveBeenCalled();

@@ -792,4 +792,3 @@ export function pageSnapTargets(
   }
   return targets;
 }
-

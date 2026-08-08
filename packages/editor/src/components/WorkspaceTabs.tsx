@@ -32,13 +32,13 @@
 import { Menu, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useEditor } from '../context';
+import { useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
 import {
   computeWorkspaceLayout,
   WORKSPACE_ICON_ONLY_THRESHOLD,
   type WorkspaceLayoutResult,
 } from '../workspace/workspaceOverflow';
 import { workspaceShortcutLabel } from '../workspace/workspaceShortcutLabel';
-import { useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
 import {
   WORKSPACE_CONFIGS,
   WORKSPACE_LABELS,
