@@ -36,6 +36,12 @@ on:
         default: 'linux'
         type: choice
         options: [linux, linux-windows, all]
+      publish:
+        description: 'Explicitly publish the existing draft for this tag (never auto-runs)'
+        required: false
+        default: 'no'
+        type: choice
+        options: [no, yes]
 
 concurrency:
   # Never cancel a release build in flight — a half-uploaded draft is worse than
@@ -681,15 +687,19 @@ jobs:
             echo "Smoke-test the artifacts, then run the \`publish\` job to make it public."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── 5. Publish — gated on a human ───────────────────────────────────────────
+  # ── 5. Publish — double-gated on a human ────────────────────────────────────
+  # Two independent gates, so a misconfiguration of either cannot publish:
+  #   1. This job only runs on an explicit workflow_dispatch with publish=yes.
+  #      A tag push builds a draft and stops; nothing auto-publishes.
+  #   2. The `release-publish` environment must have a required reviewer in
+  #      repo settings (Settings → Environments → release-publish → Required
+  #      reviewers). See docs/release/ci-secrets.md.
   publish:
     name: Publish (manual approval)
-    needs: [preflight, draft]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'yes'
+    needs: [preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # The `release-publish` environment must have required reviewers configured
-    # in repo settings. Without that, this job runs automatically and the gate is
-    # decorative. See docs/release/ci-secrets.md.
     environment:
       name: release-publish
     permissions:

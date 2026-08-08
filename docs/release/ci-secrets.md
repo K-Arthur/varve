@@ -105,15 +105,27 @@ The top-level default is `contents: read`; jobs escalate individually.
 
 `release.yml`'s `publish` job declares `environment: release-publish`.
 
-**This does nothing until it is configured.** An environment with no protection
-rules does not pause — the job runs immediately and the "manual approval" is
-decorative.
+**Two gates protect publication, and neither depends on the other:**
 
-To make it real: **Settings → Environments → New environment → `release-publish`**,
-then enable **Required reviewers** and add yourself. Optionally restrict
-deployment branches to tags matching `v*`.
+1. **Explicit dispatch input.** The publish job only runs on a manual
+   `workflow_dispatch` with `publish=yes`. A tag push always stops at a draft;
+   nothing in the pipeline auto-publishes, even if the environment below is
+   unconfigured.
+2. **Environment approval.** Settings → Environments → `release-publish` →
+   enable **Required reviewers** and add yourself. This is the second,
+   independent human checkpoint (the owner UI step — the REST API returns 404
+   for this rule type with a repo-scoped token).
 
-- [ ] Create the `release-publish` environment
+The exact publish command:
+
+```sh
+gh workflow run release.yml --ref master \
+  -f tag=v0.1.0 -f platforms=all -f publish=yes
+```
+
+Checklist (repo settings):
+
+- [x] Create the `release-publish` environment
 - [ ] Add at least one required reviewer
 - [ ] Verify by running a release and confirming the workflow waits
 
