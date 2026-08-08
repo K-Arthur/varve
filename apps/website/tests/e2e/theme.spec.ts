@@ -46,14 +46,23 @@ test.describe('theme resolution', () => {
   test('theme script runs before any stylesheet that depends on it (no FOUC)', async ({ page }) => {
     // The inline theme-detection script must precede the CSS in the document,
     // so html[data-theme] is set before theme-dependent styles evaluate.
+    // The theme script is located by its marker (window.__varveTheme);
+    // indexOf('prefers-color-scheme') would match the theme-color <meta> and
+    // the bundled CSS instead, ordering the wrong pair of elements.
     await page.goto('/');
     const html = await page.content();
-    const scriptPos = html.indexOf('prefers-color-scheme');
-    const cssPos = html.indexOf('stylesheet');
-    expect(scriptPos).toBeGreaterThanOrEqual(0);
-    expect(cssPos).toBeGreaterThan(scriptPos);
-    // And it must be a synchronous, non-deferred inline script.
-    expect(html.slice(scriptPos - 300, scriptPos)).toContain('<script');
+    const cssPos = html.indexOf('rel="stylesheet"');
+    const scriptTags = [...html.matchAll(/<script\b[^>]*>/g)].map((m) => ({
+      pos: m.index ?? 0,
+      tag: m[0],
+    }));
+    const themeScript = scriptTags.find((s) =>
+      html.slice(s.pos, s.pos + 2000).includes('window.__varveTheme'),
+    );
+    expect(themeScript, 'the inline theme script must exist').toBeTruthy();
+    // It must be a synchronous, non-deferred inline script (no src=, no defer).
+    expect(themeScript!.tag).not.toMatch(/src=|defer/);
+    expect(themeScript!.pos).toBeLessThan(cssPos);
     // The canonical attribute is on the root element.
     expect(html).toMatch(/<html[^>]*data-theme="/);
   });
