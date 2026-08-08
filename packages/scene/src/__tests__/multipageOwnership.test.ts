@@ -156,11 +156,19 @@ describe('Page deletion policies (ADR-0126 D3)', () => {
     expect(result.nodes[page.contentRoot]).toBeUndefined();
   });
 
-  it('guards the last page under every policy', () => {
-    const doc = createDocument();
-    expect(deletePageWithPolicy(doc, firstPage(doc).id, 'delete-content')).toBe(doc);
-    expect(deletePageWithPolicy(doc, firstPage(doc).id, 'move-to-pasteboard')).toBe(doc);
-    expect(deletePageWithPolicy(doc, firstPage(doc).id, 'move-to-page')).toBe(doc);
+  it('forces content preservation on the last page, whatever the policy', () => {
+    // The last page is deletable, but deleting it must never be a one-click
+    // way to empty the whole document — at that point its content IS the
+    // document. Every policy therefore behaves as move-to-pasteboard here.
+    for (const policy of ['delete-content', 'move-to-pasteboard', 'move-to-page'] as const) {
+      const doc = createDocument();
+      const page = firstPage(doc);
+      const { doc: seeded, nodeId } = addShapeToPage(doc, page.id);
+      const after = deletePageWithPolicy(seeded, page.id, policy);
+      expect(after.pages ?? []).toHaveLength(0);
+      expect(after.nodes[nodeId]).toBeTruthy();
+      expect(after.rootChildren).toContain(nodeId);
+    }
   });
 
   it('removePage remains equivalent to delete-content', () => {

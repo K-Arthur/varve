@@ -142,12 +142,12 @@ describe('Page operations', () => {
     expect(doc.pages?.[0]?.id).toBe(secondPageId);
   });
 
-  it('removePage prevents removal of last page', () => {
+  it('removePage removes the last page, leaving a plain canvas', () => {
     const doc = createDocument();
     const pageId = firstPage(doc).id;
     const result = removePage(doc, pageId);
-    expect(result.pages?.length).toBe(1);
-    expect(result.pages?.[0]?.id).toBe(pageId);
+    expect(result.pages ?? []).toHaveLength(0);
+    expect(result.activePageId).toBeUndefined();
   });
 
   it('removePage retargets activePageId when the active page is removed', () => {
