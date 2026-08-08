@@ -4,7 +4,6 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
-import type { GroupNode } from '../types';
 import { addChild, addNode, addPage, createDocument, makeShapeNode, nextNodeId } from '../document';
 import { addMasterOverride, assignMasterToPage, createMaster } from '../document-components';
 import {
@@ -15,6 +14,7 @@ import {
   worldToPageAtPoint,
 } from '../pageScene';
 import { pageBoundsInWorld } from '../pasteboardLayout';
+import type { GroupNode } from '../types';
 
 function firstMaster(doc: Document) {
   return doc.masters ? Object.values(doc.masters)[0] : undefined;
@@ -282,5 +282,49 @@ describe('master projection into the placed scene (M8, ADR-0132)', () => {
     const doc = createDocument('m8', false);
     const placed = placedPages(doc)[0]!;
     expect(placed.masterNodes).toEqual([]);
+  });
+});
+
+describe('page culling must not drop content outside the trim', () => {
+  /** A page with one node parked far to the right of its trim box. */
+  function docWithOutsideContent(offset: number) {
+    const doc = addPage(createDocument('cull', false), { width: 1000, height: 1400 });
+    const page = doc.pages![0]!;
+    const trim = placedPages(doc)[0]!.bounds;
+    const x = trim.x + trim.w + offset;
+    const { id, doc: d1 } = nextNodeId(doc);
+    const node = makeShapeNode(
+      id,
+      { kind: 'rect', x: 0, y: 0, w: 987, h: 740 },
+      { transform: [1, 0, 0, 1, x, 16] },
+    );
+    return { doc: addChild(d1, page.contentRoot, node), id, trim, x };
+  }
+
+  it('keeps content parked outside the trim when the viewport is scrolled to it', () => {
+    // The reported bug: the page trim is off-screen, so the page was culled
+    // and every one of its content nodes went with it — including this one,
+    // which is squarely in view. The selection overlay resolves world bounds
+    // independently, so handles still drew over content that never rendered.
+    const { doc, id, x } = docWithOutsideContent(1200);
+    const roots = multipageRootNodes(doc, {
+      viewportWorldRect: { x: x - 200, y: 0, w: 1400, h: 900 },
+    });
+    expect(roots).toContain(id);
+  });
+
+  it('still culls a page whose trim and content are both off-viewport', () => {
+    // The fix must not defeat the culling it widened.
+    const { doc, id } = docWithOutsideContent(0);
+    const roots = multipageRootNodes(doc, {
+      viewportWorldRect: { x: 90_000, y: 90_000, w: 800, h: 600 },
+    });
+    expect(roots).not.toContain(id);
+  });
+
+  it('keeps content when the trim itself is in view', () => {
+    const { doc, id, trim } = docWithOutsideContent(1200);
+    const roots = multipageRootNodes(doc, { viewportWorldRect: trim });
+    expect(roots).toContain(id);
   });
 });
