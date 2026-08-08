@@ -5,6 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getOverrides, setOverride } from './ShortcutManager';
 import { ShortcutPalette } from './ShortcutPalette';
 
+// These tests exercise userEvent-driven dialog flows that take ~2s each on a
+// quiet box and stretch past vitest's 5s default under load (CI contention or
+// parallel test runs) — the 2026-08-08 full-suite run under load-30+ timed
+// three of them out at 5s. 15s keeps the noise signal without masking real
+// hangs.
+vi.setConfig({ testTimeout: 15000 });
+
 beforeEach(() => {
   localStorage.clear();
 });
