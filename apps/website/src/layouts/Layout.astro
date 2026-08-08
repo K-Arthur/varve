@@ -446,6 +446,33 @@ const csp = [
     color: var(--text-secondary);
   }
 
+  /* Theme switcher: 24px touch targets (WCAG 2.5.8 / axe target-size). */
+  .theme-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .theme-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+  }
+
+  .theme-option:hover,
+  .theme-option:focus-visible {
+    color: var(--text-link);
+    background: var(--surface-muted);
+  }
+
   @media (max-width: 768px) {
     .nav-links {
       display: none;
