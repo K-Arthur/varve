@@ -1266,27 +1266,25 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           <div className="adj-editor__row">
             <span className="adj-editor__label">Ink Color</span>
             <ColorPicker
-              value={rgbFromTuple(fgColor as [number, number, number])}
+              value={rgbFromTuple([fgColor[0], fgColor[1], fgColor[2], 255])}
               onChange={(c: ManagedColor) => {
                 const rgb = managedColorToRgba(c);
                 onChange({
-                  foregroundColor: [rgb.r, rgb.g, rgb.b],
+                  foregroundColor: [rgb[0], rgb[1], rgb[2]],
                 } as unknown as Partial<Adjustment>);
               }}
-              label="Foreground (ink) color"
             />
           </div>
           <div className="adj-editor__row">
             <span className="adj-editor__label">Paper Color</span>
             <ColorPicker
-              value={rgbFromTuple(bgColor as [number, number, number])}
+              value={rgbFromTuple([bgColor[0], bgColor[1], bgColor[2], 255])}
               onChange={(c: ManagedColor) => {
                 const rgb = managedColorToRgba(c);
                 onChange({
-                  backgroundColor: [rgb.r, rgb.g, rgb.b],
+                  backgroundColor: [rgb[0], rgb[1], rgb[2]],
                 } as unknown as Partial<Adjustment>);
               }}
-              label="Background (paper) color"
             />
           </div>
         </>

@@ -63,7 +63,7 @@ async function pixelAtCanvasRel(
       const py = Math.round(y * scaleY);
       if (px < 0 || py < 0 || px >= canvas.width || py >= canvas.height) return null;
       const data = ctx.getImageData(px, py, 1, 1).data;
-      return { r: data[0], g: data[1], b: data[2] };
+      return { r: data[0]!, g: data[1]!, b: data[2]! };
     },
     [relX, relY] as const,
   );

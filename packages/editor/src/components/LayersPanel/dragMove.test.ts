@@ -195,7 +195,7 @@ describe('resolveDropClipTarget', () => {
       nodes: {
         ...doc.nodes,
         g: {
-          ...(doc.nodes.g as Record<string, unknown>),
+          ...(doc.nodes.g as unknown as Record<string, unknown>),
           mask: { type: 'clip', visible: true, sourceNodeId: 'matte' },
         } as never,
       },
@@ -219,7 +219,7 @@ describe('resolveDropClipTarget', () => {
       nodes: {
         ...doc.nodes,
         g: {
-          ...(doc.nodes.g as Record<string, unknown>),
+          ...(doc.nodes.g as unknown as Record<string, unknown>),
           mask: { type: 'clip', visible: true, sourceNodeId: 'matte' },
         } as never,
       },
@@ -251,7 +251,7 @@ describe('resolveDropClipTarget', () => {
       nodes: {
         ...doc.nodes,
         g: {
-          ...(doc.nodes.g as Record<string, unknown>),
+          ...(doc.nodes.g as unknown as Record<string, unknown>),
           mask: { type: 'clip', visible: false, sourceNodeId: 'matte' },
         } as never,
       },

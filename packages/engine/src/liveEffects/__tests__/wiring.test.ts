@@ -94,17 +94,29 @@ describe('live effect IR mapping', () => {
 });
 
 describe('live effect classification', () => {
+  const GPU_IMPLEMENTED = new Set([
+    'paletteSnap',
+    'bloom',
+    'rgbSplit',
+    'crt',
+    'vhs',
+    'lightShafts',
+    'lensFlare',
+    'lightLeak',
+    'caustics',
+  ]);
   for (const kind of KINDS) {
-    it(`${kind} is software-only, raster-export, and CPU-classified`, () => {
+    it(`${kind} is raster-export and honestly GPU-classified`, () => {
       const contract = getEffectContract(kind);
       expect(contract).toBeDefined();
       expect(contract!.cssFilterEquivalent).toBeNull();
       expect(contract!.requiresRasterForExport).toBe(true);
-      expect(contract!.gpuStatus).toBe('not-implemented');
+      const gpuImplemented = GPU_IMPLEMENTED.has(kind);
+      expect(contract!.gpuStatus).toBe(gpuImplemented ? 'implemented' : 'partial');
       const props = getFilterProperties(kind);
       expect(props).toBeDefined();
       expect(props!.hasCssPath).toBe(false);
-      expect(props!.hasGpuPath).toBe(false);
+      expect(props!.hasGpuPath).toBe(gpuImplemented);
       expect(requiresRasterExport(kind)).toBe(true);
     });
   }

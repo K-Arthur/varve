@@ -1168,6 +1168,7 @@ export function migrateWorkspaceConfig(
       // fall back to the target mode's own default rather than inventing a literal.
       codegen: base.panels.codegen,
       logo: base.panels.logo,
+      history: base.panels.history,
     };
 
     return {

@@ -86,7 +86,7 @@ describe('container-local raster masks (brush masks)', () => {
   });
 
   it('rejects a container-local mask carrying a foreign source identity', () => {
-    const { doc, frameId } = frameDoc();
+    const { doc } = frameDoc();
     const withForeign = {
       ...doc,
       nodes: {
@@ -109,7 +109,7 @@ describe('container-local raster masks (brush masks)', () => {
         },
       },
       rasterMaskAssets: { 'mask-x': makeAsset('mask-x') },
-    };
+    } as Document;
     expect(validateRasterMaskDocument(withForeign)).toContain('container-local');
     expect(validateMasks(withForeign)).toContain('f1');
   });

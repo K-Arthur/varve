@@ -39,15 +39,15 @@ fn seeded01(seed: u32) -> f32 {
   return f32(h) / 4294967296.0;
 }
 
-fn smooth(t: f32) -> f32 {
+fn smoothCurve(t: f32) -> f32 {
   return t * t * (3.0 - 2.0 * t);
 }
 
 fn valueNoise2(x: f32, y: f32, seed: u32) -> f32 {
   let x0 = floor(x);
   let y0 = floor(y);
-  let fx = smooth(x - x0);
-  let fy = smooth(y - y0);
+  let fx = smoothCurve(x - x0);
+  let fy = smoothCurve(y - y0);
   let a = hash2(i32(x0), i32(y0), seed);
   let b = hash2(i32(x0) + 1, i32(y0), seed);
   let c = hash2(i32(x0), i32(y0) + 1, seed);

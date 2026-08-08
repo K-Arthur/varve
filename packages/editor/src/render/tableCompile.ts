@@ -11,7 +11,7 @@
  * cell-text edit invalidates only the affected table's cache entry while
  * unrelated edits hit the cache.
  */
-import type { SceneNode as EngineNode, TableCellIR, TableShape } from '@varve/engine';
+import type { SceneNode as EngineNode, RenderItem, TableCellIR, TableShape } from '@varve/engine';
 import type { ManagedColor, TableCellDefinition, TableCellStyle, TableModel } from '@varve/scene';
 import {
   computeTableLayout,
@@ -126,7 +126,7 @@ function compileCell(
       ir.content = {
         ...compiled,
         transform: [1, 0, 0, 1, pad, pad],
-      };
+      } as unknown as RenderItem;
       void cw;
       void ch;
     }
