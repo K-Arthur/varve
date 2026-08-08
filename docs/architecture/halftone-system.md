@@ -83,7 +83,7 @@ For a mono channel, per pixel:
 1. Luminance is computed from the selected channel (`k` uses Rec.709
    luma of the RGB bytes; `c/m/y` use the complementary channel).
 2. The threshold shift is applied: `gray' = gray − (threshold − 128)`.
-3. AM: ink coverage = `gray' > matrixValue(x,y)` (softness adds a linear
+3. AM: ink coverage = `gray' >= matrixValue(x,y)` (softness adds a linear
    ramp around the boundary). FM: Floyd–Steinberg error diffusion
    (export) or Bayer ordered thresholding (position-stable preview).
 4. Output = `bg + (fg − bg) × coverage` (mono), or the CMYK overprint
@@ -91,11 +91,37 @@ For a mono channel, per pixel:
 5. `invert` flips coverage: `coverage' = 1 − coverage`.
 6. `intensity` blends: `out = src + (screened − src) × intensity`.
 
+### Threshold matrix construction (AM)
+
+The clustered-dot matrix is built by **area-proportional (CDF-uniform)
+thresholding**: for each dot shape a coverage function `f(dist)` gives the
+fraction of the cell already covered when the growing dot reaches that
+pixel, and the threshold is `255 × f` mapped into `[1, 255]`. This makes
+ink coverage proportional to source tone (a mid-gray renders ~50% ink, a
+light gray renders proportionally less). Coverage functions are normalized
+to the `[-1, 1]²` cell area:
+
+| Shape | Coverage f |
+|---|---|
+| round / elliptical | `min(1, π·d²/4)` (stretched for elliptical) |
+| square | `min(1, max(\|dx\|,\|dy\|)²)` |
+| diamond | `min(1, (\|dx\|+\|dy\|)²/2)` |
+| line | `min(1, \|dy\|)` |
+| cross / circle | decorative normalizations |
+
+Matrix values live in `[1, 255]` and the comparison is `>=`, so a
+0-luminance source never inks (`0 >= 1` false) and 255-luminance always
+inks (`255 >= 255` true) — no corner holes at the tone extremes. The
+matrix size is clamped to ≥ 4 (a 2×2 matrix degenerates to a single
+threshold). At 72 dpi, LPI above ~36 yields sub-2px cells and the screen
+frequency degrades — a physical resolution limit.
+
 **Color space notes (documented, intentional):**
 - Luminance for screening is computed from sRGB-encoded bytes (Rec.709
-  weights) for AM and from linearized sRGB for the FM/Bayer paths. This
-  asymmetry is historical; AM thresholds are calibrated in encoded space,
-  which matches how the threshold matrix values are defined.
+  weights) for AM and from linearized sRGB for the FM/Bayer paths. AM
+  thresholds are calibrated in encoded space, which matches how the
+  threshold matrix values are defined (the area-proportional CDF is
+  defined over the encoded-space 0..255 range).
 - `foregroundColor`/`backgroundColor` are sRGB bytes interpolated in
   encoded space.
 - Alpha is **never touched** by any screening path; partially transparent
