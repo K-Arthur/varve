@@ -103,7 +103,12 @@ export function RecoveryManager({
       const mgr = getSharedRecoveryManager();
       mgr.restoreSession(id).then((data) => {
         if (data) {
-          editor.loadDocument(JSON.stringify(data.document), { name: data.tabName });
+          // A recovered session is its own document: give it its own tab so
+          // restoring never overwrites whatever is open in the active one.
+          editor.loadDocument(JSON.stringify(data.document), {
+            name: data.tabName,
+            newSession: true,
+          });
           mgr.deleteSession(id);
         }
       });
@@ -124,7 +129,12 @@ export function RecoveryManager({
       for (const session of sessions) {
         mgr.restoreSession(session.id).then((data) => {
           if (data) {
-            editor.loadDocument(JSON.stringify(data.document), { name: data.tabName });
+            // One tab per recovered session — restoring all into the active
+            // tab left only the last one standing.
+            editor.loadDocument(JSON.stringify(data.document), {
+              name: data.tabName,
+              newSession: true,
+            });
             mgr.deleteSession(session.id);
           }
         });
