@@ -26,12 +26,13 @@ function parseArgs(argv) {
   return args;
 }
 
-function run(cmd, cmdArgs, cwd) {
+function run(cmd, cmdArgs, opts = {}) {
   return execFileSync(cmd, cmdArgs, {
-    cwd: cwd ?? repoRoot,
+    cwd: opts.cwd ?? repoRoot,
     encoding: 'utf-8',
     maxBuffer: 128 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'pipe'],
+    ...(opts.shell ? { shell: true } : {}),
   });
 }
 
@@ -118,10 +119,13 @@ function npmComponents() {
   let raw;
   try {
     raw = run(
-      // On Windows the pnpm launcher is pnpm.cmd; execFileSync does not do
-      // PATHEXT resolution for .cmd shims, so a bare 'pnpm' is ENOENT there.
+      // On Windows the pnpm launcher is pnpm.cmd: execFileSync does not do
+      // PATHEXT resolution for .cmd shims (ENOENT with 'pnpm'), and executing
+      // a .cmd directly returns EINVAL unless shell: true routes it through
+      // cmd.exe. The ubuntu and macOS paths use the bare 'pnpm' binary.
       process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
       ['list', '--recursive', '--depth', 'Infinity', '--json', '--prod'],
+      { shell: process.platform === 'win32' },
     );
   } catch (err) {
     throw new Error(`pnpm list failed: ${err.stderr?.toString().trim() ?? err.message}`);
