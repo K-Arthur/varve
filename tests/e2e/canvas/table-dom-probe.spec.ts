@@ -3,9 +3,9 @@ import { navigateToEditor } from '../shared';
 
 test('probe editor errors', async ({ page }) => {
   const errors: string[] = [];
-  page.on('pageerror', (e) => errors.push('PAGE: ' + e.message.slice(0, 200)));
+  page.on('pageerror', (e) => errors.push(`PAGE: ${e.message.slice(0, 200)}`));
   page.on('console', (m) => {
-    if (m.type() === 'error') errors.push('CONSOLE: ' + m.text().slice(0, 200));
+    if (m.type() === 'error') errors.push(`CONSOLE: ${m.text().slice(0, 200)}`);
   });
   await navigateToEditor(page);
   await page.waitForTimeout(15000);

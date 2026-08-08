@@ -274,8 +274,10 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params) {
         let m = glow * 0.5;
         for i in (0..out.len()).step_by(4) {
             out[i] = clamp_byte(out[i] as f64 + (glow_pass[i] as f64 - out[i] as f64) * m);
-            out[i + 1] = clamp_byte(out[i + 1] as f64 + (glow_pass[i + 1] as f64 - out[i + 1] as f64) * m);
-            out[i + 2] = clamp_byte(out[i + 2] as f64 + (glow_pass[i + 2] as f64 - out[i + 2] as f64) * m);
+            out[i + 1] =
+                clamp_byte(out[i + 1] as f64 + (glow_pass[i + 1] as f64 - out[i + 1] as f64) * m);
+            out[i + 2] =
+                clamp_byte(out[i + 2] as f64 + (glow_pass[i + 2] as f64 - out[i + 2] as f64) * m);
         }
     }
 

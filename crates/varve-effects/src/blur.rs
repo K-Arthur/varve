@@ -23,10 +23,10 @@ pub fn gaussian_kernel(radius: i64) -> Vec<f64> {
     let size = (2 * radius + 1) as usize;
     let mut kernel = vec![0.0f64; size];
     let mut sum = 0.0;
-    for i in 0..size {
+    for (i, slot) in kernel.iter_mut().enumerate() {
         let x = i as f64 - radius as f64;
         let v = (-(x * x) / (2.0 * sigma * sigma)).exp();
-        kernel[i] = v;
+        *slot = v;
         sum += v;
     }
     let inv_sum = 1.0 / sum;
@@ -69,14 +69,7 @@ fn unpremultiply(data: &mut [u8]) {
 
 /// Convolve with a 1D kernel in one direction — port of `convolve1D`.
 #[allow(clippy::too_many_arguments)]
-fn convolve1d(
-    src: &[u8],
-    dst: &mut [u8],
-    w: u32,
-    h: u32,
-    kernel: &[f64],
-    horizontal: bool,
-) {
+fn convolve1d(src: &[u8], dst: &mut [u8], w: u32, h: u32, kernel: &[f64], horizontal: bool) {
     let radius = (kernel.len() as i64 - 1) / 2;
     let w = w as i64;
     let h = h as i64;

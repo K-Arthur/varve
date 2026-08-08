@@ -61,7 +61,7 @@ describe('applyMergeResolutions', () => {
     ];
     const result = applyMergeResolutions(merged.mergedDocument, merged.conflicts, resolutions);
     expect(result.unresolvedConflictIds).toHaveLength(0);
-    const node = result.document.nodes['n1_aaaa'] as { opacity?: number };
+    const node = result.document.nodes.n1_aaaa as { opacity?: number };
     expect(node.opacity).toBe(0.3);
   });
 
@@ -74,7 +74,7 @@ describe('applyMergeResolutions', () => {
       { conflictId: merged.conflicts[0]!.conflictId, choice: 'theirs' },
     ];
     const result = applyMergeResolutions(merged.mergedDocument, merged.conflicts, resolutions);
-    const node = result.document.nodes['n1_aaaa'] as { opacity?: number };
+    const node = result.document.nodes.n1_aaaa as { opacity?: number };
     expect(node.opacity).toBe(0.7);
   });
 
@@ -87,7 +87,7 @@ describe('applyMergeResolutions', () => {
       { conflictId: merged.conflicts[0]!.conflictId, choice: 'base' },
     ];
     const result = applyMergeResolutions(merged.mergedDocument, merged.conflicts, resolutions);
-    const node = result.document.nodes['n1_aaaa'] as { opacity?: number };
+    const node = result.document.nodes.n1_aaaa as { opacity?: number };
     expect(node.opacity).toBe(1);
   });
 
@@ -101,7 +101,7 @@ describe('applyMergeResolutions', () => {
       { conflictId: merged.conflicts[0]!.conflictId, choice: 'theirs' },
     ];
     const result = applyMergeResolutions(merged.mergedDocument, merged.conflicts, resolutions);
-    const node = result.document.nodes['n1_aaaa'] as { name?: string };
+    const node = result.document.nodes.n1_aaaa as { name?: string };
     expect(node.name).toBe('Theirs Name');
   });
 
@@ -117,7 +117,7 @@ describe('applyMergeResolutions', () => {
       { conflictId: editDelete.conflictId, choice: 'theirs' },
     ];
     const result = applyMergeResolutions(merged.mergedDocument, merged.conflicts, resolutions);
-    expect(result.document.nodes['n1_aaaa']).toBeDefined();
+    expect(result.document.nodes.n1_aaaa).toBeDefined();
     expect(verifyResolvedDocument(result.document)).toBe(true);
   });
 

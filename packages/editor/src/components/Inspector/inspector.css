@@ -650,6 +650,13 @@
   gap: var(--space-1);
   min-width: 0;
 }
+.insp-num {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
 
 /* Horizontal split inside a field control: label + value + inline buttons
  * share one row without overflowing. Every element shrinks so long labels
@@ -671,13 +678,6 @@
 }
 
 /* ---------- NumberField (APG Spinbutton) ---------- */
-.insp-num {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-}
 .insp-num__input {
   flex: 1;
   /* width:0 + flex-grow: the input's UA intrinsic width (size=20 ≈ 176px)

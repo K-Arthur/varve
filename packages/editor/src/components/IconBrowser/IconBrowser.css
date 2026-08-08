@@ -292,6 +292,15 @@
   height: 56px;
   padding: 3px;
 }
+.icon-card__name {
+  font-size: var(--font-size-2xs);
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+}
 .icon-card--compact .icon-card__name {
   font-size: 8px;
 }
@@ -339,15 +348,6 @@
   50% {
     opacity: 1;
   }
-}
-.icon-card__name {
-  font-size: var(--font-size-2xs);
-  line-height: 1.2;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text-muted);
 }
 
 /* Badges / fav button ----------------------------------------------------- */

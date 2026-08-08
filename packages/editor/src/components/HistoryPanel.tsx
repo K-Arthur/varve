@@ -233,6 +233,7 @@ export function HistoryPanel() {
     <div className="history-panel" data-testid="history-panel">
       <div className="history-panel__tabs" role="tablist">
         <button
+          type="button"
           role="tab"
           aria-selected={activeTab === 'steps'}
           className={`history-panel__tab ${activeTab === 'steps' ? 'history-panel__tab--active' : ''}`}
@@ -241,6 +242,7 @@ export function HistoryPanel() {
           Steps
         </button>
         <button
+          type="button"
           role="tab"
           aria-selected={activeTab === 'branches'}
           className={`history-panel__tab ${activeTab === 'branches' ? 'history-panel__tab--active' : ''}`}
@@ -249,6 +251,7 @@ export function HistoryPanel() {
           Branches
         </button>
         <button
+          type="button"
           role="tab"
           aria-selected={activeTab === 'compare'}
           className={`history-panel__tab ${activeTab === 'compare' ? 'history-panel__tab--active' : ''}`}
@@ -272,10 +275,18 @@ export function HistoryPanel() {
           </div>
 
           <div className="history-panel__actions">
-            <button className="history-panel__action-btn" onClick={() => setShowForm('checkpoint')}>
+            <button
+              type="button"
+              className="history-panel__action-btn"
+              onClick={() => setShowForm('checkpoint')}
+            >
               + Checkpoint
             </button>
-            <button className="history-panel__action-btn" onClick={() => setShowForm('branch')}>
+            <button
+              type="button"
+              className="history-panel__action-btn"
+              onClick={() => setShowForm('branch')}
+            >
               + Branch
             </button>
           </div>
@@ -291,8 +302,12 @@ export function HistoryPanel() {
                 onKeyDown={(e) => e.key === 'Enter' && void handleCreateCheckpoint()}
               />
               <div className="history-panel__form-actions">
-                <button onClick={() => void handleCreateCheckpoint()}>Save</button>
-                <button onClick={() => setShowForm(null)}>Cancel</button>
+                <button type="button" onClick={() => void handleCreateCheckpoint()}>
+                  Save
+                </button>
+                <button type="button" onClick={() => setShowForm(null)}>
+                  Cancel
+                </button>
               </div>
             </div>
           )}
@@ -308,8 +323,12 @@ export function HistoryPanel() {
                 onKeyDown={(e) => e.key === 'Enter' && void handleCreateBranch()}
               />
               <div className="history-panel__form-actions">
-                <button onClick={() => void handleCreateBranch()}>Create</button>
-                <button onClick={() => setShowForm(null)}>Cancel</button>
+                <button type="button" onClick={() => void handleCreateBranch()}>
+                  Create
+                </button>
+                <button type="button" onClick={() => setShowForm(null)}>
+                  Cancel
+                </button>
               </div>
             </div>
           )}
@@ -368,7 +387,11 @@ export function HistoryPanel() {
       {activeTab === 'branches' && (
         <div className="history-panel__content" role="tabpanel">
           <div className="history-panel__actions">
-            <button className="history-panel__action-btn" onClick={() => setShowForm('branch')}>
+            <button
+              type="button"
+              className="history-panel__action-btn"
+              onClick={() => setShowForm('branch')}
+            >
               + New Branch
             </button>
           </div>
@@ -384,8 +407,12 @@ export function HistoryPanel() {
                 onKeyDown={(e) => e.key === 'Enter' && void handleCreateBranch()}
               />
               <div className="history-panel__form-actions">
-                <button onClick={() => void handleCreateBranch()}>Create</button>
-                <button onClick={() => setShowForm(null)}>Cancel</button>
+                <button type="button" onClick={() => void handleCreateBranch()}>
+                  Create
+                </button>
+                <button type="button" onClick={() => setShowForm(null)}>
+                  Cancel
+                </button>
               </div>
             </div>
           )}
@@ -414,12 +441,14 @@ export function HistoryPanel() {
                 {session?.branch?.branchId !== branch.branchId && (
                   <div className="history-panel__branch-actions">
                     <button
+                      type="button"
                       className="history-panel__branch-switch"
                       onClick={() => void handleSwitchBranch(branch.branchId)}
                     >
                       Switch
                     </button>
                     <button
+                      type="button"
                       className="history-panel__branch-switch"
                       onClick={() => void handleMerge(branch)}
                     >
@@ -433,7 +462,11 @@ export function HistoryPanel() {
 
           <h3 className="history-panel__section-title">Checkpoints</h3>
           <div className="history-panel__actions">
-            <button className="history-panel__action-btn" onClick={() => setShowForm('checkpoint')}>
+            <button
+              type="button"
+              className="history-panel__action-btn"
+              onClick={() => setShowForm('checkpoint')}
+            >
               + New Checkpoint
             </button>
           </div>
@@ -449,8 +482,12 @@ export function HistoryPanel() {
                 onKeyDown={(e) => e.key === 'Enter' && void handleCreateCheckpoint()}
               />
               <div className="history-panel__form-actions">
-                <button onClick={() => void handleCreateCheckpoint()}>Save</button>
-                <button onClick={() => setShowForm(null)}>Cancel</button>
+                <button type="button" onClick={() => void handleCreateCheckpoint()}>
+                  Save
+                </button>
+                <button type="button" onClick={() => setShowForm(null)}>
+                  Cancel
+                </button>
               </div>
             </div>
           )}
@@ -516,6 +553,7 @@ export function HistoryPanel() {
               </select>
             </label>
             <button
+              type="button"
               className="history-panel__compare-btn"
               onClick={() => void handleCompare()}
               disabled={!compareBase || !compareTarget}
@@ -564,8 +602,8 @@ export function HistoryPanel() {
                       </button>
                     </div>
                     <ul className="history-panel__entity-changes">
-                      {changes.map((change, i) => (
-                        <li key={i} className="history-panel__entity-change">
+                      {changes.map((change) => (
+                        <li key={change.changeId} className="history-panel__entity-change">
                           <span
                             className={`history-panel__change-badge history-panel__change-badge--${change.changeType}`}
                           >
