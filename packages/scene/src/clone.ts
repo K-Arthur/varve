@@ -6,8 +6,8 @@
  */
 
 import { nextNodeId } from './node-id';
-import { remapTableModelIds } from './tableOps';
 import { tableContentNodeIds } from './table';
+import { remapTableModelIds } from './tableOps';
 import type {
   ContainerNode,
   FrameNode,
@@ -242,8 +242,13 @@ export function deepCloneSubtree(
     return { ...clonedNode, mask: undefined } as SceneNode;
   };
 
+  // Reverse map (newId → originalId) so the reference-remap post-pass below
+  // is O(n) instead of scanning idMap per node (O(n²) on large subtrees).
+  const newToOriginal = new Map<NodeId, NodeId>();
+  for (const [originalId, newId] of idMap) newToOriginal.set(newId, originalId);
+
   for (const [newId, node] of Object.entries(newNodes)) {
-    const originalId = [...idMap.entries()].find(([, v]) => v === newId)?.[0];
+    const originalId = newToOriginal.get(newId as NodeId);
     if (!originalId) continue;
     const original = nodes[originalId];
     if (!original) continue;
