@@ -241,15 +241,19 @@ export type {
   AdjustmentBlendMode,
   AdjustmentKind,
   BlackAndWhiteAdjustment,
+  BloomAdjustment,
   BlurAdjustment,
   BrightnessAdjustment,
+  CausticsAdjustment,
   ChannelMixerAdjustment,
   ColorBalanceAdjustment,
   ColorBalanceTriplet,
   ColorHalftoneAdjustment,
   ContrastAdjustment,
+  CrtAdjustment,
   CurvesAdjustment,
   CurvesPoint,
+  DitherAdjustment,
   DuotoneAdjustment,
   EmbeddedGradientColorStop,
   EmbeddedGradientOpacityStop,
@@ -262,11 +266,16 @@ export type {
   HalftoneAdjustment,
   HueRotateAdjustment,
   InvertAdjustment,
+  LensFlareAdjustment,
   LevelsAdjustment,
+  LightLeakAdjustment,
+  LightShaftsAdjustment,
   LutAdjustment,
   OpacityAdjustment,
+  PaletteSnapAdjustment,
   PhotoFilterAdjustment,
   PosterizeAdjustment,
+  RgbSplitAdjustment,
   SaturationAdjustment,
   SelectiveColorAdjustment,
   SepiaAdjustment,
@@ -275,6 +284,7 @@ export type {
   ThresholdAdjustment,
   TintAdjustment,
   TritoneAdjustment,
+  VhsAdjustment,
   VibranceAdjustment,
 } from './filters';
 export {
@@ -530,6 +540,7 @@ export {
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
 export { applyLensBlur, depthToBlurWeight, depthToHeatmapImageData } from './lensBlur';
+export * from './liveEffects';
 export type {
   Lut1D,
   Lut3D,
@@ -565,10 +576,14 @@ export {
   sampleLut3DTrilinear,
   serializeLutForDocument,
 } from './lut';
-export type { EnhancedMaskOptions } from './maskCompositing';
+export type { EnhancedMaskOptions, MaskAlphaApplyOptions } from './maskCompositing';
 export {
+  acquireMaskSurface,
+  applyMaskAlpha,
   applyMaskPostProcess,
+  clearMaskSurfacePool,
   pixelToMaskAlpha,
+  releaseMaskSurface,
   renderEnhancedMask,
   srgbToLuminance,
 } from './maskCompositing';

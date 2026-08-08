@@ -347,6 +347,14 @@ export function reparentNode(
         (updated as FrameNode).slots =
           Object.keys(filteredSlots).length > 0 ? filteredSlots : undefined;
       }
+      // A mask source leaving its container leaves the container with a
+      // dangling source reference (the relationship only holds while the
+      // matte is a direct child). Release the container's mask so a plain
+      // reorder/drag can never corrupt the clipping graph. Reorders within
+      // the same container keep the mask.
+      if (oldParentId !== newParentId && updated.mask?.sourceNodeId === id) {
+        (updated as SceneNode & { mask?: undefined }).mask = undefined;
+      }
       nodes[oldParentId] = updated;
     }
   } else {

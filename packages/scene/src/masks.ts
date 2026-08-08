@@ -650,6 +650,13 @@ export function validateMasks(doc: Document): NodeId[] {
       dangling.push(id as NodeId);
     } else if (n.mask && validateMaskSource(doc, n.mask)) {
       dangling.push(id as NodeId);
+    } else if (
+      n.mask?.sourceNodeId &&
+      n.kind !== 'adjustment' &&
+      doc.nodes[n.mask.sourceNodeId]?.kind === 'adjustment'
+    ) {
+      // A frame/group cannot clip to an adjustment (no renderable geometry).
+      dangling.push(id as NodeId);
     }
   }
   return dangling;
@@ -972,6 +979,10 @@ export function addMask(
   if (sourceNodeId && container.kind !== 'adjustment') {
     const children = container.children;
     if (children && !children.includes(sourceNodeId)) return doc;
+    // Adjustment nodes have no renderable geometry — a frame/group cannot
+    // clip or trace to an adjustment as its mask source. Only an
+    // adjustment's own spatial mask may reference an arbitrary node.
+    if (doc.nodes[sourceNodeId]?.kind === 'adjustment') return doc;
   }
 
   const presentation = {
@@ -1261,7 +1272,22 @@ export function setMaskSourceNode(
   if (container.kind !== 'adjustment') {
     const children = container.children;
     if (children && !children.includes(sourceNodeId)) return doc;
+    // Adjustment nodes have no renderable geometry as a mask source for
+    // frame/group containers (see addMask).
+    if (doc.nodes[sourceNodeId]?.kind === 'adjustment') return doc;
   }
+
+  // Retargeting a mask source can introduce a cycle (e.g. B's mask now
+  // points at A while A's mask points at B) — the same pre-check addMask
+  // applies, re-run here because setMaskSourceNode bypassed it.
+  const testDoc = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [containerId]: { ...container, mask: { ...container.mask, sourceNodeId } } as SceneNode,
+    },
+  };
+  if (detectMaskCycles(testDoc).length > 0) return doc;
 
   return updateMaskProperty(doc, containerId, 'sourceNodeId', sourceNodeId);
 }
