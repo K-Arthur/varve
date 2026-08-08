@@ -20,6 +20,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     setMaskType,
     setMaskFillRule,
     setMaskVectorPath,
+    setTool,
     state,
   } = editor;
 
@@ -191,6 +192,25 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
               </button>
             </Tooltip>
           </div>
+        </div>
+      )}
+
+      {node.kind === 'frame' && (
+        <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <span className="insp-field__label">Brush mask</span>
+          <button
+            type="button"
+            className="insp-btn-sm"
+            onClick={() => {
+              setTool?.('refineMask');
+            }}
+            aria-label="Paint mask with the brush tool"
+          >
+            {mask ? 'Paint mask…' : 'Create brush mask…'}
+          </button>
+          <p className="insp-field__hint">
+            Paints a pixel alpha mask over the frame. Paint reveals, Alt+paint hides.
+          </p>
         </div>
       )}
 

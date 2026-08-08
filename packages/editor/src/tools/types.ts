@@ -282,7 +282,13 @@ export interface ToolContext {
   setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;
   commitTrimapEdit?: (trimap: Uint8Array) => void;
   /** Commit a raster mask as a native RasterMaskAsset. */
-  commitRasterMask?: (nodeId: string, dataUrl: string, width: number, height: number) => void;
+  commitRasterMask?: (
+    nodeId: string,
+    dataUrl: string,
+    width: number,
+    height: number,
+    coordinateSpace?: 'source-image-pixels' | 'container-local-pixels',
+  ) => void;
   createRasterLayer: (width: number, height: number) => string | null;
 
   /** SAM2 interactive segmentation */

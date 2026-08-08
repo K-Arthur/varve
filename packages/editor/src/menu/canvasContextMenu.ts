@@ -38,6 +38,8 @@ export function buildCanvasContextMenuItems({
     editor.state.selection.length === 1 &&
     selectedNode?.kind === 'group' &&
     selectedNode.traceMetadata !== undefined;
+  const isSingleFrame =
+    hasSelection && editor.state.selection.length === 1 && selectedNode?.kind === 'frame';
   const nodeCount = Object.keys(editor.state.document.nodes).length;
   const hasNodes = nodeCount >= 1;
   const hasMultipleNodes = nodeCount >= 2;
@@ -289,6 +291,19 @@ export function buildCanvasContextMenuItems({
                         replaceGroupId: selectedNode.id,
                       });
                     }
+                    closeMenu();
+                  },
+                } satisfies MenuEntry,
+              ]
+            : []),
+          ...(isSingleImage || isSingleFrame
+            ? [
+                {
+                  id: 'ctx-paint-mask',
+                  label: 'Paint Mask…',
+                  onAction: () => {
+                    record('paintMask');
+                    editor.setTool('refineMask');
                     closeMenu();
                   },
                 } satisfies MenuEntry,
