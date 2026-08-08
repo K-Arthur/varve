@@ -5,8 +5,9 @@
  * as state screenshots rather than aborting the whole run.
  * Run with: node tests/e2e/capture-multipage.mjs
  */
-import { chromium } from '@playwright/test';
+
 import { mkdirSync } from 'node:fs';
+import { chromium } from '@playwright/test';
 
 const OUT = 'reports/multipage-screenshots';
 mkdirSync(OUT, { recursive: true });
@@ -40,10 +41,20 @@ await page
   .click({ force: true })
   .catch(() => {});
 await page.waitForTimeout(400);
-await page.locator('dialog[open]').getByRole('button', { name: /create/i }).first().click();
+await page
+  .locator('dialog[open]')
+  .getByRole('button', { name: /create/i })
+  .first()
+  .click();
 await page.locator('.layers-panel').waitFor({ timeout: 60000 });
 const welcome = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
-if (await welcome.first().isVisible({ timeout: 5000 }).catch(() => false)) await welcome.first().click();
+if (
+  await welcome
+    .first()
+    .isVisible({ timeout: 5000 })
+    .catch(() => false)
+)
+  await welcome.first().click();
 await page.waitForTimeout(800);
 await page
   .locator('.onboarding-checklist button')
@@ -77,9 +88,14 @@ for (let i = 0; i < 3; i++) {
 await page.keyboard.press('Shift+6');
 await page.waitForTimeout(1000);
 await shot('01-multipage-canvas');
-console.log('DIAG rows:', await page.locator('.pages-panel__row').count(),
-  '| canvas:', await page.locator('canvas.editor-canvas__content-layer').count(),
-  '| boundary:', await page.locator('text=Something went wrong').count());
+console.log(
+  'DIAG rows:',
+  await page.locator('.pages-panel__row').count(),
+  '| canvas:',
+  await page.locator('canvas.editor-canvas__content-layer').count(),
+  '| boundary:',
+  await page.locator('text=Something went wrong').count(),
+);
 
 // Content on a couple of pages.
 const drag = async (x1, y1, x2, y2) => {
@@ -95,9 +111,14 @@ await page.keyboard.press('o');
 await drag(280, 120, 400, 220);
 await page.waitForTimeout(800);
 await shot('02-pages-with-content');
-console.log('DIAG after draw: canvas =', await page.locator('canvas.editor-canvas__content-layer').count(),
-  '| boundary =', await page.locator('text=Something went wrong').count(),
-  '| treeitems =', await page.getByRole('treeitem').count());
+console.log(
+  'DIAG after draw: canvas =',
+  await page.locator('canvas.editor-canvas__content-layer').count(),
+  '| boundary =',
+  await page.locator('text=Something went wrong').count(),
+  '| treeitems =',
+  await page.getByRole('treeitem').count(),
+);
 
 // 2. Pages panel rows.
 await page.keyboard.press('v');
@@ -111,25 +132,43 @@ await page.waitForTimeout(400);
 await page.keyboard.press('q');
 await page.waitForTimeout(600);
 await shot('04-page-tool-handles');
-console.log('DIAG page tool: overlay =', await page.locator('.page-tool-overlay').count(),
-  '| print section =', await page.locator('.page-print').count(),
-  '| thread overlay =', await page.locator('.text-thread-overlay').count(),
-  '| boundary =', await page.locator('text=Something went wrong').count());
+console.log(
+  'DIAG page tool: overlay =',
+  await page.locator('.page-tool-overlay').count(),
+  '| print section =',
+  await page.locator('.page-print').count(),
+  '| thread overlay =',
+  await page.locator('.text-thread-overlay').count(),
+  '| boundary =',
+  await page.locator('text=Something went wrong').count(),
+);
 
 // 4. Page-focused inspector (print geometry controls).
 await page.waitForTimeout(400);
 await shot('05-page-print-inspector');
 
 // 5. Print workspace + master creation.
-await page.getByRole('radio', { name: /print workspace/i }).click().catch(() => {});
+await page
+  .getByRole('radio', { name: /print workspace/i })
+  .click()
+  .catch(() => {});
 await page.waitForTimeout(1200);
-await page.getByRole('menuitem', { name: 'Page' }).click().catch(() => {});
-await page.getByRole('menuitem', { name: /create master/i }).click().catch(() => {});
+await page
+  .getByRole('menuitem', { name: 'Page' })
+  .click()
+  .catch(() => {});
+await page
+  .getByRole('menuitem', { name: /create master/i })
+  .click()
+  .catch(() => {});
 await page.waitForTimeout(800);
 await shot('06-print-workspace-master');
 
 // 6. Thread overlay: two text frames + link command (Ctrl+Shift+K).
-await page.getByRole('radio', { name: /design workspace/i }).click().catch(() => {});
+await page
+  .getByRole('radio', { name: /design workspace/i })
+  .click()
+  .catch(() => {});
 await page.waitForTimeout(800);
 await page.keyboard.press('t');
 await drag(100, 480, 400, 540);
@@ -151,9 +190,14 @@ await page.keyboard.press('Control+Shift+K');
 await page.waitForTimeout(1200);
 await page.waitForTimeout(1000);
 await shot('07-text-thread-overlay');
-console.log('DIAG thread: overlay =', await page.locator('.text-thread-overlay').count(),
-  '| treeitems =', await page.getByRole('treeitem').count(),
-  '| boundary =', await page.locator('text=Something went wrong').count());
+console.log(
+  'DIAG thread: overlay =',
+  await page.locator('.text-thread-overlay').count(),
+  '| treeitems =',
+  await page.getByRole('treeitem').count(),
+  '| boundary =',
+  await page.locator('text=Something went wrong').count(),
+);
 
 await browser.close();
 console.log('captures written to', OUT);
