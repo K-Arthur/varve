@@ -1,4 +1,5 @@
 import type { RasterAsset } from '@varve/codegen';
+import { gpuEffectProvider } from '@varve/compositor';
 import {
   adjustmentsToFilters,
   anyRequiresRasterExport,
@@ -7,7 +8,18 @@ import {
   encodeRasterSurface,
   totalEffectExpansion,
 } from '@varve/engine';
+import {
+  buildEffectChain,
+  dispatchLiveEffect,
+  LIVE_EFFECT_KINDS,
+  type LiveEffectKind,
+} from '@varve/engine/liveEffects';
 import type { Document, SceneNode, ShapeNode } from '@varve/scene';
+
+// Accelerated live-effect dispatch chain: native (Tauri) → WebGPU (web) →
+// CPU reference kernels. Interactive preview stays synchronous CPU; export
+// is async and uses the chain. Built once per process.
+const EFFECT_CHAIN = buildEffectChain(gpuEffectProvider);
 
 export interface FlattenForExportOptions {
   scale: number;
@@ -348,9 +360,42 @@ export async function flattenForExport(
 
     context.restore();
 
-    applyFilters(context as CanvasRenderingContext2D, irFilters, pixelW, pixelH, {
-      quality: 'export',
-    });
+    // Apply the filter stack in order. Live effects route through the
+    // accelerated dispatch chain (native → WebGPU → CPU reference); all
+    // other filters use the sync software path. Order is preserved by
+    // interleaving per-filter.
+    for (const filter of irFilters) {
+      if (LIVE_EFFECT_KINDS.has(filter.kind as LiveEffectKind)) {
+        try {
+          const imageData = context.getImageData(0, 0, pixelW, pixelH);
+          const rgba = new Uint8ClampedArray(imageData.data);
+          const out = await dispatchLiveEffect(
+            {
+              effect: filter.kind as LiveEffectKind,
+              width: pixelW,
+              height: pixelH,
+              quality: 'export',
+              params: { ...filter },
+            },
+            rgba,
+            EFFECT_CHAIN,
+          );
+          context.putImageData(
+            new ImageData(out as unknown as Uint8ClampedArray<ArrayBuffer>, pixelW, pixelH),
+            0,
+            0,
+          );
+        } catch {
+          // Dispatch failure falls back to the software path for this filter
+          // (the chain already tried every provider; a failure here means
+          // the reference kernel itself is unavailable — leave unchanged).
+        }
+      } else {
+        applyFilters(context as CanvasRenderingContext2D, [filter], pixelW, pixelH, {
+          quality: 'export',
+        });
+      }
+    }
 
     let dataUrl: string;
     try {

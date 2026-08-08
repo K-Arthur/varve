@@ -27,8 +27,8 @@ export {
   saveWorkspacePreferences,
   setInspectorTabOverride,
   setPanelOverride,
-  setToolbarToolOverride,
   setStatusSectionOverride,
+  setToolbarToolOverride,
   subscribeWorkspacePreferences,
 } from './workspaceStore';
 export {

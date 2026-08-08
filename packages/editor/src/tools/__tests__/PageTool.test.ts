@@ -6,7 +6,7 @@
 import type { Document } from '@varve/scene';
 import { addPage, createDocument } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
-import { MIN_PAGE_SIZE, PageTool, cornerUnderPoint } from '../PageTool';
+import { cornerUnderPoint, MIN_PAGE_SIZE, PageTool } from '../PageTool';
 
 function twoPageDoc(): Document {
   let doc = createDocument('page-tool', false);
