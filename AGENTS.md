@@ -500,3 +500,25 @@ For new contributors and maintainers, see:
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines
 - [README.md](README.md) — project overview and architecture
 - [docs/agents/README.md](docs/agents/README.md) — AI-assisted development practices
+
+## Masking System
+
+Canonical doc: `docs/architecture/masking-system.md` — model, invariants,
+compositing order, renderer parity, export semantics, effect targeting.
+
+- Clipping relationship = a `GroupNode`/`FrameNode` whose `mask.type === 'clip'`
+  points at one of its own children; every other child is clipped content.
+- Invariants: source must be a direct child (frames/groups); masks are
+  released when the matte leaves the container (`reparentNode`); mask/scope
+  graphs are acyclic (`addMask` + `setMaskSourceNode` both run
+  `detectMaskCycles`); adjustment nodes can never be mask sources.
+- Copy/paste remaps mask sources and scope targets through the clone idMap;
+  cross-document paste drops foreign references (`dropForeignReferences`)
+  instead of leaking source-document ids.
+- Adjustment spatial masks (clip/alpha/luminance on the adjustment node)
+  compose with `scope`: scope = input set, mask = output region.
+- Clip masks with invert/feather/density render through the alpha path;
+  plain hard clips use `ctx.clip()`. Mask surfaces come from a bounded pool
+  (`acquireMaskSurface`/`releaseMaskSurface`).
+- E2E corpus: `tests/e2e/canvas/clipping-masks.spec.ts` (screenshots to
+  `reports/masking-review/`).

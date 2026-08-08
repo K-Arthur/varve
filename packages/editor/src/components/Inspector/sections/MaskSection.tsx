@@ -378,7 +378,14 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
             </div>
           )}
 
-          {mask.type !== 'clip' && (
+          {mask.type === 'clip' ? (
+            <p className="insp-field__hint">
+              Feather and density apply to clip masks as soft-edged masking: feather blurs the clip
+              boundary and density reduces its strength.
+            </p>
+          ) : null}
+
+          {
             <>
               <div className="insp-field">
                 <NumberField
@@ -422,7 +429,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 </div>
               </div>
             </>
-          )}
+          }
 
           <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-subtle)' }}>
             Source: {sourceNode?.name ?? mask.sourceNodeId?.slice(0, 8) ?? 'none'}
