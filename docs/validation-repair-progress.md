@@ -27,7 +27,7 @@ preserved).
 | E2E types | `pnpm typecheck:e2e` | PASS (after fix) | — | Done | exit 0 |
 | Lint | `pnpm lint` | 4 errors, 36 W, 16 I | see fix batches | Fixed | exit 0, 0 diagnostics |
 | Rust lint | `cargo clippy -p varve-effects` | 18 errors | manual_clamp ×11, needless_range_loop ×6, unnecessary_cast ×2, dead_code ×1 | Fixed | exit 0 |
-| Rust lint | `cargo clippy --workspace` | running | — | In progress | — |
+| Rust lint | `cargo clippy --workspace` | 0 errors (after varve-effects batch) | pre-existing committed-crate errors | Done | exit 0 |
 | Tokens | `pnpm audit:tokens` | PASS | — | Done | exit 0 |
 | Emoji | `pnpm audit:emoji` | PASS | — | Done | exit 0 |
 | Docs | `pnpm audit:docs` | PASS (452 docs, 150 ADRs) | — | Done | exit 0 |
@@ -107,10 +107,39 @@ working tree's ADR-0034 capability model (`browser.ts` now reports
 | editor targeted (editorHistorySession, storyCompose, textThreadActions, WorkspaceTabs) | PASS (25/25) |
 | `cargo test -p varve-effects` | PASS |
 | `cargo clippy -p varve-effects --all-targets -- -D warnings` | PASS |
+| `cargo clippy --workspace --all-targets -- -D warnings` | PASS (0 errors, full workspace) |
 | `cargo fmt --all -- --check` | PASS |
-| editor full suite | in progress (background) |
-| `cargo clippy --workspace` | in progress (background) |
-| `pnpm test` full | pending — run after editor suite |
+| editor full suite | 473 passed / 8 failed — all classified: 4 load-induced timeouts/bench thresholds, 4 concurrent-WIP rendering (FloatingToolbar Brush, PropertiesPanel, bgRemovalFeatures) |
+| `pnpm test` full | **13,880 passed / 1 failed** — ShortcutPalette 5s timeout under load; passes 17/17 in isolation |
+
+## Final state (post-concurrent merges)
+
+The effects/workspace agents committed their WIP on top of this pass
+(49b4b28c, 7cb508a8, 622f1ed7, 4fd6a8a5, 2ccdec05). Current master:
+`pnpm typecheck` exit 0 (the pre-existing maskCompositing/tablePrimitive
+test errors were fixed by the merged work), `pnpm lint` exit 0, biome
+format exit 0, working tree clean.
+
+### Commits from this pass
+- `d0c6302c` fix(quality): lint/typecheck/clippy gate failures — a11y,
+  stale types, clippy in varve-effects (35 files; committed-tree audit:
+  0 new type errors, 0 new lint diagnostics vs base 1481f31f; 35 lint
+  diagnostics fixed).
+- `2ccdec05` fix(history): restore changeId through compare mapping
+  (stable entity-change keys broken by the concurrent CompareChange
+  restructure).
+
+### Committed-tree verification method
+Fresh worktrees at 1481f31f (base) and the commit: per-diagnostic
+`comm` diff of biome outputs (52 base diagnostics -> 18 remaining, all
+pre-existing) and identical tsc error sets. Staged content was rebuilt
+deterministically where hunk-level `git apply` mixed concurrent lines;
+every partially-staged file was diffed against base to confirm only the
+intended change landed.
+| `cargo fmt --all -- --check` | PASS |
+| editor full suite | 473 passed / 8 classified failures | see Verification |
+| `cargo clippy --workspace` | PASS | see Verification |
+| `pnpm test` full | 13,880 passed / 1 load-induced | see Verification |
 
 ## Concurrent work preserved (untouched)
 
