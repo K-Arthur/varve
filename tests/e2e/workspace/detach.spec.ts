@@ -101,4 +101,54 @@ test.describe
         timeout: 30_000,
       });
     });
+
+    test('multi-panel window + cross-window undo', async ({ page, context }) => {
+      await navigateToEditor(page);
+
+      // Draw a rect so the layer tree has a row.
+      await page.keyboard.press('r');
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error('canvas not found');
+      await page.mouse.move(box.x + 150, box.y + 150);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 350, box.y + 350, { steps: 4 });
+      await page.mouse.up();
+      await expect(page.locator('.layers-row').first()).toBeVisible({ timeout: 30_000 });
+
+      // Detach Layers into a new window.
+      const popupPromise1 = context.waitForEvent('page', { timeout: 60_000 });
+      await page.locator('[data-testid="detach-layers"]').click({ timeout: 15_000 });
+      const popup1 = await popupPromise1;
+      await expect(popup1.locator('.layers-panel')).toBeVisible({ timeout: 90_000 });
+
+      // Detach Inspector — the menu offers "move into the existing window".
+      const inspectorDetach = page.locator('[data-testid="detach-inspector"]');
+      await expect(inspectorDetach).toBeVisible({ timeout: 30_000 });
+      await inspectorDetach.click({ timeout: 15_000 });
+      const menu = page.locator('[data-testid="detach-menu-inspector"]');
+      await expect(menu).toBeVisible({ timeout: 15_000 });
+      await menu.locator('button', { hasText: 'Move to window' }).click({ timeout: 10_000 });
+
+      // The existing popup now hosts BOTH panels.
+      await expect(popup1.locator('.editor-inspector')).toBeVisible({ timeout: 30_000 });
+      await expect(popup1.locator('.layers-panel')).toBeVisible({ timeout: 15_000 });
+
+      // Undo from the popup (routes to the primary undo stack, exactly once).
+      // The layers panel lives in the popup, so verify there.
+      await popup1.locator('[data-testid="aux-undo"]').click({ timeout: 15_000 });
+      await expect(popup1.locator('.layers-row')).toHaveCount(0, { timeout: 30_000 });
+
+      // Redo from the popup — the same document comes back.
+      await popup1.locator('[data-testid="aux-redo"]').click({ timeout: 15_000 });
+      await expect(popup1.locator('.layers-row').first()).toBeVisible({ timeout: 30_000 });
+
+      // Reattach all from the popup: both panels return.
+      await popup1.locator('[data-testid="reattach-panel"]').click({ timeout: 15_000 });
+      await popup1.waitForEvent('close', { timeout: 30_000 }).catch(() => {});
+      await expect(page.locator('.editor__layers-panel .layers-panel')).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.locator('.editor-inspector')).toBeVisible({ timeout: 30_000 });
+    });
   });

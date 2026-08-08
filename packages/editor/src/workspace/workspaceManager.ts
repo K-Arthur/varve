@@ -310,3 +310,65 @@ export function moveWindowToDisplay(
     height,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Per-panel window placement persistence (ADR-0210)
+// ---------------------------------------------------------------------------
+
+const PANEL_PLACEMENTS_KEY = 'varve-panel-placements';
+
+export interface PanelPlacementRecord {
+  panelTypeId: string;
+  /** Current window id hosting this panel. */
+  windowId: string;
+  logicalPosition: { x: number; y: number };
+  logicalSize: { width: number; height: number };
+  state: 'normal' | 'maximized' | 'fullscreen' | 'minimized';
+  updatedAt: number;
+}
+
+/** Persist a panel window's placement (keyed by panel type — stable across sessions). */
+export function savePanelPlacement(record: PanelPlacementRecord): void {
+  try {
+    const all = loadPanelPlacements();
+    const next = all.filter((r) => r.panelTypeId !== record.panelTypeId);
+    next.push(record);
+    localStorage.setItem(PANEL_PLACEMENTS_KEY, JSON.stringify(next));
+  } catch {
+    // Non-fatal
+  }
+}
+
+export function loadPanelPlacements(): PanelPlacementRecord[] {
+  try {
+    const raw = localStorage.getItem(PANEL_PLACEMENTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (r): r is PanelPlacementRecord =>
+        typeof r === 'object' &&
+        r !== null &&
+        typeof (r as PanelPlacementRecord).panelTypeId === 'string' &&
+        typeof (r as PanelPlacementRecord).logicalPosition === 'object' &&
+        typeof (r as PanelPlacementRecord).logicalSize === 'object',
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function loadPanelPlacement(panelTypeId: string): PanelPlacementRecord | null {
+  return loadPanelPlacements().find((r) => r.panelTypeId === panelTypeId) ?? null;
+}
+
+export function clearPanelPlacement(panelTypeId: string): void {
+  try {
+    localStorage.setItem(
+      PANEL_PLACEMENTS_KEY,
+      JSON.stringify(loadPanelPlacements().filter((r) => r.panelTypeId !== panelTypeId)),
+    );
+  } catch {
+    // Non-fatal
+  }
+}

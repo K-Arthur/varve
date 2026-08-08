@@ -2103,6 +2103,7 @@ export function EditorProvider({
   externalState,
   onMutation,
   onSelectionChange,
+  disablePersistentHistory,
 }: {
   children: ReactNode;
   onBackToHome?: () => void;
@@ -2140,6 +2141,8 @@ export function EditorProvider({
   onMutation?: (documentJson: string) => void;
   /** Remote-session selection callback (auxiliary windows). */
   onSelectionChange?: (selection: string[]) => void;
+  /** Disable persistent history (auxiliary projections, ADR-0204). */
+  disablePersistentHistory?: boolean;
 }) {
   const [state, setState] = useState<EditorState>(() => {
     let doc = createDocument(initialDocumentName ?? 'Untitled');
@@ -2963,6 +2966,7 @@ export function EditorProvider({
     patch,
     inTransactionRef,
     historySkipRef,
+    disabled: disablePersistentHistory,
   });
   /** Ref to the persistent-history API for use inside stable callbacks. */
   persistentHistoryRef.current = persistentHistory;

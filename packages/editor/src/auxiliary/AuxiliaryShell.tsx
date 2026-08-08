@@ -69,10 +69,18 @@ function PanelHost({ panelTypeId }: { panelTypeId: string }) {
 function AuxiliaryTitleBar({
   title,
   documentName,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   onReattach,
 }: {
   title: string;
   documentName: string;
+  canUndo: boolean;
+  canRedo: boolean;
+  onUndo: () => void;
+  onRedo: () => void;
   onReattach: () => void;
 }) {
   return (
@@ -82,6 +90,28 @@ function AuxiliaryTitleBar({
         {title}
         {documentName ? ` — ${documentName}` : ''}
       </span>
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={!canUndo}
+        data-testid="aux-undo"
+        aria-label="Undo (routes to the main window's undo stack)"
+        title="Undo (Ctrl+Z)"
+        style={styles.undoBtn}
+      >
+        Undo
+      </button>
+      <button
+        type="button"
+        onClick={onRedo}
+        disabled={!canRedo}
+        data-testid="aux-redo"
+        aria-label="Redo (routes to the main window's redo stack)"
+        title="Redo (Ctrl+Shift+Z)"
+        style={styles.undoBtn}
+      >
+        Redo
+      </button>
       <button
         type="button"
         onClick={onReattach}
@@ -125,7 +155,7 @@ function EmptyState({ onReattach }: { onReattach: () => void }) {
 // ---------------------------------------------------------------------------
 
 function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
-  const { state, reattach, send } = useAuxiliarySession();
+  const { state, panelTypeIds, reattach, send, requestUndo, requestRedo } = useAuxiliarySession();
   const [editorMounted, setEditorMounted] = useState(false);
 
   // Forward local mutations + selection upstream to the primary.
@@ -146,6 +176,34 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
   const snapshot = state.snapshot;
   const connected = state.connected;
 
+  // Undo/redo shortcuts route to the primary window (the undo authority) —
+  // exactly one undo/redo per keystroke across all windows.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        requestUndo();
+      } else if (key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        requestRedo();
+      } else if (key === 'y') {
+        e.preventDefault();
+        requestRedo();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [requestUndo, requestRedo]);
+
+  // Close this window when the primary removed its last panel.
+  useEffect(() => {
+    if (connected && panelTypeIds.length === 0) {
+      window.close();
+    }
+  }, [connected, panelTypeIds.length]);
+
   // Mount the editor exactly once the first snapshot arrives.
   useEffect(() => {
     if (connected && snapshot && !editorMounted) {
@@ -154,8 +212,8 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
   }, [connected, snapshot, editorMounted]);
 
   const title =
-    info.panelTypeIds.length > 0
-      ? info.panelTypeIds.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' + ')
+    panelTypeIds.length > 0
+      ? panelTypeIds.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' + ')
       : 'Panel Window';
 
   return (
@@ -163,12 +221,16 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
       <AuxiliaryTitleBar
         title={title}
         documentName={snapshot?.activeDocumentName ?? ''}
+        canUndo={snapshot?.canUndo ?? false}
+        canRedo={snapshot?.canRedo ?? false}
+        onUndo={requestUndo}
+        onRedo={requestRedo}
         onReattach={reattach}
       />
 
       {!connected || !snapshot ? (
         <ConnectingState />
-      ) : info.panelTypeIds.length === 0 ? (
+      ) : panelTypeIds.length === 0 ? (
         <EmptyState onReattach={reattach} />
       ) : (
         <div style={styles.content}>
@@ -179,8 +241,9 @@ function AuxiliaryShellInner({ info }: { info: AuxiliaryWindowInfo }) {
               externalState={state.externalState}
               onMutation={handleMutation}
               onSelectionChange={handleSelectionChange}
+              disablePersistentHistory
             >
-              {info.panelTypeIds.map((panelTypeId) => (
+              {panelTypeIds.map((panelTypeId) => (
                 <PanelHost key={panelTypeId} panelTypeId={panelTypeId} />
               ))}
             </EditorProvider>
@@ -260,13 +323,21 @@ const styles: Record<string, CSSProperties> = {
     flex: 1,
   },
   reattachBtn: {
-    marginLeft: 'auto',
     padding: '3px 10px',
     border: '1px solid var(--color-border, #e0e0e0)',
     borderRadius: 5,
     background: 'var(--color-surface, #fff)',
     cursor: 'pointer',
     fontSize: 11,
+  },
+  undoBtn: {
+    padding: '3px 8px',
+    border: '1px solid var(--color-border, #e0e0e0)',
+    borderRadius: 5,
+    background: 'var(--color-surface, #fff)',
+    cursor: 'pointer',
+    fontSize: 11,
+    opacity: 0.9,
   },
   content: {
     flex: 1,
