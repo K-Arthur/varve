@@ -5,6 +5,7 @@ import {
   addChild,
   addNode,
   createDocument,
+  makeAdjustmentNode,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
@@ -145,5 +146,179 @@ describe('replayStructuredScene', () => {
     });
 
     expect(observed).toContainEqual({ alpha: 0.4, blend: 'multiply' });
+  });
+
+  it('renders adjustment layers by filtering the target-scope backdrop', async () => {
+    let sceneDocument = createDocument('Adjustment export', true);
+    const target = makeShapeNode(
+      'target',
+      { kind: 'rect', x: 0, y: 0, w: 60, h: 40 },
+      { transform: [1, 0, 0, 1, 20, 20] },
+    );
+    const adj = {
+      ...makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }),
+      adjustments: [
+        { kind: 'brightness', value: 50, opacity: 1, blendMode: 'normal', visible: true },
+      ],
+      scope: { mode: 'image-local' as const, targetNodeId: 'target' },
+    };
+    sceneDocument = addNode(sceneDocument, target);
+    sceneDocument = addNode(sceneDocument, adj);
+    const flattened = flattenSceneToEngine(sceneDocument, [adj.id, target.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const drawImage = vi.spyOn(context, 'drawImage');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [adj.id, target.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    // The adjustment must composite the filtered backdrop back onto the
+    // export surface (9-arg drawImage). The backdrop capture itself happens
+    // on an internal offscreen surface, so the observable signal is the
+    // final composite — a plain zero-size filter item (the old behavior)
+    // never draws anything back.
+    const nineArg = drawImage.mock.calls.filter((call) => call.length === 9);
+    expect(nineArg.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('masks the adjustment result to its spatial mask (destination-in)', async () => {
+    let sceneDocument = createDocument('Masked adjustment export', true);
+    const target = makeShapeNode('target', { kind: 'rect', x: 0, y: 0, w: 60, h: 40 });
+    const matte = makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 30, h: 30 });
+    const adj = {
+      ...makeAdjustmentNode('adj', 'levels', { channel: 'rgb' }),
+      adjustments: [
+        { kind: 'brightness', value: 50, opacity: 1, blendMode: 'normal', visible: true },
+      ],
+      scope: { mode: 'image-local' as const, targetNodeId: 'target' },
+      mask: { type: 'clip' as const, visible: true, sourceNodeId: 'matte' },
+    };
+    sceneDocument = addNode(sceneDocument, target);
+    sceneDocument = addNode(sceneDocument, matte);
+    sceneDocument = addNode(sceneDocument, adj);
+    const flattened = flattenSceneToEngine(sceneDocument, [adj.id, target.id, matte.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const drawImage = vi.spyOn(context, 'drawImage');
+
+    // Must not throw: the masked adjustment renders backdrop → filter →
+    // mask → composite. The mask's destination-in runs on the backdrop's
+    // own context (not observable on the target), so the structural signal
+    // is that the final composite still occurs.
+    expect(() =>
+      replayStructuredScene(context, {
+        document: sceneDocument,
+        rootIds: [adj.id, target.id, matte.id],
+        flattenedIds: flattened.ids,
+        items,
+      }),
+    ).not.toThrow();
+    const nineArg = drawImage.mock.calls.filter((call) => call.length === 9);
+    expect(nineArg.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('routes feathered clip masks through the alpha-compositing path', async () => {
+    let sceneDocument = createDocument('Feathered clip export', true);
+    const group = {
+      ...makeGroupNode('group'),
+      mask: {
+        type: 'clip' as const,
+        sourceNodeId: 'matte',
+        visible: true,
+        feather: 6,
+      },
+    };
+    const matte = makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 80, h: 80 });
+    sceneDocument = addNode(sceneDocument, group);
+    sceneDocument = addChild(sceneDocument, group.id, matte);
+    sceneDocument = addChild(sceneDocument, group.id, content);
+    const flattened = flattenSceneToEngine(sceneDocument, [group.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const clip = vi.spyOn(context, 'clip');
+    const drawImage = vi.spyOn(context, 'drawImage');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [group.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    // Feather cannot be expressed by ctx.clip() — the feathered clip must
+    // composite through the alpha path (masked surface drawn back) instead
+    // of the hard clip path.
+    expect(clip).not.toHaveBeenCalled();
+    expect(drawImage).toHaveBeenCalled();
+  });
+
+  it('composes a frame quad clip with a container mask (intersection)', async () => {
+    let sceneDocument = createDocument('Frame + mask export', true);
+    const frame = {
+      ...makeFrameNode('frame', { w: 100, h: 80, children: [], clipContent: true }),
+      mask: { type: 'clip' as const, sourceNodeId: 'matte', visible: true },
+    };
+    const matte = makeShapeNode('matte', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 200, h: 200 });
+    sceneDocument = addNode(sceneDocument, frame);
+    sceneDocument = addChild(sceneDocument, frame.id, matte);
+    sceneDocument = addChild(sceneDocument, frame.id, content);
+    const flattened = flattenSceneToEngine(sceneDocument, [frame.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 300;
+    canvas.height = 300;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const clip = vi.spyOn(context, 'clip');
+    const lineTo = vi.spyOn(context, 'lineTo');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [frame.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    // Both the mask clip and the frame quad clip must run — content beyond
+    // either boundary is hidden (intersection semantics).
+    expect(clip).toHaveBeenCalled();
+    // The frame quad is traced in device space (0,0)-(100,80): its corners
+    // appear as lineTo calls.
+    expect(lineTo).toHaveBeenCalledWith(100, 0);
+    expect(lineTo).toHaveBeenCalledWith(0, 80);
   });
 });

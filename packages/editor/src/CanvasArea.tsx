@@ -37,9 +37,8 @@ import {
   mapBlendMode,
   prewarmWasmEngine,
   type ReplayTarget,
-  renderEnhancedMask,
   replayIr,
-  traceSceneNodeOutline,
+  totalEffectExpansion,
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
 import {
@@ -102,6 +101,7 @@ import { EngineNodeMemo } from './canvas/engineNodeMemo';
 import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
+import { applyAdjustmentSpatialMask, replayMaskedContainer } from './canvas/maskReplay';
 import { useOverlayDraw } from './canvas/overlayManager';
 import {
   openFullRedraw,
@@ -1949,190 +1949,27 @@ export function CanvasArea({
         const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
         const maskSrcId = mask ? mask.sourceNodeId : null;
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
-        if (mask && (maskSrcId || (mask.vectorMask && mask.vectorMask.points.length > 0))) {
-          const baseTransform = targetCtx.getTransform();
+        // Adjustment nodes carry no children — their spatial mask is applied
+        // inside the adjustment branch; containers replay through the
+        // shared maskReplay module.
+        if (
+          n.kind !== 'adjustment' &&
+          mask &&
+          (maskSrcId || (mask.vectorMask && mask.vectorMask.points.length > 0))
+        ) {
           replayForceAll = true;
-          const compositeMaskedSurface = (surface: HTMLCanvasElement): void => {
-            targetCtx.save();
-            try {
-              targetCtx.setTransform(1, 0, 0, 1, 0, 0);
-              if (n.kind === 'group') {
-                const blendMode = n.blendMode ?? 'passThrough';
-                targetCtx.globalAlpha = n.opacity ?? 1;
-                targetCtx.globalCompositeOperation = mapBlendMode(
-                  blendMode === 'passThrough' ? 'normal' : blendMode,
-                ) as GlobalCompositeOperation;
-              }
-              targetCtx.drawImage(surface, 0, 0);
-            } finally {
-              targetCtx.restore();
-            }
-          };
-          if ((mask.type === 'alpha' || mask.type === 'luminance') && maskSrcId) {
-            const result = document.createElement('canvas');
-            result.width = targetCtx.canvas.width;
-            result.height = targetCtx.canvas.height;
-            const resultCtx = result.getContext('2d');
-            if (!resultCtx) return;
-            renderEnhancedMask(
-              resultCtx,
-              {
-                draw: (maskCtx: CanvasRenderingContext2D) => {
-                  maskCtx.setTransform(baseTransform);
-                  replaySubtreeToCtx(maskSrcId, maskCtx);
-                },
-              },
-              {
-                draw: (contentCtx: CanvasRenderingContext2D) => {
-                  contentCtx.setTransform(baseTransform);
-                  for (const childId of (n as import('@varve/scene').ContainerNode).children) {
-                    if (childId !== maskSrcId) replaySubtreeToCtx(childId, contentCtx);
-                  }
-                  // Render mask source on top of masked content unless hideMaskSource is true
-                  if (!mask.hideMaskSource) {
-                    replaySubtreeToCtx(maskSrcId, contentCtx);
-                  }
-                },
-              },
-              {
-                luminance: mask.type === 'luminance',
-                inverted: mask.inverted === true,
-                feather: mask.feather,
-                density: mask.density,
-              },
-            );
-            compositeMaskedSurface(result);
-            return;
-          }
-          function traceVectorMaskPoints(
-            ctx: CanvasRenderingContext2D,
-            points: import('@varve/engine').PathPoint[],
-            closed: boolean,
-          ): void {
-            if (points.length === 0) return;
-            ctx.beginPath();
-            ctx.moveTo(points[0]!.x, points[0]!.y);
-            for (let i = 1; i < points.length; i++) {
-              const p = points[i]!;
-              const prev = points[i - 1]!;
-              if (p.handleIn || p.handleOut) {
-                ctx.bezierCurveTo(
-                  prev.handleOut?.[0] ?? prev.x,
-                  prev.handleOut?.[1] ?? prev.y,
-                  p.handleIn?.[0] ?? p.x,
-                  p.handleIn?.[1] ?? p.y,
-                  p.x,
-                  p.y,
-                );
-              } else {
-                ctx.lineTo(p.x, p.y);
-              }
-            }
-            if (closed) ctx.closePath();
-          }
-          const drawClippedChildren = (clipCtx: CanvasRenderingContext2D): void => {
-            // For inverted clip masks, we need offscreen compositing because
-            // Canvas2D clip() has no native inverse mode.
-            // Strategy: render children to offscreen canvas, then draw mask source
-            // shape filled fully, then use destination-out to punch the clip region
-            // out of the offscreen canvas (keeping content outside the clip region).
-            if (mask.inverted) {
-              const offscreen = document.createElement('canvas');
-              offscreen.width = targetCtx.canvas.width;
-              offscreen.height = targetCtx.canvas.height;
-              const offCtx = offscreen.getContext('2d');
-              if (!offCtx) return;
-              offCtx.setTransform(baseTransform);
-              // Render all non-mask-source children to offscreen canvas
-              for (const childId of (n as import('@varve/scene').ContainerNode).children) {
-                if (childId !== maskSrcId) replaySubtreeToCtx(childId, offCtx);
-              }
-              // Render mask source on top unless hideMaskSource
-              if (!mask.hideMaskSource && maskSrcId) {
-                replaySubtreeToCtx(maskSrcId, offCtx);
-              }
-              // Punch out the clip region using destination-out
-              // First, render the mask source shape to the offscreen canvas
-              // at the correct world-space position
-              const maskWorldTransform = maskSrcId
-                ? mask.linked !== false
-                  ? getCachedWorldTransform(cache, doc, maskSrcId)
-                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId))
-                : (mask.transform ?? ([1, 0, 0, 1, 0, 0] as const));
-              offCtx.save();
-              offCtx.setTransform(1, 0, 0, 1, 0, 0);
-              offCtx.globalCompositeOperation = 'destination-out';
-              offCtx.transform(...maskWorldTransform);
-              if (mask.vectorMask && mask.vectorMask.points.length > 0) {
-                traceVectorMaskPoints(offCtx, mask.vectorMask.points, mask.vectorMask.closed);
-                offCtx.fillStyle = 'rgba(255,255,255,1)';
-                offCtx.fill(mask.vectorMask.fillRule ?? 'nonzero');
-              } else {
-                offCtx.beginPath();
-                traceSceneNodeOutline(
-                  offCtx,
-                  maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
-                );
-                offCtx.closePath();
-                offCtx.fillStyle = 'rgba(255,255,255,1)';
-                offCtx.fill(mask.fillRule ?? 'nonzero');
-              }
-              offCtx.restore();
-              // Draw the result onto clipCtx
-              clipCtx.drawImage(offscreen, 0, 0);
-              return;
-            }
-            clipCtx.save();
-            try {
-              const maskWorldTransform = maskSrcId
-                ? mask.linked !== false
-                  ? getCachedWorldTransform(cache, doc, maskSrcId)
-                  : (mask.transform ?? getCachedWorldTransform(cache, doc, maskSrcId))
-                : (mask.transform ?? ([1, 0, 0, 1, 0, 0] as const));
-              clipCtx.transform(...maskWorldTransform);
-              if (mask.vectorMask && mask.vectorMask.points.length > 0) {
-                traceVectorMaskPoints(clipCtx, mask.vectorMask.points, mask.vectorMask.closed);
-                clipCtx.clip(mask.vectorMask.fillRule ?? 'nonzero');
-              } else {
-                clipCtx.beginPath();
-                traceSceneNodeOutline(
-                  clipCtx,
-                  maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
-                );
-                clipCtx.closePath();
-                clipCtx.clip(mask.fillRule ?? 'nonzero');
-              }
-              clipCtx.setTransform(baseTransform);
-              for (const childId of (n as import('@varve/scene').ContainerNode).children) {
-                if (childId !== maskSrcId) replaySubtreeToCtx(childId, clipCtx);
-              }
-              // Render mask source on top of clipped children unless hideMaskSource
-              if (!mask.hideMaskSource && maskSrcId) {
-                clipCtx.setTransform(baseTransform);
-                replaySubtreeToCtx(maskSrcId, clipCtx);
-              }
-            } finally {
-              clipCtx.restore();
-            }
-          };
-          const blendMode = n.kind === 'group' ? (n.blendMode ?? 'passThrough') : 'normal';
-          const needsContainerSurface =
-            n.kind === 'group' &&
-            (n.isolated === true ||
-              (blendMode !== 'normal' && blendMode !== 'passThrough') ||
-              (n.opacity ?? 1) < 1);
-          if (needsContainerSurface) {
-            const result = document.createElement('canvas');
-            result.width = targetCtx.canvas.width;
-            result.height = targetCtx.canvas.height;
-            const resultCtx = result.getContext('2d');
-            if (!resultCtx) return;
-            resultCtx.setTransform(baseTransform);
-            drawClippedChildren(resultCtx);
-            compositeMaskedSurface(result);
-          } else {
-            drawClippedChildren(targetCtx);
-          }
+          replayMaskedContainer(targetCtx, {
+            node: n as import('@varve/scene').SceneNode,
+            mask,
+            maskSrcId: maskSrcId ?? null,
+            maskChild: maskChild ?? null,
+            itemTransform: item?.transform,
+            doc,
+            cache,
+            baseTransform: targetCtx.getTransform(),
+            replayNode: (nodeId, ctx) => replaySubtreeToCtx(nodeId, ctx),
+            getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
+          });
           return;
         }
 
@@ -2542,11 +2379,54 @@ export function CanvasArea({
           }
           if (!Number.isFinite(minX) || nodeCount === 0) return;
 
-          const EFFECT_PAD = 80;
-          const bx = minX - EFFECT_PAD;
-          const by = minY - EFFECT_PAD;
-          const bw = Math.min(cw, maxX - minX + EFFECT_PAD * 2);
-          const bh = Math.min(ch, maxY - minY + EFFECT_PAD * 2);
+          // Effects that generate pixels outside the source bounds (bloom,
+          // RGB displacement, flares, streaks) need a padded backdrop so they
+          // are not clipped at the region rectangle. The pad derives from the
+          // registry-driven effect expansion (doc px, scaled by the camera)
+          // with a bounded maximum for live-preview memory safety. The export
+          // path applies the full, uncapped expansion.
+          //
+          // The region is computed in device pixels via the current
+          // transform (doc → device), and the coordSpace carries that same
+          // mapping so doc-anchored effect parameters (dither cells, split
+          // offsets, bloom radii) stay invariant under pan/zoom.
+          let effectPad = 80;
+          let coordSpace:
+            | { scale: number; originX: number; originY: number; regionX: number; regionY: number }
+            | undefined;
+          try {
+            const cam = targetCtx.getTransform();
+            const camScale = Math.abs(cam.a) || 1;
+            const [expL, expT, expR, expB] = totalEffectExpansion(adjFilters);
+            effectPad = Math.min(
+              512,
+              Math.max(80, Math.ceil(Math.max(expL, expT, expR, expB) * camScale)),
+            );
+            coordSpace = {
+              scale: camScale,
+              originX: cam.e,
+              originY: cam.f,
+              regionX: 0,
+              regionY: 0,
+            };
+          } catch {
+            effectPad = 80;
+          }
+          const camScale = coordSpace?.scale ?? 1;
+          const camOriginX = coordSpace?.originX ?? 0;
+          const camOriginY = coordSpace?.originY ?? 0;
+          const devMinX = minX * camScale + camOriginX;
+          const devMinY = minY * camScale + camOriginY;
+          const devW = (maxX - minX) * camScale;
+          const devH = (maxY - minY) * camScale;
+          const bx = devMinX - effectPad;
+          const by = devMinY - effectPad;
+          const bw = Math.min(cw, devW + effectPad * 2);
+          const bh = Math.min(ch, devH + effectPad * 2);
+          if (coordSpace) {
+            coordSpace.regionX = bx;
+            coordSpace.regionY = by;
+          }
 
           let backdrop: HTMLCanvasElement;
           try {
@@ -2563,7 +2443,26 @@ export function CanvasArea({
 
           const bCtx = backdrop.getContext('2d');
           if (!bCtx) return;
-          applyFilterWithCompositing(bCtx, adjFilters, backdrop.width, backdrop.height);
+          applyFilterWithCompositing(bCtx, adjFilters, backdrop.width, backdrop.height, {
+            coordSpace,
+          });
+
+          // Spatial mask: the adjustment's own mask limits WHERE the filtered
+          // result is visible (its scope limits WHAT content is processed) —
+          // see maskReplay.applyAdjustmentSpatialMask for the semantics.
+          const adjMask = adjNode.mask && adjNode.mask.visible !== false ? adjNode.mask : null;
+          if (adjMask) {
+            replayForceAll = true;
+            const cam = targetCtx.getTransform();
+            applyAdjustmentSpatialMask({
+              backdropCtx: bCtx,
+              mask: adjMask,
+              doc,
+              camera: cam,
+              replayNode: (nodeId, ctx) => replaySubtreeToCtx(nodeId, ctx),
+              getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
+            });
+          }
 
           targetCtx.save();
           targetCtx.setTransform(1, 0, 0, 1, 0, 0);
