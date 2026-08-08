@@ -28,7 +28,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Test hook: point VARVE_VERSION_ROOT at a fixture tree so `set`/`bump` write
 // there instead of the real repo (release-pipeline.test.mjs uses this).
@@ -273,7 +273,10 @@ function cmdVerify(tag) {
   process.stdout.write(`\nAll version manifests agree on ${expected}.\n`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// `pathToFileURL` (not a literal `file://${argv[1]}` prefix) so the guard also
+// matches on Windows, where argv[1] is `C:\...` and import.meta.url is
+// `file:///C:/...` — the literal form silently disables the CLI there.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [command, argument] = process.argv.slice(2);
   try {
     if (command === 'get') cmdGet();
