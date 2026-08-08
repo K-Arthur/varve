@@ -55,7 +55,7 @@ function addShape(doc: Document, id: string): Document {
     shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
     strokes: [],
     effects: [],
-  } as ShapeNode);
+  } as unknown as ShapeNode);
 }
 
 describe('halftone persistence — save/reopen round trip', () => {
@@ -96,7 +96,7 @@ describe('halftone persistence — save/reopen round trip', () => {
           backgroundColor: [240, 245, 250],
         },
       ],
-    } as AdjustmentNode);
+    } as unknown as AdjustmentNode);
 
     const json = DocumentCodec.encode(d);
     const decoded = DocumentCodec.decode(json);
@@ -163,7 +163,7 @@ describe('halftone persistence — save/reopen round trip', () => {
           dotGain: 0.12,
         },
       ],
-    } as AdjustmentNode);
+    } as unknown as AdjustmentNode);
 
     const json = DocumentCodec.encode(d);
     const decoded = DocumentCodec.decode(json);
@@ -207,7 +207,7 @@ describe('halftone persistence — save/reopen round trip', () => {
       params: { channel: 'rgb' },
       scope: { mode: 'image-local', targetNodeId: shapeId },
       adjustments: [],
-    } as AdjustmentNode);
+    } as unknown as AdjustmentNode);
 
     const json = DocumentCodec.encode(d);
     const decoded = DocumentCodec.decode(json);
@@ -251,7 +251,7 @@ describe('halftone persistence — malformed data tolerance', () => {
           method: 'am',
         },
       ],
-    } as AdjustmentNode);
+    } as unknown as AdjustmentNode);
 
     const json = DocumentCodec.encode(d);
     const decoded = DocumentCodec.decode(json);
@@ -293,7 +293,7 @@ describe('halftone persistence — malformed data tolerance', () => {
           intensity: -2,
         },
       ],
-    } as AdjustmentNode);
+    } as unknown as AdjustmentNode);
 
     const json = DocumentCodec.encode(d);
     const decoded = DocumentCodec.decode(json);
@@ -330,7 +330,7 @@ describe('halftone persistence — malformed data tolerance', () => {
           method: 'am',
         },
       ],
-    } as AdjustmentNode);
+    } as unknown as AdjustmentNode);
 
     const json = DocumentCodec.encode(d);
     const decoded = DocumentCodec.decode(json);
