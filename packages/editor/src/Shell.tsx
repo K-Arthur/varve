@@ -308,7 +308,18 @@ function ShellInner({
   // persisted panel overrides. Governs status-bar, tab-strip, page-nav, and
   // panel visibility below — no hard-coded conditions remain.
   const effectiveConfig = useEffectiveWorkspaceConfig(workspaceMode);
-  const hidePageNav = !effectiveConfig.panels.pagenav.visible;
+  // Page navigation is progressively disclosed: workspaces that are about
+  // pages (Print) always show it, and any other workspace reveals it as soon
+  // as the document actually becomes multi-page.
+  //
+  // The trigger is "more than one page", not "has pages": `createDocument`
+  // seeds every document with one page, so a `pages.length > 0` rule would
+  // show the navigator in every design document and disclose nothing. Keying
+  // it off the document rather than the mode alone is the point — a design
+  // document that gains a second page would otherwise have no way to navigate
+  // between them.
+  const pageCount = editor.state.document.pages?.length ?? 0;
+  const hidePageNav = !effectiveConfig.panels.pagenav.visible && pageCount <= 1;
   // Mode-preferred panel widths apply only when the user hasn't resized the
   // panel (a saved width always wins over the mode default).
   const layersPref = effectiveConfig.panels.layers.preferredWidth;
