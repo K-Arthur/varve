@@ -72,6 +72,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Resolve tag, version and channel
@@ -137,6 +138,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -247,15 +249,15 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         if: matrix.enabled
         with:
+          # Bundled models (u2netp.onnx, realesr-general-x4v3.onnx) are
+          # LFS-tracked, so the checkout MUST fetch LFS or the build would
+          # package 133-byte pointers. The repo is public, so LFS bandwidth is
+          # free and unmetered. The large on-demand models (ddcolor 980 MB,
+          # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded at runtime
+          # and never touched here. The pointer guard below still fails the
+          # build with instructions rather than silently shipping a pointer.
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
-          # No LFS fetch is needed: every model that ships in the installer is a
-          # small, non-LFS file. The three large models (ddcolor 980 MB,
-          # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded on demand at
-          # runtime instead, so CI never touches the 10 GB/month LFS bandwidth
-          # allowance. If a bundled model is ever added to LFS, the guard below
-          # fails the build with instructions rather than silently shipping a
-          # 133-byte pointer.
-          lfs: false
 
       - name: Verify no bundled asset is an LFS pointer
         if: matrix.enabled
@@ -423,6 +425,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download Linux artifacts
@@ -494,6 +497,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         if: matrix.enabled
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download platform artifacts
@@ -573,6 +577,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
@@ -707,6 +712,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Publish the draft
