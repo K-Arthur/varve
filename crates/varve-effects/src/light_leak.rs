@@ -36,7 +36,11 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (f64, f64, f64) {
         let v = js_round(l * 255.0);
         return (v, v, v);
     }
-    let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
+    let q = if l < 0.5 {
+        l * (1.0 + s)
+    } else {
+        l + s - l * s
+    };
     let p = 2.0 * l - q;
     let r = js_round(hue2rgb(p, q, hue + 1.0 / 3.0) * 255.0);
     let g = js_round(hue2rgb(p, q, hue) * 255.0);

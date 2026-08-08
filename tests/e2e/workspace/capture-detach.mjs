@@ -21,7 +21,7 @@ async function main() {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
 
-  await page.goto(BASE + '/', { timeout: 180_000, waitUntil: 'domcontentloaded' });
+  await page.goto(`${BASE}/`, { timeout: 180_000, waitUntil: 'domcontentloaded' });
   await page.evaluate(() => {
     localStorage.setItem(
       'strata:onboarding',

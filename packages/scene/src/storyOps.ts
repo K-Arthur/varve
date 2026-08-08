@@ -27,7 +27,7 @@ export function storyById(doc: Document, storyId: NodeId): TextStory | undefined
 
 export function storyForFrame(doc: Document, frameId: NodeId): TextStory | undefined {
   const node = doc.nodes[frameId];
-  if (!node || node.kind !== 'text') return undefined;
+  if (node?.kind !== 'text') return undefined;
   if (!node.storyBinding) return undefined;
   return doc.stories?.[node.storyBinding.storyId];
 }
@@ -62,10 +62,10 @@ export function linkFrame(doc: Document, storyId: NodeId, frameId: NodeId): Docu
   const story = doc.stories?.[storyId];
   if (!story) return doc;
   const node = doc.nodes[frameId];
-  if (!node || node.kind !== 'text') return doc;
+  if (node?.kind !== 'text') return doc;
   if (node.storyBinding) {
     const other = doc.stories?.[node.storyBinding.storyId];
-    if (other && other.thread.includes(frameId)) return doc;
+    if (other?.thread.includes(frameId)) return doc;
   }
   if (story.thread.includes(frameId)) return doc;
 
@@ -89,7 +89,7 @@ export function insertFrameInThread(
   afterFrameId?: NodeId,
 ): Document {
   const story = doc.stories?.[storyId];
-  if (!story || !story.thread.includes(frameId)) return doc;
+  if (!story?.thread.includes(frameId)) return doc;
   if (afterFrameId !== undefined && !story.thread.includes(afterFrameId)) return doc;
   const idx = story.thread.indexOf(frameId);
   let thread = [...story.thread];
@@ -125,7 +125,7 @@ function rebindThread(doc: Document, storyId: NodeId, thread: NodeId[]): Documen
   for (let i = 0; i < thread.length; i++) {
     const frameId = thread[i]!;
     const node = d.nodes[frameId];
-    if (!node || node.kind !== 'text') continue;
+    if (node?.kind !== 'text') continue;
     if (!node.storyBinding || node.storyBinding.storyId !== storyId) continue;
     d = {
       ...d,
@@ -162,7 +162,7 @@ export function validateStoryThreads(doc: Document): StoryThreadIssue[] {
       }
       seen.add(frameId);
       const node = doc.nodes[frameId];
-      if (!node || node.kind !== 'text') {
+      if (node?.kind !== 'text') {
         issues.push({
           code: 'missing-frame',
           storyId: story.id,

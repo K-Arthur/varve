@@ -26,9 +26,7 @@ pub fn mulberry32_next(state: &mut u32) -> f64 {
 /// `h = imul(h ^ h>>>15, 0x85ebca6b)`; `h ^= h>>>13`;
 /// `h = imul(h ^ h>>>16, 0xc2b2ae35)`; `h ^= h>>>16`; return `h / 2^32`.
 pub fn hash2(x: i32, y: i32, seed: u32) -> f64 {
-    let mut h = seed
-        ^ (x as u32).wrapping_mul(0x27d4eb2d)
-        ^ (y as u32).wrapping_mul(0x165667b1);
+    let mut h = seed ^ (x as u32).wrapping_mul(0x27d4eb2d) ^ (y as u32).wrapping_mul(0x165667b1);
     h = (h ^ (h >> 15)).wrapping_mul(0x85ebca6b);
     h ^= h >> 13;
     h = (h ^ (h >> 16)).wrapping_mul(0xc2b2ae35);
@@ -73,7 +71,7 @@ pub fn fbm2(x: f64, y: f64, seed: u32, octaves: f64) -> f64 {
     let mut amp = 0.5;
     let mut freq = 1.0;
     let mut total = 0.0;
-    let o = octaves.round().max(1.0).min(8.0) as i32;
+    let o = octaves.round().clamp(1.0, 8.0) as i32;
     for i in 0..o {
         sum += value_noise2(x * freq, y * freq, seed.wrapping_add((i * 1013) as u32)) * amp;
         total += amp;
@@ -116,13 +114,7 @@ pub fn srgb_to_linear01(byte: f64) -> f64 {
 /// Linear-light [0, 1] → sRGB encoded byte (clamped). Port of
 /// `linearToSrgb01` in prng.ts.
 pub fn linear_to_srgb01(linear: f64) -> f64 {
-    let v = if linear < 0.0 {
-        0.0
-    } else if linear > 1.0 {
-        1.0
-    } else {
-        linear
-    };
+    let v = linear.clamp(0.0, 1.0);
     let srgb = if v <= 0.0031308 {
         v * 12.92
     } else {

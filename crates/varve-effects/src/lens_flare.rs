@@ -7,7 +7,7 @@
 //! the surface (computed once, deterministically).
 
 use crate::prng::seeded01;
-use crate::{clamp_byte, clamp01, js_round, EffectQuality, Params};
+use crate::{clamp01, clamp_byte, js_round, EffectQuality, Params};
 
 /// Add a uniform RGB glow. `channel_scale` multiplies all three channels
 /// (port of `addGlow`, which routes channel = -1 through `addGlowChannel`).
@@ -193,7 +193,7 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, quality: EffectQuality)
     let seed = js_round(p.f("seed", 0.0)) as i64 as u32;
     let scale = p.f("scale", 1.0).max(0.05);
     let base_radius = (w.min(h) as f64) * 0.09 * scale;
-    let ghost_count = js_round(p.f("ghostCount", 4.0)).max(0.0).min(8.0) as i64;
+    let ghost_count = js_round(p.f("ghostCount", 4.0)).clamp(0.0, 8.0) as i64;
     let ghost_spacing = p.f("ghostSpacing", 0.8).max(0.0);
     let halo = clamp01(p.f("halo", 0.4));
     let blades = js_round(p.f("apertureBlades", 0.0)) as i64;
@@ -227,12 +227,26 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, quality: EffectQuality)
 
     let n = (w * h) as usize;
     let mut acc = vec![0.0f64; n * 3];
-    let brightness_factor = brightness * if tier == EffectQuality::Interactive { 0.85 } else { 1.0 };
+    let brightness_factor = brightness
+        * if tier == EffectQuality::Interactive {
+            0.85
+        } else {
+            1.0
+        };
 
     // Central halo.
     if halo > 0.0 {
         let hr = base_radius * 2.2;
-        add_glow(&mut acc, lx, ly, hr, halo * 0.5 * brightness_factor, 1.0, w, h);
+        add_glow(
+            &mut acc,
+            lx,
+            ly,
+            hr,
+            halo * 0.5 * brightness_factor,
+            1.0,
+            w,
+            h,
+        );
     }
 
     // Ghosts along the axis opposite the source.
@@ -245,8 +259,28 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, quality: EffectQuality)
         let intensity = brightness_factor * (1.0 - i as f64 / (ghost_count + 1) as f64) * 0.8;
         if dispersion > 0.0 {
             let off = gr * dispersion;
-            add_glow_channel(&mut acc, gx + off * ux, gy + off * uy, gr, intensity, 0, w, h, 1.0);
-            add_glow_channel(&mut acc, gx - off * ux, gy - off * uy, gr, intensity, 2, w, h, 1.0);
+            add_glow_channel(
+                &mut acc,
+                gx + off * ux,
+                gy + off * uy,
+                gr,
+                intensity,
+                0,
+                w,
+                h,
+                1.0,
+            );
+            add_glow_channel(
+                &mut acc,
+                gx - off * ux,
+                gy - off * uy,
+                gr,
+                intensity,
+                2,
+                w,
+                h,
+                1.0,
+            );
             add_glow_channel(&mut acc, gx, gy, gr, intensity * 0.7, 1, w, h, 1.0);
         } else {
             add_glow(&mut acc, gx, gy, gr, intensity, 1.0, w, h);
@@ -257,7 +291,18 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, quality: EffectQuality)
     if streak > 0.0 {
         let sr = base_radius * (4.0 + anamorphic * 6.0);
         let sw = (base_radius * 0.045 * (1.0 - anamorphic * 0.6)).max(1.0);
-        add_streak(&mut acc, lx, ly, ux, uy, sr, sw, streak * 0.9 * brightness_factor, w, h);
+        add_streak(
+            &mut acc,
+            lx,
+            ly,
+            ux,
+            uy,
+            sr,
+            sw,
+            streak * 0.9 * brightness_factor,
+            w,
+            h,
+        );
         add_streak(
             &mut acc,
             lx,
@@ -275,7 +320,17 @@ pub fn apply(out: &mut [u8], w: u32, h: u32, p: &Params, quality: EffectQuality)
     // Aperture polygon star.
     if blades >= 3 {
         let ar = base_radius * 1.5;
-        add_aperture(&mut acc, lx, ly, blades, aperture_rotation, ar, brightness_factor * 0.55, w, h);
+        add_aperture(
+            &mut acc,
+            lx,
+            ly,
+            blades,
+            aperture_rotation,
+            ar,
+            brightness_factor * 0.55,
+            w,
+            h,
+        );
     }
 
     // Composite additively.

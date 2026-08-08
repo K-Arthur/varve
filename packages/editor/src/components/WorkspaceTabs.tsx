@@ -225,7 +225,10 @@ export function WorkspaceTabs() {
               <SolidIcon name={SOLID_CHROME_ICONS[SOLID_ICON_NAMES[mode]]} size={15} />
               {!iconOnly && <span className="workspace-tabs__label">{WORKSPACE_LABELS[mode]}</span>}
               {customizations[mode] && (
-                <span className="workspace-tabs__customized-dot" aria-label="customized" />
+                <>
+                  <span className="workspace-tabs__customized-dot" aria-hidden="true" />
+                  <span className="sr-only">customized</span>
+                </>
               )}
             </button>
           </Tooltip>
