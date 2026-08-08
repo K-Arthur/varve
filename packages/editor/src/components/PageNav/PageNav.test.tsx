@@ -144,7 +144,10 @@ describe('PageNav', () => {
     fireEvent.contextMenu(screen.getAllByRole('tab')[0]!);
 
     expect(screen.getByText('Duplicate page')).toBeTruthy();
-    expect(screen.getByText('Delete page')).toBeTruthy();
+    // Two distinct deletes: the default preserves page content, discarding it
+    // is a separate explicitly labelled command.
+    expect(screen.getByText('Delete page (keep contents)')).toBeTruthy();
+    expect(screen.getByText('Delete page and contents')).toBeTruthy();
   });
 
   it('disables delete in context menu for the last remaining page', () => {
@@ -154,8 +157,8 @@ describe('PageNav', () => {
     render(<PageNav />);
     fireEvent.contextMenu(screen.getByRole('tab'));
 
-    const deleteBtn = screen.getByText('Delete page').closest('button');
-    expect(deleteBtn).toBeDisabled();
+    expect(screen.getByText('Delete page (keep contents)').closest('button')).toBeDisabled();
+    expect(screen.getByText('Delete page and contents').closest('button')).toBeDisabled();
   });
 
   it('calls updateDoc (duplicatePage) from context menu', () => {
@@ -177,7 +180,7 @@ describe('PageNav', () => {
 
     render(<PageNav />);
     fireEvent.contextMenu(screen.getAllByRole('tab')[1]!);
-    fireEvent.click(screen.getByText('Delete page'));
+    fireEvent.click(screen.getByText('Delete page (keep contents)'));
 
     expect(updateDoc).toHaveBeenCalledTimes(1);
   });

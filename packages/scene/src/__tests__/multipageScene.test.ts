@@ -120,7 +120,7 @@ describe('multipageRootNodes (ADR-0144 paint order)', () => {
     expect(roots).toEqual([globalId, ...doc.rootChildren]);
   });
 
-  it('paints globals first, then pasteboard items, then page background and content', () => {
+  it('paints globals first, then roots in document order (pages expanded in place)', () => {
     let doc = sceneDoc(2, true);
     const page0 = doc.pages![0]!;
     const page1 = doc.pages![1]!;
@@ -150,19 +150,49 @@ describe('multipageRootNodes (ADR-0144 paint order)', () => {
     }
 
     const roots = multipageRootNodes(doc);
-    expect(roots[0]).toBe(globalId);
-    expect(roots[1]).toBe(pasteboardId);
-    expect(roots).toContain(bgId);
-    expect(roots.indexOf(bgId)).toBeLessThan(roots.indexOf(pasteboardId) + 10);
-    // backgrounds precede page 0's content and page 0 precedes page 1
+    // Globals stay behind everything. After that the order is exactly
+    // `rootChildren`, with each page expanded in place as
+    // [backgrounds, masters, content].
+    //
+    // This amends the original ADR-0144 order, which emitted every pasteboard
+    // item before every page and so pinned pasteboard content behind all page
+    // content whatever the layer tree said. An object dragged off a page onto
+    // the pasteboard disappeared behind the page background. Document order
+    // makes the rendered z-order match the tree the user is looking at.
     const scene = buildPlacedScene(doc);
+    expect(roots[0]).toBe(globalId);
     expect(roots).toEqual([
       globalId,
-      pasteboardId,
       bgId,
       ...scene.pages[0]!.contentNodes,
       ...scene.pages[1]!.contentNodes,
+      pasteboardId,
     ]);
+  });
+
+  it('paints a pasteboard item authored before the pages behind them', () => {
+    // The mirror of the case above: document order cuts both ways, so an item
+    // that genuinely sits below the pages in the tree still paints behind.
+    let doc = sceneDoc(2, true);
+    const { id: pasteboardId, doc: d1 } = nextNodeId(doc);
+    doc = addNode(d1, makeShapeNode(pasteboardId, { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }));
+    doc = {
+      ...doc,
+      rootChildren: [pasteboardId, doc.pages![0]!.contentRoot, doc.pages![1]!.contentRoot],
+    };
+    for (const page of doc.pages!) {
+      const { id, doc: d } = nextNodeId(doc);
+      doc = addChild(
+        d,
+        page.contentRoot,
+        makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+      );
+    }
+    const roots = multipageRootNodes(doc);
+    const scene = buildPlacedScene(doc);
+    expect(roots.indexOf(pasteboardId)).toBeLessThan(
+      roots.indexOf(scene.pages[0]!.contentNodes[0]!),
+    );
   });
 
   it('culls pages outside the viewport world rect', () => {
