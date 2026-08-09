@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PencilTool } from '../PencilTool';
 import type { ToolContext } from '../types';
 
+let nextPointerTime = performance.now();
+
 function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
   return {
     document: {
@@ -90,6 +92,7 @@ function makePointerEvent(
   y: number,
   overrides: Partial<PointerEvent> = {},
 ): PointerEvent {
+  nextPointerTime += 16;
   return {
     pointerId: 1,
     clientX: x,
@@ -101,6 +104,7 @@ function makePointerEvent(
     metaKey: false,
     button: 0,
     pointerType: 'mouse',
+    timeStamp: nextPointerTime,
     ...overrides,
   } as unknown as PointerEvent;
 }
@@ -113,6 +117,7 @@ describe('PencilTool', () => {
   let rafCb: FrameRequestCallback;
 
   beforeEach(() => {
+    nextPointerTime = performance.now();
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
       rafCb = cb;
       return 0;
