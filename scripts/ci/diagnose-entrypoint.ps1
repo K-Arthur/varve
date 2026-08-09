@@ -29,20 +29,43 @@ $byDll = [ordered]@{}
 $current = ''
 foreach ($line in $imports) {
   $line = $line.Trim()
-  if ($line -match '^[A-Za-z0-9_\-]+\.dll$') {
+  if ($line -match '(?i)^[A-Za-z0-9_\-]+\.dll$') {
     $current = $line.ToLower()
     if (-not $byDll.Contains($current)) { $byDll[$current] = @() }
     continue
   }
-  if ($current -and $line -match '^[A-Za-z_@?][A-Za-z0-9_@?]*$') {
-    $byDll[$current] += $line
+  # dumpbin symbol lines look like "           0 __CxxFrameHandler4"
+  if ($current -and $line -match '^\d+\s+([A-Za-z_@?][A-Za-z0-9_@?]*)$') {
+    $byDll[$current] += $Matches[1]
   }
 }
 
-$realDlls = @('vcruntime140.dll', 'vcruntime140d.dll', 'msvcp140.dll', 'ucrtbase.dll', 'kernelbase.dll')
-foreach ($d in $realDlls) {
-  if (-not $byDll.Contains($d)) { continue }
-  $sys = Join-Path $env:WINDIR 'System32' $d
+# api-ms-win-crt-* api-sets are backed by ucrtbase.dll on disk.
+$backing = @{
+  'vcruntime140.dll' = 'vcruntime140.dll'
+  'vcruntime140d.dll' = 'vcruntime140d.dll'
+  'msvcp140.dll' = 'msvcp140.dll'
+  'ucrtbase.dll' = 'ucrtbase.dll'
+  'kernelbase.dll' = 'kernelbase.dll'
+  'kernel32.dll' = 'kernel32.dll'
+  'user32.dll' = 'user32.dll'
+  'ole32.dll' = 'ole32.dll'
+  'shell32.dll' = 'shell32.dll'
+  'advapi32.dll' = 'advapi32.dll'
+  'gdi32.dll' = 'gdi32.dll'
+  'comctl32.dll' = 'comctl32.dll'
+  'oleaut32.dll' = 'oleaut32.dll'
+  'userenv.dll' = 'userenv.dll'
+  'bcryptprimitives.dll' = 'bcryptprimitives.dll'
+  'dwmapi.dll' = 'dwmapi.dll'
+  'ntdll.dll' = 'ntdll.dll'
+}
+foreach ($key in @($byDll.Keys)) {
+  if ($key -like 'api-ms-win-crt-*') { $backing[$key] = 'ucrtbase.dll' }
+}
+foreach ($d in @($byDll.Keys)) {
+  if (-not $backing.Contains($d)) { continue }
+  $sys = Join-Path $env:WINDIR 'System32' $backing[$d]
   if (-not (Test-Path $sys)) {
     Write-Host "MISSING DLL ON RUNNER: $sys"
     continue
@@ -58,5 +81,5 @@ foreach ($d in $realDlls) {
       Write-Host "MISSING ENTRY POINT: $d ! $sym"
     }
   }
-  Write-Host "$d : $($byDll[$d].Count) imported, $($exports.Count) exported"
+  Write-Host "$d : $($byDll[$d].Count) imported, $($exports.Count) exported (via $($backing[$d]))"
 }
