@@ -10,9 +10,12 @@ import { computeDocumentBounds } from '@varve/codegen';
 import {
   applyStyleOverrides,
   createEngine,
+  defaultMediaFillSettings,
   type SceneNode as EngineNode,
+  getMediaRegistry,
   type ReplayTarget,
   replayIr,
+  resolveUsageFrame,
 } from '@varve/engine';
 import type { Document, NodeId, Timeline } from '@varve/scene';
 import {
@@ -27,11 +30,6 @@ import {
 } from '@varve/scene';
 import { fitBoundsCamera, type Rect } from '@varve/shared';
 import { applyPropertyPath } from '../propertyPath';
-import {
-  defaultMediaFillSettings,
-  getMediaRegistry,
-  resolveUsageFrame,
-} from '@varve/engine';
 import { sceneNodeToEngineNode } from '../render/sceneToEngine';
 import { nodeWorldTransform } from '../scene/world';
 import { sampleTimelineAt } from '../timeline/TimelineSampler';
