@@ -15,6 +15,13 @@ const SHOTS = 'test-results/warp-visual';
 
 async function enterEditor(page: Page) {
   await page.goto('/', { timeout: 120000, waitUntil: 'domcontentloaded' });
+  // Several unclean shutdowns in a row (killed or timed-out runs) trip the
+  // crash-loop detector, which replaces the editor with a full-screen safe-mode
+  // gate — every locator below then times out for a reason that looks unrelated.
+  if (await page.evaluate(() => localStorage.getItem('varve:safe-mode') !== null)) {
+    await page.evaluate(() => localStorage.removeItem('varve:safe-mode'));
+    await page.reload({ timeout: 120000 });
+  }
   const newBtn = page.getByRole('button', { name: /^new$/i });
   try {
     await newBtn.waitFor({ state: 'visible', timeout: 30000 });
@@ -131,5 +138,38 @@ test.describe('warp: visual + keyboard', () => {
     );
 
     await page.screenshot({ path: `${SHOTS}/mesh.png` });
+  });
+
+  test('dragging a mesh point moves it and commits one undo step', async ({ page }) => {
+    // Pointer-drag coverage for the mesh overlay. The announced coordinates
+    // are the observable proof the drag reached the modifier, and Ctrl+Z must
+    // undo *the drag* — not the modifier that was added before it.
+    await createRect(page);
+    await addWarp(page, '4×4 mesh');
+
+    const meshPoints = page.locator('[aria-label^="Mesh point, row"]');
+    await expect(meshPoints.first()).toBeVisible();
+    const first = meshPoints.first();
+    const before = await first.getAttribute('aria-label');
+
+    const box = await first.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width / 2 + 60, box!.y + box!.height / 2 + 40, {
+      steps: 6,
+    });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+
+    const after = await first.getAttribute('aria-label');
+    expect(after).not.toBe(before);
+
+    // One coherent undo step for the whole gesture, and it restores the point
+    // rather than removing the mesh modifier.
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    await expect(meshPoints).toHaveCount(25);
+    expect(await meshPoints.first().getAttribute('aria-label')).toBe(before);
   });
 });
