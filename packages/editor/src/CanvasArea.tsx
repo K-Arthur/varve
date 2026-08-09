@@ -2588,33 +2588,36 @@ export function CanvasArea({
         // clones that multi-MB payload across the worker boundary, pinning
         // a CPU core indefinitely and starving the main thread.
         if (!bitmapIsCurrent) {
-          void collectImageBitmaps(ir, { maxEntries: budgets.workerImageBitmaps }).then(
-            (collected) => {
-              if (!collected) return;
-              const host = renderWorkerRef.current;
-              if (!host) {
-                closeImageBitmapMap(collected.images);
-                return;
-              }
-              const posted = host.post(
-                {
-                  type: 'render',
-                  ir,
-                  camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
-                  viewport: { width: VP_W, height: VP_H },
-                  docVersion,
-                  proof: editor.proofEnabled ? editor.proofConfig : null,
-                  dpr,
-                  images: collected.images,
-                },
-                collected.transfer,
-              );
-              if (!posted && !workerFailedRef.current) {
-                workerFailedRef.current = true;
-                requestContentDrawRef.current?.('worker-admission', 'backing-store-recovery');
-              }
-            },
-          );
+          const hostAtCollection = renderWorkerRef.current;
+          void collectImageBitmaps(ir, {
+            maxEntries: budgets.workerImageBitmaps,
+            residentSources: hostAtCollection?.knownImageSources,
+          }).then((collected) => {
+            if (!collected) return;
+            const host = renderWorkerRef.current;
+            if (!host) {
+              closeImageBitmapMap(collected.images);
+              return;
+            }
+            const posted = host.post(
+              {
+                type: 'render',
+                ir,
+                camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
+                viewport: { width: VP_W, height: VP_H },
+                docVersion,
+                proof: editor.proofEnabled ? editor.proofConfig : null,
+                dpr,
+                images: collected.images,
+                imageSources: collected.sources,
+              },
+              collected.transfer,
+            );
+            if (!posted && !workerFailedRef.current) {
+              workerFailedRef.current = true;
+              requestContentDrawRef.current?.('worker-admission', 'backing-store-recovery');
+            }
+          });
         }
         if (wb && surfaceMatches) {
           // Replay cached bitmap: identity when camera matches exactly,
