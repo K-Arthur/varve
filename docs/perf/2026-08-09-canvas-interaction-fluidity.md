@@ -228,13 +228,37 @@ Targeted result after the slice: 60 tests passed, including four new physics
 tests plus the existing HandTool, auto-pan, wheel-classifier, and navigation
 state suites. The editor package typecheck passed.
 
+## Vertical slice 2 — complete interaction trace boundaries
+
+Wheel processing is now timed after camera mutation and records a
+`wheel.input` span with source, semantic action, and delta mode. One trace owns
+an entire wheel burst and closes 150 ms after its last event. Keyboard work
+records an async-safe `keyboard.input` span completed at the microtask boundary,
+so early-return shortcut/tool paths remain covered, and a held key remains one
+trace until keyup. Touch and WebKit gesture pinch traces close when the pointer
+count drops or the gesture ends. Hover traces close after an idle boundary
+instead of remaining open for the lifetime of the pointer inside the canvas.
+
+Trace completion is kind-aware. A stale wheel/hover timer cannot close a newer
+pointer drag, and modifier keys pressed during a drag contribute keyboard work
+to the active pointer trace rather than replacing it. The first event after a
+trace closes always starts a new trace; it is not lost to the previous
+rate-limit timestamp.
+
+Focused trace result: 60 tests passed, including the new stale-timer ownership
+case. A real Chromium Playwright run passed both the existing pointer-drag
+diagnostic flow and a new wheel/keyboard boundary flow. The run also found and
+repaired a stale E2E assertion that expected trace schema 1 although the
+production tracer emits schema 2.
+
 ## Validation ledger
 
 | Validation | Status |
 |---|---|
 | Targeted baseline unit tests | PASS — 56 tests |
 | Time-based navigation unit tests | PASS — 60 targeted tests total |
-| Targeted Canvas Playwright | PENDING |
+| Trace lifecycle unit tests | PASS — 60 targeted tests total |
+| Targeted Canvas Playwright | PASS — Chromium, 2 tests |
 | Production interaction corpus | PENDING |
 | Editor package typecheck | PASS |
 | Full regression protocol | PENDING |
