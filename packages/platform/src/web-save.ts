@@ -34,6 +34,12 @@ interface HandleRecord {
   name: string;
 }
 
+// Handles that could not be persisted to IndexedDB (quota, private mode, or
+// a non-cloneable handle). The session can still write to them, but the
+// user will be asked to re-pick the file after a reload — surfaced honestly
+// as permission-expired rather than as a fake persistent path.
+const ephemeralHandles = new Map<string, FileSystemFileHandle>();
+
 interface WindowWithFsAccess {
   showSaveFilePicker?: (opts: {
     suggestedName?: string;
@@ -64,6 +70,11 @@ async function storeSaveHandle(handle: FileSystemFileHandle, name: string): Prom
   const db = await openHandleDb();
   try {
     await db.put(STORE_HANDLES, { handleId, handle, name } satisfies HandleRecord);
+  } catch {
+    // DataCloneError (non-cloneable handle) or quota failure: keep the
+    // handle in memory so this session can still save to the file the user
+    // just picked.
+    ephemeralHandles.set(handleId, handle);
   } finally {
     db.close();
   }
@@ -74,10 +85,11 @@ async function loadSaveHandle(handleId: string): Promise<FileSystemFileHandle | 
   const db = await openHandleDb();
   try {
     const record = (await db.get(STORE_HANDLES, handleId)) as HandleRecord | undefined;
-    return record?.handle;
+    if (record?.handle) return record.handle;
   } finally {
     db.close();
   }
+  return ephemeralHandles.get(handleId);
 }
 
 /** Trigger a browser snapshot download. Never reported as a persistent path. */

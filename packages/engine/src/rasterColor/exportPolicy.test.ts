@@ -9,8 +9,8 @@ import {
   exportProfileBytes,
   resolveExportEncoding,
 } from './exportPolicy';
-import { buildMatrixProfile, parseIccHeader } from './profiles';
 import { isWithinPixelBudget, pixelBufferBytes, rgba32fToRgba8 } from './pixelBuffer';
+import { buildMatrixProfile, parseIccHeader } from './profiles';
 
 function imageData1x1(r: number, g: number, b: number, a = 255): ImageData {
   return new ImageData(new Uint8ClampedArray([r, g, b, a]), 1, 1);

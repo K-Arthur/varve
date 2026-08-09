@@ -8,26 +8,32 @@
  */
 
 export {
-  DEFAULT_TILE_HEIGHT,
-  identityTransform,
-  createAnalyticRgbTransform,
-  transformDescriptor,
-  convertImageDataTiled,
-  type RasterColorTransform,
-} from './transform';
+  insertJpegIccProfile,
+  isWebp,
+  webpProfileEmbeddingSupported,
+} from './embed';
+export {
+  convertExportImageData,
+  EXPORT_COLOR_POLICIES,
+  type ExportColorSpaceChoice,
+  exportColorPolicyLabel,
+  exportProfileBytes,
+  type RasterExportColorPolicy,
+  resolveExportEncoding,
+} from './exportPolicy';
 export {
   BYTES_PER_PIXEL,
   isWithinPixelBudget,
+  type PixelBufferDescriptor,
+  type PixelBufferFormat,
   pixelBufferBytes,
   pixelFormatLabel,
   premultiplyRgba32f,
-  rgba16ToRgba32f,
-  rgba32fToRgba16,
-  rgba32fToRgba8,
   rgba8ToRgba32f,
+  rgba16ToRgba32f,
+  rgba32fToRgba8,
+  rgba32fToRgba16,
   unpremultiplyRgba32f,
-  type PixelBufferDescriptor,
-  type PixelBufferFormat,
 } from './pixelBuffer';
 export {
   buildMatrixProfile,
@@ -37,16 +43,10 @@ export {
   type RasterIccHeaderInfo,
 } from './profiles';
 export {
-  insertJpegIccProfile,
-  isWebp,
-  webpProfileEmbeddingSupported,
-} from './embed';
-export {
-  convertExportImageData,
-  exportColorPolicyLabel,
-  exportProfileBytes,
-  EXPORT_COLOR_POLICIES,
-  resolveExportEncoding,
-  type ExportColorSpaceChoice,
-  type RasterExportColorPolicy,
-} from './exportPolicy';
+  convertImageDataTiled,
+  createAnalyticRgbTransform,
+  DEFAULT_TILE_HEIGHT,
+  identityTransform,
+  type RasterColorTransform,
+  transformDescriptor,
+} from './transform';

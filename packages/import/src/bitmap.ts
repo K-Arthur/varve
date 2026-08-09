@@ -147,10 +147,18 @@ function readWebpDimensions(data: Uint8Array): ImageDimensions {
   const vp8Magic = Array.from(data.slice(12, 16));
   if (arraysEqual(vp8Magic, [0x56, 0x50, 0x38, 0x20])) {
     if (data.length < 30) return { w: 0, h: 0 };
+    // VP8 frame header: width/height are 14-bit big-endian; ImageMagick's
+    // encoder emits them little-endian, so fall back when the BE read is 0.
     const raw = readUint16BE(data, 26);
-    const w = raw & 0x3fff;
     const raw2 = readUint16BE(data, 28);
+    const w = raw & 0x3fff;
     const h = raw2 & 0x3fff;
+    if (w === 0 && h === 0 && data.length >= 30) {
+      return {
+        w: readUint16LE(data, 26) & 0x3fff || 0,
+        h: readUint16LE(data, 28) & 0x3fff || 0,
+      };
+    }
     return { w, h };
   }
   if (arraysEqual(vp8Magic, [0x56, 0x50, 0x38, 0x4c])) {

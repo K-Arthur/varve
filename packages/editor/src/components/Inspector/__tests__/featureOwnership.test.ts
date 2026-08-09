@@ -28,6 +28,7 @@ describe('Inspector feature ownership', () => {
       'appearance',
       'fills',
       'stroke',
+      'animation',
       'image-placement',
       'typography',
       'page-print',

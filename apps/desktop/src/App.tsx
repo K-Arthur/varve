@@ -8,14 +8,21 @@ import {
   useStartup,
 } from '@varve/editor';
 import { HomeShell } from '@varve/home';
-import { detectPlatform, type FileEntry } from '@varve/platform';
+import {
+  createWebPlatform,
+  detectPlatform,
+  displayNameFromPath,
+  type FileEntry,
+  upsertPreservingMeta,
+} from '@varve/platform';
+import { DocumentCodec } from '@varve/scene';
 import { StartupLoader, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
 import { revealMainWindow } from './startup/revealMainWindow';
 
-const platform = detectPlatform();
+const bootPlatform = detectPlatform();
 
 export function App() {
   const [view, setView] = useState<'home' | 'editor'>('home');
@@ -24,6 +31,26 @@ export function App() {
   const [homeReady, setHomeReady] = useState(false);
   const pendingHomeMilestone = useRef<(() => void) | null>(null);
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
+
+  // In a plain browser the synchronous boot platform is the in-memory
+  // fallback; upgrade to the real IndexedDB + File System Access backend as
+  // soon as it resolves (it is async to construct by design). The browser
+  // build must not silently run on a no-op storage backend.
+  const [platform, setPlatform] = useState(bootPlatform);
+  useEffect(() => {
+    if (bootPlatform.kind !== 'memory') return;
+    let cancelled = false;
+    void createWebPlatform()
+      .then((web) => {
+        if (!cancelled) setPlatform(web);
+      })
+      .catch(() => {
+        // No IndexedDB (rare, e.g. strict privacy modes): keep the fallback.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const {
     showLoader,
@@ -94,6 +121,52 @@ export function App() {
 
   /** Guard against duplicate open requests for the same file. */
   const lastOpenIdRef = useRef<string | null>(null);
+
+  /**
+   * Re-link a Home entry whose physical file was moved or renamed.
+   * The user picks a candidate; it is only rebound when it is a valid Varve
+   * document AND (when we have cached content) shares the same document
+   * identity — filenames alone never rebind. The library id stays stable, so
+   * version history, projects, tags and recents all survive the rebind.
+   * Returns true when the entry was rebound.
+   */
+  const handleLocateFile = useCallback(
+    async (entry: FileEntry): Promise<boolean> => {
+      const picked = await platform.openDocumentFromDisk();
+      if (!picked) return false; // picker cancelled — nothing changes
+
+      const decode = (json: string) => {
+        try {
+          const d = DocumentCodec.decode(json);
+          return d.ok ? d.document : null;
+        } catch {
+          return null;
+        }
+      };
+      const pickedDoc = decode(picked.documentJson);
+      if (!pickedDoc) {
+        window.alert('That file is not a valid Varve document.');
+        return false;
+      }
+      const cachedJson = await platform.readFile(entry.id).catch(() => null);
+      const cachedDoc = cachedJson ? decode(cachedJson) : null;
+      if (cachedDoc && cachedDoc.id !== pickedDoc.id) {
+        window.alert(
+          'That file does not appear to be the same document. Varve only rebinds files that share the same document identity.',
+        );
+        return false;
+      }
+
+      const name = displayNameFromPath(picked.filePath ?? picked.entry.name);
+      await upsertPreservingMeta(platform, entry.id, name, picked.documentJson, {
+        filePath: picked.filePath,
+      });
+      void platform.touchFile(entry.id).catch(() => undefined);
+      void platform.touchRecentFile(entry.id, name).catch(() => undefined);
+      return true;
+    },
+    [platform],
+  );
 
   const handleOpenFile = useCallback(
     async (entry: FileEntry) => {
@@ -231,6 +304,7 @@ export function App() {
             key={retryCount}
             platform={platform}
             onOpenFile={handleOpenFile}
+            onLocateFile={handleLocateFile}
             onResumeEditing={editorMounted ? handleResumeEditing : undefined}
             onReady={handleHomeReady}
             active={view === 'home'}

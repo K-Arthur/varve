@@ -80,6 +80,10 @@ export function collectEngineImageResources(nodes: readonly EngineNode[]): Requi
     for (const fill of node.fills ?? []) {
       if (fill.visible === false) continue;
       if (fill.type === 'image' && fill.image?.src) {
+        // Animated-media fills render through the session frame cache, not
+        // ImageCache — waiting on (or loading) the encoded bytes here is
+        // wasteful and can time out on large files.
+        if (fill.image.frame !== undefined) continue;
         push(fill.image.src, contextOf(node, 'image-fill'));
       }
       if (fill.type === 'pattern' && fill.pattern?.tileSrc) {
