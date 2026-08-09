@@ -199,6 +199,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
+| `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/interaction-systems-2026-07-27.md` | Interaction systems |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
