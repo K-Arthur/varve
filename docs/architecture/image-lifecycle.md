@@ -12,14 +12,20 @@ owns final display and export semantics.
 ```text
 File picker / drop / clipboard / foreign importer / generated result
   -> @varve/import byte inspection (signature, size, dimensions, pixel budget)
+  -> @varve/import metadata extraction (EXIF orientation, embedded ICC)
   -> DocumentAsset in @varve/scene (immutable embedded source bytes)
+     + Document.iccProfiles (deduplicated profile payloads)
   -> ImageFillData.assetId (per-placement crop/fit/transform remains independent)
   -> DocumentCodec normalize / encode / decode
-  -> sceneToEngine and render IR
-  -> @varve/engine ImageCache (shared HTMLImageElement decode, byte-bounded LRU)
-  -> main-thread Canvas2D replay
+  -> sceneToEngine and render IR (short asset resource handle, not the payload)
+  -> engine image resource registry (handle -> loadable source)
+  -> @varve/engine ImageCache (shared HTMLImageElement decode, byte-bounded LRU,
+     typed failure states)
+  -> main-thread Canvas2D replay (loading vs failed placeholders)
        or missing-only ImageBitmap delta -> render worker retained source map
+       (resident bytes accounted; admission includes residency)
   -> @varve/compositor (Canvas2D authoritative; WebGPU only for supported batches)
+  -> export barrier (collect -> settle -> preflight -> render)
   -> visible canvas / raster export / derived operation
 ```
 
@@ -61,8 +67,12 @@ Before allocating a data URL or asking a browser decoder, import enforces:
 
 Animated GIF is rejected with an actionable request to import a still frame.
 This prevents accidental animation driven by browser-specific `HTMLImageElement`
-timing. EXIF orientation normalization and ICC extraction are not yet connected
-to ingestion; they remain explicit correctness gaps below.
+timing. EXIF orientation and embedded ICC profiles are extracted at ingestion
+(`packages/import/src/metadata/`, 2026-08-09) and recorded on the asset's
+normalized metadata; see [raster-assets.md](raster-assets.md) for the decode
+invariant (decoded pixels are orientation-normalized; orientation drives
+displayed dimensions only) and the ICC policy (extract + record, never
+reinterpret invalid profiles).
 
 ## Cache and worker rules
 
@@ -71,9 +81,15 @@ to ingestion; they remain explicit correctness gaps below.
 - The decoded cache is bounded by both entry count and estimated RGBA bytes.
 - Oversized decodes may be used by the immediate caller but are not retained.
 - Cache reset clears pending state and listeners before replacing the singleton.
+- Cache failures are typed (`ImageLoadError`: missing/corrupt/unsupported/
+  permission/unavailable/cors/unknown); remote failures are classified by
+  bounded HTTP probes.
 - Worker commands carry a full source manifest and only missing bitmap payloads.
 - The worker closes resources removed from the manifest and retains unchanged
-  resources by identity.
+  resources by identity; resident source bytes are reported per frame and
+  accounted by the host (admission includes residency).
+- Masked fills are refused by worker collection: a frame never renders
+  A-without-M; it falls back to the authoritative Canvas2D path.
 - A worker generation that fails while image-dependent does not retry without
   resources; the editor falls back to Canvas2D.
 - Canvas state restoration is protected with `try/finally` around worker replay.
@@ -92,21 +108,24 @@ modify the original asset.
 
 ## Evidence-based gap table
 
-| Area | Current implementation | Problem | Severity | Evidence | Proposed owner | Fix |
-| --- | --- | --- | --- | --- | --- | --- |
-| EXIF | Engine metadata helpers exist | Not connected to ingestion; mirrored orientations can drift across display/thumbnail/export | High correctness | `packages/engine/src/metadata/exif.ts`, `packages/import/src/image.ts` | import + scene assets | Normalize once or persist an explicit canonical orientation with 1-8 fixtures. |
-| ICC metadata | Document colours have managed profiles | Raster assets store no source profile | High print/colour | `DocumentAsset`, colour-management architecture | scene + colour + print | Extract profile metadata, convert through the existing ICC path, add numeric fixtures. |
-| Large visible photo | Full browser decode | One source above budget is repeatedly decoded and has no viewport representation | High memory/performance | `packages/engine/src/imageCache.ts` | engine cache | Add measured display representations/leases; investigate resize decode or tiling only with evidence. |
-| Worker IR identity | IR still carries full `src` | Embedded data URLs are structured-cloned even when bitmap transfer is a delta | High performance | `sceneToEngine`, `WorkerRenderCommand` | engine IR + editor render | Introduce a backward-compatible short resource handle derived from `assetId`. |
-| Worker memory | Transfer and frame budgets exist | Worker-retained image bytes are not a distinct diagnostic category | Medium-high | `renderBitmapBudget.ts` | editor render | Account resident source bitmaps and include them in admission diagnostics. |
-| Raster masks | Main path supports canonical mask assets | Worker eligibility/resource collection does not cover every canonical mask path | High correctness | `sceneCompositing.ts`, `collectImageBitmaps.ts` | editor render | Gate unsupported masks or transport them through the same manifest. |
-| Thumbnail | Multiple thumbnail converters | Some paths duplicate scene conversion and can request full-resolution decodes for tiny output | High drift/performance | editor thumbnail modules | editor render/thumbnail | Reuse canonical scene conversion and add bounded preview representations. |
-| Export preload | Whole-node raster export waits | Some structural raster-flatten paths can replay before images load | High correctness | export compositor/resource collector | editor export | Centralize required-resource collection and snapshot semantics. |
-| Loading/error UX | Gray placeholder for missing image | Loading, corrupt, missing, permission, and CORS failures are indistinguishable | Medium product correctness | `replay.ts`, image inspector | editor UI + cache | Add typed failure state and accessible Retry/Replace/Remove recovery. |
-| Adaptive quality | Profile fields and prefetch helpers exist | Decode quality and prefetch depth have no runtime consumer | Medium performance | `adaptiveProfile.ts`, `viewportPrefetch.ts` | editor canvas adapter | Connect only after large-image browser benchmarks establish a benefit. |
-| Archives | Asset payloads are embedded and also emitted as files | Duplicate archive bytes; restore ignores separate files | Medium storage | archive builder/restorer | persistence | Choose one authoritative package representation and migrate compatibly. |
-| Codegen URLs | Blob URL raster fallback | No disposer contract | Medium leak | `flattenForCodegen.ts` | codegen/export | Return an explicit disposable resource bundle or avoid object URLs. |
-| Workspace evidence | Shared state is architecturally correct | Photo/Draw/Print/Motion/Codegen lack representative raster E2E workloads | Medium regression risk | existing Playwright corpus | editor E2E | Add generated large/reused/oriented fixtures and public-UI journeys. |
+Status key: DONE = resolved 2026-08-09 (raster asset architecture pass);
+PARTIAL = foundation landed, product surface remains; OPEN = unchanged.
+
+| Area | Current implementation | Problem | Severity | Evidence | Status |
+| --- | --- | --- | --- | --- | --- |
+| EXIF | Ingestion extracts orientation via bounded parser; asset metadata records it; displayed dimensions are orientation-aware | Mirrored orientations could drift across display/thumbnail/export; none were parsed at ingestion | High correctness | `packages/import/src/metadata/exif.ts`, `ingestionMetadata.test.ts` | DONE — decode invariant: browser decoders normalize; Varve never double-applies |
+| ICC metadata | Ingestion extracts JPEG/PNG/WebP/TIFF profiles into a deduplicated `Document.iccProfiles` registry; assets reference by id with valid/invalid status | Raster assets stored no source profile | High print/colour | `packages/import/src/metadata/icc.ts`, scene `IccProfileEntry` | DONE (extraction + storage); conversion through the working space remains an explicit future phase with numeric fixtures |
+| Large visible photo | Full browser decode | One source above budget is repeatedly decoded and has no viewport representation | High memory/performance | `packages/engine/src/imageCache.ts` | OPEN — raster-layer pyramid trigger measured at 2048² (ADR-0214); photo-fill pyramid deferred pending browser decode benchmarks |
+| Worker IR identity | IR carries the short content-addressed asset handle; registry resolves to the loadable source | Embedded data URLs were structured-cloned even when bitmap transfer is a delta | High performance | `imageResourceRegistry.ts`, `sceneToEngine.ts`; measured 205x structured-clone reduction | DONE |
+| Worker memory | Transfer/frame budgets exist; resident source bytes now reported + accounted; admission includes residency | Worker-retained image bytes were not a distinct diagnostic category | Medium-high | `renderBitmapBudget.ts`, `workerHost.ts` | DONE |
+| Raster masks | Masked fills are collected (alphaMask) and refused by the worker (A-without-M fallback) | Worker resource collection ignored alpha-mask resources | High correctness | `collectImageBitmaps.ts` | DONE |
+| Thumbnail | Multiple thumbnail converters | Some paths duplicate scene conversion and can request full-resolution decodes for tiny output | High drift/performance | editor thumbnail modules | OPEN — canonical conversion reuse; bounded preview representations deferred |
+| Export preload | Structural export runs a collect → settle → preflight → render barrier with typed failures, timeout and cancellation | Some structural raster-flatten paths could replay before images load | High correctness | `export/resourceReadiness.ts`, `compositor.ts`, `SpecPanel/export.ts` | DONE |
+| Loading/error UX | Typed failure model; placeholders distinguish loading from permanent failure; recovery hints per code | Loading, corrupt, missing, permission, and CORS failures were indistinguishable | Medium product correctness | `imageErrors.ts`, `imagePlaceholder.ts` | PARTIAL — canvas/export foundation landed; Inspector/relink UI flows remain |
+| Adaptive quality | Profile fields and prefetch helpers exist | Decode quality and prefetch depth have no runtime consumer | Medium performance | `adaptiveProfile.ts`, `viewportPrefetch.ts` | OPEN — connect only after large-image browser benchmarks establish a benefit |
+| Archives | Asset payloads are embedded and also emitted as files | Duplicate archive bytes; restore ignores separate files | Medium storage | archive builder/restorer | OPEN |
+| Codegen URLs | Blob URL raster fallback | No disposer contract | Medium leak | `flattenForCodegen.ts` | OPEN |
+| Workspace evidence | Shared state is architecturally correct | Photo/Draw/Print/Motion/Codegen lack representative raster E2E workloads | Medium regression risk | existing Playwright corpus | OPEN |
 
 ## Validation baseline
 
@@ -115,6 +134,14 @@ p50 values: 0.59 ms at 100 nodes, 4.51 ms at 1,000, 31.29 ms at 10,000, and
 236.48 ms at 50,000. This benchmark measures JS dispatch, not browser decode or
 raster paint. Image-specific browser latency and memory baselines remain a
 required follow-up; no claim is made from the vector-only numbers.
+
+Worker IR transport (2026-08-09, Node 26 structured-clone bench,
+`packages/engine/src/bench/imageResourceTransport.bench.ts`): legacy IR
+carrying a 2 MiB embedded data URL clones in 28.93 ms mean; the same scene
+with resource handles clones in 0.14 ms (205x faster); 100 placements of one
+asset clone in 1.12 ms. IR-size regression tests
+(`packages/engine/src/bench/ir-size.test.ts`) pin the payload-free IR at
+<1/1000th of the legacy serialized size.
 
 ## Extension rules
 
