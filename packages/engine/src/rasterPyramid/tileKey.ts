@@ -16,6 +16,13 @@
 
 export const PYRAMID_RESAMPLER_VERSION = 1;
 
+/**
+ * Gutter tiles (brief §20) carry one ring of neighbour texels and are keyed
+ * with a distinct suffix so plain and gutter versions never collide.
+ */
+export const PYRAMID_GUTTER_TEXELS = 1;
+export const PYRAMID_GUTTER_KEY_SUFFIX = ':g1';
+
 export interface RasterPyramidTileId {
   readonly layerId: string;
   readonly level: number;
@@ -40,6 +47,7 @@ export function sourceTileKey(col: number, row: number): string {
 
 export interface PyramidSourceTile {
   readonly version: number;
+  readonly pixels?: Uint8ClampedArray | ArrayLike<number>;
 }
 
 /** Accepts either the scene Map or the engine-IR Record form of a tile table. */
