@@ -4,7 +4,12 @@ import type { RenderItem } from '@varve/engine';
 import { applyAffine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { Canvas2DBackend } from '../canvas2d/backend';
-import { applyItemAffine, lineTessellationVertexCount, WebGPUBackend } from './backend';
+import {
+  applyItemAffine,
+  isGpuBatchSupported,
+  lineTessellationVertexCount,
+  WebGPUBackend,
+} from './backend';
 
 const FIXTURE_ITEMS: RenderItem[] = [
   {
@@ -80,6 +85,51 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       effects: [],
     };
     expect(lineTessellationVertexCount(LINE_ITEM)).toBe(6);
+  });
+
+  it('fails closed for batches whose paint or ordering semantics WebGPU cannot reproduce', () => {
+    const solidRect = FIXTURE_ITEMS[0]!;
+    const imageRect: RenderItem = {
+      ...solidRect,
+      fills: [
+        {
+          type: 'image',
+          src: 'data:image/png;base64,AAAA',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    };
+    const strokedRect: RenderItem = {
+      ...solidRect,
+      strokes: [
+        {
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          weight: 1,
+          align: 'center',
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'butt',
+          join: 'miter',
+          miterLimit: 4,
+          visible: true,
+        },
+      ],
+    };
+    const blendedRect: RenderItem = { ...solidRect, blendMode: 'multiply' };
+
+    expect(isGpuBatchSupported([solidRect])).toBe(true);
+    expect(isGpuBatchSupported([solidRect, imageRect])).toBe(false);
+    expect(isGpuBatchSupported([strokedRect])).toBe(false);
+    expect(isGpuBatchSupported([blendedRect])).toBe(false);
+    // Line tessellation currently uses a fixed width and therefore cannot
+    // claim semantic parity with the Canvas2D stroke contract.
+    expect(isGpuBatchSupported([FIXTURE_ITEMS[2]!])).toBe(false);
   });
 
   it('applyItemAffine matches @varve/shared applyAffine (a·x+c·y+e)', () => {
