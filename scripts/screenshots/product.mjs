@@ -459,7 +459,7 @@ async function warmUp() {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   try {
-    await page.goto(BASE + '/', { timeout: 180000, waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE}/`, { timeout: 180000, waitUntil: 'domcontentloaded' });
     await page
       .getByRole('button', { name: /^new$/i })
       .waitFor({ state: 'visible', timeout: 180000 });
