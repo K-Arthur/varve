@@ -1,204 +1,38 @@
 {
-  "version": "2026-08-08",
-  "cycles": {
-    "shared": {
-      "count": 0,
-      "cycles": []
-    },
-    "engine": {
-      "count": 3,
-      "cycles": [
-        "filters.ts → types.ts",
-        "mockup/warpReplay.ts → replay.ts",
-        "replay.ts → shadowSource.ts"
-      ]
-    },
-    "scene": {
-      "count": 11,
-      "cycles": [
-        "mockup/types.ts → types.ts",
-        "component-sync.ts → document-components.ts → document-nodes.ts → document.ts",
-        "document-components.ts → document-nodes.ts → document.ts",
-        "document-components.ts → document.ts",
-        "document-pages.ts → document.ts",
-        "document-pages.ts → document.ts → pageNumbering.ts",
-        "document-pages.ts → document.ts → pasteboardLayout.ts",
-        "document.ts → proof.ts",
-        "document.ts → version-migrations-v217.ts → version.ts",
-        "document.ts → version-migrations-v218.ts → version.ts",
-        "document.ts → typography.ts → version-migrations-v218.ts → version.ts"
-      ]
-    },
-    "ui": {
-      "count": 0,
-      "cycles": []
-    },
-    "compositor": {
-      "count": 0,
-      "cycles": []
-    },
-    "import": {
-      "count": 0,
-      "cycles": []
-    },
-    "prototype": {
-      "count": 0,
-      "cycles": []
-    },
-    "codegen": {
-      "count": 0,
-      "cycles": []
-    },
-    "layout": {
-      "count": 0,
-      "cycles": []
-    },
-    "platform": {
-      "count": 0,
-      "cycles": []
-    },
-    "help": {
-      "count": 0,
-      "cycles": []
-    },
-    "ai": {
-      "count": 0,
-      "cycles": []
-    },
-    "collab": {
-      "count": 0,
-      "cycles": []
-    },
-    "print": {
-      "count": 0,
-      "cycles": []
-    },
-    "home": {
-      "count": 0,
-      "cycles": []
-    },
-    "editor": {
-      "count": 3,
-      "cycles": [
-        "render/workerHost.ts → render/workerRenderSpan.ts",
-        "components/Inspector/sectionRegistry.ts → context/types.ts → tools/types.ts → workspace/workspaceTypes.ts",
-        "components/Inspector/sectionRegistry.ts → context/types.ts → hitTest/HitTestEngine.ts → hitTest/index.ts → tools/types.ts → warp/warpActions.ts → warp/warpContainerRender.ts → workspace/workspaceTypes.ts"
-      ]
-    }
-  },
+  "version": "2026-08-09",
+  "cycles": {},
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
-      "lines": 1255,
-      "imports": 55,
+      "lines": 939,
+      "imports": 56,
       "overBudget": true
     },
     "packages/editor/src/CanvasArea.tsx": {
-      "lines": 3608,
-      "imports": 49,
+      "lines": 3375,
+      "imports": 50,
       "overBudget": true
     },
     "packages/editor/src/Menubar.tsx": {
-      "lines": 2299,
+      "lines": 2347,
       "imports": 15,
       "overBudget": true
     },
     "packages/home/src/HomeShell.tsx": {
-      "lines": 1172,
+      "lines": 1182,
       "imports": 31,
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 9117,
-      "imports": 68,
+      "lines": 9234,
+      "imports": 71,
       "overBudget": true
     }
   },
-  "complexity": {
-    "shared": {
-      "average": 24.647058823529413,
-      "max": 74,
-      "files": 34
-    },
-    "engine": {
-      "average": 30.333333333333332,
-      "max": 664,
-      "files": 327
-    },
-    "scene": {
-      "average": 41.70909090909091,
-      "max": 364,
-      "files": 165
-    },
-    "ui": {
-      "average": 11.690721649484535,
-      "max": 113,
-      "files": 97
-    },
-    "compositor": {
-      "average": 14.25,
-      "max": 83,
-      "files": 8
-    },
-    "import": {
-      "average": 34.76,
-      "max": 159,
-      "files": 25
-    },
-    "prototype": {
-      "average": 23,
-      "max": 63,
-      "files": 16
-    },
-    "codegen": {
-      "average": 49.19444444444444,
-      "max": 293,
-      "files": 36
-    },
-    "layout": {
-      "average": 1,
-      "max": 1,
-      "files": 1
-    },
-    "platform": {
-      "average": 28.818181818181817,
-      "max": 117,
-      "files": 22
-    },
-    "help": {
-      "average": 4.166666666666667,
-      "max": 36,
-      "files": 12
-    },
-    "ai": {
-      "average": 9.333333333333334,
-      "max": 20,
-      "files": 3
-    },
-    "collab": {
-      "average": 2,
-      "max": 2,
-      "files": 1
-    },
-    "print": {
-      "average": 2.8,
-      "max": 5,
-      "files": 5
-    },
-    "home": {
-      "average": 21.944444444444443,
-      "max": 112,
-      "files": 36
-    },
-    "editor": {
-      "average": 27.377158034528552,
-      "max": 905,
-      "files": 753
-    }
-  },
+  "complexity": {},
   "global": {
-    "max_cycles": 19,
-    "max_unstable": 47,
+    "max_cycles": 2,
+    "max_unstable": 5,
     "max_layer_violations": 0,
     "max_unused_exports": 10
   }
