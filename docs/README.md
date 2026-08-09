@@ -173,6 +173,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0211-multi-window-close-recovery.md` | Multi-window close recovery |
 | `adr/0212-multi-window-browser-fallback.md` | Multi-window browser fallback |
 | `adr/0213-multi-window-multimodal-pipeline.md` | Multi-window multimodal pipeline |
+| `adr/0214-multi-resolution-tiled-pyramid.md` | Multi-resolution tiled raster pyramid (display LOD) |
 
 | `adr/0016-tables-and-color-modifiers.md` | Native tables + linked color modifiers |
 ## Architecture Docs (current state)
