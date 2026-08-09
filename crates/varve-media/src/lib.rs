@@ -25,6 +25,6 @@ mod decode;
 mod limits;
 mod probe;
 
-pub use decode::{decode_frames, decode_frames_base64, DecodedFrame};
+pub use decode::{DecodedFrame, DecodedFrameJson, decode_frames, decode_frames_base64};
 pub use limits::{DecodeLimits, DEFAULT_LIMITS};
 pub use probe::{probe, MediaProbe};
