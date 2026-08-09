@@ -15,7 +15,6 @@ import {
   type ExportFontRequest,
   encodeRasterSurface,
   fitRasterDimensions,
-  getImageCache,
   insertPngTextChunks,
   type MetadataContent,
   metadataToPngEntries,
@@ -36,7 +35,7 @@ import {
   composeFlattenedRasterAssetsForNode,
   findFlattenBoundaries,
 } from '../../export/compositor';
-import { resolveSourcesForLoad } from '../../render/collectImageBitmaps';
+import { failureWarning, settleEngineImageResources } from '../../export/resourceReadiness';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
 import { worldBBox } from './measurement';
@@ -49,6 +48,8 @@ export interface ExportOptions {
   quality?: number;
   transparency?: boolean;
   matteColor?: [number, number, number, number];
+  /** Cancellation for the export barrier (resource settlement). */
+  signal?: AbortSignal;
   /**
    * Canonical post-render pipeline (resize → sharpen → colour → dither).
    * When omitted the surface is encoded directly — matching today's behaviour
@@ -62,6 +63,8 @@ export interface ExportOptions {
 export interface RasterExportResult {
   blob: Blob;
   warnings: string[];
+  /** Typed image-resource failures classified during export preflight. */
+  resourceFailures: import('../../export/resourceReadiness').FailedResource[];
 }
 
 function collectEngineFonts(nodes: readonly EngineNode[]): ExportFontRequest[] {
@@ -84,23 +87,6 @@ function collectEngineFonts(nodes: readonly EngineNode[]): ExportFontRequest[] {
     }
   }
   return requests;
-}
-
-async function preloadEngineImages(nodes: readonly EngineNode[]): Promise<void> {
-  const sources = new Set<string>();
-  for (const current of nodes) {
-    for (const fill of current.fills ?? []) {
-      if (fill.visible === false) continue;
-      if (fill.type === 'image' && fill.image?.src) sources.add(fill.image.src);
-      if (fill.type === 'pattern' && fill.pattern?.tileSrc) sources.add(fill.pattern.tileSrc);
-    }
-    if (current.alphaMask) sources.add(current.alphaMask);
-  }
-  // IR identities may be canonical resource handles; resolve them to
-  // loadable cache sources before touching the cache.
-  const loadable = resolveSourcesForLoad([...sources]);
-  if (loadable === null) return;
-  await Promise.all(loadable.map((source) => getImageCache().load(source)));
 }
 
 function unionBounds(
@@ -172,9 +158,29 @@ export async function exportNodeAsRaster(
   // silently renders with the fallback font and the export looks correct at
   // a glance but is wrong — deterministic export requires settled fonts.
   await awaitExportsReady(collectEngineFonts(flattened.nodes));
-  await preloadEngineImages(flattened.nodes);
 
   const warnings: string[] = [];
+  // Export barrier: no replay may begin until every required image resource
+  // has settled (loaded, permanently failed, or timed out). Permanent
+  // failures and pending resources are reported explicitly — the export
+  // never silently omits an image, and never waits forever.
+  const settlement = await settleEngineImageResources(flattened.nodes, {
+    signal: opts.signal,
+  });
+  const resourceFailures =
+    settlement.status === 'failed' || settlement.status === 'timeout'
+      ? [...settlement.failures]
+      : [];
+  warnings.push(...resourceFailures.map((failure) => failureWarning(failure)));
+  if (settlement.status === 'cancelled') {
+    throw new DOMException('Export cancelled', 'AbortError');
+  }
+  if (settlement.status === 'timeout') {
+    warnings.push(
+      `Export proceeded while ${settlement.pending.length} image resource(s) were still loading; any that complete late cannot appear in this export. Run the export again once images are visible on canvas.`,
+    );
+  }
+
   const ir = await eng.buildIr({ nodes: flattened.nodes });
   const bbox = exportWorldBounds(node, doc, flattened.ids, ir);
 
@@ -266,7 +272,7 @@ export async function exportNodeAsRaster(
     }
   }
 
-  return { blob, warnings };
+  return { blob, warnings, resourceFailures };
 }
 
 export async function exportNodeAsSvg(

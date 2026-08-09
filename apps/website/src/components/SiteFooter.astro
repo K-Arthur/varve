@@ -1,0 +1,421 @@
+---
+/**
+ * SiteFooter — a deliberate closing composition.
+ *
+ * Top: download band with the product line and a strong CTA.
+ * Middle: brand block (mark + wordmark + one sentence + beta status) next
+ * to four link groups.
+ * Bottom: legal/status bar (license, privacy, release status, copyright,
+ * source, contribution path).
+ * Signature: an oversized cropped VARVE wordmark whose strata planes lean
+ * subtly toward the pointer on fine pointers (no continuous animation).
+ */
+import DownloadCTA from './DownloadCTA.astro';
+import { sitePath } from '../lib/siteUrl';
+import release from '../data/release-manifest.json';
+
+const statusLabel = release.hasRelease && release.version
+  ? `Beta ${release.version}`
+  : 'Beta · no public release yet';
+---
+
+<footer class="site-footer">
+  <div class="footer-download-band">
+    <div class="container-custom footer-download-inner">
+      <div class="footer-download-copy">
+        <h2 class="footer-download-title">Design across disciplines. One canvas.</h2>
+        <p class="footer-download-sub">
+          Free, local-first, and source-available. Your work stays on your machine.
+        </p>
+      </div>
+      <div class="footer-download-actions">
+        <DownloadCTA size="large" beta />
+        <p class="footer-download-alt">
+          <a href={sitePath('/download')}>All platforms and formats</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-main container-custom">
+    <div class="footer-brand">
+      <a href={sitePath('/')} class="footer-brand-lockup">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path class="logo-strata-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
+          <path class="logo-strata-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
+          <path class="logo-strata-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
+        </svg>
+        <span>Varve</span>
+      </a>
+      <p class="footer-brand-desc">
+        A local-first design suite for vector, layout, typography, motion,
+        prototyping, and print &mdash; built in the open, shaped by its users.
+      </p>
+      <p class="footer-status" data-footer-status>
+        <span class="footer-status-dot" aria-hidden="true"></span>
+        {statusLabel}
+      </p>
+    </div>
+
+    <nav class="footer-columns" aria-label="Footer">
+      <div class="footer-section">
+        <h3>Product</h3>
+        <ul>
+          <li><a href={sitePath('/product')}>Overview</a></li>
+          <li><a href={sitePath('/features')}>Features</a></li>
+          <li><a href={sitePath('/download')}>Download</a></li>
+          <li><a href={sitePath('/releases')}>Releases</a></li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h3>Learn</h3>
+        <ul>
+          <li><a href={sitePath('/docs')}>Documentation</a></li>
+          <li><a href={sitePath('/learn/tutorials')}>Tutorials</a></li>
+          <li><a href={sitePath('/learn/examples')}>Examples</a></li>
+          <li><a href={sitePath('/learn/community')}>Community</a></li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h3>Support</h3>
+        <ul>
+          <li><a href={sitePath('/support/faq')}>FAQ</a></li>
+          <li><a href={sitePath('/support/troubleshooting')}>Troubleshooting</a></li>
+          <li><a href={sitePath('/support/known-issues')}>Known issues</a></li>
+          <li><a href={sitePath('/support/report-issue')}>Report an issue</a></li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h3>Project</h3>
+        <ul>
+          <li><a href={sitePath('/contribute')}>Contribute</a></li>
+          <li><a href={sitePath('/support-project')}>Support the project</a></li>
+          <li><a href={sitePath('/about')}>About</a></li>
+          <li><a href={sitePath('/about/license')}>License (FSL-1.1-MIT)</a></li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h3>Connect</h3>
+        <ul>
+          <li><a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+          <li><a href="https://github.com/K-Arthur/varve/discussions" target="_blank" rel="noopener noreferrer">Discussions</a></li>
+          <li><a href={sitePath('/about/security')}>Security</a></li>
+          <li><a href={sitePath('/about/privacy')}>Privacy</a></li>
+        </ul>
+      </div>
+    </nav>
+  </div>
+
+  <div class="footer-bottom container-custom">
+    <p>&copy; 2024&ndash;2026 K-Arthur. Source-available under FSL-1.1-MIT.</p>
+    <p class="footer-bottom-links">
+      <a href={sitePath('/about/license')}>License</a>
+      <a href={sitePath('/about/privacy')}>Privacy</a>
+      <a href={sitePath('/about/security')}>Security</a>
+      <a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer">Source</a>
+      <a href={sitePath('/contribute')}>Contribute</a>
+    </p>
+  </div>
+
+  <!-- Title case, matching the lockup exactly: the signature is an
+       enlargement of the wordmark, not a second, competing treatment. Mixed
+       case also gives the editorial serif its ascenders and ball terminals,
+       which all-caps would throw away. -->
+  <div class="footer-signature" aria-hidden="true" data-footer-signature>
+    <span>V</span><span>a</span><span>r</span><span>v</span><span>e</span>
+  </div>
+</footer>
+
+<script>
+  /**
+   * Subtle pointer response for the wordmark: each letter's strata lean
+   * shifts slightly toward the horizontal pointer position. Runs only on
+   * fine pointers with motion enabled; otherwise the signature stays
+   * perfectly static. One listener, transform-only updates.
+   */
+  import { isCoarsePointer, prefersMotion } from '../lib/motion';
+
+  const signature = document.querySelector<HTMLElement>('[data-footer-signature]');
+  if (signature && !isCoarsePointer() && prefersMotion()) {
+    const letters = [...signature.querySelectorAll<HTMLElement>('span')];
+    const frame = (clientX: number): void => {
+      const rect = signature.getBoundingClientRect();
+      const mid = rect.left + rect.width / 2;
+      const ratio = Math.max(-1, Math.min(1, (clientX - mid) / (rect.width / 2 || 1)));
+      letters.forEach((letter, i) => {
+        const skew = ratio * (i - (letters.length - 1) / 2) * 0.35;
+        letter.style.transform = `translateX(${skew.toFixed(2)}px)`;
+      });
+    };
+    let raf = 0;
+    document.addEventListener(
+      'pointermove',
+      (e) => {
+        if (e.pointerType !== 'mouse') return;
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          frame(e.clientX);
+        });
+      },
+      { passive: true },
+    );
+  }
+</script>
+
+<style>
+  .site-footer {
+    background: var(--surface-footer);
+    color: var(--text-footer);
+    border-top: 1px solid var(--border-footer);
+  }
+
+  /* --- Top download band --- */
+  .footer-download-band {
+    border-bottom: 1px solid var(--border-footer);
+    background:
+      linear-gradient(115deg, var(--surface-inset) 0%, var(--surface-footer) 60%);
+  }
+
+  .footer-download-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2.5rem;
+    padding-top: 3.5rem;
+    padding-bottom: 3.5rem;
+  }
+
+  .footer-download-title {
+    font-family: var(--font-editorial);
+    font-size: clamp(1.6rem, 2.7vw + 0.5rem, 2.5rem);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    color: var(--text-primary-on-overlay);
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-download-sub {
+    color: var(--text-footer-muted);
+    font-size: 1rem;
+  }
+
+  .footer-download-actions {
+    flex: 0 0 auto;
+    text-align: center;
+  }
+
+  .footer-download-alt {
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .footer-download-alt a {
+    color: var(--text-footer-link);
+  }
+
+  /* --- Brand + columns --- */
+  .footer-main {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.1fr) 2.2fr;
+    gap: 3rem;
+    padding-top: 3rem;
+    padding-bottom: 2.5rem;
+  }
+
+  /* Same wordmark treatment as the header: editorial serif, low optical
+     size, weight 600. The lockup must read identically everywhere. */
+  .footer-brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-editorial);
+    font-size: 1.35rem;
+    font-weight: 600;
+    font-variation-settings: 'opsz' 24;
+    letter-spacing: -0.005em;
+    color: var(--text-footer);
+    text-decoration: none;
+  }
+
+  .footer-brand-lockup:visited {
+    color: var(--text-footer);
+  }
+
+  .footer-brand-desc {
+    margin-top: 0.9rem;
+    max-width: 30ch;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    color: var(--text-footer-muted);
+  }
+
+  .footer-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+    font-size: 0.8125rem;
+    color: var(--text-footer-muted);
+    border: 1px solid var(--border-footer);
+    border-radius: 9999px;
+    padding: 0.35rem 0.85rem;
+  }
+
+  .footer-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--status-partial);
+  }
+
+  .footer-columns {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2rem;
+  }
+
+  .footer-section h3 {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1rem;
+    color: var(--text-footer-heading);
+  }
+
+  .footer-section ul {
+    list-style: none;
+  }
+
+  .footer-section li {
+    margin-bottom: 0.55rem;
+  }
+
+  .footer-section a {
+    color: var(--text-footer-link);
+    font-size: 0.9375rem;
+    text-decoration: none;
+  }
+
+  .footer-section a:visited {
+    color: var(--text-footer-link);
+  }
+
+  .footer-section a:hover {
+    color: var(--text-footer-link-hover);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* --- Bottom bar --- */
+  .footer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    padding-top: 1.5rem;
+    padding-bottom: 2rem;
+    border-top: 1px solid var(--border-footer);
+    font-size: 0.875rem;
+    color: var(--text-footer-muted);
+  }
+
+  .footer-bottom-links {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+
+  .footer-bottom-links a {
+    color: var(--text-footer-link);
+    text-decoration: none;
+    font-size: 0.875rem;
+  }
+
+  .footer-bottom-links a:hover {
+    color: var(--text-footer-link-hover);
+    text-decoration: underline;
+  }
+
+  /* --- Signature wordmark --- */
+  .footer-signature {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+    margin-top: 0.5rem;
+    user-select: none;
+  }
+
+  /* The wordmark is set in the editorial serif at its display optical size:
+     at this scale the thick/thin contrast is the point, and it ties the
+     closing signature back to the hero. Cropped at the baseline on purpose,
+     so the mark reads as a section cut through the type rather than a
+     clipped heading.
+
+     Single flat colour, not a gradient: at this size a three-stop brand
+     gradient fought the footer's own surface and made the mark look like a
+     rendering artefact. One muted ink lets the shapes do the work. */
+  .footer-signature span {
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    font-size: clamp(5rem, 16vw, 15rem);
+    line-height: 0.82;
+    letter-spacing: 0.005em;
+    transform: translateY(0.22em);
+    color: var(--footer-signature-ink);
+    transition: transform 0.4s var(--ease-default);
+    will-change: transform;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .footer-signature span {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 980px) {
+    .footer-main {
+      grid-template-columns: 1fr;
+      gap: 2.5rem;
+    }
+
+    .footer-columns {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .footer-download-inner {
+      flex-direction: column;
+      text-align: center;
+      gap: 1.75rem;
+    }
+
+    .footer-columns {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2rem 1.5rem;
+    }
+
+    .footer-bottom {
+      flex-direction: column;
+      text-align: center;
+      justify-content: center;
+    }
+
+    .footer-bottom-links {
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .footer-columns {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

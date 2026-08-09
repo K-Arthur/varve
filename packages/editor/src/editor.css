@@ -2759,10 +2759,16 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-secondary);
 }
+/* Brand surface, not interface chrome: the welcome screen is the one place
+   inside the app that speaks in the marketing voice, so it takes the
+   editorial serif. See the type system note in @varve/ui tokens.css. */
 .welcome-dialog__heading {
   margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
+  font-family: var(--font-editorial);
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  font-variation-settings: "opsz" 48;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 .welcome-dialog__subtitle {
