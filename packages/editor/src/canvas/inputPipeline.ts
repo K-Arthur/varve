@@ -27,6 +27,14 @@ import {
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
+import {
+  decayRateFromFrameRetention,
+  frameDisplacementToVelocity,
+  integrateVelocity,
+  navigationFrameDeltaMs,
+  prefersReducedNavigationMotion,
+  stepDecayedMotion,
+} from '../tools/navigationPhysics';
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import { recordInputDiagnostic } from './inputDiagnostics';
@@ -148,12 +156,14 @@ export function useCanvasInputs({
   autoPanFrameKey.current ??= createCanvasFrameKey('auto-pan');
   const autoPanActive = useRef(false);
   const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const autoPanFrameTime = useRef<number | null>(null);
 
   const stopAutoPan = useCallback(() => {
     const frameKey = autoPanFrameKey.current;
     if (frameKey) cancelCanvasFrame(frameKey);
     autoPanActive.current = false;
     autoPanVelocity.current = { x: 0, y: 0 };
+    autoPanFrameTime.current = null;
   }, []);
 
   const internalSnapSessionRef = useRef(createSnapSession());
@@ -330,13 +340,22 @@ export function useCanvasInputs({
               const frameKey = autoPanFrameKey.current;
               if (!frameKey) return;
               autoPanActive.current = true;
-              const tick = () => {
+              const tick = (frameTimeMs: number) => {
                 const v = autoPanVelocity.current;
                 if (v.x === 0 && v.y === 0) {
                   stopAutoPan();
                   return;
                 }
-                editor.panBy(v.x, v.y);
+                const elapsedMs = navigationFrameDeltaMs(autoPanFrameTime.current, frameTimeMs);
+                autoPanFrameTime.current = frameTimeMs;
+                const delta = integrateVelocity(
+                  {
+                    x: frameDisplacementToVelocity(v.x),
+                    y: frameDisplacementToVelocity(v.y),
+                  },
+                  elapsedMs,
+                );
+                editor.panBy(delta.x, delta.y);
                 scheduleCanvasFrame(frameKey, 'input', tick);
               };
               scheduleCanvasFrame(frameKey, 'input', tick);
@@ -426,15 +445,30 @@ export function useCanvasInputs({
 
     const inertiaRef = { current: { vx: 0, vy: 0, active: false } };
     const inertiaFrameKey = createCanvasFrameKey('wheel-inertia');
-    const INERTIA_FRICTION = 0.9;
-    const INERTIA_THRESHOLD = 0.5;
+    const inertiaDecayRate = decayRateFromFrameRetention(0.9);
+    const inertiaStopSpeed = frameDisplacementToVelocity(0.5);
+    let inertiaFrameTime: number | null = null;
 
     function startInertia() {
       if (inertiaRef.current.active) return;
+      if (prefersReducedNavigationMotion()) {
+        inertiaRef.current.vx = 0;
+        inertiaRef.current.vy = 0;
+        return;
+      }
       inertiaRef.current.active = true;
-      const tick = () => {
+      inertiaFrameTime = null;
+      const tick = (frameTimeMs: number) => {
         const v = inertiaRef.current;
-        if (Math.abs(v.vx) < INERTIA_THRESHOLD && Math.abs(v.vy) < INERTIA_THRESHOLD) {
+        const elapsedMs = navigationFrameDeltaMs(inertiaFrameTime, frameTimeMs);
+        inertiaFrameTime = frameTimeMs;
+        const step = stepDecayedMotion(
+          { x: v.vx, y: v.vy },
+          elapsedMs,
+          inertiaDecayRate,
+          inertiaStopSpeed,
+        );
+        if (step.stopped) {
           v.active = false;
           v.vx = 0;
           v.vy = 0;
@@ -442,9 +476,9 @@ export function useCanvasInputs({
         }
         // Relative, so a frame that runs before React commits the previous
         // step still advances the scroll instead of re-applying it.
-        editor.panBy(v.vx, v.vy);
-        v.vx *= INERTIA_FRICTION;
-        v.vy *= INERTIA_FRICTION;
+        editor.panBy(step.delta.x, step.delta.y);
+        v.vx = step.velocity.x;
+        v.vy = step.velocity.y;
         scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
       };
       scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
@@ -455,6 +489,7 @@ export function useCanvasInputs({
       inertiaRef.current.active = false;
       inertiaRef.current.vx = 0;
       inertiaRef.current.vy = 0;
+      inertiaFrameTime = null;
     }
 
     const onWheel = (e: WheelEvent) => {
@@ -507,12 +542,17 @@ export function useCanvasInputs({
       }
       editor.panBy(action.deltaX, action.deltaY);
       if (action.applyInertia) {
-        inertiaRef.current.vx = inertiaRef.current.vx * 0.4 + action.deltaX * 0.6;
-        inertiaRef.current.vy = inertiaRef.current.vy * 0.4 + action.deltaY * 0.6;
-        const maxV = 80;
+        // Cancel the previously scheduled continuation before replacing its
+        // velocity. `cancelInertia` also zeros the stored velocity, so doing
+        // this after assignment would silently disable wheel inertia.
+        const previousVx = inertiaRef.current.vx;
+        const previousVy = inertiaRef.current.vy;
+        cancelInertia();
+        inertiaRef.current.vx = previousVx * 0.4 + frameDisplacementToVelocity(action.deltaX) * 0.6;
+        inertiaRef.current.vy = previousVy * 0.4 + frameDisplacementToVelocity(action.deltaY) * 0.6;
+        const maxV = frameDisplacementToVelocity(80);
         inertiaRef.current.vx = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vx));
         inertiaRef.current.vy = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vy));
-        cancelInertia();
         startInertia();
       } else {
         // Trackpad input already carries its own OS momentum; adding app-side
