@@ -8,7 +8,7 @@ import { compositeRange, createCompositeState } from './compositor';
 import { MediaFrameCache, mediaFrameCacheKey } from './frameCache';
 import { AnimatedMediaSession, MediaRegistry } from './index';
 import { MediaFrameScheduler } from './scheduler';
-import type { AnimatedImageMetadata, DecodedSourceFrame } from './types';
+import type { AnimatedAssetMetadata, DecodedSourceFrame } from './types';
 
 function solid(w: number, h: number, value: number): Uint8Array {
   const px = new Uint8Array(w * h * 4);
@@ -36,7 +36,7 @@ function sourceFrame(index: number, value: number): DecodedSourceFrame {
   };
 }
 
-const metadata: AnimatedImageMetadata = {
+const metadata: AnimatedAssetMetadata = {
   kind: 'gif',
   frameCount: 10,
   durationMs: 400,

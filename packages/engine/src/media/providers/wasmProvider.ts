@@ -4,7 +4,7 @@
  * output is identical across desktop and web).
  */
 
-import type { DecodedSourceFrame, MediaFormat } from '../types';
+import type { MediaFormat } from '../types';
 import type { DecodeRange, MediaDecoderProvider } from './types';
 
 interface WasmMediaModule {

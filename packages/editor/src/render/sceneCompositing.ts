@@ -96,12 +96,26 @@ function computeHasImageFills(doc: Document): boolean {
 function sceneHasUnsupportedWorkerRasterResources(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
-    const fills = (node as { fills?: Array<{ type?: string; visible?: boolean }> }).fills;
+    const fills = (node as { fills?: Array<{ type?: string; visible?: boolean; image?: { assetId?: string } }> }).fills;
     if (fills?.some((fill) => fill?.type === 'pattern' && fill.visible !== false)) return true;
     if (
       node.kind === 'shape' &&
       node.backgroundRemoval?.maskDataUrl &&
       fills?.some((fill) => fill?.type === 'image' && fill.visible !== false)
+    ) {
+      return true;
+    }
+    // Animated-media fills render on the main thread: their frames arrive
+    // asynchronously through the session frame cache (bitmap promotion +
+    // reframe contract), which the worker transport does not carry.
+    if (
+      fills?.some(
+        (fill) =>
+          fill?.type === 'image' &&
+          fill.visible !== false &&
+          fill.image?.assetId !== undefined &&
+          doc.assets?.[fill.image.assetId]?.animated !== undefined,
+      )
     ) {
       return true;
     }

@@ -14,15 +14,15 @@
  *    precision loss (canvas output is 8-bit regardless, so no extra step).
  */
 
+import type { RasterColorEncoding } from '@varve/shared';
 import {
   isAnalyticRgbWorkingSpace,
   type RgbPrimariesName,
   type TransferFunctionName,
 } from '@varve/shared';
-import type { RasterColorEncoding } from '@varve/shared';
 import { DEFAULT_PIPELINE_WORKING_SPACE } from '../exportPipeline/pipeline';
-import { createAnalyticRgbTransform, type RasterColorTransform } from './transform';
 import { buildMatrixProfile, defaultTransferFor } from './profiles';
+import { createAnalyticRgbTransform, type RasterColorTransform } from './transform';
 
 /** Named destination encodings offered by the export UI. */
 export const EXPORT_COLOR_POLICIES = ['srgb', 'display-p3', 'adobe-rgb', 'pro-photo'] as const;
@@ -108,7 +108,7 @@ export async function convertExportImageData(
   policy: RasterExportColorPolicy | undefined,
   signal?: AbortSignal,
 ): Promise<string[]> {
-  if (!policy || !policy.destination || policy.destination === 'srgb') return [];
+  if (!policy?.destination || policy.destination === 'srgb') return [];
   const transform = createExportTransform(policy);
   if (!transform) {
     return [

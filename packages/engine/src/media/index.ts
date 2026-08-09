@@ -15,7 +15,7 @@ import {
   mediaProviderChain,
 } from './providers/dispatch';
 import { AnimatedMediaSession, type MediaSessionOptions } from './session';
-import type { AnimatedImageMetadata } from './types';
+import type { AnimatedAssetMetadata } from './types';
 
 export { MediaCheckpointStore } from './checkpoints';
 export {
@@ -111,12 +111,19 @@ export class MediaRegistry {
   }
 
   /** Get or create a session for an asset (dedup by asset id + bytes). */
-  acquire(id: string, bytes: Uint8Array, metadata: AnimatedImageMetadata): AnimatedMediaSession {
+  acquire(id: string, bytes: Uint8Array, metadata: AnimatedAssetMetadata): AnimatedMediaSession {
     const existing = this.sessions.get(id);
     if (existing) return existing;
     const session = new AnimatedMediaSession(id, bytes, metadata, this.sessionOptions());
     this.sessions.set(id, session);
     return session;
+  }
+
+  /** Keep only the given asset ids; dispose and drop everything else. */
+  retain(liveIds: ReadonlySet<string>): void {
+    for (const id of [...this.sessions.keys()]) {
+      if (!liveIds.has(id)) this.release(id);
+    }
   }
 
   release(id: string): void {

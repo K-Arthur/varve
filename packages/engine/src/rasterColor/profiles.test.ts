@@ -7,8 +7,8 @@
  * trips byte-for-byte through Varve's own chunk reconstruction.
  */
 import { describe, expect, it } from 'vitest';
-import { buildMatrixProfile, parseIccHeader, profileDescriptionFor } from './profiles';
 import { insertJpegIccProfile } from './embed';
+import { buildMatrixProfile, parseIccHeader, profileDescriptionFor } from './profiles';
 
 function jpegSoi(): Uint8Array {
   // SOI + a tiny COM segment + SOS marker (real JPEG framing).

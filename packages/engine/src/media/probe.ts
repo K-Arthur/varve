@@ -2,7 +2,7 @@
  * Synchronous container probing for animated GIF / APNG / animated WebP.
  *
  * Probing reads container structure only — no pixel decode. It is the
- * authoritative source for `AnimatedImageMetadata`: per-frame timing, rects,
+ * authoritative source for `AnimatedAssetMetadata`: per-frame timing, rects,
  * blend/disposal, loop count, and canvas size. Detection is content-based
  * (never the file extension), and static variants of each format are
  * distinguished without false positives.
@@ -16,9 +16,7 @@
 
 import {
   type AnimatedFrameMetadata,
-  type AnimatedImageMetadata,
   MEDIA_DECODE_LIMITS,
-  type MediaBlend,
   type MediaDisposal,
   type MediaFormat,
   MediaProbeError,
