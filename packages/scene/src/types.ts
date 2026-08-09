@@ -511,6 +511,53 @@ export interface ImageCropRect {
 export type AssetStorageKind = 'embedded';
 
 /**
+ * EXIF orientation tag value (1-8) of a raster source. Kept as a local
+ * literal union so the scene model does not depend on the engine's
+ * metadata module; values are structurally identical.
+ */
+export type SourceExifOrientation = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+/**
+ * A colour profile stored once in `Document.iccProfiles` and referenced by
+ * id from any number of `DocumentAsset.metadata.iccProfileId` entries, so
+ * identical profiles are never duplicated per asset or per placement.
+ */
+export interface IccProfileEntry {
+  /** Content-addressed id (`icc-<hash>`), stable for identical bytes. */
+  id: string;
+  /** Base64-encoded profile bytes (the canonical payload). */
+  profileBase64: string;
+  byteLength: number;
+  /** Content hash of `profileBase64` (sync, non-cryptographic). */
+  hash: string;
+  /** ASCII `desc` tag, when present and printable. */
+  description?: string;
+}
+
+/**
+ * Normalized ingestion metadata attached to a `DocumentAsset`. Rendering
+ * metadata (orientation, ICC status) is understood once here, not per fill.
+ *
+ * Decode invariant: browser decoders apply EXIF orientation, so the decoded
+ * representation is orientation-normalized. `orientation` records the
+ * stored tag so callers can compute displayed dimensions; it is never
+ * re-applied to decoded pixels.
+ */
+export interface ImageSourceMetadata {
+  /** Stored EXIF orientation tag; absent means no rotation (tag 1). */
+  orientation?: SourceExifOrientation;
+  /** Stored (pre-orientation) pixel dimensions of the source. */
+  pixelWidth?: number;
+  pixelHeight?: number;
+  /** Reference into `Document.iccProfiles`. */
+  iccProfileId?: string;
+  /** Outcome of ICC extraction: valid, explicitly invalid, or absent. */
+  iccStatus?: 'valid' | 'invalid' | 'none';
+  /** ICC `desc` tag label (display only, never authoritative). */
+  iccDescription?: string;
+}
+
+/**
  * A document-level, content-addressed asset (v2.6+).
  *
  * Generalizes the `RasterMaskAsset` pattern (immutable payload stored once,
@@ -529,12 +576,18 @@ export interface DocumentAsset {
   mimeType: string;
   /** Present when storage === 'embedded'. */
   dataUrl: string;
-  /** Natural (undecoded-crop) pixel dimensions of the source content. */
+  /** Displayed (orientation-normalized) pixel dimensions of the source. */
   naturalWidth: number;
   naturalHeight: number;
   byteLength: number;
   /** Content hash of `dataUrl`, used for create-time dedup. */
   hash: string;
+  /**
+   * Normalized ingestion metadata (EXIF orientation, ICC status, stored
+   * pixel dimensions). Optional so documents saved before metadata
+   * extraction existed round-trip unchanged.
+   */
+  metadata?: ImageSourceMetadata;
 }
 
 /**

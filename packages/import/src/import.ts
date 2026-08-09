@@ -1,8 +1,14 @@
 import type { Affine } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
-import { addNode, createDocument, findOrCreateEmbeddedAsset, nextNodeId } from '@varve/scene';
+import {
+  addNode,
+  createDocument,
+  findOrCreateEmbeddedAsset,
+  nextNodeId,
+  upsertIccProfile,
+} from '@varve/scene';
 import { detectImageMime } from './bitmap';
-import { getBitmapInfo, importImageAsFill } from './image';
+import { importImageAsFill, inspectImageSource } from './image';
 import { getParser, getParserForData, getParserForExtension } from './registry';
 import type { ImportOptions, ImportResult } from './types';
 
@@ -68,14 +74,49 @@ function importImageAsFile(
   const { id, doc: d2 } = nextNodeId(doc);
   doc = d2;
 
+  const inspected = inspectImageSource(data);
   let fill = importImageAsFill(data, filename, { embedAsDataUrl: opts.embedImages });
-  const info = getBitmapInfo(data);
   if (opts.embedImages && fill.image) {
+    let assetMetadata: import('@varve/scene').ImageSourceMetadata | undefined;
+    if (inspected.metadata.orientation.kind === 'oriented') {
+      assetMetadata = {
+        ...(assetMetadata ?? {}),
+        orientation: inspected.metadata.orientation.orientation,
+        pixelWidth: inspected.storedWidth,
+        pixelHeight: inspected.storedHeight,
+      };
+    }
+    let profileId: string | undefined;
+    if (inspected.iccProfileBase64) {
+      const registered = upsertIccProfile(
+        doc,
+        inspected.iccProfileBase64,
+        inspected.metadata.icc.kind === 'valid'
+          ? inspected.metadata.icc.profile.description
+          : undefined,
+      );
+      doc = registered.document;
+      profileId = registered.profileId;
+    }
+    if (profileId) {
+      assetMetadata = {
+        ...(assetMetadata ?? {}),
+        iccProfileId: profileId,
+        iccStatus: 'valid',
+        ...(inspected.metadata.icc.kind === 'valid' && inspected.metadata.icc.profile.description
+          ? { iccDescription: inspected.metadata.icc.profile.description }
+          : {}),
+      };
+    } else if (inspected.metadata.icc.kind === 'invalid') {
+      assetMetadata = { ...(assetMetadata ?? {}), iccStatus: 'invalid' };
+    }
+
     const registered = findOrCreateEmbeddedAsset(doc, {
       dataUrl: fill.image.src,
-      mimeType: info.mime,
-      naturalWidth: info.w,
-      naturalHeight: info.h,
+      mimeType: inspected.mimeType,
+      naturalWidth: inspected.displayedWidth,
+      naturalHeight: inspected.displayedHeight,
+      ...(assetMetadata ? { metadata: assetMetadata } : {}),
     });
     doc = registered.document;
     fill = { ...fill, image: { ...fill.image, assetId: registered.assetId } };
@@ -83,8 +124,8 @@ function importImageAsFile(
   // Fall back to a sensible default when the format's dimensions can't be parsed
   // (e.g. rare BMP variants, future formats). The engine will show the image at
   // natural size once the async cache load completes and triggers a re-render.
-  const w = (info.w || 200) * opts.scale;
-  const h = (info.h || 200) * opts.scale;
+  const w = (inspected.displayedWidth || 200) * opts.scale;
+  const h = (inspected.displayedHeight || 200) * opts.scale;
 
   const node: SceneNode = {
     id,
