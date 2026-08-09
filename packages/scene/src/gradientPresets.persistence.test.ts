@@ -106,7 +106,7 @@ describe('2.10 -> 2.11 migration', () => {
     const migrated = migrateDocumentDetailed(oldDoc);
     expect(migrated).not.toBeNull();
     const doc = migrated?.document as { formatVersion: string; gradientPresets: unknown[] };
-    expect(doc.formatVersion).toBe('2.18');
+    expect(doc.formatVersion).toBe('2.19');
     expect(doc.gradientPresets).toEqual([]);
   });
 
@@ -124,7 +124,7 @@ describe('2.10 -> 2.11 migration', () => {
       formatVersion: string;
       gradientPresets: { id: string; name: string }[];
     };
-    expect(reloaded.formatVersion).toBe('2.18');
+    expect(reloaded.formatVersion).toBe('2.19');
     expect(reloaded.gradientPresets).toHaveLength(1);
     expect(reloaded.gradientPresets[0]!.id).toBe('gpreset-saved');
     expect(reloaded.gradientPresets[0]!.name).toBe('Saved');

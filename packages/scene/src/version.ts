@@ -5,8 +5,9 @@ import { migrateV214ToV215 } from './modifiersMigration';
 import { migrateV212ToV213 } from './version-migrations';
 import { migrateV216ToV217 } from './version-migrations-v217';
 import { migrateV217ToV218 } from './version-migrations-v218';
+import { migrateV218ToV219 } from './version-migrations-v219';
 
-export const CURRENT_DOCUMENT_VERSION = '2.18';
+export const CURRENT_DOCUMENT_VERSION = '2.19';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -39,6 +40,7 @@ export const SUPPORTED_VERSIONS = [
   '2.16',
   '2.17',
   '2.18',
+  '2.19',
 ];
 
 export interface DocumentMigration {
@@ -780,6 +782,11 @@ const migrations: DocumentMigration[] = [
     from: '2.17',
     to: '2.18',
     migrate: (raw) => migrateV217ToV218(raw),
+  },
+  {
+    from: '2.18',
+    to: '2.19',
+    migrate: (raw) => migrateV218ToV219(raw),
   },
 ];
 
