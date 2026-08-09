@@ -29,6 +29,7 @@ import {
   type SectionId,
 } from './sectionRegistry';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
+import { AnimationSection } from './sections/AnimationSection';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { ComponentSection } from './sections/ComponentSection';
 import { ConstraintSection } from './sections/ConstraintSection';
@@ -530,6 +531,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
+    add('animation', <AnimationSection nodes={nodes} />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
