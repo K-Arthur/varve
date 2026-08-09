@@ -495,6 +495,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       activeTool: state.tool,
       prototypeMode: state.prototypeMode,
       tableEdit: state.tableEdit,
+      document: state.document,
     };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
     const add = (id: SectionId, el: React.ReactNode) => {
@@ -575,6 +576,7 @@ function MultiSelectionPanel({
       activeTool: state.tool,
       prototypeMode: state.prototypeMode,
       tableEdit: state.tableEdit,
+      document: state.document,
     };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
     const add = (id: SectionId, el: React.ReactNode) => {
