@@ -88,6 +88,7 @@ const DOCUMENT_KEY_ORDER: readonly string[] = [
   'rasterMaskAssets',
   'iconAssets',
   'assets',
+  'iccProfiles',
   'mockupTemplates',
   'gradientPresets',
   'logoProject',
