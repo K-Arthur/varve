@@ -61,8 +61,9 @@ on:
     paths:
       - 'apps/website/**'
       - 'scripts/release/**'
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ['Release']
+    types: [completed]
   workflow_dispatch:
 permissions:
   contents: read
@@ -90,8 +91,9 @@ const PAGES_ACTIONS_WRITE = PAGES_GOOD.replace(
 );
 
 const PAGES_NO_RELEASE_TRIGGER = PAGES_GOOD.replace(
-  `  release:
-    types: [published]
+  `  workflow_run:
+    workflows: ['Release']
+    types: [completed]
 `,
   '',
 );
