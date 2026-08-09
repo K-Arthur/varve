@@ -28,9 +28,11 @@ export function SaveStatusIndicator() {
     if (state.saveState === 'saving') return 'Saving…';
     if (state.saveState === 'error') return 'Save failed';
     if (state.saveState === 'saved' && !dirty) return 'Saved';
-    if (state.saveState === 'saved' && dirty) return 'Modified';
+    // Modified beats "Not saved": an edited, never-saved document is first
+    // and foremost modified — "Not saved" alone would be misleading.
+    if (dirty) return 'Modified';
     if (meta && isUntitledSession(meta)) return 'Not saved';
-    return dirty ? 'Modified' : 'Not saved';
+    return 'Not saved';
   })();
 
   // Announce only meaningful transitions (never per-keystroke state).
@@ -85,7 +87,11 @@ export function SaveStatusIndicator() {
 function isUntitledSession(meta: {
   filePath?: string;
   fileId?: string;
+  libraryStorage?: boolean;
   saveHandleId?: string;
+  downloadName?: string;
 }): boolean {
-  return !meta.filePath && !meta.fileId && !meta.saveHandleId;
+  // A bare fileId is library identity (minted at creation), not a
+  // destination — only an explicit library choice counts as saved.
+  return !meta.filePath && !meta.libraryStorage && !meta.saveHandleId && !meta.downloadName;
 }
