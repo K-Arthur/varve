@@ -14,7 +14,16 @@ import {
   requestEditorFrame,
 } from '../performance/editorFrameRuntime';
 import { BaseTool } from './BaseTool';
+import {
+  decayRateFromFrameRetention,
+  navigationFrameDeltaMs,
+  prefersReducedNavigationMotion,
+  stepDecayedMotion,
+} from './navigationPhysics';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
+
+const HAND_DECAY_RATE = decayRateFromFrameRetention(0.95);
+const HAND_STOP_SPEED = 0.5 * 60;
 
 export class HandTool extends BaseTool {
   id = 'hand' as const;
@@ -72,10 +81,9 @@ export class HandTool extends BaseTool {
       const last = this.positionHistory[len - 1]!;
       const dt = last.time - first.time;
       if (dt > 0) {
-        const frameTime = 16;
         this.velocity = {
-          x: ((last.x - first.x) / dt) * frameTime,
-          y: ((last.y - first.y) / dt) * frameTime,
+          x: ((last.x - first.x) / dt) * 1000,
+          y: ((last.y - first.y) / dt) * 1000,
         };
       }
     }
@@ -89,19 +97,25 @@ export class HandTool extends BaseTool {
   }
 
   private startMomentum(ctx: ToolContext): void {
-    if (!this.velocity) return;
-    const decay = 0.95;
-    const threshold = 0.5;
-    const tick = () => {
+    if (!this.velocity || prefersReducedNavigationMotion()) {
+      this.velocity = null;
+      return;
+    }
+    let previousFrameTime: number | null = null;
+    const tick = (frameTimeMs: number) => {
       if (!this.velocity) return;
-      const vx = this.velocity.x * decay;
-      const vy = this.velocity.y * decay;
-      this.velocity = { x: vx, y: vy };
-      if (Math.abs(vx) < threshold && Math.abs(vy) < threshold) {
+      const elapsedMs = navigationFrameDeltaMs(previousFrameTime, frameTimeMs);
+      previousFrameTime = frameTimeMs;
+      const step = stepDecayedMotion(this.velocity, elapsedMs, HAND_DECAY_RATE, HAND_STOP_SPEED);
+      if (step.stopped) {
         this.velocity = null;
         return;
       }
-      this.currentPan = { x: this.currentPan.x + vx, y: this.currentPan.y + vy };
+      this.velocity = step.velocity;
+      this.currentPan = {
+        x: this.currentPan.x + step.delta.x,
+        y: this.currentPan.y + step.delta.y,
+      };
       ctx.setPan(this.currentPan);
       requestEditorFrame(this.frameKey, 'input', tick);
     };

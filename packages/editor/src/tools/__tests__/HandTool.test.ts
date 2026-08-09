@@ -137,7 +137,7 @@ describe('HandTool — pan with momentum', () => {
 
     tool.onPointerDown({ clientX: 100, clientY: 100, pointerId: 1, button: 0 } as any, ctx);
 
-    // Seed position history with samples showing velocity (5px per 16ms ≈ 5px/frame)
+    // Seed position history with samples showing velocity (10px over 32ms).
     (tool as any).positionHistory = [
       { x: 140, y: 130, time: 100 },
       { x: 145, y: 135, time: 116 },
@@ -156,9 +156,12 @@ describe('HandTool — pan with momentum', () => {
     rafCallbacks.delete(id);
     cb(132);
 
-    // Velocity from first to last: (150-140)/(132-100)*16 ≈ 5px/frame each axis
-    // After decay: 5 * 0.95 = 4.75
-    expect(ctx.setPan).toHaveBeenLastCalledWith({ x: 104.75, y: 204.75 });
+    // Exact time-based integration preserves the tuned decay without making
+    // travel depend on the display refresh rate.
+    expect(ctx.setPan).toHaveBeenLastCalledWith({
+      x: expect.closeTo(105.07701191307909, 8),
+      y: expect.closeTo(205.07701191307908, 8),
+    });
     // Momentum should continue (velocity still > 0.5)
     expect(rafCallbacks.size).toBeGreaterThanOrEqual(1);
   });
@@ -184,11 +187,12 @@ describe('HandTool — pan with momentum', () => {
       if (!entry) break;
       const [id, cb] = entry;
       rafCallbacks.delete(id);
-      cb(performance.now());
+      cb(tickCount * (1000 / 60));
       tickCount++;
     }
 
-    // After ~15 ticks, velocity (1 * 0.95^t) should drop below 0.5
+    // The 0.5 reference-frame threshold is converted to px/s, so the stop
+    // time is stable rather than changing with refresh rate.
     expect(tickCount).toBeGreaterThanOrEqual(10);
     expect(tickCount).toBeLessThan(50);
     // Should have stopped (no more RAF callbacks)
