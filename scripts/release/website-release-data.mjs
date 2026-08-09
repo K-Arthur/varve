@@ -38,6 +38,9 @@ export function formatCopy(product) {
       blurb: 'Installs for the current user. No administrator rights needed.',
       caveat:
         'Unsigned: Windows will show "Windows protected your PC". Choose More info, then Run anyway.',
+      caveatSigned:
+        'Digitally signed. Windows may still show a SmartScreen "unrecognized" warning until the ' +
+        'publisher builds reputation — verify the publisher name shown before running.',
       install: 'Run the downloaded .exe',
     },
     msi: {
@@ -50,8 +53,66 @@ export function formatCopy(product) {
       blurb: 'Apple Silicon.',
       caveat:
         'Unsigned and not notarised: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+      caveatSigned:
+        'Signed with an Apple Developer ID and notarised by Apple. No Gatekeeper override needed.',
       install: `Open the .dmg and drag ${product} to Applications`,
     },
+  };
+}
+
+/**
+ * Per-platform trust copy for the download page, derived from the release's
+ * signing block. The copy is chosen ONLY from verification state recorded in
+ * the manifest — never from intent.
+ */
+export function platformTrustLabel(platform, signing = {}) {
+  if (platform === 'windows') {
+    const s = signing.windows;
+    if (s?.signed) {
+      const publisher = s.publisher ? s.publisher.replace(/^CN=/, '') : 'the verified publisher';
+      return {
+        badge: 'Digitally signed',
+        detail: `Signature verified: ${publisher}. SmartScreen may still warn until reputation builds.`,
+        signed: true,
+      };
+    }
+    return {
+      badge: 'Not code-signed',
+      detail:
+        'Unsigned build: Windows will show "Windows protected your PC". Choose More info, then Run anyway.',
+      signed: false,
+    };
+  }
+  if (platform === 'macos') {
+    const s = signing.macos;
+    if (s?.signed && s.notarized && s.stapled) {
+      return {
+        badge: 'Developer ID signed and notarized',
+        detail: 'Signed, notarized by Apple, and the notarization ticket is stapled.',
+        signed: true,
+      };
+    }
+    if (s?.signed && !s.notarized) {
+      return {
+        badge: 'Signed but NOT notarized',
+        detail:
+          'A signature exists but Apple notarization did not verify. Treat like an unsigned build: ' +
+          'macOS will refuse to open it.',
+        signed: false,
+      };
+    }
+    return {
+      badge: 'Not code-signed',
+      detail:
+        'Unsigned and not notarised: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+      signed: false,
+    };
+  }
+  return {
+    badge: 'SHA-256 + provenance',
+    detail:
+      'Verified by SHA-256 checksum, SBOM and GitHub build provenance. Linux has no platform code-signing certificate.',
+    signed: false,
   };
 }
 
@@ -142,8 +203,11 @@ export function buildWebsiteReleaseData({
     tag,
     releaseDate: manifest.generatedAt.slice(0, 10),
     prerelease: tag.includes('-'),
+    // These three are the machine-readable signing state, populated from
+    // post-build cryptographic verification (see scripts/release/signing-policy.mjs).
     signed: manifest.signed === true,
     notarized: manifest.notarized === true,
+    signing: manifest.signing ?? {},
     integrity,
     releaseUrl: `https://github.com/${repo}/releases/tag/${tag}`,
     checksumsUrl: `${base}/SHA256SUMS.txt`,
