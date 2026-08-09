@@ -2154,6 +2154,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "varve-media"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "gif",
+ "image-webp",
+ "png",
+ "serde",
+]
+
+[[package]]
 name = "varve-print"
 version = "0.1.0"
 dependencies = [
