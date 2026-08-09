@@ -169,8 +169,8 @@ async function main() {
   writeFileSync(OUT, `${JSON.stringify(website, null, 2)}\n`);
 
   process.stdout.write(
-    `Website release data refreshed from ${tag} (${artifacts.length} artifacts, ` +
-      `${sbomAssets.length} SBOMs).\n`,
+    `Website release data refreshed from ${tag} (${verified.artifacts.length} artifacts, ` +
+      `${verified.sbomAssets.length} SBOMs).\n`,
   );
 }
 
