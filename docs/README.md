@@ -194,6 +194,8 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/onboarding-help-system.md` | Help/onboarding system |
 | `architecture/frame-encapsulation.md` | Frame clipping and containment |
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
+| `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
+| `architecture/image-geometry.md` | Image crop, placement, and transform contract |
 | `architecture/interaction-systems-2026-07-27.md` | Interaction systems |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
