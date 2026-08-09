@@ -12,6 +12,20 @@ export {
   PrivacyDiagnosticsSection,
   SafeModeScreen,
 } from './crash';
+export type {
+  DialogOutcome,
+  PromptKind,
+  PromptRequest,
+  SaveFailureCategory,
+  TerminationIntent,
+  TerminationState,
+} from './lifecycle';
+export {
+  getLifecycleCoordinator,
+  getLifecycleFinalizeHandler,
+  LifecycleProvider,
+  setLifecycleFinalizeHandler,
+} from './lifecycle';
 export type { PackageExportResult, PackageManifest } from './packageExport';
 export { buildPackageExport } from './packageExport';
 export type {

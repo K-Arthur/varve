@@ -29,6 +29,65 @@ export interface ExtractedIccProfile {
   bytes: Uint8Array;
   /** Human-readable profile description tag, when present and ASCII-printable. */
   description?: string;
+  /** ICC profile class signature (e.g. 'mntr' display class). */
+  profileClass?: string;
+  /** ICC colour space signature (e.g. 'RGB ', 'CMYK', 'GRAY', 'Lab '). */
+  colorSpace?: string;
+  /** ICC version, e.g. '4.3.0'. */
+  version?: string;
+  /** ICC header rendering intent (0-3: perceptual/relative/saturation/absolute). */
+  renderingIntent?: number;
+}
+
+/** Human-readable label for an ICC profile class signature. */
+export function iccProfileClassLabel(signature: string | undefined): string | undefined {
+  switch (signature) {
+    case 'scnr':
+      return 'input device';
+    case 'mntr':
+      return 'display device';
+    case 'prtr':
+      return 'output device';
+    case 'link':
+      return 'device link';
+    case 'abst':
+      return 'abstract';
+    case 'spac':
+      return 'colour space';
+    case 'nmcl':
+      return 'named colour';
+    case 'cenc':
+      return 'colour encoding space';
+    case 'mlnk':
+      return 'multi-localized link';
+    case 'mAB ':
+    case 'mBA ':
+      return 'abstract (mAB/mBA)';
+    default:
+      return undefined;
+  }
+}
+
+/** Human-readable label for an ICC colour space signature. */
+export function iccColorSpaceLabel(signature: string | undefined): string | undefined {
+  switch (signature) {
+    case 'RGB ':
+      return 'RGB';
+    case 'CMYK':
+      return 'CMYK';
+    case 'GRAY':
+      return 'grayscale';
+    case 'Lab ':
+      return 'Lab';
+    case 'XYZ ':
+      return 'XYZ';
+    case 'Luv ':
+      return 'Luv';
+    case 'YCbr':
+      return 'YCbCr';
+    default:
+      return undefined;
+  }
 }
 
 export type IccExtractionResult =
@@ -64,9 +123,10 @@ function readUint32BE(bytes: Uint8Array, offset: number): number {
   );
 }
 
-/** Parse the ICC "desc" tag (text description, tag type 'desc') for a label. */
+/** Parse the ICC "desc" tag (text description, tag type 'desc') for a label.
+ *  Layout: 4-byte type + 4-byte reserved + 4-byte ASCII count + text + NUL. */
 function profileDescription(bytes: Uint8Array): string | undefined {
-  // The desc tag type is a 12-byte header; the ASCII count follows at 12.
+  // The desc tag type is a 12-byte header; the ASCII count follows at 8.
   for (let offset = 128; offset + 12 <= bytes.length; offset += 4) {
     const tag = String.fromCharCode(
       bytes[offset] ?? 0,
@@ -75,9 +135,9 @@ function profileDescription(bytes: Uint8Array): string | undefined {
       bytes[offset + 3] ?? 0,
     );
     if (tag !== 'desc') continue;
-    const count = readUint32BE(bytes, offset + 12);
+    const count = readUint32BE(bytes, offset + 8);
     if (!Number.isInteger(count) || count <= 0 || count > 255) return undefined;
-    const start = offset + 16;
+    const start = offset + 12;
     if (start + count > bytes.length) return undefined;
     const chars = new Array<string>(count);
     for (let i = 0; i < count; i += 1) {
@@ -89,6 +149,61 @@ function profileDescription(bytes: Uint8Array): string | undefined {
     return label.length > 0 ? label : undefined;
   }
   return undefined;
+}
+
+/**
+ * Parse the fixed ICC header fields (version, class, colour space, rendering
+ * intent). Header-only: no tag table walking, no allocation beyond the
+ * description. Returns undefined values for unreadable fields; never throws.
+ */
+export function parseIccProfileHeader(bytes: Uint8Array): {
+  profileClass?: string;
+  colorSpace?: string;
+  version?: string;
+  renderingIntent?: number;
+} {
+  if (bytes.length < 128) return {};
+  const className = String.fromCharCode(
+    bytes[12] ?? 0x20,
+    bytes[13] ?? 0x20,
+    bytes[14] ?? 0x20,
+    bytes[15] ?? 0x20,
+  );
+  const colorSpaceName = String.fromCharCode(
+    bytes[16] ?? 0x20,
+    bytes[17] ?? 0x20,
+    bytes[18] ?? 0x20,
+    bytes[19] ?? 0x20,
+  );
+  // Only claim a signature when every byte is printable ASCII; NUL-filled
+  // headers (minimal fixtures, malformed files) must not fabricate one.
+  const isPrintable = (sig: string): boolean => {
+    for (let i = 0; i < sig.length; i += 1) {
+      const code = sig.charCodeAt(i);
+      if (code < 0x20 || code > 0x7e) return false;
+    }
+    return true;
+  };
+  // Version: byte 0 major, byte 1 high nibble minor / low nibble bugfix.
+  const major = bytes[8] ?? 0;
+  const minor = ((bytes[9] ?? 0) >> 4) & 0x0f;
+  const bugfix = (bytes[9] ?? 0) & 0x0f;
+  const intent = readUint32BE(bytes, 64);
+  return {
+    ...(isPrintable(className) ? { profileClass: className } : {}),
+    ...(isPrintable(colorSpaceName) ? { colorSpace: colorSpaceName } : {}),
+    ...(major > 0 ? { version: `${major}.${minor}.${bugfix}` } : {}),
+    ...(Number.isInteger(intent) && intent <= 3 ? { renderingIntent: intent } : {}),
+  };
+}
+
+/** Build an ExtractedIccProfile from validated bytes (header info included). */
+export function profileFromBytes(bytes: Uint8Array): ExtractedIccProfile {
+  return {
+    bytes,
+    description: profileDescription(bytes),
+    ...parseIccProfileHeader(bytes),
+  };
 }
 
 /** Bounds-checked reader for little/big-endian TIFF walks. */
@@ -105,7 +220,9 @@ function tiffReader(bytes: Uint8Array, littleEndian: boolean): TiffReader {
   };
 }
 
-function walkTiffIfds(
+/** Bounds-checked TIFF IFD walker. `visit` receives every entry; walking is
+ *  chain-capped and cycle-guarded (shared by ICC and TIFF encoding readers). */
+export function walkTiffIfds(
   bytes: Uint8Array,
   tiffOffset: number,
   visit: (
@@ -216,7 +333,7 @@ function extractIccFromJpeg(bytes: Uint8Array): IccExtractionResult {
   if (!isValidIccProfile(profile)) {
     return { kind: 'invalid', reason: 'invalid ICC profile header' };
   }
-  return { kind: 'valid', profile: { bytes: profile, description: profileDescription(profile) } };
+  return { kind: 'valid', profile: profileFromBytes(profile) };
 }
 
 /** PNG iCCP chunk (profile name\0, compression method byte, deflate payload). */
@@ -258,7 +375,7 @@ function extractIccFromPng(bytes: Uint8Array): IccExtractionResult {
       }
       return {
         kind: 'valid',
-        profile: { bytes: profile, description: profileDescription(profile) },
+        profile: profileFromBytes(profile),
       };
     }
     offset = dataEnd + 4; // skip CRC
@@ -291,7 +408,7 @@ function extractIccFromWebp(bytes: Uint8Array): IccExtractionResult {
       }
       return {
         kind: 'valid',
-        profile: { bytes: profile, description: profileDescription(profile) },
+        profile: profileFromBytes(profile),
       };
     }
     if (size % 2 === 1) size += 1;
@@ -332,7 +449,7 @@ function extractIccFromTiff(bytes: Uint8Array): IccExtractionResult {
     }
     result = {
       kind: 'valid',
-      profile: { bytes: profile, description: profileDescription(profile) },
+      profile: profileFromBytes(profile),
     };
   });
   return result;

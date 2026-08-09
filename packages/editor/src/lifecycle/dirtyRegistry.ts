@@ -50,7 +50,9 @@ export function collectUnsavedDocuments(
       name: displayName(sessions, session),
       filePath: session.filePath,
       fileId: session.fileId,
-      untitled: !session.filePath && !session.fileId,
+      // A browser file handle or download-only name is not a persistent
+      // user-chosen location either — the session counts as untitled.
+      untitled: !session.filePath && !session.fileId && !session.saveHandleId,
     });
   }
   return docs;

@@ -45,10 +45,10 @@ import {
   type FindReplaceLayerHandle,
   OnboardingLayer,
   type OnboardingLayerHandle,
-  RecoveryManager,
   VectorizeDialogHost,
 } from './components/Shell';
 import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
+import { LifecycleProvider } from './lifecycle';
 import { buildCanvasContextMenuItems } from './menu/canvasContextMenu';
 import './components/Shell/shellStyles.css';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
@@ -816,8 +816,8 @@ function ShellInner({
         {/* Onboarding: welcome, tour, checklist, tips */}
         <OnboardingLayer ref={onboardingLayerRef} platform={platform} onBackToHome={onBackToHome} />
 
-        {/* Recovery dialog for crash-recovery sessions */}
-        <RecoveryManager platform={platform} document={editor.state.document} />
+        {/* Recovery dialog + termination lifecycle (unsaved-work guard) */}
+        <LifecycleProvider onBackToHome={onBackToHome} />
 
         {/* Prototype presenter (fullscreen preview) */}
         <PrototypePresenter

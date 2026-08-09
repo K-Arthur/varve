@@ -208,6 +208,34 @@ describe('RecoveryManager', () => {
     const metas = await manager.listSessionsMeta();
     expect(metas).toHaveLength(0);
   });
+
+  describe('deleteRecoveryForTab', () => {
+    const doc = { formatVersion: '1.0', name: 'test', nodes: {}, rootChildren: [] };
+
+    it('deletes recovery points bound to a discarded fileId', async () => {
+      await manager.createRecoveryPoint(doc as never, 'Poster.varve', 'file-1');
+      await manager.createRecoveryPoint(doc as never, 'Other.varve', 'file-2');
+      const removed = await manager.deleteRecoveryForTab('Poster.varve', 'file-1');
+      expect(removed).toBe(1);
+      const remaining = await manager.listSessions();
+      expect(remaining.map((s) => s.fileId)).toEqual(['file-2']);
+    });
+
+    it('deletes a uniquely named untitled recovery point', async () => {
+      await manager.createRecoveryPoint(doc as never, 'Untitled');
+      const removed = await manager.deleteRecoveryForTab('Untitled');
+      expect(removed).toBe(1);
+      expect(await manager.listSessions()).toHaveLength(0);
+    });
+
+    it('keeps duplicate untitled recovery points rather than guessing', async () => {
+      await manager.createRecoveryPoint(doc as never, 'Untitled');
+      await manager.createRecoveryPoint(doc as never, 'Untitled');
+      const removed = await manager.deleteRecoveryForTab('Untitled');
+      expect(removed).toBe(0);
+      expect(await manager.listSessions()).toHaveLength(2);
+    });
+  });
 });
 
 describe('getSharedRecoveryManager', () => {
