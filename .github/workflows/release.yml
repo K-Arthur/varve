@@ -458,19 +458,36 @@ jobs:
             exit 1
           fi
           chmod +x "${IMG}"
+          LOG="$(mktemp)"
           echo "Launching ${IMG} headlessly for a bounded smoke test..."
           dbus-run-session -- xvfb-run --auto-servernum \
-            timeout 60 "${IMG}" --appimage-extract-and-run &
+            timeout 60 "${IMG}" --appimage-extract-and-run >"${LOG}" 2>&1 &
           PID=$!
           sleep 25
           if kill -0 "${PID}" 2>/dev/null; then
-            # Still running after 25s: the window loop is up. Kill cleanly.
+            # The main process survives, but a white screen does too — the
+            # WebKit web process aborts on EGL init failure while the window
+            # stays open. Fail the smoke on the abort signature or a missing
+            # web process instead of trusting process liveness.
+            if rg -qi 'EGL|Aborting|entry point|segmentation' "${LOG}"; then
+              echo "::error::WebKit failure detected in app output:"
+              rg -i 'EGL|Aborting|entry point|segmentation' "${LOG}" | head -5
+              kill "${PID}" 2>/dev/null || true
+              exit 1
+            fi
+            WEB_PROCS="$(pgrep -fc 'WebKitWebProcess|WebKitNetworkProcess' || true)"
+            if [[ "${WEB_PROCS}" -lt 1 ]]; then
+              echo "::error::No WebKit web process after 25s — the window is almost certainly blank."
+              kill "${PID}" 2>/dev/null || true
+              exit 1
+            fi
             kill "${PID}" 2>/dev/null || true
             wait "${PID}" 2>/dev/null || true
-            echo "AppImage launch smoke PASSED (process stayed alive 25s)"
+            echo "AppImage launch smoke PASSED (web process alive, no EGL errors)"
           else
             wait "${PID}"
             echo "::error::AppImage exited early (code $?)"
+            cat "${LOG}" | head -20
             exit 1
           fi
 
