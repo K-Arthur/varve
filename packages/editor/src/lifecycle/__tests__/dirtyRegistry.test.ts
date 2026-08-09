@@ -88,6 +88,16 @@ describe('dirty registry', () => {
     expect(displayName(sessions, sessions[1]!)).toBe('Untitled 2');
   });
 
+  it('counts a persisted browser save handle as not untitled', () => {
+    const controls = createFakeApi([
+      { id: 'a', name: 'Downloaded', dirty: true, saveHandleId: 'handle-1' },
+      { id: 'b', name: 'Plain', dirty: true },
+    ]);
+    const docs = collectUnsavedDocuments(controls.api, 'window');
+    expect(docs[0]?.untitled).toBe(false);
+    expect(docs[1]?.untitled).toBe(true);
+  });
+
   it('does not leak file paths into display names', () => {
     const controls = createFakeApi([
       { id: 'a', name: 'Poster.varve', dirty: true, filePath: '/home/user/Secret/Poster.varve' },

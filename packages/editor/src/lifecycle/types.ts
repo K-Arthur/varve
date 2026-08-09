@@ -51,7 +51,9 @@ export interface UnsavedDocument {
   filePath?: string;
   /** Bound to an app-store id (saved at least once). */
   fileId?: string;
-  /** No filePath and no fileId — needs Save As to persist. */
+  /** A persisted browser File System Access handle key. */
+  saveHandleId?: string;
+  /** No filePath, no fileId, and no save handle — needs Save As to persist. */
   untitled: boolean;
 }
 
@@ -107,6 +109,7 @@ export interface EditorLifecycleApi {
     dirty: boolean;
     filePath?: string;
     fileId?: string;
+    saveHandleId?: string;
   }>;
   getActiveSessionId(): string | null;
   /** Save the session (switching tabs when it is not active). */
