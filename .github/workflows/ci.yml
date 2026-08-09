@@ -78,8 +78,10 @@ jobs:
           & $dumpbin /imports $exe.FullName 2>&1 |
             Select-String -Pattern '\.dll' |
             ForEach-Object { $_.Line.Trim() } |
-            Sort-Object -Unique |
-            Select-Object -First 40
+            Sort-Object -Unique
+          Write-Host '--- runtime versions ---'
+          Get-Item C:\Windows\System32\VCRUNTIME140.dll, C:\Windows\System32\VCRUNTIME140D.dll, C:\Windows\System32\MSVCP140.dll, C:\Windows\System32\ucrtbase.dll, C:\Windows\System32\api-ms-win-core-synch-l1-2-0.dll -ErrorAction SilentlyContinue |
+            ForEach-Object { Write-Host "$($_.Name): $($_.VersionInfo.FileVersion)" }
       - name: Install cargo-llvm-cov
         if: runner.os == 'Linux'
         uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
