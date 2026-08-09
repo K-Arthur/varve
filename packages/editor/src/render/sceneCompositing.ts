@@ -96,7 +96,9 @@ function computeHasImageFills(doc: Document): boolean {
 function sceneHasUnsupportedWorkerRasterResources(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
-    const fills = (node as { fills?: Array<{ type?: string; visible?: boolean; image?: { assetId?: string } }> }).fills;
+    const fills = (
+      node as { fills?: Array<{ type?: string; visible?: boolean; image?: { assetId?: string } }> }
+    ).fills;
     if (fills?.some((fill) => fill?.type === 'pattern' && fill.visible !== false)) return true;
     if (
       node.kind === 'shape' &&

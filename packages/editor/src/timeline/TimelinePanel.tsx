@@ -1,13 +1,13 @@
+import { getMediaRegistry } from '@varve/engine';
 import type { Timeline } from '@varve/scene';
+import { getAnimatedMediaFill } from '@varve/scene';
 import type { EasingDefinition } from '@varve/shared';
 import { Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { type FC, useCallback, useContext, useMemo, useRef, useState } from 'react';
-import { getMediaRegistry } from '@varve/engine';
-import { getAnimatedMediaFill } from '@varve/scene';
 import { PanelDragHandle } from '../components/PanelDragHandle';
 import { EditorCtx } from '../context';
-import { MediaFrameStrip } from './MediaFrameStrip';
 import { GraphEditor } from './GraphEditor';
+import { MediaFrameStrip } from './MediaFrameStrip';
 import { PlaybackControls } from './PlaybackControls';
 import { TimelineRuler } from './TimelineRuler';
 import { TrackRow } from './TrackRow';
