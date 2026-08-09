@@ -160,7 +160,7 @@ export class SmudgeTool extends BaseTool {
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
       const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
-      this.sampleStrokePoint(world, pressure, undefined, tilt);
+      this.sampleStrokePoint(world, pressure, ev.time, tilt);
     }
 
     // Process confirmed events to tiles
