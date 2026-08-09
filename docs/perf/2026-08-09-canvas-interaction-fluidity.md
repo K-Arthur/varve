@@ -1,8 +1,8 @@
 # Canvas interaction fluidity — 2026-08-09
 
-Status: implementation in progress. This record is updated after each vertical
-slice and distinguishes inherited measurements from evidence collected in this
-session.
+Status: implementation pass complete; native/cross-platform validation and an
+uncontended latency baseline remain open. This record distinguishes inherited
+measurements from evidence collected in this session.
 
 ## Objective and interaction policy
 
@@ -433,9 +433,32 @@ blur cleanup, held-repeat undo coalescing, and auto-reparent stability.
 | Production interaction corpus | PASS as smoke only — 7/7 workloads produced traces; timing invalidated by contention, and four workloads exposed missing correlated-frame evidence |
 | Production scale corpus | PASS as smoke only — 1k/5k/10k, 12/12 workload/scale combinations completed with no dropped trace samples; timing invalidated by contention |
 | Production rerun after hover fix | PASS as contended smoke — 10k single-drag pointer-input p95 219.5 → 37.8 ms (82.8% lower), p50 0.2 ms after; no input-to-present sample, so no end-to-end claim |
-| Editor package typecheck | PASS for slices 1–3; slice 4 attempt blocked by unrelated concurrent image-resource changes |
-| Full regression protocol | PENDING |
+| Touched-file format/lint | PASS — Biome clean for every canvas/shared/perf/test file changed by this pass |
+| Workspace typecheck | FAIL outside this pass — latest full run reached editor then failed on `ThumbnailInfoDialog.renderThumbnail`; later E2E typecheck failed only in concurrent `tests/e2e/save/save-flow.spec.ts` |
+| Full Vitest suite | FAIL outside this pass — concurrent export/import/Shell tests produced 9 failures; run later exited 143 under sustained shared-host load; focused interaction suites remain green |
+| Benchmark suite | INCOMPLETE — spatial-index/query benchmark groups passed; the full forked run stopped making progress under concurrent Vitest/TypeScript workloads and was terminated |
+| Docs audit | PASS — 472 docs, 83 links, 154 indexed ADRs |
+| Emoji audit | PASS — 3,150+ files, zero violations |
+| Token audit | PASS — 123 contrast pairs across 3 themes |
+| Production Vite build | PASS |
 | Architecture audit | PASS — completed; 17 existing cycles reported, no layer violations, CanvasArea 50 imports / complexity 435; this slice converts one runtime import to type-only |
 | Native Tauri / WebKitGTK | NOT RUN |
 | Windows WebView2 | NOT AVAILABLE |
 | macOS WKWebView | NOT AVAILABLE |
+
+## Remaining limitations
+
+- Correctness evidence: the production tracer still lacks correlated presented
+  frames for idle hover, single drag, nudge, and resize in this corpus. Those
+  interactions cannot yet enforce an input-to-pixel SLO despite recording
+  input, dispatch, queue, and presentation-feedback spans.
+- Performance evidence: every new corpus run was classified contended. The
+  10k hover-query reduction is structurally verified and directionally large,
+  but an uncontended before/after run is still required for a release baseline.
+- Platform coverage: real pointer/keyboard behavior was verified in Chromium
+  on Linux/Wayland. Native WebKitGTK, Windows WebView2, macOS WKWebView, and
+  physical high-refresh/touch/stylus devices were not available, so no claim is
+  made for them.
+- Intentionally deferred: no transient-document transform layer, generic
+  pointer smoothing, or additional adaptive-quality system was introduced.
+  Current evidence did not justify the correctness and ownership cost.
