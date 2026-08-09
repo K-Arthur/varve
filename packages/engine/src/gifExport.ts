@@ -137,7 +137,12 @@ export async function exportAnimatedMediaToGif(
     return { bytes: null, frameCount: 0, supported: false, reason: 'No frames to export' };
   }
   if (frameCount > 10_000) {
-    return { bytes: null, frameCount: 0, supported: false, reason: 'Too many frames for GIF export' };
+    return {
+      bytes: null,
+      frameCount: 0,
+      supported: false,
+      reason: 'Too many frames for GIF export',
+    };
   }
   // addFrame adopts real dimensions from the first frame
   const encoder = new GifEncoder(opts.width, opts.height, { repeat: opts.repeat ?? 0 });
