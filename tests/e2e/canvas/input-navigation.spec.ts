@@ -238,3 +238,61 @@ test.describe('Wheel navigation', () => {
     expect(Math.abs(after.y + after.height / 2 - center.y)).toBeLessThanOrEqual(1);
   });
 });
+
+test.describe('Edge auto-pan', () => {
+  test.beforeEach(async ({ page }) => {
+    await navigateToEditor(page);
+  });
+
+  test('keeps a stationary edge drag locked to the pointer while the camera advances', async ({
+    page,
+  }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const initial = await drawAndSelect(page);
+    const canvasBox = await canvas.boundingBox();
+    if (!canvasBox) throw new Error('content canvas not found');
+
+    const start = {
+      x: canvasBox.x + initial.x + initial.width / 2,
+      y: canvasBox.y + initial.y + initial.height / 2,
+    };
+    const edge = {
+      x: canvasBox.x + canvasBox.width - 3,
+      y: Math.min(canvasBox.y + canvasBox.height - 60, Math.max(canvasBox.y + 60, start.y)),
+    };
+    const xField = page.getByRole('spinbutton', { name: /^X(?: \(AB\))? \(px\)$/ }).first();
+    await expect(xField).toBeVisible();
+    const initialWorldX = Number(await xField.inputValue());
+    let released = false;
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move((start.x + edge.x) / 2, (start.y + edge.y) / 2);
+    await page.mouse.move(edge.x, edge.y);
+
+    try {
+      // Hold without issuing another pointermove, then release before querying
+      // the React tree so the continuously mutating gesture cannot starve the
+      // test driver's accessibility request on a heavily loaded runner.
+      await page.waitForTimeout(400);
+      await page.mouse.up();
+      released = true;
+      const finalWorldX = Number(await xField.inputValue());
+
+      // Direct pointer travel accounts for the first term. Any additional
+      // world travel was produced while the pointer remained stationary.
+      const directWorldX = initialWorldX + edge.x - start.x;
+      expect(finalWorldX).toBeGreaterThan(directWorldX + 5);
+
+      const held = await selectionRect(page);
+      const heldCenter = {
+        x: canvasBox.x + held.x + held.width / 2,
+        y: canvasBox.y + held.y + held.height / 2,
+      };
+      expect(Math.abs(heldCenter.x - edge.x)).toBeLessThanOrEqual(4);
+      expect(Math.abs(heldCenter.y - edge.y)).toBeLessThanOrEqual(4);
+    } finally {
+      if (!released) await page.mouse.up();
+    }
+  });
+});

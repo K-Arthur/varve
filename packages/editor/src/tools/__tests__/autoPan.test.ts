@@ -42,6 +42,11 @@ describe('computeEdgeVelocity', () => {
     expect(v).toBe(EDGE_SCROLL_MAX_SPEED);
   });
 
+  it('stays bounded when pointer capture carries a drag outside the canvas', () => {
+    expect(computeEdgeVelocity(-100, canvasLeft, canvasRight)).toBe(-EDGE_SCROLL_MAX_SPEED);
+    expect(computeEdgeVelocity(1100, canvasLeft, canvasRight)).toBe(EDGE_SCROLL_MAX_SPEED);
+  });
+
   it('velocity increases as pointer approaches edge (left)', () => {
     const near = computeEdgeVelocity(5, canvasLeft, canvasRight, EDGE_SCROLL_ZONE);
     const far = computeEdgeVelocity(35, canvasLeft, canvasRight, EDGE_SCROLL_ZONE);
