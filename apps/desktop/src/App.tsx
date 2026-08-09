@@ -9,6 +9,7 @@ import {
 } from '@varve/editor';
 import { HomeShell } from '@varve/home';
 import {
+  createWebPlatform,
   detectPlatform,
   displayNameFromPath,
   type FileEntry,
@@ -21,7 +22,7 @@ import { TitleBar } from './chrome/TitleBar';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
 import { revealMainWindow } from './startup/revealMainWindow';
 
-const platform = detectPlatform();
+const bootPlatform = detectPlatform();
 
 export function App() {
   const [view, setView] = useState<'home' | 'editor'>('home');
@@ -30,6 +31,26 @@ export function App() {
   const [homeReady, setHomeReady] = useState(false);
   const pendingHomeMilestone = useRef<(() => void) | null>(null);
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
+
+  // In a plain browser the synchronous boot platform is the in-memory
+  // fallback; upgrade to the real IndexedDB + File System Access backend as
+  // soon as it resolves (it is async to construct by design). The browser
+  // build must not silently run on a no-op storage backend.
+  const [platform, setPlatform] = useState(bootPlatform);
+  useEffect(() => {
+    if (bootPlatform.kind !== 'memory') return;
+    let cancelled = false;
+    void createWebPlatform()
+      .then((web) => {
+        if (!cancelled) setPlatform(web);
+      })
+      .catch(() => {
+        // No IndexedDB (rare, e.g. strict privacy modes): keep the fallback.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const {
     showLoader,

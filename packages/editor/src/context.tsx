@@ -387,7 +387,6 @@ import {
   ToolProvider,
   ViewportProvider,
 } from './context/providerComposition';
-import { MediaProvider, type MediaContextValue } from './media/MediaContext';
 import { isReducedMotion } from './context/reducedMotionManager';
 import { resizeSceneNode, shapeForTool } from './context/sceneNodeGeometry';
 import type {
@@ -457,6 +456,7 @@ import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
+import { type MediaContextValue, MediaProvider } from './media/MediaContext';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
@@ -481,8 +481,8 @@ import {
 } from './scene/transformCache';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
-import { createInitialMotionState } from './state/motion-state';
 import { createInitialMediaState } from './state/media-state';
+import { createInitialMotionState } from './state/motion-state';
 import {
   applyTableModelOp,
   embedSceneContentInCell as embedSceneContentInCellDoc,
@@ -3784,6 +3784,14 @@ export function EditorProvider({
             document: newDoc,
             selection: [id],
             tool: keepDrawTool ? activeTool : ('select' as ToolId),
+            dirty: true,
+            canUndo: true,
+            canRedo: false,
+            undoLabel: 'Edit',
+            redoLabel: 'Redo',
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+            ),
           };
         });
       },
@@ -3849,7 +3857,20 @@ export function EditorProvider({
             };
           }
 
-          return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
+          return {
+            ...s,
+            document: newDoc,
+            selection: [id],
+            tool: 'select' as ToolId,
+            dirty: true,
+            canUndo: true,
+            canRedo: false,
+            undoLabel: 'Edit',
+            redoLabel: 'Redo',
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+            ),
+          };
         });
       },
 
@@ -8591,7 +8612,6 @@ export function EditorProvider({
       ...(motionValue ?? MOTION_NOOP),
 
       ...(mediaValue ?? MEDIA_NOOP),
-
 
       setTrackNestedTimeline: (timelineId, trackId, nestedTimelineId, startProgress = 0) => {
         updateDoc((doc) =>
