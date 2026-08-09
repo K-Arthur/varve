@@ -12,7 +12,7 @@ import { type MediaFrameCache, mediaFrameCacheKey } from './frameCache';
 import type { FrameTiming } from './frameResolver';
 import { usageTiming } from './playback';
 import { MediaFrameScheduler } from './scheduler';
-import type { AnimatedImageMetadata, CompositedFrame, DecodedSourceFrame } from './types';
+import type { AnimatedAssetMetadata, CompositedFrame, DecodedSourceFrame } from './types';
 
 export interface MediaSessionOptions {
   cache: MediaFrameCache;
@@ -38,7 +38,7 @@ export interface RequestFrameOptions {
 export class AnimatedMediaSession {
   readonly id: string;
   readonly bytes: Uint8Array;
-  readonly metadata: AnimatedImageMetadata;
+  readonly metadata: AnimatedAssetMetadata;
   readonly timing: FrameTiming;
   private readonly scheduler: MediaFrameScheduler;
   private readonly cache: MediaFrameCache;
@@ -47,7 +47,7 @@ export class AnimatedMediaSession {
   constructor(
     id: string,
     bytes: Uint8Array,
-    metadata: AnimatedImageMetadata,
+    metadata: AnimatedAssetMetadata,
     options: MediaSessionOptions,
   ) {
     this.id = id;
@@ -76,6 +76,26 @@ export class AnimatedMediaSession {
   /** Sync cache hit (the frame CanvasArea draws without awaiting). */
   getComposited(frameIndex: number): CompositedFrame | undefined {
     if (this.disposed) return undefined;
+    return this.peekComposited(frameIndex);
+  }
+
+  /** Sync bitmap promotion (OffscreenCanvas only; null in DOM-free envs). */
+  getBitmapSync(frameIndex: number): ImageBitmap | null {
+    if (this.disposed) return null;
+    const entry = this.cache.peek(this.cacheKey(frameIndex));
+    if (!entry) return null;
+    return this.cache.ensureBitmapSync(this.cacheKey(frameIndex));
+  }
+
+  /** Async bitmap promotion (DOM canvas fallback for non-Offscreen envs). */
+  getBitmap(frameIndex: number): Promise<ImageBitmap | null> {
+    if (this.disposed) return Promise.resolve(null);
+    const entry = this.cache.peek(this.cacheKey(frameIndex));
+    if (!entry) return Promise.resolve(null);
+    return this.cache.ensureBitmap(this.cacheKey(frameIndex));
+  }
+
+  private peekComposited(frameIndex: number): CompositedFrame | undefined {
     const entry = this.cache.peek(this.cacheKey(frameIndex));
     if (!entry) return undefined;
     return {

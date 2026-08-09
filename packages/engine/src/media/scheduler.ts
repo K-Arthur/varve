@@ -15,12 +15,12 @@
 import type { MediaCheckpointStore } from './checkpoints';
 import { type CompositeState, compositeRange } from './compositor';
 import { type MediaFrameCache, mediaFrameCacheKey } from './frameCache';
-import type { AnimatedImageMetadata, CompositedFrame, DecodedSourceFrame } from './types';
+import type { AnimatedAssetMetadata, CompositedFrame, DecodedSourceFrame } from './types';
 
 export interface MediaSchedulerAsset {
   id: string;
   bytes: Uint8Array;
-  metadata: AnimatedImageMetadata;
+  metadata: AnimatedAssetMetadata;
 }
 
 export interface MediaSchedulerDeps {
@@ -90,7 +90,7 @@ export class MediaFrameScheduler {
     frameIndex: number,
     options: RequestFrameOptions = {},
   ): Promise<CompositedFrame> {
-    const { cache, checkpoints } = this.deps;
+    const { cache } = this.deps;
     const key = mediaFrameCacheKey({
       assetId: asset.id,
       frameIndex,

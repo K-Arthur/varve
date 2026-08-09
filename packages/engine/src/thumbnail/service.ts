@@ -10,6 +10,8 @@
  */
 
 import { createEngine } from '../engine';
+import { getImageCache } from '../imageCache';
+import { resolveImageResourceHandle } from '../imageResourceRegistry';
 import { createRasterSurface, encodeRasterSurface } from '../rasterSurface';
 import type { ReplayTarget } from '../replay';
 import { replayIr } from '../replay';
@@ -19,15 +21,37 @@ import {
   DEFAULT_THUMBNAIL_HEIGHT,
   DEFAULT_THUMBNAIL_OPTIONS,
   DEFAULT_THUMBNAIL_WIDTH,
+  THUMBNAIL_RENDERER_VERSION,
   type ThumbnailBackground,
   type ThumbnailFit,
+  type ThumbnailFormat,
   type ThumbnailMetadata,
   type ThumbnailOptions,
   type ThumbnailResult,
 } from './types';
 
-/** Maximum thumbnail dimension to prevent memory exhaustion. */
-const MAX_THUMBNAIL_DIMENSION = 4096;
+/**
+ * Maximum thumbnail dimension per side. Output is clamped so that no render
+ * surface can exceed the pixel budget below.
+ */
+const MAX_THUMBNAIL_DIMENSION = 2048;
+
+/** Total pixel budget for one thumbnail surface (2048x2048). */
+const MAX_THUMBNAIL_PIXELS = 2048 * 2048;
+
+/**
+ * Encoded byte cap for one thumbnail. Generation never fails on size — when
+ * the first encode exceeds the cap, quality is reduced once; when it still
+ * exceeds, the image is kept and a warning is recorded.
+ */
+const MAX_THUMBNAIL_BYTES = 768 * 1024;
+
+/** Bound on how long we wait for raster sources to decode. */
+const IMAGE_PRELOAD_TIMEOUT_MS = 1500;
+
+function mimeTypeFor(format: ThumbnailFormat): string {
+  return format === 'webp' ? 'image/webp' : 'image/png';
+}
 
 // ─── Bounds computation ───────────────────────────────────────────────
 
@@ -190,6 +214,42 @@ function computeCacheKey(nodes: SceneNode[], opts: ThumbnailOptions): string {
 // ─── Main entry point ──────────────────────────────────────────────────
 
 /**
+ * Collect image-fill sources used by the nodes so they can be decoded
+ * before the single render pass. Missing/unloaded images render as
+ * placeholders; generation never blocks forever.
+ */
+async function preloadImageFills(
+  nodes: SceneNode[],
+  warnings: string[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const sources = new Set<string>();
+  for (const node of nodes) {
+    for (const fill of node.fills ?? []) {
+      if (fill.type === 'image' && fill.image?.src) {
+        sources.add(resolveImageResourceHandle(fill.image.src));
+      }
+    }
+  }
+  if (sources.size === 0) return;
+  try {
+    await Promise.race([
+      getImageCache().preload([...sources]),
+      new Promise<void>((resolve) => setTimeout(resolve, IMAGE_PRELOAD_TIMEOUT_MS)),
+    ]);
+  } catch {
+    // Individual image failures are non-fatal; the render pass draws a
+    // placeholder and the caller marks the result provisional.
+  }
+  for (const src of sources) {
+    if (getImageCache().state(src) !== 'loaded') {
+      warnings.push('image-not-ready');
+    }
+  }
+  void signal?.aborted;
+}
+
+/**
  * Generate a thumbnail from a flat array of engine SceneNodes.
  *
  * Callers must pre-compute world transforms on each node and handle
@@ -208,8 +268,10 @@ export async function generateThumbnail(
   signal?: AbortSignal,
 ): Promise<ThumbnailResult | null> {
   const opts: ThumbnailOptions = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
-  const outW = Math.min(opts.maxWidth ?? DEFAULT_THUMBNAIL_WIDTH, MAX_THUMBNAIL_DIMENSION);
-  const outH = Math.min(opts.maxHeight ?? DEFAULT_THUMBNAIL_HEIGHT, MAX_THUMBNAIL_DIMENSION);
+  const dpr = opts.devicePixelRatio ?? 1;
+  const outW = Math.min(opts.maxWidth ?? DEFAULT_THUMBNAIL_WIDTH, MAX_THUMBNAIL_DIMENSION) * dpr;
+  const outH = Math.min(opts.maxHeight ?? DEFAULT_THUMBNAIL_HEIGHT, MAX_THUMBNAIL_DIMENSION) * dpr;
+  const format = opts.format ?? 'png';
 
   if (signal?.aborted) return null;
   if (nodes.length === 0) return null;
@@ -225,9 +287,12 @@ export async function generateThumbnail(
       outputWidth: 1,
       outputHeight: 1,
       mimeType: 'image/png',
+      byteSize: 0,
       generatedAt: Date.now(),
       revisionId,
+      rendererVersion: THUMBNAIL_RENDERER_VERSION,
       isPlaceholder: true,
+      isProvisional: false,
       warnings: ['Canvas or image encoding not available in this environment'],
     };
     return { dataUrl: '', metadata };
@@ -238,9 +303,24 @@ export async function generateThumbnail(
 
   if (signal?.aborted) return null;
 
+  // Preload raster fills before the single render pass so images (not
+  // placeholders) appear when they are ready in the shared image cache.
+  const warnings: string[] = [];
+  await preloadImageFills(nodes, warnings, signal);
+
+  if (signal?.aborted) return null;
+
   const scale = computeScale(bounds.w, bounds.h, outW, outH, opts.fit ?? 'contain');
-  const cw = Math.max(1, Math.round(bounds.w * scale));
-  const ch = Math.max(1, Math.round(bounds.h * scale));
+  let cw = Math.max(1, Math.round(bounds.w * scale));
+  let ch = Math.max(1, Math.round(bounds.h * scale));
+
+  // Clamp to the pixel budget after DPR scaling.
+  if (cw * ch > MAX_THUMBNAIL_PIXELS) {
+    const shrink = Math.sqrt(MAX_THUMBNAIL_PIXELS / (cw * ch));
+    cw = Math.max(1, Math.round(cw * shrink));
+    ch = Math.max(1, Math.round(ch * shrink));
+    warnings.push('pixel-budget-clamped');
+  }
 
   if (signal?.aborted) return null;
 
@@ -263,7 +343,19 @@ export async function generateThumbnail(
 
   if (signal?.aborted) return null;
 
-  const blob = await encodeRasterSurface(surface, 'image/png', opts.quality ?? 0.92);
+  let blob = await encodeRasterSurface(surface, mimeTypeFor(format), opts.quality ?? 0.92);
+  let mimeType = mimeTypeFor(format);
+  // WebP may be unsupported by some encoders — fall back to PNG.
+  if (format === 'webp' && blob.size === 0 && !blob.type.includes('webp')) {
+    blob = await encodeRasterSurface(surface, 'image/png', opts.quality ?? 0.92);
+    mimeType = 'image/png';
+  }
+  // Byte cap: reduce quality once, then keep the image with a warning.
+  if (blob.size > MAX_THUMBNAIL_BYTES) {
+    blob = await encodeRasterSurface(surface, mimeType, 0.6);
+    if (blob.size > MAX_THUMBNAIL_BYTES) warnings.push('byte-cap-exceeded');
+  }
+
   const dataUrl = await new Promise<string | null>((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
@@ -279,11 +371,14 @@ export async function generateThumbnail(
     scaleFactor: scale,
     outputWidth: cw,
     outputHeight: ch,
-    mimeType: 'image/png',
+    mimeType,
+    byteSize: blob.size,
     generatedAt: Date.now(),
     revisionId,
+    rendererVersion: THUMBNAIL_RENDERER_VERSION,
     isPlaceholder: false,
-    warnings: [],
+    isProvisional: warnings.some((w) => w === 'image-not-ready'),
+    warnings,
   };
 
   return { dataUrl, metadata };

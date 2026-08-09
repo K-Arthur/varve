@@ -13,8 +13,7 @@ import {
   validateRasterColorEncoding,
 } from './assets';
 import { createDocument, type Document } from './document';
-import { CURRENT_DOCUMENT_VERSION } from './version';
-import { migrateDocument, serializeDocument } from './version';
+import { CURRENT_DOCUMENT_VERSION, migrateDocument, serializeDocument } from './version';
 
 const P3_ENCODING = {
   model: 'rgb',
@@ -59,9 +58,7 @@ describe('validateRasterColorEncoding', () => {
     ).toContain('provenance');
     expect(
       validateRasterColorEncoding('a', { model: 'hsv' as never, provenance: 'unknown' }),
-    ).toContain(
-      'model',
-    );
+    ).toContain('model');
     expect(
       validateRasterColorEncoding('a', {
         model: 'rgb',
