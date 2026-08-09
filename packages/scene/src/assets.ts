@@ -59,8 +59,11 @@ export function mimeTypeFromDataUrl(dataUrl: string): string {
 export interface EmbeddedAssetInput {
   dataUrl: string;
   mimeType: string;
+  /** Displayed (orientation-normalized) pixel dimensions. */
   naturalWidth: number;
   naturalHeight: number;
+  /** Normalized ingestion metadata (EXIF/ICC). Optional. */
+  metadata?: import('./types').ImageSourceMetadata;
 }
 
 /** Pure factory: same bytes always produce the same asset id. */
@@ -75,8 +78,11 @@ export function createEmbeddedAsset(input: EmbeddedAssetInput): DocumentAsset {
     naturalHeight: input.naturalHeight,
     byteLength: decodedDataUrlByteLength(input.dataUrl),
     hash,
+    ...(input.metadata ? { metadata: input.metadata } : {}),
   };
 }
+
+const ORIENTATION_VALUES = new Set([1, 2, 3, 4, 5, 6, 7, 8]);
 
 /** Structural validation for a persisted DocumentAsset. Mirrors masks.ts's validateRasterMaskAsset. */
 export function validateDocumentAsset(asset: DocumentAsset): string | null {
@@ -105,6 +111,39 @@ export function validateDocumentAsset(asset: DocumentAsset): string | null {
   }
   if (typeof asset.hash !== 'string' || asset.hash.length === 0) {
     return `Document asset ${asset.id} must have a hash`;
+  }
+  if (asset.metadata !== undefined) {
+    const metadataError = validateImageSourceMetadata(asset.id, asset.metadata);
+    if (metadataError) return metadataError;
+  }
+  return null;
+}
+
+/** Structural validation for the normalized ingestion metadata block. */
+export function validateImageSourceMetadata(
+  assetId: string,
+  metadata: import('./types').ImageSourceMetadata,
+): string | null {
+  if (!metadata || typeof metadata !== 'object') {
+    return `Document asset ${assetId} metadata must be an object`;
+  }
+  if (metadata.orientation !== undefined && !ORIENTATION_VALUES.has(metadata.orientation)) {
+    return `Document asset ${assetId} metadata.orientation must be an EXIF value 1-8`;
+  }
+  if (metadata.pixelWidth !== undefined && !Number.isInteger(metadata.pixelWidth)) {
+    return `Document asset ${assetId} metadata.pixelWidth must be an integer`;
+  }
+  if (metadata.pixelHeight !== undefined && !Number.isInteger(metadata.pixelHeight)) {
+    return `Document asset ${assetId} metadata.pixelHeight must be an integer`;
+  }
+  if (metadata.iccProfileId !== undefined && typeof metadata.iccProfileId !== 'string') {
+    return `Document asset ${assetId} metadata.iccProfileId must be a string`;
+  }
+  if (
+    metadata.iccStatus !== undefined &&
+    !['valid', 'invalid', 'none'].includes(metadata.iccStatus)
+  ) {
+    return `Document asset ${assetId} metadata.iccStatus must be valid/invalid/none`;
   }
   return null;
 }
@@ -167,4 +206,76 @@ export function pruneUnusedAssets<T extends AssetDoc & AssetNodeMap>(doc: T): T 
   );
   if (Object.keys(kept).length === Object.keys(doc.assets).length) return doc;
   return { ...doc, assets: Object.keys(kept).length > 0 ? kept : undefined };
+}
+
+// ── ICC profile registry ─────────────────────────────────────────────────────
+
+interface IccProfileDoc {
+  iccProfiles?: Record<string, import('./types').IccProfileEntry>;
+  assets?: Record<string, { metadata?: import('./types').ImageSourceMetadata }>;
+}
+
+/** Byte-safe content hash for profile payloads (base64 string lane). */
+export function hashProfilePayload(profileBase64: string): string {
+  return hashContent(profileBase64);
+}
+
+/** Create-or-reuse a registry entry for a base64-encoded ICC profile. */
+export function upsertIccProfile<T extends IccProfileDoc>(
+  doc: T,
+  profileBase64: string,
+  description?: string,
+): { document: T; profileId: string } {
+  const hash = hashProfilePayload(profileBase64);
+  const id = `icc-${hash}`;
+  const existing = doc.iccProfiles?.[id];
+  if (existing) return { document: doc, profileId: id };
+  const byteLength = Math.max(0, Math.floor((profileBase64.length * 3) / 4));
+  const entry: import('./types').IccProfileEntry = {
+    id,
+    profileBase64,
+    byteLength,
+    hash,
+    ...(description ? { description } : {}),
+  };
+  return {
+    document: { ...doc, iccProfiles: { ...doc.iccProfiles, [id]: entry } },
+    profileId: id,
+  };
+}
+
+/** True when any asset metadata references `profileId`. */
+export function isIccProfileReferenced(doc: IccProfileDoc, profileId: string): boolean {
+  for (const asset of Object.values(doc.assets ?? {})) {
+    if (asset?.metadata?.iccProfileId === profileId) return true;
+  }
+  return false;
+}
+
+/** Garbage-collect profile entries no longer referenced by any asset. */
+export function pruneUnusedIccProfiles<T extends IccProfileDoc>(doc: T): T {
+  if (!doc.iccProfiles) return doc;
+  const kept = Object.fromEntries(
+    Object.entries(doc.iccProfiles).filter(([profileId]) => isIccProfileReferenced(doc, profileId)),
+  );
+  if (Object.keys(kept).length === Object.keys(doc.iccProfiles).length) return doc;
+  return { ...doc, iccProfiles: Object.keys(kept).length > 0 ? kept : undefined };
+}
+
+/** Structural validation for a persisted IccProfileEntry. */
+export function validateIccProfileEntry(entry: import('./types').IccProfileEntry): string | null {
+  if (!entry || typeof entry !== 'object') return 'ICC profile entry must be an object';
+  if (typeof entry.id !== 'string' || entry.id.length === 0) {
+    return 'ICC profile id must be a non-empty string';
+  }
+  if (typeof entry.profileBase64 !== 'string' || entry.profileBase64.length < (128 * 4) / 3) {
+    return `ICC profile ${entry.id} must have a base64 payload`;
+  }
+  if (!Number.isInteger(entry.byteLength) || entry.byteLength <= 0) {
+    return `ICC profile ${entry.id} must have a positive byteLength`;
+  }
+  if (typeof entry.hash !== 'string' || entry.hash.length === 0) {
+    return `ICC profile ${entry.id} must have a hash`;
+  }
+  return null;
 }
