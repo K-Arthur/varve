@@ -10,6 +10,15 @@ import { dragOnCanvas } from '../shared';
 async function enterEditor(page: Page) {
   page.on('pageerror', (err) => console.log('PAGEERROR:', err.message));
   await page.goto('/', { timeout: 120000, waitUntil: 'domcontentloaded' });
+  // A killed or timed-out earlier run counts as an unclean shutdown, and a few
+  // of those in a row put the app into safe mode — a full-screen recovery gate
+  // instead of the editor, so every locator below times out for reasons that
+  // look nothing like the real cause. Clear the flag first (same approach as
+  // helpers/nav.ts `navigateToCleanEditor`).
+  if (await page.evaluate(() => localStorage.getItem('varve:safe-mode') !== null)) {
+    await page.evaluate(() => localStorage.removeItem('varve:safe-mode'));
+    await page.reload({ timeout: 120000 });
+  }
   const newBtn = page.getByRole('button', { name: /^new$/i });
   try {
     await newBtn.waitFor({ state: 'visible', timeout: 30000 });
@@ -181,9 +190,15 @@ test.describe('warp: non-destructive lifecycle', () => {
     // (transparent hit rects), so drive the pointer from the bounding box.
     const firstBox = await meshHandles.first().boundingBox();
     expect(firstBox).toBeTruthy();
-    await page.mouse.move(firstBox!.x + 8, firstBox!.y + 8);
+    // Press the handle's CENTRE. A mesh handle is HANDLE_SIZE (7px) square, so
+    // the old `+8, +8` landed a pixel outside it: the pointerdown missed, no
+    // drag ever started, and the Ctrl+Z below then undid the mesh preset
+    // itself rather than the move — leaving no Rows field to find.
+    const startX = firstBox!.x + firstBox!.width / 2;
+    const startY = firstBox!.y + firstBox!.height / 2;
+    await page.mouse.move(startX, startY);
     await page.mouse.down();
-    await page.mouse.move(firstBox!.x + 8 + 60, firstBox!.y + 8 + 40, { steps: 4 });
+    await page.mouse.move(startX + 60, startY + 40, { steps: 4 });
     await page.mouse.up();
     await page.waitForTimeout(400);
 
