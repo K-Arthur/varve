@@ -43,6 +43,8 @@ export interface ExportFileReport {
   savedPath?: string;
   error?: string;
   warnings: string[];
+  /** Typed raster resource failures (missing/corrupt/CORS/...) from preflight. */
+  resourceFailures?: import('./export/resourceReadiness').FailedResource[];
 }
 
 export interface ExportReport {
@@ -90,6 +92,8 @@ interface RenderedExport {
   bytes: Uint8Array;
   mimeType: string;
   warnings: string[];
+  /** Typed raster resource failures (missing/corrupt/CORS/...) from preflight. */
+  resourceFailures?: import('./export/resourceReadiness').FailedResource[];
 }
 
 function abortError(): Error {
@@ -302,25 +306,25 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       // needs explicit target dimensions, which come from the rendered size.
       const pipeline = buildRasterPipeline(rasterOpts);
       const metadata = buildRasterMetadata(rasterOpts);
-      const { blob, warnings: rasterWarnings } = await exportNodeAsRaster(
-        node,
-        context.document,
-        context.engine,
-        {
-          format: mime,
-          scale: rasterScaleForJob(job, context),
-          quality: rasterOpts?.quality ?? (job.format === 'jpg' ? 0.92 : undefined),
-          transparency: rasterOpts?.transparency,
-          matteColor: rasterOpts?.matteColor,
-          pipeline,
-          metadata,
-        },
-      );
+      const {
+        blob,
+        warnings: rasterWarnings,
+        resourceFailures,
+      } = await exportNodeAsRaster(node, context.document, context.engine, {
+        format: mime,
+        scale: rasterScaleForJob(job, context),
+        quality: rasterOpts?.quality ?? (job.format === 'jpg' ? 0.92 : undefined),
+        transparency: rasterOpts?.transparency,
+        matteColor: rasterOpts?.matteColor,
+        pipeline,
+        metadata,
+      });
       const fontWarnings = collectMissingFontWarnings(node);
       return {
         bytes: await blobToBytes(blob),
         mimeType: blob.type || mime,
         warnings: [...fontWarnings, ...rasterWarnings],
+        ...(resourceFailures.length > 0 ? { resourceFailures } : {}),
       };
     }
   }
@@ -450,6 +454,9 @@ export const ExportService = {
           durationMs: performance.now() - jobStarted,
           savedPath: typeof saved === 'string' ? saved : undefined,
           warnings: rendered.warnings,
+          ...(rendered.resourceFailures && rendered.resourceFailures.length > 0
+            ? { resourceFailures: rendered.resourceFailures }
+            : {}),
         });
         completedJobs += 1;
         emit('completed', job.fileName);

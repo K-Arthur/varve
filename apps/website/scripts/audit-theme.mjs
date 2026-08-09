@@ -66,7 +66,6 @@ const routes = [
 const themes = [
   { name: 'light', colorScheme: 'light', contrast: 'no-preference' },
   { name: 'dark', colorScheme: 'dark', contrast: 'no-preference' },
-  { name: 'hc', colorScheme: 'light', contrast: 'more' },
 ];
 
 function oklchToSrgb(l, c, h) {

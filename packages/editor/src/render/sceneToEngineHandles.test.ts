@@ -6,7 +6,6 @@
 import type { SceneNode } from '@varve/engine';
 import {
   imageResourceRegistrySize,
-  registerImageResourceHandle,
   resetImageResourceRegistry,
   resolveImageResourceHandle,
 } from '@varve/engine';

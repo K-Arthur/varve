@@ -1,5 +1,7 @@
 ---
 import '../styles/global.css';
+import SiteHeader from '../components/SiteHeader.astro';
+import SiteFooter from '../components/SiteFooter.astro';
 import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath } from '../lib/siteUrl';
 
 interface Props {
@@ -30,7 +32,8 @@ const ogImageUrl = ogImageUrlOf(image);
 // page title does not already carry it.
 const pageTitle = /\bVarve\b/.test(title) ? title : `${title} | Varve`;
 
-const sitewideStructuredData = [  {
+const sitewideStructuredData = [
+  {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     '@id': `${siteOriginOf()}#organization`,
@@ -58,25 +61,6 @@ const sitewideStructuredData = [  {
 // Empty unless deliberately configured at build time. See the analytics comment
 // in <head> — the default build makes no third-party requests at all.
 const analyticsDomain = import.meta.env.ANALYTICS_DOMAIN ?? '';
-
-// Active navigation state: the pathname arrives with the base prefix, so strip
-// it before comparing against the route list.
-const basePrefix = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
-const currentPath = Astro.url.pathname.startsWith(basePrefix)
-  ? `/${Astro.url.pathname.slice(basePrefix.length)}`
-  : Astro.url.pathname;
-const navItems = [
-  { href: '/product', label: 'Product' },
-  { href: '/features', label: 'Features' },
-  { href: '/download', label: 'Download' },
-  { href: '/docs', label: 'Docs' },
-  { href: '/support', label: 'Support' },
-  { href: '/contribute', label: 'Contribute' },
-];
-function isCurrent(href: string): boolean {
-  if (href === '/') return currentPath === '/';
-  return currentPath === href || currentPath.startsWith(`${href}/`);
-}
 
 const csp = [
   "default-src 'self'",
@@ -109,23 +93,29 @@ const csp = [
     <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 
-    <!-- Theme detection script (runs before paint).
-      One canonical state on <html data-theme="light|dark|high-contrast">.
+    {/*
+      Theme detection script (runs before paint).
+      One canonical state on <html data-theme="light|dark">.
+
       Precedence:
-        1. An explicit user choice (localStorage "varve-theme":
-           "light" | "dark" | "system") wins over everything.
-        2. Otherwise ("system" or no choice) the OS drives: prefers-contrast
-           "more" maps to the high-contrast theme, then prefers-color-scheme
-           dark, else light.
-      The OS preference is tracked live so a mid-session OS switch re-themes
-      the page while the choice is "system". The tokens.css + theme.css media
-      fallbacks keep JS-disabled rendering readable. -->
+        1. An explicit persisted choice (localStorage "varve-theme":
+           "light" | "dark").
+        2. Otherwise the OS drives (prefers-color-scheme), tracked live so a
+           first-time visitor follows OS switches until they choose.
+      The first explicit click converts the automatic state into a persisted
+      choice. Legacy values ("system", "high-contrast", anything invalid)
+      resolve to the OS preference and are replaced by the next explicit
+      choice — never rendered as a theme.
+
+      The tokens.css + theme.css media fallbacks keep JS-disabled rendering
+      readable. Native OS forced-colors (Windows High Contrast etc.) are
+      handled by the @media (forced-colors: active) rules in theme.css and
+      are independent of the site's two selectable themes. */}
     <script is:inline>
       (function () {
         var root = document.documentElement;
         var KEY = 'varve-theme';
         var prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
-        var prefersHighContrast = window.matchMedia('(prefers-contrast: more)');
         function readChoice() {
           try {
             return localStorage.getItem(KEY);
@@ -133,31 +123,50 @@ const csp = [
             return null;
           }
         }
-        function writeChoice(value) {
-          try {
-            localStorage.setItem(KEY, value);
-          } catch (e) {}
+        function isExplicit(choice) {
+          return choice === 'light' || choice === 'dark';
         }
-        function resolve(choice) {
-          if (choice === 'light' || choice === 'dark') return choice;
-          return prefersHighContrast.matches
-            ? 'high-contrast'
-            : prefersDark.matches
-              ? 'dark'
-              : 'light';
+        function systemTheme() {
+          return prefersDark.matches ? 'dark' : 'light';
+        }
+        // Legacy "system" / "high-contrast" / invalid values never render as
+        // themes; they fall back to the OS and migrate on the next click.
+        function resolve() {
+          var choice = readChoice();
+          return isExplicit(choice) ? choice : systemTheme();
         }
         function apply() {
-          root.setAttribute('data-theme', resolve(readChoice()));
+          root.setAttribute('data-theme', resolve());
         }
         window.__varveTheme = {
           read: readChoice,
-          write: writeChoice,
+          write: function (value) {
+            try {
+              localStorage.setItem(KEY, isExplicit(value) ? value : systemTheme());
+            } catch (e) {}
+          },
           resolve: resolve,
           apply: apply,
+          state: function () {
+            var choice = readChoice();
+            return { theme: resolve(), explicit: isExplicit(choice) };
+          },
         };
         apply();
         prefersDark.addEventListener('change', apply);
-        prefersHighContrast.addEventListener('change', apply);
+      })();
+    </script>
+
+    {/*
+      Deterministic motion override for visual tests: ?test-motion=static
+      renders every animated system in its final static state, matching
+      prefers-reduced-motion behaviour without touching the emulation.
+    */}
+    <script is:inline>
+      (function () {
+        if (new URLSearchParams(window.location.search).get('test-motion') === 'static') {
+          document.documentElement.dataset.motion = 'static';
+        }
       })();
     </script>
 
@@ -213,161 +222,24 @@ const csp = [
   </head>
   <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
-    <header class="site-header">
-      <nav class="site-nav">
-        <a href={sitePath('/')} class="site-logo">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <!-- Varve logo: three parallelogram strata planes with consistent tilt -->
-            <!-- Layer 1 (surface) - teal -->
-            <path d="M5,6.5 H21 L23.5,12.5 H7.5 Z" fill="#39D0C6"/>
-            <!-- Layer 2 (mid) - sandstone -->
-            <path d="M7.5,13.5 H23.5 L26,19.5 H10 Z" fill="#E28C3C"/>
-            <!-- Layer 3 (deep) - terracotta -->
-            <path d="M10,20.5 H26 L28.5,26.5 H12.5 Z" fill="#C54B3A"/>
-          </svg>
-          <span>Varve</span>
-        </a>
-        <ul class="nav-links" id="site-nav-links">
-          {navItems.map((item) => (
-            <li>
-              <a
-                href={sitePath(item.href)}
-                class:list={[{ 'nav-active': isCurrent(item.href) }]}
-                aria-current={isCurrent(item.href) ? 'page' : undefined}
-              >
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-        <div class="nav-actions">
-          <div class="theme-switcher" role="group" aria-label="Theme">
-            <button class="theme-option" data-theme-choice="light" aria-pressed="false" title="Light theme" aria-label="Light theme">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4"></circle>
-                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
-              </svg>
-            </button>
-            <button class="theme-option" data-theme-choice="dark" aria-pressed="false" title="Dark theme" aria-label="Dark theme">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-              </svg>
-            </button>
-            <button class="theme-option" data-theme-choice="system" aria-pressed="true" title="System theme" aria-label="System theme">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
-                <path d="M8 21h8M12 17v4"></path>
-              </svg>
-            </button>
-          </div>
-          <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav-links">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <line x1="3" y1="6" x2="21" y2="6"></line>
-              <line x1="3" y1="12" x2="21" y2="12"></line>
-              <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-      </nav>
-    </header>
-    
+    <SiteHeader />
+
     <main id="main-content" class="site-main" tabindex="-1">
       <slot />
     </main>
-    
-    <footer class="site-footer">
-      <div class="footer-content">
-        <div class="footer-section">
-          <h3>Product</h3>
-          <ul>
-            <li><a href={sitePath('/product')}>Overview</a></li>
-            <li><a href={sitePath('/features')}>Features</a></li>
-            <li><a href={sitePath('/download')}>Download</a></li>
-            <li><a href={sitePath('/releases')}>Releases</a></li>
-          </ul>
-        </div>
-        <div class="footer-section">
-          <h3>Learn</h3>
-          <ul>
-            <li><a href={sitePath('/docs')}>Documentation</a></li>
-            <li><a href={sitePath('/learn/tutorials')}>Tutorials</a></li>
-            <li><a href={sitePath('/learn/examples')}>Examples</a></li>
-            <li><a href={sitePath('/learn/community')}>Community</a></li>
-          </ul>
-        </div>
-        <div class="footer-section">
-          <h3>Support</h3>
-          <ul>
-            <li><a href={sitePath('/support/faq')}>FAQ</a></li>
-            <li><a href={sitePath('/support/troubleshooting')}>Troubleshooting</a></li>
-            <li><a href={sitePath('/support/report-issue')}>Report Issue</a></li>
-          </ul>
-        </div>
-        <div class="footer-section">
-          <h3>Project</h3>
-          <ul>
-            <li><a href={sitePath('/contribute')}>Contribute</a></li>
-            <li><a href={sitePath('/support-project')}>Support Project</a></li>
-            <li><a href={sitePath('/about')}>About</a></li>
-            <li><a href={sitePath('/about/license')}>License (FSL-1.1-MIT)</a></li>
-          </ul>
-        </div>
-        <div class="footer-section">
-          <h3>Connect</h3>
-          <ul>
-            <li><a href="https://github.com/K-Arthur/varve">GitHub</a></li>
-            <li><a href="https://github.com/K-Arthur/varve/discussions">Discussions</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <p>&copy; 2024-2026 K-Arthur — FSL-1.1-MIT</p>
-        <p>Built independently. Source-available. Shaped by its community.</p>
-      </div>
-    </footer>
-    
-    <script>
-      const mobileMenuToggle = document.querySelector<HTMLButtonElement>('.mobile-menu-toggle');
-      const navLinks = document.querySelector<HTMLUListElement>('.nav-links');
 
-      function isMenuOpen() {
-        return navLinks !== null && navLinks.classList.contains('active');
-      }
-
-      function closeMenu(restoreFocus = false) {
-        if (!isMenuOpen()) return;
-        navLinks!.classList.remove('active');
-        mobileMenuToggle!.setAttribute('aria-expanded', 'false');
-        if (restoreFocus) mobileMenuToggle!.focus();
-      }
-
-      if (mobileMenuToggle && navLinks) {
-        mobileMenuToggle.addEventListener('click', () => {
-          const open = !isMenuOpen();
-          navLinks.classList.toggle('active', open);
-          mobileMenuToggle.setAttribute('aria-expanded', String(open));
-        });
-
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && isMenuOpen()) {
-            closeMenu(true);
-          }
-        });
-
-        navLinks.addEventListener('click', (e) => {
-          if (e.target instanceof Element && e.target.closest('a')) {
-            closeMenu(false);
-          }
-        });
-
-        const desktop = window.matchMedia('(min-width: 769px)');
-        desktop.addEventListener('change', (e) => {
-          if (e.matches) closeMenu(false);
-        });
-      }
-    </script>
+    <SiteFooter />
   </body>
 </html>
+
+<script>
+  import { initReveals } from '../lib/motion';
+
+  // One shared reveal observer for the whole site. Runs on every page;
+  // elements without [data-reveal] are ignored, and the observer guards
+  // against double registration.
+  initReveals();
+</script>
 
 <style is:global>
   * {
@@ -376,191 +248,30 @@ const csp = [
     padding: 0;
   }
 
-  .site-header {
-    background: var(--surface-header);
-    border-bottom: 1px solid var(--border-default);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-  }
-
-  .site-nav {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 1rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .site-logo {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-weight: 600;
-    font-size: 1.25rem;
-    color: var(--text-primary);
-    text-decoration: none;
-  }
-
-  .site-logo:visited {
-    color: var(--text-primary);
-  }
-
-  .site-logo svg {
-    width: 32px;
-    height: 32px;
-  }
-
-  .nav-links {
-    display: flex;
-    list-style: none;
-    gap: 2rem;
-  }
-
-  .nav-links a {
-    color: var(--text-secondary);
-    font-weight: 500;
-    text-decoration: none;
-  }
-
-  .nav-links a:visited {
-    color: var(--text-secondary);
-  }
-
-  .nav-links a:hover {
-    color: var(--text-link);
-  }
-
-  .nav-links a.nav-active {
-    color: var(--text-link);
-    font-weight: 600;
-  }
-
-  .mobile-menu-toggle {
-    display: none;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.5rem;
-    color: var(--text-secondary);
-  }
-
-  /* Theme switcher: 24px touch targets (WCAG 2.5.8 / axe target-size). */
-  .theme-switcher {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  .theme-option {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    background: none;
-    border: none;
-    border-radius: 0.25rem;
-    cursor: pointer;
-    color: var(--text-secondary);
-  }
-
-  .theme-option:hover,
-  .theme-option:focus-visible {
-    color: var(--text-link);
-    background: var(--surface-muted);
-  }
-
-  @media (max-width: 768px) {
-    .nav-links {
-      display: none;
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: var(--surface-header);
-      flex-direction: column;
-      padding: 1rem;
-      gap: 1rem;
-      border-bottom: 1px solid var(--border-default);
-      box-shadow: var(--elevation-shadow-raised);
-    }
-
-    .nav-links.active {
-      display: flex;
-    }
-
-    .mobile-menu-toggle {
-      display: block;
-    }
-  }
-
   .site-main {
     min-height: calc(100vh - 400px);
   }
 
-  .site-footer {
-    background: var(--surface-footer);
-    color: var(--text-footer);
-    padding: 3rem 1.5rem 2rem;
-    border-top: 1px solid var(--border-footer);
-  }
-
-  .footer-content {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 2rem;
-  }
-
-  .footer-section h3 {
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 1rem;
-    color: var(--text-footer-heading);
-  }
-
-  .footer-section ul {
-    list-style: none;
-  }
-
-  .footer-section li {
-    margin-bottom: 0.5rem;
-  }
-
-  .footer-section a {
-    color: var(--text-footer-link);
-    font-size: 0.9375rem;
+  /* Skip link for accessibility */
+  .skip-link {
+    position: absolute;
+    top: -100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    z-index: 9999;
     text-decoration: none;
+    font-weight: 600;
   }
 
-  .footer-section a:visited {
-    color: var(--text-footer-link);
+  .skip-link:visited {
+    color: var(--text-on-accent);
   }
 
-  .footer-section a:hover {
-    color: var(--text-footer-link-hover);
-    text-decoration: underline;
-  }
-
-  .footer-bottom {
-    max-width: 1200px;
-    margin: 2rem auto 0;
-    padding-top: 2rem;
-    border-top: 1px solid var(--border-footer);
-    text-align: center;
-    font-size: 0.875rem;
-    color: var(--text-footer-muted);
-  }
-
-  @media (max-width: 768px) {
-    .footer-content {
-      grid-template-columns: 1fr;
-    }
+  .skip-link:focus {
+    top: 0.5rem;
   }
 </style>

@@ -1,0 +1,162 @@
+---
+/**
+ * AnimatedText — masked phrase rotation for the hero line.
+ *
+ * The accessible text ("One canvas.") is always present as a plain span;
+ * a decorative, aria-hidden rotor cycles design-discipline phrases over it
+ * with masked line reveals (clip-path + rise). Search engines and screen
+ * readers get the complete static sentence; the animation is presentation
+ * only.
+ *
+ * - Reserves its box (min-width set to the widest phrase at runtime, height
+ *   from the in-flow static span) so nothing shifts layout.
+ * - Reduced motion / `?test-motion=static` / no JS: rotor hidden, static
+ *   phrase shown.
+ * - No heading-level changes: this is always a span inside an existing
+ *   heading.
+ */
+const DEFAULT_PHRASES = [
+  'One canvas.',
+  'Vector.',
+  'Layout.',
+  'Typography.',
+  'Motion.',
+  'Prototyping.',
+  'Print.',
+] as const;
+
+interface Props {
+  /** Static fallback phrase (also the accessible content). */
+  staticText?: string;
+  /** Rotation set. First item is shown first and is the loop point. */
+  phrases?: readonly string[];
+}
+
+const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
+---
+
+<span class="hero-phrase" data-animated-phrase>
+  <span class="hero-phrase-static">{staticText}</span>
+  <span class="hero-phrase-rotor" aria-hidden="true">
+    {phrases.map((phrase) => <span class="hero-phrase-item" data-phrase={phrase}>{phrase}</span>)}
+  </span>
+</span>
+
+<script>
+  import { prefersMotion } from '../lib/motion';
+
+  const host = document.querySelector<HTMLElement>('[data-animated-phrase]');
+  if (host && prefersMotion()) {
+    const items = [...host.querySelectorAll<HTMLElement>('.hero-phrase-item')];
+    const staticEl = host.querySelector<HTMLElement>('.hero-phrase-static');
+    if (items.length > 1 && staticEl) {
+      // Reserve the widest phrase so rotation never shifts the layout.
+      // The probe lives inside the host so it inherits the heading's font,
+      // size and letter-spacing — measuring it against the body font would
+      // under-reserve the box by a factor of three.
+      const probe = document.createElement('span');
+      probe.className = 'hero-phrase-probe';
+      probe.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;';
+      host.appendChild(probe);
+      let widest = staticEl.getBoundingClientRect().width;
+      for (const item of items) {
+        probe.textContent = item.textContent ?? '';
+        widest = Math.max(widest, probe.getBoundingClientRect().width);
+      }
+      probe.remove();
+      host.style.minWidth = `${Math.ceil(widest)}px`;
+      host.classList.add('is-rotating');
+
+      let index = 0;
+      items[0]?.classList.add('is-active');
+      const timer = window.setInterval(() => {
+        items[index]?.classList.remove('is-active');
+        index = (index + 1) % items.length;
+        items[index]?.classList.add('is-active');
+      }, 3400);
+      // The component owns one timer; nothing else animates this line.
+      (host as HTMLElement & { __varvePhraseTimer?: number }).__varvePhraseTimer = timer;
+    }
+  }
+</script>
+
+<style>
+  .hero-phrase {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  /* The static phrase is the in-flow content: it reserves the line box and is
+     what search engines, screen readers and copy/paste get. */
+  .hero-phrase-static {
+    display: inline;
+  }
+
+  .hero-phrase-rotor {
+    position: absolute;
+    inset: 0;
+  }
+
+  .hero-phrase-item {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    clip-path: inset(0 0 100% 0);
+    transform: translateY(0.45em);
+    will-change: transform, opacity, clip-path;
+  }
+
+  /* Animation runs only when the rotor is enabled by JS AND motion is
+     allowed; otherwise the static phrase below it is the visible content.
+     Both rules live behind the same guard, so the static phrase becomes
+     visible again the instant the rotor cannot run (reduced motion toggled
+     mid-session, ?test-motion=static, JS failure) — the line can never end
+     up empty. */
+  @media (prefers-reduced-motion: no-preference) {
+    /* The rotor paints the phrase while rotating; the static copy stays in
+       flow (holding the box open, still in the a11y tree) but must not paint
+       underneath it, or the two phrases overlap into unreadable glyphs. */
+    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-static {
+      opacity: 0;
+    }
+
+    html:not([data-motion='static']) .hero-phrase.is-rotating .hero-phrase-item.is-active {
+      visibility: visible;
+      animation:
+        varve-phrase-in 0.6s var(--ease-default) both,
+        varve-phrase-out 0.45s var(--ease-default) 2.9s both;
+    }
+  }
+
+  @keyframes varve-phrase-in {
+    from {
+      opacity: 0;
+      clip-path: inset(0 0 100% 0);
+      transform: translateY(0.45em);
+    }
+    to {
+      opacity: 1;
+      clip-path: inset(0 0 0 0);
+      transform: none;
+    }
+  }
+
+  @keyframes varve-phrase-out {
+    from {
+      opacity: 1;
+      clip-path: inset(0 0 0 0);
+      transform: none;
+    }
+    to {
+      opacity: 0;
+      clip-path: inset(0 0 100% 0);
+      transform: translateY(-0.3em);
+    }
+  }
+</style>
