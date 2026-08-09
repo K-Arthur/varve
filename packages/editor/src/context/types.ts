@@ -184,8 +184,14 @@ export interface SessionMeta extends SessionFileMeta {
  *   - `saveHandleId`    — a persisted browser File System Access handle key
  *     (web). The actual handle lives in platform-managed IndexedDB; a path
  *     string would be a lie in a browser.
- *   - `fileId`          — identity in Varve's Home/library index. A session
- *     with only a fileId is stored in the explicitly chosen Varve Library.
+ *   - `fileId`          — identity in Varve's Home/library index. A fileId
+ *     is NOT a save destination: new documents receive one at creation so
+ *     the Home index can track them, but their first Save still asks the
+ *     user where to put them. Only `libraryStorage: true` marks an explicit
+ *     choice of Varve Library as the authoritative destination.
+ *   - `libraryStorage`  — true when the user EXPLICITLY chose Varve Library
+ *     as this document's destination. Only then may a library write mark the
+ *     document clean.
  *   - `downloadName`    — last browser-snapshot filename. A download is NOT a
  *     persistent location: the session stays untitled-for-file purposes and
  *     a download never marks the document clean.
@@ -197,6 +203,7 @@ export interface SessionFileMeta {
   name?: string;
   filePath?: string;
   fileId?: string;
+  libraryStorage?: boolean;
   saveHandleId?: string;
   saveHandleName?: string;
   downloadName?: string;
@@ -1080,6 +1087,15 @@ export interface EditorContextValue {
 
   // Motion
   playTimeline: (timelineId?: string) => void;
+
+  // Media (animated images)
+  playMedia: () => void;
+  pauseMedia: () => void;
+  toggleMedia: () => void;
+  seekMedia: (timeMs: number) => void;
+  stepMediaFrame: (direction: 1 | -1) => void;
+  isMediaPlaying: () => boolean;
+  mediaTime: () => number;
   pauseTimeline: () => void;
   stopTimeline: () => void;
   seekTimeline: (time: number) => void;
