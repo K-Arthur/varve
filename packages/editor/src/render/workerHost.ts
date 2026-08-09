@@ -36,6 +36,8 @@ export interface WorkerRenderCommand {
   dpr: number;
   /** Pre-decoded ImageBitmaps keyed by image src URL (Structured Clone transport). */
   images?: Record<string, ImageBitmap>;
+  /** Full authoritative image-source manifest; `images` may contain only the missing delta. */
+  imageSources?: string[];
   /** Display-only proof transform applied inside the worker before replay. */
   proof?: import('@varve/shared').ProofTransformConfig | null;
 }
@@ -106,6 +108,8 @@ export interface RenderWorkerHost {
   readonly resizeGeneration: number;
   readonly inFlightRenderRevision: RenderRevision | null;
   readonly pendingRenderRevision: RenderRevision | null;
+  /** Sources already resident or in the command currently dispatched to this worker generation. */
+  readonly knownImageSources: ReadonlySet<string>;
   readonly bitmapBudget: RenderBitmapBudget;
   getBitmapBudgetState(): BitmapBudgetState;
   /** Current main<->worker clock calibration, or null before the first exchange. */
@@ -175,8 +179,11 @@ export function createRenderWorkerHost(
   let permanentFailure = false;
   let lastRenderCommand: NormalizedRenderCommand | null = null;
   let lastRenderUsedTransfer = false;
+  let lastRenderDependsOnImages = false;
   let inFlightRenderRevision: RenderRevision | null = null;
   let inFlightTransferBytes = 0;
+  let residentImageSources = new Set<string>();
+  let inFlightImageSources: Set<string> | null = null;
   let lastForwardedFrame: ImageBitmap | null = null;
   let lastForwardedFrameBytes = 0;
   let lastForwardedFrameId: number | null = null;
@@ -247,8 +254,11 @@ export function createRenderWorkerHost(
     closePendingRender();
     inFlightRenderRevision = null;
     inFlightTransferBytes = 0;
+    residentImageSources.clear();
+    inFlightImageSources = null;
     lastRenderCommand = null;
     lastRenderUsedTransfer = false;
+    lastRenderDependsOnImages = false;
     releaseAllReservations();
     onPermanentFailure?.();
   }
@@ -335,7 +345,13 @@ export function createRenderWorkerHost(
     bitmapBudget.commitTransfer(render.transferBytes);
     inFlightTransferBytes = render.transferBytes;
     inFlightRenderRevision = render.command.renderRevision;
+    inFlightImageSources = render.command.imageSources
+      ? new Set(render.command.imageSources)
+      : render.command.images
+        ? new Set(Object.keys(render.command.images))
+        : null;
     lastRenderUsedTransfer = Boolean(render.transfer?.length);
+    lastRenderDependsOnImages = Boolean(render.command.imageSources?.length);
     // Transferred or cloned ImageBitmaps cannot be replayed safely after a
     // worker crash. Plain IR commands can be retried after restart.
     lastRenderCommand = lastRenderUsedTransfer || render.command.images ? null : render.command;
@@ -398,6 +414,8 @@ export function createRenderWorkerHost(
             bitmapBudget.releaseTransfer(inFlightTransferBytes);
             inFlightTransferBytes = 0;
           }
+          if (inFlightImageSources) residentImageSources = inFlightImageSources;
+          inFlightImageSources = null;
           if (obsolete) {
             if (msg.bitmap) {
               // Record the discard so a drag that renders ten frames and
@@ -438,6 +456,11 @@ export function createRenderWorkerHost(
           msg.renderRevision === inFlightRenderRevision
         ) {
           inFlightRenderRevision = null;
+          if (inFlightTransferBytes > 0) {
+            bitmapBudget.releaseTransfer(inFlightTransferBytes);
+            inFlightTransferBytes = 0;
+          }
+          inFlightImageSources = null;
           const obsolete =
             latestRequestedRevision !== null && msg.renderRevision < latestRequestedRevision;
           if (!obsolete) onResponse(msg);
@@ -451,7 +474,7 @@ export function createRenderWorkerHost(
         restartCount++;
         // A successful transfer detaches the sender's ImageBitmaps. Retrying
         // that command would reuse invalid resources and can never succeed.
-        if (lastRenderUsedTransfer || restartCount >= maxRestarts) {
+        if (lastRenderUsedTransfer || lastRenderDependsOnImages || restartCount >= maxRestarts) {
           markPermanentFailure();
           return;
         }
@@ -505,6 +528,9 @@ export function createRenderWorkerHost(
     },
     get pendingRenderRevision() {
       return pendingRender?.command.renderRevision ?? null;
+    },
+    get knownImageSources() {
+      return inFlightImageSources ?? residentImageSources;
     },
     post(command, transfer) {
       if (!worker || permanentFailure) {
@@ -577,8 +603,11 @@ export function createRenderWorkerHost(
       closePendingRender();
       inFlightRenderRevision = null;
       inFlightTransferBytes = 0;
+      residentImageSources.clear();
+      inFlightImageSources = null;
       lastRenderCommand = null;
       lastRenderUsedTransfer = false;
+      lastRenderDependsOnImages = false;
       releaseAllReservations();
       if (registeredHost === host) registerWorkerHostForDiagnostics(null);
     },

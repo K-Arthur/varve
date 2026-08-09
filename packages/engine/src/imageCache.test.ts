@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ImageCache } from './imageCache';
+import { getImageCache, ImageCache, resetImageCache } from './imageCache';
 
 class MockImage {
   crossOrigin: string | null = null;
@@ -173,6 +173,31 @@ describe('ImageCache memory budget', () => {
     cache.setLimits({ maxBytes: 400 });
 
     expect(cache.stats).toMatchObject({ entries: 1, bytes: 400, evictions: 1 });
+  });
+
+  it('keeps explicit URL subscriptions across cache eviction and reload', () => {
+    const cache = new ImageCache({ maxEntries: 1, maxBytes: 10_000 });
+    let notifications = 0;
+    const unsubscribe = cache.subscribe('first', () => notifications++);
+
+    cache.setLoaded('first', image(10, 10));
+    cache.setLoaded('second', image(10, 10));
+    cache.setLoaded('first', image(10, 10));
+
+    expect(notifications).toBe(2);
+    unsubscribe();
+  });
+
+  it('reset clears the previous singleton before replacing it', () => {
+    resetImageCache();
+    const previous = getImageCache();
+    previous.setLoaded('one', image(10, 10));
+
+    resetImageCache();
+
+    expect(previous.size).toBe(0);
+    expect(previous.stats.bytes).toBe(0);
+    expect(getImageCache()).not.toBe(previous);
   });
 });
 

@@ -30,6 +30,31 @@ export function replaceImageBitmapMap(
   return next;
 }
 
+/**
+ * Apply a transport delta to the worker's retained image map. The manifest is
+ * authoritative: sources no longer referenced by the frame are closed, while
+ * unchanged sources retain their existing bitmap identity.
+ */
+export function reconcileImageBitmapMap(
+  current: Readonly<Record<string, ImageBitmap>>,
+  incoming: Readonly<Record<string, ImageBitmap>>,
+  requiredSources: readonly string[],
+): Record<string, ImageBitmap> {
+  const next: Record<string, ImageBitmap> = {};
+  for (const src of requiredSources) {
+    const bitmap = incoming[src] ?? current[src];
+    if (bitmap) next[src] = bitmap;
+  }
+
+  const retained = new Set(Object.values(next));
+  const obsolete: Record<string, ImageBitmap> = {};
+  for (const [src, bitmap] of [...Object.entries(current), ...Object.entries(incoming)]) {
+    if (!retained.has(bitmap)) obsolete[src] = bitmap;
+  }
+  closeImageBitmapMap(obsolete);
+  return next;
+}
+
 /** Collect image src URLs referenced by IR fill stacks. */
 export function imageSrcsFromIr(ir: RenderItem[]): string[] {
   const srcs = new Set<string>();
@@ -72,6 +97,8 @@ export function imageSrcsFromIr(ir: RenderItem[]): string[] {
 export interface CollectImageBitmapsOptions {
   /** Cap the number of distinct image fills decoded for one transfer. */
   maxEntries?: number;
+  /** Sources the current worker generation can already draw without transfer. */
+  residentSources?: ReadonlySet<string>;
 }
 
 export async function collectImageBitmaps(
@@ -81,9 +108,11 @@ export async function collectImageBitmaps(
   images: Record<string, ImageBitmap>;
   transfer: Transferable[];
   bytes: number;
+  /** Full authoritative source manifest for the frame, including residents. */
+  sources: string[];
 } | null> {
   const srcs = imageSrcsFromIr(ir);
-  if (srcs.length === 0) return { images: {}, transfer: [], bytes: 0 };
+  if (srcs.length === 0) return { images: {}, transfer: [], bytes: 0, sources: [] };
 
   const cache = getImageCache();
   const images: Record<string, ImageBitmap> = {};
@@ -91,13 +120,15 @@ export async function collectImageBitmaps(
   const maxEntries = options.maxEntries ?? Number.POSITIVE_INFINITY;
   let bytes = 0;
 
+  if (srcs.length > maxEntries) return null;
+
   const fail = (): null => {
     closeImageBitmapMap(images);
     return null;
   };
 
   for (const src of srcs) {
-    if (Object.keys(images).length >= maxEntries) return fail();
+    if (options.residentSources?.has(src)) continue;
     if (!cache.isLoaded(src)) {
       void cache.load(src).catch(() => undefined);
       return fail();
@@ -117,5 +148,5 @@ export async function collectImageBitmaps(
     }
   }
 
-  return { images, transfer, bytes };
+  return { images, transfer, bytes, sources: srcs };
 }
