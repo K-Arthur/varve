@@ -200,6 +200,35 @@ export function imageShapeSrc(n: ShapeNode): string {
   return getImageFill(n)?.image?.src ?? '';
 }
 
+/** True when a node carries an animated-media image fill (v2.20+). */
+export function isAnimatedMediaNode(n: SceneNode, doc?: import('./document').Document): boolean {
+  if (n.kind !== 'shape') return false;
+  const fills = n.fills;
+  if (!fills) return false;
+  for (const fill of fills) {
+    if (fill.type !== 'image' || !fill.image) continue;
+    const assetId = fill.image.assetId;
+    if (assetId && doc?.assets?.[assetId]?.animated) return true;
+  }
+  return false;
+}
+
+/** The first animated-media fill on a node, or undefined. */
+export function getAnimatedMediaFill(
+  n: SceneNode,
+  doc?: import('./document').Document,
+): Fill | undefined {
+  if (n.kind !== 'shape') return undefined;
+  const fills = n.fills;
+  if (!fills) return undefined;
+  for (const fill of fills) {
+    if (fill.type !== 'image' || !fill.image) continue;
+    const assetId = fill.image.assetId;
+    if (assetId && doc?.assets?.[assetId]?.animated) return fill;
+  }
+  return undefined;
+}
+
 /** Returns the rendered width of an image shape (via shapeWidth). */
 export function imageShapeW(n: ShapeNode): number {
   return shapeWidth(n.shape);

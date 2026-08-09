@@ -50,9 +50,10 @@ export function collectUnsavedDocuments(
       name: displayName(sessions, session),
       filePath: session.filePath,
       fileId: session.fileId,
-      // A browser file handle or download-only name is not a persistent
-      // user-chosen location either — the session counts as untitled.
-      untitled: !session.filePath && !session.fileId && !session.saveHandleId,
+      // A bare library id (minted at document creation) is NOT a save
+      // destination; neither are browser handles or download-only names.
+      // Only an explicit Varve Library choice counts as "saved somewhere".
+      untitled: !session.filePath && !session.libraryStorage && !session.saveHandleId,
     });
   }
   return docs;

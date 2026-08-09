@@ -607,6 +607,7 @@ export {
   renderEnhancedMask,
   srgbToLuminance,
 } from './maskCompositing';
+export * from './media';
 export type { MeshControlPoint, MeshTriangle, MeshWarp, MeshWarpCell } from './meshWarp';
 export { createFlatMesh, renderWarpGrid, warpMesh, warpPath, warpPosition } from './meshWarp';
 export type { ExifOrientation } from './metadata/exif';

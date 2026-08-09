@@ -286,3 +286,31 @@ self-consistent P3 profile — never a relabel of sRGB bytes.
   this instead of silently dropping the profile.
 - Custom/user ICC profiles are stored and labelled, but conversion through
   them requires the native/WASM ICC provider (future work).
+
+### Raster colour capability matrix (2026-08-09)
+
+Capabilities are split per stage — "parse" and "preserve" are not "convert"
+and "export". WebKitGTK/WKWebView/WebView2 canvas behaviour is the browser
+default decode pipeline; no Display-P3 canvas surface is requested anywhere.
+
+| Capability | Linux (Tauri/WebKitGTK) | Windows (WebView2) | macOS (WKWebView) | Web |
+| --- | --- | --- | --- | --- |
+| ICC parse (JPEG APP2 / PNG iCCP / WebP ICCP / TIFF 34675 / AVIF colr) | yes | yes | yes | yes |
+| CICP/nclx parse (AVIF) | yes | yes | yes | yes |
+| PNG sRGB/cHRM/gAMA parse | yes | yes | yes | yes |
+| Profile fingerprint + dedup (`Document.iccProfiles`) | yes | yes | yes | yes |
+| Profile metadata preserved in documents | yes | yes | yes | yes |
+| Analytic wide-gamut conversion (P3/Adobe/ProPhoto/Rec2020) | yes | yes | yes | yes |
+| Custom-ICC conversion (native/WASM provider) | **no** (deferred) | no | no | no |
+| Display-P3 canvas surface | no (sRGB baseline) | no | no | no |
+| Monitor ICC accuracy | no | no | no | no |
+| Raster soft-proof of image fills | no (vector only) | no | no | no |
+| Export: sRGB (untagged baseline) | yes | yes | yes | yes |
+| Export: P3/Adobe/ProPhoto PNG (converted + iCCP) | yes | yes | yes | yes |
+| Export: P3/Adobe/ProPhoto JPEG (converted + APP2 ICC) | yes | yes | yes | yes |
+| Export: profile embedding in WebP | **no** (disclosed) | no | no | no |
+| Export: AVIF | no (unsupported encoder) | no | no | no |
+| Preflight IMAGE_PROFILE_MISSING | yes | yes | yes | yes |
+
+"Convert" always means real pixel transformation; "preserve" means the
+authoritative source interpretation is retained and never relabelled.

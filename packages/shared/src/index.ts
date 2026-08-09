@@ -236,6 +236,7 @@ export {
   interpolateSpatialBezier,
   interpolateValue,
 } from './interpolation';
+export * from './media';
 export type { ResizeModifiers, RotateModifiers } from './modifiers';
 export { computeResizeModifiers, computeRotateModifiers } from './modifiers';
 export type { OrderKey } from './ordering';

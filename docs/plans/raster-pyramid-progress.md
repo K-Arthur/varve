@@ -15,9 +15,22 @@ Multi-resolution tiled raster pyramid (ADR-0214). Source docs:
 | Pyramid core (geometry/identity/downsample/LOD/query) | Done | `packages/engine/src/rasterPyramid/`, 50 tests |
 | Residency + scheduler + revision-safe cascade cache | Done | `residency.ts`, `scheduler.ts`, `pyramidCache.ts`, 77 tests total |
 | Renderer integration (paintRasterLayer seam) | Done | `renderTiles.ts`, gutter tiles, crossover, bench — 92 tests total |
-| Editor wiring (viewport → scheduler, diagnostics) | Pending | next |
-| E2E interaction + visual corpus | Pending | |
-| Final regression gates | Pending | |
+| Editor wiring (viewport → scheduler, diagnostics) | Done | `context/useRasterLod.ts` — session enable, viewport sync, budget presets |
+| E2E interaction corpus | Done | `tests/e2e/canvas/raster-lod.spec.ts` — zoom extremes/pan/undo (48.7s) |
+| Visual corpus (seams/alpha at multiple zooms) | Deferred | renderTiles gutter unit tests cover the seam maths; browser screenshot corpus is a follow-up |
+| Memory soak + pressure-profile soak | Deferred | needs the production pressure wiring (currently test-only, finding F6) |
+| Final regression gates | Done (scoped) | full-repo gate blocked by concurrent in-progress packages — see below |
+
+## Concurrency note (2026-08-09)
+
+This milestone ran alongside a second agent committing pathspec-less every
+few minutes. Several of this milestone's commits landed interleaved with the
+agent's (e.g. `1bfcbdc4` vs `3431a0d0`/`bfe6a606`/`aa88e1b0`); content was
+verified intact after every repair, and the mixed-attribution hunks are the
+agent's own work preserved verbatim. The full-repo `pnpm typecheck` and
+`pnpm test` cannot pass while the agent's in-flight packages (media
+decoders, thumbnail work) are half-committed; all pyramid scoped gates are
+green.
 
 ## Renderer-integration measurements (2026-08-09)
 
@@ -52,7 +65,9 @@ at the same size, and the advantage grows sharply as zoom drops.
 - `b2a97cce` — residency, scheduler, pyramidCache cascade + revision safety
 - `5d3c6688` — childCoords/derivedSnapshot cleanup
 - `0d2464d2` — milestone progress tracker
-- (next) — renderer integration: renderTiles + gutter generation + replay seam + bench
+- `1bfcbdc4` — renderer integration: renderTiles + gutter generation + replay seam + bench
+- `0a396a67` — editor wiring: useRasterLod (enable, viewport, budget presets)
+- `198ef70f` — E2E interaction corpus
 
 ## Delivered contracts (public surface, `@varve/engine/rasterPyramid`)
 

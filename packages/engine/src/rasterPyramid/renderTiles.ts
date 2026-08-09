@@ -22,11 +22,36 @@ import {
 
 export type { PyramidLayerSource };
 
-import type { ReplayTarget } from '../replay';
 import { DEFAULT_PYRAMID_BUDGET_BYTES, PyramidResidency } from './residency';
 import { PYRAMID_PRIORITY_VIEWPORT, PyramidScheduler } from './scheduler';
 import { PYRAMID_GUTTER_KEY_SUFFIX, PYRAMID_GUTTER_TEXELS, pyramidTileKey } from './tileKey';
 import { type LevelPixelRect, visibleTilesAtLevel } from './tileQuery';
+
+/**
+ * Structural slice of the canvas context the tile draw needs. Declared
+ * locally (not imported from replay.ts) so the pyramid module never creates
+ * a dependency cycle with the replay hot path.
+ */
+export interface LodDrawTarget {
+  save(): void;
+  restore(): void;
+  beginPath(): void;
+  rect(x: number, y: number, w: number, h: number): void;
+  clip(): void;
+  getTransform?(): { a: number; b: number; c: number; d: number; e: number; f: number };
+  drawImage?(
+    image: CanvasImageSource | string,
+    a1: number,
+    a2: number,
+    a3?: number,
+    a4?: number,
+    a5?: number,
+    a6?: number,
+    a7?: number,
+    a8?: number,
+    a9?: number,
+  ): void;
+}
 
 export const PYRAMID_DEFAULT_MIN_LAYER_BYTES = 8 * 1024 * 1024; // the existing trigger (brief §2)
 export const PYRAMID_DEFAULT_MAX_SCALE = 1; // zoomed-out only
@@ -272,7 +297,7 @@ export interface RasterLodDrawResult {
  * resident, letting the caller keep its existing path.
  */
 export function drawRasterLayerLod(
-  target: ReplayTarget,
+  target: LodDrawTarget,
   source: PyramidLayerSource,
   store: PyramidResidency,
   idealLevel: number,

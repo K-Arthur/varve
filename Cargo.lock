@@ -2216,6 +2216,7 @@ dependencies = [
  "varve-bridge",
  "varve-core",
  "varve-engine",
+ "varve-media",
  "varve-trace",
  "wasm-bindgen",
  "web-sys",
