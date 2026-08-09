@@ -3084,9 +3084,15 @@ export function EditorProvider({
       },
       panBy: (dx, dy) => {
         if (dx === 0 && dy === 0) return;
-        // The base pan is read inside the updater, so a burst of scroll events
-        // delivered before React commits accumulates instead of each event
-        // resolving against the same stale snapshot.
+        // Advance the imperative snapshot immediately. Auto-pan moves the
+        // camera and then re-dispatches the held pointer in the same frame, so
+        // tool coordinate conversion must observe this exact camera rather
+        // than waiting for React to commit. The functional updater still
+        // accumulates bursts against React's latest queued state.
+        stateRef.current = applyPanToState(stateRef.current, {
+          x: stateRef.current.pan.x + dx,
+          y: stateRef.current.pan.y + dy,
+        });
         setState((current) =>
           applyPanToState(current, { x: current.pan.x + dx, y: current.pan.y + dy }),
         );
