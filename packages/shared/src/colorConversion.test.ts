@@ -1,21 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import {
   cmykToRgb,
+  convertEncodedRgb,
   deltaEOk,
   gamutMapToSrgb,
   labToXyz,
   linearRgbToRgb,
   linearRgbToXyzD65,
   linearSrgbToOklab,
+  linearToProphotoUnit,
+  linearToRec2020Unit,
   linearToSrgb,
+  linearToSrgbUnit,
   managedColorKey,
   managedColorToCss,
   managedColorToEngineColor,
   managedColorToRgba,
   oklabToLinearSrgb,
+  PROPHOTO_LINEAR_TOE,
+  REC2020_BETA,
+  rec2020ToLinearUnit,
   rgbToCmyk,
   rgbToLinearRgb,
   srgbToLinear,
+  srgbToLinearUnit,
   xyzD65ToLinearRgb,
   xyzToLab,
 } from './colorConversion';
@@ -431,5 +439,177 @@ describe('managedColorKey', () => {
     expect(managedColorKey(a)).not.toBe(managedColorKey(d));
     expect(managedColorKey(a)).not.toBe(managedColorKey(e));
     expect(managedColorKey(a)).not.toBe(managedColorKey(f));
+  });
+});
+
+describe('wide-gamut RGB conversions', () => {
+  it('converts sRGB to Display P3 (CSS Color 4 leaf example)', () => {
+    // CSS Color 4 §2: lab(51.2345% -13.6271 16.2401) is both
+    // color(sRGB 0.41587 0.503670 0.36664) and
+    // color(display-p3 0.43313 0.50108 0.37950).
+    const converted = convertEncodedRgb(
+      { primaries: 'srgb', transfer: 'srgb' },
+      { primaries: 'display-p3', transfer: 'srgb' },
+      [0.41587, 0.50367, 0.36664],
+    );
+    expect(converted).not.toBeNull();
+    if (!converted) return;
+    expect(converted[0]).toBeCloseTo(0.43313, 4);
+    expect(converted[1]).toBeCloseTo(0.50108, 4);
+    expect(converted[2]).toBeCloseTo(0.3795, 4);
+  });
+
+  it('converts Display P3 to ProPhoto (CSS Color 4 leaf example)', () => {
+    // Same color: color(display-p3 0.43313 0.50108 0.37950) ≡
+    // color(prophoto-rgb 0.36589 0.41717 0.31333).
+    const toProPhoto = convertEncodedRgb(
+      { primaries: 'display-p3', transfer: 'srgb' },
+      { primaries: 'pro-photo', transfer: 'prophoto' },
+      [0.43313, 0.50108, 0.3795],
+    );
+    expect(toProPhoto).not.toBeNull();
+    if (!toProPhoto) return;
+    expect(toProPhoto[0]).toBeCloseTo(0.36589, 3);
+    expect(toProPhoto[1]).toBeCloseTo(0.41717, 3);
+    expect(toProPhoto[2]).toBeCloseTo(0.31333, 3);
+  });
+
+  it('converts Display P3 to Rec.2020 self-consistently', () => {
+    // The CSS Color 4 leaf example also lists a rec2020 row; it is not
+    // reproducible under the standard BT.2020 OETF (internally inconsistent
+    // with the sRGB/display-p3/prophoto rows, which verify). Assert
+    // self-consistency instead: rec2020 → sRGB → rec2020 round-trips.
+    const toRec2020 = convertEncodedRgb(
+      { primaries: 'display-p3', transfer: 'srgb' },
+      { primaries: 'rec2020', transfer: 'rec2020' },
+      [0.43313, 0.50108, 0.3795],
+    );
+    expect(toRec2020).not.toBeNull();
+    if (!toRec2020) return;
+    const back = convertEncodedRgb(
+      { primaries: 'rec2020', transfer: 'rec2020' },
+      { primaries: 'srgb', transfer: 'srgb' },
+      toRec2020,
+    );
+    expect(back).not.toBeNull();
+    if (!back) return;
+    expect(back[0]).toBeCloseTo(0.41587, 3);
+    expect(back[1]).toBeCloseTo(0.50367, 3);
+    expect(back[2]).toBeCloseTo(0.36664, 3);
+  });
+
+  it('round-trips sRGB → Display P3 → sRGB', () => {
+    for (const rgb of [
+      [0.1, 0.2, 0.3],
+      [1, 0, 0],
+      [0.5, 0.5, 0.5],
+      [0.95, 0.05, 0.8],
+    ] as const) {
+      const toP3 = convertEncodedRgb(
+        { primaries: 'srgb', transfer: 'srgb' },
+        { primaries: 'display-p3', transfer: 'srgb' },
+        rgb,
+      );
+      expect(toP3).not.toBeNull();
+      if (!toP3) continue;
+      const back = convertEncodedRgb(
+        { primaries: 'display-p3', transfer: 'srgb' },
+        { primaries: 'srgb', transfer: 'srgb' },
+        toP3,
+      );
+      expect(back).not.toBeNull();
+      if (!back) continue;
+      expect(back[0]).toBeCloseTo(rgb[0], 3);
+      expect(back[1]).toBeCloseTo(rgb[1], 3);
+      expect(back[2]).toBeCloseTo(rgb[2], 3);
+    }
+  });
+
+  it('preserves out-of-gamut values without clamping (P3 green → sRGB)', () => {
+    // Display P3 green is more saturated than sRGB green; converting to
+    // sRGB yields negative R/B — these MUST survive conversion (authoritative
+    // values), clipping is a display/output boundary decision.
+    const converted = convertEncodedRgb(
+      { primaries: 'display-p3', transfer: 'srgb' },
+      { primaries: 'srgb', transfer: 'srgb' },
+      [0, 1, 0],
+    );
+    expect(converted).not.toBeNull();
+    if (!converted) return;
+    expect(converted[0]).toBeLessThan(0);
+    expect(converted[1]).toBeGreaterThan(1);
+    expect(converted[2]).toBeLessThan(0);
+  });
+
+  it('preserves out-of-gamut values without clamping (ProPhoto green → sRGB)', () => {
+    // ProPhoto green is far outside sRGB; the >1 channel must survive.
+    const converted = convertEncodedRgb(
+      { primaries: 'pro-photo', transfer: 'prophoto' },
+      { primaries: 'srgb', transfer: 'srgb' },
+      [0, 1, 0],
+    );
+    expect(converted).not.toBeNull();
+    if (!converted) return;
+    expect(converted[1]).toBeGreaterThan(1.0);
+  });
+
+  it('converts Adobe RGB to Display P3 and back', () => {
+    const converted = convertEncodedRgb(
+      { primaries: 'adobe-rgb', transfer: 'gamma22' },
+      { primaries: 'display-p3', transfer: 'srgb' },
+      [0.5, 0.25, 0.75],
+    );
+    expect(converted).not.toBeNull();
+    if (!converted) return;
+    const back = convertEncodedRgb(
+      { primaries: 'display-p3', transfer: 'srgb' },
+      { primaries: 'adobe-rgb', transfer: 'gamma22' },
+      converted,
+    );
+    expect(back).not.toBeNull();
+    if (!back) return;
+    expect(back[0]).toBeCloseTo(0.5, 4);
+    expect(back[1]).toBeCloseTo(0.25, 4);
+    expect(back[2]).toBeCloseTo(0.75, 4);
+  });
+
+  it('returns null for unsupported transfers (PQ/HLG)', () => {
+    expect(
+      convertEncodedRgb(
+        { primaries: 'rec2020', transfer: 'pq' },
+        { primaries: 'srgb', transfer: 'srgb' },
+        [0.5, 0.5, 0.5],
+      ),
+    ).toBeNull();
+  });
+
+  it('returns null for unknown primaries', () => {
+    expect(
+      convertEncodedRgb(
+        { primaries: 'unknown', transfer: 'srgb' },
+        { primaries: 'srgb', transfer: 'srgb' },
+        [0.5, 0.5, 0.5],
+      ),
+    ).toBeNull();
+  });
+
+  it('sRGB <-> linear round-trips exactly through the unit functions', () => {
+    for (const v of [0, 0.0031308, 0.04045, 0.5, 1]) {
+      const linear = srgbToLinearUnit(v);
+      expect(linearToSrgbUnit(linear)).toBeCloseTo(v, 7);
+    }
+  });
+
+  it('ProPhoto toe is continuous at the 1/512 boundary', () => {
+    const toe = linearToProphotoUnit(PROPHOTO_LINEAR_TOE);
+    const main = linearToProphotoUnit(PROPHOTO_LINEAR_TOE + 1e-9);
+    expect(Math.abs(toe - main)).toBeLessThan(1e-3);
+  });
+
+  it('Rec.2020 encode/decode round-trips', () => {
+    for (const v of [0, 0.005, REC2020_BETA, 0.1, 0.5, 0.9, 1]) {
+      expect(linearToRec2020Unit(rec2020ToLinearUnit(v))).toBeCloseTo(v, 6);
+      expect(rec2020ToLinearUnit(linearToRec2020Unit(v))).toBeCloseTo(v, 6);
+    }
   });
 });
