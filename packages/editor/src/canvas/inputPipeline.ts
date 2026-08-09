@@ -20,7 +20,10 @@ import { physicalDigit } from '../input/physicalKey';
 import { dispatchToTool, documentComplexityBucket } from '../performance/dispatchSpan';
 import {
   beginInteraction,
+  beginInteractionSpan,
   endInteraction,
+  endInteractionIfKind,
+  getActiveInteractionIdentity,
   isInteractionTracingEnabled,
   recordInteractionSpan,
 } from '../performance/interactionTrace';
@@ -112,8 +115,9 @@ export function useCanvasInputs({
   // Rate limiters for the expanded interaction traces (wheel / keyboard /
   // hover bursts) so instrumentation never alters behaviour.
   const lastWheelTraceAt = useRef(0);
-  const lastKeyboardTraceAt = useRef(0);
   const lastHoverTraceAt = useRef(0);
+  const wheelTraceEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hoverTraceEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pinchRef = useRef<{
     lastDist: number;
     lastCentroid: { x: number; y: number };
@@ -287,9 +291,15 @@ export function useCanvasInputs({
 
       const traceOn = isInteractionTracingEnabled();
       const traceStart = traceOn ? performance.now() : 0;
+      const activeTrace = traceOn ? getActiveInteractionIdentity() : null;
       // Hover-only movement is sampled at 800 ms so idle pointer motion does
       // not churn the trace ring while hover latency stays measurable.
-      if (traceOn && e.buttons === 0 && traceStart - lastHoverTraceAt.current > 800) {
+      if (
+        traceOn &&
+        e.buttons === 0 &&
+        activeTrace === null &&
+        (lastHoverTraceAt.current === 0 || traceStart - lastHoverTraceAt.current > 800)
+      ) {
         lastHoverTraceAt.current = traceStart;
         beginInteraction('hover');
       }
@@ -299,6 +309,13 @@ export function useCanvasInputs({
             pointerType: e.pointerType,
             buttons: e.buttons,
           });
+          if (getActiveInteractionIdentity()?.kind === 'hover') {
+            if (hoverTraceEndTimer.current !== null) clearTimeout(hoverTraceEndTimer.current);
+            hoverTraceEndTimer.current = setTimeout(() => {
+              hoverTraceEndTimer.current = null;
+              endInteractionIfKind('hover');
+            }, 100);
+          }
         }
       };
 
@@ -395,7 +412,10 @@ export function useCanvasInputs({
           pointerCount: touchPointers.current.size,
         });
         if (touchPointers.current.size < 2) pinchRef.current = null;
-        if (wasPinching) return;
+        if (wasPinching) {
+          endInteractionIfKind('pinch');
+          return;
+        }
       }
       const ne = e.nativeEvent as PointerEvent;
       const tmInst = tmRef.current;
@@ -495,7 +515,13 @@ export function useCanvasInputs({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const started = performance.now();
-      if (isInteractionTracingEnabled() && started - lastWheelTraceAt.current > 150) {
+      const activeTrace = isInteractionTracingEnabled() ? getActiveInteractionIdentity() : null;
+      if (
+        isInteractionTracingEnabled() &&
+        (activeTrace === null ||
+          (activeTrace.kind === 'wheel' &&
+            (lastWheelTraceAt.current === 0 || started - lastWheelTraceAt.current > 150)))
+      ) {
         beginInteraction('wheel');
       }
       lastWheelTraceAt.current = started;
@@ -510,6 +536,39 @@ export function useCanvasInputs({
         clientHeight: el.clientHeight,
       });
       advanceNavigation({ type: 'wheel', zoom: action.kind === 'zoom' });
+      if (action.kind === 'zoom') {
+        zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * action.scale);
+        cancelInertia();
+      } else if (action.shiftHeld) {
+        editor.panBy(action.deltaX, 0);
+        cancelInertia();
+      } else {
+        // Relative pan: several wheel events can be delivered in one task, all
+        // before React commits. Resolving each against `s.pan` would make every
+        // event in the burst compute the same destination, dropping deltas.
+        editor.panBy(action.deltaX, action.deltaY);
+        if (action.applyInertia) {
+          // Cancel the previously scheduled continuation before replacing its
+          // velocity. `cancelInertia` also zeros the stored velocity, so doing
+          // this after assignment would silently disable wheel inertia.
+          const previousVx = inertiaRef.current.vx;
+          const previousVy = inertiaRef.current.vy;
+          cancelInertia();
+          inertiaRef.current.vx =
+            previousVx * 0.4 + frameDisplacementToVelocity(action.deltaX) * 0.6;
+          inertiaRef.current.vy =
+            previousVy * 0.4 + frameDisplacementToVelocity(action.deltaY) * 0.6;
+          const maxV = frameDisplacementToVelocity(80);
+          inertiaRef.current.vx = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vx));
+          inertiaRef.current.vy = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vy));
+          startInertia();
+        } else {
+          // Trackpad input already carries its own OS momentum; adding
+          // application inertia would double it.
+          cancelInertia();
+        }
+      }
+      const processingMs = performance.now() - started;
       recordInputDiagnostic({
         eventType: 'wheel',
         source: action.source === 'trackpad' ? 'trackpad' : 'wheel',
@@ -523,41 +582,20 @@ export function useCanvasInputs({
           scale: action.scale,
         },
         viewport: { zoom: s.zoom, panX: s.pan.x, panY: s.pan.y, rotation: s.cameraRotation },
-        processingMs: performance.now() - started,
+        processingMs,
         preventedDefault: true,
       });
-      if (action.kind === 'zoom') {
-        zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * action.scale);
-        cancelInertia();
-        return;
-      }
-      // Relative pan: several wheel events can be delivered in one task, all
-      // before React commits. Resolving each against `s.pan` would make every
-      // event in the burst compute the same destination, dropping all but the
-      // last delta and making a fast scroll travel a fraction of its distance.
-      if (action.shiftHeld) {
-        editor.panBy(action.deltaX, 0);
-        cancelInertia();
-        return;
-      }
-      editor.panBy(action.deltaX, action.deltaY);
-      if (action.applyInertia) {
-        // Cancel the previously scheduled continuation before replacing its
-        // velocity. `cancelInertia` also zeros the stored velocity, so doing
-        // this after assignment would silently disable wheel inertia.
-        const previousVx = inertiaRef.current.vx;
-        const previousVy = inertiaRef.current.vy;
-        cancelInertia();
-        inertiaRef.current.vx = previousVx * 0.4 + frameDisplacementToVelocity(action.deltaX) * 0.6;
-        inertiaRef.current.vy = previousVy * 0.4 + frameDisplacementToVelocity(action.deltaY) * 0.6;
-        const maxV = frameDisplacementToVelocity(80);
-        inertiaRef.current.vx = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vx));
-        inertiaRef.current.vy = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vy));
-        startInertia();
-      } else {
-        // Trackpad input already carries its own OS momentum; adding app-side
-        // inertia would double it, so stop any app inertia instead.
-        cancelInertia();
+      if (isInteractionTracingEnabled()) {
+        recordInteractionSpan('wheel.input', processingMs, {
+          source: action.source,
+          action: action.kind,
+          deltaMode: e.deltaMode,
+        });
+        if (wheelTraceEndTimer.current !== null) clearTimeout(wheelTraceEndTimer.current);
+        wheelTraceEndTimer.current = setTimeout(() => {
+          wheelTraceEndTimer.current = null;
+          endInteractionIfKind('wheel');
+        }, 150);
       }
     };
 
@@ -577,7 +615,10 @@ export function useCanvasInputs({
       const ge = e as WebKitGestureEvent;
       zoomAboutClientPoint(ge.clientX, ge.clientY, gestureBaseZoom * ge.scale);
     };
-    const onGestureEnd = (e: Event) => e.preventDefault();
+    const onGestureEnd = (e: Event) => {
+      e.preventDefault();
+      endInteractionIfKind('pinch');
+    };
 
     // Anchor for gestures that carry no coordinates of their own.
     let lastPointer: { x: number; y: number } | null = null;
@@ -657,6 +698,17 @@ export function useCanvasInputs({
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
       el.removeEventListener('lostpointercapture', onLostPointerCapture);
+      if (wheelTraceEndTimer.current !== null) {
+        clearTimeout(wheelTraceEndTimer.current);
+        wheelTraceEndTimer.current = null;
+      }
+      if (hoverTraceEndTimer.current !== null) {
+        clearTimeout(hoverTraceEndTimer.current);
+        hoverTraceEndTimer.current = null;
+      }
+      endInteractionIfKind('wheel');
+      endInteractionIfKind('pinch');
+      endInteractionIfKind('hover');
       pinchBridgeCancelled = true;
       disposePinchBridge?.();
     };
@@ -666,11 +718,17 @@ export function useCanvasInputs({
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as KeyboardEvent;
       const tmInst = tmRef.current;
-      const keyNow = performance.now();
-      if (isInteractionTracingEnabled() && keyNow - lastKeyboardTraceAt.current > 150) {
+      const activeTrace = isInteractionTracingEnabled() ? getActiveInteractionIdentity() : null;
+      if (isInteractionTracingEnabled() && activeTrace === null) {
         beginInteraction('keyboard');
       }
-      lastKeyboardTraceAt.current = keyNow;
+      if (isInteractionTracingEnabled()) {
+        const finishKeyboardInput = beginInteractionSpan('keyboard.input', {
+          repeat: e.repeat,
+          modifiers: Number(e.shiftKey) + Number(e.ctrlKey) + Number(e.altKey) + Number(e.metaKey),
+        });
+        queueMicrotask(finishKeyboardInput);
+      }
 
       if (e.key === ' ') {
         e.preventDefault();
@@ -882,14 +940,19 @@ export function useCanvasInputs({
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as KeyboardEvent;
       const tmInst = tmRef.current;
-      if (!tmInst) return;
+      if (!tmInst) {
+        endInteractionIfKind('keyboard');
+        return;
+      }
       const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
       if (e.key === ' ' && tmInst.springKey === ' ') {
         e.preventDefault();
         tmInst.releaseSpring(ctx);
+        endInteractionIfKind('keyboard');
         return;
       }
       tmInst.handleKeyUp(ne, ctx);
+      endInteractionIfKind('keyboard');
     },
     [tmRef, buildToolCtx],
   );
@@ -907,11 +970,19 @@ export function useCanvasInputs({
   const onPointerLeave = useCallback(() => {
     editor.setCursorPos(null);
     stopAutoPan();
+    if (hoverTraceEndTimer.current !== null) {
+      clearTimeout(hoverTraceEndTimer.current);
+      hoverTraceEndTimer.current = null;
+    }
     endInteraction();
   }, [editor, stopAutoPan]);
 
   const onBlur = useCallback(() => {
     stopAutoPan();
+    if (hoverTraceEndTimer.current !== null) {
+      clearTimeout(hoverTraceEndTimer.current);
+      hoverTraceEndTimer.current = null;
+    }
     endInteraction();
     editor.commitTransaction();
     tmRef.current?.activeTool.onPointerCancel?.(
