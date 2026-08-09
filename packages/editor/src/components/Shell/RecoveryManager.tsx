@@ -2,7 +2,10 @@ import type { Platform } from '@varve/platform';
 import type { Document } from '@varve/scene';
 import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
-import { getSharedShutdownMarker } from '../../lifecycle';
+// Leaf import, not the lifecycle barrel: the barrel exports LifecycleProvider
+// which imports RecoveryManager — a barrel import here would create a cycle
+// (architecture audit enforces zero new cycles).
+import { getSharedShutdownMarker } from '../../lifecycle/lifecycleMarker';
 import { getSharedRecoveryManager, type RecoverySession } from '../../recovery';
 import { RecoveryDialog } from '../RecoveryDialog';
 
