@@ -49,11 +49,14 @@ export interface UnsavedDocument {
   name: string;
   /** Bound to a path on disk (opened from Recent/disk). */
   filePath?: string;
-  /** Bound to an app-store id (saved at least once). */
+  /** Bound to an app-store id (identity in the Home index — NOT itself a
+   *  save destination; see SessionFileMeta). */
   fileId?: string;
+  /** Explicitly chose Varve Library as the document's destination. */
+  libraryStorage?: boolean;
   /** A persisted browser File System Access handle key. */
   saveHandleId?: string;
-  /** No filePath, no fileId, and no save handle — needs Save As to persist. */
+  /** No real destination chosen yet — needs Save As to persist. */
   untitled: boolean;
 }
 
@@ -109,6 +112,7 @@ export interface EditorLifecycleApi {
     dirty: boolean;
     filePath?: string;
     fileId?: string;
+    libraryStorage?: boolean;
     saveHandleId?: string;
   }>;
   getActiveSessionId(): string | null;
