@@ -242,6 +242,74 @@ export interface OpenFileResult {
   filePath?: string;
 }
 
+// ─── Save destinations (user-controlled persistence) ─────────────────────────
+/**
+ * Where the current document is written.
+ *
+ * A document's IDENTITY (FileEntry.id / RecentFileRecord.id) is deliberately
+ * separate from its STORAGE LOCATION. Identity survives Save As, folder moves
+ * and renames; the save target describes where the bytes go. Recovery and the
+ * internal Home index are never save targets — they are implementation
+ * details of autosave and metadata, and must not be presented as "Saved".
+ *
+ * Contract rules:
+ *   - `native-file`   — an OS filesystem path the user chose through a native
+ *     dialog. Desktop only.
+ *   - `web-file-handle` — a browser File System Access API handle persisted
+ *     in local platform metadata (IndexedDB). The handleId is platform
+ *     internal; only the platform may hold the actual FileSystemFileHandle.
+ *   - `app-storage`   — explicitly chosen Varve Library storage. The user
+ *     opted into the app-managed location; only then may a library write
+ *     mark a document clean.
+ *   - `download-only` — no persistent location exists (browser without the
+ *     File System Access API). Every "save" produces a snapshot download.
+ *     Never reported as a persistent path, never marks a document clean.
+ *   - `unsaved`       — the document has never been assigned a destination.
+ */
+export type SaveTarget =
+  | { kind: 'native-file'; path: string }
+  | { kind: 'web-file-handle'; handleId: string; displayName: string }
+  | { kind: 'app-storage'; fileId: string }
+  | { kind: 'download-only'; suggestedName: string }
+  | { kind: 'unsaved' };
+
+/** User-actionable category for a save failure. `detail` keeps raw internals
+ *  for diagnostics; `message` is safe to show to the user. */
+export type SaveErrorCategory =
+  | 'permission-denied'
+  | 'disk-full'
+  | 'read-only'
+  | 'destination-missing'
+  | 'file-changed-externally'
+  | 'serialization-failed'
+  | 'filesystem-unavailable'
+  | 'permission-expired'
+  | 'quota-exceeded'
+  | 'unsupported'
+  | 'unknown-io';
+
+export interface SaveError {
+  category: SaveErrorCategory;
+  /** Human-readable, user-actionable message. */
+  message: string;
+  /** Raw internal detail for diagnostics; not for display or telemetry. */
+  detail?: unknown;
+}
+
+/** Result of asking the user for a save destination. Cancellation is a
+ *  normal outcome and is never reported as an error. */
+export type DocumentSaveTargetChoice =
+  | { kind: 'target'; target: SaveTarget }
+  | { kind: 'cancelled' }
+  | { kind: 'unsupported' }
+  | { kind: 'failed'; error: SaveError };
+
+/** Result of writing bytes to an already-resolved save target. */
+export type WriteSaveResult =
+  | { kind: 'written' }
+  | { kind: 'permission-denied'; error: SaveError }
+  | { kind: 'failed'; error: SaveError };
+
 // ─── Phase 1: Drafts ─────────────────────────────────────────────────────────
 /** Sentinel projectId meaning "this file is a draft" (personal sandbox). */
 export const DRAFTS_ID = '__drafts__';
