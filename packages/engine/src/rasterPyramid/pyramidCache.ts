@@ -73,7 +73,7 @@ export function currentSnapshot(
     const childSnapshot = currentSnapshot(source, level - 1, c.col, c.row);
     snaps.set(`${c.col}:${c.row}`, childSnapshot);
   }
-  return derivedSnapshot(level, col, row, snaps);
+  return derivedSnapshot(col, row, snaps);
 }
 
 /**
