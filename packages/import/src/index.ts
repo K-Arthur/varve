@@ -9,6 +9,13 @@ export { getBitmapInfo, importImageAsFill } from './image';
 export { importFile, importImageFile, importSvgString } from './import';
 export { createPdfParser } from './pdf';
 export { createPsdParser } from './psd';
+export type { RasterInspection, RasterInspectionLimits } from './rasterInspection';
+export {
+  inspectRasterBytes,
+  MAX_RASTER_DIMENSION,
+  MAX_RASTER_ENCODED_BYTES,
+  MAX_RASTER_PIXELS,
+} from './rasterInspection';
 export {
   getParser,
   getParserForData,
