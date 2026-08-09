@@ -768,6 +768,8 @@ export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './text
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
 export { applyThreshold, type ThresholdParams } from './threshold';
+export type { ThumbnailOptions as LegacyThumbnailOptions } from './thumbnail';
+export { renderThumbnail } from './thumbnail';
 export type {
   ThumbnailBackground,
   ThumbnailCapabilities,
