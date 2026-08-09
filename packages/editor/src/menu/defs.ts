@@ -116,6 +116,29 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('saveAs'),
     },
     {
+      id: 'tabClose',
+      labelKey: 'menu.file.closeDocument',
+      kind: 'command',
+      group: 'file',
+      run: () => runAction('tabClose'),
+    },
+    {
+      id: 'closeWindow',
+      labelKey: 'menu.file.closeWindow',
+      kind: 'command',
+      group: 'file',
+      run: () => runAction('closeWindow'),
+    },
+    {
+      id: 'quitApp',
+      labelKey: 'menu.file.quit',
+      kind: 'command',
+      group: 'file',
+      // macOS hosts Quit in the native app menu (Cmd+Q) — no duplicate.
+      visible: (ctx) => ctx.platform.os !== 'mac',
+      run: () => runAction('quitApp'),
+    },
+    {
       id: 'openRecent',
       labelKey: 'Open Recent',
       kind: 'submenu',
