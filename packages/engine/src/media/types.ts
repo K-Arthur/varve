@@ -8,79 +8,18 @@
  * WebP ms) — never snapped to a UI step.
  */
 
-export type MediaFormat = 'gif' | 'apng' | 'webp';
+import type { AnimatedAssetMetadata, MediaBlend, MediaDisposal, MediaFormat } from '@varve/shared';
 
-export type MediaBlend = 'source' | 'over';
-export type MediaDisposal = 'none' | 'background' | 'previous';
-
-/** Loop policy per usage. `source` honors the container loop count. */
-export type MediaLoopMode = 'source' | 'once' | 'loop' | 'pingpong';
-
-export interface AnimatedFrameMetadata {
-  /** Frame index in the source sequence. */
-  index: number;
-  /** Source-timing duration in ms. May be 0 (zero-delay frames). */
-  durationMs: number;
-  /** Frame rectangle within the animation canvas. */
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  blend: MediaBlend;
-  disposal: MediaDisposal;
-  /**
-   * True when the underlying decoder emits pre-composited full canvases
-   * (WebP, Chromium ImageDecoder) — the compositor pastes them verbatim.
-   */
-  preComposited?: boolean;
-}
-
-/**
- * Container-level animation facts persisted on `DocumentAsset.animated`
- * (schema 2.19). All fields are probed from the encoded bytes.
- */
-export interface AnimatedImageMetadata {
-  kind: MediaFormat;
-  frameCount: number;
-  /** Sum of frame durations in ms (pre-trim). */
-  durationMs: number;
-  /** `'infinite'` or a finite loop count from the container. */
-  loopCount: number | 'infinite';
-  /** Animation canvas size — NOT per-frame rects. */
-  width: number;
-  height: number;
-  frames: AnimatedFrameMetadata[];
-  /**
-   * Bump when decode/composition semantics change; part of cache keys so
-   * stale cached frames can never be served after a semantic upgrade.
-   */
-  decoderVersion: number;
-}
-
-/** Per-usage playback settings stored on `ImageFillData.media`. */
-export interface MediaFillSettings {
-  loopMode: MediaLoopMode;
-  /** Playback speed multiplier; negative = reverse. */
-  rate: number;
-  /** Global-time offset at which media time begins. */
-  startOffsetMs: number;
-  /** Media-time trim window (source-media ms). */
-  inPointMs: number;
-  outPointMs: number;
-  /** Static-export / thumbnail poster frame index. */
-  posterFrame: number;
-}
-
-export function defaultMediaFillSettings(): MediaFillSettings {
-  return {
-    loopMode: 'source',
-    rate: 1,
-    startOffsetMs: 0,
-    inPointMs: 0,
-    outPointMs: 0, // resolved to metadata.durationMs when 0
-    posterFrame: 0,
-  };
-}
+export type {
+  AnimatedAssetMetadata,
+  AnimatedFrameMetadata,
+  MediaBlend,
+  MediaDisposal,
+  MediaFillSettings,
+  MediaFormat,
+  MediaLoopMode,
+} from '@varve/shared';
+export { defaultMediaFillSettings } from '@varve/shared';
 
 /** One decoded source frame (rect-sized RGBA) from a provider. */
 export interface DecodedSourceFrame {
@@ -122,7 +61,7 @@ export interface ResolvedMediaFrame {
 export interface MediaProbeResult {
   /** `null` = unrecognized container; `'static'` = recognized but not animated. */
   kind: MediaFormat | 'static' | null;
-  metadata?: AnimatedImageMetadata;
+  metadata?: AnimatedAssetMetadata;
   /** Content-sniffed MIME (independent of the file extension). */
   mime: string;
 }
