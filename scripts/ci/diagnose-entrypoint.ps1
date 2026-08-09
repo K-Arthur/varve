@@ -35,8 +35,11 @@ foreach ($line in $imports) {
     continue
   }
   # dumpbin symbol lines look like "           0 __CxxFrameHandler4"
+  # (x64 thunks import as __imp_<name>).
   if ($current -and $line -match '^\d+\s+([A-Za-z_@?][A-Za-z0-9_@?]*)$') {
-    $byDll[$current] += $Matches[1]
+    $sym = $Matches[1]
+    if ($sym -match '(?i)^__imp_(.+)$') { $sym = $Matches[1] }
+    $byDll[$current] += $sym
   }
 }
 
