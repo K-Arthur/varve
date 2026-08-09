@@ -228,7 +228,13 @@ export const SHORTCUT_DEFS = {
     category: 'File',
   },
   tabNew: { binding: { key: 't', ctrl: true }, label: 'New tab', category: 'File' },
-  tabClose: { binding: { key: 'w', ctrl: true }, label: 'Close tab', category: 'File' },
+  tabClose: { binding: { key: 'w', ctrl: true }, label: 'Close Document', category: 'File' },
+  closeWindow: {
+    binding: { key: 'w', ctrl: true, shift: true },
+    label: 'Close Window',
+    category: 'File',
+  },
+  quitApp: { binding: { key: 'q', ctrl: true }, label: 'Quit Varve', category: 'File' },
   tabNext: { binding: { key: 'Tab', ctrl: true }, label: 'Next tab', category: 'View' },
   tabPrev: {
     binding: { key: 'Tab', ctrl: true, shift: true },
