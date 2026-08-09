@@ -245,7 +245,8 @@ async function openEditorCanvas(page) {
   await page.getByRole('button', { name: /^new$/i }).click({ force: true, timeout: 30_000 });
   await page.waitForTimeout(1_500);
   await page
-    .getByRole('button', { name: /^create$/i })
+    .locator('dialog[open]')
+    .getByRole('button', { name: /^create(?: design)?$/i })
     .first()
     .click({ force: true, timeout: 15_000 });
   await page.locator('.layers-panel').waitFor({ timeout: 20_000 });
@@ -284,9 +285,11 @@ async function openFixtureEditor(page, fixtureId) {
   // The perf handle (and therefore the fixture applier) is installed by
   // CanvasArea on mount, so an editor page must exist first.
   await openEditorCanvas(page);
-  await page.waitForFunction(() => Boolean(window.__varvePerf), { timeout: 30_000 });
+  await page.waitForFunction(() => Boolean(window.__varvePerf ?? window.__strataPerf), {
+    timeout: 30_000,
+  });
   const seeded = await page.evaluate(async (id) => {
-    const perf = window.__varvePerf;
+    const perf = window.__varvePerf ?? window.__strataPerf;
     if (!perf?.fixtures?.apply) return { ok: false, error: 'fixtures.apply missing' };
     return perf.fixtures.apply(id);
   }, fixtureId);
@@ -397,7 +400,8 @@ async function buildScene(page, box, duplications, spread = true) {
   await page.waitForTimeout(150);
 
   const nodeCount = await page.evaluate(() => {
-    const frames = window.__varvePerf?.getFrames?.(3) ?? [];
+    const perf = window.__varvePerf ?? window.__strataPerf;
+    const frames = perf?.getFrames?.(3) ?? [];
     return frames.length ? frames[frames.length - 1].nodeCount : 0;
   });
   return { nodeCount, dragTarget: { x: targetX, y: targetY } };
@@ -881,7 +885,9 @@ try {
   if (FIXTURE) {
     const opened = await openFixtureEditor(page, FIXTURE);
     box = opened.box;
-    await page.waitForFunction(() => Boolean(window.__varvePerf), { timeout: 30_000 });
+    await page.waitForFunction(() => Boolean(window.__varvePerf ?? window.__strataPerf), {
+      timeout: 30_000,
+    });
     partial.fixture = {
       id: FIXTURE,
       documentId: opened.seeded?.id,
@@ -897,7 +903,9 @@ try {
     console.log(`Fixture opened: ${FIXTURE} (${opened.seeded?.nodeCount} nodes)`);
   } else {
     box = await openEditorCanvas(page);
-    await page.waitForFunction(() => Boolean(window.__varvePerf), { timeout: 30_000 });
+    await page.waitForFunction(() => Boolean(window.__varvePerf ?? window.__strataPerf), {
+      timeout: 30_000,
+    });
     partial.sceneSpread = args.get('no-spread') !== 'true';
     scene = await buildScene(page, box, DUPLICATIONS, partial.sceneSpread);
     partial.sceneNodeCount = scene.nodeCount;
@@ -928,7 +936,7 @@ try {
       }
 
       await page.evaluate(() => {
-        const perf = window.__varvePerf;
+        const perf = window.__varvePerf ?? window.__strataPerf;
         perf?.reset?.();
         perf?.interactions?.reset?.();
         perf?.nodeWork?.reset?.();
@@ -955,10 +963,58 @@ try {
       }
 
       const measured = await page.evaluate(() => {
-        const perf = window.__varvePerf;
+        const perf = window.__varvePerf ?? window.__strataPerf;
+        const traces = perf?.interactions?.getTraces?.(50) ?? [];
+        const distribution = (values) => {
+          const sorted = [...values].sort((a, b) => a - b);
+          const at = (percent) => {
+            if (sorted.length === 0) return null;
+            return sorted[Math.ceil((percent / 100) * sorted.length) - 1];
+          };
+          return {
+            count: sorted.length,
+            p50: at(50),
+            p75: at(75),
+            p90: at(90),
+            p95: at(95),
+            p99: at(99),
+            max: sorted.at(-1) ?? null,
+          };
+        };
+        const spanDurations = {};
+        const traceKinds = {};
+        const frameDispositions = {};
+        const frameTotals = [];
+        let droppedSpans = 0;
+        let droppedFrames = 0;
+        for (const trace of traces) {
+          traceKinds[trace.kind] = (traceKinds[trace.kind] ?? 0) + 1;
+          droppedSpans += trace.droppedSpanCount ?? 0;
+          droppedFrames += trace.droppedFrameCount ?? 0;
+          for (const span of trace.spans ?? []) {
+            const durations = spanDurations[span.name] ?? [];
+            durations.push(span.durationMs);
+            spanDurations[span.name] = durations;
+          }
+          for (const frame of trace.frames ?? []) {
+            const disposition = frame.disposition ?? 'unspecified';
+            frameDispositions[disposition] = (frameDispositions[disposition] ?? 0) + 1;
+            frameTotals.push(frame.totalMs);
+          }
+        }
         return {
           interactions: perf?.interactions?.summary?.() ?? null,
           traceCount: perf?.interactions?.count?.() ?? 0,
+          interactionBreakdown: {
+            traceKinds,
+            spans: Object.fromEntries(
+              Object.entries(spanDurations).map(([name, values]) => [name, distribution(values)]),
+            ),
+            frameDispositions,
+            frameTotal: distribution(frameTotals),
+            droppedSpans,
+            droppedFrames,
+          },
           nodeWork: perf?.nodeWork?.getSamples?.(30) ?? null,
           frames: perf?.getFrames?.(120) ?? null,
           workerBitmapBudget: perf?.workerBitmapBudget?.() ?? null,
@@ -982,8 +1038,12 @@ try {
       record.error = error instanceof Error ? error.message : String(error);
     }
     partial.workloads.push(record);
+    const pointerToPresent = record.interactions?.pointerToPresent;
+    const pointerToPresentP95 = pointerToPresent?.count
+      ? `${pointerToPresent.p95.toFixed(1)}ms (${pointerToPresent.count} samples)`
+      : 'n/a (0 samples)';
     const summary = record.interactions
-      ? ` p2p p95 ${record.interactions.pointerToPresent?.p95?.toFixed(1)}ms, ${record.traceCount} traces`
+      ? ` p2p p95 ${pointerToPresentP95}, ${record.traceCount} traces`
       : '';
     console.log(`  ${workload}: ${record.status}${summary}`);
   }
