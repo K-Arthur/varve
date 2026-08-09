@@ -84,6 +84,9 @@ export function usePersistence(
         };
       }
       const revision = stateRef.current.document;
+      // Captured BEFORE the 'saving' patch below: save-copy must restore the
+      // previous status, not the transient 'saving' it just set.
+      const prevSaveState = stateRef.current.saveState;
       patch({ saveState: 'saving', saveIssue: null });
       try {
         if (intent === 'save-as') {
@@ -97,9 +100,8 @@ export function usePersistence(
           );
         }
         if (intent === 'save-copy') {
-          const prev = stateRef.current.saveState;
           const outcome = await performSaveCopy(platform, stateRef, patch, revision);
-          patch({ saveState: prev, saveIssue: null });
+          patch({ saveState: prevSaveState, saveIssue: null });
           return outcome;
         }
         return await performSave(platform, stateRef, recoveryRef, patch, revision);
@@ -460,10 +462,13 @@ function adoptTarget(
   meta: SessionFileMeta | undefined,
   target: ReturnType<typeof saveTargetFromSession>,
 ): AdoptedTarget {
+  // Any real destination choice clears an earlier explicit library choice.
+  const base = { libraryStorage: undefined };
   switch (target.kind) {
     case 'native-file':
       return {
         session: {
+          ...base,
           filePath: target.path,
           saveHandleId: undefined,
           saveHandleName: undefined,
@@ -477,6 +482,7 @@ function adoptTarget(
     case 'web-file-handle':
       return {
         session: {
+          ...base,
           filePath: undefined,
           saveHandleId: target.handleId,
           saveHandleName: target.displayName,
@@ -489,6 +495,7 @@ function adoptTarget(
     case 'download-only':
       return {
         session: {
+          ...base,
           filePath: undefined,
           saveHandleId: undefined,
           saveHandleName: undefined,
@@ -499,7 +506,7 @@ function adoptTarget(
         persistent: false,
       };
     default:
-      return { session: {}, name: meta?.name ?? 'Untitled', persistent: false };
+      return { session: base, name: meta?.name ?? 'Untitled', persistent: false };
   }
 }
 

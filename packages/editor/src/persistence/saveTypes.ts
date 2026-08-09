@@ -33,8 +33,11 @@ export function isCoalescibleIntent(intent: SaveIntent): boolean {
 /**
  * Resolve a session's current save destination.
  *
- * Order matters: a native path, a browser file handle, explicit Varve
- * Library storage, a download-only snapshot, or nothing. Recovery and the
+ * Order matters: a native path, a browser file handle, EXPLICIT Varve
+ * Library storage, a download-only snapshot, or nothing. A bare `fileId`
+ * (library identity minted at document creation) is deliberately NOT a
+ * destination — without `libraryStorage`, the user has never chosen where
+ * this document lives, so the first Save must ask. Recovery and the
  * internal Home mirror are NEVER destinations — they are autosave internals
  * and must never be reported as "Saved".
  */
@@ -47,7 +50,9 @@ export function saveTargetFromSession(meta: SessionFileMeta | undefined): SaveTa
       displayName: meta.saveHandleName ?? meta.name ?? 'document.varve',
     };
   }
-  if (meta?.fileId) return { kind: 'app-storage', fileId: meta.fileId };
+  if (meta?.libraryStorage && meta.fileId) {
+    return { kind: 'app-storage', fileId: meta.fileId };
+  }
   if (meta?.downloadName) return { kind: 'download-only', suggestedName: meta.downloadName };
   return { kind: 'unsaved' };
 }
