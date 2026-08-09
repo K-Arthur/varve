@@ -7,7 +7,6 @@ import {
   buildAvifWithIcc,
   buildAvifWithNclx,
   buildAvifWithNclxAndIcc,
-  buildJpegWithExifOrientation,
   buildJpegWithIccChunks,
   buildMinimalIccProfile,
   buildPngWithChrm,
