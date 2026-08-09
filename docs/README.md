@@ -176,6 +176,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0214-multi-resolution-tiled-pyramid.md` | Multi-resolution tiled raster pyramid (display LOD) |
 | `adr/0215-animated-image-media-system.md` | Animated image media system |
 | `adr/0216-termination-lifecycle-coordinator.md` | Termination lifecycle coordinator |
+| `adr/0217-raster-colour-management.md` | Canonical raster colour encoding + colour-managed raster pipeline |
 
 | `adr/0016-tables-and-color-modifiers.md` | Native tables + linked color modifiers |
 ## Architecture Docs (current state)
