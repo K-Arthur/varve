@@ -129,7 +129,12 @@ export function legacyPresetToConfiguration(
 
   const color = preset.raster?.colorProfile
     ? createExportColorSettings({
-        profile: preset.raster.colorProfile === 'display-p3' ? 'display-p3' : 'srgb',
+        profile:
+          preset.raster.colorProfile === 'display-p3' ||
+          preset.raster.colorProfile === 'adobe-rgb' ||
+          preset.raster.colorProfile === 'pro-photo'
+            ? preset.raster.colorProfile
+            : 'srgb',
         renderingIntent: preset.print?.renderingIntent ?? 'relative',
         blackPointCompensation: preset.print?.blackPointCompensation ?? true,
       })
@@ -217,7 +222,12 @@ export function configurationToLegacyPreset(
         bitDepth: config.raster.bitDepth,
         transparency: config.raster.transparency,
         matteColor: config.raster.matte ?? config.background?.color,
-        colorProfile: config.color?.profile === 'display-p3' ? 'display-p3' : 'srgb',
+        colorProfile:
+          config.color?.profile === 'display-p3' ||
+          config.color?.profile === 'adobe-rgb' ||
+          config.color?.profile === 'pro-photo'
+            ? config.color.profile
+            : 'srgb',
         resize: config.raster.resize,
         sharpen: config.raster.sharpen,
         dither: config.raster.dither,

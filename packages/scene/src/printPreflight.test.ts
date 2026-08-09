@@ -551,3 +551,134 @@ describe('DEFAULT_PREFLIGHT_OPTIONS', () => {
     expect(DEFAULT_PREFLIGHT_OPTIONS.checkProfiles).toBe(true);
   });
 });
+
+describe('raster image profile findings (IMAGE_PROFILE_MISSING)', () => {
+  function makeImageDoc(metadata?: import('./types').ImageSourceMetadata): Document {
+    const base = makePrintDoc();
+    const image = {
+      src: 'data:image/png;base64,x',
+      fit: 'fill' as const,
+      x: 0,
+      y: 0,
+      scale: 1,
+      imageWidth: 300,
+      imageHeight: 300,
+    };
+    const node = {
+      id: 'img-profile',
+      kind: 'shape',
+      name: 'Profile Photo',
+      layerColor: null,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+      fills: [
+        {
+          type: 'image',
+          image: metadata ? { ...image, assetId: 'asset-x' } : image,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ],
+      strokes: [],
+      effects: [],
+    } as unknown as import('./types').ShapeNode;
+    return {
+      ...base,
+      nodes: { 'img-profile': node },
+      ...(metadata
+        ? {
+            assets: {
+              'asset-x': {
+                id: 'asset-x',
+                storage: 'embedded' as const,
+                mimeType: 'image/png',
+                dataUrl: 'data:image/png;base64,x',
+                naturalWidth: 300,
+                naturalHeight: 300,
+                byteLength: 1,
+                hash: 'h',
+                metadata,
+              },
+            },
+          }
+        : {}),
+    };
+  }
+
+  it('flags an untagged legacy image with IMAGE_PROFILE_MISSING', () => {
+    const doc = makeImageDoc({});
+    const result = runPrintPreflight(doc, { minBleedMm: undefined });
+    const finding = result.issues.find(
+      (i) => i.category === 'profile' && i.nodeId === 'img-profile',
+    );
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('warning');
+    expect(finding?.message).toContain('no embedded colour profile');
+  });
+
+  it('flags an image with explicit invalid ICC status', () => {
+    const doc = makeImageDoc({ iccStatus: 'invalid' });
+    const result = runPrintPreflight(doc, { minBleedMm: undefined });
+    const finding = result.issues.find(
+      (i) => i.category === 'profile' && i.nodeId === 'img-profile',
+    );
+    expect(finding).toBeDefined();
+    expect(finding?.message).toContain('invalid embedded colour profile');
+  });
+
+  it('reports a mismatch info when the embedded profile differs from the document profile', () => {
+    const doc = makeImageDoc({
+      iccStatus: 'valid',
+      iccProfileId: 'icc-x',
+      colorEncoding: {
+        model: 'rgb',
+        primaries: 'display-p3',
+        transfer: 'gamma22',
+        provenance: 'embedded-icc',
+      },
+    });
+    const result = runPrintPreflight(doc, { minBleedMm: undefined });
+    const finding = result.issues.find(
+      (i) => i.category === 'profile' && i.nodeId === 'img-profile',
+    );
+    expect(finding).toBeDefined();
+    expect(finding?.severity).toBe('info');
+    expect(finding?.message).toContain('display-p3');
+    expect(finding?.message).toContain('document works in');
+  });
+
+  it('stays silent for an sRGB-tagged image in an sRGB document', () => {
+    const doc = makeImageDoc({
+      iccStatus: 'valid',
+      iccProfileId: 'icc-x',
+      colorEncoding: {
+        model: 'rgb',
+        primaries: 'srgb',
+        transfer: 'srgb',
+        provenance: 'embedded-icc',
+      },
+    });
+    const result = runPrintPreflight(doc, { minBleedMm: undefined });
+    const finding = result.issues.find(
+      (i) => i.category === 'profile' && i.nodeId === 'img-profile',
+    );
+    expect(finding).toBeUndefined();
+  });
+
+  it('respects checkImageProfiles: false', () => {
+    const doc = makeImageDoc();
+    const result = runPrintPreflight(doc, { minBleedMm: undefined, checkImageProfiles: false });
+    const finding = result.issues.find(
+      (i) => i.category === 'profile' && i.nodeId === 'img-profile',
+    );
+    expect(finding).toBeUndefined();
+  });
+});

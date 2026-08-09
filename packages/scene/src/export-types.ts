@@ -44,7 +44,13 @@ export interface RasterOptions {
   bitDepth?: 8 | 24 | 32;
   transparency?: boolean;
   matteColor?: [number, number, number, number];
-  colorProfile?: 'srgb' | 'display-p3';
+  /**
+   * Destination colour space for the exported raster. When set to a
+   * wide-gamut space, the rendered sRGB composite is analytically converted
+   * and an ICC profile is embedded (PNG/JPEG). 'srgb' is the portable
+   * baseline and matches pre-2.19 behaviour exactly.
+   */
+  colorProfile?: 'srgb' | 'display-p3' | 'adobe-rgb' | 'pro-photo';
   pixelPerfect?: boolean;
   /**
    * Canonical processing-stage contracts (bridge into the legacy persistence
