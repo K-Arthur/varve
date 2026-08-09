@@ -14,20 +14,15 @@
     "test:e2e": "playwright test -c ../../playwright.website.config.ts"
   },
   "dependencies": {
-    "@astrojs/react": "^4.0.0",
     "@astrojs/tailwind": "^6.0.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/geist": "^5.2.0",
+    "@fontsource-variable/ibm-plex-sans": "^5.2.0",
     "@varve/ui": "workspace:*",
-    "astro": "^5.0.0",
-    "clsx": "^2.1.0",
-    "lucide-react": "^0.468.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "tailwind-merge": "^2.5.0"
+    "astro": "^5.0.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
     "typescript": "^5.6.0"
   },
   "license": "FSL-1.1-MIT"

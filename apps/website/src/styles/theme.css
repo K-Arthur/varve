@@ -59,6 +59,10 @@
   --text-footer-heading: var(--color-brand-teal);
   --text-footer-link: oklch(0.78 0.012 260);
   --text-footer-link-hover: var(--color-brand-teal);
+  /* Oversized closing wordmark. Decorative (aria-hidden), so it sits below
+     text-contrast requirements on purpose — it must read as a ground, not as
+     content competing with the links above it. */
+  --footer-signature-ink: oklch(0.31 0.026 260);
 
   /* --- Status text (on --surface-page) --- */
   --text-success: oklch(0.47 0.13 156);
@@ -92,6 +96,15 @@
   --status-built: var(--brand-teal);
   --status-partial: oklch(0.75 0.12 60);
   --status-dev: oklch(0.72 0.14 30);
+
+  /* --- Design field (hero canvas artwork) --- */
+  --df-ink: oklch(0.42 0.045 262);
+  --df-muted: oklch(0.58 0.03 262);
+  --df-grid: oklch(0.58 0.028 262);
+  --df-teal: oklch(0.5 0.09 190);
+  --df-sand: oklch(0.64 0.11 60);
+  --df-terra: oklch(0.56 0.13 30);
+  --df-snap: oklch(0.42 0.05 190);
 }
 
 [data-theme="dark"] {
@@ -134,69 +147,14 @@
   --border-warning: oklch(0.72 0.11 60);
   --border-footer: oklch(0.28 0.02 260);
   --divider: var(--color-border-subtle);
-}
 
-[data-theme="high-contrast"] {
-  color-scheme: dark;
-
-  --surface-page: oklch(0 0 0);
-  --surface-sunken: oklch(0 0 0);
-  --surface-card: oklch(0.15 0 0);
-  --surface-card-hover: oklch(0.2 0 0);
-  --surface-muted: oklch(0 0 0);
-  --surface-header: oklch(0 0 0);
-  --surface-footer: oklch(0 0 0);
-  --surface-inset: oklch(0 0 0);
-  --surface-code: oklch(0 0 0);
-  --surface-accent-soft: oklch(0.25 0 0);
-  --surface-inverse: oklch(1 0 0);
-  --surface-info: oklch(0 0 0);
-  --surface-warning: oklch(0 0 0);
-  --surface-danger: oklch(0 0 0);
-  --surface-success: oklch(0 0 0);
-
-  --text-primary: oklch(1 0 0);
-  --text-secondary: oklch(0.92 0 0);
-  --text-muted: oklch(0.8577 0 0);
-  --text-subtle: oklch(0.78 0 0);
-  --text-disabled: oklch(0.6 0 0);
-  --text-placeholder: oklch(0.78 0 0);
-  --text-inverse: oklch(0 0 0);
-  --text-on-accent: oklch(0 0 0);
-  --text-on-status: oklch(0 0 0);
-  --text-link: oklch(0.9519 0.2924 111.62);
-  --text-link-hover: oklch(0.9519 0.2924 111.62);
-  --text-link-visited: oklch(0.85 0.15 280);
-  --text-code: oklch(1 0 0);
-  --text-footer: oklch(1 0 0);
-  --text-footer-muted: oklch(0.85 0 0);
-  --text-footer-heading: oklch(0.9519 0.2924 111.62);
-  --text-footer-link: oklch(1 0 0);
-  --text-footer-link-hover: oklch(0.9519 0.2924 111.62);
-
-  --text-success: oklch(0.8649 0.2979 142.49);
-  --text-warning: oklch(0.8446 0.1616 82.25);
-  --text-danger: oklch(0.72 0.18 27);
-  --text-info: oklch(0.76 0.14 250);
-
-  --border-default: oklch(1 0 0);
-  --border-subtle: oklch(1 0 0);
-  --border-strong: oklch(1 0 0);
-  --border-interactive: oklch(0.9519 0.2924 111.62);
-  --border-accent: oklch(0.9519 0.2924 111.62);
-  --border-warning: oklch(0.9519 0.2924 111.62);
-  --border-footer: oklch(1 0 0);
-  --divider: oklch(1 0 0);
-
-  --accent-primary: oklch(0.9519 0.2924 111.62);
-  --accent-primary-hover: oklch(0.9519 0.2924 111.62);
-  --accent-strong: oklch(0.9519 0.2924 111.62);
-  --accent-strong-hover: oklch(0.9519 0.2924 111.62);
-  --accent-soft: oklch(0.4 0.1 111.62);
-
-  --status-built: oklch(0.9519 0.2924 111.62);
-  --status-partial: oklch(0.8446 0.1616 82.25);
-  --status-dev: oklch(0.75 0.2 27);
+  --df-ink: oklch(0.82 0.03 262);
+  --df-muted: oklch(0.7 0.03 262);
+  --df-grid: oklch(0.62 0.03 262);
+  --df-teal: oklch(0.74 0.1 189);
+  --df-sand: oklch(0.78 0.11 60);
+  --df-terra: oklch(0.72 0.12 30);
+  --df-snap: oklch(0.79 0.09 190);
 }
 
 /* No-JS / pre-paint fallback: match the inline theme script in Layout.astro. */
@@ -206,57 +164,12 @@
   }
 }
 
-/* High-contrast preference without JS. */
-@media (prefers-contrast: more) {
-  :root:not([data-theme]) {
-    color-scheme: dark;
-    --surface-page: oklch(0 0 0);
-    --surface-sunken: oklch(0 0 0);
-    --surface-card: oklch(0.15 0 0);
-    --surface-card-hover: oklch(0.2 0 0);
-    --surface-muted: oklch(0 0 0);
-    --surface-header: oklch(0 0 0);
-    --surface-footer: oklch(0 0 0);
-    --surface-inset: oklch(0 0 0);
-    --surface-code: oklch(0 0 0);
-    --surface-accent-soft: oklch(0.25 0 0);
-    --text-primary: oklch(1 0 0);
-    --text-secondary: oklch(0.92 0 0);
-    --text-muted: oklch(0.8577 0 0);
-    --text-subtle: oklch(0.78 0 0);
-    --text-disabled: oklch(0.6 0 0);
-    --text-inverse: oklch(0 0 0);
-    --text-on-accent: oklch(0 0 0);
-    --text-on-status: oklch(0 0 0);
-    --text-link: oklch(0.9519 0.2924 111.62);
-    --text-link-hover: oklch(0.9519 0.2924 111.62);
-    --text-code: oklch(1 0 0);
-    --text-footer: oklch(1 0 0);
-    --text-footer-muted: oklch(0.85 0 0);
-    --text-footer-heading: oklch(0.9519 0.2924 111.62);
-    --text-footer-link: oklch(1 0 0);
-    --text-footer-link-hover: oklch(0.9519 0.2924 111.62);
-    --border-default: oklch(1 0 0);
-    --border-subtle: oklch(1 0 0);
-    --border-strong: oklch(1 0 0);
-    --border-interactive: oklch(0.9519 0.2924 111.62);
-    --border-accent: oklch(0.9519 0.2924 111.62);
-    --border-warning: oklch(0.9519 0.2924 111.62);
-    --border-footer: oklch(1 0 0);
-    --divider: oklch(1 0 0);
-    --accent-primary: oklch(0.9519 0.2924 111.62);
-    --accent-primary-hover: oklch(0.9519 0.2924 111.62);
-    --accent-strong: oklch(0.9519 0.2924 111.62);
-    --accent-strong-hover: oklch(0.9519 0.2924 111.62);
-    --status-built: oklch(0.9519 0.2924 111.62);
-    --status-partial: oklch(0.8446 0.1616 82.25);
-    --status-dev: oklch(0.75 0.2 27);
-  }
-}
-
-/* OS forced-colors: all website surfaces/text resolve to system colors. */
+/* OS forced-colors: all website surfaces/text resolve to system colors.
+ * This is required accessibility infrastructure (Windows High Contrast and
+ * similar) and is intentionally independent of the site's selectable
+ * light/dark themes. */
 @media (forced-colors: active) {
-  :root:not([data-theme="high-contrast"]) {
+  :root {
     --surface-page: Canvas;
     --surface-sunken: Canvas;
     --surface-card: Canvas;
@@ -310,6 +223,13 @@
     --status-built: Highlight;
     --status-partial: Highlight;
     --status-dev: Highlight;
+    --df-ink: CanvasText;
+    --df-muted: GrayText;
+    --df-grid: GrayText;
+    --df-teal: Highlight;
+    --df-sand: Highlight;
+    --df-terra: Highlight;
+    --df-snap: Highlight;
   }
 }
 

@@ -25,11 +25,18 @@ const tokensCss = read('../../../packages/ui/src/tokens/tokens.css');
 
 type VarMap = Record<string, string>;
 
+/** Drop comments and @media blocks so their selectors cannot be mistaken for top-level ones. */
+function stripMediaBlocks(source: string): string {
+  const noComments = source.replace(/\/\*[\s\S]*?\*\//g, '');
+  return noComments.replace(/@media[^{]*\{(?:[^{}]|\{[^{}]*\})*\}/g, '');
+}
+
 function extractBlock(source: string, selector: string): VarMap {
   // Matches `selector { ... }` at top level of the sheet (no nesting in our files).
+  const clean = stripMediaBlocks(source);
   const re = new RegExp(`${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`, 'g');
   const out: VarMap = {};
-  for (const match of source.matchAll(re)) {
+  for (const match of clean.matchAll(re)) {
     const body = match[1].replace(/\/\*[\s\S]*?\*\//g, '');
     for (const line of body.split(';')) {
       const kv = line.match(/^\s*(--[\w-]+)\s*:\s*(.+?)\s*$/);
@@ -232,7 +239,7 @@ const REQUIRED_PAIRS: Array<[string, string, number, string]> = [
   ['--border-accent', '--surface-card', 3.0, 'accent border vs card'],
 ];
 
-const THEMES = ['light', 'dark', 'high-contrast'] as const;
+const THEMES = ['light', 'dark'] as const;
 
 /* ------------------------------------------------------------------ */
 /* Tests                                                               */
@@ -265,10 +272,21 @@ describe('website theme tokens', () => {
 
   it('defines forced-colors and reduced-motion fallbacks in theme.css', () => {
     expect(themeCss).toContain('@media (forced-colors: active)');
-    expect(themeCss).toContain('@media (prefers-contrast: more)');
     expect(themeCss).toContain('@media (prefers-color-scheme: dark)');
     expect(themeCss).toContain('color-scheme: light');
     expect(themeCss).toContain('color-scheme: dark');
+  });
+
+  it('no longer defines a high-contrast theme or prefers-contrast block', () => {
+    // The site exposes exactly two selectable themes (light/dark). Native
+    // OS forced-colors remains supported via @media (forced-colors: active),
+    // which is tested separately above — it is accessibility infra, not a
+    // third site theme. (The historical note in the file's header comment
+    // is prose, not a theme definition.)
+    const noComments = themeCss.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(noComments).not.toMatch(/\[data-theme="high-contrast"\]/);
+    expect(noComments).not.toMatch(/prefers-contrast/);
+    expect(noComments).not.toMatch(/data-theme="high-contrast"/);
   });
 
   it('no longer defines the legacy neutral/teal ramp anywhere', () => {
