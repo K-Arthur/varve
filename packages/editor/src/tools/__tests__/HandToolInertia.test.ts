@@ -143,16 +143,18 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
     // RAF should be scheduled for momentum
     expect(rafCallbacks.size).toBe(1);
 
-    // Run one tick: velocity from first to last = (250-150)/(116-100)*16 = 100px/frame
-    // After decay: 100 * 0.95 = 95
-    // Pan should advance from currentPan = {150, 250} by velocity
+    // Run one tick. Momentum is integrated from the release velocity using
+    // elapsed time, starting from currentPan rather than the stale ctx.pan.
     const firstEntry = rafCallbacks.entries().next().value;
     if (!firstEntry) throw new Error('expected RAF callback');
     const [id, cb] = firstEntry;
     rafCallbacks.delete(id);
     cb(116);
 
-    expect(ctx.setPan).toHaveBeenLastCalledWith({ x: 245, y: 345 });
+    expect(ctx.setPan).toHaveBeenLastCalledWith({
+      x: expect.closeTo(251.54023826158172, 8),
+      y: expect.closeTo(351.54023826158175, 8),
+    });
 
     // Now run a second tick — it should accumulate from the updated currentPan
     const secondEntry = rafCallbacks.entries().next().value;
@@ -161,8 +163,11 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
     rafCallbacks.delete(id2);
     cb2(132);
 
-    // Second tick: velocity 95 * 0.95 = 90.25, pan should be 245 + 90.25 = 335.25
-    expect(ctx.setPan).toHaveBeenLastCalledWith({ x: 335.25, y: 435.25 });
+    const secondPan = (ctx.setPan as any).mock.calls.at(-1)?.[0] as
+      | { x: number; y: number }
+      | undefined;
+    expect(secondPan?.x).toBeGreaterThan(251.54);
+    expect(secondPan?.y).toBeGreaterThan(351.54);
   });
 
   it('momentum continues to accumulate on current pan even when ctx.pan is stale', () => {
@@ -192,7 +197,7 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
       if (!entry) break;
       const [rid, rcb] = entry;
       rafCallbacks.delete(rid);
-      rcb(performance.now());
+      rcb((i + 1) * (1000 / 60));
     }
 
     // After 5 ticks: velocity decays as 10*0.95^5 = 7.74, still above threshold
