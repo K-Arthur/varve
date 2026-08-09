@@ -15,9 +15,12 @@ export {
 export { createFinalizerRegistry, type FinalizerRegistry } from './finalizers';
 export {
   getLifecycleCoordinator,
+  getLifecycleFinalizeHandler,
   installLifecycleCoordinator,
+  setLifecycleFinalizeHandler,
   uninstallLifecycleCoordinator,
 } from './global';
+export { LifecycleProvider } from './LifecycleProvider';
 export {
   CLEAN_SHUTDOWN_KEY,
   getSharedShutdownMarker,
@@ -26,6 +29,7 @@ export {
   type ShutdownMarkerStorage,
 } from './lifecycleMarker';
 export { categorizeFailure, createSavePlan, type SavePlan, type SavePlanResult } from './savePlan';
+export { TerminationDialogHost } from './TerminationDialogHost';
 export type {
   DialogOutcome,
   DirtyScope,
