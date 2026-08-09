@@ -3,7 +3,9 @@ import { useSyncExternalStore } from 'react';
 import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
+import { DocumentInfoDialog } from './components/Shell';
 import { LayoutScoreIndicator } from './components/StatusBar/LayoutScoreIndicator';
+import { SaveStatusIndicator } from './components/StatusBar/SaveStatusIndicator';
 import { useEditor } from './context';
 import { ShortcutTipChip } from './intelligence/ShortcutTipChip';
 import { useShortcutTips } from './intelligence/useShortcutTips';
@@ -68,6 +70,10 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
 
   return (
     <TooltipProvider>
+      {/* Document Info renders from the status bar: a native <dialog> sits in
+          the top layer, so DOM position is irrelevant and Shell.tsx (a hub
+          file over its import budget) stays untouched. */}
+      <DocumentInfoDialog />
       <div className="editor-status">
         <span>{state.tool}</span>
         {showPreflight && <PreflightWarnings />}
@@ -90,6 +96,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
           </span>
         )}
         <LayoutScoreIndicator />
+        <SaveStatusIndicator />
         {state.cameraRotation !== 0 && (
           <span>{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
         )}
