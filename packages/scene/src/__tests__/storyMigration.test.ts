@@ -33,7 +33,7 @@ function chainDocRaw() {
 describe('v2.18 story migration', () => {
   it('promotes chains to stories with thread bindings', () => {
     const migrated = migrateV217ToV218(chainDocRaw());
-    expect(migrated.formatVersion).toBe('2.18');
+    expect(migrated.formatVersion).toBe('2.19');
     const stories = migrated.stories as Record<
       string,
       { id: string; name: string; content: { paragraphs: unknown[] }; thread: string[] }
@@ -83,12 +83,12 @@ describe('v2.18 story migration', () => {
     };
     delete raw.textChains;
     const migrated = migrateV217ToV218(raw);
-    expect(migrated.formatVersion).toBe('2.18');
+    expect(migrated.formatVersion).toBe('2.19');
     expect('stories' in migrated).toBe(false);
 
     const migrated2 = migrateV217ToV218(chainDocRaw());
     const again = migrateV217ToV218(migrated2 as Record<string, unknown>);
-    expect(again.formatVersion).toBe('2.18');
+    expect(again.formatVersion).toBe('2.19');
     expect(validateStoryThreads(again as never)).toEqual([]);
   });
 });
