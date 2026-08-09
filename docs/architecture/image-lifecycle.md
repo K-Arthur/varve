@@ -1,6 +1,6 @@
 # Image lifecycle architecture
 
-**Updated:** 2026-08-08
+**Updated:** 2026-08-09
 
 This document records the verified raster/image lifecycle and its ownership
 boundaries. It complements [image-geometry.md](image-geometry.md), which owns
@@ -101,10 +101,40 @@ batches of simple solid rects/circles with normal blending and no fill stack,
 stroke, effect, or filter. Mixed batches stay entirely on Canvas2D so partitioning
 cannot reorder artwork.
 
-The portable working/display baseline remains sRGB. Import does not yet extract
-source ICC profiles, and no wide-gamut image claim is made. Export renders from
-document state at output resolution; interactive viewport DPR and zoom never
-modify the original asset.
+The portable working/display baseline remains sRGB. Raster colour management
+(ADR-0217) records the *source* colour interpretation at ingestion and keeps
+authoritative document pixels untouched: decoded display pixels stay sRGB
+(never converted into the document), and export applies an explicit colour
+policy (settings default or per-preset `raster.colorProfile`) that converts
+the rendered composite analytically and embeds a self-consistent ICC profile
+where the format supports it. Export renders from document state at output
+resolution; interactive viewport DPR and zoom never modify the original asset.
+
+## Raster colour encoding (ADR-0217)
+
+Every raster source carries a canonical `RasterColorEncoding` on its asset
+metadata (`DocumentAsset.metadata.colorEncoding`): model, primaries, transfer,
+CICP matrix/range, bit depth, alpha mode, mandatory provenance, and
+diagnostics. Provenance distinguishes `embedded-icc`, `cicp`, `named`,
+`format-default`, `assumed`, `user-assigned`, and `legacy-assumed-srgb` — an
+untagged image is never relabelled sRGB as though the file said so; the
+assumption is surfaced by preflight (IMAGE_PROFILE_MISSING) instead.
+
+| Container | Precedence (higher wins; conflicts become diagnostics) |
+| --- | --- |
+| PNG | iCCP > sRGB chunk > cHRM/gAMA > nothing |
+| JPEG | APP2 ICC > EXIF ColorSpace (1=sRGB, 2=Adobe RGB) > nothing |
+| WebP | ICCP > nothing |
+| TIFF | tag 34675 > photometric interpretation |
+| AVIF | colr ICC > colr nclx CICP (pixi depth recorded) |
+
+Conversion is a separate, explicit operation (`@varve/engine`
+`rasterColor/transform.ts`): analytic matrix/TRC conversion through XYZ D50
+that never clamps out-of-gamut values, tiled and cancellable, alpha
+never colour-transformed. Assignment (relabel without pixel change) and
+conversion (pixel change to preserve appearance) remain distinct. See
+[colour-management.md](colour-management.md) for the full pipeline and
+[ADR-0217](../adr/0217-raster-colour-management.md) for the decision record.
 
 ## Evidence-based gap table
 
@@ -114,7 +144,8 @@ PARTIAL = foundation landed, product surface remains; OPEN = unchanged.
 | Area | Current implementation | Problem | Severity | Evidence | Status |
 | --- | --- | --- | --- | --- | --- |
 | EXIF | Ingestion extracts orientation via bounded parser; asset metadata records it; displayed dimensions are orientation-aware | Mirrored orientations could drift across display/thumbnail/export; none were parsed at ingestion | High correctness | `packages/import/src/metadata/exif.ts`, `ingestionMetadata.test.ts` | DONE — decode invariant: browser decoders normalize; Varve never double-applies |
-| ICC metadata | Ingestion extracts JPEG/PNG/WebP/TIFF profiles into a deduplicated `Document.iccProfiles` registry; assets reference by id with valid/invalid status | Raster assets stored no source profile | High print/colour | `packages/import/src/metadata/icc.ts`, scene `IccProfileEntry` | DONE (extraction + storage); conversion through the working space remains an explicit future phase with numeric fixtures |
+| ICC metadata | Ingestion extracts JPEG/PNG/WebP/TIFF profiles into a deduplicated `Document.iccProfiles` registry; assets reference by id with valid/invalid status; header info (class, colour space, version, intent) recorded | Raster assets stored no source profile | High print/colour | `packages/import/src/metadata/icc.ts`, scene `IccProfileEntry` | DONE (extraction + storage); conversion through the working space remains an explicit future phase with numeric fixtures |
+| Colour encoding | Canonical `RasterColorEncoding` (primaries/transfer/precision/provenance) recorded at ingestion for PNG/JPEG/WebP/TIFF/AVIF; deterministic conflict precedence; export colour policy converts + embeds ICC (PNG iCCP/JPEG APP2); preflight IMAGE_PROFILE_MISSING | Encoded pixels were assumed sRGB at every boundary | High colour correctness | `@varve/shared` rasterColorEncoding, `@varve/engine` rasterColor/, `printPreflight.ts` | DONE (ADR-0217); profile-accurate conversion for arbitrary custom ICC via native/WASM provider remains OPEN |
 | Large visible photo | Full browser decode | One source above budget is repeatedly decoded and has no viewport representation | High memory/performance | `packages/engine/src/imageCache.ts` | OPEN — raster-layer pyramid trigger measured at 2048² (ADR-0214); photo-fill pyramid deferred pending browser decode benchmarks |
 | Worker IR identity | IR carries the short content-addressed asset handle; registry resolves to the loadable source | Embedded data URLs were structured-cloned even when bitmap transfer is a delta | High performance | `imageResourceRegistry.ts`, `sceneToEngine.ts`; measured 205x structured-clone reduction | DONE |
 | Worker memory | Transfer/frame budgets exist; resident source bytes now reported + accounted; admission includes residency | Worker-retained image bytes were not a distinct diagnostic category | Medium-high | `renderBitmapBudget.ts`, `workerHost.ts` | DONE |
