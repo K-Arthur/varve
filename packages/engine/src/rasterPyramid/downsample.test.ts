@@ -28,16 +28,15 @@ function solidTile(r: number, g: number, b: number, a: number): Uint8ClampedArra
 
 function childrenAt(
   tiles: Map<string, Uint8ClampedArray>,
-  level: number,
   col: number,
   row: number,
 ): ChildTileSource[] {
-  const f = 2 ** level;
+  // Immediate children are the 2x2 block at (2c,2r) in level-(level-1) coords.
   const out: ChildTileSource[] = [];
   for (let dy = 0; dy < 2; dy++) {
     for (let dx = 0; dx < 2; dx++) {
-      const c = col * f + dx;
-      const r = row * f + dy;
+      const c = col * 2 + dx;
+      const r = row * 2 + dy;
       out.push({ coord: { col: c, row: r }, pixels: tiles.get(`${c}:${r}`) });
     }
   }
@@ -74,7 +73,7 @@ describe('premultiplied-alpha downsampling', () => {
     tiles.set('1:1', mk(255, 0, 0));
     const out = downsampleParentTile({
       childLevel: { width: 256, height: 256 },
-      children: childrenAt(tiles, 1, 0, 0),
+      children: childrenAt(tiles, 0, 0),
       parent: { col: 0, row: 0 },
     });
     expect(out[0]).toBe(128); // (255+0+0+255)/4 = 127.5, rounds half-up
@@ -174,7 +173,7 @@ describe('edge tiles and odd dimensions', () => {
     tiles.set('2:2', solidTile(200, 100, 50, 255));
     const out = downsampleParentTile({
       childLevel: { width: 257, height: 257 },
-      children: childrenAt(tiles, 1, 1, 1),
+      children: childrenAt(tiles, 1, 1),
       parent: { col: 1, row: 1 },
     });
     // Content size: parent level is 129x129, tile (1,1) holds 1x1 content.
@@ -218,7 +217,7 @@ describe('determinism', () => {
     const mk = () =>
       downsampleParentTile({
         childLevel: { width: 256, height: 256 },
-        children: childrenAt(tiles, 1, 0, 0),
+        children: childrenAt(tiles, 0, 0),
         parent: { col: 0, row: 0 },
       });
     const a = mk();
@@ -251,7 +250,7 @@ describe('cascade vs direct source derivation (quality policy)', () => {
           `${c}:${r}`,
           downsampleParentTile({
             childLevel: { width: 512, height: 512 },
-            children: childrenAt(l0, 1, c, r),
+            children: childrenAt(l0, c, r),
             parent: { col: c, row: r },
           }),
         );
@@ -259,7 +258,7 @@ describe('cascade vs direct source derivation (quality policy)', () => {
     }
     const l2 = downsampleParentTile({
       childLevel: { width: 256, height: 256 },
-      children: childrenAt(l1, 2, 0, 0),
+      children: childrenAt(l1, 0, 0),
       parent: { col: 0, row: 0 },
     });
     // Direct 4x4 box on the same region.
