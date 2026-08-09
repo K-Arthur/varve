@@ -15,9 +15,9 @@
 import type { Document } from '@varve/scene';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import type { EditorState } from '../context/types';
 import { createEditorFrameKey, requestEditorFrame } from '../performance/editorFrameRuntime';
 import { createInitialMediaState, type MediaState } from '../state/media-state';
-import type { EditorState } from '../context/types';
 import {
   bridgeMediaCacheToRedraw,
   installMediaFrameResolver,
@@ -50,7 +50,13 @@ interface MediaProviderProps {
   onReady?: (value: MediaContextValue) => void;
 }
 
-export function MediaProvider({ children, state, setState, stateRef, onReady }: MediaProviderProps) {
+export function MediaProvider({
+  children,
+  state,
+  setState,
+  stateRef,
+  onReady,
+}: MediaProviderProps) {
   const frameKeyRef = useRef<string | null>(null);
   const playingRef = useRef(false);
 
@@ -126,7 +132,10 @@ export function MediaProvider({ children, state, setState, stateRef, onReady }: 
   const playMedia = useCallback(() => {
     playingRef.current = true;
     patchMedia({ isPlaying: true, source: 'media' });
-    const stamp = tickMediaPresentation(stateRef.current.document, stateRef.current.media.currentTime);
+    const stamp = tickMediaPresentation(
+      stateRef.current.document,
+      stateRef.current.media.currentTime,
+    );
     patch({ media: { ...stateRef.current.media, presentedStamp: stamp } });
   }, [patchMedia, patch, stateRef]);
 
@@ -170,13 +179,12 @@ export function MediaProvider({ children, state, setState, stateRef, onReady }: 
         });
         if (!targetId) return;
         const node = doc.nodes[targetId]!;
-        const fills = (node as { fills?: Array<{ type?: string; image?: { assetId?: string } }> }).fills;
+        const fills = (node as { fills?: Array<{ type?: string; image?: { assetId?: string } }> })
+          .fills;
         for (const fill of fills ?? []) {
           if (fill?.type !== 'image' || !fill.image?.assetId) continue;
           const asset = doc.assets?.[fill.image.assetId];
-          const animated = asset?.animated as
-            | { frames: Array<{ durationMs: number }> }
-            | undefined;
+          const animated = asset?.animated as { frames: Array<{ durationMs: number }> } | undefined;
           if (!animated) continue;
           const timing = buildFrameTiming(animated.frames.map((f) => f.durationMs));
           const current = frameIndexForTime(timing, media.currentTime);
@@ -210,7 +218,10 @@ export function MediaProvider({ children, state, setState, stateRef, onReady }: 
   // Bridge media frame-cache arrivals (async decode completion) to a redraw.
   useEffect(() => {
     const unsubscribe = bridgeMediaCacheToRedraw(() => {
-      const stamp = tickMediaPresentation(stateRef.current.document, stateRef.current.media.currentTime);
+      const stamp = tickMediaPresentation(
+        stateRef.current.document,
+        stateRef.current.media.currentTime,
+      );
       if (stamp !== stateRef.current.media.presentedStamp) {
         patch({ media: { ...stateRef.current.media, presentedStamp: stamp } });
       }

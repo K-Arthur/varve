@@ -8,8 +8,8 @@
 
 import { imagePlaceholderFill } from '../imagePlaceholder';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
-import type { ReplayTarget } from '../replay';
 import { getMediaRegistry } from '../media';
+import type { ReplayTarget } from '../replay';
 import type { Primitive } from '../types';
 import { fitRect } from './fit';
 import type { Quad, Vec2 } from './homography';
@@ -78,10 +78,7 @@ export function resolveReplayImage(
  * triggers async promotion (the reframe contract re-renders when ready).
  * No-op for non-media assets — zero cost on the static hot path.
  */
-export function resolveMediaFrameSource(
-  src: string,
-  frame: number,
-): CanvasImageSource | undefined {
+export function resolveMediaFrameSource(src: string, frame: number): CanvasImageSource | undefined {
   const session = getMediaRegistry().get(src);
   if (!session) return undefined;
   if (!session.getComposited(frame)) return undefined;

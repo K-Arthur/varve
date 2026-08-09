@@ -10,9 +10,9 @@
  * Home/End, Space toggles playback, Enter selects).
  */
 
+import type { FrameTiming } from '@varve/engine';
 import { Icon } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FrameTiming } from '@varve/engine';
 
 export interface MediaFrameStripProps {
   timing: FrameTiming;
@@ -171,11 +171,7 @@ export function MediaFrameStrip({
           <Icon name="ChevronRight" size={12} />
         </button>
         <label className="media-frame-strip__uniform">
-          <input
-            type="checkbox"
-            checked={uniform}
-            onChange={(e) => setUniform(e.target.checked)}
-          />
+          <input type="checkbox" checked={uniform} onChange={(e) => setUniform(e.target.checked)} />
           Uniform frames
         </label>
       </div>
