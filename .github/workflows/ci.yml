@@ -71,12 +71,8 @@ jobs:
             Select-Object -First 1
           if (-not $exe) { Write-Host 'exe not found'; exit 0 }
           Write-Host "exe: $($exe.FullName) size=$($exe.Length)"
-          $dumpbin = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $dumpbin) {
-            $dumpbin = Get-ChildItem "${env:ProgramFiles}\Microsoft Visual Studio\2022\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" -ErrorAction SilentlyContinue |
-              Sort-Object FullName -Descending | Select-Object -First 1
-          }
+          $dumpbin = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' 2>$null |
+            Select-Object -First 1
           if (-not $dumpbin) { Write-Host 'dumpbin not found'; exit 0 }
           & $dumpbin.FullName /imports $exe.FullName 2>&1 |
             Select-String -Pattern '\.dll' |
