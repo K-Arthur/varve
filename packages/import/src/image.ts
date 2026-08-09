@@ -1,6 +1,7 @@
 import type { Fill } from '@varve/scene';
 import { imageFill } from '@varve/scene';
-import { bytesToDataUrl, getImageDimensions } from './bitmap';
+import { bytesToDataUrl } from './bitmap';
+import { inspectRasterBytes } from './rasterInspection';
 
 export interface ImageImportOptions {
   embedAsDataUrl?: boolean;
@@ -12,9 +13,9 @@ export function importImageAsFill(
   options?: ImageImportOptions,
 ): Fill {
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
-  const mime = detectMime(bytes) ?? 'image/png';
-  const src = options?.embedAsDataUrl !== false ? bytesToDataUrl(bytes, mime) : filename;
-  const dimensions = getImageDimensions(bytes);
+  const inspection = inspectRasterBytes(bytes);
+  const src =
+    options?.embedAsDataUrl !== false ? bytesToDataUrl(bytes, inspection.mimeType) : filename;
 
   const fill = imageFill(src, { fit: 'fill' });
   return fill.image
@@ -22,8 +23,8 @@ export function importImageAsFill(
         ...fill,
         image: {
           ...fill.image,
-          ...(dimensions.w > 0 ? { imageWidth: dimensions.w } : {}),
-          ...(dimensions.h > 0 ? { imageHeight: dimensions.h } : {}),
+          imageWidth: inspection.width,
+          imageHeight: inspection.height,
         },
       }
     : fill;
@@ -36,20 +37,6 @@ export interface BitmapInfo {
 }
 
 export function getBitmapInfo(data: Uint8Array): BitmapInfo {
-  const { w, h } = getImageDimensions(data);
-  const mime = detectMime(data) ?? 'image/png';
-  return { w, h, mime };
-}
-
-function detectMime(bytes: Uint8Array): string | null {
-  if (bytes.length < 4) return null;
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)
-    return 'image/png';
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46)
-    return 'image/webp';
-  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38)
-    return 'image/gif';
-  if (bytes[0] === 0x42 && bytes[1] === 0x4d) return 'image/bmp';
-  return null;
+  const inspection = inspectRasterBytes(data);
+  return { w: inspection.width, h: inspection.height, mime: inspection.mimeType };
 }
