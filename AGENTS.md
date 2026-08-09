@@ -466,6 +466,32 @@ See `docs/architecture/text-pipeline.md`.
 | `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend |
 | `apps/website` | **Built** | Astro 5 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
 
+## Release signing (code-signing pipeline)
+
+Varve's release pipeline is certificate-ready but not yet signing: no Apple/
+Azure certificates are owned. Canonical docs: `docs/release/signing-decision-record.md`
+(strategy + current prices), `docs/release/code-signing-setup.md` (human
+acquisition checklist), `docs/release/signing-rotation-runbook.md` and
+`docs/release/signing-incident-runbook.md` (procedures).
+
+Rules that must not be violated:
+- Signedness in `release-manifest.json` derives ONLY from post-build
+  verification reports (`verify-windows-signature.ps1` /
+  `verify-macos-signature.sh`), never from secret presence. `signing-policy.mjs`
+  encodes the fail-closed policy; `verify-release-trust.mjs` enforces it before
+  checksums/attestation/draft.
+- Stable releases require valid Windows Authenticode and macOS
+  Developer ID + notarized + stapled; missing credentials fail in
+  `signing-preflight` BEFORE the platform build starts.
+- Windows signing uses Azure Artifact Signing via Tauri `signCommand`
+  (artifact-signing-cli 0.11.0). The auth chain is a client secret — OIDC is
+  not supported by that tool; do not invent a replacement wrapper without
+  re-checking official docs.
+- macOS uses Developer ID Application (never Apple Development/Distribution);
+  the identity string is matched exactly.
+- Tauri updater keys (when the updater lands) are separate from all other
+  signing material and are not created until then.
+
 ## Quality gates (Cascade Review) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
 → input-method audit → reduced-motion → 3-OS build → native backend on desktop.

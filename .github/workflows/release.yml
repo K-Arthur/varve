@@ -9,7 +9,15 @@
 #   - A tag never releases anything by itself. It builds a DRAFT; a human
 #     publishes.
 #   - The tag and the application version must agree before anything is built.
-#   - An artifact is never labelled signed unless it was actually signed.
+#   - Signing credentials are validated in `signing-preflight` BEFORE any
+#     platform build starts. A stable release with missing credentials fails
+#     there, never after packaging.
+#   - An artifact is never labelled signed unless the post-build cryptographic
+#     verification report (verify-windows-signature.ps1 /
+#     verify-macos-signature.sh) confirms it on the actual bytes.
+#   - `verify` is the fail-closed trust gate: it merges the per-platform
+#     reports into the release manifest, enforces the channel policy, and only
+#     THEN generates the final checksums and attests the final bytes.
 #   - Every artifact is renamed to one predictable scheme, hashed, and verified
 #     against the bytes that will actually be uploaded.
 #
@@ -193,10 +201,72 @@ jobs:
       - name: emoji gate
         run: pnpm audit:emoji
 
+  # ── 2b. Signing preflight: validate credentials BEFORE any build ────────────
+  # The fail-closed principle, enforced before a single platform compiles:
+  # a stable release (or any release with RELEASE_EXPECT_SIGNED=true) whose
+  # signing credentials are missing stops HERE, not after packaging.
+  # Only PRESENCE BOOLEANS reach this job — secret values never enter it.
+  signing-preflight:
+    name: Signing preflight
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      windows_mode: ${{ steps.policy.outputs.windows_mode }}
+      macos_mode: ${{ steps.policy.outputs.macos_mode }}
+      signing_required: ${{ steps.policy.outputs.signing_required }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - name: Resolve signing policy (presence booleans only)
+        id: policy
+        shell: bash
+        env:
+          CHANNEL: ${{ needs.preflight.outputs.channel }}
+          EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED }}
+          PLATFORMS: >-
+            linux${{ needs.preflight.outputs.build_windows == 'true' && ' windows' || '' }}${{ needs.preflight.outputs.build_macos == 'true' && ' macos' || '' }}
+          P_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}
+          P_APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD != '' }}
+          P_APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY != '' }}
+          P_APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER != '' }}
+          P_APPLE_API_KEY: ${{ secrets.APPLE_API_KEY != '' }}
+          P_APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 != '' }}
+          P_APPLE_ID: ${{ secrets.APPLE_ID != '' }}
+          P_APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD != '' }}
+          P_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID != '' }}
+          P_AZURE_SIGNING_CLIENT_ID: ${{ secrets.AZURE_SIGNING_CLIENT_ID != '' }}
+          P_AZURE_SIGNING_CLIENT_SECRET: ${{ secrets.AZURE_SIGNING_CLIENT_SECRET != '' }}
+          P_AZURE_SIGNING_TENANT_ID: ${{ secrets.AZURE_SIGNING_TENANT_ID != '' }}
+          P_AZURE_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT != '' }}
+          P_AZURE_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE != '' }}
+          P_AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT != '' }}
+        run: |
+          POLICY="$(node scripts/release/resolve-signing-policy.mjs)"
+          echo "policy=${POLICY}"
+          echo "windows_mode=$(echo "${POLICY}" | node -e "process.stdin.on('data',d=>{const p=JSON.parse(d);process.stdout.write(p.windows)})")" >> "$GITHUB_OUTPUT"
+          echo "macos_mode=$(echo "${POLICY}" | node -e "process.stdin.on('data',d=>{const p=JSON.parse(d);process.stdout.write(p.macos)})")" >> "$GITHUB_OUTPUT"
+          W="$(echo "${POLICY}" | node -e "process.stdin.on('data',d=>{const p=JSON.parse(d);process.stdout.write(String(p.windows==='signed'||p.macos==='signed'))})")"
+          echo "signing_required=${W}" >> "$GITHUB_OUTPUT"
+
+      - name: Report policy outcome
+        shell: bash
+        run: |
+          {
+            echo "### Signing policy"
+            echo ""
+            echo "- Windows: **${{ steps.policy.outputs.windows_mode }}**"
+            echo "- macOS: **${{ steps.policy.outputs.macos_mode }}**"
+            echo "- Channel: ${{ needs.preflight.outputs.channel }}"
+            echo "- RELEASE_EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED || '(unset)' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ── 3. Platform bundles on native runners ───────────────────────────────────
   bundle:
     name: Bundle (${{ matrix.name }})
-    needs: [preflight, gate]
+    needs: [preflight, gate, signing-preflight]
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -310,9 +380,97 @@ jobs:
         if: matrix.enabled
         run: node scripts/release/prune-foreign-runtimes.mjs
 
+      # ── macOS: import the Developer ID certificate into a temp keychain ──
+      # Only runs when the signing preflight resolved macos -> signed. The
+      # temporary keychain dies with the runner; nothing is uploaded.
+      # NOTE: the identity is matched exactly (APPLE_SIGNING_IDENTITY), never
+      # "the first codesigning identity in the keychain" — a wrong certificate
+      # type (e.g. Apple Development) must fail loudly here.
+      - name: Import Apple Developer ID certificate (temporary keychain)
+        if: matrix.enabled && runner.os == 'macOS' && needs.signing-preflight.outputs.macos_mode == 'signed'
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          echo "KEYCHAIN_PASSWORD=${KEYCHAIN_PASSWORD}" >> "$GITHUB_ENV"
+          echo "${APPLE_CERTIFICATE}" | base64 --decode > /tmp/apple-certificate.p12
+          security create-keychain -p "${KEYCHAIN_PASSWORD}" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "${KEYCHAIN_PASSWORD}" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import /tmp/apple-certificate.p12 -k build.keychain \
+            -P "${APPLE_CERTIFICATE_PASSWORD}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "${KEYCHAIN_PASSWORD}" build.keychain
+          rm -f /tmp/apple-certificate.p12
+          IDENTITIES="$(security find-identity -v -p codesigning build.keychain)"
+          echo "${IDENTITIES}"
+          if ! echo "${IDENTITIES}" | grep -q "${APPLE_SIGNING_IDENTITY}"; then
+            echo "::error::APPLE_SIGNING_IDENTITY not found in the temporary keychain."
+            echo "Expected: ${APPLE_SIGNING_IDENTITY}"
+            echo "This is usually a wrong certificate type (Developer ID Application is required for"
+            echo "direct distribution; Apple Development / Apple Distribution will not work)."
+            exit 1
+          fi
+          if ! echo "${APPLE_SIGNING_IDENTITY}" | grep -q '^Developer ID Application:'; then
+            echo "::error::APPLE_SIGNING_IDENTITY must start with 'Developer ID Application:' —"
+            echo "direct DMG distribution cannot use Apple Development or Apple Distribution identities."
+            exit 1
+          fi
+
+      # ── Windows: prepare the Artifact Signing sign command ──────────────
+      # Tauri runs bundle.windows.signCommand against the NSIS installer with
+      # the credentials in the process environment. The command itself contains
+      # NO secrets (endpoint/account/profile are non-secret configuration), so
+      # it is generated in CI from repository variables and merged at build time
+      # via `--config`. It is never committed (see .gitignore).
+      - name: Prepare Windows signing configuration
+        if: matrix.enabled && runner.os == 'Windows' && needs.signing-preflight.outputs.windows_mode == 'signed'
+        shell: bash
+        env:
+          AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          AZURE_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          AZURE_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+        run: |
+          set -euo pipefail
+          cat > apps/desktop/src-tauri/tauri.signing.windows.json <<EOF
+          {
+            "bundle": {
+              "windows": {
+                "signCommand": "artifact-signing-cli -e \"${AZURE_SIGNING_ENDPOINT}\" -a \"${AZURE_SIGNING_ACCOUNT}\" -c \"${AZURE_SIGNING_PROFILE}\" -d \"Varve installer\" %1"
+              }
+            }
+          }
+          EOF
+
+      - name: Install artifact-signing-cli (crates.io, pinned)
+        if: matrix.enabled && runner.os == 'Windows' && needs.signing-preflight.outputs.windows_mode == 'signed'
+        run: cargo install artifact-signing-cli --version 0.11.0 --locked
+
+      # The App Store Connect API key (.p8) is decoded to a file BEFORE the
+      # build so APPLE_API_KEY_PATH resolves when Tauri notarizes.
+      - name: Write App Store Connect API key file
+        if: matrix.enabled && runner.os == 'macOS' && needs.signing-preflight.outputs.macos_mode == 'signed'
+        shell: bash
+        env:
+          APPLE_API_KEY_P8_BASE64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "${APPLE_API_KEY_P8_BASE64}" | base64 --decode > /tmp/varve-apple-api-key.p8
+          chmod 600 /tmp/varve-apple-api-key.p8
+
       - name: Tauri build
         if: matrix.enabled
-        run: pnpm tauri build --bundles ${{ matrix.bundles }} --ci
+        run: |
+          TAURI_EXTRA_ARGS=""
+          if [[ "${{ runner.os }}" == "Windows" && "${{ needs.signing-preflight.outputs.windows_mode }}" == "signed" ]]; then
+            TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.signing.windows.json"
+          fi
+          pnpm tauri build --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
         env:
           # linuxdeploy bundles an old binutils `strip` that cannot parse the
@@ -321,35 +479,23 @@ jobs:
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
-
-      # ── Signing ──────────────────────────────────────────────────────────
-      # Signing runs only when the required secrets are present. Two rules:
-      #   1. A missing secret means "build unsigned", not "fail" — so unsigned
-      #      alpha builds keep working before any certificate is bought.
-      #   2. If RELEASE_EXPECT_SIGNED is set, a missing secret is a hard failure.
-      #      That prevents the dangerous case: a stable release that silently
-      #      ships unsigned while the release notes claim it is signed.
-      - name: Check signing preconditions
-        if: matrix.enabled
-        shell: bash
-        env:
-          EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED }}
-          HAS_APPLE: ${{ secrets.APPLE_CERTIFICATE != '' }}
-          HAS_WINDOWS: ${{ secrets.AZURE_SIGNING_CLIENT_ID != '' }}
-        run: |
-          # Only booleans are echoed here, never secret values.
-          if [[ "${EXPECT_SIGNED}" == "true" ]]; then
-            if [[ "${{ runner.os }}" == "macOS" && "${HAS_APPLE}" != "true" ]]; then
-              echo "::error::RELEASE_EXPECT_SIGNED=true but Apple signing secrets are absent."
-              exit 1
-            fi
-            if [[ "${{ runner.os }}" == "Windows" && "${HAS_WINDOWS}" != "true" ]]; then
-              echo "::error::RELEASE_EXPECT_SIGNED=true but Windows signing secrets are absent."
-              exit 1
-            fi
-          else
-            echo "::notice::Building UNSIGNED artifacts (RELEASE_EXPECT_SIGNED is not 'true')."
-          fi
+          # macOS signing + notarization. Tauri signs with the imported
+          # identity and notarizes + staples when the App Store Connect API
+          # credentials are present. Notarization NEVER happens without a real
+          # Apple identity; with these unset the build is simply unsigned.
+          APPLE_CERTIFICATE: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_API_ISSUER: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_API_KEY: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_API_KEY || '' }}
+          APPLE_API_KEY_PATH: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && '/tmp/varve-apple-api-key.p8' || '' }}
+          APPLE_TEAM_ID: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_TEAM_ID || '' }}
+          # Windows Artifact Signing credentials (client-secret flow; the
+          # official artifact-signing-cli auth chain is `az login
+          # --service-principal`, see docs/release/signing-decision-record.md).
+          AZURE_CLIENT_ID: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' && secrets.AZURE_SIGNING_CLIENT_ID || '' }}
+          AZURE_CLIENT_SECRET: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' && secrets.AZURE_SIGNING_CLIENT_SECRET || '' }}
+          AZURE_TENANT_ID: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' && secrets.AZURE_SIGNING_TENANT_ID || '' }}
 
       # ── Collect, rename, checksum, SBOM ────────────────────────────────
       - name: Collect artifacts
@@ -378,6 +524,42 @@ jobs:
         run: |
           node scripts/release/validate-sbom.mjs \
             dist/release/varve-${{ needs.preflight.outputs.version }}-sbom-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.cdx.json
+
+      # ── Signing verification: measure the actual artifact bytes ─────────
+      # These are the evidence the release manifest's signing block is derived
+      # from. They run on the renamed, collected artifact — the exact bytes
+      # that will be uploaded. A missing report or a failed verification stops
+      # the release in the `verify` trust gate.
+      - name: Verify Windows Authenticode signature
+        if: matrix.enabled && runner.os == 'Windows'
+        shell: pwsh
+        env:
+          EXPECT_SIGNED: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' }}
+        run: |
+          $exe = Get-ChildItem -Path dist/release -Filter '*.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'No .exe installer found in dist/release' }
+          powershell -File scripts/release/verify-windows-signature.ps1 `
+            -Path $exe.FullName `
+            -ExpectSigned:($env:EXPECT_SIGNED -eq 'true') `
+            -ReportPath (Join-Path (Split-Path $exe.FullName) 'signing-report-windows.json')
+
+      - name: Verify macOS signature, notarization and staple
+        if: matrix.enabled && runner.os == 'macOS'
+        shell: bash
+        env:
+          EXPECT_SIGNED: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' }}
+        run: |
+          set -euo pipefail
+          DMG="$(find dist/release -name '*.dmg' | head -1)"
+          if [[ -z "${DMG}" ]]; then
+            echo "::error::No DMG found in dist/release"
+            exit 1
+          fi
+          if [[ "${EXPECT_SIGNED}" == "true" ]]; then
+            bash scripts/release/verify-macos-signature.sh --dmg "${DMG}" --expect-signed --report dist/release/signing-report-macos.json
+          else
+            bash scripts/release/verify-macos-signature.sh --dmg "${DMG}" --report dist/release/signing-report-macos.json
+          fi
 
       - name: Upload release artifacts
         if: matrix.enabled
@@ -523,6 +705,26 @@ jobs:
           if (Test-Path $installed.DirectoryName) { throw 'Installed files remain after uninstall' }
           Write-Host 'Uninstall PASSED'
 
+      # The installed executable's signature is reported HONESTLY: Tauri's
+      # NSIS bundling signs the installer container, not the payload embedded
+      # in it, so the installed exe is expected to be unsigned. The report is
+      # logged, never faked, and the release metadata records
+      # innerExecutableSigned=false.
+      - name: Windows — verify installed executable signature (honest report)
+        if: matrix.enabled && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $installed = Get-ChildItem -Path $env:LOCALAPPDATA -Recurse -Filter 'varve-desktop.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $installed) { Write-Host '::notice::Installed exe not found — signature check skipped'; exit 0 }
+          $sig = Get-AuthenticodeSignature -LiteralPath $installed.FullName
+          Write-Host "Installed executable signature status: $($sig.Status)"
+          if ($sig.Status -eq [System.Management.Automation.SignatureStatus]::Valid) {
+            Write-Host "  Signer: $($sig.SignerCertificate.Subject)"
+          } else {
+            Write-Host '  (expected unsigned for NSIS payloads — see docs/release/signing-decision-record.md)'
+          }
+
       - name: macOS — mount DMG, structure/arch checks, launch smoke, unmount
         if: matrix.enabled && runner.os == 'macOS'
         shell: bash
@@ -556,14 +758,36 @@ jobs:
           rm -rf "${MOUNT_POINT}"
           echo "DMG mounted, app launched, unmounted cleanly."
 
-  # ── 4. Assemble, verify, draft ──────────────────────────────────────────────
-  draft:
-    name: Draft Release
+      # Re-verify the signature on the DOWNLOADED bytes (the same artifacts the
+      # trust gate will merge). A tampered or truncated upload fails here even
+      # though the build runner verified its local copy.
+      - name: macOS — verify signature on downloaded bytes
+        if: matrix.enabled && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="$(find staged -name '*.dmg' | head -1)"
+          if [[ -z "${DMG}" ]]; then echo "::error::No DMG found in staged/"; exit 1; fi
+          bash scripts/release/verify-macos-signature.sh --dmg "${DMG}" --report staged/signing-report-macos-smoke.json
+
+  # ── 4. Verify: trust gate, checksums, attestation, final bytes ─────────────
+  # Everything converges here:
+  #   1. merge per-runner manifests + signing reports -> release-manifest.json
+  #   2. verify-release-trust enforces the fail-closed channel policy
+  #   3. combined SBOM + artifact verification
+  #   4. FINAL SHA256SUMS.txt (after every byte is verified)
+  #   5. GitHub artifact attestation of the final bytes
+  #   6. upload the verified set for the draft job
+  # Any step failing stops the release before a draft exists.
+  verify:
+    name: Verify, attest and finalize
     needs: [preflight, bundle, package-smoke, platform-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
-      contents: write
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
@@ -591,12 +815,25 @@ jobs:
         run: |
           mkdir -p dist/release
           # Each runner produced its own release-manifest.json + SHA256SUMS.txt
-          # covering only its platform. Copy the binaries first, then rebuild the
-          # combined manifest from the merged set so it describes exactly what
-          # is about to be uploaded.
+          # covering only its platform. Copy the binaries first, then
+          # verify-release-trust rebuilds the combined manifest (including the
+          # signing block derived from the verification reports) from the
+          # merged set so it describes exactly what is about to be uploaded.
           find staged -type f ! -name 'release-manifest.json' ! -name 'SHA256SUMS.txt' \
             -exec cp {} dist/release/ \;
-          node scripts/release/merge-manifests.mjs --staged staged --out dist/release
+
+      - name: Trust gate (fail-closed signing policy)
+        shell: bash
+        env:
+          EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED }}
+        run: |
+          EXPECT="false"
+          if [[ "${EXPECT_SIGNED}" == "true" ]]; then EXPECT="true"; fi
+          node scripts/release/verify-release-trust.mjs \
+            --staged staged \
+            --out dist/release \
+            --channel ${{ needs.preflight.outputs.channel }} \
+            --expect-signed "${EXPECT}"
 
       # The combined SBOM describes the whole multi-platform release; its scope
       # is declared explicitly in its metadata. Platform-specific SBOMs arrived
@@ -611,24 +848,29 @@ jobs:
         run: |
           node scripts/release/validate-sbom.mjs dist/release/*.cdx.json
 
-      - name: Verify artifacts against the manifest
-        run: |
-          node scripts/release/verify-artifacts.mjs \
-            --dir dist/release \
-            --expect-version ${{ needs.preflight.outputs.version }}
-
-      # The checksum file is generated LAST, after every artifact is in place,
-      # so it describes the exact bytes about to be uploaded. It covers every
-      # public asset except itself: installers, release-manifest.json, SBOMs.
+      # The checksum file is generated from the full release directory (after
+      # the trust gate passed and every byte is in place), then verify-artifacts
+      # checks the manifest, the checksums and the bytes against each other.
+      # The trust gate always runs BEFORE this step, so the published hashes
+      # describe the final verified bytes — never pre-signing intermediates.
       - name: Generate final SHA256SUMS.txt
         run: |
           node scripts/release/generate-final-checksums.mjs --dir dist/release
 
-      - name: Final verification (checksums vs bytes on disk)
+      - name: Verify artifacts and checksums against the bytes
         run: |
           node scripts/release/verify-artifacts.mjs \
             --dir dist/release \
             --expect-version ${{ needs.preflight.outputs.version }}
+
+      # GitHub artifact attestation: provenance for the FINAL verified bytes
+      # (post-signing, post-checksum). This is build provenance, NOT a Windows
+      # Authenticode signature and NOT Apple notarization — verification
+      # instructions for advanced users live in docs/release/website.md.
+      - name: Attest final release bytes
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: dist/release/*
 
       - name: Build release notes
         id: notes
@@ -639,6 +881,45 @@ jobs:
             --out RELEASE_NOTES.md
           echo "Generated $(wc -l < RELEASE_NOTES.md) lines of release notes."
 
+      - name: Upload verified release set
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        with:
+          name: release-final
+          path: |
+            dist/release/
+            RELEASE_NOTES.md
+          if-no-files-found: error
+          retention-days: 14
+
+  # ── 5. Draft — create the GitHub release, then verify the uploaded bytes ───
+  draft:
+    name: Draft Release
+    needs: [preflight, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ needs.preflight.outputs.tag }}
+
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+
+      - name: Download the verified release set
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-final
+          path: dist/release
+
       - name: Create draft release
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
         with:
@@ -648,8 +929,10 @@ jobs:
           # `publish` job below.
           draft: true
           prerelease: ${{ needs.preflight.outputs.prerelease }}
-          body_path: RELEASE_NOTES.md
-          files: dist/release/*
+          body_path: dist/release/RELEASE_NOTES.md
+          files: |
+            dist/release/*
+            !dist/release/RELEASE_NOTES.md
           fail_on_unmatched_files: true
 
       # The last gate before a human can publish: download the draft's assets
@@ -676,12 +959,14 @@ jobs:
             echo "- **Version:** ${{ needs.preflight.outputs.version }}"
             echo "- **Channel:** ${{ needs.preflight.outputs.channel }}"
             echo "- **Signed:** ${SIGNED}"
+            echo "- **Windows:** ${{ needs.signing-preflight.outputs.windows_mode }}"
+            echo "- **macOS:** ${{ needs.signing-preflight.outputs.macos_mode }}"
             echo "- **Upload bytes verified:** yes"
             echo ""
             echo "Smoke-test the artifacts, then run the \`publish\` job to make it public."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── 5. Publish — gated on a human ───────────────────────────────────────────
+  # ── 6. Publish — gated on a human ───────────────────────────────────────────
   publish:
     name: Publish (manual approval)
     needs: [preflight, draft]
