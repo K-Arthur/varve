@@ -4,17 +4,19 @@ import {
   FontCatalog,
   resolveManifestAgainstCatalog,
 } from '@varve/engine/font';
-import { type Platform, contentHash, displayNameFromPath, stripExtension, upsertPreservingMeta } from '@varve/platform';
+import {
+  contentHash,
+  displayNameFromPath,
+  type Platform,
+  stripExtension,
+  upsertPreservingMeta,
+} from '@varve/platform';
 import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback, useRef } from 'react';
-import type { RecoveryManager } from '../recovery';
 import { createSaveCoordinator } from '../persistence/saveCoordinator';
-import {
-  saveTargetFromSession,
-  type SaveIntent,
-  type SaveOutcome,
-} from '../persistence/saveTypes';
+import { type SaveIntent, type SaveOutcome, saveTargetFromSession } from '../persistence/saveTypes';
+import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
 // LoadDocumentMeta lives in ./types alongside SessionMeta/SessionFileMeta:
 // types.ts is the leaf of this package's type graph, and declaring it here
@@ -72,14 +74,27 @@ export function usePersistence(
   const runSave = useCallback(
     async (intent: SaveIntent): Promise<SaveOutcome> => {
       if (!platform) {
-        patch({ saveState: 'error', saveIssue: issue('unsupported', 'Persistence is unavailable in this mode.') });
-        return { status: 'failed', issue: issue('unsupported', 'Persistence is unavailable in this mode.') };
+        patch({
+          saveState: 'error',
+          saveIssue: issue('unsupported', 'Persistence is unavailable in this mode.'),
+        });
+        return {
+          status: 'failed',
+          issue: issue('unsupported', 'Persistence is unavailable in this mode.'),
+        };
       }
       const revision = stateRef.current.document;
       patch({ saveState: 'saving', saveIssue: null });
       try {
         if (intent === 'save-as') {
-          return await chooseAndAdopt(platform, stateRef, recoveryRef, patch, revision, stateRef.current.sessions.find((sess) => sess.id === stateRef.current.activeId)?.name);
+          return await chooseAndAdopt(
+            platform,
+            stateRef,
+            recoveryRef,
+            patch,
+            revision,
+            stateRef.current.sessions.find((sess) => sess.id === stateRef.current.activeId)?.name,
+          );
         }
         if (intent === 'save-copy') {
           const prev = stateRef.current.saveState;
@@ -100,8 +115,10 @@ export function usePersistence(
   // Coordinator is created once; runSave only reads stable refs, so the
   // captured closure never goes stale.
   const coordinatorRef = useRef<ReturnType<typeof createSaveCoordinator> | null>(null);
-  const coordinator =
-    coordinatorRef.current ?? (coordinatorRef.current = createSaveCoordinator(runSave));
+  if (coordinatorRef.current === null) {
+    coordinatorRef.current = createSaveCoordinator(runSave);
+  }
+  const coordinator = coordinatorRef.current;
 
   const save = useCallback(
     () => coordinator.request('save').then((o) => o.status === 'saved'),
@@ -148,7 +165,12 @@ export function usePersistence(
         // the content of the file the tab already holds. Never merge the two:
         // a half-inherited identity is what makes save() write the wrong file.
         const identity: SessionFileMeta = meta?.keepIdentity
-          ? { filePath: active?.filePath, fileId: active?.fileId, saveHandleId: active?.saveHandleId, saveHandleName: active?.saveHandleName }
+          ? {
+              filePath: active?.filePath,
+              fileId: active?.fileId,
+              saveHandleId: active?.saveHandleId,
+              saveHandleName: active?.saveHandleName,
+            }
           : {
               filePath: meta?.filePath,
               fileId: meta?.fileId,
@@ -279,7 +301,10 @@ async function chooseAndAdopt(
     return { status: 'cancelled' };
   }
   if (choice.kind === 'unsupported') {
-    return writeFailure(patch, { category: 'unsupported', message: 'Saving to a file is not available in this mode.' });
+    return writeFailure(patch, {
+      category: 'unsupported',
+      message: 'Saving to a file is not available in this mode.',
+    });
   }
   if (choice.kind === 'failed') return writeFailure(patch, choice.error);
 
@@ -307,9 +332,7 @@ async function chooseAndAdopt(
   const clean = cur.document === revision;
   const update: SessionUpdate = { ...adopted.session, fileId, name: adopted.name };
   const sessions = cur.sessions.map((sess) =>
-    sess.id === cur.activeId
-      ? { ...sess, ...update, dirty: clean ? false : sess.dirty }
-      : sess,
+    sess.id === cur.activeId ? { ...sess, ...update, dirty: clean ? false : sess.dirty } : sess,
   );
   patch({
     dirty: clean ? false : cur.dirty,
@@ -340,7 +363,10 @@ async function performSaveCopy(
     return { status: 'cancelled' };
   }
   if (choice.kind === 'unsupported') {
-    return writeFailure(patch, { category: 'unsupported', message: 'Saving to a file is not available in this mode.' });
+    return writeFailure(patch, {
+      category: 'unsupported',
+      message: 'Saving to a file is not available in this mode.',
+    });
   }
   if (choice.kind === 'failed') return writeFailure(patch, choice.error);
   const written = await platform.writeSaveTarget(choice.target, json);
@@ -430,7 +456,10 @@ interface AdoptedTarget {
   mirrorExtra?: { filePath?: string };
 }
 
-function adoptTarget(meta: SessionFileMeta | undefined, target: ReturnType<typeof saveTargetFromSession>): AdoptedTarget {
+function adoptTarget(
+  meta: SessionFileMeta | undefined,
+  target: ReturnType<typeof saveTargetFromSession>,
+): AdoptedTarget {
   switch (target.kind) {
     case 'native-file':
       return {
