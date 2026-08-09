@@ -145,6 +145,104 @@ export function validateImageSourceMetadata(
   ) {
     return `Document asset ${assetId} metadata.iccStatus must be valid/invalid/none`;
   }
+  if (metadata.colorEncoding !== undefined) {
+    const encodingError = validateRasterColorEncoding(assetId, metadata.colorEncoding);
+    if (encodingError) return encodingError;
+  }
+  return null;
+}
+
+/** Structural validation for the canonical raster colour encoding block. */
+export function validateRasterColorEncoding(
+  assetId: string,
+  encoding: import('@varve/shared').RasterColorEncoding,
+): string | null {
+  if (!encoding || typeof encoding !== 'object') {
+    return `Document asset ${assetId} colorEncoding must be an object`;
+  }
+  if (!['rgb', 'gray', 'cmyk', 'unknown'].includes(encoding.model)) {
+    return `Document asset ${assetId} colorEncoding.model must be rgb/gray/cmyk/unknown`;
+  }
+  if (
+    encoding.primaries !== undefined &&
+    !['srgb', 'display-p3', 'adobe-rgb', 'pro-photo', 'rec2020', 'unknown'].includes(
+      encoding.primaries,
+    )
+  ) {
+    return `Document asset ${assetId} colorEncoding.primaries is not a supported primaries family`;
+  }
+  if (
+    encoding.transfer !== undefined &&
+    ![
+      'srgb',
+      'gamma22',
+      'gamma18',
+      'prophoto',
+      'rec2020',
+      'linear',
+      'pq',
+      'hlg',
+      'unknown',
+    ].includes(encoding.transfer)
+  ) {
+    return `Document asset ${assetId} colorEncoding.transfer is not a supported transfer`;
+  }
+  if (
+    encoding.matrixCoefficients !== undefined &&
+    !['rgb', 'bt709', 'bt601', 'bt2020-ncl', 'bt2020-cl', 'identity', 'unknown'].includes(
+      encoding.matrixCoefficients,
+    )
+  ) {
+    return `Document asset ${assetId} colorEncoding.matrixCoefficients is invalid`;
+  }
+  if (
+    encoding.videoRange !== undefined &&
+    !['full', 'limited', 'unknown'].includes(encoding.videoRange)
+  ) {
+    return `Document asset ${assetId} colorEncoding.videoRange must be full/limited/unknown`;
+  }
+  if (encoding.bitDepth !== undefined) {
+    const valid =
+      encoding.bitDepth === 8 ||
+      encoding.bitDepth === 10 ||
+      encoding.bitDepth === 12 ||
+      encoding.bitDepth === 16 ||
+      encoding.bitDepth === 'float16' ||
+      encoding.bitDepth === 'float32';
+    if (!valid) {
+      return `Document asset ${assetId} colorEncoding.bitDepth must be 8/10/12/16/float16/float32`;
+    }
+  }
+  if (
+    encoding.alphaMode !== undefined &&
+    !['straight', 'premultiplied', 'unknown'].includes(encoding.alphaMode)
+  ) {
+    return `Document asset ${assetId} colorEncoding.alphaMode must be straight/premultiplied/unknown`;
+  }
+  if (
+    ![
+      'embedded-icc',
+      'cicp',
+      'named',
+      'format-default',
+      'user-assigned',
+      'assumed',
+      'legacy-assumed-srgb',
+      'unknown',
+    ].includes(encoding.provenance)
+  ) {
+    return `Document asset ${assetId} colorEncoding.provenance is invalid`;
+  }
+  if (encoding.profileId !== undefined && typeof encoding.profileId !== 'string') {
+    return `Document asset ${assetId} colorEncoding.profileId must be a string`;
+  }
+  if (
+    encoding.diagnostics !== undefined &&
+    (!Array.isArray(encoding.diagnostics) ||
+      encoding.diagnostics.some((d) => typeof d !== 'string'))
+  ) {
+    return `Document asset ${assetId} colorEncoding.diagnostics must be an array of strings`;
+  }
   return null;
 }
 
@@ -276,6 +374,23 @@ export function validateIccProfileEntry(entry: import('./types').IccProfileEntry
   }
   if (typeof entry.hash !== 'string' || entry.hash.length === 0) {
     return `ICC profile ${entry.id} must have a hash`;
+  }
+  if (entry.profileClass !== undefined && typeof entry.profileClass !== 'string') {
+    return `ICC profile ${entry.id} profileClass must be a string`;
+  }
+  if (entry.colorSpace !== undefined && typeof entry.colorSpace !== 'string') {
+    return `ICC profile ${entry.id} colorSpace must be a string`;
+  }
+  if (entry.version !== undefined && typeof entry.version !== 'string') {
+    return `ICC profile ${entry.id} version must be a string`;
+  }
+  if (
+    entry.renderingIntent !== undefined &&
+    (!Number.isInteger(entry.renderingIntent) ||
+      entry.renderingIntent < 0 ||
+      entry.renderingIntent > 3)
+  ) {
+    return `ICC profile ${entry.id} renderingIntent must be 0-3`;
   }
   return null;
 }

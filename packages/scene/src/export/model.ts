@@ -148,7 +148,14 @@ export type ExportBoundsPolicy =
 
 // ── Format-specific settings ────────────────────────────────────────────────
 
-export type ExportColorProfile = 'srgb' | 'display-p3' | 'cmyk' | 'grayscale' | 'unmanaged';
+export type ExportColorProfile =
+  | 'srgb'
+  | 'display-p3'
+  | 'adobe-rgb'
+  | 'pro-photo'
+  | 'cmyk'
+  | 'grayscale'
+  | 'unmanaged';
 
 export interface ExportColorSettings {
   profile: ExportColorProfile;
