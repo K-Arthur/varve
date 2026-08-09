@@ -10,7 +10,7 @@
  *
  * Research basis: Figma section visibility, Sketch Inspector组织, APG Disclosure.
  */
-import { isImageShape, type SceneNode } from '@varve/scene';
+import { isAnimatedMediaNode, isImageShape, type SceneNode } from '@varve/scene';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import type { SelectionKind } from './selection/selectionState';
 
@@ -53,6 +53,7 @@ export type SectionId =
   | 'lens-blur'
   | 'line-art'
   | 'image-crop'
+  | 'animation'
   | 'content-aware-fill'
   | 'detect-text'
   | 'blend-images'
@@ -427,6 +428,21 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 270,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'animation',
+    title: 'Animation',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 260,
+    category: 'advanced',
+    // Only a single node whose fill references an animated asset.
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) &&
+      ctx.selectedNodes.length === 1 &&
+      ctx.selectedNodes[0] !== undefined &&
+      isAnimatedMediaNode(ctx.selectedNodes[0], undefined),
   },
   {
     id: 'image-crop',
