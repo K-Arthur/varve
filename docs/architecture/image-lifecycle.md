@@ -65,9 +65,16 @@ Before allocating a data URL or asking a browser decoder, import enforces:
 - at most 64 MiPixels (`width * height`, overflow-safe);
 - a supported magic signature and parseable header.
 
-Animated GIF is rejected with an actionable request to import a still frame.
-This prevents accidental animation driven by browser-specific `HTMLImageElement`
-timing. EXIF orientation and embedded ICC profiles are extracted at ingestion
+Animated GIF, APNG, and animated WebP are accepted and imported as
+**animated media assets** (v2.20+): content-level probing
+(`probeAnimatedMedia` in `@varve/engine`) extracts per-frame timing, rects,
+blend/disposal, loop count, and canvas size, persisted as
+`DocumentAsset.animated`. Single-frame variants of those formats stay static.
+Animated decode runs through the media pipeline
+([animated-image-media-system.md](animated-image-media-system.md), ADR-0215) —
+never through browser `HTMLImageElement` autoplay; playback is driven by the
+editor's media clock (slaved to the motion timeline). EXIF orientation and
+embedded ICC profiles are extracted at ingestion
 (`packages/import/src/metadata/`, 2026-08-09) and recorded on the asset's
 normalized metadata; see [raster-assets.md](raster-assets.md) for the decode
 invariant (decoded pixels are orientation-normalized; orientation drives
