@@ -18,6 +18,7 @@ import {
   DEFAULT_WARP_QUALITY,
   type SceneNode as EngineNode,
   hasLiveWarps,
+  registerImageResourceHandle,
   type WarpQualitySettings,
   warpShapeToPath,
   warpTextToClusterAdjustments,
@@ -71,10 +72,33 @@ function resolvePaintRefs(
   return node;
 }
 
+type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
+
+/**
+ * Rewrite an image fill's render identity: canonical assets carry their
+ * short content-addressed `assetId` as the render `src` (registered in the
+ * engine resource registry so replay and worker collection can resolve it
+ * to the loadable data URL), instead of materializing the multi-megabyte
+ * payload into the IR. Legacy fills without an asset keep their raw src.
+ */
+function rewriteImageFillSource(
+  fill: import('@varve/scene').Fill,
+  doc: AssetLookupDoc | undefined,
+): import('@varve/scene').Fill {
+  if (fill.type !== 'image' || !fill.image) return fill;
+  const assetId = fill.image.assetId;
+  if (!assetId || !doc?.assets) return fill;
+  const asset = doc.assets[assetId];
+  if (!asset || asset.storage !== 'embedded') return fill;
+  registerImageResourceHandle(assetId, asset.dataUrl);
+  if (fill.image.src === assetId) return fill;
+  return { ...fill, image: { ...fill.image, src: assetId, assetId } };
+}
+
 export function sceneNodeToEngineNode(
   node: SceneNode,
   options: SceneNodeConversionOptions = {},
-  doc?: Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes'>,
+  doc?: AssetLookupDoc,
 ): EngineNode {
   // Resolve paintRefs → paints → fills before converting
   const resolvedNode = resolvePaintRefs(node, doc);
@@ -82,7 +106,9 @@ export function sceneNodeToEngineNode(
     id: node.id,
     name: node.name,
     fill: resolvedNode.fill,
-    fills: resolvedNode.fills,
+    fills: resolvedNode.fills
+      ? resolvedNode.fills.map((f) => rewriteImageFillSource(f, doc))
+      : resolvedNode.fills,
     transform: node.transform,
     opacity: node.opacity ?? 1,
     blendMode: node.blendMode ?? ('normal' as const),
