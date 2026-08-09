@@ -26,6 +26,10 @@ export function uninstallLifecycleCoordinator(): void {
  *  web leaves it unset (browser unload is browser-controlled). */
 let finalizeHandler: ((intent: TerminationIntent) => void | Promise<void>) | null = null;
 
+/** DOM event dispatched by the commit-phase finalizers so UI-owned jobs
+ *  (export batches, print jobs) can cancel themselves (ADR-0216 D8). */
+export const LIFECYCLE_COMMIT_EVENT = 'varve:lifecycle-commit';
+
 export function setLifecycleFinalizeHandler(
   handler: ((intent: TerminationIntent) => void | Promise<void>) | null,
 ): void {

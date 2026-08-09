@@ -25,6 +25,7 @@ import { createFinalizerRegistry } from './finalizers';
 import {
   getLifecycleFinalizeHandler,
   installLifecycleCoordinator,
+  LIFECYCLE_COMMIT_EVENT,
   uninstallLifecycleCoordinator,
 } from './global';
 import { getSharedShutdownMarker } from './lifecycleMarker';
@@ -61,6 +62,20 @@ export function LifecycleProvider({ onBackToHome }: { onBackToHome?: () => void 
   const [promptRequest, setPromptRequest] = useState<PromptRequest | null>(null);
 
   const coordinatorRef = useRef<TerminationCoordinator | null>(null);
+  const finalizersRef = useRef<ReturnType<typeof createFinalizerRegistry> | null>(null);
+  if (!finalizersRef.current) {
+    finalizersRef.current = createFinalizerRegistry();
+    finalizersRef.current.register({
+      id: 'cancel-export-jobs',
+      scope: 'window',
+      priority: 100,
+      finalize: () => {
+        // Export/print batches cancel at commit (§38): outputs are not
+        // document state, so losing them must not block termination.
+        window.dispatchEvent(new CustomEvent(LIFECYCLE_COMMIT_EVENT));
+      },
+    });
+  }
   if (!coordinatorRef.current) {
     const api: EditorLifecycleApi = {
       getSessions: () => editorRef.current.state.sessions,
@@ -110,7 +125,7 @@ export function LifecycleProvider({ onBackToHome }: { onBackToHome?: () => void 
     };
 
     const marker = getSharedShutdownMarker();
-    const finalizers = createFinalizerRegistry();
+    const finalizers = finalizersRef.current;
 
     const coordinator = new TerminationCoordinator({
       api,
