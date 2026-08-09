@@ -165,12 +165,10 @@ export function createDefaultDocumentGridSettings(): DocumentGridSettings {
   return createDefaultDocumentGrid();
 }
 
-export interface SessionMeta {
+export interface SessionMeta extends SessionFileMeta {
   id: string;
   name: string;
   dirty: boolean;
-  filePath?: string;
-  fileId?: string;
 }
 
 /**
@@ -179,11 +177,48 @@ export interface SessionMeta {
  * Always passed explicitly when a document enters a tab. A session must never
  * inherit identity from whatever happened to be open before it, or saving
  * writes the new document over the previous one.
+ *
+ * The save *destination* is separate from the document *identity*:
+ *   - `filePath`        — a user-chosen native filesystem path (desktop).
+ *   - `saveHandleId`    — a persisted browser File System Access handle key
+ *     (web). The actual handle lives in platform-managed IndexedDB; a path
+ *     string would be a lie in a browser.
+ *   - `fileId`          — identity in Varve's Home/library index. A session
+ *     with only a fileId is stored in the explicitly chosen Varve Library.
+ *   - `downloadName`    — last browser-snapshot filename. A download is NOT a
+ *     persistent location: the session stays untitled-for-file purposes and
+ *     a download never marks the document clean.
+ *   - `diskContentHash` — FNV-1a of the last known bytes at `filePath` (from
+ *     the open read or the last successful write). Compared before every
+ *     native overwrite to detect external edits (save-conflict safety).
  */
 export interface SessionFileMeta {
   name?: string;
   filePath?: string;
   fileId?: string;
+  saveHandleId?: string;
+  saveHandleName?: string;
+  downloadName?: string;
+  diskContentHash?: string;
+}
+
+/** A user-actionable save problem, shown in save-status UI. Category values
+ *  mirror @varve/platform SaveErrorCategory; kept here (rather than imported)
+ *  so types.ts stays the leaf of the package's type graph. */
+export interface SaveIssue {
+  category:
+    | 'permission-denied'
+    | 'disk-full'
+    | 'read-only'
+    | 'destination-missing'
+    | 'file-changed-externally'
+    | 'serialization-failed'
+    | 'filesystem-unavailable'
+    | 'permission-expired'
+    | 'quota-exceeded'
+    | 'unsupported'
+    | 'unknown-io';
+  message: string;
 }
 
 /**
@@ -263,6 +298,10 @@ export interface EditorState {
   isometricGrid: IsometricGrid;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
+  /** Most recent save problem requiring user attention (null = none). */
+  saveIssue: SaveIssue | null;
+  /** Document Info dialog visibility. */
+  documentInfoOpen: boolean;
   prototypeMode: boolean;
   prototypeRuntime: PrototypeRuntime | null;
   prototypeDebug: PrototypeDebugConsole;
@@ -715,8 +754,15 @@ export interface EditorContextValue {
   loadDocument: (json: string, meta?: LoadDocumentMeta) => void;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
+  /** Save a duplicate to a new location WITHOUT adopting it as the active
+   *  document's destination and without clearing dirty state. */
+  saveCopy: () => Promise<boolean>;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
+  /** Most recent save problem requiring user attention (null = none). */
+  saveIssue: SaveIssue | null;
+  /** Open/close the Document Info surface (name, location, status, actions). */
+  setShowDocumentInfo: (show: boolean) => void;
   openFile: (
     /** App-store id; omit for a file known only by path (Open Recent) or by
      *  neither (browser file picker) — save() mints one on first save. */
