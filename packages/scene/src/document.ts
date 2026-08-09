@@ -299,6 +299,13 @@ export interface Document {
   assets?: Record<string, import('./types').DocumentAsset>;
 
   /**
+   * Content-addressed ICC profile registry (v2.19+). Referenced from
+   * `DocumentAsset.metadata.iccProfileId`; identical profiles share one
+   * entry so raw profile bytes are never copied per asset or per placement.
+   */
+  iccProfiles?: Record<string, import('./types').IccProfileEntry>;
+
+  /**
    * Mockup template assets keyed by template id (v2.16+). Templates are
    * self-contained scene-slot contracts embedded in the document so
    * save/reopen and offline use never depend on a library lookup. Referenced

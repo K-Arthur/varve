@@ -14,7 +14,9 @@ import {
   hashContent,
   isAssetReferenced,
   mimeTypeFromDataUrl,
+  pruneUnusedIccProfiles,
   validateDocumentAsset,
+  validateIccProfileEntry,
 } from './assets';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
@@ -108,6 +110,12 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
     if (!isRecord(raw.assets)) return 'Document assets must be an object';
     for (const [assetId, asset] of Object.entries(raw.assets)) {
       if (!isRecord(asset)) return `Document asset ${assetId} must be an object`;
+    }
+  }
+  if (raw.iccProfiles !== undefined) {
+    if (!isRecord(raw.iccProfiles)) return 'Document iccProfiles must be an object';
+    for (const [profileId, entry] of Object.entries(raw.iccProfiles)) {
+      if (!isRecord(entry)) return `ICC profile ${profileId} must be an object`;
     }
   }
   if (raw.iconAssets !== undefined) {
@@ -401,8 +409,26 @@ function sanitizeImageAssetState(doc: Document, warnings: DocumentCodecWarning[]
   const referencedAssets = Object.fromEntries(
     Object.entries(validAssets).filter(([assetId]) => isAssetReferenced(rehydrated, assetId)),
   );
-  return {
+  // ICC profiles are validated and pruned with the same pass: an entry with
+  // invalid payload is dropped (with a warning), and entries no longer
+  // referenced by any surviving asset metadata are garbage-collected.
+  const validProfiles = Object.fromEntries(
+    Object.entries(rehydrated.iccProfiles ?? {}).filter(([profileId, entry]) => {
+      const error = validateIccProfileEntry(entry);
+      if (!error) return true;
+      warnings.push(
+        warning('document.invalid-icc-profile', error, 'error', `iccProfiles.${profileId}`),
+      );
+      return false;
+    }),
+  );
+  const withProfiles = {
     ...rehydrated,
+    iccProfiles: Object.keys(validProfiles).length > 0 ? validProfiles : undefined,
+  };
+  const prunedProfiles = pruneUnusedIccProfiles(withProfiles);
+  return {
+    ...prunedProfiles,
     assets: Object.keys(referencedAssets).length > 0 ? referencedAssets : undefined,
   };
 }
