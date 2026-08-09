@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #101418;
+    color: #f4f6f8;
+    position: relative;
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1.5px);
+    background-size: 44px 44px;
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0.35));
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0.35));
+  }
+  .strata {
+    position: absolute; left: -80px; right: -80px;
+    transform: skewX(-14deg);
+  }
+  .s1 { top: 90px; height: 130px; background: linear-gradient(90deg, rgba(57,208,198,0.5), rgba(57,208,198,0.12)); }
+  .s2 { top: 250px; height: 150px; background: linear-gradient(90deg, rgba(226,140,60,0.42), rgba(226,140,60,0.1)); }
+  .s3 { top: 430px; height: 160px; background: linear-gradient(90deg, rgba(197,75,58,0.4), rgba(197,75,58,0.1)); }
+  .mark { position: absolute; top: 46px; left: 56px; width: 44px; height: 44px; }
+  .mark path:nth-child(1) { fill: #39D0C6; }
+  .mark path:nth-child(2) { fill: #E28C3C; }
+  .mark path:nth-child(3) { fill: #C54B3A; }
+  .eyebrow {
+    position: absolute; top: 58px; left: 116px;
+    font-size: 20px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;
+    color: rgba(203, 213, 225, 0.85);
+  }
+  .title {
+    position: absolute; left: 56px; top: 250px;
+    font-size: 76px; font-weight: 800; line-height: 1.04; letter-spacing: -0.03em;
+  }
+  .title .accent { color: #4cd8ce; }
+  .sub {
+    position: absolute; left: 58px; top: 470px;
+    font-size: 26px; color: rgba(203, 213, 225, 0.9); line-height: 1.5;
+  }
+  .platforms {
+    position: absolute; right: 56px; bottom: 44px;
+    font-size: 18px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(148, 163, 184, 0.9);
+  }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="strata s1"></div>
+  <div class="strata s2"></div>
+  <div class="strata s3"></div>
+  <svg class="mark" viewBox="0 0 32 32">
+    <path d="M5,6.5 H21 L23.5,12.5 H7.5 Z"/>
+    <path d="M7.5,13.5 H23.5 L26,19.5 H10 Z"/>
+    <path d="M10,20.5 H26 L28.5,26.5 H12.5 Z"/>
+  </svg>
+  <div class="eyebrow">Local-first design suite</div>
+  <div class="title">Design across<br />disciplines. <span class="accent">One canvas.</span></div>
+  <div class="sub">Vector &middot; Layout &middot; Typography &middot; Motion &middot; Prototyping &middot; Print</div>
+  <div class="platforms">Linux &middot; macOS &middot; Windows &middot; Free &amp; source-available</div>
+</body>
+</html>

@@ -44,6 +44,7 @@ import {
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { replayStructuredScene } from '../render/replayScene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
+import { settleEngineImageResources } from './resourceReadiness';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -867,6 +868,29 @@ async function renderBoundaryToSurface(
   // set so the surface bake can replay them at export resolution.
   const sourceIds = mockupLiveSourceIds(doc, [boundaryNodeId]);
   const flattened = flattenSceneToEngine(doc, [boundaryNodeId, ...sourceIds]);
+  // Export barrier: no replay may begin until every required image resource
+  // has settled. Permanent failures throw so the export fails clearly rather
+  // than silently baking a gray placeholder; pending resources throw a
+  // transient timeout the caller reports distinctly.
+  const settlement = await settleEngineImageResources(flattened.nodes, {
+    signal: undefined,
+  });
+  if (settlement.status === 'cancelled') {
+    throw new DOMException('Export cancelled', 'AbortError');
+  }
+  if (settlement.status === 'timeout') {
+    throw new Error(
+      `Export timed out waiting for ${settlement.pending.length} image resource(s) to load; retry once images appear on canvas.`,
+    );
+  }
+  if (settlement.status === 'failed') {
+    const details = settlement.failures
+      .map((f) => `${f.resource.context}: ${f.message}`)
+      .join('; ');
+    throw new Error(
+      `Export cannot include ${settlement.failures.length} failed image(s): ${details}`,
+    );
+  }
   const ir = await eng.buildIr({ nodes: flattened.nodes });
 
   const decorated = decorateMockupIr({

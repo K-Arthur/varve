@@ -11,6 +11,7 @@ import { expect, test } from '@playwright/test';
  */
 
 test('no internal link or asset escapes the site base path', async ({ page, baseURL }) => {
+  if (!baseURL) throw new Error('baseURL is required');
   await page.goto('/');
   const escaped = await page.evaluate((origin) => {
     const sameOrigin = new URL(origin).origin;
