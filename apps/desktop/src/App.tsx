@@ -12,6 +12,7 @@ import { detectPlatform, type FileEntry } from '@varve/platform';
 import { StartupLoader, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
+import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
 import { revealMainWindow } from './startup/revealMainWindow';
 
 const platform = detectPlatform();
@@ -78,6 +79,10 @@ export function App() {
   useEffect(() => {
     if (bootError) void revealMainWindow();
   }, [bootError]);
+
+  // Native termination bridge: routes CloseRequested/ExitRequested through
+  // the coordinator and approves native close/exit at commit (ADR-0216 D5).
+  useEffect(() => installNativeLifecycleBridge(), []);
 
   useEffect(
     () => () => {
