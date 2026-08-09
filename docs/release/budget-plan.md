@@ -93,7 +93,7 @@ blocked on something money cannot fix.
 | Item | CAD/yr | Why not |
 |---|---|---|
 | Apple Developer Program | $139 + tax ≈ **$157** | No Mac to validate on. Buying it would produce a *trusted* build of *unverified* quality — a signature implies testing that has not happened. 78% of budget |
-| Azure Artifact Signing | $168/yr | Microsoft Store re-signs for **free** and eliminates SmartScreen outright, which a certificate does not |
+| Azure Artifact Signing | $168/yr | Decision record 2026-08-08 re-evaluated this: it is now the **recommended** Windows path once the Store integration time is weighed; the budget order below still says: validate on hardware first |
 | Microsoft Store account | $0 | Free — no budget line. Costs *time* (identity verification, MSIX work), not money |
 | Plausible Analytics | ~$152/yr | GitHub download counts answer the only question that matters at alpha |
 | Paid crash reporting | $0–300/yr | Sentry's free tier is sufficient if crash reporting is added at all; do not add before consent UX exists |
@@ -111,6 +111,13 @@ The fourth is recommended, because signing and notarisation solve *trust* proble
 does not have a trust problem yet — it has a **verification** problem. Nobody has run this
 application on Windows or macOS. Money spent on signatures before that is spent making an
 untested build look trustworthy.
+
+**Update 2026-08-08 (signing engineering):** this reasoning stands, and the
+release pipeline is now certificate-ready (see `signing-decision-record.md` and
+`code-signing-setup.md`). The acquisition order is unchanged: hardware
+validation first, then Apple membership, then Azure Artifact Signing — the
+pipeline fails closed in `signing-preflight` until then, and every unsigned
+artifact remains honestly labelled.
 
 ---
 

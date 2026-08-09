@@ -127,9 +127,34 @@ function main() {
   out.push('');
 
   // ── Trust disclosure, first thing after the changes ──────────────────────
-  // Placed before the downloads deliberately: a user deciding whether to run an
-  // unsigned binary should read this before they click, not after.
-  if (!manifest.signed) {
+  // Placed before the downloads deliberately: a user deciding whether to run a
+  // binary should read this before they click, not after. The content derives
+  // from the manifest's signing block, which was populated from post-build
+  // cryptographic verification — never from intent.
+  const signing = manifest.signing ?? {};
+  if (manifest.signed) {
+    out.push('### Release verification');
+    out.push('');
+    if (signing.windows?.signed) {
+      out.push(
+        `- **Windows** — Authenticode signature verified: ${signing.windows.publisher ?? '(publisher)'}. ` +
+          'SmartScreen may still warn until the publisher builds reputation.',
+      );
+    }
+    if (signing.macos?.signed) {
+      out.push('- **macOS** — Developer ID signed, notarized by Apple, ticket stapled.');
+    }
+    out.push(
+      '- **Linux** — SHA-256 checksums, SBOM and GitHub build provenance are attached to this release.',
+    );
+    if (signing.windows && !signing.windows.innerExecutableSigned) {
+      out.push(
+        '- **Windows note** — the installer is signed; the executable it installs is not ' +
+          '(NSIS payloads are not signed). Windows does not require it to run.',
+      );
+    }
+    out.push('');
+  } else {
     out.push('### Before you install');
     out.push('');
     out.push(

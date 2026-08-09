@@ -14,6 +14,20 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Code-signing pipeline (certificate-ready)** — the release system now
+  enforces a fail-closed signing policy: a `signing-preflight` job validates
+  Apple/Azure credentials before any build starts, Windows installers are
+  signed through Azure Artifact Signing via Tauri's `signCommand`, macOS
+  builds are Developer ID signed, notarized and stapled via the App Store
+  Connect API, and every artifact is verified on its actual bytes
+  (`verify-windows-signature.ps1`, `verify-macos-signature.sh`) before
+  checksums, GitHub artifact attestation, and the draft release. Signedness in
+  release metadata derives only from those verification reports — a stable
+  release never silently ships unsigned. See `docs/release/signing-decision-record.md`
+  for the strategy, `docs/release/code-signing-setup.md` for the human
+  acquisition checklist. No certificates are owned yet; until they are,
+  releases are unsigned and honestly labelled.
+
 - **Image Trace (native raster-to-vector)** — trace a selected image into
   editable vector artwork with presets (crisp logo, pixel-art sprite,
   centerline sketch and more), live preview, and a result estimate. Desktop
