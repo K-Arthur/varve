@@ -119,4 +119,54 @@ describe('RenderBitmapBudget', () => {
     budget.setBudget(1000);
     expect(budget.tryReserveTransfer(200)).toBe(true);
   });
+
+  it('accounts worker-resident source bitmaps and releases them on teardown', () => {
+    const budget = new RenderBitmapBudget(1000);
+    budget.accountResidentSource(400);
+    expect(budget.state.residentSourceBytes).toBe(400);
+    expect(budget.state.residentSourcePeakBytes).toBe(400);
+    budget.accountResidentSource(600, 400); // replacement: 600 - 400
+    expect(budget.state.residentSourceBytes).toBe(600);
+    expect(budget.state.residentSourcePeakBytes).toBe(600);
+    budget.accountResidentSource(300, 600); // shrink
+    expect(budget.state.residentSourceBytes).toBe(300);
+    expect(budget.state.residentSourcePeakBytes).toBe(600); // peak retained
+    budget.releaseResidentSource(300);
+    expect(budget.state.residentSourceBytes).toBe(0);
+    expect(budget.state.residentSourcePeakBytes).toBe(600);
+  });
+
+  it('includes worker source residency and canvas in the admission gate', () => {
+    const budget = new RenderBitmapBudget(1000);
+    budget.accountResidentSource(400);
+    // 400 resident + 700 transfer > 1000: refused.
+    expect(budget.tryReserveTransfer(700)).toBe(false);
+    // 400 + 600 = 1000: admitted exactly at the budget.
+    expect(budget.tryReserveTransfer(600)).toBe(true);
+    budget.releaseTransfer(600);
+    // With a 300-byte worker canvas and a 200-byte retained frame:
+    budget.setWorkerCanvasBytes(300);
+    budget.accountResidentFrame(200);
+    expect(budget.tryReserveTransfer(100)).toBe(true); // 400+300+200+100 = 1000
+    expect(budget.tryReserveTransfer(1)).toBe(false); // would exceed
+    expect(budget.state.admissionRejections).toBe(2);
+  });
+
+  it('records source set deltas as diagnostics counters', () => {
+    const budget = new RenderBitmapBudget(1000);
+    budget.recordSourceSetDelta(2, 1, 3);
+    budget.recordSourceSetDelta(0, 2, 1);
+    expect(budget.state.sourceAdds).toBe(2);
+    expect(budget.state.sourceRemoves).toBe(3);
+    expect(budget.state.sourceReuses).toBe(4);
+  });
+
+  it('peak includes resident source bytes', () => {
+    const budget = new RenderBitmapBudget(10_000);
+    budget.accountResidentSource(2500);
+    budget.tryReserveTransfer(1000);
+    expect(budget.state.peakTotalBytes).toBe(3500);
+    budget.releaseResidentSource(2500);
+    expect(budget.state.peakTotalBytes).toBe(3500); // peak retained
+  });
 });

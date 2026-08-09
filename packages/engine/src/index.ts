@@ -408,6 +408,11 @@ export {
   isImageErrorCode,
   isPermanentImageFailure,
 } from './imageErrors';
+export {
+  FAILED_PLACEHOLDER_FILL,
+  imagePlaceholderFill,
+  LOADING_PLACEHOLDER_FILL,
+} from './imagePlaceholder';
 export type {
   ComputeImagePlacementOptions,
   ImagePlacement,
