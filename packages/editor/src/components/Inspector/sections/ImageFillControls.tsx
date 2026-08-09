@@ -6,9 +6,10 @@
  *
  * Research basis: Figma image fill controls; APG file input patterns.
  */
-import type { EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
+import type { DocumentAsset, EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
+import { rasterEncodingLabel, rasterProvenanceLabel } from '@varve/shared';
 import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
-import { useCallback, useId, useRef } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 
 /**
@@ -46,6 +47,7 @@ export function ImageFillControls({
   registerAsset,
   onResetUpscale,
   onReUpscale,
+  asset,
 }: {
   image: ImageFillData;
   onChange: (img: ImageFillData) => void;
@@ -60,6 +62,8 @@ export function ImageFillControls({
   onResetUpscale?: () => void;
   /** Callback to re-upscale with new settings. */
   onReUpscale?: () => void;
+  /** The document asset behind this fill, when embedded (colour metadata). */
+  asset?: DocumentAsset;
 }) {
   const fileInputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -305,6 +309,95 @@ export function ImageFillControls({
           </div>
         </FieldRow>
       )}
+      {asset?.metadata && <ImageColorInfo asset={asset} />}
     </div>
+  );
+}
+
+/**
+ * Compact colour-metadata readout for a placed raster (expandable details).
+ * Text + icon only — never colour alone (WCAG).
+ */
+function ImageColorInfo({ asset }: { asset: DocumentAsset }) {
+  const [expanded, setExpanded] = useState(false);
+  const metadata = asset.metadata;
+  if (!metadata) return null;
+  const encoding = metadata.colorEncoding;
+  const untagged =
+    encoding === undefined ||
+    encoding.provenance === 'format-default' ||
+    encoding.provenance === 'assumed' ||
+    encoding.provenance === 'legacy-assumed-srgb';
+
+  const summary = encoding ? rasterEncodingLabel(encoding) : 'Untagged — interpreted as sRGB';
+  const provenanceLabel = encoding
+    ? rasterProvenanceLabel(encoding.provenance)
+    : rasterProvenanceLabel('legacy-assumed-srgb');
+
+  const details: Array<{ label: string; value: string }> = [];
+  if (encoding) {
+    details.push({ label: 'Profile source', value: provenanceLabel });
+    details.push({ label: 'Primaries', value: encoding.primaries ?? 'unknown' });
+    details.push({ label: 'Transfer', value: encoding.transfer ?? 'unknown' });
+    if (encoding.bitDepth !== undefined) {
+      details.push({ label: 'Bit depth', value: String(encoding.bitDepth) });
+    }
+    if (encoding.matrixCoefficients !== undefined) {
+      details.push({ label: 'Matrix coefficients', value: encoding.matrixCoefficients });
+    }
+    if (encoding.videoRange !== undefined) {
+      details.push({ label: 'Video range', value: encoding.videoRange });
+    }
+    if (encoding.profileId) details.push({ label: 'Profile', value: encoding.profileId });
+  } else {
+    details.push({ label: 'Profile source', value: provenanceLabel });
+  }
+  if (metadata.iccDescription) {
+    details.push({ label: 'Embedded profile name', value: metadata.iccDescription });
+  }
+  if (metadata.iccStatus === 'invalid') {
+    details.push({ label: 'ICC status', value: 'invalid (cannot be colour-managed)' });
+  }
+  if (metadata.orientation !== undefined && metadata.orientation !== 1) {
+    details.push({ label: 'EXIF orientation', value: String(metadata.orientation) });
+  }
+
+  return (
+    <FieldRow label="Colour">
+      <div className="insp-image-fill__color">
+        <div className="insp-image-fill__color-summary">
+          <Icon name="Info" label={undefined} size="0.85em" />
+          <span className={untagged ? 'insp-hint' : undefined}>{summary}</span>
+        </div>
+        {details.length > 0 && (
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Hide colour details' : 'Show colour details'}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <Icon name={expanded ? 'ChevronUp' : 'ChevronDown'} label={undefined} size="0.85em" />
+            <span>{expanded ? 'Hide details' : 'Details'}</span>
+          </button>
+        )}
+        {expanded && (
+          <dl className="insp-image-fill__color-details">
+            {details.map((d) => (
+              <div key={d.label} className="insp-image-fill__color-detail">
+                <dt>{d.label}</dt>
+                <dd>{d.value}</dd>
+              </div>
+            ))}
+            {encoding?.diagnostics?.map((diagnostic) => (
+              <div key={diagnostic} className="insp-image-fill__color-detail">
+                <dt>Note</dt>
+                <dd>{diagnostic}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+    </FieldRow>
   );
 }
