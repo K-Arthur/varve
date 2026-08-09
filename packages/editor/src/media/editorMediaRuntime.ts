@@ -16,15 +16,15 @@
  */
 
 import {
+  type AnimatedAssetMetadata,
+  type CompositedFrame,
   defaultMediaFillSettings,
   getMediaRegistry,
   resolveUsageFrame,
-  type AnimatedAssetMetadata,
-  type CompositedFrame,
 } from '@varve/engine';
+import type { Document, Fill, SceneNode } from '@varve/scene';
 import { isAnimatedMediaNode } from '@varve/scene';
 import { setDefaultMediaFrameResolver } from '../render/sceneToEngine';
-import type { Document, Fill, SceneNode } from '@varve/scene';
 
 interface RuntimeState {
   document: Document | null;
@@ -207,6 +207,9 @@ export function bridgeMediaCacheToRedraw(redraw: () => void): () => void {
 }
 
 /** Convenience for callers that need a composited frame (e.g. poster). */
-export function getCompositedFrame(assetId: string, frameIndex: number): CompositedFrame | undefined {
+export function getCompositedFrame(
+  assetId: string,
+  frameIndex: number,
+): CompositedFrame | undefined {
   return getMediaRegistry().get(assetId)?.getComposited(frameIndex);
 }

@@ -4,8 +4,11 @@
  */
 
 import { getMediaRegistry } from '@varve/engine';
+import type { Document } from '@varve/scene';
 import { createDocument, makeImageShapeNode } from '@varve/scene';
+import type { AnimatedAssetMetadata } from '@varve/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { clearDefaultMediaFrameResolver } from '../render/sceneToEngine';
 import {
   dataUrlToBytes,
   installMediaFrameResolver,
@@ -14,9 +17,6 @@ import {
   syncMediaSessions,
   tickMediaPresentation,
 } from './editorMediaRuntime';
-import { clearDefaultMediaFrameResolver } from '../render/sceneToEngine';
-import type { AnimatedAssetMetadata } from '@varve/shared';
-import type { Document } from '@varve/scene';
 
 // 1x1 transparent PNG (valid, static)
 const PNG_DATA_URL =
@@ -30,9 +30,36 @@ const animated: AnimatedAssetMetadata = {
   width: 64,
   height: 64,
   frames: [
-    { index: 0, durationMs: 40, x: 0, y: 0, width: 64, height: 64, blend: 'source', disposal: 'none' },
-    { index: 1, durationMs: 100, x: 0, y: 0, width: 64, height: 64, blend: 'source', disposal: 'none' },
-    { index: 2, durationMs: 20, x: 0, y: 0, width: 64, height: 64, blend: 'source', disposal: 'none' },
+    {
+      index: 0,
+      durationMs: 40,
+      x: 0,
+      y: 0,
+      width: 64,
+      height: 64,
+      blend: 'source',
+      disposal: 'none',
+    },
+    {
+      index: 1,
+      durationMs: 100,
+      x: 0,
+      y: 0,
+      width: 64,
+      height: 64,
+      blend: 'source',
+      disposal: 'none',
+    },
+    {
+      index: 2,
+      durationMs: 20,
+      x: 0,
+      y: 0,
+      width: 64,
+      height: 64,
+      blend: 'source',
+      disposal: 'none',
+    },
   ],
   decoderVersion: 1,
 };
