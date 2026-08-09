@@ -26,7 +26,6 @@ import {
   mergeViewState,
   stripExtension,
   uuid,
-  withDocumentExt,
 } from './pure';
 import { indexDocumentContent, searchContentIndex } from './searchIndex';
 import type {
@@ -55,6 +54,7 @@ import type {
   Workspace,
 } from './types';
 import { DRAFTS_ID } from './types';
+import { chooseWebSaveTarget, writeWebSaveTarget } from './web-save';
 
 const DB_NAME = 'varve-home';
 const DB_VERSION = 3;
@@ -1045,43 +1045,34 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     },
 
     async saveDocumentToDisk(name, documentJson) {
-      const w = getWindow();
-      const suggested = withDocumentExt(name);
-      if (w?.showSaveFilePicker) {
-        let handle: FileSystemFileHandle | undefined;
-        try {
-          handle = await w.showSaveFilePicker({ suggestedName: suggested, types: VARVE_ACCEPT });
-        } catch {
-          return null;
-        }
-        if (!handle) return null;
-        const writable = await (
-          handle as unknown as {
-            createWritable: () => Promise<{
-              write: (s: string) => Promise<void>;
-              close: () => Promise<void>;
-            }>;
-          }
-        ).createWritable();
-        await writable.write(documentJson);
-        await writable.close();
-        return handle.name;
-      }
-      const blob = new Blob([documentJson], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = suggested;
-      a.click();
-      URL.revokeObjectURL(url);
-      return suggested;
+      const choice = await this.chooseDocumentSaveTarget(name);
+      if (choice.kind !== 'target') return null;
+      const written = await this.writeSaveTarget(choice.target, documentJson);
+      if (written.kind !== 'written') return null;
+      if (choice.target.kind === 'web-file-handle') return choice.target.displayName;
+      if (choice.target.kind === 'download-only') return choice.target.suggestedName;
+      return null;
     },
 
     async writeDocumentToPath(_path, documentJson) {
       // Browsers can't write to arbitrary paths; the File System Access API
-      // requires a user gesture + picker per file. Fall back to the picker
-      // (the user still chooses the location, and the handle is re-granted).
+      // requires a user gesture + picker per file. Deprecated — the editor
+      // routes through chooseDocumentSaveTarget/writeSaveTarget instead.
       return this.saveDocumentToDisk('document', documentJson);
+    },
+
+    async chooseDocumentSaveTarget(suggestedName) {
+      return chooseWebSaveTarget(suggestedName);
+    },
+
+    async writeSaveTarget(target, contents) {
+      return writeWebSaveTarget(target, contents);
+    },
+
+    async readDocumentText() {
+      // Browsers have no path-based file API; external-change detection is
+      // desktop-only.
+      return undefined;
     },
 
     async saveBinaryFile(name, data, mimeType, extension) {
