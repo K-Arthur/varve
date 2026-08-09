@@ -6,6 +6,7 @@
  * module and tests.
  */
 
+import { imagePlaceholderFill } from '../imagePlaceholder';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
 import type { ReplayTarget } from '../replay';
 import type { Primitive } from '../types';
@@ -69,11 +70,13 @@ export function paintWarpedImage(
 ): void {
   const image = resolveImage(p.src);
   if (!image) {
-    // Placeholder for a not-yet-loaded surface (cache schedules a reframe).
+    // Placeholder for a not-yet-loaded or failed surface (cache schedules a
+    // reframe on load; a failed source keeps a distinct placeholder so
+    // loading and permanent failure never look the same).
     if (target.fillStyle && target.fillRect) {
       const b = quadBoundsOf(p);
       const prev = target.fillStyle;
-      target.fillStyle = '#e8eaed';
+      target.fillStyle = imagePlaceholderFill(p.src);
       target.fillRect(b.x, b.y, b.w, b.h);
       target.fillStyle = prev;
     }
