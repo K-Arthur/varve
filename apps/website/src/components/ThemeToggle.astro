@@ -1,0 +1,141 @@
+---
+/**
+ * Theme switcher — the single interactive controller for site themes.
+ *
+ * The site exposes exactly two themes: light and dark. First-time visitors
+ * without a persisted choice follow the OS (prefers-color-scheme); the first
+ * explicit click persists that choice. Legacy localStorage values ("system",
+ * "high-contrast", anything invalid) resolve to the OS preference and are
+ * migrated to an explicit light/dark value on the next click.
+ *
+ * State lives in the pre-paint inline script in Layout.astro
+ * (window.__varveTheme); this component only renders the control and wires
+ * clicks to that API. There is exactly one source of truth.
+ */
+const choices = [
+  { value: 'light', label: 'Light theme', icon: 'sun' },
+  { value: 'dark', label: 'Dark theme', icon: 'moon' },
+] as const;
+---
+
+<div class="theme-switcher" role="group" aria-label="Theme">
+  {choices.map((choice) => (
+    <button
+      class="theme-option"
+      data-theme-choice={choice.value}
+      aria-pressed="false"
+      title={choice.label}
+      aria-label={choice.label}
+      type="button"
+    >
+      {choice.value === 'light' ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      )}
+      <span class="sr-only">{choice.label}</span>
+    </button>
+  ))}
+</div>
+
+<script>
+  /**
+   * Wires the two theme buttons to window.__varveTheme.
+   *
+   * Runs as a deferred module after the DOM is parsed. Every interaction
+   * goes through the shared API: write() persists, apply() sets
+   * html[data-theme], and the buttons mirror aria-pressed + a visible
+   * active state. No competing controllers exist.
+   */
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.theme-option');
+
+  function refreshPressed() {
+    const api = window.__varveTheme;
+    if (!api) return;
+    const state = api.state();
+    for (const button of buttons) {
+      const active = button.dataset.themeChoice === state.theme;
+      button.setAttribute('aria-pressed', String(active));
+      button.classList.toggle('active', active);
+    }
+  }
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      const choice = button.dataset.themeChoice ?? '';
+      const api = window.__varveTheme;
+      if (!api) return;
+      // The first explicit click converts the automatic OS-driven state
+      // into a persisted choice (write() migrates legacy values too).
+      api.write(choice);
+      api.apply();
+      refreshPressed();
+    });
+  }
+
+  refreshPressed();
+</script>
+
+<style>
+  .theme-switcher {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-default);
+    border-radius: 9999px;
+  }
+
+  .theme-option {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition:
+      background-color var(--duration-quick) var(--ease-default),
+      color var(--duration-quick) var(--ease-default),
+      border-color var(--duration-quick) var(--ease-default);
+  }
+
+  .theme-option:hover {
+    color: var(--text-link);
+  }
+
+  .theme-option:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* The active choice gets a visible fill — not just an icon change. */
+  .theme-option[aria-pressed='true'] {
+    background: var(--surface-card);
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.12);
+  }
+
+  @media (forced-colors: active) {
+    .theme-switcher {
+      border-color: ButtonBorder;
+    }
+
+    .theme-option[aria-pressed='true'] {
+      background: Highlight;
+      color: HighlightText;
+      border-color: Highlight;
+    }
+  }
+</style>

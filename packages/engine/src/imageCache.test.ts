@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getImageCache, ImageCache, resetImageCache } from './imageCache';
+import { ImageLoadError } from './imageErrors';
 
 class MockImage {
   crossOrigin: string | null = null;
@@ -89,12 +90,17 @@ describe('ImageCache cross-origin loading', () => {
 
   it('reports an error state when both the CORS and fallback attempts fail', async () => {
     MockImage.dispatch = (img) => img.onerror?.();
+    // Classification probes the dead server; make the probes fail fast so
+    // the test does not wait on network timeouts.
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('offline'));
 
     const cache = new ImageCache();
-    await expect(cache.load('https://dead.example.com/missing.png')).rejects.toThrow(
-      'Failed to load image',
+    await expect(cache.load('https://dead.example.com/missing.png')).rejects.toBeInstanceOf(
+      ImageLoadError,
     );
     expect(cache.state('https://dead.example.com/missing.png')).toBe('error');
+    // The failure is typed as unavailable (offline), not a generic error.
+    expect(cache.failureCode('https://dead.example.com/missing.png')).toBe('unavailable');
   });
 });
 
