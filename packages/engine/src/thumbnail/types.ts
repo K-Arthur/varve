@@ -23,6 +23,9 @@ export type ThumbnailBackground =
   | { type: 'checkerboard' }
   | { type: 'match-theme' };
 
+/** Encoded output format. WebP is preferred when supported. */
+export type ThumbnailFormat = 'png' | 'webp';
+
 export interface ThumbnailOptions {
   /** Target output width in px (default 256). */
   maxWidth?: number;
@@ -34,10 +37,14 @@ export interface ThumbnailOptions {
   background?: ThumbnailBackground;
   /** PNG quality 0-1 (default 0.92). */
   quality?: number;
-  /** Device-pixel ratio for HiDPI thumbnails (default 1). Only
-   *  applies when the renderer supports it — most thumbnails are
-   *  intentionally 1× to keep file size small. */
+  /**
+   * Device-pixel ratio for HiDPI thumbnails (default 1). Renders at
+   * maxWidth*dpr and reports the physical size in metadata; display code
+   * downscales. Total pixels are hard-capped.
+   */
   devicePixelRatio?: number;
+  /** Encoded format (default 'png'; falls back to png when unsupported). */
+  format?: ThumbnailFormat;
   /** Information about the thumbnail source, used for metadata. */
   sourceLabel?: string;
 }
@@ -57,12 +64,18 @@ export interface ThumbnailMetadata {
   outputHeight: number;
   /** MIME type of the encoded output. */
   mimeType: string;
+  /** Encoded byte size of the output (before base64). */
+  byteSize: number;
   /** Epoch ms when the thumbnail was generated. */
   generatedAt: number;
   /** Document revision (contentHash) at generation time. */
   revisionId: string;
+  /** Renderer version; participates in cache identity. */
+  rendererVersion: string;
   /** True if the result is a fallback placeholder (e.g., empty doc). */
   isPlaceholder: boolean;
+  /** True when raster sources were not ready at render time. */
+  isProvisional: boolean;
   /** Warnings produced during generation. */
   warnings: string[];
 }
@@ -78,6 +91,14 @@ export interface ThumbnailResult {
 export const DEFAULT_THUMBNAIL_WIDTH = 256;
 export const DEFAULT_THUMBNAIL_HEIGHT = 192;
 
+/**
+ * Renderer version — part of the canonical cache identity. Bump when the
+ * thumbnail rendering pipeline changes semantics (new node kinds, changed
+ * compositing), so stale images are naturally invalidated by the identity
+ * rather than by migration.
+ */
+export const THUMBNAIL_RENDERER_VERSION = '1';
+
 /** Default options used when no overrides supplied. */
 export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
   maxWidth: DEFAULT_THUMBNAIL_WIDTH,
@@ -86,6 +107,7 @@ export const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
   background: { type: 'transparent' },
   quality: 0.92,
   devicePixelRatio: 1,
+  format: 'png',
 };
 
 export function thumbnailSourceLabel(source: ThumbnailSource): string {
