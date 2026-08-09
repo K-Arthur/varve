@@ -167,6 +167,19 @@ stripped by the release profile, and distro libraries ship stripped.
 This is set in `justfile` (`package-linux`, `package-appimage`) and in
 `release.yml`'s Tauri build step.
 
+**WebKit EGL white screen (AppImage only).** The AppImage bundles GTK/WebKit
+support libraries built on the ubuntu-22.04 baseline. On distros with a newer
+Mesa/EGL stack (Arch, CachyOS, Fedora) the stale bundled `libwayland-egl`
+combo makes WebKit's DMA-BUF renderer fail EGL display creation
+(`EGL_BAD_PARAMETER`) and the WebKit web process aborts while the window stays
+open — a white screen. Fixed in-app: when running from an AppImage
+(`APPIMAGE` env), the app sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` before Tauri
+starts (`apps/desktop/src-tauri/src/lib.rs`), disabling only the DMA-BUF
+renderer and keeping GPU compositing. deb/rpm installs use the host's
+libraries and are unaffected. The release launch smoke fails on the
+EGL/abort signature and requires a live `WebKitWebProcess`, so a white screen
+cannot pass the gate.
+
 ### All Linux formats at once
 
 ```sh
