@@ -127,7 +127,26 @@ function buildVertices(items: RenderItem[]): GpuVertex[] {
 
 function isGpuPrimitive(item: RenderItem): boolean {
   const k = item.primitive.kind;
-  return k === 'rect' || k === 'circle' || k === 'line';
+  return k === 'rect' || k === 'circle';
+}
+
+/**
+ * The current WebGPU pipelines only reproduce a single solid fill on a rect
+ * or circle. Keep this predicate deliberately fail-closed: routing a richer
+ * item to the GPU would silently drop paint-stack, stroke, effect, filter, or
+ * blend semantics. A whole batch must be supported because splitting it into
+ * GPU and Canvas2D partitions changes z-order when the two kinds interleave.
+ */
+export function isGpuBatchSupported(items: readonly RenderItem[]): boolean {
+  return items.every(
+    (item) =>
+      isGpuPrimitive(item) &&
+      (item.fills?.length ?? 0) === 0 &&
+      (item.strokes?.length ?? 0) === 0 &&
+      (item.effects?.length ?? 0) === 0 &&
+      (item.filters?.length ?? 0) === 0 &&
+      (item.blendMode === undefined || item.blendMode === 'normal'),
+  );
 }
 
 /** Test helper: line tessellation produces 6 vertices (2 triangles). */
@@ -391,18 +410,16 @@ export class WebGPUBackend {
       this.circleBindGroup &&
       this.gpuCanvas
     ) {
-      const gpuItems = items.filter(isGpuPrimitive);
-      const fallbackItems = items.filter((i) => !isGpuPrimitive(i));
       const frame = this.currentFrame;
-      if (frame && gpuItems.length > 0) {
-        this.drawGpuItems(gpuItems, frame);
+      if (frame && isGpuBatchSupported(items)) {
+        this.drawGpuItems(items, frame);
         this.gpuDrawnThisFrame = true;
         this.blitGpuToPresent();
-      }
-      if (fallbackItems.length > 0) {
-        // Present canvas already has camera from beginFrame / CanvasArea;
-        // draw non-GPU primitives in world space on top of the GPU blit.
-        this.present?.drawVectorItems(fallbackItems);
+      } else {
+        // Present canvas already has camera from beginFrame / CanvasArea.
+        // Keep the batch intact so unsupported paint semantics and z-order
+        // remain authoritative on Canvas2D.
+        this.present?.drawVectorItems(items);
       }
       return;
     }
