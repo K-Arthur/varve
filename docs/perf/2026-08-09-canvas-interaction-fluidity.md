@@ -379,12 +379,41 @@ button-held Select/Inspect, and another tool. This removes one document-scale
 query from every active pointer sample without adding caching, throttling, or
 pointer lag.
 
-The equivalent after-production trace is not yet available. During rebuild,
-unrelated concurrent import/color/export work failed both TypeScript and Vite
-(`profileFromBytes` is currently imported but not exported, alongside other
-incomplete contracts). The before trace and structural removal are recorded;
-no numerical improvement is claimed until the identical production corpus can
-be rerun from a buildable tree.
+An initial rebuild was blocked by unrelated concurrent import/color/export
+work, but a later Vite production bundle completed and allowed the identical
+`flat-10k` single-drag replay. Despite substantially worse host contention
+(load1 48.92 on 8 cores), pointer-input p50 fell to 0.2 ms and p95 fell from
+219.5 ms to 37.8 ms; no trace samples were dropped. This is an 82.8% diagnostic
+p95 reduction and matches the structural removal of the document-scale query,
+but remains a contended smoke comparison rather than an authoritative release
+SLO. Pointer-to-present correlation was still absent for this workload, so the
+result demonstrates handler-cost reduction only, not complete visible-response
+latency.
+
+## Vertical slice 7 — bounded wheel extents and real nudge repeat
+
+The expanded Chromium navigation run found a deterministic wheel reversal on
+small documents. A positive wheel delta initially moved the camera in the
+expected direction, but mouse-wheel inertia could carry the document entirely
+past the viewport edge. `clampCamera` detected that crossing and moved the
+document edge to the *inside* margin (`+500 px`), producing a large visible
+rebound in the opposite direction.
+
+Camera clamping now treats the margin as an offscreen boundary. Crossing the
+negative edge clamps the document to `-margin`; crossing the positive edge
+clamps it to `viewport + margin`. It never changes the sign of the excursion.
+Exact viewport tests cover both boundaries and the former reversal case. In a
+production Chromium bundle, plain wheel pan, Shift+wheel horizontal pan, and
+cursor-anchored Ctrl+wheel zoom all pass.
+
+The same browser run exposed an E2E focus error rather than an application
+nudge error: selecting a row left focus in the Layers tree, so ArrowRight was
+correctly handled by that widget. The nudge fixture now explicitly focuses the
+canvas. Its undo case also now models one real held-key gesture (initial
+keydown, repeat keydowns, keyup); three separate `keyboard.press` taps are
+three gestures and must not be asserted as one undo unit. All seven nudge flows
+pass in Chromium, covering plain/large/repeated nudges, live modifier changes,
+blur cleanup, held-repeat undo coalescing, and auto-reparent stability.
 
 ## Validation ledger
 
@@ -396,12 +425,14 @@ be rerun from a buildable tree.
 | Drawing/input unit tests | PASS — 104 targeted tests total |
 | Auto-pan coupling unit tests | PASS — 75 Select/Page/auto-pan tests |
 | Active-drag hover policy unit test | PASS — 1 focused policy test |
+| Viewport/wheel/nudge focused unit tests | PASS — 133 tests |
 | Drawing Canvas Playwright | PASS — 2 independently run Chromium paint drags; broader serial suite stopped on startup-helper timeout |
 | Targeted Canvas Playwright | PASS — Chromium, 2 tests |
 | Auto-pan Canvas Playwright | PASS — Chromium stationary-pointer edge drag; world travel continues and released artwork remains within 4 CSS px of the pointer |
+| Wheel and nudge Canvas Playwright | PASS — 3 wheel navigation and 7 nudge transaction/focus flows in production Chromium |
 | Production interaction corpus | PASS as smoke only — 7/7 workloads produced traces; timing invalidated by contention, and four workloads exposed missing correlated-frame evidence |
 | Production scale corpus | PASS as smoke only — 1k/5k/10k, 12/12 workload/scale combinations completed with no dropped trace samples; timing invalidated by contention |
-| Production rerun after hover fix | BLOCKED by unrelated concurrent import/color/export build failures; no after-number claimed |
+| Production rerun after hover fix | PASS as contended smoke — 10k single-drag pointer-input p95 219.5 → 37.8 ms (82.8% lower), p50 0.2 ms after; no input-to-present sample, so no end-to-end claim |
 | Editor package typecheck | PASS for slices 1–3; slice 4 attempt blocked by unrelated concurrent image-resource changes |
 | Full regression protocol | PENDING |
 | Architecture audit | PASS — completed; 17 existing cycles reported, no layer violations, CanvasArea 50 imports / complexity 435; this slice converts one runtime import to type-only |
