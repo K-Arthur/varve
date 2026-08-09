@@ -10,17 +10,17 @@
  */
 
 import { getMediaRegistry } from '@varve/engine';
+import type { Document, SceneNode } from '@varve/scene';
 import { getAnimatedMediaFill } from '@varve/scene';
 import { defaultMediaFillSettings, type MediaLoopMode } from '@varve/shared';
 import { Button, Select, Tooltip } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
-import type { Document, SceneNode } from '@varve/scene';
+import { MediaFrameStrip } from '../../../timeline/MediaFrameStrip';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import type { SectionId } from '../sectionRegistry';
-import { MediaFrameStrip } from '../../../timeline/MediaFrameStrip';
 
 const LOOP_OPTIONS: Array<{ value: MediaLoopMode; label: string }> = [
   { value: 'source', label: 'Source' },
@@ -56,15 +56,23 @@ export function AnimationSection({ nodes, sectionId }: AnimationSectionProps) {
     (patch: Partial<typeof settings>) => {
       editor.updateDoc((doc) => {
         const target = doc.nodes[node.id];
-        if (!target || target.kind !== 'shape' || !target.fills) return doc;
+        if (target?.kind !== 'shape' || !target.fills) return doc;
         const next = target.fills.map((f, i) => {
           if (i !== fillIndex(fill, target.fills)) return f;
+          const image = f.image;
+          if (!image) return f;
           return {
             ...f,
-            image: { ...f.image, media: { ...(f.image?.media ?? defaultMediaFillSettings()), ...patch } },
+            image: {
+              ...image,
+              media: { ...(image.media ?? defaultMediaFillSettings()), ...patch },
+            },
           };
         });
-        return { ...doc, nodes: { ...doc.nodes, [node.id]: { ...target, fills: next } } } as Document;
+        return {
+          ...doc,
+          nodes: { ...doc.nodes, [node.id]: { ...target, fills: next } },
+        } as Document;
       });
     },
     [editor, node.id, fill],
