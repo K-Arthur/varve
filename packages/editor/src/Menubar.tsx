@@ -142,6 +142,8 @@ function buildMenus(
   recentEntries: RecentEntry[],
   caps: ReadonlySet<string>,
   isMac: boolean,
+  activeFilePath: string | undefined,
+  revealLabel: string,
 ): { id: MenuId; items: MenuItem[] }[] {
   const doc = state.document;
   const activePageId = doc?.activePageId ?? null;
@@ -329,6 +331,26 @@ function buildMenus(
           ariaKeyshortcut: ks('saveAs'),
           action: 'saveAs',
         },
+        {
+          label: 'Save a Copy\u2026',
+          action: 'saveCopy',
+        },
+        {
+          label: 'Document Info\u2026',
+          action: 'documentInfo',
+        },
+        ...(activeFilePath
+          ? [
+              {
+                label: revealLabel,
+                action: 'revealInFiles',
+              } as MenuItem,
+              {
+                label: 'Copy File Path',
+                action: 'copyFilePath',
+              } as MenuItem,
+            ]
+          : []),
         { label: '---' },
         ...(recentEntries.length > 0
           ? [
@@ -1502,6 +1524,10 @@ export function Menubar({
     platform,
   } = useEditor();
   const { entries: recentEntries, remove: removeRecent, clear: clearRecent } = useRecentFiles();
+  // `sessions` may be absent in unit-test harnesses that pass a partial state.
+  const activeSession = (state.sessions ?? []).find((s) => s.id === state.activeId);
+  const activeFilePath = activeSession?.filePath;
+  const revealLabel = platform?.fileManagerLabel() ?? 'Reveal in Files';
   const showAllMenuItems = useMemo(() => {
     try {
       return loadSettings().appearance.showAllMenuItems;
@@ -1528,7 +1554,7 @@ export function Menubar({
 
   const caps = useMemo(() => computeCapabilities(), []);
   const rawMenus = useMemo(
-    () => buildMenus(state, recentEntries, caps, isMac),
+    () => buildMenus(state, recentEntries, caps, isMac, activeFilePath, revealLabel),
     [
       state.selection,
       state.document.activePageId,

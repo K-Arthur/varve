@@ -94,6 +94,17 @@ export function createActionHandlers(
     import: () => cb.onImportFile?.(),
     save: () => e.save(),
     saveAs: () => e.saveAs(),
+    saveCopy: () => e.saveCopy(),
+    documentInfo: () => e.setShowDocumentInfo(true),
+    revealInFiles: () => {
+      const active = e.state.sessions.find((sess) => sess.id === e.state.activeId);
+      if (active?.filePath) void e.platform?.revealInFileManager(active.filePath);
+    },
+    copyFilePath: () => {
+      const active = e.state.sessions.find((sess) => sess.id === e.state.activeId);
+      if (!active?.filePath || typeof navigator === 'undefined') return;
+      void navigator.clipboard.writeText(active.filePath).catch(() => undefined);
+    },
     exportSvg: () => {
       const svg = exportDocumentToSvg(e.state.document);
       const blob = new Blob([svg], { type: 'image/svg+xml' });
