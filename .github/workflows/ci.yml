@@ -24,8 +24,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
@@ -63,6 +61,19 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: cargo test (desktop)
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+      # One-shot diagnosis for STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) on the
+      # Windows test harness: WER logs the exact DLL and missing entry point.
+      - name: Diagnose Windows entry-point failure
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-WinEvent -LogName Application -MaxEvents 200 -ErrorAction SilentlyContinue |
+            Where-Object { $_.Message -match 'entry point|0xc0000139' } |
+            Select-Object -First 3 |
+            ForEach-Object { $_.Message; '----' }
+          $exe = Get-ChildItem 'apps/desktop/src-tauri/target/debug/deps/varve_desktop_lib-*.exe' -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if ($exe) { Write-Host "exe: $($exe.FullName) size=$($exe.Length)" }
       - name: Install cargo-llvm-cov
         if: runner.os == 'Linux'
         uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
@@ -116,8 +127,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
       - name: Validate workflow YAML + structure
         run: node scripts/validate-workflows.mjs
       - name: Static pin check (no mutable refs)
@@ -147,8 +156,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
@@ -193,8 +200,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
@@ -226,8 +231,6 @@ jobs:
     needs: rust
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
@@ -295,8 +298,6 @@ jobs:
             xvfb: false
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
