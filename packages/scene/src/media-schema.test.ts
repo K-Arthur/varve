@@ -91,7 +91,7 @@ describe('migration 2.19 → 2.20', () => {
       naturalHeight: 64,
       animated,
     });
-    const asset = document.assets?.[Object.keys(document.assets ?? {})[0]!]!;
+    const asset = document.assets?.[Object.keys(document.assets ?? {})[0] ?? ''];
     expect(asset?.animated).toEqual(animated);
   });
 });

@@ -4,9 +4,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { MediaCheckpointStore } from './checkpoints';
-import { compositeRange, createCompositeState } from './compositor';
+import { createCompositeState } from './compositor';
 import { MediaFrameCache, mediaFrameCacheKey } from './frameCache';
-import { AnimatedMediaSession, MediaRegistry } from './index';
+import { MediaRegistry } from './index';
 import { MediaFrameScheduler } from './scheduler';
 import type { AnimatedAssetMetadata, DecodedSourceFrame } from './types';
 
@@ -167,7 +167,7 @@ describe('MediaFrameScheduler', () => {
     const scheduler = new MediaFrameScheduler({
       cache,
       checkpoints,
-      decodeFrames: async (bytes, range) => {
+      decodeFrames: async (_bytes, range) => {
         decodeCalls.push({ start: range.start, end: range.end });
         if (opts.decodeDelayMs) {
           await new Promise((r) => setTimeout(r, opts.decodeDelayMs));

@@ -7,7 +7,8 @@
  */
 
 import { bench, describe } from 'vitest';
-import { compositeAll, createCompositeState } from './compositor';
+import { MediaCheckpointStore } from './checkpoints';
+import { compositeAll, compositeRange } from './compositor';
 import { MediaFrameCache, mediaFrameCacheKey } from './frameCache';
 import { buildFrameTiming, frameIndexForTime } from './frameResolver';
 import { resolveUsageFrame, usageTiming } from './playback';
@@ -78,9 +79,8 @@ describe('compositor', () => {
   });
 
   bench('checkpoint resume, 32-frame tail', () => {
-    const { finalState } = compositeAll(1024, 1024, full.slice(0, 32));
-    compositeAll(1024, 1024, [...full.slice(0, 1), ...full.slice(32)]);
-    void finalState;
+    const { finalState } = compositeRange(undefined, full.slice(0, 32));
+    compositeRange(finalState, full.slice(32));
   });
 });
 
@@ -125,32 +125,10 @@ describe('playback resolution', () => {
 
 describe('scheduler', () => {
   const cache = new MediaFrameCache({ maxBytes: 1 << 30 });
-  const checkpoints = { stride: 32, maxBytes: 1 << 28 };
+  const checkpoints = new MediaCheckpointStore({ stride: 32, maxBytes: 1 << 28 });
   const scheduler = new MediaFrameScheduler({
     cache,
-    checkpoints: new (class {
-      readonly stride = checkpoints.stride;
-      private store = new Map<
-        string,
-        { frameIndex: number; state: import('./compositor').CompositeState }
-      >();
-      get stats() {
-        return { entries: this.store.size, bytes: 0, evictions: 0 };
-      }
-      key(assetId: string, frameIndex: number): string {
-        return `${assetId}:${frameIndex}`;
-      }
-      nearest(assetId: string, frameIndex: number) {
-        return this.store.get(this.key(assetId, frameIndex - (frameIndex % this.stride)));
-      }
-      put(assetId: string, frameIndex: number, state: import('./compositor').CompositeState): void {
-        if (frameIndex % this.stride !== 0) return;
-        this.store.set(this.key(assetId, frameIndex), { frameIndex, state });
-      }
-      clear(): void {
-        this.store.clear();
-      }
-    })(),
+    checkpoints,
     decodeFrames: async (_bytes, range) => sourceFrames(range.end - range.start + 1, 256, 256),
   });
   const bytes = new Uint8Array(4);
