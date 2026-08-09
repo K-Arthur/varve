@@ -355,6 +355,37 @@ spans were present. That absence remains explicitly visible and must be
 resolved before those workloads can support authoritative input-to-present
 budgets.
 
+## Vertical slice 6 — remove hover queries from active manipulation
+
+The scale corpus then replayed single drag, pan, zoom, and nudge against
+`vector-1k`, `vector-5k`, and `flat-10k` (2 measured iterations after 1 warmup).
+All 12 workload/scale combinations completed and no interaction trace dropped
+a span or frame. As with the 100-node corpus, concurrent repository activity
+classified every result as contended, so the figures below locate scaling work
+but are not release SLO measurements.
+
+The traces exposed a direct-manipulation cost that does not belong in the drag
+path. `inputPipeline` resolved the Select/Inspect hover target on every pointer
+move even when a mouse button was held. That invokes document hit testing
+before dispatching the already-owned drag. The diagnostic pointer-input p95
+rose with the fixture from 15.0 ms at 1k, to 78.7 ms at 5k, to 219.5 ms at 10k
+for single drag. The selected tool does its own gesture work, so this extra
+hover result is informational only and cannot affect the manipulation.
+
+Hover resolution is now restricted to button-free Select/Inspect movement.
+Direct drag samples proceed immediately to tool dispatch, while idle hover
+behavior remains unchanged. A focused policy test covers idle Select/Inspect,
+button-held Select/Inspect, and another tool. This removes one document-scale
+query from every active pointer sample without adding caching, throttling, or
+pointer lag.
+
+The equivalent after-production trace is not yet available. During rebuild,
+unrelated concurrent import/color/export work failed both TypeScript and Vite
+(`profileFromBytes` is currently imported but not exported, alongside other
+incomplete contracts). The before trace and structural removal are recorded;
+no numerical improvement is claimed until the identical production corpus can
+be rerun from a buildable tree.
+
 ## Validation ledger
 
 | Validation | Status |
@@ -364,10 +395,13 @@ budgets.
 | Trace lifecycle unit tests | PASS — 60 targeted tests total |
 | Drawing/input unit tests | PASS — 104 targeted tests total |
 | Auto-pan coupling unit tests | PASS — 75 Select/Page/auto-pan tests |
+| Active-drag hover policy unit test | PASS — 1 focused policy test |
 | Drawing Canvas Playwright | PASS — 2 independently run Chromium paint drags; broader serial suite stopped on startup-helper timeout |
 | Targeted Canvas Playwright | PASS — Chromium, 2 tests |
 | Auto-pan Canvas Playwright | PASS — Chromium stationary-pointer edge drag; world travel continues and released artwork remains within 4 CSS px of the pointer |
 | Production interaction corpus | PASS as smoke only — 7/7 workloads produced traces; timing invalidated by contention, and four workloads exposed missing correlated-frame evidence |
+| Production scale corpus | PASS as smoke only — 1k/5k/10k, 12/12 workload/scale combinations completed with no dropped trace samples; timing invalidated by contention |
+| Production rerun after hover fix | BLOCKED by unrelated concurrent import/color/export build failures; no after-number claimed |
 | Editor package typecheck | PASS for slices 1–3; slice 4 attempt blocked by unrelated concurrent image-resource changes |
 | Full regression protocol | PENDING |
 | Architecture audit | PASS — completed; 17 existing cycles reported, no layer violations, CanvasArea 50 imports / complexity 435; this slice converts one runtime import to type-only |
