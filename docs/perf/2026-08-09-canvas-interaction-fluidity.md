@@ -152,7 +152,7 @@ tool's authoritative completion path.
 |---|---|---|---|---|
 | Hand pan | momentum uses `velocity *= 0.95` once per frame | different travel and stop time by refresh rate | direct code inspection plus deterministic model below | use elapsed-time exponential decay |
 | Mouse-wheel pan | inertia uses `velocity *= 0.9` once per frame; restart clears the newly assigned velocity | refresh-dependent feel and continuation is silently disabled | direct code inspection plus deterministic model below | fix restart order and share elapsed-time navigation physics |
-| Auto-pan | fixed pixels per scheduled frame | 144 Hz pans 4.8 times as fast as 30 Hz | direct code inspection plus deterministic model below | integrate edge velocity using clamped elapsed time |
+| Auto-pan | fixed pixels per scheduled frame; camera advances without re-sampling a stationary held pointer | 144 Hz pans 4.8 times as fast as 30 Hz; dragged content can detach from the edge pointer | direct code inspection plus deterministic model below | integrate edge velocity using clamped elapsed time and re-dispatch one authoritative held sample after each camera step |
 | Trackpad pan | source classifier cannot be perfect | wrong classification can add inertia | classifier corpus covers pixel/line/page and diagonals | keep uncertain behavior bounded; expand sequence tests before policy change |
 | Pinch | multiple runtime entry paths | stale camera or anchor drift | current code uses `stateRef` and `zoomAboutPoint`; viewport math tests exist | add combined anchor/rotation corpus if a failure is reproduced |
 | Drag/resize/rotate | synchronous immutable mutation and React fan-out | pointer/artwork or overlay phase lag under load | inherited production traces show tail stalls | preserve direct semantics; profile before transient-state redesign |
@@ -281,6 +281,45 @@ panel persistence). A broader serial brush suite was not counted as passing:
 its second test timed out in the shared document-creation helper before any
 brush action and the remaining serial tests did not run.
 
+## Vertical slice 4 — camera-coupled edge auto-pan
+
+Auto-pan now treats the camera step and active-tool step as one ordered frame.
+`panBy` advances the editor's imperative state snapshot before queuing React's
+functional state update; the auto-pan callback then converts the same held
+pointer through that exact camera and re-dispatches the active tool. Select and
+Page derive their total gesture displacement from `BaseTool`'s world-space
+start/current points instead of a camera-independent raw screen delta. A
+pointer can therefore remain physically stationary in the edge zone while a
+dragged node, page, or drawing point continues moving through world space.
+
+The held event is a scalar `PointerEvent` snapshot rather than a browser event
+object retained beyond React dispatch, because some WebViews clear native
+event accessors after the callback returns. The frame callback supplies one
+freshly normalized authoritative sample with the RAF timestamp. It does not
+ask the retained event for an old coalesced or predicted packet, which would
+duplicate samples already processed by Pencil, Paint, or Smudge.
+
+Pointer capture remains authoritative when hit testing crosses an SVG overlay
+or the physical canvas boundary; `pointerleave` no longer cancels an active
+captured drag. Edge speed is clamped at the configured maximum even outside
+the canvas. Pointer release stops the loop and sends one final move sample
+against the last camera snapshot before committing, removing a possible final
+bounded-frame phase offset.
+
+A Chromium interaction test holds a selected shape three CSS pixels from the
+canvas edge without issuing more pointer moves. It asserts both sides of the
+contract: the inspector's world X value continues changing as the camera pans,
+while the rendered selection centre remains within four CSS pixels of the held
+pointer.
+
+Focused verification passed 75 Select/Page/auto-pan unit tests, touched-file
+Biome checks, and the real Chromium gesture. The architecture audit completed
+with the same 17 existing dependency cycles and no layer violations;
+CanvasArea remains at 50 imports and complexity 435. A package-wide editor
+typecheck was attempted after this slice but is presently blocked by concurrent
+uncommitted image-resource work (`ThumbnailInfoDialog`,
+`collectImageBitmaps`, and `sceneToEngineHandles.test`) outside this change.
+
 ## Validation ledger
 
 | Validation | Status |
@@ -289,8 +328,10 @@ brush action and the remaining serial tests did not run.
 | Time-based navigation unit tests | PASS — 60 targeted tests total |
 | Trace lifecycle unit tests | PASS — 60 targeted tests total |
 | Drawing/input unit tests | PASS — 104 targeted tests total |
+| Auto-pan coupling unit tests | PASS — 75 Select/Page/auto-pan tests |
 | Drawing Canvas Playwright | PASS — 2 independently run Chromium paint drags; broader serial suite stopped on startup-helper timeout |
 | Targeted Canvas Playwright | PASS — Chromium, 2 tests |
+| Auto-pan Canvas Playwright | PASS — Chromium stationary-pointer edge drag; world travel continues and released artwork remains within 4 CSS px of the pointer |
 | Production interaction corpus | PENDING |
 | Editor package typecheck | PASS |
 | Full regression protocol | PENDING |

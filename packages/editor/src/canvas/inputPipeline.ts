@@ -30,6 +30,7 @@ import {
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
+import { type NormalizedInputEvent, normalizeInputEvent } from '../tools/inputNormalizer';
 import {
   decayRateFromFrameRetention,
   frameDisplacementToVelocity,
@@ -69,7 +70,7 @@ export interface UseCanvasInputsOptions {
   };
   stateRef: MutableRefObject<EditorState>;
   tmRef: MutableRefObject<ToolManager | null>;
-  buildToolCtx: (ev: PointerEvent) => ToolContext;
+  buildToolCtx: (ev: PointerEvent, sourceEvents?: NormalizedInputEvent[]) => ToolContext;
   commitCamera: (cam: Camera) => void;
   setSnapGuides: (guides: SnapGuide[]) => void;
   setHoveredNode: (node: SceneNode | null) => void;
@@ -95,6 +96,34 @@ export interface UseCanvasInputsResult {
   onPointerLeave: () => void;
   onBlur: () => void;
   stopAutoPan: () => void;
+}
+
+/**
+ * Retain the scalar pointer state needed by an animation-frame continuation.
+ * Keeping a browser event object beyond its dispatch callback is not portable:
+ * some WebViews clear native-event accessors after React returns.
+ */
+function snapshotHeldPointer(ev: PointerEvent): PointerEvent {
+  return new PointerEvent('pointermove', {
+    pointerId: ev.pointerId,
+    width: ev.width,
+    height: ev.height,
+    pressure: ev.pressure,
+    tangentialPressure: ev.tangentialPressure,
+    tiltX: ev.tiltX,
+    tiltY: ev.tiltY,
+    twist: ev.twist,
+    pointerType: ev.pointerType,
+    isPrimary: ev.isPrimary,
+    clientX: ev.clientX,
+    clientY: ev.clientY,
+    button: ev.button,
+    buttons: ev.buttons,
+    ctrlKey: ev.ctrlKey,
+    shiftKey: ev.shiftKey,
+    altKey: ev.altKey,
+    metaKey: ev.metaKey,
+  });
 }
 
 export function useCanvasInputs({
@@ -161,6 +190,7 @@ export function useCanvasInputs({
   const autoPanActive = useRef(false);
   const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const autoPanFrameTime = useRef<number | null>(null);
+  const activeDragPointer = useRef<PointerEvent | null>(null);
 
   const stopAutoPan = useCallback(() => {
     const frameKey = autoPanFrameKey.current;
@@ -200,6 +230,7 @@ export function useCanvasInputs({
         ? documentComplexityBucket(Object.keys(stateRef.current.document.nodes).length)
         : 'unknown';
       const ne = e.nativeEvent as PointerEvent;
+      activeDragPointer.current = snapshotHeldPointer(ne);
       const tmInst = tmRef.current;
       if (!tmInst) return;
       const ctx = buildToolCtx(ne);
@@ -250,6 +281,7 @@ export function useCanvasInputs({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
       const ctx = buildToolCtx(ne);
+      if (e.buttons !== 0) activeDragPointer.current = snapshotHeldPointer(ne);
 
       if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
         touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -373,6 +405,22 @@ export function useCanvasInputs({
                   elapsedMs,
                 );
                 editor.panBy(delta.x, delta.y);
+                const heldPointer = activeDragPointer.current;
+                const activeTool = tmRef.current;
+                if (heldPointer && activeTool) {
+                  // Camera motion changes the world point under a stationary
+                  // edge pointer. Re-sample the active drag after panBy has
+                  // synchronously advanced stateRef so artwork stays locked
+                  // to the pointer. Supply only the current authoritative
+                  // sample: re-reading the event's old coalesced packet would
+                  // duplicate already-processed drawing input each frame.
+                  const heldCtx = buildToolCtx(heldPointer, [
+                    { ...normalizeInputEvent(heldPointer), time: frameTimeMs },
+                  ]);
+                  dispatchToTool('move', heldPointer, dispatchAttributes(), () => {
+                    activeTool.handlePointerMove(heldPointer, heldCtx);
+                  });
+                }
                 scheduleCanvasFrame(frameKey, 'input', tick);
               };
               scheduleCanvasFrame(frameKey, 'input', tick);
@@ -401,7 +449,9 @@ export function useCanvasInputs({
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      const wasAutoPanning = autoPanActive.current;
       stopAutoPan();
+      activeDragPointer.current = null;
       setSnapGuides([]);
       if (e.pointerType === 'touch') {
         const wasPinching = pinchRef.current !== null;
@@ -424,6 +474,14 @@ export function useCanvasInputs({
         return;
       }
       const upCtx = buildToolCtx(ne);
+      if (wasAutoPanning) {
+        // Settle the gesture against the final camera snapshot before commit.
+        // A delayed frame may legally advance by the bounded 50 ms step; this
+        // final sample prevents that last step from remaining as visual lag.
+        dispatchToTool('move', ne, dispatchAttributes(), () => {
+          tmInst.handlePointerMove(ne, upCtx);
+        });
+      }
       dispatchToTool('up', ne, dispatchAttributes(), () => {
         tmInst.handlePointerUp(ne, upCtx);
       });
@@ -435,6 +493,7 @@ export function useCanvasInputs({
   const handlePointerCancel = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       stopAutoPan();
+      activeDragPointer.current = null;
       if (e.pointerType === 'touch') {
         touchPointers.current.delete(e.pointerId);
         if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -968,6 +1027,10 @@ export function useCanvasInputs({
   );
 
   const onPointerLeave = useCallback(() => {
+    // Pointer capture keeps an active drag owned by the canvas even when the
+    // hit-test target becomes an SVG overlay or the pointer crosses the
+    // physical edge. Keep edge motion running until the gesture ends.
+    if (activeDragPointer.current) return;
     editor.setCursorPos(null);
     stopAutoPan();
     if (hoverTraceEndTimer.current !== null) {
