@@ -17,20 +17,20 @@
  * not stored at all — resolving it returns null and renderers treat missing
  * tiles as transparent (brief §26: no dense allocation for sparse layers).
  */
-import { type ChildTileSource, downsampleParentTile } from './downsample';
+import { type ChildTileSource, downsampleParentTile, downsampleWindow } from './downsample';
 import { levelDimensions, maxPyramidLevel, PYRAMID_TILE_SIZE } from './pyramid';
 import type { PyramidResidency, PyramidTileEntry } from './residency';
-import { childCoords, derivedSnapshot, l0Snapshot, pyramidTileKey, sourceTileKey } from './tileKey';
-
-export interface PyramidSourceTileData {
-  readonly version: number;
-  readonly pixels?: Uint8ClampedArray | ArrayLike<number>;
-}
-
-/** Accepts either the scene Map or the engine-IR Record form. */
-export type PyramidSourceTiles =
-  | ReadonlyMap<string, PyramidSourceTileData>
-  | Readonly<Record<string, PyramidSourceTileData>>;
+import {
+  childCoords,
+  derivedSnapshot,
+  l0Snapshot,
+  PYRAMID_GUTTER_KEY_SUFFIX,
+  PYRAMID_GUTTER_TEXELS,
+  type PyramidSourceTile,
+  type PyramidSourceTiles,
+  pyramidTileKey,
+  sourceTileKey,
+} from './tileKey';
 
 export interface PyramidLayerSource {
   readonly layerId: string;
@@ -48,12 +48,12 @@ export interface PyramidTileResult {
   readonly pixels: Uint8ClampedArray;
 }
 
-function readTile(source: PyramidLayerSource, key: string): PyramidSourceTileData | null {
+function readTile(source: PyramidLayerSource, key: string): PyramidSourceTile | null {
   const t = source.tiles;
   if (t instanceof Map) {
     return t.get(key) ?? null;
   }
-  const rec = t as Record<string, PyramidSourceTileData>;
+  const rec = t as Record<string, PyramidSourceTile>;
   return rec[key] ?? null;
 }
 
@@ -204,4 +204,179 @@ export function ensurePyramidTile(
 /** Level ceiling for a source layer (cached helper for LOD selection). */
 export function pyramidMaxLevel(source: PyramidLayerSource): number {
   return maxPyramidLevel(source.width, source.height);
+}
+
+/**
+ * Gutter generation (brief §20): derived tiles carry one ring of extra
+ * texels sampled from real neighbour data, so minification at tile
+ * boundaries reads neighbours instead of replicated edges — no hairline
+ * seams. Gutter tiles are keyed with a ':g1' suffix; their snapshot covers
+ * the 3x3 child block.
+ */
+
+function childGrid(source: PyramidLayerSource, level: number): { cols: number; rows: number } {
+  const dims = levelDimensions(source.width, source.height, level - 1);
+  return {
+    cols: Math.ceil(dims.width / PYRAMID_TILE_SIZE),
+    rows: Math.ceil(dims.height / PYRAMID_TILE_SIZE),
+  };
+}
+
+/**
+ * Child block covered by a gutter tile's sampling window: child pixel range
+ * [(col*T - g)*2, (col*T + T + g)*2), mapped to child tile columns. For
+ * T=128, g=1 this is the 4x4 block (2c-1..2c+2), clamped to the grid.
+ */
+export function gutterChildCoords(
+  col: number,
+  row: number,
+  grid: { cols: number; rows: number },
+  tileSize = PYRAMID_TILE_SIZE,
+  gutter = PYRAMID_GUTTER_TEXELS,
+): Array<{ col: number; row: number }> {
+  const spanX0 = col * tileSize * 2 - gutter * 2;
+  const spanX1 = col * tileSize * 2 + tileSize * 2 + gutter * 2 - 1;
+  const spanY0 = row * tileSize * 2 - gutter * 2;
+  const spanY1 = row * tileSize * 2 + tileSize * 2 + gutter * 2 - 1;
+  const firstCol = Math.max(0, Math.min(Math.floor(spanX0 / tileSize), grid.cols - 1));
+  const lastCol = Math.max(0, Math.min(Math.floor(spanX1 / tileSize), grid.cols - 1));
+  const firstRow = Math.max(0, Math.min(Math.floor(spanY0 / tileSize), grid.rows - 1));
+  const lastRow = Math.max(0, Math.min(Math.floor(spanY1 / tileSize), grid.rows - 1));
+  const out: Array<{ col: number; row: number }> = [];
+  for (let r = firstRow; r <= lastRow; r++) {
+    for (let c = firstCol; c <= lastCol; c++) {
+      out.push({ col: c, row: r });
+    }
+  }
+  return out;
+}
+
+/**
+ * Revision snapshot for a gutter tile: the child block's state. Level 1
+ * reads L0 versions directly; deeper levels chain through children
+ * snapshots (missing children contribute '').
+ */
+export function currentGutterSnapshot(
+  source: PyramidLayerSource,
+  level: number,
+  col: number,
+  row: number,
+): string {
+  const tileSize = source.tileSize ?? PYRAMID_TILE_SIZE;
+  const grid = childGrid(source, level);
+  const block = gutterChildCoords(col, row, grid, tileSize, PYRAMID_GUTTER_TEXELS);
+  if (level === 1) {
+    return l0Snapshot(block, source.tiles);
+  }
+  const snaps = new Map<string, string>();
+  for (const c of block) {
+    const childSnapshot = currentSnapshot(source, level - 1, c.col, c.row);
+    snaps.set(`${c.col}:${c.row}`, childSnapshot);
+  }
+  return derivedSnapshot(col, row, snaps);
+}
+
+/** Read-only resolve for a gutter tile; null when missing or stale. */
+export function resolveGutterTile(
+  source: PyramidLayerSource,
+  level: number,
+  col: number,
+  row: number,
+  store: PyramidResidency,
+): PyramidTileEntry | null {
+  const key =
+    pyramidTileKey({
+      layerId: source.layerId,
+      level,
+      col,
+      row,
+      pixelMode: source.pixelMode,
+      resamplerVersion: 1,
+    }) + PYRAMID_GUTTER_KEY_SUFFIX;
+  const entry = store.get(key);
+  if (!entry) return null;
+  const expected = currentGutterSnapshot(source, level, col, row);
+  if (entry.snapshot !== expected) return null;
+  return entry;
+}
+
+/**
+ * Generate a gutter tile synchronously: the (T+2g)x(T+2g) downsample of the
+ * 3x3 child block window. The interior (g..T+g) matches the plain tile
+ * exactly. Returns null when the window is fully transparent.
+ */
+export function generateGutterTile(
+  source: PyramidLayerSource,
+  level: number,
+  col: number,
+  row: number,
+  store: PyramidResidency,
+  gutter = PYRAMID_GUTTER_TEXELS,
+): PyramidTileResult | null {
+  if (level < 1) return null;
+  const tileSize = source.tileSize ?? PYRAMID_TILE_SIZE;
+  const grid = childGrid(source, level);
+  const block = gutterChildCoords(col, row, grid, tileSize, gutter);
+  const children: ChildTileSource[] = [];
+  if (level === 1) {
+    for (const c of block) {
+      const key = sourceTileKey(c.col, c.row);
+      const tile = readTile(source, key);
+      children.push({ coord: c, pixels: tile?.pixels });
+    }
+  } else {
+    for (const c of block) {
+      const child = ensurePyramidTile(source, level - 1, c.col, c.row, store);
+      children.push({ coord: c, pixels: child?.pixels });
+    }
+  }
+  const baseX = col * tileSize * 2 - gutter * 2;
+  const baseY = row * tileSize * 2 - gutter * 2;
+  const span = tileSize * 2 + gutter * 4;
+  const pixels = downsampleWindow(
+    {
+      childLevel: levelDimensions(source.width, source.height, level - 1),
+      children,
+      parent: { col, row },
+      tileSize,
+    },
+    { x: baseX, y: baseY, w: span, h: span },
+  );
+  if (isFullyTransparent(pixels)) return null;
+  const snapshot = currentGutterSnapshot(source, level, col, row);
+  const key =
+    pyramidTileKey({
+      layerId: source.layerId,
+      level,
+      col,
+      row,
+      pixelMode: source.pixelMode,
+      resamplerVersion: 1,
+    }) + PYRAMID_GUTTER_KEY_SUFFIX;
+  return { key, snapshot, pixels };
+}
+
+/** Generate and commit a gutter tile if still current; returns the entry or null. */
+export function ensureGutterTile(
+  source: PyramidLayerSource,
+  level: number,
+  col: number,
+  row: number,
+  store: PyramidResidency,
+): PyramidTileEntry | null {
+  const resident = resolveGutterTile(source, level, col, row, store);
+  if (resident) return resident;
+  const result = generateGutterTile(source, level, col, row, store);
+  if (!result) return null;
+  if (currentGutterSnapshot(source, level, col, row) !== result.snapshot) return null;
+  return store.put({
+    key: result.key,
+    layerId: source.layerId,
+    level,
+    col,
+    row,
+    snapshot: result.snapshot,
+    pixels: result.pixels,
+    bytes: result.pixels.byteLength,
+  });
 }
