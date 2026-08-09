@@ -124,6 +124,30 @@ export abstract class BaseTool implements Tool {
     return dx > threshold || dy > threshold;
   }
 
+  /**
+   * Total drag displacement in world space. Unlike converting the raw screen
+   * delta, this includes camera movement that occurs while a captured pointer
+   * remains stationary during edge auto-pan.
+   */
+  protected worldDragDelta(ctx: ToolContext): { dx: number; dy: number } {
+    const start = this.drag.startWorld;
+    const current = this.drag.currentWorld;
+    if (
+      Number.isFinite(start?.x) &&
+      Number.isFinite(start?.y) &&
+      Number.isFinite(current?.x) &&
+      Number.isFinite(current?.y)
+    ) {
+      return { dx: current.x - start.x, dy: current.y - start.y };
+    }
+    // Compatibility for partial Tool test fixtures that predate world-space
+    // drag state; real pointer gestures always take the branch above.
+    return ctx.canvasDeltaToWorld(
+      this.drag.currentCanvas.x - this.drag.startCanvas.x,
+      this.drag.currentCanvas.y - this.drag.startCanvas.y,
+    );
+  }
+
   protected constrainSize(w: number, h: number, shift: boolean): { w: number; h: number } {
     if (!shift) return { w, h };
     const size = Math.max(Math.abs(w), Math.abs(h));

@@ -132,10 +132,7 @@ export class PageTool extends BaseTool {
   override onDragMove(ctx: ToolContext): void {
     const g = this.gesture;
     if (g.kind === 'idle') return;
-    const totalDelta = ctx.canvasDeltaToWorld(
-      this.drag.currentCanvas.x - this.drag.startCanvas.x,
-      this.drag.currentCanvas.y - this.drag.startCanvas.y,
-    );
+    const totalDelta = this.worldDragDelta(ctx);
     if (g.kind === 'move') {
       ctx.movePageOnPasteboard?.(
         g.pageId,

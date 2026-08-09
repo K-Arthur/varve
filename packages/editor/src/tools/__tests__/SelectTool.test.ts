@@ -758,6 +758,28 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
 });
 
 describe('SelectTool — drop target frame highlighting', () => {
+  it('uses world displacement when auto-pan moves the camera under a stationary pointer', () => {
+    const tool = new SelectTool();
+    const setNodePosition = vi.fn();
+    const ctx = makeCtx({
+      selection: ['n1'],
+      setNodePosition,
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 10, 20] }),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 10, y: 20, w: 40, h: 40 }),
+    });
+    (tool as any).drag = {
+      startCanvas: { x: 100, y: 100 },
+      currentCanvas: { x: 100, y: 100 },
+      startWorld: { x: 100, y: 100 },
+      currentWorld: { x: 132, y: 108 },
+    };
+    (tool as any).initialPositions = new Map([['n1', { x: 10, y: 20 }]]);
+
+    (tool as any).onDragMove?.(ctx);
+
+    expect(setNodePosition).toHaveBeenCalledWith('n1', 42, 28);
+  });
+
   it('calls setDropTargetFrame with the containing frame on drag move', () => {
     const tool = new SelectTool();
     const findContainingFrame = vi.fn().mockReturnValue('frame1');

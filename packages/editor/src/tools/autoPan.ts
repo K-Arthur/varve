@@ -18,7 +18,7 @@ export function computeEdgeVelocity(
   zone: number = EDGE_SCROLL_ZONE,
   maxSpeed: number = EDGE_SCROLL_MAX_SPEED,
 ): number {
-  if (pos - min < zone) return -((zone - (pos - min)) / zone) * maxSpeed;
-  if (max - pos < zone) return ((zone - (max - pos)) / zone) * maxSpeed;
+  if (pos - min < zone) return -Math.min(1, (zone - (pos - min)) / zone) * maxSpeed;
+  if (max - pos < zone) return Math.min(1, (zone - (max - pos)) / zone) * maxSpeed;
   return 0;
 }

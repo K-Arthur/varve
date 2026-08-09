@@ -327,10 +327,7 @@ export class SelectTool extends BaseTool {
       const sel = ctx.selection;
       if (sel.length === 0) return;
       // Total world-space delta from drag origin.
-      const totalDelta = ctx.canvasDeltaToWorld(
-        this.drag.currentCanvas.x - this.drag.startCanvas.x,
-        this.drag.currentCanvas.y - this.drag.startCanvas.y,
-      );
+      const totalDelta = this.worldDragDelta(ctx);
       // Calculate selection center for drop target frame detection
       let selCenterX = 0;
       let selCenterY = 0;
