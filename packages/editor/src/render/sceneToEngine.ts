@@ -89,7 +89,7 @@ function rewriteImageFillSource(
   const assetId = fill.image.assetId;
   if (!assetId || !doc?.assets) return fill;
   const asset = doc.assets[assetId];
-  if (!asset || asset.storage !== 'embedded') return fill;
+  if (asset?.storage !== 'embedded') return fill;
   registerImageResourceHandle(assetId, asset.dataUrl);
   if (fill.image.src === assetId) return fill;
   return { ...fill, image: { ...fill.image, src: assetId, assetId } };

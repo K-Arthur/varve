@@ -442,7 +442,7 @@ function checkImageProfile(
 
   if (provenance === 'embedded-icc' || provenance === 'cicp' || provenance === 'named') {
     const documentProfile = doc.colorConfig?.rgbProfile?.id;
-    const sourceLabel = encoding.primaries ?? 'unknown';
+    const sourceLabel = encoding?.primaries ?? 'unknown';
     const mismatched =
       documentProfile !== undefined &&
       sourceLabel !== 'unknown' &&

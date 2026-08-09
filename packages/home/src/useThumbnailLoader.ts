@@ -62,8 +62,8 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
           return;
         }
 
-        const { renderThumbnail } = await import('@varve/engine');
-        const thumbDataUrl = await renderThumbnail(JSON.parse(json));
+        const { legacyRenderThumbnail } = await import('@varve/engine');
+        const thumbDataUrl = await legacyRenderThumbnail(JSON.parse(json));
         if (thumbDataUrl) {
           await platform.putThumbnail({
             hash: entry.contentHash,
