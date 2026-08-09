@@ -28,6 +28,7 @@ import type {
   HistoryStepView,
 } from '../history/editorHistorySession';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
+import type { MediaState } from '../state/media-state';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
@@ -357,6 +358,8 @@ export interface EditorState {
    */
   selectionRange: import('@varve/scene').RichSelection | null;
   motion: MotionState;
+  /** Animated-media playback state (never serialized, never undoable). */
+  media: MediaState;
   canvasMode: CanvasMode;
   /** View rotation in radians (non-destructive canvas rotate). */
   cameraRotation: number;

@@ -1,3 +1,5 @@
+import { probeAnimatedMedia } from '@varve/engine';
+import type { AnimatedAssetMetadata } from '@varve/shared';
 import { detectImageMime, getImageDimensions } from './bitmap';
 
 export const MAX_RASTER_ENCODED_BYTES = 128 * 1024 * 1024;
@@ -19,53 +21,14 @@ export interface RasterInspection {
   height: number;
   encodedBytes: number;
   animation: 'static' | 'animated';
+  /** Animated-media metadata (kind/frames/timing/loops) for animated imports. */
+  animated?: AnimatedAssetMetadata;
 }
 
 export interface RasterInspectionLimits {
   maxEncodedBytes?: number;
   maxPixels?: number;
   maxDimension?: number;
-}
-
-function gifFrameCount(bytes: Uint8Array): number {
-  if (bytes.length < 13) return 0;
-  const packed = bytes[10] ?? 0;
-  let offset = 13;
-  if ((packed & 0x80) !== 0) offset += 3 * 2 ** ((packed & 0x07) + 1);
-  let frames = 0;
-
-  const skipSubBlocks = (): boolean => {
-    while (offset < bytes.length) {
-      const size = bytes[offset] ?? 0;
-      offset++;
-      if (size === 0) return true;
-      if (offset + size > bytes.length) return false;
-      offset += size;
-    }
-    return false;
-  };
-
-  while (offset < bytes.length) {
-    const marker = bytes[offset] ?? 0;
-    offset++;
-    if (marker === 0x3b) break;
-    if (marker === 0x21) {
-      if (offset >= bytes.length) break;
-      offset++; // extension label
-      if (!skipSubBlocks()) break;
-      continue;
-    }
-    if (marker !== 0x2c || offset + 9 > bytes.length) break;
-    frames++;
-    const imagePacked = bytes[offset + 8] ?? 0;
-    offset += 9;
-    if ((imagePacked & 0x80) !== 0) offset += 3 * 2 ** ((imagePacked & 0x07) + 1);
-    if (offset >= bytes.length) break;
-    offset++; // LZW minimum code size
-    if (!skipSubBlocks()) break;
-    if (frames > 1) return frames;
-  }
-  return frames;
 }
 
 /**
@@ -103,10 +66,31 @@ export function inspectRasterBytes(
     throw new Error(`Image exceeds the ${maxPixels}-pixel decoded pixel budget`);
   }
 
-  const animation = mimeType === 'image/gif' && gifFrameCount(bytes) > 1 ? 'animated' : 'static';
-  if (animation === 'animated') {
-    throw new Error('Animated GIF is not supported; import a still frame instead');
+  // Content-level animation detection (never extension-based): a GIF/APNG/
+  // WebP whose container declares more than one frame is animated; static
+  // variants of those formats stay static. Metadata is probed from the
+  // container and persisted on the asset; the original bytes stay
+  // authoritative.
+  let animation: 'static' | 'animated' = 'static';
+  let animated: AnimatedAssetMetadata | undefined;
+  if (mimeType === 'image/gif' || mimeType === 'image/png' || mimeType === 'image/webp') {
+    try {
+      const probed = probeAnimatedMedia(bytes);
+      if (probed.kind === 'gif' || probed.kind === 'apng' || probed.kind === 'webp') {
+        animation = 'animated';
+        animated = probed.metadata;
+      }
+    } catch (error) {
+      // A corrupt animated container should fail like any corrupt image:
+      // the runtime decoder is authoritative, but a clearly broken header
+      // is a rejected import.
+      throw new Error(
+        error instanceof Error
+          ? `Unsupported or corrupt image: ${error.message}`
+          : 'Unsupported or corrupt image',
+      );
+    }
   }
 
-  return { mimeType, width, height, encodedBytes: bytes.byteLength, animation };
+  return { mimeType, width, height, encodedBytes: bytes.byteLength, animation, animated };
 }
