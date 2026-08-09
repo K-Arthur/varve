@@ -17,6 +17,10 @@
       "types": "./src/liveEffects/index.ts",
       "default": "./src/liveEffects/index.ts"
     },
+    "./rasterPyramid": {
+      "types": "./src/rasterPyramid/index.ts",
+      "default": "./src/rasterPyramid/index.ts"
+    },
     "./gpuAdapter": {
       "types": "./src/gpuAdapter.ts",
       "default": "./src/gpuAdapter.ts"
