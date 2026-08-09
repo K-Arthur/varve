@@ -9,6 +9,7 @@ interface PerformanceDiagnosticsHandle {
   interactions: {
     getTraces: (count: number) => Array<{
       schemaVersion: number;
+      kind: string;
       spans: Array<{ name: string }>;
       frames: unknown[];
       droppedSpanCount: number;
@@ -77,7 +78,7 @@ test.describe('Canvas performance diagnostics', () => {
     });
 
     expect(diagnostics).not.toBeNull();
-    expect(diagnostics?.trace?.schemaVersion).toBe(1);
+    expect(diagnostics?.trace?.schemaVersion).toBe(2);
     expect(diagnostics?.trace?.spans.length).toBeLessThanOrEqual(512);
     expect(diagnostics?.trace?.frames.length).toBeLessThanOrEqual(240);
     expect(diagnostics?.trace?.droppedSpanCount).toBeGreaterThanOrEqual(0);
@@ -90,5 +91,67 @@ test.describe('Canvas performance diagnostics', () => {
       diagnostics?.summary.total.p95 ?? 0,
     );
     expect(diagnostics?.frozen).toBe(true);
+  });
+
+  test('closes and classifies wheel and keyboard traces at their real boundaries', async ({
+    page,
+  }) => {
+    await navigateToEditor(page, '/?perf=1');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.focus();
+
+    await canvas.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      element.dispatchEvent(
+        new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          clientX: bounds.left + bounds.width / 2,
+          clientY: bounds.top + bounds.height / 2,
+          deltaMode: WheelEvent.DOM_DELTA_LINE,
+          deltaY: 3,
+        }),
+      );
+    });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const handle = (
+            window as unknown as {
+              __strataPerf?: PerformanceDiagnosticsHandle;
+            }
+          ).__strataPerf;
+          return handle?.interactions
+            .getTraces(10)
+            .some(
+              (trace) =>
+                trace.kind === 'wheel' && trace.spans.some((span) => span.name === 'wheel.input'),
+            );
+        }),
+      )
+      .toBe(true);
+
+    await page.keyboard.down('ArrowRight');
+    await page.keyboard.up('ArrowRight');
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const handle = (
+            window as unknown as {
+              __strataPerf?: PerformanceDiagnosticsHandle;
+            }
+          ).__strataPerf;
+          return handle?.interactions
+            .getTraces(10)
+            .some(
+              (trace) =>
+                trace.kind === 'keyboard' &&
+                trace.spans.some((span) => span.name === 'keyboard.input'),
+            );
+        }),
+      )
+      .toBe(true);
   });
 });

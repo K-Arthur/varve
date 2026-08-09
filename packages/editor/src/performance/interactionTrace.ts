@@ -319,6 +319,18 @@ export function endInteraction(): InteractionTrace | null {
   return finished;
 }
 
+/**
+ * Close the active interaction only when it still belongs to `kind`.
+ *
+ * Burst-idle timers can fire after a newer pointer gesture has started. A
+ * kind-aware close prevents that stale timer from terminating the newer
+ * authoritative trace.
+ */
+export function endInteractionIfKind(kind: InteractionKind): InteractionTrace | null {
+  if (current?.kind !== kind) return null;
+  return endInteraction();
+}
+
 export function getRecentInteractionTraces(n = 10): InteractionTrace[] {
   return ring.slice(-n);
 }
