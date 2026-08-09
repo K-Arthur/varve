@@ -51,6 +51,7 @@ import {
   type ExportReport,
   runBatchPreflight,
 } from '../../exportService';
+import { LIFECYCLE_COMMIT_EVENT } from '../../lifecycle';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { loadSettings } from '../../settings';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
@@ -377,6 +378,17 @@ export function ExportDialog({
       setSelectedIds(allIds);
     }
   }, [isOpen, jobs]);
+
+  useEffect(() => {
+    // Termination commit cancels in-flight export batches (lifecycle
+    // finalizer, ADR-0216 D8): export outputs are not document state.
+    function handleLifecycleCommit() {
+      batchAbortRef.current?.abort();
+      videoAbortRef.current?.abort();
+    }
+    window.addEventListener(LIFECYCLE_COMMIT_EVENT, handleLifecycleCommit);
+    return () => window.removeEventListener(LIFECYCLE_COMMIT_EVENT, handleLifecycleCommit);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
