@@ -106,7 +106,10 @@ this — the server manifest can be replaced, the client check cannot.
 
 ## 5. Key management (procedure to rehearse before use)
 
-Tauri's updater signs manifests with a minisign keypair.
+Tauri's updater signs manifests with a minisign keypair. Expiry/rotation
+calendar and compromise procedure: [signing-rotation-runbook.md](signing-rotation-runbook.md)
+and [signing-incident-runbook.md](signing-incident-runbook.md) (this key is
+handled separately from the Apple/Windows certificate material).
 
 **Generation** — on an offline or trusted machine, never in CI:
 

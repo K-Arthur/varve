@@ -1,9 +1,12 @@
 # Varve — CI Secrets, Permissions and Release Environment
 
-**Date:** 2026-08-03
+**Date:** 2026-08-03 (last updated 2026-08-08)
 
-Nothing in this document has been configured. It specifies what `release.yml`
-expects, so that when signing is eventually paid for, the names already match.
+This document is the contract between `release.yml` and the repository
+settings: the names here are the names the workflow reads. See
+[code-signing-setup.md](code-signing-setup.md) for the human acquisition
+checklist and [signing-decision-record.md](signing-decision-record.md) for why
+these services were chosen.
 
 **No real credential appears here, and none should ever be committed anywhere in
 this repository.**
@@ -12,9 +15,11 @@ this repository.**
 
 ## 1. Secrets currently required: none
 
-`release.yml` builds, checksums, SBOMs and drafts a release using only
-`github.token`. That is deliberate — the unsigned alpha path must work with zero
-configuration, so that a missing secret is never the reason a release fails.
+Until signing is acquired, `release.yml` builds, checksums, SBOMs and drafts a
+release using only `github.token`. The unsigned alpha path must work with zero
+configuration, so that a missing secret is never the reason a release fails —
+until `RELEASE_EXPECT_SIGNED=true`, at which point missing signing credentials
+fail the release in `signing-preflight` BEFORE any platform build.
 
 ---
 
@@ -24,10 +29,14 @@ Set under **Settings → Secrets and variables → Actions → Variables**.
 
 | Name | Values | Effect |
 |---|---|---|
-| `RELEASE_EXPECT_SIGNED` | `true` / unset | When `true`, a bundle job **fails** if its platform's signing secrets are absent. Leave unset for unsigned alphas; set to `true` before the first stable release so a signed release can never silently ship unsigned |
+| `RELEASE_EXPECT_SIGNED` | `true` / unset | When `true`, signing is REQUIRED for any platform being built: `signing-preflight` fails if credentials are absent, and the `verify` trust gate fails if the post-build verification reports do not confirm signatures/notarization/stapling. Set to `true` before the first stable release. |
+| `AZURE_SIGNING_ACCOUNT` | e.g. `varve-signing` | Artifact Signing account name (non-secret configuration) |
+| `AZURE_SIGNING_PROFILE` | e.g. `varve-public-trust` | Public Trust certificate profile name (non-secret) |
+| `AZURE_SIGNING_ENDPOINT` | e.g. `https://wus2.codesigning.azure.net` | Regional Artifact Signing endpoint (non-secret) |
 
-This is the safety interlock. Without it the failure mode is a release whose
-notes claim a signature the artifact does not carry.
+The Windows signing command contains NO secrets: Tauri's `signCommand` is built
+from these variables at release time and merged via `--config`; authentication
+comes from the `AZURE_SIGNING_CLIENT_*` secrets via the process environment.
 
 ---
 
@@ -37,38 +46,45 @@ notes claim a signature the artifact does not carry.
 |---|---|
 | `APPLE_CERTIFICATE` | Developer ID Application certificate, `.p12`, base64-encoded |
 | `APPLE_CERTIFICATE_PASSWORD` | Password for that `.p12` |
-| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: Name (TEAMID)` |
-| `APPLE_ID` | Apple ID used for notarisation |
-| `APPLE_PASSWORD` | **App-specific password**, never the account password |
-| `APPLE_TEAM_ID` | 10-character team identifier |
+| `APPLE_SIGNING_IDENTITY` | Exactly `Developer ID Application: <Legal Name> (TEAMID)`. The workflow refuses identities that do not start with `Developer ID Application:` — Apple Development / Apple Distribution certs are the wrong type for direct DMG distribution |
+| `APPLE_API_ISSUER` | App Store Connect API **Issuer ID** |
+| `APPLE_API_KEY` | App Store Connect API **Key ID** |
+| `APPLE_API_KEY_P8_BASE64` | The `.p8` private key file, base64-encoded (decoded to a temp file in CI; `APPLE_API_KEY_PATH` points at it) |
+| `APPLE_TEAM_ID` | 10-character Team ID (used only when falling back to Apple ID auth) |
+| `APPLE_ID` / `APPLE_PASSWORD` | Fallback notarization auth (Apple ID + **app-specific password**). Prefer the API key trio above — scoped, revocable, no account password |
 
-Prefer an App Store Connect API key (`APPLE_API_KEY`, `APPLE_API_ISSUER`,
-`APPLE_API_KEY_ID`) over the Apple ID + app-specific password pair: it is
-scoped, revocable, and does not sit next to an account password.
+Notarization auth is satisfied by **either** the API key trio **or** the
+Apple ID trio; `signing-preflight` checks both and fails a signed macOS build
+if neither is complete.
 
 **Not obtainable without a paid membership.** There is no free tier for
 Developer ID signing or notarisation.
 
 ---
 
-## 4. Secrets — Windows (only if not using the Microsoft Store)
+## 4. Secrets — Windows (Azure Artifact Signing, Public Trust)
 
-Azure Artifact Signing (formerly Trusted Signing), USD $9.99/mo, requires a
-**paid** Azure subscription:
+Paid Azure subscription required (free/trial/sponsored are rejected by the
+service). Basic SKU ≈ USD $9.99/mo. Identity validation (individual or
+organization) is a human step — see `code-signing-setup.md` §A.2.
 
 | Secret | What it is |
 |---|---|
-| `AZURE_SIGNING_CLIENT_ID` | Service principal application ID |
-| `AZURE_SIGNING_CLIENT_SECRET` | Service principal secret |
+| `AZURE_SIGNING_CLIENT_ID` | Service principal application (client) ID |
+| `AZURE_SIGNING_CLIENT_SECRET` | Service principal secret (rotate on a calendar; see `signing-rotation-runbook.md`) |
 | `AZURE_SIGNING_TENANT_ID` | Entra tenant ID |
-| `AZURE_SIGNING_ACCOUNT` | Artifact Signing account name |
-| `AZURE_SIGNING_PROFILE` | Certificate profile name |
-| `AZURE_SIGNING_ENDPOINT` | Regional endpoint URL |
 
-**The recommended path avoids all of this.** Microsoft Store distribution is
-free and Microsoft re-signs the submission, which also eliminates the SmartScreen
-prompt that a certificate alone does not
-(see `docs/release/distribution-decision-matrix.md` §3.1).
+The identity needs exactly one role on the certificate profile: **Artifact
+Signing Certificate Profile Signer**. Nothing more.
+
+**Auth chain (audited 2026-08-08):** Tauri's official integration uses
+`artifact-signing-cli` (pinned 0.11.0), which authenticates by running
+`az login --service-principal` with the client secret and drives `signtool`
+with `Microsoft.ArtifactSigning.Client`. **OIDC/workload-identity federation is
+not supported by that tool today** — a client secret is required. Mitigations:
+short-lived-ish secrets with calendar rotation, a dedicated app registration,
+least-privilege role, and secrets that exist only for the tag-only release
+workflow. Re-evaluate OIDC when Microsoft or the CLI supports it.
 
 ---
 
@@ -80,8 +96,10 @@ prompt that a certificate alone does not
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Its password |
 
 Do not create these until the updater is actually being enabled — see
-`docs/release/update-strategy.md`. An unused signing key is a liability with no
-offsetting benefit.
+`docs/release/update-strategy.md`. When it lands, this key is stored, backed up
+and rotated **separately** from the Apple/Windows material above; installed
+clients trust the embedded public key, so losing the private key makes future
+updates impossible for existing installs.
 
 ---
 
@@ -91,13 +109,16 @@ offsetting benefit.
 
 | Job | Permissions | Why |
 |---|---|---|
-| `preflight` | `contents: read` | Only reads the tag |
-| `gate` | `contents: read` | Runs tests |
-| `bundle` | `contents: read` | Builds. **Cannot write a release** — a compromised build step cannot publish |
+| `preflight`, `gate` | `contents: read` | Read-only checks |
+| `signing-preflight` | `contents: read` | Presence-boolean policy resolution — secret VALUES never enter this job |
+| `bundle` | `contents: read` | Builds + signs. **Cannot write a release** — a compromised build step cannot publish |
+| `package-smoke`, `platform-smoke` | `contents: read` | Install/launch/signature verification |
+| `verify` | `contents: read`, `id-token: write`, `attestations: write` | Trust gate + GitHub artifact attestation of final bytes. No `contents: write` |
 | `draft` | `contents: write` | Creates the draft and uploads assets |
 | `publish` | `contents: write` + environment approval | Flips the draft public |
 
 The top-level default is `contents: read`; jobs escalate individually.
+`id-token: write` exists only on `verify` (for attestation).
 
 ---
 
@@ -117,32 +138,55 @@ deployment branches to tags matching `v*`.
 - [ ] Add at least one required reviewer
 - [ ] Verify by running a release and confirming the workflow waits
 
+**Why signing secrets are repository-level (decision, 2026-08-08):** GitHub
+only exposes environment-scoped secrets to jobs that statically declare that
+environment, and environment names cannot be conditional on policy output —
+attaching `production-signing` to the bundle job would require human approval
+for unsigned alpha builds too. For a solo maintainer the effective controls
+are: the workflow triggers only on tags / explicit `workflow_dispatch` (never
+`pull_request` — enforced by `scripts/validate-workflows.mjs`), the draft is
+created only after the fail-closed trust gate, and publication requires
+approval in `release-publish`. **Revisit when a second maintainer exists:**
+move signing secrets into a `production-signing` environment with required
+reviewers and tag restriction, and declare it on the bundle job.
+
 ---
 
 ## 8. Rules for handling secrets
 
-- Never `echo` a secret. `release.yml`'s signing precondition check prints only
-  booleans (`secrets.X != ''`), never values.
+- Never `echo` a secret. `release.yml`'s signing preflight prints only
+  presence booleans (`P_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}`),
+  never values.
 - Never pass a secret as a command-line argument — arguments appear in process
   listings. Use the environment.
 - Never add a secret to a workflow triggered by `pull_request_target` or
-  otherwise reachable from a fork.
+  otherwise reachable from a fork. `release.yml` runs on tags only; the
+  validator blocks release writes from PR-capable workflows.
 - Rotate anything that appears in a log, even if the log was private, and even
   if it was masked — masking is best-effort.
-- `.gitignore` already excludes `.env*` (except `.env.example`) and
-  `.act-secrets`. Add `*.p12`, `*.key`, `*.pem` before any certificate exists
-  locally.
+- `.gitignore` excludes `.env*`, `*.p12`, `*.pfx`, `*.p8`, `*.key`, `*.pem`,
+  `*.der`, `*.cer`, `*.crt`, `*.csr`, and the CI-generated
+  `tauri.signing.windows.json`.
+- The App Store Connect `.p8` is decoded to `/tmp` on the runner and the
+  keychain is a throwaway `build.keychain` — nothing is uploaded as an
+  artifact.
+- `verify-windows-signature.ps1` / `verify-macos-signature.sh` never receive
+  secrets: they inspect artifact bytes and emit JSON reports.
 
 ---
 
 ## 9. Enrolment steps that require a human
 
 Each involves payment, identity verification, or accepting a legal agreement,
-and is outside what automation should do:
+and is outside what automation should do. Full walkthrough:
+[code-signing-setup.md](code-signing-setup.md) §A.
 
-- [ ] Microsoft Store developer account — free, requires government ID
-      verification. Decide **Individual vs Company** first; it cannot be changed
-      later, and the commercial path needs Company
-- [ ] Apple Developer Program — USD $99/yr. Defer until a Mac exists to validate on
-- [ ] Azure subscription for Artifact Signing — only if the Store path proves
-      insufficient
+- [ ] Apple Developer Program — USD $99/yr; Developer ID Application
+      certificate; App Store Connect API key; offline `.p12`/`.p8` backup
+- [ ] Azure subscription (paid) + Artifact Signing account (Basic) +
+      identity validation + Public Trust profile + service principal with the
+      Certificate Profile Signer role
+- [ ] GitHub `release-publish` environment with required reviewers
+- [ ] (Future) Microsoft Store developer account if the Store path is taken —
+      free, requires government ID verification; Individual vs Company decision
+      cannot be changed later

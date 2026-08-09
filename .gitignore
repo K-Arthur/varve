@@ -59,6 +59,22 @@ Thumbs.db
 .env.*
 !.env.example
 
+# --- Signing material (NEVER commit) ---
+# Private keys, PKCS#12 bundles, certificate export passwords live only in
+# secret storage / offline backups. Nothing here may ever be committed.
+*.p12
+*.pfx
+*.p8
+*.key
+*.pem
+*.der
+*.cer
+*.crt
+*.csr
+!packages/**/test-fixtures/**
+# CI-generated signing config merge (contains no secrets, but is CI-local)
+apps/desktop/src-tauri/tauri.signing.windows.json
+
 # --- Logs ---
 *.log
 npm-debug.log*

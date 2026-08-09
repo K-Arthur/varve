@@ -51,7 +51,9 @@ destroy their work.
 
 **Honesty**
 
-- [ ] Download page says unsigned, and explains the OS warning per platform
+- [ ] Download page trust labels derive from the manifest `signing` block
+      (verified state), never from intent
+- [ ] Unsigned platforms say so, with the OS warning per platform
 - [ ] No platform is listed that has not actually been launched
 - [ ] Data-loss warning is visible before the download button, not below it
 - [ ] Release notes describe real changes
@@ -95,9 +97,23 @@ Everything in Alpha, plus:
 ## Stable
 
 - [ ] Everything above
-- [ ] Windows: signed, or distributed through the Microsoft Store
-- [ ] macOS: signed with Developer ID, notarised, and **stapled**
-- [ ] Notarisation verified: `spctl -a -vvv -t install Varve.app` on a real Mac
+- [ ] `RELEASE_EXPECT_SIGNED=true` is set (repo variable)
+- [ ] `signing-preflight` resolved `signed` for every platform being built
+- [ ] Windows: installer carries a valid Authenticode signature —
+      `signing-report-windows.json` says `verification: valid`, and the
+      publisher shown in UAC matches the verified legal name
+- [ ] macOS: signed with **Developer ID Application**, notarised, and
+      **stapled** — `signing-report-macos.json` shows signed/notarized/stapled
+      all true, hardened runtime present, Team ID correct
+- [ ] `release-manifest.json` `signing` block matches the reports; `signed`
+      reflects evidence, never intent
+- [ ] Checksums were generated after signing (they always are — the trust gate
+      runs before `generate-final-checksums`)
+- [ ] Final bytes attested (`gh attestation verify <file> -R K-Arthur/varve`)
+- [ ] Notarisation verified on a real Mac: `spctl -a -vv -t exec Varve.app`
+      and `xcrun stapler validate Varve.dmg`
+- [ ] Windows: installed-app signature status checked and recorded (NSIS
+      payloads are unsigned — expected and documented)
 - [ ] Support channel staffed — someone is actually reading it
 - [ ] Previous release remains downloadable (rollback target)
 
@@ -134,6 +150,9 @@ Triggered when a published release is worse than its predecessor.
 ---
 
 ## Signing-key compromise (Windows/macOS)
+
+Follow [signing-incident-runbook.md](signing-incident-runbook.md) — stop the
+workflow, disable the environment, revoke, rotate. Summary:
 
 1. [ ] Treat every artifact signed with that key as untrusted
 2. [ ] Revoke the certificate with the issuer (Apple / Azure Artifact Signing)

@@ -139,6 +139,10 @@ Present and accurate:
 - [x] SHA-256 checksums per artifact, plus a link to `SHA256SUMS.txt`
 - [x] SBOM link
 - [x] Per-platform install instructions
+- [x] Per-platform trust labels derived from the manifest `signing` block
+      (verified state, never intent) — "Digitally signed" / "Developer ID
+      signed and notarized" only when the corresponding verification report
+      says so
 - [x] Unsigned-build warnings with the correct OS-specific walkthrough
 - [x] Data-loss warning, placed **above** the download controls
 - [x] Privacy policy matching actual behaviour (no analytics, no cookies)
@@ -146,6 +150,27 @@ Present and accurate:
 - [x] Known issues, release notes, roadmap
 - [x] SEO + social metadata, favicon, custom 404
 - [x] No analytics by default
+
+### Advanced verification (for users who want to verify provenance)
+
+```bash
+# 1. Integrity: the published checksum must match the downloaded file
+sha256sum -c SHA256SUMS.txt            # Linux
+shasum -a 256 -c SHA256SUMS.txt        # macOS
+Get-FileHash .\Varve-*.exe -Algorithm SHA256   # Windows
+
+# 2. Build provenance: the file must be attested by the release workflow
+gh attestation verify ./Varve-0.1.0-windows-x86_64.exe -R K-Arthur/varve
+
+# 3. Platform signatures (post-signing releases):
+#    Windows: right-click -> Properties -> Digital Signatures (status "Valid"),
+#    or: signtool verify /pa /v Varve-0.1.0-windows-x86_64.exe
+#    macOS:  xcrun stapler validate Varve-0.1.0-macos-aarch64.dmg
+```
+
+An attestation proves the file came from the Varve release workflow; it is NOT
+a Windows Authenticode signature and NOT Apple notarization — for signed
+platforms, check the signature in the OS UI as well.
 
 Outstanding:
 

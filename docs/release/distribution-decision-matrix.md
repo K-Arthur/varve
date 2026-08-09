@@ -191,3 +191,16 @@ repository owner as an explicit decision:
 | SBOM scope | Per-platform CycloneDX 1.5 SBOMs (bundle contents differ by OS) + explicit all-platforms combined SBOM | `generate-sbom.mjs --os/--arch/--scope`; structural validator `validate-sbom.mjs` |
 | Signing claims | `signed`/`notarized` stay false until signature verification succeeds; release notes derive from the manifest | No certificates owned; no aspirational labels; checksums ≠ code signing (stated on the download page) |
 | Update mechanism | Manual only: download page + release notes; no updater, no background checks, no in-app check at alpha | `update-strategy.md` |
+
+## 9. Decisions recorded 2026-08-08 (code signing engineering)
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Windows signing solution | **Azure Artifact Signing, Basic, Public Trust** (when acquired) | Only option combining Microsoft-trusted identity, no hardware token, official Tauri `signCommand` integration, CI-friendly. ~$9.99/mo. EV rejected (no longer affects SmartScreen, per Microsoft Learn 2026-08-08); conventional OV rejected (token friction, legacy-only Tauri path); Store/MSIX remains the future $0 option and needs an MSIX build first |
+| macOS signing solution | Apple Developer Program + **Developer ID Application** + notarization + stapling via App Store Connect API key | Direct DMG distribution requirement; no free tier; Developer ID Installer NOT needed (no `.pkg`) |
+| Linux trust | Checksums + SBOM + **GitHub artifact attestations** on final bytes; GPG/AppImage signing deferred | AppImage does not verify embedded signatures automatically; attestations give users a simpler verification story until Flathub/real repos exist |
+| Tauri updater keys | Not created | No updater (`update-strategy.md`); kept separate when it lands |
+| Signing auth for Azure | Client secret via `artifact-signing-cli` (official Tauri path) | OIDC/workload identity NOT supported by that tool (source audited 2026-08-08); mitigated by rotation, least-privilege role, tag-only workflow |
+| Fail-closed policy | `RELEASE_EXPECT_SIGNED` + channel policy encoded in `signing-policy.mjs`; preconditions checked before build; signedness from post-build verification only | A stable release never silently ships unsigned |
+
+Full reasoning with sources: [signing-decision-record.md](signing-decision-record.md).
