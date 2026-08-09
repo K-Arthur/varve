@@ -977,7 +977,12 @@ function paintImageFill(
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
 
-  const image = resolveReplayImage(fill.src, imageLookupForCurrentReplay, getImageCache());
+  const image = resolveReplayImage(
+    fill.src,
+    imageLookupForCurrentReplay,
+    getImageCache(),
+    fill.frame,
+  );
 
   if (!target.drawImage) {
     target.fillRect(bounds.x, bounds.y, bw, bh);

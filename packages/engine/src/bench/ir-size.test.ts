@@ -96,10 +96,10 @@ describe('render IR data-URL regression', () => {
     const eng = await createEngine('stub');
     // 100 placements of one asset: the IR repeats a 22-char handle, not a
     // 2.8 MiB payload 100 times.
-    const nodes = Array.from({ length: 100 }, (_, i) => imageFillNode(handle, handle));
+    const nodes = Array.from({ length: 100 }, (_, _i) => imageFillNode(handle, handle));
     const ir = await eng.buildIr({ nodes });
     const bytes = new TextEncoder().encode(JSON.stringify(ir)).length;
-    const legacyNodes = Array.from({ length: 100 }, (_, i) => imageFillNode(payload));
+    const legacyNodes = Array.from({ length: 100 }, (_, _i) => imageFillNode(payload));
     const legacyIr = await eng.buildIr({ nodes: legacyNodes });
     const legacyBytes = new TextEncoder().encode(JSON.stringify(legacyIr)).length;
     expect(bytes).toBeLessThan(legacyBytes / 1000);

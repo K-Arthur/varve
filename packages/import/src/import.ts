@@ -159,6 +159,7 @@ function importImageAsFile(
       naturalWidth: inspected.displayedWidth,
       naturalHeight: inspected.displayedHeight,
       ...(assetMetadata ? { metadata: assetMetadata } : {}),
+      ...(inspected.animated ? { animated: inspected.animated } : {}),
     });
     doc = registered.document;
     fill = { ...fill, image: { ...fill.image, assetId: registered.assetId } };

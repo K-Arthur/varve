@@ -175,7 +175,7 @@ describe('color round-trip', () => {
 
     const migrated = migrateDocument(v23Fixture as unknown as Record<string, unknown>);
     expect(migrated).not.toBeNull();
-    expect(migrated!.formatVersion).toBe('2.19');
+    expect(migrated!.formatVersion).toBe('2.20');
 
     const config = migrated!.colorConfig as Record<string, unknown> | undefined;
     expect(config).toBeDefined();
