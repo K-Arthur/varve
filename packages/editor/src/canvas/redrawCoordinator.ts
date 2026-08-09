@@ -35,6 +35,7 @@ export type RedrawReason =
   | 'asset-ready'
   | 'effect-update'
   | 'animation'
+  | 'media-frame'
   | 'document-switch'
   | 'backing-store-recovery'
   | 'worker-present'
@@ -75,6 +76,12 @@ export interface FrameStateSnapshot {
   themeRevision: number;
   /** Monotonic stamp that changes while a timeline is playing. */
   motionStamp: number;
+  /**
+   * Monotonic stamp that advances only when some animated-media usage's
+   * resolved source frame changed (a node on a long source frame does not
+   * invalidate every RAF).
+   */
+  mediaStamp: number;
   canvasMode: string;
 }
 
@@ -145,6 +152,7 @@ export function beginContentFrame(args: {
     cameraRotation?: number;
     themeRevision: number;
     motion: { isPlaying: boolean; currentTime: number };
+    media: { presentedStamp: number };
     canvasMode: string;
   };
   imageCacheStamp: number;
@@ -174,6 +182,7 @@ export function beginContentFrame(args: {
     themeRevision: s.themeRevision,
     motionPlaying: s.motion.isPlaying,
     motionTime: s.motion.currentTime,
+    mediaStamp: s.media.presentedStamp,
     canvasMode: s.canvasMode,
   });
   const decision = args.coordinator.beginFrame(snapshot, args.hasPendingPresent);
@@ -214,6 +223,7 @@ export function createFrameSnapshot(args: {
   themeRevision: number;
   motionPlaying: boolean;
   motionTime: number;
+  mediaStamp: number;
   canvasMode: string;
 }): FrameStateSnapshot {
   return {
@@ -230,6 +240,7 @@ export function createFrameSnapshot(args: {
     dpr: args.dpr,
     themeRevision: args.themeRevision,
     motionStamp: args.motionPlaying ? args.motionTime : 0,
+    mediaStamp: args.mediaStamp,
     canvasMode: args.canvasMode,
   };
 }
@@ -294,6 +305,9 @@ export function createRedrawCoordinator(options: RedrawCoordinatorOptions = {}):
     }
     if (previous.motionStamp !== snapshot.motionStamp) {
       reasons.push('animation');
+    }
+    if (previous.mediaStamp !== snapshot.mediaStamp) {
+      reasons.push('media-frame');
     }
     if (previous.themeRevision !== snapshot.themeRevision) {
       reasons.push('theme-change');

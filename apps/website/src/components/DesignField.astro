@@ -2,22 +2,31 @@
 /**
  * Live Design Field — the homepage's signature interactive artwork.
  *
- * A decorative Canvas2D scene speaking design-tool language: strata bands
- * (the Varve mark's three planes), a wireframe artboard with crop marks,
- * bezier paths with anchors and handle tangents, a selection box, smart
- * guides, swatch chips, a timeline with keyframe dots, and ruler ticks.
- * The pointer gently perturbs nearby elements — springs, guide flashes,
- * swatch lifts — as if the field were a live canvas document.
+ * A decorative Canvas2D scene built from the vocabulary of a design
+ * application: anchor nodes with Bézier handles, open curve segments, small
+ * selection frames with corner handles, alignment guides and colour chips.
+ *
+ * The organising idea is *depth*, not decoration. Elements are distributed
+ * across three parallax planes; moving the pointer shifts the planes by
+ * different amounts, so the field reads as a space the copy floats in rather
+ * than a pattern behind it. Near the pointer a single node "wakes": its
+ * handles aim at the cursor, its guides extend, and a coordinate readout
+ * appears — the feel of a canvas that is live under your hand.
+ *
+ * Restraint is enforced structurally, not by taste:
+ *  - a content safe zone (an ellipse over the headline and CTAs) is carved
+ *    out of the layout, so nothing is ever placed where the copy sits;
+ *  - only the nearest element responds to the pointer at any moment;
+ *  - the far plane is small, faint and slow; only the near plane is crisp.
  *
  * Guarantees:
- *  - decorative: aria-hidden, and the section is the only thing that sees
- *    pointer events (the canvas itself is pointer-events: none);
- *  - deterministic: fixed-seed PRNG; identical static frame under reduced
+ *  - decorative: aria-hidden, canvas is pointer-events: none;
+ *  - deterministic: fixed-seed PRNG; the same static frame under reduced
  *    motion and `?test-motion=static`;
- *  - cheap: one RAF loop, no per-frame allocations, DPR capped at 2,
- *    paused when offscreen or the tab is hidden, passive pointer listeners;
- *  - safe: without JS (or with canvas unavailable) a CSS-composed static
- *    field renders instead, so the hero never depends on the canvas.
+ *  - cheap: one RAF loop, no per-frame allocation, DPR capped at 2, paused
+ *    offscreen and on hidden tabs, passive listeners, cached layout reads;
+ *  - safe: without JS or canvas a CSS-composed field renders instead, so the
+ *    hero never depends on the canvas.
  */
 ---
 
@@ -27,11 +36,10 @@
 </div>
 
 <script>
-  import { mulberry32, prefersMotion, easeOut } from '../lib/motion';
+  import { mulberry32, prefersMotion } from '../lib/motion';
 
-  // Deterministic seed: the same seed renders the same static frame in
-  // every browser and every theme.
-  const FIELD_SEED = 20260808;
+  /** Same seed everywhere: identical composition for every visitor and test. */
+  const FIELD_SEED = 20260809;
 
   type ColorSet = {
     ink: string;
@@ -43,598 +51,530 @@
     snap: string;
   };
 
-  interface Anchor {
+  /** Depth planes: [parallax factor, scale, alpha]. Far is small and faint. */
+  const PLANES = [
+    { parallax: 0.014, scale: 0.72, alpha: 0.38 },
+    { parallax: 0.03, scale: 0.9, alpha: 0.62 },
+    { parallax: 0.055, scale: 1.12, alpha: 0.92 },
+  ] as const;
+
+  type Kind = 'node' | 'frame' | 'curve' | 'chip';
+
+  interface Item {
+    kind: Kind;
+    /** Base position in field space, before parallax. */
     x: number;
     y: number;
-    bx: number;
-    by: number;
-    hx: number;
-    hy: number;
-    vx: number;
-    vy: number;
+    plane: number;
+    /** Idle drift phase and radius. */
     phase: number;
-  }
-
-  interface Path2DLike {
+    drift: number;
+    /** Geometry, meaning depends on kind. */
+    a: number;
+    b: number;
+    rot: number;
     color: string;
-    anchors: Anchor[];
-  }
-
-  interface Guide {
-    horizontal: boolean;
-    pos: number;
-    length: number;
-    offset: number;
-  }
-
-  interface Swatch {
-    x: number;
-    y: number;
-    size: number;
-    color: string;
-  }
-
-  interface Keyframe {
-    x: number;
-    phase: number;
-  }
-
-  interface SnapLabel {
-    x: number;
-    y: number;
-    text: string;
-    phase: number;
+    /** Live wake amount 0..1, eased toward the target each frame. */
+    wake: number;
   }
 
   const root = document.querySelector<HTMLElement>('[data-design-field]');
   const canvas = root?.querySelector<HTMLCanvasElement>('canvas');
 
-  function isSupported(): boolean {
-    return typeof canvas !== 'undefined' && !!canvas;
-  }
+  if (root && canvas) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      let motion = prefersMotion();
 
-  function createScene(rand: () => number, w: number, h: number, colors: ColorSet) {
-    const W = w;
-    const H = h;
-    const cx = W * 0.62;
+      function readColors(): ColorSet {
+        const cs = getComputedStyle(root!);
+        const read = (name: string, fallback: string) =>
+          cs.getPropertyValue(name).trim() || fallback;
+        return {
+          ink: read('--df-ink', '#666'),
+          muted: read('--df-muted', '#999'),
+          grid: read('--df-grid', '#aaa'),
+          teal: read('--df-teal', '#39D0C6'),
+          sand: read('--df-sand', '#E28C3C'),
+          terra: read('--df-terra', '#C54B3A'),
+          snap: read('--df-snap', '#444'),
+        };
+      }
 
-    // Two bezier paths, roughly following the logo's strata direction.
-    const paths: Path2DLike[] = [
-      {
-        color: colors.teal,
-        anchors: [
-          { x: W * 0.1, y: H * 0.34, bx: W * 0.1, by: H * 0.34, hx: 34, hy: -18, vx: 0, vy: 0, phase: rand() * Math.PI * 2 },
-          { x: cx, y: H * 0.3, bx: cx, by: H * 0.3, hx: 0, hy: 40, vx: 0, vy: 0, phase: rand() * Math.PI * 2 },
-          { x: W * 0.95, y: H * 0.42, bx: W * 0.95, by: H * 0.42, hx: -46, hy: 26, vx: 0, vy: 0, phase: rand() * Math.PI * 2 },
-        ],
-      },
-      {
-        color: colors.sand,
-        anchors: [
-          { x: W * 0.16, y: H * 0.62, bx: W * 0.16, by: H * 0.62, hx: 26, hy: -24, vx: 0, vy: 0, phase: rand() * Math.PI * 2 },
-          { x: cx + 40, y: H * 0.56, bx: cx + 40, by: H * 0.56, hx: -30, hy: 34, vx: 0, vy: 0, phase: rand() * Math.PI * 2 },
-          { x: W * 0.88, y: H * 0.68, bx: W * 0.88, by: H * 0.68, hx: 0, hy: -30, vx: 0, vy: 0, phase: rand() * Math.PI * 2 },
-        ],
-      },
-    ];
+      let colors = readColors();
+      let items: Item[] = [];
+      let dpr = 1;
+      let w = 0;
+      let h = 0;
+      let raf = 0;
+      let running = false;
+      let inView = true;
+      let tabVisible = true;
 
-    const strata = [
-      { x: -W * 0.1, y: H * 0.12, w: W * 1.2, h: H * 0.16, color: colors.teal, alpha: 0.07, speed: 0.04, phase: 0 },
-      { x: -W * 0.1, y: H * 0.3, w: W * 1.2, h: H * 0.2, color: colors.sand, alpha: 0.06, speed: 0.03, phase: 2.1 },
-      { x: -W * 0.1, y: H * 0.52, w: W * 1.2, h: H * 0.24, color: colors.terra, alpha: 0.05, speed: 0.05, phase: 4.2 },
-    ];
+      /** Pointer in field space, plus the eased value the scene actually uses. */
+      const pointer = { x: 0, y: 0, active: false };
+      const eased = { x: 0, y: 0 };
+      const origin = { x: 0, y: 0 };
+      let originDirty = true;
+      /** Index of the item currently nearest the pointer, or -1. */
+      let wakeIndex = -1;
 
-    // Artboard with print crop marks, left of center.
-    const board = {
-      x: W * 0.16,
-      y: H * 0.16,
-      w: Math.min(W * 0.34, 420),
-      h: Math.min(H * 0.5, 330),
-    };
+      /* ---------------------------------------------------------------- */
+      /* Composition                                                       */
+      /* ---------------------------------------------------------------- */
 
-    const selection = {
-      x: board.x + board.w * 0.5,
-      y: board.y + board.h * 0.42,
-      w: Math.min(board.w * 0.36, 150),
-      h: Math.min(board.h * 0.3, 96),
-      rot: 0,
-      rotTarget: 0,
-    };
+      /**
+       * The safe zone: an ellipse covering the headline, subtitle and CTAs.
+       * Nothing is placed inside it, which is what keeps the field from
+       * competing with the words people came to read.
+       */
+      function inSafeZone(x: number, y: number): boolean {
+        const cx = w * 0.5;
+        const cy = h * 0.5;
+        // Narrow viewports stack the copy into a tall column that fills almost
+        // the whole hero, so the exclusion has to grow with the aspect ratio
+        // rather than stay a fixed fraction of the width.
+        const narrow = w < 720;
+        const rx = narrow ? w * 0.62 : Math.max(320, w * 0.35);
+        const ry = narrow ? h * 0.46 : Math.max(200, h * 0.47);
+        const dx = (x - cx) / rx;
+        const dy = (y - cy) / ry;
+        return dx * dx + dy * dy < 1;
+      }
 
-    const guides: Guide[] = [
-      { horizontal: false, pos: W * 0.5, length: H * 0.94, offset: 0 },
-      { horizontal: true, pos: H * 0.52, length: W * 0.94, offset: 0 },
-    ];
+      function buildScene(): void {
+        const rand = mulberry32(FIELD_SEED);
+        const palette = [colors.teal, colors.sand, colors.terra, colors.ink];
+        const next: Item[] = [];
+        // Weighted vocabulary: mostly nodes and curves (the quiet marks),
+        // sparse frames and chips (the loud ones).
+        const recipe: { kind: Kind; count: number }[] = [
+          { kind: 'node', count: 14 },
+          { kind: 'curve', count: 7 },
+          { kind: 'frame', count: 4 },
+          { kind: 'chip', count: 5 },
+        ];
 
-    const swatchSize = Math.max(16, Math.min(26, W * 0.018));
-    const swatches: Swatch[] = [
-      { x: W * 0.82, y: H * 0.22, size: swatchSize, color: colors.teal },
-      { x: W * 0.82 + swatchSize * 1.8, y: H * 0.22, size: swatchSize, color: colors.sand },
-      { x: W * 0.82 + swatchSize * 3.6, y: H * 0.22, size: swatchSize, color: colors.terra },
-      { x: W * 0.82 + swatchSize * 5.4, y: H * 0.22, size: swatchSize, color: colors.ink },
-    ];
-
-    const timeline = { x: W * 0.7, y: H * 0.86, w: Math.min(W * 0.26, 300) };
-    const keyframes: Keyframe[] = [0.12, 0.31, 0.58, 0.76, 0.9].map((k) => ({
-      x: timeline.x + timeline.w * k,
-      phase: rand() * Math.PI * 2,
-    }));
-
-    const snapLabels: SnapLabel[] = [
-      { x: W * 0.38, y: H * 0.58, text: 'snap · 8 px', phase: 0 },
-      { x: W * 0.66, y: H * 0.48, text: 'align · center', phase: 2.4 },
-      { x: W * 0.52, y: H * 0.75, text: 'x 420 · y 240', phase: 4.6 },
-    ];
-
-    return { paths, strata, board, selection, guides, swatches, timeline, keyframes, snapLabels };
-  }
-
-  if (root && isSupported()) {
-    const ctx = canvas!.getContext('2d');
-    let motion = prefersMotion();
-
-    // Theme-aware palette, resolved from the design-field tokens in theme.css.
-    function readColors(): ColorSet {
-      const cs = getComputedStyle(root!);
-      return {
-        ink: cs.getPropertyValue('--df-ink').trim() || '#666',
-        muted: cs.getPropertyValue('--df-muted').trim() || '#999',
-        grid: cs.getPropertyValue('--df-grid').trim() || '#aaa',
-        teal: cs.getPropertyValue('--df-teal').trim() || '#39D0C6',
-        sand: cs.getPropertyValue('--df-sand').trim() || '#E28C3C',
-        terra: cs.getPropertyValue('--df-terra').trim() || '#C54B3A',
-        snap: cs.getPropertyValue('--df-snap').trim() || '#444',
-      };
-    }
-
-    let colors = readColors();
-    let scene = createScene(mulberry32(FIELD_SEED), 1, 1, colors);
-    let dpr = 1;
-    let w = 0;
-    let h = 0;
-    let raf = 0;
-    let running = false;
-    let inView = true;
-    let tabVisible = true;
-    let pointer = { x: 0, y: 0, vx: 0, vy: 0, active: false };
-    let lastPointer = { x: 0, y: 0 };
-    const po = { x: 0, y: 0 }; // eased pointer
-
-    // Cached origin of the field in viewport space. Pointer events convert
-    // clientX/Y with this instead of calling getBoundingClientRect() per
-    // move, which would force a layout read on every pointermove.
-    const origin = { x: 0, y: 0 };
-    let originDirty = true;
-
-    function refreshOrigin(): void {
-      const r = root!.getBoundingClientRect();
-      origin.x = r.left;
-      origin.y = r.top;
-      originDirty = false;
-    }
-
-    function resize(): void {
-      if (!canvas) return;
-      const rect = root!.getBoundingClientRect();
-      origin.x = rect.left;
-      origin.y = rect.top;
-      originDirty = false;
-      const nextW = Math.max(1, Math.round(rect.width));
-      const nextH = Math.max(1, Math.round(rect.height));
-      if (nextW === w && nextH === h) return;
-      w = nextW;
-      h = nextH;
-      dpr = Math.min(2, window.devicePixelRatio || 1);
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-      scene = createScene(mulberry32(FIELD_SEED), w, h, colors);
-      pointer.x = w * 0.62;
-      pointer.y = h * 0.4;
-      po.x = pointer.x;
-      po.y = pointer.y;
-    }
-
-    // --- drawing ---------------------------------------------------------
-
-    function tracePath(p: Path2DLike, t: number): void {
-      const ctx2 = ctx!;
-      const n = p.anchors.length;
-      // Anchors: base + idle wobble + spring toward pointer.
-      const pts = p.anchors.map((a) => {
-        const wob = motion ? Math.sin(t * 0.6 + a.phase) * 1.5 : 0;
-        let x = a.bx + wob;
-        let y = a.by + wob * 0.6;
-        if (pointer.active && motion) {
-          const dx = a.bx - po.x;
-          const dy = a.by - po.y;
-          const d = Math.hypot(dx, dy);
-          const r = 150;
-          if (d < r && d > 0.01) {
-            const push = (1 - d / r) * 8 * easeOut(0.4);
-            x += (dx / d) * push;
-            y += (dy / d) * push;
+        for (const { kind, count } of recipe) {
+          let placed = 0;
+          let guard = 0;
+          while (placed < count && guard < count * 60) {
+            guard++;
+            const x = rand() * w;
+            const y = rand() * h;
+            if (inSafeZone(x, y)) continue;
+            // Keep marks off the very edge so nothing is half-cropped.
+            if (x < 24 || x > w - 24 || y < 24 || y > h - 24) continue;
+            next.push({
+              kind,
+              x,
+              y,
+              plane: Math.floor(rand() * PLANES.length),
+              phase: rand() * Math.PI * 2,
+              drift: 3 + rand() * 6,
+              a: kind === 'chip' ? 12 + rand() * 8 : 26 + rand() * 44,
+              b: kind === 'frame' ? 22 + rand() * 34 : 16 + rand() * 28,
+              rot: (rand() - 0.5) * 0.7,
+              color: palette[Math.floor(rand() * palette.length)]!,
+              wake: 0,
+            });
+            placed++;
           }
         }
-        return { ...a, x, y };
-      });
-      ctx2.strokeStyle = p.color;
-      ctx2.globalAlpha = motion ? 0.65 : 0.8;
-      ctx2.lineWidth = 1.5;
-      ctx2.beginPath();
-      ctx2.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < n; i++) {
-        const prev = pts[i - 1];
-        const midX = (prev.x + pts[i].x) / 2;
-        const midY = (prev.y + pts[i].y) / 2;
-        ctx2.quadraticCurveTo(prev.x + prev.hx * 0.6, prev.y + prev.hy * 0.6, midX, midY);
-      }
-      const last = pts[n - 1];
-      ctx2.lineTo(last.x + last.hx, last.y + last.hy);
-      ctx2.stroke();
-      // Handle tangents.
-      ctx2.globalAlpha = motion ? 0.35 : 0.5;
-      ctx2.lineWidth = 1;
-      ctx2.setLineDash([3, 4]);
-      for (const pt of pts) {
-        ctx2.beginPath();
-        ctx2.moveTo(pt.x, pt.y);
-        ctx2.lineTo(pt.x + pt.hx, pt.y + pt.hy);
-        ctx2.stroke();
-      }
-      ctx2.setLineDash([]);
-      // Anchor nodes.
-      for (const pt of pts) {
-        const near = motion && pointer.active && Math.hypot(pt.x - po.x, pt.y - po.y) < 26;
-        ctx2.fillStyle = near ? colors.snap : colors.ink;
-        ctx2.globalAlpha = near ? 1 : 0.85;
-        ctx2.beginPath();
-        ctx2.arc(pt.x, pt.y, near ? 4.5 : 3.2, 0, Math.PI * 2);
-        ctx2.fill();
-      }
-      ctx2.globalAlpha = 1;
-    }
-
-    function draw(t: number): void {
-      const c = ctx!;
-      c.clearRect(0, 0, w, h);
-
-      // Dot grid.
-      c.globalAlpha = motion ? 0.4 : 0.5;
-      c.fillStyle = colors.grid;
-      const step = 56;
-      for (let gx = step / 2; gx < w; gx += step) {
-        for (let gy = step / 2; gy < h; gy += step) {
-          c.fillRect(gx, gy, 1.2, 1.2);
-        }
+        items = next;
       }
 
-      // Rulers: ticks along top and left edges.
-      c.globalAlpha = motion ? 0.5 : 0.7;
-      c.strokeStyle = colors.muted;
-      c.lineWidth = 1;
-      c.fillStyle = colors.muted;
-      c.font = '9px var(--font-mono, monospace)';
-      for (let rx = 0; rx < w; rx += 24) {
-        c.beginPath();
-        c.moveTo(rx + 0.5, 10);
-        c.lineTo(rx + 0.5, rx % 96 === 0 ? 18 : 14);
-        c.stroke();
-        if (rx % 96 === 0 && rx > 0) c.fillText(String(rx), rx + 4, 14);
-      }
-      for (let ry = 0; ry < h; ry += 24) {
-        c.beginPath();
-        c.moveTo(10, ry + 0.5);
-        c.lineTo(ry % 96 === 0 ? 18 : 14, ry + 0.5);
-        c.stroke();
-        if (ry % 96 === 0 && ry > 0) c.fillText(String(ry), 14, ry - 4);
+      /* ---------------------------------------------------------------- */
+      /* Drawing                                                           */
+      /* ---------------------------------------------------------------- */
+
+      /** Screen position of an item for this frame (parallax + idle drift). */
+      function itemX(it: Item, t: number, px: number): number {
+        const plane = PLANES[it.plane]!;
+        const drift = motion ? Math.sin(t * 0.18 + it.phase) * it.drift : 0;
+        return it.x + px * plane.parallax * 100 + drift;
       }
 
-      // Strata bands — slow drift, nudged by pointer velocity.
-      for (const band of scene.strata) {
-        const drift = motion ? Math.sin(t * band.speed + band.phase) * 8 + pointer.vx * 2.4 : 0;
-        c.globalAlpha = band.alpha;
-        c.fillStyle = band.color;
-        c.beginPath();
-        c.moveTo(band.x + drift, band.y);
-        c.lineTo(band.x + band.w + drift, band.y - band.h * 0.25);
-        c.lineTo(band.x + band.w + drift, band.y + band.h);
-        c.lineTo(band.x + drift, band.y + band.h * 1.15);
-        c.closePath();
-        c.fill();
+      function itemY(it: Item, t: number, py: number): number {
+        const plane = PLANES[it.plane]!;
+        const drift = motion ? Math.cos(t * 0.15 + it.phase * 1.3) * it.drift * 0.6 : 0;
+        return it.y + py * plane.parallax * 100 + drift;
       }
 
-      // Artboard + crop marks.
-      const b = scene.board;
-      c.globalAlpha = motion ? 0.8 : 0.9;
-      c.strokeStyle = colors.ink;
-      c.lineWidth = 1;
-      c.strokeRect(b.x, b.y, b.w, b.h);
-      c.setLineDash([4, 4]);
-      c.globalAlpha *= 0.5;
-      c.strokeRect(b.x + 10, b.y + 10, b.w - 20, b.h - 20);
-      c.setLineDash([]);
-      // Crop marks.
-      c.globalAlpha = 0.85;
-      const crop = 12;
-      const cx1 = b.x - crop;
-      const cy1 = b.y - crop;
-      for (const [mx, my, mx2, my2] of [
-        [cx1, b.y - 1, b.x, b.y - 1],
-        [cx1, b.y + b.h, b.x, b.y + b.h],
-        [b.x - 1, cy1, b.x - 1, b.y],
-        [b.x + b.w, cy1, b.x + b.w, b.y],
-        [b.x - 1, b.y + b.h, b.x - 1, b.y + b.h + crop],
-        [b.x + b.w, b.y + b.h, b.x + b.w, b.y + b.h + crop],
-        [cx1, b.y + b.h + crop, b.x, b.y + b.h + crop],
-        [b.x + b.w, b.y + b.h + crop, b.x + b.w + crop, b.y + b.h + crop],
-      ] as const) {
-        c.beginPath();
-        c.moveTo(mx, my);
-        c.lineTo(mx2, my2);
-        c.stroke();
-      }
+      function drawNode(c: CanvasRenderingContext2D, it: Item, x: number, y: number, s: number): void {
+        // An anchor with two handles. Awake, the handles swing to aim at the
+        // pointer — the gesture of a live control point.
+        const aim = it.wake > 0.01 ? Math.atan2(eased.y - y, eased.x - x) : it.rot;
+        const len = it.a * s * (0.5 + it.wake * 0.35);
+        const hx = Math.cos(aim) * len;
+        const hy = Math.sin(aim) * len;
 
-      // Smart guides — flash when the pointer is near.
-      for (const g of scene.guides) {
-        const dist = g.horizontal ? Math.abs(po.y - g.pos) : Math.abs(po.x - g.pos);
-        const flash = motion ? Math.max(0, 1 - dist / 48) : 0.15;
-        if (flash <= 0.02) continue;
-        c.globalAlpha = flash * 0.8;
-        c.strokeStyle = colors.snap;
-        c.setLineDash([5, 5]);
+        c.strokeStyle = colors.muted;
         c.lineWidth = 1;
+        c.setLineDash([3, 4]);
         c.beginPath();
-        if (g.horizontal) {
-          c.moveTo(g.offset + 8, g.pos);
-          c.lineTo(g.offset + g.length - 8, g.pos);
-        } else {
-          c.moveTo(g.pos, g.offset + 8);
-          c.lineTo(g.pos, g.offset + g.length - 8);
-        }
+        c.moveTo(x - hx, y - hy);
+        c.lineTo(x + hx, y + hy);
         c.stroke();
         c.setLineDash([]);
-      }
 
-      // Selection box with corner handles; leans toward the pointer.
-      const sel = scene.selection;
-      const targetRot = motion && pointer.active ? (po.x - (sel.x + sel.w / 2)) * 0.0006 : 0;
-      sel.rot += (targetRot - sel.rot) * (motion ? 0.06 : 1);
-      const nx = sel.x + sel.w / 2;
-      const ny = sel.y + sel.h / 2;
-      c.translate(nx, ny);
-      c.rotate(sel.rot);
-      c.globalAlpha = 0.9;
-      c.strokeStyle = colors.teal;
-      c.setLineDash([6, 4]);
-      c.lineWidth = 1.4;
-      c.strokeRect(-sel.w / 2, -sel.h / 2, sel.w, sel.h);
-      c.setLineDash([]);
-      const hs = 4;
-      for (const [hx2, hy2] of [
-        [-sel.w / 2, -sel.h / 2],
-        [sel.w / 2, -sel.h / 2],
-        [-sel.w / 2, sel.h / 2],
-        [sel.w / 2, sel.h / 2],
-      ] as const) {
-        const near = motion && pointer.active && Math.hypot(nx + hx2 - po.x, ny + hy2 - po.y) < 22;
-        c.fillStyle = near ? colors.snap : colors.ink;
-        c.globalAlpha = near ? 1 : 0.8;
-        c.fillRect(hx2 - hs / 2, hy2 - hs / 2, hs, hs);
-      }
-      c.globalAlpha = 1;
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // Handle ends.
+        c.fillStyle = colors.muted;
+        for (const sign of [-1, 1]) {
+          c.beginPath();
+          c.arc(x + hx * sign, y + hy * sign, 2 * s, 0, Math.PI * 2);
+          c.fill();
+        }
 
-      // Vector paths.
-      for (const p of scene.paths) tracePath(p, t);
-
-      // Swatch chips — lift near the pointer.
-      for (const s of scene.swatches) {
-        const near = motion && pointer.active && Math.hypot(s.x + s.size / 2 - po.x, s.y + s.size / 2 - po.y) < 64;
-        const lift = near ? -4 : 0;
-        c.globalAlpha = 0.92;
-        c.fillStyle = s.color;
-        const round = 3;
-        c.beginPath();
-        const sx = s.x;
-        const sy = s.y + lift;
-        c.roundRect(sx, sy, s.size, s.size, round);
-        c.fill();
-        c.globalAlpha = 0.35;
-        c.strokeStyle = colors.ink;
-        c.lineWidth = 1;
-        c.stroke();
-      }
-
-      // Timeline with keyframe dots and a drifting playhead.
-      const tl = scene.timeline;
-      c.globalAlpha = 0.55;
-      c.strokeStyle = colors.muted;
-      c.lineWidth = 1;
-      c.beginPath();
-      c.moveTo(tl.x, tl.y);
-      c.lineTo(tl.x + tl.w, tl.y);
-      c.stroke();
-      const play = motion ? (t * 26) % tl.w : tl.w * 0.4;
-      for (const k of scene.keyframes) {
-        const pulse = motion ? Math.max(0, 1 - Math.abs(k.x - (tl.x + play)) / 8) : 0;
-        c.globalAlpha = 0.55 + pulse * 0.45;
-        c.fillStyle = colors.teal;
-        c.beginPath();
-        c.moveTo(k.x, tl.y - 5);
-        c.lineTo(k.x + 4, tl.y);
-        c.lineTo(k.x, tl.y + 5);
-        c.lineTo(k.x - 4, tl.y);
-        c.closePath();
-        c.fill();
-      }
-      c.globalAlpha = 0.9;
-      c.fillStyle = colors.ink;
-      c.fillRect(tl.x + play - 1, tl.y - 4, 2, 8);
-      c.globalAlpha = 1;
-
-      // Snap labels on slow cycles.
-      if (motion) {
-        c.font = '10px var(--font-mono, monospace)';
-        c.fillStyle = colors.snap;
-        for (const label of scene.snapLabels) {
-          const a = Math.sin(t * 0.4 + label.phase);
-          if (a <= 0.1) continue;
-          c.globalAlpha = a * 0.75;
-          c.fillText(label.text, label.x, label.y);
+        // The anchor itself: hollow square when asleep, filled when awake.
+        const r = (3.4 + it.wake * 1.8) * s;
+        c.strokeStyle = it.wake > 0.5 ? colors.snap : colors.ink;
+        c.fillStyle = it.wake > 0.5 ? colors.snap : colors.ink;
+        c.lineWidth = 1.4;
+        if (it.wake > 0.5) {
+          c.fillRect(x - r, y - r, r * 2, r * 2);
+        } else {
+          c.strokeRect(x - r, y - r, r * 2, r * 2);
         }
       }
 
-      // Coordinate readout near the pointer.
-      if (pointer.active) {
-        c.globalAlpha = 0.6;
-        c.fillStyle = colors.snap;
-        c.font = '10px var(--font-mono, monospace)';
-        const label = `x ${Math.round(po.x)} · y ${Math.round(po.y)}`;
-        c.fillText(label, Math.min(po.x + 16, w - 90), Math.min(po.y + 20, h - 8));
+      function drawCurve(c: CanvasRenderingContext2D, it: Item, x: number, y: number, s: number): void {
+        // A single open Bézier segment; it flexes toward the pointer on wake.
+        const len = it.a * s * 1.6;
+        const bow = it.b * s * (0.5 + it.wake * 0.5);
+        const cos = Math.cos(it.rot);
+        const sin = Math.sin(it.rot);
+        const x1 = x - cos * len;
+        const y1 = y - sin * len;
+        const x2 = x + cos * len;
+        const y2 = y + sin * len;
+        c.strokeStyle = it.color;
+        c.lineWidth = 1.5 * s;
+        c.beginPath();
+        c.moveTo(x1, y1);
+        c.quadraticCurveTo(x - sin * bow, y + cos * bow, x2, y2);
+        c.stroke();
+
+        // Endpoint anchors keep it reading as an editable path, not a swoosh.
+        c.fillStyle = colors.ink;
+        for (const [ex, ey] of [
+          [x1, y1],
+          [x2, y2],
+        ] as const) {
+          c.beginPath();
+          c.arc(ex, ey, 2.4 * s, 0, Math.PI * 2);
+          c.fill();
+        }
       }
-      c.globalAlpha = 1;
-    }
 
-    // --- lifecycle -------------------------------------------------------
-
-    function frame(now: number): void {
-      const t = now / 1000;
-      // One layout read per frame at most, and only after a scroll/resize
-      // invalidated the cached origin.
-      if (originDirty) refreshOrigin();
-      if (pointer.active) {
-        po.x += (pointer.x - po.x) * 0.16;
-        po.y += (pointer.y - po.y) * 0.16;
+      function drawFrame(c: CanvasRenderingContext2D, it: Item, x: number, y: number, s: number): void {
+        const fw = it.a * s * 1.5;
+        const fh = it.b * s * 1.5;
+        c.save();
+        c.translate(x, y);
+        c.rotate(it.rot * (0.4 + it.wake * 0.6));
+        c.strokeStyle = it.wake > 0.4 ? colors.snap : colors.muted;
+        c.lineWidth = 1.2;
+        c.setLineDash([5, 4]);
+        c.strokeRect(-fw / 2, -fh / 2, fw, fh);
+        c.setLineDash([]);
+        // Corner transform handles.
+        const hs = 3 * s;
+        c.fillStyle = it.wake > 0.4 ? colors.snap : colors.ink;
+        for (const [cx2, cy2] of [
+          [-fw / 2, -fh / 2],
+          [fw / 2, -fh / 2],
+          [-fw / 2, fh / 2],
+          [fw / 2, fh / 2],
+        ] as const) {
+          c.fillRect(cx2 - hs, cy2 - hs, hs * 2, hs * 2);
+        }
+        c.restore();
       }
-      pointer.vx += (0 - pointer.vx) * 0.08;
-      pointer.vy += (0 - pointer.vy) * 0.08;
-      draw(t);
-      if (running) raf = requestAnimationFrame(frame);
-    }
 
-    function start(): void {
-      if (running) return;
-      if (!tabVisible || !inView || !motion) return;
-      running = true;
-      raf = requestAnimationFrame(frame);
-    }
+      function drawChip(c: CanvasRenderingContext2D, it: Item, x: number, y: number, s: number): void {
+        const size = it.a * s;
+        const lift = it.wake * -4;
+        c.fillStyle = it.color;
+        c.beginPath();
+        c.roundRect(x - size / 2, y - size / 2 + lift, size, size, 3 * s);
+        c.fill();
+        c.strokeStyle = colors.ink;
+        c.lineWidth = 1;
+        c.globalAlpha *= 0.4;
+        c.stroke();
+      }
 
-    function stop(): void {
-      running = false;
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-    }
+      function draw(t: number): void {
+        const c = ctx!;
+        c.clearRect(0, 0, w, h);
 
-    // Static frame: deterministic, drawn once (also used by reduced motion).
-    function drawStatic(): void {
-      stop();
-      po.x = w * 0.62;
-      po.y = h * 0.4;
-      pointer.active = false;
-      draw(0);
-    }
+        // Parallax is driven by the pointer's offset from centre, so the
+        // scene is symmetric and settles to neutral when the pointer leaves.
+        const px = (eased.x - w / 2) / Math.max(1, w / 2);
+        const py = (eased.y - h / 2) / Math.max(1, h / 2);
 
-    const onVisibility = (): void => {
-      tabVisible = document.visibilityState === 'visible';
-      if (tabVisible) start();
-      else stop();
-    };
+        // Faint dot grid on the far plane — the canvas the marks sit on.
+        c.globalAlpha = 0.28;
+        c.fillStyle = colors.grid;
+        const step = 48;
+        const gx0 = (px * 1.2) % step;
+        const gy0 = (py * 1.2) % step;
+        for (let gx = gx0; gx < w; gx += step) {
+          for (let gy = gy0; gy < h; gy += step) {
+            c.fillRect(gx, gy, 1.1, 1.1);
+          }
+        }
+        c.globalAlpha = 1;
 
-    const io = 'IntersectionObserver' in window
-      ? new IntersectionObserver(
-          (entries) => {
-            inView = entries[0]?.isIntersecting ?? true;
-            if (inView) start();
-            else stop();
-          },
-          { threshold: 0.05 },
-        )
-      : null;
+        // Painter's algorithm: far plane first, so near marks overlap them.
+        for (let planeIndex = 0; planeIndex < PLANES.length; planeIndex++) {
+          const plane = PLANES[planeIndex]!;
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i]!;
+            if (it.plane !== planeIndex) continue;
+            const x = itemX(it, t, px);
+            const y = itemY(it, t, py);
+            c.globalAlpha = plane.alpha * (0.72 + it.wake * 0.28);
+            const s = plane.scale;
+            if (it.kind === 'node') drawNode(c, it, x, y, s);
+            else if (it.kind === 'curve') drawCurve(c, it, x, y, s);
+            else if (it.kind === 'frame') drawFrame(c, it, x, y, s);
+            else drawChip(c, it, x, y, s);
+            c.globalAlpha = 1;
+          }
+        }
 
-    // Resizing rebuilds the scene at the new size; when the loop is not
-    // running (reduced motion, offscreen) the static frame has to be redrawn
-    // explicitly or the canvas keeps the stale, wrongly-scaled pixels.
-    const ro = 'ResizeObserver' in window
-      ? new ResizeObserver(() => {
-          resize();
-          if (!running) drawStatic();
-        })
-      : null;
-    const mo = new MutationObserver(() => {
-      colors = readColors();
-      scene = createScene(mulberry32(FIELD_SEED), w, h, colors);
-      if (!running) drawStatic();
-    });
+        // The woken mark gets alignment guides and a coordinate readout —
+        // exactly one at a time, which is what keeps this from being noise.
+        if (motion && pointer.active && wakeIndex >= 0) {
+          const it = items[wakeIndex]!;
+          const strength = it.wake;
+          if (strength > 0.04) {
+            const x = itemX(it, t, px);
+            const y = itemY(it, t, py);
+            c.globalAlpha = strength * 0.5;
+            c.strokeStyle = colors.snap;
+            c.lineWidth = 1;
+            c.setLineDash([4, 5]);
+            c.beginPath();
+            c.moveTo(0, y);
+            c.lineTo(w, y);
+            c.moveTo(x, 0);
+            c.lineTo(x, h);
+            c.stroke();
+            c.setLineDash([]);
 
-    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onMotionChange = (): void => {
-      motion = prefersMotion();
-      if (motion) {
-        // Motion was off at load, so the interactive listeners were never
-        // attached — bind them the first time motion becomes available.
+            c.globalAlpha = strength * 0.75;
+            c.fillStyle = colors.snap;
+            c.font = '10px ui-monospace, monospace';
+            const label = `${Math.round(x)} · ${Math.round(y)}`;
+            c.fillText(label, Math.min(x + 12, w - 72), Math.max(14, y - 10));
+            c.globalAlpha = 1;
+          }
+        }
+      }
+
+      /* ---------------------------------------------------------------- */
+      /* Lifecycle                                                         */
+      /* ---------------------------------------------------------------- */
+
+      function refreshOrigin(): void {
+        const r = root!.getBoundingClientRect();
+        origin.x = r.left;
+        origin.y = r.top;
+        originDirty = false;
+      }
+
+      function resize(): void {
+        const rect = root!.getBoundingClientRect();
+        origin.x = rect.left;
+        origin.y = rect.top;
+        originDirty = false;
+        const nextW = Math.max(1, Math.round(rect.width));
+        const nextH = Math.max(1, Math.round(rect.height));
+        if (nextW === w && nextH === h) return;
+        w = nextW;
+        h = nextH;
+        dpr = Math.min(2, window.devicePixelRatio || 1);
+        canvas!.width = Math.round(w * dpr);
+        canvas!.height = Math.round(h * dpr);
+        canvas!.style.width = `${w}px`;
+        canvas!.style.height = `${h}px`;
+        ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+        buildScene();
+        eased.x = w / 2;
+        eased.y = h / 2;
+        pointer.x = eased.x;
+        pointer.y = eased.y;
+      }
+
+      /** Picks the single nearest item and eases every item's wake value. */
+      function updateWake(): void {
+        let best = -1;
+        // Squared pick radius. Generous enough that the field feels responsive
+        // while the pointer crosses the copy, tight enough that only one mark
+        // is ever awake.
+        let bestDist = 200 * 200;
+        if (pointer.active) {
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i]!;
+            const dx = it.x - eased.x;
+            const dy = it.y - eased.y;
+            const d = dx * dx + dy * dy;
+            if (d < bestDist) {
+              bestDist = d;
+              best = i;
+            }
+          }
+        }
+        wakeIndex = best;
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i]!;
+          const target = i === best ? 1 : 0;
+          it.wake += (target - it.wake) * 0.12;
+        }
+      }
+
+      function frame(now: number): void {
+        const t = now / 1000;
+        if (originDirty) refreshOrigin();
+        const k = pointer.active ? 0.09 : 0.045;
+        const targetX = pointer.active ? pointer.x : w / 2;
+        const targetY = pointer.active ? pointer.y : h / 2;
+        eased.x += (targetX - eased.x) * k;
+        eased.y += (targetY - eased.y) * k;
+        updateWake();
+        draw(t);
+        if (running) raf = requestAnimationFrame(frame);
+      }
+
+      function start(): void {
+        if (running || !tabVisible || !inView || !motion) return;
+        running = true;
+        raf = requestAnimationFrame(frame);
+      }
+
+      function stop(): void {
+        running = false;
+        if (raf) cancelAnimationFrame(raf);
+        raf = 0;
+      }
+
+      /** Deterministic single frame: neutral pointer, no wake, no drift. */
+      function drawStatic(): void {
+        stop();
+        pointer.active = false;
+        eased.x = w / 2;
+        eased.y = h / 2;
+        wakeIndex = -1;
+        for (const it of items) it.wake = 0;
+        draw(0);
+      }
+
+      const onVisibility = (): void => {
+        tabVisible = document.visibilityState === 'visible';
+        if (tabVisible) start();
+        else stop();
+      };
+
+      const io =
+        'IntersectionObserver' in window
+          ? new IntersectionObserver(
+              (entries) => {
+                inView = entries[0]?.isIntersecting ?? true;
+                if (inView) start();
+                else stop();
+              },
+              { threshold: 0.05 },
+            )
+          : null;
+
+      const ro =
+        'ResizeObserver' in window
+          ? new ResizeObserver(() => {
+              resize();
+              if (!running) drawStatic();
+            })
+          : null;
+
+      // Theme changes recolour the palette; the composition itself is seeded
+      // and must not be rebuilt, or the field would reshuffle on every toggle.
+      const mo = new MutationObserver(() => {
+        colors = readColors();
+        buildScene();
+        if (!running) drawStatic();
+      });
+
+      const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+      let motionListenersAttached = false;
+      function attachMotionListeners(): void {
+        if (motionListenersAttached) return;
+        motionListenersAttached = true;
+        document.addEventListener('visibilitychange', onVisibility);
+        io?.observe(root!);
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('pointermove', onPointerMove, { passive: true });
+        document.documentElement.addEventListener('mouseleave', onPointerLeave, { passive: true });
+        window.addEventListener('blur', onPointerLeave, { passive: true });
+      }
+
+      const onMotionChange = (): void => {
+        motion = prefersMotion();
+        if (motion) {
+          attachMotionListeners();
+          start();
+        } else {
+          drawStatic();
+        }
+      };
+
+      const onPointerMove = (e: PointerEvent): void => {
+        // Touch drags the page; a parallax field must not fight that.
+        if (e.pointerType === 'touch') return;
+        const x = e.clientX - origin.x;
+        const y = e.clientY - origin.y;
+        // Listening on the window rather than on the canvas host is
+        // deliberate: the hero copy is painted above the field, so a listener
+        // bound to the field itself would go silent exactly where the pointer
+        // spends most of its time. Bounds-check instead.
+        pointer.active = x >= 0 && x <= w && y >= 0 && y <= h;
+        if (pointer.active) {
+          pointer.x = x;
+          pointer.y = y;
+        }
+      };
+
+      const onPointerLeave = (): void => {
+        pointer.active = false;
+      };
+
+      const onScroll = (): void => {
+        originDirty = true;
+      };
+
+      function init(): void {
+        resize();
+        // The canvas is live: retire the CSS fallback so the two never stack.
+        root!.dataset.canvasReady = 'true';
+        drawStatic();
+
+        // Size, theme and motion-preference tracking are attached whatever the
+        // current motion preference: a reduced-motion visitor still resizes
+        // the window and still switches theme, and the static frame has to be
+        // redrawn for both. Only the loop itself is gated on `motion`.
+        ro?.observe(root!);
+        mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        motionQuery.addEventListener('change', onMotionChange);
+
+        if (!motion) return;
         attachMotionListeners();
         start();
-      } else {
-        drawStatic();
       }
-    };
 
-    const onPointerMove = (e: PointerEvent): void => {
-      if (e.pointerType === 'touch') return;
-      pointer.vx = pointer.active ? (e.clientX - lastPointer.x) * 0.35 : 0;
-      pointer.vy = pointer.active ? (e.clientY - lastPointer.y) * 0.35 : 0;
-      lastPointer.x = e.clientX;
-      lastPointer.y = e.clientY;
-      pointer.x = e.clientX - origin.x;
-      pointer.y = e.clientY - origin.y;
-      pointer.active = true;
-    };
-
-    const onPointerLeave = (): void => {
-      pointer.active = false;
-    };
-
-    const onScroll = (): void => {
-      originDirty = true;
-    };
-
-    // Idempotent: safe to call again when the motion preference flips on.
-    let motionListenersAttached = false;
-    function attachMotionListeners(): void {
-      if (motionListenersAttached) return;
-      motionListenersAttached = true;
-      document.addEventListener('visibilitychange', onVisibility);
-      io?.observe(root!);
-      window.addEventListener('scroll', onScroll, { passive: true });
-      root!.addEventListener('pointermove', onPointerMove, { passive: true });
-      root!.addEventListener('pointerleave', onPointerLeave, { passive: true });
+      init();
     }
-
-    function init(): void {
-      resize();
-      // The canvas is live: drop the CSS fallback so the two never paint on
-      // top of each other (doubling the artwork's ink over the headline).
-      root!.dataset.canvasReady = 'true';
-      drawStatic();
-
-      // Size, theme and motion-preference tracking are attached regardless of
-      // the current motion preference: a reduced-motion visitor still resizes
-      // the window and still switches theme, and both must redraw the static
-      // frame. Only the animation loop itself is gated on `motion`.
-      ro?.observe(root!);
-      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-      motionQuery.addEventListener('change', onMotionChange);
-
-      if (!motion) return;
-
-      attachMotionListeners();
-      start();
-    }
-
-    init();
   }
 </script>
 
@@ -653,34 +593,28 @@
     display: block;
   }
 
-  /* Static CSS-composed field: used without JS/canvas support and behind the
-     canvas before its first paint. Mirrors the drawn scene at low cost. */
+  /* Static CSS-composed field: used without JS or canvas support, and behind
+     the canvas until its first paint. Deliberately quiet — a dot grid and a
+     single soft strata wash, so the no-JS hero still looks composed. */
   .design-field-fallback {
     position: absolute;
     inset: 0;
     background-image:
       radial-gradient(circle, var(--df-grid) 1px, transparent 1.5px),
-      linear-gradient(115deg, var(--df-teal) 0%, transparent 38%),
-      linear-gradient(115deg, var(--df-sand) 0%, transparent 30%),
-      linear-gradient(115deg, var(--df-terra) 0%, transparent 24%);
+      linear-gradient(115deg, var(--df-teal) 0%, transparent 34%),
+      linear-gradient(115deg, var(--df-terra) 0%, transparent 22%);
     background-size:
-      56px 56px,
-      100% 100%,
+      48px 48px,
       100% 100%,
       100% 100%;
     background-position:
       0 0,
-      -10% 12%,
-      -10% 30%,
-      -10% 52%;
-    background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-    opacity: 0.28;
+      -10% 16%,
+      -10% 54%;
+    background-repeat: repeat, no-repeat, no-repeat;
+    opacity: 0.26;
   }
 
-  /* Once the canvas has drawn its first frame it is the only artwork: the
-     CSS fallback is retired so the two never stack into a heavy colour wash
-     behind the headline. Without JS the attribute is never set and the
-     fallback remains the (intentional, composed) hero artwork. */
   .design-field[data-canvas-ready='true'] .design-field-fallback {
     opacity: 0;
   }

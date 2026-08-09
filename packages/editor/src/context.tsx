@@ -456,6 +456,7 @@ import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
+import { type MediaContextValue, MediaProvider } from './media/MediaContext';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
@@ -480,6 +481,7 @@ import {
 } from './scene/transformCache';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
+import { createInitialMediaState } from './state/media-state';
 import { createInitialMotionState } from './state/motion-state';
 import {
   applyTableModelOp,
@@ -1365,6 +1367,14 @@ export interface EditorContextValue {
 
   /** Start playback of the active timeline. */
   playTimeline: (timelineId?: string) => void;
+  /** Media (animated images): play/pause/seek/step on the media clock. */
+  playMedia: () => void;
+  pauseMedia: () => void;
+  toggleMedia: () => void;
+  seekMedia: (timeMs: number) => void;
+  stepMediaFrame: (direction: 1 | -1) => void;
+  isMediaPlaying: () => boolean;
+  mediaTime: () => number;
   /** Pause active timeline playback. */
   pauseTimeline: () => void;
   /** Stop active timeline playback and reset to start. */
@@ -2052,6 +2062,17 @@ export function nodeWorldBoundsFn(
   return null;
 }
 
+/** No-op fallback for media methods used before MediaProvider mounts. */
+const MEDIA_NOOP: MediaContextValue = {
+  playMedia: () => {},
+  pauseMedia: () => {},
+  toggleMedia: () => {},
+  seekMedia: () => {},
+  stepMediaFrame: () => {},
+  isMediaPlaying: () => false,
+  mediaTime: () => 0,
+};
+
 /** No-op fallback for motion methods used before MotionProvider mounts. */
 const MOTION_NOOP: MotionContextValue = {
   playTimeline: () => {},
@@ -2244,6 +2265,7 @@ export function EditorProvider({
       timelinePanelVisible: false,
       historyPanelVisible: false,
       motion: createInitialMotionState(),
+      media: createInitialMediaState(),
       canvasMode: 'full',
       workspaceMode: BOOT_WORKSPACE_MODE,
       graphEditorVisible: false,
@@ -3003,6 +3025,7 @@ export function EditorProvider({
   }, []);
 
   const [motionValue, setMotionValue] = useState<MotionContextValue | null>(null);
+  const [mediaValue, setMediaValue] = useState<MediaContextValue | null>(null);
   const [protoValue, setProtoValue] = useState<
     import('./context/PrototypeContext').PrototypeContextValue | null
   >(null);
@@ -3761,6 +3784,14 @@ export function EditorProvider({
             document: newDoc,
             selection: [id],
             tool: keepDrawTool ? activeTool : ('select' as ToolId),
+            dirty: true,
+            canUndo: true,
+            canRedo: false,
+            undoLabel: 'Edit',
+            redoLabel: 'Redo',
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+            ),
           };
         });
       },
@@ -3826,7 +3857,20 @@ export function EditorProvider({
             };
           }
 
-          return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
+          return {
+            ...s,
+            document: newDoc,
+            selection: [id],
+            tool: 'select' as ToolId,
+            dirty: true,
+            canUndo: true,
+            canRedo: false,
+            undoLabel: 'Edit',
+            redoLabel: 'Redo',
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+            ),
+          };
         });
       },
 
@@ -8567,6 +8611,8 @@ export function EditorProvider({
 
       ...(motionValue ?? MOTION_NOOP),
 
+      ...(mediaValue ?? MEDIA_NOOP),
+
       setTrackNestedTimeline: (timelineId, trackId, nestedTimelineId, startProgress = 0) => {
         updateDoc((doc) =>
           updateTrackDoc(doc, timelineId, trackId, {
@@ -9016,17 +9062,24 @@ export function EditorProvider({
                 invalidateSamplerCache={invalidateSamplerCache}
                 onReady={setMotionValue}
               >
-                <PrototypeProvider
+                <MediaProvider
                   state={state}
                   setState={setState}
                   stateRef={stateRef}
-                  updateDoc={updateDoc}
-                  prototypeRuntimeRef={prototypeRuntimeRef}
-                  smRuntimeRef={smRuntimeRef}
-                  onReady={setProtoValue}
+                  onReady={setMediaValue}
                 >
-                  {children}
-                </PrototypeProvider>
+                  <PrototypeProvider
+                    state={state}
+                    setState={setState}
+                    stateRef={stateRef}
+                    updateDoc={updateDoc}
+                    prototypeRuntimeRef={prototypeRuntimeRef}
+                    smRuntimeRef={smRuntimeRef}
+                    onReady={setProtoValue}
+                  >
+                    {children}
+                  </PrototypeProvider>
+                </MediaProvider>
               </MotionProvider>
             </SelectionProvider>
           </ViewportProvider>

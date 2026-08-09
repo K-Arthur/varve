@@ -26,9 +26,9 @@ import {
   type RgbWorkingSpaceRef,
 } from '@varve/shared';
 import {
-  premultiplyRgba32f,
   type PixelBufferDescriptor,
   type PixelBufferFormat,
+  premultiplyRgba32f,
   unpremultiplyRgba32f,
 } from './pixelBuffer';
 

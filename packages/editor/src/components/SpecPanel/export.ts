@@ -157,6 +157,18 @@ function exportWorldBounds(
   };
 }
 
+/** Deterministic static-export poster policy: usage poster frame (default 0). */
+/** Deterministic static-export poster policy: usage poster frame (default 0). */
+export function posterFrameResolver(
+  _node: import('@varve/scene').SceneNode,
+  fill: import('@varve/scene').Fill,
+  _doc: import('../../render/sceneToEngine').AssetLookupDoc | undefined,
+): number | undefined {
+  if (fill.type !== 'image' || !fill.image) return undefined;
+  if (!fill.image.assetId) return undefined;
+  return fill.image.media?.posterFrame ?? 0;
+}
+
 export async function exportNodeAsRaster(
   node: SceneNode,
   doc: SceneDocument,
@@ -166,7 +178,9 @@ export async function exportNodeAsRaster(
   // Resolve variants, bindings, reusable styles, and world transforms before
   // resource readiness. Waiting on the raw model can load a stale font/image
   // while the resolved render node uses a different resource.
-  const flattened = flattenSceneToEngine(doc, [node.id]);
+  const flattened = flattenSceneToEngine(doc, [node.id], {
+    mediaFrameResolver: posterFrameResolver,
+  });
   // Guard against exporting mid-font-swap: a font requested via fontFamily
   // may still be loading (bundled FontFace fetch, Google Fonts injection, or
   // a race right after the user picks a new typeface). Without this, text
