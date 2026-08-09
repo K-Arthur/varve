@@ -74,7 +74,8 @@ jobs:
           $dumpbin = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' 2>$null |
             Select-Object -First 1
           if (-not $dumpbin) { Write-Host 'dumpbin not found'; exit 0 }
-          & $dumpbin.FullName /imports $exe.FullName 2>&1 |
+          Write-Host "dumpbin: $dumpbin"
+          & $dumpbin /imports $exe.FullName 2>&1 |
             Select-String -Pattern '\.dll' |
             ForEach-Object { $_.Line.Trim() } |
             Sort-Object -Unique |
