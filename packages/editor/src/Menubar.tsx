@@ -141,6 +141,7 @@ function buildMenus(
   },
   recentEntries: RecentEntry[],
   caps: ReadonlySet<string>,
+  isMac: boolean,
 ): { id: MenuId; items: MenuItem[] }[] {
   const doc = state.document;
   const activePageId = doc?.activePageId ?? null;
@@ -373,6 +374,30 @@ function buildMenus(
           ariaKeyshortcut: ks('export'),
           action: 'export',
         },
+        { label: '---' },
+        {
+          label: 'Close Document',
+          shortcut: formatShortcut(SHORTCUT_DEFS.tabClose.binding),
+          ariaKeyshortcut: ks('tabClose'),
+          action: 'tabClose',
+        },
+        {
+          label: 'Close Window',
+          shortcut: formatShortcut(SHORTCUT_DEFS.closeWindow.binding),
+          ariaKeyshortcut: ks('closeWindow'),
+          action: 'closeWindow',
+        },
+        // macOS hosts Quit in the native app menu (Cmd+Q) — no duplicate.
+        ...(!isMac
+          ? [
+              {
+                label: 'Quit Varve',
+                shortcut: formatShortcut(SHORTCUT_DEFS.quitApp.binding),
+                ariaKeyshortcut: ks('quitApp'),
+                action: 'quitApp',
+              } as MenuItem,
+            ]
+          : []),
         { label: '---' },
         ...(caps.has('archive')
           ? [
@@ -1503,7 +1528,7 @@ export function Menubar({
 
   const caps = useMemo(() => computeCapabilities(), []);
   const rawMenus = useMemo(
-    () => buildMenus(state, recentEntries, caps),
+    () => buildMenus(state, recentEntries, caps, isMac),
     [
       state.selection,
       state.document.activePageId,
@@ -1663,7 +1688,7 @@ export function Menubar({
           try {
             const { invoke } = await import('@tauri-apps/api/core');
             await invoke('plugin:fs|stat', { path: entry.locator.path });
-            const text = await invoke<string>('home_read_text_file', {
+            const text = await invoke<string>('home_read_text_file_approved', {
               path: entry.locator.path,
             });
             // Its own tab, like Figma/Photoshop — and openFile switches to the
