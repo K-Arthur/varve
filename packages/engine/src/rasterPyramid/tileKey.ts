@@ -95,7 +95,6 @@ export function childCoords(col: number, row: number): Array<{ col: number; row:
  * ancestors — sibling tiles are untouched).
  */
 export function derivedSnapshot(
-  level: number,
   col: number,
   row: number,
   children: ReadonlyMap<string, string>,
