@@ -19,7 +19,7 @@ import {
 import { BaseTool } from './BaseTool';
 import type { Point2D } from './fitting';
 import { fitPathToBeziers, simplifyPoints } from './fitting';
-import { collectSourceEvents } from './inputNormalizer';
+import { collectSourceEvents, normalizeInputEvent } from './inputNormalizer';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 interface CapturedPoint extends Point2D {
@@ -59,7 +59,7 @@ export class PencilTool extends BaseTool {
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
     this.oneEuro.reset();
-    this.filterTime = 0;
+    this.filterTime = normalizeInputEvent(e).time;
     const sp = strokePoint(world.x, world.y, {
       pressure: this.currentPressure,
       time: this.filterTime,
@@ -82,14 +82,19 @@ export class PencilTool extends BaseTool {
     for (const ev of events) {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
-      this.samplePoint(world, ev.pressure > 0 ? ev.pressure : 0.5, ctx);
+      this.samplePoint(world, ev.pressure > 0 ? ev.pressure : 0.5, ev.time, ctx);
     }
   }
 
   /** Append a captured point if it moved enough from the last sample. */
-  private samplePoint(world: { x: number; y: number }, pressure: number, ctx: ToolContext): void {
+  private samplePoint(
+    world: { x: number; y: number },
+    pressure: number,
+    time: number,
+    ctx: ToolContext,
+  ): void {
     if (this.captured.length === 0) return;
-    this.filterTime += 16;
+    this.filterTime = Math.max(this.filterTime, time);
     const rawSp = strokePoint(world.x, world.y, { pressure, time: this.filterTime });
     const filtered = oneEuroFilterPoint(rawSp, this.oneEuro);
 
@@ -167,10 +172,10 @@ export class PencilTool extends BaseTool {
   }
 
   private startCapture(ctx: ToolContext): void {
-    const capture = () => {
+    const capture = (frameTimeMs: number) => {
       if (this.drag.kind !== 'dragging') return;
       if (this.captured.length > 0) {
-        this.samplePoint(this.drag.currentWorld, this.currentPressure, ctx);
+        this.samplePoint(this.drag.currentWorld, this.currentPressure, frameTimeMs, ctx);
       }
       requestEditorFrame(this.frameKey, 'input', capture);
     };

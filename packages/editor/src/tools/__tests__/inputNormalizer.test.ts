@@ -20,6 +20,7 @@ function makePointerEvent(overrides: Partial<PointerEvent> = {}): PointerEvent {
     pointerId: 1,
     isPrimary: true,
     button: 0,
+    timeStamp: performance.now(),
     getCoalescedEvents: undefined as unknown as () => PointerEvent[],
     getPredictedEvents: undefined as unknown as () => PointerEvent[],
     ...overrides,
@@ -107,6 +108,17 @@ describe('normalizeInputEvent', () => {
     expect(n.pointerId).toBe(7);
     expect(n.isPrimary).toBe(false);
   });
+
+  it('preserves trusted per-sample timestamps for velocity and filtering', () => {
+    const now = performance.now();
+    const n = normalizeInputEvent(makePointerEvent({ timeStamp: now - 8 }));
+    expect(n.time).toBeCloseTo(now - 8, 3);
+  });
+
+  it('rejects legacy epoch-domain timestamps before mixing with RAF time', () => {
+    const n = normalizeInputEvent(makePointerEvent({ timeStamp: Date.now() }));
+    expect(Math.abs(n.time - performance.now())).toBeLessThan(20);
+  });
 });
 
 describe('collectSourceEvents', () => {
@@ -118,18 +130,20 @@ describe('collectSourceEvents', () => {
   });
 
   it('uses coalesced events when available', () => {
+    const now = performance.now();
     const ev = makePointerEvent({
       pressure: 0.9,
       getCoalescedEvents: () =>
         [
-          makePointerEvent({ clientX: 101, pressure: 0.5 }),
-          makePointerEvent({ clientX: 102, pressure: 0.6 }),
+          makePointerEvent({ clientX: 101, pressure: 0.5, timeStamp: now - 4 }),
+          makePointerEvent({ clientX: 102, pressure: 0.6, timeStamp: now - 2 }),
         ] as unknown as PointerEvent[],
     });
     const events = collectSourceEvents(ev);
     expect(events.length).toBe(2);
     expect(events[0]!.clientX).toBe(101);
     expect(events[1]!.clientX).toBe(102);
+    expect(events.map((event) => event.time)).toEqual([now - 4, now - 2]);
   });
 
   it('marks predicted events when requested', () => {

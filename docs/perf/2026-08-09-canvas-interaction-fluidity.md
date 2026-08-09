@@ -158,7 +158,7 @@ tool's authoritative completion path.
 | Drag/resize/rotate | synchronous immutable mutation and React fan-out | pointer/artwork or overlay phase lag under load | inherited production traces show tail stalls | preserve direct semantics; profile before transient-state redesign |
 | Snapping | broad/fine phase cost under dense scenes | candidate chatter and stale targets | incremental index and sticky-session work already present | retain index; use snap spans and parity benchmarks |
 | Nudge | mutation per OS repeat | excessive history or inconsistent modifier steps | code groups repeats in one transaction | add browser repeat/cancellation evidence |
-| Drawing | full tool dispatch per DOM event | pressure/prediction reconciliation | coalesced-source support exists | benchmark stroke acquisition before restructuring |
+| Drawing | CanvasArea eagerly collects coalesced and predicted arrays for every tool; normalized samples replace hardware timestamps with `performance.now()` | velocity/filter timing becomes input-rate dependent | direct code inspection; prediction commit paths already filter speculative samples | collect only in drawing tools and preserve trusted timestamps |
 | Render worker | asynchronous replay/bitmap transfer | stale result replacing new state | host is one-in-flight plus one latest pending and revision guarded | retain latest-wins boundary; do not alter overlapping user work |
 
 ## Baseline evidence
@@ -251,6 +251,36 @@ diagnostic flow and a new wheel/keyboard boundary flow. The run also found and
 repaired a stale E2E assertion that expected trace schema 1 although the
 production tracer emits schema 2.
 
+## Vertical slice 3 — authoritative high-frequency drawing samples
+
+`CanvasArea.buildToolCtx` no longer calls `getCoalescedEvents()` and
+`getPredictedEvents()` for every Select, Hand, shape, hover, or handle event.
+Its input-normalizer dependency is now type-only. Pencil, Paint, and Smudge are
+the consumers that acquire high-frequency arrays, so the general pointer path
+avoids the array creation and browser API calls while drawing retains all
+authoritative coalesced points.
+
+Normalized input now preserves a browser sample's timestamp when it is finite,
+monotonic-domain-compatible, and within 60 seconds of `performance.now()`.
+Malformed and legacy epoch-domain timestamps fall back safely. Pencil's One
+Euro filter, Paint dab velocity, and Smudge dab velocity consume those sample
+times rather than fabricating 16 ms per point or resampling every point at the
+same handler time. Pencil's RAF preview also consumes the RAF timestamp, keeping
+event and presentation clocks coherent.
+
+Predicted samples were audited and found to already be correctly separated:
+Pencil discards them, while Paint and Smudge render them only through the
+preview canvas and process confirmed samples into raster tiles. This slice
+preserves that contract rather than introducing a second prediction system.
+
+Focused drawing result: 104 tests passed across normalization, Pencil, Paint,
+Smudge, and Pen. New tests cover trusted coalesced timestamps and rejection of
+epoch-domain timestamps. The editor package typecheck passed. Two independently
+run real Chromium paint-drag tests passed (raster-layer creation and Layers
+panel persistence). A broader serial brush suite was not counted as passing:
+its second test timed out in the shared document-creation helper before any
+brush action and the remaining serial tests did not run.
+
 ## Validation ledger
 
 | Validation | Status |
@@ -258,11 +288,13 @@ production tracer emits schema 2.
 | Targeted baseline unit tests | PASS — 56 tests |
 | Time-based navigation unit tests | PASS — 60 targeted tests total |
 | Trace lifecycle unit tests | PASS — 60 targeted tests total |
+| Drawing/input unit tests | PASS — 104 targeted tests total |
+| Drawing Canvas Playwright | PASS — 2 independently run Chromium paint drags; broader serial suite stopped on startup-helper timeout |
 | Targeted Canvas Playwright | PASS — Chromium, 2 tests |
 | Production interaction corpus | PENDING |
 | Editor package typecheck | PASS |
 | Full regression protocol | PENDING |
-| Architecture audit | PENDING |
+| Architecture audit | PASS — completed; 17 existing cycles reported, no layer violations, CanvasArea 50 imports / complexity 435; this slice converts one runtime import to type-only |
 | Native Tauri / WebKitGTK | NOT RUN |
 | Windows WebView2 | NOT AVAILABLE |
 | macOS WKWebView | NOT AVAILABLE |
