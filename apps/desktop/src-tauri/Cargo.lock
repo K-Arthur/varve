@@ -6214,6 +6214,7 @@ dependencies = [
  "varve-core",
  "varve-effects",
  "varve-engine",
+ "varve-media",
  "varve-print",
  "varve-sync",
  "varve-trace",
@@ -6237,6 +6238,17 @@ dependencies = [
  "serde",
  "serde_json",
  "varve-core",
+]
+
+[[package]]
+name = "varve-media"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "gif",
+ "image-webp",
+ "png 0.18.1",
+ "serde",
 ]
 
 [[package]]
