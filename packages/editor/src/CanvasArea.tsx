@@ -196,7 +196,7 @@ import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import type { DraftShape, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
-import { collectSourceEvents } from './tools/inputNormalizer';
+import type { collectSourceEvents } from './tools/inputNormalizer';
 import type { RefineMaskTool } from './tools/RefineMaskTool';
 import {
   createSnapSession,
@@ -991,7 +991,7 @@ export function CanvasArea({
 
   function buildToolCtx(
     ev: PointerEvent,
-    sourceEvents = collectSourceEvents(ev, true),
+    sourceEvents: ReturnType<typeof collectSourceEvents> = [],
   ): ToolContext {
     const s = stateRef.current;
     const e = editorRef.current;
