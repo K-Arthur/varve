@@ -20,8 +20,13 @@ import {
 export interface ExportSettingsStore {
   defaultScale: ExportScale;
   defaultFormat: ExportFormat;
-  /** Portable Canvas 2D export baseline. Wide-gamut export is not advertised until encoded parity exists. */
-  defaultColorProfile: 'srgb';
+  /**
+   * Default destination colour space for raster exports. 'srgb' is the
+   * portable baseline; wide-gamut choices convert the rendered composite
+   * analytically and embed an ICC profile (PNG/JPEG). WebP cannot embed
+   * profiles — the choice is disclosed per export, never silently dropped.
+   */
+  defaultColorProfile: 'srgb' | 'display-p3' | 'adobe-rgb' | 'pro-photo';
   defaultDestination: string | null;
   defaultFilenameTemplate: string;
   defaultOutlineText: boolean;
@@ -260,9 +265,17 @@ export function loadSettings(): EditorSettings {
       DEFAULT_EXPORT_SETTINGS,
       parsed.export as Partial<ExportSettingsStore>,
     );
-    // Migrate the previously exposed but unimplemented Display-P3 choice.
-    // All current raster encoders use the cross-engine sRGB baseline.
-    exportSettings.defaultColorProfile = 'srgb';
+    // Sanitize a persisted colour profile to the supported set; unknown
+    // values (or the old Display-P3 choice persisted before encoded parity)
+    // fall back to the sRGB baseline.
+    if (
+      exportSettings.defaultColorProfile !== 'srgb' &&
+      exportSettings.defaultColorProfile !== 'display-p3' &&
+      exportSettings.defaultColorProfile !== 'adobe-rgb' &&
+      exportSettings.defaultColorProfile !== 'pro-photo'
+    ) {
+      exportSettings.defaultColorProfile = 'srgb';
+    }
     // AVIF has no encoder in any backend; a persisted default would make every
     // export throw. Reset to PNG rather than surfacing a broken default.
     if (exportSettings.defaultFormat === 'avif') {

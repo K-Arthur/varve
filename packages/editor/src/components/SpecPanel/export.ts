@@ -7,6 +7,7 @@ import { exportNodeToSvg } from '@varve/codegen';
 import {
   awaitExportsReady,
   collectFontData,
+  convertExportImageData,
   createEngine,
   createRasterSurface,
   DEFAULT_RASTER_SURFACE_POLICY,
@@ -14,11 +15,16 @@ import {
   type SceneNode as EngineNode,
   type ExportFontRequest,
   encodeRasterSurface,
+  exportColorPolicyLabel,
+  exportProfileBytes,
   fitRasterDimensions,
+  insertJpegIccProfile,
+  insertPngIccp,
   insertPngTextChunks,
   type MetadataContent,
   metadataToPngEntries,
   primitiveBounds,
+  profileDescriptionFor,
   type RasterPipelineOptions,
   type RenderItem,
   resolveMetadataContent,
@@ -56,6 +62,15 @@ export interface ExportOptions {
    * and keeping the no-op path free.
    */
   pipeline?: RasterPipelineOptions;
+  /**
+   * Colour policy for the exported raster: destination primaries +
+   * optional ICC profile embedding. When `destination` is set, the rendered
+   * sRGB composite is analytically converted to the destination encoding
+   * before encoding; when `embedProfile` is set, an ICC profile is written
+   * into the output (PNG iCCP / JPEG APP2). WebP cannot embed profiles on
+   * this pipeline — a warning is emitted instead of a silent drop.
+   */
+  color?: import('@varve/engine').RasterExportColorPolicy;
   /** Metadata policy applied to the encoded PNG/JPEG bytes. */
   metadata?: { policy: MetadataPolicy; content?: MetadataContent };
 }
@@ -226,6 +241,17 @@ export async function exportNodeAsRaster(
     ctx.putImageData(processed.imageData, 0, 0);
   }
 
+  // Colour policy: analytically convert the rendered sRGB composite into the
+  // requested destination encoding. The conversion is explicit and real
+  // (matrix transform), never a relabel; authoritative document pixels are
+  // untouched — only the exported bytes are transformed.
+  if (opts.color) {
+    const pixels = ctx.getImageData(0, 0, w, h);
+    const colorWarnings = await convertExportImageData(pixels, opts.color, opts.signal);
+    warnings.push(...colorWarnings);
+    ctx.putImageData(pixels, 0, 0);
+  }
+
   let blob: Blob;
   try {
     blob = await encodeRasterSurface(
@@ -246,6 +272,40 @@ export async function exportNodeAsRaster(
     warnings.push(
       `This runtime encoded ${blob.type} instead of the requested ${opts.format}; the file uses the actual encoded format.`,
     );
+  }
+
+  // ICC profile embedding on the encoded byte stream (never a pixel
+  // re-encode). PNG uses the iCCP chunk; JPEG uses chunked APP2 segments.
+  // WebP cannot carry a profile through canvas encoders — disclosed, not
+  // silently dropped.
+  if (opts.color?.embedProfile) {
+    const profileBytes = exportProfileBytes(opts.color);
+    if (profileBytes) {
+      if (opts.format === 'image/png') {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const name = profileDescriptionFor(opts.color.destination ?? 'srgb');
+        const embedded = await insertPngIccp(bytes, name, profileBytes);
+        blob = new Blob([embedded.slice()], { type: 'image/png' });
+        warnings.push(
+          `colour: embedded ICC profile (${exportColorPolicyLabel(opts.color)}) in PNG output`,
+        );
+      } else if (opts.format === 'image/jpeg') {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        const embedded = insertJpegIccProfile(bytes, profileBytes);
+        blob = new Blob([embedded.slice()], { type: 'image/jpeg' });
+        warnings.push(
+          `colour: embedded ICC profile (${exportColorPolicyLabel(opts.color)}) in JPEG output`,
+        );
+      } else {
+        warnings.push(
+          'colour: WebP output cannot embed an ICC profile on this pipeline; the profile was not written (document pixels are unaffected)',
+        );
+      }
+    } else {
+      warnings.push(
+        `colour: could not author an ICC profile for ${exportColorPolicyLabel(opts.color)}; output is untagged`,
+      );
+    }
   }
 
   // Metadata policy applied to the encoded bytes. Canvas encoders produce

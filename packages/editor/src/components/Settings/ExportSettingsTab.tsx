@@ -32,6 +32,13 @@ const SCALE_OPTIONS: { value: string; label: string }[] = [
   { value: 'custom', label: 'Custom' },
 ];
 
+const COLOR_SPACE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'srgb', label: 'sRGB' },
+  { value: 'display-p3', label: 'Display P3' },
+  { value: 'adobe-rgb', label: 'Adobe RGB (1998)' },
+  { value: 'pro-photo', label: 'ProPhoto RGB' },
+];
+
 const ICC_OPTIONS: { value: string; label: string }[] = [
   { value: 'FOGRA39', label: 'FOGRA39 (ISO Coated)' },
   { value: 'GRACoL2006', label: 'GRACoL 2006' },
@@ -123,8 +130,22 @@ export function ExportSettingsTab() {
         </div>
       </FieldRow>
 
-      <FieldRow label="Color profile">
-        <span>sRGB (portable Canvas baseline)</span>
+      <FieldRow label="Color space">
+        <Select
+          options={COLOR_SPACE_OPTIONS}
+          value={settings.export.defaultColorProfile}
+          onChange={(v) =>
+            updateExport({
+              defaultColorProfile: v as 'srgb' | 'display-p3' | 'adobe-rgb' | 'pro-photo',
+            })
+          }
+          label="Default color space"
+        />
+        <p className="export-settings__hint">
+          PNG/JPEG outputs are converted to the chosen space and tagged with an embedded ICC
+          profile. WebP cannot embed profiles on this pipeline and stays sRGB (disclosed per
+          export).
+        </p>
       </FieldRow>
 
       <FieldRow label="ICC profile">
