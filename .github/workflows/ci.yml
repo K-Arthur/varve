@@ -62,42 +62,11 @@ jobs:
       - name: cargo test (desktop)
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
       # One-shot diagnosis for STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) on the
-      # Windows test harness: dumpbin lists the exe's actual import table.
+      # Windows test harness: compares imports against runner DLL exports.
       - name: Diagnose Windows entry-point failure
         if: failure() && runner.os == 'Windows'
         shell: pwsh
-        run: |
-          $exe = Get-ChildItem 'apps/desktop/src-tauri/target/debug/deps/varve_desktop_lib-*.exe' -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-          if (-not $exe) { Write-Host 'exe not found'; exit 0 }
-          Write-Host "exe: $($exe.FullName) size=$($exe.Length)"
-          $dumpbin = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find 'VC\Tools\MSVC\**\bin\Hostx64\x64\dumpbin.exe' 2>$null |
-            Select-Object -First 1
-          if (-not $dumpbin) { Write-Host 'dumpbin not found'; exit 0 }
-          Write-Host "dumpbin: $dumpbin"
-          # Parse dumpbin /imports: group imported symbols under each DLL,
-          # then check every symbol against the runner's actual DLL exports to
-          # pinpoint the missing entry point behind 0xc0000139.
-          $imports = & $dumpbin /imports $exe.FullName 2>&1
-          $dll = ''
-          $byDll = @{}
-          foreach ($line in $imports) {
-            if ($line -match '^\s+([A-Za-z0-9_\-]+\.dll)$') { $dll = $Matches[1].ToLower(); $byDll[$dll] = @(); continue }
-            if ($line -match '^\s+([A-Za-z_@?][A-Za-z0-9_@?]*)\s*$' -and $dll) { $byDll[$dll] += $Matches[1] }
-          }
-          foreach ($d in @('vcruntime140.dll','vcruntime140d.dll','msvcp140.dll','ucrtbase.dll','kernelbase.dll')) {
-            if (-not $byDll.ContainsKey($d)) { continue }
-            $sys = Join-Path $env:WINDIR 'System32' $d
-            if (-not (Test-Path $sys)) { Write-Host "MISSING DLL ON RUNNER: $sys"; continue }
-            $exports = & $dumpbin /exports $sys 2>&1 |
-              ForEach-Object { if ($_ -match '^\s+[0-9A-F]+\s+[0-9A-F]+\s+[0-9A-F]+\s+(\S+)') { $Matches[1].ToLower() } }
-            foreach ($sym in $byDll[$d]) {
-              if ($exports -notcontains $sym.ToLower()) {
-                Write-Host "MISSING ENTRY POINT: $d ! $sym"
-              }
-            }
-            Write-Host "$d: $($byDll[$d].Count) imported, $($exports.Count) exported"
-          }
+        run: pwsh -File "$env:GITHUB_WORKSPACE/scripts/ci/diagnose-entrypoint.ps1"
       - name: Install cargo-llvm-cov
         if: runner.os == 'Linux'
         uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
