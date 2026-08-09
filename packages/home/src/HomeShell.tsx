@@ -56,9 +56,9 @@ export interface HomeShellProps {
 
 async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
   try {
-    const { renderThumbnail } = await import('@varve/engine');
+    const { legacyRenderThumbnail } = await import('@varve/engine');
     const doc = JSON.parse(docJson);
-    const dataUrl = await renderThumbnail(doc);
+    const dataUrl = await legacyRenderThumbnail(doc);
     if (dataUrl) {
       await platform.putThumbnail({
         hash: contentHash(docJson),

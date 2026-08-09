@@ -53,9 +53,9 @@ export function ThumbnailInfoDialog({
         return;
       }
 
-      const { renderThumbnail } = await import('@varve/engine');
+      const { legacyRenderThumbnail } = await import('@varve/engine');
       const doc = JSON.parse(docJson);
-      const dataUrl = await renderThumbnail(doc);
+      const dataUrl = await legacyRenderThumbnail(doc);
       if (dataUrl) {
         await platform.putThumbnail({
           hash: file.contentHash,

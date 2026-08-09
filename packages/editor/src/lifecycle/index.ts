@@ -17,6 +17,7 @@ export {
   getLifecycleCoordinator,
   getLifecycleFinalizeHandler,
   installLifecycleCoordinator,
+  LIFECYCLE_COMMIT_EVENT,
   setLifecycleFinalizeHandler,
   uninstallLifecycleCoordinator,
 } from './global';

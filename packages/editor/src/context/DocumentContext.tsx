@@ -89,8 +89,11 @@ export interface DocumentContextValue {
   loadDocument: (json: string, meta?: import('./types').LoadDocumentMeta) => void;
   save: () => Promise<boolean>;
   saveAs: () => Promise<boolean>;
+  saveCopy: () => Promise<boolean>;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
+  saveIssue: import('./types').SaveIssue | null;
+  setShowDocumentInfo: (show: boolean) => void;
   openFile: (
     /** App-store id; omit for a file known only by path (Open Recent) or by
      *  neither (browser file picker) — save() mints one on first save. */
