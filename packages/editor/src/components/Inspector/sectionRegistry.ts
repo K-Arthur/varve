@@ -95,6 +95,8 @@ export interface SectionAvailabilityContext {
   prototypeMode: boolean;
   /** Active table edit session (ADR-0016), when editing a table. */
   tableEdit?: { tableId: string } | null;
+  /** Current document (asset lookups for animated-media predicates). */
+  document?: import('@varve/scene').Document | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -442,7 +444,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
       isSingleSelection(ctx) &&
       ctx.selectedNodes.length === 1 &&
       ctx.selectedNodes[0] !== undefined &&
-      isAnimatedMediaNode(ctx.selectedNodes[0], undefined),
+      ctx.document != null &&
+      isAnimatedMediaNode(ctx.selectedNodes[0], ctx.document ?? undefined),
   },
   {
     id: 'image-crop',
