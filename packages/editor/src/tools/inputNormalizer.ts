@@ -129,6 +129,14 @@ export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
 
   const altitude = ev.altitudeAngle ?? (Math.PI / 2) * (1 - tiltY / 90);
   const azimuth = ev.azimuthAngle ?? Math.atan2(tiltX, tiltY);
+  const now = performance.now();
+  const eventTime = ev.timeStamp;
+  // Modern PointerEvent timestamps share performance.timeOrigin. Reject
+  // legacy epoch-domain or malformed values before mixing them with RAF time.
+  const time =
+    Number.isFinite(eventTime) && eventTime >= 0 && Math.abs(eventTime - now) <= 60_000
+      ? eventTime
+      : now;
 
   return {
     clientX: ev.clientX,
@@ -147,7 +155,7 @@ export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
     altitudeAngle: Math.max(0, Math.min(Math.PI / 2, altitude)),
     azimuthAngle: azimuth,
     isPredicted: false,
-    time: performance.now(),
+    time,
     isEraser:
       (ev as PointerEvent & { eraserButtons?: number }).pointerType === 'pen' && ev.button === 5,
     isPrimary: ev.isPrimary,
