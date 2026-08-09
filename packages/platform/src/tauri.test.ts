@@ -49,7 +49,7 @@ describe('createTauriPlatform', () => {
   it('wraps plugin:dialog|open arguments in options key', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
       if (cmd === 'plugin:dialog|open') return [{ path: '/tmp/test.strata', name: 'test.strata' }];
-      if (cmd === 'home_read_text_file') return '{"nodes":{}}';
+      if (cmd === 'home_read_text_file_approved') return '{"nodes":{}}';
       return null;
     });
     globalWithTauri.__TAURI__ = {
@@ -83,11 +83,12 @@ describe('createTauriPlatform', () => {
     expect(saveArgs.options).toBeDefined();
     // New saves default to the canonical .varve extension.
     expect((saveArgs.options as Record<string, unknown>).defaultPath).toBe('test.varve');
-    // Both extensions are offered to the user.
+    // New documents produce the canonical format only; .strata is not
+    // offered as an equal output format (legacy files still open/import).
     const filters = (saveArgs.options as Record<string, unknown>).filters as Array<{
       extensions: string[];
     }>;
-    expect(filters[0]?.extensions).toEqual(['varve', 'strata']);
+    expect(filters[0]?.extensions).toEqual(['varve']);
   });
 
   it('chooses one export folder and writes safe relative files beneath it', async () => {

@@ -18,11 +18,14 @@ export type { MemoryPlatformOptions } from './memory';
 export { createMemoryPlatform, makeFileEntry, makeProject } from './memory';
 export type { Platform } from './platform';
 export {
+  classifyTauriSaveError,
   compareBy,
   contentHash,
   DOCUMENT_EXT,
   defaultViewState,
   detectFileKind,
+  directoryOfPath,
+  displayNameFromPath,
   emptyFilter,
   evaluateSmartCollection,
   extractTrigrams,
@@ -33,10 +36,13 @@ export {
   fuzzyScore,
   fuzzySearch,
   isImportableKind,
+  LEGACY_DOCUMENT_EXT,
   mergeViewState,
+  normalizeSaveFileName,
   recentFileSections,
   stripExtension,
   uuid,
+  withDocumentExt,
 } from './pure';
 export type {
   OsKind,

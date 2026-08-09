@@ -16,6 +16,7 @@ import type {
   HomeViewState,
   RecentFileRecord,
   RecentWorkspaceFilter,
+  SaveError,
   SortDirection,
 } from './types';
 
@@ -71,6 +72,62 @@ export function stripExtension(filename: string): string {
 export function withDocumentExt(name: string): string {
   if (/\.(varve|strata)$/i.test(name)) return name;
   return `${name}.${DOCUMENT_EXT}`;
+}
+
+/**
+ * Make a safe *suggested* save-dialog filename from a display name:
+ * strips path separators and control characters (so a session name can never
+ * leak a directory into the dialog), trims whitespace, and never stacks a
+ * second extension onto an already-extended name.
+ */
+export function normalizeSaveFileName(name: string): string {
+  const cleaned = name
+    .split('')
+    .filter((c) => {
+      const code = c.charCodeAt(0);
+      return code >= 0x20 && code !== 0x7f;
+    })
+    .join('')
+    .replace(/[\\/:]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+  const base = cleaned && cleaned !== '.' && cleaned !== '..' ? cleaned : 'Untitled';
+  return withDocumentExt(base);
+}
+
+/** Basename of an OS path, without its final extension ("Poster"). */
+export function displayNameFromPath(path: string): string {
+  const parts = path.split(/[\\/]/).filter(Boolean);
+  const base = parts[parts.length - 1] ?? '';
+  return stripExtension(base);
+}
+
+/** Directory portion of an OS path, or null when none is derivable. */
+export function directoryOfPath(path: string): string | null {
+  const sep = path.includes('\\') ? '\\' : '/';
+  const trimmed = path.replace(/[\\/]+$/, '');
+  const last = trimmed.lastIndexOf(sep);
+  if (last < 0) return null;
+  const dir = trimmed.slice(0, last);
+  return dir.length === 0 ? null : dir;
+}
+
+/**
+ * Classify a native (Tauri) save-write failure from its error text into a
+ * user-actionable SaveErrorCategory. The Tauri IPC layer surfaces the OS
+ * error string directly; substring matching keeps the mapping honest
+ * without pretending to be locale-aware.
+ */
+export function classifyTauriSaveError(message: string): SaveError {
+  const m = message.toLowerCase();
+  let category: SaveError['category'] = 'unknown-io';
+  if (/no space left on device|disk full|quota/i.test(m)) category = 'disk-full';
+  else if (/permission denied|access is denied|operation not permitted/i.test(m)) {
+    category = 'permission-denied';
+  } else if (/read-?only|read-only file system/i.test(m)) category = 'read-only';
+  else if (/no such file|not found|does not exist/i.test(m)) category = 'destination-missing';
+  else if (/not supported|unsupported/i.test(m)) category = 'unsupported';
+  return { category, message };
 }
 
 /**
