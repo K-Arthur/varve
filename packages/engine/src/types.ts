@@ -400,7 +400,16 @@ export interface EngineImageCropRect {
 }
 
 export interface EngineImageFillData {
+  /**
+   * Render-time image identity. For canonical embedded assets this is the
+   * short content-addressed resource handle (`asset-<hash>`); legacy fills
+   * keep their raw source (data:/blob:/http(s)). Handles resolve to
+   * loadable sources through the image resource registry, so multi-megabyte
+   * payloads never travel inside render IR.
+   */
   src: string;
+  /** Canonical scene asset id when this fill references one (diagnostics/provenance). */
+  assetId?: string;
   fit: 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
   x: number;
   y: number;
@@ -1325,7 +1334,10 @@ export type FillIR =
     }
   | {
       type: 'image';
+      /** Render-time identity: resource handle for canonical assets, raw source otherwise. */
       src: string;
+      /** Canonical scene asset id when this fill references one (diagnostics/provenance). */
+      assetId?: string;
       fit: 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
       x: number;
       y: number;
