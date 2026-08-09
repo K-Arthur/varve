@@ -4,6 +4,7 @@ import {
   beginInteractionSpan,
   enableInteractionTraces,
   endInteraction,
+  endInteractionIfKind,
   getActiveInteractionIdentity,
   getInteractionTraceCount,
   getRecentInteractionTraces,
@@ -82,6 +83,16 @@ describe('interactionTrace', () => {
     beginInteraction('pointer-drag');
     endInteraction();
     expect(getInteractionTraceCount()).toBe(2);
+  });
+
+  it('does not let a stale burst timer close a newer interaction kind', () => {
+    enableInteractionTraces(true);
+    beginInteraction('wheel');
+    beginInteraction('pointer-drag');
+
+    expect(endInteractionIfKind('wheel')).toBeNull();
+    expect(getActiveInteractionIdentity()?.kind).toBe('pointer-drag');
+    expect(endInteractionIfKind('pointer-drag')?.kind).toBe('pointer-drag');
   });
 
   it('computes pointer-to-present from the first frame commit', () => {
