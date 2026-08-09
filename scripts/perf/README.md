@@ -11,10 +11,12 @@ default base URL is `http://localhost:1432`; the scripts read `?perf=1` to opt
 in to the diagnostics ring-buffer handle (see
 `packages/editor/src/canvas/drawDiagnostics.ts`).
 
-The `?perf=1` query string enables `window.__varvePerf`, which exposes the
-frame-diagnostics ring buffer (`totalMs`, `buildIrMs`, `replayMs`, `hashMs`,
-`nodeCount`, render path, cache stats) without console flooding. It is inert in
-normal usage.
+The `?perf=1` query string enables the editor diagnostics handle (currently
+exposed under the legacy `window.__strataPerf` name). Production workload
+tooling also accepts `window.__varvePerf` so a future public rename remains
+compatible. The handle exposes the frame-diagnostics ring buffer (`totalMs`,
+`buildIrMs`, `replayMs`, `hashMs`, `nodeCount`, render path, cache stats)
+without console flooding and is inert in normal usage.
 
 ## Scripts
 
@@ -87,6 +89,12 @@ pointer/keyboard input. Records commit, build mode, machine state (load,
 memory, governor, thermal, background repo activity) and a per-workload
 validity classification with every result; only `valid` runs are authoritative
 regression evidence.
+
+Each workload also records trace-kind counts, frame-disposition counts and
+p50/p75/p90/p95/p99/max distributions for every observed interaction span and
+correlated frame total. Empty distributions retain a zero `count` and `null`
+percentiles, so missing presentation evidence cannot be reported as zero
+latency.
 
 ```bash
 node scripts/perf/run-production-workload.mjs --fixture=vector-1k \

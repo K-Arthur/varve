@@ -320,6 +320,41 @@ typecheck was attempted after this slice but is presently blocked by concurrent
 uncommitted image-resource work (`ThumbnailInfoDialog`,
 `collectImageBitmaps`, and `sceneToEngineHandles.test`) outside this change.
 
+## Vertical slice 5 — production corpus evidence integrity
+
+The production-workload runner had drifted from the current home flow and
+diagnostics surface: it searched only for a `Create` action while the dialog
+now exposes `Create design`, and it required `window.__varvePerf` even though
+the runtime handle still uses its legacy `window.__strataPerf` name. The runner
+now accepts the current action and either handle, scoped to the open dialog so
+an unrelated matching control cannot satisfy setup.
+
+The workload record now includes trace-kind counts, frame-disposition counts,
+dropped-sample counts, and p50/p75/p90/p95/p99/max distributions for every
+span actually observed. Empty frame distributions use `count: 0` and `null`
+percentiles. This is deliberately stricter than the older summary, whose
+numeric zero percentiles could make an absent pointer-to-present sample look
+like measured zero latency.
+
+A production Chromium smoke corpus completed for `vector-100` across idle
+pointer movement, single drag, pan, zoom, nudge, resize, and rotate (6 measured
+iterations after 2 warmups). Every workload emitted traces and no trace hit a
+span or frame cap. The environment was classified `contended`: load exceeded
+the 8-core machine, concurrent repository TypeScript/Vite processes were
+active, and an externally served build cannot be tied to the runner's captured
+Git identity. These timings are therefore diagnostic only, not an after
+baseline or regression claim.
+
+The diagnostic sample nevertheless confirms the intended phase visibility:
+pointer input, dispatch, snapping, render queue, main render, worker render,
+estimated composite, and presentation feedback all appeared in real traces.
+Zoom supplied 50/50 presentation samples (p95 8.3 ms); pan supplied 12/17 and
+rotate 16/25. Idle hover, single drag, nudge, and resize supplied no correlated
+frame sample in this run even though their input/queue/presentation-feedback
+spans were present. That absence remains explicitly visible and must be
+resolved before those workloads can support authoritative input-to-present
+budgets.
+
 ## Validation ledger
 
 | Validation | Status |
@@ -332,8 +367,8 @@ uncommitted image-resource work (`ThumbnailInfoDialog`,
 | Drawing Canvas Playwright | PASS — 2 independently run Chromium paint drags; broader serial suite stopped on startup-helper timeout |
 | Targeted Canvas Playwright | PASS — Chromium, 2 tests |
 | Auto-pan Canvas Playwright | PASS — Chromium stationary-pointer edge drag; world travel continues and released artwork remains within 4 CSS px of the pointer |
-| Production interaction corpus | PENDING |
-| Editor package typecheck | PASS |
+| Production interaction corpus | PASS as smoke only — 7/7 workloads produced traces; timing invalidated by contention, and four workloads exposed missing correlated-frame evidence |
+| Editor package typecheck | PASS for slices 1–3; slice 4 attempt blocked by unrelated concurrent image-resource changes |
 | Full regression protocol | PENDING |
 | Architecture audit | PASS — completed; 17 existing cycles reported, no layer violations, CanvasArea 50 imports / complexity 435; this slice converts one runtime import to type-only |
 | Native Tauri / WebKitGTK | NOT RUN |
