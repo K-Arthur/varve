@@ -110,6 +110,50 @@ export async function exportTimelineToGif(
   return { bytes, frameCount: totalFrames, supported: true };
 }
 
+/** Options for exporting an animated media asset to GIF. */
+export interface MediaGifExportOptions {
+  /** Source frame delays in ms — used verbatim (source timing preserved). */
+  frameDelaysMs: readonly number[];
+  /** Canvas dimensions (all frames are full-canvas). */
+  width: number;
+  height: number;
+  /** Loop count: 0 = infinite (default), n = finite. */
+  repeat?: number;
+  signal?: AbortSignal;
+  onProgress?: (done: number, total: number) => void;
+}
+
+/**
+ * Export pre-composited RGBA media frames to GIF preserving source timing
+ * (per-frame delays, loop count). `frameSource(i)` returns the composited
+ * frame bytes for source frame i.
+ */
+export async function exportAnimatedMediaToGif(
+  frameSource: (frameIndex: number) => Promise<Uint8Array>,
+  opts: MediaGifExportOptions,
+): Promise<GifExportResult> {
+  const frameCount = opts.frameDelaysMs.length;
+  if (frameCount < 1) {
+    return { bytes: null, frameCount: 0, supported: false, reason: 'No frames to export' };
+  }
+  if (frameCount > 10_000) {
+    return { bytes: null, frameCount: 0, supported: false, reason: 'Too many frames for GIF export' };
+  }
+  // addFrame adopts real dimensions from the first frame
+  const encoder = new GifEncoder(opts.width, opts.height, { repeat: opts.repeat ?? 0 });
+  for (let i = 0; i < frameCount; i++) {
+    if (opts.signal?.aborted) {
+      return { bytes: null, frameCount: i, supported: false, reason: 'Cancelled' };
+    }
+    const rgba = await frameSource(i);
+    const delayCs = Math.max(1, Math.round(opts.frameDelaysMs[i]! / 10));
+    encoder.addFrame(rgba, opts.width, opts.height, delayCs);
+    opts.onProgress?.(i + 1, frameCount);
+  }
+  const bytes = encoder.finish();
+  return { bytes, frameCount, supported: true };
+}
+
 // ── LZW GIF encoder ──────────────────────────────────────────────
 
 const GIF_HEADER = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]); // GIF89a
@@ -154,7 +198,10 @@ class GifEncoder {
     lsd[1] = (this.width >> 8) & 0xff;
     lsd[2] = this.height & 0xff;
     lsd[3] = (this.height >> 8) & 0xff;
-    lsd[4] = 0xf0; // GCT flag (1), color resolution, sort flag, size
+    // GCT flag (1) + size bits 7 → 2^(7+1) = 256 colors, matching the table
+    // written below. (Previously 0xf0 declared a 2-color table while 768
+    // bytes were written — a latent spec violation strict decoders reject.)
+    lsd[4] = 0x80 | 0x07;
     lsd[5] = 0; // background color index
     lsd[6] = 0; // pixel aspect ratio
     append(lsd);
@@ -215,8 +262,10 @@ class GifEncoder {
     const width = this.width;
     const height = this.height;
 
-    // Quantize RGBA to 256-color palette using median cut
-    const { indices } = this.quantize(rgba, width, height);
+    // Quantize RGBA to 256-color palette using median cut. The frame's
+    // palette travels as a LOCAL color table (the GCT stays identity) —
+    // indices must reference the palette the quantizer actually produced.
+    const { indices, palette } = this.quantize(rgba, width, height);
 
     const parts: Uint8Array[] = [];
 
@@ -236,21 +285,16 @@ class GifEncoder {
       ]),
     );
 
-    // Image descriptor
-    parts.push(
-      new Uint8Array([
-        0x2c,
-        0,
-        0, // left
-        0,
-        0, // top
-        width & 0xff,
-        (width >> 8) & 0xff,
-        height & 0xff,
-        (height >> 8) & 0xff,
-        0x00, // no local color table
-      ]),
-    );
+    // Image descriptor with a local color table (256 colors: size bits 7)
+    const descriptor = new Uint8Array(10);
+    descriptor[0] = 0x2c;
+    descriptor[5] = width & 0xff;
+    descriptor[6] = (width >> 8) & 0xff;
+    descriptor[7] = height & 0xff;
+    descriptor[8] = (height >> 8) & 0xff;
+    descriptor[9] = 0x80 | 0x07;
+    parts.push(descriptor);
+    parts.push(palette);
 
     // LZW compressed image data
     const lzwData = this.lzwEncode(indices);
@@ -385,26 +429,37 @@ class GifEncoder {
   }
 
   private lzwToSubBlocks(codes: number[], minCodeSize: number): Uint8Array {
+    // Standard GIF LZW packing: code size grows when the dictionary crosses
+    // the next 2^n boundary (n + 1 bits for the NEXT code after the
+    // boundary), capped at 12 bits; the dictionary resets at 4096.
+    const clearCode = 1 << minCodeSize;
+    const eoiCode = clearCode + 1;
     const bits: number[] = [];
     let codeSize = minCodeSize + 1;
-    let maxVal = (1 << codeSize) - 1;
+    let nextCode = eoiCode + 1;
     let buffer = 0;
     let bitsIn = 0;
 
     for (let i = 0; i < codes.length; i++) {
       const code = codes[i]!;
-      if (code > maxVal && code > (1 << codeSize) - 1) {
-        if (codeSize < 12) {
-          codeSize++;
-          maxVal = (1 << codeSize) - 1;
-        }
-      }
       buffer |= code << bitsIn;
       bitsIn += codeSize;
       while (bitsIn >= 8) {
         bits.push(buffer & 0xff);
         buffer >>= 8;
         bitsIn -= 8;
+      }
+      if (code === clearCode) {
+        nextCode = eoiCode + 1;
+        codeSize = minCodeSize + 1;
+      } else if (code !== eoiCode) {
+        nextCode += 1;
+        if (nextCode >= 1 << codeSize && codeSize < 12) codeSize += 1;
+        if (nextCode > 4095 && codeSize >= 12) {
+          // encoder-side dictionary reset: emit clear so the decoder resets
+          // too (the encoder does not currently emit in-band clears, so the
+          // stream stays within 4095 entries by construction)
+        }
       }
     }
     if (bitsIn > 0) {

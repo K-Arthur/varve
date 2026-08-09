@@ -110,7 +110,7 @@ function resolvePaintRefs(
   return node;
 }
 
-type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
+export type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
 
 /**
  * Rewrite an image fill's render identity: canonical assets carry their
