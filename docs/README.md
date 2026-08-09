@@ -190,6 +190,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/loading-system.md` | Loading experience system |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
+| `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/icon-system.md` | Icon infrastructure |
 | `architecture/typography-platform.md` | Typography platform |
