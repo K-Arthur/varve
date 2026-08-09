@@ -232,6 +232,7 @@ function validateVarveRules(content, filename) {
           'step (generate_context!() reads frontendDist at compile time)',
       );
     }
+    validateReleaseSigningRules(content, stepBlocks, errors);
   }
 
   if (name === 'website-deploy.yml') {
@@ -285,6 +286,109 @@ function validateVarveRules(content, filename) {
   return errors;
 }
 
+/**
+ * Release signing regression guards.
+ *
+ * These encode the fail-closed release policy as structure:
+ *
+ *   1. A signing-preflight job exists and the bundle job depends on it, so
+ *      missing credentials fail BEFORE any platform build starts.
+ *   2. The bundle job actually invokes the platform signature verification
+ *      scripts, so signedness is always measured on the artifact bytes.
+ *   3. verify-release-trust.mjs runs before generate-final-checksums.mjs, so
+ *      published hashes always describe verified bytes.
+ *   4. GitHub artifact attestation (actions/attest) runs on the FINAL bytes
+ *      after checksums, with the least privilege it needs.
+ *   5. No step may write `signed=true` literally — signedness must come from
+ *      the verification reports, never from workflow text or secret presence.
+ */
+function validateReleaseSigningRules(content, stepBlocks, errors) {
+  if (!/^\s{2}signing-preflight:\s*$/m.test(content)) {
+    errors.push(
+      'release.yml: missing `signing-preflight` job — signing credentials must be validated ' +
+        'BEFORE the platform build starts',
+    );
+  }
+
+  // The bundle job's needs must include signing-preflight.
+  const jobText = {};
+  let currentJob = null;
+  for (const line of content.split('\n')) {
+    const jobMatch = line.match(/^ {2}([a-zA-Z][a-zA-Z0-9-]*):\s*$/);
+    if (jobMatch) {
+      currentJob = jobMatch[1];
+      jobText[currentJob] = [];
+      continue;
+    }
+    if (currentJob) jobText[currentJob].push(line);
+  }
+  if (!/signing-preflight/.test((jobText.bundle ?? []).join('\n'))) {
+    errors.push(
+      'release.yml: bundle job must depend on signing-preflight (needs: [... signing-preflight])',
+    );
+  }
+
+  const bundleSteps = stepBlocks.bundle ?? [];
+  const hasWindowsVerify = bundleSteps.some(
+    (s) => /verify-windows-signature\.ps1/.test(s.run) || s.name.includes('verify windows'),
+  );
+  const hasMacosVerify = bundleSteps.some(
+    (s) => /verify-macos-signature\.sh/.test(s.run) || s.name.includes('verify macos'),
+  );
+  if (!hasWindowsVerify) {
+    errors.push(
+      'release.yml: bundle job must run scripts/release/verify-windows-signature.ps1 on the ' +
+        'collected artifact — signedness is measured on bytes, not claimed',
+    );
+  }
+  if (!hasMacosVerify) {
+    errors.push(
+      'release.yml: bundle job must run scripts/release/verify-macos-signature.sh on the ' +
+        'collected artifact (codesign + spctl + stapler)',
+    );
+  }
+
+  const trustIdx = content.indexOf('verify-release-trust.mjs');
+  const checksumIdx = content.indexOf('generate-final-checksums.mjs');
+  if (trustIdx === -1) {
+    errors.push(
+      'release.yml: missing verify-release-trust.mjs step — the fail-closed trust gate must ' +
+        'run before checksums are generated',
+    );
+  } else if (checksumIdx !== -1 && trustIdx > checksumIdx) {
+    errors.push(
+      'release.yml: verify-release-trust.mjs must run BEFORE generate-final-checksums.mjs — ' +
+        'checksums must describe verified (post-signing) bytes',
+    );
+  }
+
+  // Attestation of the FINAL bytes, after checksums, with least privilege.
+  const attestIdx = content.indexOf('actions/attest@');
+  if (attestIdx === -1) {
+    errors.push(
+      'release.yml: missing actions/attest step — final release bytes should be attested',
+    );
+  } else {
+    if (checksumIdx !== -1 && attestIdx < checksumIdx) {
+      errors.push(
+        'release.yml: actions/attest must run AFTER generate-final-checksums.mjs — attest the ' +
+          'final verified bytes, not intermediates',
+      );
+    }
+    const perms = content.match(/permissions:\n(?: {2,8}\w[^\n]*\n?)*/g) ?? [];
+    if (!perms.some((p) => /\battestations:\s*write\b/.test(p))) {
+      errors.push('release.yml: no job grants `attestations: write` — required by actions/attest');
+    }
+  }
+
+  if (/signed\s*=\s*["']?true/.test(content)) {
+    errors.push(
+      'release.yml: a step writes `signed=true` literally — signedness must derive from ' +
+        'verification reports (verify-release-trust.mjs), never from workflow text',
+    );
+  }
+}
+
 export { validateVarveRules };
 
 /**
@@ -331,6 +435,29 @@ export function extractStepBlocks(content) {
       if (/^\s{4,6}-\s+uses:\s*(\S+)/.test(line)) {
         flush();
         currentStep = { name: line.match(/^\s{4,6}-\s+uses:\s*(\S+)/)[1], run: '' };
+        continue;
+      }
+      // A `run: |` (or `run: >`) block: capture every following line that is
+      // blank or indented deeper than the `run:` key, until a line at the step
+      // key depth (a new step or a new step key like `env:`/`if:`).
+      if (/^\s{4,12}run:\s*[|>]\s*$/.test(line) && currentStep) {
+        const body = [];
+        const contentIndent = line.match(/^\s*/)[0].length + 2;
+        let j = i + 1;
+        while (j < lines.length) {
+          const next = lines[j];
+          if (
+            next.trim() === '' ||
+            (next.startsWith(' '.repeat(contentIndent)) && /\S/.test(next))
+          ) {
+            body.push(next.trim());
+            j++;
+          } else {
+            break;
+          }
+        }
+        currentStep.run = body.join('\n');
+        i = j - 1;
         continue;
       }
       if (/^\s{4,6}-\s+run:\s*(\|?\s*)$/.test(line) && currentStep) {
