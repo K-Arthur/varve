@@ -418,6 +418,7 @@ import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import { resolveFontManifest, usePersistence } from './context/usePersistence';
 import { usePersistentHistory } from './context/usePersistentHistory';
+import { useRasterLod } from './context/useRasterLod';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
 import {
@@ -966,10 +967,19 @@ export interface EditorContextValue {
   save: () => Promise<boolean>;
   /** Save As the current document via the platform. */
   saveAs: () => Promise<boolean>;
+  /** Save a duplicate to a new location without adopting it as the active
+   *  destination and without clearing dirty state. */
+  saveCopy: () => Promise<boolean>;
   /** Save state for display in the UI. */
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   /** When the document was last saved. */
   lastSavedAt: number | null;
+  /** Most recent save problem requiring user attention (null = none). */
+  saveIssue: import('./context/types').SaveIssue | null;
+  /** Document Info dialog visibility. */
+  documentInfoOpen: boolean;
+  /** Open/close the Document Info surface. */
+  setShowDocumentInfo: (show: boolean) => void;
   /**
    * Open a file into a tab: switches to an existing tab for the same file,
    * reuses a pristine blank tab, or opens a new tab. `json: null` creates a
@@ -2207,6 +2217,8 @@ export function EditorProvider({
       isometricGrid: isoGrid,
       saveState: 'idle' as const,
       lastSavedAt: null,
+      saveIssue: null,
+      documentInfoOpen: false,
       prototypeMode: false,
       prototypeRuntime: null,
       prototypeDebug: new PrototypeDebugConsole(),
@@ -2655,7 +2667,7 @@ export function EditorProvider({
   }, []);
 
   /** Persistence (save/load/document lifecycle). */
-  const { serializeDocument, save, saveAs, loadDocument } = usePersistence(
+  const { serializeDocument, save, saveAs, saveCopy, loadDocument } = usePersistence(
     state,
     patch,
     stateRef,
@@ -2996,6 +3008,9 @@ export function EditorProvider({
   >(null);
   /** Session-scoped soft-proof toggle (never persisted into documents). */
   const [proofEnabledState, setProofEnabledState] = useState(false);
+  /** Raster LOD pyramid: viewport + budget wiring for the engine seam (ADR-0214). */
+  const rasterLodSettings = loadSettings();
+  useRasterLod(rasterLodSettings.render.memoryBudget);
   const bgRemoval = useBackgroundRemoval(
     state,
     patch,
@@ -5526,9 +5541,13 @@ export function EditorProvider({
       serializeDocument,
       save,
       saveAs,
+      saveCopy,
 
       saveState: state.saveState,
       lastSavedAt: state.lastSavedAt,
+      saveIssue: state.saveIssue,
+      documentInfoOpen: state.documentInfoOpen,
+      setShowDocumentInfo: (show: boolean) => patch({ documentInfoOpen: show }),
       keyObjectId: state.keyObjectId,
       alignToPage: state.alignToPage,
 
@@ -8880,8 +8899,12 @@ export function EditorProvider({
       loadDocument: value.loadDocument,
       save: value.save,
       saveAs: value.saveAs,
+      saveCopy: value.saveCopy,
       saveState: value.saveState,
       lastSavedAt: value.lastSavedAt,
+      saveIssue: value.saveIssue,
+      documentInfoOpen: value.documentInfoOpen,
+      setShowDocumentInfo: value.setShowDocumentInfo,
       openFile: value.openFile,
       rootNodes: value.rootNodes,
       reparentNode: value.reparentNode,
