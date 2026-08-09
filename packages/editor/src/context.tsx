@@ -1367,6 +1367,14 @@ export interface EditorContextValue {
 
   /** Start playback of the active timeline. */
   playTimeline: (timelineId?: string) => void;
+  /** Media (animated images): play/pause/seek/step on the media clock. */
+  playMedia: () => void;
+  pauseMedia: () => void;
+  toggleMedia: () => void;
+  seekMedia: (timeMs: number) => void;
+  stepMediaFrame: (direction: 1 | -1) => void;
+  isMediaPlaying: () => boolean;
+  mediaTime: () => number;
   /** Pause active timeline playback. */
   pauseTimeline: () => void;
   /** Stop active timeline playback and reset to start. */

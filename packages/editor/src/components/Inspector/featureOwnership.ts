@@ -221,6 +221,14 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Crop, trim, and expand configure a focused temporary operation.',
     duplicates: 'Image Placement and ImageFillControls expose fit.',
   },
+  'animation': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale: 'Animated-media playback controls: play, scrub, loop, trim, speed, poster.',
+  },
   'image-enhancement': {
     surface: 'adjustments',
     scope: 'selection',
