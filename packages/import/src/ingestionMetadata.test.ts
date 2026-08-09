@@ -69,9 +69,9 @@ describe('raster ingestion metadata wiring', () => {
     expect(fill?.image?.imageWidth).toBe(240);
     expect(fill?.image?.imageHeight).toBe(400);
     // The shape is sized to the displayed dimensions.
-    const shape = node.shape;
-    expect(shape.kind).toBe('rect');
-    if (shape.kind === 'rect') {
+    const shape = node.kind === 'shape' ? node.shape : undefined;
+    expect(shape?.kind).toBe('rect');
+    if (shape?.kind === 'rect') {
       expect(shape.w).toBe(240);
       expect(shape.h).toBe(400);
     }
@@ -160,6 +160,7 @@ describe('raster ingestion metadata wiring', () => {
     const { DocumentCodec } = await import('@varve/scene');
     const encoded = DocumentCodec.encode(result.document);
     const decoded = DocumentCodec.decode(encoded);
+    if (!decoded.ok) throw new Error('decode failed');
     expect(Number(decoded.document.formatVersion)).toBeGreaterThanOrEqual(2);
     const node = decoded.document.nodes[result.nodeIds[0]!]!;
     const fill = node.fills?.find((f) => f.type === 'image');
