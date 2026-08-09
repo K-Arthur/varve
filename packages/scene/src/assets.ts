@@ -64,6 +64,8 @@ export interface EmbeddedAssetInput {
   naturalHeight: number;
   /** Normalized ingestion metadata (EXIF/ICC). Optional. */
   metadata?: import('./types').ImageSourceMetadata;
+  /** Animated-media container facts (v2.20+). Optional. */
+  animated?: import('./types').AnimatedAssetMetadata;
 }
 
 /** Pure factory: same bytes always produce the same asset id. */
@@ -79,6 +81,7 @@ export function createEmbeddedAsset(input: EmbeddedAssetInput): DocumentAsset {
     byteLength: decodedDataUrlByteLength(input.dataUrl),
     hash,
     ...(input.metadata ? { metadata: input.metadata } : {}),
+    ...(input.animated ? { animated: input.animated } : {}),
   };
 }
 
@@ -115,6 +118,82 @@ export function validateDocumentAsset(asset: DocumentAsset): string | null {
   if (asset.metadata !== undefined) {
     const metadataError = validateImageSourceMetadata(asset.id, asset.metadata);
     if (metadataError) return metadataError;
+  }
+  if (asset.animated !== undefined) {
+    const animatedError = validateAnimatedAssetMetadata(asset.id, asset.animated);
+    if (animatedError) return animatedError;
+  }
+  return null;
+}
+
+/**
+ * Structural validation for the animated-media metadata block. Enforces
+ * bounds (frame cap, canvas limits) and per-frame shape so malformed or
+ * hostile documents fail at load instead of at decode time.
+ */
+export function validateAnimatedAssetMetadata(
+  assetId: string,
+  animated: import('./types').AnimatedAssetMetadata,
+): string | null {
+  if (!animated || typeof animated !== 'object') {
+    return `Document asset ${assetId} animated must be an object`;
+  }
+  const kinds = new Set(['gif', 'apng', 'webp']);
+  if (!kinds.has(animated.kind)) {
+    return `Document asset ${assetId} animated.kind must be gif/apng/webp`;
+  }
+  if (!Number.isInteger(animated.frameCount) || animated.frameCount <= 1) {
+    return `Document asset ${assetId} animated.frameCount must be > 1`;
+  }
+  if (!Number.isFinite(animated.durationMs) || animated.durationMs < 0) {
+    return `Document asset ${assetId} animated.durationMs must be non-negative`;
+  }
+  if (
+    animated.loopCount !== 'infinite' &&
+    (!Number.isInteger(animated.loopCount) || animated.loopCount < 0)
+  ) {
+    return `Document asset ${assetId} animated.loopCount must be 'infinite' or a count`;
+  }
+  if (
+    !Number.isInteger(animated.width) ||
+    !Number.isInteger(animated.height) ||
+    animated.width <= 0 ||
+    animated.height <= 0
+  ) {
+    return `Document asset ${assetId} animated canvas size must be positive`;
+  }
+  if (!Array.isArray(animated.frames) || animated.frames.length !== animated.frameCount) {
+    return `Document asset ${assetId} animated.frames must match frameCount`;
+  }
+  for (const frame of animated.frames) {
+    if (!Number.isInteger(frame.index) || frame.index < 0 || frame.index >= animated.frameCount) {
+      return `Document asset ${assetId} animated frame index out of range`;
+    }
+    if (!Number.isFinite(frame.durationMs) || frame.durationMs < 0) {
+      return `Document asset ${assetId} animated frame duration must be non-negative`;
+    }
+    if (
+      !Number.isInteger(frame.x) ||
+      !Number.isInteger(frame.y) ||
+      !Number.isInteger(frame.width) ||
+      !Number.isInteger(frame.height) ||
+      frame.width <= 0 ||
+      frame.height <= 0 ||
+      frame.x + frame.width > animated.width ||
+      frame.y + frame.height > animated.height
+    ) {
+      return `Document asset ${assetId} animated frame rect out of canvas bounds`;
+    }
+    if (frame.blend !== 'source' && frame.blend !== 'over') {
+      return `Document asset ${assetId} animated frame blend must be source/over`;
+    }
+    if (
+      frame.disposal !== 'none' &&
+      frame.disposal !== 'background' &&
+      frame.disposal !== 'previous'
+    ) {
+      return `Document asset ${assetId} animated frame disposal invalid`;
+    }
   }
   return null;
 }

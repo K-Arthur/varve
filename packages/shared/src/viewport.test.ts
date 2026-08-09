@@ -490,6 +490,18 @@ describe('clampCamera', () => {
     const c = cam(-5000, -5000, 1);
     const bounds = { x: 0, y: 0, w: 100, h: 100 };
     const clamped = clampCamera(c, vp, bounds, 100);
-    expect(clamped.pan.x).toBeGreaterThan(-2000);
+    expect(clamped.pan).toEqual({ x: -200, y: -200 });
+  });
+
+  it('does not reverse direction when crossing an offscreen margin', () => {
+    const bounds = { x: 0, y: 0, w: 100, h: 100 };
+    const clamped = clampCamera(cam(-250, -250, 1), vp, bounds, 100);
+    expect(clamped.pan).toEqual({ x: -200, y: -200 });
+  });
+
+  it('uses the viewport plus margin as the positive boundary', () => {
+    const bounds = { x: 0, y: 0, w: 100, h: 100 };
+    const clamped = clampCamera(cam(2500, 1600, 1), vp, bounds, 100);
+    expect(clamped.pan).toEqual({ x: 2020, y: 1180 });
   });
 });

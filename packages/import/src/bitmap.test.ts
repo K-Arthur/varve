@@ -60,7 +60,8 @@ function createMinimalPng(): Uint8Array {
     0x01,
     0x36,
     0x28,
-    0x1b, // CRC+uncompressed
+    0x1b,
+    0x00, // IDAT CRC (4 bytes)
     0x00,
     0x00,
     0x00,
