@@ -239,10 +239,15 @@ function validateVarveRules(content, filename) {
     if (perms && /\bactions:\s*write\b/.test(perms[0])) {
       errors.push('website-deploy.yml: `actions: write` is not needed for Pages deployment');
     }
-    if (!/release:\s*\n\s+types:\s*(\[[^\]]*published|[\s\S]*?-\s+published)/.test(content)) {
+    if (
+      !/release:\s*\n\s+types:\s*(\[[^\]]*published|[\s\S]*?-\s+published)/.test(content) &&
+      !/workflow_run:\s*\n\s+workflows:\s*\[['"]?Release/.test(content)
+    ) {
       errors.push(
-        'website-deploy.yml: missing `release: types: [published]` trigger — the download ' +
-          'page must redeploy when a release is published',
+        'website-deploy.yml: missing release rebuild trigger — either ' +
+          '`release: types: [published]` or a `workflow_run` on the Release ' +
+          'workflow (workflow_run is preferred: it runs on the default branch, ' +
+          'so the github-pages environment protection accepts the deploy)',
       );
     }
     if (!/-\s*['"]?scripts\/release/.test(content)) {
