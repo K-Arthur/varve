@@ -1,5 +1,6 @@
 import type { Fill } from '@varve/scene';
 import { imageFill } from '@varve/scene';
+import type { AnimatedAssetMetadata } from '@varve/shared';
 import { bytesToDataUrl } from './bitmap';
 import {
   displayedDimensions,
@@ -26,6 +27,8 @@ export interface InspectedImageSource {
   metadata: ImageSourceMetadata;
   /** ICC payload for the document profile registry, when valid. */
   iccProfileBase64?: string;
+  /** Animated-media container facts for animated GIF/APNG/WebP imports. */
+  animated?: AnimatedAssetMetadata;
 }
 
 /**
@@ -51,6 +54,7 @@ export function inspectImageSource(data: Uint8Array): InspectedImageSource {
     displayedHeight: displayed.height,
     metadata,
     ...(iccProfileBase64 ? { iccProfileBase64 } : {}),
+    ...(inspection.animated ? { animated: inspection.animated } : {}),
   };
 }
 

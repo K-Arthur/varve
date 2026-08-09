@@ -1,3 +1,10 @@
+/**
+ * @deprecated Legacy LocalDoc thumbnail path. Superseded by the canonical
+ * pipeline: `@varve/scene` source resolution + `flattenSceneToEngine`
+ * (editor) + `generateThumbnail` (engine `thumbnail/service.ts`). Retained
+ * only until Home and the thumbnail picker migrate; do not add callers.
+ */
+
 import { DEFAULT_ARTWORK_FONT_FAMILY, multiplyAffine } from '@varve/shared';
 import { createEngine } from './engine';
 import { createRasterSurface, encodeRasterSurface } from './rasterSurface';

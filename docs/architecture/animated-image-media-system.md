@@ -325,3 +325,22 @@ Deliberately **out of v1 scope** (design reserved):
    composition semantics are still centralized in TS (paste path).
 5. Huge (>2048 px) animated images decode at full size; downscale decode is a
    follow-up (ImageDecoder `scaledWidth` on Chromium; `resize` in Rust).
+
+## Implementation status (2026-08-09)
+
+Shipped: content probing (GIF/APNG/WebP) · pure-TS GIF decoder · cumulative
+timing tables · shared compositor (disposal/blend/delta/pre-composited) ·
+per-usage playback resolution (source/once/loop/pingpong, trim, rate, offset,
+reverse) · byte-budgeted frame cache + checkpoint store + dedup/generation-
+token scheduler · provider chain (native Tauri IPC, WASM, Chromium
+ImageDecoder, TS-GIF) · schema 2.20 (`DocumentAsset.animated`,
+`ImageFillData.media`) · animated import acceptance · editor media clock
+(MediaContext, motion-slaved) · presented-stamp invalidation · sceneToEngine
+frame resolver + engine replay media lookup · worker gating · inspector
+Animation section · timeline media frame strip · Layers badge · static poster
+policy · deterministic video sampling · media→GIF export with source timing.
+
+Open follow-ups (documented, not shipped): editable frame animation
+(convert/deleting/reordering/painting), media onion skin, animated-AVIF
+import, worker-renderer support for animated fills, downscale decode,
+APNG/animated-WebP export.

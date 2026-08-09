@@ -34,6 +34,7 @@ varve-bgremove = { path = "../../../crates/varve-bgremove" }
 varve-trace = { path = "../../../crates/varve-trace" }
 varve-upscale = { path = "../../../crates/varve-upscale" }
 varve-effects = { path = "../../../crates/varve-effects" }
+varve-media = { path = "../../../crates/varve-media" }
 image = "0.25"
 arboard = { version = "3", features = ["wayland-data-control"] }
 tauri-plugin-fs = "2"
