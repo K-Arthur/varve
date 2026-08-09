@@ -10,10 +10,15 @@ on:
       - 'scripts/release/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
-  # A published release redeploys the site so the download page is rebuilt from
-  # the exact published assets (see scripts/release/fetch-website-release.mjs).
-  release:
-    types: [published]
+  # A completed release run redeploys the site so the download page is rebuilt
+  # from the exact published assets (see scripts/release/fetch-website-release
+  # .mjs — drafts never appear). workflow_run is used instead of
+  # `release: published` because a release event runs under the TAG ref, which
+  # the github-pages environment's branch protection rejects; workflow_run
+  # events run on the default branch, so the deploy passes the protection.
+  workflow_run:
+    workflows: ['Release']
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -39,8 +44,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
 
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
@@ -80,11 +83,16 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # On workflow_run only act when the Release run actually succeeded.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
-          lfs: true
-          ref: ${{ github.event.release && github.event.release.target_commitish || 'master' }}
+          # The site always builds from master: the release data comes from the
+          # GitHub API, not the checkout, and workflow_run events run on the
+          # default branch so the deploy passes the github-pages environment
+          # protection.
+          ref: master
 
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
@@ -101,11 +109,9 @@ jobs:
 
       # The download page is rebuilt from the published release (channel
       # policy: latest stable, else latest published prerelease; drafts never
-      # appear). Without a token this step is skipped and the committed
-      # no-release manifest is used. On `release: published` the token is
-      # present and the page is regenerated from the exact release assets.
+      # appear). When a Release run only produced a draft, this rewrites the
+      # no-release state — an idempotent rebuild of identical content.
       - name: Fetch release data from GitHub
-        if: env.GITHUB_TOKEN != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/release/fetch-website-release.mjs
@@ -128,8 +134,6 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-        with:
-          lfs: true
 
       - name: Deploy to GitHub Pages
         id: deployment
