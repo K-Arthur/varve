@@ -157,9 +157,21 @@ export class MediaFrameCache {
 
   /**
    * Promote an entry to hold a renderable ImageBitmap (main thread only).
-   * Returns the bitmap (existing or new), or null when the environment has
-   * no bitmap APIs. Callers must not close the returned bitmap — the cache
-   * owns it and closes it on eviction.
+   * Sync variant: OffscreenCanvas path only (the replay hot path). Returns
+   * null in DOM-free environments or when promotion is asynchronous.
+   */
+  ensureBitmapSync(key: string): ImageBitmap | null {
+    const entry = this.entries.get(key);
+    if (!entry) return null;
+    if (entry.bitmap) return entry.bitmap;
+    const bitmap = createBitmapSyncFromRgba(entry.rgba, entry.width, entry.height);
+    if (bitmap) entry.bitmap = bitmap;
+    return bitmap;
+  }
+
+  /**
+   * Async promote (DOM canvas fallback). Callers must not close the
+   * returned bitmap — the cache owns it and closes it on eviction.
    */
   async ensureBitmap(key: string): Promise<ImageBitmap | null> {
     const entry = this.entries.get(key);
@@ -213,9 +225,19 @@ export class MediaFrameCache {
     };
   }
 
+  private globalListeners = new Set<() => void>();
+
+  subscribeGlobal(callback: () => void): () => void {
+    this.globalListeners.add(callback);
+    return () => {
+      this.globalListeners.delete(callback);
+    };
+  }
+
   private notify(key: string): void {
     const set = this.listeners.get(key);
     if (set) for (const cb of set) cb();
+    for (const cb of this.globalListeners) cb();
   }
 
   private evictIfNeeded(): void {
@@ -228,7 +250,27 @@ export class MediaFrameCache {
   }
 }
 
-/** DOM-free: create an ImageBitmap from raw RGBA via OffscreenCanvas. */
+/** Sync ImageBitmap creation via OffscreenCanvas (no DOM dependency). */
+export function createBitmapSyncFromRgba(
+  rgba: Uint8Array,
+  width: number,
+  height: number,
+): ImageBitmap | null {
+  try {
+    if (typeof OffscreenCanvas !== 'undefined') {
+      const canvas = new OffscreenCanvas(width, height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.putImageData(new ImageData(new Uint8ClampedArray(rgba), width, height), 0, 0);
+      return canvas.transferToImageBitmap();
+    }
+  } catch {
+    // environment without bitmap support — RGBA path still works
+  }
+  return null;
+}
+
+/** Async ImageBitmap creation (DOM canvas fallback). */
 export async function createBitmapFromRgba(
   rgba: Uint8Array,
   width: number,

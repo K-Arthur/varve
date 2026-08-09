@@ -9,6 +9,7 @@
 import { imagePlaceholderFill } from '../imagePlaceholder';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
 import type { ReplayTarget } from '../replay';
+import { getMediaRegistry } from '../media';
 import type { Primitive } from '../types';
 import { fitRect } from './fit';
 import type { Quad, Vec2 } from './homography';
@@ -44,11 +45,19 @@ export interface WarpImageCacheLike {
  */
 export function resolveReplayImage(
   src: string,
-  lookup: ((src: string) => CanvasImageSource | undefined) | null,
+  lookup: ((src: string, frame?: number) => CanvasImageSource | undefined) | null,
   cache: WarpImageCacheLike,
+  frame?: number,
 ): CanvasImageSource | undefined {
   if (lookup) {
-    return lookup(src);
+    return lookup(src, frame);
+  }
+  // Animated-media frame path: composited frames come from the session
+  // frame cache (bitmap-promoted on the main thread); absent bitmaps fall
+  // back to the async reframe contract (caller re-renders on cache change).
+  if (frame !== undefined) {
+    const media = resolveMediaFrameSource(src, frame);
+    if (media) return media;
   }
   const loadableSource = resolveImageResourceHandle(src);
   const imgEntry = cache.get(loadableSource);
@@ -60,6 +69,25 @@ export function resolveReplayImage(
       /* errors recorded in cache entry */
     });
   }
+  return undefined;
+}
+
+/**
+ * Resolve a composited animated-media frame for replay (main thread).
+ * Returns a renderable ImageBitmap when one is already promoted; otherwise
+ * triggers async promotion (the reframe contract re-renders when ready).
+ * No-op for non-media assets — zero cost on the static hot path.
+ */
+export function resolveMediaFrameSource(
+  src: string,
+  frame: number,
+): CanvasImageSource | undefined {
+  const session = getMediaRegistry().get(src);
+  if (!session) return undefined;
+  if (!session.getComposited(frame)) return undefined;
+  const bitmap = session.getBitmapSync(frame);
+  if (bitmap) return bitmap;
+  void session.getBitmap(frame).catch(() => {});
   return undefined;
 }
 

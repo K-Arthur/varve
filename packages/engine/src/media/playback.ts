@@ -95,7 +95,7 @@ export function resolveUsageFrame(
   };
 }
 
-/** Convenience wrapper for callers holding `AnimatedImageMetadata`. */
+/** Convenience wrapper for callers holding `AnimatedAssetMetadata`. */
 export function usageTiming(frames: ArrayLike<{ durationMs: number }>): FrameTiming {
   const durations: number[] = [];
   for (let i = 0; i < frames.length; i++) durations.push(frames[i]!.durationMs);

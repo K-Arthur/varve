@@ -5,7 +5,7 @@
  */
 
 import { isTauriRuntime as isTauri } from '@varve/platform';
-import type { DecodedSourceFrame, MediaFormat } from '../types';
+import type { MediaFormat } from '../types';
 import type { DecodeRange, MediaDecoderProvider } from './types';
 
 interface NativeDecodedFrameJson {
