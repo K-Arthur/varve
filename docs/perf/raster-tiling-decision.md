@@ -1,5 +1,15 @@
 # Raster tiling — decision record (2026-08-02, measured 2026-08-03)
 
+> **Status update (2026-08-09): a multi-resolution tiled pyramid milestone is
+> now in progress.** Step 1 (dirty-tile-only replay) shipped. Step 2
+> (visible-tile/LOD rendering) is now approved and implemented under
+> ADR-0214 (`docs/adr/0214-multi-resolution-tiled-pyramid.md`), with the full
+> repository audit in `docs/architecture/raster-pyramid-audit.md` and the
+> measured baseline in `docs/perf/raster-pyramid-baseline-2026-08-09.md`.
+> The "not approved without further evidence" statement for pyramids below
+> refers to the 2026-08-03 evidence state; the milestone supplies that
+> evidence.
+
 > **Status update (2026-08-03): the trigger is now MET for layers of 2048×2048
 > and above.** The 2026-08-02 record below deferred the work with an estimated
 > trigger of "~1024 tiles (4096²)". Measurement shows the frame budget is blown
