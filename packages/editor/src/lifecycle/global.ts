@@ -6,6 +6,7 @@
  */
 
 import type { TerminationCoordinator } from './coordinator';
+import type { TerminationIntent } from './types';
 
 let coordinator: TerminationCoordinator | null = null;
 
@@ -19,4 +20,20 @@ export function getLifecycleCoordinator(): TerminationCoordinator | null {
 
 export function uninstallLifecycleCoordinator(): void {
   coordinator = null;
+}
+
+/** Platform commit action: desktop installs the native close/exit bridge;
+ *  web leaves it unset (browser unload is browser-controlled). */
+let finalizeHandler: ((intent: TerminationIntent) => void | Promise<void>) | null = null;
+
+export function setLifecycleFinalizeHandler(
+  handler: ((intent: TerminationIntent) => void | Promise<void>) | null,
+): void {
+  finalizeHandler = handler;
+}
+
+export function getLifecycleFinalizeHandler():
+  | ((intent: TerminationIntent) => void | Promise<void>)
+  | null {
+  return finalizeHandler;
 }
