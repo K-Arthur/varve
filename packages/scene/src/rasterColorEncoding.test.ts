@@ -12,7 +12,8 @@ import {
   validateIccProfileEntry,
   validateRasterColorEncoding,
 } from './assets';
-import { createDocument } from './document';
+import { createDocument, type Document } from './document';
+import { CURRENT_DOCUMENT_VERSION } from './version';
 import { migrateDocument, serializeDocument } from './version';
 
 const P3_ENCODING = {
@@ -49,18 +50,24 @@ describe('validateRasterColorEncoding', () => {
     expect(
       validateRasterColorEncoding('a', {
         model: 'rgb',
-        primaries: 'ntsc',
+        primaries: 'ntsc' as never,
         provenance: 'embedded-icc',
       }),
     ).toContain('primaries');
-    expect(validateRasterColorEncoding('a', { model: 'rgb', provenance: 'made-up' })).toContain(
-      'provenance',
-    );
-    expect(validateRasterColorEncoding('a', { model: 'hsv', provenance: 'unknown' })).toContain(
+    expect(
+      validateRasterColorEncoding('a', { model: 'rgb', provenance: 'made-up' as never }),
+    ).toContain('provenance');
+    expect(
+      validateRasterColorEncoding('a', { model: 'hsv' as never, provenance: 'unknown' }),
+    ).toContain(
       'model',
     );
     expect(
-      validateRasterColorEncoding('a', { model: 'rgb', provenance: 'assumed', bitDepth: 9 }),
+      validateRasterColorEncoding('a', {
+        model: 'rgb',
+        provenance: 'assumed',
+        bitDepth: 9 as never,
+      }),
     ).toContain('bitDepth');
   });
 
@@ -136,9 +143,9 @@ describe('IccProfileEntry enrichment', () => {
 
 describe('document round-trip', () => {
   it('migrates to 2.19 and preserves raster colour metadata', () => {
-    let doc = createDocument('colour-doc') as import('./types').Document;
-    doc = migrateDocument(doc) as import('./types').Document;
-    expect(doc.formatVersion).toBe('2.19');
+    let doc: Document = createDocument('colour-doc');
+    doc = migrateDocument(doc) as unknown as Document;
+    expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
 
     // Add an asset with colour metadata, serialize, reload.
     const asset = createEmbeddedAsset({
@@ -156,9 +163,11 @@ describe('document round-trip', () => {
         colorEncoding: { ...P3_ENCODING, provenance: 'embedded-icc', profileId: 'icc-abc' },
       },
     });
-    doc = { ...doc, assets: { [asset.id]: asset } } as import('./types').Document;
+    doc = { ...doc, assets: { [asset.id]: asset } } as Document;
     const serialized = serializeDocument(doc);
-    const reloaded = migrateDocument(JSON.parse(serialized)) as import('./types').Document;
+    const reloaded = migrateDocument(
+      JSON.parse(serialized) as unknown as Record<string, unknown>,
+    ) as unknown as Document;
     const reloadedAsset = reloaded.assets?.[asset.id];
     expect(reloadedAsset?.metadata?.colorEncoding).toMatchObject({
       primaries: 'display-p3',
@@ -190,7 +199,7 @@ describe('document round-trip', () => {
       formatVersion: string;
       assets?: Record<string, { metadata?: unknown }>;
     };
-    expect(migrated.formatVersion).toBe('2.19');
+    expect(migrated.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
     const asset = migrated.assets?.['asset-1'] as { metadata?: unknown };
     expect(asset.metadata).toBeUndefined();
   });
