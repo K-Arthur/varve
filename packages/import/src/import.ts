@@ -1,6 +1,7 @@
 import type { Affine } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
-import { addNode, createDocument, nextNodeId } from '@varve/scene';
+import { addNode, createDocument, findOrCreateEmbeddedAsset, nextNodeId } from '@varve/scene';
+import { detectImageMime } from './bitmap';
 import { getBitmapInfo, importImageAsFill } from './image';
 import { getParser, getParserForData, getParserForExtension } from './registry';
 import type { ImportOptions, ImportResult } from './types';
@@ -17,9 +18,9 @@ export function importFile(
     return parser.parse(data, options);
   }
 
-  // Fallback: treat as image based on extension
-  const imageExts = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp'];
-  if (imageExts.includes(ext.toLowerCase()) && typeof data !== 'string') {
+  // Raster fallback is content-sniffed. The filename is presentation data,
+  // not authority for MIME or decoder selection.
+  if (typeof data !== 'string' && detectImageMime(data) !== null) {
     return importImageAsFile(data, filename, options);
   }
 
@@ -67,8 +68,18 @@ function importImageAsFile(
   const { id, doc: d2 } = nextNodeId(doc);
   doc = d2;
 
-  const fill = importImageAsFill(data, filename, { embedAsDataUrl: opts.embedImages });
+  let fill = importImageAsFill(data, filename, { embedAsDataUrl: opts.embedImages });
   const info = getBitmapInfo(data);
+  if (opts.embedImages && fill.image) {
+    const registered = findOrCreateEmbeddedAsset(doc, {
+      dataUrl: fill.image.src,
+      mimeType: info.mime,
+      naturalWidth: info.w,
+      naturalHeight: info.h,
+    });
+    doc = registered.document;
+    fill = { ...fill, image: { ...fill.image, assetId: registered.assetId } };
+  }
   // Fall back to a sensible default when the format's dimensions can't be parsed
   // (e.g. rare BMP variants, future formats). The engine will show the image at
   // natural size once the async cache load completes and triggers a re-render.

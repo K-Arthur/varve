@@ -9,10 +9,12 @@
 import type { Document } from '@varve/scene';
 import { DocumentCodec } from '@varve/scene';
 import { createAiParser } from './ai';
+import { detectImageMime } from './bitmap';
 import { createEpsParser } from './eps';
 import { importFile } from './import';
 import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
+import { inspectRasterBytes } from './rasterInspection';
 import { getParserForData, getParserForExtension, registerParser } from './registry';
 import { createSketchParser } from './sketch';
 import { createSvgParser } from './svg';
@@ -166,8 +168,11 @@ async function importOne(
   const format = extension(input.name);
   ensureBuiltInsRegistered();
   const parser = getParserForExtension(format) ?? getParserForData(data);
+  const rasterCandidate =
+    data instanceof Uint8Array &&
+    (isRasterFallbackFormat(format) || detectImageMime(data) !== null);
 
-  if (!parser && !(data instanceof Uint8Array && isRasterFallbackFormat(format))) {
+  if (!parser && !rasterCandidate) {
     return {
       name: input.name,
       source: input.source,
@@ -189,6 +194,7 @@ async function importOne(
   }
 
   try {
+    if (!parser && data instanceof Uint8Array) inspectRasterBytes(data);
     const validation = parser ? await validateImport(data, input.name) : null;
     assertNotAborted(signal);
     const result = importFile(input.name, data, options);
