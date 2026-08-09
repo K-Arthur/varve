@@ -126,6 +126,7 @@ export * from './text/grapheme';
 export * from './textFlow';
 export * from './textToOutlines';
 export * from './textWarp';
+export * from './thumbnail/resolve';
 export * from './types';
 export * from './typography';
 export * from './typographyPreflight';

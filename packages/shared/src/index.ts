@@ -372,6 +372,7 @@ export {
   measureWrappedText,
   textWrap,
 } from './textMeasure';
+export * from './thumbnail/contracts';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';
 export type { DocumentUnit, SpecUnit } from './units';
 export {
