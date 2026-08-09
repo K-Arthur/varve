@@ -258,7 +258,79 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
             path.display()
         )
     })?;
+    // Best-effort directory fsync so the rename itself is durable, not just
+    // the file contents. Not supported on every OS/filesystem (NFS, some
+    // Windows volumes); failure here is ignored rather than failing the save.
+    #[cfg(unix)]
+    {
+        if let Ok(dir) = std::fs::File::open(parent) {
+            let _ = dir.sync_all();
+        }
+    }
     Ok(())
+}
+
+/// Canonicalize an untrusted path exactly like `resolve_user_path`, but
+/// WITHOUT the home/temp scope restriction.
+///
+/// Used ONLY by commands whose paths originate from the native OS dialog
+/// (`plugin:dialog|open` / `plugin:dialog|save`). The dialog is the trust
+/// boundary: the user explicitly chose these locations, and legitimate
+/// documents live anywhere the user keeps them — other drives, removable
+/// media, network mounts, iCloud/Documents on macOS. Restricting them to
+/// $HOME would make the app silently unable to open or save its own
+/// documents outside the home directory.
+///
+/// The same canonicalization (symlink resolution via the nearest existing
+/// ancestor) and the same lexical traversal rejection still apply, so a
+/// webview bug can never escape a real directory via `..` tricks.
+fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
+    if raw.is_empty() {
+        return Err("Path must not be empty".into());
+    }
+    if raw.contains('\0') {
+        return Err("Path must not contain NUL bytes".into());
+    }
+    let path = std::path::Path::new(raw);
+
+    // Lexical traversal rejection runs BEFORE any syscall: the kernel
+    // resolves '..' inside existing paths, so `path.exists()` would
+    // happily report `existing_dir/../../etc/passwd` as present and the
+    // canonicalize branch would accept it.
+    if path.components().any(|c| {
+        matches!(
+            c,
+            std::path::Component::CurDir | std::path::Component::ParentDir
+        )
+    }) {
+        return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
+    }
+
+    if path.exists() {
+        return std::fs::canonicalize(path).map_err(|e| format!("Failed to resolve path: {e}"));
+    }
+
+    let mut ancestor = path;
+    let mut suffix: Vec<&std::ffi::OsStr> = Vec::new();
+    loop {
+        if ancestor.exists() {
+            break;
+        }
+        let Some(name) = ancestor.file_name() else {
+            return Err("Path does not resolve to any existing ancestor directory".into());
+        };
+        suffix.push(name);
+        let Some(parent) = ancestor.parent() else {
+            return Err("Path does not resolve to any existing ancestor directory".into());
+        };
+        ancestor = parent;
+    }
+    let mut resolved = std::fs::canonicalize(ancestor)
+        .map_err(|e| format!("Failed to resolve existing ancestor {}: {e}", ancestor.display()))?;
+    for component in suffix.into_iter().rev() {
+        resolved.push(component);
+    }
+    Ok(resolved)
 }
 
 #[tauri::command]
@@ -288,7 +360,10 @@ fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
 
 #[tauri::command]
 fn read_dropped_file(path: String) -> Result<Vec<u8>, String> {
-    let resolved = resolve_user_path(&path)?;
+    // Dropping a file onto the window is an explicit user gesture — the path
+    // may live anywhere (external drive, network mount). Approved resolver
+    // still canonicalizes and rejects traversal.
+    let resolved = resolve_user_path_approved(&path)?;
     std::fs::read(&resolved).map_err(|e| e.to_string())
 }
 
@@ -1970,26 +2045,27 @@ fn home_upsert_file(
     entry: HomeFileInput,
     json: String,
 ) -> Result<(), String> {
+    // Single transaction: the document JSON and its file row are committed
+    // together — a crash between the two statements must not leave a row
+    // pointing at missing content (save_document_with_file).
+    let row = varve_sync::FileRow {
+        id: entry.id,
+        name: entry.name,
+        kind: entry.kind,
+        project_id: entry.project_id,
+        created_at: epoch_ms_to_rfc3339(entry.created_at),
+        updated_at: epoch_ms_to_rfc3339(entry.updated_at),
+        opened_at: epoch_ms_to_rfc3339(entry.opened_at),
+        size: entry.size,
+        pinned: entry.pinned,
+        trashed_at: entry.trashed_at.map(epoch_ms_to_rfc3339),
+        file_path: entry.file_path,
+        ordering: entry.ordering,
+        content_hash: entry.content_hash,
+        favorited_at: entry.favorited_at.filter(|&t| t > 0),
+    };
     store
-        .save_document(&entry.id, &json)
-        .map_err(|e| e.to_string())?;
-    store
-        .upsert_file(
-            &entry.id,
-            &entry.name,
-            &entry.kind,
-            entry.project_id.as_deref(),
-            &epoch_ms_to_rfc3339(entry.created_at),
-            &epoch_ms_to_rfc3339(entry.updated_at),
-            &epoch_ms_to_rfc3339(entry.opened_at),
-            entry.size,
-            entry.pinned,
-            entry.trashed_at.map(epoch_ms_to_rfc3339).as_deref(),
-            entry.file_path.as_deref(),
-            &entry.ordering,
-            &entry.content_hash,
-            entry.favorited_at.filter(|&t| t > 0),
-        )
+        .save_document_with_file(&json, &row)
         .map_err(|e| e.to_string())
 }
 
@@ -2267,6 +2343,24 @@ fn home_read_text_file(path: String) -> Result<String, String> {
 #[tauri::command]
 fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
     let resolved = resolve_user_path(&path)?;
+    write_file_atomic(&resolved, contents.as_bytes())
+}
+
+// Dialog-approved variants: paths chosen through the native open/save
+// dialogs (see resolve_user_path_approved). Documents may legitimately live
+// outside $HOME (other drives, removable media, network mounts); the strict
+// home-scope variants above remain for anything whose path did not come
+// from a user dialog.
+
+#[tauri::command]
+fn home_read_text_file_approved(path: String) -> Result<String, String> {
+    let resolved = resolve_user_path_approved(&path)?;
+    std::fs::read_to_string(&resolved).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_write_text_file_approved(path: String, contents: String) -> Result<(), String> {
+    let resolved = resolve_user_path_approved(&path)?;
     write_file_atomic(&resolved, contents.as_bytes())
 }
 
@@ -2622,6 +2716,8 @@ pub fn run() {
             home_reorder_file,
             home_read_text_file,
             home_write_text_file,
+            home_read_text_file_approved,
+            home_write_text_file_approved,
             write_binary_file,
             read_dropped_file,
             read_clipboard_image_png,
@@ -3743,6 +3839,34 @@ mod tests {
             result.is_err(),
             "'..' segments in a not-yet-existing suffix must be rejected, not silently joined"
         );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_user_path_approved_accepts_paths_outside_home() {
+        // The approved resolver is what lets documents on other drives and
+        // removable media open/save. An existing system file outside $HOME
+        // (e.g. /etc/hosts on Linux) must canonicalize successfully here —
+        // unlike resolve_user_path, which rejects it. /etc/hosts exists on
+        // every Linux/macOS dev machine.
+        let resolved = resolve_user_path_approved("/etc/hosts")
+            .expect("approved resolver accepts an existing out-of-home path");
+        assert!(resolved.is_absolute());
+    }
+
+    #[test]
+    fn resolve_user_path_approved_still_rejects_traversal() {
+        let dir = std::env::temp_dir().join(format!("varve_path_test_approved_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let escaping = dir.join("..").join("..").join("etc").join("passwd");
+
+        assert!(
+            resolve_user_path_approved(escaping.to_str().expect("utf8 path")).is_err(),
+            "approved resolver must still reject '..' in a not-yet-existing suffix"
+        );
+        assert!(resolve_user_path_approved("").is_err());
+        assert!(resolve_user_path_approved("/tmp/foo\0bar").is_err());
 
         let _ = std::fs::remove_dir_all(&dir);
     }
