@@ -5,7 +5,7 @@
 import { type RenderItem, type ReplayTarget, replayIr } from '@varve/engine';
 import { asRenderRevision } from '@varve/shared';
 import { canvasBackingSize } from '../canvas/canvasSurface';
-import { closeImageBitmapMap, replaceImageBitmapMap } from './collectImageBitmaps';
+import { closeImageBitmapMap, reconcileImageBitmapMap } from './collectImageBitmaps';
 import { applyProofToIr } from './proofing';
 import { shouldTransferRenderedFrame } from './renderWorkerGuards';
 import { applyWorkerCamera } from './workerCamera';
@@ -62,6 +62,7 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     }
     const surfaceMs = timingEnabled ? performance.now() - surfaceStart : 0;
     if (!ctx) {
+      if (msg.images) closeImageBitmapMap(msg.images);
       post({
         type: 'error',
         message: 'OffscreenCanvas 2d unavailable',
@@ -70,21 +71,31 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       });
       return;
     }
-    // Update image map from Structured Clone transport
-    if (msg.images) imageMap = replaceImageBitmapMap(imageMap, msg.images);
+    // Apply only newly required resources and prune sources absent from the
+    // authoritative manifest. Legacy full-map commands remain supported.
+    if (msg.images || msg.imageSources) {
+      imageMap = reconcileImageBitmapMap(
+        imageMap,
+        msg.images ?? {},
+        msg.imageSources ?? Object.keys(msg.images ?? imageMap),
+      );
+    }
     try {
       const renderStartedAt = timingEnabled ? performance.now() : 0;
       ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
       ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
       ctx.save();
-      applyWorkerCamera(ctx, msg.camera, msg.dpr, msg.viewport);
-      // Soft proofing: display-only transform applied before replay. Never
-      // mutates document colors and never runs for exports.
-      const ir = msg.proof
-        ? applyProofToIr(msg.ir as RenderItem[], msg.proof)
-        : (msg.ir as RenderItem[]);
-      replayIr(ctx as unknown as ReplayTarget, ir, (src) => imageMap[src]);
-      ctx.restore();
+      try {
+        applyWorkerCamera(ctx, msg.camera, msg.dpr, msg.viewport);
+        // Soft proofing: display-only transform applied before replay. Never
+        // mutates document colors and never runs for exports.
+        const ir = msg.proof
+          ? applyProofToIr(msg.ir as RenderItem[], msg.proof)
+          : (msg.ir as RenderItem[]);
+        replayIr(ctx as unknown as ReplayTarget, ir, (src) => imageMap[src]);
+      } finally {
+        ctx.restore();
+      }
       const renderEndedAt = timingEnabled ? performance.now() : 0;
       if (shouldTransferRenderedFrame(renderRevision, activeRenderRevision)) {
         const bitmap = canvas.transferToImageBitmap();

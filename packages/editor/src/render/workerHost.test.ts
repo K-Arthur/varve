@@ -208,6 +208,43 @@ describe('render worker host restarts', () => {
     expect(mockWorkers[0]!.postMessage).toHaveBeenCalledTimes(1);
   });
 
+  it('exposes image sources already resident or dispatched to the worker', () => {
+    const host = createRenderWorkerHost(vi.fn())!;
+    const bitmap = mockBitmap();
+
+    expect(host.knownImageSources.size).toBe(0);
+    expect(
+      host.post(renderCommand({ imageSources: ['fresh'], images: { fresh: bitmap } }), [bitmap]),
+    ).toBe(true);
+    expect([...host.knownImageSources]).toEqual(['fresh']);
+
+    host.terminate();
+    expect(host.knownImageSources.size).toBe(0);
+  });
+
+  it('releases transferred bitmap reservations when a render returns an error', () => {
+    const host = createRenderWorkerHost(vi.fn())!;
+    const bitmap = mockBitmap();
+
+    expect(
+      host.post(renderCommand({ imageSources: ['fresh'], images: { fresh: bitmap } }), [bitmap]),
+    ).toBe(true);
+    expect(host.getBitmapBudgetState().inFlightBytes).toBe(4);
+
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'error',
+          message: 'render failed',
+          docVersion: 1,
+          renderRevision: 1,
+        },
+      }),
+    );
+
+    expect(host.getBitmapBudgetState().inFlightBytes).toBe(0);
+  });
+
   it('closes render ImageBitmaps when a permanent host refuses the post', () => {
     const host = createRenderWorkerHost(vi.fn());
     host!.terminate();

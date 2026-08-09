@@ -1,7 +1,11 @@
 import type { RenderItem } from '@varve/engine';
 import { getImageCache, resetImageCache } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { collectImageBitmaps, replaceImageBitmapMap } from './collectImageBitmaps';
+import {
+  collectImageBitmaps,
+  reconcileImageBitmapMap,
+  replaceImageBitmapMap,
+} from './collectImageBitmaps';
 
 function bitmap(close: () => void): ImageBitmap {
   return { width: 1, height: 1, close } as unknown as ImageBitmap;
@@ -57,6 +61,24 @@ describe('worker ImageBitmap lifecycle', () => {
     expect(retained.close).not.toHaveBeenCalled();
   });
 
+  it('reconciles a delta against the authoritative source manifest', () => {
+    const retained = bitmap(vi.fn());
+    const removed = bitmap(vi.fn());
+    const added = bitmap(vi.fn());
+    const unexpected = bitmap(vi.fn());
+
+    const next = reconcileImageBitmapMap({ retained, removed }, { added, unexpected }, [
+      'retained',
+      'added',
+    ]);
+
+    expect(next).toEqual({ retained, added });
+    expect(retained.close).not.toHaveBeenCalled();
+    expect(removed.close).toHaveBeenCalledOnce();
+    expect(added.close).not.toHaveBeenCalled();
+    expect(unexpected.close).toHaveBeenCalledOnce();
+  });
+
   it('closes already-created bitmaps when collection cannot finish', async () => {
     const first = bitmap(vi.fn());
     getImageCache().setLoaded('first.png', image('first.png'));
@@ -81,8 +103,11 @@ describe('worker ImageBitmap lifecycle', () => {
     await expect(
       collectImageBitmaps([imageItem('a.png', 'b.png', 'c.png')], { maxEntries: 2 }),
     ).resolves.toBeNull();
-    expect(bmps[0]!.close).toHaveBeenCalledOnce();
-    expect(bmps[1]!.close).toHaveBeenCalledOnce();
+    // Reject before allocating any bitmap when the manifest itself is over
+    // the worker's resident-entry budget.
+    expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
+    expect(bmps[0]!.close).not.toHaveBeenCalled();
+    expect(bmps[1]!.close).not.toHaveBeenCalled();
     expect(bmps[2]!.close).not.toHaveBeenCalled();
   });
 
@@ -94,5 +119,20 @@ describe('worker ImageBitmap lifecycle', () => {
     const collected = await collectImageBitmaps([imageItem('a.png')]);
     expect(collected).not.toBeNull();
     expect(collected!.bytes).toBe(40 * 30 * 4);
+  });
+
+  it('creates only missing bitmaps while returning the full required-source manifest', async () => {
+    const fresh = bitmap(vi.fn());
+    getImageCache().setLoaded('resident.png', image('resident.png'));
+    getImageCache().setLoaded('fresh.png', image('fresh.png'));
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(fresh);
+
+    const collected = await collectImageBitmaps([imageItem('resident.png', 'fresh.png')], {
+      residentSources: new Set(['resident.png']),
+    });
+
+    expect(collected?.sources).toEqual(['resident.png', 'fresh.png']);
+    expect(collected?.images).toEqual({ 'fresh.png': fresh });
+    expect(globalThis.createImageBitmap).toHaveBeenCalledOnce();
   });
 });

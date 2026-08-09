@@ -95,7 +95,6 @@ export class ImageCache {
     this.entryBytes.delete(url);
     this.cache.delete(url);
     this.accessTimes.delete(url);
-    this.listeners.delete(url);
     if (countEviction) this.evictions++;
   }
 
@@ -375,5 +374,6 @@ export function getImageCache(): ImageCache {
 }
 
 export function resetImageCache(): void {
+  globalCache?.clear();
   globalCache = null;
 }
