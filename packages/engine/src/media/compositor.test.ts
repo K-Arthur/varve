@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { compositeAll, compositeRange, createCompositeState } from './compositor';
+import { compositeAll, compositeRange } from './compositor';
 import {
   buildFrameTiming,
   frameIndexForTime,

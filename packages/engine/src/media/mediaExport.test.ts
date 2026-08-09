@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { decodeGifFrames } from './tsGif';
 import { exportAnimatedMediaToGif } from '../gifExport';
+import { decodeGifFrames } from './tsGif';
 
 function solid(w: number, h: number, value: number): Uint8Array {
   const px = new Uint8Array(w * h * 4);
