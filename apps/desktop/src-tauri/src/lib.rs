@@ -1,6 +1,7 @@
 mod crash;
 mod font;
 mod font_storage;
+mod lifecycle;
 mod menu;
 mod print;
 mod renderer;
@@ -1357,6 +1358,72 @@ fn sanitize_trace_options(raw: TraceImageOptions) -> varve_trace::TraceOptions {
     }
 }
 
+// ── Animated media decode ────────────────────────────────────────────────
+
+/// Raw binary IPC variant for animated media: the encoded file travels as
+/// the request body; decode options travel as a small JSON header. Mirrors
+/// the trace/upscale binary channels.
+#[tauri::command]
+async fn media_probe_binary(
+    request: tauri::ipc::Request<'_>,
+) -> Result<String, String> {
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err("media_probe_binary requires an application/octet-stream body".into())
+        }
+    };
+    let probe = tauri::async_runtime::spawn_blocking(move || {
+        varve_media::probe(&bytes, &varve_media::DEFAULT_LIMITS)
+    })
+    .await
+    .map_err(|e| format!("media probe task failed: {e}"))??;
+    serde_json::to_string(&probe).map_err(|e| format!("media probe serialize failed: {e}"))
+}
+
+#[tauri::command]
+async fn media_decode_frames_binary(
+    request: tauri::ipc::Request<'_>,
+) -> Result<Vec<varve_media::DecodedFrameJson>, String> {
+    const OPTIONS_HEADER: &str = "x-varve-media-opts";
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err("media_decode_frames_binary requires an application/octet-stream body".into())
+        }
+    };
+    let options_json = request
+        .headers()
+        .get(OPTIONS_HEADER)
+        .ok_or_else(|| format!("Missing {OPTIONS_HEADER} header"))?
+        .to_str()
+        .map_err(|_| format!("Invalid {OPTIONS_HEADER} header"))?
+        .to_owned();
+    let options: MediaDecodeOptions = serde_json::from_str(&options_json)
+        .map_err(|e| format!("Invalid media decode options: {e}"))?;
+    if options.start > options.end {
+        return Err("media decode range start exceeds end".into());
+    }
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        varve_media::decode_frames_base64(
+            &bytes,
+            options.start,
+            options.end,
+            &varve_media::DEFAULT_LIMITS,
+        )
+    })
+    .await
+    .map_err(|e| format!("media decode task failed: {e}"))??;
+    Ok(result)
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MediaDecodeOptions {
+    start: u32,
+    end: u32,
+}
+
 #[tauri::command]
 async fn trace_image(
     app: tauri::AppHandle,
@@ -2405,6 +2472,9 @@ pub fn run() {
         .plugin(tauri_plugin_wdio_webdriver::init());
 
     builder
+        // Native termination interception (ADR-0216 D5): close/exit is
+        // prevented until the frontend coordinator approves it.
+        .on_window_event(lifecycle::handle_window_event)
         .setup(|app| {
             // Native ONNX Runtime init deliberately does NOT happen here.
             // Loading a native dylib this early — before the webview has
@@ -2427,6 +2497,7 @@ pub fn run() {
             app.manage(store);
             app.manage(UpscaleCancelState::new());
             app.manage(TraceCancelState::new());
+            app.manage(lifecycle::LifecycleGuard::new());
 
             // WebKitGTK owns the touchpad pinch gesture and applies it as page
             // zoom, scaling the entire UI. The gesture never reaches JS, so the
@@ -2508,6 +2579,8 @@ pub fn run() {
             crash::crash_list_reports,
             crash::crash_read_report,
             crash::crash_delete_report,
+            lifecycle::approve_window_close,
+            lifecycle::approve_exit,
             menu::build_native_menu,
             menu::update_native_menu_state,
             build_render_ir,
@@ -2562,6 +2635,8 @@ pub fn run() {
             content_aware_fill,
             trace_image,
             trace_image_binary,
+            media_probe_binary,
+            media_decode_frames_binary,
             begin_trace_job,
             cancel_trace,
             upscale_image,
@@ -2600,8 +2675,13 @@ pub fn run() {
             list_plugins,
             close_splashscreen,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Run-event interception (ExitRequested → coordinator) — the
+            // only place Tauri 2 exposes the exit veto (ADR-0216 D5).
+            lifecycle::handle_run_event(app_handle, event);
+        });
 }
 
 // ── Native Print ────────────────────────────────────────────────────────
