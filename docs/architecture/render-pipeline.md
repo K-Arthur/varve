@@ -6,6 +6,9 @@
 > extension contract is [canvas2d-system.md](canvas2d-system.md). The target model is
 > one Tauri production editor plus a browser compatibility harness; `apps/web` is not
 > a production application.
+>
+> Raster ingestion, asset identity, decode-cache ownership, and worker bitmap
+> lifecycle are maintained in [image-lifecycle.md](image-lifecycle.md).
 
 ## Overview
 
