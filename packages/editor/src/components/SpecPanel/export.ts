@@ -36,6 +36,7 @@ import {
   composeFlattenedRasterAssetsForNode,
   findFlattenBoundaries,
 } from '../../export/compositor';
+import { resolveSourcesForLoad } from '../../render/collectImageBitmaps';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
 import { worldBBox } from './measurement';
@@ -95,7 +96,11 @@ async function preloadEngineImages(nodes: readonly EngineNode[]): Promise<void> 
     }
     if (current.alphaMask) sources.add(current.alphaMask);
   }
-  await Promise.all([...sources].map((source) => getImageCache().load(source)));
+  // IR identities may be canonical resource handles; resolve them to
+  // loadable cache sources before touching the cache.
+  const loadable = resolveSourcesForLoad([...sources]);
+  if (loadable === null) return;
+  await Promise.all(loadable.map((source) => getImageCache().load(source)));
 }
 
 function unionBounds(

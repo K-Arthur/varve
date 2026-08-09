@@ -433,6 +433,14 @@ export type {
   QualityMetricResult,
   QualityReport,
 } from './imageQuality/qualityTypes';
+export {
+  imageResourceRegistrySize,
+  isImageResourceHandle,
+  registerImageResourceHandle,
+  resetImageResourceRegistry,
+  resolveImageResourceHandle,
+  unregisterImageResourceHandle,
+} from './imageResourceRegistry';
 export type {
   DownloadProgress,
   InferenceEvents,
@@ -702,6 +710,7 @@ export type { GradientPreset, TritonePreset } from './presets';
 export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
+export * from './rasterPyramid';
 export type {
   FittedRasterDimensions,
   RasterCanvas,
@@ -759,12 +768,11 @@ export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './text
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
 export { applyThreshold, type ThresholdParams } from './threshold';
-export type { ThumbnailOptions } from './thumbnail';
-export { renderThumbnail } from './thumbnail';
 export type {
   ThumbnailBackground,
   ThumbnailCapabilities,
   ThumbnailFit,
+  ThumbnailFormat,
   ThumbnailMetadata,
   ThumbnailOptions as UnifiedThumbnailOptions,
   ThumbnailResult,
@@ -781,6 +789,7 @@ export {
   hasOffscreenCanvas,
   hasWorkerSupport,
   setThumbnailCapabilitiesForTest,
+  THUMBNAIL_RENDERER_VERSION,
 } from './thumbnail/index';
 export type { BezierFitOptions } from './traceBezierFit';
 export { fitBezierToContour } from './traceBezierFit';

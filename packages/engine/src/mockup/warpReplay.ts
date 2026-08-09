@@ -6,6 +6,7 @@
  * module and tests.
  */
 
+import { resolveImageResourceHandle } from '../imageResourceRegistry';
 import type { ReplayTarget } from '../replay';
 import type { Primitive } from '../types';
 import { fitRect } from './fit';
@@ -36,7 +37,9 @@ export interface WarpImageCacheLike {
  * Resolve an image source for replay: worker path uses the pre-decoded
  * bitmap lookup; main thread uses the shared image cache (kicking off an
  * async load when idle — the caller schedules another frame on cache
- * changes).
+ * changes). `src` may be a canonical resource handle (registered by the
+ * editor at scene conversion time); legacy raw sources (data:/blob:/http)
+ * resolve directly.
  */
 export function resolveReplayImage(
   src: string,
@@ -46,12 +49,13 @@ export function resolveReplayImage(
   if (lookup) {
     return lookup(src);
   }
-  const imgEntry = cache.get(src);
+  const loadableSource = resolveImageResourceHandle(src);
+  const imgEntry = cache.get(loadableSource);
   if (imgEntry?.state === 'loaded' && imgEntry.image) {
     return imgEntry.image;
   }
   if (!imgEntry || imgEntry.state === 'idle') {
-    cache.load(src).catch(() => {
+    cache.load(loadableSource).catch(() => {
       /* errors recorded in cache entry */
     });
   }

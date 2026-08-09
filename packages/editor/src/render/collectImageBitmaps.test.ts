@@ -1,10 +1,18 @@
 import type { RenderItem } from '@varve/engine';
-import { getImageCache, resetImageCache } from '@varve/engine';
+import {
+  getImageCache,
+  registerImageResourceHandle,
+  resetImageCache,
+  resetImageResourceRegistry,
+} from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   collectImageBitmaps,
+  imageSrcsFromIr,
+  irHasUnsupportedWorkerMasks,
   reconcileImageBitmapMap,
   replaceImageBitmapMap,
+  resolveSourcesForLoad,
 } from './collectImageBitmaps';
 
 function bitmap(close: () => void): ImageBitmap {
@@ -41,10 +49,12 @@ describe('worker ImageBitmap lifecycle', () => {
 
   beforeEach(() => {
     resetImageCache();
+    resetImageResourceRegistry();
   });
 
   afterEach(() => {
     resetImageCache();
+    resetImageResourceRegistry();
     globalThis.createImageBitmap = originalCreateImageBitmap;
     vi.restoreAllMocks();
   });
@@ -134,5 +144,128 @@ describe('worker ImageBitmap lifecycle', () => {
     expect(collected?.sources).toEqual(['resident.png', 'fresh.png']);
     expect(collected?.images).toEqual({ 'fresh.png': fresh });
     expect(globalThis.createImageBitmap).toHaveBeenCalledOnce();
+  });
+});
+
+describe('canonical resource handles in worker collection', () => {
+  const originalCreateImageBitmap = globalThis.createImageBitmap;
+
+  beforeEach(() => {
+    resetImageCache();
+    resetImageResourceRegistry();
+  });
+
+  afterEach(() => {
+    resetImageCache();
+    resetImageResourceRegistry();
+    globalThis.createImageBitmap = originalCreateImageBitmap;
+    vi.restoreAllMocks();
+  });
+
+  it('collects the short handle from IR and keys the manifest by it', async () => {
+    const dataUrl = 'data:image/png;base64,AAAA';
+    registerImageResourceHandle('asset-abc123', dataUrl);
+    getImageCache().setLoaded(dataUrl, image(dataUrl));
+    const bmp = bitmap(vi.fn());
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bmp);
+
+    const collected = await collectImageBitmaps([imageItem('asset-abc123')]);
+
+    expect(collected?.images).toEqual({ 'asset-abc123': bmp });
+    expect(collected?.sources).toEqual(['asset-abc123']);
+    // The cache (not the IR) carries the payload: bitmap came from the
+    // data URL entry.
+    expect(getImageCache().isLoaded(dataUrl)).toBe(true);
+  });
+
+  it('refuses collection when a referenced handle is not registered', async () => {
+    const bmp = bitmap(vi.fn());
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bmp);
+    await expect(collectImageBitmaps([imageItem('asset-unregistered')])).resolves.toBeNull();
+    expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
+    expect(bmp.close).not.toHaveBeenCalled();
+  });
+
+  it('resolves multiple identities through the registry', () => {
+    registerImageResourceHandle('asset-a', 'data:image/png;base64,A');
+    registerImageResourceHandle('asset-b', 'data:image/png;base64,B');
+    expect(resolveSourcesForLoad(['asset-a', 'data:image/png;base64,RAW', 'asset-b'])).toEqual([
+      'data:image/png;base64,A',
+      'data:image/png;base64,RAW',
+      'data:image/png;base64,B',
+    ]);
+  });
+
+  it('returns null when any referenced handle is missing', () => {
+    registerImageResourceHandle('asset-aaaaaaaaaaaaaaaa', 'data:image/png;base64,A');
+    expect(resolveSourcesForLoad(['asset-aaaaaaaaaaaaaaaa', 'asset-bbbbbbbbbbbbbbbb'])).toBeNull();
+  });
+
+  it('passes handle-shaped legacy strings through only when registered', () => {
+    // A raw source that is not handle-shaped never touches the registry.
+    expect(resolveSourcesForLoad(['data:image/png;base64,RAW'])).toEqual([
+      'data:image/png;base64,RAW',
+    ]);
+  });
+
+  it('collects raster mask (alphaMask) resources alongside image fills', () => {
+    const ir: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'image',
+            src: 'asset-photo',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+            alphaMask: 'data:image/png;base64,MASK',
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    expect(imageSrcsFromIr(ir)).toEqual(['asset-photo', 'data:image/png;base64,MASK']);
+    expect(irHasUnsupportedWorkerMasks(ir)).toBe(true);
+  });
+
+  it('flags masked fills as worker-unready and keeps the frame on the main thread', async () => {
+    registerImageResourceHandle('asset-photo', 'data:image/png;base64,PHOTO');
+    getImageCache().setLoaded('data:image/png;base64,PHOTO', image('data:image/png;base64,PHOTO'));
+    getImageCache().setLoaded('data:image/png;base64,MASK', image('data:image/png;base64,MASK'));
+    const ir: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'image',
+            src: 'asset-photo',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+            alphaMask: 'data:image/png;base64,MASK',
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    const bmp = bitmap(vi.fn());
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bmp);
+    await expect(collectImageBitmaps(ir)).resolves.toBeNull();
+    expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
   });
 });
