@@ -14,6 +14,7 @@ export interface FakeSession {
   dirty: boolean;
   filePath?: string;
   fileId?: string;
+  saveHandleId?: string;
 }
 
 export interface FakeApiControls {
