@@ -31,6 +31,16 @@ import {
 import { worldBBox } from './components/SpecPanel/measurement';
 import { composeFlattenedRasterAssetsForNode } from './export/compositor';
 import { collectGradientMapFlattenWarnings } from './export/gradientMapPreflight';
+import { loadSettings } from './settings';
+
+/** Resolve the default export colour space from settings. */
+function defaultExportColorProfile(): 'srgb' | 'display-p3' | 'adobe-rgb' | 'pro-photo' {
+  try {
+    return loadSettings().export.defaultColorProfile;
+  } catch {
+    return 'srgb';
+  }
+}
 
 export interface ExportFileReport {
   fileName: string;
@@ -306,6 +316,12 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       // needs explicit target dimensions, which come from the rendered size.
       const pipeline = buildRasterPipeline(rasterOpts);
       const metadata = buildRasterMetadata(rasterOpts);
+      // Colour policy: the legacy `colorProfile` option now drives a real
+      // conversion + profile embedding; absent, the settings default applies.
+      // 'srgb' keeps the prior behaviour exactly (no conversion, no tag).
+      const chosenProfile = rasterOpts?.colorProfile ?? defaultExportColorProfile();
+      const color =
+        chosenProfile !== 'srgb' ? { destination: chosenProfile, embedProfile: true } : undefined;
       const {
         blob,
         warnings: rasterWarnings,
@@ -318,6 +334,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         matteColor: rasterOpts?.matteColor,
         pipeline,
         metadata,
+        color,
       });
       const fontWarnings = collectMissingFontWarnings(node);
       return {
