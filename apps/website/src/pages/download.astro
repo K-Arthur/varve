@@ -141,7 +141,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
 <Layout
   title="Download Varve"
-  description="Download Varve for Linux, macOS, or Windows. Source-available under FSL-1.1-MIT."
+  description="Download Varve beta for Linux, macOS, and Windows — free and source-available under FSL-1.1-MIT. SHA-256 checksums, SBOMs, and system requirements."
 >
   <div class="container-custom">
     <div class="download-page">
@@ -390,6 +390,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   
   .platform-selector {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 2rem;
     border-bottom: 1px solid var(--border-default);
