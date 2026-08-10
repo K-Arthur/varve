@@ -9068,7 +9068,12 @@ export function EditorProvider({
     <EditorCtx.Provider value={value}>
       <DocumentProvider value={documentValue}>
         <ToolProvider state={state} toolRef={toolRef} patch={patch}>
-          <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
+          <ViewportProvider
+            state={state}
+            setState={setState}
+            stateRef={stateRef}
+            panAnimationRef={panAnimRef}
+          >
             <SelectionProvider state={state} setState={setState}>
               <MotionProvider
                 state={state}
