@@ -237,7 +237,7 @@ describe('validateThumbnailSource + hasRenderableContent', () => {
 
   it('ignores adjustment nodes for emptiness', () => {
     const doc = createDocument('empty', true);
-    doc.nodes['adj1'] = {
+    doc.nodes.adj1 = {
       id: 'adj1',
       kind: 'adjustment',
       name: 'adj',
