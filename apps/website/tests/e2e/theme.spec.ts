@@ -320,7 +320,8 @@ test.describe('hero visibility', () => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await freshPage(page);
     const heading = page.getByRole('heading', { level: 1 });
-    await expect(heading).toContainText('Design across disciplines.');
+    await expect(heading).toContainText('Varve');
+    await expect(heading).toContainText('design across disciplines.');
     await expect(heading).toContainText('One canvas.');
     // The rotating decoration must be hidden from AT.
     const rotorAriaHidden = await page.locator('.hero-phrase-rotor').getAttribute('aria-hidden');
@@ -331,11 +332,7 @@ test.describe('hero visibility', () => {
     for (const t of THEMES) {
       await page.emulateMedia({ colorScheme: t.colorScheme });
       await freshPage(page);
-      const heading = page
-        .getByRole('heading', {
-          name: /design across disciplines/i,
-        })
-        .first();
+      const heading = page.getByRole('heading', { name: 'Six disciplines. One document.' });
       await expect(heading).toBeVisible();
       const bg = await effectiveBackground(page, '.disciplines .disciplines-title');
       const color = await page.evaluate(

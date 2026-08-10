@@ -27,10 +27,10 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
-      name: 'How can I try Varve before the first release?',
+      name: 'Has Varve shipped a release yet?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'No public release has been published yet, so there is nothing to install. Follow the GitHub Releases page for the project to be notified when the first beta ships. Until then, downloads labeled "Varve" anywhere else are not official.',
+        text: 'Yes. Varve 0.1.0 was published in August 2026 with installers for Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is an early beta: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.',
       },
     },
     {
@@ -128,8 +128,8 @@ const faqSchema = {
         </div>
 
         <div class="faq-item">
-          <h3>How can I try Varve before the first release?</h3>
-          <p>No public release has been published yet, so there is nothing to install. Follow the <a href="https://github.com/K-Arthur/varve/releases" rel="noopener noreferrer">GitHub Releases page</a> to be notified when the first beta ships. Until then, downloads labeled "Varve" anywhere else are not official.</p>
+          <h3>Has Varve shipped a release yet?</h3>
+          <p>Yes. Varve 0.1.0 was published in August 2026 with installers for Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is an early beta: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.</p>
         </div>
 
         <div class="faq-item">
