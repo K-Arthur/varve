@@ -120,6 +120,34 @@ describe('interactionTrace', () => {
     expect(trace.frameCount).toBe(1);
   });
 
+  it('attributes one coalesced frame to every rapid gesture waiting for presentation', () => {
+    enableInteractionTraces(true);
+    beginInteraction('keyboard');
+    const first = endInteraction()!;
+    beginInteraction('keyboard');
+    const second = endInteraction()!;
+
+    const committedAt = Math.max(first.endedAt, second.endedAt) + 10;
+    notifyFrameCommit(committedAt, 4, { disposition: 'coalesced' });
+
+    expect(first.pointerToPresentMs).not.toBeNull();
+    expect(second.pointerToPresentMs).not.toBeNull();
+    expect(first.frames).toEqual([expect.objectContaining({ disposition: 'coalesced' })]);
+    expect(second.frames).toEqual([expect.objectContaining({ disposition: 'coalesced' })]);
+  });
+
+  it('does not attribute a frame outside the bounded presentation window', () => {
+    enableInteractionTraces(true);
+    beginInteraction('keyboard');
+    const trace = endInteraction()!;
+
+    notifyFrameCommit(trace.endedAt + 251, 4);
+    notifyFrameCommit(trace.endedAt + 252, 4);
+
+    expect(trace.pointerToPresentMs).toBeNull();
+    expect(trace.frameCount).toBe(0);
+  });
+
   it('lets an async phase finish against its originating interaction', () => {
     enableInteractionTraces(true);
     beginInteraction('pointer-drag');

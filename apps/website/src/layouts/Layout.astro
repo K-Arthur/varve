@@ -167,6 +167,29 @@ const csp = [
         if (new URLSearchParams(window.location.search).get('test-motion') === 'static') {
           document.documentElement.dataset.motion = 'static';
         }
+
+        /*
+         * Scroll-reveal safety net.
+         *
+         * The hidden initial state for [data-reveal] is CSS, but only JS ever
+         * adds `.revealed`. Gating the hidden state on this pre-paint flag
+         * means a visitor with JavaScript disabled sees every section
+         * immediately (the attribute is never set) rather than a page of
+         * invisible content — and setting it before first paint avoids the
+         * flash a module-set flag would cause.
+         *
+         * The flag alone does not cover the case where this script runs but
+         * the reveal module fails to load or throws, so a timer reveals
+         * everything unless the module reported readiness. Content must never
+         * depend on an animation succeeding.
+         */
+        var root = document.documentElement;
+        root.dataset.reveal = 'js';
+        window.setTimeout(function () {
+          if (root.dataset.revealReady === 'true') return;
+          var pending = document.querySelectorAll('[data-reveal]:not(.revealed)');
+          for (var i = 0; i < pending.length; i++) pending[i].classList.add('revealed');
+        }, 2500);
       })();
     </script>
 

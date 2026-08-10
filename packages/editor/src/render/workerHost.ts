@@ -48,7 +48,9 @@ export type WorkerCommand =
   | { type: 'resize'; width: number; height: number; dpr: number }
   | { type: 'cancel'; docVersion: number; renderRevision?: RenderRevision }
   /** Clock-calibration ping; `t0` is main.performance.now() before posting. */
-  | { type: 'clockPing'; seq: number; t0: number };
+  | { type: 'clockPing'; seq: number; t0: number }
+  /** Toggle the raster LOD pyramid in the worker realm (ADR-0214 D15). */
+  | { type: 'setRasterLod'; enabled: boolean };
 
 /**
  * Worker-side timing for one render, in the *worker's* `performance.now()`
@@ -98,6 +100,8 @@ export type WorkerResponse =
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
   post(command: WorkerCommand, transfer?: Transferable[]): boolean;
+  /** Toggle the raster LOD pyramid in the worker realm. */
+  setRasterLod(enabled: boolean): void;
   /**
    * Release accounting for a forwarded frame when its canvas owner disposes
    * it before another worker frame replaces it. Returns true only for the
@@ -560,6 +564,15 @@ export function createRenderWorkerHost(
     },
     get knownImageSources() {
       return inFlightImageSources ?? residentImageSources;
+    },
+    setRasterLod(enabled: boolean) {
+      if (!worker || permanentFailure) return;
+      try {
+        postToWorker({ type: 'setRasterLod', enabled } satisfies WorkerCommand, undefined);
+      } catch {
+        // The worker retries or falls back; the flag is not worth a
+        // permanent-failure mark.
+      }
     },
     post(command, transfer) {
       if (!worker || permanentFailure) {
