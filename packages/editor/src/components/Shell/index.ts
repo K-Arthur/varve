@@ -1,3 +1,4 @@
+export { ThumbnailPickerHost } from '../ThumbnailPicker/ThumbnailPickerHost';
 export { DnDShell } from './DnDShell';
 export { ExportLayer, type ExportLayerHandle } from './ExportLayer';
 export { FindReplaceLayer, type FindReplaceLayerHandle } from './FindReplaceLayer';

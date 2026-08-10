@@ -12,6 +12,7 @@ import {
 import { ContextMenu, type MenuEntry } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { usePageThumbnail } from './usePageThumbnail';
 import './pagenav.css';
 
@@ -122,9 +123,11 @@ function SortablePageTab({
 }
 
 export function PageNav() {
-  const { state, updateDoc, setActivePage, setCurrentPageId } = useEditor();
+  const { state, updateDoc, setActivePage, setCurrentPageId, platform, showToast } = useEditor();
   const pages = state.document.pages ?? [];
   const currentId = state.document.activePageId ?? state.currentPageId;
+  const platformRef = useRef(platform);
+  platformRef.current = platform;
 
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const [ctxPageId, setCtxPageId] = useState<string | null>(null);
@@ -271,6 +274,28 @@ export function PageNav() {
 
   const ctxItems: MenuEntry[] = [
     { id: 'duplicate', label: 'Duplicate page', onAction: handleDuplicatePage },
+    {
+      id: 'use-as-file-thumbnail',
+      label: 'Use Page as File Thumbnail',
+      onAction: () => {
+        if (!ctxPageId) return;
+        const fileId = state.sessions.find((s) => s.id === state.activeId)?.fileId;
+        applyThumbnailPreference(
+          {
+            platform: platformRef.current!,
+            document: state.document,
+            selection: [],
+            fileId,
+            showToast: (opts) => showToast(opts),
+          },
+          { type: 'page', pageId: ctxPageId },
+          'File thumbnail now shows this page',
+        );
+        closeContextMenu();
+      },
+      disabled:
+        !platformRef.current || !state.sessions.some((s) => s.id === state.activeId && s.fileId),
+    },
     {
       id: 'delete',
       label: 'Delete page (keep contents)',

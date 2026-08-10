@@ -4,7 +4,7 @@ import {
   FontCatalog,
   resolveManifestAgainstCatalog,
 } from '@varve/engine/font';
-import { type Platform, upsertPreservingMeta } from '@varve/platform';
+import { contentHash, type Platform, upsertPreservingMeta } from '@varve/platform';
 import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback } from 'react';
@@ -82,9 +82,13 @@ export function usePersistence(
         return await saveAsImpl(platform, stateRef, recoveryRef, patch);
       }
       await recoveryRef.current?.deleteSession(s.activeId);
-      // Non-blocking thumbnail persistence after save (falls back to
-      // automatic document overview when no preference is set).
-      void persistProjectThumbnail(platform, s.document).catch(() => undefined);
+      // Non-blocking thumbnail persistence after save. Encrypted sessions
+      // never write plaintext pixels — only the encrypted placeholder.
+      if (meta?.encrypted) {
+        void persistEncryptedThumbnail(platform, json);
+      } else {
+        void persistFileThumbnail(platform, fileId, s.document).catch(() => undefined);
+      }
       patch({
         dirty: false,
         saveState: 'saved',
@@ -272,9 +276,9 @@ export async function saveAsImpl(
     const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
     if (filePath) {
       await recoveryRef.current?.deleteSession(s.activeId);
-      // Non-blocking thumbnail persistence after save-as
-      void persistProjectThumbnail(platform, s.document).catch(() => undefined);
       const fileId = crypto.randomUUID();
+      // Non-blocking thumbnail persistence after save-as
+      persistProjectThumbnail(platform, s.document, { fileId });
       patch({
         dirty: false,
         saveState: 'saved',
@@ -290,5 +294,39 @@ export async function saveAsImpl(
   } catch {
     patch({ saveState: 'error' });
     return false;
+  }
+}
+
+/**
+ * Generate + persist the file's canonical thumbnail after a save, honoring
+ * the user's persisted source preference (read back from the platform index
+ * so the editor and Home always agree on the source).
+ */
+async function persistFileThumbnail(
+  platform: Platform,
+  fileId: string,
+  document: Document,
+): Promise<void> {
+  const entry = await platform.getFile(fileId);
+  await persistProjectThumbnail(platform, document, {
+    fileId,
+    preference: entry?.thumbnailPreference,
+  });
+}
+
+/**
+ * Encrypted-session thumbnail policy: remove any plaintext preview for this
+ * document and store only the content-free encrypted placeholder.
+ */
+async function persistEncryptedThumbnail(platform: Platform, documentJson: string): Promise<void> {
+  try {
+    const { clearProjectPreviewData, createEncryptedThumbnailRecord } = await import(
+      '../thumbnail/encryptedThumbnailPolicy'
+    );
+    const hash = contentHash(documentJson);
+    await clearProjectPreviewData(platform, hash);
+    await platform.putThumbnail(createEncryptedThumbnailRecord(hash));
+  } catch {
+    // Best-effort: placeholder write failure is non-fatal.
   }
 }
