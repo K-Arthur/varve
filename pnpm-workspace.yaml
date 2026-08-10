@@ -19,3 +19,6 @@ allowBuilds:
   geckodriver: true
   protobufjs: true
   sharp: false
+
+minimumReleaseAgeExclude:
+  - '@testing-library/jest-dom@7.0.1'
