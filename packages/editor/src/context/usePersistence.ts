@@ -428,7 +428,7 @@ async function afterPrimaryWrite(
     } else if (update.fileId) {
       void persistFileThumbnail(platform, update.fileId, cur.document).catch(() => undefined);
     } else {
-      void persistProjectThumbnail(platform, cur.document).catch(() => undefined);
+      persistProjectThumbnail(platform, cur.document);
     }
   }
   return { status: 'saved' };
