@@ -1,4 +1,4 @@
-import { managedColorToCss } from '@varve/shared';
+import { managedColorToCss, PRODUCT_STATUS } from '@varve/shared';
 import {
   Button,
   Dialog,
@@ -497,8 +497,8 @@ function AboutSection() {
           <VarveLogo size={56} />
         </div>
         <div className="settings-about__row">
-          <span className="settings-about__key">Version</span>
-          <span className="settings-about__value">Developer Preview</span>
+          <span className="settings-about__key">Status</span>
+          <span className="settings-about__value">{PRODUCT_STATUS.label}</span>
         </div>
         <div className="settings-about__row">
           <span className="settings-about__key">License</span>

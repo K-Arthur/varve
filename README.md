@@ -4,7 +4,7 @@ Local-first design suite for vector, layout, typography, motion, prototyping, an
 print production. Runs natively on Linux, macOS, and Windows — no subscription,
 no cloud dependency.
 
-> Alpha software. Breaking changes may occur. See [releases](https://github.com/K-Arthur/varve/releases).
+> Public beta — breaking changes may occur. See [releases](https://github.com/K-Arthur/varve/releases).
 
 ## The workspace
 

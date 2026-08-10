@@ -14,6 +14,12 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Canonical product-maturity positioning** — `PRODUCT_STATUS`
+  (`@varve/shared`) is now the single source of truth for Varve's release
+  stage. The app's About dialog, the website (hero badge, beta section,
+  structured data, llms.txt), and the docs all describe Varve as a
+  **public beta** from one constant instead of hard-coded, disagreeing
+  labels ("alpha" / "beta" / "Developer Preview").
 - **Code-signing pipeline (certificate-ready)** — the release system now
   enforces a fail-closed signing policy: a `signing-preflight` job validates
   Apple/Azure credentials before any build starts, Windows installers are
@@ -153,7 +159,7 @@ the AppImage renders everywhere the deb/rpm already did.
 
 ## [0.1.0] - 2026-08-09
 
-The first public release of Varve, and an alpha in the honest sense: it has been
+The first public release of Varve, and a beta in the honest sense: it has been
 built and run, but it has not been lived with. Treat it as something to try, not
 something to trust with work you cannot afford to lose.
 
