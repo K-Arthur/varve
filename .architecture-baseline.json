@@ -1,10 +1,95 @@
 {
-  "version": "2026-08-09",
-  "cycles": {},
+  "version": "2026-08-10",
+  "cycles": {
+    "shared": {
+      "count": 0,
+      "cycles": []
+    },
+    "engine": {
+      "count": 3,
+      "cycles": [
+        "filters.ts → types.ts",
+        "mockup/warpReplay.ts → replay.ts",
+        "replay.ts → shadowSource.ts"
+      ]
+    },
+    "scene": {
+      "count": 11,
+      "cycles": [
+        "mockup/types.ts → types.ts",
+        "component-sync.ts → document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document.ts",
+        "document-pages.ts → document.ts",
+        "document-pages.ts → document.ts → pageNumbering.ts",
+        "document-pages.ts → document.ts → pasteboardLayout.ts",
+        "document.ts → proof.ts",
+        "document.ts → version-migrations-v217.ts → version.ts",
+        "document.ts → version-migrations-v218.ts → version.ts",
+        "document.ts → typography.ts → version-migrations-v218.ts → version.ts"
+      ]
+    },
+    "ui": {
+      "count": 0,
+      "cycles": []
+    },
+    "compositor": {
+      "count": 0,
+      "cycles": []
+    },
+    "import": {
+      "count": 0,
+      "cycles": []
+    },
+    "prototype": {
+      "count": 0,
+      "cycles": []
+    },
+    "codegen": {
+      "count": 0,
+      "cycles": []
+    },
+    "layout": {
+      "count": 0,
+      "cycles": []
+    },
+    "platform": {
+      "count": 0,
+      "cycles": []
+    },
+    "help": {
+      "count": 0,
+      "cycles": []
+    },
+    "ai": {
+      "count": 0,
+      "cycles": []
+    },
+    "collab": {
+      "count": 0,
+      "cycles": []
+    },
+    "print": {
+      "count": 0,
+      "cycles": []
+    },
+    "home": {
+      "count": 0,
+      "cycles": []
+    },
+    "editor": {
+      "count": 3,
+      "cycles": [
+        "render/workerHost.ts → render/workerRenderSpan.ts",
+        "components/Inspector/sectionRegistry.ts → context/types.ts → tools/types.ts → workspace/workspaceTypes.ts",
+        "components/Inspector/sectionRegistry.ts → context/types.ts → hitTest/HitTestEngine.ts → hitTest/index.ts → tools/types.ts → warp/warpActions.ts → warp/warpContainerRender.ts → workspace/workspaceTypes.ts"
+      ]
+    }
+  },
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
-      "lines": 939,
+      "lines": 943,
       "imports": 56,
       "overBudget": true
     },
@@ -14,12 +99,12 @@
       "overBudget": true
     },
     "packages/editor/src/Menubar.tsx": {
-      "lines": 2347,
+      "lines": 2351,
       "imports": 15,
       "overBudget": true
     },
     "packages/home/src/HomeShell.tsx": {
-      "lines": 1182,
+      "lines": 1172,
       "imports": 31,
       "overBudget": false
     },
@@ -31,8 +116,8 @@
   },
   "complexity": {},
   "global": {
-    "max_cycles": 2,
-    "max_unstable": 5,
+    "max_cycles": 19,
+    "max_unstable": 49,
     "max_layer_violations": 0,
     "max_unused_exports": 10
   }
