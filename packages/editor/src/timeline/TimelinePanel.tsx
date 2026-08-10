@@ -24,7 +24,7 @@ export interface TimelinePanelProps {
   onionSkin?: boolean;
   motionPresets?: Record<string, { id: string; name: string }>;
   selectedTrackIds: string[];
-  selectedKeyframeIndex: number | null;
+  selectedKeyframe: { trackId: string; index: number } | null;
   /** Whether the graph editor panel is visible. */
   graphEditorVisible?: boolean;
   onPlay: () => void;
@@ -81,7 +81,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   onionSkin = false,
   motionPresets = {},
   selectedTrackIds,
-  selectedKeyframeIndex,
+  selectedKeyframe,
   graphEditorVisible = false,
   onPlay,
   onPause,
@@ -333,7 +333,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             />
           </div>
 
-          <div className="timeline-panel__tracks" ref={tracksContainerRef}>
+          <div className="timeline-panel__tracks" ref={tracksContainerRef} role="list">
             {tracks.length === 0 ? (
               <div className="timeline-panel__empty-tracks">No tracks in this timeline</div>
             ) : (
@@ -345,7 +345,9 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
                   duration={duration}
                   zoom={zoom}
                   selected={selectedTrackIds.includes(track.id)}
-                  selectedKeyframeIndex={selectedKeyframeIndex}
+                  selectedKeyframeIndex={
+                    selectedKeyframe?.trackId === track.id ? selectedKeyframe.index : null
+                  }
                   timelines={timelines}
                   activeTimelineId={activeTimelineId}
                   onSelectTrack={onSelectTrack}
