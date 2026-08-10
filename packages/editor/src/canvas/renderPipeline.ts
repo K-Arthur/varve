@@ -56,6 +56,7 @@ import {
   sceneNodeToEngineNode,
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
+import { workerSourceCapFor } from '../render/collectImageBitmaps';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import {
   collectMasterOffsets,
@@ -1643,9 +1644,17 @@ export function renderContent(deps: RenderContentDeps): void {
       // a CPU core indefinitely and starving the main thread.
       if (!bitmapIsCurrent) {
         const hostAtCollection = renderWorkerRef.current;
+        // Viewport-sufficient source cap for the worker transport: a 48 MP
+        // photo decodes to a ~2-4K transferable bitmap that fits the worker
+        // admission budget instead of a full-RGBA transfer that would be
+        // refused. Power-of-two steps give zoom hysteresis (no representation
+        // thrash around the cap boundary); zooming deeper raises the cap and
+        // the at-size cache entry change re-renders the frame sharper.
+        const maxSourceDim = workerSourceCapFor(Math.max(VP_W, VP_H), dpr, s.zoom);
         void collectImageBitmaps(ir, {
           maxEntries: budgets.workerImageBitmaps,
           residentSources: hostAtCollection?.knownImageSources,
+          ...(maxSourceDim > 0 ? { maxSourceDim } : {}),
         }).then((collected) => {
           if (!collected) return;
           const host = renderWorkerRef.current;

@@ -23,8 +23,8 @@ export type WarpImageResolver = (src: string) => CanvasImageSource | undefined;
 
 /** Structural slice of the image cache the resolver needs. */
 export interface WarpImageCacheLike {
-  get(src: string): { state: string; image: HTMLImageElement | null } | undefined;
-  load(src: string): Promise<HTMLImageElement>;
+  get(src: string): { state: string; image: CanvasImageSource | null } | undefined;
+  load(src: string): Promise<CanvasImageSource>;
 }
 
 /**

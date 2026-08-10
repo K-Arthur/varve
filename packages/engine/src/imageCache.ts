@@ -17,9 +17,12 @@ import {
 
 export type ImageLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
+/** A decodable raster payload: HTMLImageElement or a decoded ImageBitmap. */
+export type CachedImage = HTMLImageElement | ImageBitmap;
+
 export interface ImageCacheEntry {
   state: ImageLoadState;
-  image: HTMLImageElement | null;
+  image: CachedImage | null;
   error?: ImageLoadError;
 }
 
@@ -43,7 +46,7 @@ const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
 
 export class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
-  private pending = new Map<string, Promise<HTMLImageElement>>();
+  private pending = new Map<string, Promise<CachedImage>>();
   private loadTokens = new Map<string, symbol>();
   private listeners = new Map<string, Set<() => void>>();
   private globalListeners = new Set<() => void>();
@@ -91,16 +94,36 @@ export class ImageCache {
     this.evictIfNeeded();
   }
 
-  private estimateBytes(image: HTMLImageElement): number {
-    const width = image.naturalWidth || image.width || 0;
-    const height = image.naturalHeight || image.height || 0;
+  /** True when a cached payload is a decoded ImageBitmap (duck-typed: the
+   *  ImageBitmap global is absent in some non-browser runtimes). */
+  private isBitmap(image: CachedImage): image is ImageBitmap {
+    return typeof (image as ImageBitmap).close === 'function';
+  }
+
+  private estimateBytes(image: CachedImage): number {
+    if (this.isBitmap(image)) {
+      return image.width * image.height * 4;
+    }
+    const element = image as HTMLImageElement;
+    const width = element.naturalWidth || element.width || 0;
+    const height = element.naturalHeight || element.height || 0;
     return width * height * 4;
+  }
+
+  private closeImage(image: CachedImage | null): void {
+    // ImageBitmap.close() is a no-op on an already-closed bitmap (the spec's
+    // [[Detached]] slot check), so double-close paths are harmless here.
+    if (image && this.isBitmap(image)) {
+      image.close();
+    }
   }
 
   private remove(url: string, countEviction: boolean): void {
     const bytes = this.entryBytes.get(url) ?? 0;
     this.retainedBytes = Math.max(0, this.retainedBytes - bytes);
     this.entryBytes.delete(url);
+    const entry = this.cache.get(url);
+    if (entry?.state === 'loaded') this.closeImage(entry.image);
     this.cache.delete(url);
     this.accessTimes.delete(url);
     if (countEviction) this.evictions++;
@@ -150,8 +173,8 @@ export class ImageCache {
     return entry;
   }
 
-  /** Get the loaded HTMLImageElement, or null if not yet loaded. */
-  getImage(url: string): HTMLImageElement | null {
+  /** Get the loaded cached image (element or bitmap), or null if not yet loaded. */
+  getImage(url: string): CachedImage | null {
     const entry = this.cache.get(url);
     if (entry?.state === 'loaded') {
       this.touch(url);
@@ -165,7 +188,7 @@ export class ImageCache {
    * Subsequent calls with the same URL return the same promise while loading,
    * or resolve immediately if already cached.
    */
-  async load(url: string): Promise<HTMLImageElement> {
+  async load(url: string): Promise<CachedImage> {
     // Already loaded
     const existing = this.cache.get(url);
     if (existing?.state === 'loaded' && existing.image) {
@@ -207,7 +230,7 @@ export class ImageCache {
 
     const isInline = url.startsWith('data:') || url.startsWith('blob:');
 
-    const attempt = (crossOrigin: boolean): Promise<HTMLImageElement> =>
+    const attempt = (crossOrigin: boolean): Promise<CachedImage> =>
       new Promise((resolve, reject) => {
         const img = new Image();
         if (crossOrigin) img.crossOrigin = 'anonymous';
@@ -295,8 +318,11 @@ export class ImageCache {
     this.remove(url, false);
   }
 
-  /** Clear all cached images. */
+  /** Clear all cached images, closing retained ImageBitmap entries. */
   clear(): void {
+    for (const entry of this.cache.values()) {
+      if (entry.state === 'loaded') this.closeImage(entry.image);
+    }
     this.cache.clear();
     this.pending.clear();
     this.loadTokens.clear();
@@ -347,7 +373,7 @@ export class ImageCache {
    * Intended for tests and offline-preload scenarios where the caller
    * already has the decoded image and wants it available synchronously.
    */
-  setLoaded(url: string, image: HTMLImageElement): void {
+  setLoaded(url: string, image: CachedImage): void {
     const previousBytes = this.entryBytes.get(url) ?? 0;
     this.retainedBytes = Math.max(0, this.retainedBytes - previousBytes);
     const bytes = this.estimateBytes(image);
@@ -371,6 +397,178 @@ export class ImageCache {
       for (const cb of set) cb();
     }
     for (const cb of this.globalListeners) cb();
+  }
+
+  /**
+   * True when a source can be decoded at a reduced size through
+   * `createImageBitmap` without CORS/taint complications: inline data: and
+   * blob: sources only. Remote sources keep the full decode path.
+   */
+  isRepresentationCapable(url: string): boolean {
+    return url.startsWith('data:') || url.startsWith('blob:');
+  }
+
+  /**
+   * Cache key of the at-size (preview) representation of a source. The `@`
+   * suffix is appended to the loadable source string; inline sources cannot
+   * contain `@` before the payload (data: and blob: URLs), so the key cannot
+   * collide with a real source of the same shape.
+   */
+  atSizeKey(url: string, maxDim: number): string {
+    return `${url}@${Math.max(1, Math.floor(maxDim))}`;
+  }
+
+  /**
+   * Whether an at-size representation entry is loaded and ready.
+   */
+  isLoadedAtSize(url: string, maxDim: number): boolean {
+    return this.isLoaded(this.atSizeKey(url, maxDim));
+  }
+
+  /**
+   * The cached at-size representation, or null. The full-size entry is never
+   * consulted: the at-size entry is the only image this returns, so callers
+   * cannot accidentally render a blurry preview of a small image. May hold
+   * an ImageBitmap (large sources) or the full-size element itself (sources
+   * that fit the cap); both are valid `createImageBitmap` inputs.
+   */
+  getImageAtSize(url: string, maxDim: number): CachedImage | null {
+    const key = this.atSizeKey(url, maxDim);
+    const entry = this.get(key);
+    // A closed bitmap would throw on drawImage; guard defensively (the TS
+    // DOM lib lacks the `closed` property, hence the cast).
+    const closedBitmap =
+      entry?.state === 'loaded' &&
+      entry.image &&
+      this.isBitmap(entry.image) &&
+      (entry.image as { closed?: boolean }).closed === true;
+    if (entry?.state === 'loaded' && entry.image && !closedBitmap) {
+      this.touch(key);
+      return entry.image;
+    }
+    return null;
+  }
+
+  /**
+   * Decode (or await the decode of) the at-size representation of an inline
+   * source: the encoded bytes are decoded directly to an ImageBitmap capped
+   * at `maxDim` px on the long edge, so a multi-hundred-megapixel photo
+   * yields a small transferable bitmap instead of a full-RGBA decode that
+   * blows the worker admission budget. The full-size entry is untouched —
+   * export and main-thread replay keep the authoritative full-resolution
+   * decode. Falls back to the full-size load for sources that cannot be
+   * resized (remote URLs, or when createImageBitmap is unavailable), and
+   * for sources smaller than the cap (when `source` dims are provided).
+   */
+  async loadAtSize(
+    url: string,
+    maxDim: number,
+    source?: { width: number; height: number },
+  ): Promise<ImageBitmap | CachedImage> {
+    if (!this.isRepresentationCapable(url)) {
+      return this.load(url);
+    }
+    const key = this.atSizeKey(url, maxDim);
+    const existing = this.get(key);
+    if (existing?.state === 'loaded' && existing.image) {
+      this.hits++;
+      return existing.image;
+    }
+    const pending = this.pending.get(key);
+    if (pending) {
+      this.hits++;
+      return pending;
+    }
+    this.misses++;
+
+    while (this.cache.size >= this.maxEntries) {
+      let oldestKey: string | undefined;
+      let oldestTime = Infinity;
+      for (const [keyCandidate, time] of this.accessTimes) {
+        if (this.cache.has(keyCandidate) && time < oldestTime) {
+          oldestTime = time;
+          oldestKey = keyCandidate;
+        }
+      }
+      if (oldestKey) {
+        this.remove(oldestKey, true);
+      } else {
+        break;
+      }
+    }
+
+    this.cache.set(key, { state: 'loading', image: null });
+    const loadToken = Symbol(key);
+    this.loadTokens.set(key, loadToken);
+
+    const promise = this.decodeAtSize(url, maxDim, source)
+      .then((image) => {
+        if (this.loadTokens.get(key) !== loadToken) return image;
+        const bytes = this.estimateBytes(image);
+        this.cache.set(key, { state: 'loaded', image });
+        this.pending.delete(key);
+        this.loadTokens.delete(key);
+        this.touch(key);
+        this.entryBytes.set(key, bytes);
+        this.retainedBytes += bytes;
+        this.notifyListeners(key);
+        if (bytes > this.maxBytes) {
+          this.rejectedOversize++;
+          this.remove(key, false);
+        } else {
+          this.evictIfNeeded();
+        }
+        return image;
+      })
+      .catch(async (error: Error) => {
+        if (this.loadTokens.get(key) !== loadToken) throw error;
+        const typed = await this.classifyFailure(url, error);
+        this.cache.set(key, { state: 'error', image: null, error: typed });
+        this.evictIfNeeded();
+        this.pending.delete(key);
+        this.loadTokens.delete(key);
+        this.touch(key);
+        this.notifyListeners(key);
+        throw typed;
+      });
+
+    this.pending.set(key, promise);
+    this.touch(key);
+    return promise;
+  }
+
+  private async decodeAtSize(
+    url: string,
+    maxDim: number,
+    source?: { width: number; height: number },
+  ): Promise<ImageBitmap | CachedImage> {
+    if (typeof createImageBitmap === 'undefined') {
+      throw new Error(`createImageBitmap unavailable for at-size decode: ${url}`);
+    }
+    // Known source dims let us (a) skip the preview entirely when the source
+    // already fits the cap and (b) target both axes so aspect ratio and
+    // orientation are preserved exactly instead of relying on the
+    // single-axis resize rule.
+    if (source && source.width > 0 && source.height > 0) {
+      const scale = Math.min(1, maxDim / Math.max(source.width, source.height));
+      if (scale >= 1) {
+        // Source fits the cap: the full-size representation IS the
+        // representation. Stored under the at-size key so the consumer's
+        // lookup path stays uniform.
+        return this.load(url);
+      }
+      const blob = await (await fetch(url)).blob();
+      return createImageBitmap(blob, {
+        resizeWidth: Math.max(1, Math.round(source.width * scale)),
+        resizeHeight: Math.max(1, Math.round(source.height * scale)),
+        resizeQuality: 'high',
+      });
+    }
+    const blob = await (await fetch(url)).blob();
+    return createImageBitmap(blob, {
+      resizeWidth: maxDim,
+      resizeQuality: 'high',
+    });
   }
 
   private async classifyFailure(url: string, cause: Error): Promise<ImageLoadError> {
