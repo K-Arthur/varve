@@ -41,7 +41,9 @@ export function DocumentInfoDialog() {
         full: meta.saveHandleName ?? '',
       };
     }
-    if (meta?.fileId) return { label: 'Varve Library', full: 'Varve Library' };
+    if (meta?.libraryStorage && meta.fileId) {
+      return { label: 'Varve Library', full: 'Varve Library' };
+    }
     if (meta?.downloadName) {
       return {
         label: `Browser download — ${meta.downloadName}`,
@@ -55,7 +57,13 @@ export function DocumentInfoDialog() {
     if (state.saveState === 'saving') return 'Saving…';
     if (state.saveState === 'error') return state.saveIssue?.message ?? 'Save failed';
     if (state.saveState === 'saved' && !dirty) return 'Saved';
-    if (meta && !meta.filePath && !meta.fileId && !meta.saveHandleId && !meta.downloadName) {
+    if (
+      meta &&
+      !meta.filePath &&
+      !meta.libraryStorage &&
+      !meta.saveHandleId &&
+      !meta.downloadName
+    ) {
       return 'Not saved';
     }
     return 'Modified';

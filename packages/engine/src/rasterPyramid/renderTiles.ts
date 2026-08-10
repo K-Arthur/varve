@@ -12,6 +12,8 @@
  * Effective scale is read from the live canvas transform (camera x DPR x
  * affine), so no IR schema change is required (brief §6).
  */
+
+import { getRasterLayerCache } from '../rasterLayerCache';
 import { maxPyramidLevel, PYRAMID_TILE_SIZE } from './pyramid';
 import {
   currentGutterSnapshot,
@@ -395,6 +397,17 @@ export function setRasterPyramidEnabled(enabled: boolean): void {
 }
 export function isRasterPyramidEnabled(): boolean {
   return pyramidEnabled;
+}
+
+/**
+ * Forward the retained whole-layer surface budget (finding F2): under a
+ * constrained pressure profile the editor shrinks the RasterLayerCache
+ * alongside the pyramid so two full 4096^2 surfaces cannot sit resident
+ * next to a shrunk pyramid. Kept in this subpath so the shared engine
+ * index stays untouched.
+ */
+export function setRetainedSurfaceBudget(bytes: number): void {
+  getRasterLayerCache().setBudget(Math.max(0, bytes));
 }
 
 /** Viewport size for visible-tile selection (updated by the editor adapter on resize). */
