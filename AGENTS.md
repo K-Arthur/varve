@@ -4,13 +4,13 @@ Local-first, cross-platform design suite. Native Rust engine on desktop
 (Tauri 2), WASM behind the same facade on web. Linux (CachyOS/Arch) is the
 primary dev OS.
 
-## Toolchain (confirmed working, 2026-06-29)
-- Rust: `~/.cargo/bin` (rustc 1.96 / cargo 1.96). Source with `. "$HOME/.cargo/env"`.
+## Toolchain (confirmed working, 2026-08-10)
+- Rust: `~/.cargo/bin` (rustc 1.97.1 / cargo 1.97.1). Source with `. "$HOME/.cargo/env"`.
 - pnpm 11.9: `~/.local/share/pnpm/bin`. Export `PNPM_HOME="$HOME/.local/share/pnpm"` and add `$PNPM_HOME/bin` to PATH.
-- just 1.54: `~/.local/bin`.
+- just 1.58: `~/.local/bin`.
 - Node 26, npm 11.16.
 - wasm32 target installed.
-- WebKitGTK 2.52.4 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
+- WebKitGTK 2.52.5 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
 - Optional: `cmake`, `xdotool` (not needed for core build).
 
 ## Regression protocol (mandatory after every architecture/system change)
@@ -25,13 +25,13 @@ After ANY change that touches:
 Run in order:
 ```bash
 pnpm format          # or format-check
-pnpm typecheck       # 15/15 packages must pass
+pnpm typecheck       # 20/20 packages must pass
 pnpm lint            # 0 new errors on touched files
 pnpm test            # full test suite must pass (excludes .bench.ts — run separately)
 pnpm bench           # benchmark mode for .bench.ts files (optional, perf-sensitive)
 pnpm audit:docs      # docs naming/index/link drift — zero violations
 pnpm audit:emoji     # zero violations
-pnpm audit:tokens    # 120/120 WCAG-AA (3 themes)
+pnpm audit:tokens    # 123/123 pairs WCAG-AA (3 themes)
 ```
 
 Failure at any step means the change introduced a regression. Fix before committing.
@@ -82,7 +82,7 @@ dependent package itself (or into `@varve/shared` if it belongs to no single own
 `EditorProvider` function body level because the provider wrappers haven't mounted yet.
 Instead, the sub-context accepts an `onReady` callback prop that reports its value back to
 `EditorProvider` via `useState`. **New sub-contexts MUST follow this pattern** — see
-`MotionProvider.onReady` in `MotionContext.tsx` and its usage at `context.tsx:5617`.
+`MotionProvider.onReady` in `MotionContext.tsx` and its usage at `context.tsx:9018`.
 
 ### ActionRegistry overwrite order
 
@@ -441,6 +441,8 @@ See `docs/architecture/text-pipeline.md`.
 | `varve-colour` | **Built** | Colour science: ICC transforms (tintbox), analytical conversion, WASM bindings |
 | `varve-bridge` | **Built** | TS wire-format → `varve-core` `SceneNode` conversion (Tauri IPC + WASM) |
 | `varve-wasm` | **Built** | wasm-bindgen glue for `varve-engine` (web IR build + hit test) |
+| `varve-effects` | **Built** | Filter/effect kernels for the render pipeline |
+| `varve-media` | **Built** | Animated image decoding: GIF, APNG, WebP frame extraction with bounded allocation |
 
 ### packages/ (TypeScript)
 | Package | Status | Contents |
@@ -462,12 +464,16 @@ See `docs/architecture/text-pipeline.md`.
 | `@varve/home` | **Built** | Home/Start surface: recent files, projects, templates, file management |
 | `@varve/layout` | **Built** | CSS-native flex/grid layout IR mirroring the `varve-layout` crate |
 | `@varve/print` | **Built** | TS facade for the `varve-print` crate: font outlining, CMYK, PDF/X |
+| `@varve/cli` | **Built** | Command-line utilities (fixtures, dev tooling) |
+| `@varve/history` | **Built** | Version-history domain model shared across packages |
+| `@varve/tokens` | **Built** | Design-token tooling shared by the token pipeline |
 
 ### apps/
 | App | Status | Contents |
 |---|---|---|
 | `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend |
 | `apps/website` | **Built** | Astro 5 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
+| `apps/web` | Stub | Next.js 15 editor with WASM engine backend — full scaffold deferred (task 0.9) |
 
 ## Release signing (code-signing pipeline)
 
@@ -563,7 +569,7 @@ Canonical doc: `docs/architecture/lifecycle-system.md`, ADR-0216.
 
 ## Thumbnail System
 
-Canonical doc: `docs/architecture/thumbnail-system.md`, ADR-0016.
+Canonical doc: `docs/architecture/thumbnail-system.md`, ADR-0218.
 
 One source of truth for every thumbnail/preview surface (Home cards, page
 nav, pages panel, version history, picker). Thumbnails are a **platform

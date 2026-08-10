@@ -3,11 +3,11 @@
 > **Status note (2026-07-25):** This guide describes the *intended* CLA
 > operations once the infrastructure below is actually built. As of this
 > writing, `.github/workflows/cla.yml`, `.github/pull_request_template.md`,
-> and `.github/ISSUE_TEMPLATE/` do not exist in the repository, and Strata
+> and `.github/ISSUE_TEMPLATE/` do not exist in the repository, and Varve
 > is not currently accepting external contributions. Treat this document as
 > a reference for future setup, not a description of an active system.
 
-This document covers the operational procedures for managing the Strata
+This document covers the operational procedures for managing the Varve
 Contributor Licence Agreement system. It is intended for the project owner
 and any future maintainers.
 
@@ -229,7 +229,7 @@ If the repository moves from a personal account to a GitHub organisation:
 1. Transfer the repository.
 2. Transfer the CLA signature branch by pushing to the new remote:
    ```bash
-   git push https://github.com/org/Strata _clasignatures
+   git push https://github.com/K-Arthur/varve _clasignatures
    ```
 3. Update `GITHUB_TOKEN` — the new org's `GITHUB_TOKEN` is automatically
    available.

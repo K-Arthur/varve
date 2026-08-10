@@ -70,7 +70,8 @@ Everything in Alpha, plus:
 - [ ] macOS build launched on a real Mac, or macOS is **not advertised**
 - [ ] Upgrade from the previous version tested on each supported OS
 - [ ] Downgrade behaviour known and documented
-- [ ] `.strata` file association works: double-click opens the document
+- [ ] `.varve` file association works: double-click opens the document
+      (legacy `.strata` association also registered — both must open)
 - [ ] High-DPI: 125%, 150%, 200% scaling checked on Windows
 - [ ] Light, dark, and high-contrast themes checked
 - [ ] Keyboard navigation and visible focus checked on primary flows

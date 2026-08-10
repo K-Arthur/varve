@@ -55,7 +55,8 @@ for the full pipeline.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — all contributions require a DCO sign-off.
+See [CONTRIBUTING.md](CONTRIBUTING.md) — external contributions are not yet
+open; when they open, they will require a DCO sign-off.
 
 ## License
 

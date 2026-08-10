@@ -2,7 +2,10 @@
 
 **Date:** 2026-07-23  
 **Purpose:** Define a shared intermediate representation (IR) for Varve's design-to-code pipeline  
-**Status:** Design Document
+**Status:** Implemented — `SemanticNode` and the IR builders/converters live in
+`@varve/codegen` (`packages/codegen/src/ir-types.ts`, `ir-builders.ts`,
+`ir-converter.ts`, `ir-inference.ts`); written as a design document on
+2026-07-23, the IR it specifies shipped in the design-to-code pipeline.
 
 ## Overview
 
