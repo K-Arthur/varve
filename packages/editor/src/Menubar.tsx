@@ -339,6 +339,10 @@ function buildMenus(
           label: 'Document Info\u2026',
           action: 'documentInfo',
         },
+        {
+          label: 'Set File Thumbnail\u2026',
+          action: 'openThumbnailPicker',
+        },
         ...(activeFilePath
           ? [
               {
