@@ -1,34 +1,45 @@
 /**
- * usePageThumbnail — renders a page thumbnail via the unified engine pipeline.
+ * usePageThumbnail — renders a page thumbnail via the canonical thumbnail
+ * pipeline (scene resolution → flattenSceneToEngine → engine IR replay).
  *
- * Uses the same engine IR path as the main canvas, so page thumbnails
- * respect effects, blend modes, opacity, strokes, and image fills.
+ * The module-level cache is keyed by the CANONICAL identity
+ * (docKey + revision + page source + page-nav variant), so:
+ *  - two documents with colliding page ids never share pixels;
+ *  - editing the page invalidates the cache by revision;
+ *  - the same page rendered for different surfaces (nav vs panel) has
+ *    separate entries.
  *
- * Capability-checked: returns null when OffscreenCanvas or HTML canvas
- * is unavailable (e.g., jsdom test environments), preventing spurious
- * console errors while keeping the production path unchanged.
- *
- * Generation uses a generation-counter guard to prevent stale state
- * updates after unmount or re-render with a different page id. The
- * hook also tracks which jobs are in-flight to avoid duplicate
- * generations when PageNav re-renders multiple times.
+ * Generation is routed through the shared bounded scheduler; in-flight
+ * results are guarded by a generation token per page id.
  */
 
 import { hasAnyCanvas, hasImageEncoding } from '@varve/engine';
+import type { ThumbnailIdentity } from '@varve/shared';
+import { THUMBNAIL_VARIANTS } from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { generateDocThumbnail } from '../../thumbnail';
+import { pageThumbnailIdentity } from '../../thumbnail/identity';
+import { getThumbnailScheduler } from '../../thumbnail/scheduler';
+import { renderDocThumbnail } from '../../thumbnail/thumbnailService';
 
-/** LRU cache keyed by page id — survives mount/unmount of page tabs. */
+/** LRU cache keyed by canonical identity — survives mount/unmount. */
 const thumbnailCache = new Map<string, string>();
-const MAX_CACHE = 50;
+const MAX_CACHE = 60;
 
 /** Tracks in-flight generation per page id to prevent duplicate jobs. */
 const pendingJobs = new Set<string>();
 
-export function usePageThumbnail(pageId: string): string | null {
+function evictIfNeeded(): void {
+  while (thumbnailCache.size > MAX_CACHE) {
+    const firstKey = thumbnailCache.keys().next().value;
+    if (firstKey === undefined) break;
+    thumbnailCache.delete(firstKey);
+  }
+}
+
+export function usePageThumbnail(pageId: string, fileId?: string): string | null {
   const { state } = useEditor();
-  const [dataUrl, setDataUrl] = useState<string | null>(() => thumbnailCache.get(pageId) ?? null);
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
   const generationRef = useRef(0);
   const docRef = useRef(state.document);
   docRef.current = state.document;
@@ -41,57 +52,75 @@ export function usePageThumbnail(pageId: string): string | null {
     };
   }, []);
 
-  const generate = useCallback(async () => {
-    // Capability gate: avoid spurious errors in environments without canvas
-    if (!hasAnyCanvas() || !hasImageEncoding()) return;
+  const identity = pageThumbnailIdentity(
+    state.document,
+    pageId,
+    THUMBNAIL_VARIANTS['page-nav'],
+    fileId,
+  );
+  const identityKey = identity.key;
 
-    // Duplicate job prevention: one in-flight per page id
-    if (pendingJobs.has(pageId)) return;
-    pendingJobs.add(pageId);
-
-    const genId = ++generationRef.current;
-    const doc = docRef.current;
-
-    try {
-      const result = await generateDocThumbnail(doc, {
-        source: { type: 'page', pageId },
-        maxWidth: 180,
-        maxHeight: 90,
-        fit: 'contain',
-        background: { type: 'solid', color: '#ffffff' },
-      });
-
-      if (!mountedRef.current) return;
-
-      if (result && genId === generationRef.current) {
-        thumbnailCache.set(pageId, result.dataUrl);
-        if (thumbnailCache.size > MAX_CACHE) {
-          const firstKey = thumbnailCache.keys().next().value;
-          if (firstKey) thumbnailCache.delete(firstKey);
-        }
-        setDataUrl(result.dataUrl);
-      }
-    } finally {
-      pendingJobs.delete(pageId);
+  // Synchronous cache-hit path (no idle round-trip for re-mounted rows).
+  useEffect(() => {
+    const cached = thumbnailCache.get(identityKey);
+    if (cached) {
+      setDataUrl(cached);
+      return;
     }
-  }, [pageId]);
+    setDataUrl(null);
+  }, [identityKey]);
+
+  const generate = useCallback(
+    async (id: ThumbnailIdentity) => {
+      // Capability gate: avoid spurious errors in environments without canvas.
+      if (!hasAnyCanvas() || !hasImageEncoding()) return;
+
+      // Duplicate job prevention: one in-flight per page id.
+      if (pendingJobs.has(pageId)) return;
+      pendingJobs.add(pageId);
+      const genId = ++generationRef.current;
+
+      try {
+        const doc = docRef.current;
+        getThumbnailScheduler().enqueue({
+          key: `page-thumb:${id.key}`,
+          priority: 'visible',
+          run: async (signal) => {
+            if (signal.aborted) return;
+            const outcome = await renderDocThumbnail(doc, {
+              fileId,
+              source: { type: 'page', pageId },
+              variant: THUMBNAIL_VARIANTS['page-nav'],
+              signal,
+            });
+            if (signal.aborted || !mountedRef.current) return;
+            if (genId !== generationRef.current) return;
+            if (!outcome.result?.dataUrl) return;
+            thumbnailCache.set(id.key, outcome.result.dataUrl);
+            evictIfNeeded();
+            setDataUrl(outcome.result.dataUrl);
+          },
+        });
+      } finally {
+        // The scheduler runs async; releasing the guard immediately allows
+        // a later revision to queue. Correctness is enforced by the
+        // generation token, not by this set.
+        pendingJobs.delete(pageId);
+      }
+    },
+    [pageId, fileId],
+  );
 
   useEffect(() => {
     const page = state.document.pages?.find((p) => p.id === pageId);
     if (!page) return;
-
-    const cached = thumbnailCache.get(pageId);
-    if (cached && generationRef.current > 0) {
-      return;
-    }
-
-    generate();
-
+    if (thumbnailCache.has(identityKey)) return;
+    void generate(identity);
     return () => {
-      // Bump generation counter to invalidate any stale in-flight result
+      // Bump the generation counter to invalidate any stale in-flight result.
       generationRef.current++;
     };
-  }, [pageId, state.document, generate]);
+  }, [pageId, state.document, identityKey, generate, identity]);
 
   return dataUrl;
 }

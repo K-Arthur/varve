@@ -1444,6 +1444,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -2460,6 +2467,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -3473,6 +3487,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -4914,6 +4935,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -6352,6 +6380,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -7681,6 +7716,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -9016,6 +9058,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -10266,6 +10315,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -11522,6 +11578,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -12646,6 +12709,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -13767,6 +13837,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -15180,6 +15257,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -16590,6 +16674,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -17606,6 +17697,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -18619,6 +18717,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -20060,6 +20165,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -21498,6 +21610,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -22827,6 +22946,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -24162,6 +24288,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -25412,6 +25545,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -26668,6 +26808,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -27792,6 +27939,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
         "onAction": [Function],
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-file",
         "separator": true,
       },
@@ -28913,6 +29067,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {
@@ -30323,6 +30484,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "disabled": false,
         "id": "saveAs",
         "label": "Save As…",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "setFileThumbnail",
+        "label": "Set File Thumbnail…",
         "onAction": [Function],
       },
       {

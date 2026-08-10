@@ -46,6 +46,7 @@ import {
   OnboardingLayer,
   type OnboardingLayerHandle,
   RecoveryManager,
+  ThumbnailPickerHost,
   VectorizeDialogHost,
 } from './components/Shell';
 import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
@@ -874,6 +875,9 @@ function ShellInner({
 
         {/* Image Trace dialog */}
         {editor.vectorizeDialogOpen && <VectorizeDialogHost />}
+
+        {/* File Thumbnail picker */}
+        <ThumbnailPickerHost />
 
         {/* Canvas right-click context menu */}
         {canvasContextMenu &&

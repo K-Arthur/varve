@@ -72,6 +72,10 @@
 
 ### H1b: Thumbnail desktop (1h)
 
+**Superseded by the unified thumbnail system (2026-08-09): canonical
+identity keys, editor-owned generation, user-selectable sources, shared
+scheduler. See `docs/architecture/thumbnail-system.md`.**
+
 | File | Action |
 |---|---|
 | `apps/desktop/src-tauri/src/lib.rs` | MODIFY — add `home_put_thumbnail`/`home_get_thumbnail` IPC commands |

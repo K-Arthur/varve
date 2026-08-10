@@ -7,6 +7,11 @@
  */
 
 export {
+  createRecordingTarget,
+  type DrawCallEntry,
+  formatDrawCallLog,
+} from './__goldens__/drawCallRecorder';
+export {
   backdropChangedSinceLastResolve,
   resolveAdaptiveTextColor,
   sampleRegionBackdrop,
@@ -734,7 +739,7 @@ export type {
 } from './rasterTrace';
 export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
 export type { ReplayTarget } from './replay';
-export { primitiveBounds, renderAlphaMask, replayIr } from './replay';
+export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
 export {
   buildBrushMask,
   clonePixels,
