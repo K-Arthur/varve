@@ -1,6 +1,6 @@
 import type { AnimationTrack, Timeline } from '@varve/scene';
 import { Icon, Select, Tooltip } from '@varve/ui';
-import { type FC, useCallback, useRef, useState } from 'react';
+import { type FC, memo, useCallback, useRef, useState } from 'react';
 
 export interface TrackRowProps {
   track: AnimationTrack;
@@ -53,7 +53,7 @@ function findNearestKeyframe(
   return best;
 }
 
-export const TrackRow: FC<TrackRowProps> = ({
+const TrackRowInner: FC<TrackRowProps> = ({
   track,
   nodeName,
   duration,
@@ -182,7 +182,8 @@ export const TrackRow: FC<TrackRowProps> = ({
       onClick={handleRowClick}
       onKeyDown={handleKeyDown}
       ref={trackRef}
-      role="treeitem"
+      role="listitem"
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard-editable composite row (Enter selects the track, ArrowLeft/Right step the selected keyframe, Delete removes it); the row-level handlers cannot live on the keyframe dots
       tabIndex={0}
       aria-label={`Track: ${nodeName} ${track.property}${isMuted ? ' (muted)' : ''}`}
     >
@@ -264,7 +265,14 @@ export const TrackRow: FC<TrackRowProps> = ({
               style={{ left: x, position: 'absolute' }}
               onClick={(e) => {
                 e.stopPropagation();
-                resolveKeyframeClick(e.clientX, kf.progress);
+                if (e.detail === 0) {
+                  // Keyboard activation: clientX is 0, which would make the
+                  // geometry resolver pick the leftmost keyframe instead of
+                  // the focused one.
+                  onClickKeyframe(track.id, kf.progress);
+                } else {
+                  resolveKeyframeClick(e.clientX, kf.progress);
+                }
               }}
               onMouseDown={handleKeyframeMouseDown(kf.progress, i)}
               onKeyDown={(e) => {
@@ -272,7 +280,7 @@ export const TrackRow: FC<TrackRowProps> = ({
                   onDeleteKeyframe?.(kf.progress);
                 }
               }}
-              tabIndex={-1}
+              tabIndex={0}
               aria-label={`Keyframe at ${Math.round(kf.progress * 100)}%`}
             />
           );
@@ -281,3 +289,25 @@ export const TrackRow: FC<TrackRowProps> = ({
     </div>
   );
 };
+
+/**
+ * TrackRow renders no playback-time-dependent content (keyframe positions are
+ * absolute in track space), so a per-frame currentTime change must never
+ * re-render rows. Callbacks are intentionally excluded from the comparison:
+ * they are recreated by TimelinePanel/Shell on every render but capture only
+ * stable editor methods and track/timeline ids that ARE compared below.
+ */
+function areTrackRowPropsEqual(prev: TrackRowProps, next: TrackRowProps): boolean {
+  return (
+    prev.track === next.track &&
+    prev.nodeName === next.nodeName &&
+    prev.duration === next.duration &&
+    prev.zoom === next.zoom &&
+    prev.selected === next.selected &&
+    prev.selectedKeyframeIndex === next.selectedKeyframeIndex &&
+    prev.timelines === next.timelines &&
+    prev.activeTimelineId === next.activeTimelineId
+  );
+}
+
+export const TrackRow = memo(TrackRowInner, areTrackRowPropsEqual);
