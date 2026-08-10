@@ -2408,3 +2408,21 @@ as `73b4a742`).
 - The parallel session's warp feature is referenced by master's committed
   editor files but its modules were never committed there; this branch vendors
   none of it and its scene index drops the dangling warp exports.
+## Canvas hub extraction session (Session 49, 2026-08-10)
+
+Triage-driven remediation of the two god components, driven by the jCodeMunch health snapshot (EditorProvider cx 1642, CanvasArea cx 813, churn 239/210).
+
+| Commit | Change |
+|---|---|
+| `d7798975` | `context/useAutoBackupServices.ts` — auto-save + versioned-backup init and unmount teardown out of `EditorProvider`; context.tsx 71→70 imports |
+| `85a73087` | `tools/useToolManagerSync.ts` — 7 ToolManager-sync effects out of CanvasArea; 50→48 imports |
+| `30f6a5a1` | `canvas/toolContext.ts` — `buildToolCtx` (~340 paths) as a pure `buildToolContext(deps, ev)` module with a 20-field `ToolContextDeps`; 48→44 imports |
+| `565a3b98` | `canvas/renderPipeline.ts` — `drawContent` (~1475 paths, incl. `replaySubtreeToCtx`, `toEngineNode`, `subtreeEffectPadding`, `renderGroupInsetEffect`) extracted verbatim into `renderContent(deps)`; CanvasArea 3375→1265 lines, 82→34 imports |
+| `190c4e9f`, `3c0508c5` | repoint `toEngineNode` test imports; dedupe `newSessionId` left by the concurrent `fix/new-document-opens-own-tab` merge resolution |
+
+Verification: `scripts/audit-render-perf.mjs` before/after (no regression; pure relocation, noise-level deltas), targeted vitest suites (render path, tools, snap, dirty-region, alpha-mask, toEngineNode — all green), repo-wide typecheck + lint.
+
+Notes / deferred:
+- Scene-package cycles are deliberately untouched: all type-only, allowlisted (`docs/quality/scene-cycle-report.md`).
+- Deferred: `EditorProvider` value useMemo (~2000 lines) split into `context/useX.ts` hooks; CanvasArea surface-lifecycle effects hook.
+- Mid-session, repo automation merged `origin/master` and `fix/new-document-opens-own-tab`; uncommitted working-tree work was lost once (renderPipeline.ts), redone and committed immediately — commit early when the compiler is green.

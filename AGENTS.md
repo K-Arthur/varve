@@ -55,7 +55,7 @@ Check these thresholds (2026-07-27 post-remediation):
 | Layer violations | 0 | 0 |
 | Hub files over budget | 0 | 0 |
 | Editor max complexity (context.tsx) | 833 | 847 |
-| CanvasArea max complexity | 780 | 630 |
+| CanvasArea max complexity | ~450 | 630 |
 | Shell.tsx import count | 46 | 49 |
 
 See `docs/audits/architecture-health-baseline-2026-07-25.md` for full
@@ -104,10 +104,12 @@ them drags the whole module graph. Follow these rules:
 
 | File | Imports (Ce) | Instability (I) | Status |
 |------|-------------|-----------------|--------|
-| `CanvasArea.tsx` | 82 | 0.95 | **Over budget** — must not increase |
-| `Shell.tsx` | 71 | 0.93 | **Over budget** — must not increase |
-| `Menubar.tsx` | 14 | 0.88 | At risk |
-| `context.tsx` | 40 | 0.36 | Healthy |
+| `CanvasArea.tsx` | 34 | ~0.90 | **Improved (was 82)** — drawContent/buildToolCtx/tool-sync extracted; must not increase |
+| `Shell.tsx` | 56 | ~0.89 | **Over budget** — must not increase |
+| `Menubar.tsx` | 15 | ~1.0 | At risk |
+| `context.tsx` | 70 | ~0.48 | Healthy (provider composition; extraction continued) |
+
+Import counts are measured by `scripts/audit-health.mjs` (baseline: `.health-baseline.json`, updated 2026-08-10). Instability values come from madge via `scripts/audit-architecture.mjs` (refresh with `--update` after intentional changes).
 
 **No new import may be added to CanvasArea.tsx or Shell.tsx without first removing
 an existing import of equal or greater weight.** Enforced by `scripts/audit-health.mjs`.
@@ -148,8 +150,9 @@ See `context/usePersistence.ts` and `context/useBackgroundRemoval.ts` for the pa
 
 ### The clean version is not always the fast version (render/replay hot path)
 
-Varve is a design app — frame time beats complexity score. `CanvasArea.tsx`'s
-`replaySubtreeToCtx` (and any function like it: a big `switch` over node/primitive
+Varve is a design app — frame time beats complexity score. `renderPipeline.ts`'s
+`replaySubtreeToCtx` (moved out of `CanvasArea.tsx` in the 2026-08-10 extraction;
+and any function like it: a big `switch` over node/primitive
 kind, called once per node per frame) is a classic case where the "obvious"
 refactor — replacing the switch with a dispatch table or visitor pattern keyed by
 `node.kind` — can make the hot path **slower**, not faster. A monomorphic
