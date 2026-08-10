@@ -7,6 +7,7 @@ import DisciplineTabs from '../components/DisciplineTabs.astro';
 import Reveal from '../components/Reveal.astro';
 import DownloadCTA from '../components/DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
+import { PRODUCT_STATUS } from '@varve/shared';
 import release from '../data/release-manifest.json';
 
 const softwareSchema = {
@@ -15,12 +16,12 @@ const softwareSchema = {
   name: 'Varve',
   applicationCategory: 'DesignApplication',
   operatingSystem: 'Linux, macOS, Windows',
-  description:
-    'Varve is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Free and source-available under FSL-1.1-MIT.',
+  description: `${PRODUCT_STATUS.description} Free and source-available under FSL-1.1-MIT.`,
   // softwareVersion derives from the release manifest so the schema stays in
   // step with the published release; omitted entirely when no release exists.
   ...(release.version ? { softwareVersion: release.version } : {}),
   license: 'FSL-1.1-MIT',
+  isAccessibleForFree: true,
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -31,7 +32,7 @@ const softwareSchema = {
 
 <Layout
   title="Varve — free design suite for vector, layout, motion, and print"
-  description="Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print — one application on Linux, macOS, and Windows. No subscription, no account, no uploads."
+  description="Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print — one application on Linux, macOS, and Windows. No subscription, no account, no uploads. Currently in public beta."
   structuredData={softwareSchema}
 >
   <Hero />
@@ -127,7 +128,7 @@ const softwareSchema = {
     <div class="container-custom">
       <Reveal as="div" class="beta-inner">
         <p class="section-eyebrow">Where Varve is today</p>
-        <h2 id="beta-title" class="beta-title">An honest beta.</h2>
+        <h2 id="beta-title" class="beta-title">An honest {PRODUCT_STATUS.stage}.</h2>
         <p class="beta-text">
           The first release, Varve {release.version}, is out for Linux,
           macOS, and Windows. Core features work, but you should expect
