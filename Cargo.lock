@@ -2083,7 +2083,7 @@ dependencies = [
 
 [[package]]
 name = "varve-bgremove"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64",
  "dirs-next",
@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "varve-bridge"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "naga",
  "serde",
@@ -2106,7 +2106,7 @@ dependencies = [
 
 [[package]]
 name = "varve-colour"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "proptest",
  "serde",
@@ -2118,7 +2118,7 @@ dependencies = [
 
 [[package]]
 name = "varve-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "kurbo",
  "proptest",
@@ -2128,7 +2128,7 @@ dependencies = [
 
 [[package]]
 name = "varve-effects"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2136,7 +2136,7 @@ dependencies = [
 
 [[package]]
 name = "varve-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "kurbo",
  "serde",
@@ -2146,7 +2146,7 @@ dependencies = [
 
 [[package]]
 name = "varve-layout"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "taffy",
@@ -2155,7 +2155,7 @@ dependencies = [
 
 [[package]]
 name = "varve-print"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ab_glyph",
  "font-subset",
@@ -2170,7 +2170,7 @@ dependencies = [
 
 [[package]]
 name = "varve-sync"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -2178,7 +2178,7 @@ dependencies = [
 
 [[package]]
 name = "varve-trace"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rayon",
  "serde",
@@ -2188,7 +2188,7 @@ dependencies = [
 
 [[package]]
 name = "varve-upscale"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dirs-next",
  "image",
@@ -2197,7 +2197,7 @@ dependencies = [
 
 [[package]]
 name = "varve-wasm"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "js-sys",
  "serde",
