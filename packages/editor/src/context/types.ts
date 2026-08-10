@@ -272,11 +272,6 @@ export interface SessionFileMeta {
   fileId?: string;
 }
 
-/** Collision-free session id (two tabs can be created within the same ms). */
-export function newSessionId(): string {
-  return `session-${crypto.randomUUID()}`;
-}
-
 export interface EditorState {
   tool: ToolId;
   zoom: number;
