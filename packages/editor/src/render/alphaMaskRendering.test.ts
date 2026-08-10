@@ -11,7 +11,7 @@
 import { createEngine } from '@varve/engine';
 import { addNode, createDocument, type NodeId, type ShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { toEngineNode } from '../CanvasArea';
+import { toEngineNode } from '../canvas/renderPipeline';
 import { flattenSceneToEngine } from './sceneToEngine';
 
 const SRC_URL = 'data:image/png;base64,TEST_SRC';
