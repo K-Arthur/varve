@@ -21,6 +21,10 @@ import type {
   WarpModifier,
   WarpSettings,
 } from '@varve/engine';
+import type { AnimatedAssetMetadata, MediaFillSettings, RasterColorEncoding } from '@varve/shared';
+
+export type { AnimatedAssetMetadata, MediaFillSettings } from '@varve/shared';
+
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 import type { VariableModifier } from './modifiers';
@@ -532,6 +536,14 @@ export interface IccProfileEntry {
   hash: string;
   /** ASCII `desc` tag, when present and printable. */
   description?: string;
+  /** ICC profile class signature (e.g. 'mntr' display class). */
+  profileClass?: string;
+  /** ICC colour space signature (e.g. 'RGB ', 'CMYK', 'GRAY', 'Lab '). */
+  colorSpace?: string;
+  /** ICC version, e.g. '4.3.0'. */
+  version?: string;
+  /** ICC header rendering intent field (0-3: perceptual/relative/saturation/absolute). */
+  renderingIntent?: number;
 }
 
 /**
@@ -555,6 +567,14 @@ export interface ImageSourceMetadata {
   iccStatus?: 'valid' | 'invalid' | 'none';
   /** ICC `desc` tag label (display only, never authoritative). */
   iccDescription?: string;
+  /**
+   * Canonical colour interpretation of the source pixels (v2.19+). Carries
+   * primaries, transfer, precision, provenance and diagnostics. Older
+   * documents (and profiles that predate metadata extraction) omit it; the
+   * read-time fallback is `legacy-assumed-srgb`, never silently claimed as
+   * embedded metadata.
+   */
+  colorEncoding?: RasterColorEncoding;
 }
 
 /**
@@ -588,6 +608,13 @@ export interface DocumentAsset {
    * extraction existed round-trip unchanged.
    */
   metadata?: ImageSourceMetadata;
+  /**
+   * Animated-media facts (v2.20+), probed from the container bytes for
+   * animated GIF/APNG/WebP imports. The original encoded bytes stay
+   * authoritative; decoded/composited frames are never serialized. Absent
+   * for static images.
+   */
+  animated?: AnimatedAssetMetadata;
 }
 
 /**
@@ -660,6 +687,12 @@ export interface ImageFillData {
   flipV?: boolean;
   /** Non-destructive upscale metadata. */
   upscale?: ImageFillUpscale;
+  /**
+   * Per-usage animated-media playback settings (v2.20+). Only present on
+   * fills whose asset is animated; multiple usages of one asset may carry
+   * independent playback settings.
+   */
+  media?: MediaFillSettings;
 }
 
 export interface PatternFillData {

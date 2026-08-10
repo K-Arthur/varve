@@ -1,4 +1,3 @@
-import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 import { defineConfig } from 'astro/config';
 
@@ -19,7 +18,7 @@ const SITE_URL = process.env.SITE_URL ?? 'https://k-arthur.github.io';
 const SITE_BASE = process.env.SITE_BASE ?? '/varve';
 
 export default defineConfig({
-  integrations: [react(), tailwind()],
+  integrations: [tailwind()],
   site: SITE_URL,
   base: SITE_BASE,
   trailingSlash: 'ignore',

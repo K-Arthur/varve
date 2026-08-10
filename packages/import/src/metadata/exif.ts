@@ -142,6 +142,85 @@ export function parseExifOrientation(bytes: Uint8Array): ExifOrientation {
 }
 
 /**
+ * Read the EXIF ColorSpace tag (0xA001) from a JPEG APP1 "Exif\0\0"
+ * segment (Exif sub-IFD). Returns the raw tag value, or undefined when
+ * absent/unreadable. 1 = sRGB, 2 = Adobe RGB, 65535 = uncalibrated.
+ * Never throws for untrusted input.
+ */
+export function parseExifColorSpace(bytes: Uint8Array): number | undefined {
+  if (bytes.length < 4) return undefined;
+  if (!(bytes[0] === 0xff && bytes[1] === 0xd8)) return undefined;
+
+  let offset = 2;
+  for (let segments = 0; segments < MAX_JPEG_SEGMENTS; segments += 1) {
+    if (offset + 4 > bytes.length) return undefined;
+    if (bytes[offset] !== 0xff) return undefined;
+    const marker = bytes[offset + 1] as number;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
+      offset += 2;
+      continue;
+    }
+    const segmentLength = ((bytes[offset + 2] as number) << 8) | (bytes[offset + 3] as number);
+    if (segmentLength < 2 || segmentLength > MAX_JPEG_SEGMENT_BYTES) return undefined;
+    const payloadEnd = offset + 2 + segmentLength;
+    if (payloadEnd > bytes.length) return undefined;
+
+    if (marker === 0xe1) {
+      const headerOk =
+        offset + 10 <= payloadEnd &&
+        bytes[offset + 4] === 0x45 &&
+        bytes[offset + 5] === 0x78 &&
+        bytes[offset + 6] === 0x69 &&
+        bytes[offset + 7] === 0x66 &&
+        bytes[offset + 8] === 0x00 &&
+        bytes[offset + 9] === 0x00;
+      if (headerOk) {
+        const value = readExifSubTag(bytes, offset + 10, 0xa001);
+        if (value !== undefined) return value;
+      }
+    }
+    if (marker === 0xda || marker === 0xd9) return undefined;
+    offset = payloadEnd;
+  }
+  return undefined;
+}
+
+/** Read a SHORT tag from the Exif sub-IFD (0x8769) of a TIFF structure. */
+function readExifSubTag(bytes: Uint8Array, tiffOffset: number, wanted: number): number | undefined {
+  if (tiffOffset < 0 || tiffOffset + 8 > bytes.length) return undefined;
+  const littleEndian = bytes[tiffOffset] === 0x49;
+  const { u16, u32 } = makeReader(bytes, littleEndian);
+  if (u16(tiffOffset + 2) !== 0x2a) return undefined;
+
+  const visited = new Set<number>();
+  let ifdOffset = tiffOffset + u32(tiffOffset + 4);
+
+  for (let chain = 0; chain < MAX_IFD_CHAIN; chain += 1) {
+    if (!Number.isInteger(ifdOffset) || ifdOffset < tiffOffset || ifdOffset + 2 > bytes.length) {
+      return undefined;
+    }
+    if (visited.has(ifdOffset)) return undefined;
+    visited.add(ifdOffset);
+    const entryCount = Math.min(u16(ifdOffset), MAX_IFD_ENTRIES);
+    let exifIfdPointer: number | null = null;
+
+    for (let i = 0; i < entryCount; i += 1) {
+      const entry = ifdOffset + 2 + i * 12;
+      if (entry + 12 > bytes.length) break;
+      const tag = u16(entry);
+      if (tag === wanted && u16(entry + 2) === 3 /* SHORT */) {
+        return u16(entry + 8);
+      }
+      if (tag === 0x8769) exifIfdPointer = u32(entry + 8);
+    }
+
+    if (exifIfdPointer === null) return undefined;
+    ifdOffset = tiffOffset + exifIfdPointer;
+  }
+  return undefined;
+}
+
+/**
  * Displayed (oriented) dimensions of a source image. Orientations 5-8 swap
  * width and height. Callers that store a pixel width/height must use this
  * for the *displayed* size and keep the raw stored dimensions separately.

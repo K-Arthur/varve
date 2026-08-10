@@ -21,7 +21,7 @@ function assetDocument() {
   const assetId = 'asset-aaaaaaaaaaaaaaaa';
   const hash = 'aaaaaaaaaaaaaaaa';
   doc = addNode(doc, makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }));
-  const node = doc.nodes['n1']!;
+  const node = doc.nodes.n1!;
   node.fills = [
     {
       type: 'image',
@@ -65,7 +65,7 @@ afterEach(() => resetImageResourceRegistry());
 describe('sceneToEngine resource handles', () => {
   it('replaces the data URL with the short handle when the fill references an asset', () => {
     const { doc, assetId } = assetDocument();
-    const engineNode = sceneNodeToEngineNode(doc.nodes['n1']!, {}, doc);
+    const engineNode = sceneNodeToEngineNode(doc.nodes.n1!, {}, doc);
     const fill = engineNode.fills?.find((f) => f.type === 'image');
     expect(fill?.image?.src).toBe(assetId);
     expect(fill?.image?.assetId).toBe(assetId);
@@ -87,7 +87,7 @@ describe('sceneToEngine resource handles', () => {
       createDocument('legacy', true),
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
     );
-    const node = doc.nodes['n1']!;
+    const node = doc.nodes.n1!;
     node.fills = [
       {
         type: 'image',
@@ -106,7 +106,7 @@ describe('sceneToEngine resource handles', () => {
 
   it('resolves shared paints through the same handle path', () => {
     const { doc, assetId } = assetDocument();
-    const node = doc.nodes['n1']!;
+    const node = doc.nodes.n1!;
     node.paintRefs = ['p1'];
     const paint = {
       id: 'p1',

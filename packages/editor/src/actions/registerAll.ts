@@ -99,6 +99,12 @@ export function registerEditorActions(
     ['whatIsThis', 'What Is This?', 'help'],
     ['startTour', 'Start Tour', 'help'],
     ['about', 'About Varve', 'help'],
+    // No-shortcut File actions: menu-only, but must reach the registry so
+    // menu clicks and keyboard paths share the same handler.
+    ['saveCopy', 'Save a Copy…', 'file'],
+    ['documentInfo', 'Document Info…', 'file'],
+    ['revealInFiles', 'Reveal in Files', 'file'],
+    ['copyFilePath', 'Copy File Path', 'file'],
   ] as const satisfies ReadonlyArray<readonly [string, string, ActionCategory]>;
   for (const [id, label, category] of menuActions) {
     const handler = handlers[id];

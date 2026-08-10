@@ -16,10 +16,13 @@
 
 import type { Platform, PrinterInfo, PrintJobResult } from './platform';
 import {
+  classifyTauriSaveError,
   contentHash,
   defaultViewState,
   detectFileKind,
+  directoryOfPath,
   mergeViewState,
+  normalizeSaveFileName,
   stripExtension,
   uuid,
   withDocumentExt,
@@ -112,6 +115,33 @@ async function withFocusRestore<T>(fn: () => Promise<T>): Promise<T> {
       }
     });
   }
+}
+
+/** KV key holding the directory of the last successful document save. */
+const LAST_SAVE_DIRECTORY_KEY = 'lastSaveDirectory';
+
+async function loadLastSaveDirectory(): Promise<string | null> {
+  try {
+    return (await core().invoke('app_get_setting', { key: LAST_SAVE_DIRECTORY_KEY })) as
+      | string
+      | null;
+  } catch {
+    return null;
+  }
+}
+
+async function storeLastSaveDirectory(dir: string): Promise<void> {
+  try {
+    await core().invoke('app_set_setting', { key: LAST_SAVE_DIRECTORY_KEY, value: dir });
+  } catch {
+    // Non-fatal: forgetting the folder is a convenience loss only.
+  }
+}
+
+/** Join a directory and a filename with a platform separator. */
+function joinPath(dir: string, name: string): string {
+  if (dir.endsWith('/') || dir.endsWith('\\')) return `${dir}${name}`;
+  return `${dir}/${name}`;
 }
 
 export function createTauriPlatform(): Platform {
@@ -549,7 +579,9 @@ export function createTauriPlatform(): Platform {
         })) as Array<{ path?: string; name?: string; content?: string }> | null;
         const first = picked?.[0];
         if (!first?.path) return null;
-        const text = (await c.invoke('home_read_text_file', { path: first.path })) as string;
+        const text = (await c.invoke('home_read_text_file_approved', {
+          path: first.path,
+        })) as string;
         return ingest(first.name ?? 'untitled.varve', text, first.path);
       });
     },
@@ -567,7 +599,9 @@ export function createTauriPlatform(): Platform {
         if (!first?.path || !first.name) return { result: null, unsupported: false };
         const kind = detectFileKind(first.name);
         if (kind === 'unknown') return { result: null, unsupported: true };
-        const text = (await c.invoke('home_read_text_file', { path: first.path })) as string;
+        const text = (await c.invoke('home_read_text_file_approved', {
+          path: first.path,
+        })) as string;
         if (kind !== 'strata') {
           const entry = capture(first.name, text, kind);
           return { result: { entry, documentJson: text }, unsupported: false };
@@ -577,25 +611,73 @@ export function createTauriPlatform(): Platform {
     },
 
     async saveDocumentToDisk(name, documentJson) {
-      return withFocusRestore(async () => {
-        const c = core();
-        const suggested = withDocumentExt(name);
-        const path = (await c.invoke('plugin:dialog|save', {
-          options: {
-            defaultPath: suggested,
-            filters: [{ name: 'Varve document', extensions: ['varve', 'strata'] }],
-          },
-        })) as string | null;
-        if (!path) return null;
-        await c.invoke('home_write_text_file', { path, contents: documentJson });
-        return path;
-      });
+      const choice = await this.chooseDocumentSaveTarget(name);
+      if (choice.kind !== 'target') return null;
+      const written = await this.writeSaveTarget(choice.target, documentJson);
+      if (written.kind !== 'written') return null;
+      return choice.target.kind === 'native-file' ? choice.target.path : null;
     },
 
     async writeDocumentToPath(path, documentJson) {
-      const c = core();
-      await c.invoke('home_write_text_file', { path, contents: documentJson });
-      return path;
+      const written = await this.writeSaveTarget({ kind: 'native-file', path }, documentJson);
+      return written.kind === 'written' ? path : null;
+    },
+
+    async chooseDocumentSaveTarget(suggestedName) {
+      return withFocusRestore(async () => {
+        const c = core();
+        const suggested = withDocumentExt(normalizeSaveFileName(suggestedName));
+        // Optional convenience: start the dialog in the folder of the last
+        // successful save. The user still confirms every location; this only
+        // sets the dialog's starting point. Stored as a local app setting
+        // (SQLite KV) — never serialized into the document.
+        const lastDir = await loadLastSaveDirectory();
+        const defaultPath = lastDir ? joinPath(lastDir, suggested) : suggested;
+        const path = (await c.invoke('plugin:dialog|save', {
+          options: {
+            defaultPath,
+            // New saves produce the canonical format only. Legacy .strata
+            // files still open and import; they round-trip through their
+            // existing path on plain Save. The dialog deliberately does not
+            // present .strata as an equal new-document output format.
+            filters: [{ name: 'Varve document', extensions: ['varve'] }],
+          },
+        })) as string | null;
+        if (!path) return { kind: 'cancelled' };
+        return { kind: 'target', target: { kind: 'native-file', path } };
+      });
+    },
+
+    async writeSaveTarget(target, contents) {
+      if (target.kind !== 'native-file') {
+        return {
+          kind: 'failed',
+          error: {
+            category: 'unsupported',
+            message: 'This runtime only writes to native filesystem paths.',
+          },
+        };
+      }
+      try {
+        await core().invoke('home_write_text_file_approved', {
+          path: target.path,
+          contents,
+        });
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        return { kind: 'failed', error: classifyTauriSaveError(message) };
+      }
+      const dir = directoryOfPath(target.path);
+      if (dir) void storeLastSaveDirectory(dir);
+      return { kind: 'written' };
+    },
+
+    async readDocumentText(path) {
+      try {
+        return (await core().invoke('home_read_text_file_approved', { path })) as string;
+      } catch {
+        return undefined;
+      }
     },
     async saveBinaryFile(name, data, mimeType, extension) {
       return withFocusRestore(async () => {

@@ -6,7 +6,9 @@
  * module and tests.
  */
 
+import { imagePlaceholderFill } from '../imagePlaceholder';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
+import { getMediaRegistry } from '../media';
 import type { ReplayTarget } from '../replay';
 import type { Primitive } from '../types';
 import { fitRect } from './fit';
@@ -43,11 +45,19 @@ export interface WarpImageCacheLike {
  */
 export function resolveReplayImage(
   src: string,
-  lookup: ((src: string) => CanvasImageSource | undefined) | null,
+  lookup: ((src: string, frame?: number) => CanvasImageSource | undefined) | null,
   cache: WarpImageCacheLike,
+  frame?: number,
 ): CanvasImageSource | undefined {
   if (lookup) {
-    return lookup(src);
+    return lookup(src, frame);
+  }
+  // Animated-media frame path: composited frames come from the session
+  // frame cache (bitmap-promoted on the main thread); absent bitmaps fall
+  // back to the async reframe contract (caller re-renders on cache change).
+  if (frame !== undefined) {
+    const media = resolveMediaFrameSource(src, frame);
+    if (media) return media;
   }
   const loadableSource = resolveImageResourceHandle(src);
   const imgEntry = cache.get(loadableSource);
@@ -62,6 +72,22 @@ export function resolveReplayImage(
   return undefined;
 }
 
+/**
+ * Resolve a composited animated-media frame for replay (main thread).
+ * Returns a renderable ImageBitmap when one is already promoted; otherwise
+ * triggers async promotion (the reframe contract re-renders when ready).
+ * No-op for non-media assets — zero cost on the static hot path.
+ */
+export function resolveMediaFrameSource(src: string, frame: number): CanvasImageSource | undefined {
+  const session = getMediaRegistry().get(src);
+  if (!session) return undefined;
+  if (!session.getComposited(frame)) return undefined;
+  const bitmap = session.getBitmapSync(frame);
+  if (bitmap) return bitmap;
+  void session.getBitmap(frame).catch(() => {});
+  return undefined;
+}
+
 export function paintWarpedImage(
   target: ReplayTarget,
   p: Extract<Primitive, { kind: 'warpedImage' }>,
@@ -69,11 +95,13 @@ export function paintWarpedImage(
 ): void {
   const image = resolveImage(p.src);
   if (!image) {
-    // Placeholder for a not-yet-loaded surface (cache schedules a reframe).
+    // Placeholder for a not-yet-loaded or failed surface (cache schedules a
+    // reframe on load; a failed source keeps a distinct placeholder so
+    // loading and permanent failure never look the same).
     if (target.fillStyle && target.fillRect) {
       const b = quadBoundsOf(p);
       const prev = target.fillStyle;
-      target.fillStyle = '#e8eaed';
+      target.fillStyle = imagePlaceholderFill(p.src);
       target.fillRect(b.x, b.y, b.w, b.h);
       target.fillStyle = prev;
     }

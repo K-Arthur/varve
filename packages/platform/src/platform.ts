@@ -17,6 +17,7 @@ import type {
   Branch,
   Collection,
   CreateVersionInput,
+  DocumentSaveTargetChoice,
   FileEntry,
   Folder,
   HomeViewState,
@@ -28,6 +29,7 @@ import type {
   RecentFilePatch,
   RecentFileRecord,
   SavedSearch,
+  SaveTarget,
   Tag,
   TemplateLibrary,
   ThumbnailRecord,
@@ -35,6 +37,7 @@ import type {
   VersionEntry,
   VersionStats,
   Workspace,
+  WriteSaveResult,
 } from './types';
 
 export interface Platform {
@@ -259,13 +262,38 @@ export interface Platform {
   importDocumentFromDisk(
     extensions: string[],
   ): Promise<{ result: OpenFileResult | null; unsupported: boolean }>;
+  /**
+   * Ask the user where to save a document (File → Save As / first Save).
+   * The dialog is always native. The returned target is only ever a
+   * *candidate* — nothing is written and no session state changes until
+   * `writeSaveTarget` succeeds on it.
+   *
+   * Deprecated in favour of `chooseDocumentSaveTarget` + `writeSaveTarget`
+   * (which separate "choose" from "write" so repeated Save can reuse a
+   * target); kept for compatibility — returns the chosen path on success
+   * and null when the picker was cancelled or the write failed.
+   */
   saveDocumentToDisk(name: string, documentJson: string): Promise<string | null>;
   /**
    * Write a document back to an existing path (File → Save for files opened
-   * from disk). Returns the path on success, null when unsupported. Falls
-   * back to saveDocumentToDisk (picker) on runtimes without path writes.
+   * from disk). Returns the path on success, null when the runtime cannot
+   * write that path or the write failed.
+   *
+   * Deprecated in favour of `writeSaveTarget`; kept for compatibility.
    */
   writeDocumentToPath(path: string, documentJson: string): Promise<string | null>;
+  /**
+   * Open the native save dialog for a NEW document destination. Does not
+   * write anything. The editor owns all state changes: the returned target
+   * becomes the session's target only after a successful `writeSaveTarget`.
+   */
+  chooseDocumentSaveTarget(suggestedName: string): Promise<DocumentSaveTargetChoice>;
+  /** Write `contents` to an already-resolved save target. */
+  writeSaveTarget(target: SaveTarget, contents: string): Promise<WriteSaveResult>;
+  /** Read the current bytes of an external file target, for external-change
+   *  detection before overwriting. Returns undefined when the path is
+   *  missing/unreadable or the runtime cannot read arbitrary paths. */
+  readDocumentText(path: string): Promise<string | undefined>;
   saveBinaryFile(
     name: string,
     data: Uint8Array,

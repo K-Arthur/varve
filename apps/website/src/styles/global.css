@@ -11,6 +11,25 @@
 @import "@varve/ui/tokens.css";
 @import "./theme.css";
 
+/* Variable fonts, bundled locally — no third-party font requests.
+   Geist (UI/labels) and IBM Plex Sans (body) are the families the desktop app
+   ships, so the site and the product share typography.
+
+   Fraunces is the editorial voice: a variable display serif used only at
+   display sizes — hero, section titles, the footer wordmark — where its high
+   contrast reads as art direction rather than decoration. It gives Varve a
+   typographic identity a geometric sans alone cannot, and a variable serif is
+   honest to the product: the same axes the typography tools expose.
+
+   The `opsz` build is imported deliberately, not the `full` build: weight plus
+   optical size is what carries the display cut (67 KB latin), while the full
+   axis set including SOFT/WONK costs 121 KB, and the italic a further 150 KB.
+   Headings are not worth a quarter-megabyte of font. Fontsource splits by
+   unicode-range, so a Latin reader fetches only the Latin subset. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource-variable/fraunces/opsz.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -150,6 +169,29 @@
   input::placeholder,
   textarea::placeholder {
     color: var(--text-placeholder);
+  }
+
+  /* Motion-system base: [data-reveal] elements. The hidden initial state is
+     gated on no-preference + no static override, so reduced motion, static
+     tests, and no-JS renders show final state immediately. */
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-motion="static"]) [data-reveal]:not(.revealed) {
+      opacity: 0;
+      transform: translateY(1.25rem);
+    }
+
+    html:not([data-motion="static"]) [data-reveal].revealed {
+      opacity: 1;
+      transform: none;
+      transition:
+        opacity 0.7s var(--ease-default),
+        transform 0.7s var(--ease-default);
+    }
   }
 }
 

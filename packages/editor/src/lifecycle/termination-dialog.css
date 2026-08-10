@@ -1,0 +1,63 @@
+/* Termination dialog styles — unsaved-work guard surfaces (ADR-0216). */
+
+.termination-dialog__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2, 8px);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.termination-dialog__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3, 12px);
+  padding: var(--space-2, 8px);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-surface-2, rgba(127, 127, 127, 0.08));
+}
+
+.termination-dialog__row--failed {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.termination-dialog__check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+}
+
+.termination-dialog__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.termination-dialog__badge {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs, 11px);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border, rgba(127, 127, 127, 0.3));
+  border-radius: var(--radius-sm, 6px);
+  padding: 1px 6px;
+}
+
+.termination-dialog__hint {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm, 12px);
+}
+
+.termination-dialog__failed-actions {
+  display: flex;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+}

@@ -16,6 +16,13 @@
 
 export const PYRAMID_RESAMPLER_VERSION = 1;
 
+/**
+ * Gutter tiles (brief §20) carry one ring of neighbour texels and are keyed
+ * with a distinct suffix so plain and gutter versions never collide.
+ */
+export const PYRAMID_GUTTER_TEXELS = 1;
+export const PYRAMID_GUTTER_KEY_SUFFIX = ':g1';
+
 export interface RasterPyramidTileId {
   readonly layerId: string;
   readonly level: number;
@@ -33,13 +40,14 @@ export function pyramidTileKey(id: RasterPyramidTileId): string {
   );
 }
 
-/** Base-tile source key: the authoritative L0 tile a level-1 tile reads from. */
-export function sourceTileKey(layerId: string, col: number, row: number): string {
-  return `${layerId}@L0:${col}:${row}`;
+/** Base-tile source key: the L0 tile a level-1 tile reads from (bare grid key, matching the scene model's "col:row" map keys). */
+export function sourceTileKey(col: number, row: number): string {
+  return `${col}:${row}`;
 }
 
 export interface PyramidSourceTile {
   readonly version: number;
+  readonly pixels?: Uint8ClampedArray | ArrayLike<number>;
 }
 
 /** Accepts either the scene Map or the engine-IR Record form of a tile table. */
@@ -61,27 +69,25 @@ function readVersion(tiles: PyramidSourceTiles, key: string): number {
  * transparent tile, and allocating it without painting is a version no-op.
  */
 export function l0Snapshot(
-  layerId: string,
   children: readonly { col: number; row: number }[],
   tiles: PyramidSourceTiles,
 ): string {
   const entries = children.map((c) => {
-    const key = sourceTileKey(layerId, c.col, c.row);
+    const key = sourceTileKey(c.col, c.row);
     const v = readVersion(tiles, key);
     return `${c.col}:${c.row}:${v}`;
   });
   return entries.sort().join(';');
 }
 
-/** Four child coords of a tile at level n-1, in level-(n-1) coordinates. */
-export function childCoords(
-  level: number,
-  col: number,
-  row: number,
-): Array<{ col: number; row: number }> {
-  const f = 2 ** level;
-  const cx = col * f;
-  const cy = row * f;
+/**
+ * Four immediate children of a tile at the next finer level (level-1):
+ * the 2x2 block (2c,2r)..(2c+1,2r+1). Independent of the tile's level — a
+ * tile spans exactly 2 child tiles per axis at every level.
+ */
+export function childCoords(col: number, row: number): Array<{ col: number; row: number }> {
+  const cx = col * 2;
+  const cy = row * 2;
   return [
     { col: cx, row: cy },
     { col: cx + 1, row: cy },
@@ -97,13 +103,12 @@ export function childCoords(
  * ancestors — sibling tiles are untouched).
  */
 export function derivedSnapshot(
-  level: number,
   col: number,
   row: number,
   children: ReadonlyMap<string, string>,
 ): string {
   const entries: string[] = [];
-  for (const c of childCoords(level, col, row)) {
+  for (const c of childCoords(col, row)) {
     const v = children.get(`${c.col}:${c.row}`) ?? '';
     entries.push(`${c.col}:${c.row}:${v}`);
   }

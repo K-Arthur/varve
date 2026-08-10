@@ -80,6 +80,13 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
         msg.imageSources ?? Object.keys(msg.images ?? imageMap),
       );
     }
+    // Resident source bytes are reported on every frame (cheap map walk) so
+    // the host can account worker-held decoded bitmaps and include them in
+    // admission control — never relying on GC to define ImageBitmap lifetime.
+    let imageBytes = 0;
+    for (const bmp of Object.values(imageMap)) {
+      imageBytes += bmp.width * bmp.height * 4;
+    }
     try {
       const renderStartedAt = timingEnabled ? performance.now() : 0;
       ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
@@ -122,6 +129,7 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
             viewport: msg.viewport,
             dpr: msg.dpr,
             bitmap,
+            imageBytes,
             ...(timing ? { timing } : {}),
           },
           [bitmap],

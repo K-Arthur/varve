@@ -86,7 +86,7 @@ export {
 } from './bezier';
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
-export type { BitDepth, ManagedColorShim } from './colorConversion';
+export type { BitDepth, ManagedColorShim, RgbWorkingSpaceRef } from './colorConversion';
 export {
   COLOR_DISPLAY_DECIMALS,
   COLOR_EQUALITY_TOLERANCE,
@@ -95,16 +95,22 @@ export {
   channelMax,
   clampChannel,
   cmykToRgb,
+  convertEncodedRgb,
   DEFAULT_BIT_DEPTH,
   denormalizeChannel,
   gamutMapToSrgb,
+  isAnalyticRgbWorkingSpace,
   labToLch,
   labToRgb,
   labToXyz,
   lchToLab,
   lchToRgb,
+  linearRgbPrimariesToXyzD50,
   linearSrgbToOklab,
+  linearToProphotoUnit,
+  linearToRec2020Unit,
   linearToSrgb,
+  linearToSrgbUnit,
   managedColorKey,
   managedColorToCss,
   managedColorToNormalized,
@@ -115,11 +121,19 @@ export {
   oklabToLinearSrgb,
   oklabToOkLch,
   oklchToOkLab,
+  prophotoToLinearUnit,
+  rec2020ToLinearUnit,
+  rgbPrimariesLabel,
   rgbToCmyk,
   rgbToLab,
   rgbToLch,
   roundTo,
   srgbToLinear,
+  srgbToLinearUnit,
+  transferDecode,
+  transferEncode,
+  transferLabel,
+  xyzD50ToLinearRgbPrimaries,
   xyzD65ToLinearRgb,
 } from './colorConversion';
 export type {
@@ -222,6 +236,7 @@ export {
   interpolateSpatialBezier,
   interpolateValue,
 } from './interpolation';
+export * from './media';
 export type { ResizeModifiers, RotateModifiers } from './modifiers';
 export { computeResizeModifiers, computeRotateModifiers } from './modifiers';
 export type { OrderKey } from './ordering';
@@ -341,6 +356,26 @@ export {
   proofConfigKey,
   registerProfileProofConverter,
 } from './proofTransform';
+export type {
+  RasterAlphaMode,
+  RasterBitDepth,
+  RasterColorEncoding,
+  RasterColorModel,
+  RasterEncodingProvenance,
+  RasterFloatDepth,
+  RasterPrecision,
+  RgbPrimariesName,
+  TransferFunctionName,
+  VideoMatrixCoefficients,
+  VideoRange,
+} from './rasterColorEncoding';
+export {
+  DISPLAY_SRGB_ENCODING,
+  isConvertibleRgbEncoding,
+  LEGACY_ASSUMED_ENCODING,
+  rasterEncodingLabel,
+  rasterProvenanceLabel,
+} from './rasterColorEncoding';
 export type { BoxCandidate, ResizeHandle, ResizeOptions, SelectionBox } from './selectionBox';
 export {
   boxDeltaMatrix,
