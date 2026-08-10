@@ -90,6 +90,8 @@ export type { Tab, TabsProps } from './Tabs';
 export { Tabs } from './Tabs';
 export type { TextAreaProps } from './TextArea';
 export { TextArea } from './TextArea';
+export type { ThumbnailProps } from './Thumbnail';
+export { Thumbnail } from './Thumbnail';
 export type { ToastItem, ToastProps } from './Toast';
 export { Toast } from './Toast';
 export { ToastProvider, useToast } from './ToastProvider';

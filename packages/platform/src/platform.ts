@@ -31,6 +31,7 @@ import type {
   Tag,
   TemplateLibrary,
   ThumbnailRecord,
+  ThumbnailSourcePreference,
   VersionEntry,
   VersionStats,
   Workspace,
@@ -230,6 +231,13 @@ export interface Platform {
   fileExists(path: string): Promise<boolean>;
 
   // ─── Thumbnails ──────────────────────────────────────────────────────────
+  /**
+   * Persist the user's thumbnail source preference for a file. Lives on the
+   * FileEntry (app metadata), so it survives restarts and is preserved
+   * across saves without touching the document bytes. Silent no-op when the
+   * file does not exist.
+   */
+  setThumbnailPreference(fileId: string, preference: ThumbnailSourcePreference): Promise<void>;
   getThumbnail(hash: string): Promise<string | undefined>;
   putThumbnail(record: ThumbnailRecord): Promise<void>;
   deleteThumbnail(hash: string): Promise<void>;

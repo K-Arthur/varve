@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@varve/platform';
 import { formatRelativeTime } from '@varve/platform';
-import { Icon, Tooltip } from '@varve/ui';
+import { Icon, Thumbnail, Tooltip } from '@varve/ui';
 import {
   forwardRef,
   type HTMLAttributes,
@@ -51,7 +51,6 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
   },
   ref,
 ) {
-  const thumbRef = useRef<HTMLDivElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const [renameValue, setRenameValue] = useState(entry.name);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -114,15 +113,8 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
   }, [renameValue, entry.id, entry.name, onRename, onStartRename]);
 
   useEffect(() => {
-    if (thumbnail && thumbRef.current) {
-      const img = new Image();
-      img.src = thumbnail;
-      img.alt = '';
-      img.className = 'file-card__thumb-img';
-      thumbRef.current.innerHTML = '';
-      thumbRef.current.appendChild(img);
-    }
-  }, [thumbnail]);
+    setRenameValue(entry.name);
+  }, [entry.name]);
 
   const handleKey = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -154,8 +146,14 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
       onKeyDown={handleKey}
       {...rest}
     >
-      <div className="file-card__thumb" ref={thumbRef}>
-        {thumbnailLoading && !thumbnail && <div className="file-card__skeleton" />}
+      <div className="file-card__thumb">
+        <Thumbnail
+          src={thumbnail}
+          alt={entry.name}
+          pending={thumbnailLoading && !thumbnail}
+          unavailable={isMissing}
+          className="file-card__thumb-img"
+        />
         {entry.kind && <span className="file-card__thumb-badge">{entry.kind}</span>}
       </div>
       <div className="file-card__body">
