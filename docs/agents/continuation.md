@@ -140,8 +140,8 @@ All must pass. Non-negotiable.
 | `packages/scene/src/component.ts` | ComponentDefinition + slots |
 | `packages/scene/src/variables.ts` | VariableStore with modes |
 | `packages/editor/src/Shell.tsx` | Editor app shell CSS Grid |
-| `packages/editor/src/context.tsx` | EditorProvider with shared state + undo/redo |
-| `packages/editor/src/CanvasArea.tsx` | Canvas region (replayIr + hit-test + zoom/pan + keyboard nav) |
+| `packages/editor/src/context.tsx` | EditorProvider with shared state + undo/redo; auto-save/backup init lives in `context/useAutoBackupServices.ts` |
+| `packages/editor/src/CanvasArea.tsx` | Canvas region shell: surface lifecycle effects, overlays, input wiring; the frame renderer moved to `canvas/renderPipeline.ts` (`renderContent`), tool-input wiring to `canvas/toolContext.ts` (`buildToolContext`), ToolManager sync to `tools/useToolManagerSync.ts` |
 | `packages/editor/src/LayersPanel.tsx` | APG Tree View from real Document |
 | `packages/editor/src/InspectorPanel.tsx` | Editable position/size/fill with NumberInput scrubbing |
 | `packages/editor/src/Menubar.tsx` | File/Edit/View dropdowns with platform-aware shortcuts |
