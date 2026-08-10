@@ -44,6 +44,8 @@ function createMockContext(overrides: Partial<ToolContext> = {}): ToolContext {
     toggleSelection: vi.fn(),
     isSelected: vi.fn(),
     setNodePosition: vi.fn(),
+    setNodePositions: vi.fn(),
+    updateNodes: vi.fn(),
     setNodeSize: vi.fn(),
     updateNode: vi.fn(),
     removeSelected: vi.fn(),

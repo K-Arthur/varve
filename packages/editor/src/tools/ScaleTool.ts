@@ -135,60 +135,75 @@ export class ScaleTool extends BaseTool {
     scaleX = Math.max(0.01, Math.min(100, scaleX));
     scaleY = Math.max(0.01, Math.min(100, scaleY));
 
+    const updaters: Array<{
+      id: string;
+      update: (node: import('@varve/scene').SceneNode) => import('@varve/scene').SceneNode;
+    }> = [];
     for (const init of this.initialNodes) {
-      ctx.updateNode(init.id, (node) => {
-        const nodeDx = init.centroidX - origin.x;
-        const nodeDy = init.centroidY - origin.y;
-        const scaleAffine: Affine = [scaleX, 0, 0, scaleY, 0, 0];
-        const composed = multiplyAffine(scaleAffine, node.transform as Affine);
+      updaters.push({
+        id: init.id,
+        update: (node) => {
+          const nodeDx = init.centroidX - origin.x;
+          const nodeDy = init.centroidY - origin.y;
+          const scaleAffine: Affine = [scaleX, 0, 0, scaleY, 0, 0];
+          const composed = multiplyAffine(scaleAffine, node.transform as Affine);
 
-        // Map world-space centroid offset into the node's parent local space.
-        // This is the correct space for adjusting position after scaling —
-        // the node's transform is expressed relative to its parent, so the
-        // position adjustment must also be in parent space.
-        // For deeply nested objects, we extract only rotation (not translation)
-        // from the parent world transform to avoid double-counting position.
-        const parentId = ctx.document ? getParent(ctx.document, init.id) : null;
-        let spaceMat: Affine;
-        if (parentId) {
-          const parentTransform = nodeWorldTransform(ctx.document, parentId);
-          const angle = Math.atan2(parentTransform[1], parentTransform[0]);
-          spaceMat = [
-            Math.cos(angle),
-            Math.sin(angle),
-            -Math.sin(angle),
-            Math.cos(angle),
-            0,
-            0,
-          ] as Affine;
-        } else {
-          const rot = node.rotation ?? 0;
-          if (rot === 0) spaceMat = [1, 0, 0, 1, 0, 0] as Affine;
-          const rad = (rot * Math.PI) / 180;
-          spaceMat = [Math.cos(rad), Math.sin(rad), -Math.sin(rad), Math.cos(rad), 0, 0] as Affine;
-        }
-        const det = spaceMat[0] * spaceMat[3] - spaceMat[1] * spaceMat[2];
-        let localDx = nodeDx;
-        let localDy = nodeDy;
-        if (Math.abs(det) > 1e-10) {
-          localDx = (spaceMat[3] * nodeDx - spaceMat[2] * nodeDy) / det;
-          localDy = (-spaceMat[1] * nodeDx + spaceMat[0] * nodeDy) / det;
-        }
-        const adjustX = localDx * (scaleX - 1);
-        const adjustY = localDy * (scaleY - 1);
-        return {
-          ...node,
-          transform: [
-            composed[0],
-            composed[1],
-            composed[2],
-            composed[3],
-            composed[4] - adjustX,
-            composed[5] - adjustY,
-          ] as Affine,
-        };
+          // Map world-space centroid offset into the node's parent local space.
+          // This is the correct space for adjusting position after scaling —
+          // the node's transform is expressed relative to its parent, so the
+          // position adjustment must also be in parent space.
+          // For deeply nested objects, we extract only rotation (not translation)
+          // from the parent world transform to avoid double-counting position.
+          const parentId = ctx.document ? getParent(ctx.document, init.id) : null;
+          let spaceMat: Affine;
+          if (parentId) {
+            const parentTransform = nodeWorldTransform(ctx.document, parentId);
+            const angle = Math.atan2(parentTransform[1], parentTransform[0]);
+            spaceMat = [
+              Math.cos(angle),
+              Math.sin(angle),
+              -Math.sin(angle),
+              Math.cos(angle),
+              0,
+              0,
+            ] as Affine;
+          } else {
+            const rot = node.rotation ?? 0;
+            if (rot === 0) spaceMat = [1, 0, 0, 1, 0, 0] as Affine;
+            const rad = (rot * Math.PI) / 180;
+            spaceMat = [
+              Math.cos(rad),
+              Math.sin(rad),
+              -Math.sin(rad),
+              Math.cos(rad),
+              0,
+              0,
+            ] as Affine;
+          }
+          const det = spaceMat[0] * spaceMat[3] - spaceMat[1] * spaceMat[2];
+          let localDx = nodeDx;
+          let localDy = nodeDy;
+          if (Math.abs(det) > 1e-10) {
+            localDx = (spaceMat[3] * nodeDx - spaceMat[2] * nodeDy) / det;
+            localDy = (-spaceMat[1] * nodeDx + spaceMat[0] * nodeDy) / det;
+          }
+          const adjustX = localDx * (scaleX - 1);
+          const adjustY = localDy * (scaleY - 1);
+          return {
+            ...node,
+            transform: [
+              composed[0],
+              composed[1],
+              composed[2],
+              composed[3],
+              composed[4] - adjustX,
+              composed[5] - adjustY,
+            ] as Affine,
+          };
+        },
       });
     }
+    ctx.updateNodes(updaters);
 
     // Show scaled bounding box draft with percentage label
     if (this.initialUnionBbox) {
