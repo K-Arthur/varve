@@ -326,6 +326,15 @@ export function createRenderWorkerHost(
       bitmapWidth: msg.bitmap?.width ?? 0,
       bitmapHeight: msg.bitmap?.height ?? 0,
       bitmapBytes: msg.bitmap ? estimateRgbaBytes(msg.bitmap.width, msg.bitmap.height) : 0,
+      // Worker-resident source residency (worker-reported on every frame so
+      // the host can account worker-held decoded bitmaps without trusting GC
+      // to define ImageBitmap lifetime): bytes + count of retained sources,
+      // plus the session's set-delta counters from the admission budget.
+      sourceResidentBytes: msg.imageBytes ?? 0,
+      sourceResidentCount: msg.imageCount ?? 0,
+      sourceAdds: bitmapBudget.state.sourceAdds,
+      sourceRemoves: bitmapBudget.state.sourceRemoves,
+      sourceReuses: bitmapBudget.state.sourceReuses,
     });
   }
 

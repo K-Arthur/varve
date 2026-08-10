@@ -54,7 +54,7 @@ export function DebtBadge() {
         style={{ color, background: bg }}
         aria-label={`Design debt: ${ec} errors, ${wc} warnings, ${ic} info`}
       >
-        <Icon name="FileWarning" size={12} />
+        <Icon name="TriangleAlert" size={12} />
         <span className="debt-badge__count">{total}</span>
       </button>
     </Tooltip>
