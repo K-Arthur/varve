@@ -170,6 +170,12 @@ export interface SessionMeta extends SessionFileMeta {
   id: string;
   name: string;
   dirty: boolean;
+  /**
+   * True for encrypted project archives: no plaintext thumbnail pixels may
+   * ever be written to ordinary caches; only the encrypted placeholder may
+   * be stored (see thumbnail/encryptedThumbnailPolicy.ts).
+   */
+  encrypted?: boolean;
 }
 
 /**

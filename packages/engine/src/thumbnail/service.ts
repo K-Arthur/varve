@@ -299,7 +299,9 @@ export async function generateThumbnail(
   }
 
   const bounds = computeNodesBounds(nodes);
-  if (!bounds || bounds.w <= 0 || bounds.h <= 0) return null;
+  const frame = opts.frame && opts.frame.w > 0 && opts.frame.h > 0 ? opts.frame : null;
+  const renderBounds = frame ?? bounds;
+  if (!renderBounds || renderBounds.w <= 0 || renderBounds.h <= 0) return null;
 
   if (signal?.aborted) return null;
 
@@ -310,9 +312,9 @@ export async function generateThumbnail(
 
   if (signal?.aborted) return null;
 
-  const scale = computeScale(bounds.w, bounds.h, outW, outH, opts.fit ?? 'contain');
-  let cw = Math.max(1, Math.round(bounds.w * scale));
-  let ch = Math.max(1, Math.round(bounds.h * scale));
+  const scale = computeScale(renderBounds.w, renderBounds.h, outW, outH, opts.fit ?? 'contain');
+  let cw = Math.max(1, Math.round(renderBounds.w * scale));
+  let ch = Math.max(1, Math.round(renderBounds.h * scale));
 
   // Clamp to the pixel budget after DPR scaling.
   if (cw * ch > MAX_THUMBNAIL_PIXELS) {
@@ -330,8 +332,12 @@ export async function generateThumbnail(
   applyBackground(ctx, cw, ch, opts.background ?? { type: 'transparent' });
 
   ctx.save();
-  ctx.translate(-bounds.x * scale, -bounds.y * scale);
+  ctx.translate(-renderBounds.x * scale, -renderBounds.y * scale);
   ctx.scale(scale, scale);
+  // Clip to the frame so content outside a page/region never bleeds in.
+  ctx.beginPath();
+  ctx.rect(renderBounds.x, renderBounds.y, renderBounds.w, renderBounds.h);
+  ctx.clip();
 
   if (signal?.aborted) return null;
 
@@ -367,7 +373,7 @@ export async function generateThumbnail(
   const metadata: ThumbnailMetadata = {
     cacheKey: computeCacheKey(nodes, opts),
     sourceLabel: opts.sourceLabel ?? 'Document',
-    sourceBounds: bounds,
+    sourceBounds: renderBounds,
     scaleFactor: scale,
     outputWidth: cw,
     outputHeight: ch,

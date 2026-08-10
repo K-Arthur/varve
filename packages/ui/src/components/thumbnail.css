@@ -1,0 +1,98 @@
+.varve-thumbnail {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface-elevated, #ffffff);
+}
+
+.varve-thumbnail--checkerboard {
+  background:
+    linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.06) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(0, 0, 0, 0.06) 75%
+    ),
+    linear-gradient(
+      45deg,
+      rgba(0, 0, 0, 0.06) 25%,
+      transparent 25%,
+      transparent 75%,
+      rgba(0, 0, 0, 0.06) 75%
+    );
+  background-color: var(--color-surface-elevated, #ffffff);
+  background-size: 12px 12px;
+  background-position:
+    0 0,
+    6px 6px;
+}
+
+.varve-thumbnail--radius-sm {
+  border-radius: var(--radius-sm, 4px);
+}
+
+.varve-thumbnail--radius-md {
+  border-radius: var(--radius-md, 6px);
+}
+
+.varve-thumbnail__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.varve-thumbnail--fit-cover .varve-thumbnail__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.varve-thumbnail--fit-fill .varve-thumbnail__img {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+
+.varve-thumbnail__skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    var(--color-surface-muted, #f0f0f0) 40%,
+    var(--color-surface-hover, #e6e6e6) 50%,
+    var(--color-surface-muted, #f0f0f0) 60%
+  );
+  background-size: 200% 100%;
+  animation: varve-thumbnail-shimmer 1.4s ease infinite;
+}
+
+@keyframes varve-thumbnail-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .varve-thumbnail__skeleton {
+    animation: none;
+  }
+}
+
+.varve-thumbnail__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-muted, #8a8a8a);
+  background: var(--color-surface-muted, #f5f5f5);
+}
