@@ -1551,8 +1551,8 @@ async fn trace_image_command(
 
     if image_data.len() > MAX_TRACE_INPUT_BYTES {
         return Err(format!(
-            "Trace input is {} bytes; the native limit is {MAX_TRACE_INPUT_BYTES} bytes",
-            image_data.len()
+            "Trace input is {:.1} MB; the native limit is 128 MB",
+            image_data.len() as f64 / (1024.0 * 1024.0)
         ));
     }
 
@@ -1590,7 +1590,7 @@ async fn trace_image_command(
         let source_pixels = u64::from(dimensions.0) * u64::from(dimensions.1);
         if source_pixels > MAX_TRACE_PIXELS {
             return Err(format!(
-                "Trace source contains {source_pixels} pixels; the native limit is {MAX_TRACE_PIXELS} pixels"
+                "Trace source contains {source_pixels} pixels; the native limit is 64 megapixels"
             ));
         }
         if cancel_flag.load(Ordering::SeqCst) {
