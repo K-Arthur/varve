@@ -22,7 +22,15 @@ const faqSchema = {
       name: 'What platforms does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve supports Linux (x86_64), macOS (Universal, Intel and Apple Silicon, macOS 13+), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, rpm, and AUR.',
+        text: 'Varve supports Linux (x86_64), macOS (Apple Silicon, macOS 13 Ventura or later), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, and rpm. There is no Intel macOS build, and ARM builds are not available on Linux or Windows.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How can I try Varve before the first release?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'No public release has been published yet, so there is nothing to install. Follow the GitHub Releases page for the project to be notified when the first beta ships. Until then, downloads labeled "Varve" anywhere else are not official.',
       },
     },
     {
@@ -62,7 +70,7 @@ const faqSchema = {
       name: 'Does Varve support ARM processors?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve supports Apple Silicon (ARM) on macOS via Universal binaries. Linux ARM and Windows ARM are not currently supported.',
+        text: 'Varve supports Apple Silicon (ARM) on macOS via ARM64 builds. Linux ARM and Windows ARM are not currently supported.',
       },
     },
     {
@@ -86,7 +94,7 @@ const faqSchema = {
       name: 'How can I contribute to Varve?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'You can contribute code, documentation, testing, design, or translations. Non-financial contributions are equally valuable to financial support.',
+        text: 'You can contribute code, documentation, testing, or design. Non-financial contributions are equally valuable to financial support.',
       },
     },
   ],
@@ -116,7 +124,12 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>What platforms does Varve support?</h3>
-          <p>Varve supports Linux (x86_64), macOS Universal (Intel + Apple Silicon, 13+), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, rpm, and AUR.</p>
+          <p>Varve supports Linux (x86_64), macOS (Apple Silicon, macOS 13 Ventura or later), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, and rpm. There is no Intel macOS build yet, and ARM builds are not available on Linux or Windows.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>How can I try Varve before the first release?</h3>
+          <p>No public release has been published yet, so there is nothing to install. Follow the <a href="https://github.com/K-Arthur/varve/releases" rel="noopener noreferrer">GitHub Releases page</a> to be notified when the first beta ships. Until then, downloads labeled "Varve" anywhere else are not official.</p>
         </div>
 
         <div class="faq-item">
@@ -126,7 +139,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>Is Varve open source?</h3>
-          <p>The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source. This page explains the reasoning behind this choice.</p>
+          <p>The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source. See the <a href={sitePath('/about/license')}>license page</a> for the reasoning behind this choice.</p>
         </div>
       </div>
 
@@ -145,7 +158,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>Does Varve support ARM processors?</h3>
-          <p>Varve supports Apple Silicon (ARM) on macOS via Universal binaries. Linux ARM and Windows ARM are not currently supported.</p>
+          <p>Varve supports Apple Silicon (ARM) on macOS via ARM64 builds. Linux ARM and Windows ARM are not currently supported.</p>
         </div>
 
         <div class="faq-item">
@@ -164,17 +177,12 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>How can I contribute?</h3>
-          <p>You can contribute code, documentation, testing, design, or translations. See the <a href={sitePath('/contribute')}>contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
+          <p>You can contribute code, documentation, testing, or design. See the <a href={sitePath('/contribute')}>contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
         </div>
 
         <div class="faq-item">
           <h3>How can I support the project financially?</h3>
           <p>Varve accepts financial support via GitHub Sponsors. See the <a href={sitePath('/support-project')}>Support Project</a> page for sponsorship tiers and what support enables.</p>
-        </div>
-
-        <div class="faq-item">
-          <h3>What's the response time for support?</h3>
-          <p>As a solo-developer project, issues are typically reviewed within 1 week. Critical bugs are prioritized. For faster responses, community forums (GitHub Discussions) are recommended.</p>
         </div>
       </div>
 
