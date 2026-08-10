@@ -1,6 +1,17 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import release from '../data/release-manifest.json';
+
+// Mirror the download page: signing status derives from the verification
+// records in release-manifest.json, never from a hardcoded claim that would
+// silently go stale when signing lands.
+const manifestSigning = (
+  (release as Record<string, unknown>).signing ?? {}
+) as { windows?: { signed?: boolean }; macos?: { signed?: boolean } };
+const anySigned = Boolean(
+  manifestSigning.windows?.signed || manifestSigning.macos?.signed,
+);
 ---
 
 <Layout title="Security" description="How to report security vulnerabilities in Varve: private disclosure via GitHub Security Advisory, response timeline, and coordinated disclosure practices.">
@@ -33,9 +44,18 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="security-section">
         <h2>Download Integrity</h2>
-        <p>
-          Currently, Varve builds are <strong>not code-signed</strong>. This is a known limitation that will be addressed as the project matures. For stable releases, we plan to provide:
-        </p>
+        {anySigned ? (
+          <p>
+            Release builds are <strong>code-signed</strong> where the platform supports it; the
+            download page shows the verified signature state for each platform.
+          </p>
+        ) : (
+          <p>
+            Currently, Varve builds are <strong>not code-signed</strong>. This is a known
+            limitation that will be addressed as the project matures. For stable releases, we
+            plan to provide:
+          </p>
+        )}
         <ul>
           <li>SHA256 checksums for all build artifacts</li>
           <li>Cryptographic signing of release binaries</li>
