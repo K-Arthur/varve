@@ -84,7 +84,8 @@ Before committing, run:
 just gate
 ```
 
-This runs format-check, lint, test, and audits (tokens, emoji, architecture health).
+This runs format-check, lint, test, and the audit gates (tokens, emoji,
+docs drift, architecture health, typecheck regression).
 Each gate is also available individually:
 
 ```bash
@@ -103,10 +104,12 @@ just wasm-build          # Build WASM engine backend
 just wasm-build-all      # All WASM variants
 
 # Packaging
-just package-linux       # .deb
-just package-appimage    # AppImage
-just package-dmg         # macOS .dmg
-just package-windows     # Windows .msi
+just package-linux       # AppImage + .deb + .rpm (Linux)
+just package-deb         # .deb only
+just package-rpm         # .rpm only
+just package-appimage    # AppImage only (local smoke artifact)
+just package-dmg         # macOS .dmg (macOS only)
+just package-windows     # Windows .msi + .nsis (Windows only)
 
 # Development utilities
 just generate-icons      # Regenerate app icons from source SVG

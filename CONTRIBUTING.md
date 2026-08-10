@@ -11,7 +11,8 @@ this document describes the process we intend to use once the project opens
 to outside contributors — treat it as a preview, not a live workflow.
 
 In the meantime, feedback, bug reports, and ideas are welcome via
-[GitHub Discussions](https://github.com/K-Arthur/varve/discussions).
+[GitHub Issues](https://github.com/K-Arthur/varve/issues). (GitHub
+Discussions is not enabled on this repository.)
 
 ## Code of Conduct
 
@@ -107,4 +108,4 @@ are reviewed and committed by the project maintainer.
 
 ## Questions?
 
-Ask in [GitHub Discussions](https://github.com/K-Arthur/varve/discussions).
+Ask in [GitHub Issues](https://github.com/K-Arthur/varve/issues).

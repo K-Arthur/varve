@@ -118,7 +118,13 @@ update, not for someone reading the commit log.
   copy-to-clipboard checksums with announcements, `aria-current` navigation
   state, explicit unverified-release state.
 
-## [0.1.1] - 2026-08-09
+## [0.1.1] - unreleased (tagged only)
+
+> **Not yet published.** The `v0.1.1` tag exists (2026-08-10) but no GitHub
+> release has been created; **v0.1.0 remains the latest published release**
+> (`release-manifest.json` still points at it). This section becomes the
+> release notes when the tag is published. The fix described here is in the
+> tree (`apps/desktop/src-tauri/src/lib.rs`), not yet in a released build.
 
 Fixes a Linux packaging defect in 0.1.0: the AppImage bundled WebKit/GTK
 libraries from the ubuntu-22.04 build baseline, and on distributions with a
@@ -126,8 +132,7 @@ newer Mesa/EGL stack (Arch, CachyOS, Fedora) the stale bundled
 `libwayland-egl` combination made WebKit's DMA-BUF renderer fail EGL display
 creation. The web process aborted while the window stayed open — a white
 screen. The app now disables only the DMA-BUF renderer for AppImage runs, so
-the AppImage renders everywhere the deb/rpm already did. If you downloaded
-the 0.1.0 AppImage and saw a blank window, this release replaces it.
+the AppImage renders everywhere the deb/rpm already did.
 
 ### Fixed
 
@@ -146,7 +151,7 @@ the 0.1.0 AppImage and saw a blank window, this release replaces it.
   native runner smokes for Windows and macOS, and a container install-test
   for the Linux packages.
 
-## [0.1.0] - 2026-08-04
+## [0.1.0] - 2026-08-09
 
 The first public release of Varve, and an alpha in the honest sense: it has been
 built and run, but it has not been lived with. Treat it as something to try, not
@@ -160,12 +165,13 @@ where it cannot.
 | Platform | Status | What that means |
 |---|---|---|
 | Linux x86-64 (AppImage, `.deb`, `.rpm`) | **Supported** | Built, installed into clean Ubuntu 22.04 and Fedora 38 containers, and launched. Bugs get triaged. |
-| Windows 10/11 x86-64 (NSIS) | **Experimental** | Built in CI. **Nobody has run it on a Windows machine.** Not published until a draft release passes the runner smoke pass. |
-| macOS (ARM64 DMG) | **Experimental** | Built in CI (aarch64 only; no Intel ONNX Runtime dylib). **Nobody has launched it.** Not published until a draft release passes the runner smoke pass. |
+| Windows 10/11 x86-64 (NSIS) | **Experimental** | Built in CI and published with the v0.1.0 release (2026-08-09) after the draft passed the runner smoke pass (install, launch, uninstall on a real Windows runner). Still no systematic on-hardware testing — expect rough edges. |
+| macOS (ARM64 DMG) | **Experimental** | Built in CI (aarch64 only; no Intel ONNX Runtime dylib) and published with the v0.1.0 release after the runner smoke pass (mount, launch, unmount on a real macOS runner). Still no systematic on-hardware testing — expect rough edges. |
 
 "Built" means the release pipeline produced the package; it does not mean the
-application was launched on that platform. The draft-release smoke pass (mount,
-launch, uninstall on real runners) is the gate between "built" and "published".
+application was systematically exercised on that platform. The draft-release
+smoke pass (mount, launch, uninstall on real runners) is the gate between
+"built" and "published"; both Windows and macOS assets shipped through it.
 
 The Linux minimum is glibc 2.35, which covers Ubuntu 22.04, Debian 12 and
 Fedora 38 upward. The AppImage needs FUSE2; on systems without it, run with

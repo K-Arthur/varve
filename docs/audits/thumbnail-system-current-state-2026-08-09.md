@@ -177,5 +177,5 @@ cancellation, scheduling, fallback, consumers, privacy, and renderer parity.
 | `Asset.thumbnailHash` dead field / template `previewHash` | Left as-is (out of scope); documented as gaps |
 
 See `docs/architecture/thumbnail-system.md` (post-implementation) for the
-canonical model, and `docs/architecture/adr/0016-thumbnail-system.md` for the
+canonical model, and `docs/adr/0218-thumbnail-system.md` for the
 cross-package ownership decision.
