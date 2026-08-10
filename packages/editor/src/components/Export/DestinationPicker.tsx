@@ -17,6 +17,8 @@ export interface DestinationPickerProps {
   onSelectDestination: () => void;
   destinationLabel: string;
   folderSelectionAvailable?: boolean;
+  /** Inline validation message (shown as role=alert); empty hides it. */
+  templateError?: string;
 }
 
 const RULE_OPTIONS: { value: ExportBatch['folderRule']; label: string }[] = [
@@ -34,6 +36,7 @@ export function DestinationPicker({
   onSelectDestination,
   destinationLabel,
   folderSelectionAvailable = true,
+  templateError = '',
 }: DestinationPickerProps) {
   const previews = useMemo(() => {
     return applyExportBatchPaths(jobs, template, folderRule)
@@ -88,6 +91,12 @@ export function DestinationPicker({
         <code>{'{name}'}</code> node name &middot; <code>{'{suffix}'}</code> suffix &middot;{' '}
         <code>{'{ext}'}</code> extension
       </div>
+
+      {templateError && (
+        <p className="destination-picker__error" role="alert">
+          {templateError}
+        </p>
+      )}
 
       <div className="destination-picker__row">
         <span className="destination-picker__label">Organize</span>
