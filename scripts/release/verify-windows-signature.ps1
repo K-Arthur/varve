@@ -113,8 +113,14 @@ $signtoolPath = if ($signtool.PSObject.Properties.Name -contains 'FullName') {
   $signtool.Source
 }
 
+# signtool writes "No signature found" to stderr for an unsigned file; under
+# the runner's $ErrorActionPreference='Stop' that native stderr becomes a
+# terminating error in Windows PowerShell 5.1. The exit code is the signal -
+# suppress the error records and branch on $LASTEXITCODE instead.
+$ErrorActionPreference = 'Continue'
 $verifyOut = & $signtoolPath verify /pa /v $Path 2>&1
 $verifyExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
 if ($verifyExit -eq 0 -and $report.verification -eq 'valid') {
   Write-Host "signtool verify /pa: PASSED"
 } elseif ($verifyExit -ne 0) {
