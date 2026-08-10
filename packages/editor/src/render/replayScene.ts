@@ -31,6 +31,7 @@ import {
   totalEffectExpansion,
   traceSceneNodeOutline,
 } from '@varve/engine';
+import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene';
 import { nodeEffectPadding, resolveAdjustmentScope } from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
@@ -234,6 +235,21 @@ function applyGroupInsetEffect(
 }
 
 export function replayStructuredScene(context: SceneContext, input: StructuredReplayInput): void {
+  // Export/print/preview replay must never consume display LOD (ADR-0214
+  // D12): the interactive pyramid is a display acceleration structure, and
+  // exported pixels come from authoritative source data at target
+  // resolution. The editor enables the pyramid for the session; this replay
+  // path suspends it for its duration and restores the prior state.
+  const pyramidWasEnabled = isRasterPyramidEnabled();
+  if (pyramidWasEnabled) setRasterPyramidEnabled(false);
+  try {
+    replayStructuredSceneInner(context, input);
+  } finally {
+    if (pyramidWasEnabled) setRasterPyramidEnabled(true);
+  }
+}
+
+function replayStructuredSceneInner(context: SceneContext, input: StructuredReplayInput): void {
   const itemById = new Map<NodeId, RenderItem>();
   for (let index = 0; index < input.flattenedIds.length; index++) {
     const id = input.flattenedIds[index];
