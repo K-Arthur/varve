@@ -12,6 +12,7 @@ import DesignCursor from './DesignCursor.astro';
 import AnimatedText from './AnimatedText.astro';
 import DownloadCTA from './DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
+import { PRODUCT_STATUS } from '@varve/shared';
 ---
 
 <section class="hero" aria-labelledby="hero-title">
@@ -19,7 +20,7 @@ import { sitePath } from '../lib/siteUrl';
   <div class="container-custom hero-content">
     <p class="hero-eyebrow">
       <span class="hero-eyebrow-dot" aria-hidden="true"></span>
-      Local-first design suite&nbsp;&middot;&nbsp;beta
+      Local-first design suite&nbsp;&middot;&nbsp;{PRODUCT_STATUS.label.toLowerCase()}
     </p>
     <h1 id="hero-title" class="hero-title">
       Varve &mdash; design across disciplines.
