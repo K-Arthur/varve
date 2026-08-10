@@ -815,23 +815,31 @@ export function useCanvasInputs({
       const s = stateRef.current;
       const eRef = editor;
 
-      const nodes: SceneNode[] = [];
-      const doc = s.document;
-      function walkIds(ids: readonly string[]) {
-        for (const id of ids) {
-          const n = doc.nodes[id];
-          if (!n) continue;
-          nodes.push(n);
-          if ('children' in n && n.children && n.children.length > 0) {
-            walkIds(n.children);
-          }
-        }
-      }
-      walkIds(doc.rootChildren);
-
+      // Paint-order DFS walk of the document. It is O(n) per keydown and only
+      // the Tab and Enter/F2 branches consume it, so it is built lazily on
+      // first use instead of for every keystroke (arrow nudges, modifiers).
       const selArr = s.selection;
       const firstSel = selArr[0] ?? null;
-      const idx = firstSel ? nodes.findIndex((n) => n.id === firstSel) : -1;
+      let paintOrderCache: { nodes: SceneNode[]; idx: number } | null = null;
+      const paintOrder = (): { nodes: SceneNode[]; idx: number } => {
+        if (paintOrderCache) return paintOrderCache;
+        const nodes: SceneNode[] = [];
+        const doc = s.document;
+        const walkIds = (ids: readonly string[]) => {
+          for (const id of ids) {
+            const n = doc.nodes[id];
+            if (!n) continue;
+            nodes.push(n);
+            if ('children' in n && n.children && n.children.length > 0) {
+              walkIds(n.children);
+            }
+          }
+        };
+        walkIds(doc.rootChildren);
+        const idx = firstSel ? nodes.findIndex((n) => n.id === firstSel) : -1;
+        paintOrderCache = { nodes, idx };
+        return paintOrderCache;
+      };
 
       if (e.key === 'Tab') {
         // Canvas Tab contract (docs/audits/focus-navigation-audit-2026-08-02.md):
@@ -842,6 +850,7 @@ export function useCanvasInputs({
         // leaves the canvas for the next region.
         if (selArr.length === 0) return;
         e.preventDefault();
+        const { nodes, idx } = paintOrder();
         if (e.shiftKey) {
           const prev = nodes[(idx <= 0 ? nodes.length : idx) - 1];
           if (prev) {
@@ -885,7 +894,7 @@ export function useCanvasInputs({
       }
 
       if ((e.key === 'Enter' || e.key === 'F2') && firstSel) {
-        setRenameDialog({ defaultValue: nodes[idx]?.name ?? '' });
+        setRenameDialog({ defaultValue: paintOrder().nodes[paintOrder().idx]?.name ?? '' });
       }
 
       function zoomAboutCanvasCentre(newZoom: number) {
