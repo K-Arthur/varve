@@ -78,6 +78,7 @@ export const MAX_INTERACTION_SPANS = 512;
 export const MAX_INTERACTION_FRAMES = 240;
 const DEFAULT_SLOW_THRESHOLD_MS = 50;
 const MAX_PRESENTATION_WAIT_MS = 250;
+const MAX_PENDING_PRESENTATIONS = MAX_INTERACTION_TRACES;
 const ring: InteractionTrace[] = [];
 /**
  * Per-page-load identity. Derived from the load time and a random suffix
@@ -90,7 +91,7 @@ let slowOnly = false;
 let slowThresholdMs = DEFAULT_SLOW_THRESHOLD_MS;
 let nextId = 1;
 let current: InteractionTrace | null = null;
-let pendingPresentation: InteractionTrace | null = null;
+const pendingPresentations: InteractionTrace[] = [];
 const NOOP_SPAN_END = () => undefined;
 
 function refreshSlow(trace: InteractionTrace): void {
@@ -108,7 +109,7 @@ export function enableInteractionTraces(force?: boolean): void {
   tracingEnabled = force === true;
   if (!tracingEnabled) {
     current = null;
-    pendingPresentation = null;
+    pendingPresentations.length = 0;
     ring.length = 0;
   }
 }
@@ -293,14 +294,22 @@ export function notifyFrameCommit(
 ): void {
   if (!tracingEnabled) return;
   if (current) recordFrameOnTrace(current, committedAt, totalMs, meta);
-  if (!pendingPresentation) return;
-  const waitMs = committedAt - pendingPresentation.endedAt;
-  if (waitMs >= 0 && waitMs <= MAX_PRESENTATION_WAIT_MS) {
-    // The gesture already closed: this frame landed after pointerup, so it is
-    // the presentation of already-dispatched work rather than new causation.
-    recordFrameOnTrace(pendingPresentation, committedAt, totalMs, meta);
+  if (pendingPresentations.length === 0) return;
+  let writeIndex = 0;
+  for (const pending of pendingPresentations) {
+    const waitMs = committedAt - pending.endedAt;
+    if (waitMs < 0) {
+      pendingPresentations[writeIndex++] = pending;
+      continue;
+    }
+    if (waitMs <= MAX_PRESENTATION_WAIT_MS) {
+      // One rendered frame can legitimately coalesce several rapid inputs.
+      // Attribute it to every waiting gesture instead of letting the newest
+      // keyup/pointerup overwrite the older gesture's pending evidence.
+      recordFrameOnTrace(pending, committedAt, totalMs, meta);
+    }
   }
-  if (waitMs >= 0) pendingPresentation = null;
+  pendingPresentations.length = writeIndex;
 }
 
 /** Close the current interaction and retain it (unless slow-only discards it). */
@@ -315,7 +324,10 @@ export function endInteraction(): InteractionTrace | null {
   const finished = current;
   current = null;
   if (!slowOnly || finished.slow) retainTrace(finished);
-  pendingPresentation = finished.pointerToPresentMs === null ? finished : null;
+  if (finished.pointerToPresentMs === null) {
+    pendingPresentations.push(finished);
+    if (pendingPresentations.length > MAX_PENDING_PRESENTATIONS) pendingPresentations.shift();
+  }
   return finished;
 }
 
@@ -342,7 +354,7 @@ export function getInteractionTraceCount(): number {
 export function resetInteractionTraces(): void {
   ring.length = 0;
   current = null;
-  pendingPresentation = null;
+  pendingPresentations.length = 0;
 }
 
 export interface LatencyDistribution {
