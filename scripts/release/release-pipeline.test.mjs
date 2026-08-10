@@ -445,11 +445,14 @@ assert.throws(
       stdio: ['ignore', 'pipe', 'ignore'],
       env: { ...process.env, ...env },
     }).trim();
-  assert.equal(runVersion(['get']), '0.1.0', 'current version is 0.1.0');
+  const current = runVersion(['get']);
+  assert.match(current, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, 'current version is semver');
   // The tag the release pipeline will actually verify against must agree.
+  // Self-derived from the current version so a version bump cannot break the
+  // gate with a stale hardcoded expectation.
   assert.match(
-    runVersion(['verify', 'v0.1.0']),
-    /All version manifests agree on 0\.1\.0\./,
+    runVersion(['verify', `v${current}`]),
+    new RegExp(`All version manifests agree on ${current.replace(/\./g, '\\.')}\\.`),
     'verify v0.1.0 passes',
   );
   assert.throws(() => runVersion(['verify', 'v9.9.9']), undefined, 'verify wrong tag fails');
@@ -475,8 +478,12 @@ assert.throws(
   const snap1 = runVersion(['snapshot']);
   const snap2 = runVersion(['snapshot']);
   assert.equal(snap1, snap2, 'snapshot is deterministic for the same HEAD');
-  assert.match(snap1, /^0\.1\.0-dev\.(?:[0-9a-f]{7,}|local)$/, 'snapshot format');
-  assert.equal(runVersion(['get']), '0.1.0', 'snapshot never writes manifests');
+  assert.match(
+    snap1,
+    new RegExp(`^${current.replace(/\./g, '\\.')}-dev\\.(?:[0-9a-f]{7,}|local)$`),
+    'snapshot format',
+  );
+  assert.equal(runVersion(['get']), current, 'snapshot never writes manifests');
 
   // set/bump write-path integration against a fixture tree (VARVE_VERSION_ROOT):
   // the exact in-place JSON + TOML-section rewrites must round-trip.
