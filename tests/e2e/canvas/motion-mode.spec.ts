@@ -43,7 +43,7 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace via menubar button
-    const motionBtn = page.locator('.editor-menubar__workspace-btn[title*="Motion"]');
+    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
     await motionBtn.click();
 
     // Timeline panel should be visible
@@ -61,7 +61,7 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.editor-menubar__workspace-btn[title*="Motion"]');
+    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
     await motionBtn.click();
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
@@ -90,7 +90,7 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.editor-menubar__workspace-btn[title*="Motion"]');
+    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
     await motionBtn.click();
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
@@ -108,7 +108,7 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.editor-menubar__workspace-btn[title*="Motion"]');
+    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
     await motionBtn.click();
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
@@ -135,12 +135,12 @@ test.describe('Motion Mode', () => {
     // (simplified - just verify workspace switching doesn't crash)
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.editor-menubar__workspace-btn[title*="Motion"]');
+    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
     await motionBtn.click();
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
     // Switch back to Design workspace
-    const designBtn = page.locator('.editor-menubar__workspace-btn[title*="Design"]');
+    const designBtn = page.locator('.workspace-tabs__tab[title*="Design"]');
     await designBtn.click();
 
     // Timeline should be hidden in Design workspace
@@ -154,7 +154,7 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.editor-menubar__workspace-btn[title*="Motion"]');
+    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
     await motionBtn.click();
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 
@@ -167,7 +167,7 @@ test.describe('Motion Mode', () => {
     await navigateToEditor(page);
 
     // Switch to Motion workspace
-    const motionBtn = page.locator('.editor-menubar__workspace-btn[title*="Motion"]');
+    const motionBtn = page.locator('.workspace-tabs__tab[title*="Motion"]');
     await motionBtn.click();
     await expect(page.locator('.editor__timeline-panel')).toBeVisible({ timeout: 5000 });
 

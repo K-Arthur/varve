@@ -5,7 +5,7 @@ const VIEWPORT = { width: 1280, height: 800 };
 
 async function switchTo(page: import('@playwright/test').Page, label: string) {
   await page
-    .locator('.editor-menubar__workspace-btn')
+    .locator('.workspace-tabs__tab')
     .filter({ hasText: new RegExp(`^${label}$`) })
     .click();
 }
@@ -52,7 +52,7 @@ test.describe('Cross-mode workflow — safe switching preserves document state',
     for (const mode of ['Print', 'Draw', 'Photo', 'Design']) {
       await switchTo(page, mode);
       await expect(
-        page.locator('.editor-menubar__workspace-btn').filter({ hasText: new RegExp(`^${mode}$`) }),
+        page.locator('.workspace-tabs__tab').filter({ hasText: new RegExp(`^${mode}$`) }),
       ).toHaveAttribute('aria-checked', 'true');
 
       // Document survives: the shape is still the only layer.
