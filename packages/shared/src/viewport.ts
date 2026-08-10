@@ -446,16 +446,16 @@ export function clampCamera(
     origin,
   );
   let newPanX = cam.pan.x;
-  if (bottomRight[0] < 0) {
-    newPanX = cam.pan.x + (marginScreen - bottomRight[0]);
-  } else if (topLeft[0] > viewport.width) {
-    newPanX = cam.pan.x - (topLeft[0] - viewport.width + marginScreen);
+  if (bottomRight[0] < -marginScreen) {
+    newPanX = cam.pan.x + (-marginScreen - bottomRight[0]);
+  } else if (topLeft[0] > viewport.width + marginScreen) {
+    newPanX = cam.pan.x - (topLeft[0] - (viewport.width + marginScreen));
   }
   let newPanY = cam.pan.y;
-  if (bottomRight[1] < 0) {
-    newPanY = cam.pan.y + (marginScreen - bottomRight[1]);
-  } else if (topLeft[1] > viewport.height) {
-    newPanY = cam.pan.y - (topLeft[1] - viewport.height + marginScreen);
+  if (bottomRight[1] < -marginScreen) {
+    newPanY = cam.pan.y + (-marginScreen - bottomRight[1]);
+  } else if (topLeft[1] > viewport.height + marginScreen) {
+    newPanY = cam.pan.y - (topLeft[1] - (viewport.height + marginScreen));
   }
   return { ...cam, pan: { x: newPanX, y: newPanY } };
 }

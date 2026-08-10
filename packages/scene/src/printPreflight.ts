@@ -56,6 +56,8 @@ export interface PrintPreflightOptions {
   requiredColorMode?: ColorMode;
   /** Whether to check for ICC profiles. */
   checkProfiles?: boolean;
+  /** Whether to check raster images for colour profiles (IMAGE_PROFILE_MISSING). */
+  checkImageProfiles?: boolean;
   /** Whether to check for content outside safe area. */
   checkSafeArea?: boolean;
   /** Maximum page dimensions in mm (for oversize detection). */
@@ -74,6 +76,7 @@ export const DEFAULT_PREFLIGHT_OPTIONS: PrintPreflightOptions = {
   minBleedMm: 3,
   minDpi: 300,
   checkProfiles: true,
+  checkImageProfiles: true,
   checkSafeArea: false,
   maxTacPercent: 300,
 };
@@ -192,6 +195,9 @@ export function runPrintPreflight(
   for (const node of Object.values(doc.nodes)) {
     if (isImageShape(node)) {
       checkImageNode(node as ShapeNode, opts, issues);
+      if (opts.checkImageProfiles) {
+        checkImageProfile(node as ShapeNode, doc, opts, issues);
+      }
     }
     if (node.kind === 'shape') {
       checkNodeColorSpace(node, opts, issues);
@@ -383,11 +389,98 @@ function checkImageNode(
 }
 
 /**
+ * IMAGE_PROFILE_MISSING / IMAGE_PROFILE_INVALID / IMAGE_PROFILE_MISMATCH
+ * findings for placed raster images.
+ *
+ * The colour interpretation of a raster comes from `asset.metadata`
+ * (`colorEncoding` provenance / `iccStatus`), recorded at ingestion:
+ *  - no colour metadata at all (legacy or untagged) → warning, the image
+ *    will be interpreted as sRGB and preflight says so explicitly;
+ *  - extraction reported an invalid embedded profile → warning;
+ *  - an embedded profile exists and differs from the document RGB working
+ *    profile → info, conversion is pending at render/export.
+ */
+function checkImageProfile(
+  node: ShapeNode,
+  doc: Document,
+  _opts: PrintPreflightOptions,
+  issues: PrintPreflightIssue[],
+): void {
+  const fill = node.fills?.find((f) => f.type === 'image');
+  const img = fill?.image;
+  if (!img?.assetId) return;
+  const asset = doc.assets?.[img.assetId];
+  if (!asset) return;
+  const metadata = asset.metadata;
+
+  if (metadata?.iccStatus === 'invalid') {
+    issues.push({
+      severity: 'warning',
+      category: 'profile',
+      message: `Image "${node.name}" has an invalid embedded colour profile; its pixels cannot be colour-managed accurately.`,
+      nodeId: node.id,
+    });
+    return;
+  }
+
+  const encoding = metadata?.colorEncoding;
+  const provenance = encoding?.provenance;
+  const untagged =
+    provenance === undefined ||
+    provenance === 'format-default' ||
+    provenance === 'assumed' ||
+    provenance === 'legacy-assumed-srgb';
+  if (untagged) {
+    issues.push({
+      severity: 'warning',
+      category: 'profile',
+      message: `Image "${node.name}" has no embedded colour profile; it will be interpreted as sRGB (${provenance === 'legacy-assumed-srgb' ? 'legacy assumption' : 'untagged source'}).`,
+      nodeId: node.id,
+    });
+    return;
+  }
+
+  if (provenance === 'embedded-icc' || provenance === 'cicp' || provenance === 'named') {
+    const documentProfile = doc.colorConfig?.rgbProfile?.id;
+    const sourceLabel = encoding?.primaries ?? 'unknown';
+    const mismatched =
+      documentProfile !== undefined &&
+      sourceLabel !== 'unknown' &&
+      !primariesMatchProfile(sourceLabel, documentProfile);
+    if (mismatched) {
+      issues.push({
+        severity: 'info',
+        category: 'profile',
+        message: `Image "${node.name}" embeds a ${sourceLabel} colour profile but the document works in ${documentProfile}; pixels are converted at render time.`,
+        nodeId: node.id,
+      });
+    }
+  }
+}
+
+/** Approximate primaries<->profile-id match used by the mismatch finding. */
+function primariesMatchProfile(primaries: string, profileId: string): boolean {
+  switch (primaries) {
+    case 'srgb':
+      return profileId === 'srgb';
+    case 'display-p3':
+      return profileId === 'display-p3';
+    case 'adobe-rgb':
+      return profileId === 'adobe-rgb';
+    case 'pro-photo':
+      return profileId === 'pro-photo';
+    case 'rec2020':
+      return profileId === 'rec2020';
+    default:
+      return true; // unknown primaries: no claim of mismatch
+  }
+}
+
+/**
  * Flags shapes with an RGB fill or stroke color when the export target
  * requires CMYK. Only solid colors are checked (gradients/patterns resolve
  * per-stop and are out of scope for this pass).
- */
-function checkNodeColorSpace(
+ */ function checkNodeColorSpace(
   node: ShapeNode,
   opts: PrintPreflightOptions,
   issues: PrintPreflightIssue[],

@@ -7,12 +7,20 @@
  * Research basis: Figma image loading strategy (progressive, priority-ordered).
  */
 
+import {
+  classifyInlineImageFailure,
+  classifyRemoteImageFailure,
+  type ImageErrorCode,
+  type ImageLoadError,
+  isImageErrorCode,
+} from './imageErrors';
+
 export type ImageLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
 export interface ImageCacheEntry {
   state: ImageLoadState;
   image: HTMLImageElement | null;
-  error?: Error;
+  error?: ImageLoadError;
 }
 
 export interface ImageCacheOptions {
@@ -208,7 +216,6 @@ export class ImageCache {
         img.loading = 'eager';
         img.src = url;
       });
-
     // Cross-origin URLs are first requested with crossOrigin='anonymous' so a
     // CORS-permissive server yields an untainted canvas (required to export
     // raster/blob output that includes the image). If the server doesn't grant
@@ -236,15 +243,19 @@ export class ImageCache {
         }
         return img;
       })
-      .catch((error: Error) => {
+      .catch(async (error: Error) => {
         if (this.loadTokens.get(url) !== loadToken) throw error;
-        this.cache.set(url, { state: 'error', image: null, error });
+        // Classify the failure so consumers can distinguish missing files
+        // from corruption, CORS restrictions, permission problems, and
+        // transient unavailability instead of one generic "image failed".
+        const typed = await this.classifyFailure(url, error);
+        this.cache.set(url, { state: 'error', image: null, error: typed });
         this.evictIfNeeded();
         this.pending.delete(url);
         this.loadTokens.delete(url);
         this.touch(url);
         this.notifyListeners(url);
-        throw error;
+        throw typed;
       });
 
     this.pending.set(url, promise);
@@ -360,6 +371,22 @@ export class ImageCache {
       for (const cb of set) cb();
     }
     for (const cb of this.globalListeners) cb();
+  }
+
+  private async classifyFailure(url: string, cause: Error): Promise<ImageLoadError> {
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      return classifyInlineImageFailure(url, cause);
+    }
+    return classifyRemoteImageFailure(url, cause);
+  }
+
+  /**
+   * Typed failure code for a cached source, or null when the entry is not
+   * in a failed state. Never throws for uncached sources.
+   */
+  failureCode(url: string): ImageErrorCode | null {
+    const error = this.cache.get(url)?.error;
+    return error && isImageErrorCode(error.code) ? error.code : null;
   }
 }
 

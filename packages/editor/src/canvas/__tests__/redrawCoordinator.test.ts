@@ -22,6 +22,7 @@ function snapshot(overrides: Partial<FrameStateSnapshot> = {}): FrameStateSnapsh
     dpr: 1,
     themeRevision: 0,
     motionStamp: 0,
+    mediaStamp: 0,
     canvasMode: 'full',
     ...overrides,
   };

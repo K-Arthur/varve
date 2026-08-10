@@ -98,6 +98,11 @@ export interface UseCanvasInputsResult {
   stopAutoPan: () => void;
 }
 
+/** Hover hit testing is informational and must never tax an active drag. */
+export function shouldResolveHover(tool: string, buttons: number): boolean {
+  return buttons === 0 && (tool === 'select' || tool === 'inspect');
+}
+
 /**
  * Retain the scalar pointer state needed by an animation-frame continuation.
  * Keeping a browser event object beyond its dispatch callback is not portable:
@@ -366,9 +371,7 @@ export function useCanvasInputs({
 
       // Show hover preview for both select and inspect tools.
       // For other tools, keep the inspect-only behavior (or none at all).
-      const isHoverableTool =
-        stateRef.current.tool === 'select' || stateRef.current.tool === 'inspect';
-      if (isHoverableTool) {
+      if (shouldResolveHover(stateRef.current.tool, e.buttons)) {
         const world = ctx.canvasToWorld(ne.clientX, ne.clientY);
         const hit = editor.hitTestNode(world);
         setHoveredNode(hit?.node ?? null);

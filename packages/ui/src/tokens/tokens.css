@@ -88,6 +88,27 @@
   --font-body:
     "IBM Plex Sans Variable", "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, sans-serif;
+  /* --- Type system -------------------------------------------------------
+   *
+   * One rule, shared by the website and the application. Which face is used
+   * is decided by the *role* of the text, never by the surface it sits on:
+   *
+   *   --font-editorial  Brand and display only: the Varve wordmark, marketing
+   *                     headlines, section titles, the welcome screen, the
+   *                     footer signature. Never interface chrome.
+   *   --font-display    Interface chrome: navigation, buttons, menus, panel
+   *                     and dialog headings, labels.
+   *   --font-body       Reading text: paragraphs, descriptions, help copy.
+   *   --font-mono       Code, coordinates, measurements, numeric readouts.
+   *
+   * Editorial weights: 600 at wordmark/small sizes, 700 at display sizes.
+   * Set `font-variation-settings: 'opsz' N` alongside it — roughly 24 for
+   * wordmark sizes and 144 for display — because Fraunces' hairlines go
+   * spindly if the display cut is used small. Consumers import the face
+   * themselves (`@fontsource-variable/fraunces/opsz.css`); the fallback chain
+   * degrades to a system serif if they do not.
+   */
+  --font-editorial: "Fraunces Variable", "Fraunces", ui-serif, Georgia, "Times New Roman", serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --font-weight-regular: 400;
   --font-weight-medium: 500;

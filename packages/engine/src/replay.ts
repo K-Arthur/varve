@@ -24,6 +24,7 @@ import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
 import { FrameCache } from './frameCache';
 import { getImageCache } from './imageCache';
+import { imagePlaceholderFill } from './imagePlaceholder';
 import {
   computeImagePlacement,
   type ImagePlacement,
@@ -33,6 +34,17 @@ import { paintWarpedImage, quadBoundsOf, resolveReplayImage } from './mockup/war
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { getRasterLayerCache } from './rasterLayerCache';
+import {
+  decideRasterStrategy,
+  drawRasterLayerLod,
+  effectiveScaleFromTransform,
+  getPyramidResidency,
+  getPyramidViewport,
+  isRasterPyramidEnabled,
+  layerVisibleRect,
+  type PyramidLayerSource,
+  registerPyramidSource,
+} from './rasterPyramid/renderTiles';
 import { emitRasterReplaySample, isRasterReplayMeasured } from './rasterReplayMetrics';
 import { createRasterSurface } from './rasterSurface';
 import {
@@ -965,7 +977,12 @@ function paintImageFill(
   const bw = bounds.w || 1;
   const bh = bounds.h || 1;
 
-  const image = resolveReplayImage(fill.src, imageLookupForCurrentReplay, getImageCache());
+  const image = resolveReplayImage(
+    fill.src,
+    imageLookupForCurrentReplay,
+    getImageCache(),
+    fill.frame,
+  );
 
   if (!target.drawImage) {
     target.fillRect(bounds.x, bounds.y, bw, bh);
@@ -974,7 +991,7 @@ function paintImageFill(
 
   if (!image) {
     const prev = target.fillStyle;
-    target.fillStyle = '#e8eaed';
+    target.fillStyle = imagePlaceholderFill(fill.src);
     target.fillRect(bounds.x, bounds.y, bw, bh);
     target.fillStyle = prev;
     return;
@@ -2010,6 +2027,64 @@ function paintRasterLayer(
   // available; without one the cache is bypassed entirely rather than risking
   // two different layers sharing a surface.
   const layerKey = (p as { layerId?: string }).layerId ?? null;
+
+  // Spatial tiled-pyramid path (ADR-0214 D5): engages only when enabled and
+  // the crossover says visible-tile drawing is cheaper (large layer, low
+  // effective scale, low viewport coverage). Falls back to the retained
+  // surface when nothing is resident, so correctness never depends on it.
+  if (layerKey && isRasterPyramidEnabled() && target.getTransform) {
+    const m = target.getTransform();
+    if (m) {
+      const scale = effectiveScaleFromTransform(m);
+      const viewport = getPyramidViewport();
+      const decision = decideRasterStrategy({
+        width,
+        height,
+        scale,
+        viewportWidth: viewport.width,
+        viewportHeight: viewport.height,
+        enabled: true,
+      });
+      if (decision.kind === 'pyramid') {
+        const source: PyramidLayerSource = {
+          layerId: layerKey,
+          width,
+          height,
+          pixelMode: (p as { pixelMode?: boolean }).pixelMode ?? false,
+          tiles,
+        };
+        registerPyramidSource(source);
+        const rect = layerVisibleRect(m, viewport.width, viewport.height);
+        const lodStartedAt = measured ? performance.now() : 0;
+        const result = drawRasterLayerLod(
+          target,
+          source,
+          getPyramidResidency(),
+          decision.level,
+          rect,
+        );
+        if (result.drawnTiles > 0) {
+          if (measured) {
+            const endedAt = performance.now();
+            emitRasterReplaySample({
+              width,
+              height,
+              totalTiles: Object.keys(tiles).length,
+              compositedTiles: result.drawnTiles,
+              intermediateBytes: 0,
+              surfaceMs: 0,
+              tileReplayMs: 0,
+              drawMs: 0,
+              totalMs: endedAt - lodStartedAt,
+            });
+          }
+          return;
+        }
+        // Nothing resident yet: fall through to the retained path (the
+        // scheduler is generating the visible tiles).
+      }
+    }
+  }
 
   let surfaceCanvas: CanvasImageSource | null = null;
   let compositedTiles = 0;

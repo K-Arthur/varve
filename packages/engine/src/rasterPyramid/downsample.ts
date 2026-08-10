@@ -47,8 +47,8 @@ function sampleChannel(
   srcY: number,
   tileSize: number,
 ): number[] {
-  const x = Math.min(srcX, childLevel.width - 1);
-  const y = Math.min(srcY, childLevel.height - 1);
+  const x = Math.max(0, Math.min(srcX, childLevel.width - 1));
+  const y = Math.max(0, Math.min(srcY, childLevel.height - 1));
   const col = Math.floor(x / tileSize);
   const row = Math.floor(y / tileSize);
   for (const child of children) {
@@ -68,21 +68,26 @@ function sampleChannel(
  * Uint8ClampedArray of tileSize x tileSize x 4 (padded to full tile size;
  * content beyond the parent level's edge stays transparent).
  */
-export function downsampleParentTile(input: DownsampleInput): Uint8ClampedArray {
+/**
+ * Downsample an arbitrary window of a child level into a fresh buffer.
+ * `window` is in child-level pixels; output size is
+ * (ceil(win.w / 2) x ceil(win.h / 2)) pixels. Used by the standard
+ * parent-tile generator and by gutter generation (brief §20), where the
+ * window extends one texel beyond the parent tile on each side so the
+ * minification kernel at tile boundaries reads real neighbour data instead
+ * of replicated edges. Out-of-bounds sampling clamps to the child level's
+ * edge texel; missing child tiles sample as transparent.
+ */
+export function downsampleWindow(
+  input: DownsampleInput,
+  window: { x: number; y: number; w: number; h: number },
+): Uint8ClampedArray {
   const tileSize = input.tileSize ?? PYRAMID_TILE_SIZE;
-  const parentDims = {
-    width: Math.ceil(input.childLevel.width / 2),
-    height: Math.ceil(input.childLevel.height / 2),
-  };
-  const parentW = Math.max(0, parentDims.width - input.parent.col * tileSize);
-  const parentH = Math.max(0, parentDims.height - input.parent.row * tileSize);
-  const contentW = Math.min(tileSize, parentW);
-  const contentH = Math.min(tileSize, parentH);
-  const out = new Uint8ClampedArray(tileSize * tileSize * 4);
-  const baseX = input.parent.col * tileSize * 2;
-  const baseY = input.parent.row * tileSize * 2;
-  for (let y = 0; y < contentH; y++) {
-    for (let x = 0; x < contentW; x++) {
+  const outW = Math.max(0, Math.ceil(window.w / 2));
+  const outH = Math.max(0, Math.ceil(window.h / 2));
+  const out = new Uint8ClampedArray(outW * outH * 4);
+  for (let y = 0; y < outH; y++) {
+    for (let x = 0; x < outW; x++) {
       let sumA = 0;
       let sumR = 0;
       let sumG = 0;
@@ -92,8 +97,8 @@ export function downsampleParentTile(input: DownsampleInput): Uint8ClampedArray 
           const [r = 0, g = 0, b = 0, a = 0] = sampleChannel(
             input.children,
             input.childLevel,
-            baseX + x * 2 + dx,
-            baseY + y * 2 + dy,
+            window.x + x * 2 + dx,
+            window.y + y * 2 + dy,
             tileSize,
           );
           const af = a / 255;
@@ -103,7 +108,7 @@ export function downsampleParentTile(input: DownsampleInput): Uint8ClampedArray 
           sumB += b * af;
         }
       }
-      const i = (y * tileSize + x) * 4;
+      const i = (y * outW + x) * 4;
       if (sumA === 0) {
         out[i] = 0;
         out[i + 1] = 0;
@@ -115,6 +120,46 @@ export function downsampleParentTile(input: DownsampleInput): Uint8ClampedArray 
         out[i + 2] = Math.round(Math.min(255, Math.max(0, sumB / sumA)));
         out[i + 3] = Math.round((sumA / 4) * 255);
       }
+    }
+  }
+  return out;
+}
+
+/**
+ * Box-downsample the parent tile's source region into a fresh
+ * Uint8ClampedArray of tileSize x tileSize x 4 (padded to full tile size;
+ * content beyond the parent level's edge stays transparent).
+ */
+export function downsampleParentTile(input: DownsampleInput): Uint8ClampedArray {
+  const tileSize = input.tileSize ?? PYRAMID_TILE_SIZE;
+  const parentDims = {
+    width: Math.ceil(input.childLevel.width / 2),
+    height: Math.ceil(input.childLevel.height / 2),
+  };
+  const parentW = Math.max(0, parentDims.width - input.parent.col * tileSize);
+  const parentH = Math.max(0, parentDims.height - input.parent.row * tileSize);
+  const contentW = Math.min(tileSize, parentW);
+  const contentH = Math.min(tileSize, parentH);
+  const baseX = input.parent.col * tileSize * 2;
+  const baseY = input.parent.row * tileSize * 2;
+  const windowed = downsampleWindow(input, {
+    x: baseX,
+    y: baseY,
+    w: contentW * 2,
+    h: contentH * 2,
+  });
+  if (contentW === tileSize && contentH === tileSize) return windowed;
+  // Pad the partial (edge-tile) result back to a full tile; the out-of-level
+  // region stays transparent.
+  const out = new Uint8ClampedArray(tileSize * tileSize * 4);
+  for (let y = 0; y < contentH; y++) {
+    for (let x = 0; x < contentW; x++) {
+      const si = (y * contentW + x) * 4;
+      const di = (y * tileSize + x) * 4;
+      out[di] = windowed[si] ?? 0;
+      out[di + 1] = windowed[si + 1] ?? 0;
+      out[di + 2] = windowed[si + 2] ?? 0;
+      out[di + 3] = windowed[si + 3] ?? 0;
     }
   }
   return out;

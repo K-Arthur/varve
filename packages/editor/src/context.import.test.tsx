@@ -54,6 +54,57 @@ function createFileList(files: File[]): FileList {
   } as unknown as FileList;
 }
 
+/**
+ * Structurally complete 1×1 RGBA PNG (signature + IHDR + IDAT + IEND with
+ * valid CRCs). The bare 8-byte PNG signature is rejected by the hardened
+ * content probe in @varve/import (rasterInspection), so clipboard tests
+ * that reach ImportService must feed a decodable container.
+ */
+function realPngBytes(): Uint8Array {
+  const crc32 = (data: Uint8Array, seed = 0xffffffff): number => {
+    let crc = seed;
+    for (let i = 0; i < data.length; i++) {
+      crc ^= data[i]!;
+      for (let k = 0; k < 8; k++) {
+        crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+      }
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Uint8Array): Uint8Array => {
+    const out = new Uint8Array(12 + data.length);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, data.length, false);
+    out.set(new TextEncoder().encode(type), 4);
+    out.set(data, 8);
+    view.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)), false);
+    return out;
+  };
+  const ihdr = new Uint8Array(13);
+  const ihdrView = new DataView(ihdr.buffer);
+  ihdrView.setUint32(0, 1, false);
+  ihdrView.setUint32(4, 1, false);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // RGBA
+  const idat = new Uint8Array([0x78, 0x9c, 0x63, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01]);
+  const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const concat = (...parts: Uint8Array[]): Uint8Array => {
+    const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let offset = 0;
+    for (const part of parts) {
+      out.set(part, offset);
+      offset += part.length;
+    }
+    return out;
+  };
+  return concat(
+    signature,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', idat),
+    chunk('IEND', new Uint8Array(0)),
+  );
+}
+
 function createClipboardEventWithFiles(files: File[]): ClipboardEvent {
   const dt = {
     files: createFileList(files),
@@ -128,7 +179,7 @@ describe('Editor import insertion', () => {
 
   it('routes clipboard file imports through ImportService', async () => {
     const spy = vi.spyOn(ImportService, 'importFiles');
-    const file = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'clipboard.png', {
+    const file = new File([realPngBytes()], 'clipboard.png', {
       type: 'image/png',
     });
     captureClipboardEvent(createClipboardEventWithFiles([file]));

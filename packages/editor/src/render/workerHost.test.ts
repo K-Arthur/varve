@@ -444,7 +444,9 @@ describe('render worker host restarts', () => {
 
   it('accounts pending, in-flight, resident, and worker-canvas bytes', () => {
     const host = createRenderWorkerHost(vi.fn(), undefined, {
-      budgetBytes: 1_000_000,
+      // Large enough that the 2x-DPR canvas and frame fit under the gate;
+      // this test exercises accounting, not admission.
+      budgetBytes: 20_000_000,
     })!;
     expect(host.post({ type: 'resize', width: 800, height: 600, dpr: 2 })).toBe(true);
     expect(host.getBitmapBudgetState().workerCanvasBytes).toBe(800 * 2 * 600 * 2 * 4);
@@ -469,6 +471,132 @@ describe('render worker host restarts', () => {
     );
     expect(host.getBitmapBudgetState().residentBytes).toBe(4);
     expect(host.getBitmapBudgetState().inFlightBytes).toBe(0);
+  });
+
+  it('accounts worker-resident source bytes reported by the worker', () => {
+    const host = createRenderWorkerHost(vi.fn(), undefined, {
+      budgetBytes: 1_000_000,
+    })!;
+    const bitmap = mockBitmap();
+    expect(host.post(renderCommand({ images: { img: bitmap } }), [bitmap])).toBe(true);
+
+    const frame = mockBitmap();
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          bitmap: frame,
+          imageBytes: 4096, // worker holds a 32x32 source bitmap
+        },
+      }),
+    );
+    expect(host.getBitmapBudgetState().residentSourceBytes).toBe(4096);
+    expect(host.getBitmapBudgetState().residentSourcePeakBytes).toBe(4096);
+    expect(host.getBitmapBudgetState().sourceAdds).toBe(1);
+    expect(host.getBitmapBudgetState().sourceReuses).toBe(0);
+  });
+
+  it('tracks residency set deltas across frames: adds, reuses, removes', () => {
+    const host = createRenderWorkerHost(vi.fn(), undefined, {
+      budgetBytes: 1_000_000,
+    })!;
+    // Frame 1: sources [a, b] resident.
+    expect(host.post(renderCommand({ imageSources: ['a', 'b'] }))).toBe(true);
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          imageBytes: 800,
+        },
+      }),
+    );
+    expect(host.getBitmapBudgetState().sourceAdds).toBe(2);
+    expect(host.getBitmapBudgetState().sourceRemoves).toBe(0);
+
+    // Frame 2: [b, c] — b reused, c added, a removed.
+    expect(
+      host.post(renderCommand({ imageSources: ['b', 'c'], renderRevision: asRenderRevision(2) })),
+    ).toBe(true);
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(2),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          imageBytes: 400,
+        },
+      }),
+    );
+    const state = host.getBitmapBudgetState();
+    expect(state.sourceAdds).toBe(3);
+    expect(state.sourceRemoves).toBe(1);
+    expect(state.sourceReuses).toBe(1);
+    expect(state.residentSourceBytes).toBe(400);
+    expect(state.residentSourcePeakBytes).toBe(800);
+  });
+
+  it('admission considers resident source bytes and refuses over-budget renders', () => {
+    const host = createRenderWorkerHost(vi.fn(), undefined, {
+      budgetBytes: 1000,
+    })!;
+    // Frame 1 makes the worker resident with a 700-byte source.
+    expect(host.post(renderCommand({ imageSources: ['a'] }))).toBe(true);
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          imageBytes: 700,
+        },
+      }),
+    );
+    // A new 400-byte source would make 1100 > 1000: refused up front.
+    const bmp = { width: 10, height: 10, close: vi.fn() } as unknown as ImageBitmap;
+    expect(host.post(renderCommand({ images: { b: bmp }, imageSources: ['a', 'b'] }), [bmp])).toBe(
+      false,
+    );
+    expect(host.getBitmapBudgetState().admissionRejections).toBe(1);
+    expect(bmp.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases resident source accounting on terminate', () => {
+    const host = createRenderWorkerHost(vi.fn(), undefined, {
+      budgetBytes: 1_000_000,
+    })!;
+    expect(host.post(renderCommand({ imageSources: ['a'] }))).toBe(true);
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          imageBytes: 512,
+        },
+      }),
+    );
+    expect(host.getBitmapBudgetState().residentSourceBytes).toBe(512);
+    host.terminate();
+    expect(host.getBitmapBudgetState().residentSourceBytes).toBe(0);
   });
 
   it('releases resident accounting when the canvas disposes the forwarded frame', () => {

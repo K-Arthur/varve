@@ -227,8 +227,8 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
   await page.getByRole('button', { name: /^new$/i }).click();
-  await page.locator('dialog').getByRole('button', { name: /^create$/i }).waitFor({ timeout: 5000 });
-  await page.locator('dialog').getByRole('button', { name: /^create$/i }).click();
+  await page.locator('dialog').getByRole('button', { name: /create/i }).waitFor({ timeout: 5000 });
+  await page.locator('dialog').getByRole('button', { name: /create/i }).click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
   const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
   if (await welcomeClose.first().isVisible({ timeout: 1000 }).catch(() => false)) {
@@ -526,6 +526,37 @@ For new contributors and maintainers, see:
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contribution guidelines
 - [README.md](README.md) — project overview and architecture
 - [docs/agents/README.md](docs/agents/README.md) — AI-assisted development practices
+
+## Lifecycle System
+
+Canonical doc: `docs/architecture/lifecycle-system.md`, ADR-0216.
+
+- **One coordinator**: every graceful termination request converges on
+  `TerminationCoordinator` (`packages/editor/src/lifecycle/`). No
+  presentation component, native menu item, shortcut, OS event, or browser
+  lifecycle event may independently decide that user data can be destroyed.
+- **Intents are explicit**: `close-document` / `close-window` /
+  `quit-application` / `reload` / `restart`. Back-to-Home never closes
+  documents (Resume Editing keeps them mounted); quitting inspects ALL
+  sessions, hidden or Home-hidden.
+- **Native interception is authoritative on desktop**: Rust prevents
+  `CloseRequested`/`ExitRequested` (main window only), asks the webview;
+  one-shot per-window tokens in `LifecycleGuard` prevent recursion.
+  Auxiliary windows close freely (ADR-0211 D1). macOS close-window keeps
+  the app running; Linux/Windows last-window close exits.
+- **Do NOT call `getCurrentWindow().close()` from UI code** for
+  user-visible close operations — use `requestCloseWindow()`
+  (`apps/desktop/src/lifecycle/requestCloseWindow.ts`) or the coordinator.
+- **Dirty authority**: `state.sessions[]` per-session `dirty`. The save
+  plan is revision-safe (a stale save never marks newer edits clean) and
+  Save-As cancellation aborts the transaction — never "discard".
+- **Clean marker** (`strata-clean-shutdown`) is written ONLY after
+  finalization; a crash mid-quit stays unclean. Intentional discard deletes
+  the tab's recovery points at commit (`deleteRecoveryForTab`).
+- **Web**: beforeunload warns only when genuinely unsaved; pagehide/
+  visibilitychange flush best-effort; never `await save()` in unload.
+- **New termination entry points must flow through the coordinator**
+  (request → guard → resolve → commit → native/browser terminate).
 
 ## Thumbnail System
 

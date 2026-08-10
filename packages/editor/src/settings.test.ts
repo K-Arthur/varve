@@ -106,10 +106,18 @@ describe('loadSettings', () => {
     expect(s.export.defaultFormat).toBe('png');
   });
 
-  it('migrates the formerly exposed unimplemented Display-P3 export setting to sRGB', () => {
+  it('preserves a persisted wide-gamut export colour space (now supported)', () => {
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ export: { defaultColorProfile: 'display-p3' } }),
+    );
+    expect(loadSettings().export.defaultColorProfile).toBe('display-p3');
+  });
+
+  it('sanitizes unknown persisted colour spaces to sRGB', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ export: { defaultColorProfile: 'rec2100-pq' } }),
     );
     expect(loadSettings().export.defaultColorProfile).toBe('srgb');
   });

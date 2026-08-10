@@ -613,6 +613,9 @@ function FillRow({
                 }
               : undefined
           }
+          asset={
+            fill.image.assetId ? editor.state.document.assets?.[fill.image.assetId] : undefined
+          }
         />
       )}
 

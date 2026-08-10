@@ -1,0 +1,309 @@
+---
+/**
+ * SiteHeader — persistent navigation.
+ *
+ * Structure: logo, primary links (Product / Features / Docs / Support /
+ * Contribute), theme switcher, and a compact platform-aware download CTA.
+ * Download is intentionally a CTA button, not a nav link, so the path to
+ * getting the app is always one visible click away.
+ */
+import ThemeToggle from './ThemeToggle.astro';
+import DownloadCTA from './DownloadCTA.astro';
+import { sitePath } from '../lib/siteUrl';
+
+const navItems = [
+  { href: '/product', label: 'Product' },
+  { href: '/features', label: 'Features' },
+  { href: '/docs', label: 'Docs' },
+  { href: '/support', label: 'Support' },
+  { href: '/contribute', label: 'Contribute' },
+];
+
+const basePrefix = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
+const currentPath = Astro.url.pathname.startsWith(basePrefix)
+  ? `/${Astro.url.pathname.slice(basePrefix.length)}`
+  : Astro.url.pathname;
+
+function isCurrent(href: string): boolean {
+  if (href === '/') return currentPath === '/';
+  return currentPath === href || currentPath.startsWith(`${href}/`);
+}
+---
+
+<header class="site-header">
+  <nav class="site-nav" aria-label="Main">
+    <a href={sitePath('/')} class="site-logo">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path class="logo-strata-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
+        <path class="logo-strata-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
+        <path class="logo-strata-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
+      </svg>
+      <span>Varve</span>
+    </a>
+    <ul class="nav-links" id="site-nav-links">
+      {navItems.map((item) => (
+        <li>
+          <a
+            href={sitePath(item.href)}
+            class:list={[{ 'nav-active': isCurrent(item.href) }]}
+            aria-current={isCurrent(item.href) ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        </li>
+      ))}
+      <li class="nav-download-link">
+        <a href={sitePath('/download')}>Download</a>
+      </li>
+    </ul>
+    <div class="nav-actions">
+      <ThemeToggle />
+      <DownloadCTA variant="primary" size="compact" label="Download" class="nav-download-cta" />
+      <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav-links" type="button">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </nav>
+</header>
+
+<script>
+  const mobileMenuToggle = document.querySelector<HTMLButtonElement>('.mobile-menu-toggle');
+  const navLinks = document.querySelector<HTMLUListElement>('.nav-links');
+
+  function isMenuOpen() {
+    return navLinks !== null && navLinks.classList.contains('active');
+  }
+
+  function closeMenu(restoreFocus = false) {
+    if (!isMenuOpen()) return;
+    navLinks!.classList.remove('active');
+    mobileMenuToggle!.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) mobileMenuToggle!.focus();
+  }
+
+  if (mobileMenuToggle && navLinks) {
+    mobileMenuToggle.addEventListener('click', () => {
+      const open = !isMenuOpen();
+      navLinks.classList.toggle('active', open);
+      mobileMenuToggle.setAttribute('aria-expanded', String(open));
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isMenuOpen()) {
+        closeMenu(true);
+      }
+    });
+
+    navLinks.addEventListener('click', (e) => {
+      if (e.target instanceof Element && e.target.closest('a')) {
+        closeMenu(false);
+      }
+    });
+
+    const desktop = window.matchMedia('(min-width: 769px)');
+    desktop.addEventListener('change', (e) => {
+      if (e.matches) closeMenu(false);
+    });
+  }
+</script>
+
+<style>
+  .site-header {
+    background: var(--surface-header);
+    border-bottom: 1px solid var(--border-default);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .site-nav {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  /* Wordmark in the editorial serif, at a *low* optical size. `opsz` exists
+     precisely for this: the display cut's hairlines go spindly at 20px, while
+     the text cut keeps sturdy thins. Weight 600 rather than 700 — enough
+     presence in a dense header without going heavy. */
+  .site-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-editorial);
+    font-weight: 600;
+    font-variation-settings: 'opsz' 24;
+    font-size: 1.3rem;
+    letter-spacing: -0.005em;
+    color: var(--text-primary);
+    text-decoration: none;
+    flex: 0 0 auto;
+  }
+
+  .site-logo:visited {
+    color: var(--text-primary);
+  }
+
+  .site-logo svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Logo strata use the brand tokens — the same teal/sandstone/terracotta
+     as the app mark, adapted per theme. */
+  .logo-strata-1 {
+    fill: var(--brand-teal);
+  }
+
+  .logo-strata-2 {
+    fill: var(--brand-sandstone);
+  }
+
+  .logo-strata-3 {
+    fill: var(--brand-terracotta);
+  }
+
+  .nav-links {
+    display: flex;
+    list-style: none;
+    gap: 1.75rem;
+    margin: 0 auto;
+  }
+
+  .nav-links a {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    text-decoration: none;
+    padding: 0.4rem 0.1rem;
+    border-bottom: 2px solid transparent;
+    transition:
+      color var(--duration-quick) var(--ease-default),
+      border-color var(--duration-quick) var(--ease-default);
+  }
+
+  .nav-links a:visited {
+    color: var(--text-secondary);
+  }
+
+  .nav-links a:hover {
+    color: var(--text-link);
+  }
+
+  .nav-links a.nav-active {
+    color: var(--text-primary);
+    border-bottom-color: var(--accent-primary);
+  }
+
+  /* Download lives in the desktop actions; on mobile it moves into the
+     menu so the path to the app is never more than one tap away. */
+  .nav-download-link {
+    display: none;
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 0 0 auto;
+  }
+
+  :global(.nav-download-cta) {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border-radius: 9999px;
+  }
+
+  .mobile-menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+  }
+
+  .mobile-menu-toggle:hover,
+  .mobile-menu-toggle:focus-visible {
+    color: var(--text-primary);
+    background: var(--surface-muted);
+  }
+
+  @media (max-width: 980px) {
+    :global(.nav-download-cta .download-cta-beta) {
+      display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .nav-links {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: var(--surface-header);
+      flex-direction: column;
+      padding: 0.75rem 1.5rem 1.25rem;
+      gap: 0.25rem;
+      border-bottom: 1px solid var(--border-default);
+      box-shadow: var(--elevation-shadow-raised);
+      margin: 0;
+    }
+
+    .nav-links.active {
+      display: flex;
+    }
+
+    .nav-links li {
+      width: 100%;
+    }
+
+    .nav-links a {
+      display: block;
+      padding: 0.75rem 0.5rem;
+      border-bottom: none;
+      border-radius: var(--radius-sm);
+    }
+
+    .nav-links a.nav-active {
+      background: var(--surface-muted);
+      color: var(--text-primary);
+    }
+
+    .mobile-menu-toggle {
+      display: block;
+    }
+
+    .nav-actions {
+      gap: 0.5rem;
+    }
+
+    .nav-download-link {
+      display: block;
+      margin-top: 0.5rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-default);
+    }
+
+    .nav-download-link a {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+  }
+
+  @media (max-width: 420px) {
+    :global(.nav-download-cta) {
+      display: none;
+    }
+  }
+</style>

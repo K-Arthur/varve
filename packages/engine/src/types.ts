@@ -430,6 +430,12 @@ export interface EngineImageFillData {
   flipH?: boolean;
   /** Vertical flip of image content. Applied before placement. */
   flipV?: boolean;
+  /**
+   * Animated-media source frame index (v2.20+). Present only on fills whose
+   * asset is animated; replay resolves the frame through the media frame
+   * cache. Absent for static images.
+   */
+  frame?: number;
 }
 
 export interface EnginePatternFillData {
@@ -1357,6 +1363,12 @@ export type FillIR =
       visible: boolean;
       /** Alpha mask data URL for background removal compositing on shape nodes. */
       alphaMask?: string;
+      /**
+       * Animated-media source frame index (v2.20+). Present only on fills
+       * whose asset is animated; the engine resolves the frame through the
+       * media frame cache at replay time. Absent for static images.
+       */
+      frame?: number;
     }
   | {
       type: 'pattern';

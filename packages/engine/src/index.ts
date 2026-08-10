@@ -406,6 +406,18 @@ export {
   upscaleImageData,
   upscalePreviewRegion,
 } from './imageEnhancement';
+export type { ImageErrorCode } from './imageErrors';
+export {
+  IMAGE_ERROR_CODES,
+  ImageLoadError,
+  isImageErrorCode,
+  isPermanentImageFailure,
+} from './imageErrors';
+export {
+  FAILED_PLACEHOLDER_FILL,
+  imagePlaceholderFill,
+  LOADING_PLACEHOLDER_FILL,
+} from './imagePlaceholder';
 export type {
   ComputeImagePlacementOptions,
   ImagePlacement,
@@ -600,6 +612,7 @@ export {
   renderEnhancedMask,
   srgbToLuminance,
 } from './maskCompositing';
+export * from './media';
 export type { MeshControlPoint, MeshTriangle, MeshWarp, MeshWarpCell } from './meshWarp';
 export { createFlatMesh, renderWarpGrid, warpMesh, warpPath, warpPosition } from './meshWarp';
 export type { ExifOrientation } from './metadata/exif';
@@ -715,7 +728,42 @@ export type { GradientPreset, TritonePreset } from './presets';
 export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
-export * from './rasterPyramid';
+export type {
+  ExportColorSpaceChoice,
+  PixelBufferDescriptor,
+  PixelBufferFormat,
+  RasterColorTransform,
+  RasterExportColorPolicy,
+  RasterIccHeaderInfo,
+} from './rasterColor';
+export {
+  BYTES_PER_PIXEL,
+  buildMatrixProfile,
+  convertExportImageData,
+  convertImageDataTiled,
+  createAnalyticRgbTransform,
+  defaultTransferFor,
+  EXPORT_COLOR_POLICIES,
+  exportColorPolicyLabel,
+  exportProfileBytes,
+  identityTransform,
+  insertJpegIccProfile,
+  isWebp,
+  isWithinPixelBudget,
+  parseIccHeader,
+  pixelBufferBytes,
+  pixelFormatLabel,
+  premultiplyRgba32f,
+  profileDescriptionFor,
+  resolveExportEncoding,
+  rgba8ToRgba32f,
+  rgba16ToRgba32f,
+  rgba32fToRgba8,
+  rgba32fToRgba16,
+  transformDescriptor,
+  unpremultiplyRgba32f,
+  webpProfileEmbeddingSupported,
+} from './rasterColor';
 export type {
   FittedRasterDimensions,
   RasterCanvas,
@@ -774,7 +822,7 @@ export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textW
 export { warpTextToMesh } from './textWarpPipeline';
 export { applyThreshold, type ThresholdParams } from './threshold';
 export type { ThumbnailOptions as LegacyThumbnailOptions } from './thumbnail';
-export { renderThumbnail } from './thumbnail';
+export { renderThumbnail as legacyRenderThumbnail } from './thumbnail';
 export type {
   ThumbnailBackground,
   ThumbnailCapabilities,
