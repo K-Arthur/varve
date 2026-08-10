@@ -45,6 +45,8 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     toggleSelection: vi.fn(),
     isSelected: vi.fn(() => false),
     setNodePosition: vi.fn(),
+    setNodePositions: vi.fn(),
+    updateNodes: vi.fn(),
     setNodeSize: vi.fn(),
     updateNode: vi.fn(),
     removeSelected: vi.fn(),

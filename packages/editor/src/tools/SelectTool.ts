@@ -351,6 +351,7 @@ export class SelectTool extends BaseTool {
         ctx.setDropTargetFrame(dropTarget);
       }
 
+      const positions: Array<{ id: string; x: number; y: number }> = [];
       for (const id of sel) {
         const node = ctx.getNode(id);
         if (!node) continue;
@@ -374,20 +375,24 @@ export class SelectTool extends BaseTool {
         if (thisBounds) {
           if (interaction.bypassSnap) {
             const local = toLocal(newWorldX, newWorldY);
-            ctx.setNodePosition(id, local.x, local.y);
+            positions.push({ id, x: local.x, y: local.y });
           } else {
             const snapped = ctx.snapPosition(
               { x: newWorldX, y: newWorldY, w: thisBounds.w, h: thisBounds.h },
               [],
             );
             const local = toLocal(snapped.x, snapped.y);
-            ctx.setNodePosition(id, local.x, local.y);
+            positions.push({ id, x: local.x, y: local.y });
           }
           continue;
         }
         const local = toLocal(newWorldX, newWorldY);
-        ctx.setNodePosition(id, local.x, local.y);
+        positions.push({ id, x: local.x, y: local.y });
       }
+      // One document update per sample instead of one per node: an N-node
+      // selection previously issued N setNodePosition calls, each spreading
+      // the whole nodes map (N*O(N) key copies per pointermove).
+      if (positions.length > 0) ctx.setNodePositions(positions);
     }
   }
 
@@ -593,6 +598,8 @@ export class SelectTool extends BaseTool {
         }
         ctx.beginTransaction();
         this.nudgeGestureActive = true;
+        // Announce once per gesture, not once per OS key-repeat (~30 Hz).
+        ctx.announceOperation('Nudge', `${step}px`);
       }
 
       executeNudge(direction, step, {
@@ -600,6 +607,7 @@ export class SelectTool extends BaseTool {
         selection: sel,
         getNode: (id) => ctx.getNode(id),
         setNodePosition: (id, x, y) => ctx.setNodePosition(id, x, y),
+        setNodePositions: (positions) => ctx.setNodePositions(positions),
       });
 
       // Auto-reparent after nudge (matching drag-end behavior).
@@ -697,7 +705,6 @@ export class SelectTool extends BaseTool {
           ctx.commitTransaction();
         }
       } // !ctx.ctrlKey
-      ctx.announceOperation('Nudge', `${step}px`);
       return true;
     }
     if (e.key === 'Enter' && !e.repeat) {

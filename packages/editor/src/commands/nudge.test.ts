@@ -9,6 +9,7 @@ function makeCtx(overrides?: Partial<NudgeContext>): NudgeContext {
     selection: [],
     getNode: vi.fn(),
     setNodePosition: vi.fn(),
+    setNodePositions: vi.fn(),
     ...overrides,
   };
 }
@@ -47,52 +48,52 @@ describe('canNudge / getNudgeDisabledReason', () => {
 
 describe('executeNudge', () => {
   it('moves a single node right by step', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePosition,
+      setNodePositions,
     });
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(result).toEqual({ moved: 1, locked: 0, skipped: 0, total: 1 });
   });
 
   it('moves a single node left by step', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePosition,
+      setNodePositions,
     });
     executeNudge('left', 10, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 90, 100);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
   });
 
   it('moves a single node up by step', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePosition,
+      setNodePositions,
     });
     executeNudge('up', 1, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 100, 99);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100, y: 99 }]);
   });
 
   it('moves a single node down by step', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePosition,
+      setNodePositions,
     });
     executeNudge('down', 1, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 100, 101);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100, y: 101 }]);
   });
 
   it('moves multiple selected nodes', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const getNode = vi.fn((id: string) => {
       if (id === 'n1')
         return { id: 'n1', transform: [1, 0, 0, 1, 100, 100] } as unknown as SceneNode;
@@ -103,15 +104,17 @@ describe('executeNudge', () => {
     const ctx = makeCtx({
       selection: ['n1', 'n2'],
       getNode,
-      setNodePosition,
+      setNodePositions,
     });
     executeNudge('right', 1, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
-    expect(setNodePosition).toHaveBeenCalledWith('n2', 201, 200);
+    expect(setNodePositions).toHaveBeenCalledWith([
+      { id: 'n1', x: 101, y: 100 },
+      { id: 'n2', x: 201, y: 200 },
+    ]);
   });
 
   it('nudges rotated node along local axes', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const c = Math.cos(Math.PI / 4);
     const s = Math.sin(Math.PI / 4);
     const ctx = makeCtx({
@@ -120,14 +123,14 @@ describe('executeNudge', () => {
         id: 'n1',
         transform: [c, s, -s, c, 100, 100],
       }),
-      setNodePosition,
+      setNodePositions,
     });
     executeNudge('right', 1, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 100 + c, 100 + s);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 + c, y: 100 + s }]);
   });
 
   it('nudges rotated node up along local axes', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const c = Math.cos(Math.PI / 4);
     const s = Math.sin(Math.PI / 4);
     const ctx = makeCtx({
@@ -136,14 +139,14 @@ describe('executeNudge', () => {
         id: 'n1',
         transform: [c, s, -s, c, 100, 100],
       }),
-      setNodePosition,
+      setNodePositions,
     });
     executeNudge('up', 1, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 100 + s, 100 - c);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 + s, y: 100 - c }]);
   });
 
   it('skips locked nodes', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({
@@ -152,15 +155,15 @@ describe('executeNudge', () => {
         visible: true,
         transform: [1, 0, 0, 1, 100, 100],
       }),
-      setNodePosition,
+      setNodePositions,
     });
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(setNodePositions).not.toHaveBeenCalled();
     expect(result).toEqual({ moved: 0, locked: 1, skipped: 0, total: 1 });
   });
 
   it('skips hidden nodes', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({
@@ -169,15 +172,15 @@ describe('executeNudge', () => {
         visible: false,
         transform: [1, 0, 0, 1, 100, 100],
       }),
-      setNodePosition,
+      setNodePositions,
     });
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(setNodePositions).not.toHaveBeenCalled();
     expect(result).toEqual({ moved: 0, locked: 1, skipped: 0, total: 1 });
   });
 
   it('skips adjustment nodes', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({
@@ -186,27 +189,27 @@ describe('executeNudge', () => {
         locked: false,
         visible: true,
       }),
-      setNodePosition,
+      setNodePositions,
     });
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(setNodePositions).not.toHaveBeenCalled();
     expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
   });
 
   it('handles missing nodes gracefully', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue(undefined),
-      setNodePosition,
+      setNodePositions,
     });
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(setNodePositions).not.toHaveBeenCalled();
     expect(result).toEqual({ moved: 0, locked: 0, skipped: 1, total: 1 });
   });
 
   it('handles missing transform (undefined) gracefully', () => {
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({
@@ -215,10 +218,10 @@ describe('executeNudge', () => {
         visible: true,
         transform: undefined,
       }),
-      setNodePosition,
+      setNodePositions,
     });
     const result = executeNudge('right', 1, ctx);
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 1, 0);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 1, y: 0 }]);
     expect(result).toEqual({ moved: 1, locked: 0, skipped: 0, total: 1 });
   });
 

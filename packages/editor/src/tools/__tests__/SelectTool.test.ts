@@ -49,6 +49,8 @@ function makeCtx(overrides?: Record<string, unknown>) {
     toggleSelection: vi.fn(),
     isSelected: vi.fn().mockReturnValue(false),
     setNodePosition: vi.fn(),
+    setNodePositions: vi.fn(),
+    updateNodes: vi.fn(),
     setNodeSize: vi.fn(),
     updateNode: vi.fn(),
     removeSelected: vi.fn(),
@@ -176,7 +178,7 @@ describe('SelectTool', () => {
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
     });
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
   });
 
@@ -187,7 +189,7 @@ describe('SelectTool', () => {
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
     });
     tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 90, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
   });
 
   it('arrow key nudges rotated node along local axes', () => {
@@ -204,7 +206,7 @@ describe('SelectTool', () => {
     });
     // Right arrow: move along local X axis (c, s)
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 100 + c, 100 + s);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 + c, y: 100 + s }]);
   });
 
   it('arrow key nudges rotated node backward along local Y on arrow up', () => {
@@ -220,7 +222,7 @@ describe('SelectTool', () => {
     });
     // Up arrow: move backward along local Y axis (-c, -d) = (s, -c)
     tool.onKeyDown({ key: 'ArrowUp' } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 100 - -s, 100 - c);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 100 - -s, y: 100 - c }]);
   });
 
   it('marquee with ctrl key toggles containment mode, selects only nodes fully contained', () => {
@@ -533,7 +535,7 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
@@ -545,8 +547,8 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     const ctx = makeCtx({
       selection: ['n1'],
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
-      setNodePosition: vi.fn((_id: string, x: number) => {
-        posX = x;
+      setNodePositions: vi.fn((positions: Array<{ id: string; x: number }>) => {
+        posX = positions[0]?.x ?? posX;
       }),
     });
     // Override getNode to return current position
@@ -558,14 +560,14 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     // First press begins transaction, moves to 101
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
 
     // Repeat press shares the same transaction, moves to 102
-    (ctx.setNodePosition as ReturnType<typeof vi.fn>).mockClear();
+    (ctx.setNodePositions as ReturnType<typeof vi.fn>).mockClear();
     tool.onKeyDown({ key: 'ArrowRight', repeat: true } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 102, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 102, y: 100 }]);
 
     // Keyup commits once
     tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
@@ -580,7 +582,7 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     });
     tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 90, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 90, y: 100 }]);
     tool.onKeyUp({ key: 'ArrowLeft' } as any, ctx);
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
@@ -608,7 +610,7 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
       findContainingFrame: vi.fn().mockReturnValue('frame1'),
     });
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(ctx.reparentNode).toHaveBeenCalledWith('n1', 'frame1', 0);
     expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
   });
@@ -626,7 +628,7 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
       findContainingFrame: vi.fn().mockReturnValue(null),
     });
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(ctx.reparentNode).not.toHaveBeenCalled();
     expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
   });
@@ -666,7 +668,7 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
       ctrlKey: true,
     });
     tool.onKeyDown({ key: 'ArrowRight', ctrlKey: true } as any, ctx);
-    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
     expect(ctx.reparentNode).not.toHaveBeenCalled();
     expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
   });
@@ -760,10 +762,10 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
 describe('SelectTool — drop target frame highlighting', () => {
   it('uses world displacement when auto-pan moves the camera under a stationary pointer', () => {
     const tool = new SelectTool();
-    const setNodePosition = vi.fn();
+    const setNodePositions = vi.fn();
     const ctx = makeCtx({
       selection: ['n1'],
-      setNodePosition,
+      setNodePositions,
       getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 10, 20] }),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 10, y: 20, w: 40, h: 40 }),
     });
@@ -777,7 +779,7 @@ describe('SelectTool — drop target frame highlighting', () => {
 
     (tool as any).onDragMove?.(ctx);
 
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 42, 28);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 42, y: 28 }]);
   });
 
   it('calls setDropTargetFrame with the containing frame on drag move', () => {
@@ -881,27 +883,27 @@ describe('SelectTool Alt-drag duplication', () => {
 
   it('leaves the originals in place on the frame that fires the duplicate', () => {
     const tool = new SelectTool();
-    const setNodePosition = vi.fn();
-    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    const setNodePositions = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePositions });
     primeDrag(tool, ['n1'], 30, 15);
 
     (tool as any).onDragMove?.(ctx);
 
     // The clones' ids are not observable yet; moving the still-selected
     // originals here would drag them out from under the copy.
-    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(setNodePositions).not.toHaveBeenCalled();
   });
 
   it('does not move anything while the clones have not become the selection', () => {
     const tool = new SelectTool();
-    const setNodePosition = vi.fn();
-    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    const setNodePositions = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePositions });
     primeDrag(tool, ['n1'], 30, 15);
 
     (tool as any).onDragMove?.(ctx); // fires duplicate
     (tool as any).onDragMove?.(ctx); // selection still the source ids
 
-    expect(setNodePosition).not.toHaveBeenCalled();
+    expect(setNodePositions).not.toHaveBeenCalled();
   });
 
   it('hands the gesture to the clone, which tracks the pointer from the drag origin', () => {
@@ -909,21 +911,21 @@ describe('SelectTool Alt-drag duplication', () => {
     // every move hit `continue` and the copy never followed the pointer --
     // it just sat at duplicateSelected's fixed offset.
     const tool = new SelectTool();
-    const setNodePosition = vi.fn();
-    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    const setNodePositions = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePositions });
     primeDrag(tool, ['n1'], 120, 60);
 
     (tool as any).onDragMove?.(ctx); // fires duplicate
     ctx.selection = ['n1-copy']; // duplicateSelected re-selects the clone
     (tool as any).onDragMove?.(ctx);
 
-    expect(setNodePosition).toHaveBeenCalledWith('n1-copy', 120, 60);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1-copy', x: 120, y: 60 }]);
   });
 
   it('maps each clone onto the origin of the node it was cloned from', () => {
     const tool = new SelectTool();
-    const setNodePosition = vi.fn();
-    const ctx = movingCtx({ selection: ['a', 'b'], altKey: true, setNodePosition });
+    const setNodePositions = vi.fn();
+    const ctx = movingCtx({ selection: ['a', 'b'], altKey: true, setNodePositions });
     (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: 10, y: 0 } };
     (tool as any).initialPositions = new Map([
       ['a', { x: 0, y: 0 }],
@@ -935,14 +937,16 @@ describe('SelectTool Alt-drag duplication', () => {
     ctx.selection = ['a-copy', 'b-copy']; // duplicateSelected preserves order
     (tool as any).onDragMove?.(ctx);
 
-    expect(setNodePosition).toHaveBeenCalledWith('a-copy', 10, 0);
-    expect(setNodePosition).toHaveBeenCalledWith('b-copy', 210, 0);
+    expect(setNodePositions).toHaveBeenCalledWith([
+      { id: 'a-copy', x: 10, y: 0 },
+      { id: 'b-copy', x: 210, y: 0 },
+    ]);
   });
 
   it('falls back to a plain move when duplication yields no usable selection', () => {
     const tool = new SelectTool();
-    const setNodePosition = vi.fn();
-    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    const setNodePositions = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePositions });
     primeDrag(tool, ['n1'], 40, 40);
 
     (tool as any).onDragMove?.(ctx); // fires duplicate
@@ -952,13 +956,13 @@ describe('SelectTool Alt-drag duplication', () => {
     (tool as any).onDragMove?.(ctx);
 
     // The gesture must not stay wedged waiting for clone ids forever.
-    expect(setNodePosition).toHaveBeenCalledWith('n1', 40, 40);
+    expect(setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 40, y: 40 }]);
   });
 
   it('starts each gesture with a clean handoff so an interrupted Alt-drag cannot wedge the next', () => {
     const tool = new SelectTool();
-    const setNodePosition = vi.fn();
-    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    const setNodePositions = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePositions });
     primeDrag(tool, ['n1'], 10, 10);
     (tool as any).onDragMove?.(ctx); // Alt-drag begins, then is abandoned
 
@@ -1288,9 +1292,11 @@ describe('SelectTool — M6 page interactions', () => {
       makeShapeNode(nodeId, { kind: 'rect', x: 10, y: 10, w: 40, h: 40 }),
     );
     const reparentNode = vi.fn();
-    const setNodePosition = vi.fn((id: string, x: number, y: number) => {
-      const n = doc.nodes[id] as { transform?: number[] } | undefined;
-      if (n) n.transform = [1, 0, 0, 1, x, y];
+    const setNodePositions = vi.fn((positions: Array<{ id: string; x: number; y: number }>) => {
+      for (const { id, x, y } of positions) {
+        const n = doc.nodes[id] as { transform?: number[] } | undefined;
+        if (n) n.transform = [1, 0, 0, 1, x, y];
+      }
     });
     const ctx = makeCtx({
       document: doc,
@@ -1300,7 +1306,7 @@ describe('SelectTool — M6 page interactions', () => {
       findContainingFrame: vi.fn().mockReturnValue(null),
       getNode: vi.fn((id: string) => doc.nodes[id]),
       reparentNode,
-      setNodePosition,
+      setNodePositions,
     });
 
     // Drag the node's center to page 2's empty trim (world 2550, 30).
