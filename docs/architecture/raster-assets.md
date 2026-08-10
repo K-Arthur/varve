@@ -1,6 +1,6 @@
 # Raster asset architecture
 
-**Updated:** 2026-08-09
+**Updated:** 2026-08-10
 
 This document records the canonical raster asset architecture introduced to
 resolve Varve's raster pipeline gaps (EXIF/ICC ingestion, resource identity,
@@ -130,6 +130,29 @@ preflight classification (typed failures)
 render
 ```
 
+**Collection completeness (2026-08-10):** two resource classes were
+previously invisible to every collector:
+
+- **Table cell content** — rich scene content compiled into `TableShape`
+  cells (`TableCellIR.content`) carries image fills that no collector
+  walked. A worker frame rendered those cells as permanent gray
+  placeholders (the cached worker frame never invalidated), and a
+  single-shot export could bake the placeholder silently. The shared
+  engine walker `walkTableCellContents` (depth-capped, iterative) is now
+  used by `imageSrcsFromIr`, `irHasUnsupportedWorkerMasks`, and
+  `collectEngineImageResources`, so worker transport, the worker mask
+  gate, and the export barrier all see cell images (and masked cell
+  images refuse the worker path — never A-without-M).
+- **Frame-level native raster masks** — `sceneToEngine` now propagates a
+  frame's `mask.rasterMask` data URL onto the flattened engine node's
+  `alphaMask` (structural replay still applies the mask; the engine rect
+  path ignores it). Preflight therefore sees a frame mask that is still
+  decoding instead of structural export replay silently skipping it.
+
+The superseded standalone `resourceCollector.ts` (ExportManifest, no
+masks/tables/handles) was removed; `collectEngineImageResources` is the one
+collector.
+
 Policy:
 - permanent failures (missing/corrupt/unsupported/CORS) are reported with
   the typed code and a matching recovery hint — never silently omitted;
@@ -154,7 +177,56 @@ The render worker retains decoded source bitmaps by identity across frames
 - residency set deltas (`sourceAdds` / `sourceRemoves` / `sourceReuses`)
   feed diagnostics alongside `residentSourceBytes` / peak /
   `admissionRejections` (via `getBitmapBudgetState` on the registered host);
+  `render.worker` interaction spans now carry the resident-source bytes and
+  count plus the set-delta counters directly;
 - masked fills are refused by the worker collection (never A-without-M).
+
+## At-size representations (viewport-sufficient worker transport)
+
+Measured on Chromium (2026-08-10, `tests/e2e/canvas/large-image-decode.bench.spec.ts`,
+synthetic incompressible fixtures):
+
+| Fixture | Encoded | Full decode | `createImageBitmap` 2048-px resize | Memory fraction |
+|---|---|---|---|---|
+| 12 MP JPEG | 5.3 MB | ~0.8-1.1 s | ~2.3-3.4 s | 0.26 |
+| 24 MP JPEG | 10.5 MB | ~0.9-1.2 s | ~3.0-3.1 s | 0.12 |
+| 48 MP JPEG | 20.9 MB | ~2.2-3.3 s | ~4.3-5.6 s | 0.066 |
+| 48 MP PNG | 106 MB | ~11-18 s | ~7.2-14.7 s | 0.066 |
+
+`createImageBitmap` resize is **not** a decode-latency win in Chromium
+(JPEG 0.3-0.6x — the browser decodes full resolution then resamples); it is
+a 15x *memory/transfer* win. The scaled-decode API (`ImageDecoder` with
+`desiredWidth`) that would also cut latency is not available in the tested
+Chromium build, so no latency lever exists via current browser APIs.
+
+Implementation, conservative by the evidence:
+
+- `ImageCache` gains at-size entries keyed `src@<maxDim>` for inline
+  (`data:`/`blob:`) sources only. The full-size entry is never touched —
+  export and main-thread replay keep the authoritative full-resolution
+  decode, so preview resolution never reduces export quality.
+- `loadAtSize` decodes with exact aspect- and orientation-preserving target
+  dims when the source's displayed dims are known (from
+  `ImageFillData.imageWidth/imageHeight`, which are already
+  orientation-normalized); sources that fit the cap fall back to the
+  full-size element under the at-size key (no upscale, no extra decode).
+  Failures flow through the same typed classifier. Eviction and `clear()`
+  close retained ImageBitmaps; `close()` is a no-op on detached bitmaps, so
+  double-close paths are harmless.
+- `collectImageBitmaps` accepts `maxSourceDim` — a power-of-two,
+  camera-derived cap (`workerSourceCapFor`: viewport max dim x DPR x
+  max(zoom, 1) x 1.25, clamped to [2048, 8192]) — and uses the at-size
+  entry when the source exceeds the cap, cloning it for transfer so the
+  cache keeps ownership of its copy. Until the preview settles, the frame
+  falls back to the main-thread full-res path (never a gray worker frame).
+- Zoom hysteresis is structural: powers of two mean a representation only
+  changes at 2x zoom steps, and raising the cap loads a new entry whose
+  cache-stamp notification re-renders the frame sharper.
+
+Result: a 48 MP photo (192 MB RGBA) previously blew the 128 MB worker
+admission budget and permanently fell back to the main thread; it now
+transfers as a ~12.7 MB viewport-sufficient bitmap while the full decode
+remains available for export and deep-zoom re-requests.
 
 ## Typed failures
 
@@ -178,8 +250,11 @@ doc's extension rules.
 - Photo-fill tiling/pyramids: the raster-layer pyramid trigger is met at
   2048² layers (ADR-0214) but photo fills replay as a single blit; a
   pyramid only pays off when full decode is the bottleneck. The IR
-  transport work above removes the per-frame cost; browser decode
-  benchmarks on real hardware are the required next step before any
-  pyramid for photo fills.
+  transport and at-size representation work above remove the per-frame and
+  transport cost; decode latency itself remains browser-bound (measured:
+  `createImageBitmap` resize does not speed up Chromium JPEG decode, and
+  `ImageDecoder` scaled decode is unavailable in the tested build). A
+  pyramid for photo fills should be revisited when scaled-decode APIs
+  ship or real-hardware benchmarks show decode-bound pan/zoom.
 - Source-ICC → working-space conversion: profile extraction is wired;
   numeric colour fixtures and a conversion pipeline are a separate phase.
