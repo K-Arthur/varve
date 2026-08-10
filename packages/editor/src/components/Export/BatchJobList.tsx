@@ -74,6 +74,7 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
         <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
         <span className={`batch-job-row__status batch-job-row__status--${job.status}`}>
           {statusIcon(job.status)}
+          <span className="sr-only">{job.status}</span>
         </span>
       </div>
     ));

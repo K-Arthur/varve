@@ -283,6 +283,18 @@ export function ExportDialog({
   >({ stage: 'preflight' });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [template, setTemplate] = useState(initialTemplate);
+
+  // F-32: silent sanitization was the only signal for a useless filename
+  // template; surface it inline instead of shipping "export" quietly.
+  const templateError = useMemo(() => {
+    if (template.trim() === '') return '';
+    const stripped = template.replace(/\{(name|suffix|ext)\}/g, 'x');
+    const sanitized = stripped.replace(/[^a-zA-Z0-9-_\s]/g, '').trim();
+    if (sanitized === '') {
+      return 'Filename template has no usable characters; exports will be named "export".';
+    }
+    return '';
+  }, [template]);
   const [folderRule, setFolderRule] = useState<ExportBatch['folderRule']>('flat');
   const [destinationLabel, setDestinationLabel] = useState('');
   const [announceMsg, setAnnounceMsg] = useState('');
@@ -416,6 +428,13 @@ export function ExportDialog({
   }, [isOpen]);
 
   const handleExport = useCallback(async () => {
+    const blockingErrors = findings.filter((f) => f.severity === 'error');
+    if (blockingErrors.length > 0) {
+      const proceed = window.confirm(
+        `Preflight found ${blockingErrors.length} error${blockingErrors.length === 1 ? '' : 's'} that may make the exported file${blockingErrors.length === 1 ? '' : 's'} unusable (e.g. missing fonts, out-of-gamut colors). Export anyway?`,
+      );
+      if (!proceed) return;
+    }
     setRunning(true);
     setProgress({ done: 0, errors: 0 });
     setProgressDetail({ stage: 'preflight' });
@@ -532,6 +551,7 @@ export function ExportDialog({
     onApplyBackgroundRemoval,
     bgMethod,
     aiAvailable,
+    findings,
   ]);
 
   const handleRetryFailed = useCallback(() => {
@@ -850,6 +870,7 @@ export function ExportDialog({
                 jobs={jobs}
                 onTemplateChange={setTemplate}
                 onFolderRuleChange={setFolderRule}
+                templateError={templateError}
                 onSelectDestination={() => void handleSelectDestination()}
                 destinationLabel={destinationLabel}
                 folderSelectionAvailable={!!onSelectDestination}

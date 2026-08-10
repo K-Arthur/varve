@@ -454,12 +454,19 @@ export const ExportService = {
         // real encode boundary without pretending to know fractional progress.
         emit('encoding', job.fileName);
         emit('writing', job.fileName);
-        const saved = await context.saveFile?.(
-          job.fileName,
-          rendered.bytes,
-          rendered.mimeType,
-          job,
-        );
+        let saved: string | null | undefined;
+        try {
+          saved = await context.saveFile?.(job.fileName, rendered.bytes, rendered.mimeType, job);
+        } catch (err) {
+          // Permission denial (browser save dialog blocked) must not read as
+          // "Export cancelled" — that hides the fix from the user.
+          if (err instanceof Error && err.name === 'NotAllowedError') {
+            throw new Error(
+              'Save permission was denied; allow the browser save dialog, then export again.',
+            );
+          }
+          throw err;
+        }
         if (context.saveFile && saved === null) throw abortError();
         files.push({
           fileName: job.fileName,
