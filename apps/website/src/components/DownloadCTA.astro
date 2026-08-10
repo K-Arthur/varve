@@ -15,6 +15,7 @@
  * The swap never starts a download by itself and never changes the
  * destination; it only makes the existing path feel native.
  */
+import { PRODUCT_STATUS } from '@varve/shared';
 import { sitePath } from '../lib/siteUrl';
 import release from '../data/release-manifest.json';
 
@@ -43,7 +44,7 @@ const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'See the beta st
 
 <a href={sitePath('/download')} class:list={['btn', `btn-${variant}`, `download-cta`, `download-cta-${size}`, className]} data-download-cta data-has-release={hasRelease ? 'true' : 'false'}>
   <span class="download-cta-label" data-cta-label>{fallbackLabel}</span>
-  {beta && <span class="download-cta-beta">beta</span>}
+  {beta && <span class="download-cta-beta">{PRODUCT_STATUS.stage}</span>}
 </a>
 
 <script>

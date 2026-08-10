@@ -9,6 +9,7 @@
  * instead of a broken image or a silently stale screenshot.
  */
 import { sitePath } from '../lib/siteUrl';
+import { PRODUCT_STATUS } from '@varve/shared';
 import manifest from '../data/screenshot-manifest.json';
 
 type SceneMeta = {
@@ -65,7 +66,7 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
             <span class="window-dot"></span>
             <span class="window-dot"></span>
             <span class="window-dot"></span>
-            <span class="window-title">Varve &mdash; beta</span>
+            <span class="window-title">Varve &mdash; {PRODUCT_STATUS.label}</span>
           </div>
           <img
             src={sitePath(`/screenshots/${PRIMARY.file}`)}

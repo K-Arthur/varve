@@ -1,6 +1,6 @@
 # Varve
 
-> Varve is a free, local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print production. It runs natively on Linux, macOS, and Windows, and is currently in active beta. Source-available under the Functional Source License 1.1 with MIT Future License (FSL-1.1-MIT): free to use, modify, and redistribute for any permitted purpose; after two years each release converts to the MIT license.
+> Varve is a free, local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print production. It runs natively on Linux, macOS, and Windows, and is currently in public beta. Source-available under the Functional Source License 1.1 with MIT Future License (FSL-1.1-MIT): free to use, modify, and redistribute for any permitted purpose; after two years each release converts to the MIT license.
 
 ## What Varve is
 
@@ -12,10 +12,10 @@
 
 ## Release status (verified against the repository state on 2026-08-10)
 
-- Status: beta. The first public release, **Varve 0.1.0**, was published 2026-08-09 with installers for Linux (AppImage, deb, rpm), macOS (Apple Silicon dmg), and Windows (x86_64 installer).
+- Status: public beta. The first public release, **Varve 0.1.0**, was published 2026-08-09 with installers for Linux (AppImage, deb, rpm), macOS (Apple Silicon dmg), and Windows (x86_64 installer).
 - The download page renders every artifact from the verified release manifest (SHA-256 checksums, SBOMs, system requirements); nothing is hand-typed.
 - Windows and macOS builds are **not code-signed** yet — the download page shows the verification steps for each platform.
-- The document format (`.strata`) may still change in ways that break older files; keep backups.
+- The document format (`.varve`) may still change in ways that break older files; keep backups. Documents saved by pre-release builds with the legacy `.strata` extension remain openable through the versioned migration pipeline.
 - Downloads labeled "Varve" outside the official GitHub repository are not official.
 
 ## Platforms and system requirements
@@ -42,9 +42,9 @@
 - Is Varve free? Yes. The Community Edition is free to download and use — no subscriptions, no feature lockouts, no cloud requirements.
 - Is Varve open source? The source is publicly available under FSL-1.1-MIT, a source-available license. After two years, each release converts to the MIT license.
 - Does Varve have real-time collaboration? Not yet. Collaboration is UI scaffolding only, with no transport or wire protocol.
-- Can I use Varve for professional print work? It has CMYK management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and preflight checks, but it is in beta — test thoroughly before critical production use.
+- Can I use Varve for professional print work? It has CMYK management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and preflight checks, but it is in public beta — test thoroughly before critical production use.
 - Does Varve support ARM processors? Apple Silicon on macOS only. Linux ARM and Windows ARM are not supported.
-- Has Varve shipped a release? Yes: Varve 0.1.0 (2026-08-09), beta, with Linux, macOS (Apple Silicon), and Windows installers. Expect rough edges and a possibly-changing file format.
+- Has Varve shipped a release? Yes: Varve 0.1.0 (2026-08-09), public beta, with Linux, macOS (Apple Silicon), and Windows installers. Expect rough edges and a possibly-changing file format.
 
 ## Documentation
 
