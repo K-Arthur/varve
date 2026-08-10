@@ -43,7 +43,7 @@ describe('createSaveCoordinator', () => {
   });
 
   it('coalesces a burst of plain saves into latest-wins', async () => {
-    const run = vi.fn(async (intent: 'save' | 'save-as' | 'save-copy') => {
+    const run = vi.fn(async (_intent: 'save' | 'save-as' | 'save-copy') => {
       await Promise.resolve();
       return outcome('saved');
     });
