@@ -487,23 +487,43 @@ jobs:
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
-          # macOS signing + notarization. Tauri signs with the imported
-          # identity and notarizes + staples when the App Store Connect API
-          # credentials are present. Notarization NEVER happens without a real
-          # Apple identity; with these unset the build is simply unsigned.
-          APPLE_CERTIFICATE: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_API_ISSUER: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_API_ISSUER || '' }}
-          APPLE_API_KEY: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_API_KEY || '' }}
-          APPLE_API_KEY_PATH: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && '/tmp/varve-apple-api-key.p8' || '' }}
-          APPLE_TEAM_ID: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' && secrets.APPLE_TEAM_ID || '' }}
-          # Windows Artifact Signing credentials (client-secret flow; the
-          # official artifact-signing-cli auth chain is `az login
-          # --service-principal`, see docs/release/signing-decision-record.md).
-          AZURE_CLIENT_ID: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' && secrets.AZURE_SIGNING_CLIENT_ID || '' }}
-          AZURE_CLIENT_SECRET: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' && secrets.AZURE_SIGNING_CLIENT_SECRET || '' }}
-          AZURE_TENANT_ID: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' && secrets.AZURE_SIGNING_TENANT_ID || '' }}
+
+      # Signing credentials are exported ONLY in signed mode. They must not be
+      # present — even as empty strings — in unsigned builds: Tauri's bundler
+      # treats a set APPLE_CERTIFICATE as a certificate to import and runs
+      # `security import` on it, which fails on an empty value
+      # (SecKeychainItemImport) and aborts the whole macOS bundle.
+      - name: Export signing credentials (signed mode only)
+        if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed')
+        shell: bash
+        env:
+          MACOS_SIGNED: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' }}
+          WINDOWS_SIGNED: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_SIGNING_CLIENT_ID: ${{ secrets.AZURE_SIGNING_CLIENT_ID }}
+          AZURE_SIGNING_CLIENT_SECRET: ${{ secrets.AZURE_SIGNING_CLIENT_SECRET }}
+          AZURE_SIGNING_TENANT_ID: ${{ secrets.AZURE_SIGNING_TENANT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "${MACOS_SIGNED}" == "true" ]]; then
+            echo "APPLE_CERTIFICATE=${APPLE_CERTIFICATE}" >> "$GITHUB_ENV"
+            echo "APPLE_CERTIFICATE_PASSWORD=${APPLE_CERTIFICATE_PASSWORD}" >> "$GITHUB_ENV"
+            echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}" >> "$GITHUB_ENV"
+            echo "APPLE_API_ISSUER=${APPLE_API_ISSUER}" >> "$GITHUB_ENV"
+            echo "APPLE_API_KEY=${APPLE_API_KEY}" >> "$GITHUB_ENV"
+            echo "APPLE_API_KEY_PATH=/tmp/varve-apple-api-key.p8" >> "$GITHUB_ENV"
+            echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}" >> "$GITHUB_ENV"
+          fi
+          if [[ "${WINDOWS_SIGNED}" == "true" ]]; then
+            echo "AZURE_CLIENT_ID=${AZURE_SIGNING_CLIENT_ID}" >> "$GITHUB_ENV"
+            echo "AZURE_CLIENT_SECRET=${AZURE_SIGNING_CLIENT_SECRET}" >> "$GITHUB_ENV"
+            echo "AZURE_TENANT_ID=${AZURE_SIGNING_TENANT_ID}" >> "$GITHUB_ENV"
+          fi
 
       # ── Collect, rename, checksum, SBOM ────────────────────────────────
       - name: Collect artifacts
