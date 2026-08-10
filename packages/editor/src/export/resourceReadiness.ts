@@ -102,8 +102,13 @@ export function collectEngineImageResources(nodes: readonly EngineNode[]): Requi
     walkTableCellContents(node, (content) => {
       for (const fill of content.fills ?? []) {
         if (fill.visible === false) continue;
-        if (fill.type === 'image' && fill.image?.src) {
-          push(fill.image.src, contextOf(node, 'table-cell'));
+        if (fill.type === 'image') {
+          // Compiled cell content carries either the scene-shaped fill
+          // (`image.src`) or the flat IR shape (`src`) depending on the
+          // conversion stage; both resolve to the same loadable source.
+          const sceneShaped = fill as unknown as { image?: { src?: string } };
+          const identity = sceneShaped.image?.src ?? (fill as { src?: string }).src;
+          if (identity) push(identity, contextOf(node, 'table-cell'));
         }
       }
     });

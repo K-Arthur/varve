@@ -13,10 +13,16 @@ import {
   reconcileImageBitmapMap,
   replaceImageBitmapMap,
   resolveSourcesForLoad,
+  workerSourceCapFor,
 } from './collectImageBitmaps';
 
 function bitmap(close: () => void): ImageBitmap {
   return { width: 1, height: 1, close } as unknown as ImageBitmap;
+}
+
+/** Mutable-dimension ImageBitmap mock (width/height are readonly on the real type). */
+function sizedBitmap(close: () => void, width: number, height: number): ImageBitmap {
+  return { width, height, close } as unknown as ImageBitmap;
 }
 
 function image(src: string): HTMLImageElement {
@@ -277,7 +283,7 @@ describe('canonical resource handles in worker collection', () => {
     cellImage.fills![0] = {
       ...(cellImage.fills![0] as Record<string, unknown>),
       alphaMask: 'data:image/png;base64,CELLMASK',
-    } as RenderItem['fills'][number];
+    } as NonNullable<RenderItem['fills']>[number];
     const ir: RenderItem[] = [tableItem([cellImage])];
     expect(imageSrcsFromIr(ir)).toEqual(['asset-cell-photo', 'data:image/png;base64,CELLMASK']);
     expect(irHasUnsupportedWorkerMasks(ir)).toBe(true);
@@ -320,5 +326,146 @@ describe('canonical resource handles in worker collection', () => {
     globalThis.createImageBitmap = vi.fn().mockResolvedValue(bmp);
     await expect(collectImageBitmaps(ir)).resolves.toBeNull();
     expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
+  });
+
+  it('rounds the worker source cap to powers of two with zoom hysteresis', () => {
+    expect(workerSourceCapFor(1280, 1, 0.16)).toBe(2048);
+    expect(workerSourceCapFor(1280, 1, 1)).toBe(2048);
+    expect(workerSourceCapFor(1280, 2, 1)).toBe(4096);
+    expect(workerSourceCapFor(1280, 1, 2)).toBe(4096);
+    expect(workerSourceCapFor(1280, 1, 4)).toBe(8192);
+    expect(workerSourceCapFor(1280, 1, 16)).toBe(8192);
+    expect(workerSourceCapFor(800, 1, 0.5)).toBe(0);
+  });
+
+  it('transfers the at-size representation when the source exceeds the cap', async () => {
+    registerImageResourceHandle('asset-big', 'data:image/png;base64,BIG');
+    const dataUrl = 'data:image/png;base64,BIG';
+    const ir: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'image',
+            src: 'asset-big',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 6000,
+            imageHeight: 4000,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    const cache = getImageCache();
+    const preview = sizedBitmap(vi.fn(), 2048, 1365);
+
+    // Frame 1: the at-size entry does not exist yet — the frame stays on the
+    // main thread and the load is kicked for the next frame.
+    const loadAtSizeSpy = vi.spyOn(cache, 'loadAtSize');
+    loadAtSizeSpy.mockResolvedValue(
+      preview as unknown as Awaited<ReturnType<typeof cache.loadAtSize>>,
+    );
+    await expect(collectImageBitmaps(ir, { maxSourceDim: 2048 })).resolves.toBeNull();
+    expect(loadAtSizeSpy).toHaveBeenCalledWith(dataUrl, 2048, { width: 6000, height: 4000 });
+
+    // Frame 2: the at-size entry is resident — the worker receives a clone
+    // of the small bitmap (cache keeps ownership of its copy; the worker
+    // closes the transferred one), never the 96 MP decode.
+    cache.setLoaded(cache.atSizeKey(dataUrl, 2048), preview);
+    const cloned = sizedBitmap(vi.fn(), 2048, 1365);
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(cloned);
+    const collected = await collectImageBitmaps(ir, { maxSourceDim: 2048 });
+    expect(collected).not.toBeNull();
+    expect(collected?.images['asset-big']).toBe(cloned);
+    expect(collected?.bytes).toBe(2048 * 1365 * 4);
+    expect(globalThis.createImageBitmap).toHaveBeenCalledWith(preview);
+  });
+
+  it('keeps the full-res path when the source fits the cap or has no dims', async () => {
+    registerImageResourceHandle('asset-small', 'data:image/png;base64,SMALL');
+    const dataUrl = 'data:image/png;base64,SMALL';
+    const full = {
+      src: dataUrl,
+      naturalWidth: 1024,
+      naturalHeight: 768,
+      width: 1024,
+      height: 768,
+    } as unknown as HTMLImageElement;
+    getImageCache().setLoaded(dataUrl, full);
+    const bmp = sizedBitmap(vi.fn(), 1024, 768);
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bmp);
+
+    const ir: RenderItem[] = [
+      {
+        transform: [1, 0, 0, 1, 0, 0],
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        fills: [
+          {
+            type: 'image',
+            src: 'asset-small',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 1024,
+            imageHeight: 768,
+            opacity: 1,
+            blendMode: 'normal',
+            visible: true,
+          },
+        ],
+        primitive: { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+        opacity: 1,
+        blendMode: 'normal',
+      },
+    ];
+    const collected = await collectImageBitmaps(ir, { maxSourceDim: 2048 });
+
+    expect(collected).not.toBeNull();
+    expect(collected?.images['asset-small']).toBe(bmp);
+    expect(collected?.bytes).toBe(1024 * 768 * 4);
+  });
+
+  it('collects at-size dims from table cell content fills', async () => {
+    registerImageResourceHandle('asset-cell', 'data:image/png;base64,CELL');
+    const cellImage = imageItem('asset-cell');
+    cellImage.fills![0] = {
+      ...(cellImage.fills![0] as Record<string, unknown>),
+      imageWidth: 6000,
+      imageHeight: 4000,
+    } as NonNullable<RenderItem['fills']>[number];
+    const ir: RenderItem[] = [tableItem([cellImage])];
+
+    const cache = getImageCache();
+    const preview = sizedBitmap(vi.fn(), 2048, 1365);
+    const loadAtSizeSpy = vi.spyOn(cache, 'loadAtSize');
+    loadAtSizeSpy.mockResolvedValue(
+      preview as unknown as Awaited<ReturnType<typeof cache.loadAtSize>>,
+    );
+
+    // First frame kicks the at-size load with the cell content's dims.
+    await expect(collectImageBitmaps(ir, { maxSourceDim: 2048 })).resolves.toBeNull();
+    expect(loadAtSizeSpy).toHaveBeenCalledWith('data:image/png;base64,CELL', 2048, {
+      width: 6000,
+      height: 4000,
+    });
+
+    // Next frame transfers a clone of the resident at-size entry (cache
+    // keeps ownership of its copy; the worker closes the transferred one).
+    cache.setLoaded(cache.atSizeKey('data:image/png;base64,CELL', 2048), preview);
+    const cloned = sizedBitmap(vi.fn(), 2048, 1365);
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(cloned);
+    const collected = await collectImageBitmaps(ir, { maxSourceDim: 2048 });
+    expect(collected).not.toBeNull();
+    expect(collected?.images['asset-cell']).toBe(cloned);
   });
 });

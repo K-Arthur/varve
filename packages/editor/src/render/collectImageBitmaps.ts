@@ -6,7 +6,7 @@
  * addressed while the worker manifest stays keyed by the handle the IR
  * actually references.
  */
-import type { RenderItem } from '@varve/engine';
+import type { CachedImage, RenderItem } from '@varve/engine';
 import {
   getImageCache,
   isImageResourceHandle,
@@ -16,7 +16,9 @@ import {
 import { checkFault } from './faultInjection';
 import { estimateRgbaBytes } from './renderBitmapBudget';
 
-/** Close every distinct ImageBitmap in a map. */
+/**
+ * Close every distinct ImageBitmap in a map.
+ */
 export function closeImageBitmapMap(images: Readonly<Record<string, ImageBitmap>>): void {
   const closed = new Set<ImageBitmap>();
   for (const bitmap of Object.values(images)) {
@@ -198,6 +200,35 @@ export interface CollectImageBitmapsOptions {
   maxEntries?: number;
   /** Sources the current worker generation can already draw without transfer. */
   residentSources?: ReadonlySet<string>;
+  /**
+   * Viewport-sufficient long-edge cap (px) for large embedded sources: the
+   * at-size representation is decoded instead of the full-res bitmap, so a
+   * 48 MP photo becomes a ~2-4K transferable bitmap that fits the worker
+   * admission budget. Full-res entries stay untouched for export and
+   * main-thread replay; zooming past the cap raises the cap and the cache
+   * stamp re-render picks up the sharper representation.
+   */
+  maxSourceDim?: number;
+}
+
+/** Source pixel dims of an IR image fill (displayed, orientation-normalized). */
+function fillSourceDims(fill: Record<string, unknown>): { width: number; height: number } | null {
+  const width = Number(fill.imageWidth) || 0;
+  const height = Number(fill.imageHeight) || 0;
+  return width > 0 && height > 0 ? { width, height } : null;
+}
+
+/**
+ * Viewport-sufficient long-edge cap (px) for worker source bitmaps: the
+ * viewport's max dimension x DPR x zoom (floored at 1 for zoomed-out fit
+ * views) with ~25% overscan, rounded up to the next power of two so zooming
+ * around a cap boundary cannot thrash between representations. Returns 0
+ * for small scenes, keeping the exact full-res path untouched.
+ */
+export function workerSourceCapFor(viewportMaxDim: number, dpr: number, zoom: number): number {
+  const raw = viewportMaxDim * dpr * Math.max(zoom, 1) * 1.25;
+  const cap = 2 ** Math.ceil(Math.log2(raw));
+  return cap < 2048 ? 0 : Math.min(cap, 8192);
 }
 
 export async function collectImageBitmaps(
@@ -227,6 +258,30 @@ export async function collectImageBitmaps(
 
   if (srcs.length > maxEntries) return null;
 
+  // Map IR identity -> source pixel dims (for at-size representation). IR
+  // fill stacks carry the dims on image fills; unknown dims fall back to the
+  // full-res path.
+  const sourceDims = new Map<string, { width: number; height: number }>();
+  const collectDims = (fill: Record<string, unknown>, identity: string): void => {
+    if (sourceDims.has(identity)) return;
+    const dims = fillSourceDims(fill);
+    if (dims) sourceDims.set(identity, dims);
+  };
+  for (const item of ir) {
+    for (const fill of item.fills ?? []) {
+      if (fill.type === 'image' && fill.src && fill.visible !== false) {
+        collectDims(fill as unknown as Record<string, unknown>, String(fill.src));
+      }
+    }
+    walkTableCellContents(item, (content) => {
+      for (const fill of content.fills ?? []) {
+        if (fill.type === 'image' && fill.src && fill.visible !== false) {
+          collectDims(fill as unknown as Record<string, unknown>, String(fill.src));
+        }
+      }
+    });
+  }
+
   const fail = (): null => {
     closeImageBitmapMap(images);
     return null;
@@ -236,11 +291,28 @@ export async function collectImageBitmaps(
     const identity = srcs[i] as string;
     const loadable = resolved[i] as string;
     if (options.residentSources?.has(identity)) continue;
-    if (!cache.isLoaded(loadable)) {
-      void cache.load(loadable).catch(() => undefined);
-      return fail();
+    const dims = sourceDims.get(identity) ?? null;
+    const useAtSize =
+      options.maxSourceDim !== undefined &&
+      cache.isRepresentationCapable(loadable) &&
+      dims !== null &&
+      Math.max(dims.width, dims.height) > options.maxSourceDim;
+    let img: CachedImage | null = null;
+    if (useAtSize) {
+      img = cache.getImageAtSize(loadable, options.maxSourceDim as number);
+      if (!img) {
+        void cache
+          .loadAtSize(loadable, options.maxSourceDim as number, dims ?? undefined)
+          .catch(() => undefined);
+        return fail();
+      }
+    } else {
+      if (!cache.isLoaded(loadable)) {
+        void cache.load(loadable).catch(() => undefined);
+        return fail();
+      }
+      img = cache.getImage(loadable);
     }
-    const img = cache.getImage(loadable);
     if (!img) return fail();
     try {
       if (checkFault('image-bitmap-create')) {

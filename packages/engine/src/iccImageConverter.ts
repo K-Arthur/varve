@@ -96,8 +96,8 @@ export async function loadImagePixels(
   const img = await imageCache.load(url);
   if (!img) return null;
 
-  const w = img.naturalWidth || img.width || 0;
-  const h = img.naturalHeight || img.height || 0;
+  const w = 'naturalWidth' in img ? img.naturalWidth : img.width;
+  const h = 'naturalHeight' in img ? img.naturalHeight : img.height;
   if (w === 0 || h === 0) return null;
 
   const dims = maxDim ? scaleDimensions(w, h, maxDim) : { width: w, height: h };
