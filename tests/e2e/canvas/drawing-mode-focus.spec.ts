@@ -49,7 +49,7 @@ test.describe('Drawing Mode — distraction-free canvas & pencil stabilization',
     page,
   }) => {
     await page
-      .locator('.editor-menubar__workspace-btn')
+      .locator('.workspace-tabs__tab')
       .filter({ hasText: /^Draw$/ })
       .click();
 

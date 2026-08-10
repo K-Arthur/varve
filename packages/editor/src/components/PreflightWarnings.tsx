@@ -13,7 +13,7 @@ import { getFontRegistry } from '@varve/engine';
 import type { CombinedPreflightIssue, CombinedPreflightSeverity } from '@varve/scene';
 import { runCombinedPreflight } from '@varve/scene';
 import { Icon, Tooltip } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../context';
 
 const SEVERITY_ORDER: CombinedPreflightSeverity[] = ['error', 'warning', 'info'];
@@ -94,6 +94,15 @@ export function PreflightWarnings() {
     setOpen((prev) => !prev);
   }, []);
 
+  // Move focus into the panel when it opens so keyboard users can tab
+  // through the findings and Escape closes it (non-modal popover, APG
+  // "non-modal dialog" pattern). Without this, Escape lived on an invisible
+  // backdrop that can never receive focus.
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+  }, [open]);
+
   if (!result) return null;
   // Still surface the badge when checks are unavailable, even with zero
   // detected issues, so "0 issues" is never confused with "verified clean".
@@ -125,10 +134,17 @@ export function PreflightWarnings() {
               : `Preflight: ${ec} errors, ${wc} warnings, ${ic} info`
           }
           style={{
-            color: highestSeverity ? severityColor(highestSeverity) : 'var(--color-text-muted)',
+            color: 'var(--color-text-secondary)',
           }}
         >
-          <Icon name={clean ? 'FileCheck2' : 'FileWarning'} size={12} />
+          <span
+            style={{
+              color: highestSeverity ? severityColor(highestSeverity) : 'var(--color-text-muted)',
+              display: 'inline-flex',
+            }}
+          >
+            <Icon name={clean ? 'FileCheck' : 'TriangleAlert'} size={12} />
+          </span>
           {!clean && <span className="preflight-warnings__count">{totalBadge}</span>}
         </button>
       </Tooltip>
@@ -138,11 +154,7 @@ export function PreflightWarnings() {
           <div
             className="preflight-warnings__backdrop"
             onClick={() => setOpen(false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') setOpen(false);
-            }}
-            role="dialog"
-            tabIndex={-1}
+            aria-hidden="true"
             style={{
               position: 'fixed',
               inset: 0,
@@ -154,6 +166,10 @@ export function PreflightWarnings() {
             className="preflight-warnings__panel"
             role="dialog"
             aria-label="Preflight issues"
+            tabIndex={-1}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setOpen(false);
+            }}
             style={{
               position: 'absolute',
               bottom: 'calc(100% + 4px)',
@@ -187,7 +203,10 @@ export function PreflightWarnings() {
                 <div
                   className="preflight-warnings__group-header"
                   style={{
-                    color: severityColor(group.severity),
+                    // Severity conveyed by the dot + icon, not by the text
+                    // color: warning text was 3.42:1 on light surfaces
+                    // (WCAG 1.4.3 requires 4.5:1).
+                    color: 'var(--color-text-primary)',
                     fontWeight: 600,
                     fontSize: 'var(--font-size-sm)',
                     padding: 'var(--space-1) var(--space-2)',
