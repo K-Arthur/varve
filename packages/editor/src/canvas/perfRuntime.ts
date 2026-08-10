@@ -7,6 +7,14 @@
  * (see .health-baseline.json). Importing all four modules individually from
  * there would trip that budget, so this module wraps them behind one import.
  */
+
+import {
+  getPyramidResidency,
+  getPyramidScheduler,
+  isRasterPyramidEnabled,
+  setPyramidViewport,
+  setRasterPyramidEnabled,
+} from '@varve/engine/rasterPyramid';
 import {
   cancelEditorFrame,
   createEditorFrameKey,
@@ -139,6 +147,27 @@ export function registerRedrawCoordinator(coordinator: RedrawCoordinator | null)
 
 export function getRegisteredRedrawCoordinator(): RedrawCoordinator | null {
   return registeredCoordinator;
+}
+
+// ── Perf camera control seam ───────────────────────────────────────────────
+// CanvasArea owns the camera; the visual corpus needs to park the view at
+// exact zooms. Registered on mount, cleared on unmount, mirroring
+// `registerPaintedSurfaceInvalidator`.
+
+export interface PerfCameraController {
+  setZoom(zoom: number): void;
+}
+
+let perfCameraController: PerfCameraController | null = null;
+
+export function registerPerfCameraController(controller: PerfCameraController | null): void {
+  perfCameraController = controller;
+}
+
+function perfSetZoom(zoom: number): boolean {
+  if (!perfCameraController) return false;
+  perfCameraController.setZoom(zoom);
+  return true;
 }
 
 // ── Node-work accounting ────────────────────────────────────────────────────
@@ -357,6 +386,30 @@ function augmentPerfDiagnosticsHandle(): void {
     // full redraw by moving the camera, which changes the very state the
     // oracle is trying to hold constant.
     forceFullRedraw: () => invalidatePaintedSurface(),
+    // Park the camera at an exact zoom for the raster-LOD visual corpus
+    // (no-op when no editor canvas is mounted).
+    camera: {
+      setZoom: (zoom: number) => perfSetZoom(zoom),
+    },
+    // Raster LOD pyramid controls and diagnostics (ADR-0214 §49-50): the
+    // visual corpus flips the spatial path in BOTH realms (the worker is
+    // the primary display path) and reads residency directly.
+    rasterLod: {
+      enable: () => {
+        setRasterPyramidEnabled(true);
+        getRegisteredWorkerHost()?.setRasterLod(true);
+      },
+      disable: () => {
+        setRasterPyramidEnabled(false);
+        getRegisteredWorkerHost()?.setRasterLod(false);
+      },
+      enabled: () => isRasterPyramidEnabled(),
+      diagnostics: () => ({
+        residency: getPyramidResidency().diagnostics(),
+        scheduler: getPyramidScheduler().diagnostics(),
+      }),
+      viewport: (width: number, height: number) => setPyramidViewport(width, height),
+    },
     workerBitmapBudget: () => getRegisteredWorkerHost()?.getBitmapBudgetState() ?? null,
     // Presentation evidence is reported with its class and limits so a probe
     // cannot mistake the rAF lower bound for a measured presentation time.

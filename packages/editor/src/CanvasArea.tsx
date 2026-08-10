@@ -134,6 +134,7 @@ import {
   recordPruneScreenRects,
   recordSnapMetrics,
   registerPaintedSurfaceInvalidator,
+  registerPerfCameraController,
   registerRedrawCoordinator,
   resolveDirtyScreenRect,
   scheduleCanvasFrame,
@@ -727,6 +728,15 @@ export function CanvasArea({
     });
     return () => registerPaintedSurfaceInvalidator(null);
   }, []);
+
+  // Perf seam: let the visual corpus park the camera at exact zooms without
+  // reaching into the React tree. No-op for normal sessions.
+  useEffect(() => {
+    registerPerfCameraController({
+      setZoom: (zoom) => editor.setZoom(zoom),
+    });
+    return () => registerPerfCameraController(null);
+  }, [editor]);
 
   useEffect(() => {
     const canvas = contentCanvasRef.current;

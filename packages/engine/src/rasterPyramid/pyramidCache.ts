@@ -215,10 +215,11 @@ export function pyramidMaxLevel(source: PyramidLayerSource): number {
  */
 
 function childGrid(source: PyramidLayerSource, level: number): { cols: number; rows: number } {
+  const tileSize = source.tileSize ?? PYRAMID_TILE_SIZE;
   const dims = levelDimensions(source.width, source.height, level - 1);
   return {
-    cols: Math.ceil(dims.width / PYRAMID_TILE_SIZE),
-    rows: Math.ceil(dims.height / PYRAMID_TILE_SIZE),
+    cols: Math.ceil(dims.width / tileSize),
+    rows: Math.ceil(dims.height / tileSize),
   };
 }
 
