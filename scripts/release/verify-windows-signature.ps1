@@ -1,7 +1,7 @@
 <#
   Verify a Windows artifact's Authenticode signature cryptographically.
 
-  This inspects the ACTUAL BYTES of the artifact that will be uploaded — it is
+  This inspects the ACTUAL BYTES of the artifact that will be uploaded - it is
   not a build-log check. It runs:
 
     1. Get-AuthenticodeSignature  (status, signer, timestamp)
@@ -22,11 +22,11 @@
       }
 
   Exit codes:
-    0 — verification passed (signed+valid, or honestly unsigned when
+    0 - verification passed (signed+valid, or honestly unsigned when
         -ExpectSigned is false)
-    1 — the signature is INVALID (present but failing)
-    2 — signing was expected (-ExpectSigned) but the file is unsigned
-    3 — the verification tooling itself failed
+    1 - the signature is INVALID (present but failing)
+    2 - signing was expected (-ExpectSigned) but the file is unsigned
+    3 - the verification tooling itself failed
 
   The distinction between "unsigned" and "invalid" is intentional and
   load-bearing: an invalid signature on a release is a tamper alarm; an
@@ -73,7 +73,7 @@ $report = @{
   files       = @()
 }
 
-# ── 1. Get-AuthenticodeSignature — the authoritative status ─────────────────
+# ── 1. Get-AuthenticodeSignature - the authoritative status ─────────────────
 $sig = Get-AuthenticodeSignature -LiteralPath $Path
 $report.files = @(@{ filename = (Split-Path -Leaf $Path); status = $sig.Status.ToString() })
 
@@ -92,11 +92,11 @@ if ($sig.Status -eq [System.Management.Automation.SignatureStatus]::Valid) {
   Write-Host "Authenticode: NOT SIGNED (status NotSigned)"
   $report.verification = 'not-signed'
 } else {
-  Write-Host "Authenticode: FAILED — $($sig.Status)"
+  Write-Host "Authenticode: FAILED - $($sig.Status)"
   $report.verification = 'invalid'
 }
 
-# ── 2. signtool verify — chain validation against the PA trust store ────────
+# ── 2. signtool verify - chain validation against the PA trust store ────────
 $signtool = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe' `
   -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
 if (-not $signtool) {
@@ -113,8 +113,14 @@ $signtoolPath = if ($signtool.PSObject.Properties.Name -contains 'FullName') {
   $signtool.Source
 }
 
+# signtool writes "No signature found" to stderr for an unsigned file; under
+# the runner's $ErrorActionPreference='Stop' that native stderr becomes a
+# terminating error in Windows PowerShell 5.1. The exit code is the signal -
+# suppress the error records and branch on $LASTEXITCODE instead.
+$ErrorActionPreference = 'Continue'
 $verifyOut = & $signtoolPath verify /pa /v $Path 2>&1
 $verifyExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
 if ($verifyExit -eq 0 -and $report.verification -eq 'valid') {
   Write-Host "signtool verify /pa: PASSED"
 } elseif ($verifyExit -ne 0) {
@@ -129,7 +135,7 @@ if ($verifyExit -eq 0 -and $report.verification -eq 'valid') {
 
 # ── 3. Decide exit code ─────────────────────────────────────────────────────
 if ($report.verification -eq 'invalid') {
-  Write-Host "::error::Signature PRESENT but INVALID for $Path — tampered artifact, refusing."
+  Write-Host "::error::Signature PRESENT but INVALID for $Path - tampered artifact, refusing."
   Write-Report $report 1
 }
 if ($report.verification -eq 'not-signed') {

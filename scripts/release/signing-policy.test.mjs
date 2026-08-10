@@ -74,8 +74,8 @@ assert.equal(
     expectSigned: false,
     secretsComplete: false,
   }),
-  MODE_FAIL_CLOSED,
-  'stable + missing secrets → fail closed',
+  MODE_UNSIGNED,
+  'stable + missing secrets → unsigned with honest labels (zero-cost policy)',
 );
 assert.equal(
   resolveSigningMode({
@@ -84,8 +84,28 @@ assert.equal(
     expectSigned: false,
     secretsComplete: false,
   }),
+  MODE_UNSIGNED,
+  'macos stable + missing secrets → unsigned (zero-cost policy)',
+);
+assert.equal(
+  resolveSigningMode({
+    platform: 'windows',
+    channel: 'stable',
+    expectSigned: true,
+    secretsComplete: false,
+  }),
   MODE_FAIL_CLOSED,
-  'macos stable + missing secrets → fail closed',
+  'stable + RELEASE_EXPECT_SIGNED + missing secrets → fail closed',
+);
+assert.equal(
+  resolveSigningMode({
+    platform: 'macos',
+    channel: 'stable',
+    expectSigned: true,
+    secretsComplete: false,
+  }),
+  MODE_FAIL_CLOSED,
+  'macos stable + RELEASE_EXPECT_SIGNED + missing secrets → fail closed',
 );
 assert.equal(
   resolveSigningMode({
@@ -180,13 +200,13 @@ assert.equal(
   });
   assert.equal(
     stableNoSecrets.windows,
-    MODE_FAIL_CLOSED,
-    'stable without windows secrets fails closed',
+    MODE_UNSIGNED,
+    'stable without windows secrets ships unsigned (zero-cost policy)',
   );
   assert.equal(
     stableNoSecrets.macos,
-    MODE_FAIL_CLOSED,
-    'stable without macos secrets fails closed',
+    MODE_UNSIGNED,
+    'stable without macos secrets ships unsigned (zero-cost policy)',
   );
 
   const prerelease = resolveSigningPolicy({
@@ -289,7 +309,8 @@ const MACOS_OK = {
   checkedAt: '2026-08-08T00:00:00Z',
 };
 
-// Stable release, no reports at all → every signed platform fails closed.
+// Stable release, no reports at all, RELEASE_EXPECT_SIGNED unset → unsigned
+// artifacts are allowed (zero-cost policy); nothing must fail.
 {
   const { problems } = verifyReleaseTrust({
     channel: 'stable',
@@ -297,13 +318,24 @@ const MACOS_OK = {
     manifest: manifest(),
     reports: {},
   });
+  assert.deepEqual(problems, [], 'stable without expect-signed never fails on missing reports');
+}
+
+// Stable release, RELEASE_EXPECT_SIGNED=true, no reports → fail closed.
+{
+  const { problems } = verifyReleaseTrust({
+    channel: 'stable',
+    expectSigned: true,
+    manifest: manifest(),
+    reports: {},
+  });
   assert.ok(
     problems.some((p) => p.startsWith('windows: signing required')),
-    'stable without windows report fails',
+    'expect-signed stable without windows report fails',
   );
   assert.ok(
     problems.some((p) => p.startsWith('macos: signing required')),
-    'stable without macos report fails',
+    'expect-signed stable without macos report fails',
   );
 }
 
@@ -449,7 +481,7 @@ const MACOS_OK = {
     },
   });
   assert.ok(
-    problems.some((p) => /notarized\/stapled did not verify/.test(p)),
+    problems.some((p) => /notarization did not verify|not stapled/.test(p)),
     'prerelease with false macos claim fails',
   );
 }
