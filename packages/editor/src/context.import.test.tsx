@@ -86,9 +86,7 @@ function realPngBytes(): Uint8Array {
   ihdrView.setUint32(4, 1, false);
   ihdr[8] = 8; // bit depth
   ihdr[9] = 6; // RGBA
-  const idat = new Uint8Array([
-    0x78, 0x9c, 0x63, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01,
-  ]);
+  const idat = new Uint8Array([0x78, 0x9c, 0x63, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01]);
   const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
   const concat = (...parts: Uint8Array[]): Uint8Array => {
     const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
@@ -99,10 +97,16 @@ function realPngBytes(): Uint8Array {
     }
     return out;
   };
-  return concat(signature, chunk('IHDR', ihdr), chunk('IDAT', idat), chunk('IEND', new Uint8Array(0)));
+  return concat(
+    signature,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', idat),
+    chunk('IEND', new Uint8Array(0)),
+  );
 }
 
-function createClipboardEventWithFiles(files: File[]): ClipboardEvent {  const dt = {
+function createClipboardEventWithFiles(files: File[]): ClipboardEvent {
+  const dt = {
     files: createFileList(files),
     items: files.map((file) => ({
       kind: 'file',
