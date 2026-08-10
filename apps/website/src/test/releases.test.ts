@@ -189,11 +189,17 @@ describe('release data states (shared builder)', () => {
     ).toThrow(/unknown format/);
   });
 
-  it('no-release state is the committed default', () => {
+  it('committed manifest tracks the published release', () => {
     const data = loadManifest();
-    expect(data.hasRelease).toBe(false);
-    expect(data.version).toBeNull();
-    expect(data.integrity).toBeNull();
+    // The committed manifest is refreshed by the release pipeline
+    // (scripts/release/fetch-website-release.mjs on release.published, or
+    // update-website-manifest.mjs for local rehearsals). As of 2026-08-10 the
+    // published v0.1.0 release is the committed state; a future release
+    // refresh updates these assertions to the new version.
+    expect(data.hasRelease).toBe(true);
+    expect(data.version).toBe('0.1.0');
+    expect(data.integrity).toBe('verified');
+    expect(data.checksumsUrl).toContain('/v0.1.0/SHA256SUMS.txt');
   });
 });
 
