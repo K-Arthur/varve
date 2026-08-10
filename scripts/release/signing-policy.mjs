@@ -16,13 +16,16 @@
  *
  * Policy (encoded here, enforced by scripts/release/verify-release-trust.mjs):
  *
- *   - channel == stable: Windows artifacts MUST carry a valid Authenticode
- *     signature when a Windows build is requested; macOS artifacts MUST be
- *     Developer ID signed, notarized AND stapled. Missing credentials fail in
- *     the signing preflight BEFORE the build starts.
- *   - channel == prerelease: unsigned artifacts are allowed ONLY when
- *     RELEASE_EXPECT_SIGNED is not 'true'. With RELEASE_EXPECT_SIGNED=true the
- *     same requirements as stable apply.
+ *   - RELEASE_EXPECT_SIGNED=true: Windows artifacts MUST carry a valid
+ *     Authenticode signature; macOS artifacts MUST be Developer ID signed,
+ *     notarized AND stapled. Missing credentials fail in the signing
+ *     preflight BEFORE the build starts (fail-closed — never a silent
+ *     downgrade from an expected-signed release).
+ *   - Without RELEASE_EXPECT_SIGNED: signedness follows the credentials that
+ *     exist — signed and verified when complete, unsigned with honest labels
+ *     otherwise, on stable AND prerelease channels. This is the zero-cost
+ *     distribution decision: a missing certificate must not block all stable
+ *     releases (distribution-decision-matrix.md §8).
  *   - `signed: true` in release metadata is derived ONLY from post-build
  *     cryptographic verification reports, never from the existence of a
  *     secret.
@@ -115,12 +118,23 @@ export function platformSecretsPresent(platform, presence) {
  * @param {boolean} options.expectSigned RELEASE_EXPECT_SIGNED == 'true'
  * @param {boolean} options.secretsComplete presence check result
  * @returns {string} MODE_SIGNED | MODE_UNSIGNED | MODE_FAIL_CLOSED
+ *
+ * Zero-cost policy (distribution-decision-matrix.md): a missing certificate
+ * means "build unsigned with honest labels", NOT "fail" — stable releases
+ * without credentials ship UNSIGNED so the zero-budget pipeline can publish
+ * at all. RELEASE_EXPECT_SIGNED=true is the explicit opt-in that upgrades the
+ * requirement: when set, signing is mandatory and a missing credential is a
+ * hard failure (fail-closed) instead of a silent downgrade.
  */
 export function resolveSigningMode({ platform, channel, expectSigned, secretsComplete }) {
   if (platform === 'linux') return MODE_UNSIGNED; // checksums + attestations, never a cert
-  const signingRequired = channel === CHANNEL_STABLE || expectSigned === true;
-  if (!signingRequired) return MODE_UNSIGNED;
-  return secretsComplete ? MODE_SIGNED : MODE_FAIL_CLOSED;
+  if (expectSigned === true) {
+    return secretsComplete ? MODE_SIGNED : MODE_FAIL_CLOSED;
+  }
+  // Without RELEASE_EXPECT_SIGNED, signedness follows the credentials that
+  // happen to exist: signed when complete, unsigned otherwise — for stable
+  // AND prerelease channels alike.
+  return secretsComplete ? MODE_SIGNED : MODE_UNSIGNED;
 }
 
 /**
@@ -212,9 +226,14 @@ export function verifyReleaseTrust({
   const problems = [];
   const notes = [];
   const platforms = [...new Set((manifest.artifacts ?? []).map((a) => a.os))];
-  const signingRequired = channel === CHANNEL_STABLE || expectSigned === true;
+  // Signing is REQUIRED only when RELEASE_EXPECT_SIGNED=true. Otherwise a
+  // missing certificate means "build unsigned, labelled honestly" (zero-cost
+  // policy) — on stable and prerelease channels alike.
+  const signingRequired = expectSigned === true;
 
-  notes.push(`Channel: ${channel}. ${signingRequired ? 'Signing REQUIRED.' : 'Signing optional.'}`);
+  notes.push(
+    `Channel: ${channel}. ${signingRequired ? 'Signing REQUIRED.' : 'Signing optional: unsigned artifacts ship with honest labels when no credentials are present.'}`,
+  );
 
   for (const platform of platforms) {
     if (platform === 'linux') {
@@ -286,8 +305,20 @@ export function verifyReleaseTrust({
       }
       if (platform === 'macos' && (!state.notarized || !state.stapled)) {
         problems.push(
-          'macos: artifact claims signed but notarized/stapled did not verify. ' +
-            'A signed-but-not-notarized app is worse than an honestly unsigned one.',
+          state.notarized
+            ? 'macos: notarization ticket is not stapled to the artifact. Refusing.'
+            : 'macos: Developer ID signature exists but notarization did not verify. Refusing.',
+        );
+      }
+      if (platform === 'macos' && !state.hardenedRuntime) {
+        problems.push('macos: hardened runtime flag missing from the signature. Refusing.');
+      }
+      if (platform === 'macos' && !state.teamId) {
+        problems.push('macos: Team ID could not be read from the signature. Refusing.');
+      }
+      if (expectedPublisher && state.publisher && !state.publisher.includes(expectedPublisher)) {
+        problems.push(
+          `windows: verified publisher '${state.publisher}' does not contain expected '${expectedPublisher}'. Refusing.`,
         );
       }
     }
