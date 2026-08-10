@@ -7,6 +7,7 @@ import {
   makeGroupNode,
   makeImageShapeNode,
   makePathNode,
+  makeRasterLayerNode,
   makeShapeNode,
   makeTextNode,
   type Page,
@@ -43,6 +44,7 @@ export type PerformanceWorkloadId =
   | 'text-heavy'
   | 'effects-masks'
   | 'rapid-brush'
+  | 'paint-raster-lod'
   | 'motion'
   | 'extreme-zoom'
   | 'document-switching';
@@ -72,6 +74,7 @@ export interface PerformanceWorkload {
     nodeCount: number;
     decodedImageBytes?: number;
     pointerSampleCount?: number;
+    rasterTileCount?: number;
   };
 }
 
@@ -566,6 +569,83 @@ function deepNesting(): PerformanceWorkload {
   return finish('deep-nesting', document);
 }
 
+/**
+ * Deterministic pattern for a paint-raster tile (brief §53/§54 corpus): the
+ * absolute-coordinate functions place hard content ON tile boundaries —
+ * a 32px checkerboard, 1px lines at every 128px (the tile grid), a diagonal
+ * every 256px, a horizontal gradient, and a semi-transparent band. The
+ * visual seam corpus screenshots this at low zoom and asserts no hairline
+ * discontinuities where tiles meet.
+ */
+function rasterLodTilePixels(
+  pixels: Uint8ClampedArray,
+  tileSize: number,
+  col: number,
+  row: number,
+): void {
+  for (let ty = 0; ty < tileSize; ty++) {
+    for (let tx = 0; tx < tileSize; tx++) {
+      const x = col * tileSize + tx;
+      const y = row * tileSize + ty;
+      const i = (ty * tileSize + tx) * 4;
+      if (x % 128 === 0 || y % 128 === 0) {
+        // Hairline on the tile grid: the seam probe's worst case.
+        pixels[i] = 255;
+        pixels[i + 1] = 0;
+        pixels[i + 2] = 0;
+        pixels[i + 3] = 255;
+        continue;
+      }
+      if ((x + y) % 256 === 0 || (x - y) % 256 === 0) {
+        // 45-degree diagonals crossing boundaries.
+        pixels[i] = 0;
+        pixels[i + 1] = 255;
+        pixels[i + 2] = 0;
+        pixels[i + 3] = 255;
+        continue;
+      }
+      if (y > 1024 && y < 1152) {
+        // Semi-transparent band: alpha-downsampling probe.
+        pixels[i] = 255;
+        pixels[i + 1] = 255;
+        pixels[i + 2] = 0;
+        pixels[i + 3] = 128;
+        continue;
+      }
+      const check = ((x >> 5) + (y >> 5)) & 1;
+      pixels[i] = check ? 200 : 40;
+      pixels[i + 1] = check ? 60 : 40;
+      pixels[i + 2] = check ? 60 : 200;
+      pixels[i + 3] = 255;
+    }
+  }
+}
+
+function paintRasterLod(): PerformanceWorkload {
+  // An 8192x8192 sparse paint layer whose content lives in a dense
+  // 2048x2048 block at the origin. At 25% zoom on a 1440x900 viewport the
+  // visible fraction is ~0.31 — the pyramid crossover engages at L2 with
+  // 4x minification, exactly the seam-stress regime.
+  const layer = makeRasterLayerNode('raster-lod-1', {
+    width: 8192,
+    height: 8192,
+  });
+  for (let row = 0; row < 16; row++) {
+    for (let col = 0; col < 16; col++) {
+      const pixels = new Uint8ClampedArray(128 * 128 * 4);
+      rasterLodTilePixels(pixels, 128, col, row);
+      layer.tiles.set(`${col}:${row}`, { pixels, version: 1 });
+    }
+  }
+  const document = appendNodes(workloadDocument('paint-raster-lod'), [layer]);
+  return finish('paint-raster-lod', document, {
+    expected: {
+      decodedImageBytes: 0,
+      rasterTileCount: 256,
+    },
+  });
+}
+
 function rasterHeavy(): PerformanceWorkload {
   const imageCount = 48;
   const dimension = 4096;
@@ -757,6 +837,7 @@ const FACTORIES: Record<PerformanceWorkloadId, () => PerformanceWorkload> = {
   'text-heavy': textHeavy,
   'effects-masks': effectsMasks,
   'rapid-brush': rapidBrush,
+  'paint-raster-lod': paintRasterLod,
   motion,
   'extreme-zoom': extremeZoom,
   'document-switching': documentSwitching,
