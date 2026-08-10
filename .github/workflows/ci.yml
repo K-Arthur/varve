@@ -61,6 +61,12 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: cargo test (desktop)
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+      # One-shot diagnosis for STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139) on the
+      # Windows test harness: compares imports against runner DLL exports.
+      - name: Diagnose Windows entry-point failure
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: pwsh -File "$env:GITHUB_WORKSPACE/scripts/ci/diagnose-entrypoint.ps1"
       - name: Install cargo-llvm-cov
         if: runner.os == 'Linux'
         uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
