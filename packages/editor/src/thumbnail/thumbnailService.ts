@@ -230,7 +230,7 @@ export async function persistDocThumbnail(
 ): Promise<RenderDocThumbnailOutcome | null> {
   try {
     const outcome = await renderDocThumbnail(doc, options);
-    if (!outcome.result || !outcome.result.dataUrl) return outcome;
+    if (!outcome.result?.dataUrl) return outcome;
     const r = outcome.result;
     await platform.putThumbnail({
       hash: outcome.identity.key,
