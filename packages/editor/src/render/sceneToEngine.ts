@@ -33,6 +33,7 @@ import {
   resolveAllStyles,
   resolveNodePaints,
   resolveRasterMaskAsset,
+  nodeWorldTransform as sceneLocalWorldTransform,
   warpsOnNode,
 } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
@@ -62,6 +63,14 @@ export interface SceneNodeConversionOptions {
     fill: import('@varve/scene').Fill,
     doc: AssetLookupDoc | undefined,
   ) => number | undefined;
+  /**
+   * Thumbnail page previews only: compose transforms WITHOUT page placement
+   * so a page renders in page-local coordinates (the page at the origin)
+   * instead of at its pasteboard position. Page content and master content
+   * are authored in page coordinates, so this is the correct space for a
+   * page thumbnail. Defaults to false (pasteboard space, as the canvas).
+   */
+  localTransforms?: boolean;
 }
 
 let defaultMediaFrameResolver:
@@ -366,7 +375,12 @@ export function flattenSceneToEngine(
       nodes.push(compiled as unknown as EngineNode);
     } else if (effective.kind !== 'group') {
       let engineNode = sceneNodeToEngineNode(effective, options, document);
-      engineNode = { ...engineNode, transform: nodeWorldTransform(document, id) };
+      engineNode = {
+        ...engineNode,
+        transform: options.localTransforms
+          ? sceneLocalWorldTransform(document, id)
+          : nodeWorldTransform(document, id),
+      };
       const styleOverrides = resolvedStyles.get(id);
       if (styleOverrides) engineNode = applyStyleOverrides(engineNode, styleOverrides);
 

@@ -139,12 +139,19 @@ export interface Project {
   trashedAt: number | null;
 }
 
-/** Source selection for automatic thumbnail generation. */
+/**
+ * Source selection for automatic thumbnail generation.
+ * Persisted on the FileEntry (app metadata, not document JSON — a thumbnail
+ * preference is a property of the user's local index entry, and must not
+ * change the document byte-for-byte, which would invalidate every revision
+ * hash). `region` is a user-defined rectangular crop in document coordinates.
+ */
 export type ThumbnailSourcePreference =
   | { type: 'automatic' }
   | { type: 'page'; pageId: string }
   | { type: 'frame'; nodeId: string }
-  | { type: 'selection'; nodeIds: string[] };
+  | { type: 'selection'; nodeIds: string[] }
+  | { type: 'region'; region: { x: number; y: number; w: number; h: number } };
 
 /** A cached thumbnail keyed by content hash. */
 export interface ThumbnailRecord {

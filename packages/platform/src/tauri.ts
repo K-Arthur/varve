@@ -475,6 +475,17 @@ export function createTauriPlatform(): Platform {
       const c = core();
       return (await c.invoke('home_get_thumbnail', { hash })) as string | undefined;
     },
+    async setThumbnailPreference(fileId, preference) {
+      const c = core();
+      const rec = (await c.invoke('home_get_file', { id: fileId })) as FileEntry | undefined;
+      if (!rec) return;
+      const documentJson = (await c.invoke('home_read_file', { id: fileId })) as string | undefined;
+      const hash = documentJson ? contentHash(documentJson) : rec.contentHash;
+      await c.invoke('home_upsert_file', {
+        entry: { ...rec, thumbnailPreference: preference, contentHash: hash },
+        json: documentJson ?? '',
+      });
+    },
     async putThumbnail(record: ThumbnailRecord) {
       const c = core();
       await c.invoke('home_put_thumbnail', {
