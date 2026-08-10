@@ -6,7 +6,9 @@
  *  - when the release manifest reports a published release, the label
  *    becomes "Download for Linux / macOS / Windows" (or the generic
  *    "Download Varve" when the platform cannot be detected);
- *  - before any release exists it stays "Download the beta";
+ *  - before any release exists it stays "See the beta status" — truthful,
+ *    since there is nothing to download yet, and it leads to the /download
+ *    page that explains how to follow the release;
  *  - every variant links to the canonical /download page, which is the one
  *    place architecture, checksums and requirements are resolved.
  *
@@ -36,7 +38,7 @@ const {
 } = Astro.props;
 
 const hasRelease = release.hasRelease === true;
-const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'Download the beta');
+const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'See the beta status');
 ---
 
 <a href={sitePath('/download')} class:list={['btn', `btn-${variant}`, `download-cta`, `download-cta-${size}`, className]} data-download-cta data-has-release={hasRelease ? 'true' : 'false'}>

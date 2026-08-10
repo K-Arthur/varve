@@ -99,7 +99,7 @@ import { sitePath } from '../../lib/siteUrl';
         <ul>
           <li><strong><code>'stub'</code></strong> — Pure TypeScript IR builder, runs in all environments, used for testing</li>
           <li><strong><code>'native'</code></strong> — Calls Rust via Tauri IPC (<code>build_render_ir</code> Tauri command), available on desktop</li>
-          <li><strong><code>'wasm'</code></strong> — Calls WASM-compiled Rust engine, available in browser via <code>strata_wasm_bg.wasm</code></li>
+          <li><strong><code>'wasm'</code></strong> — Calls WASM-compiled Rust engine, available in browser via <code>varve_wasm_bg.wasm</code></li>
         </ul>
         <p>
           The facade includes <code>withStubFallback</code> — a one-shot circuit breaker that gracefully degrades to the stub engine if the native/WASM backend throws a deserialization error. This ensures a single malformed node never blanks the entire canvas.
@@ -121,7 +121,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><code>outline_text</code> — Text-to-path font outlining</li>
         </ul>
         <p>
-          The <code>strata-bridge</code> crate defines <code>IpcSceneNode</code>, <code>IpcShape</code>, and <code>IpcRenderItem</code> types with serde serialization for the JSON IPC channel.
+          The <code>varve-bridge</code> crate defines <code>IpcSceneNode</code>, <code>IpcShape</code>, and <code>IpcRenderItem</code> types with serde serialization for the JSON IPC channel.
         </p>
       </section>
 
