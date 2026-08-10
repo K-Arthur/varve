@@ -47,7 +47,7 @@ async function installSavePickerStub(page: Page): Promise<void> {
 }
 
 const pickerCalls = (page: Page) =>
-  page.evaluate(() => (window as unknown as Record<string, number>).__varvePickerCalls() as number);
+  page.evaluate(() => (window as unknown as Record<string, () => number>).__varvePickerCalls?.() as number);
 const lastSuggested = (page: Page) =>
   page.evaluate(() => (window as unknown as Record<string, string | null>).__varveLastSuggested);
 
