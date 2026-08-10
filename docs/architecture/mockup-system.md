@@ -200,7 +200,7 @@ primitives) — this is the documented deterministic fallback.
 | Home discovery | mockup templates in Home | Mockup templates are scene-anchored, not document starting points; editor-side discovery (context menu, palette, panel, inspector) is primary. |
 | Community packs | remote downloads | Requires pack download host consent (CSP `connect-src`), checksums, update checks — icon-pack precedent; not wired for mockups. |
 
-## Performance targets (measured in `packages/editor/src/render/mockup/__tests__/mockupPerf.test.ts`)
+## Performance targets
 
 - Browsing templates: no canvas work.
 - Surface rasterization: ≤ 512 px preview bucket; quad warp ~ms for phone

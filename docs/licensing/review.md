@@ -33,6 +33,15 @@ history from 2026-07-25 onward for the specific commits. This document's
 historical BSL/AGPL analysis (below) has not been line-edited and should be
 read as the reasoning trail that led here, not the current state.
 
+**Current facts (verified 2026-08-10):** `LICENSE`, `NOTICE`, and
+`THIRD_PARTY_NOTICES` exist; the root `package.json`, root `Cargo.toml`, and
+all 20 `packages/*/package.json` declare `FSL-1.1-MIT`; the app identifier is
+`dev.varve.desktop` and the repository is `github.com/K-Arthur/varve`. The
+"Current Ownership and Licence Audit" section below predates those fixes and
+is retained only as the audit trail — its specific findings (missing files,
+AGPL declarations, `dev.strata.desktop`, `K-Arthur/Strata`) are **not** the
+current state.
+
 ---
 
 ## Executive Summary

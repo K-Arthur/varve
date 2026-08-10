@@ -1,4 +1,19 @@
-# Varve Brand Guide
+# Varve Brand Guide (v1.0 — SUPERSEDED)
+
+> **Status: SUPERSEDED.** This is the v1.0 guide (last updated 2026-06-30,
+> the date of the mark rework whose originals are preserved in
+> `packages/ui/src/icons/_backup_2026-06-30/`). It describes the **pre-rework
+> mark: four horizontal bands in the teal ramp with alternating offsets**,
+> which is no longer the shipped brand.
+>
+> **Current guidance:** [docs/brand-guide.md](../brand-guide.md) — the
+> shipped mark is three parallelogram layers (teal `#39D0C6`, sandstone
+> `#E28C3C`, terracotta `#C54B3A`) with a consistent cascading tilt. Asset
+> files are named `varve-wordmark*.svg` (the `strata-wordmark*.svg` names
+> cited below exist only in the backup directory).
+>
+> Retained as a historical record of the v1.0 identity; do not use its
+> specifications to build or judge current assets.
 
 ## Concept Statement
 
@@ -147,7 +162,7 @@ All colour values are sRGB/linear. Themes: Light (default), Dark (`[data-theme="
 | `apps/desktop/src-tauri/icons/StoreLogo.png` | Windows Store logo |
 | `scripts/generate-icons.sh` | Deterministic build script |
 | `apps/desktop/public/manifest.json` | PWA web manifest |
-| `docs/brand/strata-brand-guide.md` | This document |
+| `docs/brand/varve-brand-guide.md` | This document (superseded — see the status banner at the top) |
 
 ---
 

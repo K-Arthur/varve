@@ -1,8 +1,11 @@
 # Multi-window workspaces — architecture
 
 Detachable UI panels and native multi-monitor workspaces. Design date:
-2026-08-05. Status: architecture accepted; implementation milestones in
-progress on `feat/workspace-windows`.
+2026-08-05. Status: architecture accepted; the dock model, panel registry,
+session broker, and auxiliary-window shell have landed on `master` (the
+remaining milestones below are tracked per-item). This document was written
+while the implementation was in progress and describes both landed and
+planned machinery — check the code before relying on a specific milestone.
 
 This document is the readable overview. The 26 ADRs in `docs/adr/0017-0042`
 hold the decisions; the audit in
@@ -56,7 +59,7 @@ evidence.
 | Dock model | Dock-tree schema, pure ops, normalization, serialization, migrations, property tests | `packages/editor/src/workspace/dock/` |
 | Session broker + protocol | Envelopes, registration, snapshots, patches, revisions, command routing, transfer state machine, focus tracking, diagnostics | `packages/editor/src/workspace/session/` |
 | Window service | Window/monitor API, geometry normalization, display fingerprints, machine-local layout persistence boundary | `packages/platform/src/windows/` |
-| Auxiliary shell | Minimal boot route, panel-window providers, dock rendering, panel chrome | `apps/desktop/src/auxiliary/` (+ web fallback route) |
+| Auxiliary shell | Minimal boot route, panel-window providers, dock rendering, panel chrome | `apps/desktop/src/auxiliary.tsx` (+ web fallback route) |
 | Tauri app | Window creation, capability scoping, native event bridge, application lifetime | `apps/desktop/src-tauri/` |
 | AI proposals | Typed workspace plans, screenshot/PDF analysis, NL instructions (never native effects) | `@varve/ai` (M14) |
 
@@ -113,7 +116,7 @@ are opt-in experiments only (ADR-0139).
 
 ## Performance budgets (recorded pre-M7)
 
-Measured at M6 gate, recorded in `docs/quality/perf-budgets.md`:
+Measured at the M6 gate:
 empty auxiliary window memory, per-panel incremental memory, creation and
 hydration latency, patch latency, command round-trip, idle/minimized CPU.
 Target: practical multi-window layout on 4 GB RAM; max 8 auxiliary

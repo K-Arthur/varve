@@ -12,7 +12,7 @@ lifecycle. UI surfaces request that representation; they never invent their
 own rendering or cache logic.
 
 See also: `docs/audits/thumbnail-system-current-state-2026-08-09.md` (the
-pre-redesign map of 19 overlapping systems), `ADR-0016` (cross-package
+pre-redesign map of 19 overlapping systems), `ADR-0218` (cross-package
 ownership).
 
 ---

@@ -4,7 +4,7 @@
 **Status:** Agreement documents (CLA.md/ICLA.md/CCLA.md) drafted, awaiting
 legal review. The GitHub Actions workflow, PR template, and issue templates
 described in §4 below were planned but were **not actually created** — see
-the 2026-07-25 correction note. Strata is not currently accepting external
+the 2026-07-25 correction note. Varve is not currently accepting external
 contributions.  
 **Author:** Project automation agent
 
@@ -17,7 +17,7 @@ contributions.
 | Dimension | Value |
 |-----------|-------|
 | License | FSL-1.1-MIT (source-available, converts to MIT after 2 years) |
-| Repository | Single public repo at `github.com/K-Arthur/Strata` |
+| Repository | Single public repo at `github.com/K-Arthur/varve` (renamed from the pre-release "Strata" repo identity) |
 | Ownership | Personal GitHub account (K-Arthur) |
 | Editions | Free edition now; future Pro edition planned |
 

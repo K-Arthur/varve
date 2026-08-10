@@ -56,6 +56,7 @@ const HISTORICAL_EXACT = [
   'docs/architecture/ai-competitor-intelligence-2026.md',
   'docs/architecture/ai-feature-strategy-2026-07-21.md',
   'docs/architecture/icon-system-audit-2026-08-02.md',
+  'docs/brand/varve-brand-guide.md', // superseded v1.0 guide — describes the pre-rename asset names
 ];
 // These are CURRENT docs despite living under plans/ (they are operating guides).
 const CURRENT_EXACT = ['docs/plans/website-operations-guide.md'];
@@ -73,7 +74,13 @@ const BANNED = [
     /\bstrata_(core|engine|layout|sync|trace|print|upscale|bgremove|colour|bridge|wasm)\b/,
   ],
   ['dead wasm artifact', /\bstrata_wasm\b/],
-  ['dead icon path', /strata-(app-icon|icon|icon-source)/],
+  // Dead icon paths: the pre-rename icon sources under packages/ui/src/icons/
+  // and public/icons/ are gone (backup copies only). The src-tauri/icons/
+  // strata-icon.svg + strata-icon-source.png files are legitimately retained
+  // (Tauri window icons still reference them), so those paths stay allowed.
+  ['dead icon path', /(?:packages\/ui\/src\/icons|public\/icons)\/strata-|strata-app-icon/],
+  ['dead wordmark filename', /strata-wordmark/],
+  ['dead tooltip class', /\bstrata-tip\b/],
   ['dead app identifier', /\bdev\.strata\.desktop\b/],
   ['dead repo URL', /K-Arthur\/Strata\b|github\.com\/strata\/strata/],
   ['dead package name', /@strata\//],
@@ -197,6 +204,20 @@ const indexText = await readFile(join(DOCS, 'README.md'), 'utf8');
 for (const f of adrFiles) {
   if (!indexText.includes(`adr/${f}`)) {
     violations.push(`INDEX: docs/README.md does not list docs/adr/${f}`);
+  }
+}
+
+// Check 2b: the ADR index must not list the same file twice (duplicate rows
+// drift silently — the presence check above cannot see them).
+const indexLines = indexText.split('\n');
+const seen = new Set();
+for (const line of indexLines) {
+  const m = line.match(/^\| `adr\/([0-9]{4}-[a-z0-9-]+\.md)` \|/);
+  if (m) {
+    if (seen.has(m[1])) {
+      violations.push(`INDEX: docs/README.md lists adr/${m[1]} more than once`);
+    }
+    seen.add(m[1]);
   }
 }
 
