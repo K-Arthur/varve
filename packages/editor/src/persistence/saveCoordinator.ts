@@ -27,7 +27,7 @@ export interface SaveCoordinator {
 type RunSave = (intent: SaveIntent) => Promise<SaveOutcome>;
 
 export function createSaveCoordinator(run: RunSave): SaveCoordinator {
-  let queue: Array<{ intent: SaveIntent; resolve: (o: SaveOutcome) => void }> = [];
+  const queue: Array<{ intent: SaveIntent; resolve: (o: SaveOutcome) => void }> = [];
   let running = false;
 
   const pump = async (): Promise<void> => {
