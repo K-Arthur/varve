@@ -169,7 +169,7 @@ export function ActivityFeed({
     >
       {isEmpty ? (
         <div className="activity-feed__empty">
-          <Icon name="History" size={40} label={undefined} />
+          <Icon name="ClockArrowUp" size={40} label={undefined} />
           <p className="activity-feed__empty-title">No recent activity</p>
           <p className="activity-feed__empty-desc">
             Activity from your workspace will appear here.

@@ -228,7 +228,7 @@ export function ImageFillControls({
                 aria-label="Flip horizontal"
                 onClick={() => onChange({ ...image, flipH: !image.flipH })}
               >
-                <Icon name="FlipHorizontal" label={undefined} size="0.85em" />
+                <Icon name="FlipHorizontal2" label={undefined} size="0.85em" />
               </button>
             </Tooltip>
             <Tooltip label="Flip vertical">
@@ -239,7 +239,7 @@ export function ImageFillControls({
                 aria-label="Flip vertical"
                 onClick={() => onChange({ ...image, flipV: !image.flipV })}
               >
-                <Icon name="FlipVertical" label={undefined} size="0.85em" />
+                <Icon name="FlipVertical2" label={undefined} size="0.85em" />
               </button>
             </Tooltip>
           </TooltipProvider>

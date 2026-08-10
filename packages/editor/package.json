@@ -21,6 +21,7 @@
     "test": "cd ../.. && vitest run packages/editor"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.14.9",
     "@varve/ai": "workspace:*",
     "@varve/codegen": "workspace:*",
     "@varve/collab": "workspace:*",
@@ -36,7 +37,6 @@
     "@varve/shared": "workspace:*",
     "@varve/tokens": "workspace:*",
     "@varve/ui": "workspace:*",
-    "@tanstack/react-virtual": "^3.14.4",
     "fflate": "^0.8.3",
     "prismjs": "^1.30.0",
     "wawoff2": "^2.0.1"

@@ -195,7 +195,11 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
         >
           <Icon
             name={
-              align === 'left' ? 'AlignLeft' : align === 'center' ? 'AlignCenter' : 'AlignRight'
+              align === 'left'
+                ? 'TextAlignStart'
+                : align === 'center'
+                  ? 'TextAlignCenter'
+                  : 'TextAlignEnd'
             }
             size={16}
           />

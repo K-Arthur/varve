@@ -59,7 +59,7 @@ export function ContrastIndicator({
           aria-label="No foreground color to check"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
         >
-          <Icon name="CircleHelp" size={10} label={undefined} />
+          <Icon name="CircleQuestionMark" size={10} label={undefined} />
         </span>
       </Tooltip>
     );

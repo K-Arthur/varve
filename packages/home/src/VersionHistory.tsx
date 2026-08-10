@@ -37,14 +37,14 @@ function groupByDay(versions: VersionEntry[]): DayGroup[] {
   }));
 }
 
-function getKindIcon(kind: VersionEntry['kind']): 'History' | 'Bookmark' | 'Save' {
+function getKindIcon(kind: VersionEntry['kind']): 'ClockArrowUp' | 'Bookmark' | 'Save' {
   switch (kind) {
     case 'named':
       return 'Bookmark';
     case 'checkpoint':
       return 'Save';
     default:
-      return 'History';
+      return 'ClockArrowUp';
   }
 }
 
@@ -212,7 +212,7 @@ export function VersionHistory({ fileId, platform, onRestore, onClose }: Version
         {!loading && !error && versions.length === 0 && (
           <div className="version-history__empty">
             <div className="version-history__empty-icon">
-              <Icon name="History" size={48} label={undefined} />
+              <Icon name="ClockArrowUp" size={48} label={undefined} />
             </div>
             <p className="version-history__empty-title">No versions yet</p>
             <p className="version-history__empty-desc">
