@@ -457,6 +457,7 @@ export {
   resetImageResourceRegistry,
   resolveImageResourceHandle,
   unregisterImageResourceHandle,
+  walkTableCellContents,
 } from './imageResourceRegistry';
 export type {
   DownloadProgress,

@@ -21,6 +21,7 @@
  * - no hashing happens on the render path; content hashing occurred at
  *   ingestion (scene `hashContent`).
  */
+import type { RenderItem } from './types';
 
 /** Map handle -> loadable source string. */
 const registry = new Map<string, string>();
@@ -68,4 +69,58 @@ export function imageResourceRegistrySize(): number {
 /** Clear the registry (tests, full reset). */
 export function resetImageResourceRegistry(): void {
   registry.clear();
+}
+
+/** A render item that may carry a compiled table primitive. */
+export type TableCarryingItem = {
+  primitive?: { kind?: string; cells?: Array<{ content?: RenderItem }> } | null;
+  shape?: { kind?: string; cells?: Array<{ content?: RenderItem }> } | null;
+};
+
+const MAX_TABLE_CONTENT_DEPTH = 8;
+
+function tableCellsOf(item: TableCarryingItem): Array<{ content?: RenderItem }> | undefined {
+  if (item.primitive?.kind === 'table' && item.primitive.cells) {
+    return item.primitive.cells;
+  }
+  if (item.shape?.kind === 'table' && item.shape.cells) {
+    return item.shape.cells;
+  }
+  return undefined;
+}
+
+/**
+ * Visit every rich scene-content item compiled into a table's cells
+ * (nested tables included, depth-capped against pathological documents).
+ *
+ * Table cell content is compiled into the render IR at flatten time
+ * (images, components, groups inside cells), so resource collection for
+ * worker transport and export preflight must walk it — a collector that
+ * only inspects top-level `fills` silently drops cell images, and a worker
+ * frame would replay them as gray placeholders that never recover.
+ * Flattened nodes carry the table under `shape`; built IR under
+ * `primitive` — both are walked.
+ */
+export function walkTableCellContents(
+  item: TableCarryingItem,
+  visit: (content: RenderItem) => void,
+): void {
+  const cells = tableCellsOf(item);
+  if (!cells || cells.length === 0) return;
+  const stack: RenderItem[] = [];
+  for (const cell of cells) {
+    if (cell.content) stack.push(cell.content);
+  }
+  let depth = 0;
+  while (stack.length > 0 && depth < MAX_TABLE_CONTENT_DEPTH) {
+    const content = stack.pop() as RenderItem;
+    visit(content);
+    const nested = tableCellsOf(content as TableCarryingItem);
+    if (nested) {
+      for (const cell of nested) {
+        if (cell.content) stack.push(cell.content);
+      }
+    }
+    depth += 1;
+  }
 }

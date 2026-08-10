@@ -124,6 +124,108 @@ describe('collectEngineImageResources', () => {
       'data:image/png;base64,B',
     ]);
   });
+
+  it('collects image fills compiled into table cell content', () => {
+    const cellImage = imageNode('cell1', [{ type: 'image', src: 'asset-aaaaaaaaaaaaaaaa' }]);
+    const maskedCell = imageNode('cell2', [{ type: 'image', src: 'data:image/png;base64,C' }]);
+    const table = {
+      id: 't1',
+      name: 'table',
+      transform: [1, 0, 0, 1, 0, 0],
+      opacity: 1,
+      blendMode: 'normal',
+      shape: {
+        kind: 'table',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 60,
+        cornerRadius: 0,
+        borderColor: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        borderWidth: 0,
+        dividerColor: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        dividerWidth: 0,
+        colPositions: [0, 100],
+        rowPositions: [0, 60],
+        cells: [
+          {
+            x: 0,
+            y: 0,
+            w: 100,
+            h: 30,
+            fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+            content: cellImage,
+            rowIdx: 0,
+            columnIdx: 0,
+            rowSpan: 1,
+            columnSpan: 1,
+          },
+          {
+            x: 0,
+            y: 30,
+            w: 100,
+            h: 30,
+            fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+            content: maskedCell,
+            rowIdx: 1,
+            columnIdx: 0,
+            rowSpan: 1,
+            columnSpan: 1,
+          },
+        ],
+      },
+    } as unknown as EngineNode;
+
+    const resources = collectEngineImageResources([table]);
+    expect(resources.map((r) => r.identity).sort()).toEqual([
+      'asset-aaaaaaaaaaaaaaaa',
+      'data:image/png;base64,C',
+    ]);
+  });
+
+  it('waits for table cell content images to settle before export', async () => {
+    globalThis.Image = MockImage as unknown as typeof Image;
+    MockImage.dispatch = (img) => img.onload?.();
+    const cellImage = imageNode('cell1', [{ type: 'image', src: 'data:image/png;base64,TCELL' }]);
+    const table = {
+      id: 't1',
+      name: 'table',
+      transform: [1, 0, 0, 1, 0, 0],
+      opacity: 1,
+      blendMode: 'normal',
+      shape: {
+        kind: 'table',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 60,
+        cornerRadius: 0,
+        borderColor: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        borderWidth: 0,
+        dividerColor: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        dividerWidth: 0,
+        colPositions: [0, 100],
+        rowPositions: [0, 60],
+        cells: [
+          {
+            x: 0,
+            y: 0,
+            w: 100,
+            h: 30,
+            fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+            content: cellImage,
+            rowIdx: 0,
+            columnIdx: 0,
+            rowSpan: 1,
+            columnSpan: 1,
+          },
+        ],
+      },
+    } as unknown as EngineNode;
+
+    await expect(settleEngineImageResources([table])).resolves.toEqual({ status: 'ready' });
+    expect(getImageCache().isLoaded('data:image/png;base64,TCELL')).toBe(true);
+  });
 });
 
 describe('settleEngineImageResources', () => {
