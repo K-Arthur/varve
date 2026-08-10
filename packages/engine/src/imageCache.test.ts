@@ -271,3 +271,144 @@ describe('ImageCache pending-load invalidation', () => {
     expect(cache.stats.bytes).toBe(0);
   });
 });
+
+describe('ImageCache at-size representations', () => {
+  let originalImage: typeof Image;
+  let originalCreateImageBitmap: typeof createImageBitmap;
+  let originalFetch: typeof fetch;
+
+  beforeEach(() => {
+    originalImage = globalThis.Image;
+    globalThis.Image = MockImage as unknown as typeof Image;
+    originalCreateImageBitmap = globalThis.createImageBitmap;
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.Image = originalImage;
+    globalThis.createImageBitmap = originalCreateImageBitmap;
+    globalThis.fetch = originalFetch;
+  });
+
+  function mockBitmap(close = vi.fn(), width = 2048, height = 1536): ImageBitmap {
+    return { width, height, close, closed: false } as unknown as ImageBitmap;
+  }
+
+  function mockFetchBlob(): void {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      blob: () => Promise.resolve(new Blob(['bytes'], { type: 'image/jpeg' })),
+    }) as unknown as typeof fetch;
+  }
+
+  it('decodes the at-size representation under its own key and leaves the full entry untouched', async () => {
+    const src = 'data:image/jpeg;base64,BIG';
+    const bitmap = mockBitmap();
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bitmap);
+    mockFetchBlob();
+
+    const cache = new ImageCache();
+    const result = await cache.loadAtSize(src, 2048, { width: 6000, height: 4000 });
+
+    expect(result).toBe(bitmap);
+    expect(cache.isLoadedAtSize(src, 2048)).toBe(true);
+    expect(cache.getImageAtSize(src, 2048)).toBe(bitmap);
+    // The full-size entry is a different key and was never decoded.
+    expect(cache.has(src)).toBe(false);
+    expect(globalThis.createImageBitmap).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.objectContaining({ resizeWidth: 2048, resizeHeight: 1365, resizeQuality: 'high' }),
+    );
+    // Byte accounting uses the small bitmap, not the source dims.
+    expect(cache.stats.bytes).toBe(2048 * 1536 * 4);
+  });
+
+  it('preserves aspect ratio and orientation-normalized dims from the source', async () => {
+    const src = 'data:image/jpeg;base64,PORTRAIT';
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap(vi.fn(), 1365, 2048));
+    mockFetchBlob();
+
+    const cache = new ImageCache();
+    await cache.loadAtSize(src, 2048, { width: 3000, height: 4500 });
+
+    expect(globalThis.createImageBitmap).toHaveBeenCalledWith(
+      expect.any(Blob),
+      expect.objectContaining({ resizeWidth: 1365, resizeHeight: 2048 }),
+    );
+  });
+
+  it('falls back to the full-size load when the source fits the cap', async () => {
+    const src = 'data:image/png;base64,SMALL';
+    MockImage.dispatch = (img) => img.onload?.();
+    const cache = new ImageCache();
+    const result = await cache.loadAtSize(src, 2048, { width: 800, height: 600 });
+
+    // Small source: the full-size element IS the representation, stored
+    // under the at-size key so the consumer lookup path stays uniform.
+    expect(result).toBeInstanceOf(MockImage);
+    expect(cache.isLoadedAtSize(src, 2048)).toBe(true);
+    expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the full-size load for non-inline sources', async () => {
+    MockImage.dispatch = (img) => img.onload?.();
+    const cache = new ImageCache();
+    const result = await cache.loadAtSize('https://example.com/photo.jpg', 2048);
+
+    expect(result).toBeInstanceOf(MockImage);
+    expect(cache.isLoaded('https://example.com/photo.jpg')).toBe(true);
+  });
+
+  it('deduplicates concurrent at-size loads and marks failures typed', async () => {
+    const src = 'data:image/jpeg;base64,FAIL';
+    let resolveBitmap: (b: ImageBitmap) => void = () => undefined;
+    globalThis.createImageBitmap = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveBitmap = resolve as (b: ImageBitmap) => void;
+        }),
+    );
+    mockFetchBlob();
+
+    const cache = new ImageCache();
+    const first = cache.loadAtSize(src, 2048, { width: 6000, height: 4000 });
+    const second = cache.loadAtSize(src, 2048, { width: 6000, height: 4000 });
+
+    expect(cache.pendingCount).toBe(1);
+    // Flush the fetch microtask so createImageBitmap has been invoked and
+    // captured the resolver.
+    await Promise.resolve();
+    await Promise.resolve();
+    resolveBitmap(mockBitmap());
+    const [a, b] = await Promise.all([first, second]);
+    expect(a).toBe(b);
+    expect(cache.stats.hits).toBe(1);
+  });
+
+  it('closes at-size bitmaps on eviction and clear (exactly-once ownership)', async () => {
+    const src = 'data:image/jpeg;base64,EVICT';
+    const close = vi.fn();
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(mockBitmap(close, 2048, 2048));
+    mockFetchBlob();
+    const cache = new ImageCache({ maxBytes: 2048 * 2048 * 4 });
+    await cache.loadAtSize(src, 2048, { width: 6000, height: 4000 });
+
+    cache.evict(cache.atSizeKey(src, 2048));
+    expect(close).toHaveBeenCalledTimes(1);
+    cache.clear();
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('never returns a closed at-size bitmap', async () => {
+    const src = 'data:image/jpeg;base64,CLOSED';
+    const bitmap = mockBitmap();
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bitmap);
+    mockFetchBlob();
+    const cache = new ImageCache();
+
+    await cache.loadAtSize(src, 2048, { width: 6000, height: 4000 });
+    bitmap.close();
+    (bitmap as unknown as { closed: boolean }).closed = true;
+
+    expect(cache.getImageAtSize(src, 2048)).toBeNull();
+  });
+});
