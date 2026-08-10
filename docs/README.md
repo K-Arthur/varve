@@ -35,6 +35,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0012-runtime-capability-abstraction.md` | Runtime capability abstraction |
 | `adr/0013-canonical-audit-finding-contract.md` | Canonical audit finding contract |
 | `adr/0014-font-detection-architecture.md` | Font detection architecture |
+| `adr/0015-mockup-system.md` | Non-destructive mockup system (Level 1+2 implemented) |
 | `adr/0016-tables-and-color-modifiers.md` | Tables and colour modifiers |
 | `adr/0122-canonical-editor-session-ownership.md` | One canonical editing session per application session |
 | `adr/0123-state-partitioning-across-windows.md` | State scope taxonomy for multi-window sync |
@@ -177,8 +178,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0215-animated-image-media-system.md` | Animated image media system |
 | `adr/0216-termination-lifecycle-coordinator.md` | Termination lifecycle coordinator |
 | `adr/0217-raster-colour-management.md` | Canonical raster colour encoding + colour-managed raster pipeline |
-
-| `adr/0016-tables-and-color-modifiers.md` | Native tables + linked color modifiers |
+| `adr/0218-thumbnail-system.md` | Unified thumbnail system (see `architecture/thumbnail-system.md`) |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -202,10 +202,52 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
-| `architecture/interaction-systems-2026-07-27.md` | Interaction systems |
+| `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
+| `architecture/thumbnail-system.md` | Unified thumbnail system (ADR-0218) |
+| `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
+| `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2) |
+| `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |
+| `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
+| `architecture/live-effects-system.md` / `architecture/effect-rendering.md` | Live effect model and render-parity contract |
+| `architecture/gradient-map-system.md` | Gradient map adjustment system |
+| `architecture/warp-system.md` | Persistent geometry modifier (warp) model (ADRs 0155–0169) |
+| `architecture/persistent-history.md` | Version history architecture (milestones 1–14 landed) |
+| `architecture/save-destinations.md` | Save destination model |
+| `architecture/new-design-creation.md` | New Design / document creation contract |
+| `architecture/pages-layers-frames-shapes-system.md` | Pages, layers, frames, shapes model |
+| `architecture/pen-pencil-tools.md` | Pen/pencil tool architecture |
+| `architecture/polygonal-lasso.md` | Polygonal lasso |
+| `architecture/skew-transforms.md` | Skew transform contract |
+| `architecture/touch-multi-select.md` | Touch and multi-select |
+| `architecture/viewport-guides-system.md` | Viewport guides contract |
+| `architecture/focus-navigation.md` | Focus and keyboard navigation contract |
+| `architecture/input-system-behavior-matrix.md` | Input behavior matrix |
+| `architecture/inspector-feature-ownership.md` | Inspector feature ownership |
+| `architecture/icon-library.md` / `architecture/icon-system-naming.md` | Icon library and naming contract |
+| `architecture/onnx-inference-architecture.md` | ONNX inference architecture |
+| `architecture/int8-quantization.md` | INT8 model quantization |
+| `architecture/realesrgan-packaging.md` | Real-ESRGAN model packaging |
+| `architecture/debug-overlays.md` | Debug overlay contract |
+| `architecture/workspace-navigation.md` | Workspace navigation behavior |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
+
+### Dated point-in-time records under `docs/architecture/`
+
+The files below live in `docs/architecture/` but are **point-in-time records**
+(dated investigations, design proposals, or manual verification checklists),
+not current-state guidance. Treat them like the dated files in
+`docs/audits/`/`docs/plans/`: verify against current code before acting.
+
+- `architecture/interaction-systems-2026-07-27.md` — dated interaction-systems notes (Milestones 1–10)
+- `architecture/ai-competitor-intelligence-2026.md` — competitor research (2026-07)
+- `architecture/ai-feature-strategy-2026-07-21.md` — dated AI feature strategy (pre-rename title)
+- `architecture/icon-system-audit-2026-08-02.md` — dated icon system audit
+- `architecture/raster-pyramid-audit.md` — audit-phase record of the raster-pyramid work
+- `architecture/coordinate-spaces-research.md` — coordinate-space research matrix
+- `architecture/webgpu-manual-verification.md` — manual WebGPU verification checklist (run on real hardware)
+- `architecture/design-to-code-intermediate-representation.md` — design-to-code IR (implemented; written as a design doc 2026-07-23)
 
 ## Release Engineering (current state)
 

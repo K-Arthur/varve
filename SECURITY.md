@@ -21,7 +21,7 @@ follow up via the same channel.
 ## Scope
 
 The following are in scope:
-^- The Varve application code (Rust, TypeScript)
+- The Varve application code (Rust, TypeScript)
 - Build and distribution infrastructure
 - Authentication and authorisation mechanisms (if any)
 

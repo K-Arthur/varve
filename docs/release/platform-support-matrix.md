@@ -207,7 +207,7 @@ explicitly-labelled developer preview or not at all** — see the distribution d
 
 ### 4 GB RAM target
 
-`apps/desktop/dist` is currently **147 MB**, of which `ort-wasm` is **93 MB** and models are
+`apps/desktop/dist` was **147 MB** when measured (2026-08-04), of which `ort-wasm` was **93 MB** and models were
 **13 MB**. Everything in `dist/` is embedded in the binary. Add the ~25 MB platform ORT library
 and the installed footprint is comfortably over 200 MB before WebView2.
 

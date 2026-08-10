@@ -208,7 +208,7 @@ Canva, Sketch design systems and interaction paradigms.
 | `.bento-span-2/3/full` | CSS Grid column span helpers | components.css |
 | `.bento-grid--3/--2` | Preset grid templates | components.css |
 | `[data-density]` | Three-tier density system (compact/comfortable/cozy) | components.css |
-| `.strata-tip__shortcut` | Keyboard shortcut badge in tooltips | components.css |
+| `.varve-tip__shortcut` | Keyboard shortcut badge in tooltips | components.css |
 
 ### Density Control System
 

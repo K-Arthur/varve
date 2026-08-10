@@ -81,8 +81,8 @@ this API, though it is not yet wired into `navigateToFinding`.
 ## 4. Findings Overlay View Menu
 
 **Files:**
-- `packages/editor/src/components/Menubar/ViewMenu.tsx`
-- `packages/editor/src/components/Menubar/types.ts`
+- `packages/editor/src/Menubar.tsx` (single-file menubar; `packages/editor/src/components/Menubar/index.ts` re-exports it)
+- `packages/editor/src/menu/defs.ts` (menu item definitions, View menu section)
 - `packages/editor/src/actions/createActionHandlers.ts`
 - `packages/editor/src/context/types.ts`
 - `packages/editor/src/context.tsx`
