@@ -2,5 +2,7 @@
   "opencode.theme": {
     "preset": "cli-default",
     "overrides": {}
-  }
+  },
+  "markdown.extension.completion.enabled": false,
+  "markdown.extension.tableFormatter.enabled": false
 }
