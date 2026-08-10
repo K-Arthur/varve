@@ -127,7 +127,7 @@ export function FilterDropdown({
       }
     >
       <Button variant="ghost" aria-label={`Filters${count > 0 ? ` (${count} active)` : ''}`}>
-        <Icon name="Filter" label={undefined} />
+        <Icon name="ListFilter" label={undefined} />
         Filters
         {count > 0 && <span className="filter-dropdown__badge">{count}</span>}
       </Button>
