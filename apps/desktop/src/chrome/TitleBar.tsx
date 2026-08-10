@@ -15,6 +15,7 @@
  */
 
 import './title-bar.css';
+import { requestCloseWindow } from '../lifecycle/requestCloseWindow';
 import { useWindowChrome } from './useWindowChrome';
 import { runWindowAction } from './windowActions';
 
@@ -64,12 +65,7 @@ export function TitleBar({ title = 'Varve' }: { title?: string }) {
         >
           {isMaximized ? <RestoreIcon /> : <MaximizeIcon />}
         </WinButton>
-        <WinButton
-          variant="close"
-          label="Close"
-          onClick={() => runWindowAction('close')}
-          disabled={!canClose}
-        >
+        <WinButton variant="close" label="Close" onClick={requestCloseWindow} disabled={!canClose}>
           <CloseIcon />
         </WinButton>
       </div>

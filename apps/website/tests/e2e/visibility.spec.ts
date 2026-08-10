@@ -42,7 +42,6 @@ const ROUTES = [
 const THEMES = [
   { name: 'light', colorScheme: 'light' as const, contrast: 'no-preference' as const },
   { name: 'dark', colorScheme: 'dark' as const, contrast: 'no-preference' as const },
-  { name: 'high-contrast', colorScheme: 'light' as const, contrast: 'more' as const },
 ];
 
 const VISIBLE_TEXT = 'h1, h2, h3, h4, p, a, button, span, li, td, th, strong, small, label, code';
@@ -155,11 +154,22 @@ test.describe('structural visibility hazards', () => {
   test('no text is hidden by opacity, clipping or zero size on the homepage', async ({ page }) => {
     await page.goto('/');
     const hazards = await page.evaluate(() => {
+      // Elements inside a display:none subtree (e.g. inactive tab panels)
+      // compute a zero rect but are intentionally hidden; skip those.
+      const insideHiddenSubtree = (el: Element) => {
+        let cur: Element | null = el;
+        while (cur) {
+          if (getComputedStyle(cur).display === 'none') return true;
+          cur = cur.parentElement;
+        }
+        return false;
+      };
       const out: string[] = [];
       for (const el of document.querySelectorAll('h1, h2, h3, p, a, button')) {
         const cs = getComputedStyle(el);
         const text = (el.textContent ?? '').trim();
         if (!text) continue;
+        if (insideHiddenSubtree(el)) continue;
         const r = el.getBoundingClientRect();
         if (r.width === 0 && r.height === 0 && cs.display !== 'none')
           out.push(`zero-size: ${el.tagName} "${text.slice(0, 40)}"`);

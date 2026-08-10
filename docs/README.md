@@ -174,6 +174,9 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0212-multi-window-browser-fallback.md` | Multi-window browser fallback |
 | `adr/0213-multi-window-multimodal-pipeline.md` | Multi-window multimodal pipeline |
 | `adr/0214-multi-resolution-tiled-pyramid.md` | Multi-resolution tiled raster pyramid (display LOD) |
+| `adr/0215-animated-image-media-system.md` | Animated image media system |
+| `adr/0216-termination-lifecycle-coordinator.md` | Termination lifecycle coordinator |
+| `adr/0217-raster-colour-management.md` | Canonical raster colour encoding + colour-managed raster pipeline |
 
 | `adr/0016-tables-and-color-modifiers.md` | Native tables + linked color modifiers |
 ## Architecture Docs (current state)
@@ -187,6 +190,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |
 | `architecture/loading-system.md` | Loading experience system |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
+| `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |
 | `architecture/logo-system.md` | Logo workspace system |
 | `architecture/icon-system.md` | Icon infrastructure |
 | `architecture/typography-platform.md` | Typography platform |
@@ -197,6 +201,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
+| `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/interaction-systems-2026-07-27.md` | Interaction systems |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |

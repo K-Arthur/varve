@@ -266,6 +266,28 @@ export class RecoveryManager {
     await this.storage.delete(`${KEY_PREFIX}${id}`);
   }
 
+  /**
+   * Delete recovery points belonging to a tab the user intentionally
+   * discarded at termination commit — discarded edits must not reappear as
+   * "crash recovery" next launch (ADR-0216 D6).
+   *
+   * Matching is deliberately conservative: a file-bound tab matches exactly
+   * by fileId; an untitled tab matches by name only when the match is unique.
+   * Duplicate untitled names are skipped rather than risking the removal of
+   * another open tab's recovery material.
+   */
+  async deleteRecoveryForTab(tabName: string, fileId?: string): Promise<number> {
+    const sessions = await this.listSessions();
+    const candidates = fileId
+      ? sessions.filter((s) => s.fileId === fileId)
+      : sessions.filter((s) => s.tabName === tabName);
+    if (!fileId && candidates.length > 1) return 0;
+    for (const session of candidates) {
+      await this.deleteSession(session.id);
+    }
+    return candidates.length;
+  }
+
   async cleanup(maxAgeMs = 7 * 24 * 60 * 60 * 1000): Promise<number> {
     const sessions = await this.listSessions();
     const now = Date.now();

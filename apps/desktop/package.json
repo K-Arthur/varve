@@ -26,6 +26,7 @@
     "vite": "^6"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/geist": "^5.2.0",
     "@fontsource-variable/ibm-plex-sans": "^5.2.0",
     "@varve/editor": "workspace:*",

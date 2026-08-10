@@ -1,0 +1,182 @@
+---
+/**
+ * Hero — "Design across disciplines. One canvas."
+ *
+ * The Live Design Field sits behind the headline as an environmental
+ * artwork; the copy stays centered and fully readable above it. The
+ * rotating discipline phrase is decorative (aria-hidden rotor) over an
+ * accessible static sentence. CTAs lead straight to the download page.
+ */
+import DesignField from './DesignField.astro';
+import DesignCursor from './DesignCursor.astro';
+import AnimatedText from './AnimatedText.astro';
+import DownloadCTA from './DownloadCTA.astro';
+import { sitePath } from '../lib/siteUrl';
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <DesignField />
+  <div class="container-custom hero-content">
+    <p class="hero-eyebrow">
+      <span class="hero-eyebrow-dot" aria-hidden="true"></span>
+      Local-first design suite&nbsp;&middot;&nbsp;beta
+    </p>
+    <h1 id="hero-title" class="hero-title">
+      Design across disciplines.
+      <span class="hero-title-line"><AnimatedText /></span>
+    </h1>
+    <p class="hero-subtitle">
+      Varve keeps vector, layout, typography, motion, prototyping, and print
+      production in one application on Linux, macOS, and Windows &mdash; no
+      subscription, no account, no uploads. Your work stays on your machine.
+    </p>
+    <div class="hero-ctas">
+      <DownloadCTA size="large" beta />
+      <a href={sitePath('/product')} class="btn btn-secondary btn-lg">
+        What is Varve?
+      </a>
+    </div>
+    <p class="hero-platforms">
+      Linux &middot; macOS &middot; Windows &nbsp;&middot;&nbsp; Free and source-available (FSL-1.1-MIT)
+    </p>
+  </div>
+  <DesignCursor />
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(4.5rem, 10vh, 7.5rem) 0 clamp(3.5rem, 7vh, 5.5rem);
+    border-bottom: 1px solid var(--border-default);
+    background:
+      radial-gradient(120% 90% at 50% 0%, var(--surface-sunken) 0%, var(--surface-page) 70%);
+  }
+
+  .hero-content {
+    position: relative;
+    /* Forms a stacking context so the scrim below (z-index: -1) is painted
+       inside it — behind the copy but still above the design field. */
+    z-index: 1;
+    text-align: center;
+    max-width: 920px;
+  }
+
+  /* Legibility scrim. The design field is environmental artwork and its
+     paths, guides and ruler ticks would otherwise run straight through the
+     headline. A feathered wash of the page colour sits between the field and
+     the copy so text contrast never depends on where the artwork happens to
+     fall. It is decorative and never intercepts pointer events. */
+  .hero-content::before {
+    content: '';
+    position: absolute;
+    inset: -8% -12%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      62% 58% at 50% 46%,
+      var(--surface-page) 0%,
+      color-mix(in oklab, var(--surface-page) 88%, transparent) 46%,
+      transparent 78%
+    );
+  }
+
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: 9999px;
+    padding: 0.4rem 1rem;
+    margin-bottom: 1.75rem;
+    background: color-mix(in oklab, var(--surface-card) 70%, transparent);
+  }
+
+  .hero-eyebrow-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+  }
+
+  /* The editorial serif at display size. `opsz` is pushed to the top of its
+     range so the high-contrast display cut is used rather than the text cut —
+     that contrast is the whole reason the face is here. */
+  .hero-title {
+    font-family: var(--font-editorial);
+    font-size: clamp(2.7rem, 5.8vw + 0.75rem, 5.25rem);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    line-height: 1;
+    letter-spacing: -0.022em;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+    text-wrap: balance;
+  }
+
+  /* The animated phrase is a span inside the h1: same face, lighter weight and
+     teal, so the discipline reads as an answer to the statement above it. */
+  .hero-title-line {
+    display: block;
+    color: var(--accent-primary);
+    font-family: var(--font-editorial);
+    font-weight: 500;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.014em;
+  }
+
+  .hero-subtitle {
+    font-size: clamp(1.0625rem, 1.5vw + 0.5rem, 1.3rem);
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin: 0 auto 2.25rem;
+    max-width: 62ch;
+  }
+
+  .hero-ctas {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1.75rem;
+  }
+
+  .btn-lg {
+    padding: 0.95rem 1.75rem;
+    font-size: 1.05rem;
+  }
+
+  .hero-platforms {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 640px) {
+    .hero {
+      padding-top: 4rem;
+    }
+
+    .hero-title {
+      letter-spacing: -0.025em;
+    }
+
+    .hero-ctas {
+      flex-direction: column;
+      align-items: stretch;
+      max-width: 340px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero-ctas > * {
+      justify-content: center;
+    }
+  }
+</style>

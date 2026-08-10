@@ -51,7 +51,7 @@ export function buildMinimalIccProfile(size = 128, description?: string): Uint8A
   const body = description
     ? new TextEncoder().encode(description.slice(0, 255))
     : new Uint8Array(0);
-  const total = Math.max(size, 148 + body.length);
+  const total = Math.max(size, 144 + body.length + 1);
   const profile = new Uint8Array(total);
   const view = new DataView(profile.buffer);
   view.setUint32(0, total, false);
@@ -60,14 +60,15 @@ export function buildMinimalIccProfile(size = 128, description?: string): Uint8A
   profile[38] = 0x73;
   profile[39] = 0x70;
   if (description) {
-    // desc tag table entry pointing at a 12-byte 'desc' header + ASCII payload.
+    // desc tag table entry: 4-byte type + 4-byte reserved + 4-byte ASCII
+    // count + text + NUL (ICC.1:2010 layout).
     profile[132] = 0x64;
     profile[133] = 0x65;
     profile[134] = 0x73;
     profile[135] = 0x63;
-    view.setUint32(140, 12, false); // size of 'desc' type header
-    view.setUint32(144, body.length, false); // ASCII count
-    profile.set(body, 148);
+    view.setUint32(140, body.length, false); // ASCII count
+    profile.set(body, 144);
+    profile[144 + body.length] = 0;
   }
   return profile;
 }
@@ -289,6 +290,150 @@ export function buildPngWithIccp(profile: Uint8Array): Uint8Array {
 
 export function buildPngWithoutIccp(): Uint8Array {
   return minimalPngChunks();
+}
+
+/** PNG with a standard sRGB chunk (rendering intent byte 0-3). */
+export function buildPngWithSrgbChunk(intent = 0): Uint8Array {
+  return concat(
+    minimalPngChunks().subarray(0, 8 + 8 + 13 + 4),
+    buildPngChunk('sRGB', new Uint8Array([intent])),
+    minimalPngChunks().subarray(8 + 8 + 13 + 4),
+  );
+}
+
+/** PNG with a cHRM chunk (white + RGB primaries, u32/100000 each). */
+export function buildPngWithChrm(chroma: number[]): Uint8Array {
+  const body = new Uint8Array(32);
+  const view = new DataView(body.buffer);
+  for (let i = 0; i < 8; i += 1) view.setUint32(i * 4, chroma[i] ?? 0, false);
+  return concat(
+    minimalPngChunks().subarray(0, 8 + 8 + 13 + 4),
+    buildPngChunk('cHRM', body),
+    minimalPngChunks().subarray(8 + 8 + 13 + 4),
+  );
+}
+
+/** PNG with a gAMA chunk (gamma value u32/100000). */
+export function buildPngWithGama(gamma: number): Uint8Array {
+  const body = new Uint8Array(4);
+  new DataView(body.buffer).setUint32(0, gamma, false);
+  return concat(
+    minimalPngChunks().subarray(0, 8 + 8 + 13 + 4),
+    buildPngChunk('gAMA', body),
+    minimalPngChunks().subarray(8 + 8 + 13 + 4),
+  );
+}
+
+/** PNG with sRGB chunk AND an iCCP chunk (conflicting-metadata fixture). */
+export function buildPngWithSrgbAndIccp(profile: Uint8Array, intent = 0): Uint8Array {
+  const deflated = deflateSync(profile);
+  const name = new Uint8Array([
+    0x49, 0x43, 0x43, 0x20, 0x70, 0x72, 0x6f, 0x66, 0x69, 0x6c, 0x65, 0x00,
+  ]);
+  const iccpBody = concat(name, new Uint8Array([0]), deflated);
+  return concat(
+    minimalPngChunks().subarray(0, 8 + 8 + 13 + 4),
+    buildPngChunk('sRGB', new Uint8Array([intent])),
+    buildPngChunk('iCCP', iccpBody),
+    minimalPngChunks().subarray(8 + 8 + 13 + 4),
+  );
+}
+
+/** PNG with an sRGB chunk AND a cHRM chunk (conflicting-metadata fixture). */
+export function buildPngWithSrgbAndChrm(chroma: number[], intent = 0): Uint8Array {
+  const body = new Uint8Array(32);
+  const view = new DataView(body.buffer);
+  for (let i = 0; i < 8; i += 1) view.setUint32(i * 4, chroma[i] ?? 0, false);
+  return concat(
+    minimalPngChunks().subarray(0, 8 + 8 + 13 + 4),
+    buildPngChunk('sRGB', new Uint8Array([intent])),
+    buildPngChunk('cHRM', body),
+    minimalPngChunks().subarray(8 + 8 + 13 + 4),
+  );
+}
+
+// ── AVIF ─────────────────────────────────────────────────────────────────────
+
+function buildAvifBox(type: string, payload: Uint8Array, withFullHeader = false): Uint8Array {
+  const body = new Uint8Array((withFullHeader ? 4 : 0) + payload.length);
+  body.set(payload, withFullHeader ? 4 : 0);
+  const out = new Uint8Array(8 + body.length);
+  new DataView(out.buffer).setUint32(0, out.length, false);
+  out.set([type.charCodeAt(0), type.charCodeAt(1), type.charCodeAt(2), type.charCodeAt(3)], 4);
+  out.set(body, 8);
+  return out;
+}
+
+/** AVIF with a colr nclx box (CICP primaries/transfer/matrix/range). */
+export function buildAvifWithNclx(
+  primaries: number,
+  transfer: number,
+  matrix: number,
+  range: number,
+  pixiDepth?: number,
+): Uint8Array {
+  const nclx = new Uint8Array(13);
+  nclx.set([0x6e, 0x63, 0x6c, 0x78], 0); // "nclx"
+  new DataView(nclx.buffer).setUint32(4, primaries, false);
+  new DataView(nclx.buffer).setUint16(8, transfer, false);
+  new DataView(nclx.buffer).setUint16(10, matrix, false);
+  nclx[12] = range;
+  const colr = buildAvifBox('colr', nclx);
+
+  const children: Uint8Array[] = [colr];
+  if (pixiDepth !== undefined) {
+    // pixi full box: version+flags (prepended) + channel count + depths.
+    children.push(buildAvifBox('pixi', new Uint8Array([1, pixiDepth]), true));
+  }
+  const ipco = buildAvifBox('ipco', concat(...children));
+  const iprp = buildAvifBox('iprp', ipco);
+  const meta = buildAvifBox('meta', iprp, true);
+  const ftyp = buildAvifBox(
+    'ftyp',
+    new Uint8Array([0x61, 0x76, 0x69, 0x66, 0x00, 0x00, 0x00, 0x00]),
+  );
+  return concat(ftyp, meta);
+}
+
+/** AVIF with an embedded ICC profile in the colr box (type 'prof'). */
+export function buildAvifWithIcc(profile: Uint8Array): Uint8Array {
+  const prof = new Uint8Array(4 + profile.length);
+  prof.set([0x70, 0x72, 0x6f, 0x66], 0); // "prof"
+  prof.set(profile, 4);
+  const colr = buildAvifBox('colr', prof);
+  const ipco = buildAvifBox('ipco', colr);
+  const iprp = buildAvifBox('iprp', ipco);
+  const meta = buildAvifBox('meta', iprp, true);
+  const ftyp = buildAvifBox(
+    'ftyp',
+    new Uint8Array([0x61, 0x76, 0x69, 0x66, 0x00, 0x00, 0x00, 0x00]),
+  );
+  return concat(ftyp, meta);
+}
+
+/** AVIF with both nclx and ICC colr boxes (conflicting-metadata fixture). */
+export function buildAvifWithNclxAndIcc(
+  profile: Uint8Array,
+  primaries: number,
+  transfer: number,
+): Uint8Array {
+  const nclx = new Uint8Array(13);
+  nclx.set([0x6e, 0x63, 0x6c, 0x78], 0);
+  new DataView(nclx.buffer).setUint32(4, primaries, false);
+  new DataView(nclx.buffer).setUint16(8, transfer, false);
+  new DataView(nclx.buffer).setUint16(10, 0, false);
+  nclx[12] = 0;
+  const prof = new Uint8Array(4 + profile.length);
+  prof.set([0x70, 0x72, 0x6f, 0x66], 0);
+  prof.set(profile, 4);
+  const ipco = buildAvifBox('ipco', concat(buildAvifBox('colr', nclx), buildAvifBox('colr', prof)));
+  const iprp = buildAvifBox('iprp', ipco);
+  const meta = buildAvifBox('meta', iprp, true);
+  const ftyp = buildAvifBox(
+    'ftyp',
+    new Uint8Array([0x61, 0x76, 0x69, 0x66, 0x00, 0x00, 0x00, 0x00]),
+  );
+  return concat(ftyp, meta);
 }
 
 /** Truncate a PNG mid-iCCP payload (bad CRC / short data). */

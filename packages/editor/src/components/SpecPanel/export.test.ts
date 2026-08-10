@@ -15,9 +15,17 @@ import {
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exportNodeAsPdf, exportNodeAsRaster } from './export';
 
-const { imageLoad } = vi.hoisted(() => ({
-  imageLoad: vi.fn(async (_source: string) => document.createElement('img')),
-}));
+const { imageLoad, imageState, resetImageState } = vi.hoisted(() => {
+  const loaded = new Set<string>();
+  return {
+    imageLoad: vi.fn(async (source: string) => {
+      loaded.add(source);
+      return document.createElement('img');
+    }),
+    imageState: (source: string) => (loaded.has(source) ? 'loaded' : 'idle'),
+    resetImageState: () => loaded.clear(),
+  };
+});
 
 vi.mock('@varve/engine', async () => {
   const actual = await vi.importActual<typeof import('@varve/engine')>('@varve/engine');
@@ -25,7 +33,16 @@ vi.mock('@varve/engine', async () => {
     ...actual,
     awaitExportsReady: vi.fn(actual.awaitExportsReady),
     createRasterSurface: vi.fn(actual.createRasterSurface),
-    getImageCache: vi.fn(() => ({ load: imageLoad })),
+    // Stateful cache surface for the export settlement barrier: loads are
+    // recorded (so tests can assert every required source was requested)
+    // and settle immediately flips the source to the loaded state.
+    getImageCache: vi.fn(() => ({
+      load: imageLoad,
+      isLoaded: (source: string) => imageState(source) === 'loaded',
+      state: (source: string) => imageState(source),
+      get: (source: string) =>
+        imageState(source) === 'loaded' ? { state: 'loaded', image: null } : undefined,
+    })),
   };
 });
 
@@ -39,6 +56,7 @@ describe('exportNodeAsRaster', () => {
   afterEach(() => {
     vi.mocked(awaitExportsReady).mockClear();
     imageLoad.mockClear();
+    resetImageState();
     vi.mocked(createRasterSurface).mockClear();
     delete (window as unknown as Record<string, unknown>).__TAURI__;
   });

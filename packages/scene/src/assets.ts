@@ -64,6 +64,8 @@ export interface EmbeddedAssetInput {
   naturalHeight: number;
   /** Normalized ingestion metadata (EXIF/ICC). Optional. */
   metadata?: import('./types').ImageSourceMetadata;
+  /** Animated-media container facts (v2.20+). Optional. */
+  animated?: import('./types').AnimatedAssetMetadata;
 }
 
 /** Pure factory: same bytes always produce the same asset id. */
@@ -79,6 +81,7 @@ export function createEmbeddedAsset(input: EmbeddedAssetInput): DocumentAsset {
     byteLength: decodedDataUrlByteLength(input.dataUrl),
     hash,
     ...(input.metadata ? { metadata: input.metadata } : {}),
+    ...(input.animated ? { animated: input.animated } : {}),
   };
 }
 
@@ -116,6 +119,82 @@ export function validateDocumentAsset(asset: DocumentAsset): string | null {
     const metadataError = validateImageSourceMetadata(asset.id, asset.metadata);
     if (metadataError) return metadataError;
   }
+  if (asset.animated !== undefined) {
+    const animatedError = validateAnimatedAssetMetadata(asset.id, asset.animated);
+    if (animatedError) return animatedError;
+  }
+  return null;
+}
+
+/**
+ * Structural validation for the animated-media metadata block. Enforces
+ * bounds (frame cap, canvas limits) and per-frame shape so malformed or
+ * hostile documents fail at load instead of at decode time.
+ */
+export function validateAnimatedAssetMetadata(
+  assetId: string,
+  animated: import('./types').AnimatedAssetMetadata,
+): string | null {
+  if (!animated || typeof animated !== 'object') {
+    return `Document asset ${assetId} animated must be an object`;
+  }
+  const kinds = new Set(['gif', 'apng', 'webp']);
+  if (!kinds.has(animated.kind)) {
+    return `Document asset ${assetId} animated.kind must be gif/apng/webp`;
+  }
+  if (!Number.isInteger(animated.frameCount) || animated.frameCount <= 1) {
+    return `Document asset ${assetId} animated.frameCount must be > 1`;
+  }
+  if (!Number.isFinite(animated.durationMs) || animated.durationMs < 0) {
+    return `Document asset ${assetId} animated.durationMs must be non-negative`;
+  }
+  if (
+    animated.loopCount !== 'infinite' &&
+    (!Number.isInteger(animated.loopCount) || animated.loopCount < 0)
+  ) {
+    return `Document asset ${assetId} animated.loopCount must be 'infinite' or a count`;
+  }
+  if (
+    !Number.isInteger(animated.width) ||
+    !Number.isInteger(animated.height) ||
+    animated.width <= 0 ||
+    animated.height <= 0
+  ) {
+    return `Document asset ${assetId} animated canvas size must be positive`;
+  }
+  if (!Array.isArray(animated.frames) || animated.frames.length !== animated.frameCount) {
+    return `Document asset ${assetId} animated.frames must match frameCount`;
+  }
+  for (const frame of animated.frames) {
+    if (!Number.isInteger(frame.index) || frame.index < 0 || frame.index >= animated.frameCount) {
+      return `Document asset ${assetId} animated frame index out of range`;
+    }
+    if (!Number.isFinite(frame.durationMs) || frame.durationMs < 0) {
+      return `Document asset ${assetId} animated frame duration must be non-negative`;
+    }
+    if (
+      !Number.isInteger(frame.x) ||
+      !Number.isInteger(frame.y) ||
+      !Number.isInteger(frame.width) ||
+      !Number.isInteger(frame.height) ||
+      frame.width <= 0 ||
+      frame.height <= 0 ||
+      frame.x + frame.width > animated.width ||
+      frame.y + frame.height > animated.height
+    ) {
+      return `Document asset ${assetId} animated frame rect out of canvas bounds`;
+    }
+    if (frame.blend !== 'source' && frame.blend !== 'over') {
+      return `Document asset ${assetId} animated frame blend must be source/over`;
+    }
+    if (
+      frame.disposal !== 'none' &&
+      frame.disposal !== 'background' &&
+      frame.disposal !== 'previous'
+    ) {
+      return `Document asset ${assetId} animated frame disposal invalid`;
+    }
+  }
   return null;
 }
 
@@ -144,6 +223,104 @@ export function validateImageSourceMetadata(
     !['valid', 'invalid', 'none'].includes(metadata.iccStatus)
   ) {
     return `Document asset ${assetId} metadata.iccStatus must be valid/invalid/none`;
+  }
+  if (metadata.colorEncoding !== undefined) {
+    const encodingError = validateRasterColorEncoding(assetId, metadata.colorEncoding);
+    if (encodingError) return encodingError;
+  }
+  return null;
+}
+
+/** Structural validation for the canonical raster colour encoding block. */
+export function validateRasterColorEncoding(
+  assetId: string,
+  encoding: import('@varve/shared').RasterColorEncoding,
+): string | null {
+  if (!encoding || typeof encoding !== 'object') {
+    return `Document asset ${assetId} colorEncoding must be an object`;
+  }
+  if (!['rgb', 'gray', 'cmyk', 'unknown'].includes(encoding.model)) {
+    return `Document asset ${assetId} colorEncoding.model must be rgb/gray/cmyk/unknown`;
+  }
+  if (
+    encoding.primaries !== undefined &&
+    !['srgb', 'display-p3', 'adobe-rgb', 'pro-photo', 'rec2020', 'unknown'].includes(
+      encoding.primaries,
+    )
+  ) {
+    return `Document asset ${assetId} colorEncoding.primaries is not a supported primaries family`;
+  }
+  if (
+    encoding.transfer !== undefined &&
+    ![
+      'srgb',
+      'gamma22',
+      'gamma18',
+      'prophoto',
+      'rec2020',
+      'linear',
+      'pq',
+      'hlg',
+      'unknown',
+    ].includes(encoding.transfer)
+  ) {
+    return `Document asset ${assetId} colorEncoding.transfer is not a supported transfer`;
+  }
+  if (
+    encoding.matrixCoefficients !== undefined &&
+    !['rgb', 'bt709', 'bt601', 'bt2020-ncl', 'bt2020-cl', 'identity', 'unknown'].includes(
+      encoding.matrixCoefficients,
+    )
+  ) {
+    return `Document asset ${assetId} colorEncoding.matrixCoefficients is invalid`;
+  }
+  if (
+    encoding.videoRange !== undefined &&
+    !['full', 'limited', 'unknown'].includes(encoding.videoRange)
+  ) {
+    return `Document asset ${assetId} colorEncoding.videoRange must be full/limited/unknown`;
+  }
+  if (encoding.bitDepth !== undefined) {
+    const valid =
+      encoding.bitDepth === 8 ||
+      encoding.bitDepth === 10 ||
+      encoding.bitDepth === 12 ||
+      encoding.bitDepth === 16 ||
+      encoding.bitDepth === 'float16' ||
+      encoding.bitDepth === 'float32';
+    if (!valid) {
+      return `Document asset ${assetId} colorEncoding.bitDepth must be 8/10/12/16/float16/float32`;
+    }
+  }
+  if (
+    encoding.alphaMode !== undefined &&
+    !['straight', 'premultiplied', 'unknown'].includes(encoding.alphaMode)
+  ) {
+    return `Document asset ${assetId} colorEncoding.alphaMode must be straight/premultiplied/unknown`;
+  }
+  if (
+    ![
+      'embedded-icc',
+      'cicp',
+      'named',
+      'format-default',
+      'user-assigned',
+      'assumed',
+      'legacy-assumed-srgb',
+      'unknown',
+    ].includes(encoding.provenance)
+  ) {
+    return `Document asset ${assetId} colorEncoding.provenance is invalid`;
+  }
+  if (encoding.profileId !== undefined && typeof encoding.profileId !== 'string') {
+    return `Document asset ${assetId} colorEncoding.profileId must be a string`;
+  }
+  if (
+    encoding.diagnostics !== undefined &&
+    (!Array.isArray(encoding.diagnostics) ||
+      encoding.diagnostics.some((d) => typeof d !== 'string'))
+  ) {
+    return `Document asset ${assetId} colorEncoding.diagnostics must be an array of strings`;
   }
   return null;
 }
@@ -276,6 +453,23 @@ export function validateIccProfileEntry(entry: import('./types').IccProfileEntry
   }
   if (typeof entry.hash !== 'string' || entry.hash.length === 0) {
     return `ICC profile ${entry.id} must have a hash`;
+  }
+  if (entry.profileClass !== undefined && typeof entry.profileClass !== 'string') {
+    return `ICC profile ${entry.id} profileClass must be a string`;
+  }
+  if (entry.colorSpace !== undefined && typeof entry.colorSpace !== 'string') {
+    return `ICC profile ${entry.id} colorSpace must be a string`;
+  }
+  if (entry.version !== undefined && typeof entry.version !== 'string') {
+    return `ICC profile ${entry.id} version must be a string`;
+  }
+  if (
+    entry.renderingIntent !== undefined &&
+    (!Number.isInteger(entry.renderingIntent) ||
+      entry.renderingIntent < 0 ||
+      entry.renderingIntent > 3)
+  ) {
+    return `ICC profile ${entry.id} renderingIntent must be 0-3`;
   }
   return null;
 }

@@ -1,8 +1,11 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Button from '../components/Button.astro';
-import BentoGrid from '../components/BentoGrid.astro';
-import BentoCard from '../components/BentoCard.astro';
+import Hero from '../components/Hero.astro';
+import TrustStrip from '../components/TrustStrip.astro';
+import ProductShowcase from '../components/ProductShowcase.astro';
+import DisciplineTabs from '../components/DisciplineTabs.astro';
+import Reveal from '../components/Reveal.astro';
+import DownloadCTA from '../components/DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
 
 const softwareSchema = {
@@ -28,222 +31,401 @@ const softwareSchema = {
   description="Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print — one application on Linux, macOS, and Windows. No subscription, no account, no uploads."
   structuredData={softwareSchema}
 >
-  <section class="hero">
-    <div class="container-custom">
-      <div class="hero-content">
-        <h1 class="hero-title">
-          Design across disciplines.<br/>One canvas.
-        </h1>
-        <p class="hero-subtitle">
-          Varve is a free, local-first design suite that keeps vector, layout, typography, motion, prototyping, and print production in one application — on Linux, macOS, and Windows. No subscription, no account, no uploads: your work stays on your machine.
+  <Hero />
+
+  <TrustStrip />
+
+  <ProductShowcase />
+
+  <DisciplineTabs />
+
+  <section class="workflow-section" aria-labelledby="workflow-title">
+    <div class="container-custom workflow-grid">
+      <Reveal as="div" class="workflow-statement">
+        <p class="section-eyebrow">Why one environment</p>
+        <h2 id="workflow-title" class="workflow-title">
+          Your work does not fit<br />into one category.<br /><span class="workflow-accent">Neither does Varve.</span>
+        </h2>
+      </Reveal>
+      <Reveal as="div" class="workflow-copy" delay="120">
+        <p class="workflow-text">
+          A poster needs vector shapes, typography, and print output. A social
+          set needs layout, animation, and export. A product UI needs
+          components, prototyping, and developer handoff.
         </p>
-        <div class="hero-ctas">
-          <Button href={sitePath('/download')} variant="primary">
-            Download the beta
-          </Button>
-          <Button href={sitePath('/product')} variant="secondary">
-            What is Varve?
-          </Button>
+        <p class="workflow-text">
+          Instead of switching between separate applications and rebuilding
+          your context each time, Varve keeps the work in one environment:
+          one document model, one layer system, one set of shortcuts.
+        </p>
+        <a href={sitePath('/product')} class="workflow-link">
+          Read the full product story
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"></path>
+          </svg>
+        </a>
+      </Reveal>
+    </div>
+  </section>
+
+  <section class="local-first-section" aria-labelledby="local-first-title">
+    <div class="container-custom local-first-grid">
+      <Reveal as="div" class="local-first-copy">
+        <p class="section-eyebrow">Local-first by design</p>
+        <h2 id="local-first-title" class="local-first-title">
+          Your work never leaves your machine.
+        </h2>
+        <p class="local-first-text">
+          No account. No cloud sync. No telemetry. Varve stores documents on
+          your disk, works offline, and only sends bytes when you choose to
+          export them somewhere.
+        </p>
+        <div class="local-first-points">
+          <div class="local-first-point">
+            <span class="point-mark" aria-hidden="true"></span>
+            <div>
+              <strong>Files on disk</strong>
+              <p>Plain document files you can copy, back up, and own.</p>
+            </div>
+          </div>
+          <div class="local-first-point">
+            <span class="point-mark" aria-hidden="true"></span>
+            <div>
+              <strong>Works offline</strong>
+              <p>Everything the editor does runs on your hardware.</p>
+            </div>
+          </div>
+          <div class="local-first-point">
+            <span class="point-mark" aria-hidden="true"></span>
+            <div>
+              <strong>No telemetry</strong>
+              <p>No background reporting. The app ships no tracker.</p>
+            </div>
+          </div>
         </div>
-        <p class="hero-platforms">
-          Linux • macOS • Windows &nbsp;·&nbsp; Free and source-available (FSL-1.1-MIT)
-        </p>
-      </div>
+      </Reveal>
+      <Reveal as="div" class="local-first-art" delay="150" aria-hidden="true">
+        <div class="strata-stack">
+          <span class="strata-slab strata-slab-1"></span>
+          <span class="strata-slab strata-slab-2"></span>
+          <span class="strata-slab strata-slab-3"></span>
+          <span class="strata-lock">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+              <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+            </svg>
+          </span>
+        </div>
+      </Reveal>
     </div>
   </section>
 
-  <section class="features-preview">
+  <section class="beta-section" aria-labelledby="beta-title">
     <div class="container-custom">
-      <h2 class="section-title">More creative work, fewer applications</h2>
-      <BentoGrid cols={2}>
-        <BentoCard>
-          <h3>Vector and illustration</h3>
-          <p>Shapes, bezier paths with handles, boolean operations, layers, groups, and precision snapping — backed by a native Rust geometry engine.</p>
-        </BentoCard>
-        <BentoCard>
-          <h3>Layout and typography</h3>
-          <p>Flex and auto-layout, text rendering with OpenType features and variable fonts, frames with constraints, and multi-page documents.</p>
-        </BentoCard>
-        <BentoCard>
-          <h3>Motion and prototyping</h3>
-          <p>Timeline-based animation with keyframes and easing, prototype interactions with triggers and transitions, export to CSS, Lottie, and video.</p>
-        </BentoCard>
-        <BentoCard>
-          <h3>Color, effects, and print</h3>
-          <p>RGB and CMYK color management, blend modes, shadows, blur, adjustment layers, halftone screening, and PDF/X export with crop marks.</p>
-        </BentoCard>
-      </BentoGrid>
+      <Reveal as="div" class="beta-inner">
+        <p class="section-eyebrow">Where Varve is today</p>
+        <h2 id="beta-title" class="beta-title">An honest beta.</h2>
+        <p class="beta-text">
+          Varve is in active development and no public release has shipped
+          yet. Core features are functional, but you should expect rough
+          edges and evolving file formats. The right time to try it is now
+          &mdash; the right time to depend on it for critical production work
+          is later.
+        </p>
+        <div class="beta-links">
+          <a href={sitePath('/download')} class="btn btn-secondary">See the download status</a>
+          <a href={sitePath('/releases')} class="btn btn-secondary">Release notes</a>
+          <a href={sitePath('/support/known-issues')} class="btn btn-secondary">Known issues</a>
+        </div>
+      </Reveal>
     </div>
   </section>
 
-  <section class="workflow-section">
-    <div class="container-custom">
-      <div class="workflow-content">
-        <h2 class="section-title">Designed for connected workflows</h2>
-        <p class="workflow-text">
-          Varve is built around the idea that creative work does not always fit neatly into one category. A poster needs vector shapes, typography, and print output. A social media set needs layout, animation, and export. A UI needs components, prototyping, and developer handoff.
+  <section class="closing-download" aria-labelledby="closing-title">
+    <div class="container-custom closing-inner">
+      <Reveal as="div">
+        <p class="section-eyebrow">Get started</p>
+        <h2 id="closing-title" class="closing-title">
+          Design across disciplines.<br /><span class="workflow-accent">One canvas.</span>
+        </h2>
+        <p class="closing-text">
+          Free and source-available under FSL-1.1-MIT. Your designs stay on
+          your machine.
         </p>
-        <p class="workflow-text">
-          Instead of switching between separate applications for each task, Varve keeps your work in one environment with one document model, one layer system, and one set of shortcuts.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <section class="story-section">
-    <div class="container-custom">
-      <div class="story-content">
-        <h2 class="section-title">Built in the open</h2>
-        <p class="story-text">
-          Varve is built by one designer-developer with input from its community. Development is transparent — architecture decisions, known limitations, and progress are documented publicly. No VC pressure, no hidden agenda, just focused tools shaped by the people who use them.
-        </p>
-        <Button href={sitePath('/about')} variant="secondary">Read the story</Button>
-      </div>
-    </div>
-  </section>
-
-  <section class="download-preview">
-    <div class="container-custom">
-      <h2 class="section-title">Try Varve beta</h2>
-      <p class="download-subtitle">
-        Varve is in active beta. Core features are functional, but you may encounter rough edges. Recommended for testing, exploration, and influencing development — not yet for critical production work without backups.
-      </p>
-      <Button href={sitePath('/download')} variant="primary">Download the beta</Button>
-      <p class="download-note">
-        Free and source-available under FSL-1.1-MIT. Your designs stay on your machine.
-      </p>
+        <div class="closing-actions">
+          <DownloadCTA size="large" beta />
+        </div>
+      </Reveal>
     </div>
   </section>
 </Layout>
 
 <style>
-  .hero {
-    background: linear-gradient(135deg, var(--surface-sunken) 0%, var(--surface-page) 100%);
-    padding: 6rem 0;
-    border-bottom: 1px solid var(--border-default);
-  }
-
-  .hero-content {
-    text-align: center;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-
-  .hero-title {
-    font-size: 3rem;
-    font-weight: 800;
-    line-height: 1.1;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-  }
-
-  .hero-subtitle {
-    font-size: 1.25rem;
-    color: var(--text-secondary);
-    margin-bottom: 2rem;
-  }
-  
-  .hero-ctas {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    margin-bottom: 1.5rem;
-  }
-  
-  .hero-platforms {
-    font-size: 0.875rem;
-    color: var(--text-muted);
+  .section-eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
   }
-  
-  .features-preview {
-    padding: 5rem 0;
+
+  /* --- Workflow: asymmetric editorial split --- */
+  .workflow-section {
+    padding: clamp(4.5rem, 9vh, 7rem) 0;
   }
-  
-  .section-title {
-    font-size: 2.25rem;
+
+  .workflow-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: clamp(2.5rem, 6vw, 5rem);
+    align-items: start;
+  }
+
+  .workflow-title {
+    font-size: clamp(1.9rem, 3vw + 0.6rem, 3rem);
+    font-family: var(--font-editorial);
     font-weight: 700;
-    text-align: center;
-    margin-bottom: 3rem;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.025em;
+    line-height: 1.12;
     color: var(--text-primary);
   }
 
-  .workflow-section {
-    padding: 5rem 0;
+  .workflow-accent {
+    color: var(--accent-primary);
   }
 
-  .workflow-content {
-    max-width: 700px;
-    margin: 0 auto;
-    text-align: center;
+  .workflow-copy {
+    padding-top: 0.5rem;
   }
 
   .workflow-text {
-    font-size: 1.125rem;
-    line-height: 1.8;
-    margin-bottom: 1.5rem;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    margin-bottom: 1.25rem;
+  }
+
+  .workflow-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+  }
+
+  /* --- Local-first: full-bleed strata story --- */
+  .local-first-section {
+    background: var(--surface-sunken);
+    border-top: 1px solid var(--border-default);
+    border-bottom: 1px solid var(--border-default);
+    padding: clamp(4.5rem, 9vh, 7rem) 0;
+  }
+
+  .local-first-grid {
+    display: grid;
+    grid-template-columns: 1fr 0.85fr;
+    gap: clamp(2.5rem, 6vw, 5rem);
+    align-items: center;
+  }
+
+  .local-first-title {
+    font-size: clamp(2rem, 3.2vw + 0.6rem, 3.1rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+  }
+
+  .local-first-text {
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    max-width: 52ch;
+  }
+
+  .local-first-points {
+    display: grid;
+    gap: 1.1rem;
+  }
+
+  .local-first-point {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .point-mark {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    margin-top: 0.55em;
+    border: 2px solid var(--accent-primary);
+    transform: rotate(45deg);
+    border-radius: 1px;
+  }
+
+  .local-first-point strong {
+    display: block;
+    font-size: 1rem;
+    color: var(--text-primary);
+    margin-bottom: 0.15rem;
+  }
+
+  .local-first-point p {
+    font-size: 0.9375rem;
+    line-height: 1.55;
     color: var(--text-secondary);
   }
 
-  .story-section {
-    background: var(--surface-sunken);
-    color: var(--text-primary);
-    padding: 5rem 0;
+  /* The strata stack: three tilted strata planes with a lock node —
+     Varve's own geometry, not a stock illustration. */
+  .local-first-art {
+    display: flex;
+    justify-content: center;
   }
 
-  .story-section .section-title {
-    color: var(--text-primary);
+  .strata-stack {
+    position: relative;
+    width: min(100%, 320px);
+    aspect-ratio: 1.25;
+    filter: drop-shadow(0 24px 40px oklch(0 0 0 / 0.22));
   }
 
-  .story-content {
-    max-width: 700px;
+  .strata-slab {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    height: 26%;
+    transform: skewX(-14deg);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+  }
+
+  .strata-slab-1 {
+    top: 8%;
+    background: color-mix(in oklab, var(--brand-teal) 85%, var(--surface-card));
+  }
+
+  .strata-slab-2 {
+    top: 37%;
+    background: color-mix(in oklab, var(--brand-sandstone) 80%, var(--surface-card));
+  }
+
+  .strata-slab-3 {
+    top: 66%;
+    background: color-mix(in oklab, var(--brand-terracotta) 78%, var(--surface-card));
+  }
+
+  .strata-lock {
+    position: absolute;
+    right: -4%;
+    bottom: -10%;
+    width: 74px;
+    height: 74px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface-page);
+    border: 1px solid var(--border-strong);
+    border-radius: 50%;
+    color: var(--accent-primary);
+    box-shadow: 0 12px 28px oklch(0 0 0 / 0.18);
+  }
+
+  /* --- Beta transparency --- */
+  .beta-section {
+    padding: clamp(4.5rem, 9vh, 6.5rem) 0;
+  }
+
+  .beta-inner {
+    max-width: 720px;
     margin: 0 auto;
     text-align: center;
   }
 
-  .story-text {
-    font-size: 1.125rem;
-    line-height: 1.8;
-    margin-bottom: 2rem;
-    color: var(--text-secondary);
+  .beta-title {
+    font-size: clamp(2rem, 3.5vw + 0.5rem, 3.25rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.025em;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
   }
 
-  .download-preview {
-    padding: 5rem 0;
+  .beta-text {
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+  }
+
+  .beta-links {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* --- Closing download --- */
+  .closing-download {
+    border-top: 1px solid var(--border-default);
+    background:
+      radial-gradient(90% 120% at 50% 0%, var(--surface-sunken) 0%, var(--surface-page) 75%);
+    padding: clamp(4.5rem, 10vh, 7rem) 0;
+  }
+
+  .closing-inner {
     text-align: center;
+    max-width: 760px;
   }
 
-  .download-subtitle {
+  .closing-title {
+    font-size: clamp(2.2rem, 4vw + 0.6rem, 3.75rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.03em;
+    line-height: 1.06;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+  }
+
+  .closing-text {
     font-size: 1.125rem;
     color: var(--text-secondary);
     margin-bottom: 2rem;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
   }
 
-  .download-note {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    margin-top: 1rem;
+  @media (max-width: 860px) {
+    .workflow-grid,
+    .local-first-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .local-first-art {
+      order: -1;
+    }
+
+    .strata-stack {
+      max-width: 260px;
+    }
   }
-  
-  @media (max-width: 768px) {
-    .hero-title {
-      font-size: 2rem;
-    }
-    
-    .hero-subtitle {
-      font-size: 1rem;
-    }
-    
-    .hero-ctas {
+
+  @media (max-width: 560px) {
+    .beta-links {
       flex-direction: column;
+      align-items: stretch;
     }
-    
-    .section-title {
-      font-size: 1.75rem;
+
+    .beta-links .btn {
+      justify-content: center;
     }
   }
 </style>

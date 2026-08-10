@@ -1,6 +1,13 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import shotManifest from '../../data/screenshot-manifest.json';
+
+const shots = shotManifest.scenes as unknown as Record<
+  string,
+  { file: string; alt: string; caption: string; width?: number; height?: number }
+>;
+const workspaceShot = shots.workspace;
 ---
 
 <Layout title="Getting Started" description="Install Varve on Linux, macOS, or Windows, and open your first document. System requirements and first steps.">
@@ -17,6 +24,11 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="docs-section">
         <h2>Installation</h2>
+        <p>Varve is in active development and no public installer has been
+        published yet — the <a href={sitePath('/download')}>download page</a>
+        tracks the current release status and will list packages, checksums
+        and system requirements as soon as they exist. The instructions
+        below describe the intended installers for each platform.</p>
         <p>Download Varve for your platform from the <a href={sitePath('/download')}>download page</a>.</p>
         
         <h3>Linux</h3>
@@ -45,6 +57,17 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Open an existing document</li>
           <li>View recent documents</li>
         </ul>
+        <figure class="docs-figure">
+          <img
+            src={sitePath(`/screenshots/${workspaceShot.file}`)}
+            alt={workspaceShot.alt}
+            width={workspaceShot.width ?? 1440}
+            height={workspaceShot.height ?? 900}
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>{workspaceShot.caption}</figcaption>
+        </figure>
       </section>
 
       <section class="docs-section">
@@ -230,5 +253,26 @@ import { sitePath } from '../../lib/siteUrl';
   
   .docs-cta p {
     color: var(--text-secondary);
+  }
+
+  .docs-figure {
+    margin: 1.5rem 0;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--surface-card);
+  }
+
+  .docs-figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .docs-figure figcaption {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border-default);
   }
 </style>

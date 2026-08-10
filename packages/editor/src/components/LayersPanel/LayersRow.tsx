@@ -16,7 +16,7 @@ import type {
   SceneNode,
   ShapeNode,
 } from '@varve/scene';
-import { isContainer, isImageShape, nodeHasStyle } from '@varve/scene';
+import { isAnimatedMediaNode, isContainer, isImageShape, nodeHasStyle } from '@varve/scene';
 import type { SolidIconName } from '@varve/ui';
 import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -432,6 +432,19 @@ export const LayersRow = memo(function LayersRow({
           </Tooltip>
         )}
 
+        {/* Animated-media badge (subtle, rows without animation unchanged) */}
+        {!editing && doc && isAnimatedMediaNode(node, doc) && (
+          <Tooltip label={`Animated media: ${animatedFrameCount(doc, node)} frames`}>
+            <span
+              className="layers-row__media-badge"
+              role="status"
+              aria-label={`Animated: ${animatedFrameCount(doc, node)} frames`}
+            >
+              Animated · {animatedFrameCount(doc, node)}
+            </span>
+          </Tooltip>
+        )}
+
         {/* Grid layout indicator */}
         {node.kind === 'frame' &&
           (node as { layoutStyle?: { mode?: string } }).layoutStyle?.mode === 'grid' &&
@@ -628,3 +641,16 @@ export const LayersRow = memo(function LayersRow({
     </>
   );
 });
+
+function animatedFrameCount(
+  doc: import('@varve/scene').Document | undefined,
+  node: SceneNode,
+): number {
+  if (!doc || node.kind !== 'shape') return 0;
+  for (const fill of node.fills ?? []) {
+    if (fill.type !== 'image' || !fill.image?.assetId) continue;
+    const animated = doc.assets?.[fill.image.assetId]?.animated;
+    if (animated) return animated.frameCount;
+  }
+  return 0;
+}

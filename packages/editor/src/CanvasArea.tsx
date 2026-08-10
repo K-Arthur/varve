@@ -53,6 +53,7 @@ import {
   getChangedVariableIds,
   getEffectiveNode,
   getGuidesForPage,
+  isAnimatedMediaNode,
   isContainer,
   isImageShape,
   isWarpedContainer,
@@ -1747,6 +1748,13 @@ export function CanvasArea({
 
       const docVersion = docVersionRef.current;
       const animatedNodeIds = new Set<string>();
+
+      // Animated-media nodes rebuild their (small) per-node IR each frame —
+      // the media frame index rides in the fill, so subtree IR caching
+      // would serve stale frames.
+      for (const node of Object.values(doc.nodes)) {
+        if (node && isAnimatedMediaNode(node, doc)) animatedNodeIds.add(node.id);
+      }
 
       if (s.motion.activeTimelineId) {
         const activeTl = doc.timelines?.[s.motion.activeTimelineId];

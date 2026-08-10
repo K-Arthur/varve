@@ -2,53 +2,64 @@ import { expect, test } from '@playwright/test';
 import { contrastRatio, effectiveBackground, NORMAL_TEXT, parseColor } from './helpers';
 
 /**
- * Theme resolution and no-mixed-theme guarantees.
+ * Theme resolution, persistence, migration and switcher behaviour.
  *
- * These run in BOTH projects (ghpages base /varve, custom-domain base /),
- * which covers the "pages work beneath /varve and /" requirement.
+ * The site exposes exactly two themes (light/dark). First-time visitors
+ * follow the OS; the first explicit click persists the choice. Legacy
+ * localStorage values ("system", "high-contrast", invalid) resolve to the
+ * OS and never render as a theme. Native forced-colors remains supported
+ * independently of the selectable themes.
+ *
+ * These run in BOTH projects (ghpages base /varve, custom-domain base /).
  */
 
 const THEMES = [
-  {
-    name: 'light',
-    colorScheme: 'light' as const,
-    contrast: 'no-preference' as const,
-    theme: 'light',
-  },
-  { name: 'dark', colorScheme: 'dark' as const, contrast: 'no-preference' as const, theme: 'dark' },
-  {
-    name: 'high-contrast',
-    colorScheme: 'light' as const,
-    contrast: 'more' as const,
-    theme: 'high-contrast',
-  },
+  { name: 'light', colorScheme: 'light' as const, theme: 'light' },
+  { name: 'dark', colorScheme: 'dark' as const, theme: 'dark' },
 ];
+
+/** Fresh context: no persisted preference. */
+async function freshPage(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page.evaluate(() => localStorage.removeItem('varve-theme'));
+  await page.reload();
+}
 
 test.describe('theme resolution', () => {
   for (const t of THEMES) {
-    test(`${t.name}: html[data-theme] matches the OS preference`, async ({ page }) => {
-      await page.emulateMedia({ colorScheme: t.colorScheme, contrast: t.contrast });
-      await page.goto('/');
+    test(`${t.name}: html[data-theme] follows the OS preference without a persisted choice`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ colorScheme: t.colorScheme });
+      await freshPage(page);
       await expect
         .poll(() => page.evaluate(() => document.documentElement.getAttribute('data-theme')))
         .toBe(t.theme);
     });
   }
 
-  test('OS theme switch mid-session re-themes the page', async ({ page }) => {
+  test('OS theme switch mid-session re-themes the page while no choice is persisted', async ({
+    page,
+  }) => {
     await page.emulateMedia({ colorScheme: 'light' });
-    await page.goto('/');
+    await freshPage(page);
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await page.emulateMedia({ colorScheme: 'dark' });
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   });
 
+  test('no theme is ever set to a legacy or high-contrast value', async ({ page }) => {
+    for (const legacy of ['system', 'high-contrast', 'light-mode', '', '42']) {
+      await page.emulateMedia({ colorScheme: 'light' });
+      await page.goto('/');
+      await page.evaluate((v) => localStorage.setItem('varve-theme', v), legacy);
+      await page.reload();
+      const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+      expect(theme, `legacy value "${legacy}"`).toMatch(/^(light|dark)$/);
+    }
+  });
+
   test('theme script runs before any stylesheet that depends on it (no FOUC)', async ({ page }) => {
-    // The inline theme-detection script must precede the CSS in the document,
-    // so html[data-theme] is set before theme-dependent styles evaluate.
-    // The theme script is located by its marker (window.__varveTheme);
-    // indexOf('prefers-color-scheme') would match the theme-color <meta> and
-    // the bundled CSS instead, ordering the wrong pair of elements.
     await page.goto('/');
     const html = await page.content();
     const cssPos = html.indexOf('rel="stylesheet"');
@@ -60,14 +71,12 @@ test.describe('theme resolution', () => {
       html.slice(s.pos, s.pos + 2000).includes('window.__varveTheme'),
     );
     expect(themeScript, 'the inline theme script must exist').toBeTruthy();
-    // It must be a synchronous, non-deferred inline script (no src=, no defer).
     expect(themeScript!.tag).not.toMatch(/src=|defer/);
     expect(themeScript!.pos).toBeLessThan(cssPos);
-    // The canonical attribute is on the root element.
     expect(html).toMatch(/<html[^>]*data-theme="/);
   });
 
-  test('no-JS fallback: prefers-color-scheme media styles are present in the CSS', async ({
+  test('no-JS fallback: prefers-color-scheme and forced-colors media styles are present', async ({
     page,
   }) => {
     await page.goto('/');
@@ -87,11 +96,146 @@ test.describe('theme resolution', () => {
   });
 });
 
+test.describe('theme switcher', () => {
+  test('buttons reflect the current theme with aria-pressed and an active style', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await freshPage(page);
+    const state = await page.evaluate(() => ({
+      theme: document.documentElement.getAttribute('data-theme'),
+      pressed: [...document.querySelectorAll('.theme-option')].map((b) => ({
+        choice: b.getAttribute('data-theme-choice'),
+        pressed: b.getAttribute('aria-pressed'),
+        active: b.classList.contains('active'),
+      })),
+    }));
+    expect(state.theme).toBe('dark');
+    expect(state.pressed).toEqual([
+      { choice: 'light', pressed: 'false', active: false },
+      { choice: 'dark', pressed: 'true', active: true },
+    ]);
+    // The active state must be visibly distinct (not icon-only).
+    const dark = page.locator('.theme-option[data-theme-choice="dark"]');
+    const light = page.locator('.theme-option[data-theme-choice="light"]');
+    const darkBg = await dark.evaluate((el) => getComputedStyle(el).backgroundColor);
+    const lightBg = await light.evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(darkBg).not.toBe(lightBg);
+  });
+
+  test('clicking a theme persists it, applies it, and survives reload', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await freshPage(page);
+    await page.locator('.theme-option[data-theme-choice="light"]').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    const stored = await page.evaluate(() => localStorage.getItem('varve-theme'));
+    expect(stored).toBe('light');
+    const pressed = await page
+      .locator('.theme-option[data-theme-choice="light"]')
+      .getAttribute('aria-pressed');
+    expect(pressed).toBe('true');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+
+  test('persisted light overrides OS dark and vice versa', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.setItem('varve-theme', 'light'));
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.evaluate(() => localStorage.setItem('varve-theme', 'dark'));
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('legacy "system" migrates to the OS and converts on the first click', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.setItem('varve-theme', 'system'));
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+    // The stale value stays until the user chooses (no surprise rewrites)...
+    expect(await page.evaluate(() => localStorage.getItem('varve-theme'))).toBe('system');
+    // ...and the first click converts it into an explicit persisted choice.
+    await page.locator('.theme-option[data-theme-choice="dark"]').click();
+    expect(await page.evaluate(() => localStorage.getItem('varve-theme'))).toBe('dark');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('legacy "high-contrast" never renders and is replaced by the next choice', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    await page.evaluate(() => localStorage.setItem('varve-theme', 'high-contrast'));
+    await page.reload();
+    const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    expect(theme).toBe('light');
+    await page.locator('.theme-option[data-theme-choice="dark"]').click();
+    expect(await page.evaluate(() => localStorage.getItem('varve-theme'))).toBe('dark');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('switcher works with keyboard activation', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await freshPage(page);
+    const darkBtn = page.locator('.theme-option[data-theme-choice="dark"]');
+    await darkBtn.focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+});
+
+test.describe('forced-colors compatibility', () => {
+  test('forced-colors resolves surfaces to system colors in both themes', async ({ page }) => {
+    for (const t of THEMES) {
+      await page.emulateMedia({
+        colorScheme: t.colorScheme,
+        forcedColors: 'active',
+        reducedMotion: 'reduce',
+      });
+      await freshPage(page);
+      const state = await page.evaluate(() => {
+        const cs = getComputedStyle(document.body);
+        // Probe what the browser resolves the forced-colors system keywords
+        // to in this emulation (the palette differs per color scheme).
+        const canvasProbe = document.createElement('div');
+        canvasProbe.style.background = 'Canvas';
+        const linkProbe = document.createElement('a');
+        document.body.append(canvasProbe, linkProbe);
+        const canvasColor = getComputedStyle(canvasProbe).backgroundColor;
+        const linkText = getComputedStyle(linkProbe).color;
+        canvasProbe.remove();
+        linkProbe.remove();
+        return {
+          dataTheme: document.documentElement.getAttribute('data-theme'),
+          bodyBg: cs.backgroundColor,
+          footerBg: getComputedStyle(document.querySelector('.site-footer')!).backgroundColor,
+          footerLink: getComputedStyle(document.querySelector('.footer-section a')!).color,
+          canvasColor,
+          linkText,
+        };
+      });
+      expect(state.dataTheme).toBe(t.theme);
+      // In forced-colors the tokens must resolve to the system colors —
+      // not the app theme colors (dark navy / light gray)...
+      expect(state.bodyBg).toBe(state.canvasColor);
+      expect(state.footerBg).toBe(state.canvasColor);
+      // ...and links resolve to the OS link color.
+      expect(state.footerLink).toBe(state.linkText);
+    }
+  });
+});
+
 test.describe('no mixed-theme rendering', () => {
   for (const t of THEMES) {
     test(`${t.name}: page surface and text tokens are internally consistent`, async ({ page }) => {
-      await page.emulateMedia({ colorScheme: t.colorScheme, contrast: t.contrast });
-      await page.goto('/');
+      await page.emulateMedia({ colorScheme: t.colorScheme });
+      await freshPage(page);
       const state = await page.evaluate(() => {
         const cs = getComputedStyle(document.body);
         return {
@@ -105,7 +249,6 @@ test.describe('no mixed-theme rendering', () => {
       const text = parseColor(state.text);
       const headerBg = parseColor(state.headerBg);
       const headerText = parseColor(state.headerText);
-      // Light theme: dark text on light surfaces. Dark/HC: light text on dark surfaces.
       if (t.theme === 'light') {
         expect(bg.luminance).toBeGreaterThan(0.8);
         expect(text.luminance).toBeLessThan(0.15);
@@ -124,8 +267,8 @@ test.describe('no mixed-theme rendering', () => {
 
   test('footer stays readable in both themes', async ({ page }) => {
     for (const t of THEMES) {
-      await page.emulateMedia({ colorScheme: t.colorScheme, contrast: t.contrast });
-      await page.goto('/');
+      await page.emulateMedia({ colorScheme: t.colorScheme });
+      await freshPage(page);
       const info = await page.evaluate(() => {
         const footer = document.querySelector('.site-footer')!;
         const cs = getComputedStyle(footer);
@@ -143,22 +286,17 @@ test.describe('no mixed-theme rendering', () => {
   });
 });
 
-test.describe('hero visibility (screenshot defects 1-3)', () => {
+test.describe('hero visibility', () => {
   for (const t of THEMES) {
     test(`${t.name}: hero heading, copy and CTAs are fully visible below the sticky header`, async ({
       page,
     }) => {
-      await page.emulateMedia({
-        colorScheme: t.colorScheme,
-        contrast: t.contrast,
-        reducedMotion: 'reduce',
-      });
-      await page.goto('/');
+      await page.emulateMedia({ colorScheme: t.colorScheme, reducedMotion: 'reduce' });
+      await freshPage(page);
       const header = await page.locator('.site-header').boundingBox();
       const hero = await page.locator('.hero').boundingBox();
       expect(header).not.toBeNull();
       expect(hero).not.toBeNull();
-      // Hero starts below the header, no overlap.
       expect(hero!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
 
       const title = page.locator('.hero-title');
@@ -169,27 +307,39 @@ test.describe('hero visibility (screenshot defects 1-3)', () => {
       const subtitle = page.locator('.hero-subtitle');
       await expect(subtitle).toBeInViewport();
       const ctas = page.locator('.hero-ctas');
-      await expect(ctas.getByRole('link', { name: /download the beta/i })).toBeVisible();
+      await expect(ctas.getByRole('link', { name: /download/i }).first()).toBeVisible();
       await expect(ctas.getByRole('link', { name: /what is varve/i })).toBeVisible();
 
-      // Full copy present (defect: only "your machine." visible).
       const subtitleText = await subtitle.textContent();
-      expect(subtitleText).toContain('local-first design suite');
+      expect(subtitleText).toContain('keeps vector');
       expect(subtitleText).toContain('stays on your machine');
     });
   }
 
-  test('feature section heading is readable in every theme', async ({ page }) => {
+  test('hero animated phrase keeps accessible static text', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+    await freshPage(page);
+    const heading = page.getByRole('heading', { level: 1 });
+    await expect(heading).toContainText('Design across disciplines.');
+    await expect(heading).toContainText('One canvas.');
+    // The rotating decoration must be hidden from AT.
+    const rotorAriaHidden = await page.locator('.hero-phrase-rotor').getAttribute('aria-hidden');
+    expect(rotorAriaHidden).toBe('true');
+  });
+
+  test('discipline section copy is readable in every theme', async ({ page }) => {
     for (const t of THEMES) {
-      await page.emulateMedia({ colorScheme: t.colorScheme, contrast: t.contrast });
-      await page.goto('/');
-      const heading = page.getByRole('heading', {
-        name: /more creative work, fewer applications/i,
-      });
+      await page.emulateMedia({ colorScheme: t.colorScheme });
+      await freshPage(page);
+      const heading = page
+        .getByRole('heading', {
+          name: /design across disciplines/i,
+        })
+        .first();
       await expect(heading).toBeVisible();
-      const bg = await effectiveBackground(page, '.features-preview .section-title');
+      const bg = await effectiveBackground(page, '.disciplines .disciplines-title');
       const color = await page.evaluate(
-        () => getComputedStyle(document.querySelector('.features-preview .section-title')!).color,
+        () => getComputedStyle(document.querySelector('.disciplines .disciplines-title')!).color,
       );
       expect(bg).not.toBeNull();
       const ratio = contrastRatio(parseColor(color), parseColor(bg!.bg));
@@ -199,31 +349,31 @@ test.describe('hero visibility (screenshot defects 1-3)', () => {
     }
   });
 
-  test('every bento card title and description is readable in every theme', async ({ page }) => {
+  test('every discipline panel title and body is readable in every theme', async ({ page }) => {
     for (const t of THEMES) {
-      await page.emulateMedia({ colorScheme: t.colorScheme, contrast: t.contrast });
-      await page.goto('/');
-      const cards = page.locator('.bento-cell');
-      const count = await cards.count();
-      expect(count).toBeGreaterThanOrEqual(4);
+      await page.emulateMedia({ colorScheme: t.colorScheme });
+      await freshPage(page);
+      const panels = page.locator('[data-discipline-panel]');
+      const count = await panels.count();
+      expect(count).toBeGreaterThanOrEqual(6);
       for (let i = 0; i < count; i++) {
-        const card = cards.nth(i);
-        const info = await card.evaluate((el) => {
-          const cs = getComputedStyle(el);
-          const texts = [...el.querySelectorAll('h3, p')].map((t) => ({
-            text: (t.textContent ?? '').trim().slice(0, 40),
-            color: getComputedStyle(t).color,
-            size: parseFloat(getComputedStyle(t).fontSize),
-            weight: getComputedStyle(t).fontWeight,
+        const panel = panels.nth(i);
+        const info = await panel.evaluate((el) => {
+          const bg = getComputedStyle(el.closest('.disciplines-body')!).backgroundColor;
+          const texts = [...el.querySelectorAll('h3, p, li, a')].map((t2) => ({
+            text: (t2.textContent ?? '').trim().slice(0, 40),
+            color: getComputedStyle(t2).color,
+            size: parseFloat(getComputedStyle(t2).fontSize),
+            weight: getComputedStyle(t2).fontWeight,
           }));
-          return { cardBg: cs.backgroundColor, texts };
+          return { bg, texts };
         });
         for (const el of info.texts) {
-          const ratio = contrastRatio(parseColor(el.color), parseColor(info.cardBg));
+          const ratio = contrastRatio(parseColor(el.color), parseColor(info.bg));
           const large = el.size >= 24 || (el.size >= 18.66 && +el.weight >= 700);
           expect(
             ratio,
-            `card "${el.text}" in ${t.name}: ${ratio.toFixed(2)}:1`,
+            `panel "${el.text}" in ${t.name}: ${ratio.toFixed(2)}:1`,
           ).toBeGreaterThanOrEqual(large ? 3 : NORMAL_TEXT);
         }
       }
@@ -232,13 +382,47 @@ test.describe('hero visibility (screenshot defects 1-3)', () => {
 
   test('hero platform line is not dimmed by stacked neutrals', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
-    await page.goto('/');
+    await freshPage(page);
     const el = page.locator('.hero-platforms');
     await expect(el).toBeVisible();
     const fg = await el.evaluate((e) => getComputedStyle(e).color);
-    // On the dark hero gradient the effective background is the dark page.
     const bg = await effectiveBackground(page, '.hero-platforms');
     expect(contrastRatio(parseColor(fg), parseColor(bg!.bg))).toBeGreaterThanOrEqual(NORMAL_TEXT);
+  });
+
+  test('product showcase renders real screenshots with captions and alt text', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+    await freshPage(page);
+    const imgs = page.locator('.showcase img');
+    const count = await imgs.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+    for (let i = 0; i < count; i++) {
+      const img = imgs.nth(i);
+      await expect(img).toBeVisible();
+      await expect(img).not.toHaveJSProperty('complete', false);
+      const alt = await img.getAttribute('alt');
+      expect(alt, `image ${i} alt`).toBeTruthy();
+      expect(alt!.length).toBeGreaterThan(10);
+      // The showcase mixes a full 1440x900 application frame with narrower
+      // cropped details, so a fixed pixel floor is the wrong check. Assert
+      // instead that the file decoded *and* that its intrinsic size matches
+      // the width/height the markup reserved from the manifest — which
+      // catches a failed decode and a layout-shifting mismatch alike.
+      const size = await img.evaluate((el) => {
+        const image = el as HTMLImageElement;
+        return {
+          naturalWidth: image.naturalWidth,
+          naturalHeight: image.naturalHeight,
+          attrWidth: Number(image.getAttribute('width')),
+          attrHeight: Number(image.getAttribute('height')),
+        };
+      });
+      expect(size.naturalWidth, `image ${i} must decode`).toBeGreaterThan(0);
+      expect(size.naturalWidth, `image ${i} intrinsic width`).toBe(size.attrWidth);
+      expect(size.naturalHeight, `image ${i} intrinsic height`).toBe(size.attrHeight);
+    }
+    const placeholders = await page.locator('.showcase-placeholder').count();
+    expect(placeholders).toBe(0);
   });
 });
 
@@ -251,7 +435,7 @@ test.describe('mobile navigation', () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('.nav-links')).toHaveClass(/active/);
-    await expect(page.getByRole('link', { name: 'Product' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Product', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(toggle).toBeFocused();
@@ -265,6 +449,14 @@ test.describe('mobile navigation', () => {
     await expect(page.locator('.nav-links')).toHaveClass(/active/);
     await page.setViewportSize({ width: 1280, height: 900 });
     await expect(page.locator('.nav-links')).not.toHaveClass(/active/);
+  });
+
+  test('mobile menu offers a Download entry', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/');
+    await page.locator('.mobile-menu-toggle').click();
+    await expect(page.locator('.nav-download-link a')).toBeVisible();
+    await expect(page.locator('.nav-download-link a')).toHaveAttribute('href', /\/download/);
   });
 });
 
@@ -295,9 +487,9 @@ test.describe('focus and keyboard', () => {
 
   test('nav links show a visible focus ring in both themes', async ({ page }) => {
     for (const t of THEMES) {
-      await page.emulateMedia({ colorScheme: t.colorScheme, contrast: t.contrast });
-      await page.goto('/');
-      const link = page.getByRole('link', { name: 'Docs' });
+      await page.emulateMedia({ colorScheme: t.colorScheme });
+      await freshPage(page);
+      const link = page.getByRole('link', { name: 'Docs', exact: true });
       await link.focus();
       const outline = await link.evaluate((el) => {
         const cs = getComputedStyle(el);
@@ -311,8 +503,6 @@ test.describe('focus and keyboard', () => {
 
 test.describe('anchor navigation under the sticky header', () => {
   test('hash target clears the sticky header', async ({ page }) => {
-    // about/license always has an in-page anchor; download's #choose-platform
-    // only exists once a release is published.
     await page.goto('/about/license#user-rights-summary');
     await page.waitForTimeout(700);
     const target = page.locator('#user-rights-summary');

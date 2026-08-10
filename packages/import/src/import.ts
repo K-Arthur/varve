@@ -88,15 +88,34 @@ function importImageAsFile(
     }
     let profileId: string | undefined;
     if (inspected.iccProfileBase64) {
-      const registered = upsertIccProfile(
-        doc,
-        inspected.iccProfileBase64,
-        inspected.metadata.icc.kind === 'valid'
-          ? inspected.metadata.icc.profile.description
-          : undefined,
-      );
+      const profile =
+        inspected.metadata.icc.kind === 'valid' ? inspected.metadata.icc.profile : undefined;
+      const registered = upsertIccProfile(doc, inspected.iccProfileBase64, profile?.description);
       doc = registered.document;
       profileId = registered.profileId;
+      if (profile && doc.iccProfiles?.[profileId]) {
+        // Enrich the registry entry with parsed header info (class, colour
+        // space, version, intent) so preflight/UI can label it without
+        // re-parsing bytes.
+        const entry = doc.iccProfiles[profileId];
+        if (entry && !entry.profileClass) {
+          doc = {
+            ...doc,
+            iccProfiles: {
+              ...doc.iccProfiles,
+              [profileId]: {
+                ...entry,
+                ...(profile.profileClass ? { profileClass: profile.profileClass } : {}),
+                ...(profile.colorSpace ? { colorSpace: profile.colorSpace } : {}),
+                ...(profile.version ? { version: profile.version } : {}),
+                ...(profile.renderingIntent !== undefined
+                  ? { renderingIntent: profile.renderingIntent }
+                  : {}),
+              },
+            },
+          };
+        }
+      }
     }
     if (profileId) {
       assetMetadata = {
@@ -111,12 +130,36 @@ function importImageAsFile(
       assetMetadata = { ...(assetMetadata ?? {}), iccStatus: 'invalid' };
     }
 
+    const encoding = inspected.metadata.encoding;
+    if (encoding) {
+      assetMetadata = {
+        ...(assetMetadata ?? {}),
+        colorEncoding: {
+          model: encoding.model,
+          provenance: encoding.provenance,
+          ...(encoding.primaries !== undefined ? { primaries: encoding.primaries } : {}),
+          ...(encoding.transfer !== undefined ? { transfer: encoding.transfer } : {}),
+          ...(encoding.matrixCoefficients !== undefined
+            ? { matrixCoefficients: encoding.matrixCoefficients }
+            : {}),
+          ...(encoding.videoRange !== undefined ? { videoRange: encoding.videoRange } : {}),
+          ...(encoding.bitDepth !== undefined ? { bitDepth: encoding.bitDepth } : {}),
+          ...(encoding.alphaMode !== undefined ? { alphaMode: encoding.alphaMode } : {}),
+          ...(encoding.diagnostics !== undefined && encoding.diagnostics.length > 0
+            ? { diagnostics: encoding.diagnostics }
+            : {}),
+          ...(profileId ? { profileId } : {}),
+        },
+      };
+    }
+
     const registered = findOrCreateEmbeddedAsset(doc, {
       dataUrl: fill.image.src,
       mimeType: inspected.mimeType,
       naturalWidth: inspected.displayedWidth,
       naturalHeight: inspected.displayedHeight,
       ...(assetMetadata ? { metadata: assetMetadata } : {}),
+      ...(inspected.animated ? { animated: inspected.animated } : {}),
     });
     doc = registered.document;
     fill = { ...fill, image: { ...fill.image, assetId: registered.assetId } };

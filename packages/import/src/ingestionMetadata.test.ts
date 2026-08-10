@@ -86,17 +86,19 @@ describe('raster ingestion metadata wiring', () => {
     expect(asset?.naturalWidth).toBe(400);
     expect(asset?.naturalHeight).toBe(240);
   });
-
-  it('writes no metadata block for a plain complete PNG', () => {
+  it('writes no orientation/ICC metadata block for a plain complete PNG', () => {
     const result = importFile('plain.png', buildPngWithoutIccp());
     const node = result.document.nodes[result.nodeIds[0]!]!;
     const fill = node.fills?.find((f) => f.type === 'image');
     const asset = fill?.image?.assetId ? result.document.assets?.[fill.image.assetId] : undefined;
-    expect(asset?.metadata).toBeUndefined();
+    // Orientation and ICC status are absent for an untagged PNG. (Other
+    // metadata lanes, e.g. the colour-encoding vocabulary, may be attached
+    // by their own extraction stages.)
+    expect(asset?.metadata?.orientation).toBeUndefined();
+    expect(asset?.metadata?.iccStatus).toBeUndefined();
     expect(asset?.naturalWidth).toBe(1);
     expect(asset?.naturalHeight).toBe(1);
   });
-
   it('extracts a JPEG ICC profile into the document registry and references it', () => {
     const profile = buildMinimalIccProfile(300, 'Ingest test profile');
     const result = importFile('profiled.jpg', iccJpeg(profile));
