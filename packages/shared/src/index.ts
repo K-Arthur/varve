@@ -342,6 +342,8 @@ export type {
   PresetOrientation,
   PresetSafeArea,
 } from './presetTypes';
+export type { ProductStatusStage } from './product';
+export { PRODUCT_STATUS } from './product';
 export type {
   ProfileProofConverter,
   ProofRenderingIntent,
