@@ -16,7 +16,7 @@ this repository.**
 ## 1. Secrets currently required: none
 
 Until signing is acquired, `release.yml` builds, checksums, SBOMs and drafts a
-release using only `github.token`. The unsigned alpha path must work with zero
+release using only `github.token`. The unsigned prerelease path must work with zero
 configuration, so that a missing secret is never the reason a release fails —
 until `RELEASE_EXPECT_SIGNED=true`, at which point missing signing credentials
 fail the release in `signing-preflight` BEFORE any platform build.
@@ -154,7 +154,7 @@ Checklist (repo settings):
 only exposes environment-scoped secrets to jobs that statically declare that
 environment, and environment names cannot be conditional on policy output —
 attaching `production-signing` to the bundle job would require human approval
-for unsigned alpha builds too. For a solo maintainer the effective controls
+for unsigned prerelease builds too. For a solo maintainer the effective controls
 are: the workflow triggers only on tags / explicit `workflow_dispatch` (never
 `pull_request` — enforced by `scripts/validate-workflows.mjs`), the draft is
 created only after the fail-closed trust gate, and publication requires

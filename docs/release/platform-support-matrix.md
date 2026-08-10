@@ -194,12 +194,13 @@ opened because Apple cannot check it for malicious software. The supported way t
 **System Settings → Privacy & Security → Open Anyway**, which is per-app and reversible.
 
 We will **not** instruct users to run `sudo spctl --master-disable` or otherwise disable
-Gatekeeper system-wide. Downgrading a machine's security posture to install a hobby alpha is
-not an acceptable install workflow, and any documentation that suggests it is teaching a
-dangerous habit.
+Gatekeeper system-wide. Downgrading a machine's security posture to install an unsigned
+beta is not an acceptable install workflow, and any documentation that suggests it is
+teaching a dangerous habit.
 
 Because of this, and because there is no Mac to validate on, **macOS is published as an
-explicitly-labelled developer preview or not at all** — see the distribution decision matrix.
+explicitly-labelled experimental public-beta build (unsigned, un-notarised, minimal
+real-hardware testing) or not at all** — see the distribution decision matrix.
 
 ---
 

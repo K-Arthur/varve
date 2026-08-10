@@ -44,6 +44,42 @@ function imageItem(...srcs: string[]): RenderItem {
   };
 }
 
+/** A compiled table item whose cells carry rich scene content (images). */
+function tableItem(cellContents: RenderItem[]): RenderItem {
+  return {
+    transform: [1, 0, 0, 1, 0, 0],
+    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+    primitive: {
+      kind: 'table',
+      x: 0,
+      y: 0,
+      w: 100,
+      h: 60,
+      cornerRadius: 0,
+      borderColor: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      borderWidth: 0,
+      dividerColor: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      dividerWidth: 0,
+      colPositions: [0, 100],
+      rowPositions: [0, 60],
+      cells: cellContents.map((content, index) => ({
+        x: 0,
+        y: index * 30,
+        w: 100,
+        h: 30,
+        fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+        content,
+        rowIdx: index,
+        columnIdx: 0,
+        rowSpan: 1,
+        columnSpan: 1,
+      })),
+    },
+    opacity: 1,
+    blendMode: 'normal',
+  };
+}
+
 describe('worker ImageBitmap lifecycle', () => {
   const originalCreateImageBitmap = globalThis.createImageBitmap;
 
@@ -234,6 +270,23 @@ describe('canonical resource handles in worker collection', () => {
     ];
     expect(imageSrcsFromIr(ir)).toEqual(['asset-photo', 'data:image/png;base64,MASK']);
     expect(irHasUnsupportedWorkerMasks(ir)).toBe(true);
+  });
+
+  it('collects image fills inside table cell content', () => {
+    const cellImage = imageItem('asset-cell-photo');
+    cellImage.fills![0] = {
+      ...(cellImage.fills![0] as Record<string, unknown>),
+      alphaMask: 'data:image/png;base64,CELLMASK',
+    } as RenderItem['fills'][number];
+    const ir: RenderItem[] = [tableItem([cellImage])];
+    expect(imageSrcsFromIr(ir)).toEqual(['asset-cell-photo', 'data:image/png;base64,CELLMASK']);
+    expect(irHasUnsupportedWorkerMasks(ir)).toBe(true);
+  });
+
+  it('collects image fills inside nested table cell content', () => {
+    const ir: RenderItem[] = [tableItem([tableItem([imageItem('asset-nested')])])];
+    expect(imageSrcsFromIr(ir)).toEqual(['asset-nested']);
+    expect(irHasUnsupportedWorkerMasks(ir)).toBe(false);
   });
 
   it('flags masked fills as worker-unready and keeps the frame on the main thread', async () => {

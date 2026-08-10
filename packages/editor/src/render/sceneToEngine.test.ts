@@ -9,6 +9,7 @@ import {
   addRasterMaskAsset,
   createDocument,
   DocumentCodec,
+  makeFrameNode,
   makeShapeNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
@@ -69,5 +70,35 @@ describe('scene raster masks', () => {
       appliedAt: 1,
     };
     expect(sceneNodeToEngineNode(image).alphaMask).toBe(image.backgroundRemoval.maskDataUrl);
+  });
+
+  it('propagates frame-level raster masks onto the engine node for the export barrier', () => {
+    let doc = addNode(
+      createDocument('Frame mask', true),
+      makeFrameNode('frame', { name: 'Frame', w: 100, h: 80 }),
+    );
+    doc = addRasterMaskAsset(
+      doc,
+      'frame',
+      {
+        id: 'mask',
+        mimeType: 'image/png',
+        dataUrl: PNG_DATA_URL,
+        width: 1,
+        height: 1,
+        byteLength: 68,
+      },
+      undefined,
+      { coordinateSpace: 'container-local-pixels' },
+    );
+    const flattened = flattenSceneToEngine(doc, ['frame']);
+    expect(flattened.nodes[0]?.alphaMask).toBe(PNG_DATA_URL);
+    // Frame masks are applied by the structural replay; the engine node only
+    // carries the identity so resource preflight can see it. The rect
+    // path's alphaMask must never leak through showOriginalBackgroundNodeId.
+    expect(
+      sceneNodeToEngineNode(doc.nodes.frame!, { showOriginalBackgroundNodeId: 'frame' }, doc)
+        .alphaMask,
+    ).toBeUndefined();
   });
 });
