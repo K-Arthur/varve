@@ -54,7 +54,7 @@ both derive everything from real bytes:
 ```
 release.yml  →  dist/release/release-manifest.json + SHA256SUMS.txt + SBOMs
                         │
-                        ├─ CI path (release: published → website-deploy.yml)
+                        ├─ CI path (release workflow `completed` → website-deploy.yml)
                         │    fetch-website-release.mjs
                         │      • channel policy: latest published STABLE, else
                         │        latest published prerelease; drafts never
@@ -98,8 +98,9 @@ from elsewhere. This is the default committed state today.
 | Anything else | — | No material advantage |
 
 **Deployment** is `.github/workflows/website-deploy.yml`: pushes touching
-`apps/website/**` or `scripts/release/**`, plus `release: published` (the
-download page is rebuilt from the exact published assets), plus manual
+`apps/website/**` or `scripts/release/**`, plus a `workflow_run` trigger
+fired by the Release workflow's `completed` event (the download page is
+rebuilt from the exact published assets), plus manual
 dispatch. The workflow runs the full quality gate (typecheck, unit tests,
 both-mode builds, axe/link e2e) before uploading, and smoke-checks the live
 URL after deploying (`scripts/website/smoke-pages.mjs`). With a custom domain
@@ -174,9 +175,10 @@ platforms, check the signature in the OS UI as well.
 
 Outstanding:
 
-- [ ] **Authentic screenshots.** The site currently has none of the application.
-      These must be real captures, not mockups — never generated mockups
-      presented as the product
+- [x] **Authentic screenshots.** Real captures of the application now exist
+      (captured 2026-08-09 via the deterministic pipeline;
+      `apps/website/public/screenshots/`, driven by
+      `apps/website/src/data/screenshot-manifest.json` + `ProductShowcase.astro`)
 - [ ] Contact method that is not a personal address — needs the domain, or a
       GitHub-only channel in the interim
 - [ ] Third-party licence page rendering `THIRD_PARTY_NOTICES`
@@ -212,7 +214,7 @@ Target WCAG 2.2 AA.
 - [ ] Every internal link resolves under the `/Varve` base path
 - [ ] `sitemap.xml` and `robots.txt` serve correctly
 - [ ] OG image renders in a link preview
-- [ ] Real screenshots added
+- [x] Real screenshots added (2026-08-09)
 - [ ] Accessibility pass (§6)
 - [ ] Mobile layout checked at 320/375/768 px
 - [ ] Download page verified against a **real** release manifest

@@ -3,9 +3,11 @@
 "Varve" is a trademark of K-Arthur (Varve Founder). The Varve logo,
 wordmark, and product icons are also protected as trademarks.
 
-The application was previously named "Strata"; the three-layer logo mark is
-unchanged. This policy governs how you may refer to Varve and use its
-branding.
+The application was previously named "Strata"; the logo mark kept its
+three-layer structure through the rename (the 2026-06-30 rework changed the
+layer geometry from alternating to cascading tilt — see
+[docs/brand-guide.md](docs/brand-guide.md) for the current mark). This policy
+governs how you may refer to Varve and use its branding.
 
 ## Permitted without permission
 
@@ -52,4 +54,4 @@ branding.
 
 ## Questions?
 
-Open an issue in the Varve repository or start a discussion.
+Open an issue in the Varve repository.

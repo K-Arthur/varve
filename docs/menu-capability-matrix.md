@@ -39,6 +39,8 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 |------|-----|-----|-------|-----|-------|
 | `new` | — | ✓ | ✓ | ✓ | |
 | `open` | — | ✓ | ✓ | ✓ | |
+| `openRecent` | — | ✓ | ✓ | ✓ | |
+| `reopenLast` | — | ✓ | ✓ | ✓ | |
 | `save` | — | ✓ | ✓ | ✓ | |
 | `saveAs` | — | ✓ | ✓ | ✓ | |
 | `import` | — | ✓ | ✓ | ✓ | |
@@ -118,6 +120,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `workspaceDrawing` | — | ✓ | ✓ | ✓ | |
 | `workspaceImage` | — | ✓ | ✓ | ✓ | |
 | `workspaceMotion` | — | ✓ | ✓ | ✓ | |
+| `workspaceLogo` | — | ✓ | ✓ | ✓ | |
 | `resetWorkspace` | — | ✓ | ✓ | ✓ | |
 | `toggleDistractionFree` | — | ✓ | ✓ | ✓ | |
 | `toggleBeforeAfterCompare` | — | ✓ | ✓ | ✓ | |
@@ -218,11 +221,16 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 
 | Status | Count |
 |--------|-------|
-| Always visible | 94 items |
+| Always visible | 134 items |
 | Tauri-only (`archive`) | 2 items |
 | Browser-only (¬`archive`) | 2 items |
 | Browser-only (¬`nativeMenu`) | 1 item (installDesktopApp) |
-| **Total** | **99 items** |
+| **Total** | **139 items** |
+
+Counts are derived from the tables above (136 item rows plus `openRecent`,
+`reopenLast`, `workspaceLogo`). If you add or remove menu items in
+`packages/editor/src/menu/defs.ts`, update the tables and this summary
+together.
 
 No menu item currently requires `fs.watch`, `fs.recentPaths`, `multiWindow`,
 `fonts.local`, `clipboard.image`, `notifications`, or `autoUpdate` — these

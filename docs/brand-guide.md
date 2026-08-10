@@ -20,7 +20,11 @@ These three distinct colors represent the geological strata concept - each layer
 - Neutral dark: #10151F (text, dark backgrounds)
 - Neutral light: #f5f7fa (light backgrounds)
 
-All three brand colors pass 3:1 contrast on both light (#f5f7fa) and dark (#10151F) backgrounds.
+On dark backgrounds (#10151F) all three brand colors pass 3:1 contrast. On
+light backgrounds (#f5f7fa) only terracotta passes 3:1; teal (1.8:1) and
+sandstone (2.9:1) are below the WCAG threshold and are used as decorative
+layers there — do not set text or essential UI in teal/sandstone on light
+surfaces (see the contrast table in §4).
 
 ---
 
@@ -70,7 +74,10 @@ Same cascade-right direction; all within 16 × 16 bounds.
 
 ## 4. Colour Tokens & Rationale
 
-The three brand colours map to geological depth. Crucially, all three pass **≥ 3:1 contrast** against both `#f5f7fa` (light) and `#10151F` (dark), making the mark fully legible in both themes without a dark-mode variant of the mark itself.
+The three brand colours map to geological depth. All three pass **≥ 3:1
+contrast** against `#10151F` (dark), so the mark needs no dark-mode variant
+of its own. On `#f5f7fa` (light) only terracotta reaches 3:1; teal and
+sandstone are below threshold there and function as decorative layers only.
 
 | Token | Hex | Role | Contrast on dark | Contrast on light |
 |---|---|---|---|---|
@@ -89,14 +96,14 @@ Teal → `#878787` (lum 52.7 %), Sandstone → `#6B6B6B` (lum 42.2 %), Terracott
 
 ## 5. Lockup Specifications
 
-### Horizontal wordmark (`strata-wordmark.svg`)
+### Horizontal wordmark (`varve-wordmark.svg`)
 - **ViewBox:** `0 14 272 100` — crops 14 px top/bottom from the 128 px coordinate space, leaving 12 px breathing room above/below mark
 - **Mark centre y:** 64 (in original coords) → 50 in viewport
 - **Text baseline y:** 80 → 66 in viewport; cap-height top → 31 in viewport
 - **Gap mark→text:** 26.6 px (≈ 0.75× cap-height) — tight, connected feel
 - **Text right:** 270.14 px within 272 px ✓
 
-### Stacked lockup (`strata-wordmark-stacked.svg`)
+### Stacked lockup (`varve-wordmark-stacked.svg`)
 - **ViewBox:** `0 14 156 164`
 - **Mark centred:** `translate(14,0)` → geometric centre x = 78; text centre x ≈ 78.4 ✓
 - **Gap mark-bottom → text-cap:** 21 px (≈ 2.5 U)
@@ -145,19 +152,19 @@ A **single diagonal gradient** sweeps teal → sandstone → terracotta across a
 
 | Variant | File | Background | Mark colours | Text |
 |---|---|---|---|---|
-| Full colour (light) | `strata-wordmark.svg` | Transparent | Teal/Sandstone/Terracotta flat | `#10151F` |
-| Full colour (dark) | `strata-wordmark-dark.svg` | Transparent | Teal/Sandstone/Terracotta flat | `#F8FAFC` |
-| Monochrome | `strata-wordmark-mono.svg` | Transparent | `#878787` / `#6B6B6B` / `#313131` | `#10151F` |
-| Stacked (light) | `strata-wordmark-stacked.svg` | Transparent | Teal/Sandstone/Terracotta flat | `#10151F` |
+| Full colour (light) | `varve-wordmark.svg` | Transparent | Teal/Sandstone/Terracotta flat | `#10151F` |
+| Full colour (dark) | `varve-wordmark-dark.svg` | Transparent | Teal/Sandstone/Terracotta flat | `#F8FAFC` |
+| Monochrome | `varve-wordmark-mono.svg` | Transparent | `#878787` / `#6B6B6B` / `#313131` | `#10151F` |
+| Stacked (light) | `varve-wordmark-stacked.svg` | Transparent | Teal/Sandstone/Terracotta flat | `#10151F` |
 | Mark only | `varve-icon.svg` | Transparent | Teal/Sandstone/Terracotta flat | — |
 | App icon (light) | `varve-app-icon.svg` | `#FAFAF8` rounded-rect | Flat | — |
 | App icon (dark) | `varve-app-icon-dark.svg` | `#0D0F14` rounded-rect | Cross-mark sweep | — |
 | Symbolic (system) | `varve-icon-symbolic.svg` | Transparent | `currentColor` | — |
 | Per-layer gradient — mark | `varve-icon-gradient.svg` | Transparent | Per-layer gradient | — |
-| Per-layer gradient — horizontal | `strata-wordmark-gradient.svg` | Transparent | Per-layer gradient | `#10151F` |
-| Per-layer gradient — stacked | `strata-wordmark-stacked-gradient.svg` | Transparent | Per-layer gradient | `#10151F` |
-| On black — horizontal | `strata-wordmark-on-black.svg` | `#000000` | Cross-mark sweep | `#FFFFFF` |
-| On black — stacked | `strata-wordmark-stacked-on-black.svg` | `#000000` | Cross-mark sweep | `#FFFFFF` |
+| Per-layer gradient — horizontal | `varve-wordmark-gradient.svg` | Transparent | Per-layer gradient | `#10151F` |
+| Per-layer gradient — stacked | `varve-wordmark-stacked-gradient.svg` | Transparent | Per-layer gradient | `#10151F` |
+| On black — horizontal | `varve-wordmark-on-black.svg` | `#000000` | Cross-mark sweep | `#FFFFFF` |
+| On black — stacked | `varve-wordmark-stacked-on-black.svg` | `#000000` | Cross-mark sweep | `#FFFFFF` |
 
 ---
 
@@ -182,32 +189,32 @@ packages/ui/src/icons/
   varve-app-icon.svg                    ← 1024×1024 master with light bg (source for build)
   varve-app-icon-dark.svg               ← 1024×1024 master with dark bg, cross-sweep gradient
   varve-icon-symbolic.svg               ← 16×16 freedesktop symbolic, currentColor
-  strata-wordmark.svg                    ← horizontal lockup (light bg, flat colour)
-  strata-wordmark-dark.svg               ← horizontal lockup (dark text on transparent)
-  strata-wordmark-mono.svg               ← monochrome lockup
-  strata-wordmark-stacked.svg            ← stacked lockup (light bg, flat colour)
-  strata-wordmark-only.svg               ← text paths only (no mark)
+  varve-wordmark.svg                    ← horizontal lockup (light bg, flat colour)
+  varve-wordmark-dark.svg               ← horizontal lockup (dark text on transparent)
+  varve-wordmark-mono.svg               ← monochrome lockup
+  varve-wordmark-stacked.svg            ← stacked lockup (light bg, flat colour)
+  varve-wordmark-only.svg               ← text paths only (no mark)
   varve-icon-gradient.svg               ← mark only, per-layer gradients
-  strata-wordmark-gradient.svg           ← horizontal lockup, per-layer gradients
-  strata-wordmark-stacked-gradient.svg   ← stacked lockup, per-layer gradients
-  strata-wordmark-on-black.svg           ← horizontal lockup, #000 bg, cross-sweep gradient
-  strata-wordmark-stacked-on-black.svg   ← stacked lockup, #000 bg, cross-sweep gradient
+  varve-wordmark-gradient.svg           ← horizontal lockup, per-layer gradients
+  varve-wordmark-stacked-gradient.svg   ← stacked lockup, per-layer gradients
+  varve-wordmark-on-black.svg           ← horizontal lockup, #000 bg, cross-sweep gradient
+  varve-wordmark-stacked-on-black.svg   ← stacked lockup, #000 bg, cross-sweep gradient
   _backup_2026-06-30/                    ← originals before this rework
 
 apps/desktop/src-tauri/icons/
-  varve-icon.svg                    ← mark synced (no bg)
-  strata.svg                         ← mark + bg (Tauri window icon)
-  icon.icns / icon.ico / *.png       ← generated by build-icons.sh
+  strata.svg                        ← mark + bg (Tauri window icon; filename retained from the pre-rename era)
+  strata-icon.svg                   ← mark only (filename retained)
+  icon.icns / icon.ico / *.png      ← generated by build-icons.sh
   hicolor/scalable/apps/dev.varve.desktop.svg
   hicolor/symbolic/apps/dev.varve.desktop-symbolic.svg
   hicolor/{16,22,24,32,48,64,96,128,256,512,1024}x*/apps/dev.varve.desktop.png
 
 apps/desktop/public/icons/
-  varve-icon.svg / strata-wordmark.svg
+  varve-icon.svg
   favicon.ico / favicon.svg
   apple-touch-icon.png               ← 180×180
   icon-192.png / icon-512.png        ← PWA standard
-  icon-192-maskable.png / icon-512-maskable.png  ← PWA maskable
+  icon-maskable-192.png / icon-maskable-512.png  ← PWA maskable
 ```
 
 **Build command** (regenerates all platform PNGs, `.icns`, `.ico`, web favicons from **`varve-app-icon.svg` only**):

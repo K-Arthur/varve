@@ -71,7 +71,7 @@ opentype.js (MIT)
 
 fractional-indexing (MIT)
   Copyright (c) David Luecke
-  https://github.com/rocicruz/fractional-indexing
+  https://github.com/rocicorp/fractional-indexing
   Licensed under MIT License.
 
 -----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ wasm-bindgen (MIT OR Apache-2.0)
 ort (MIT)
   ONNX Runtime bindings for Rust
   Copyright (c) pyke.io and contributors
-  Licensed under MIT License.
+  Licensed under MIT OR Apache-2.0 (dual).
 
 -----------------------------------------------------------------------------
 ONNX AI Models

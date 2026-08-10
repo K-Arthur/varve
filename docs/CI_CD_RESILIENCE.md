@@ -149,7 +149,7 @@ just ci-health --runs 20       # runs show STUCK / INFRA (runner-unavailable)
 5. Trigger the cheap single-job smoke workflow to confirm the pipeline is
    healthy before the full 3-OS matrix burns minutes again:
    ```bash
-   gh workflow run pipeline-smoke.yml
+   gh workflow run ci-smoke.yml
    ```
 
 **Hardening shipped after this incident:**
@@ -283,7 +283,7 @@ just ci-tools-test
 
 The local environment matches CI closely:
 
-- Node 26, pnpm 11.9, and Rust 1.96 are installed user-local.
+- Node 26, pnpm 11.9, and Rust 1.97 are installed user-local.
 - Tauri 2 system dependencies are the same as `apt` in the Ubuntu workflows because both are the WebKitGTK 4.1 / GTK3 stack.
 - `act` is the recommended local runner for YAML/dependency validation before push.
 - `gh` is required for the debug tools; install with `bash scripts/install-ci-tooling.sh` (also installs `act` and Docker).

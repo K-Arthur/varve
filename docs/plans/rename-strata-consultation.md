@@ -10,6 +10,12 @@ account registrations, or trademark filings have been made.**
 > explicit go-ahead from the owner, proceeding through milestones M0–M4 in
 > §9, each verified with `just gate` before commit.
 
+> **OUTCOME (2026-08-04):** the project was renamed to
+> **Varve**, not Ply. This consultation record preserves the intermediate
+> preference and the reasoning trail; the rename itself is complete (see
+> `CHANGELOG.md` [0.1.0] "About the name" and `TRADEMARKS.md`). Do not act
+> on the "Ply" preference — it was not the final choice.
+
 This document is a decision-support package. It contains:
 
 1. The full candidate list (40 names).

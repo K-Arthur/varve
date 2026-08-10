@@ -1,4 +1,4 @@
-# ADR-0016 — Unified Thumbnail System
+# ADR-0218 — Unified Thumbnail System
 
 - Status: accepted
 - Date: 2026-08-09
