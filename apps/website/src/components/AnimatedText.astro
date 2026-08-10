@@ -107,7 +107,8 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
     justify-content: center;
     opacity: 0;
     visibility: hidden;
-    clip-path: inset(0 0 100% 0);
+    /* See the keyframes below for why the insets are negative. */
+    clip-path: inset(-30% 0 130% 0);
     transform: translateY(0.45em);
     will-change: transform, opacity, clip-path;
   }
@@ -134,15 +135,23 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
     }
   }
 
+  /* The reveal clips against the item's border box, which is the heading's
+     line box — and the heading runs at line-height 1. Clipping to `inset(0)`
+     therefore slices the ascenders and descenders off the phrase ("Typography."
+     lost the tails of its y, p and g). Every inset is given 30% of vertical
+     slack so the clip edge never lands on a glyph: the shown state extends
+     past the box in both directions, and the hidden states collapse the band
+     to zero height outside it. Horizontal insets stay at 0 — the reveal is a
+     vertical wipe. */
   @keyframes varve-phrase-in {
     from {
       opacity: 0;
-      clip-path: inset(0 0 100% 0);
+      clip-path: inset(-30% 0 130% 0);
       transform: translateY(0.45em);
     }
     to {
       opacity: 1;
-      clip-path: inset(0 0 0 0);
+      clip-path: inset(-30% 0 -30% 0);
       transform: none;
     }
   }
@@ -150,12 +159,12 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
   @keyframes varve-phrase-out {
     from {
       opacity: 1;
-      clip-path: inset(0 0 0 0);
+      clip-path: inset(-30% 0 -30% 0);
       transform: none;
     }
     to {
       opacity: 0;
-      clip-path: inset(0 0 100% 0);
+      clip-path: inset(-30% 0 130% 0);
       transform: translateY(-0.3em);
     }
   }
