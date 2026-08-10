@@ -27,7 +27,9 @@ const Tag = as;
   /* Initial hidden state applies only when motion is actually allowed:
      the media query in global.css forces the final state otherwise. */
   @media (prefers-reduced-motion: no-preference) {
-    html:not([data-motion='static']) .reveal {
+    /* Gated on the pre-paint JS flag for the same reason as the base rule in
+       global.css: nothing may hide content that only JavaScript can reveal. */
+    html[data-reveal='js']:not([data-motion='static']) .reveal {
       opacity: 0;
       transform: translateY(1.25rem);
       transition:

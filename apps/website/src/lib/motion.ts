@@ -47,6 +47,10 @@ export function easeOut(t: number): number {
 let revealObserver: IntersectionObserver | null = null;
 
 export function initReveals(): void {
+  // Tells the pre-paint safety timer (Layout.astro) that the observer is in
+  // charge, so it does not force everything visible behind our back.
+  document.documentElement.dataset.revealReady = 'true';
+
   if (typeof IntersectionObserver === 'undefined') {
     // Ancient engines: reveal everything immediately.
     for (const el of document.querySelectorAll('[data-reveal]')) {
