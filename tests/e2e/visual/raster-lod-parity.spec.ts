@@ -130,7 +130,7 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
       const w = Math.min(A.width, B.width);
       const h = Math.min(A.height, B.height);
       const luma = (d: Uint8ClampedArray, i: number) =>
-        0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        0.299 * (d[i] ?? 0) + 0.587 * (d[i + 1] ?? 0) + 0.114 * (d[i + 2] ?? 0);
 
       // Per-pixel absolute luma delta between the arms.
       const deltas = new Float32Array(w * h);
@@ -144,7 +144,7 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
         let s = 0;
         let n = 0;
         for (let k = lo; k < hi; k++) {
-          s += arr[k];
+          s += arr[k] ?? 0;
           n++;
         }
         return n ? s / n : 0;
@@ -175,7 +175,7 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
         let m = 0;
         for (let y = 64; y < h - 64; y += 4) {
           for (let x = 64; x < w - 64; x += 4) {
-            if (x % 128 < 60 && y % 128 < 60) m = Math.max(m, deltas[y * w + x]);
+            if (x % 128 < 60 && y % 128 < 60) m = Math.max(m, deltas[y * w + x] ?? 0);
           }
         }
         return m;
@@ -188,7 +188,7 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
         let m = 0;
         for (let y = 254; y <= 290; y++) {
           for (let x = 64; x < Math.min(640, w - 64); x++) {
-            m = Math.max(m, deltas[y * w + x]);
+            m = Math.max(m, deltas[y * w + x] ?? 0);
           }
         }
         return m;
