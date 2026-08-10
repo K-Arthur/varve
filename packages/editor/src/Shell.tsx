@@ -45,7 +45,6 @@ import {
   type FindReplaceLayerHandle,
   OnboardingLayer,
   type OnboardingLayerHandle,
-  RecoveryManager,
   ThumbnailPickerHost,
   VectorizeDialogHost,
 } from './components/Shell';
