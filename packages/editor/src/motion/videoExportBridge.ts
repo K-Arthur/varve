@@ -193,6 +193,12 @@ export async function createVideoFrameRenderer(config: VideoExportBridgeConfig) 
   const canvas = createExportCanvas(options.width, options.height);
 
   const sampledTimes: number[] = [];
+  // Flatten once: the doc walk, style resolution, and world-transform pass
+  // are O(n) with heavy constants, and the flattened nodes only change when
+  // the document changes — not per output frame. Frames get a structured
+  // clone of the pristine set so timeline/media overrides never leak between
+  // frames (applyTimelineOverrides/applyMediaFrameOverrides mutate in place).
+  const flat = flattenVisibleNodesForVideo(doc);
 
   const renderFrame = async (timeMs: number, _frameIndex: number): Promise<Uint8Array> => {
     sampledTimes.push(timeMs);
@@ -202,8 +208,8 @@ export async function createVideoFrameRenderer(config: VideoExportBridgeConfig) 
       | null;
     if (!ctx) throw new Error('2D context unavailable');
 
-    const { ids, nodes } = flattenVisibleNodesForVideo(doc);
-    applyTimelineOverrides(doc, timeline.id, timeMs, ids, nodes);
+    const nodes = flat.nodes.map((n) => structuredClone(n));
+    applyTimelineOverrides(doc, timeline.id, timeMs, flat.ids, nodes);
     await applyMediaFrameOverrides(doc, timeMs, nodes);
 
     const ir = await engine.buildIr({ nodes });

@@ -1,13 +1,80 @@
 /* ── Graph Editor ──────────────────────────────────────────────────────────── */
 
+/* Track tones are theme-scoped custom properties (never inline hex). The
+   light-theme set is deliberately mid-dark: every value lands at relative
+   luminance 0.186-0.190, which clears WCAG 1.4.11 (3:1) against both the
+   light sunken surface (3.7-3.8:1) and the dark one (4.3:1+). Dark and
+   high-contrast keep the original vivid One-Dark-inspired palette
+   (10.4-14.8:1 on dark). */
 .graph-editor {
+  --graph-track-0: oklch(0.5 0.245 188);
+  --graph-track-1: oklch(0.605 0.245 25);
+  --graph-track-2: oklch(0.565 0.245 250);
+  --graph-track-3: oklch(0.605 0.245 290);
+  --graph-track-4: oklch(0.575 0.245 85);
+  --graph-track-5: oklch(0.525 0.245 150);
+  --graph-track-6: oklch(0.59 0.245 55);
+  --graph-track-7: oklch(0.5 0.245 200);
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-canvas);
+  background: var(--color-surface-sunken);
   border-top: 1px solid var(--color-border-subtle);
   min-height: 200px;
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .graph-editor,
+[data-theme="high-contrast"] .graph-editor {
+  --graph-track-0: oklch(0.871 0.097 191.425);
+  --graph-track-1: oklch(0.815 0.079 12.614);
+  --graph-track-2: oklch(0.858 0.068 236.528);
+  --graph-track-3: oklch(0.837 0.092 319.493);
+  --graph-track-4: oklch(0.914 0.057 86.638);
+  --graph-track-5: oklch(0.886 0.063 131.02);
+  --graph-track-6: oklch(0.862 0.057 71.165);
+  --graph-track-7: oklch(0.853 0.064 203.87);
+}
+
+.graph-editor__curve--t0,
+.graph-editor__keyframe-dot--t0 {
+  stroke: var(--graph-track-0);
+  fill: var(--graph-track-0);
+}
+.graph-editor__curve--t1,
+.graph-editor__keyframe-dot--t1 {
+  stroke: var(--graph-track-1);
+  fill: var(--graph-track-1);
+}
+.graph-editor__curve--t2,
+.graph-editor__keyframe-dot--t2 {
+  stroke: var(--graph-track-2);
+  fill: var(--graph-track-2);
+}
+.graph-editor__curve--t3,
+.graph-editor__keyframe-dot--t3 {
+  stroke: var(--graph-track-3);
+  fill: var(--graph-track-3);
+}
+.graph-editor__curve--t4,
+.graph-editor__keyframe-dot--t4 {
+  stroke: var(--graph-track-4);
+  fill: var(--graph-track-4);
+}
+.graph-editor__curve--t5,
+.graph-editor__keyframe-dot--t5 {
+  stroke: var(--graph-track-5);
+  fill: var(--graph-track-5);
+}
+.graph-editor__curve--t6,
+.graph-editor__keyframe-dot--t6 {
+  stroke: var(--graph-track-6);
+  fill: var(--graph-track-6);
+}
+.graph-editor__curve--t7,
+.graph-editor__keyframe-dot--t7 {
+  stroke: var(--graph-track-7);
+  fill: var(--graph-track-7);
 }
 
 .graph-editor__header {
@@ -55,10 +122,18 @@
 }
 
 .graph-editor__keyframe-dot {
-  stroke: var(--color-bg-canvas);
+  stroke: var(--color-surface-sunken);
   stroke-width: 1.5;
   cursor: grab;
   transition: r 0.1s ease;
+}
+
+/* Visible focus indicator (WCAG 2.4.7): the transparent button that owns
+   focus sits over the dot; when it gains focus the dot grows and gets a
+   focus-ring halo instead of the 1px radius change it used to have. */
+.graph-editor__keyframe-dot--focused {
+  stroke: var(--color-interactive-focus-ring);
+  stroke-width: 2.5;
 }
 
 .graph-editor__keyframe-dot:hover {

@@ -16,7 +16,7 @@ describe('TimelinePanel rendering', () => {
         autoKeyframe={false}
         motionPresets={{}}
         selectedTrackIds={[]}
-        selectedKeyframeIndex={null}
+        selectedKeyframe={null}
         onPlay={() => {}}
         onPause={() => {}}
         onStop={() => {}}
