@@ -18,7 +18,12 @@
  *    unavailable resources.
  */
 import type { SceneNode as EngineNode } from '@varve/engine';
-import { getImageCache, type ImageErrorCode, ImageLoadError } from '@varve/engine';
+import {
+  getImageCache,
+  type ImageErrorCode,
+  ImageLoadError,
+  walkTableCellContents,
+} from '@varve/engine';
 import { isHandleShaped, resolveSourcesForLoad } from '../render/collectImageBitmaps';
 
 /** One required image dependency of an export snapshot. */
@@ -90,6 +95,18 @@ export function collectEngineImageResources(nodes: readonly EngineNode[]): Requi
         push(fill.pattern.tileSrc, contextOf(node, 'pattern'));
       }
     }
+    // Rich scene content compiled into table cells (images inside cells)
+    // rides inside the table primitive, not the node's own fills — collect
+    // it so export replay never bakes the gray placeholder for a cell image
+    // that is still decoding (or has permanently failed).
+    walkTableCellContents(node, (content) => {
+      for (const fill of content.fills ?? []) {
+        if (fill.visible === false) continue;
+        if (fill.type === 'image' && fill.image?.src) {
+          push(fill.image.src, contextOf(node, 'table-cell'));
+        }
+      }
+    });
     // Node-level alpha masks (background removal / native raster masks) are
     // propagated onto image FillIRs by buildIr; at the engine-node level
     // they live here.

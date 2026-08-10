@@ -3,6 +3,15 @@
 **Date:** 2026-08-03 (last updated 2026-08-04)
 **Constraint:** solo developer, CAD $200 total budget, no signing assets, no domain, no Mac.
 
+> **Status (2026-08-10):** the §5 sequencing plan below was superseded in
+> practice — v0.1.0 shipped directly as a public, non-prerelease release
+> (public beta) on GitHub Releases for Linux, Windows, and macOS instead of
+> the planned alpha-first rollout. Stage names in this dated record
+> ("Public alpha", "Beta") are the plan's vocabulary, not Varve's current
+> positioning — the canonical maturity label is **public beta**
+> (`PRODUCT_STATUS` in `@varve/shared`). The scoring and per-channel
+> analysis (§1–§4) remains current guidance for future channels.
+
 The design goal is the **smallest maintainable release surface**. Every channel added is a
 recurring tax: another artifact to build, smoke-test, checksum, document, and support. For a
 first release by one person, two channels per platform is the ceiling.

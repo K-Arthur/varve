@@ -148,7 +148,7 @@ retry button. This removes the failure class instead of adding a timeout to it.
 
 ---
 
-## Critical path to a first alpha
+## Critical path to the first release
 
 ```
 P0-11 (green CI build)  →  P0-12 (VM install test)  →  alpha

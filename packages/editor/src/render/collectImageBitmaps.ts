@@ -7,7 +7,12 @@
  * actually references.
  */
 import type { RenderItem } from '@varve/engine';
-import { getImageCache, isImageResourceHandle, resolveImageResourceHandle } from '@varve/engine';
+import {
+  getImageCache,
+  isImageResourceHandle,
+  resolveImageResourceHandle,
+  walkTableCellContents,
+} from '@varve/engine';
 import { checkFault } from './faultInjection';
 import { estimateRgbaBytes } from './renderBitmapBudget';
 
@@ -69,7 +74,9 @@ function fillHasAlphaMask(fill: Record<string, unknown>): boolean {
  * Collect every image identity referenced by IR fill stacks: canonical
  * resource handles (asset-derived) on image fills, legacy raw sources, and
  * raster-mask (alphaMask) resources so a masked fill is never transported
- * without its mask.
+ * without its mask. Rich scene content compiled into table cells (images
+ * inside cells) is walked as well — a worker frame without those bitmaps
+ * would replay the cells as permanent gray placeholders.
  */
 export function imageSrcsFromIr(ir: RenderItem[]): string[] {
   const srcs = new Set<string>();
@@ -104,6 +111,14 @@ export function imageSrcsFromIr(ir: RenderItem[]): string[] {
     ) {
       srcs.add(primitive.src);
     }
+    walkTableCellContents(item, (content) => {
+      for (const contentFill of content.fills ?? []) {
+        if (contentFill.type === 'image' && contentFill.src && contentFill.visible !== false) {
+          srcs.add(contentFill.src);
+          if (fillHasAlphaMask(contentFill)) srcs.add(String(contentFill.alphaMask));
+        }
+      }
+    });
   }
   return [...srcs];
 }
@@ -142,7 +157,8 @@ export function resolveSourcesForLoad(srcs: readonly string[]): string[] | null 
  * Worker readiness gate: a masked image fill must never reach the worker
  * without its mask (the worker has no DOM canvas to composite masks, so an
  * unmasked frame would be materially different). Scenes containing masked
- * fills are refused here and stay on the main-thread path.
+ * fills — including masked images compiled into table cells — are refused
+ * here and stay on the main-thread path.
  */
 export function irHasUnsupportedWorkerMasks(ir: RenderItem[]): boolean {
   for (const item of ir) {
@@ -153,6 +169,21 @@ export function irHasUnsupportedWorkerMasks(ir: RenderItem[]): boolean {
     if (fill && typeof fill === 'object' && fill.type === 'image' && fillHasAlphaMask(fill)) {
       return true;
     }
+    let masked = false;
+    walkTableCellContents(item, (content) => {
+      if (masked) return;
+      for (const contentFill of content.fills ?? []) {
+        if (
+          contentFill.type === 'image' &&
+          contentFill.visible !== false &&
+          fillHasAlphaMask(contentFill)
+        ) {
+          masked = true;
+          return;
+        }
+      }
+    });
+    if (masked) return true;
   }
   return false;
 }
