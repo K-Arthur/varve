@@ -14,6 +14,28 @@ export async function navigateToEditor(page: Page, path = '/') {
   // first paint on a fresh vite transform cache: ~76s on this machine, so
   // 45s was not enough and failed on every platform in CI.
   await page.goto(path, { timeout: 120000, waitUntil: 'domcontentloaded' });
+  // A previously crashed or interrupted test run can leave the app in safe
+  // mode (localStorage-backed): it blocks the whole UI behind the "Varve had
+  // trouble starting" gate. Clear the flag and reload so the canvas flow can
+  // start at all — mirroring navigateToCleanEditor in helpers/nav.ts.
+  const inSafeMode = await page.evaluate(() => localStorage.getItem('varve:safe-mode') !== null);
+  if (inSafeMode) {
+    await page.evaluate(() => localStorage.removeItem('varve:safe-mode'));
+    await page.reload({ timeout: 120000 });
+  }
+  // Crash-recovery dialog (IndexedDB-backed): "Review my documents" only
+  // dismisses the dialog, so clicking it is side-effect free.
+  const recovery = page.locator('dialog[open]').filter({
+    hasText: /closed unexpectedly|recover your documents/i,
+  });
+  if ((await recovery.count()) > 0) {
+    await recovery
+      .getByRole('button', { name: /review my documents/i })
+      .first()
+      .click({ timeout: 5000 })
+      .catch(() => undefined);
+    await page.waitForTimeout(400);
+  }
   const newBtn = page.getByRole('button', { name: /^new$/i });
   await newBtn.waitFor({ state: 'visible', timeout: 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
