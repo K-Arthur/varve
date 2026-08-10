@@ -9,8 +9,7 @@
 
 import { THUMBNAIL_RENDERER_VERSION } from '@varve/engine';
 import { contentHash } from '@varve/platform';
-import type { Document } from '@varve/scene';
-import { serializeDocument } from '@varve/scene';
+import { type Document, DocumentCodec } from '@varve/scene';
 import {
   computeThumbnailIdentity,
   type ThumbnailIdentity,
@@ -26,10 +25,17 @@ export interface ThumbnailIdentityOptions {
   variant: ThumbnailVariant;
 }
 
-/** Serialize a document deterministically (stable across saves). */
+/**
+ * Serialize a document to the canonical revision string. MUST match what
+ * the platform persists as `FileEntry.contentHash` (the editor's
+ * `DocumentCodec.encode` output hashed with `contentHash`) — the Home
+ * loader derives its identity from the persisted `contentHash`, so a
+ * different serialization here would produce a different cache key and
+ * every thumbnail would miss on Home.
+ */
 export function documentRevisionHash(doc: Document): string {
   try {
-    return contentHash(serializeDocument(doc));
+    return contentHash(DocumentCodec.encode(doc));
   } catch {
     return contentHash(JSON.stringify(doc));
   }

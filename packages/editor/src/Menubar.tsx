@@ -328,6 +328,10 @@ function buildMenus(
           ariaKeyshortcut: ks('saveAs'),
           action: 'saveAs',
         },
+        {
+          label: 'Set File Thumbnail\u2026',
+          action: 'openThumbnailPicker',
+        },
         { label: '---' },
         ...(recentEntries.length > 0
           ? [
