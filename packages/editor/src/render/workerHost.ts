@@ -331,7 +331,7 @@ export function createRenderWorkerHost(
       // to define ImageBitmap lifetime): bytes + count of retained sources,
       // plus the session's set-delta counters from the admission budget.
       sourceResidentBytes: msg.imageBytes ?? 0,
-      sourceResidentCount: msg.imageCount ?? 0,
+      sourceResidentCount: msg.timing?.imageCount ?? 0,
       sourceAdds: bitmapBudget.state.sourceAdds,
       sourceRemoves: bitmapBudget.state.sourceRemoves,
       sourceReuses: bitmapBudget.state.sourceReuses,
