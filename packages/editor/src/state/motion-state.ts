@@ -3,8 +3,8 @@
  * and selection within the timeline/keyframe editor.
  */
 
-import { prefersReducedMotion } from '@varve/prototype';
 import type { Timeline } from '@varve/scene';
+import { isReducedMotion } from '../context/reducedMotionManager';
 import { TimelineEngine } from '../timeline/TimelineEngine';
 import { type SampleResult, sampleTimeline } from '../timeline/TimelineSampler';
 
@@ -86,7 +86,7 @@ export function createMotionTimelineEngine(
 
     startPlayback(timeline: Timeline, options?: MotionPlaybackOptions) {
       engineRef.stopPlayback();
-      const reducedMotion = prefersReducedMotion();
+      const reducedMotion = isReducedMotion();
       const loop = options?.loop ?? false;
       const eng = new TimelineEngine({
         duration: timeline.duration,

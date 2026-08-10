@@ -269,7 +269,7 @@ input[type="number"] {
 }
 .editor-menubar__item:hover {
   background: var(--color-interactive-hover);
-  color: var(--color-text-primary);
+  color: var(--color-text-on-accent);
 }
 .editor-menubar__item[aria-expanded="true"] {
   background: var(--color-interactive-active);
@@ -1331,7 +1331,11 @@ input[type="number"] {
 }
 
 .workspace-tabs__tab:hover {
-  color: var(--color-text-primary);
+  /* --color-interactive-hover is a mid-dark teal in light theme and a light
+     teal in dark theme; --color-text-primary fails contrast on both
+     (1.88:1 / 1.47:1). --color-text-on-accent passes in all three themes
+     (9.7:1 / 11.6:1 / 19.1:1). */
+  color: var(--color-text-on-accent);
   background: var(--color-interactive-hover);
 }
 

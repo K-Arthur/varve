@@ -296,7 +296,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                   className="insp-btn-sm"
                   onClick={handleRemove}
                   aria-label="Remove mask"
-                  style={{ color: 'var(--color-feedback-danger, #e74c3c)' }}
+                  style={{ color: 'var(--color-feedback-danger)' }}
                 >
                   Remove
                 </button>

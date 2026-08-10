@@ -72,11 +72,7 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
           {job.dimensions.w}x{job.dimensions.h}
         </span>
         <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
-        <span
-          className={`batch-job-row__status batch-job-row__status--${job.status}`}
-          role="status"
-          aria-label={`Status: ${job.status}`}
-        >
+        <span className={`batch-job-row__status batch-job-row__status--${job.status}`}>
           {statusIcon(job.status)}
         </span>
       </div>

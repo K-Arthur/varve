@@ -130,7 +130,7 @@ test.describe('Tooltip system', () => {
     // Design workspace is active by default. Its effective binding in the
     // shortcut registry is Ctrl+Shift+1 (the old Ctrl+Shift+D is taken by
     // Repeat Duplicate and does not switch workspaces).
-    const designBtn = page.locator('.editor-menubar__workspace-btn', {
+    const designBtn = page.locator('.workspace-tabs__tab', {
       hasText: /^Design/,
     });
     await expect(designBtn).toBeVisible({ timeout: 10000 });

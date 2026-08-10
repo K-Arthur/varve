@@ -15,6 +15,7 @@ import {
 import {
   getWorkspaceConfig,
   type PanelId,
+  WORKSPACE_LABELS,
   type WorkspaceConfig,
   type WorkspaceMode,
 } from '../workspace/workspaceTypes';
@@ -140,7 +141,7 @@ export function useWorkspaceMode(
       applyWorkspaceConfig(getEffectiveWorkspaceConfig(mode), state.tool, patch, {
         workspaceMode: mode,
       });
-      announcerRef.current?.announce(`Switched to ${mode} workspace`);
+      announcerRef.current?.announce(`Switched to ${WORKSPACE_LABELS[mode]} workspace`);
     },
     [state.tool, patch, announcerRef],
   );
@@ -163,7 +164,7 @@ export function useWorkspaceMode(
         applyWorkspaceConfig(getEffectiveWorkspaceConfig(mode), state.tool, patch, {
           workspaceMode: mode,
         });
-        announcerRef.current?.announce(`Switched to ${mode} workspace`);
+        announcerRef.current?.announce(`Switched to ${WORKSPACE_LABELS[mode]} workspace`);
         return Promise.resolve(true);
       } finally {
         workspaceSwitchInProgressRef.current = false;
@@ -183,7 +184,7 @@ export function useWorkspaceMode(
     // settings mirror is rewritten from the defaults, so the pre-reset panel
     // visibility cannot come back on the next launch either.
     applyWorkspaceConfig(getWorkspaceConfig(mode), state.tool, patch);
-    announcerRef.current?.announce(`Reset ${mode} workspace to defaults`);
+    announcerRef.current?.announce(`Reset ${WORKSPACE_LABELS[mode]} workspace to defaults`);
   }, [state.workspaceMode, state.tool, patch, announcerRef]);
 
   const resetAllWorkspacesToDefaults = useCallback(() => {

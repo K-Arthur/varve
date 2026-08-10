@@ -138,8 +138,11 @@ export function MotionProvider({
 
       facade.setLoop(s.motion.loop);
       facade.setSpeed(s.motion.playbackSpeed);
-      facade.play(timeline);
+      // Patch isPlaying BEFORE play(): under reduced motion the engine
+      // finishes synchronously (onFinish patches isPlaying:false), so a
+      // post-play patch would leave the UI stuck "playing" forever.
       patch({ motion: { ...s.motion, isPlaying: true, activeTimelineId: tlId } });
+      facade.play(timeline);
     },
     [patch, stateRef],
   );

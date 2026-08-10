@@ -92,6 +92,11 @@ export function drawPreview(
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Open centerline strokes follow the theme text color so they stay visible
+  // on both light and dark surfaces (rgba(0,0,0,0.9) vanished on dark).
+  const themeStroke =
+    getComputedStyle(document.documentElement).getPropertyValue('--color-text-primary') ||
+    '#1a1a1a';
   ctx.save();
   ctx.scale(scale, scale);
   // Prepared source at 40% so the traced fills remain readable on top.
@@ -124,7 +129,7 @@ export function drawPreview(
         const fill = path.fill ?? { r: 0, g: 0, b: 0, a: 255 };
         if (fill.a === 0) {
           // Centerline paths are open strokes; keep them visible as strokes.
-          ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+          ctx.strokeStyle = themeStroke;
           ctx.lineWidth = path.strokeWidth ?? 2;
           ctx.stroke();
         } else {
@@ -133,7 +138,7 @@ export function drawPreview(
         }
       } else {
         // Open centerline branch: stroke, never fill.
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.strokeStyle = themeStroke;
         ctx.lineWidth = path.strokeWidth ?? 2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
