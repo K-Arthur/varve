@@ -42,7 +42,7 @@ describe('TimelinePanel', () => {
     playbackSpeed: 1,
     loop: false,
     selectedTrackIds: [] as string[],
-    selectedKeyframeIndex: null as number | null,
+    selectedKeyframe: null as { trackId: string; index: number } | null,
     onPlay: vi.fn(),
     onPause: vi.fn(),
     onStop: vi.fn(),
