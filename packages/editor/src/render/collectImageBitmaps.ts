@@ -149,7 +149,7 @@ export function irHasUnsupportedWorkerMasks(ir: RenderItem[]): boolean {
     for (const fill of item.fills ?? []) {
       if (fill.type === 'image' && fill.visible !== false && fillHasAlphaMask(fill)) return true;
     }
-    const fill = item.fill as Record<string, unknown> | undefined;
+    const fill = item.fill as unknown as Record<string, unknown> | undefined;
     if (fill && typeof fill === 'object' && fill.type === 'image' && fillHasAlphaMask(fill)) {
       return true;
     }
