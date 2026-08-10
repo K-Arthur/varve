@@ -4,18 +4,23 @@
  * Lives outside the hub files: a single hook call in EditorProvider. It
  * enables the engine-side spatial path for the editor session, feeds the
  * current viewport size for visible-tile selection, and routes the pyramid
- * residency budget through the existing memory-budget presets so
- * low/medium/high and (later) pressure profiles shrink residency instead of
- * letting the LRU thrash.
+ * residency budget through the existing memory-budget presets and the
+ * runtime pressure profile so constrained machines shrink residency instead
+ * of letting the LRU thrash.
  */
 
 import {
   getPyramidResidency,
   setPyramidViewport,
   setRasterPyramidEnabled,
+  setRetainedSurfaceBudget,
 } from '@varve/engine/rasterPyramid';
 import { useEffect } from 'react';
-import { type PressureProfile, resolvePressureBudgets } from '../canvas/memoryBudget';
+import {
+  type PressureProfile,
+  resolvePressureBudgets,
+  resolveRuntimePressureProfile,
+} from '../canvas/memoryBudget';
 
 /** Pyramid residency budget per memory preset (brief §34-35). */
 const PYRAMID_BUDGET_BYTES: Record<'low' | 'medium' | 'high', number> = {
@@ -37,7 +42,7 @@ const PRESSURE_MULTIPLIER: Record<PressureProfile, number> = {
  */
 export function useRasterLod(
   memoryBudget: 'low' | 'medium' | 'high' = 'medium',
-  pressure: PressureProfile = 'normal',
+  pressure: PressureProfile = resolveRuntimePressureProfile(),
 ): void {
   useEffect(() => {
     setRasterPyramidEnabled(true);
@@ -64,5 +69,9 @@ export function useRasterLod(
       Math.max(1 * 1024 * 1024, pressureBudgets.workerBitmapBytes),
     );
     getPyramidResidency().setBudget(budget);
+    // Finding F2: the retained whole-layer surface cache follows the same
+    // curve — under pressure a 128 MiB default would otherwise keep two
+    // full 4096^2 surfaces resident next to a shrunk pyramid.
+    setRetainedSurfaceBudget(pressureBudgets.workerBitmapBytes);
   }, [memoryBudget, pressure]);
 }

@@ -127,3 +127,20 @@ export function resolvePressureBudgets(profile: PressureProfile): MemoryBudgets 
       return DEFAULT_MEMORY_BUDGETS;
   }
 }
+
+/**
+ * Resolve the runtime pressure profile from platform memory hints
+ * (navigator.deviceMemory, quantized to powers of two by Chromium). This
+ * wires the previously test-only pressure fixtures (finding F6) into
+ * production: constrained machines get the tightened budgets, and the
+ * raster pyramid residency follows the same curve as every other cache.
+ * Deterministic: unknown/absent deviceMemory resolves to 'normal'.
+ */
+export function resolveRuntimePressureProfile(): PressureProfile {
+  if (typeof navigator === 'undefined') return 'normal';
+  const deviceMemory = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
+  if (typeof deviceMemory !== 'number' || !Number.isFinite(deviceMemory)) return 'normal';
+  if (deviceMemory <= 2) return '2gb';
+  if (deviceMemory <= 4) return '4gb';
+  return 'normal';
+}
