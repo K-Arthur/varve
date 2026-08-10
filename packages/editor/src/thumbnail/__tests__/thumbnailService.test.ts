@@ -1,7 +1,9 @@
+import { contentHash } from '@varve/platform';
 import type { Document } from '@varve/scene';
-import { createDocument, makeShapeNode } from '@varve/scene';
+import { createDocument, DocumentCodec, makeShapeNode } from '@varve/scene';
 import { THUMBNAIL_VARIANTS } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
+import { documentRevisionHash } from '../identity';
 import { renderDocThumbnail } from '../thumbnailService';
 
 const VARIANT = THUMBNAIL_VARIANTS['home-card'];
@@ -112,5 +114,16 @@ describe('renderDocThumbnail — helper imports', () => {
   it('exposes the empty placeholder as a data URL', () => {
     const { EMPTY_DOCUMENT_PLACEHOLDER } = { EMPTY_DOCUMENT_PLACEHOLDER: 'data:image/svg+xml,' };
     expect(EMPTY_DOCUMENT_PLACEHOLDER.startsWith('data:')).toBe(true);
+  });
+});
+
+describe('documentRevisionHash — platform consistency', () => {
+  it('matches the content hash the platform persists for the same document', () => {
+    const doc = docWithPageContent();
+    // The editor save path persists DocumentCodec.encode(doc) and the
+    // platform stores contentHash(encode) on the FileEntry; the Home loader
+    // derives its identity from that persisted hash. The thumbnail identity
+    // must hash the SAME bytes or Home lookups miss.
+    expect(documentRevisionHash(doc)).toBe(contentHash(DocumentCodec.encode(doc)));
   });
 });
