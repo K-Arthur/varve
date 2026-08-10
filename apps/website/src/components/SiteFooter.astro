@@ -193,7 +193,10 @@ const statusLabel = release.hasRelease && release.version
     font-variation-settings: 'opsz' 144;
     letter-spacing: -0.015em;
     line-height: 1.1;
-    color: var(--text-primary-on-overlay);
+    /* --text-primary-on-overlay is a light-overlay token: on the dark footer
+       band it resolves to 1.04:1. Brand teal on the footer surface is
+       10.00:1 (19.07:1 in high-contrast). */
+    color: var(--text-footer-heading);
     margin-bottom: 0.5rem;
   }
 
@@ -297,7 +300,12 @@ const statusLabel = release.hasRelease && release.version
   .footer-section a {
     color: var(--text-footer-link);
     font-size: 0.9375rem;
-    text-decoration: none;
+    /* Link luminance equals muted-text luminance in the footer (both
+       oklch L 0.78), so color alone cannot distinguish them (WCAG 1.4.1).
+       Underline at rest provides the non-color distinction. */
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in oklch, var(--text-footer-link) 55%, transparent);
   }
 
   .footer-section a:visited {
@@ -332,7 +340,9 @@ const statusLabel = release.hasRelease && release.version
 
   .footer-bottom-links a {
     color: var(--text-footer-link);
-    text-decoration: none;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in oklch, var(--text-footer-link) 55%, transparent);
     font-size: 0.875rem;
   }
 
