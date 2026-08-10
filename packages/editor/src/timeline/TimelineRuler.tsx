@@ -191,6 +191,17 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
               style={{ left: marker.progress * duration * zoom, position: 'absolute', top: 0 }}
               aria-label={`Marker: ${marker.name}`}
               onContextMenu={(e) => handleMarkerContextMenu(e, marker.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Delete' || e.key === 'Backspace') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDeleteMarker?.(marker.id);
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onRenameMarker?.(marker.id);
+                }
+              }}
             />
           </Tooltip>
         ))}

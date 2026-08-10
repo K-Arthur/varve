@@ -72,13 +72,13 @@ test.describe('Print Mode — Preflight panel', () => {
     await expect(page.locator('.preflight-warnings__badge')).toHaveCount(0);
 
     await page
-      .locator('.editor-menubar__workspace-btn')
+      .locator('.workspace-tabs__tab')
       .filter({ hasText: /^Print$/ })
       .click();
     await expect(page.locator('.preflight-warnings__badge')).toBeVisible();
 
     await page
-      .locator('.editor-menubar__workspace-btn')
+      .locator('.workspace-tabs__tab')
       .filter({ hasText: /^Draw$/ })
       .click();
     await expect(page.locator('.preflight-warnings__badge')).toHaveCount(0);
@@ -88,7 +88,7 @@ test.describe('Print Mode — Preflight panel', () => {
     page,
   }) => {
     await page
-      .locator('.editor-menubar__workspace-btn')
+      .locator('.workspace-tabs__tab')
       .filter({ hasText: /^Print$/ })
       .click();
     const badge = page.locator('.preflight-warnings__badge');
@@ -108,7 +108,7 @@ test.describe('Print Mode — Preflight panel', () => {
     page,
   }) => {
     await page
-      .locator('.editor-menubar__workspace-btn')
+      .locator('.workspace-tabs__tab')
       .filter({ hasText: /^Print$/ })
       .click();
     const badge = page.locator('.preflight-warnings__badge');

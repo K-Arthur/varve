@@ -106,7 +106,7 @@ test.describe('Inspector feature ownership', () => {
 
   test('brush behavior opens from Tool Options instead of Properties', async ({ page }) => {
     await page
-      .locator('.editor-menubar__workspace-btn')
+      .locator('.workspace-tabs__tab')
       .filter({ hasText: /^Draw$/ })
       .click();
     await page.locator('canvas.editor-canvas__content-layer').focus();
