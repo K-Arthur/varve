@@ -126,7 +126,7 @@ export function platformSecretsPresent(platform, presence) {
  * requirement: when set, signing is mandatory and a missing credential is a
  * hard failure (fail-closed) instead of a silent downgrade.
  */
-export function resolveSigningMode({ platform, channel, expectSigned, secretsComplete }) {
+export function resolveSigningMode({ platform, expectSigned, secretsComplete }) {
   if (platform === 'linux') return MODE_UNSIGNED; // checksums + attestations, never a cert
   if (expectSigned === true) {
     return secretsComplete ? MODE_SIGNED : MODE_FAIL_CLOSED;
