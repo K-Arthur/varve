@@ -180,7 +180,10 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    html:not([data-motion="static"]) [data-reveal]:not(.revealed) {
+    /* `html[data-reveal="js"]` is set by the pre-paint inline script, so the
+       hidden state exists only where JavaScript can undo it. Without JS the
+       attribute is absent and every section renders visible. */
+    html[data-reveal="js"]:not([data-motion="static"]) [data-reveal]:not(.revealed) {
       opacity: 0;
       transform: translateY(1.25rem);
     }
