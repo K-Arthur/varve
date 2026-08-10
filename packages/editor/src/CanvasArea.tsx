@@ -143,7 +143,6 @@ import {
 } from './canvas/perfRuntime';
 import { drawPageDecorations, tryPresentWorkerFrame } from './canvas/presentWorkerFrame';
 import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
-import { getToolManager } from './canvas/toolDispatcher';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays } from './components/CanvasOverlays';
@@ -157,7 +156,6 @@ import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
 import { collectFilesFromDataTransfer } from './dropUtils';
 import { HitTestEngine } from './hitTest/HitTestEngine';
 import { useCollabPresence } from './hooks/useCollabPresence';
-import { type CropState, commitImageCropExtended } from './imageCrop';
 import { applyPropertyPath } from './propertyPath';
 import {
   closeImageBitmapMap,
@@ -199,7 +197,6 @@ import { sampleTimelineAt } from './timeline/TimelineSampler';
 import type { DraftShape, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
 import type { collectSourceEvents } from './tools/inputNormalizer';
-import type { RefineMaskTool } from './tools/RefineMaskTool';
 import {
   createSnapSession,
   filterSnapTargets,
@@ -209,6 +206,7 @@ import {
   snapPosition,
   snapTargetSearchRect,
 } from './tools/snapping';
+import { useToolManagerSync } from './tools/useToolManagerSync';
 import { applyWarpToSelection } from './warp/warpActions';
 import {
   evaluateWarpedContainerItems,
@@ -889,73 +887,7 @@ export function CanvasArea({
     }
   }, [renameDialog]);
 
-  const tm = useRef<ReturnType<typeof getToolManager> | null>(null);
-  if (!tm.current) {
-    tm.current = getToolManager();
-  }
-
-  // Sync active tool to ToolManager when state.tool changes
-  useEffect(() => {
-    if (tm.current) {
-      const ctx = buildToolCtx({} as PointerEvent);
-      tm.current.setTool(state.tool, ctx);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.tool]);
-
-  // Push live refine-mask brush options into the active tool instance.
-  useEffect(() => {
-    if (state.tool !== 'refineMask' || !tm.current) return;
-    const tool = tm.current.getTool<RefineMaskTool>('refineMask');
-    tool?.setOptions(state.refineMaskOptions);
-  }, [state.refineMaskOptions, state.tool]);
-
-  useEffect(() => {
-    if (state.tool !== 'trimapEdit' || !tm.current) return;
-    const tool = tm.current.getTool<import('./tools/TrimapEditTool').TrimapEditTool>('trimapEdit');
-    tool?.setOptions(state.trimapEditOptions);
-  }, [state.trimapEditOptions, state.tool]);
-
-  // Sync brush settings to the paint/eraser tool.
-  useEffect(() => {
-    if (!tm.current) return;
-    if (state.tool !== 'paint' && state.tool !== 'eraser') return;
-    const paintTool = tm.current.getTool<import('./tools/PaintTool').PaintTool>('paint');
-    const eraserTool = tm.current.getTool<import('./tools/PaintTool').PaintTool>('eraser');
-    const active = state.tool === 'eraser' ? eraserTool : paintTool;
-    active?.updatePresetFromSettings(state.brushSettings);
-  }, [state.brushSettings, state.tool]);
-
-  // Sync brush settings to the smudge tool.
-  useEffect(() => {
-    if (!tm.current) return;
-    if (state.tool !== 'smudge') return;
-    const smudgeTool = tm.current.getTool<import('./tools/SmudgeTool').SmudgeTool>('smudge');
-    smudgeTool?.updatePresetFromSettings(state.brushSettings);
-  }, [state.brushSettings, state.tool]);
-
-  // Sync stroke smoothing to the pencil tool's stabilizer. Reuses the same
-  // brushSettings.smoothing field the raster brush already exposes, so the
-  // Inspector's existing Smoothing control drives vector pencil strokes too.
-  useEffect(() => {
-    if (!tm.current) return;
-    if (state.tool !== 'pencil') return;
-    const pencilTool = tm.current.getTool<import('./tools/PencilTool').PencilTool>('pencil');
-    pencilTool?.setStabilization(state.brushSettings.smoothing);
-  }, [state.brushSettings.smoothing, state.tool]);
-
-  useEffect(() => {
-    if (!tm.current) return;
-    const crop = tm.current.getTool<CropTool>('crop');
-    if (!crop) return;
-    crop.setCommitHandler((cropState: CropState) => {
-      const id = crop.getNodeId();
-      if (!id) return;
-      editor.updateDoc((doc) => commitImageCropExtended(doc, id, cropState));
-      editor.announce('Crop applied');
-    });
-    return () => crop.setCommitHandler(null);
-  }, [editor, state.tool]);
+  const tm = useToolManagerSync(editor, state, buildToolCtx);
 
   // Re-render the canvas whenever an async image finishes loading.
   useEffect(() => {
