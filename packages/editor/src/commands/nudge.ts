@@ -8,6 +8,10 @@ export interface NudgeContext {
   selection: NodeId[];
   getNode: (id: NodeId) => SceneNode | undefined;
   setNodePosition: (id: NodeId, x: number, y: number) => void;
+  /** Batch setter: when present, positions are collected and applied with a
+   *  single document update instead of one setNodePosition per node (which
+   *  spreads the whole nodes map each time). */
+  setNodePositions?: (positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>) => void;
 }
 
 export interface NudgeResult {
@@ -53,6 +57,8 @@ export function executeNudge(
   const dxRaw = direction === 'left' ? -step : direction === 'right' ? step : 0;
   const dyRaw = direction === 'up' ? -step : direction === 'down' ? step : 0;
 
+  const positions: Array<{ id: NodeId; x: number; y: number }> = [];
+
   for (const id of ctx.selection) {
     const node = ctx.getNode(id);
     if (!node) {
@@ -71,8 +77,14 @@ export function executeNudge(
     const dx = dxRaw * a + dyRaw * c;
     const dy = dxRaw * b + dyRaw * d;
 
-    ctx.setNodePosition(id, t[4] + dx, t[5] + dy);
+    positions.push({ id, x: t[4] + dx, y: t[5] + dy });
     result.moved++;
+  }
+
+  if (positions.length > 0 && ctx.setNodePositions) {
+    ctx.setNodePositions(positions);
+  } else {
+    for (const p of positions) ctx.setNodePosition(p.id, p.x, p.y);
   }
 
   return result;
