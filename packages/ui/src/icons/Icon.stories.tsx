@@ -62,7 +62,7 @@ export const AllIcons: Story = {
       'Lock',
       'Search',
       'Plus',
-      'Filter',
+      'ListFilter',
       'Star',
       'Copy',
       'Undo2',
