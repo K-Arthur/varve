@@ -42,7 +42,6 @@ import {
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
 import {
-  addNode,
   applyBindingsToNode,
   buildAllVariantCaches,
   buildParentIndexMap,
@@ -52,15 +51,12 @@ import {
   type Document,
   getChangedVariableIds,
   getEffectiveNode,
-  getGuidesForPage,
   isAnimatedMediaNode,
   isContainer,
   isImageShape,
   isWarpedContainer,
-  makeRasterLayerNode,
   multipageRootNodes,
   type NodeId,
-  nextNodeId,
   resolveAdjustmentScope,
   resolveAllStyles,
   type SceneNode,
@@ -100,7 +96,6 @@ import {
 import { computeFrameDirtyRegion } from './canvas/dirtyRegionMerge';
 import { expandReplayList } from './canvas/dirtyReplay';
 import { EngineNodeMemo } from './canvas/engineNodeMemo';
-import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { applyAdjustmentSpatialMask, replayMaskedContainer } from './canvas/maskReplay';
@@ -112,7 +107,6 @@ import {
 } from './canvas/partialPaint';
 import {
   beginContentFrame,
-  beginInteractionSpan,
   cancelCanvasFrame,
   createCanvasFrameKey,
   createNodeWorkCounters,
@@ -125,14 +119,12 @@ import {
   getMemoryBudgets,
   getOverBudgetCount,
   installPerfDiagnosticsHandle,
-  isSnapMetricsEnabled,
   type RedrawCoordinator,
   type RedrawReason as RedrawCoordinatorReason,
   recordFrame,
   recordMergedDirty,
   recordNodeWork,
   recordPruneScreenRects,
-  recordSnapMetrics,
   registerPaintedSurfaceInvalidator,
   registerPerfCameraController,
   registerRedrawCoordinator,
@@ -143,18 +135,13 @@ import {
 } from './canvas/perfRuntime';
 import { drawPageDecorations, tryPresentWorkerFrame } from './canvas/presentWorkerFrame';
 import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
+import { buildToolContext } from './canvas/toolContext';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays } from './components/CanvasOverlays';
-import {
-  type EditorState,
-  nodeWorldBoundsFn,
-  setStartTextEditingHandler,
-  useEditor,
-} from './context';
+import { type EditorState, setStartTextEditingHandler, useEditor } from './context';
 import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
 import { collectFilesFromDataTransfer } from './dropUtils';
-import { HitTestEngine } from './hitTest/HitTestEngine';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { applyPropertyPath } from './propertyPath';
 import {
@@ -179,8 +166,6 @@ import {
 import {
   type FrameSpatialIndex,
   getOrCreateFrameSpatialIndex,
-  getOrCreateSpatialIndex,
-  queryRect,
   type SpatialIndex,
   updateSpatialIndexNodes,
 } from './scene/spatialIndex';
@@ -197,17 +182,8 @@ import { sampleTimelineAt } from './timeline/TimelineSampler';
 import type { DraftShape, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
 import type { collectSourceEvents } from './tools/inputNormalizer';
-import {
-  createSnapSession,
-  filterSnapTargets,
-  pageSnapTargets,
-  type SnapGuide,
-  type SnapSession,
-  snapPosition,
-  snapTargetSearchRect,
-} from './tools/snapping';
+import { createSnapSession, type SnapGuide, type SnapSession } from './tools/snapping';
 import { useToolManagerSync } from './tools/useToolManagerSync';
-import { applyWarpToSelection } from './warp/warpActions';
 import {
   evaluateWarpedContainerItems,
   warpedContainerWorldBounds,
@@ -936,340 +912,31 @@ export function CanvasArea({
     ev: PointerEvent,
     sourceEvents: ReturnType<typeof collectSourceEvents> = [],
   ): ToolContext {
-    const s = stateRef.current;
-    const e = editorRef.current;
-    const eng = engineRef.current;
-    return {
-      document: s.document,
-      selection: s.selection,
-      zoom: s.zoom,
-      pan: s.pan,
-      shiftKey: ev.shiftKey,
-      altKey: ev.altKey,
-      ctrlKey: ev.ctrlKey,
-      metaKey: ev.metaKey,
-      pointerType: (ev.pointerType as 'mouse' | 'pen' | 'touch') ?? 'mouse',
-      pointerPressure: ev.pressure ?? 0,
-      tiltX: ev.tiltX ?? 0,
-      tiltY: ev.tiltY ?? 0,
-      twist: ev.twist ?? 0,
-      tangentialPressure:
-        (ev as PointerEvent & { tangentialPressure?: number }).tangentialPressure ?? 0,
-      pointerWidth: Math.max(0, (ev as PointerEvent & { width?: number }).width ?? 1),
-      pointerHeight: Math.max(0, (ev as PointerEvent & { height?: number }).height ?? 1),
-      altitudeAngle: (ev as PointerEvent & { altitudeAngle?: number }).altitudeAngle ?? Math.PI / 2,
-      azimuthAngle: (ev as PointerEvent & { azimuthAngle?: number }).azimuthAngle ?? 0,
-      hasCoalescedEvents: typeof ev.getCoalescedEvents === 'function',
-      hasPredictedEvents: typeof ev.getPredictedEvents === 'function',
+    return buildToolContext(
+      {
+        stateRef,
+        editorRef,
+        engineRef,
+        contentCanvasRef,
+        frameIndexRef,
+        transformCacheRef,
+        snapSessionRef,
+        snapIndexRef,
+        pendingAutoTextEditRef,
+        nodeEditTargetId,
+        setDraft,
+        setDropTargetFrameId,
+        setSnapGuides,
+        setDeepSelectionCandidates,
+        setNodeEditTargetId,
+        setNodeEditSelectedAnchors,
+        setTextEditTargetId,
+        commitCamera,
+        rootNodes,
+      },
+      ev,
       sourceEvents,
-      foregroundColor: s.foregroundColor,
-      maskPreviewMode: s.maskPreviewMode,
-      setMaskPreviewMode: (mode) => e.setMaskPreviewMode(mode),
-      snapEnabled: s.snapEnabled,
-      snapGrid: s.snapGrid,
-      isolatedNodeId: s.isolatedNodeId,
-      enterIsolation: (nodeId) => e.enterIsolation(nodeId),
-      exitIsolation: () => e.exitIsolation(),
-
-      createShapeAt: (world, size, parentId, pathPoints, pathClosed) =>
-        e.createShapeAt(world, size, parentId, pathPoints, pathClosed),
-      createTextNodeAt: (world, size, parentId, text) => {
-        pendingAutoTextEditRef.current = true;
-        e.createTextNodeAt(world, size, parentId, text);
-      },
-      setSelection: (id) => e.setSelection(id),
-      toggleSelection: (id, additive) => e.toggleSelection(id, additive),
-      isSelected: (id) => e.isSelected(id),
-      setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
-      setNodeSize: (id, w, h) => e.setNodeSize(id, w, h),
-      updateNode: (id, updater) => e.updateNode(id, updater),
-      setActivePage: (pageId) => e.setActivePage(pageId),
-      movePageOnPasteboard: (pageId, x, y) => e.movePageOnPasteboard(pageId, x, y),
-      resizePage: (pageId, w, h) => e.resizePage(pageId, w, h),
-      removeSelected: () => e.removeSelected(),
-      duplicateSelected: () => e.duplicateSelected(),
-      reparentNode: (id, newParentId, toIndex) => e.reparentNode(id, newParentId, toIndex),
-      setCamera: (camera) => commitCamera(camera),
-      setPan: (p) => e.setPan(p),
-      setZoom: (z) => e.setZoom(z),
-      announce: (msg) => e.announce(msg),
-      announceSelection: (selected) => e.announceSelection(selected),
-      announceOperation: (op, result) => e.announceOperation(op, result),
-      setDraft,
-      rootNodes: () => rootNodes(),
-      getNode: (id) => s.document.nodes[id],
-
-      // FIX: `canvasToWorld` now accepts viewport-relative clientX/Y and
-      // subtracts the canvas bounding rect internally. This fixes the
-      // placement bug where all drawing tools passed raw clientX/Y without
-      // accounting for the canvas element's screen offset below the menubar.
-      // See BaseTool.ts:66-67.
-      canvasToWorld: (cx, cy) => {
-        const rect = contentCanvasRef.current?.getBoundingClientRect();
-        return e.canvasToWorld(cx - (rect?.left ?? 0), cy - (rect?.top ?? 0));
-      },
-      worldToCanvas: (wx, wy) => e.worldToCanvas(wx, wy),
-      canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
-
-      setPointerCapture: (pointerId) => {
-        try {
-          const el = contentCanvasRef.current;
-          if (el) el.setPointerCapture(pointerId);
-        } catch (err) {
-          // If this throws, BaseTool.onPointerDown aborts before setting
-          // drag.kind = 'dragging', silently breaking every drag-to-create
-          // tool (pointermove is a no-op while drag.kind stays 'idle').
-          // Surface it instead of failing silently.
-          if (typeof console !== 'undefined') {
-            console.warn('[Strata] setPointerCapture failed:', err);
-          }
-        }
-      },
-      releasePointerCapture: (pointerId) => {
-        try {
-          const el = contentCanvasRef.current;
-          if (el) el.releasePointerCapture(pointerId);
-        } catch {
-          // Pointer may have been released by the browser already (e.g. blur
-          // during paste). Silently ignore — no functional impact.
-        }
-      },
-
-      findContainingFrame: (world) => e.findContainingFrame(world, frameIndexRef.current),
-      setDropTargetFrame: setDropTargetFrameId,
-      nodeWorldBounds: (n) =>
-        getCachedWorldBounds(transformCacheRef.current, s.document, n.id) ?? nodeWorldBoundsFn(n),
-
-      engine: eng,
-      canvasElement: contentCanvasRef.current,
-      hitTest: (world) => e.hitTestNode(world),
-      hitTestWithPolicy: (world, policyName) => e.hitTestNodeWithPolicy(world, policyName),
-
-      beginTransaction: () => e.beginTransaction(),
-      commitTransaction: () => e.commitTransaction(),
-      abortTransaction: () => e.abortTransaction(),
-
-      setTool: (id) => e.setTool(id),
-      setWarpEdit: (target) => e.setWarpEdit(target),
-      applyWarpToSelection: (presetKind) => applyWarpToSelection(e, presetKind),
-      setFocusedNode: (id) => e.setFocusedNode(id),
-      clearFocusedNode: () => e.clearFocusedNode(),
-      focusNextSelectedNode: () => e.focusNextSelectedNode(),
-      focusPreviousSelectedNode: () => e.focusPreviousSelectedNode(),
-      nodeEditTargetId,
-      setNodeEditTargetId,
-      setNodeEditSelectedAnchors,
-      setTextEditTargetId,
-      setTableEdit: (state) => e.setTableEdit(state),
-
-      snapPosition: (bounds, _targets) => {
-        if (!s.snapEnabled) {
-          snapSessionRef.current = createSnapSession();
-          return { x: bounds.x, y: bounds.y, guides: [] };
-        }
-        const snapMetricsOn = isSnapMetricsEnabled();
-        const snapStart = snapMetricsOn ? performance.now() : 0;
-        const finishSnapPrefilter = beginInteractionSpan('snap.prefilter');
-
-        // D-02: Spatial + hierarchical filtering of snap targets
-        const doc = stateRef.current.document;
-        let snapIndex = snapIndexRef.current;
-        if (!snapIndex || snapIndex.documentId !== doc.id) {
-          snapIndex = {
-            index: getOrCreateSpatialIndex(doc, null),
-            parentIndex: buildParentIndexMap(doc),
-            documentId: doc.id,
-            indexedNodeCount: Object.keys(doc.nodes).length,
-          };
-          snapIndexRef.current = snapIndex;
-        }
-        const queryStart = snapMetricsOn ? performance.now() : 0;
-        const nearbyIds = queryRect(snapIndex.index, snapTargetSearchRect(bounds, s.zoom));
-        const queryDurationMs = snapMetricsOn ? performance.now() - queryStart : 0;
-        const nearbyBoundsWithIds: Array<{
-          nodeId: string;
-          bounds: { x: number; y: number; w: number; h: number };
-        }> = [];
-        for (const nodeId of nearbyIds) {
-          const node = doc.nodes[nodeId];
-          if (!node) continue;
-          // Semantic filter: hidden nodes are not visible, so snapping to their
-          // edges would produce invisible feedback — exclude them as candidates.
-          if (node.visible === false) continue;
-          // Read through the transform cache rather than recomputing. This runs
-          // on every pointer move of a drag, and the uncached nodeWorldBounds
-          // re-derives a group's bounds by unioning all of its children every
-          // time — a 932-node drag profile attributed 7.6% of CPU to
-          // groupWorldBounds reached from here. The cache invalidates exactly
-          // the nodes an edit touched, so during a drag only the dragged node
-          // recomputes and the surrounding snap targets stay cached.
-          const b =
-            getCachedWorldBounds(transformCacheRef.current, doc, node.id) ??
-            nodeWorldBoundsFn(node);
-          if (b) nearbyBoundsWithIds.push({ nodeId: node.id, bounds: b });
-        }
-        const parentIdx = snapIndex.parentIndex;
-        const selection = stateRef.current.selection;
-        const draggedId = selection[0] ?? '';
-        const filtered = filterSnapTargets(
-          bounds,
-          { zoom: s.zoom },
-          nearbyBoundsWithIds,
-          parentIdx,
-          draggedId,
-          // Semantic filter: every object moving in the same selection is an
-          // invalid target — snapping a multi-selection against its own members
-          // both wastes evaluation and produces incorrect guides.
-          selection.length > 1 ? new Set(selection) : undefined,
-        );
-        finishSnapPrefilter({
-          indexedCandidates: snapIndex.indexedNodeCount,
-          broadPhaseCandidates: nearbyIds.size,
-          semanticCandidates: filtered.length,
-        });
-
-        // Page trim snap targets (M6): every placed page's trim bounds, so
-        // nodes snap to page edges on any page of the pasteboard — not only
-        // the active page's trim at the origin.
-        const pageBoundsTargets = pageSnapTargets(doc);
-        if (draggedId) {
-          const parentId = parentIdx.get(draggedId);
-          if (parentId) {
-            const parentNode = doc.nodes[parentId];
-            if (parentNode && 'w' in parentNode) {
-              pageBoundsTargets.push({
-                x: 0,
-                y: 0,
-                w: (parentNode as { w: number }).w,
-                h: (parentNode as { h: number }).h,
-              });
-            }
-          }
-        }
-
-        let layoutGridStep: number | undefined;
-        if (draggedId) {
-          const parentId = parentIdx.get(draggedId);
-          if (parentId) {
-            const parentNode = doc.nodes[parentId];
-            if (parentNode?.kind === 'frame' && parentNode.layoutStyle) {
-              const cols = parseGridTemplate(
-                parentNode.layoutStyle.gridTemplateColumns ?? '',
-                parentNode.w,
-              );
-              if (cols.length > 0) {
-                layoutGridStep =
-                  cols[0]! + (parentNode.layoutStyle.columnGap ?? parentNode.layoutStyle.gap ?? 0);
-              }
-            }
-          }
-        }
-
-        const allTargets = [...filtered, ...pageBoundsTargets];
-        const guideTargets =
-          getGuidesForPage(doc, doc.activePageId).map((guide) => ({
-            axis: guide.axis,
-            position: guide.position,
-          })) ?? [];
-        const gridConfig =
-          s.snapEnabled && s.documentGrid?.snapEnabled ? s.documentGrid : undefined;
-        const finishSnapEvaluate = beginInteractionSpan('snap.evaluate');
-        const result = snapPosition(
-          bounds.x,
-          bounds.y,
-          bounds.w,
-          bounds.h,
-          allTargets,
-          gridConfig,
-          undefined,
-          {
-            zoom: s.zoom,
-            session: snapSessionRef.current,
-            guideTargets,
-            layoutGridStep,
-            pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
-          },
-        );
-        snapSessionRef.current = result.session;
-        setSnapGuides(result.guides);
-        finishSnapEvaluate({
-          finePhaseCandidates: allTargets.length,
-          winningX: result.x !== bounds.x,
-          winningY: result.y !== bounds.y,
-        });
-        if (snapMetricsOn) {
-          recordSnapMetrics({
-            ts: performance.now(),
-            sceneObjectCount: snapIndex.indexedNodeCount,
-            indexedCandidateCount: snapIndex.indexedNodeCount,
-            broadPhaseResultCount: nearbyIds.size,
-            semanticFilteredCount: filtered.length,
-            finePhaseEvalCount: allTargets.length,
-            queryDurationMs,
-            evalDurationMs: performance.now() - snapStart,
-            winningX: result.x !== bounds.x,
-            winningY: result.y !== bounds.y,
-          });
-        }
-        return { x: result.x, y: result.y, guides: result.guides };
-      },
-      isSnapExcluded: (id: string) => {
-        const n = stateRef.current.document.nodes[id];
-        return n?.snapExcluded === true;
-      },
-
-      getTrimapData: (nodeId) => e.getTrimapData(nodeId),
-      setTrimapPreview: (trimap, width, height) => {
-        const nodeId = s.selection[0];
-        if (nodeId) e.setTrimapData(nodeId, trimap, width, height);
-      },
-      commitTrimapEdit: (trimap) => {
-        const nodeId = s.selection[0];
-        if (!nodeId) return;
-        const entry = e.getTrimapData(nodeId);
-        if (entry) e.setTrimapData(nodeId, trimap, entry.width, entry.height);
-      },
-      applySam2Segmentation: (params) => e.applySam2Segmentation(params),
-      cancelSam2Segmentation: () => e.cancelSam2Segmentation(),
-      commitRasterMask: (nodeId, dataUrl, width, height, coordinateSpace) => {
-        import('./backgroundRemoval/commitRasterMask').then(({ commitRasterMask }) => {
-          e.updateDoc((doc) =>
-            commitRasterMask(doc, nodeId, { dataUrl, width, height, coordinateSpace }),
-          );
-        });
-      },
-      createRasterLayer: (width, height) => {
-        const s2 = stateRef.current;
-        const { id, doc: d2 } = nextNodeId(s2.document);
-        const layer = makeRasterLayerNode(id, { width, height }, { name: 'Brush Layer' });
-        const newDoc = addNode(d2, layer);
-        e.updateDoc(() => newDoc);
-        return id;
-      },
-      lastPointerEvent: ev,
-      touchMultiSelect: s.touchMultiSelect,
-      showDeepSelectionMenu: (world, screenX, screenY) => {
-        // Gather all nodes beneath the touch point using touch policy
-        const hitEngine = HitTestEngine.withPolicy(stateRef.current.document, 'touchDeepSelect', {
-          zoom: stateRef.current.zoom,
-          isolatedNodeId: stateRef.current.isolatedNodeId,
-        });
-        const candidates = hitEngine.findNodesAtPoint(world);
-        if (candidates.length > 1) {
-          setDeepSelectionCandidates({
-            worldX: world.x,
-            worldY: world.y,
-            screenX,
-            screenY,
-            candidates: candidates.map((c) => ({
-              nodeId: c.nodeId,
-              node: c.node,
-              depth: 0,
-            })),
-          });
-        }
-      },
-    };
+    );
   }
 
   /**
