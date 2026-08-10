@@ -10,9 +10,12 @@ import { computeDocumentBounds } from '@varve/codegen';
 import {
   applyStyleOverrides,
   createEngine,
+  defaultMediaFillSettings,
   type SceneNode as EngineNode,
+  getMediaRegistry,
   type ReplayTarget,
   replayIr,
+  resolveUsageFrame,
 } from '@varve/engine';
 import type { Document, NodeId, Timeline } from '@varve/scene';
 import {
@@ -201,6 +204,7 @@ export async function createVideoFrameRenderer(config: VideoExportBridgeConfig) 
 
     const { ids, nodes } = flattenVisibleNodesForVideo(doc);
     applyTimelineOverrides(doc, timeline.id, timeMs, ids, nodes);
+    await applyMediaFrameOverrides(doc, timeMs, nodes);
 
     const ir = await engine.buildIr({ nodes });
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -214,6 +218,48 @@ export async function createVideoFrameRenderer(config: VideoExportBridgeConfig) 
   };
 
   return { renderFrame, sampledTimes, bounds, camera };
+}
+
+/**
+ * Resolve animated-media source frames on the flattened export nodes at a
+ * sample time — video export is a pure function of the output timestamp,
+ * independent of editor playback or wall-clock performance.
+ */
+export async function applyMediaFrameOverrides(
+  doc: Document,
+  timeMs: number,
+  nodes: Array<{ fills?: Array<{ type?: string; image?: { assetId?: string; frame?: number } }> }>,
+): Promise<void> {
+  for (const node of nodes) {
+    for (const fill of node.fills ?? []) {
+      if (fill?.type !== 'image' || !fill.image?.assetId) continue;
+      const assetId = fill.image.assetId;
+      const asset = doc.assets?.[assetId];
+      const animated = asset?.animated as import('@varve/shared').AnimatedAssetMetadata | undefined;
+      if (!animated) continue;
+      const settings = (fill.image as { media?: import('@varve/shared').MediaFillSettings }).media;
+      const registry = getMediaRegistry();
+      const session = registry.get(assetId);
+      if (!session) {
+        fill.image.frame = 0;
+        continue;
+      }
+      const resolved = resolveUsageFrame(
+        {
+          settings: settings ?? defaultMediaFillSettings(),
+          sourceLoopCount: animated.loopCount,
+          timing: session.timing,
+        },
+        timeMs,
+      );
+      fill.image.frame = resolved.frameIndex;
+      // Export must not depend on async reframe: decode deterministically
+      // before replay (cache-first; deduped across nodes sharing the asset).
+      if (!session.getComposited(resolved.frameIndex)) {
+        await session.requestFrame(resolved.frameIndex).catch(() => {});
+      }
+    }
+  }
 }
 
 /** Export helper returning sampled times (for tests). */

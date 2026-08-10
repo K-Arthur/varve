@@ -141,6 +141,9 @@ function buildMenus(
   },
   recentEntries: RecentEntry[],
   caps: ReadonlySet<string>,
+  isMac: boolean,
+  activeFilePath: string | undefined,
+  revealLabel: string,
 ): { id: MenuId; items: MenuItem[] }[] {
   const doc = state.document;
   const activePageId = doc?.activePageId ?? null;
@@ -329,9 +332,29 @@ function buildMenus(
           action: 'saveAs',
         },
         {
+          label: 'Save a Copy\u2026',
+          action: 'saveCopy',
+        },
+        {
+          label: 'Document Info\u2026',
+          action: 'documentInfo',
+        },
+        {
           label: 'Set File Thumbnail\u2026',
           action: 'openThumbnailPicker',
         },
+        ...(activeFilePath
+          ? [
+              {
+                label: revealLabel,
+                action: 'revealInFiles',
+              } as MenuItem,
+              {
+                label: 'Copy File Path',
+                action: 'copyFilePath',
+              } as MenuItem,
+            ]
+          : []),
         { label: '---' },
         ...(recentEntries.length > 0
           ? [
@@ -377,6 +400,30 @@ function buildMenus(
           ariaKeyshortcut: ks('export'),
           action: 'export',
         },
+        { label: '---' },
+        {
+          label: 'Close Document',
+          shortcut: formatShortcut(SHORTCUT_DEFS.tabClose.binding),
+          ariaKeyshortcut: ks('tabClose'),
+          action: 'tabClose',
+        },
+        {
+          label: 'Close Window',
+          shortcut: formatShortcut(SHORTCUT_DEFS.closeWindow.binding),
+          ariaKeyshortcut: ks('closeWindow'),
+          action: 'closeWindow',
+        },
+        // macOS hosts Quit in the native app menu (Cmd+Q) — no duplicate.
+        ...(!isMac
+          ? [
+              {
+                label: 'Quit Varve',
+                shortcut: formatShortcut(SHORTCUT_DEFS.quitApp.binding),
+                ariaKeyshortcut: ks('quitApp'),
+                action: 'quitApp',
+              } as MenuItem,
+            ]
+          : []),
         { label: '---' },
         ...(caps.has('archive')
           ? [
@@ -1481,6 +1528,10 @@ export function Menubar({
     platform,
   } = useEditor();
   const { entries: recentEntries, remove: removeRecent, clear: clearRecent } = useRecentFiles();
+  // `sessions` may be absent in unit-test harnesses that pass a partial state.
+  const activeSession = (state.sessions ?? []).find((s) => s.id === state.activeId);
+  const activeFilePath = activeSession?.filePath;
+  const revealLabel = platform?.fileManagerLabel() ?? 'Reveal in Files';
   const showAllMenuItems = useMemo(() => {
     try {
       return loadSettings().appearance.showAllMenuItems;
@@ -1507,7 +1558,7 @@ export function Menubar({
 
   const caps = useMemo(() => computeCapabilities(), []);
   const rawMenus = useMemo(
-    () => buildMenus(state, recentEntries, caps),
+    () => buildMenus(state, recentEntries, caps, isMac, activeFilePath, revealLabel),
     [
       state.selection,
       state.document.activePageId,
@@ -1667,7 +1718,7 @@ export function Menubar({
           try {
             const { invoke } = await import('@tauri-apps/api/core');
             await invoke('plugin:fs|stat', { path: entry.locator.path });
-            const text = await invoke<string>('home_read_text_file', {
+            const text = await invoke<string>('home_read_text_file_approved', {
               path: entry.locator.path,
             });
             // Its own tab, like Figma/Photoshop — and openFile switches to the

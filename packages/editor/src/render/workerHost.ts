@@ -85,6 +85,8 @@ export type WorkerResponse =
       viewport: Viewport;
       dpr: number;
       bitmap?: ImageBitmap;
+      /** Estimated RGBA bytes of source bitmaps resident inside the worker. */
+      imageBytes?: number;
       /** Present only while interaction tracing is enabled. */
       timing?: WorkerRenderTiming;
     }
@@ -184,6 +186,8 @@ export function createRenderWorkerHost(
   let inFlightTransferBytes = 0;
   let residentImageSources = new Set<string>();
   let inFlightImageSources: Set<string> | null = null;
+  /** Worker-reported estimated bytes of source bitmaps resident inside it. */
+  let residentSourceBytes = 0;
   let lastForwardedFrame: ImageBitmap | null = null;
   let lastForwardedFrameBytes = 0;
   let lastForwardedFrameId: number | null = null;
@@ -271,6 +275,10 @@ export function createRenderWorkerHost(
     lastForwardedFrame = null;
     lastForwardedFrameBytes = 0;
     lastForwardedFrameId = null;
+    // The worker's resident source bitmaps die with the worker; release the
+    // accounting so a restarted generation starts from a clean slate.
+    if (residentSourceBytes > 0) bitmapBudget.releaseResidentSource(residentSourceBytes);
+    residentSourceBytes = 0;
     // Bumps the ledger generation too, so a response that arrives after
     // teardown cannot match an id issued before it.
     ledger.reclaimAll('teardown');
@@ -414,7 +422,28 @@ export function createRenderWorkerHost(
             bitmapBudget.releaseTransfer(inFlightTransferBytes);
             inFlightTransferBytes = 0;
           }
-          if (inFlightImageSources) residentImageSources = inFlightImageSources;
+          // Account worker-resident source bitmaps (reported by the worker)
+          // and the manifest set delta: adds/removes/reuses feed admission
+          // control and diagnostics so residency is measurable, not implicit.
+          if (msg.imageBytes !== undefined) {
+            bitmapBudget.accountResidentSource(msg.imageBytes, residentSourceBytes);
+            residentSourceBytes = msg.imageBytes;
+          }
+          if (inFlightImageSources) {
+            const resident = residentImageSources;
+            let adds = 0;
+            let removes = 0;
+            let reuses = 0;
+            for (const src of inFlightImageSources) {
+              if (resident.has(src)) reuses += 1;
+              else adds += 1;
+            }
+            for (const src of resident) {
+              if (!inFlightImageSources.has(src)) removes += 1;
+            }
+            bitmapBudget.recordSourceSetDelta(adds, removes, reuses);
+            residentImageSources = inFlightImageSources;
+          }
           inFlightImageSources = null;
           if (obsolete) {
             if (msg.bitmap) {

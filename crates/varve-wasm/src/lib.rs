@@ -255,3 +255,80 @@ fn bounds(points: &[Point]) -> (f64, f64, f64, f64) {
     }
     (min_x, min_y, max_x, max_y)
 }
+
+// ── WASM media bindings ──────────────────────────────────────────────────
+
+/// Probe animated media bytes (GIF/APNG/WebP) without decoding pixels.
+/// Returns a JSON string matching the Rust `MediaProbe` shape.
+#[wasm_bindgen]
+pub fn media_probe(bytes: &[u8]) -> Result<String, JsValue> {
+    let probe = varve_media::probe(bytes, &varve_media::DEFAULT_LIMITS)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&probe).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// Decode raw source frames `[start, end]` (inclusive).
+///
+/// Returns a JS object: `{ frames: [{ index, x, y, width, height,
+/// durationMs, blend, disposal, preComposited, rgba: Uint8Array }] }`.
+#[wasm_bindgen]
+pub fn media_decode_frames(bytes: &[u8], start: u32, end: u32) -> Result<JsValue, JsValue> {
+    let frames = varve_media::decode_frames(bytes, start, end, &varve_media::DEFAULT_LIMITS)
+        .map_err(|e| JsValue::from_str(&e))?;
+    let obj = js_sys::Object::new();
+    let frame_arr = js_sys::Array::new();
+    for frame in frames {
+        let f = js_sys::Object::new();
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("index"),
+            &JsValue::from_f64(f64::from(frame.index)),
+        )
+        .map_err(|e| JsValue::from_str(&format!("media frame serialize failed: {e:?}")))?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("x"),
+            &JsValue::from_f64(f64::from(frame.x)),
+        )?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("y"),
+            &JsValue::from_f64(f64::from(frame.y)),
+        )?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("width"),
+            &JsValue::from_f64(f64::from(frame.width)),
+        )?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("height"),
+            &JsValue::from_f64(f64::from(frame.height)),
+        )?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("durationMs"),
+            &JsValue::from_f64(f64::from(frame.duration_ms)),
+        )?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("blend"),
+            &JsValue::from_str(frame.blend),
+        )?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("disposal"),
+            &JsValue::from_str(frame.disposal),
+        )?;
+        js_sys::Reflect::set(
+            &f,
+            &JsValue::from_str("preComposited"),
+            &JsValue::from_bool(frame.pre_composited),
+        )?;
+        let rgba = js_sys::Uint8Array::from(&frame.rgba[..]);
+        js_sys::Reflect::set(&f, &JsValue::from_str("rgba"), &rgba)?;
+        frame_arr.push(&f);
+    }
+    js_sys::Reflect::set(&obj, &JsValue::from_str("frames"), &frame_arr)?;
+    Ok(obj.into())
+}

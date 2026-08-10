@@ -1,20 +1,21 @@
 import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
+import { buildPngWithoutIccp } from './metadata/__fixtures__';
 import { ImportService } from './service';
 
+/**
+ * A structurally complete minimal PNG (signature + IHDR + IDAT + IEND) with
+ * the given width/height. The bare 24-byte header used previously fails the
+ * content-level APNG probe (truncated chunk), which is correct behaviour for
+ * a corrupt container.
+ */
 function pngHeader(width = 1, height = 1): Uint8Array {
-  const bytes = new Uint8Array(24);
-  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
-  bytes.set([0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52], 8);
-  bytes[16] = (width >>> 24) & 0xff;
-  bytes[17] = (width >>> 16) & 0xff;
-  bytes[18] = (width >>> 8) & 0xff;
-  bytes[19] = width & 0xff;
-  bytes[20] = (height >>> 24) & 0xff;
-  bytes[21] = (height >>> 16) & 0xff;
-  bytes[22] = (height >>> 8) & 0xff;
-  bytes[23] = height & 0xff;
-  return bytes;
+  const png = buildPngWithoutIccp();
+  const out = png.slice();
+  const view = new DataView(out.buffer);
+  view.setUint32(16, width, false);
+  view.setUint32(20, height, false);
+  return out;
 }
 
 function sketchZip(): Uint8Array {

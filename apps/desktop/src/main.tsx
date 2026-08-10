@@ -4,6 +4,11 @@ import '@varve/editor/editor.css';
 import '@varve/home/home.css';
 import '@fontsource-variable/geist/index.css';
 import '@fontsource-variable/ibm-plex-sans/index.css';
+// Editorial serif (--font-editorial). Brand surfaces only — the wordmark and
+// the welcome screen — never interface chrome, which stays on Geist. The
+// `opsz` build carries weight + optical size; see the type system note in
+// packages/ui/src/tokens/tokens.css.
+import '@fontsource-variable/fraunces/opsz.css';
 
 import { ErrorBoundary } from '@varve/editor';
 import { AuxiliaryRoot } from '@varve/editor/auxiliary';

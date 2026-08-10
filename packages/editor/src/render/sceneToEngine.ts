@@ -52,6 +52,18 @@ export interface SceneNodeConversionOptions {
    */
   warpQuality?: WarpQualitySettings;
   /**
+   * Animated-media frame resolution: returns the source frame index for an
+   * animated fill (node + fill), or undefined to keep the poster. When
+   * omitted, the module-level default resolver (installed by the editor
+   * media runtime) is used; export/thumbnail callers pass their own so
+   * output is deterministic regardless of editor playback.
+   */
+  mediaFrameResolver?: (
+    node: import('@varve/scene').SceneNode,
+    fill: import('@varve/scene').Fill,
+    doc: AssetLookupDoc | undefined,
+  ) => number | undefined;
+  /**
    * Thumbnail page previews only: compose transforms WITHOUT page placement
    * so a page renders in page-local coordinates (the page at the origin)
    * instead of at its pasteboard position. Page content and master content
@@ -59,6 +71,32 @@ export interface SceneNodeConversionOptions {
    * page thumbnail. Defaults to false (pasteboard space, as the canvas).
    */
   localTransforms?: boolean;
+}
+
+let defaultMediaFrameResolver:
+  | ((
+      node: import('@varve/scene').SceneNode,
+      fill: import('@varve/scene').Fill,
+      doc: AssetLookupDoc | undefined,
+    ) => number | undefined)
+  | undefined;
+
+/** Install the editor-wide default media frame resolver (playback time). */
+export function setDefaultMediaFrameResolver(
+  resolver:
+    | ((
+        node: import('@varve/scene').SceneNode,
+        fill: import('@varve/scene').Fill,
+        doc: AssetLookupDoc | undefined,
+      ) => number | undefined)
+    | undefined,
+): void {
+  defaultMediaFrameResolver = resolver;
+}
+
+/** Clear the default resolver (teardown/tests). */
+export function clearDefaultMediaFrameResolver(): void {
+  defaultMediaFrameResolver = undefined;
 }
 
 /**
@@ -81,7 +119,7 @@ function resolvePaintRefs(
   return node;
 }
 
-type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
+export type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
 
 /**
  * Rewrite an image fill's render identity: canonical assets carry their
@@ -93,15 +131,28 @@ type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | '
 function rewriteImageFillSource(
   fill: import('@varve/scene').Fill,
   doc: AssetLookupDoc | undefined,
+  node?: import('@varve/scene').SceneNode,
+  options?: SceneNodeConversionOptions,
 ): import('@varve/scene').Fill {
   if (fill.type !== 'image' || !fill.image) return fill;
   const assetId = fill.image.assetId;
   if (!assetId || !doc?.assets) return fill;
   const asset = doc.assets[assetId];
-  if (!asset || asset.storage !== 'embedded') return fill;
+  if (asset?.storage !== 'embedded') return fill;
   registerImageResourceHandle(assetId, asset.dataUrl);
-  if (fill.image.src === assetId) return fill;
-  return { ...fill, image: { ...fill.image, src: assetId, assetId } };
+  let frame: number | undefined;
+  if (asset.animated) {
+    const resolver = options?.mediaFrameResolver ?? defaultMediaFrameResolver;
+    frame = resolver?.(node ?? ({} as import('@varve/scene').SceneNode), fill, doc);
+  }
+  if (fill.image.src === assetId && frame === undefined) return fill;
+  const image: import('@varve/scene').ImageFillData & { frame?: number } = {
+    ...fill.image,
+    src: assetId,
+    assetId,
+  };
+  if (frame !== undefined) image.frame = frame;
+  return { ...fill, image };
 }
 
 export function sceneNodeToEngineNode(
@@ -116,7 +167,7 @@ export function sceneNodeToEngineNode(
     name: node.name,
     fill: resolvedNode.fill,
     fills: resolvedNode.fills
-      ? resolvedNode.fills.map((f) => rewriteImageFillSource(f, doc))
+      ? resolvedNode.fills.map((f) => rewriteImageFillSource(f, doc, resolvedNode, options))
       : resolvedNode.fills,
     transform: node.transform,
     opacity: node.opacity ?? 1,
