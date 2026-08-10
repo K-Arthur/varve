@@ -88,9 +88,24 @@ test.describe('computed-style contrast across routes', () => {
               cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity) > 0.5
             );
           };
+          /**
+           * Purely decorative text is exempt from WCAG 1.4.3, which applies
+           * to text that conveys information. The one case on this site is the
+           * oversized footer wordmark: it duplicates the brand lockup rendered
+           * a few rows above it, is inside aria-hidden and is deliberately a
+           * faint ground rather than content.
+           *
+           * The exclusion is aria-hidden subtrees only — the same boundary axe
+           * uses for its colour-contrast rule — so anything a screen reader can
+           * reach is still held to the full ratio. Marking real content
+           * aria-hidden to dodge this check would fail the axe suite instead.
+           */
+          const decorative = (el: Element) => el.closest('[aria-hidden="true"]') !== null;
+
           const seen = new Set<string>();
           for (const el of document.querySelectorAll(selector)) {
             if (!visible(el)) continue;
+            if (decorative(el)) continue;
             const text = (el.textContent ?? '').trim();
             if (!text) continue;
             const key = `${el.tagName}|${el.className}|${text.slice(0, 40)}`;
