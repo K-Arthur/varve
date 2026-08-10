@@ -53,6 +53,8 @@ export interface RasterTraceOptions {
   cornerAngle?: number;
   /** Maximum Bezier fitting error in pixels (0.1-10). Default 1.0. */
   maxError?: number;
+  /** Stage progress (0-1); only providers that can report it call this. */
+  onProgress?: (stage: string, progress: number) => void;
   /** Trace mode: silhouette (filled paths) or centerline (stroked paths). */
   traceMode?: 'silhouette' | 'centerline';
   /** Target stroke width for centerline mode in pixels (1-50). Default 2. */

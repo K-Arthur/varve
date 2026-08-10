@@ -158,6 +158,7 @@ export function VectorizeWorkflow({
   });
   const [preview, setPreview] = useState<PreviewState>({ status: 'idle' });
   const [applying, setApplying] = useState(false);
+  const [traceProgress, setTraceProgress] = useState<number | null>(null);
   const sessionRef = useRef<VectorizationSession | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -181,9 +182,12 @@ export function VectorizeWorkflow({
     const session = sessionRef.current;
     let cancelled = false;
     setPreview({ status: 'running' });
+    setTraceProgress(null);
     const timer = window.setTimeout(() => {
       const { handle, signal } = session.beginRequest();
-      runPreviewTrace(imageShapeSrc(node), settings, signal)
+      runPreviewTrace(imageShapeSrc(node), settings, signal, MAX_PREVIEW_DIM, (_, p) => {
+        if (!cancelled && session.isCurrent(handle)) setTraceProgress(p);
+      })
         .then((payload) => {
           if (cancelled || !session.isCurrent(handle)) return;
           session.release(handle);
@@ -222,10 +226,19 @@ export function VectorizeWorkflow({
   const apply = useCallback(async () => {
     if (!node || !sessionRef.current) return;
     setApplying(true);
+    setTraceProgress(null);
     const session = sessionRef.current;
     const { handle, signal } = session.beginRequest();
     try {
-      const payload = await runPreviewTrace(imageShapeSrc(node), settings, signal, MAX_FINAL_DIM);
+      const payload = await runPreviewTrace(
+        imageShapeSrc(node),
+        settings,
+        signal,
+        MAX_FINAL_DIM,
+        (_, p) => {
+          if (session.isCurrent(handle)) setTraceProgress(p);
+        },
+      );
       const { result, width, height } = payload;
       const current = editor.state;
       const sourceNode = current.document.nodes[node.id];
@@ -356,7 +369,7 @@ export function VectorizeWorkflow({
       <div className="vectorize__field">
         <span className="vectorize__field-label">Preset</span>
         <Select
-          label="Vectorization preset"
+          label="Preset"
           value={settings.presetId ?? ''}
           onChange={setPreset}
           options={VECTORIZATION_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
@@ -430,7 +443,7 @@ export function VectorizeWorkflow({
       <div className="vectorize__field">
         <span className="vectorize__field-label">Ink color</span>
         <SegmentedControl
-          label="Foreground ink"
+          label="Ink color"
           value={settings.foreground}
           options={FOREGROUND_OPTIONS}
           onChange={(foreground) => patch({ foreground })}
@@ -528,11 +541,21 @@ export function VectorizeWorkflow({
         </div>
       )}
 
-      <div className="vectorize__preview" role="img" aria-label="Vectorization preview">
+      <div
+        className="vectorize__preview"
+        role="img"
+        aria-label={
+          preview.status === 'ready' && diagnostics
+            ? `Vectorization preview: ${diagnostics.pathCount} path${diagnostics.pathCount === 1 ? '' : 's'}, ${diagnostics.pointCount} points`
+            : 'Vectorization preview'
+        }
+      >
         <canvas ref={canvasRef} className="vectorize__preview-canvas" />
         {preview.status === 'running' && (
           <span className="vectorize__preview-badge" role="status">
-            Tracing preview…
+            {traceProgress !== null
+              ? `Tracing preview… ${Math.round(traceProgress * 100)}%`
+              : 'Tracing preview…'}
           </span>
         )}
         {preview.status === 'error' && preview.error && (
@@ -599,7 +622,9 @@ export function VectorizeWorkflow({
             }
             onClick={() => void apply()}
           >
-            Apply trace
+            {applying && traceProgress !== null
+              ? `Apply trace ${Math.round(traceProgress * 100)}%`
+              : 'Apply trace'}
           </Button>
         </Tooltip>
         <Button
