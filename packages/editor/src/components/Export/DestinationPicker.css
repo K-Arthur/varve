@@ -117,3 +117,9 @@
 [data-theme="high-contrast"] .destination-picker__rule--active {
   border-color: var(--color-interactive-default);
 }
+
+.destination-picker__error {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-danger);
+}
