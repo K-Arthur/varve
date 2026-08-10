@@ -118,6 +118,34 @@ update, not for someone reading the commit log.
   copy-to-clipboard checksums with announcements, `aria-current` navigation
   state, explicit unverified-release state.
 
+## [0.1.1] - 2026-08-09
+
+Fixes a Linux packaging defect in 0.1.0: the AppImage bundled WebKit/GTK
+libraries from the ubuntu-22.04 build baseline, and on distributions with a
+newer Mesa/EGL stack (Arch, CachyOS, Fedora) the stale bundled
+`libwayland-egl` combination made WebKit's DMA-BUF renderer fail EGL display
+creation. The web process aborted while the window stayed open — a white
+screen. The app now disables only the DMA-BUF renderer for AppImage runs, so
+the AppImage renders everywhere the deb/rpm already did. If you downloaded
+the 0.1.0 AppImage and saw a blank window, this release replaces it.
+
+### Fixed
+
+- AppImage white screen on modern Mesa/EGL hosts: `WEBKIT_DISABLE_DMABUF_RENDERER=1`
+  is set for AppImage runs before Tauri starts (`APPIMAGE`-gated in
+  `apps/desktop/src-tauri/src/lib.rs`); GPU compositing is preserved where the
+  bundled libraries support it.
+- The release launch smoke can no longer pass on a blank window: it fails on
+  the EGL/abort signature in the app output and requires a live
+  `WebKitWebProcess`.
+- Release hardening inherited from the 0.1.0 rehearsal: frontend built before
+  desktop compilation, Git LFS fetched on every checkout (bundled models are
+  LFS-tracked), LFS-pointer guard fixed for Windows paths, per-platform SBOMs
+  generated and validated, `SHA256SUMS.txt` generated last over the complete
+  upload set, draft assets re-downloaded and re-hashed before publication,
+  native runner smokes for Windows and macOS, and a container install-test
+  for the Linux packages.
+
 ## [0.1.0] - 2026-08-04
 
 The first public release of Varve, and an alpha in the honest sense: it has been
