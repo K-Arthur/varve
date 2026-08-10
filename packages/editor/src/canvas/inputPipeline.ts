@@ -49,6 +49,7 @@ import {
 } from './navigationState';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 import { resolveWheelAction } from './wheelClassifier';
+import { createWheelGestureClassifier } from './wheelGesture';
 
 export interface UseCanvasInputsOptions {
   contentCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
@@ -574,6 +575,8 @@ export function useCanvasInputs({
       inertiaFrameTime = null;
     }
 
+    const wheelClassifier = createWheelGestureClassifier();
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const started = performance.now();
@@ -588,6 +591,10 @@ export function useCanvasInputs({
       }
       lastWheelTraceAt.current = started;
       const s = stateRef.current;
+      // Sequence-aware source: a fast trackpad flick whose per-event deltas
+      // land in the ambiguous band must not be reclassified mid-gesture and
+      // receive app inertia on top of the OS momentum it already carries.
+      const wheelSource = wheelClassifier.classify(e.deltaMode, e.deltaX, e.deltaY, started);
       const action = resolveWheelAction({
         deltaX: e.deltaX,
         deltaY: e.deltaY,
@@ -596,6 +603,7 @@ export function useCanvasInputs({
         metaKey: e.metaKey,
         shiftKey: e.shiftKey,
         clientHeight: el.clientHeight,
+        source: wheelSource,
       });
       advanceNavigation({ type: 'wheel', zoom: action.kind === 'zoom' });
       if (action.kind === 'zoom') {

@@ -119,8 +119,10 @@ export function resolveWheelAction(e: {
   metaKey: boolean;
   shiftKey: boolean;
   clientHeight: number;
+  /** Sequence-aware source from wheelGesture.ts; when omitted, per-event. */
+  source?: WheelSource;
 }): ResolvedWheelAction {
-  const source = classifyWheelEvent(e);
+  const source = e.source ?? classifyWheelEvent(e);
   const normX = normalizeWheelDelta(e.deltaX, e.deltaMode, e.clientHeight);
   const normY = normalizeWheelDelta(e.deltaY, e.deltaMode, e.clientHeight);
 
