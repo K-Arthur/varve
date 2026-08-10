@@ -699,12 +699,31 @@ export interface EditorContextValue {
   removeSelectedFillAt: (index: number) => void;
   reorderSelectedFill: (from: number, to: number) => void;
   setNodePosition: (id: NodeId, x: number, y: number) => void;
+  /**
+   * Batch-set absolute transforms for many nodes in ONE document update.
+   * Multi-node drags/nudges previously issued one `setNodePosition` per node
+   * per sample, each spreading the whole nodes map (O(N) key copies each), so
+   * an N-node selection cost N*O(N) per pointermove. One batched call costs a
+   * single O(N) spread per sample. Final positions are identical; the undo
+   * transaction boundary is unchanged (caller still owns begin/commit).
+   */
+  setNodePositions: (positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>) => void;
   setNodeSize: (id: NodeId, w: number, h: number) => void;
   setSelectedX: (x: number) => void;
   setSelectedY: (y: number) => void;
   setSelectedW: (w: number) => void;
   setSelectedH: (h: number) => void;
   updateNode: (id: NodeId, updater: (node: SceneNode) => SceneNode) => void;
+  /**
+   * Batch-apply per-node updaters in ONE document update (single nodes-map
+   * spread). Per-node `updateNode` calls each spread the whole map; gestures
+   * that transform N nodes per sample (ScaleTool) previously cost N*O(N).
+   * Updaters are pure and independent — they must not read other nodes'
+   * post-update state.
+   */
+  updateNodes: (
+    updaters: ReadonlyArray<{ id: NodeId; update: (node: SceneNode) => SceneNode }>,
+  ) => void;
   /**
    * Apply a character format to the selected range of the focused text node's
    * rich text. Plain-text nodes are promoted to rich text automatically.

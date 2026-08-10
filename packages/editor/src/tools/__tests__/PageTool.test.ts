@@ -55,6 +55,8 @@ function makeCtx(doc: Document, overrides: Record<string, unknown> = {}) {
     toggleSelection: vi.fn(),
     isSelected: vi.fn().mockReturnValue(false),
     setNodePosition: vi.fn(),
+    setNodePositions: vi.fn(),
+    updateNodes: vi.fn(),
     setNodeSize: vi.fn(),
     updateNode: vi.fn(),
     removeSelected: vi.fn(),

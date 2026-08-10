@@ -89,6 +89,8 @@ function renderOverlay(
     },
     selectedNodes: () => nodes,
     setNodePosition: vi.fn(),
+    setNodePositions: vi.fn(),
+    updateNodes: vi.fn(),
     setNodeSize: vi.fn(),
     updateNode: vi.fn(),
     beginTransaction: vi.fn(),

@@ -409,18 +409,30 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     return null;
   }, [isSingle, node, state.document]);
 
-  const snapOptions = useMemo<SnapBoxOptions>(() => {
+  // Snap targets for handle drags. Built ONCE when a handle drag begins
+  // (handlePointerDown / handleSkewPointerDown), not as a render memo: the
+  // previous `useMemo` keyed on [document, selection, zoom] re-walked every
+  // node in the document on every render — including during SelectTool move
+  // drags where snap is never consulted — an O(N) nodeWorldBounds pass per
+  // pointermove sample on large documents. Other nodes do not move during a
+  // handle drag, so a static snapshot is also more correct than per-sample
+  // rebuilds.
+  const snapOptionsRef = useRef<SnapBoxOptions | null>(null);
+  const buildSnapOptions = useCallback((): SnapBoxOptions => {
+    if (snapOptionsRef.current) return snapOptionsRef.current;
     const otherBounds: Array<{ x: number; y: number; w: number; h: number }> = [];
     for (const [id] of Object.entries(state.document.nodes)) {
       if (state.selection.includes(id)) continue;
       const bounds = nodeWorldBounds(state.document, id, parentIndex);
       if (bounds) otherBounds.push(bounds);
     }
-    return {
-      zoom: state.zoom,
-      otherBounds,
-    };
-  }, [state.document, state.selection, state.zoom]);
+    snapOptionsRef.current = { zoom: state.zoom, otherBounds };
+    return snapOptionsRef.current;
+  }, [state.document, state.selection, state.zoom, parentIndex]);
+
+  const releaseSnapOptions = useCallback(() => {
+    snapOptionsRef.current = null;
+  }, []);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent, handleIndex: number) => {
@@ -443,7 +455,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       const engine = new TransformEngine(state.document, state.selection, {
         bakeOnCommit: true,
-        snapBox: (b) => snapSelectionBox(b, snapOptions),
+        snapBox: (b) => snapSelectionBox(b, buildSnapOptions()),
       });
       beginTransaction();
 
@@ -475,7 +487,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       state.document,
       state.selection,
       beginTransaction,
-      snapOptions,
+      buildSnapOptions,
     ],
   );
 
@@ -490,7 +502,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const canvasOffsetY = rect?.top ?? 0;
       const engine = new TransformEngine(state.document, state.selection, {
         bakeOnCommit: true,
-        snapBox: (b) => snapSelectionBox(b, snapOptions),
+        snapBox: (b) => snapSelectionBox(b, buildSnapOptions()),
       });
       beginTransaction();
       skewDragRef.current = { engine, axis, canvasOffsetX, canvasOffsetY };
@@ -502,7 +514,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       state.document,
       state.selection,
       beginTransaction,
-      snapOptions,
+      buildSnapOptions,
     ],
   );
 
@@ -755,7 +767,10 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       updateDoc((doc) => sk.engine.commit(doc));
       commitTransaction();
     }
-  }, [updateDoc, commitTransaction]);
+    // The snap-target snapshot belongs to the gesture that just ended; the
+    // next handle drag must observe the freshly committed document.
+    releaseSnapOptions();
+  }, [updateDoc, commitTransaction, releaseSnapOptions]);
 
   if (!box || box.w === 0 || box.h === 0) return null;
 
