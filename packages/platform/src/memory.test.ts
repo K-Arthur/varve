@@ -118,6 +118,31 @@ describe('createMemoryPlatform — thumbnails', () => {
     expect(await p.getThumbnail('2')).toBeUndefined();
     expect(await p.getThumbnail('3')).toBe('c');
   });
+
+  it('persists thumbnail preference on the file entry (all source kinds)', async () => {
+    const p = createMemoryPlatform();
+    const docJson = JSON.stringify({ nodes: {} });
+    await p.upsertFile(makeFileEntry({ id: 'f1', name: 'Design' }), docJson);
+    const region = { type: 'region', region: { x: 10, y: 20, w: 300, h: 200 } } as const;
+    await p.setThumbnailPreference('f1', region);
+    const after = await p.getFile('f1');
+    expect(after?.thumbnailPreference).toEqual(region);
+    // Automatic round-trips too, and unknown files are a silent no-op.
+    await p.setThumbnailPreference('f1', { type: 'automatic' });
+    expect((await p.getFile('f1'))?.thumbnailPreference).toEqual({ type: 'automatic' });
+    await p.setThumbnailPreference('does-not-exist', { type: 'page', pageId: 'p' });
+    expect(await p.getFile('does-not-exist')).toBeUndefined();
+  });
+
+  it('thumbnail preference survives upsertFile of new document bytes', async () => {
+    const p = createMemoryPlatform();
+    await p.upsertFile(makeFileEntry({ id: 'f1', name: 'Design' }), 'v1');
+    await p.setThumbnailPreference('f1', { type: 'frame', nodeId: 'n1' });
+    const entry = await p.getFile('f1');
+    if (!entry) throw new Error('missing file');
+    await p.upsertFile(entry, 'v2');
+    expect((await p.getFile('f1'))?.thumbnailPreference).toEqual({ type: 'frame', nodeId: 'n1' });
+  });
 });
 
 describe('createMemoryPlatform — view state', () => {

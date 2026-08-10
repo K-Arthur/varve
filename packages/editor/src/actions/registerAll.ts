@@ -1,6 +1,7 @@
 import type { EditorContextValue } from '../context';
 import { openMockupsWithSelection } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
+import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
 import { type ActionCategory, getActionRegistry } from './ActionRegistry';
 import { type ActionHandlerCallbacks, createActionHandlers } from './createActionHandlers';
 
@@ -39,6 +40,10 @@ export function registerEditorActions(
 ): void {
   const r = getActionRegistry();
   const handlers = createActionHandlers(ctx, callbacks);
+
+  // Thumbnail commands: source selection + picker entry point. Registered
+  // BEFORE registerAllShortcuts() so real handlers win over no-op stubs.
+  registerThumbnailActions(ctx);
 
   const reg = (id: string, label: string, category: ActionCategory, handler: () => void) => {
     if (!r.has(id)) {

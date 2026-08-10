@@ -1,12 +1,32 @@
+/**
+ * useThumbnailLoader — canonical thumbnail loading for Home surfaces.
+ *
+ * Loads cached thumbnails by canonical identity
+ * (fileId + contentHash + preference + home-card variant); on a miss it
+ * falls back to the legacy bare content-hash key (warm migration for
+ * pre-canonical files) and otherwise shows the empty state. Generation is
+ * owned by the editor (save path) — Home never renders documents.
+ *
+ * Scheduling: bounded concurrency (batch of 4), idle-time dispatch, LRU
+ * in-memory map keyed by file id, duplicate-job suppression.
+ */
+
+import { THUMBNAIL_RENDERER_VERSION } from '@varve/engine';
 import type { FileEntry, Platform } from '@varve/platform';
+import {
+  computeThumbnailIdentity,
+  THUMBNAIL_VARIANTS,
+  type ThumbnailIdentity,
+} from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 4;
 const MAX_CACHE_SIZE = 100;
 
 interface QueueItem {
   entry: FileEntry;
   priority: number;
+  identity: ThumbnailIdentity;
 }
 
 export interface ThumbnailLoader {
@@ -14,6 +34,40 @@ export interface ThumbnailLoader {
   load: (entry: FileEntry) => void;
   loadBatch: (entries: FileEntry[]) => void;
   prioritize: (entryId: string) => void;
+}
+
+/** Canonical identity for a file's home-card thumbnail. */
+export function fileThumbnailIdentity(entry: FileEntry): ThumbnailIdentity {
+  return computeThumbnailIdentity({
+    docKey: entry.id,
+    revisionHash: entry.contentHash,
+    source: entry.thumbnailPreference ?? { type: 'automatic' },
+    variant: THUMBNAIL_VARIANTS['home-card'],
+    rendererVersion: THUMBNAIL_RENDERER_VERSION,
+  });
+}
+
+/**
+ * Look up a file's thumbnail with legacy fallback. Never throws; failures
+ * resolve to null so the card shows its empty state.
+ */
+async function loadUrl(
+  platform: Platform,
+  identity: ThumbnailIdentity,
+  entry: FileEntry,
+): Promise<string | null> {
+  try {
+    const canonical = await platform.getThumbnail(identity.key);
+    if (canonical) return canonical;
+    // Legacy warm migration: bare content-hash entries from the
+    // pre-canonical system are treated as disposable optimization state.
+    if (identity.key !== entry.contentHash) {
+      return (await platform.getThumbnail(entry.contentHash)) ?? null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
@@ -25,66 +79,33 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
   const evictIfNeeded = useCallback(() => {
     setThumbnails((prev) => {
       if (prev.size <= MAX_CACHE_SIZE) return prev;
-      const entries = [...prev.entries()];
-      const toRemove = entries.slice(0, entries.length - MAX_CACHE_SIZE);
       const next = new Map(prev);
-      for (const [key] of toRemove) {
+      let evicted = 0;
+      for (const key of next.keys()) {
+        if (next.size - evicted <= MAX_CACHE_SIZE) break;
         next.delete(key);
+        evicted++;
       }
       return next;
     });
   }, []);
 
   const processSingle = useCallback(
-    async (entry: FileEntry) => {
+    async (item: QueueItem) => {
+      const { entry, identity } = item;
       if (thumbnails.has(entry.id) || loadingRef.current.has(entry.id)) return;
       loadingRef.current.add(entry.id);
 
       try {
-        const dataUrl = await platform.getThumbnail(entry.contentHash);
-        if (dataUrl) {
-          setThumbnails((prev) => {
-            const next = new Map(prev);
-            next.set(entry.id, dataUrl);
-            return next;
-          });
-          evictIfNeeded();
-          return;
-        }
-
-        const json = await platform.readFile(entry.id);
-        if (!json) {
-          setThumbnails((prev) => {
-            const next = new Map(prev);
-            next.set(entry.id, null);
-            return next;
-          });
-          return;
-        }
-
-        const { legacyRenderThumbnail } = await import('@varve/engine');
-        const thumbDataUrl = await legacyRenderThumbnail(JSON.parse(json));
-        if (thumbDataUrl) {
-          await platform.putThumbnail({
-            hash: entry.contentHash,
-            dataUrl: thumbDataUrl,
-            width: 256,
-            height: 192,
-            createdAt: Date.now(),
-          });
-          setThumbnails((prev) => {
-            const next = new Map(prev);
-            next.set(entry.id, thumbDataUrl);
-            return next;
-          });
-          evictIfNeeded();
-        }
-      } catch {
+        const url = await loadUrl(platform, identity, entry);
         setThumbnails((prev) => {
           const next = new Map(prev);
-          next.set(entry.id, null);
+          next.set(entry.id, url);
           return next;
         });
+        evictIfNeeded();
+      } catch {
+        // Load failures are non-fatal: the card shows its empty state.
       } finally {
         loadingRef.current.delete(entry.id);
       }
@@ -121,7 +142,7 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
 
       let completed = 0;
       for (const item of batch) {
-        processSingle(item.entry).finally(() => {
+        processSingle(item).finally(() => {
           completed++;
           if (completed === batch.length) {
             scheduleNext();
@@ -136,7 +157,7 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
   const load = useCallback(
     (entry: FileEntry) => {
       if (thumbnails.has(entry.id) || loadingRef.current.has(entry.id)) return;
-      queueRef.current.push({ entry, priority: 0 });
+      queueRef.current.push({ entry, priority: 0, identity: fileThumbnailIdentity(entry) });
       processQueue();
     },
     [thumbnails, processQueue],
@@ -147,7 +168,7 @@ export function useThumbnailLoader(platform: Platform): ThumbnailLoader {
       const added: QueueItem[] = [];
       for (const entry of entries) {
         if (thumbnails.has(entry.id) || loadingRef.current.has(entry.id)) continue;
-        added.push({ entry, priority: 0 });
+        added.push({ entry, priority: 0, identity: fileThumbnailIdentity(entry) });
       }
       if (added.length === 0) return;
       queueRef.current.push(...added);
