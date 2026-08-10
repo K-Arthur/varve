@@ -197,7 +197,7 @@ function CodegenTab({ doc, selection }: CodePanelProps) {
               name="code-preview-size"
               checked={previewSize === size.value}
               onChange={() => setPreviewSize(size.value)}
-              hidden
+              className="sr-only"
             />
             {size.label}
             {size.width && <span className="code-panel__size-unit">px</span>}

@@ -67,6 +67,21 @@ const INITIAL_LAYOUT: WorkspaceLayoutResult = {
   iconOnly: false,
 };
 
+/**
+ * Convert a display shortcut ("Ctrl+Shift+1" / mac glyphs) into valid
+ * aria-keyshortcuts token grammar ("Control+Shift+1"): modifiers must be
+ * spelled out, never display glyphs (APG key assignments).
+ */
+function toAriaKeyshortcuts(label: string): string {
+  return label
+    .replaceAll('\u2318', 'Meta+')
+    .replaceAll('\u21E7', 'Shift+')
+    .replaceAll('\u2325', 'Alt+')
+    .replaceAll('\u2303', 'Control+')
+    .replace('Ctrl+', 'Control+')
+    .replaceAll('\u232B', 'Backspace');
+}
+
 export function WorkspaceTabs() {
   const { state, requestWorkspaceSwitch, resetWorkspaceToDefault } = useEditor();
   const customizations = useWorkspaceCustomizations();
@@ -214,7 +229,7 @@ export function WorkspaceTabs() {
               role="radio"
               aria-checked={state.workspaceMode === mode}
               aria-label={`${WORKSPACE_LABELS[mode]} workspace`}
-              aria-keyshortcuts={workspaceShortcutLabel(mode)}
+              aria-keyshortcuts={toAriaKeyshortcuts(workspaceShortcutLabel(mode))}
               tabIndex={rovingId === mode ? 0 : -1}
               className={`workspace-tabs__tab${state.workspaceMode === mode ? ' workspace-tabs__tab--active' : ''}`}
               onClick={() => handleSwitch(mode)}

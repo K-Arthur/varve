@@ -79,6 +79,23 @@ function complexityLabel(complexity: number): string {
   return 'Extreme';
 }
 
+/**
+ * Map raw provider errors to plain language. The provider chain wraps
+ * failures as "Trace failed (worker-trace: ...)" and surfaces environment
+ * gates as internal-ish strings; users should not see either verbatim.
+ */
+function describeTraceError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message === 'cancelled') return message;
+  if (message.includes('No trace provider available')) {
+    return 'Tracing is not available in this environment.';
+  }
+  if (message.includes('Centerline tracing requires the desktop app')) {
+    return 'Centerline tracing is only available in the desktop app.';
+  }
+  return message.replace(/^Trace failed \((.*)\)$/, '$1');
+}
+
 interface PreviewState {
   status: PreviewStatus;
   error?: string;
@@ -179,7 +196,7 @@ export function VectorizeWorkflow({
         .catch((error) => {
           if (cancelled || !session.isCurrent(handle)) return;
           session.release(handle);
-          const message = error instanceof Error ? error.message : String(error);
+          const message = describeTraceError(error);
           setPreview({ status: 'error', error: message === 'cancelled' ? undefined : message });
         });
     }, 250);
@@ -197,8 +214,8 @@ export function VectorizeWorkflow({
     drawPreview(
       canvas,
       preview.payload,
-      getComputedStyle(document.documentElement).getPropertyValue('--color-surface-canvas') ||
-        '#ffffff',
+      getComputedStyle(document.documentElement).getPropertyValue('--color-surface-sunken') ||
+        '#f7f8fa',
     );
   }, [preview]);
 
@@ -263,8 +280,11 @@ export function VectorizeWorkflow({
         `Inserted ${result.paths.length} vector path${result.paths.length === 1 ? '' : 's'}${holeNote}`,
       );
     } catch (error) {
-      if (error instanceof Error && error.message === 'cancelled') return;
-      const message = error instanceof Error ? error.message : String(error);
+      if (error instanceof Error && error.message === 'cancelled') {
+        editor.announce('Vectorization cancelled');
+        return;
+      }
+      const message = describeTraceError(error);
       editor.announce(`Vectorization failed: ${message}`);
     } finally {
       setApplying(false);
@@ -527,7 +547,8 @@ export function VectorizeWorkflow({
 
       {previewIsDownsampled && preview.status !== 'idle' && (
         <p className="vectorize__muted">
-          Preview is downsampled for responsiveness; Apply traces at full resolution.
+          Preview is downsampled for responsiveness; Apply traces at full resolution (up to{' '}
+          {MAX_FINAL_DIM} px).
         </p>
       )}
 

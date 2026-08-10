@@ -11,7 +11,7 @@ test.describe('Floating toolbar adapts per workspace mode', () => {
 
   async function switchTo(page: import('@playwright/test').Page, label: string) {
     await page
-      .locator('.editor-menubar__workspace-btn')
+      .locator('.workspace-tabs__tab')
       .filter({ hasText: new RegExp(`^${label}$`) })
       .click();
   }

@@ -826,6 +826,10 @@ function buildMenus(
           action: 'workspaceLogo',
         },
         {
+          label: 'Workspace: Codegen',
+          action: 'workspaceCodegen',
+        },
+        {
           label: 'Reset Workspace to Default',
           action: 'resetWorkspace',
         },
