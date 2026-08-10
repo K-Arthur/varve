@@ -54,6 +54,7 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
+import { useAutoBackupServices } from './context/useAutoBackupServices';
 
 /** Module-level bridge giving the BackupSettingsPanel access to the editor's
  *  BackupService without threading it through the EditorContextValue interface.
@@ -100,7 +101,7 @@ import {
   triadicHarmony,
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
-import { type Platform, upsertPreservingMeta } from '@varve/platform';
+import type { Platform } from '@varve/platform';
 import {
   PrototypeDebugConsole,
   type PrototypeRuntime,
@@ -337,8 +338,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { AutoSaveService } from './autoSaveService';
-import { BackupService } from './backupService';
+import type { BackupService } from './backupService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   editorScreenToWorld,
@@ -375,7 +375,6 @@ import {
 } from './components/LayersPanel/layerBulkOperations';
 import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPublish';
 import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
-import { loadSettings as loadUiSettings } from './components/Settings/settings';
 import {
   applyToolChange,
   type DocumentContextValue,
@@ -2540,55 +2539,13 @@ export function EditorProvider({
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
   const interactionState = useInteractionState();
-  /** Auto-save service ref for lifecycle-triggered saves. */
-  const autoSaveRef = useRef<AutoSaveService | null>(null);
-  /** Recovery manager for crash-recovery sessions. */
+  /** Auto-save + versioned-backup services (own their lifecycle). */
   const recoveryRef = useRef<RecoveryManager | null>(null);
-  /** Initialize auto-save and recovery once. */
+  /** Initialize recovery once. */
   if (!recoveryRef.current) {
     recoveryRef.current = getSharedRecoveryManager();
   }
-  if (!autoSaveRef.current && platform) {
-    const uiSettings = loadUiSettings();
-    autoSaveRef.current = new AutoSaveService(
-      () => {
-        const s = stateRef.current;
-        const meta = s.sessions.find((sess) => sess.id === s.activeId);
-        return {
-          document: s.document,
-          meta: { fileId: meta?.fileId, name: meta?.name ?? 'Untitled' },
-        };
-      },
-      async (json) => {
-        if (!platform) return false;
-        const s = stateRef.current;
-        const meta = s.sessions.find((sess) => sess.id === s.activeId);
-        try {
-          if (meta?.fileId) {
-            await upsertPreservingMeta(platform, meta.fileId, meta.name, json);
-          } else {
-            // Untitled document: persist as recovery point so work is never lost
-            const doc = JSON.parse(json) as Document;
-            await recoveryRef.current?.createRecoveryPoint(doc, meta?.name ?? 'Untitled');
-          }
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { intervalMs: (uiSettings.general?.autosaveInterval ?? 5) * 60 * 1000 },
-    );
-    autoSaveRef.current.setOnSaveRecovery(async (doc, meta) => {
-      await recoveryRef.current?.createRecoveryPoint(doc, meta.name, meta.fileId);
-    });
-    autoSaveRef.current.start();
-  }
-  /** Automatic versioned-backup service (distinct from crash-recovery auto-save). */
-  const backupRef = useRef<BackupService | null>(null);
-  if (!backupRef.current) {
-    backupRef.current = new BackupService();
-    void backupRef.current.initialize();
-  }
+  const { autoSaveRef, backupRef } = useAutoBackupServices(platform, stateRef, recoveryRef);
   /** Ref mirror of the active tool, updated synchronously in setTool so that
    *  createShapeAt sees the latest tool even when React 18 automatic batching
    *  queues a setTool + createShapeAt together. Without this, createShapeAt
@@ -2650,7 +2607,7 @@ export function EditorProvider({
     }
   }, [state.document, state.dirty, state.sessions, state.activeId, state.revision]);
 
-  /** Cleanup auto-save and background-removal worker pool on unmount. */
+  /** Cleanup background-removal worker state and worker pool on unmount. */
   useEffect(() => {
     return () => {
       bgRemovalAbortRef.current?.abort();
@@ -2659,8 +2616,6 @@ export function EditorProvider({
       imageProcessingAbortRef.current?.abort();
       imageProcessingAbortRef.current = null;
       processingImageNodeRef.current = null;
-      autoSaveRef.current?.stop();
-      void backupRef.current?.shutdown();
       void import('@varve/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
     };
   }, []);
