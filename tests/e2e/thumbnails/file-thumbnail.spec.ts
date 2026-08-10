@@ -22,6 +22,26 @@
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+/**
+ * The web build's save flow (save coordinator) asks for a destination via
+ * the File System Access API. Stub it deterministically so the first Save
+ * adopts a target and subsequent saves reuse it (same contract as
+ * tests/e2e/save/save-flow.spec.ts).
+ */
+async function installSavePickerStub(page: import('@playwright/test').Page): Promise<void> {
+  await page.addInitScript(() => {
+    const win = window as unknown as Record<string, unknown>;
+    win.showSaveFilePicker = async () => ({
+      name: 'document.varve',
+      queryPermission: async () => 'granted',
+      createWritable: async () => ({
+        write: async () => undefined,
+        close: async () => undefined,
+      }),
+    });
+  });
+}
+
 /** Drag on the canvas in CLIENT coordinates (offset from the canvas box). */
 async function dragClient(
   page: import('@playwright/test').Page,
@@ -36,9 +56,11 @@ async function dragClient(
   await page.mouse.up();
 }
 
-/** Wait until the file card for `name` has a rendered thumbnail image. */
-async function expectCardThumbnail(page: import('@playwright/test').Page, name: string) {
-  const card = page.locator('.file-card', { hasText: name }).first();
+/** Wait until the file grid's card has a rendered thumbnail image. */
+async function expectCardThumbnail(page: import('@playwright/test').Page) {
+  // The test session has exactly one file; its display name may be adopted
+  // from the save picker's suggested name, so match the card structurally.
+  const card = page.locator('.file-card').first();
   await card.waitFor({ timeout: 20000 });
   const img = card.locator('.varve-thumbnail__img');
   await expect(img).toBeVisible({ timeout: 30000 });
@@ -58,6 +80,7 @@ async function reopenFile(page: import('@playwright/test').Page) {
 
 test.describe('file thumbnail workflow', () => {
   test('set a frame as the file thumbnail, fall back, reset', async ({ page }) => {
+    await installSavePickerStub(page);
     // 1. Create a design.
     await navigateToEditor(page);
 
@@ -94,7 +117,7 @@ test.describe('file thumbnail workflow', () => {
     // 5. Return Home in-app — the chosen representation must render.
     await page.keyboard.press('Control+Shift+H');
     await page.waitForSelector('.varve-home', { timeout: 20000 });
-    await expectCardThumbnail(page, 'Untitled');
+    await expectCardThumbnail(page);
 
     // 6. Reopen, delete the source frame, save.
     await reopenFile(page);
@@ -107,7 +130,7 @@ test.describe('file thumbnail workflow', () => {
     // 7. Home still shows a thumbnail (missing source → automatic fallback).
     await page.keyboard.press('Control+Shift+H');
     await page.waitForSelector('.varve-home', { timeout: 20000 });
-    await expectCardThumbnail(page, 'Untitled');
+    await expectCardThumbnail(page);
 
     // 8. Reopen and reset through the File menu → picker dialog.
     await reopenFile(page);
@@ -126,6 +149,6 @@ test.describe('file thumbnail workflow', () => {
     // 9. Home updates — the automatic thumbnail still renders.
     await page.keyboard.press('Control+Shift+H');
     await page.waitForSelector('.varve-home', { timeout: 20000 });
-    await expectCardThumbnail(page, 'Untitled');
+    await expectCardThumbnail(page);
   });
 });
