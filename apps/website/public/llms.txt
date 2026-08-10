@@ -8,7 +8,15 @@
 - It combines vector design, page layout, typography, animation, prototyping, and print production in one application and one document model.
 - It is local-first: no account, no cloud sync, no telemetry. Design data stays on the user's machine.
 - It is free with no subscription and no feature lockouts. Only the Community Edition exists today.
-- Desktop builds use a native Rust engine; the web build uses the same engine compiled to WASM.
+- Desktop builds use a native Rust engine; the same engine compiles to WASM for web builds (the web build is not yet deployed as a hosted app).
+
+## Release status (verified against the repository state on 2026-08-10)
+
+- Status: beta. The first public release, **Varve 0.1.0**, was published 2026-08-09 with installers for Linux (AppImage, deb, rpm), macOS (Apple Silicon dmg), and Windows (x86_64 installer).
+- The download page renders every artifact from the verified release manifest (SHA-256 checksums, SBOMs, system requirements); nothing is hand-typed.
+- Windows and macOS builds are **not code-signed** yet — the download page shows the verification steps for each platform.
+- The document format (`.strata`) may still change in ways that break older files; keep backups.
+- Downloads labeled "Varve" outside the official GitHub repository are not official.
 
 ## Platforms and system requirements
 
@@ -16,18 +24,27 @@
 - macOS: Apple Silicon (aarch64), macOS 13 Ventura or later. No Intel build yet.
 - Windows: 10 (1809) or 11, x86_64 (NSIS installer).
 - Minimum 4 GB RAM (8 GB recommended), 500 MB storage.
-- Linux ARM, Windows ARM, and code-signed builds are not yet available. Windows builds are unsigned; macOS builds are unsigned and not notarized.
+- Linux ARM, Windows ARM, and Intel macOS builds are not available. Windows and macOS releases are not yet code-signed; Linux artifacts ship with SHA-256 checksums, an SBOM, and GitHub build provenance.
 
-## Key facts (verified against the 2026-07-20 development build)
+## Key facts (feature status)
 
-- Current status: beta. No public release has been tagged yet; installers are not published.
 - Import formats: SVG, PDF, PSD, AI, EPS, and common image formats.
 - Export formats: SVG, React/Tailwind, React/CSS Modules, CSS, Flutter, SwiftUI, PDF (RGB), PDF/X-1a (CMYK), PDF/X-4, and CSS/Lottie/SVG/video animation export.
 - Print support: CMYK color management, ICC profiles, crop and registration marks, color bars, bleed boxes, print preflight checks.
 - Typography: multi-line text, OpenType features, variable fonts, text on path, inline editing, CJK line breaking. Complex script shaping (Arabic, Devanagari) is not yet supported.
 - Collaboration: not implemented (UI scaffolding only).
 - Motion: timeline animation, keyframes, easing, Smart Animate, prototype interactions, state machines.
+- Image tracing: raster-to-vector tracing (silhouette, centerline, pixel-art modes) with a native Rust provider on desktop and a TypeScript fallback on web.
 - Development: built independently by one designer-developer; development is documented publicly.
+
+## Frequently asked questions
+
+- Is Varve free? Yes. The Community Edition is free to download and use — no subscriptions, no feature lockouts, no cloud requirements.
+- Is Varve open source? The source is publicly available under FSL-1.1-MIT, a source-available license. After two years, each release converts to the MIT license.
+- Does Varve have real-time collaboration? Not yet. Collaboration is UI scaffolding only, with no transport or wire protocol.
+- Can I use Varve for professional print work? It has CMYK management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and preflight checks, but it is in beta — test thoroughly before critical production use.
+- Does Varve support ARM processors? Apple Silicon on macOS only. Linux ARM and Windows ARM are not supported.
+- Has Varve shipped a release? Yes: Varve 0.1.0 (2026-08-09), beta, with Linux, macOS (Apple Silicon), and Windows installers. Expect rough edges and a possibly-changing file format.
 
 ## Documentation
 
