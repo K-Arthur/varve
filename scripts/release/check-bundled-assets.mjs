@@ -20,7 +20,7 @@
  *   node scripts/release/check-bundled-assets.mjs --dist     # also check built dist/
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { basename, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -143,7 +143,9 @@ function main() {
     for (const path of walk(root)) {
       if (!path.endsWith('.onnx')) continue;
       const rel = relative(repoRoot, path);
-      const filename = path.split('/').pop();
+      // basename() (not split('/')) — Windows checkouts use backslash paths,
+      // and the guard must treat both separators identically.
+      const filename = basename(path);
 
       if (isLfsPointer(path)) {
         const { size, oid } = pointerDetails(path);
