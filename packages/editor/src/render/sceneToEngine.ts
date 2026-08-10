@@ -292,11 +292,24 @@ export function sceneNodeToEngineNode(
   }
 
   if (node.kind === 'frame') {
+    // Frame-level native raster masks are applied by the structural replay
+    // (replayScene), not the engine's rect path — but propagating the mask
+    // identity onto the engine node keeps the export resource barrier
+    // complete: without it, preflight cannot see a frame mask that is still
+    // decoding and a single-shot export replay would silently skip it.
+    const nativeRasterMask = doc ? resolveRasterMaskAsset(doc, node) : null;
+    const alphaMask = nativeRasterMask?.dataUrl;
     return {
       ...base,
       shape: { kind: 'rect', x: 0, y: 0, w: node.w, h: node.h },
       cornerRadius: node.cornerRadius,
       cornerSmoothing: node.cornerSmoothing !== undefined ? node.cornerSmoothing / 100 : undefined,
+      alphaMask:
+        options.showOriginalBackgroundNodeId === node.id
+          ? undefined
+          : alphaMask && options.useMaskRenderProxy
+            ? maskRenderUrl(alphaMask)
+            : alphaMask,
     };
   }
 
