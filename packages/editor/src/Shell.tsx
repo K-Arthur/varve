@@ -119,6 +119,10 @@ function ShellInner({
       onOpenHelpCenter: () => editorHelp.setHelpCenterOpen(true),
     });
   const [paletteFocusShortcutId, setPaletteFocusShortcutId] = useState<string | undefined>();
+  const [selectedKeyframe, setSelectedKeyframe] = useState<{
+    trackId: string;
+    index: number;
+  } | null>(null);
 
   const { presences: collabPresences, users: collabUsers } = useCollabPresence(
     editor.state.activeId,
@@ -483,7 +487,11 @@ function ShellInner({
                 onionSkin={editor.state.motion.onionSkinEnabled}
                 motionPresets={editor.state.document.motionPresets ?? {}}
                 selectedTrackIds={editor.state.motion.selectedTrackIds}
-                selectedKeyframeIndex={null}
+                selectedKeyframe={
+                  selectedKeyframe
+                    ? { trackId: selectedKeyframe.trackId, index: selectedKeyframe.index }
+                    : null
+                }
                 graphEditorVisible={editor.state.graphEditorVisible}
                 onPlay={() => editor.playTimeline()}
                 onPause={() => editor.pauseTimeline()}
@@ -554,11 +562,18 @@ function ShellInner({
                       : [...s.selectedTrackIds, trackId],
                   );
                 }}
-                onClickKeyframe={(_trackId, progress) => {
+                onClickKeyframe={(trackId, progress) => {
                   const tl = editor.state.motion.activeTimelineId
                     ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]
                     : null;
                   if (tl) editor.seekTimeline(progress * tl.duration);
+                  // Wire the selected keyframe so the track row's arrow-key
+                  // stepping and Delete actually have a target.
+                  const track = tl?.tracks.find((t) => t.id === trackId);
+                  const index = track
+                    ? track.keyframes.findIndex((kf) => kf.progress === progress)
+                    : -1;
+                  setSelectedKeyframe(index >= 0 ? { trackId, index } : null);
                 }}
                 onSetTrackNestedTimeline={(trackId, nestedTimelineId, startProgress) => {
                   const tlId = editor.state.motion.activeTimelineId;

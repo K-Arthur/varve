@@ -40,17 +40,6 @@ export interface GraphEditorProps {
   ) => void;
 }
 
-const TRACK_COLORS = [
-  '#39d0c6', // teal (accent)
-  '#e06c75', // red
-  '#61afef', // blue
-  '#c678dd', // purple
-  '#e5c07b', // yellow
-  '#98c379', // green
-  '#d19a66', // orange
-  '#56b6c2', // cyan
-];
-
 interface CurvePoint {
   x: number;
   y: number;
@@ -318,10 +307,10 @@ export const GraphEditor: FC<GraphEditorProps> = ({
         {visibleTracks.map((track, ti) => {
           const path = generateCurvePath(track);
           if (!path) return null;
-          const color = TRACK_COLORS[ti % TRACK_COLORS.length];
+          const trackTone = `t${ti % 8}`;
           return (
             <g key={track.id}>
-              <path d={path} className="graph-editor__curve" stroke={color} />
+              <path d={path} className={`graph-editor__curve graph-editor__curve--${trackTone}`} />
               {/* Keyframe dots */}
               {track.keyframes.map((kf, ki) => {
                 const x = progressToX(kf.progress);
@@ -383,8 +372,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                       cx={x}
                       cy={y}
                       r={isHovered || isFocused ? KEYFRAME_HOVER_R : KEYFRAME_VISUAL_R}
-                      className="graph-editor__keyframe-dot"
-                      fill={color}
+                      className={`graph-editor__keyframe-dot graph-editor__keyframe-dot--${trackTone}${isFocused ? ' graph-editor__keyframe-dot--focused' : ''}`}
                       tabIndex={-1}
                       aria-hidden
                       onMouseEnter={() =>

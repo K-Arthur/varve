@@ -185,6 +185,10 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
       <time className="timeline-playback-time" role="timer" aria-label="Duration">
         {formatTime(duration)}
       </time>
+
+      <span className="sr-only" role="status" aria-live="polite">
+        {isPlaying ? 'Playback started' : 'Playback paused'}
+      </span>
     </div>
   );
 };
