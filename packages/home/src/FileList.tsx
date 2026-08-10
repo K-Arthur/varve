@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { FileEntry, SortDirection, SortKey } from '@varve/platform';
 import { formatBytes, formatRelativeTime } from '@varve/platform';
-import { Icon } from '@varve/ui';
+import { Icon, Thumbnail } from '@varve/ui';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface FileListProps {
@@ -300,15 +300,12 @@ export function FileList({
                   onFocus={() => setFocusIdx(virtualRow.index)}
                 >
                   <div className="file-row__thumb">
-                    {thumbnails.get(entry.id) ? (
-                      <img
-                        src={thumbnails.get(entry.id) ?? ''}
-                        alt=""
-                        className="file-row__thumb-img"
-                      />
-                    ) : (
-                      <div className="file-card__skeleton" />
-                    )}
+                    <Thumbnail
+                      src={thumbnails.get(entry.id)}
+                      alt={entry.name}
+                      radius="sm"
+                      className="file-row__thumb-img"
+                    />
                   </div>
                   {renamingId === entry.id ? (
                     <input

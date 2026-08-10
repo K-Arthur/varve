@@ -969,6 +969,14 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       const rec = await db.get(STORE_THUMBS, hash);
       return rec?.dataUrl;
     },
+    async setThumbnailPreference(fileId, preference) {
+      const rec = await db.get(STORE_FILES, fileId);
+      if (!rec) return;
+      await db.put(STORE_FILES, {
+        ...rec,
+        entry: { ...rec.entry, thumbnailPreference: preference },
+      });
+    },
     async putThumbnail(record) {
       await db.put(STORE_THUMBS, record);
     },

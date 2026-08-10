@@ -317,3 +317,17 @@ export function computeThumbnailIdentity(input: ThumbnailIdentityInput): Thumbna
 export function isCanonicalThumbnailKey(key: string): boolean {
   return key.startsWith('thumb:v');
 }
+
+/**
+ * Deterministic, content-free placeholder for encrypted projects. No
+ * user-identifying metadata; safe for recent-files and home-screen display.
+ */
+export const ENCRYPTED_PROJECT_PLACEHOLDER =
+  'data:image/svg+xml,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="192" viewBox="0 0 256 192">' +
+      '<rect width="256" height="192" fill="#f0f0f0" rx="4"/>' +
+      '<path d="M128 60c-15 0-28 12-28 28v8H92c-4 0-8 4-8 8v52c0 4 4 8 8 8h72c4 0 8-4 8-8V96c0-4-4-8-8-8h-8v-8c0-16-13-28-28-28z" fill="#ccc" stroke="#aaa" stroke-width="2"/>' +
+      '<path d="M128 112c-4 0-8 4-8 8v12c0 4 4 8 8 8s8-4 8-8v-12c0-4-4-8-8-8z" fill="#aaa"/>' +
+      '</svg>',
+  );

@@ -356,6 +356,43 @@ export function buildCanvasContextMenuItems({
           } satisfies MenuEntry,
         ]
       : []),
+    // ── File thumbnail ──────────────────────────────────────────────────
+    ...(hasSelection
+      ? [
+          { id: 'ctx-sep-thumb', separator: true as const } satisfies MenuEntry,
+          {
+            id: 'ctx-use-selection-thumbnail',
+            label: 'Use Selection as File Thumbnail',
+            onAction: () => {
+              record('setThumbnailFromSelection');
+              getActionRegistry().get('setThumbnailFromSelection')?.handler(undefined);
+              closeMenu();
+            },
+          } satisfies MenuEntry,
+        ]
+      : []),
+    ...(isSingleFrame
+      ? [
+          {
+            id: 'ctx-use-frame-thumbnail',
+            label: 'Use Frame as File Thumbnail',
+            onAction: () => {
+              record('setThumbnailFromFrame');
+              getActionRegistry().get('setThumbnailFromFrame')?.handler(undefined);
+              closeMenu();
+            },
+          } satisfies MenuEntry,
+        ]
+      : []),
+    {
+      id: 'ctx-open-thumbnail-picker',
+      label: 'Set File Thumbnail…',
+      onAction: () => {
+        record('openThumbnailPicker');
+        getActionRegistry().get('openThumbnailPicker')?.handler(undefined);
+        closeMenu();
+      },
+    } satisfies MenuEntry,
   ];
   return items;
 }
