@@ -17,8 +17,12 @@ Multi-resolution tiled raster pyramid (ADR-0214). Source docs:
 | Renderer integration (paintRasterLayer seam) | Done | `renderTiles.ts`, gutter tiles, crossover, bench — 92 tests total |
 | Editor wiring (viewport → scheduler, diagnostics) | Done | `context/useRasterLod.ts` — session enable, viewport sync, budget presets |
 | E2E interaction corpus | Done | `tests/e2e/canvas/raster-lod.spec.ts` — zoom extremes/pan/undo (48.7s) |
-| Visual corpus (seams/alpha at multiple zooms) | Deferred | renderTiles gutter unit tests cover the seam maths; browser screenshot corpus is a follow-up |
-| Memory soak + pressure-profile soak | Deferred | needs the production pressure wiring (currently test-only, finding F6) |
+| Pressure profiles in production (F6) + retained-surface budget (F2) | Done | `resolveRuntimePressureProfile` from deviceMemory; useRasterLod shrinks pyramid + RasterLayerCache under '4gb'/'2gb' |
+| Memory soak (brief §69) | Done | `memorySoak.test.ts` — 20-iteration paint/undo/doc-switch loop; residency ≤ budget, queues bounded, release empties the store |
+| Export parity guard (ADR D12) | Done | `replayStructuredScene` suspends the pyramid during export replay, restores prior state; test pins both directions |
+| Worker-realm pyramid (D15) | Done | `setRasterLod` worker command + boot enable; perf handle mirrors both realms |
+| Visual seam corpus (brief §53-54) | Done | `tests/e2e/visual/raster-lod-parity.spec.ts` — 8192² paint fixture, 25% zoom, pyramid-vs-retained screenshots |
+| Memory soak + pressure-profile soak | Done | see above |
 | Final regression gates | Done (scoped) | full-repo gate blocked by concurrent in-progress packages — see below |
 
 ## Concurrency note (2026-08-09)
@@ -57,6 +61,33 @@ generation cost is what the table shows — repeated frames only pay
 per-tile drawImage. No pyramid row ever exceeds the retained path's p50
 at the same size, and the advantage grows sharply as zoom drops.
 
+## Visual seam corpus (2026-08-09, browser)
+
+`tests/e2e/visual/raster-lod-parity.spec.ts` — deterministic 8192² sparse
+paint fixture (content block with 1px lines on the 128px grid, 45°
+diagonals, semi-transparent band), camera parked at 25% zoom (L2, 4×
+minification), pyramid arm vs retained arm screenshots compared in-page:
+
+```
+residentTiles: 84     residentBytes: 5.5 MiB   (vs 256 MiB full surface)
+interiorMean:  0.36   (luma units, arms nearly identical)
+interiorMax:   0      boundaryMax: 0    bandEdgeMax: 0
+```
+
+No seam at any tile boundary — the two arms are pixel-identical at every
+measured boundary and across the semi-transparent band (no alpha halo).
+Also exercised live: the worker realm now runs the pyramid (setRasterLod
+command, boot-enable in renderWorker), so the primary display path gets
+the LOD, not just main-thread fallback.
+
+## Fixes landed during completion
+
+- `childGrid` used PYRAMID_TILE_SIZE instead of the source tileSize —
+  test-scale (8px) fixtures clamped every gutter window to a 2x2 block.
+  Production (128px) was unaffected; the math is now scale-correct.
+- Memory-soak scale matched to the T=8 fixture grid so LRU eviction is
+  genuinely exercised each iteration.
+
 ## Commits
 
 - `8487da11` — audit + ADR-0214 + decision-record status update
@@ -68,6 +99,7 @@ at the same size, and the advantage grows sharply as zoom drops.
 - `1bfcbdc4` — renderer integration: renderTiles + gutter generation + replay seam + bench
 - `0a396a67` — editor wiring: useRasterLod (enable, viewport, budget presets)
 - `198ef70f` — E2E interaction corpus
+- (completion pass) — pressure profiles in production (F6), retained-surface budget (F2), memory soak, export-parity guard, worker-realm LOD, visual seam corpus
 
 ## Delivered contracts (public surface, `@varve/engine/rasterPyramid`)
 

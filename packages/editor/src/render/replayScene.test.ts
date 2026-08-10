@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { createEngine } from '@varve/engine';
+import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import {
   addChild,
   addNode,
@@ -343,5 +344,56 @@ describe('replayStructuredScene', () => {
     // appear as lineTo calls.
     expect(lineTo).toHaveBeenCalledWith(100, 0);
     expect(lineTo).toHaveBeenCalledWith(0, 80);
+  });
+
+  it('export replay never consumes display LOD (ADR-0214 D12)', async () => {
+    // The editor session enables the pyramid; export/print replay must
+    // suspend it for its duration and restore the prior state.
+    setRasterPyramidEnabled(true);
+    try {
+      let sceneDocument = createDocument('Export LOD parity', true);
+      const frame = makeFrameNode('frame', {
+        transform: [1, 0, 0, 1, 0, 0],
+        w: 200,
+        h: 120,
+        children: [],
+        clipContent: false,
+      });
+      const child = makeShapeNode(
+        'child',
+        { kind: 'rect', x: 0, y: 0, w: 60, h: 40 },
+        { transform: [1, 0, 0, 1, 0, 0] },
+      );
+      sceneDocument = addNode(sceneDocument, frame);
+      sceneDocument = addChild(sceneDocument, frame.id, child);
+      const flattened = flattenSceneToEngine(sceneDocument, [frame.id]);
+      const engine = await createEngine('stub');
+      const items = await engine.buildIr({ nodes: flattened.nodes });
+      const canvas = document.createElement('canvas');
+      canvas.width = 400;
+      canvas.height = 300;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('test canvas unavailable');
+
+      // The flag is off during the replay and restored afterwards.
+      expect(isRasterPyramidEnabled()).toBe(true);
+      replayStructuredScene(context, {
+        document: sceneDocument,
+        rootIds: [frame.id],
+        flattenedIds: flattened.ids,
+        items,
+      });
+      expect(isRasterPyramidEnabled()).toBe(true);
+    } finally {
+      setRasterPyramidEnabled(false);
+    }
+    // When the pyramid was already off, replay leaves it off.
+    replayStructuredScene({} as unknown as CanvasRenderingContext2D, {
+      document: createDocument('noop', true),
+      rootIds: [],
+      flattenedIds: [],
+      items: [],
+    });
+    expect(isRasterPyramidEnabled()).toBe(false);
   });
 });
