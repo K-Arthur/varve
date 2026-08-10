@@ -355,6 +355,11 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async getThumbnail(hash) {
       return state.thumbnails.get(hash)?.dataUrl;
     },
+    async setThumbnailPreference(fileId, preference) {
+      const rec = state.files.get(fileId);
+      if (!rec) return;
+      rec.entry = { ...rec.entry, thumbnailPreference: preference };
+    },
     async putThumbnail(record) {
       state.thumbnails.set(record.hash, record);
     },

@@ -45,6 +45,14 @@ export interface ThumbnailOptions {
   devicePixelRatio?: number;
   /** Encoded format (default 'png'; falls back to png when unsupported). */
   format?: ThumbnailFormat;
+  /**
+   * Explicit world-space frame to render (crop/fit target), overriding the
+   * computed content bounds. Used for page sources (the page rect) and
+   * user-defined regions. When the frame exceeds content bounds, rendering
+   * is translated so the frame is shown; content outside the frame is
+   * clipped.
+   */
+  frame?: { x: number; y: number; w: number; h: number };
   /** Information about the thumbnail source, used for metadata. */
   sourceLabel?: string;
 }

@@ -60,7 +60,12 @@ npx playwright test --config packages/home/e2e/playwright.config.ts
 
 ## [OK] 4. Thumbnail rendering on desktop
 
-**Status: [OK] IPC + save flow wired.**
+**Status: [OK] IPC + save flow wired. Superseded by the unified thumbnail
+system (2026-08-09) — see `docs/architecture/thumbnail-system.md`,
+ADR-0016, and `docs/audits/thumbnail-system-current-state-2026-08-09.md`.
+The legacy `HomeShell.generateThumbnail()` helper was removed: generation is
+editor-owned (save path) with canonical identity keys; Home loads cached
+thumbnails with a legacy warm-migration fallback.**
 
 ### Changes
 - **Rust:** `home_get_thumbnail`, `home_put_thumbnail`, `home_evict_thumbnails` Tauri commands (apps/desktop/src-tauri/src/lib.rs)
