@@ -136,16 +136,6 @@ export function ThumbnailPickerDialog({ open, onClose }: ThumbnailPickerDialogPr
     requestAnimationFrame(() => prev?.focus?.({ preventScroll: true }));
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        handleClose();
-      }
-    },
-    [handleClose],
-  );
-
   const pageNumberFor = (pageId: string): number =>
     Math.max(1, pages.findIndex((p) => p.id === pageId) + 1);
 
@@ -155,7 +145,7 @@ export function ThumbnailPickerDialog({ open, onClose }: ThumbnailPickerDialogPr
 
   return (
     <Dialog open={open} onClose={handleClose} title="File Thumbnail" className="thumbnail-picker">
-      <div className="thumbnail-picker__body" onKeyDown={handleKeyDown}>
+      <section className="thumbnail-picker__body" aria-label="Thumbnail picker controls">
         <div className="thumbnail-picker__preview" role="img" aria-label="Thumbnail preview">
           {previewStatus === 'loading' && (
             <div className="thumbnail-picker__preview-loading" role="status">
@@ -267,7 +257,7 @@ export function ThumbnailPickerDialog({ open, onClose }: ThumbnailPickerDialogPr
           <Icon name="Link" label={undefined} size="0.85em" />
           <span>The thumbnail stays linked to the design — it updates as you edit.</span>
         </div>
-      </div>
+      </section>
 
       <div className="thumbnail-picker__footer">
         <Button
