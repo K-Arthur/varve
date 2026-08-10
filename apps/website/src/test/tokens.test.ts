@@ -214,6 +214,12 @@ const REQUIRED_PAIRS: Array<[string, string, number, string]> = [
   // Code blocks
   ['--text-code', '--surface-code', 4.5, 'code block text'],
   ['--text-code', '--surface-inset', 4.5, 'inset code text'],
+  // Footer band: regression guard for the 2026-08-10 review (the download
+  // title used a light-overlay token on the dark band at 1.04:1)
+  ['--text-footer-heading', '--surface-footer', 4.5, 'footer heading'],
+  ['--text-footer', '--surface-footer', 4.5, 'footer text'],
+  ['--text-footer-muted', '--surface-footer', 4.5, 'footer muted text'],
+  ['--text-footer-link', '--surface-footer', 4.5, 'footer link'],
   // Footer
   ['--text-footer', '--surface-footer', 4.5, 'footer body'],
   ['--text-footer-muted', '--surface-footer', 4.5, 'footer meta'],

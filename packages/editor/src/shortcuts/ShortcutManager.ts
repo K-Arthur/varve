@@ -479,17 +479,17 @@ export const SHORTCUT_DEFS = {
   // Workspace mode switching
   workspaceDesign: {
     binding: { key: '1', ctrl: true, shift: true },
-    label: 'Design Workspace',
+    label: 'Workspace: Design',
     category: 'View',
   },
   workspacePrint: {
     binding: { key: '2', ctrl: true, shift: true },
-    label: 'Print Workspace',
+    label: 'Workspace: Print',
     category: 'View',
   },
   workspaceDrawing: {
     binding: { key: '3', ctrl: true, shift: true },
-    label: 'Drawing Workspace',
+    label: 'Workspace: Draw',
     category: 'View',
   },
   workspaceImage: {
