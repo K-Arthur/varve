@@ -180,8 +180,23 @@ export interface ToolContext {
   toggleSelection: (id: NodeId, additive?: boolean) => void;
   isSelected: (id: NodeId) => boolean;
   setNodePosition: (id: NodeId, x: number, y: number) => void;
+  /**
+   * Batch-set absolute transforms in ONE document update (single nodes-map
+   * spread). Prefer over per-node `setNodePosition` loops in per-sample
+   * gestures — multi-node drags/nudges otherwise pay N*O(N) map copies per
+   * pointermove/key-repeat.
+   */
+  setNodePositions: (positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>) => void;
   setNodeSize: (id: NodeId, w: number, h: number) => void;
   updateNode: (id: NodeId, updater: (n: SceneNode) => SceneNode) => void;
+  /**
+   * Batch-apply per-node updaters in ONE document update (single nodes-map
+   * spread). Prefer over per-node `updateNode` loops in per-sample gestures.
+   * Updaters must be pure and independent.
+   */
+  updateNodes: (
+    updaters: ReadonlyArray<{ id: NodeId; update: (n: SceneNode) => SceneNode }>,
+  ) => void;
   /** Activate a page (page-scoped commands, insertion target, inspector). */
   setActivePage?: (pageId: NodeId) => void;
   /** Move a page on the pasteboard (placement metadata only, ADR-0124). */

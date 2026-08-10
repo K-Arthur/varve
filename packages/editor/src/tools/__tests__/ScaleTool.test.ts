@@ -33,7 +33,7 @@ describe('ScaleTool', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -50,8 +50,8 @@ describe('ScaleTool', () => {
     (tool as any).drag.currentWorld = { x: 200, y: 190 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalled();
-    const updateFn = ctx.updateNode.mock.calls[0][1];
+    expect(ctx.updateNodes).toHaveBeenCalled();
+    const updateFn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const updated = updateFn(node);
     expect(updated.transform[0]).not.toBe(1);
     expect(updated.transform[0]).toBeGreaterThan(0);
@@ -89,7 +89,7 @@ describe('ScaleTool', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 50, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -110,8 +110,8 @@ describe('ScaleTool', () => {
     (tool as any).drag.currentWorld = { x: 170, y: 130 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalled();
-    const updateFn = ctx.updateNode.mock.calls[0][1];
+    expect(ctx.updateNodes).toHaveBeenCalled();
+    const updateFn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const updated = updateFn(node);
     const decomposed = decomposeAffine(updated.transform as Affine);
     expect(decomposed).not.toBeNull();
@@ -146,7 +146,7 @@ describe('ScaleTool', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -162,8 +162,8 @@ describe('ScaleTool', () => {
     (tool as any).drag.currentWorld = { x: 100, y: 100 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalled();
-    const updateFn = ctx.updateNode.mock.calls[0][1];
+    expect(ctx.updateNodes).toHaveBeenCalled();
+    const updateFn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const updated = updateFn(node);
     expect(updated.transform[0]).toBeGreaterThanOrEqual(0.01);
   });
@@ -198,7 +198,7 @@ describe('ScaleTool — uniform toggle', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -215,8 +215,8 @@ describe('ScaleTool — uniform toggle', () => {
     // currentDist = |215-150| = 65 → scale = 65/50 = 1.3
     (tool as any).onDragMove?.(ctxPlain);
 
-    expect(ctxPlain.updateNode).toHaveBeenCalled();
-    const fnPlain = ctxPlain.updateNode.mock.calls[0][1];
+    expect(ctxPlain.updateNodes).toHaveBeenCalled();
+    const fnPlain = ctxPlain.updateNodes.mock.calls[0][0]![0].update;
     const uPlain = fnPlain(node);
     expect(uPlain.transform[0]).toBeCloseTo(1.3, 5);
 
@@ -224,15 +224,15 @@ describe('ScaleTool — uniform toggle', () => {
     const ctxShift = {
       ...ctxPlain,
       shiftKey: true,
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
     };
     const tool2 = new ScaleTool();
     tool2.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctxShift);
     (tool2 as any).drag.currentWorld = { x: 215, y: 140 };
     (tool2 as any).onDragMove?.(ctxShift);
 
-    expect(ctxShift.updateNode).toHaveBeenCalled();
-    const fnShift = ctxShift.updateNode.mock.calls[0][1];
+    expect(ctxShift.updateNodes).toHaveBeenCalled();
+    const fnShift = ctxShift.updateNodes.mock.calls[0][0]![0].update;
     const uShift = fnShift(node);
     expect(uShift.transform[0]).toBe(1.25);
   });
@@ -265,7 +265,7 @@ describe('ScaleTool — uniform toggle', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -278,8 +278,8 @@ describe('ScaleTool — uniform toggle', () => {
     tool.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
 
     // First call with shiftKey=true — snaps
-    (tool as any).onDragMove?.({ ...ctx, shiftKey: true, updateNode: vi.fn() });
-    const snapCall = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    (tool as any).onDragMove?.({ ...ctx, shiftKey: true, updateNodes: vi.fn() });
+    const snapCall = (ctx.updateNodes as ReturnType<typeof vi.fn>).mock.calls.at(-1);
     const snapFn = snapCall?.[1];
     if (snapFn) {
       const s = snapFn(node);
@@ -287,8 +287,8 @@ describe('ScaleTool — uniform toggle', () => {
     }
 
     // Second call with shiftKey=false — unconstrained
-    (tool as any).onDragMove?.({ ...ctx, shiftKey: false, updateNode: vi.fn() });
-    const unconstrainCall = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    (tool as any).onDragMove?.({ ...ctx, shiftKey: false, updateNodes: vi.fn() });
+    const unconstrainCall = (ctx.updateNodes as ReturnType<typeof vi.fn>).mock.calls.at(-1);
     const unconstrainFn = unconstrainCall?.[1];
     if (unconstrainFn) {
       const u = unconstrainFn(node);
@@ -325,7 +325,7 @@ describe('ScaleTool — axis lock', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -343,8 +343,8 @@ describe('ScaleTool — axis lock', () => {
     (tool as any).drag.currentWorld = { x: 240, y: 143 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalled();
-    const fn = ctx.updateNode.mock.calls[0][1];
+    expect(ctx.updateNodes).toHaveBeenCalled();
+    const fn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const u = fn(node);
     expect(u.transform[0]).toBeCloseTo(1.5, 5); // scaleX = 90/60
     expect(u.transform[3]).toBe(1); // scaleY = 1 (locked)
@@ -377,7 +377,7 @@ describe('ScaleTool — axis lock', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -395,8 +395,8 @@ describe('ScaleTool — axis lock', () => {
     (tool as any).drag.currentWorld = { x: 153, y: 230 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalled();
-    const fn = ctx.updateNode.mock.calls[0][1];
+    expect(ctx.updateNodes).toHaveBeenCalled();
+    const fn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const u = fn(node);
     expect(u.transform[0]).toBe(1); // scaleX = 1 (locked)
     expect(u.transform[3]).toBeCloseTo(1.5, 5); // scaleY = 90/60
@@ -431,7 +431,7 @@ describe('ScaleTool — pivot point', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -447,7 +447,7 @@ describe('ScaleTool — pivot point', () => {
     toolNoPivot.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctx);
     (toolNoPivot as any).drag.currentWorld = { x: 300, y: 140 };
     (toolNoPivot as any).onDragMove?.(ctx);
-    const fnNoPivot = ctx.updateNode.mock.calls[0][1];
+    const fnNoPivot = ctx.updateNodes.mock.calls[0][0]![0].update;
     const uNoPivot = fnNoPivot(node);
     expect(uNoPivot.transform[0]).toBeCloseTo(3, 5);
 
@@ -457,13 +457,13 @@ describe('ScaleTool — pivot point', () => {
     // scale ≈ 116.62/60 ≈ 1.944
     const toolPivot = new ScaleTool();
     toolPivot.setPivot(200, 200);
-    const ctxPivot = { ...ctx, updateNode: vi.fn() };
+    const ctxPivot = { ...ctx, updateNodes: vi.fn() };
     toolPivot.onPointerDown({ clientX: 200, clientY: 140, pointerId: 1 } as any, ctxPivot);
     (toolPivot as any).drag.currentWorld = { x: 300, y: 140 };
     (toolPivot as any).onDragMove?.(ctxPivot);
 
-    expect(ctxPivot.updateNode).toHaveBeenCalled();
-    const fnPivot = ctxPivot.updateNode.mock.calls[0][1];
+    expect(ctxPivot.updateNodes).toHaveBeenCalled();
+    const fnPivot = ctxPivot.updateNodes.mock.calls[0][0]![0].update;
     const uPivot = fnPivot(node);
     // With pivot, scale should differ from the centroid-based scale (not 3)
     expect(uPivot.transform[0]).toBeGreaterThan(1);
@@ -498,7 +498,7 @@ describe('ScaleTool — pivot point', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(node),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -516,7 +516,7 @@ describe('ScaleTool — pivot point', () => {
     (tool as any).drag.currentWorld = { x: 300, y: 140 };
     (tool as any).onDragMove?.(ctx);
 
-    const fn = ctx.updateNode.mock.calls[0][1];
+    const fn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const u = fn(node);
     // scale = 150/50 = 3 (same as existing behavior)
     expect(u.transform[0]).toBeCloseTo(3, 5);
@@ -573,7 +573,7 @@ describe('ScaleTool — multi-object relative position', () => {
       nodeWorldBounds: vi.fn((n: typeof nodeA) =>
         n.id === 'node1' ? { x: 100, y: 100, w: 100, h: 80 } : { x: 200, y: 100, w: 100, h: 80 },
       ),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -590,11 +590,12 @@ describe('ScaleTool — multi-object relative position', () => {
     (tool as any).drag.currentWorld = { x: 200, y: 290 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalledTimes(2);
+    expect(ctx.updateNodes).toHaveBeenCalledTimes(1);
 
     // Both nodes should have the same scale factor applied
-    const fnA = ctx.updateNode.mock.calls[0][1];
-    const fnB = ctx.updateNode.mock.calls[1][1];
+    const updaters = ctx.updateNodes.mock.calls[0][0] as Array<{ update: (n: unknown) => unknown }>;
+    const fnA = updaters[0]!.update;
+    const fnB = updaters[1]!.update;
     const uA = fnA(nodeA);
     const uB = fnB(nodeB);
     expect(uA.transform[0]).toBeCloseTo(3, 5);
@@ -653,7 +654,7 @@ describe('ScaleTool — multi-object relative position', () => {
       nodeWorldBounds: vi.fn((n: typeof nodeA) =>
         n.id === 'node1' ? { x: 100, y: 100, w: 100, h: 80 } : { x: 200, y: 100, w: 100, h: 80 },
       ),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -668,10 +669,11 @@ describe('ScaleTool — multi-object relative position', () => {
     (tool as any).drag.currentWorld = { x: 200, y: 290 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalledTimes(2);
+    expect(ctx.updateNodes).toHaveBeenCalledTimes(1);
 
-    const fnA = ctx.updateNode.mock.calls[0][1];
-    const fnB = ctx.updateNode.mock.calls[1][1];
+    const updaters = ctx.updateNodes.mock.calls[0][0] as Array<{ update: (n: unknown) => unknown }>;
+    const fnA = updaters[0]!.update;
+    const fnB = updaters[1]!.update;
     const uA = fnA(nodeA);
     const uB = fnB(nodeB);
 
@@ -724,7 +726,7 @@ describe('ScaleTool — rotated node translation stability', () => {
       // = (100 + 35.35 - 28.28, 100 + 35.35 + 28.28)
       // = (107.07, 163.63)
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 57, y: 107, w: 106, h: 106 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -743,8 +745,8 @@ describe('ScaleTool — rotated node translation stability', () => {
     (tool as any).drag.currentWorld = { x: 200, y: 200 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalled();
-    const updateFn = ctx.updateNode.mock.calls[0][1];
+    expect(ctx.updateNodes).toHaveBeenCalled();
+    const updateFn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const updated = updateFn(node);
     // Transform should have non-negative finite scale components (no distortion)
     expect(updated.transform[0]).toBeGreaterThan(0);
@@ -787,7 +789,7 @@ describe('ScaleTool — undo transaction lifecycle', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(makeNode()),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -861,7 +863,7 @@ describe('ScaleTool — onDeactivate cleanup', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn().mockReturnValue(makeNode()),
       nodeWorldBounds: vi.fn().mockReturnValue({ x: 100, y: 100, w: 100, h: 80 }),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -929,7 +931,7 @@ describe('ScaleTool — nested rotated parent', () => {
       pan: { x: 0, y: 0 },
       getNode: vi.fn((id: string) => doc.nodes[id]),
       nodeWorldBounds: vi.fn((n: typeof node) => nodeWorldBounds(doc, n.id)),
-      updateNode: vi.fn(),
+      updateNodes: vi.fn(),
       setDraft: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
@@ -946,8 +948,8 @@ describe('ScaleTool — nested rotated parent', () => {
     (tool as any).drag.currentWorld = { x: cx + 50, y: cy + 50 };
     (tool as any).onDragMove?.(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalled();
-    const updateFn = ctx.updateNode.mock.calls[0][1];
+    expect(ctx.updateNodes).toHaveBeenCalled();
+    const updateFn = ctx.updateNodes.mock.calls[0][0]![0].update;
     const updated = updateFn(node);
     expect(updated.transform[0]).toBeGreaterThan(1);
     expect(updated.transform[3]).toBeGreaterThan(1);

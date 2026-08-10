@@ -838,6 +838,14 @@ export interface EditorContextValue {
   reorderSelectedFill: (from: number, to: number) => void;
   /** Update the position (transform) of a node. */
   setNodePosition: (id: NodeId, x: number, y: number) => void;
+  /**
+   * Batch-set absolute transforms for many nodes in ONE document update.
+   * Multi-node drags/nudges previously issued one `setNodePosition` per node
+   * per sample, each spreading the whole nodes map — an N-node selection cost
+   * N*O(N) key copies per pointermove. One batched call costs a single O(N)
+   * spread per sample; undo transaction boundaries are unchanged.
+   */
+  setNodePositions: (positions: ReadonlyArray<{ id: NodeId; x: number; y: number }>) => void;
   /** Update the size of a shape node. */
   setNodeSize: (id: NodeId, w: number, h: number) => void;
   /**
@@ -852,6 +860,15 @@ export interface EditorContextValue {
   setSelectedH: (h: number) => void;
   /** F6: update any property on a single node (one undo step). */
   updateNode: (id: NodeId, updater: (node: SceneNode) => SceneNode) => void;
+  /**
+   * Batch-apply per-node updaters in ONE document update (single nodes-map
+   * spread). Per-node `updateNode` calls each spread the whole map; gestures
+   * that transform N nodes per sample (ScaleTool) previously cost N*O(N).
+   * Updaters must be pure and independent.
+   */
+  updateNodes: (
+    updaters: ReadonlyArray<{ id: NodeId; update: (node: SceneNode) => SceneNode }>,
+  ) => void;
   /** F6: batch-edit opacity on all selected nodes. */
   setSelectedOpacity: (value: number) => void;
   /** F6: batch-edit blend mode on all selected nodes. */
@@ -4549,6 +4566,34 @@ export function EditorProvider({
         }));
       },
 
+      setNodePositions: (positions) => {
+        if (positions.length === 0) return;
+        updateDoc((doc) => {
+          // Collect updated nodes first (no map copies), then ONE spread —
+          // per-node spreads inside the loop would cost N*O(N) again.
+          let changed = false;
+          const updated: Record<string, SceneNode> = {};
+          for (const { id, x, y } of positions) {
+            const node = doc.nodes[id];
+            if (!node) continue;
+            updated[id] = {
+              ...node,
+              transform: [
+                node.transform?.[0] ?? 1,
+                node.transform?.[1] ?? 0,
+                node.transform?.[2] ?? 0,
+                node.transform?.[3] ?? 1,
+                x,
+                y,
+              ] as Affine,
+            };
+            changed = true;
+          }
+          if (!changed) return doc;
+          return { ...doc, nodes: { ...doc.nodes, ...updated } };
+        });
+      },
+
       setNodeSize: (id, w, h) => {
         updateNodeProp(id, (n) => resizeSceneNode(n, w, h));
         invalidateNodeThumbnail(id);
@@ -4668,6 +4713,22 @@ export function EditorProvider({
 
       // F6: public updateNode for any property
       updateNode: updateNodeProp,
+
+      updateNodes: (updaters) => {
+        if (updaters.length === 0) return;
+        updateDoc((doc) => {
+          let changed = false;
+          const updated: Record<string, SceneNode> = {};
+          for (const { id, update } of updaters) {
+            const node = doc.nodes[id];
+            if (!node) continue;
+            updated[id] = update(node);
+            if (updated[id] !== node) changed = true;
+          }
+          if (!changed) return doc;
+          return { ...doc, nodes: { ...doc.nodes, ...updated } };
+        });
+      },
 
       // F6: batch-edit opacity on all selected nodes
       setSelectedOpacity: (value) => {
