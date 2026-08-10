@@ -10,6 +10,7 @@ import {
 import { createNewDocument, type NewDocumentRequest, serializeDocument } from '@varve/scene';
 import {
   BLANK_DOCUMENT_PRESET,
+  ENCRYPTED_PROJECT_PLACEHOLDER,
   generateKeyBetween,
   nextUntitledName,
   type Preset,
@@ -59,25 +60,6 @@ export interface HomeShellProps {
   active?: boolean;
 }
 
-async function generateThumbnail(platform: Platform, _entry: FileEntry, docJson: string) {
-  try {
-    const { legacyRenderThumbnail } = await import('@varve/engine');
-    const doc = JSON.parse(docJson);
-    const dataUrl = await legacyRenderThumbnail(doc);
-    if (dataUrl) {
-      await platform.putThumbnail({
-        hash: contentHash(docJson),
-        dataUrl,
-        width: 256,
-        height: 192,
-        createdAt: Date.now(),
-      });
-    }
-  } catch {
-    // Thumbnail generation is best-effort; non-fatal if it fails.
-  }
-}
-
 export function HomeShell({
   platform,
   onOpenFile,
@@ -111,6 +93,16 @@ export function HomeShell({
   }, [active, view.refresh]);
   const actions = useFileActions(platform, view.refresh);
   const thumbnails = useThumbnailLoader(platform);
+  // Encrypted files never display cached pixels: their cards are forced to
+  // the content-free encrypted placeholder regardless of cache state.
+  const displayThumbnails = useMemo(() => {
+    const map = thumbnails.thumbnails;
+    const encryptedIds = view.recentRecords.filter((r) => r.encrypted).map((r) => r.id);
+    if (encryptedIds.length === 0) return map;
+    const next = new Map(map);
+    for (const id of encryptedIds) next.set(id, ENCRYPTED_PROJECT_PLACEHOLDER);
+    return next;
+  }, [thumbnails.thumbnails, view.recentRecords]);
   const presetLibrary = usePresetLibrary(platform);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -528,7 +520,6 @@ export function HomeShell({
       // document. Without this await, readFile races with upsertFile and may
       // return null, causing a blank document to appear instead of the content.
       await platform.upsertFile(entry, docJson).catch(() => undefined);
-      generateThumbnail(platform, entry, docJson);
       onOpenFile(entry);
     },
     [platform, onOpenFile],
@@ -629,7 +620,6 @@ export function HomeShell({
                 contentHash: '',
               };
               platform.upsertFile(entry, docJson);
-              generateThumbnail(platform, entry, docJson);
               onOpenFile(entry);
             }}
           />
@@ -664,7 +654,7 @@ export function HomeShell({
             <ProjectsView
               project={activeProject}
               files={visibleFiles}
-              thumbnails={thumbnails.thumbnails}
+              thumbnails={displayThumbnails}
               platform={platform}
               onOpen={onOpenFile}
               onContext={handleFileContext}
@@ -717,7 +707,7 @@ export function HomeShell({
             ) : state.view === 'grid' ? (
               <FileGrid
                 files={visibleFiles}
-                thumbnails={thumbnails.thumbnails}
+                thumbnails={displayThumbnails}
                 onLoadThumbnail={thumbnails.load}
                 onOpen={onOpenFile}
                 onContext={handleFileContext}
@@ -736,7 +726,7 @@ export function HomeShell({
             ) : (
               <FileList
                 files={visibleFiles}
-                thumbnails={thumbnails.thumbnails}
+                thumbnails={displayThumbnails}
                 onLoadThumbnail={thumbnails.load}
                 onOpen={onOpenFile}
                 onContext={handleFileContext}

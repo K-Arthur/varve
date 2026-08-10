@@ -558,6 +558,43 @@ Canonical doc: `docs/architecture/lifecycle-system.md`, ADR-0216.
 - **New termination entry points must flow through the coordinator**
   (request → guard → resolve → commit → native/browser terminate).
 
+## Thumbnail System
+
+Canonical doc: `docs/architecture/thumbnail-system.md`, ADR-0016.
+
+One source of truth for every thumbnail/preview surface (Home cards, page
+nav, pages panel, version history, picker). Thumbnails are a **platform
+capability**: an explicit subject + source + revision + render profile +
+privacy policy + deterministic cache identity.
+
+- Contracts (`ThumbnailSourceSpec`, `ThumbnailVariant` + `THUMBNAIL_VARIANTS`,
+  `ThumbnailStatus`, `ThumbnailPolicy`, `computeThumbnailIdentity`,
+  `ENCRYPTED_PROJECT_PLACEHOLDER`) live in `packages/shared/src/thumbnail/`.
+- Source resolution + automatic heuristic live in
+  `packages/scene/src/thumbnail/resolve.ts` (pure, doc-domain).
+- Rendering MUST go through `flattenSceneToEngine` (canonical canvas
+  conversion) + engine `generateThumbnail`; never hand-roll a mini-renderer
+  for covers. Page previews pass `localTransforms: true`.
+- Cache keys are identity strings (`thumb:v2:...`), NEVER bare node/page
+  ids or bare content hashes. Legacy bare-hash entries are disposable
+  warm-migration fallbacks only.
+- Scheduling: `ThumbnailScheduler` (concurrency 1, priority, dedupe by key,
+  cancellation, stale-job guards). Background thumbnail work must never
+  compete with canvas interaction.
+- Persistence: `Platform.setThumbnailPreference` (FileEntry metadata, not
+  document JSON) + `get/put/delete/evictThumbnail` keyed by identity.
+- Generation is editor-owned (save path); Home only loads/displays.
+- Encrypted projects: only the content-free placeholder may be stored;
+  `clearProjectPreviewData` on the save path; Home forces the placeholder
+  for encrypted records.
+- UX entry points: File menu "Set File Thumbnail…", canvas context menu
+  (Use Selection/Frame as File Thumbnail), page context menu (Use Page as
+  File Thumbnail), command palette, `ThumbnailPickerDialog`.
+- Legacy `renderThumbnail` (engine `thumbnail.ts`) is deprecated; do not
+  add callers.
+- Layers 28×28 node previews are a documented simplified node profile (not
+  document covers).
+
 ## Masking System
 
 Canonical doc: `docs/architecture/masking-system.md` — model, invariants,

@@ -1,30 +1,24 @@
 /**
  * VersionThumbnailQueue — non-blocking, bounded thumbnail generation for
- * version-history entries.
+ * version-history entries, routed through the canonical thumbnail pipeline
+ * and the shared scheduler.
  *
- * createVersion() in VersionHistoryService previously awaited thumbnail
- * generation synchronously, blocking the version-creation flow for large
- * documents. This queue decouples the two:
+ * createVersion() in VersionHistoryService never awaits thumbnail work:
+ * 1. Persist the immutable version snapshot and metadata
+ * 2. Enqueue low-priority canonical thumbnail generation
+ * 3. Attach the thumbnail only if the version still exists AND its document
+ *    hash still matches (stale-result guard)
+ * 4. Retain a placeholder when generation fails
  *
- * 1. Create the immutable version snapshot and metadata
- * 2. Persist the version successfully (no thumbnail needed)
- * 3. Enqueue low-priority thumbnail generation
- * 4. Attach the thumbnail only if the version still exists and matches
- * 5. Retain a placeholder when generation fails
- *
- * Architecture: bounded FIFO with concurrency=1, stale-result protection
- * via revision matching, and shutdown/cancellation support.
- *
- * Research basis: bounded queue pattern (Michael & Scott, 1996) with
- * priority inversion protection (Browser idle scheduling).
+ * The queue is a thin adapter: concurrency, dedup, cancellation and
+ * priority ordering come from `ThumbnailScheduler`.
  */
 
-import { hasAnyCanvas, hasImageEncoding } from '@varve/engine';
 import type { Platform, VersionEntry } from '@varve/platform';
 import type { Document } from '@varve/scene';
-import { generateDocThumbnail } from './thumbnailSource';
-
-// ─── Types ────────────────────────────────────────────────────────────
+import { THUMBNAIL_VARIANTS } from '@varve/shared';
+import { getThumbnailScheduler } from './scheduler';
+import { renderDocThumbnail } from './thumbnailService';
 
 export interface VersionThumbnailJob {
   versionId: string;
@@ -33,80 +27,45 @@ export interface VersionThumbnailJob {
   revisionHash: string;
 }
 
-// ─── Queue ────────────────────────────────────────────────────────────
-
 export class VersionThumbnailQueue {
-  private queue: VersionThumbnailJob[] = [];
-  private processing = false;
   private maxQueueSize = 50;
-  private shutdownFlag = false;
-  private platform: Platform;
 
-  constructor(platform: Platform) {
-    this.platform = platform;
-  }
+  constructor(private readonly platform: Platform) {}
 
-  /** Enqueue a version thumbnail job. Returns false if queue is full. */
+  /** Enqueue a version thumbnail job. Returns false when the queue is full. */
   enqueue(job: VersionThumbnailJob): boolean {
-    if (this.shutdownFlag) return false;
-    if (this.queue.length >= this.maxQueueSize) {
-      this.queue.shift();
-    }
-    this.queue.push(job);
-    this.scheduleNext();
+    const scheduler = getThumbnailScheduler();
+    if (scheduler.isShutdown) return false;
+    if (scheduler.pendingCount >= this.maxQueueSize) return false;
+
+    scheduler.enqueue({
+      key: `version-thumb:${job.versionId}:${job.revisionHash}`,
+      priority: 'idle',
+      run: async (signal) => {
+        if (signal.aborted) return;
+        await this.processJob(job, signal);
+      },
+    });
     return true;
   }
 
   /** Cancel all pending jobs and prevent new ones. */
   shutdown(): void {
-    this.shutdownFlag = true;
-    this.queue = [];
+    getThumbnailScheduler().shutdown();
   }
 
   get pending(): number {
-    return this.queue.length;
+    return getThumbnailScheduler().pendingCount;
   }
 
   setMaxQueueSize(n: number): void {
     this.maxQueueSize = Math.max(1, n);
-    while (this.queue.length > this.maxQueueSize) {
-      this.queue.shift();
-    }
   }
 
   // ─── Internal ──────────────────────────────────────────────────────
 
-  private scheduleNext(): void {
-    if (this.processing || this.shutdownFlag) return;
-    this.processing = true;
-
-    if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(() => void this.drain(), { timeout: 5000 });
-    } else {
-      setTimeout(() => void this.drain(), 200);
-    }
-  }
-
-  private async drain(): Promise<void> {
-    try {
-      while (this.queue.length > 0 && !this.shutdownFlag) {
-        const job = this.queue.shift()!;
-        try {
-          await this.processJob(job);
-        } catch {
-          // Individual job failure must not crash the queue
-        }
-      }
-    } finally {
-      this.processing = false;
-    }
-  }
-
-  private async processJob(job: VersionThumbnailJob): Promise<void> {
-    // Skip when no canvas rendering path is available (e.g., jsdom tests).
-    if (!hasAnyCanvas() || !hasImageEncoding()) return;
-
-    // 1. Verify version still exists before spending time on generation
+  private async processJob(job: VersionThumbnailJob, signal: AbortSignal): Promise<void> {
+    // 1. Verify the version still exists before spending time generating.
     let versions: VersionEntry[];
     try {
       versions = await this.platform.listVersions(job.fileId);
@@ -114,37 +73,34 @@ export class VersionThumbnailQueue {
       return;
     }
     if (!versions.some((v) => v.id === job.versionId)) return;
-    if (this.shutdownFlag) return;
+    if (signal.aborted) return;
 
-    // 2. Generate thumbnail
-    const result = await generateDocThumbnail(job.document, {
-      maxWidth: 120,
-      maxHeight: 90,
-      fit: 'contain',
-      background: { type: 'transparent' },
+    // 2. Generate through the canonical pipeline (version-history profile).
+    const outcome = await renderDocThumbnail(job.document, {
+      fileId: job.fileId,
+      source: { type: 'automatic' },
+      variant: THUMBNAIL_VARIANTS['version-history'],
+      signal,
     });
-    if (this.shutdownFlag) return;
+    if (signal.aborted) return;
+    if (!outcome.result?.dataUrl || outcome.result.metadata.isPlaceholder) return;
 
-    // Only apply real thumbnails — skip placeholder results (empty string,
-    // or results flagged as placeholder from environments without canvas).
-    if (!result || result.metadata.isPlaceholder || !result.dataUrl) return;
-
-    // 3. Verify version still exists after generation (stale-result guard)
+    // 3. Re-verify version identity AFTER generation (stale-result guard):
+    //    the entry must still exist and still carry the same document hash.
     try {
       versions = await this.platform.listVersions(job.fileId);
     } catch {
       return;
     }
-    if (this.shutdownFlag) return;
-
-    const currentVersion = versions.find(
+    if (signal.aborted) return;
+    const current = versions.find(
       (v) => v.id === job.versionId && v.documentHash === job.revisionHash,
     );
-    if (!currentVersion) return;
+    if (!current) return;
 
-    // 4. Attach thumbnail via platform
+    // 4. Attach the thumbnail to the version row.
     try {
-      await this.platform.updateVersionThumbnail(job.versionId, result.dataUrl);
+      await this.platform.updateVersionThumbnail(job.versionId, outcome.result.dataUrl);
     } catch {
       // Best-effort: thumbnail update failure is non-fatal
     }

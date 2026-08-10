@@ -1,3 +1,4 @@
+export { ThumbnailPickerHost } from '../ThumbnailPicker/ThumbnailPickerHost';
 export { DnDShell } from './DnDShell';
 export { DocumentInfoDialog } from './DocumentInfoDialog';
 export { ExportLayer, type ExportLayerHandle } from './ExportLayer';

@@ -116,6 +116,13 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('saveAs'),
     },
     {
+      id: 'setFileThumbnail',
+      labelKey: 'Set File Thumbnail…',
+      kind: 'command',
+      group: 'file',
+      run: () => runAction('openThumbnailPicker'),
+    },
+    {
       id: 'tabClose',
       labelKey: 'menu.file.closeDocument',
       kind: 'command',

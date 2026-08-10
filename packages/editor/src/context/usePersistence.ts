@@ -344,7 +344,15 @@ async function chooseAndAdopt(
     sessions,
   });
   if (clean) {
-    void persistProjectThumbnail(platform, cur.document).catch(() => undefined);
+    // Thumbnail persistence honors the encrypted-project policy: encrypted
+    // sessions only ever store the content-free placeholder, never
+    // plaintext preview pixels.
+    const meta = cur.sessions.find((sess) => sess.id === cur.activeId);
+    if (meta?.encrypted) {
+      void persistEncryptedThumbnail(platform, json).catch(() => undefined);
+    } else {
+      void persistFileThumbnail(platform, fileId, cur.document).catch(() => undefined);
+    }
   }
   return { status: 'saved' };
 }
@@ -394,6 +402,7 @@ async function afterPrimaryWrite(
 ): Promise<SaveOutcome> {
   await recoveryRef.current?.deleteSession(stateRef.current.activeId);
   const cur = stateRef.current;
+  const json = DocumentCodec.encode(cur.document);
   // Revision-aware clean: if the user edited while the write was in flight,
   // the save covered an older revision — the document stays dirty.
   const clean = cur.document === revision;
@@ -410,7 +419,17 @@ async function afterPrimaryWrite(
     sessions,
   });
   if (clean) {
-    void persistProjectThumbnail(platform, cur.document).catch(() => undefined);
+    // Thumbnail persistence honors the encrypted-project policy: encrypted
+    // sessions only ever store the content-free placeholder, never
+    // plaintext preview pixels.
+    const meta = cur.sessions.find((sess) => sess.id === cur.activeId);
+    if (meta?.encrypted) {
+      void persistEncryptedThumbnail(platform, json).catch(() => undefined);
+    } else if (update.fileId) {
+      void persistFileThumbnail(platform, update.fileId, cur.document).catch(() => undefined);
+    } else {
+      void persistProjectThumbnail(platform, cur.document).catch(() => undefined);
+    }
   }
   return { status: 'saved' };
 }
@@ -611,4 +630,38 @@ function weightToSubfamily(weight: number, style: string): string {
   };
   const base = weightNames[weight] ?? 'Regular';
   return style === 'italic' ? `${base} Italic` : base;
+}
+
+/**
+ * Generate + persist the file's canonical thumbnail after a save, honoring
+ * the user's persisted source preference (read back from the platform index
+ * so the editor and Home always agree on the source).
+ */
+async function persistFileThumbnail(
+  platform: Platform,
+  fileId: string,
+  document: Document,
+): Promise<void> {
+  const entry = await platform.getFile(fileId);
+  await persistProjectThumbnail(platform, document, {
+    fileId,
+    preference: entry?.thumbnailPreference,
+  });
+}
+
+/**
+ * Encrypted-session thumbnail policy: remove any plaintext preview for this
+ * document and store only the content-free encrypted placeholder.
+ */
+async function persistEncryptedThumbnail(platform: Platform, documentJson: string): Promise<void> {
+  try {
+    const { clearProjectPreviewData, createEncryptedThumbnailRecord } = await import(
+      '../thumbnail/encryptedThumbnailPolicy'
+    );
+    const hash = contentHash(documentJson);
+    await clearProjectPreviewData(platform, hash);
+    await platform.putThumbnail(createEncryptedThumbnailRecord(hash));
+  } catch {
+    // Best-effort: placeholder write failure is non-fatal.
+  }
 }

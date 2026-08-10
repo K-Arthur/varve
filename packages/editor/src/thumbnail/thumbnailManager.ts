@@ -1,102 +1,133 @@
 /**
- * ThumbnailManager — high-level thumbnail lifecycle for documents.
+ * ThumbnailManager — high-level lifecycle for a file's project thumbnail.
  *
- * Handles generation, source selection, refresh, and reset for a
- * document's project thumbnail (used on the home screen).
+ * Uses the canonical service (scene resolution → flattenSceneToEngine →
+ * engine IR replay), identity-keyed persistence, and the shared bounded
+ * scheduler. Save-time generation is non-blocking and never competes with
+ * canvas interaction.
  */
 
 import type { Platform, ThumbnailSourcePreference } from '@varve/platform';
-import { contentHash } from '@varve/platform';
 import type { Document } from '@varve/scene';
-import type { ThumbnailSourceType } from './thumbnailSource';
-import { generateDocThumbnail } from './thumbnailSource';
+import { THUMBNAIL_VARIANTS, type ThumbnailSourceSpec } from '@varve/shared';
+import { getThumbnailScheduler } from './scheduler';
+import { persistDocThumbnail, renderDocThumbnail } from './thumbnailService';
 
-export interface ThumbnailManagerOptions {
-  platform: Platform;
-  /**
-   * How long (ms) after the last edit to wait before generating
-   * a new thumbnail. Default 2000.
-   */
-  debounceMs?: number;
+/** Convert the persisted preference to the canonical source spec. */
+export function preferenceToSource(preference: ThumbnailSourcePreference): ThumbnailSourceSpec {
+  switch (preference.type) {
+    case 'automatic':
+      return { type: 'automatic' };
+    case 'page':
+      return { type: 'page', pageId: preference.pageId };
+    case 'frame':
+      return { type: 'frame', nodeId: preference.nodeId };
+    case 'selection':
+      return { type: 'selection', nodeIds: preference.nodeIds };
+    case 'region':
+      return { type: 'region', region: preference.region };
+    default:
+      return { type: 'automatic' } as const;
+  }
+}
+
+export interface PersistProjectThumbnailOptions {
+  /** Stable file identity — participates in the cache key. */
+  fileId?: string;
+  /** Source preference; undefined = automatic. */
+  preference?: ThumbnailSourcePreference;
+  /** Priority of the job (default 'current-doc'). */
+  priority?: 'visible' | 'current-doc' | 'background' | 'idle';
 }
 
 /**
  * Generate and persist a project thumbnail for the given document.
- * Uses the source preference if provided, otherwise falls back to
- * automatic document overview.
+ * Non-blocking by default: enqueues on the shared scheduler so a busy save
+ * flow never stalls on thumbnail work. Returns true when a job was queued
+ * (not when it completed).
  */
-export async function persistProjectThumbnail(
+export function persistProjectThumbnail(
   platform: Platform,
   doc: Document,
-  preference?: ThumbnailSourcePreference,
-): Promise<boolean> {
-  try {
-    const source = preferenceToSource(preference, doc);
-    const result = await generateDocThumbnail(doc, {
-      source,
-      maxWidth: 256,
-      maxHeight: 192,
-      fit: 'contain',
-      background: { type: 'transparent' },
-    });
+  options: PersistProjectThumbnailOptions = {},
+): boolean {
+  const source: ThumbnailSourceSpec = options.preference
+    ? preferenceToSource(options.preference)
+    : { type: 'automatic' };
+  const scheduler = getThumbnailScheduler();
+  if (scheduler.isShutdown) return false;
 
-    if (!result) return false;
-
-    const hash = contentHash(JSON.stringify(doc));
-    await platform.putThumbnail({
-      hash,
-      dataUrl: result.dataUrl,
-      width: result.metadata.outputWidth,
-      height: result.metadata.outputHeight,
-      createdAt: Date.now(),
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  const jobKey = `file-thumb:${options.fileId ?? 'anon'}:${source.type}`;
+  scheduler.enqueue({
+    key: jobKey,
+    priority: options.priority ?? 'current-doc',
+    run: async (signal) => {
+      if (signal.aborted) return;
+      await persistDocThumbnail(platform, doc, {
+        fileId: options.fileId,
+        source,
+        variant: THUMBNAIL_VARIANTS['home-card'],
+        signal,
+      });
+    },
+  });
+  return true;
 }
 
 /**
- * Convert user preference to a thumbnail source type usable by the
- * generation service. Falls back to automatic document overview when
- * the preference is undefined or targets a missing page/node.
+ * Synchronous-render variant for preview paths (picker dialogs, tests) that
+ * need the result now. Returns null on any failure.
  */
-function preferenceToSource(
-  preference: ThumbnailSourcePreference | undefined,
+export async function renderProjectThumbnailNow(
+  platform: Platform,
   doc: Document,
-): ThumbnailSourceType {
-  if (!preference || preference.type === 'automatic') {
-    return { type: 'document' };
-  }
-
-  switch (preference.type) {
-    case 'page': {
-      const page = doc.pages?.find((p) => p.id === preference.pageId);
-      if (page) return { type: 'page', pageId: preference.pageId };
-      return { type: 'document' };
+  options: PersistProjectThumbnailOptions & { persist?: boolean } = {},
+): Promise<{ dataUrl: string; key: string } | null> {
+  const source: ThumbnailSourceSpec = options.preference
+    ? preferenceToSource(options.preference)
+    : { type: 'automatic' };
+  try {
+    if (options.persist !== false) {
+      const outcome = await persistDocThumbnail(platform, doc, {
+        fileId: options.fileId,
+        source,
+        variant: THUMBNAIL_VARIANTS['home-card'],
+      });
+      if (!outcome?.result?.dataUrl) return null;
+      return { dataUrl: outcome.result.dataUrl, key: outcome.identity.key };
     }
-    case 'frame': {
-      if (doc.nodes[preference.nodeId]) return { type: 'frame', nodeId: preference.nodeId };
-      return { type: 'document' };
-    }
-    case 'selection': {
-      const valid = preference.nodeIds.filter((id) => doc.nodes[id]);
-      if (valid.length > 0) return { type: 'selection', nodeIds: valid };
-      return { type: 'document' };
-    }
-    default:
-      return { type: 'document' };
+    const outcome = await renderDocThumbnail(doc, {
+      fileId: options.fileId,
+      source,
+      variant: THUMBNAIL_VARIANTS['home-card'],
+    });
+    if (!outcome.result?.dataUrl) return null;
+    return { dataUrl: outcome.result.dataUrl, key: outcome.identity.key };
+  } catch {
+    return null;
   }
 }
 
 /**
- * Clear cached thumbnail for a content hash from the platform store
- * and regenerate it on next access.
+ * Clear cached thumbnail(s) for a file. Clears the canonical entry for the
+ * current revision (identity unknown without a full render — clear by the
+ * legacy key plus a prefix sweep where supported) and the legacy entry.
  */
-export async function clearPersistedThumbnail(platform: Platform, hash: string): Promise<void> {
+export async function clearPersistedThumbnail(
+  platform: Platform,
+  hash: string,
+  identityKeys: string[] = [],
+): Promise<void> {
   try {
     await platform.deleteThumbnail(hash);
   } catch {
     // Best-effort
+  }
+  for (const key of identityKeys) {
+    try {
+      await platform.deleteThumbnail(key);
+    } catch {
+      // Best-effort
+    }
   }
 }

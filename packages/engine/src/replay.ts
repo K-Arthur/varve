@@ -1479,6 +1479,15 @@ export function __getBackdropCacheSize(): number {
 /** Module-level gradient cache: maps a hash of {fill, bounds} → CanvasGradient | string. */
 const gradientCache = new FrameCache<string, CanvasGradient | string>();
 
+/**
+ * Test hook: drop all cached gradient objects. Deterministic tests that
+ * compare draw-call sequences across replays need a clean cache so the
+ * second pass re-constructs (and re-logs) gradient creation.
+ */
+export function resetGradientCacheForTest(): void {
+  gradientCache.clear();
+}
+
 function gradientCacheKey(
   fill: Extract<FillIR, { type: 'gradient' }>,
   bounds: { x: number; y: number; w: number; h: number },
