@@ -569,10 +569,16 @@ jobs:
         run: |
           $exe = Get-ChildItem -Path dist/release -Filter '*.exe' | Select-Object -First 1
           if (-not $exe) { throw 'No .exe installer found in dist/release' }
-          powershell -File scripts/release/verify-windows-signature.ps1 `
-            -Path $exe.FullName `
-            -ExpectSigned:($env:EXPECT_SIGNED -eq 'true') `
-            -ReportPath (Join-Path (Split-Path $exe.FullName) 'signing-report-windows.json')
+          $report = Join-Path (Split-Path $exe.FullName) 'signing-report-windows.json'
+          # Switch parameters do not survive the pwsh -> Windows PowerShell 5.1
+          # boundary with a computed value; branch explicitly instead.
+          if ($env:EXPECT_SIGNED -eq 'true') {
+            powershell -File scripts/release/verify-windows-signature.ps1 `
+              -Path $exe.FullName -ExpectSigned -ReportPath $report
+          } else {
+            powershell -File scripts/release/verify-windows-signature.ps1 `
+              -Path $exe.FullName -ReportPath $report
+          }
 
       - name: Verify macOS signature, notarization and staple
         if: matrix.enabled && runner.os == 'macOS'
