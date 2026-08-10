@@ -179,7 +179,7 @@ describe('Editor import insertion', () => {
 
   it('routes clipboard file imports through ImportService', async () => {
     const spy = vi.spyOn(ImportService, 'importFiles');
-    const file = new File([realPngBytes()], 'clipboard.png', {
+    const file = new File([realPngBytes() as unknown as BlobPart], 'clipboard.png', {
       type: 'image/png',
     });
     captureClipboardEvent(createClipboardEventWithFiles([file]));
