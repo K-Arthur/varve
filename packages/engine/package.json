@@ -35,7 +35,7 @@
     "@varve/platform": "workspace:*",
     "@varve/shared": "workspace:*",
     "bidi-js": "^1.0.3",
-    "harfbuzzjs": "^1.4.0",
+    "harfbuzzjs": "^1.6.0",
     "mp4-muxer": "^5.2.2",
     "opentype.js": "^2.0.0",
     "wawoff2": "^2.0.1",
