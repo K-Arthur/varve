@@ -24,6 +24,8 @@ import {
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
 import { loadSettings, updateSettings } from '../../settings';
+import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
+import { openThumbnailPicker } from '../../thumbnail/thumbnailPickerBridge';
 import { PanelDragHandle } from '../PanelDragHandle';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
@@ -71,6 +73,8 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     invertMask,
     openUpscaleDialog,
     openVectorizeDialog,
+    platform,
+    showToast,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -533,6 +537,23 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             openUpscaleDialog,
             openVectorizeDialog,
             closeMenu,
+            onUseFrameAsFileThumbnail: (nodeId) => {
+              if (!platform) return;
+              applyThumbnailPreference(
+                {
+                  platform,
+                  document: state.document,
+                  selection: [nodeId],
+                  fileId: state.sessions.find((s) => s.id === state.activeId)?.fileId,
+                  showToast: (opts) => showToast(opts),
+                },
+                { type: 'frame', nodeId },
+                'File thumbnail now shows the frame',
+              );
+            },
+            onSetFileThumbnail: () => {
+              openThumbnailPicker();
+            },
             LAYER_COLORS,
             COLOR_LABELS,
           })}
@@ -594,6 +615,10 @@ interface BuildLayerMenuItemsArgs {
   openUpscaleDialog: () => void;
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeMenu: () => void;
+  /** Use the frame/group as the file thumbnail (persists the preference). */
+  onUseFrameAsFileThumbnail?: (nodeId: string) => void;
+  /** Open the file thumbnail picker dialog. */
+  onSetFileThumbnail?: () => void;
   LAYER_COLORS: NonNullable<LayerColor>[];
   COLOR_LABELS: Record<NonNullable<LayerColor>, string>;
 }
@@ -695,6 +720,32 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
       },
     );
   }
+
+  // File thumbnail entries: a frame/group row can directly become the file
+  // thumbnail; every row can open the picker.
+  if (contextMenuNode?.kind === 'frame' || contextMenuNode?.kind === 'group') {
+    items.push(
+      { id: 'sep-thumb', separator: true },
+      {
+        id: 'use-as-file-thumbnail',
+        label: 'Use Frame as File Thumbnail',
+        onAction: () => {
+          setSelection(nodeId);
+          args.onUseFrameAsFileThumbnail?.(nodeId);
+          closeMenu();
+        },
+      },
+    );
+  }
+  items.push({
+    id: 'set-file-thumbnail',
+    label: 'Set File Thumbnail…',
+    onAction: () => {
+      setSelection(nodeId);
+      args.onSetFileThumbnail?.();
+      closeMenu();
+    },
+  });
 
   items.push(
     { id: 'sep2', separator: true },
