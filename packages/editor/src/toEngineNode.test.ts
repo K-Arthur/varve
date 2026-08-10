@@ -20,7 +20,7 @@ import {
   makeTextNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { toEngineNode as canvasToEngineNode } from './CanvasArea';
+import { toEngineNode as canvasToEngineNode } from './canvas/renderPipeline';
 import { sceneNodeToEngineNode as toEngineNode } from './render/sceneToEngine';
 
 const REQUIRED_TEXT_SHAPE_FIELDS = [
