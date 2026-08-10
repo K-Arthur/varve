@@ -44,6 +44,12 @@ on:
         default: 'linux'
         type: choice
         options: [linux, linux-windows, all]
+      publish:
+        description: 'Explicitly publish the existing draft for this tag (never auto-runs)'
+        required: false
+        default: 'no'
+        type: choice
+        options: [no, yes]
 
 concurrency:
   # Never cancel a release build in flight — a half-uploaded draft is worse than
@@ -74,6 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Resolve tag, version and channel
@@ -139,6 +146,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
@@ -311,15 +319,15 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         if: matrix.enabled
         with:
+          # Bundled models (u2netp.onnx, realesr-general-x4v3.onnx) are
+          # LFS-tracked, so the checkout MUST fetch LFS or the build would
+          # package 133-byte pointers. The repo is public, so LFS bandwidth is
+          # free and unmetered. The large on-demand models (ddcolor 980 MB,
+          # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded at runtime
+          # and never touched here. The pointer guard below still fails the
+          # build with instructions rather than silently shipping a pointer.
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
-          # No LFS fetch is needed: every model that ships in the installer is a
-          # small, non-LFS file. The three large models (ddcolor 980 MB,
-          # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded on demand at
-          # runtime instead, so CI never touches the 10 GB/month LFS bandwidth
-          # allowance. If a bundled model is ever added to LFS, the guard below
-          # fails the build with instructions rather than silently shipping a
-          # 133-byte pointer.
-          lfs: false
 
       - name: Verify no bundled asset is an LFS pointer
         if: matrix.enabled
@@ -513,6 +521,7 @@ jobs:
       # runner emits the SBOM for the bytes it actually bundled.
       - name: Generate platform SBOM
         if: matrix.enabled
+        shell: bash
         run: |
           node scripts/release/generate-sbom.mjs \
             --out dist/release/varve-${{ needs.preflight.outputs.version }}-sbom-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.cdx.json \
@@ -521,6 +530,7 @@ jobs:
 
       - name: Validate platform SBOM
         if: matrix.enabled
+        shell: bash
         run: |
           node scripts/release/validate-sbom.mjs \
             dist/release/varve-${{ needs.preflight.outputs.version }}-sbom-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.cdx.json
@@ -599,6 +609,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download Linux artifacts
@@ -610,12 +621,14 @@ jobs:
       - name: Install container runtime
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends podman fuse xvfb dbus-x11 at-spi2-core
+          sudo apt-get install -y --no-install-recommends \
+            podman fuse xvfb dbus-x11 at-spi2-core \
+            libegl1 libgl1 libgles2 libgbm1 libxkbcommon0
           podman info >/dev/null 2>&1 || echo "::warning::podman info failed — install tests will fail fast"
 
       - name: Install-test .deb and .rpm in clean containers
         run: |
-          node scripts/release/verify-package-install.sh \
+          bash scripts/release/verify-package-install.sh \
             --bundle-dir "$(pwd)/staged/linux"
 
       - name: Launch smoke (AppImage under Xvfb)
@@ -627,19 +640,36 @@ jobs:
             exit 1
           fi
           chmod +x "${IMG}"
+          LOG="$(mktemp)"
           echo "Launching ${IMG} headlessly for a bounded smoke test..."
           dbus-run-session -- xvfb-run --auto-servernum \
-            timeout 60 "${IMG}" --appimage-extract-and-run &
+            timeout 60 "${IMG}" --appimage-extract-and-run >"${LOG}" 2>&1 &
           PID=$!
           sleep 25
           if kill -0 "${PID}" 2>/dev/null; then
-            # Still running after 25s: the window loop is up. Kill cleanly.
+            # The main process survives, but a white screen does too — the
+            # WebKit web process aborts on EGL init failure while the window
+            # stays open. Fail the smoke on the abort signature or a missing
+            # web process instead of trusting process liveness.
+            if rg -qi 'EGL|Aborting|entry point|segmentation' "${LOG}"; then
+              echo "::error::WebKit failure detected in app output:"
+              rg -i 'EGL|Aborting|entry point|segmentation' "${LOG}" | head -5
+              kill "${PID}" 2>/dev/null || true
+              exit 1
+            fi
+            WEB_PROCS="$(pgrep -fc 'WebKitWebProcess|WebKitNetworkProcess' || true)"
+            if [[ "${WEB_PROCS}" -lt 1 ]]; then
+              echo "::error::No WebKit web process after 25s — the window is almost certainly blank."
+              kill "${PID}" 2>/dev/null || true
+              exit 1
+            fi
             kill "${PID}" 2>/dev/null || true
             wait "${PID}" 2>/dev/null || true
-            echo "AppImage launch smoke PASSED (process stayed alive 25s)"
+            echo "AppImage launch smoke PASSED (web process alive, no EGL errors)"
           else
             wait "${PID}"
             echo "::error::AppImage exited early (code $?)"
+            cat "${LOG}" | head -20
             exit 1
           fi
 
@@ -670,6 +700,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         if: matrix.enabled
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download platform artifacts
@@ -791,6 +822,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
@@ -966,15 +998,19 @@ jobs:
             echo "Smoke-test the artifacts, then run the \`publish\` job to make it public."
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # ── 6. Publish — gated on a human ───────────────────────────────────────────
+  # ── 5. Publish — double-gated on a human ────────────────────────────────────
+  # Two independent gates, so a misconfiguration of either cannot publish:
+  #   1. This job only runs on an explicit workflow_dispatch with publish=yes.
+  #      A tag push builds a draft and stops; nothing auto-publishes.
+  #   2. The `release-publish` environment must have a required reviewer in
+  #      repo settings (Settings → Environments → release-publish → Required
+  #      reviewers). See docs/release/ci-secrets.md.
   publish:
     name: Publish (manual approval)
-    needs: [preflight, draft]
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'yes'
+    needs: [preflight]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # The `release-publish` environment must have required reviewers configured
-    # in repo settings. Without that, this job runs automatically and the gate is
-    # decorative. See docs/release/ci-secrets.md.
     environment:
       name: release-publish
     permissions:
@@ -982,6 +1018,7 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
+          lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Publish the draft

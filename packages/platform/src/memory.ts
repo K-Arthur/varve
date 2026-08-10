@@ -944,6 +944,20 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async writeDocumentToPath() {
       return null;
     },
+    async chooseDocumentSaveTarget() {
+      // No native dialogs in memory mode — the "choose" affordance is
+      // unsupported, which is distinct from a user cancellation.
+      return { kind: 'unsupported' };
+    },
+    async writeSaveTarget() {
+      return {
+        kind: 'failed',
+        error: { category: 'unsupported', message: 'In-memory platform cannot write files.' },
+      };
+    },
+    async readDocumentText() {
+      return undefined;
+    },
     async listPrinters() {
       return [
         {

@@ -11,6 +11,7 @@
  */
 
 import { cssStringToManagedColor } from './cssColorParser';
+import type { RgbPrimariesName, TransferFunctionName } from './rasterColorEncoding';
 
 // ── Bit depth ────────────────────────────────────────────────────────────────
 
@@ -386,6 +387,370 @@ export function labToXyz(lab: [number, number, number]): [number, number, number
 
   // Adapt D50 → D65
   return mul3x3(BRADFORD_D50_TO_D65, [x, y, z]);
+}
+
+// ── Wide-gamut RGB working spaces ───────────────────────────────────────────
+//
+// Primaries matrices map linear RGB (in the space's own white point) to
+// CIE XYZ, and back. sRGB/P3/Adobe RGB/Rec.2020 are D65 spaces; ProPhoto is
+// D50. All matrices below are the canonical published values (IEC 61966-2-1,
+// CSS Color 4 / W3C, and the ProPhoto RGB specification).
+
+/** Display P3 (D65) → XYZ D65 (CSS Color 4). */
+const P3_TO_XYZ: readonly [number, number, number, number, number, number, number, number, number] =
+  [
+    0.4865709486482162, 0.26566769316909306, 0.1982172852343625, 0.2289745640697488,
+    0.6917385218365064, 0.079286914093745, 0.0, 0.04511338185890264, 1.043944368900976,
+  ];
+
+/** XYZ D65 → Display P3 (CSS Color 4). */
+const XYZ_TO_P3: readonly [number, number, number, number, number, number, number, number, number] =
+  [
+    2.493496911941425, -0.9313836179191239, -0.40271078445071684, -0.8294889695615747,
+    1.7626640603183463, 0.023624685841943577, 0.03584583024378447, -0.07617238926804182,
+    0.9568845240076872,
+  ];
+
+/** Adobe RGB (1998) (D65) → XYZ D65 (Lindbloom). */
+const ADOBE_TO_XYZ: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  0.5767309, 0.185554, 0.1881852, 0.2973769, 0.6273491, 0.0752741, 0.0270343, 0.0706872, 0.9911085,
+];
+
+/** XYZ D65 → Adobe RGB (1998) (Lindbloom). */
+const XYZ_TO_ADOBE: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  2.041369, -0.5649464, -0.3446944, -0.969266, 1.8760108, 0.041556, 0.0134474, -0.1183897,
+  1.0154096,
+];
+
+/** Rec.2020 (D65) → XYZ D65 (CSS Color 4). */
+const REC2020_TO_XYZ: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  0.6369580483012914, 0.14461690358620832, 0.1688809751641721, 0.2627002120112671,
+  0.6779980715188708, 0.05930171646986196, 0.0, 0.028072693049087428, 1.060985057710791,
+];
+
+/** XYZ D65 → Rec.2020 (CSS Color 4). */
+const XYZ_TO_REC2020: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [
+  1.7166511879712674, -0.35567078377639233, -0.25336628137365974, -0.6666843518324892,
+  1.6164812366349395, 0.01576854581391113, 0.017639857445310783, -0.042770613257808524,
+  0.9421031212354738,
+];
+
+/** ProPhoto RGB (D50) → XYZ D50 (Lindbloom). */
+const PROPHOTO_TO_XYZ: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [0.7976749, 0.1351917, 0.0313534, 0.2880402, 0.7118741, 0.0000857, 0.0, 0.0, 0.82521];
+
+/** XYZ D50 → ProPhoto RGB (Lindbloom). */
+const XYZ_TO_PROPHOTO: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [1.3459433, -0.2556075, -0.0511118, -0.5445989, 1.5081673, 0.0205351, 0.0, 0.0, 1.2118128];
+
+/** Display label for a primaries family. */
+export function rgbPrimariesLabel(primaries: RgbPrimariesName): string {
+  switch (primaries) {
+    case 'srgb':
+      return 'sRGB';
+    case 'display-p3':
+      return 'Display P3';
+    case 'adobe-rgb':
+      return 'Adobe RGB (1998)';
+    case 'pro-photo':
+      return 'ProPhoto RGB';
+    case 'rec2020':
+      return 'Rec.2020';
+    case 'unknown':
+      return 'Unknown RGB';
+  }
+}
+
+/** Display label for a transfer function. */
+export function transferLabel(transfer: TransferFunctionName): string {
+  switch (transfer) {
+    case 'srgb':
+      return 'sRGB';
+    case 'gamma22':
+      return 'gamma 2.2';
+    case 'gamma18':
+      return 'gamma 1.8';
+    case 'prophoto':
+      return 'ProPhoto (1.8)';
+    case 'rec2020':
+      return 'Rec.2020 OETF';
+    case 'linear':
+      return 'linear';
+    case 'pq':
+      return 'PQ (SMPTE 2084)';
+    case 'hlg':
+      return 'HLG (ARIB B-67)';
+    case 'unknown':
+      return 'unknown';
+  }
+}
+
+// ── Transfer functions (linear <-> encoded, unit range) ────────────────────
+
+/** sRGB OETF (encoded → linear), unit range. */
+export function srgbToLinearUnit(v: number): number {
+  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+
+/** sRGB EOTF (linear → encoded), unit range. */
+export function linearToSrgbUnit(v: number): number {
+  return v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055;
+}
+
+/** ProPhoto RGB toe threshold on the linear side (1/512). */
+export const PROPHOTO_LINEAR_TOE = 1 / 512;
+
+/** ProPhoto RGB OETF (encoded → linear), unit range, with the linear toe. */
+export function prophotoToLinearUnit(v: number): number {
+  return v >= 1 / 32 ? v ** 1.8 : v / 16;
+}
+
+/** ProPhoto RGB EOTF (linear → encoded), unit range, with the linear toe. */
+export function linearToProphotoUnit(v: number): number {
+  return v >= PROPHOTO_LINEAR_TOE ? v ** (1 / 1.8) : 16 * v;
+}
+
+/** Rec.2020 / BT.2100 OETF constants. */
+export const REC2020_ALPHA = 1.09929682680944;
+export const REC2020_BETA = 0.018053968510807;
+
+/** Rec.2020 OETF (encoded → linear), unit range. */
+export function rec2020ToLinearUnit(v: number): number {
+  const β = REC2020_BETA;
+  return v <= 4.5 * β ? v / 4.5 : ((v + REC2020_ALPHA - 1) / REC2020_ALPHA) ** (1 / 0.45);
+}
+
+/** Rec.2020 EOTF (linear → encoded), unit range. */
+export function linearToRec2020Unit(v: number): number {
+  const β = REC2020_BETA;
+  return v <= β ? v * 4.5 : REC2020_ALPHA * v ** 0.45 - (REC2020_ALPHA - 1);
+}
+
+/**
+ * Transfer decode (encoded → linear). Returns null for transfers that are
+ * undefined ('unknown') or unsupported by the analytical engine ('pq',
+ * 'hlg') — callers must treat null as an explicit unsupported outcome, not
+ * fall through to gamma 2.2.
+ */
+export function transferDecode(transfer: TransferFunctionName, v: number): number | null {
+  switch (transfer) {
+    case 'srgb':
+      return srgbToLinearUnit(v);
+    case 'gamma22':
+      return v ** 2.2;
+    case 'gamma18':
+      return v ** 1.8;
+    case 'prophoto':
+      return prophotoToLinearUnit(v);
+    case 'rec2020':
+      return rec2020ToLinearUnit(v);
+    case 'linear':
+      return v;
+    case 'pq':
+    case 'hlg':
+    case 'unknown':
+      return null;
+  }
+}
+
+/**
+ * Transfer encode (linear → encoded). Returns null when the transfer is
+ * undefined or unsupported (see `transferDecode`).
+ */
+export function transferEncode(transfer: TransferFunctionName, v: number): number | null {
+  switch (transfer) {
+    case 'srgb':
+      return linearToSrgbUnit(v);
+    case 'gamma22':
+      return v ** (1 / 2.2);
+    case 'gamma18':
+      return v ** (1 / 1.8);
+    case 'prophoto':
+      return linearToProphotoUnit(v);
+    case 'rec2020':
+      return linearToRec2020Unit(v);
+    case 'linear':
+      return v;
+    case 'pq':
+    case 'hlg':
+    case 'unknown':
+      return null;
+  }
+}
+
+/** Linear RGB (space's own white point) → XYZ in the same white point. */
+function linearRgbToXyzOwn(
+  primaries: RgbPrimariesName,
+  rgb: readonly [number, number, number],
+): [number, number, number] | null {
+  switch (primaries) {
+    case 'srgb':
+      return mul3x3(SRGB_TO_XYZ, rgb);
+    case 'display-p3':
+      return mul3x3(P3_TO_XYZ, rgb);
+    case 'adobe-rgb':
+      return mul3x3(ADOBE_TO_XYZ, rgb);
+    case 'rec2020':
+      return mul3x3(REC2020_TO_XYZ, rgb);
+    case 'pro-photo':
+      return mul3x3(PROPHOTO_TO_XYZ, rgb);
+    case 'unknown':
+      return null;
+  }
+}
+
+/** XYZ (space's own white point) → linear RGB. */
+function xyzOwnToLinearRgb(
+  primaries: RgbPrimariesName,
+  xyz: readonly [number, number, number],
+): [number, number, number] | null {
+  switch (primaries) {
+    case 'srgb':
+      return mul3x3(XYZ_TO_SRGB, xyz);
+    case 'display-p3':
+      return mul3x3(XYZ_TO_P3, xyz);
+    case 'adobe-rgb':
+      return mul3x3(XYZ_TO_ADOBE, xyz);
+    case 'rec2020':
+      return mul3x3(XYZ_TO_REC2020, xyz);
+    case 'pro-photo':
+      return mul3x3(XYZ_TO_PROPHOTO, xyz);
+    case 'unknown':
+      return null;
+  }
+}
+
+/**
+ * Linear RGB in `primaries` → CIE XYZ D50 (the ICC PCS). D65-based spaces
+ * are Bradford-adapted to D50; ProPhoto already uses D50.
+ */
+export function linearRgbPrimariesToXyzD50(
+  primaries: RgbPrimariesName,
+  rgb: readonly [number, number, number],
+): [number, number, number] | null {
+  const xyz = linearRgbToXyzOwn(primaries, rgb);
+  if (!xyz) return null;
+  if (primaries === 'pro-photo') return xyz;
+  return mul3x3(BRADFORD_D65_TO_D50, xyz);
+}
+
+/**
+ * CIE XYZ D50 → linear RGB in `primaries`.
+ */
+export function xyzD50ToLinearRgbPrimaries(
+  primaries: RgbPrimariesName,
+  xyz: readonly [number, number, number],
+): [number, number, number] | null {
+  const adapted = primaries === 'pro-photo' ? xyz : mul3x3(BRADFORD_D50_TO_D65, xyz);
+  return xyzOwnToLinearRgb(primaries, adapted);
+}
+
+/** An RGB working space identified by primaries + transfer. */
+export interface RgbWorkingSpaceRef {
+  primaries: RgbPrimariesName;
+  transfer: TransferFunctionName;
+}
+
+/** True when both members are analytically convertible. */
+export function isAnalyticRgbWorkingSpace(space: RgbWorkingSpaceRef): boolean {
+  return (
+    space.primaries !== 'unknown' &&
+    (space.transfer === 'srgb' ||
+      space.transfer === 'gamma22' ||
+      space.transfer === 'gamma18' ||
+      space.transfer === 'prophoto' ||
+      space.transfer === 'rec2020' ||
+      space.transfer === 'linear')
+  );
+}
+
+/**
+ * Convert an encoded RGB triple between working spaces: transfer-decode →
+ * primaries → XYZ D50 → target primaries → transfer-encode. Values outside
+ * [0,1] are preserved (never clamped): authoritative wide-gamut pixels must
+ * survive conversion; clipping is a display/output boundary decision.
+ *
+ * Returns null when either space is unsupported (unknown primaries, or
+ * PQ/HLG transfer). Alpha is untouched — color transforms operate on color
+ * channels only.
+ */
+export function convertEncodedRgb(
+  source: RgbWorkingSpaceRef,
+  target: RgbWorkingSpaceRef,
+  rgb: readonly [number, number, number],
+): [number, number, number] | null {
+  if (!isAnalyticRgbWorkingSpace(source) || !isAnalyticRgbWorkingSpace(target)) return null;
+  const r = transferDecode(source.transfer, rgb[0]);
+  const g = transferDecode(source.transfer, rgb[1]);
+  const b = transferDecode(source.transfer, rgb[2]);
+  if (r === null || g === null || b === null) return null;
+  const xyz = linearRgbPrimariesToXyzD50(source.primaries, [r, g, b]);
+  if (!xyz) return null;
+  const linear = xyzD50ToLinearRgbPrimaries(target.primaries, xyz);
+  if (!linear) return null;
+  const tr = transferEncode(target.transfer, linear[0]);
+  const tg = transferEncode(target.transfer, linear[1]);
+  const tb = transferEncode(target.transfer, linear[2]);
+  if (tr === null || tg === null || tb === null) return null;
+  return [tr, tg, tb];
 }
 
 // ── Oklab (Ottosson 2020) ───────────────────────────────────────────────────

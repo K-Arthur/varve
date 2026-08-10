@@ -1,0 +1,43 @@
+---
+/**
+ * Reveal-on-enter wrapper.
+ *
+ * Renders children with `data-reveal`; the shared observer in
+ * src/lib/motion.ts adds `.revealed` when the element scrolls into view.
+ * Under reduced motion (or `?test-motion=static`) the CSS forces the final
+ * state immediately, so content is never hidden by animation alone.
+ */
+interface Props {
+  /** Element to render as the wrapper. Defaults to a div. */
+  as?: string;
+  /** Stagger delay in ms, applied only while motion is allowed. */
+  delay?: number;
+  class?: string;
+}
+
+const { as = 'div', delay = 0, class: className }: Props = Astro.props;
+const Tag = as;
+---
+
+<Tag data-reveal data-reveal-delay={delay} class:list={[className, 'reveal']}>
+  <slot />
+</Tag>
+
+<style>
+  /* Initial hidden state applies only when motion is actually allowed:
+     the media query in global.css forces the final state otherwise. */
+  @media (prefers-reduced-motion: no-preference) {
+    html:not([data-motion='static']) .reveal {
+      opacity: 0;
+      transform: translateY(1.25rem);
+      transition:
+        opacity 0.7s var(--ease-default),
+        transform 0.7s var(--ease-default);
+    }
+
+    html:not([data-motion='static']) .reveal.revealed {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>

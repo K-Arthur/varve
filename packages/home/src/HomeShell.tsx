@@ -46,6 +46,11 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 export interface HomeShellProps {
   platform: Platform;
   onOpenFile: (entry: FileEntry) => void;
+  /** Re-link a Home entry whose physical file was moved or renamed (Locate).
+   *  Implementations open a native picker, verify the candidate's document
+   *  identity, rebind the entry's path, and resolve true on success. When
+   *  omitted, Locate falls back to revealing the (broken) path. */
+  onLocateFile?: (entry: FileEntry) => Promise<boolean>;
   /** When an editor session is alive behind the home screen, lets the user
    *  jump back to it without reopening a file. */
   onResumeEditing?: () => void;
@@ -58,6 +63,7 @@ export interface HomeShellProps {
 export function HomeShell({
   platform,
   onOpenFile,
+  onLocateFile,
   onResumeEditing,
   onReady,
   active = true,
@@ -412,7 +418,11 @@ export function HomeShell({
           actions.togglePin(contextFile);
           break;
         case 'locate': {
-          if (contextFile.filePath) {
+          if (onLocateFile) {
+            void onLocateFile(contextFile).then((ok) => {
+              if (ok) view.refresh();
+            });
+          } else if (contextFile.filePath) {
             platform.revealInFileManager(contextFile.filePath);
           }
           break;
@@ -431,7 +441,7 @@ export function HomeShell({
       setContextPos(null);
       setContextFile(null);
     },
-    [contextFile, actions, onOpenFile, platform, handleStartRename, view.refresh],
+    [contextFile, actions, onOpenFile, onLocateFile, platform, handleStartRename, view.refresh],
   );
 
   const handleMoveToProject = useCallback(

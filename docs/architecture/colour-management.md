@@ -220,3 +220,97 @@ definitions.
   supports it; unsupported formats must warn before converting spots to
   process colors.
 - Registration color renders as black on screen (all plates).
+
+## Raster Colour Management (ADR-0217, 2026-08-09)
+
+Raster pixels get the same discipline vector colours already have: a canonical
+encoding on every source and explicit, separate assign-vs-convert operations.
+See [image-lifecycle.md](image-lifecycle.md) for the container precedence
+table and [ADR-0217](../adr/0217-raster-colour-management.md) for the decision
+record.
+
+### Pipeline
+
+```text
+ENCODED IMAGE (PNG/JPEG/WebP/TIFF/AVIF)
+  -> metadata inspection (iCCP/APP2/ICCP/34675/colr, EXIF, cHRM/gAMA, CICP)
+  -> DocumentAsset.metadata.colorEncoding (primaries/transfer/precision/provenance)
+     + Document.iccProfiles (content-addressed profile bytes, header info)
+  -> browser decode (display: sRGB baseline, orientation-normalized)
+  -> export colour policy (sRGB default | display-p3 | adobe-rgb | pro-photo)
+     analytic conversion of the rendered composite (never clamps)
+     + ICC embedding: PNG iCCP / JPEG APP2; WebP disclosed unsupported
+  -> preflight: IMAGE_PROFILE_MISSING / invalid profile / mismatch findings
+```
+
+### Invariants
+
+- **Source vs working space are separate concepts.** The asset remembers what
+  its pixels mean; document `colorConfig.rgbProfile` is the working space.
+- **Assign never equals convert.** Assignment relabels without touching
+  channel values; conversion changes values to preserve appearance.
+- **Authoritative pixels survive display.** Wide-gamut values are never
+  clipped into the document; display/export clipping is a boundary decision.
+- **Conversion is analytic and explicit.** Matrix/TRC tables for sRGB, Display
+  P3, Adobe RGB, ProPhoto, Rec.2020 (`@varve/shared`); PQ/HLG transfers are
+  recorded but explicitly unsupported; arbitrary custom ICC profiles require
+  the native/WASM provider, which is not yet wired.
+- **Alpha is never colour-transformed**; premultiplied sources are
+  un-premultiplied for the colour math and re-premultiplied after
+  (`@varve/engine` `rasterColor/pixelBuffer.ts`).
+- **Cache identity will include colour.** The ImageCache key remains
+  source-only today because decode is sRGB; a profile-aware decode provider
+  must extend the key before it lands (see image-lifecycle.md).
+
+### Working spaces
+
+| Space | Primaries | Transfer | Analytic conversion | ICC authoring |
+| --- | --- | --- | --- | --- |
+| sRGB | IEC 61966-2-1 | piecewise | yes | yes (matrix/TRC) |
+| Display P3 | DCI-P3/D65 | sRGB curve (CSS Color 4) | yes | yes |
+| Adobe RGB (1998) | D65 | gamma 2.2 | yes | yes |
+| ProPhoto RGB | D50 | gamma 1.8 + toe | yes | yes (gamma approximation) |
+| Rec.2020 | D65 | BT.2020 OETF | yes | yes |
+| PQ / HLG | — | HDR | no (explicit unsupported) | no |
+
+Export profile bytes are authored deterministically
+(`buildMatrixProfile`) so "Display P3 PNG" means P3-encoded pixels plus a
+self-consistent P3 profile — never a relabel of sRGB bytes.
+
+### Known limitations (honest)
+
+- Display path decodes through the browser's default sRGB pipeline; no
+  Display-P3 canvas surface, no monitor ICC access, no per-frame raster
+  proofing of image fills (proof transform covers vector colours only).
+- WebP cannot embed ICC profiles through canvas encoders; exports disclose
+  this instead of silently dropping the profile.
+- Custom/user ICC profiles are stored and labelled, but conversion through
+  them requires the native/WASM ICC provider (future work).
+
+### Raster colour capability matrix (2026-08-09)
+
+Capabilities are split per stage — "parse" and "preserve" are not "convert"
+and "export". WebKitGTK/WKWebView/WebView2 canvas behaviour is the browser
+default decode pipeline; no Display-P3 canvas surface is requested anywhere.
+
+| Capability | Linux (Tauri/WebKitGTK) | Windows (WebView2) | macOS (WKWebView) | Web |
+| --- | --- | --- | --- | --- |
+| ICC parse (JPEG APP2 / PNG iCCP / WebP ICCP / TIFF 34675 / AVIF colr) | yes | yes | yes | yes |
+| CICP/nclx parse (AVIF) | yes | yes | yes | yes |
+| PNG sRGB/cHRM/gAMA parse | yes | yes | yes | yes |
+| Profile fingerprint + dedup (`Document.iccProfiles`) | yes | yes | yes | yes |
+| Profile metadata preserved in documents | yes | yes | yes | yes |
+| Analytic wide-gamut conversion (P3/Adobe/ProPhoto/Rec2020) | yes | yes | yes | yes |
+| Custom-ICC conversion (native/WASM provider) | **no** (deferred) | no | no | no |
+| Display-P3 canvas surface | no (sRGB baseline) | no | no | no |
+| Monitor ICC accuracy | no | no | no | no |
+| Raster soft-proof of image fills | no (vector only) | no | no | no |
+| Export: sRGB (untagged baseline) | yes | yes | yes | yes |
+| Export: P3/Adobe/ProPhoto PNG (converted + iCCP) | yes | yes | yes | yes |
+| Export: P3/Adobe/ProPhoto JPEG (converted + APP2 ICC) | yes | yes | yes | yes |
+| Export: profile embedding in WebP | **no** (disclosed) | no | no | no |
+| Export: AVIF | no (unsupported encoder) | no | no | no |
+| Preflight IMAGE_PROFILE_MISSING | yes | yes | yes | yes |
+
+"Convert" always means real pixel transformation; "preserve" means the
+authoritative source interpretation is retained and never relabelled.

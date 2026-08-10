@@ -29,6 +29,70 @@ const PLATFORM_LABELS: Record<string, string> = {
   windows: 'Windows',
 };
 
+// Per-platform trust copy, derived ONLY from the verification state recorded in
+// the generated release manifest (release.signing). The same logic lives in
+// scripts/release/website-release-data.mjs (platformTrustLabel) for tests; this
+// page keeps a self-contained copy so the site build cannot depend on files
+// outside the package.
+interface PlatformSigning {
+  windows?: { signed?: boolean; publisher?: string | null };
+  macos?: { signed?: boolean; notarized?: boolean; stapled?: boolean; publisher?: string | null };
+}
+
+function platformTrustLabel(
+  platform: string,
+  signing: PlatformSigning,
+): { badge: string; detail: string; signed: boolean } {
+  if (platform === 'windows') {
+    const s = signing.windows;
+    if (s?.signed) {
+      const publisher = s.publisher ? s.publisher.replace(/^CN=/, '') : 'the verified publisher';
+      return {
+        badge: 'Digitally signed',
+        detail: `Signature verified: ${publisher}. SmartScreen may still warn until reputation builds.`,
+        signed: true,
+      };
+    }
+    return {
+      badge: 'Not code-signed',
+      detail:
+        'Unsigned build: Windows will show "Windows protected your PC". Choose More info, then Run anyway.',
+      signed: false,
+    };
+  }
+  if (platform === 'macos') {
+    const s = signing.macos;
+    if (s?.signed && s.notarized && s.stapled) {
+      return {
+        badge: 'Developer ID signed and notarized',
+        detail: 'Signed, notarized by Apple, and the notarization ticket is stapled.',
+        signed: true,
+      };
+    }
+    if (s?.signed && !s.notarized) {
+      return {
+        badge: 'Signed but NOT notarized',
+        detail:
+          'A signature exists but Apple notarization did not verify. Treat like an unsigned build: ' +
+          'macOS will refuse to open it.',
+        signed: false,
+      };
+    }
+    return {
+      badge: 'Not code-signed',
+      detail:
+        'Unsigned and not notarised: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+      signed: false,
+    };
+  }
+  return {
+    badge: 'SHA-256 + provenance',
+    detail:
+      'Verified by SHA-256 checksum, SBOM and GitHub build provenance. Linux has no platform code-signing certificate.',
+    signed: false,
+  };
+}
+
 const REQUIREMENTS: Record<string, string[]> = {
   linux: [
     'OS: any x86-64 distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
@@ -54,6 +118,9 @@ const REQUIREMENTS: Record<string, string[]> = {
 // Resolved here rather than inline in the template: Astro's parser reads the
 // `<` of a TypeScript generic inside a JSX expression as the start of a tag.
 const platformMap = release.platforms as unknown as Record<string, Artifact[]>;
+// `signing` may be absent from generated files produced before the signing
+// block existed; treat it as empty, never as signed.
+const signing = ((release as Record<string, unknown>).signing ?? {}) as PlatformSigning;
 const available = ['linux', 'macos', 'windows']
   .filter((id) => (platformMap[id]?.length ?? 0) > 0)
   .map((id) => ({
@@ -61,8 +128,15 @@ const available = ['linux', 'macos', 'windows']
     label: PLATFORM_LABELS[id] ?? id,
     artifacts: platformMap[id],
     requirements: REQUIREMENTS[id] ?? [],
+    trust: platformTrustLabel(id, signing),
   }));
 const first = available[0]?.id;
+// OS-level code signing applies to Windows and macOS only; Linux is
+// integrity-verified (checksums + SBOM + provenance). "All signed" therefore
+// means every OS-signable platform present in this release verifies.
+const osSignable = available.filter((p) => p.id === 'windows' || p.id === 'macos');
+const anySigned = osSignable.some((p) => p.trust.signed);
+const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signed);
 ---
 
 <Layout
@@ -124,14 +198,13 @@ const first = available[0]?.id;
             </p>
           </div>
 
-          {!release.signed && (
+          {!allSigned && (
             <div class="integrity-notice">
-              <h2>These builds are not code-signed</h2>
+              <h2>{anySigned ? 'Some builds are not code-signed' : 'These builds are not code-signed'}</h2>
               <p>
-                Varve does not yet have code-signing certificates, so your operating system
-                cannot verify who built these files. That is a statement about this project's
-                budget, not about the files — but you cannot tell the difference without
-                checking, so please check.
+                {anySigned
+                  ? 'Code-signing certificates are still being rolled out per platform. Where a platform is not signed, your operating system cannot verify who built that file — check the platform note below and verify your download.'
+                  : 'Varve does not yet have code-signing certificates, so your operating system cannot verify who built these files. That is a statement about this project\'s budget, not about the files — but you cannot tell the difference without checking, so please check.'}
               </p>
               <p>
                 <strong>Verify your download</strong> against the published checksum before
@@ -154,8 +227,34 @@ const first = available[0]?.id;
               <p class="download-meta">
                 A checksum detects corruption or a swapped file, but it does not prove who
                 built the file — an attacker who can replace the download can replace the
-                checksum too. Treat these builds as unsigned, and prefer the GitHub release
+                checksum too. Treat unsigned builds as unsigned, and prefer the GitHub release
                 page as the download source.
+              </p>
+            </div>
+          )}
+
+          {allSigned && (
+            <div class="integrity-notice">
+              <h2>Signatures verified</h2>
+              <p>
+                Every platform in this release was verified after building: Windows installers
+                carry a valid Authenticode signature, the macOS app is Developer ID signed,
+                notarized by Apple, and stapled. Linux artifacts ship with SHA-256 checksums,
+                an SBOM, and GitHub build provenance.
+              </p>
+              <p>
+                <a href={release.checksumsUrl} target="_blank" rel="noopener noreferrer">
+                  Download SHA256SUMS.txt
+                </a>
+                &middot;
+                <a href={release.sbomUrl} target="_blank" rel="noopener noreferrer">
+                  Software bill of materials
+                </a>
+              </p>
+              <p class="download-meta">
+                A signature identifies who built the file and proves it was not modified after
+                signing. New signatures can still trigger a one-time OS warning until the
+                publisher builds reputation — this is normal and does not mean the file is bad.
               </p>
             </div>
           )}
@@ -192,6 +291,10 @@ const first = available[0]?.id;
               tabindex="0"
             >
               <h2>{p.label}</h2>
+
+              <p class="download-meta trust-line">
+                <span class="trust-badge">{p.trust.badge}</span> {p.trust.detail}
+              </p>
 
               <div class="download-options">
                 {p.artifacts.map((artifact) => (
@@ -376,6 +479,24 @@ const first = available[0]?.id;
   .badge.recommended {
     background: var(--status-built);
     color: var(--text-on-status);
+  }
+
+  .trust-line {
+    margin: 0.5rem 0 1rem;
+  }
+
+  .trust-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-subtle, currentColor);
+    margin-right: 0.5rem;
+    vertical-align: middle;
   }
   
   .download-option p {

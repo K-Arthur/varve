@@ -816,6 +816,81 @@ input[type="number"] {
   color: var(--color-text-muted);
 }
 
+/* Save status — subtle, truthful persistence state (never recovery) */
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 20px;
+  padding: 0 var(--space-2);
+  background: none;
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: default;
+}
+
+.save-status--ok {
+  color: var(--color-text-muted);
+}
+
+.save-status--dirty {
+  color: var(--color-text-secondary);
+}
+
+.save-status--error {
+  color: var(--color-feedback-danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.save-status:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.save-status__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Document Info dialog */
+.document-info {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+
+.document-info dt {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.document-info dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.document-info__path {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.document-info__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 /* Zoom value: monospace numerics, compact chip wrapper */
 .editor-status__zoom-chip {
   display: inline-flex;
@@ -2759,10 +2834,16 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-sunken);
   color: var(--color-text-secondary);
 }
+/* Brand surface, not interface chrome: the welcome screen is the one place
+   inside the app that speaks in the marketing voice, so it takes the
+   editorial serif. See the type system note in @varve/ui tokens.css. */
 .welcome-dialog__heading {
   margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
+  font-family: var(--font-editorial);
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  font-variation-settings: "opsz" 48;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 .welcome-dialog__subtitle {
@@ -4505,4 +4586,125 @@ dialog.varve-dialog--settings[open] {
   margin-top: var(--space-4);
   padding-top: var(--space-4);
   border-top: 1px solid var(--color-border-subtle);
+}
+
+/* ── Animated media ─────────────────────────────────────────────────────── */
+
+.media-frame-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+}
+
+.media-frame-strip__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.media-frame-strip__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-secondary, inherit);
+  cursor: pointer;
+}
+
+.media-frame-strip__icon-button:hover {
+  background: var(--color-bg-hover, rgba(128, 128, 128, 0.15));
+}
+
+.media-frame-strip__uniform {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-text-secondary, inherit);
+  user-select: none;
+}
+
+.media-frame-strip__cells {
+  position: relative;
+  width: 100%;
+  touch-action: none;
+  cursor: ew-resize;
+  background: var(--color-bg-inset, rgba(128, 128, 128, 0.08));
+  border-radius: 4px;
+  outline: none;
+}
+
+.media-frame-strip__cells:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-accent, #14b8a6);
+}
+
+.media-frame-strip__cell {
+  position: absolute;
+  top: 6px;
+  border-radius: 2px;
+  background: var(--color-border-strong, rgba(128, 128, 128, 0.4));
+  overflow: hidden;
+}
+
+.media-frame-strip__cell-label {
+  display: block;
+  padding: 0 2px;
+  font-size: 9px;
+  line-height: 12px;
+  color: var(--color-text-secondary, inherit);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.media-frame-strip__playhead {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  width: 2px;
+  background: var(--color-accent, #14b8a6);
+  pointer-events: none;
+}
+
+.animation-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.animation-section__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-secondary, inherit);
+}
+
+.animation-section__kind {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.animation-section__unit {
+  font-size: 10px;
+  color: var(--color-text-secondary, inherit);
+}
+
+.layers-row__media-badge {
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--color-accent, #14b8a6);
+  background: color-mix(in srgb, var(--color-accent, #14b8a6) 12%, transparent);
+  white-space: nowrap;
 }

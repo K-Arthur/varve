@@ -6,6 +6,7 @@ import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
+import { getLifecycleCoordinator } from '../lifecycle';
 
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
@@ -93,6 +94,17 @@ export function createActionHandlers(
     import: () => cb.onImportFile?.(),
     save: () => e.save(),
     saveAs: () => e.saveAs(),
+    saveCopy: () => e.saveCopy(),
+    documentInfo: () => e.setShowDocumentInfo(true),
+    revealInFiles: () => {
+      const active = e.state.sessions.find((sess) => sess.id === e.state.activeId);
+      if (active?.filePath) void e.platform?.revealInFileManager(active.filePath);
+    },
+    copyFilePath: () => {
+      const active = e.state.sessions.find((sess) => sess.id === e.state.activeId);
+      if (!active?.filePath || typeof navigator === 'undefined') return;
+      void navigator.clipboard.writeText(active.filePath).catch(() => undefined);
+    },
     exportSvg: () => {
       const svg = exportDocumentToSvg(e.state.document);
       const blob = new Blob([svg], { type: 'image/svg+xml' });
@@ -519,13 +531,28 @@ export function createActionHandlers(
 
     // ── Tabs ──
     tabNew: () => e.newTab(),
+    // Close Document (Ctrl/Cmd+W) routes through the termination
+    // coordinator: dirty work resolves via the shared dialog, never a
+    // native confirm() (ADR-0216 D5).
     tabClose: () => {
+      const coordinator = getLifecycleCoordinator();
+      if (coordinator) {
+        void coordinator.requestTermination('close-document', 'shortcut');
+        return;
+      }
       if (!e.closeTab(e.state.activeId)) {
         const sess = e.state.sessions.find((s) => s.id === e.state.activeId);
         if (confirm(`Close "${sess?.name ?? 'Untitled'}"? Unsaved changes will be lost.`)) {
           e.closeTab(e.state.activeId, true);
         }
       }
+    },
+    // Close Window (Ctrl+Shift+W) and Quit Varve (Ctrl+Q) — same guard.
+    closeWindow: () => {
+      getLifecycleCoordinator()?.requestTermination('close-window', 'shortcut');
+    },
+    quitApp: () => {
+      getLifecycleCoordinator()?.requestTermination('quit-application', 'shortcut');
     },
     tabNext: () => {
       const { sessions, activeId } = e.state;

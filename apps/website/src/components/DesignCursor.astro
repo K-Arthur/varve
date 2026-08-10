@@ -1,0 +1,183 @@
+---
+/**
+ * DesignCursor — a small "cursor companion" for the landing experience.
+ *
+ * The native cursor is retained (no cursor:none, so a failure can never
+ * strand the visitor without a pointer). A lightweight overlay — a ring
+ * with an anchor-node diamond — eases behind the pointer and morphs
+ * between design-tool states:
+ *
+ *   default    — ring + diamond (idle selection)
+ *   interactive— ring contracts over links/buttons
+ *   canvas     — ring becomes a dashed selection frame over the design field
+ *
+ * Rules enforced here:
+ *  - pointer-events: none; never intercepts clicks or focus;
+ *  - disabled on coarse pointers (touch/tablet) and under reduced motion;
+ *  - hidden on window blur and when the pointer leaves the document;
+ *  - single RAF loop, transform-only updates (no layout reads per frame);
+ *  - decorative: aria-hidden.
+ */
+---
+
+<div class="design-cursor" data-design-cursor aria-hidden="true">
+  <span class="design-cursor-ring"></span>
+  <span class="design-cursor-dot"></span>
+</div>
+
+<script>
+  import { isCoarsePointer, prefersMotion } from '../lib/motion';
+
+  const host = document.querySelector<HTMLElement>('[data-design-cursor]');
+  if (host) {
+    const enabled = !isCoarsePointer() && prefersMotion();
+    if (!enabled) {
+      host.remove();
+    } else {
+      const pos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      const eased = { x: pos.x, y: pos.y };
+      let raf = 0;
+      let visible = false;
+
+      const updateMode = (el: EventTarget | null): void => {
+        if (!(el instanceof Element)) {
+          host.dataset.mode = 'default';
+          return;
+        }
+        if (el.closest('[data-design-field]')) {
+          host.dataset.mode = 'canvas';
+        } else if (el.closest('a, button, [role="button"], summary, input, select, textarea, label')) {
+          host.dataset.mode = 'interactive';
+        } else {
+          host.dataset.mode = 'default';
+        }
+      };
+
+      const loop = (): void => {
+        const k = 0.28;
+        eased.x += (pos.x - eased.x) * k;
+        eased.y += (pos.y - eased.y) * k;
+        const transform = `translate3d(${eased.x}px, ${eased.y}px, 0)`;
+        if (host.style.transform !== transform) host.style.transform = transform;
+        host.style.opacity = visible ? '1' : '0';
+        if (visible || Math.abs(pos.x - eased.x) > 0.5) {
+          raf = requestAnimationFrame(loop);
+        } else {
+          raf = 0;
+        }
+      };
+
+      const ensureLoop = (): void => {
+        if (!raf) raf = requestAnimationFrame(loop);
+      };
+
+      document.addEventListener(
+        'pointermove',
+        (e) => {
+          if (e.pointerType !== 'mouse') return;
+          pos.x = e.clientX;
+          pos.y = e.clientY;
+          visible = true;
+          ensureLoop();
+        },
+        { passive: true },
+      );
+
+      document.addEventListener(
+        'pointerover',
+        (e) => {
+          if (e.pointerType !== 'mouse') return;
+          updateMode(e.target);
+        },
+        { passive: true },
+      );
+
+      const hide = (): void => {
+        visible = false;
+        ensureLoop();
+      };
+
+      document.documentElement.addEventListener('mouseleave', hide, { passive: true });
+      window.addEventListener('blur', hide, { passive: true });
+      // The mode follows whatever the pointer is over; pointers that move
+      // across children fire pointerover on every element boundary, so the
+      // closest()-based update above always sees the current target.
+    }
+  }
+</script>
+
+<style>
+  .design-cursor {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+    will-change: transform;
+    /* Keep the effect subtle: it frames the pointer, it never replaces it. */
+  }
+
+  .design-cursor-ring {
+    position: absolute;
+    top: -14px;
+    left: -14px;
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid var(--df-snap);
+    border-radius: 50%;
+    transition:
+      border-radius var(--duration-fast) var(--ease-default),
+      width var(--duration-fast) var(--ease-default),
+      height var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default);
+  }
+
+  .design-cursor-dot {
+    position: absolute;
+    top: -2.5px;
+    left: -2.5px;
+    width: 5px;
+    height: 5px;
+    background: var(--df-snap);
+    transform: rotate(45deg);
+    border-radius: 1px;
+  }
+
+  .design-cursor[data-mode='interactive'] .design-cursor-ring {
+    width: 20px;
+    height: 20px;
+    top: -10px;
+    left: -10px;
+    border-color: var(--text-link);
+  }
+
+  .design-cursor[data-mode='canvas'] .design-cursor-ring {
+    width: 26px;
+    height: 26px;
+    top: -13px;
+    left: -13px;
+    border-radius: 4px;
+    border-style: dashed;
+    border-color: var(--df-teal);
+  }
+
+  /* Coarse pointers never see the companion; the native cursor suffices. */
+  @media (pointer: coarse) {
+    .design-cursor {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .design-cursor {
+      display: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .design-cursor {
+      display: none;
+    }
+  }
+</style>

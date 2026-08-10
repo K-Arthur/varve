@@ -50,6 +50,7 @@ async function createRect(page: import('@playwright/test').Page) {
 
   const treeItem = page.getByRole('treeitem').filter({ hasText: /rect/i }).last();
   await treeItem.click();
+  await page.locator('canvas.editor-canvas__content-layer').focus();
   await page.waitForTimeout(200);
 }
 
@@ -172,10 +173,24 @@ test.describe('Nudge transaction resilience', () => {
     await createRect(page);
     const before = await getSelectedPosition(page);
 
-    // Nudge 3 times
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
-    await page.keyboard.press('ArrowRight');
+    // One held-key gesture: initial keydown, OS-style repeat events, keyup.
+    // Separate keyboard.press calls are separate tap gestures and correctly
+    // create separate undo units.
+    await page.keyboard.down('ArrowRight');
+    await page.locator('canvas.editor-canvas__content-layer').evaluate((canvas) => {
+      for (let index = 0; index < 2; index++) {
+        canvas.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            bubbles: true,
+            cancelable: true,
+            key: 'ArrowRight',
+            code: 'ArrowRight',
+            repeat: true,
+          }),
+        );
+      }
+    });
+    await page.keyboard.up('ArrowRight');
     await page.waitForTimeout(100);
 
     const afterNudge = await getSelectedPosition(page);

@@ -1,0 +1,91 @@
+---
+/**
+ * TrustStrip — quick product facts in a hard band, no cards.
+ * Four oversized facts: local-first, no subscription, source-available,
+ * cross-platform. Reads fast and earns the headline's claims.
+ */
+---
+
+<section class="trust-strip" aria-label="Varve at a glance">
+  <div class="container-custom trust-grid">
+    <div class="trust-item" data-reveal>
+      <span class="trust-kicker">Your files</span>
+      <strong class="trust-word">Local-first</strong>
+      <span class="trust-note">Documents live on your machine. No cloud, no account.</span>
+    </div>
+    <div class="trust-item" data-reveal data-reveal-delay="80">
+      <span class="trust-kicker">Pricing</span>
+      <strong class="trust-word">Free forever</strong>
+      <span class="trust-note">The Community Edition is free, and stays free. No subscription, no paywall.</span>
+    </div>
+    <div class="trust-item" data-reveal data-reveal-delay="160">
+      <span class="trust-kicker">Code</span>
+      <strong class="trust-word">Source-available</strong>
+      <span class="trust-note">FSL-1.1-MIT. Built in the open on GitHub.</span>
+    </div>
+    <div class="trust-item" data-reveal data-reveal-delay="240">
+      <span class="trust-kicker">Platforms</span>
+      <strong class="trust-word">Three platforms</strong>
+      <span class="trust-note">Native Linux, macOS, and Windows builds.</span>
+    </div>
+  </div>
+</section>
+
+<style>
+  .trust-strip {
+    border-bottom: 1px solid var(--border-default);
+    background: var(--surface-sunken);
+  }
+
+  .trust-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2rem;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+
+  .trust-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    border-left: 2px solid var(--border-default);
+    padding-left: 1.25rem;
+  }
+
+  .trust-kicker {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .trust-word {
+    font-family: var(--font-display);
+    font-size: clamp(1.35rem, 1.8vw + 0.6rem, 2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    line-height: 1.15;
+  }
+
+  .trust-note {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 900px) {
+    .trust-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .trust-grid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+  }
+</style>

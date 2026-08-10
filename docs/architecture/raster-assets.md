@@ -1,0 +1,185 @@
+# Raster asset architecture
+
+**Updated:** 2026-08-09
+
+This document records the canonical raster asset architecture introduced to
+resolve Varve's raster pipeline gaps (EXIF/ICC ingestion, resource identity,
+IR payload size, worker residency, export readiness, typed failures). It
+extends [image-lifecycle.md](image-lifecycle.md) (ownership boundaries),
+[image-geometry.md](image-geometry.md) (crop/placement math), and
+[canvas2d-system.md](canvas2d-system.md) (display/export semantics).
+
+## The lifecycle
+
+```text
+file / external source
+        ↓
+@varve/import inspection + metadata extraction (EXIF, ICC, dimensions)
+        ↓
+Document.assets (content-addressed) + Document.iccProfiles (deduped)
+        ↓
+ImageFillData.assetId + normalized metadata (orientation, pixel dims)
+        ↓
+sceneToEngine: short resource handle in render IR (registry maps handle → src)
+        ↓
+ImageCache (typed load states, URL-keyed decode)
+        ↓
+main-thread Canvas2D replay            render worker (resident source map,
+  (placeholder: loading vs failed)      byte-budgeted admission, set deltas)
+        ↓
+structural compositor → export barrier (settle → preflight → replay)
+        ↓
+encoded output
+```
+
+## Canonical resource identity
+
+A raster asset is identified by its content-addressed `assetId`
+(`asset-<hash>`, 22 chars). The same id is used as:
+
+- the scene's asset-table key (`Document.assets`),
+- the per-placement reference (`ImageFillData.assetId`),
+- the render IR identity (image fill `src`),
+- the worker manifest key,
+- the resource-registry key (handle → loadable source).
+
+Requirements met: deterministic, short, non-sensitive, stable across
+save/reopen (content-addressed), collision-resistant, independent of memory
+location and traversal order, usable as a cache key, portable across
+main/worker boundaries. No cryptographic hashing on the render path — the
+sync non-cryptographic `hashContent` lane runs at ingestion only.
+
+### Engine resource registry
+
+`packages/engine/src/imageResourceRegistry.ts` maps handles to loadable
+sources. `sceneToEngine` registers every asset it emits (idempotent;
+identical content always maps to the identical source). Replay and worker
+collection resolve handles before cache access; legacy raw sources
+(data:/blob:/http/https/proxy URLs) pass through untouched, so old documents
+never touch the registry. An unregistered handle-shaped identity is a
+*missing resource* (typed `missing`), never a cache miss.
+
+### IR payload guarantee
+
+Render IR carries `asset-<hash>` instead of the multi-megabyte base64
+payload. Measured on this machine (Node 26, vitest bench):
+
+| Transport | Mean structured-clone time |
+|---|---|
+| Legacy IR with 2 MiB embedded data URL | 28.93 ms |
+| Handle IR, one photo | 0.14 ms (205x faster) |
+| Handle IR, 100 placements of one asset | 1.12 ms |
+
+The regression test (`packages/engine/src/bench/ir-size.test.ts`) asserts
+the payload never appears in serialized IR and that handle IR is at least
+100x smaller than the equivalent data-URL IR.
+
+## Ingestion metadata
+
+`packages/import/src/metadata/` extracts, at ingestion, without trusting
+offsets or sizes:
+
+- **EXIF orientation** — JPEG APP1 + TIFF, both endiannesses, bounded IFD
+  walks (512 entries), chained-pointer cycle guards, segment caps. Any
+  malformed input returns orientation 1 (no transform); it never throws.
+  All 8 orientations verified against deterministic binary fixtures.
+- **ICC profiles** — JPEG APP2 chunked reconstruction (sequence validated,
+  duplicates/missing/out-of-range rejected), PNG iCCP (bounded inflate via
+  fflate), WebP ICCP, TIFF tag 34675. Profiles are structurally validated
+  (size field, `acsp` signature, 16 MiB cap). Invalid profiles are recorded
+  as explicitly `invalid` — never reinterpreted as a different profile.
+
+Normalized metadata lands on `DocumentAsset.metadata` (orientation, stored
+pixel dimensions, ICC status/description) with the profile payload stored
+once in `Document.iccProfiles` and referenced by id — identical profiles
+share one entry across documents of assets.
+
+**Decode invariant:** browser decoders (HTMLImageElement, drawImage,
+createImageBitmap from an element) apply EXIF orientation, so Varve treats
+the decoded representation as orientation-normalized and never applies the
+transform itself. `metadata.orientation` is used for *displayed dimensions*
+(swap for orientations 5-8): placement, node sizing, crop, and hit testing
+all see the oriented size, matching the decoded pixels. Export re-encodes
+already-oriented pixels, so orientation is applied exactly once end to end.
+
+**Colour policy (honest):** ingestion *records* source profiles but does not
+transform pixels — the working/display space remains sRGB (consistent with
+Varve's colour architecture). No Adobe RGB / Display P3 / CMYK claims are
+made until a genuine conversion pipeline with numeric fixtures exists.
+`iccStatus: 'invalid'` is surfaced to print/preflight so a malformed
+profile warns instead of silently mis-colour-managing.
+
+## Export barrier
+
+`packages/editor/src/export/resourceReadiness.ts` is the single dependency
+collector for export: image fills, pattern tiles, node alpha masks, and
+warped-image primitives are collected from the *flattened engine scene*
+(the same traversal shape the worker bitmap collector uses), handles are
+resolved, and settlement is awaited with a bounded timeout (15 s default)
+and cancellation:
+
+```text
+freeze export snapshot (flattenSceneToEngine)
+        ↓
+collect required resources
+        ↓
+settle: loaded | failed | pending(timeout)
+        ↓
+preflight classification (typed failures)
+        ↓
+render
+```
+
+Policy:
+- permanent failures (missing/corrupt/unsupported/CORS) are reported with
+  the typed code and a matching recovery hint — never silently omitted;
+- raster export proceeds with explicit warnings (documented
+  continue-with-placeholder policy); structural compositor rasterization
+  (SVG/PDF) fails the export clearly;
+- pending resources on timeout are reported as transient — export never
+  waits forever, and a timeout is never mislabeled as a corrupt asset;
+- `ExportService` surfaces typed `resourceFailures` per file for dialogs.
+
+## Worker residency
+
+The render worker retains decoded source bitmaps by identity across frames
+(missing-only delta transport). Residency is now explicit:
+
+- the worker reports its resident `imageMap` bytes on every frame;
+- the host accounts `residentSourceBytes` + peak and releases it on worker
+  teardown — accounting never outlives the bitmaps;
+- admission control includes residency: pending + in-flight + resident
+  source + retained frame + worker canvas + new transfer must fit the
+  budget, or the render is refused and falls back to main-thread Canvas2D;
+- residency set deltas (`sourceAdds` / `sourceRemoves` / `sourceReuses`)
+  feed diagnostics alongside `residentSourceBytes` / peak /
+  `admissionRejections` (via `getBitmapBudgetState` on the registered host);
+- masked fills are refused by the worker collection (never A-without-M).
+
+## Typed failures
+
+`ImageLoadError` codes: `missing`, `corrupt`, `unsupported`, `permission`,
+`unavailable`, `cors`, `admission`, `cancelled`, `unknown`. Inline failures
+are classified by MIME; remote failures by bounded HTTP probes (404/410 →
+missing, 401/403 → permission, 5xx → unavailable, 2xx-but-undecodable →
+corrupt, CORS-failed probe → cors). Placeholders distinguish loading from
+permanent failure while preserving node geometry.
+
+## WebGPU
+
+Image rendering remains disabled in WebGPU. Canvas2D is the authoritative
+path; WebGPU accelerates only whole batches of simple solid shapes with
+normal blending. Readiness gates (texture ownership, upload dedup, device
+loss, parity fixtures, hardware validation) remain unmet; see the lifecycle
+doc's extension rules.
+
+## Deferred (measured, not implemented)
+
+- Photo-fill tiling/pyramids: the raster-layer pyramid trigger is met at
+  2048² layers (ADR-0214) but photo fills replay as a single blit; a
+  pyramid only pays off when full decode is the bottleneck. The IR
+  transport work above removes the per-frame cost; browser decode
+  benchmarks on real hardware are the required next step before any
+  pyramid for photo fills.
+- Source-ICC → working-space conversion: profile extraction is wired;
+  numeric colour fixtures and a conversion pipeline are a separate phase.

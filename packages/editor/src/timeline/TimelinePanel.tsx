@@ -1,9 +1,13 @@
+import { getMediaRegistry } from '@varve/engine';
 import type { Timeline } from '@varve/scene';
+import { getAnimatedMediaFill } from '@varve/scene';
 import type { EasingDefinition } from '@varve/shared';
 import { Select, Tooltip, TooltipProvider } from '@varve/ui';
-import { type FC, useCallback, useMemo, useRef, useState } from 'react';
+import { type FC, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { PanelDragHandle } from '../components/PanelDragHandle';
+import { EditorCtx } from '../context';
 import { GraphEditor } from './GraphEditor';
+import { MediaFrameStrip } from './MediaFrameStrip';
 import { PlaybackControls } from './PlaybackControls';
 import { TimelineRuler } from './TimelineRuler';
 import { TrackRow } from './TrackRow';
@@ -105,6 +109,35 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   onSetTrackMuted,
   onSetTrackSolo,
 }) => {
+  const editor = useContext(EditorCtx);
+  const mediaStrip = useMemo(() => {
+    // The strip is an optional affordance: without the editor provider
+    // (isolated renders, previews) the panel renders exactly as before.
+    if (!editor) return null;
+    const mediaState = editor.state.media;
+    const mediaDoc = editor.state.document;
+    const selectedId = editor.state.selection[0];
+    const node = selectedId ? mediaDoc?.nodes[selectedId] : undefined;
+    const fill = node ? getAnimatedMediaFill(node, mediaDoc) : undefined;
+    const assetId = fill?.image?.assetId;
+    const asset = assetId ? mediaDoc?.assets?.[assetId] : undefined;
+    if (!node || !fill?.image || !asset?.animated) return null;
+    const session = getMediaRegistry().get(assetId!);
+    if (!session) return null;
+    return (
+      <MediaFrameStrip
+        timing={session.timing}
+        frameCount={asset.animated.frameCount}
+        currentTimeMs={mediaState.currentTime}
+        isPlaying={mediaState.isPlaying}
+        onScrub={editor.seekMedia}
+        onTogglePlay={editor.toggleMedia}
+        onStep={editor.stepMediaFrame}
+        ariaLabel={`Animated image: ${asset.animated.frameCount} frames`}
+      />
+    );
+  }, [editor]);
+
   const timelineIds = useMemo(() => Object.keys(timelines), [timelines]);
   const activeTimeline = activeTimelineId ? (timelines[activeTimelineId] ?? null) : null;
   const duration = activeTimeline?.duration ?? 0;
@@ -284,6 +317,8 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             presetOptions={presetOptions}
             onApplyPreset={onApplyPreset}
           />
+
+          {mediaStrip}
 
           <div className="timeline-panel__ruler-container">
             <TimelineRuler
