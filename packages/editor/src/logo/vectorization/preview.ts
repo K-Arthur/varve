@@ -23,7 +23,10 @@ export interface PreviewPayload {
 }
 
 /** Load the source image by its stored src (data URL or asset path). */
-export async function loadSourceImage(src: string, signal: AbortSignal): Promise<HTMLImageElement> {
+export async function loadSourceImage(
+  src: string,
+  signal: AbortSignal,
+): Promise<import('@varve/engine').CachedImage> {
   const { getImageCache } = await import('@varve/engine');
   if (signal.aborted) throw new Error('cancelled');
   const image = await getImageCache().load(src);
@@ -32,13 +35,13 @@ export async function loadSourceImage(src: string, signal: AbortSignal): Promise
 }
 
 function imageDataFromSource(
-  image: HTMLImageElement,
+  image: import('@varve/engine').CachedImage,
   maxDim: number,
   signal: AbortSignal,
   pixelArt: boolean,
 ): ImageData {
-  const sourceWidth = Math.max(1, image.naturalWidth || image.width);
-  const sourceHeight = Math.max(1, image.naturalHeight || image.height);
+  const sourceWidth = Math.max(1, 'naturalWidth' in image ? image.naturalWidth : image.width);
+  const sourceHeight = Math.max(1, 'naturalHeight' in image ? image.naturalHeight : image.height);
   const scale = Math.min(1, maxDim / Math.max(sourceWidth, sourceHeight));
   const width = Math.max(1, Math.round(sourceWidth * scale));
   const height = Math.max(1, Math.round(sourceHeight * scale));
@@ -63,11 +66,12 @@ export async function runPreviewTrace(
   settings: VectorizationSettings,
   signal: AbortSignal,
   maxDim: number = MAX_PREVIEW_DIM,
+  onProgress?: (stage: string, progress: number) => void,
 ): Promise<PreviewPayload> {
   const image = await loadSourceImage(src, signal);
   const raw = imageDataFromSource(image, maxDim, signal, settings.mode === 'pixel-art');
   const prepared = prepareImageData(raw, settings.prep);
-  const result = await dispatchTrace(prepared, toTraceOptions(settings), signal);
+  const result = await dispatchTrace(prepared, { ...toTraceOptions(settings), onProgress }, signal);
   if (signal.aborted) throw new Error('cancelled');
   return {
     imageData: prepared,

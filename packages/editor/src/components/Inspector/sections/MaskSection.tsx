@@ -20,6 +20,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     setMaskType,
     setMaskFillRule,
     setMaskVectorPath,
+    setMaskSourceNode,
     setTool,
     state,
   } = editor;
@@ -64,6 +65,17 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     return entry?.node ?? null;
   }, [mask?.sourceNodeId, nodeMap]);
 
+  // Mask sources must be direct children (frame/group) of the container —
+  // the picker only offers the valid set instead of free node selection.
+  const sourceCandidates = useMemo(() => {
+    if (!document || !('children' in container) || !container.children) return [];
+    const childIds = container.children as string[];
+    return childIds
+      .map((id) => document.nodes[id])
+      .filter((n) => n !== undefined && (n.kind === 'frame' || n.kind === 'group'))
+      .map((n) => ({ value: n.id, label: n.name ?? `${n.kind} ${n.id.slice(0, 6)}` }));
+  }, [document, container]);
+
   const maskTypeLabel = useMemo(() => {
     if (!mask) return '';
     const labels: Record<string, string> = {
@@ -76,15 +88,18 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleToggleVisible = useCallback(() => {
     toggleMask();
-  }, [toggleMask]);
+    editor.announce(mask?.visible === false ? 'Mask shown' : 'Mask hidden');
+  }, [toggleMask, editor, mask?.visible]);
 
   const handleToggleInverted = useCallback(() => {
     invertMask();
-  }, [invertMask]);
+    editor.announce('Mask inverted');
+  }, [invertMask, editor]);
 
   const handleRemove = useCallback(() => {
     removeMaskFromSelected();
-  }, [removeMaskFromSelected]);
+    editor.announce('Mask removed');
+  }, [removeMaskFromSelected, editor]);
 
   const handleAddClip = useCallback(() => {
     addMaskToSelected('clip');
@@ -115,14 +130,16 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   const handleToggleHideSource = useCallback(() => {
     if (setMaskHideSource) {
       setMaskHideSource(!mask?.hideMaskSource);
+      editor.announce(mask?.hideMaskSource ? 'Mask source shown' : 'Mask source hidden');
     }
-  }, [setMaskHideSource, mask?.hideMaskSource]);
+  }, [setMaskHideSource, mask?.hideMaskSource, editor]);
 
   const handleToggleLinked = useCallback(() => {
     if (setMaskLinked) {
       setMaskLinked(!mask?.linked);
+      editor.announce(mask?.linked ? 'Mask unlinked' : 'Mask linked');
     }
-  }, [setMaskLinked, mask?.linked]);
+  }, [setMaskLinked, mask?.linked, editor]);
 
   const handleTypeChange = useCallback(
     (v: string) => {
@@ -451,9 +468,26 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
             </>
           }
 
-          <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-subtle)' }}>
-            Source: {sourceNode?.name ?? mask.sourceNodeId?.slice(0, 8) ?? 'none'}
-          </div>
+          {sourceCandidates.length > 0 ? (
+            <div style={{ marginTop: 'var(--space-1)' }}>
+              <Select
+                label="Mask source"
+                value={mask?.sourceNodeId ?? ''}
+                options={sourceCandidates}
+                placeholder="Select a child as mask source"
+                onChange={(v) => {
+                  if (setMaskSourceNode && v) {
+                    setMaskSourceNode(v);
+                    editor.announce('Mask source updated');
+                  }
+                }}
+              />
+            </div>
+          ) : (
+            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-subtle)' }}>
+              Source: {sourceNode?.name ?? mask?.sourceNodeId?.slice(0, 8) ?? 'none'}
+            </div>
+          )}
         </div>
       )}
     </DisclosureSection>

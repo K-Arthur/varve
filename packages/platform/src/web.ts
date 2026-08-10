@@ -1092,7 +1092,12 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         let handle: FileSystemFileHandle | undefined;
         try {
           handle = await w.showSaveFilePicker({ suggestedName: suggested, types: [acceptType] });
-        } catch {
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'NotAllowedError') {
+            // Permission denied is not a cancel: propagate so the caller can
+            // tell the user the browser blocked the save dialog.
+            throw err;
+          }
           return null;
         }
         if (!handle) return null;

@@ -339,6 +339,27 @@ function ShellInner({
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
 
+  // When a workspace switch (or any panel-collapse) hides the focused panel,
+  // focus would drop to body — an invisible stop for keyboard/AT users. Move
+  // it to the canvas, which is programmatically focusable.
+  const prevPanelsRef = useRef({ left: leftPanelVisible, right: rightPanelVisible });
+  useEffect(() => {
+    const prev = prevPanelsRef.current;
+    const hidLeft = prev.left && !leftPanelVisible;
+    const hidRight = prev.right && !rightPanelVisible;
+    prevPanelsRef.current = { left: leftPanelVisible, right: rightPanelVisible };
+    if (!hidLeft && !hidRight) return;
+    const active = document.activeElement;
+    if (
+      !active ||
+      (active !== document.body &&
+        !active.closest('.editor__layers-panel, .editor__inspector-panel'))
+    ) {
+      return;
+    }
+    (document.querySelector('.editor-canvas') as HTMLElement | null)?.focus();
+  }, [leftPanelVisible, rightPanelVisible]);
+
   return (
     <DnDShell layersDndRef={layersDndRef}>
       <div
