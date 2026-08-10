@@ -7,6 +7,7 @@ import DisciplineTabs from '../components/DisciplineTabs.astro';
 import Reveal from '../components/Reveal.astro';
 import DownloadCTA from '../components/DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
+import release from '../data/release-manifest.json';
 
 const softwareSchema = {
   '@context': 'https://schema.org',
@@ -16,7 +17,9 @@ const softwareSchema = {
   operatingSystem: 'Linux, macOS, Windows',
   description:
     'Varve is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Free and source-available under FSL-1.1-MIT.',
-  softwareVersion: 'beta',
+  // softwareVersion derives from the release manifest so the schema stays in
+  // step with the published release; omitted entirely when no release exists.
+  ...(release.version ? { softwareVersion: release.version } : {}),
   license: 'FSL-1.1-MIT',
   offers: {
     '@type': 'Offer',
@@ -126,11 +129,11 @@ const softwareSchema = {
         <p class="section-eyebrow">Where Varve is today</p>
         <h2 id="beta-title" class="beta-title">An honest beta.</h2>
         <p class="beta-text">
-          Varve is in active development and no public release has shipped
-          yet. Core features are functional, but you should expect rough
-          edges and evolving file formats. The right time to try it is now
-          &mdash; the right time to depend on it for critical production work
-          is later.
+          The first release, Varve {release.version}, is out for Linux,
+          macOS, and Windows. Core features work, but you should expect
+          rough edges and evolving file formats &mdash; great for exploring
+          workflows, not yet for critical production deadlines. Keep
+          backups of anything you care about.
         </p>
         <div class="beta-links">
           <a href={sitePath('/download')} class="btn btn-secondary">See the download status</a>
@@ -146,7 +149,7 @@ const softwareSchema = {
       <Reveal as="div">
         <p class="section-eyebrow">Get started</p>
         <h2 id="closing-title" class="closing-title">
-          Design across disciplines.<br /><span class="workflow-accent">One canvas.</span>
+          Start designing<br /><span class="workflow-accent">locally.</span>
         </h2>
         <p class="closing-text">
           Free and source-available under FSL-1.1-MIT. Your designs stay on

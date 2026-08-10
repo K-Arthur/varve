@@ -10,7 +10,7 @@ const shots = shotManifest.scenes as unknown as Record<
 const workspaceShot = shots.workspace;
 ---
 
-<Layout title="Getting Started" description="Install Varve on Linux, macOS, or Windows, and open your first document. System requirements and first steps.">
+<Layout title="Getting Started" description="Install Varve on Linux, macOS, or Windows, and open your first document. System requirements and first steps for the current beta release.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
@@ -24,12 +24,12 @@ const workspaceShot = shots.workspace;
 
       <section class="docs-section">
         <h2>Installation</h2>
-        <p>Varve is in active development and no public installer has been
-        published yet — the <a href={sitePath('/download')}>download page</a>
-        tracks the current release status and will list packages, checksums
-        and system requirements as soon as they exist. The instructions
-        below describe the intended installers for each platform.</p>
-        <p>Download Varve for your platform from the <a href={sitePath('/download')}>download page</a>.</p>
+        <p>The current release is Varve 0.1.0 — get it from the
+        <a href={sitePath('/download')}>download page</a>, which lists
+        packages, checksums, and system requirements for each platform.
+        This is an early beta: expect rough edges, and keep backups of
+        anything you care about. The instructions below describe each
+        platform's installer.</p>
         
         <h3>Linux</h3>
         <ul>
@@ -38,15 +38,14 @@ const workspaceShot = shots.workspace;
         <code class="code-block">chmod +x Varve-*.AppImage && ./Varve-*.AppImage</code>
         <ul>
           <li><strong>deb:</strong> Install via package manager: <code>sudo dpkg -i varve_*.deb</code></li>
-          <li><strong>rpm:</strong> Install via package manager: <code>sudo rpm -i strata-*.rpm</code></li>
-          <li><strong>AUR:</strong> Install via yay or paru: <code>yay -S varve-desktop</code></li>
+          <li><strong>rpm:</strong> Install via package manager: <code>sudo rpm -i varve-*.rpm</code></li>
         </ul>
 
         <h3>macOS</h3>
-        <p>Download the Universal dmg and drag Varve to your Applications folder. Requires macOS 13 Ventura or later.</p>
+        <p>Download the dmg and drag Varve to your Applications folder. Requires macOS 13 Ventura or later and an Apple Silicon Mac — there is no Intel build yet.</p>
 
         <h3>Windows</h3>
-        <p>Download the MSI installer and run it. Requires Windows 10 or Windows 11.</p>
+        <p>Download the NSIS installer (.exe) and run it. Requires Windows 10 or Windows 11.</p>
       </section>
 
       <section class="docs-section">
