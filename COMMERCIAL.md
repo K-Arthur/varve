@@ -45,5 +45,5 @@ from the Community Edition after their introduction.
 
 ## Current status
 
-Varve is currently in beta. Only the Community Edition exists today.
+Varve is currently in public beta. Only the Community Edition exists today.
 The Pro edition and its pricing are not yet determined.
