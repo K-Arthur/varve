@@ -473,6 +473,7 @@ jobs:
 
       - name: Tauri build
         if: matrix.enabled
+        shell: bash
         run: |
           TAURI_EXTRA_ARGS=""
           if [[ "${{ runner.os }}" == "Windows" && "${{ needs.signing-preflight.outputs.windows_mode }}" == "signed" ]]; then
