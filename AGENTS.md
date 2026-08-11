@@ -13,6 +13,44 @@ primary dev OS.
 - WebKitGTK 2.52.4 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
 - Optional: `cmake`, `xdotool` (not needed for core build).
 
+## Validation economy — mandatory
+
+**Validate according to impact, not repository size.** The full suite is an
+explicit escalation/final-gate operation, not the default inner loop. Canonical
+policy: `docs/quality/validation-strategy.md`. Executable planner:
+`scripts/quality/affected-plan.mjs`.
+
+1. Inspect `git status` / diff first.
+2. Run `pnpm verify:plan` — the planner explains exactly what it selects
+   and why, and what it deliberately skips.
+3. Run `pnpm verify:affected` (Tiers 0–4, dependency-aware; `pnpm verify:quick`
+   for trivial edits).
+4. Add feature-specific E2E/visual/perf validation when the plan indicates.
+5. Do NOT run `pnpm test`, `just gate`, full Playwright, or
+   `cargo test --workspace` by default.
+6. Full validation (`pnpm verify:full`) is reserved for explicit escalation
+   conditions — workspace/toolchain changes, test-runner configuration,
+   serialization/schema migrations, cross-package foundational API changes,
+   release checkpoints, explicit request — and requires a stated reason.
+7. Record exactly what was run, what passed, and what was skipped as
+   unrelated (the Agent Validation Report template, below).
+
+Skipping affected tests is prohibited. Running unrelated tests is
+discouraged — it consumes shared developer resources and delays feedback.
+
+### Agent Validation Report (before claiming completion)
+
+```text
+Changed scope: <files / packages / crates>
+Validation plan: <summary of pnpm verify:plan output>
+Commands actually run: <exact commands>
+Passed: <list>
+Skipped as unrelated: <list + why>
+Escalations: <list>
+Full suite run: yes/no
+If yes, reason: <stated reason>
+```
+
 ## Regression protocol (mandatory after every architecture/system change)
 
 After ANY change that touches:
@@ -24,18 +62,24 @@ After ANY change that touches:
 
 Run in order:
 ```bash
-pnpm format          # or format-check
-pnpm typecheck       # 15/15 packages must pass
-pnpm lint            # 0 new errors on touched files
-pnpm test            # full test suite must pass (excludes .bench.ts — run separately)
-pnpm bench           # benchmark mode for .bench.ts files (optional, perf-sensitive)
-pnpm audit:docs      # docs naming/index/link drift — zero violations
-pnpm audit:emoji     # zero violations
-pnpm audit:tokens    # 120/120 WCAG-AA (3 themes)
+pnpm verify:plan    # understand the impact first — never skip this
+pnpm format         # or format-check
+pnpm lint           # 0 new errors on touched files
+pnpm verify:affected   # affected tests + typechecks (replaces the old full pnpm test)
+pnpm bench          # benchmark mode for .bench.ts files (optional, perf-sensitive)
+pnpm audit:docs     # docs naming/index/link drift — zero violations
+pnpm audit:emoji    # zero violations
+pnpm audit:tokens   # 120/120 WCAG-AA (3 themes)
 ```
 
 Failure at any step means the change introduced a regression. Fix before committing.
-Do NOT skip steps — each catches a different class of error.
+Do NOT skip the affected checks — but do NOT run the full suite unless the
+planner escalated (`FULL-SUITE ESCALATION: YES`) or a full-gate checkpoint
+applies. When the planner escalates, run:
+
+```bash
+pnpm verify:full    # requires VARVE_FULL_GATE_REASON (see docs/quality/validation-strategy.md)
+```
 
 ### Code-health check (triage gate)
 
@@ -220,15 +264,24 @@ cleanup tooling, codemods).
 ## Commands (run from repo root)
 - `pnpm install` — install JS deps
 - `just check-env` — verify toolchain on PATH
-- `just test` — Rust (`cargo test --workspace`) + JS (`pnpm test` = Vitest)
+- `pnpm verify:plan` — print the impact-aware validation plan for current changes (dry run; never skips silently — it explains what it selects and why)
+- `pnpm verify:quick` — Tier 0 + Tier 1: format/lint on touched files + directly related tests
+- `pnpm verify:affected` — Tiers 0–4, dependency-aware affected validation. **Default inner loop — use this instead of `pnpm test`.**
+- `pnpm verify:full` — explicit full repository gate (Tier 5). Requires `VARVE_FULL_GATE_REASON` or `VARVE_FULL_GATE=1`
+- `just check-plan` / `just check-quick` / `just check-affected` — just wrappers for the verify commands
+- `just gate-full` — human-facing full gate (requires `VARVE_FULL_GATE_REASON`)
+- `just test` — Rust (`cargo test --workspace`) + JS (`pnpm test` = Vitest). **Full-suite operation — not the default inner loop**
 - `just lint` — `cargo clippy -D warnings` + `pnpm lint` (Biome)
 - `just format` — `cargo fmt` + `pnpm format`
-- `pnpm typecheck` — `tsc --noEmit` across packages/*
+- `pnpm typecheck` — `tsc --noEmit` across packages/* (full workspace — `pnpm verify:affected` runs only the affected closure)
 - `pnpm audit:tokens` — WCAG 2.2 AA token gate (120 checks across 3 themes)
 - `pnpm audit:emoji` — zero-emoji gate
 - `pnpm audit:docs` — docs drift gate (stale "Strata"/dead-path references in current-state docs, ADR index coverage, broken internal links). Historical docs (dated audits/plans/perf/session history/ADRs/CLA/licensing, and files under `docs/implementation-memory/`) may reference the old name; current-state docs must not.
 - `pnpm --filter @varve/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
-- `just gate` — full Cascade Review gate (format-check + lint + test + audits)
+- `just gate` — full Cascade Review gate (format-check + lint + test + audits) — **full-suite operation, kept as the compatibility alias**
+- `pnpm e2e:visual` — visual regression projects only
+- `pnpm e2e:all` — full Playwright suite
+- Environment overrides: `VARVE_TEST_WORKERS` (vitest), `VARVE_E2E_WORKERS` (playwright), `VARVE_HEAVY_TASK_PARALLELISM=0` (opt out of heavy-task lease), `VARVE_E2E_PORT` (isolated dev-server port)
 
 ### CI/CD Commands
 - `just install-ci-tooling` — install GitHub CLI, act, and Docker for local CI/CD
@@ -552,6 +605,11 @@ TDD-first → tests green → token audit → zero emoji → axe-core zero viola
 | Same package, different files | Safe in parallel if independent |
 | Same file | **Must be sequential** — use `git worktree add` |
 | Hub files intersect | After parallel agents, coordinator runs `just gate` |
+
+**Heavy tasks (full vitest, Playwright, cargo workspace, desktop/WASM
+builds) acquire a cross-worktree lease** before starting
+(`scripts/quality/heavy-lease.mjs`) so concurrent agents do not saturate
+the machine. Opt out deliberately with `VARVE_HEAVY_TASK_PARALLELISM=0`.
 
 **Worktree protocol:** `git worktree add .worktrees/<feature> -b <feature>`, work, commit,
 merge sequentially. Verify with `just gate` after each merge.

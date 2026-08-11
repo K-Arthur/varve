@@ -1,7 +1,7 @@
 # Mockup System — Architecture
 
 Status: implemented (Level 1 + Level 2 vertical slice); Level 3-5 deferred.
-ADR: docs/architecture/adr/0015-mockup-system.md.
+ADR: docs/adr/0015-mockup-system.md.
 Audit: docs/audits/mockup-capability-audit-2026-08-05.md.
 Slice report: docs/audits/mockup-vertical-slice-report-2026-08-05.md.
 Deferred multimodal plan: docs/plans/mockup-multimodal-deferred.md.
@@ -200,7 +200,7 @@ primitives) — this is the documented deterministic fallback.
 | Home discovery | mockup templates in Home | Mockup templates are scene-anchored, not document starting points; editor-side discovery (context menu, palette, panel, inspector) is primary. |
 | Community packs | remote downloads | Requires pack download host consent (CSP `connect-src`), checksums, update checks — icon-pack precedent; not wired for mockups. |
 
-## Performance targets
+## Performance targets (measured in `packages/editor/src/render/mockup/__tests__/mockupPerf.test.ts`)
 
 - Browsing templates: no canvas work.
 - Surface rasterization: ≤ 512 px preview bucket; quad warp ~ms for phone
