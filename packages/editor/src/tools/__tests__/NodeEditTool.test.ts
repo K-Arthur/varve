@@ -202,9 +202,7 @@ describe('NodeEditTool — anchor deletion', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     expect(updated.shape.points).toHaveLength(2);
   });
@@ -248,9 +246,7 @@ describe('NodeEditTool — anchor move', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     // Anchor 0 should have moved from (10,10) to (30,20)
     expect(updated.shape.points[0]!.x).toBeCloseTo(30);
@@ -292,9 +288,7 @@ describe('NodeEditTool — handle hit detection', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     // handleOut should have moved from [30,0] to [33,0] (delta 3 in x)
     expect(updated.shape.points[1]?.handleOut?.[0]).toBeCloseTo(33);
@@ -331,9 +325,7 @@ describe('NodeEditTool — handle hit detection', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     // handleIn should have moved from [-30,0] to [-34,0] (delta -4 in x)
     expect(updated.shape.points[1]?.handleIn?.[0]).toBeCloseTo(-34);
@@ -390,9 +382,7 @@ describe('NodeEditTool — handle hit detection', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     // Anchor should have moved from (100,10) to (105,15) — NOT the handle
     expect(updated.shape.points[1]?.x).toBeCloseTo(105);
@@ -466,9 +456,7 @@ describe('NodeEditTool — toggleCornerSmooth segment-aware', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     const p1 = updated.shape.points[1]!;
     // Segment to prev (point 0→1): length 60, 1/3 = 20
@@ -507,9 +495,7 @@ describe('NodeEditTool — toggleCornerSmooth segment-aware', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     const p1 = updated.shape.points[1]!;
     // Segment lengths: 5px each. 1/3 = 1.67, but min is 4px.
@@ -533,11 +519,9 @@ describe('NodeEditTool — undo transactions', () => {
     expect(ctx.beginTransaction).toHaveBeenCalled();
     expect(ctx.updateNode).toHaveBeenCalled();
     expect(ctx.commitTransaction).toHaveBeenCalled();
-    const beginOrder = vi.mocked(ctx.beginTransaction).mock
-      .invocationCallOrder[0]!;
+    const beginOrder = vi.mocked(ctx.beginTransaction).mock.invocationCallOrder[0]!;
     const updateOrder = vi.mocked(ctx.updateNode).mock.invocationCallOrder[0]!;
-    const commitOrder = vi.mocked(ctx.commitTransaction).mock
-      .invocationCallOrder[0]!;
+    const commitOrder = vi.mocked(ctx.commitTransaction).mock.invocationCallOrder[0]!;
     expect(beginOrder).toBeLessThan(updateOrder);
     expect(updateOrder).toBeLessThan(commitOrder);
   });
@@ -571,11 +555,9 @@ describe('NodeEditTool — undo transactions', () => {
     expect(ctx.beginTransaction).toHaveBeenCalled();
     expect(ctx.updateNode).toHaveBeenCalled();
     expect(ctx.commitTransaction).toHaveBeenCalled();
-    const beginOrder = vi.mocked(ctx.beginTransaction).mock
-      .invocationCallOrder[0]!;
+    const beginOrder = vi.mocked(ctx.beginTransaction).mock.invocationCallOrder[0]!;
     const updateOrder = vi.mocked(ctx.updateNode).mock.invocationCallOrder[0]!;
-    const commitOrder = vi.mocked(ctx.commitTransaction).mock
-      .invocationCallOrder[0]!;
+    const commitOrder = vi.mocked(ctx.commitTransaction).mock.invocationCallOrder[0]!;
     expect(beginOrder).toBeLessThan(updateOrder);
     expect(updateOrder).toBeLessThan(commitOrder);
   });
@@ -625,9 +607,7 @@ describe('NodeEditTool — Alt-drag handle symmetry', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     // handleOut moved from [30,0] to [50,0]
     expect(updated.shape.points[1]?.handleOut?.[0]).toBeCloseTo(50);
@@ -669,9 +649,7 @@ describe('NodeEditTool — Alt-drag handle symmetry', () => {
     const updater = vi.mocked(ctx.updateNode).mock.calls[0]![1] as unknown as (
       n: ReturnType<typeof makePathNode>,
     ) => ReturnType<typeof makePathNode>;
-    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<
-      typeof makePathNode
-    >;
+    const original = vi.mocked(ctx.getNode)('n1')! as unknown as ReturnType<typeof makePathNode>;
     const updated = updater(original);
     // handleIn moved from [-30,0] to [-50,0]
     expect(updated.shape.points[1]?.handleIn?.[0]).toBeCloseTo(-50);
