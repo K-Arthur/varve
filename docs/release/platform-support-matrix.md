@@ -25,7 +25,7 @@ below is backed by an actual launch on real hardware; everything else is labelle
 
 | OS | Arch | Build | Package | Signing | Tested | Min OS | Tier | Confidence |
 |---|---|---|---|---|---|---|---|---|
-| **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | AppImage 165 MB | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
+| **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | `.deb` (host WebKitGTK) | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
 | **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
 | **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
 | **Linux** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
@@ -77,9 +77,9 @@ cannot reproduce. Revisit when there is hardware.
 
 | Format | Decision | Reasoning |
 |---|---|---|
-| **AppImage** | **Ship — primary** | One file, no root, works across distros. Matches "local-first" positioning. Caveat: needs FUSE2; on FUSE-less systems users need `--appimage-extract-and-run`, which must be documented |
-| **`.deb`** | **Ship — secondary** | `tauri.conf.json` already carries a correct, complete `depends` list. Zero extra work |
-| **`.rpm`** | **Ship — secondary** | Same. `depends` list present |
+| **`.deb`** | **Ship — primary** | Declares its full dependency list (incl. `libwebkit2gtk-4.1-0`), installs cleanly, verified on Ubuntu 22.04 + Fedora 38 containers and real hosts. The most reliable Linux path |
+| **AppImage** | **Ship — secondary** | Portable single file, but NOT dependency-free: bundling WebKit/GTK broke on modern Mesa (white screen, fixed by pruning the bundled libs — the AppImage now uses host WebKitGTK like the .deb). Needs FUSE2; on FUSE-less systems `--appimage-extract-and-run`. See `scripts/release/prune-appimage-bundled-libs.mjs` |
+| **`.rpm`** | **Ship — secondary** | Same `depends` list present |
 | **Flatpak / Flathub** | **Defer** | `packaging/flatpak/dev.varve.desktop.yml` exists but is unvalidated. Flathub review is a multi-week process with a real maintenance burden (runtime upgrades, sandbox holes for printing + font access). Excellent *second* channel, wrong *first* channel |
 | **AUR** | **Defer to post-release** | Cannot exist before there is a release to point at (see RB-2). `varve-desktop-bin` PKGBUILD is already written (`packaging/aur/varve-desktop-bin`) and parses under `makepkg`; it needs the real SHA-256 from a published `SHA256SUMS.txt` before submission |
 | **Snap** | **Reject** | No meaningful benefit over AppImage here; adds a confinement model that fights CUPS printing and system font enumeration |
