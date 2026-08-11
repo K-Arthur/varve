@@ -17,7 +17,7 @@ test.describe('Drawing Mode — distraction-free canvas & pencil stabilization',
     await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
     await expect(page.locator('.editor-status')).toBeVisible();
 
-    await page.keyboard.press('Control+Shift+F');
+    await page.keyboard.press('Control+Shift+Period');
 
     await expect(page.locator('.editor-menubar')).not.toBeVisible();
     await expect(page.locator('[data-panel="layers"]')).not.toBeVisible();
@@ -34,9 +34,9 @@ test.describe('Drawing Mode — distraction-free canvas & pencil stabilization',
   });
 
   test('distraction-free mode toggles off again via the same shortcut', async ({ page }) => {
-    await page.keyboard.press('Control+Shift+F');
+    await page.keyboard.press('Control+Shift+Period');
     await expect(page.locator('.editor-menubar')).not.toBeVisible();
-    await page.keyboard.press('Control+Shift+F');
+    await page.keyboard.press('Control+Shift+Period');
     await expect(page.locator('.editor-menubar')).toBeVisible();
   });
 
@@ -48,10 +48,7 @@ test.describe('Drawing Mode — distraction-free canvas & pencil stabilization',
   test('pencil tool shows a Stabilization control in the inspector, distinct from the paint brush controls', async ({
     page,
   }) => {
-    await page
-      .locator('.workspace-tabs__tab')
-      .filter({ hasText: /^Draw$/ })
-      .click();
+    await page.locator('.workspace-tabs__tab[aria-label="Draw workspace"]').click();
 
     await page.keyboard.press('Shift+p');
     await expect(page.getByLabel(/^Stabilization/)).toBeVisible();

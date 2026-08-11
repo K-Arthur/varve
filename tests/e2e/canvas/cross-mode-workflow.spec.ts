@@ -4,9 +4,17 @@ import { navigateToEditor } from '../shared';
 const VIEWPORT = { width: 1280, height: 800 };
 
 async function switchTo(page: import('@playwright/test').Page, label: string) {
+  const tab = page.locator(`.workspace-tabs__tab[aria-label="${label} workspace"]`);
+  if (await tab.isVisible().catch(() => false)) {
+    await tab.click();
+    return;
+  }
+  // Narrow strip: the mode lives in the overflow menu.
+  const more = page.getByRole('button', { name: 'More workspaces' });
+  await more.click();
   await page
-    .locator('.workspace-tabs__tab')
-    .filter({ hasText: new RegExp(`^${label}$`) })
+    .getByRole('menu', { name: 'More workspaces' })
+    .getByRole('menuitem', { name: label })
     .click();
 }
 
@@ -52,7 +60,7 @@ test.describe('Cross-mode workflow — safe switching preserves document state',
     for (const mode of ['Print', 'Draw', 'Photo', 'Design']) {
       await switchTo(page, mode);
       await expect(
-        page.locator('.workspace-tabs__tab').filter({ hasText: new RegExp(`^${mode}$`) }),
+        page.locator(`.workspace-tabs__tab[aria-label="${mode} workspace"]`),
       ).toHaveAttribute('aria-checked', 'true');
 
       // Document survives: the shape is still the only layer.
