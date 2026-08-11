@@ -507,35 +507,50 @@ describe('SelectionOverlay — touch targets', () => {
     }
   });
 
-  // G: Handle visibility at extreme zoom — single selections always show all 8 handles
-  it('shows all 8 handles even for a very small box (single selection)', () => {
+  // G: Handle visibility at extreme zoom — single selections always show all
+  // 8 resize handles + rotation, but the skew handles are gated on a minimum
+  // box size: their 20px hit targets would cover a tiny box and swallow the
+  // shape's own move-drag (the drag at the box centre becomes a skew).
+  it('shows all 8 handles but no skew handles for a very small box (single selection)', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }),
     ]);
-    // 1 bbox + 8 handles × (1 hit + 1 visual) + 4 skew × (1 hit + 1 visual) = 25
+    // 1 bbox + 8 handles × (1 hit + 1 visual) = 17 (no skew: 4x4 < 60px)
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(25);
+    expect(rects.length).toBe(17);
   });
 
-  it('shows all 8 handles for a narrow box (single selection)', () => {
+  it('shows all 8 handles but no skew handles for a narrow box (single selection)', () => {
     const container = renderOverlay(
       [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 100 })],
       {},
       { x: 0, y: 0 },
       1,
     );
-    // Single selection: all 8 handles + 4 skew = 1 bbox + 24 = 25
+    // Narrow boxes (< 60px on one axis) get no skew: 1 bbox + 16 = 17
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(25);
+    expect(rects.length).toBe(17);
   });
 
-  it('shows all 8 handles for a flat box (single selection)', () => {
+  it('shows all 8 handles but no skew handles for a flat box (single selection)', () => {
     const container = renderOverlay(
       [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 4 })],
       {},
       { x: 0, y: 0 },
       1,
     );
+    const rects = container.querySelectorAll('svg > rect');
+    expect(rects.length).toBe(17);
+  });
+
+  it('shows skew handles once the box is large enough on both axes', () => {
+    const container = renderOverlay(
+      [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 120, h: 120 })],
+      {},
+      { x: 0, y: 0 },
+      1,
+    );
+    // 1 bbox + 16 handles + 4 skew hit + 4 skew visual = 25
     const rects = container.querySelectorAll('svg > rect');
     expect(rects.length).toBe(25);
   });
