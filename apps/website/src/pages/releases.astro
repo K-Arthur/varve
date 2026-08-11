@@ -2,6 +2,20 @@
 import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
+
+// Channel label: a release can be tagged "Stable" on GitHub while the product
+// itself is still in beta — the product stage is the source of truth for how
+// we describe the release, not the manifest's prerelease flag alone. The
+// comparison goes through a union-typed parameter rather than a narrowed
+// const: TypeScript 6 narrows `const x: ProductStatusStage =
+// PRODUCT_STATUS.stage` to the current literal ('beta'), which makes the
+// `=== 'stable'` comparison an unreachable-code error. A parameter keeps the
+// union, so the comparison stays legal the day the stage becomes 'stable'.
+function isStableStage(stage: ProductStatusStage): boolean {
+  return stage === 'stable';
+}
+const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_STATUS.stage) ? 'Stable' : 'Beta';
 
 // The release facts on this page come from the same generated manifest that
 // drives /download (scripts/release/update-website-manifest.mjs). Nothing
@@ -45,7 +59,7 @@ import { sitePath } from '../lib/siteUrl';
         <div class="current-release">
           <div class="release-header">
             <h2>Current Release</h2>
-            <span class="version-badge">{release.prerelease ? 'Prerelease' : 'Stable'}</span>
+            <span class="version-badge">{channelLabel}</span>
           </div>
           <p class="release-date">
             Version {release.version} — released {release.releaseDate}
