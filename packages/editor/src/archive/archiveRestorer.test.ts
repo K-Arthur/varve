@@ -199,6 +199,11 @@ describe('archiveRestorer', () => {
       // A highly compressible payload — small on disk, declares a huge
       // originalSize once fflate reads its local header. The filter must
       // reject it using that declared size, without inflating it first.
+      //
+      // Compression level 1, not 9: the test only needs the *declared*
+      // originalSize to exceed the cap (the guard rejects from the header
+      // without inflating), and level 9 on a 210 MB buffer takes ~5s —
+      // flirting with the 5s test timeout under parallel load.
       const bomb = new Uint8Array(210 * 1024 * 1024); // zeros compress extremely well
       const files: Record<string, Uint8Array> = {
         'manifest.json': strToU8(
@@ -213,11 +218,11 @@ describe('archiveRestorer', () => {
         ),
         'assets/huge.bin': bomb,
       };
-      const zip = zipSync(files, { level: 9 });
+      const zip = zipSync(files, { level: 1 });
       const result = await validateArchive(zip);
       expect(result.valid).toBe(false);
       expect(result.error).toMatch(/decompression bomb/i);
-    });
+    }, 30_000);
   });
 
   describe('decryptArchive', () => {
