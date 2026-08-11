@@ -13,39 +13,39 @@ import { sitePath } from '../lib/siteUrl';
 
       <div class="features-grid">
         <a href={sitePath('/features/canvas')} class="feature-card">
+          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
           <h2>Canvas & Rendering</h2>
           <p>Infinite canvas, viewport culling, sticky snap, rulers, guides, grid overlays, multi-page documents</p>
-          <span class="status built">Built</span>
         </a>
 
         <a href={sitePath('/features/vector-tools')} class="feature-card">
+          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
           <h2>Vector Tools</h2>
           <p>Shapes, pen and pencil with bezier handles, boolean operations, node editing, layers, groups, frames</p>
-          <span class="status built">Built</span>
         </a>
 
         <a href={sitePath('/features/typography')} class="feature-card">
+          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
           <h2>Typography</h2>
           <p>Multi-line text, OpenType features, variable fonts, text-on-path, inline editing, CJK line breaking</p>
-          <span class="status built">Built</span>
         </a>
 
         <a href={sitePath('/features/color-effects')} class="feature-card">
+          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
           <h2>Color & Effects</h2>
           <p>RGB and CMYK color management, ICC profiles, blend modes, shadows, blur, adjustment layers, halftone</p>
-          <span class="status built">Built</span>
         </a>
 
         <a href={sitePath('/features/motion')} class="feature-card">
+          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
           <h2>Motion & Prototyping</h2>
           <p>Timeline animation, keyframes, easing, Smart Animate, prototype interactions, CSS/Lottie/video export</p>
-          <span class="status built">Built</span>
         </a>
 
         <a href={sitePath('/features/export')} class="feature-card">
+          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
           <h2>Export & Code Generation</h2>
           <p>SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, per-node export settings</p>
-          <span class="status built">Built</span>
         </a>
       </div>
 
@@ -79,7 +79,10 @@ import { sitePath } from '../lib/siteUrl';
   
   .features-page h1 {
     font-size: clamp(2rem, 5vw, 2.5rem);
-    font-weight: 800;
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
     margin-bottom: 1rem;
     color: var(--text-primary);
   }
@@ -98,53 +101,98 @@ import { sitePath } from '../lib/siteUrl';
   }
   
   .feature-card {
+    position: relative;
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 2rem;
-    transition: all var(--duration-fast) var(--ease-default);
+    /* Room at the top-right for the corner badge so it never overlaps the
+       title on narrow cards. */
+    padding-top: 2.75rem;
+    transition:
+      transform var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default);
     text-decoration: none;
     display: block;
   }
-  
-  .feature-card:hover {
-    border-color: var(--border-accent);
-    transform: translateY(-2px);
+
+  @media (prefers-reduced-motion: no-preference) {
+    .feature-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+      box-shadow: var(--elevation-shadow-raised);
+    }
   }
-  
+
+  @media (prefers-reduced-motion: reduce) {
+    .feature-card:hover {
+      border-color: var(--border-accent);
+    }
+  }
+
   .feature-card h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
     color: var(--text-primary);
   }
-  
+
   .feature-card p {
     color: var(--text-secondary);
     margin-bottom: 1rem;
     line-height: 1.6;
   }
-  
+
+  /* A positioned corner pill rather than an inline block at the bottom of
+     the copy: the status is metadata about the card, not part of the
+     description flow, and reads faster pinned to a fixed corner across the
+     whole grid. */
   .status {
-    display: inline-block;
-    font-size: 0.75rem;
-    font-weight: 600;
+    position: absolute;
+    top: 1.1rem;
+    right: 1.1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.25rem 0.75rem;
-    border-radius: 0.25rem;
+    letter-spacing: 0.06em;
+    padding: 0.3rem 0.7rem 0.3rem 0.6rem;
+    border-radius: 9999px;
+    border: 1px solid transparent;
   }
-  
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 auto;
+    /* The dot sits on the same solid fill as the label text, so it needs its
+       own faint ring or it disappears into the pill at 6px. */
+    box-shadow: 0 0 0 1px color-mix(in oklab, currentColor 30%, transparent);
+  }
+
+  /* Status tokens (--status-built etc.) are light, brand-hued fills designed
+     to pair with the fixed dark --text-on-status — the same pairing the
+     original inline badge used. A tinted-background/coloured-text version
+     was tried here and failed: --status-built resolves to the light brand
+     teal (L 0.78), so as *text* on an even lighter tinted background it
+     read as light-on-light. Solid fill + dark text is what actually holds
+     contrast in both themes; only the shape changed, corner pill instead of
+     an inline block. */
   .status.built {
     background: var(--status-built);
     color: var(--text-on-status);
   }
-  
+
   .status.partial {
     background: var(--status-partial);
     color: var(--text-on-status);
   }
-  
+
   .status.in-development {
     background: var(--status-dev);
     color: var(--text-on-status);

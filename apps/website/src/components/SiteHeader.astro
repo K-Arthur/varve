@@ -6,6 +6,14 @@
  * Contribute), theme switcher, and a compact platform-aware download CTA.
  * Download is intentionally a CTA button, not a nav link, so the path to
  * getting the app is always one visible click away.
+ *
+ * Visual signature: a 2px strata-gradient spine along the top edge (the
+ * brand's teal/sandstone/terracotta bands, reduced to a single hairline —
+ * present at every breakpoint, never animated), pill-shaped link states
+ * instead of underlines, and a "glass" surface that only appears once the
+ * page has scrolled past the hero. The header's height and layout never
+ * change between states, so it never disturbs `scroll-padding-top` or the
+ * anchor-scroll contract in Layout.astro.
  */
 import ThemeToggle from './ThemeToggle.astro';
 import DownloadCTA from './DownloadCTA.astro';
@@ -60,10 +68,10 @@ function isCurrent(href: string): boolean {
       <ThemeToggle />
       <DownloadCTA variant="primary" size="compact" label="Download" class="nav-download-cta" />
       <button class="mobile-menu-toggle" aria-label="Toggle menu" aria-expanded="false" aria-controls="site-nav-links" type="button">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <line class="toggle-bar toggle-bar-top" x1="3" y1="6" x2="21" y2="6"></line>
+          <line class="toggle-bar toggle-bar-mid" x1="3" y1="12" x2="21" y2="12"></line>
+          <line class="toggle-bar toggle-bar-bottom" x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
     </div>
@@ -109,15 +117,81 @@ function isCurrent(href: string): boolean {
       if (e.matches) closeMenu(false);
     });
   }
+
+  /**
+   * Glass scroll state. A single boolean, applied as a data attribute rather
+   * than toggled inline styles, so the visual is entirely CSS-owned. The
+   * header's box size never changes — only background/blur/shadow — so this
+   * cannot affect `scroll-padding-top` or the sticky-header layout tests.
+   */
+  const header = document.querySelector<HTMLElement>('.site-header');
+  if (header) {
+    let ticking = false;
+    const THRESHOLD = 8;
+    const apply = () => {
+      ticking = false;
+      header.dataset.scrolled = window.scrollY > THRESHOLD ? 'true' : 'false';
+    };
+    apply();
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(apply);
+      },
+      { passive: true },
+    );
+  }
 </script>
 
 <style>
   .site-header {
-    background: var(--surface-header);
-    border-bottom: 1px solid var(--border-default);
     position: sticky;
     top: 0;
     z-index: 100;
+    background: var(--surface-header);
+    border-bottom: 1px solid var(--border-default);
+    /* Only background/shadow/border transition between states — never a
+       size property — so the header's box (and scroll-padding-top, which is
+       tuned against it) never moves. */
+    transition:
+      background-color var(--duration-base) var(--ease-default),
+      border-color var(--duration-base) var(--ease-default),
+      box-shadow var(--duration-base) var(--ease-default);
+  }
+
+  /* The strata spine: the brand's three bands reduced to a 2px hairline.
+     Static, not decorative motion — present in every state including
+     reduced-motion and no-JS, since it costs nothing to animate. */
+  .site-header::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--brand-teal) 0%,
+      var(--brand-sandstone) 50%,
+      var(--brand-terracotta) 100%
+    );
+  }
+
+  /* Glass state: once the hero has scrolled past, the flat header becomes a
+     translucent, blurred surface — the header reads as floating above the
+     page rather than as a fixed opaque bar. Height and padding are
+     untouched, so this cannot shift `#main-content` or any anchor target. */
+  .site-header[data-scrolled='true'] {
+    background: color-mix(in oklab, var(--surface-header) 82%, transparent);
+    border-bottom-color: var(--border-subtle);
+    box-shadow: 0 1px 0 var(--border-subtle), 0 12px 24px -18px oklch(0 0 0 / 0.35);
+  }
+
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .site-header[data-scrolled='true'] {
+      backdrop-filter: blur(10px) saturate(1.4);
+      -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    }
   }
 
   .site-nav {
@@ -155,10 +229,22 @@ function isCurrent(href: string): boolean {
   .site-logo svg {
     width: 32px;
     height: 32px;
+    overflow: visible;
   }
 
   /* Logo strata use the brand tokens — the same teal/sandstone/terracotta
-     as the app mark, adapted per theme. */
+     as the app mark, adapted per theme. On hover the three bands fan out a
+     hair, echoing the sediment-layer idea the mark is named for — a detail
+     that costs nothing (transform-only, three static values) and never
+     loops. */
+  .logo-strata-1,
+  .logo-strata-2,
+  .logo-strata-3 {
+    transition: transform var(--duration-fast) var(--ease-default);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
   .logo-strata-1 {
     fill: var(--brand-teal);
   }
@@ -171,6 +257,16 @@ function isCurrent(href: string): boolean {
     fill: var(--brand-terracotta);
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .site-logo:hover .logo-strata-1 {
+      transform: translate(-1px, -1px);
+    }
+
+    .site-logo:hover .logo-strata-3 {
+      transform: translate(1px, 1px);
+    }
+  }
+
   .nav-links {
     display: flex;
     list-style: none;
@@ -178,16 +274,21 @@ function isCurrent(href: string): boolean {
     margin: 0 auto;
   }
 
+  /* Pill-chip link states, not underlines: hover/active fill a rounded
+     background rather than drawing a rule beneath the text. Padding is
+     symmetric on both axes so the chip reads as a real, tappable shape. */
   .nav-links a {
+    display: inline-block;
     color: var(--text-secondary);
     font-weight: 500;
     font-size: 0.9375rem;
     text-decoration: none;
-    padding: 0.4rem 0.1rem;
-    border-bottom: 2px solid transparent;
+    padding: 0.4rem 0.75rem;
+    margin: 0 -0.75rem;
+    border-radius: 9999px;
     transition:
       color var(--duration-quick) var(--ease-default),
-      border-color var(--duration-quick) var(--ease-default);
+      background-color var(--duration-quick) var(--ease-default);
   }
 
   .nav-links a:visited {
@@ -196,11 +297,13 @@ function isCurrent(href: string): boolean {
 
   .nav-links a:hover {
     color: var(--text-link);
+    background: var(--surface-muted);
   }
 
   .nav-links a.nav-active {
     color: var(--text-primary);
-    border-bottom-color: var(--accent-primary);
+    background: var(--surface-selected);
+    font-weight: 600;
   }
 
   /* Download lives in the desktop actions; on mobile it moves into the
@@ -220,6 +323,38 @@ function isCurrent(href: string): boolean {
     padding: 0.5rem 1rem;
     font-size: 0.9rem;
     border-radius: 9999px;
+    position: relative;
+  }
+
+  /* A soft strata-gradient glow behind the button, visible only on
+     hover/focus — the button itself stays a plain solid pill at rest, so the
+     accent reads as a response to attention rather than a fixed decoration.
+     A blurred filled shape sitting behind the pill (z-index -1) rather than
+     a composited ring: fewer moving parts, no mask-composite compatibility
+     edge cases. */
+  :global(.nav-download-cta)::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(
+      120deg,
+      var(--brand-teal),
+      var(--brand-sandstone),
+      var(--brand-terracotta)
+    );
+    filter: blur(6px);
+    opacity: 0;
+    transition: opacity var(--duration-quick) var(--ease-default);
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.nav-download-cta:hover)::after,
+    :global(.nav-download-cta:focus-visible)::after {
+      opacity: 1;
+    }
   }
 
   .mobile-menu-toggle {
@@ -236,6 +371,36 @@ function isCurrent(href: string): boolean {
   .mobile-menu-toggle:focus-visible {
     color: var(--text-primary);
     background: var(--surface-muted);
+  }
+
+  /* Hamburger-to-X morph, keyed off the state the click handler already
+     writes to aria-expanded — no separate open/closed class needed. Origin
+     is set per-line so each rotates about its own centre. Transform-only,
+     tied to a discrete user action rather than a loop, but still respects
+     reduced motion: the icon snaps to the new shape instead of rotating. */
+  .toggle-bar {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .toggle-bar {
+      transition:
+        transform var(--duration-fast) var(--ease-default),
+        opacity var(--duration-fast) var(--ease-default);
+    }
+  }
+
+  .mobile-menu-toggle[aria-expanded='true'] .toggle-bar-top {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .mobile-menu-toggle[aria-expanded='true'] .toggle-bar-mid {
+    opacity: 0;
+  }
+
+  .mobile-menu-toggle[aria-expanded='true'] .toggle-bar-bottom {
+    transform: translateY(-6px) rotate(-45deg);
   }
 
   @media (max-width: 980px) {
@@ -276,8 +441,31 @@ function isCurrent(href: string): boolean {
     }
 
     .nav-links a.nav-active {
-      background: var(--surface-muted);
+      background: var(--surface-selected);
       color: var(--text-primary);
+    }
+
+    /* Entrance: a short slide+fade rather than an abrupt display swap. Runs
+       as an `animation` (not a `transition`) because `display` itself just
+       flipped from none to flex in the same frame — transitions cannot
+       start from a display:none state, but a freshly-applied animation can.
+       One-shot, never loops, and disabled entirely under reduced motion
+       (the menu still opens instantly via the display toggle alone). */
+    @media (prefers-reduced-motion: no-preference) {
+      .nav-links.active {
+        animation: varve-nav-in var(--duration-fast) var(--ease-default) both;
+      }
+    }
+
+    @keyframes varve-nav-in {
+      from {
+        opacity: 0;
+        transform: translateY(-6px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
     }
 
     .mobile-menu-toggle {

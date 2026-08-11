@@ -45,19 +45,47 @@ import { sitePath } from '../lib/siteUrl';
       <section class="product-section">
         <h2>Who is Varve for?</h2>
         <div class="audience-grid">
-          <div class="audience-card">
+          <div class="audience-card audience-card-teal">
+            <span class="audience-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3 3 8l9 5 9-5-9-5Z"></path>
+                <path d="M3 16l9 5 9-5"></path>
+                <path d="M3 12l9 5 9-5"></path>
+              </svg>
+            </span>
             <h3>Multi-disciplinary creators</h3>
             <p>Designers, illustrators, and content creators who regularly switch between vector, layout, motion, and print work.</p>
           </div>
-          <div class="audience-card">
+          <div class="audience-card audience-card-sandstone">
+            <span class="audience-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m3 21 6.5-1.5L20 9a2.1 2.1 0 0 0-3-3L6.5 16.5 5 21Z"></path>
+                <path d="m15 5 4 4"></path>
+              </svg>
+            </span>
             <h3>Independent designers</h3>
             <p>Freelancers and small studios who want professional tools without subscription costs or cloud dependencies.</p>
           </div>
-          <div class="audience-card">
+          <div class="audience-card audience-card-terracotta">
+            <span class="audience-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="13" rx="1.5"></rect>
+                <path d="m7 8 3 3-3 3"></path>
+                <path d="M12 14h5"></path>
+              </svg>
+            </span>
             <h3>Linux users</h3>
             <p>Creators on Linux who need a native design application with first-class platform support.</p>
           </div>
-          <div class="audience-card">
+          <div class="audience-card audience-card-ink">
+            <span class="audience-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2 2 7l10 5 10-5-10-5Z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+                <circle cx="12" cy="7" r="1.4" fill="currentColor" stroke="none"></circle>
+              </svg>
+            </span>
             <h3>Early adopters</h3>
             <p>People who want to test emerging workflows, report problems, and influence the direction of a developing creative tool.</p>
           </div>
@@ -105,7 +133,10 @@ import { sitePath } from '../lib/siteUrl';
   
   .product-page h1 {
     font-size: clamp(2rem, 5vw, 2.5rem);
-    font-weight: 800;
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
     margin-bottom: 1.5rem;
     color: var(--text-primary);
   }
@@ -161,12 +192,58 @@ import { sitePath } from '../lib/siteUrl';
   }
   
   .audience-card {
+    position: relative;
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
+    transition:
+      transform var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default);
   }
-  
+
+  @media (prefers-reduced-motion: no-preference) {
+    .audience-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-strong);
+      box-shadow: var(--elevation-shadow-raised);
+    }
+  }
+
+  /* Icon badge: a small coloured tile above the title, one brand colour per
+     card in rotation (teal/sandstone/terracotta/ink) — the same palette the
+     logo strata use, so the grid reads as branded rather than decorated. */
+  .audience-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.625rem;
+    margin-bottom: 1rem;
+  }
+
+  .audience-card-teal .audience-icon {
+    background: color-mix(in oklab, var(--brand-teal) 18%, var(--surface-card));
+    color: var(--brand-teal);
+  }
+
+  .audience-card-sandstone .audience-icon {
+    background: color-mix(in oklab, var(--brand-sandstone) 20%, var(--surface-card));
+    color: var(--brand-sandstone);
+  }
+
+  .audience-card-terracotta .audience-icon {
+    background: color-mix(in oklab, var(--brand-terracotta) 18%, var(--surface-card));
+    color: var(--brand-terracotta);
+  }
+
+  .audience-card-ink .audience-icon {
+    background: var(--surface-muted);
+    color: var(--text-primary);
+  }
+
   .audience-card h3 {
     font-size: 1.125rem;
     font-weight: 600;
