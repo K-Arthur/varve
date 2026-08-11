@@ -14,12 +14,6 @@ update, not for someone reading the commit log.
 
 ### Added
 
-- **Canonical product-maturity positioning** — `PRODUCT_STATUS`
-  (`@varve/shared`) is now the single source of truth for Varve's release
-  stage. The app's About dialog, the website (hero badge, beta section,
-  structured data, llms.txt), and the docs all describe Varve as a
-  **public beta** from one constant instead of hard-coded, disagreeing
-  labels ("alpha" / "beta" / "Developer Preview").
 - **Code-signing pipeline (certificate-ready)** — the release system now
   enforces a fail-closed signing policy: a `signing-preflight` job validates
   Apple/Azure credentials before any build starts, Windows installers are
@@ -149,6 +143,13 @@ the AppImage renders everywhere the deb/rpm already did.
 - The release launch smoke can no longer pass on a blank window: it fails on
   the EGL/abort signature in the app output and requires a live
   `WebKitWebProcess`.
+- The release draft job could never create a draft (v0.1.1 rehearsal): the
+  `files` glob used a negated `!dist/release/RELEASE_NOTES.md` pattern, which
+  `softprops/action-gh-release`'s npm-glob matching treats as matching nothing,
+  so `fail_on_unmatched_files: true` aborted the job. `RELEASE_NOTES.md` is now
+  staged outside the globbed directory and the `files` list is a single
+  positive pattern; `scripts/validate-workflows.mjs` rejects any future
+  reintroduction of the negated pattern or a `body_path` inside the glob.
 - Release hardening inherited from the 0.1.0 rehearsal: frontend built before
   desktop compilation, Git LFS fetched on every checkout (bundled models are
   LFS-tracked), LFS-pointer guard fixed for Windows paths, per-platform SBOMs
@@ -159,7 +160,7 @@ the AppImage renders everywhere the deb/rpm already did.
 
 ## [0.1.0] - 2026-08-09
 
-The first public release of Varve, and a beta in the honest sense: it has been
+The first public release of Varve, and an alpha in the honest sense: it has been
 built and run, but it has not been lived with. Treat it as something to try, not
 something to trust with work you cannot afford to lose.
 
