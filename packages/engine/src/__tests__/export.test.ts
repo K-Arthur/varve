@@ -1,7 +1,7 @@
 /**
  * Tile-based export for oversized canvases.
  */
-import { describe, expect, it, vi, type Mock } from 'vitest';
+import { describe, expect, it, type Mock, vi } from 'vitest';
 import { getCanvasSizeLimit, tiledExport } from '../export';
 
 describe('getCanvasSizeLimit', () => {

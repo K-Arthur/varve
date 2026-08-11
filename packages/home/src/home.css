@@ -2,7 +2,11 @@
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   grid-template-rows: auto auto 1fr;
+  /* R8 (2026-08-10): dvh avoids the mobile URL-bar viewport quirk; vh stays
+   * as the fallback for older engines. */
   height: 100vh;
+  /* biome-ignore lint/suspicious/noDuplicateProperties: intentional vh->dvh fallback (R8). */
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   background: var(--color-surface-app);
@@ -20,7 +24,7 @@
  * 320px (scrollWidth 477). The drawer block now lives at the END of this file
  * as a media query (source order beats the base rules it must override). */
 .varve-home--drag-over {
-  outline: 3px dashed var(--color-accent-primary);
+  outline: 3px dashed var(--color-interactive-default);
   outline-offset: -3px;
   background: var(--color-accent-subtle);
 }
@@ -135,8 +139,8 @@
     color var(--duration-quick) var(--ease-standard);
 }
 .sidebar-item--new-project:hover {
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
 }
 .sidebar-item--new-project:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -245,7 +249,9 @@
   font-size: var(--font-size-sm);
   border-radius: var(--radius-md);
   outline-offset: -2px;
-  min-height: 28px;
+  /* L3 (2026-08-10): 28px was under the desktop floor; 32px keeps the
+   * sidebar compact while lifting the smallest targets. */
+  min-height: 32px;
 }
 .sidebar-item--flex {
   flex: 1;
@@ -382,7 +388,7 @@
   letter-spacing: 0.06em;
 }
 .sidebar-item--drop-target {
-  outline: 2px dashed var(--color-accent-primary);
+  outline: 2px dashed var(--color-interactive-default);
   background: var(--color-accent-subtle);
 }
 .sidebar-item__icon {
@@ -1131,7 +1137,7 @@
   white-space: nowrap;
 }
 .breadcrumb-nav__item:hover {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   text-decoration: underline;
 }
 .breadcrumb-nav__item:focus-visible {
@@ -1206,14 +1212,14 @@
 .filter-dropdown__clear {
   background: none;
   border: none;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   cursor: pointer;
   font-size: var(--font-size-xs);
   padding: 0;
   text-decoration: underline;
 }
 .filter-dropdown__clear:hover {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   opacity: 0.8;
 }
 .filter-dropdown__section {
@@ -1239,7 +1245,7 @@
 }
 .filter-dropdown__checkbox-label input[type="checkbox"] {
   margin: 0;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 .filter-dropdown__pinned-toggle {
   display: flex;
@@ -1250,7 +1256,7 @@
 }
 .filter-dropdown__pinned-toggle input[type="checkbox"] {
   margin: 0;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 .filter-dropdown__date-row {
   display: flex;
@@ -1312,7 +1318,7 @@
 .home-shortcut-help__close {
   align-self: flex-end;
   padding: var(--space-1) var(--space-3);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border: none;
   border-radius: var(--radius-md);
@@ -1328,8 +1334,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  min-width: 28rem;
-  max-width: 36rem;
+  /* R5 (2026-08-10): fixed 28rem min-width overflowed narrow viewports. */
+  min-width: min(28rem, 100%);
+  max-width: min(36rem, 100%);
 }
 .bulk-import__dropzone {
   display: flex;
@@ -1346,7 +1353,7 @@
     background var(--duration-quick) var(--ease-standard);
 }
 .bulk-import__dropzone--active {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
 }
 .bulk-import__dropzone-icon {
@@ -1431,7 +1438,7 @@
 }
 .bulk-import__progress-fill {
   height: 100%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border-radius: 99px;
   transition: width 0.3s ease;
 }
@@ -1518,7 +1525,7 @@
   height: 1.1em;
   padding: 0 0.3em;
   border-radius: 99px;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1560,7 +1567,7 @@
   transition: color var(--duration-quick) var(--ease-standard);
 }
 .folder-view__breadcrumb-link:hover {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   text-decoration: underline;
 }
 .folder-view__breadcrumb-link:last-child {
@@ -1619,7 +1626,7 @@
   outline-offset: -1px;
 }
 .folder-view__folder-icon {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   flex-shrink: 0;
 }
 .folder-view__folder-name,
@@ -1762,6 +1769,8 @@
 }
 .search-palette__container {
   width: 480px;
+  /* R5 (2026-08-10): fixed 480px panel overflowed narrow viewports. */
+  max-width: calc(100vw - 2rem);
   max-height: 420px;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
@@ -1961,7 +1970,7 @@
 }
 .template-card__source--builtin {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 .template-card__source--user {
   background: var(--color-surface-sunken);
@@ -2052,7 +2061,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border: none;
   border-radius: var(--radius-md);
@@ -2143,7 +2152,7 @@
   cursor: pointer;
 }
 .asset-browser__breadcrumb-link:hover {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   text-decoration: underline;
 }
 .asset-browser__breadcrumb-sep {
@@ -2167,7 +2176,7 @@
   width: 24px;
   height: 24px;
   border: 2px solid var(--color-border-subtle);
-  border-top-color: var(--color-accent-primary);
+  border-top-color: var(--color-interactive-default);
   border-radius: 50%;
   animation: asset-spin 0.8s linear infinite;
 }
@@ -2320,7 +2329,7 @@
   height: 24px;
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   cursor: pointer;
   opacity: 0;
@@ -2528,7 +2537,7 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   margin-top: 1px;
 }
 
@@ -3022,7 +3031,7 @@
   background: none;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font: inherit;
   font-size: var(--font-size-sm);
   cursor: pointer;

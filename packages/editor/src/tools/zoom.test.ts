@@ -12,7 +12,7 @@ import {
   screenToWorld,
   worldToScreen,
 } from '@varve/shared';
-import { describe, expect, it, vi, type Mock } from 'vitest';
+import { describe, expect, it, type Mock, vi } from 'vitest';
 import type { ToolContext } from './types';
 import { ZoomTool } from './ZoomTool';
 
@@ -177,9 +177,7 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(pointerDown, ctx);
     tool.onPointerUp?.(pointerDown, ctx);
 
-    const camera = firstCallArg<import('@varve/shared').Camera>(
-      vi.mocked(ctx.setCamera),
-    );
+    const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
     const newZoom = camera.zoom;
     const newPan = camera.pan;
 
@@ -199,9 +197,7 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@varve/shared').Camera>(
-      vi.mocked(ctx.setCamera),
-    );
+    const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
     expect(camera.zoom).toBeCloseTo(1.25, 2);
   });
 
@@ -212,9 +208,7 @@ describe('ZoomTool — cursor-anchored click zoom', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@varve/shared').Camera>(
-      vi.mocked(ctx.setCamera),
-    );
+    const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
     expect(camera.zoom).toBeCloseTo(0.8, 2);
   });
 });
@@ -253,9 +247,7 @@ describe('ZoomTool — viewport-aware anchor', () => {
     tool.onPointerDown(pointerDown, ctx);
     tool.onPointerUp?.(pointerDown, ctx);
 
-    const resultCam = firstCallArg<import('@varve/shared').Camera>(
-      vi.mocked(ctx.setCamera),
-    );
+    const resultCam = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
     const finalOrigin = computeFloatingOrigin(resultCam, { width: 640, height: 480 });
     const [screenX, screenY] = worldToScreen(
       resultCam,
@@ -278,9 +270,7 @@ describe('ZoomTool — zoom clamping', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@varve/shared').Camera>(
-      vi.mocked(ctx.setCamera),
-    );
+    const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
     expect(camera.zoom).toBeLessThanOrEqual(MAX_ZOOM);
   });
 
@@ -291,9 +281,7 @@ describe('ZoomTool — zoom clamping', () => {
     tool.onPointerDown(ev, ctx);
     tool.onPointerUp?.(ev, ctx);
 
-    const camera = firstCallArg<import('@varve/shared').Camera>(
-      vi.mocked(ctx.setCamera),
-    );
+    const camera = firstCallArg<import('@varve/shared').Camera>(vi.mocked(ctx.setCamera));
     expect(camera.zoom).toBeGreaterThanOrEqual(MIN_ZOOM);
   });
 });
