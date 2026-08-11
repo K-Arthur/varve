@@ -1,5 +1,6 @@
 import { labelWithFallback, loadEntries } from '../recentFiles/store';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
+import type { ShortcutBinding } from '../shortcuts/types';
 import type { Accelerator, Capability, MenuContext, MenuItemDef } from './types';
 
 function hasCapability(ctx: MenuContext, cap: Capability): boolean {
@@ -13,6 +14,16 @@ const a = (
   alt?: boolean,
   meta?: boolean,
 ): Accelerator => ({ key, ctrl, shift, alt, meta });
+
+/**
+ * Resolve a menu accelerator from the live shortcut registry instead of a
+ * hand-maintained copy (the old hardcoded Ctrl+Shift+D/P/R/I/M were stale
+ * against the real Ctrl+Shift+1..9 bindings).
+ */
+function acceleratorFor(shortcutId: keyof typeof SHORTCUT_DEFS): Accelerator {
+  const binding = (SHORTCUT_DEFS[shortcutId]?.binding ?? { key: '' }) as ShortcutBinding;
+  return a(binding.key, binding.ctrl, binding.shift, binding.alt);
+}
 
 function enabledWithSelection(ctx: MenuContext): true | { reason: string } {
   if (ctx.selection.count > 0) return true;
@@ -817,7 +828,7 @@ export function getViewMenu(
     {
       id: 'workspaceDesign',
       labelKey: 'menu.view.workspaceDesign',
-      accelerator: a('d', true, true),
+      accelerator: acceleratorFor('workspaceDesign'),
       kind: 'radio',
       group: 'workspace',
       radioGroup: 'workspace',
@@ -826,7 +837,7 @@ export function getViewMenu(
     {
       id: 'workspacePrint',
       labelKey: 'menu.view.workspacePrint',
-      accelerator: a('p', true, true),
+      accelerator: acceleratorFor('workspacePrint'),
       kind: 'radio',
       group: 'workspace',
       radioGroup: 'workspace',
@@ -835,7 +846,7 @@ export function getViewMenu(
     {
       id: 'workspaceDrawing',
       labelKey: 'menu.view.workspaceDrawing',
-      accelerator: a('r', true, true),
+      accelerator: acceleratorFor('workspaceDrawing'),
       kind: 'radio',
       group: 'workspace',
       radioGroup: 'workspace',
@@ -844,7 +855,7 @@ export function getViewMenu(
     {
       id: 'workspaceImage',
       labelKey: 'menu.view.workspaceImage',
-      accelerator: a('i', true, true),
+      accelerator: acceleratorFor('workspaceImage'),
       kind: 'radio',
       group: 'workspace',
       radioGroup: 'workspace',
@@ -853,7 +864,7 @@ export function getViewMenu(
     {
       id: 'workspaceMotion',
       labelKey: 'menu.view.workspaceMotion',
-      accelerator: a('m', true, true),
+      accelerator: acceleratorFor('workspaceMotion'),
       kind: 'radio',
       group: 'workspace',
       radioGroup: 'workspace',
@@ -862,11 +873,20 @@ export function getViewMenu(
     {
       id: 'workspaceLogo',
       labelKey: 'menu.view.workspaceLogo',
-      accelerator: a('6', true, true),
+      accelerator: acceleratorFor('workspaceLogo'),
       kind: 'radio',
       group: 'workspace',
       radioGroup: 'workspace',
       run: () => runAction('workspaceLogo'),
+    },
+    {
+      id: 'workspaceCodegen',
+      labelKey: 'menu.view.workspaceCodegen',
+      accelerator: acceleratorFor('workspaceCodegen'),
+      kind: 'radio',
+      group: 'workspace',
+      radioGroup: 'workspace',
+      run: () => runAction('workspaceCodegen'),
     },
     {
       id: 'resetWorkspace',
