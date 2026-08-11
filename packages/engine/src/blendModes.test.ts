@@ -360,14 +360,14 @@ describe('blend (unified)', () => {
     );
   });
 
-  it.each([
-    'passThrough',
-    'plusDarker',
-  ])('rejects non-pixel or unsupported %s before transparent-pixel early returns', (mode) => {
-    expect(() => blend([0, 0, 0, 0], [0, 0, 0, 0], mode, 1)).toThrow(
-      `Unsupported blend mode: ${mode}`,
-    );
-  });
+  it.each(['passThrough', 'plusDarker'])(
+    'rejects non-pixel or unsupported %s before transparent-pixel early returns',
+    (mode) => {
+      expect(() => blend([0, 0, 0, 0], [0, 0, 0, 0], mode, 1)).toThrow(
+        `Unsupported blend mode: ${mode}`,
+      );
+    },
+  );
 
   it('composites plusLighter in premultiplied space', () => {
     const actual = blend([1, 0, 0, 0.5], [0, 0, 1, 0.5], 'plusLighter', 1);

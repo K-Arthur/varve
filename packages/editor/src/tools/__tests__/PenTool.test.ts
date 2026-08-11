@@ -564,12 +564,9 @@ describe('PenTool', () => {
     expect(ctx.createShapeAt).toHaveBeenCalled();
     expect(ctx.commitTransaction).toHaveBeenCalled();
     // begin called before createShapeAt, commit called after
-    const beginOrder = vi.mocked(ctx.beginTransaction).mock
-      .invocationCallOrder[0]!;
-    const shapeAtOrder = vi.mocked(ctx.createShapeAt).mock
-      .invocationCallOrder[0]!;
-    const commitOrder = vi.mocked(ctx.commitTransaction).mock
-      .invocationCallOrder[0]!;
+    const beginOrder = vi.mocked(ctx.beginTransaction).mock.invocationCallOrder[0]!;
+    const shapeAtOrder = vi.mocked(ctx.createShapeAt).mock.invocationCallOrder[0]!;
+    const commitOrder = vi.mocked(ctx.commitTransaction).mock.invocationCallOrder[0]!;
     expect(beginOrder).toBeLessThan(shapeAtOrder);
     expect(shapeAtOrder).toBeLessThan(commitOrder);
   });

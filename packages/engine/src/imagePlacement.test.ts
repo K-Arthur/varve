@@ -37,14 +37,13 @@ function expectRoundTrip(
 }
 
 describe('computeImagePlacement', () => {
-  it.each([
-    'fit',
-    'fill',
-    'stretch',
-  ] as const)('round-trips visible 4000x3000 pixels in an 800x800 %s fill', (fit) => {
-    const point = fit === 'fill' ? { x: 2000, y: 1500 } : { x: 733.25, y: 1222.75 };
-    expectRoundTrip(fit, { width: 4000, height: 3000 }, point);
-  });
+  it.each(['fit', 'fill', 'stretch'] as const)(
+    'round-trips visible 4000x3000 pixels in an 800x800 %s fill',
+    (fit) => {
+      const point = fit === 'fill' ? { x: 2000, y: 1500 } : { x: 733.25, y: 1222.75 };
+      expectRoundTrip(fit, { width: 4000, height: 3000 }, point);
+    },
+  );
 
   it('preserves panorama and portrait aspect ratios', () => {
     const panorama = computeImagePlacement({
