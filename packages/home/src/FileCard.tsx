@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@varve/platform';
-import { formatRelativeTime } from '@varve/platform';
+import { fileKindLabel, formatRelativeTime } from '@varve/platform';
 import { Icon, Thumbnail, Tooltip } from '@varve/ui';
 import {
   forwardRef,
@@ -131,12 +131,13 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
     // biome-ignore lint/a11y/useSemanticElements: ARIA gridcell role required for virtualized grid; div used to allow nested interactive children (fav button, rename input)
     <div
       ref={mergedRef}
-      aria-label={`${entry.name}, ${entry.kind}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
+      aria-label={`${entry.name}, ${fileKindLabel(entry.kind)}, ${formatRelativeTime(entry.updatedAt)}${isMissing ? ', file missing' : ''}`}
       aria-selected={selected}
       draggable
       className={`file-card bento-cell ${selected ? 'file-card--selected' : ''} ${isMissing ? 'file-card--missing' : ''} ${className}`.trim()}
       style={mergedStyle}
       onClick={onClick}
+      onDoubleClick={() => onOpen(entry)}
       onContextMenu={(e) => onContext(e, entry)}
       onDragStart={(e) => onFileDragStart?.(e, entry)}
       {...attributes}
@@ -154,7 +155,7 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
           unavailable={isMissing}
           className="file-card__thumb-img"
         />
-        {entry.kind && <span className="file-card__thumb-badge">{entry.kind}</span>}
+        {entry.kind && <span className="file-card__thumb-badge">{fileKindLabel(entry.kind)}</span>}
       </div>
       <div className="file-card__body">
         {isRenaming ? (
