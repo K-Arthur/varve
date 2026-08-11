@@ -47,12 +47,13 @@ function enabledWithSingleGroup(ctx: MenuContext): true | { reason: string } {
 
 export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
   return [
+    // ── Create ──
     {
       id: 'new',
       labelKey: 'menu.file.new',
       accelerator: a('n', true),
       kind: 'command',
-      group: 'file',
+      group: 'create',
       run: () => runAction('new'),
     },
     {
@@ -60,107 +61,71 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.file.newLogoProject',
       accelerator: a('n', true, false, true),
       kind: 'command',
-      group: 'file',
+      group: 'create',
       run: () => runAction('newLogoProject'),
     },
     {
-      id: 'createLogoConcept',
-      labelKey: 'menu.file.createLogoConcept',
-      accelerator: a('1', true, false, true),
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('createLogoConcept'),
+      id: 'logo',
+      labelKey: 'menu.file.logo',
+      kind: 'submenu',
+      group: 'create',
+      items: [
+        {
+          id: 'createLogoConcept',
+          labelKey: 'menu.file.createLogoConcept',
+          accelerator: a('1', true, false, true),
+          kind: 'command',
+          group: 'create',
+          run: () => runAction('createLogoConcept'),
+        },
+        {
+          id: 'duplicateLogoConcept',
+          labelKey: 'menu.file.duplicateLogoConcept',
+          accelerator: a('2', true, false, true),
+          kind: 'command',
+          group: 'create',
+          run: () => runAction('duplicateLogoConcept'),
+        },
+        {
+          id: 'createLogoVariant',
+          labelKey: 'menu.file.createLogoVariant',
+          kind: 'command',
+          group: 'create',
+          run: () => runAction('createLogoVariant'),
+        },
+        {
+          id: 'createMonochromeVariant',
+          labelKey: 'menu.file.createMonochromeVariant',
+          accelerator: a('m', true, true, true),
+          kind: 'command',
+          group: 'create',
+          run: () => runAction('createMonochromeVariant'),
+        },
+        {
+          id: 'createReversedVariant',
+          labelKey: 'menu.file.createReversedVariant',
+          accelerator: a('q', true, false, true),
+          kind: 'command',
+          group: 'create',
+          run: () => runAction('createReversedVariant'),
+        },
+      ],
+      run: () => {},
     },
-    {
-      id: 'duplicateLogoConcept',
-      labelKey: 'menu.file.duplicateLogoConcept',
-      accelerator: a('2', true, false, true),
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('duplicateLogoConcept'),
-    },
-    {
-      id: 'createLogoVariant',
-      labelKey: 'menu.file.createLogoVariant',
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('createLogoVariant'),
-    },
-    {
-      id: 'createMonochromeVariant',
-      labelKey: 'menu.file.createMonochromeVariant',
-      accelerator: a('m', true, true, true),
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('createMonochromeVariant'),
-    },
-    {
-      id: 'createReversedVariant',
-      labelKey: 'menu.file.createReversedVariant',
-      accelerator: a('q', true, false, true),
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('createReversedVariant'),
-    },
+    // ── Open / Import ──
     {
       id: 'open',
       labelKey: 'menu.file.open',
       accelerator: a('o', true),
       kind: 'command',
-      group: 'file',
+      group: 'open',
       run: () => runAction('open'),
-    },
-    {
-      id: 'save',
-      labelKey: 'menu.file.save',
-      accelerator: a('s', true),
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('save'),
-    },
-    {
-      id: 'saveAs',
-      labelKey: 'menu.file.saveAs',
-      accelerator: a('s', true, true),
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('saveAs'),
-    },
-    {
-      id: 'setFileThumbnail',
-      labelKey: 'Set File Thumbnail…',
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('openThumbnailPicker'),
-    },
-    {
-      id: 'tabClose',
-      labelKey: 'menu.file.closeDocument',
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('tabClose'),
-    },
-    {
-      id: 'closeWindow',
-      labelKey: 'menu.file.closeWindow',
-      kind: 'command',
-      group: 'file',
-      run: () => runAction('closeWindow'),
-    },
-    {
-      id: 'quitApp',
-      labelKey: 'menu.file.quit',
-      kind: 'command',
-      group: 'file',
-      // macOS hosts Quit in the native app menu (Cmd+Q) — no duplicate.
-      visible: (ctx) => ctx.platform.os !== 'mac',
-      run: () => runAction('quitApp'),
     },
     {
       id: 'openRecent',
       labelKey: 'Open Recent',
       kind: 'submenu',
-      group: 'recent',
+      group: 'open',
       items: (): MenuItemDef[] => {
         try {
           const entries = loadEntries().slice(0, 10);
@@ -205,7 +170,7 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'Reopen Last File',
       accelerator: a('t', true, true),
       kind: 'command',
-      group: 'recent',
+      group: 'open',
       run: () => runAction('reopenLast'),
     },
     {
@@ -213,7 +178,7 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.file.import',
       accelerator: a('i', true),
       kind: 'command',
-      group: 'io',
+      group: 'open',
       run: () => runAction('import'),
     },
     {
@@ -221,22 +186,62 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.file.insertIcon',
       accelerator: a('i', true, true, true),
       kind: 'command',
-      group: 'io',
+      group: 'open',
       run: () => runAction('insertIcon'),
     },
     {
       id: 'createTableFromClipboard',
       labelKey: 'menu.file.createTableFromClipboard',
       kind: 'command',
-      group: 'io',
+      group: 'open',
       run: () => runAction('createTableFromClipboard'),
     },
+    // ── Close ──
+    {
+      id: 'tabClose',
+      labelKey: 'menu.file.closeDocument',
+      kind: 'command',
+      group: 'close',
+      run: () => runAction('tabClose'),
+    },
+    {
+      id: 'closeWindow',
+      labelKey: 'menu.file.closeWindow',
+      kind: 'command',
+      group: 'close',
+      run: () => runAction('closeWindow'),
+    },
+    // ── Save ──
+    {
+      id: 'save',
+      labelKey: 'menu.file.save',
+      accelerator: a('s', true),
+      kind: 'command',
+      group: 'save',
+      run: () => runAction('save'),
+    },
+    {
+      id: 'saveAs',
+      labelKey: 'menu.file.saveAs',
+      accelerator: a('s', true, true),
+      kind: 'command',
+      group: 'save',
+      run: () => runAction('saveAs'),
+    },
+    {
+      id: 'saveCopy',
+      labelKey: 'menu.file.saveCopy',
+      kind: 'command',
+      group: 'save',
+      run: () => runAction('saveCopy'),
+    },
+    // ── Export ──
     {
       id: 'exportSvg',
       labelKey: 'menu.file.exportSvg',
       accelerator: a('e', true, true),
       kind: 'command',
-      group: 'io',
+      group: 'export',
       run: () => runAction('exportSvg'),
     },
     {
@@ -244,9 +249,25 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       labelKey: 'menu.file.export',
       accelerator: a('e', true),
       kind: 'command',
-      group: 'io',
+      group: 'export',
       run: () => runAction('export'),
     },
+    // ── Document metadata ──
+    {
+      id: 'setFileThumbnail',
+      labelKey: 'Set File Thumbnail…',
+      kind: 'command',
+      group: 'info',
+      run: () => runAction('openThumbnailPicker'),
+    },
+    {
+      id: 'documentInfo',
+      labelKey: 'menu.file.documentInfo',
+      kind: 'command',
+      group: 'info',
+      run: () => runAction('documentInfo'),
+    },
+    // ── Archive / backup ──
     {
       id: 'archiveBackup',
       labelKey: 'menu.file.archiveBackup',
@@ -279,14 +300,7 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       visible: (ctx) => !hasCapability(ctx, 'archive'),
       run: () => runAction('restoreFromSnapshot'),
     },
-    {
-      id: 'present',
-      labelKey: 'menu.file.present',
-      accelerator: a('.', true),
-      kind: 'command',
-      group: 'present',
-      run: () => runAction('present'),
-    },
+    // ── Settings ──
     {
       id: 'settings',
       labelKey: 'menu.file.settings',
@@ -294,6 +308,15 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
       kind: 'command',
       group: 'settings',
       run: () => runAction('settings'),
+    },
+    // ── Quit (terminal; macOS hosts it in the native app menu) ──
+    {
+      id: 'quitApp',
+      labelKey: 'menu.file.quit',
+      kind: 'command',
+      group: 'quit',
+      visible: (ctx) => ctx.platform.os !== 'mac',
+      run: () => runAction('quitApp'),
     },
   ];
 }
@@ -648,6 +671,14 @@ export function getViewMenu(
       group: 'canvasMode',
       workspaces: ['design', 'print', 'drawing', 'image', 'motion'],
       run: () => runAction('inspectMode'),
+    },
+    {
+      id: 'present',
+      labelKey: 'menu.view.present',
+      accelerator: a('.', true),
+      kind: 'command',
+      group: 'present',
+      run: () => runAction('present'),
     },
     {
       id: 'fitActivePage',
