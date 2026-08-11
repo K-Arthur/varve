@@ -127,8 +127,22 @@ export function IconBrowser({
 
   const statusRef = useRef<HTMLDivElement | null>(null);
 
+  // Guard the async setState: if the component unmounts before the
+  // IndexedDB read resolves (tests call cleanup() immediately, and
+  // navigation can unmount mid-read), React 19's dispatchSetState runs
+  // after teardown and throws "window is not defined" as an unhandled
+  // rejection that fails the whole test run. A module-level flag avoids the
+  // stale-closure trap of reading a ref after unmount.
+  const disposedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      disposedRef.current = true;
+    };
+  }, []);
+
   const refreshLocal = useCallback(async () => {
-    setLocalRecords(await listStoredIcons());
+    const records = await listStoredIcons();
+    if (!disposedRef.current) setLocalRecords(records);
   }, []);
 
   useEffect(() => {
