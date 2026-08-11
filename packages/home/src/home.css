@@ -12,6 +12,13 @@
 .varve-home--collapsed {
   grid-template-columns: 0 1fr;
 }
+/* WCAG 1.4.10 Reflow fix (2026-08-10): the drawer rules previously lived in
+ * `@container (max-width: 48rem)`. A @container query matches against the
+ * nearest container *ancestor* of the styled element, and .varve-home is the
+ * root of its own container chain — so the `.varve-home` grid override never
+ * matched, leaving an empty 224px sidebar track plus a 96px toolbar column at
+ * 320px (scrollWidth 477). The drawer block now lives at the END of this file
+ * as a media query (source order beats the base rules it must override). */
 .varve-home--drag-over {
   outline: 3px dashed var(--color-accent-primary);
   outline-offset: -3px;
@@ -21,6 +28,14 @@
 @media (prefers-reduced-motion: reduce) {
   .varve-home__sidebar {
     transition: none;
+  }
+}
+/* Narrow viewports (WCAG 1.4.10): tighten toolbar chrome so the wrapped
+ * rows at <=640px don't eat vertical space unnecessarily. */
+@media (max-width: 640px) {
+  .varve-home__toolbar {
+    gap: var(--space-05);
+    padding: var(--space-1) var(--space-2);
   }
 }
 .varve-home__sidebar {
@@ -56,6 +71,15 @@
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface-app);
   min-height: 40px;
+  /* WCAG 1.4.10 Reflow fix (2026-08-10): the grid track's default
+   * min-content floor was the ~460px toolbar, so at 320-480px viewports the
+   * whole home surface scrolled horizontally (scrollWidth 676 vs 320) and
+   * New/Open were pushed off-screen. min-width: 0 lets the track shrink;
+   * flex-wrap reflows the right-hand group onto a second row instead of
+   * clipping it. */
+  min-width: 0;
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
 .varve-home__toolbar-left {
   display: flex;
@@ -1151,37 +1175,6 @@
   display: flex;
   gap: var(--space-1);
   margin-left: auto;
-}
-
-/* Drawer overlay for narrow screens */
-.drawer-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: var(--elevation-scrim);
-  z-index: var(--z-overlay);
-}
-
-@container (max-width: 48rem) {
-  .varve-home {
-    grid-template-columns: 1fr;
-  }
-  .varve-home__sidebar {
-    display: none;
-  }
-  .varve-home__sidebar--open {
-    display: flex;
-    position: fixed;
-    inset: 0;
-    z-index: calc(var(--z-overlay) + 1);
-    width: 16rem;
-  }
-  .drawer-overlay--visible {
-    display: block;
-  }
-  .varve-home__sidebar-toggle {
-    display: flex;
-  }
 }
 
 /* Filter dropdown */
@@ -3066,4 +3059,43 @@
   background: var(--color-surface-sunken);
   color: var(--color-interactive-default);
   margin: 0 auto var(--space-2);
+}
+
+/* ─── Drawer mode (<=768px) ─────────────────────────────
+ * WCAG 1.4.10 Reflow fix (2026-08-10): moved out of `@container (max-width:
+ * 48rem)` — a @container query never matches the element that is the root of
+ * its own container chain, so the `.varve-home` grid override was dead and
+ * the toolbar sat in a 96px column at 320px (scrollWidth 477). Lives here at
+ * end-of-file so source order beats the base rules it overrides. */
+
+/* Drawer overlay for narrow screens (base hidden; shown at <=768px). Must
+ * precede the media block below or source order would re-hide it. */
+.drawer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--elevation-scrim);
+  z-index: var(--z-overlay);
+}
+
+@media (max-width: 768px) {
+  .varve-home {
+    grid-template-columns: 1fr;
+  }
+  .varve-home__sidebar {
+    display: none;
+  }
+  .varve-home__sidebar--open {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-overlay) + 1);
+    width: 16rem;
+  }
+  .drawer-overlay--visible {
+    display: block;
+  }
+  .varve-home__sidebar-toggle {
+    display: flex;
+  }
 }

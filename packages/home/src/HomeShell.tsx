@@ -137,6 +137,27 @@ export function HomeShell({
     return () => unlisten?.();
   }, [platform, view]);
 
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
+  const sidebarToggleRef = useRef<HTMLButtonElement | null>(null);
+
+  // Drawer mode (<=768px): Esc closes the drawer; focus moves into the drawer
+  // on open and returns to the toggle on close (WAI-ARIA disclosure pattern).
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const firstFocusable = sidebarRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, [tabindex]:not([tabindex="-1"])',
+    );
+    (firstFocusable ?? sidebarRef.current)?.focus();
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      sidebarToggleRef.current?.focus();
+    };
+  }, [sidebarOpen]);
+
   // Detect missing or stale files
   useEffect(() => {
     const checkMissingFiles = async () => {
@@ -188,6 +209,18 @@ export function HomeShell({
     e.dataTransfer.dropEffect = 'copy';
     setIsDragOver(true);
   }, []);
+
+  // WCAG 1.4.10 + mobile usability (2026-08-10): at <=768px the sidebar is a
+  // drawer (media query hides it from the grid), so the toolbar's menu button
+  // must open the drawer instead of toggling the desktop collapse (which is a
+  // no-op there — the sidebar is already display:none).
+  const handleSidebarToggle = useCallback(() => {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      setSidebarOpen(true);
+    } else {
+      view.toggleSidebar();
+    }
+  }, [view.toggleSidebar]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
@@ -769,7 +802,10 @@ export function HomeShell({
             onClick={() => setSidebarOpen(false)}
           />
         )}
-        <div className={`varve-home__sidebar ${sidebarOpen ? 'varve-home__sidebar--open' : ''}`}>
+        <div
+          ref={sidebarRef}
+          className={`varve-home__sidebar ${sidebarOpen ? 'varve-home__sidebar--open' : ''}`}
+        >
           {onResumeEditing && (
             <Tooltip label="Return to your open tabs">
               <button type="button" className="sidebar-resume" onClick={onResumeEditing}>
@@ -865,7 +901,8 @@ export function HomeShell({
         <div className="varve-home__toolbar">
           <HomeToolbar
             sidebarCollapsed={view.state.sidebarCollapsed}
-            onToggleSidebar={view.toggleSidebar}
+            onToggleSidebar={handleSidebarToggle}
+            sidebarToggleRef={sidebarToggleRef}
             viewMode={view.state.view}
             onViewModeChange={view.setView}
             sortKey={view.state.sort.key}
