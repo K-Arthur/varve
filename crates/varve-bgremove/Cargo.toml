@@ -10,7 +10,7 @@ repository.workspace = true
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-base64 = "0.22"
+base64 = "0.23"
 image = "0.25"
 dirs-next = "2.0"
 
@@ -22,7 +22,7 @@ dirs-next = "2.0"
 # build on Linux x86_64 (our desktop target), not just Android.
 # https://github.com/pykeio/ort/issues/547
 ort = { version = "=2.0.0-rc.11", optional = true, default-features = false, features = ["load-dynamic"] }
-sha2 = "0.10"
+sha2 = "0.11"
 
 [features]
 default = []
