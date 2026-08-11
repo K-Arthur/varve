@@ -47,12 +47,34 @@ import { PRODUCT_STATUS } from '@varve/shared';
 </section>
 
 <style>
+  /* Aurora ground: three wide, very low-opacity radial washes in the brand's
+     strata colours over the base surface. Colour arrives as atmosphere rather
+     than as blocks — the washes sit at the edges and never cross the centre
+     where the copy is, so contrast on the headline is unaffected (the
+     legibility scrim below still backstops it). `color-mix` keeps each wash
+     tied to the theme's own surface, so dark mode gets the same composition
+     at its own value range instead of a washed-out light-mode gradient. */
   .hero {
     position: relative;
     overflow: hidden;
     padding: clamp(4.5rem, 10vh, 7.5rem) 0 clamp(3.5rem, 7vh, 5.5rem);
     border-bottom: 1px solid var(--border-default);
     background:
+      radial-gradient(
+        58% 48% at 12% 18%,
+        color-mix(in oklab, var(--brand-teal) 22%, transparent) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        52% 44% at 88% 26%,
+        color-mix(in oklab, var(--brand-sandstone) 18%, transparent) 0%,
+        transparent 70%
+      ),
+      radial-gradient(
+        62% 50% at 74% 92%,
+        color-mix(in oklab, var(--brand-terracotta) 16%, transparent) 0%,
+        transparent 72%
+      ),
       radial-gradient(120% 90% at 50% 0%, var(--surface-sunken) 0%, var(--surface-page) 70%);
   }
 
