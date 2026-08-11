@@ -8,17 +8,28 @@ import { convertTextNodeToPath, ORIGINAL_TEXT_META_KEY } from './convertTextToPa
 const wawoff2: { decompress: (data: Uint8Array) => Promise<Uint8Array> } = require('wawoff2');
 
 const PROJECT_ROOT = process.cwd();
-const GEIST_PATH = join(
-  PROJECT_ROOT,
-  'node_modules',
-  '.pnpm',
-  '@fontsource-variable+geist@5.2.9',
-  'node_modules',
-  '@fontsource-variable',
-  'geist',
-  'files',
-  'geist-latin-wght-normal.woff2',
-);
+
+/**
+ * Resolve the Geist variable font from the installed store instead of
+ * hardcoding a version in the .pnpm path: the lockfile moves between
+ * releases (5.2.9 -> 5.3.0) and a hardcoded version breaks the release
+ * gate's fresh `pnpm install --frozen-lockfile` while passing on a dev
+ * machine with a stale leftover directory.
+ */
+function resolveGeistPath(): string {
+  const { execSync } = require('node:child_process') as typeof import('node:child_process');
+  const resolved = execSync(
+    'node -e "console.log(require.resolve(\'@fontsource-variable/geist/package.json\'))"',
+    {
+      encoding: 'utf8',
+      cwd: PROJECT_ROOT,
+    },
+  ).trim();
+  const pkgDir = join(resolved, '..');
+  return join(pkgDir, 'files', 'geist-latin-wght-normal.woff2');
+}
+
+const GEIST_PATH = resolveGeistPath();
 
 async function loadFontData(): Promise<ArrayBuffer> {
   const woff2 = readFileSync(GEIST_PATH);
