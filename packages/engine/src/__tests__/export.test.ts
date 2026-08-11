@@ -49,7 +49,10 @@ describe('tiledExport', () => {
     expect(result.height).toBe(600);
   });
 
-  it('oversized document produces at least 2 tiles', async () => {
+  it('oversized document produces at least 2 tiles', { timeout: 60_000 }, async () => {
+    // 60s timeout: 20000x20000 @ dpr 2 allocates multi-GB ImageData tiles;
+    // on loaded CI/parallel-agent hosts the default 5s is routinely exceeded.
+    // This is a correctness assertion (tile count), not a perf gate.
     const fn = vi.fn();
     const render = makeRenderFn(fn);
     await tiledExport({ totalW: 20000, totalH: 20000, dpr: 2 }, render, 'webkit');

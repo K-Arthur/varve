@@ -62,7 +62,10 @@ describe('workerPool — revision-safe protocol', () => {
     mockWorkers = [];
     vi.stubGlobal(
       'Worker',
-      vi.fn(() => {
+      // Vitest 4: mocks invoked with `new` require a constructible
+      // implementation (arrow functions are no longer callable as
+      // constructors).
+      vi.fn(function WorkerMock() {
         const w = makeMockWorker();
         mockWorkers.push(w);
         return w;

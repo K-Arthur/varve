@@ -316,7 +316,10 @@ describe('Menubar dropdown portal', () => {
     expect(menuPanel).toBeTruthy();
     expect(menuPanel?.parentElement).toBe(document.body);
     expect(
-      within(menuPanel as HTMLElement).getByRole('menuitem', { name: /Save Ctrl/ }),
+      // jsdom 30 computes the label+shortcut spans as inline (no CSS in
+      // tests), so dom-accessibility-api concatenates "SaveCtrl+S" without a
+      // space; the real browser (CSS loaded) exposes "Save Ctrl+S".
+      within(menuPanel as HTMLElement).getByRole('menuitem', { name: /Save\s*Ctrl/ }),
     ).toBeTruthy();
   });
 
