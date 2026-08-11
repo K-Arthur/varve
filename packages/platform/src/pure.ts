@@ -48,6 +48,22 @@ const EXT_TO_KIND: Record<string, FileKind> = {
   gif: 'image',
 };
 
+/** User-facing label for a FileKind (shown in badges, ARIA labels, etc.). */
+export function fileKindLabel(kind: FileKind): string {
+  switch (kind) {
+    case 'strata':
+      return 'Varve';
+    case 'figma':
+      return 'Figma';
+    case 'illustrator':
+      return 'Illustrator';
+    case 'image':
+      return 'Image';
+    default:
+      return kind;
+  }
+}
+
 /** Derive the file kind from a filename. Unknown extensions → 'unknown'. */
 export function detectFileKind(filename: string): FileKind {
   const dot = filename.lastIndexOf('.');

@@ -106,6 +106,11 @@ export function FileContextMenu({
     });
     items.push({ id: 'sep5', separator: true });
     items.push({
+      id: 'reveal',
+      label: 'Show in Folder',
+      onAction: () => onAction('reveal'),
+    });
+    items.push({
       id: 'trash',
       label: 'Move to Trash',
       onAction: () => onAction('trash'),

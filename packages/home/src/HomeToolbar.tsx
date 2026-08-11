@@ -38,6 +38,7 @@ export interface HomeToolbarProps {
   onNewFile: () => void;
   onOpenFromDisk: () => void;
   onOpenImport?: () => void;
+  onOpenSettings?: () => void;
   kindFilter: FileKind[];
   pinnedOnly: boolean;
   dateFrom: number | null;
@@ -61,6 +62,7 @@ export function HomeToolbar({
   onNewFile,
   onOpenFromDisk,
   onOpenImport,
+  onOpenSettings,
   kindFilter,
   pinnedOnly,
   dateFrom,
@@ -191,6 +193,13 @@ export function HomeToolbar({
           options={viewModeOptions}
           onChange={onViewModeChange}
         />
+        {onOpenSettings && (
+          <Tooltip label="Settings" shortcut="Ctrl+,">
+            <Button variant="ghost" onClick={onOpenSettings} aria-label="Settings">
+              <SolidIcon name={SOLID_CHROME_ICONS.settings} label={undefined} size="0.85em" />
+            </Button>
+          </Tooltip>
+        )}
       </div>
     </>
   );
