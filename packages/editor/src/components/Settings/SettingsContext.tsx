@@ -1,10 +1,37 @@
 import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
-import type { Settings, SettingsSection } from './settings';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
+import {
+  updateSettings as applyEditorSettingsPatch,
+  DEFAULT_EDITOR_SETTINGS,
+  type EditorSettings,
+  type EditorSettingsPatch,
+  loadSettings as loadEditorSettings,
+  saveSettings as saveEditorSettings,
+} from '../../settings';
+
+export type Settings = EditorSettings;
+
+export type SettingsSection =
+  | 'general'
+  | 'appearance'
+  | 'backup'
+  | 'shortcuts'
+  | 'export'
+  | 'performance'
+  | 'models'
+  | 'collab'
+  | 'ai'
+  | 'privacy'
+  | 'about';
 
 export interface SettingsContextValue {
-  settings: Settings;
-  updateSettings: (patch: Partial<Settings>) => void;
+  settings: EditorSettings;
+  /**
+   * Section-wise patch: `{ render: { preferWebGpu: true } }` updates one field
+   * and leaves the rest of `render` intact. `Partial<EditorSettings>` would
+   * have demanded a complete `RenderSettingsStore` for that same call and, if
+   * satisfied, silently replaced every other field in the section.
+   */
+  updateSettings: (patch: EditorSettingsPatch) => void;
   updateSection: (section: SettingsSection, values: Record<string, unknown>) => void;
   resetSettings: () => void;
 }
@@ -12,18 +39,20 @@ export interface SettingsContextValue {
 const SettingsCtx = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [settings, setSettings] = useState<EditorSettings>(loadEditorSettings);
 
-  const persist = useCallback((next: Settings) => {
+  const persist = useCallback((next: EditorSettings) => {
     setSettings(next);
-    saveSettings(next);
+    saveEditorSettings(next);
   }, []);
 
   const updateSettings = useCallback(
-    (patch: Partial<Settings>) => {
-      persist({ ...settings, ...patch });
+    (patch: EditorSettingsPatch) => {
+      // Delegate to the store's canonical merge so the dialog and every other
+      // caller of `updateSettings` produce the same result for the same patch.
+      persist(applyEditorSettingsPatch(patch));
     },
-    [settings, persist],
+    [persist],
   );
 
   const updateSection = useCallback(
@@ -35,13 +64,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       persist({
         ...settings,
         [section]: { ...current, ...values },
-      } as Settings);
+      } as EditorSettings);
     },
     [settings, persist],
   );
 
   const resetSettings = useCallback(() => {
-    persist({ ...DEFAULT_SETTINGS });
+    persist({ ...DEFAULT_EDITOR_SETTINGS });
   }, [persist]);
 
   return (
