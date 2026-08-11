@@ -211,6 +211,55 @@ export interface CollectImageBitmapsOptions {
   maxSourceDim?: number;
 }
 
+/**
+ * Why a frame's image payload cannot be handed to the render worker.
+ *
+ * `masked` and `unresolvable-source` are properties of the scene; `source-count`
+ * is a transport budget. All three are decidable synchronously, which is what
+ * makes them usable as a paint-path gate: the frame can choose the authoritative
+ * main-thread replay *before* it commits to compositing a worker bitmap, instead
+ * of discovering the refusal inside an async `collectImageBitmaps` continuation
+ * that lands after the surface has already been painted.
+ */
+export type WorkerImageRefusal = 'masked' | 'unresolvable-source' | 'source-count';
+
+export interface WorkerImageAdmissionOptions {
+  /** Max distinct sources this frame may transfer (residents excluded). */
+  maxEntries?: number;
+  /** Sources the current worker generation can already draw without transfer. */
+  residentSources?: ReadonlySet<string>;
+}
+
+/**
+ * Synchronous admission decision for a frame's worker image payload.
+ *
+ * Returns `null` when the worker may render the frame, otherwise the refusal
+ * reason. `collectImageBitmaps` consults the same function, so the paint gate
+ * and the transfer path can never disagree about whether a worker frame is
+ * coming.
+ *
+ * The source-count budget applies to sources that actually need transferring:
+ * counting residents too would refuse a fully-resident scene forever, and a
+ * refused frame transfers nothing, so residency could never grow past the cap.
+ */
+export function admitWorkerImagePayload(
+  ir: RenderItem[],
+  options: WorkerImageAdmissionOptions = {},
+): WorkerImageRefusal | null {
+  const srcs = imageSrcsFromIr(ir);
+  if (srcs.length === 0) return null;
+  if (irHasUnsupportedWorkerMasks(ir)) return 'masked';
+  if (resolveSourcesForLoad(srcs) === null) return 'unresolvable-source';
+  const maxEntries = options.maxEntries ?? Number.POSITIVE_INFINITY;
+  const resident = options.residentSources;
+  let needsTransfer = 0;
+  for (const src of srcs) {
+    if (!resident?.has(src)) needsTransfer += 1;
+  }
+  if (needsTransfer > maxEntries) return 'source-count';
+  return null;
+}
+
 /** Source pixel dims of an IR image fill (displayed, orientation-normalized). */
 function fillSourceDims(fill: Record<string, unknown>): { width: number; height: number } | null {
   const width = Number(fill.imageWidth) || 0;
@@ -243,20 +292,17 @@ export async function collectImageBitmaps(
 } | null> {
   const srcs = imageSrcsFromIr(ir);
   if (srcs.length === 0) return { images: {}, transfer: [], bytes: 0, sources: [] };
-  // Masked fills cannot be composited inside the worker: refuse the frame so
-  // it falls back to the authoritative Canvas2D path (never A-without-M).
-  if (irHasUnsupportedWorkerMasks(ir)) return null;
+  // Single decision point for every synchronous refusal (masked fills the
+  // worker cannot composite, unregistered handles, transport budget) so the
+  // caller's paint gate and this transfer path always agree.
+  if (admitWorkerImagePayload(ir, options) !== null) return null;
 
-  const resolved = resolveSourcesForLoad(srcs);
-  if (resolved === null) return null;
+  const resolved = resolveSourcesForLoad(srcs) as string[];
 
   const cache = getImageCache();
   const images: Record<string, ImageBitmap> = {};
   const transfer: Transferable[] = [];
-  const maxEntries = options.maxEntries ?? Number.POSITIVE_INFINITY;
   let bytes = 0;
-
-  if (srcs.length > maxEntries) return null;
 
   // Map IR identity -> source pixel dims (for at-size representation). IR
   // fill stacks carry the dims on image fills; unknown dims fall back to the
