@@ -19,6 +19,14 @@ export interface DialogProps extends DialogHTMLAttributes<HTMLDialogElement> {
   size?: 'sm' | 'lg';
   /** Sticky footer content, rendered below the scrollable body. */
   footer?: ReactNode;
+  /**
+   * When true, initial focus lands on the first actionable control in the
+   * body instead of the header Close button (WCAG 2.4.3 — the Close button
+   * is the first focusable element in DOM order but almost never the control
+   * the user opened the dialog for). Per-dialog opt-in so existing dialogs
+   * keep their current behavior.
+   */
+  focusFirstControl?: boolean;
 }
 
 export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog(
@@ -31,6 +39,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     size = 'sm',
     footer,
     className = '',
+    focusFirstControl = false,
     ...rest
   },
   ref,
@@ -43,10 +52,16 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     if (!el) return;
     if (open && !el.open) {
       el.showModal();
+      if (focusFirstControl) {
+        const target = el.querySelector<HTMLElement>(
+          '.varve-dialog__body [data-autofocus], .varve-dialog__body button, .varve-dialog__body [role="combobox"], .varve-dialog__body input, .varve-dialog__body [role="slider"], .varve-dialog__body [tabindex]:not([tabindex="-1"])',
+        );
+        target?.focus();
+      }
     } else if (!open && el.open) {
       el.close();
     }
-  }, [open]);
+  }, [open, focusFirstControl]);
 
   const handleRef = useCallback(
     (el: HTMLDialogElement | null) => {
