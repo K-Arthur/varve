@@ -269,6 +269,7 @@ function buildMenus(
     {
       id: 'File',
       items: [
+        // ── Create ──
         {
           label: 'New',
           shortcut: formatShortcut(SHORTCUT_DEFS.newDocument.binding),
@@ -282,43 +283,93 @@ function buildMenus(
           action: 'newLogoProject',
         },
         {
-          label: 'Create Logo Concept',
-          shortcut: formatShortcut(SHORTCUT_DEFS.createLogoConcept.binding),
-          ariaKeyshortcut: ks('createLogoConcept'),
-          action: 'createLogoConcept',
+          label: 'Logo',
+          items: [
+            {
+              label: 'Create Logo Concept',
+              shortcut: formatShortcut(SHORTCUT_DEFS.createLogoConcept.binding),
+              ariaKeyshortcut: ks('createLogoConcept'),
+              action: 'createLogoConcept',
+            },
+            {
+              label: 'Duplicate Logo Concept',
+              shortcut: formatShortcut(SHORTCUT_DEFS.duplicateLogoConcept.binding),
+              ariaKeyshortcut: ks('duplicateLogoConcept'),
+              action: 'duplicateLogoConcept',
+              disabled: dis('duplicateLogoConcept'),
+            },
+            {
+              label: 'Create Logo Variant…',
+              action: 'createLogoVariant',
+              disabled: dis('createLogoVariant'),
+            },
+            {
+              label: 'Create Monochrome Variant',
+              shortcut: formatShortcut(SHORTCUT_DEFS.createMonochromeVariant.binding),
+              ariaKeyshortcut: ks('createMonochromeVariant'),
+              action: 'createMonochromeVariant',
+              disabled: dis('createMonochromeVariant'),
+            },
+            {
+              label: 'Create Reversed Variant',
+              shortcut: formatShortcut(SHORTCUT_DEFS.createReversedVariant.binding),
+              ariaKeyshortcut: ks('createReversedVariant'),
+              action: 'createReversedVariant',
+              disabled: dis('createReversedVariant'),
+            },
+          ],
         },
-        {
-          label: 'Duplicate Logo Concept',
-          shortcut: formatShortcut(SHORTCUT_DEFS.duplicateLogoConcept.binding),
-          ariaKeyshortcut: ks('duplicateLogoConcept'),
-          action: 'duplicateLogoConcept',
-          disabled: dis('duplicateLogoConcept'),
-        },
-        {
-          label: 'Create Logo Variant…',
-          action: 'createLogoVariant',
-          disabled: dis('createLogoVariant'),
-        },
-        {
-          label: 'Create Monochrome Variant',
-          shortcut: formatShortcut(SHORTCUT_DEFS.createMonochromeVariant.binding),
-          ariaKeyshortcut: ks('createMonochromeVariant'),
-          action: 'createMonochromeVariant',
-          disabled: dis('createMonochromeVariant'),
-        },
-        {
-          label: 'Create Reversed Variant',
-          shortcut: formatShortcut(SHORTCUT_DEFS.createReversedVariant.binding),
-          ariaKeyshortcut: ks('createReversedVariant'),
-          action: 'createReversedVariant',
-          disabled: dis('createReversedVariant'),
-        },
+        { label: '---' },
+        // ── Open / Import ──
         {
           label: 'Open\u2026',
           shortcut: formatShortcut(SHORTCUT_DEFS.open.binding),
           ariaKeyshortcut: ks('open'),
           action: 'open',
         },
+        ...(recentEntries.length > 0
+          ? [
+              {
+                label: 'Open Recent',
+                items: [
+                  ...recentEntries.slice(0, 10).map(
+                    (e) =>
+                      ({
+                        label: labelWithFallback(e.label),
+                        action: `recent:${e.id}`,
+                      }) as MenuItem,
+                  ),
+                  { label: '---' },
+                  {
+                    label: 'Clear Recent Files',
+                    action: 'clearRecent',
+                  } as MenuItem,
+                ],
+              } as MenuItem,
+            ]
+          : []),
+        {
+          label: 'Import\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.import.binding),
+          ariaKeyshortcut: ks('import'),
+          action: 'import',
+        },
+        { label: '---' },
+        // ── Close ──
+        {
+          label: 'Close Document',
+          shortcut: formatShortcut(SHORTCUT_DEFS.tabClose.binding),
+          ariaKeyshortcut: ks('tabClose'),
+          action: 'tabClose',
+        },
+        {
+          label: 'Close Window',
+          shortcut: formatShortcut(SHORTCUT_DEFS.closeWindow.binding),
+          ariaKeyshortcut: ks('closeWindow'),
+          action: 'closeWindow',
+        },
+        { label: '---' },
+        // ── Save ──
         {
           label: 'Save',
           shortcut: formatShortcut(SHORTCUT_DEFS.save.binding),
@@ -335,6 +386,27 @@ function buildMenus(
           label: 'Save a Copy\u2026',
           action: 'saveCopy',
         },
+        { label: '---' },
+        // ── Export ──
+        {
+          label: 'Export\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
+          ariaKeyshortcut: ks('export'),
+          action: 'export',
+        },
+        {
+          label: 'Export SVG\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
+          ariaKeyshortcut: ks('exportSvg'),
+          action: 'exportSvg',
+        },
+        {
+          label: 'Export Logo Package\u2026',
+          action: 'exportLogoPackage',
+          disabled: dis('exportLogoPackage'),
+        },
+        { label: '---' },
+        // ── Document metadata ──
         {
           label: 'Document Info\u2026',
           action: 'documentInfo',
@@ -356,75 +428,7 @@ function buildMenus(
             ]
           : []),
         { label: '---' },
-        ...(recentEntries.length > 0
-          ? [
-              {
-                label: 'Open Recent',
-                disabled: true,
-                action: '',
-              } as MenuItem,
-              ...recentEntries.slice(0, 10).map(
-                (e) =>
-                  ({
-                    label: labelWithFallback(e.label),
-                    action: `recent:${e.id}`,
-                  }) as MenuItem,
-              ),
-              {
-                label: 'Clear Recent Files',
-                action: 'clearRecent',
-              } as MenuItem,
-              { label: '---' },
-            ]
-          : []),
-        {
-          label: 'Import\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.import.binding),
-          ariaKeyshortcut: ks('import'),
-          action: 'import',
-        },
-        {
-          label: 'Export SVG\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
-          ariaKeyshortcut: ks('exportSvg'),
-          action: 'exportSvg',
-        },
-        {
-          label: 'Export Logo Package\u2026',
-          action: 'exportLogoPackage',
-          disabled: dis('exportLogoPackage'),
-        },
-        {
-          label: 'Export\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
-          ariaKeyshortcut: ks('export'),
-          action: 'export',
-        },
-        { label: '---' },
-        {
-          label: 'Close Document',
-          shortcut: formatShortcut(SHORTCUT_DEFS.tabClose.binding),
-          ariaKeyshortcut: ks('tabClose'),
-          action: 'tabClose',
-        },
-        {
-          label: 'Close Window',
-          shortcut: formatShortcut(SHORTCUT_DEFS.closeWindow.binding),
-          ariaKeyshortcut: ks('closeWindow'),
-          action: 'closeWindow',
-        },
-        // macOS hosts Quit in the native app menu (Cmd+Q) — no duplicate.
-        ...(!isMac
-          ? [
-              {
-                label: 'Quit Varve',
-                shortcut: formatShortcut(SHORTCUT_DEFS.quitApp.binding),
-                ariaKeyshortcut: ks('quitApp'),
-                action: 'quitApp',
-              } as MenuItem,
-            ]
-          : []),
-        { label: '---' },
+        // ── Archive / backup ──
         ...(caps.has('archive')
           ? [
               {
@@ -448,19 +452,25 @@ function buildMenus(
               },
             ]),
         { label: '---' },
-        {
-          label: 'Present\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.present.binding),
-          ariaKeyshortcut: ks('present'),
-          action: 'present',
-        },
-        { label: '---' },
+        // ── App ──
         {
           label: 'Settings\u2026',
           shortcut: formatShortcut(SHORTCUT_DEFS.settings.binding),
           ariaKeyshortcut: ks('settings'),
           action: 'settings',
         },
+        // Quit is terminal; macOS hosts it in the native app menu (Cmd+Q).
+        ...(!isMac
+          ? [
+              { label: '---' },
+              {
+                label: 'Quit Varve',
+                shortcut: formatShortcut(SHORTCUT_DEFS.quitApp.binding),
+                ariaKeyshortcut: ks('quitApp'),
+                action: 'quitApp',
+              } as MenuItem,
+            ]
+          : []),
       ],
     },
     {
@@ -670,6 +680,12 @@ function buildMenus(
           shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
           ariaKeyshortcut: ks('toolInspect'),
           action: 'inspectMode',
+        },
+        {
+          label: 'Present\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.present.binding),
+          ariaKeyshortcut: ks('present'),
+          action: 'present',
         },
         { label: '---' },
         // Viewport
