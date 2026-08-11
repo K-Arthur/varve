@@ -34,6 +34,10 @@
   --color-accent-default: oklch(0.779 0.1229 188.31);
   --color-accent-teal: oklch(0.779 0.1229 188.31);
   --color-accent-subtle: oklch(0.934 0.0469 186.47);
+  --color-accent-on-subtle: oklch(0.2472 0.0341 195.17);
+  --color-feedback-success-strong: oklch(0.47 0.11 156);
+  --color-feedback-warning-strong: oklch(0.46 0.12 70);
+  --color-text-on-feedback: oklch(1 0 0);
   --color-tree-row: oklch(0.9755 0.0045 258.32);
   --color-tree-row-hover: oklch(0.5699 0.0308 260.28);
   --color-tree-row-selected: oklch(0.4452 0.0693 190.9);
@@ -274,6 +278,10 @@
   --color-accent-default: oklch(0.779 0.1229 188.31);
   --color-accent-teal: oklch(0.779 0.1229 188.31);
   --color-accent-subtle: oklch(0.3189 0.0468 192.89);
+  --color-accent-on-subtle: oklch(0.779 0.1229 188.31);
+  --color-feedback-success-strong: oklch(0.47 0.11 156);
+  --color-feedback-warning-strong: oklch(0.46 0.12 70);
+  --color-text-on-feedback: oklch(1 0 0);
   --color-tree-row: oklch(0.2637 0.0265 262.61);
   --color-tree-row-hover: oklch(0.5699 0.0308 260.28);
   --color-tree-row-selected: oklch(0.7873 0.1127 186.47);
@@ -376,6 +384,10 @@
   --color-accent-default: oklch(0.9519 0.2924 111.62);
   --color-accent-teal: oklch(0.9519 0.2924 111.62);
   --color-accent-subtle: oklch(0.5 0.1 111.62);
+  --color-accent-on-subtle: oklch(0.9519 0.2924 111.62);
+  --color-feedback-success-strong: oklch(0.8649 0.2979 142.49);
+  --color-feedback-warning-strong: oklch(0.8446 0.1616 82.25);
+  --color-text-on-feedback: oklch(0 0 0);
   --color-tree-row: oklch(0.0971 0 0);
   --color-tree-row-hover: oklch(0.55 0 0);
   --color-tree-row-selected: oklch(0.9519 0.2924 111.62);
@@ -480,6 +492,10 @@
     --color-accent-default: oklch(0.779 0.1229 188.31);
     --color-accent-teal: oklch(0.779 0.1229 188.31);
     --color-accent-subtle: oklch(0.3189 0.0468 192.89);
+    --color-accent-on-subtle: oklch(0.779 0.1229 188.31);
+    --color-feedback-success-strong: oklch(0.47 0.11 156);
+    --color-feedback-warning-strong: oklch(0.46 0.12 70);
+    --color-text-on-feedback: oklch(1 0 0);
     --color-tree-row: oklch(0.2637 0.0265 262.61);
     --color-tree-row-hover: oklch(0.5699 0.0308 260.28);
     --color-tree-row-selected: oklch(0.7873 0.1127 186.47);
@@ -587,6 +603,10 @@
     --color-accent-default: oklch(0.9519 0.2924 111.62);
     --color-accent-teal: oklch(0.9519 0.2924 111.62);
     --color-accent-subtle: oklch(0.5 0.1 111.62);
+    --color-accent-on-subtle: oklch(0.9519 0.2924 111.62);
+    --color-feedback-success-strong: oklch(0.8649 0.2979 142.49);
+    --color-feedback-warning-strong: oklch(0.8446 0.1616 82.25);
+    --color-text-on-feedback: oklch(0 0 0);
     --color-tree-row: oklch(0.0971 0 0);
     --color-tree-row-hover: oklch(0.55 0 0);
     --color-tree-row-selected: oklch(0.9519 0.2924 111.62);

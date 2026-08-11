@@ -192,6 +192,18 @@ export type SemanticToken =
   | 'accent-default'
   | 'accent-teal'
   | 'accent-subtle'
+  /* WCAG 1.4.3 fix (2026-08-10): accent-primary text on accent-subtle washes
+   * measured 1.60:1 in Light — no teal dark enough to pass 4.5:1 on the pale
+   * wash while staying recognizably teal, so the pair gets its own per-theme
+   * value (Light: T12, Dark: T6, HC: accent-primary). */
+  | 'accent-on-subtle'
+  /* WCAG 1.4.3 fix (2026-08-10): white text on feedback-success/warning fills
+   * measured 3.25:1 / 3.42:1, and the HC theme's bright fills with white text
+   * measured 1.37:1 / 1.64:1. Strong fills host white text in Light/Dark; the
+   * HC theme's bright fills host black text via text-on-feedback. */
+  | 'feedback-success-strong'
+  | 'feedback-warning-strong'
+  | 'text-on-feedback'
   | 'tree-row'
   | 'tree-row-hover'
   | 'tree-row-selected'
@@ -282,6 +294,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-default': T(6),
     'accent-teal': T(6),
     'accent-subtle': T(2),
+    'accent-on-subtle': T(12),
+    'feedback-success-strong': ok(0.47, 0.11, 156),
+    'feedback-warning-strong': ok(0.46, 0.12, 70),
+    'text-on-feedback': N(1),
     'tree-row': N(2),
     // WCAG 3.0 UI: N(7) L=0.570 provides 3.0:1 contrast against N(2) L=0.976 tree-row.
     'tree-row-hover': N(7),
@@ -361,6 +377,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-default': T(6),
     'accent-teal': T(6),
     'accent-subtle': T(11),
+    'accent-on-subtle': T(6),
+    'feedback-success-strong': ok(0.47, 0.11, 156),
+    'feedback-warning-strong': ok(0.46, 0.12, 70),
+    'text-on-feedback': N(1),
     'tree-row': N(11),
     // WCAG 3.0 UI: N(7) L=0.570 provides ~4:1 contrast against N(11) L=0.264 tree-row.
     'tree-row-hover': N(7),
@@ -439,6 +459,10 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'accent-default': ok(0.9519, 0.2924, 111.62),
     'accent-teal': ok(0.9519, 0.2924, 111.62),
     'accent-subtle': ok(0.5, 0.1, 111.62),
+    'accent-on-subtle': ok(0.9519, 0.2924, 111.62),
+    'feedback-success-strong': ok(0.8649, 0.2979, 142.49),
+    'feedback-warning-strong': ok(0.8446, 0.1616, 82.25),
+    'text-on-feedback': ok(0.0, 0.0, 0),
     'tree-row': ok(0.0971, 0.0, 0),
     // WCAG 3.0 UI: ok(0.55) L=0.55 provides 4.5:1 contrast against ok(0.097) tree-row.
     'tree-row-hover': ok(0.55, 0.0, 0),
@@ -503,6 +527,30 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   { name: 'text-primary on surface-app', fg: 'text-primary', bg: 'surface-app', grade: 'AA' },
   { name: 'text-secondary on surface-app', fg: 'text-secondary', bg: 'surface-app', grade: 'AA' },
   { name: 'text-muted on surface-app', fg: 'text-muted', bg: 'surface-app', grade: 'AA' },
+  {
+    name: 'accent-on-subtle on accent-subtle',
+    fg: 'accent-on-subtle',
+    bg: 'accent-subtle',
+    grade: 'AA',
+  },
+  {
+    name: 'text-on-feedback on feedback-success-strong',
+    fg: 'text-on-feedback',
+    bg: 'feedback-success-strong',
+    grade: 'AA',
+  },
+  {
+    name: 'text-on-feedback on feedback-warning-strong',
+    fg: 'text-on-feedback',
+    bg: 'feedback-warning-strong',
+    grade: 'AA',
+  },
+  {
+    name: 'text-on-feedback on feedback-danger',
+    fg: 'text-on-feedback',
+    bg: 'feedback-danger',
+    grade: 'AA',
+  },
   { name: 'text-primary on surface-raised', fg: 'text-primary', bg: 'surface-raised', grade: 'AA' },
   { name: 'text-primary on surface-sunken', fg: 'text-primary', bg: 'surface-sunken', grade: 'AA' },
   {
