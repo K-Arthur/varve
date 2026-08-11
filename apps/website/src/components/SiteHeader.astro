@@ -326,35 +326,21 @@ function isCurrent(href: string): boolean {
     position: relative;
   }
 
-  /* A soft strata-gradient glow behind the button, visible only on
-     hover/focus — the button itself stays a plain solid pill at rest, so the
-     accent reads as a response to attention rather than a fixed decoration.
-     A blurred filled shape sitting behind the pill (z-index -1) rather than
-     a composited ring: fewer moving parts, no mask-composite compatibility
-     edge cases. */
-  :global(.nav-download-cta)::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    z-index: -1;
-    border-radius: inherit;
-    background: linear-gradient(
-      120deg,
-      var(--brand-teal),
-      var(--brand-sandstone),
-      var(--brand-terracotta)
-    );
-    filter: blur(6px);
-    opacity: 0;
-    transition: opacity var(--duration-quick) var(--ease-default);
-    pointer-events: none;
+  /* Hover is a clean tonal shift plus a contact shadow — no glow. A blurred
+     gradient bloom was tried here and removed: it haloed the pill, bled
+     colour over the label, and reduced the button's own text contrast, which
+     is exactly the wrong trade for the site's primary action. The label
+     colour is never touched by hover, so whatever contrast the resting state
+     measures is the contrast the hover state measures. */
+  :global(.nav-download-cta) {
+    transition:
+      background-color var(--duration-quick) var(--ease-default),
+      box-shadow var(--duration-quick) var(--ease-default);
   }
 
-  @media (prefers-reduced-motion: no-preference) {
-    :global(.nav-download-cta:hover)::after,
-    :global(.nav-download-cta:focus-visible)::after {
-      opacity: 1;
-    }
+  :global(.nav-download-cta:hover),
+  :global(.nav-download-cta:focus-visible) {
+    box-shadow: 0 2px 10px -2px color-mix(in oklab, var(--accent-primary) 55%, transparent);
   }
 
   .mobile-menu-toggle {
