@@ -179,9 +179,11 @@ display creation (`EGL_BAD_PARAMETER`) and aborts while the window stays open
 (`APPIMAGE`-gated in `apps/desktop/src-tauri/src/lib.rs`) is NOT sufficient:
 the EGL display failure happens before renderer selection. The real fix is
 build-time: `scripts/release/prune-appimage-bundled-libs.mjs` removes the
-bundled `usr/lib` stack from the AppImage payload (verified 2026-08-11 on a
-CachyOS host: the pruned AppImage renders real content, the released one
-aborted). The AppImage then uses the host's WebKit/GTK/GStreamer/Mesa — the
+bundled `usr/lib` stack from the AppImage payload and re-assembles it with
+linuxdeploy + the AppImage output plugin (`--exclude-library '*'`, so the
+host's libraries are used — verified 2026-08-11 on a CachyOS host: the
+pruned AppImage renders real content, the released one aborted). The
+AppImage then uses the host's WebKit/GTK/GStreamer/Mesa — the
 same libraries the `.deb` depends on. The release launch smoke fails on the
 EGL/abort signature and requires a live `WebKitWebProcess`, so a white screen
 cannot pass the gate; it runs on the ubuntu-22.04 CI baseline, so it does
