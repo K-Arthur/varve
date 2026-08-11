@@ -52,10 +52,7 @@ export default defineConfig({
   ...base,
   test: {
     ...baseTest,
-    include: [
-      ...(baseTest.include ?? []),
-      ...benchInclude,
-    ],
+    include: [...(baseTest.include ?? []), ...benchInclude],
     exclude: [
       ...(baseTest.exclude ?? []).filter((p) => p !== '**/*.bench.ts'),
       'tests/e2e/**',
