@@ -164,7 +164,7 @@
 }
 
 .font-selector__badge--var {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-style: italic;
   font-weight: var(--font-weight-bold);
 }
@@ -181,7 +181,7 @@
 
 .font-selector__badge--online {
   color: var(--color-text-inverse);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
 }
 
 .font-selector__section-note {
@@ -190,7 +190,7 @@
   text-transform: none;
   letter-spacing: normal;
   font-size: var(--font-size-3xs);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   opacity: 0.8;
 }
 

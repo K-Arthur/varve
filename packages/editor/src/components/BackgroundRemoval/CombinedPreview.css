@@ -47,8 +47,8 @@
 }
 .combined-preview__bg-btn--active {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
-  border-color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
 }
 
 .combined-preview__canvas-container {
@@ -97,7 +97,7 @@
   left: 50%;
   width: 2px;
   height: 100%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   transform: translateX(-50%);
 }
 
@@ -109,7 +109,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-on-accent);
   display: flex;
   align-items: center;

@@ -111,7 +111,7 @@
 }
 
 .batch-bg-remove__method-item--active {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--elevation-surface-raised);
 }
 
@@ -128,8 +128,8 @@
 }
 
 .batch-bg-remove__method-item--active .batch-bg-remove__method-radio {
-  border-color: var(--color-accent-primary);
-  box-shadow: inset 0 0 0 4px var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  box-shadow: inset 0 0 0 4px var(--color-interactive-default);
 }
 
 .batch-bg-remove__method-label {
@@ -226,7 +226,7 @@
 
 .batch-bg-remove__status-badge--processing {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 .batch-bg-remove__status-badge--done {
@@ -255,7 +255,7 @@
   border: var(--border-micro);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium, 500);
@@ -267,7 +267,7 @@
 
 .batch-bg-remove__retry-btn:hover {
   background: var(--color-accent-subtle);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .batch-bg-remove__retry-btn:focus-visible {
@@ -291,7 +291,7 @@
 
 .batch-bg-remove__progress-fill {
   height: 100%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border-radius: var(--radius-full);
   transition: width var(--duration-normal) var(--ease-standard);
 }

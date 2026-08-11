@@ -15,7 +15,7 @@
 }
 
 .document-grid-overlay__line--baseline {
-  stroke: var(--color-accent-primary);
+  stroke: var(--color-interactive-default);
   opacity: 0.25;
 }
 

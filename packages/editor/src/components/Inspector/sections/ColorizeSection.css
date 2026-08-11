@@ -28,13 +28,13 @@
 }
 
 .colorize-section__quality-btn:hover {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   color: var(--color-text-primary);
 }
 
 .colorize-section__quality-btn--active {
-  background: var(--color-accent-primary);
-  border-color: var(--color-accent-primary);
+  background: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 
@@ -67,7 +67,7 @@
 
 .colorize-section__progress-fill {
   height: 100%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border-radius: 2px;
   transition: width 0.2s ease;
 }
@@ -113,7 +113,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   cursor: pointer;
   border: 2px solid var(--color-surface-default);
 }
@@ -149,7 +149,7 @@
 }
 
 .colorize-section__checkbox-row input[type="checkbox"] {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 .colorize-section__model-badge {
@@ -197,8 +197,8 @@
 }
 
 .colorize-dialog__workflow-tab--active {
-  color: var(--color-accent-primary);
-  border-bottom-color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
+  border-bottom-color: var(--color-interactive-default);
 }
 
 .colorize-dialog__preview {

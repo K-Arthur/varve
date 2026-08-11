@@ -211,7 +211,7 @@
   border: none;
   border-radius: var(--radius-md);
   background: var(--elevation-surface-sunken);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;

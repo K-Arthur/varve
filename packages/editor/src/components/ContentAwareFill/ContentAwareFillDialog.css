@@ -92,7 +92,7 @@
 }
 
 .caf-dialog__quality-btn--active {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
 }
 
@@ -118,7 +118,7 @@
 
 .caf-dialog__range {
   width: 100%;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 .caf-dialog__checkbox {
@@ -131,7 +131,7 @@
 }
 
 .caf-dialog__checkbox input {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 .caf-dialog__progress {
@@ -144,7 +144,7 @@
 .caf-dialog__progress-fill {
   height: 100%;
   border-radius: var(--radius-full);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   transition: width 0.2s ease;
 }
 
@@ -202,7 +202,7 @@
 .caf-dialog__toggle-btn--active,
 .caf-dialog__zoom-btn--active {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-weight: var(--font-weight-semibold);
 }
 
