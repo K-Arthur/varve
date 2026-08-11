@@ -59,18 +59,22 @@ Result: exit 0, "Already up to date", no lockfile drift.
 `node_modules`) and `fetch-onnxruntime.mjs` (downloads ~25 MB of ONNX Runtime
 from GitHub, pinned to 1.27.1 and checksum-verified **before** extraction).
 
-For a genuinely cold checkout, the bundled AI model must also be fetched — it is
-stored in Git LFS and `git clone` does not fetch LFS content by default:
+For a genuinely cold checkout, the bundled AI model weights must also be
+fetched — they are stored in Git LFS and `git clone` does not fetch LFS
+content by default:
 
 ```sh
 git lfs install --local
-git lfs pull --include="models-source/font-classify.onnx"
+git lfs pull
 node scripts/release/check-bundled-assets.mjs   # fails loudly if you skipped it
 ```
 
-Only the one-time **publisher** needs this: CI checks out with `lfs: false` and
-the release pipeline no longer requires LFS content (models are runtime
-downloads, verified by SHA-256).
+Every CI checkout (ci.yml and release.yml) uses `lfs: true`, so the release
+pipeline fetches the LFS-tracked model weights automatically. Four models
+are bundled (`u2netp`, `u2netp-int8`, `realesr-general-x4v3`,
+`realesr-general-x4v3-int8`); `font-classify.onnx` remains LFS-tracked under
+`models-source/` but is **not** bundled — the app downloads it at runtime
+from Hugging Face (see `packages/engine/src/inference/modelCatalog.ts`).
 
 ---
 
@@ -214,7 +218,8 @@ The honest way to get a first result for either is to run
 ## 6b. Versioning between releases: push gate + dev snapshot builds
 
 Releases are versioned by tag (`v0.1.0` stable, `v0.1.0-alpha.1` prerelease;
-channel policy in `update-website-manifest.mjs`). Between releases, the
+channel policy — latest published STABLE, else latest published PRERELEASE —
+lives in `fetch-website-release.mjs`). Between releases, the
 committed version is the last released one, and three things keep that from
 becoming a lie:
 
@@ -333,7 +338,7 @@ cargo fmt --all -- --check && cargo clippy --workspace --all-targets -- -D warni
 
 just package-linux
 node scripts/release/collect-artifacts.mjs --out dist/release --os linux --arch x86_64
-node scripts/release/generate-sbom.mjs --out dist/release/strata-sbom.cdx.json
+node scripts/release/generate-sbom.mjs --out dist/release/varve-sbom.cdx.json
 node scripts/release/verify-artifacts.mjs --dir dist/release
 cd dist/release && sha256sum -c SHA256SUMS.txt
 ```
