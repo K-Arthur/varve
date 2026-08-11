@@ -4,13 +4,13 @@ Local-first, cross-platform design suite. Native Rust engine on desktop
 (Tauri 2), WASM behind the same facade on web. Linux (CachyOS/Arch) is the
 primary dev OS.
 
-## Toolchain (confirmed working, 2026-08-10)
-- Rust: `~/.cargo/bin` (rustc 1.97.1 / cargo 1.97.1). Source with `. "$HOME/.cargo/env"`.
+## Toolchain (confirmed working, 2026-06-29)
+- Rust: `~/.cargo/bin` (rustc 1.96 / cargo 1.96). Source with `. "$HOME/.cargo/env"`.
 - pnpm 11.9: `~/.local/share/pnpm/bin`. Export `PNPM_HOME="$HOME/.local/share/pnpm"` and add `$PNPM_HOME/bin` to PATH.
-- just 1.58: `~/.local/bin`.
+- just 1.54: `~/.local/bin`.
 - Node 26, npm 11.16.
 - wasm32 target installed.
-- WebKitGTK 2.52.5 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
+- WebKitGTK 2.52.4 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
 - Optional: `cmake`, `xdotool` (not needed for core build).
 
 ## Regression protocol (mandatory after every architecture/system change)
@@ -25,13 +25,13 @@ After ANY change that touches:
 Run in order:
 ```bash
 pnpm format          # or format-check
-pnpm typecheck       # 20/20 packages must pass
+pnpm typecheck       # 15/15 packages must pass
 pnpm lint            # 0 new errors on touched files
 pnpm test            # full test suite must pass (excludes .bench.ts — run separately)
 pnpm bench           # benchmark mode for .bench.ts files (optional, perf-sensitive)
 pnpm audit:docs      # docs naming/index/link drift — zero violations
 pnpm audit:emoji     # zero violations
-pnpm audit:tokens    # 123/123 pairs WCAG-AA (3 themes)
+pnpm audit:tokens    # 120/120 WCAG-AA (3 themes)
 ```
 
 Failure at any step means the change introduced a regression. Fix before committing.
@@ -82,7 +82,7 @@ dependent package itself (or into `@varve/shared` if it belongs to no single own
 `EditorProvider` function body level because the provider wrappers haven't mounted yet.
 Instead, the sub-context accepts an `onReady` callback prop that reports its value back to
 `EditorProvider` via `useState`. **New sub-contexts MUST follow this pattern** — see
-`MotionProvider.onReady` in `MotionContext.tsx` and its usage at `context.tsx:9018`.
+`MotionProvider.onReady` in `MotionContext.tsx` and its usage at `context.tsx:5617`.
 
 ### ActionRegistry overwrite order
 
@@ -147,6 +147,51 @@ from `EditorProvider`:
 5. **Never split a hook call across conditionals, loops, or early returns**
 
 See `context/usePersistence.ts` and `context/useBackgroundRemoval.ts` for the pattern.
+
+### Never show pixels no fresh frame will replace
+
+Partial (dirty-rect) redraw, the camera-only worker-bitmap fast path, and
+`paintedSurfaceRef` all put previously-painted pixels on screen. Each is a
+**loan against an authoritative frame that is on its way**. The moment the
+pipeline knows no fresh frame is coming for the current state, it must fall
+back to the main-thread replay (`compositorRef.current.drawVectorItems(ir)`),
+which is always correct.
+
+Concretely, every reason the render worker might decline a frame must be
+decidable **synchronously**, before the frame picks its branch — that is what
+`admitWorkerImagePayload` exists for. An async refusal (a `.then()` that
+returns early) lands after the surface has already been painted, so the frame
+composites the previous bitmap and, with nothing new ever posted, the canvas
+freezes on it and merely reprojects it on every camera move. That is what made
+a 13-image document render one image after fit-all and smear during scroll
+(fixed 2026-08-11).
+
+Do not treat partial redraw as the general answer to "the canvas is slow", and
+do not assume it is the only thing that can put wrong pixels on screen — its
+own guards (`surfaceMatchesBackingStore`, byte-exact camera equality) were
+sound and were not the cause.
+
+When touching any pixel-reuse logic, run the oracle instead of eyeballing it:
+hash the surface after the interaction, call `window.__strataPerf.forceFullRedraw()`
+at the same camera, hash again. Equal hashes mean the screen matches what a
+full redraw would have produced. Frame-rate and handler-time metrics cannot
+detect this class of bug. Background: `docs/architecture/render-pipeline.md`
+→ "Reuse of already-painted pixels".
+
+### Screen-space vs world-space thresholds
+
+Anything compared against `clientX/Y` deltas is in CSS pixels and must not be
+scaled by zoom — it models the user's hand, which does not rescale with the
+camera. `BaseTool`'s drag threshold was `3 / zoom`, which demanded 50 CSS px of
+travel at 6% zoom and fired on 0.19 px of jitter at 1600% (fixed 2026-08-11).
+Use `worldDistanceForCssPixels` only where the result is compared against a
+world-space delta.
+
+Likewise, any overlay that draws over the artwork (SelectionOverlay, guides,
+warp handles) must use the same camera transform as the renderer —
+`screenToWorld` / `worldToScreen`, not the rotation-blind `simpleScreenToWorld`
+/ `simpleWorldToScreen`. Those agree at rotation 0, so a mismatch stays
+invisible until the view is rotated.
 
 ### The clean version is not always the fast version (render/replay hot path)
 
@@ -441,8 +486,6 @@ See `docs/architecture/text-pipeline.md`.
 | `varve-colour` | **Built** | Colour science: ICC transforms (tintbox), analytical conversion, WASM bindings |
 | `varve-bridge` | **Built** | TS wire-format → `varve-core` `SceneNode` conversion (Tauri IPC + WASM) |
 | `varve-wasm` | **Built** | wasm-bindgen glue for `varve-engine` (web IR build + hit test) |
-| `varve-effects` | **Built** | Filter/effect kernels for the render pipeline |
-| `varve-media` | **Built** | Animated image decoding: GIF, APNG, WebP frame extraction with bounded allocation |
 
 ### packages/ (TypeScript)
 | Package | Status | Contents |
@@ -464,16 +507,12 @@ See `docs/architecture/text-pipeline.md`.
 | `@varve/home` | **Built** | Home/Start surface: recent files, projects, templates, file management |
 | `@varve/layout` | **Built** | CSS-native flex/grid layout IR mirroring the `varve-layout` crate |
 | `@varve/print` | **Built** | TS facade for the `varve-print` crate: font outlining, CMYK, PDF/X |
-| `@varve/cli` | **Built** | Command-line utilities (fixtures, dev tooling) |
-| `@varve/history` | **Built** | Version-history domain model shared across packages |
-| `@varve/tokens` | **Built** | Design-token tooling shared by the token pipeline |
 
 ### apps/
 | App | Status | Contents |
 |---|---|---|
 | `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend |
 | `apps/website` | **Built** | Astro 5 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
-| `apps/web` | Stub | Next.js 15 editor with WASM engine backend — full scaffold deferred (task 0.9) |
 
 ## Release signing (code-signing pipeline)
 
