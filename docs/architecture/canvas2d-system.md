@@ -202,18 +202,21 @@ semantics are not rewritten.
 4. Define clipping, opacity, blend, mask, and effect ordering explicitly.
 5. Add unit contract tests, a structural export test, and a real pointer/render E2E.
 6. Add a visual fixture with cross-engine tolerance justified by raster semantics.
-7. Run `pnpm format`, `pnpm typecheck`, `pnpm lint`, `pnpm test`,
-   `pnpm audit:emoji`, and `pnpm audit:tokens` in that order.
+7. Run `pnpm verify:affected` (plus `pnpm format` and `pnpm lint` on the
+   changed files). This is a rendering hot path — the planner auto-selects
+   the canvas E2E and render benchmark lanes. Reserve the full suite
+   (`pnpm verify:full` with a reason) for schema/pipeline migrations.
 
 ## Key validation commands
 
 ```bash
+pnpm verify:plan          # confirm the canvas + bench lanes are selected
 pnpm bench:canvas
 npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium
 npx playwright test tests/e2e/canvas/frame-text-placement.spec.ts --project=webkit
 npx playwright test tests/e2e/canvas/zoom-stability.spec.ts --project=chromium --project=firefox --project=webkit --workers=1
 pnpm --filter @varve/desktop build
-cargo test --workspace
+cargo test -p varve-engine  # scoped crate tests; full workspace at gates
 ```
 
 Native WebKitGTK execution requires a working Tauri WebDriver dependency graph and a

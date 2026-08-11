@@ -60,17 +60,27 @@ pnpm --filter @varve/ui storybook
 
 ## Testing
 
-```bash
-# All tests
-just test
+**Validate according to impact, not repository size** — see
+[docs/quality/validation-strategy.md](../quality/validation-strategy.md).
 
-# Individual suites
+```bash
+# Impact plan for current changes (dry run — always start here)
+pnpm verify:plan
+
+# Affected-first validation (default inner loop — replaces plain `pnpm test`)
+pnpm verify:affected
+
+# Tier 0 + 1 only (format/lint on touched files + directly related tests)
+pnpm verify:quick
+
+# Individual suites (full-suite operations — reserved for explicit gates)
 just test-rust            # cargo test --workspace
 just test-js              # pnpm test (Vitest)
+just gate                 # Full Cascade Review gate
 
-# E2E (Playwright, chromium)
+# E2E (Playwright, chromium) — feature-scoped by domain directory
 npx playwright install chromium
-npx playwright test tests/e2e --project=chromium --reporter=list
+npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium --reporter=list
 
 # Single E2E file
 npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium --reporter=list
@@ -78,14 +88,20 @@ npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium --reporter
 
 ## Quality gates
 
-Before committing, run:
+For ordinary feature work, run the affected gate before committing:
 
 ```bash
-just gate
+just check-affected      # or pnpm verify:affected
 ```
 
-This runs format-check, lint, test, and the audit gates (tokens, emoji,
-docs drift, architecture health, typecheck regression).
+The full repository gate is reserved for release checkpoints,
+workspace/toolchain changes, serialization migrations, and explicit
+requests — it requires a stated reason:
+
+```bash
+VARVE_FULL_GATE_REASON="<why>" just gate-full
+```
+
 Each gate is also available individually:
 
 ```bash

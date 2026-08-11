@@ -88,11 +88,14 @@ awaiting legal review and are not yet in effect.
 2. Create a feature branch.
 3. Make your changes, following the project's code standards.
 4. Add or update tests for your changes.
-5. Ensure all quality gates pass:
+5. Ensure affected quality gates pass:
    ```bash
-   just gate
+   pnpm verify:affected   # impact-aware validation (default)
    ```
-   See [docs/development/setup.md](docs/development/setup.md) for tooling setup.
+   The full repository gate (`just gate-full`) is reserved for release
+   checkpoints and high-risk changes; it requires a stated reason
+   (`VARVE_FULL_GATE_REASON`). See
+   [docs/quality/validation-strategy.md](docs/quality/validation-strategy.md).
 6. Submit a pull request with a clear description of your changes.
 
 ## Development setup
