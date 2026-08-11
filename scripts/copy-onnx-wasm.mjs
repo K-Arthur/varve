@@ -116,12 +116,17 @@ console.log(
 // Ensure LFS-tracked model files are materialized (not pointer files).
 const modelsDir = join(repoRoot, 'apps', 'desktop', 'public', 'models');
 try {
-  // Check if any .onnx file is a LFS pointer (starts with "version https://git-lfs")
+  // Check if any .onnx file is a LFS pointer (starts with "version https://git-lfs").
+  // NOTE: the needle below is 21 chars and readFileSync().slice() must cover it
+  // all — a 20-char slice can never equal it, which silently disabled the
+  // materialization fallback (fixed 2026-08-10; CI now also checks out with
+  // lfs: true, but this path still guards shallow/third-party checkouts).
+  const LFS_POINTER_PREFIX = 'version https://git-lfs';
   let needsSmudge = false;
   for (const f of readdirSync(modelsDir)) {
     if (!f.endsWith('.onnx')) continue;
-    const head = readFileSync(join(modelsDir, f), 'utf8').slice(0, 20);
-    if (head === 'version https://git-lf') {
+    const head = readFileSync(join(modelsDir, f), 'utf8').slice(0, LFS_POINTER_PREFIX.length);
+    if (head === LFS_POINTER_PREFIX) {
       needsSmudge = true;
       break;
     }
