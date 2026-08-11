@@ -1,7 +1,7 @@
 /**
  * Tile-based export for oversized canvases.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { getCanvasSizeLimit, tiledExport } from '../export';
 
 describe('getCanvasSizeLimit', () => {
@@ -23,7 +23,7 @@ describe('getCanvasSizeLimit', () => {
 });
 
 describe('tiledExport', () => {
-  function makeRenderFn(spy?: ReturnType<typeof vi.fn>) {
+  function makeRenderFn(spy?: Mock<(v: { x: number; y: number; w: number; h: number }) => void>) {
     return (viewport: { x: number; y: number; w: number; h: number }, _dpr: number): ImageData => {
       const img = new ImageData(viewport.w, viewport.h);
       // Fill with a distinguishable pattern: top-left pixel gets tile offset
