@@ -13,7 +13,12 @@ vi.mock('../../../context', async (importOriginal) => {
 import { useEditor } from '../../../context';
 import { EffectsSection } from './EffectsSection';
 
-const mockedUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
+// Vitest 4 types mocks strictly; these tests intentionally return partial
+// context values (only the fields under test), so loosen the return slot.
+const mockedUseEditor = vi.mocked(useEditor) as unknown as {
+  (): ReturnType<typeof useEditor>;
+  mockReturnValue: (value: unknown) => void;
+};
 
 function nodeWithGlass(id: string, overrides: Record<string, unknown> = {}) {
   return {

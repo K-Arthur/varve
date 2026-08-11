@@ -251,8 +251,8 @@ describe('PenTool', () => {
     // Click within 8px of first point
     tool.onPointerDown?.(makePointerEvent(104, 103), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3];
     const pathClosed = callArgs?.[4];
     expect(pathPoints).toBeDefined();
@@ -271,7 +271,7 @@ describe('PenTool', () => {
     vi.advanceTimersByTime(500);
     tool.onPointerDown?.(makePointerEvent(200, 150, { shiftKey: true }), ctx);
 
-    const mock = ctx.createShapeAt as ReturnType<typeof vi.fn>;
+    const mock = vi.mocked(ctx.createShapeAt);
     // Path not yet committed (only 2 points, no close)
     expect(mock).not.toHaveBeenCalled();
     expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('Point'));
@@ -313,8 +313,8 @@ describe('PenTool', () => {
     // Commit
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3];
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
@@ -339,8 +339,8 @@ describe('PenTool', () => {
 
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3];
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
@@ -366,8 +366,8 @@ describe('PenTool', () => {
     tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{ handleIn: unknown; handleOut: unknown }>;
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
@@ -395,8 +395,8 @@ describe('PenTool', () => {
 
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{ handleIn: unknown; handleOut: unknown }>;
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
@@ -442,8 +442,8 @@ describe('PenTool', () => {
     tool.onPointerUp?.(makePointerEvent(200, 150), ctx);
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{
       handleIn: [number, number] | null;
       handleOut: [number, number] | null;
@@ -477,8 +477,8 @@ describe('PenTool', () => {
     tool.onPointerUp?.(makePointerEvent(300, 300), ctx);
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{
       handleOut: [number, number] | null;
       handleIn: [number, number] | null;
@@ -511,8 +511,8 @@ describe('PenTool', () => {
     tool.onPointerUp?.(makePointerEvent(300, 200), ctx);
     tool.onKeyDown?.(makeKeyEvent('Enter'), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{
       handleOut: [number, number] | null;
     }>;
@@ -564,11 +564,11 @@ describe('PenTool', () => {
     expect(ctx.createShapeAt).toHaveBeenCalled();
     expect(ctx.commitTransaction).toHaveBeenCalled();
     // begin called before createShapeAt, commit called after
-    const beginOrder = (ctx.beginTransaction as ReturnType<typeof vi.fn>).mock
+    const beginOrder = vi.mocked(ctx.beginTransaction).mock
       .invocationCallOrder[0]!;
-    const shapeAtOrder = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock
+    const shapeAtOrder = vi.mocked(ctx.createShapeAt).mock
       .invocationCallOrder[0]!;
-    const commitOrder = (ctx.commitTransaction as ReturnType<typeof vi.fn>).mock
+    const commitOrder = vi.mocked(ctx.commitTransaction).mock
       .invocationCallOrder[0]!;
     expect(beginOrder).toBeLessThan(shapeAtOrder);
     expect(shapeAtOrder).toBeLessThan(commitOrder);

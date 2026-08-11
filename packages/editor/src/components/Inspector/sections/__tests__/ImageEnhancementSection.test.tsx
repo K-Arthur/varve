@@ -17,7 +17,12 @@ vi.mock('@floating-ui/dom', () => ({
 import { useEditor } from '../../../../context';
 import { ImageEnhancementSection } from '../ImageEnhancementSection';
 
-const mockedUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
+// Vitest 4 types mocks strictly; these tests intentionally return partial
+// context values (only the fields under test), so loosen the return slot.
+const mockedUseEditor = vi.mocked(useEditor) as unknown as {
+  (): ReturnType<typeof useEditor>;
+  mockReturnValue: (value: unknown) => void;
+};
 
 function imageNode(overrides?: Record<string, unknown>) {
   return {
@@ -311,7 +316,7 @@ describe('ImageEnhancementSection — original one-shot', () => {
   afterEach(cleanup);
 
   it('opens upscale dialog and dispatches trace operations for image-filled shapes', async () => {
-    const openUpscaleDialog = vi.fn();
+    const openUpscaleDialog = vi.fn<() => void>();
     mockedUseEditor.mockReturnValue({
       ...mockedUseEditor(),
       openUpscaleDialog,
@@ -348,7 +353,7 @@ describe('ImageEnhancementSection — original one-shot', () => {
   });
 
   it('opens upscale dialog instead of inline controls', async () => {
-    const openUpscaleDialog = vi.fn();
+    const openUpscaleDialog = vi.fn<() => void>();
     mockedUseEditor.mockReturnValue({
       ...mockedUseEditor(),
       openUpscaleDialog,

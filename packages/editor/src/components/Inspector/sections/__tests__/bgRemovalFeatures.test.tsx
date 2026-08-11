@@ -14,7 +14,7 @@ import { BackgroundRemovalSection } from '../BackgroundRemovalSection';
 
 afterEach(cleanup);
 
-const mockedUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
+const mockedUseEditor = vi.mocked(useEditor);
 
 const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } = vi.hoisted(() => ({
   mockExportRemoveBg: vi.fn(),
@@ -546,25 +546,24 @@ describe('ExportDialog - Remove background toggle', () => {
 });
 
 describe('BackgroundRemovalSection - Refine mask wiring', () => {
-  it.each([
-    'quick',
-    'ai-balanced',
-    'ai-quality',
-  ] as const)('exposes Edit mask for a %s result', (method) => {
-    const node = makeImageNode({
-      backgroundRemoval: {
-        maskDataUrl: 'data:image/png;base64,mask',
-        method,
-        confidence: 0.9,
-        appliedAt: Date.now(),
-      },
-    });
-    render(<BackgroundRemovalSection nodes={[node]} />);
-    fireEvent.click(screen.getByText('Edit mask'));
-    expect(screen.getByText('Mask editor')).toBeTruthy();
-    expect(screen.getByText('Refine Mask')).toBeTruthy();
-    expect(screen.getByText('Edit trimap')).toBeTruthy();
-  });
+  it.each(['quick', 'ai-balanced', 'ai-quality'] as const)(
+    'exposes Edit mask for a %s result',
+    (method) => {
+      const node = makeImageNode({
+        backgroundRemoval: {
+          maskDataUrl: 'data:image/png;base64,mask',
+          method,
+          confidence: 0.9,
+          appliedAt: Date.now(),
+        },
+      });
+      render(<BackgroundRemovalSection nodes={[node]} />);
+      fireEvent.click(screen.getByText('Edit mask'));
+      expect(screen.getByText('Mask editor')).toBeTruthy();
+      expect(screen.getByText('Refine Mask')).toBeTruthy();
+      expect(screen.getByText('Edit trimap')).toBeTruthy();
+    },
+  );
 
   it('shows the mask editor only when background removal exists', () => {
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
