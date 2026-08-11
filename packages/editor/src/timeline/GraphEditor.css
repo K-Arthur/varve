@@ -142,7 +142,7 @@
 }
 
 .graph-editor__playhead {
-  stroke: var(--color-accent-primary);
+  stroke: var(--color-interactive-default);
   stroke-width: 1.5;
   pointer-events: none;
   opacity: 0.8;
