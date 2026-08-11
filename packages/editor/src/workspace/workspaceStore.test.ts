@@ -263,9 +263,7 @@ describe('workspaceStore — durable (platform) persistence', () => {
 
   it('records a diagnostic instead of throwing when the durable write fails', async () => {
     const platform = fakePlatform();
-    (vi.mocked(platform.setAppSetting)).mockRejectedValue(
-      new Error('quota exceeded'),
-    );
+    vi.mocked(platform.setAppSetting).mockRejectedValue(new Error('quota exceeded'));
     attachWorkspacePreferencePlatform(platform);
     updateWorkspacePreferences((p) => setPanelOverride(p, 'design', 'layers', { visible: false }));
     await flushWorkspacePreferences();

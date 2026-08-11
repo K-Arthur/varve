@@ -159,13 +159,12 @@ describe('mapBlendMode', () => {
     expect(mapBlendMode('plusLighter')).toBe('lighter');
   });
 
-  it.each([
-    'unknown',
-    'passThrough',
-    'plusDarker',
-  ])('rejects Canvas2D-incompatible mode %s', (mode) => {
-    expect(() => mapBlendMode(mode)).toThrow(`Blend mode is not available in Canvas2D: ${mode}`);
-  });
+  it.each(['unknown', 'passThrough', 'plusDarker'])(
+    'rejects Canvas2D-incompatible mode %s',
+    (mode) => {
+      expect(() => mapBlendMode(mode)).toThrow(`Blend mode is not available in Canvas2D: ${mode}`);
+    },
+  );
 });
 
 describe('blendPixels', () => {

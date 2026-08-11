@@ -330,35 +330,37 @@ describe('native raster masks', () => {
     expect(replaced.rasterMaskAssets?.['old-mask']).toBeDefined();
   });
 
-  it.each([
-    'toString',
-    'constructor',
-  ])('treats %s as an asset id only when it is an own table entry', (assetId) => {
-    const { doc, imageId } = makeImageDocument();
-    const nodeWithInheritedReference = {
-      ...doc.nodes[imageId]!,
-      mask: {
-        type: 'alpha' as const,
-        visible: true,
-        rasterMask: {
-          assetId,
-          coordinateSpace: 'source-image-pixels' as const,
-          sourceIdentity: metadataIdentity(),
+  it.each(['toString', 'constructor'])(
+    'treats %s as an asset id only when it is an own table entry',
+    (assetId) => {
+      const { doc, imageId } = makeImageDocument();
+      const nodeWithInheritedReference = {
+        ...doc.nodes[imageId]!,
+        mask: {
+          type: 'alpha' as const,
+          visible: true,
+          rasterMask: {
+            assetId,
+            coordinateSpace: 'source-image-pixels' as const,
+            sourceIdentity: metadataIdentity(),
+          },
         },
-      },
-    } as ShapeNode;
-    expect(resolveRasterMaskAsset({ rasterMaskAssets: {} }, nodeWithInheritedReference)).toBeNull();
+      } as ShapeNode;
+      expect(
+        resolveRasterMaskAsset({ rasterMaskAssets: {} }, nodeWithInheritedReference),
+      ).toBeNull();
 
-    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset(assetId));
-    expect(attached).not.toBe(doc);
-    expect(Object.hasOwn(attached.rasterMaskAssets ?? {}, assetId)).toBe(true);
-    expect(resolveRasterMaskAsset(attached, attached.nodes[imageId]!)).toEqual(
-      makeRasterAsset(assetId),
-    );
+      const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset(assetId));
+      expect(attached).not.toBe(doc);
+      expect(Object.hasOwn(attached.rasterMaskAssets ?? {}, assetId)).toBe(true);
+      expect(resolveRasterMaskAsset(attached, attached.nodes[imageId]!)).toEqual(
+        makeRasterAsset(assetId),
+      );
 
-    const removed = removeRasterMaskAsset(attached, imageId);
-    expect(Object.hasOwn(removed.rasterMaskAssets ?? {}, assetId)).toBe(false);
-  });
+      const removed = removeRasterMaskAsset(attached, imageId);
+      expect(Object.hasOwn(removed.rasterMaskAssets ?? {}, assetId)).toBe(false);
+    },
+  );
 
   it('does not resolve an inherited __proto__ value as a raster asset', () => {
     const { doc, imageId } = makeImageDocument();
@@ -576,30 +578,33 @@ describe('native raster masks', () => {
 });
 
 describe('raster mask document boundary validation', () => {
-  it.each([
-    'toString',
-    'constructor',
-  ])('rejects an inherited %s asset reference during decode', (assetId) => {
-    const { doc, imageId } = makeImageDocument();
-    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
-    const raw = JSON.parse(JSON.stringify(attached)) as Record<string, unknown>;
-    raw.rasterMaskAssets = {};
-    const node = (raw.nodes as Record<string, Record<string, unknown>>)[imageId]!;
-    const fill = (node.fills as Record<string, unknown>[])[0]!;
-    const image = fill.image as Record<string, unknown>;
-    delete image.imageWidth;
-    delete image.imageHeight;
-    const rasterMask = (node.mask as Record<string, unknown>).rasterMask as Record<string, unknown>;
-    rasterMask.assetId = assetId;
-    const identity = rasterMask.sourceIdentity as Record<string, unknown>;
-    delete identity.pixelWidth;
-    delete identity.pixelHeight;
+  it.each(['toString', 'constructor'])(
+    'rejects an inherited %s asset reference during decode',
+    (assetId) => {
+      const { doc, imageId } = makeImageDocument();
+      const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+      const raw = JSON.parse(JSON.stringify(attached)) as Record<string, unknown>;
+      raw.rasterMaskAssets = {};
+      const node = (raw.nodes as Record<string, Record<string, unknown>>)[imageId]!;
+      const fill = (node.fills as Record<string, unknown>[])[0]!;
+      const image = fill.image as Record<string, unknown>;
+      delete image.imageWidth;
+      delete image.imageHeight;
+      const rasterMask = (node.mask as Record<string, unknown>).rasterMask as Record<
+        string,
+        unknown
+      >;
+      rasterMask.assetId = assetId;
+      const identity = rasterMask.sourceIdentity as Record<string, unknown>;
+      delete identity.pixelWidth;
+      delete identity.pixelHeight;
 
-    const decoded = DocumentCodec.decode(JSON.stringify(raw));
-    expect(decoded.ok).toBe(false);
-    if (decoded.ok) return;
-    expect(decoded.error).toMatch(/missing raster mask asset/i);
-  });
+      const decoded = DocumentCodec.decode(JSON.stringify(raw));
+      expect(decoded.ok).toBe(false);
+      if (decoded.ok) return;
+      expect(decoded.error).toMatch(/missing raster mask asset/i);
+    },
+  );
 
   it('rejects structurally corrupt PNG mask payloads', () => {
     const base = pngBytes();
@@ -1020,23 +1025,23 @@ describe('raster mask document boundary validation', () => {
     expect(closure.rasterMaskAssets).toEqual({ 'mask-1': makeRasterAsset('mask-1') });
   });
 
-  it.each([
-    'toString',
-    'constructor',
-  ])('collects only an own %s raster asset in a copied node closure', (assetId) => {
-    const { doc, imageId } = makeImageDocument();
-    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset(assetId));
-    const ownClosure = DocumentCodec.collectNodeClosure(attached, [imageId]);
-    expect(Object.hasOwn(ownClosure.rasterMaskAssets ?? {}, assetId)).toBe(true);
-    expect(ownClosure.rasterMaskAssets?.[assetId]).toEqual(makeRasterAsset(assetId));
+  it.each(['toString', 'constructor'])(
+    'collects only an own %s raster asset in a copied node closure',
+    (assetId) => {
+      const { doc, imageId } = makeImageDocument();
+      const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset(assetId));
+      const ownClosure = DocumentCodec.collectNodeClosure(attached, [imageId]);
+      expect(Object.hasOwn(ownClosure.rasterMaskAssets ?? {}, assetId)).toBe(true);
+      expect(ownClosure.rasterMaskAssets?.[assetId]).toEqual(makeRasterAsset(assetId));
 
-    const missing = {
-      ...attached,
-      rasterMaskAssets: {},
-    };
-    const missingClosure = DocumentCodec.collectNodeClosure(missing, [imageId]);
-    expect(missingClosure.rasterMaskAssets).toBeUndefined();
-  });
+      const missing = {
+        ...attached,
+        rasterMaskAssets: {},
+      };
+      const missingClosure = DocumentCodec.collectNodeClosure(missing, [imageId]);
+      expect(missingClosure.rasterMaskAssets).toBeUndefined();
+    },
+  );
 
   it('removes malformed legacy background removal state with an error warning', () => {
     const { doc, imageId } = makeImageDocument();

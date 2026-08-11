@@ -95,7 +95,9 @@ describe('performance workload corpus', () => {
     expect(multi.document.activePageId).toBe('multipage-page-0');
   });
 
-  it('produces a stable checksum for every fixture across independent calls', { timeout: 180_000 }, () => {
+  it('produces a stable checksum for every fixture across independent calls', {
+    timeout: 180_000,
+  }, () => {
     // 60s timeout: generates every workload fixture twice; on loaded
     // CI/parallel-agent hosts the default 5s is routinely exceeded.
     for (const id of PERFORMANCE_WORKLOAD_IDS) {
