@@ -49,7 +49,7 @@
 }
 
 .floating-toolbar__btn--active {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 
@@ -78,6 +78,26 @@
   cursor: pointer;
   padding: 0;
   margin-right: var(--space-1);
+}
+
+/* L2 (2026-08-10): at <=640px the 19-tool row is wider than the viewport
+ * (728px measured at 430px) and the edges were clipped with no way to reach
+ * them. The palette becomes a horizontally scrollable strip within the
+ * canvas instead — every tool stays reachable on touch and via Tab. */
+@media (max-width: 640px) {
+  .floating-toolbar {
+    left: var(--space-2);
+    right: var(--space-2);
+    transform: none;
+    width: auto;
+  }
+  .floating-toolbar [role="toolbar"] {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .floating-toolbar__chevron:hover {
