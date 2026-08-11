@@ -58,6 +58,8 @@ export interface HomeShellProps {
   onReady?: () => void;
   /** When true, home is the visible surface (refresh when becoming active). */
   active?: boolean;
+  /** Open the global Settings dialog (used by the toolbar gear button). */
+  onOpenSettings?: () => void;
 }
 
 export function HomeShell({
@@ -67,6 +69,7 @@ export function HomeShell({
   onResumeEditing,
   onReady,
   active = true,
+  onOpenSettings,
 }: HomeShellProps) {
   const view = useHomeView(platform);
   const readyFired = useRef(false);
@@ -408,6 +411,10 @@ export function HomeShell({
 
   const handleFileContext = useCallback((e: React.MouseEvent, entry: FileEntry) => {
     e.preventDefault();
+    // Desktop convention: right-clicking an unselected file selects it;
+    // right-clicking inside the current multi-selection keeps the selection
+    // so context actions apply to every selected file.
+    setSelectedIds((prev) => (prev.includes(entry.id) ? prev : [entry.id]));
     setContextFile(entry);
     setContextPos({ x: e.clientX, y: e.clientY });
   }, []);
@@ -419,6 +426,15 @@ export function HomeShell({
   const handleContextAction = useCallback(
     (action: FileMenuAction) => {
       if (!contextFile) return;
+      // When the right-clicked file is part of a multi-selection, stateful
+      // actions (favorite/pin/trash/restore/purge/remove/hide) apply to every
+      // selected file; per-file actions (open/rename/duplicate/versions/
+      // locate/reveal) always target the clicked file.
+      const selected = selectedIds.includes(contextFile.id)
+        ? selectedIds
+            .map((id) => view.files.find((f) => f.id === id))
+            .filter((f): f is FileEntry => Boolean(f))
+        : [contextFile];
       switch (action) {
         case 'open':
           onOpenFile(contextFile);
@@ -434,17 +450,17 @@ export function HomeShell({
           break;
         }
         case 'favorite':
-          actions.toggleFavorite(contextFile);
+          for (const entry of selected) actions.toggleFavorite(entry);
           break;
         case 'trash':
-          actions.trash(contextFile.id);
+          for (const entry of selected) actions.trash(entry.id);
           break;
         case 'restore':
-          actions.restore(contextFile.id);
+          for (const entry of selected) actions.restore(entry.id);
           break;
         case 'purge': {
-          if (confirm('Permanently delete this file? This cannot be undone.')) {
-            actions.purge(contextFile.id);
+          if (confirm('Permanently delete these files? This cannot be undone.')) {
+            for (const entry of selected) actions.purge(entry.id);
           }
           break;
         }
@@ -452,7 +468,7 @@ export function HomeShell({
           setVersionHistoryFileId(contextFile.id);
           break;
         case 'pin':
-          actions.togglePin(contextFile);
+          for (const entry of selected) actions.togglePin(entry);
           break;
         case 'locate': {
           if (onLocateFile) {
@@ -465,30 +481,50 @@ export function HomeShell({
           break;
         }
         case 'remove': {
-          actions.purge(contextFile.id);
+          for (const entry of selected) actions.purge(entry.id);
           break;
         }
         case 'hide':
-          platform.patchRecentFile(contextFile.id, { hidden: true }).then(() => view.refresh());
+          for (const entry of selected) {
+            platform.patchRecentFile(entry.id, { hidden: true }).then(() => view.refresh());
+          }
           break;
         case 'unhide':
-          platform.patchRecentFile(contextFile.id, { hidden: false }).then(() => view.refresh());
+          for (const entry of selected) {
+            platform.patchRecentFile(entry.id, { hidden: false }).then(() => view.refresh());
+          }
+          break;
+        case 'reveal':
+          if (contextFile.filePath) {
+            void platform.revealInFileManager(contextFile.filePath);
+          }
           break;
       }
       setContextPos(null);
       setContextFile(null);
     },
-    [contextFile, actions, onOpenFile, onLocateFile, platform, handleStartRename, view.refresh],
+    [
+      contextFile,
+      selectedIds,
+      view.files,
+      actions,
+      onOpenFile,
+      onLocateFile,
+      platform,
+      handleStartRename,
+      view.refresh,
+    ],
   );
 
   const handleMoveToProject = useCallback(
     (projectId: string | null) => {
       if (!contextFile) return;
-      actions.moveToProject(contextFile.id, projectId);
+      const selected = selectedIds.includes(contextFile.id) ? selectedIds : [contextFile.id];
+      for (const id of selected) actions.moveToProject(id, projectId);
       setContextPos(null);
       setContextFile(null);
     },
-    [contextFile, actions],
+    [contextFile, selectedIds, actions],
   );
 
   const handleSelect = useCallback((id: string) => {
@@ -950,6 +986,7 @@ export function HomeShell({
             section={view.state.section}
             recentWorkspaceFilter={view.recentWorkspaceFilter}
             onRecentWorkspaceFilterChange={view.setRecentWorkspaceFilter}
+            onOpenSettings={onOpenSettings}
           />
         </div>
         {selectedIds.length > 0 && (
@@ -972,7 +1009,7 @@ export function HomeShell({
               onFavorite={() => {
                 for (const id of selectedIds) {
                   const entry = view.files.find((f) => f.id === id);
-                  if (entry) actions.togglePin(entry);
+                  if (entry) actions.toggleFavorite(entry);
                 }
                 setSelectedIds([]);
               }}
