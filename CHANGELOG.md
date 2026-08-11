@@ -12,6 +12,47 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
+(empty — released in 0.1.1)
+
+## [0.1.1] - 2026-08-11
+
+The second public release of Varve, published a few days after 0.1.0 with
+the first round of fixes and the release system itself hardened. Still alpha:
+treat it as something to try, not something to trust with work you cannot
+afford to lose.
+
+Fixes a Linux packaging defect in 0.1.0: the AppImage bundled WebKit/GTK
+libraries from the ubuntu-22.04 build baseline, and on distributions with a
+newer Mesa/EGL stack (Arch, CachyOS, Fedora) the stale bundled
+`libwayland-egl` combination made WebKit's DMA-BUF renderer fail EGL display
+creation. The web process aborted while the window stayed open — a white
+screen. The app now disables only the DMA-BUF renderer for AppImage runs, so
+the AppImage renders everywhere the deb/rpm already did.
+
+### Fixed
+
+- AppImage white screen on modern Mesa/EGL hosts: `WEBKIT_DISABLE_DMABUF_RENDERER=1`
+  is set for AppImage runs before Tauri starts (`APPIMAGE`-gated in
+  `apps/desktop/src-tauri/src/lib.rs`); GPU compositing is preserved where the
+  bundled libraries support it.
+- The release launch smoke can no longer pass on a blank window: it fails on
+  the EGL/abort signature in the app output and requires a live
+  `WebKitWebProcess`.
+- The release draft job could never create a draft (v0.1.1 rehearsal): the
+  `files` glob used a negated `!dist/release/RELEASE_NOTES.md` pattern, which
+  `softprops/action-gh-release`'s npm-glob matching treats as matching nothing,
+  so `fail_on_unmatched_files: true` aborted the job. `RELEASE_NOTES.md` is now
+  staged outside the globbed directory and the `files` list is a single
+  positive pattern; `scripts/validate-workflows.mjs` rejects any future
+  reintroduction of the negated pattern or a `body_path` inside the glob.
+- Release hardening inherited from the 0.1.0 rehearsal: frontend built before
+  desktop compilation, Git LFS fetched on every checkout (bundled models are
+  LFS-tracked), LFS-pointer guard fixed for Windows paths, per-platform SBOMs
+  generated and validated, `SHA256SUMS.txt` generated last over the complete
+  upload set, draft assets re-downloaded and re-hashed before publication,
+  native runner smokes for Windows and macOS, and a container install-test
+  for the Linux packages.
+
 ### Added
 
 - **Code-signing pipeline (certificate-ready)** — the release system now
@@ -117,46 +158,6 @@ update, not for someone reading the commit log.
 - Download page accessibility: tablist semantics with arrow-key navigation,
   copy-to-clipboard checksums with announcements, `aria-current` navigation
   state, explicit unverified-release state.
-
-## [0.1.1] - unreleased (tagged only)
-
-> **Not yet published.** The `v0.1.1` tag exists (2026-08-10) but no GitHub
-> release has been created; **v0.1.0 remains the latest published release**
-> (`release-manifest.json` still points at it). This section becomes the
-> release notes when the tag is published. The fix described here is in the
-> tree (`apps/desktop/src-tauri/src/lib.rs`), not yet in a released build.
-
-Fixes a Linux packaging defect in 0.1.0: the AppImage bundled WebKit/GTK
-libraries from the ubuntu-22.04 build baseline, and on distributions with a
-newer Mesa/EGL stack (Arch, CachyOS, Fedora) the stale bundled
-`libwayland-egl` combination made WebKit's DMA-BUF renderer fail EGL display
-creation. The web process aborted while the window stayed open — a white
-screen. The app now disables only the DMA-BUF renderer for AppImage runs, so
-the AppImage renders everywhere the deb/rpm already did.
-
-### Fixed
-
-- AppImage white screen on modern Mesa/EGL hosts: `WEBKIT_DISABLE_DMABUF_RENDERER=1`
-  is set for AppImage runs before Tauri starts (`APPIMAGE`-gated in
-  `apps/desktop/src-tauri/src/lib.rs`); GPU compositing is preserved where the
-  bundled libraries support it.
-- The release launch smoke can no longer pass on a blank window: it fails on
-  the EGL/abort signature in the app output and requires a live
-  `WebKitWebProcess`.
-- The release draft job could never create a draft (v0.1.1 rehearsal): the
-  `files` glob used a negated `!dist/release/RELEASE_NOTES.md` pattern, which
-  `softprops/action-gh-release`'s npm-glob matching treats as matching nothing,
-  so `fail_on_unmatched_files: true` aborted the job. `RELEASE_NOTES.md` is now
-  staged outside the globbed directory and the `files` list is a single
-  positive pattern; `scripts/validate-workflows.mjs` rejects any future
-  reintroduction of the negated pattern or a `body_path` inside the glob.
-- Release hardening inherited from the 0.1.0 rehearsal: frontend built before
-  desktop compilation, Git LFS fetched on every checkout (bundled models are
-  LFS-tracked), LFS-pointer guard fixed for Windows paths, per-platform SBOMs
-  generated and validated, `SHA256SUMS.txt` generated last over the complete
-  upload set, draft assets re-downloaded and re-hashed before publication,
-  native runner smokes for Windows and macOS, and a container install-test
-  for the Linux packages.
 
 ## [0.1.0] - 2026-08-09
 
