@@ -4,7 +4,7 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "composite": false,
-    "types": ["@webgpu/types"]
+    "types": ["node", "@webgpu/types"]
   },
   "include": ["src"]
 }

@@ -7,9 +7,8 @@
     "incremental": false,
     "noEmit": true,
     "sourceMap": false,
-    "baseUrl": "../..",
     "paths": {
-      "@varve/*": ["packages/*/src/index.ts"]
+      "@varve/*": ["../../packages/*/src/index.ts"]
     },
     "types": ["node"]
   },
