@@ -538,7 +538,8 @@ jobs:
         if: matrix.enabled && runner.os == 'Linux'
         run: |
           node scripts/release/prune-appimage-bundled-libs.mjs \
-            --bundle-dir apps/desktop/src-tauri/target/release/bundle
+            --bundle-dir apps/desktop/src-tauri/target/release/bundle \
+            --tools-dir "$HOME/.cache/tauri"
 
       - name: Collect artifacts
         if: matrix.enabled
