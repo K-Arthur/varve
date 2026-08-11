@@ -33,7 +33,7 @@
       // why — there is no console in a packaged build. These handlers run from
       // plain inline script, so they work even when the bundle never executes,
       // which is exactly the case that used to be invisible.
-      (function () {
+        (function () {
         var reported = false;
         function showBootError(kind, message, detail) {
           if (reported) return;
@@ -48,13 +48,18 @@
             '<p class="boot-error-kind"></p>' +
             '<pre class="boot-error-message"></pre>' +
             '<p class="boot-error-hint">Please report this with the text above at ' +
-            'github.com/K-Arthur/varve/issues</p>';
+            '<a class="boot-error-link" href="https://github.com/K-Arthur/varve/issues" ' +
+            'target="_blank" rel="noopener noreferrer">github.com/K-Arthur/varve/issues</a></p>' +
+            '<button type="button" class="boot-error-reload" autofocus>Reload</button>';
           box.innerHTML = text;
           // textContent, not innerHTML — an error message can contain markup
           // from untrusted document content.
           box.querySelector('.boot-error-kind').textContent = kind;
           box.querySelector('.boot-error-message').textContent =
             String(message) + (detail ? '\n\n' + detail : '');
+          box.querySelector('.boot-error-reload').addEventListener('click', function () {
+            location.reload();
+          });
           host.textContent = '';
           host.appendChild(box);
         }
@@ -174,6 +179,33 @@
       #varve-boot-fallback .boot-error-hint {
         margin: 0;
         color: rgb(255 255 255 / 0.65);
+      }
+      #varve-boot-fallback .boot-error-link {
+        color: #4adecc;
+      }
+      #varve-boot-fallback .boot-error-link:focus-visible {
+        outline: 2px solid #4adecc;
+        outline-offset: 2px;
+      }
+      #varve-boot-fallback .boot-error-reload {
+        margin-top: 1.25rem;
+        padding: 0.5rem 1.25rem;
+        border: none;
+        border-radius: 6px;
+        background: #39d0c6;
+        color: #10151f;
+        font: 600 14px/1 system-ui, sans-serif;
+        cursor: pointer;
+      }
+      #varve-boot-fallback .boot-error-reload:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+      }
+      #varve-boot-fallback .boot-error-reload:hover {
+        background: #4adecc;
+      }
+      #varve-boot-fallback .boot-error-reload:active {
+        background: #2ab5ac;
       }
       @media (prefers-reduced-motion: reduce) {
         #varve-boot-fallback .boot-logo-wrap::before {
