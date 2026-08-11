@@ -123,7 +123,7 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     if (!box) throw new Error('canvas not found');
     await page.mouse.dblclick(box.x + 270, box.y + 240);
     await expect(page.getByText(/isolating: rectangle.*clip/i)).toBeVisible();
-    await expect(page.getByTitle('Clipping mask source')).toBeVisible();
+    await expect(page.getByRole('img', { name: 'Clipping mask source' })).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(page.getByText(/isolating:/i)).toHaveCount(0);
@@ -179,7 +179,7 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     await expect(page.getByRole('treeitem').first()).toContainText(/ellipse.*clip/i, {
       timeout: 15000,
     });
-    await expect(page.getByTitle('Clipping mask source')).toHaveText('mask');
-    await expect(page.getByTitle('Clipped content')).toHaveText('clipped');
+    await expect(page.getByRole('img', { name: 'Clipping mask source' })).toHaveText('mask');
+    await expect(page.getByRole('img', { name: 'Clipped content' })).toHaveText('clipped');
   });
 });
