@@ -10,7 +10,7 @@
 
 export const LANES = {
   // ── Tier 0: changed-file checks ──────────────────────────────────────
-  'format:touched': 'biome format --staged',
+  'format:touched': 'biome format --staged --no-errors-on-unmatched',
   'lint:touched': 'biome check --staged --no-errors-on-unmatched',
   'lint:all': 'biome check .',
   'audit:docs': 'pnpm audit:docs',
