@@ -19,6 +19,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import benchConfig from '../../vitest.bench.config';
 import config from '../../vitest.config';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -76,6 +77,41 @@ describe('vitest bench discovery', () => {
       const admittedByInclude = (benchmark?.include ?? []).some((p) => p.startsWith('packages/'));
       const excluded = file.includes('.worktrees/');
       expect(admittedByInclude && !excluded).toBe(false);
+    }
+  });
+});
+
+describe('vitest.bench.config.ts run-mode discovery', () => {
+  // `pnpm bench:canvas` / scripts/audit-render-perf.mjs run
+  // `vitest run --config vitest.bench.config.ts`, which resolves files from
+  // `test.include` / `test.exclude` per project — NOT from the `benchmark`
+  // block. The vitest 4 migration kept `**/*.bench.ts` in the jsdom and node
+  // projects' excludes, so every bench target matched zero files ("No test
+  // files found, exiting with code 1") while the suite itself stayed green.
+  // Pin the fix: no project in the bench config may exclude `**/*.bench.ts`.
+  it('keeps .bench.ts files eligible in every run-mode project', () => {
+    const projects = benchConfig.test?.projects ?? [];
+    expect(projects.length).toBeGreaterThan(0);
+    for (const project of projects) {
+      const name = project.test?.name ?? '(root)';
+      const excludes = project.test?.exclude ?? [];
+      expect(excludes).not.toContain('**/*.bench.ts');
+      expect(
+        excludes.filter((p) => p.includes('.bench') && p.startsWith('**')),
+        `${name} project still excludes bench files`,
+      ).toEqual([]);
+    }
+  });
+
+  it('includes the repo bench globs in every run-mode project', () => {
+    const projects = benchConfig.test?.projects ?? [];
+    for (const project of projects) {
+      const name = project.test?.name ?? '(root)';
+      const includes = project.test?.include ?? [];
+      const hasBenchGlob = includes.some(
+        (p) => p.includes('*.bench.') || p.includes('__benchmarks__'),
+      );
+      expect(hasBenchGlob, `${name} project has no bench include glob`).toBe(true);
     }
   });
 });
