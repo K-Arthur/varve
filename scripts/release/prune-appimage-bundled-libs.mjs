@@ -45,7 +45,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 function parseArgs(argv) {
   const args = {};
@@ -71,7 +71,10 @@ function main() {
     return;
   }
 
-  const appImagePath = join(bundleDir, 'appimage', appImage);
+  // Resolve to an absolute path: execFileSync with `cwd` set resolves a
+  // relative command against the cwd (here: the temp dir), so the AppImage
+  // would not be found even though it exists relative to the repo root.
+  const appImagePath = resolve(join(bundleDir, 'appimage', appImage));
   const work = mkdtempSync(join(tmpdir(), 'varve-appimage-prune-'));
   const squashfsRoot = join(work, 'squashfs-root');
 
@@ -125,7 +128,7 @@ function main() {
     { stdio: 'inherit' },
   );
 
-  const output = join(bundleDir, 'appimage', appImage);
+  const output = resolve(join(bundleDir, 'appimage', appImage));
   writeFileSync(output, Buffer.concat([runtime, readFileSync(newSquash)]));
   chmodSync(output, 0o755);
 
