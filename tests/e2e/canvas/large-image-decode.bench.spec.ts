@@ -113,14 +113,16 @@ test('measure full vs preview decode for large photographs', async ({ page }) =>
       if (typeof ImageDecoder === 'undefined') return null;
       try {
         const start = performance.now();
-        const decoder = new ImageDecoder({ data: blob, type: blob.type });
-        await decoder.tracks.ready;
-        const frame = await decoder.decode({
+        const decoder = new ImageDecoder({
+          data: await blob.arrayBuffer(),
+          type: blob.type,
           desiredWidth: maxDim,
           desiredHeight: maxDim,
         });
+        await decoder.tracks.ready;
+        const frame = await decoder.decode();
         const ms = performance.now() - start;
-        const out = { ms, w: frame.image.width, h: frame.image.height };
+        const out = { ms, w: frame.image.codedWidth, h: frame.image.codedHeight };
         frame.image.close();
         decoder.close();
         return out;
