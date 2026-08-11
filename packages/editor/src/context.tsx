@@ -3931,12 +3931,17 @@ export function EditorProvider({
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: 1920, height: 1080 };
-        const [wx, wy] = editorScreenToWorld(
-          { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
-          cx,
-          cy,
-          vp,
-        );
+        // Resolve against stateRef, not the render-closure `state`: panBy and
+        // commitCamera advance stateRef synchronously (auto-pan re-dispatches
+        // the held pointer in the same tick), so a render-stale camera here
+        // makes the dragged object lag the pan by a full tick — measured as a
+        // ~17px gap under 50ms frame times during edge auto-pan.
+        const camState = {
+          zoom: stateRef.current.zoom,
+          pan: stateRef.current.pan,
+          cameraRotation: stateRef.current.cameraRotation,
+        };
+        const [wx, wy] = editorScreenToWorld(camState, cx, cy, vp);
         return { x: wx, y: wy };
       },
 
@@ -3946,7 +3951,11 @@ export function EditorProvider({
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
           : { width: 1920, height: 1080 };
         const [sx, sy] = editorWorldToScreen(
-          { zoom: state.zoom, pan: state.pan, cameraRotation: state.cameraRotation },
+          {
+            zoom: stateRef.current.zoom,
+            pan: stateRef.current.pan,
+            cameraRotation: stateRef.current.cameraRotation,
+          },
           wx,
           wy,
           vp,
@@ -3957,9 +3966,9 @@ export function EditorProvider({
       canvasDeltaToWorld: (dx, dy) => {
         const [wdx, wdy] = screenDeltaToWorld(
           toCamera({
-            zoom: state.zoom,
-            pan: state.pan,
-            cameraRotation: state.cameraRotation,
+            zoom: stateRef.current.zoom,
+            pan: stateRef.current.pan,
+            cameraRotation: stateRef.current.cameraRotation,
           }),
           dx,
           dy,
