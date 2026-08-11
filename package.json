@@ -28,7 +28,7 @@
     "audit:tokens": "pnpm --filter @varve/ui audit:tokens",
     "audit:emoji": "node scripts/audit-emoji.mjs",
     "audit:docs": "node scripts/audit-docs.mjs",
-    "audit:a11y": "echo 'axe-core runs in Playwright E2E'",
+    "audit:a11y": "playwright test tests/e2e/a11y tests/e2e/home/a11y.spec.ts tests/e2e/spec/axe.spec.ts tests/e2e/layers/axe.spec.ts tests/e2e/startup/axe.spec.ts tests/e2e/canvas/history-panel-a11y.spec.ts --project=chromium --workers=1",
     "audit:perf": "node scripts/audit-perf.mjs",
     "test:e2e": "playwright test",
     "desktop:build:test": "pnpm --dir apps/desktop tauri build --debug --no-bundle --config src-tauri/tauri.test.conf.json --features wdio",
@@ -83,7 +83,7 @@
     "stylelint": "^17.14.1",
     "stylelint-config-standard": "^40.0.0",
     "ts-node": "10.9.2",
-    "typescript": "^5.6.0",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.10"
   }
 }
