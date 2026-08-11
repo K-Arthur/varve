@@ -100,6 +100,6 @@
 }
 
 .floating-toolbar__touch-multi--active {
-  color: var(--color-accent-primary);
+  color: var(--color-accent-on-subtle);
   background: var(--color-accent-subtle);
 }
