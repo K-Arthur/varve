@@ -71,8 +71,14 @@ export const IMPACT_CONFIG = {
     'stryker.conf.json',
     // Validation infrastructure itself
     'scripts/quality/**',
-    'scripts/quality/**',
     'validation-impact.config.*',
+    // Serialization / document schema — backwards compatibility cannot be
+    // proven by affected tests alone (full-gate condition per AGENTS.md)
+    'packages/scene/src/version-migrations*.ts',
+    'packages/scene/src/version.ts',
+    'packages/scene/src/documentCodec.ts',
+    'packages/scene/src/migrateIds.ts',
+    'crates/varve-sync/src/**',
     // Release / signing / packaging infrastructure
     'apps/desktop/src-tauri/tauri.conf.json',
     'apps/desktop/src-tauri/tauri.*.conf.json',
@@ -95,10 +101,15 @@ export const IMPACT_CONFIG = {
     'packages/scene/src/document.ts',
     'packages/scene/src/document-nodes.ts',
     'packages/scene/src/node-id.ts',
-    // Serialization / file format
+    // Serialization / file format — schema migrations are full-gate
+    // conditions (backwards-compatibility cannot be proven by affected tests)
     'packages/scene/src/version-migrations*.ts',
-    'packages/scene/src/colorMigration.ts',
     'packages/scene/src/version.ts',
+    'packages/scene/src/colorMigration.ts',
+    'packages/scene/src/migrateIds.ts',
+    'packages/scene/src/documentCodec.ts',
+    'packages/scene/src/document-nodes.ts',
+    'packages/scene/src/node-id.ts',
     // Engine IR contract
     'packages/engine/src/replay.ts',
     'packages/engine/src/types.ts',
