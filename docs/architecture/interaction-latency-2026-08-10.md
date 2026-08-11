@@ -125,3 +125,52 @@ commit (format, emoji, audit-health: context.tsx 70 imports, +0).
 | WebKit validation | **NOT RUN — host limitation.** Playwright's bundled WebKit (WPE build) requires ICU 74 versioned symbols (`ureldatefmt_format_74`); the host ships ICU 78 and the system lacks WebKitGTK-6.0. Symbol shims cannot bridge a versioned-ABI break; install requires root. The Linux Tauri runtime (WebKitGTK 2.52) remains the intended validation target for WebKit semantics. |
 | Native Tauri | **In progress externally** — dev server port freed for `tauri:dev`. |
 
+
+## Follow-up pass (2026-08-11) — user-reported canvas feel
+
+Triggered by a report of two symptoms on a 13-image document: images that
+"only load when you zoom in on that particular image" (worst after fit-all),
+and scrolling that "lags and leaves after effects". Both reproduced in the
+Chromium harness with 12 spread images and were the **same** root cause, in
+the render path rather than the input path.
+
+### Findings
+
+| Finding | Evidence | Fix |
+| ------- | -------- | --- |
+| A document over the worker image-transfer budget froze on the last accepted worker bitmap | 12 spread images, fit-all at 6% zoom: painted coverage 0.004, 33 distinct colours (one image of twelve). The identical run with 8 images — one under the budget of 10 — gave 0.195 / 988. | `admitWorkerImagePayload` makes every worker-refusal reason a synchronous decision shared by the paint gate and the transfer path, so a frame with no worker render coming takes the authoritative main-thread replay instead of compositing stale pixels. See `docs/architecture/render-pipeline.md` → "Reuse of already-painted pixels". |
+| The source-count budget counted resident sources | A fully resident scene was refused forever: a refused frame transfers nothing, so residency could never grow past the cap. | Count only sources that still need transferring. |
+| Drag threshold scaled by zoom | `BaseTool` compared `clientX/Y` deltas (CSS px) against `3 / zoom`: 50 CSS px of travel required before anything moved at 6% zoom, 0.19 px at 1600%. Affected every tool. | Screen-space constant. `zoomAwareDragThreshold` renamed `worldDistanceForCssPixels` — the maths was right, the application space was not. |
+| SelectionOverlay ignored camera rotation | Handles and handle-drag pointer mapping went through `simpleScreenToWorld` / `simpleWorldToScreen`. At rotation 0 these equal the renderer's affine, so it was invisible until the view was rotated. | Shared rotation-aware `screenToWorld` / `worldToScreen` with the canvas viewport. |
+
+### Measurements (Chromium harness, 12 images, 1280x800)
+
+| Metric | Before | After |
+| ------ | ------ | ----- |
+| Painted coverage after fit-all | 0.004 | 0.294 |
+| Distinct colours after fit-all | 33 | 4252 |
+| Stale pixels after wheel scroll (4 bursts) | not measured before the fix | 0 — surface hash identical to a forced full redraw at the same camera in all 4 bursts |
+| Wheel input-to-present | — | p50 0.9 ms, p75 1.7 ms |
+
+The stale-pixel oracle (hash → `__strataPerf.forceFullRedraw()` → hash) is the
+check to run when touching pixel-reuse logic; it is what proves the "after
+effects" are gone rather than merely less visible.
+
+### Note on the scroll complaint
+
+The perceived scroll lag was not input latency — the wheel path was already
+fast (p50 0.9 ms input-to-present) and its physics were already time-based.
+It was the reprojected stale bitmap: content that does not track the camera
+reads as lag no matter how quickly the input is processed. Frame-rate and
+handler-time metrics alone would never have found this, which is why the
+oracle compares *pixels* against an authoritative redraw.
+
+### Validation
+
+| Item | Status |
+| ---- | ------ |
+| Unit: `admitWorkerImagePayload`, drag threshold across 9 zoom levels, overlay/renderer camera agreement across 5 cameras | PASS. The overlay test fails 4/6 against the old transform and passes 6/6 after; the 2 that pass either way are the unrotated cases the old code got right. |
+| E2E `many-image-render.spec.ts` (Chromium) | PASS |
+| Workspace typecheck (15 packages + e2e) | PASS — 0 errors (was 7, all pre-existing) |
+| Native Tauri / WebKitGTK | NOT RUN. The user's report came from that runtime; the fix is renderer-path logic shared by both, but the WebKitGTK worker-eligibility path differs and remains unverified here. |
+| Firefox / WebKit browser | NOT RUN this pass |
