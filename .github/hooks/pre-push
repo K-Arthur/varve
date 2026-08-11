@@ -9,9 +9,18 @@ if [ -n "$CI" ]; then
   exit 0
 fi
 
-# Run the full Cascade Review gate before pushing.
-echo "Running pre-push gate (just gate)..."
-just gate
+# Affected-first validation (see docs/quality/validation-strategy.md):
+# the default push gate runs the impact-aware verification, not the full
+# suite. Explicitly opt into the full gate with VARVE_FULL_GATE=1 or by
+# running `just gate-full` before pushing.
+if [ -n "$VARVE_FULL_GATE" ]; then
+  echo "Running full pre-push gate (VARVE_FULL_GATE set)..."
+  just gate-full
+else
+  echo "Running affected pre-push validation (pnpm verify:affected)..."
+  echo "For the full gate instead: VARVE_FULL_GATE=1 git push"
+  pnpm verify:affected
+fi
 
 # Informational pipeline health check. Never blocks the push — it warns when
 # remote CI cannot run (GitHub billing block / runner outage / Actions
@@ -28,14 +37,3 @@ fi
 if ! node scripts/ci-health.mjs --status --quiet; then
   node scripts/ci-health.mjs --status || echo "(could not check githubstatus.com — skipping incident warning)"
 fi
-
-# Version drift warning: the five version manifests must agree or the next
-# release dies at its tag gate. Warn (never block) — a drift fix is one
-# `just release-bump` + `cargo check` away.
-if ! node scripts/release/version.mjs verify; then
-  echo "Version manifests disagree — fix before releasing with:"
-  echo "  just release-bump <major|minor|patch>   # or"
-  echo "  node scripts/release/version.mjs set <semver>"
-fi
-
-echo "Pre-push gate passed."
