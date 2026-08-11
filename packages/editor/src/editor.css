@@ -1052,16 +1052,16 @@ input[type="number"] {
   margin-left: var(--space-1);
 }
 .editor-status__score-badge--good {
-  background: var(--color-feedback-success, #2e7d32);
-  color: var(--color-on-primary, #fff);
+  background: var(--color-feedback-success-strong, #2e7d32);
+  color: var(--color-text-on-feedback, #fff);
 }
 .editor-status__score-badge--warn {
-  background: var(--color-feedback-warning, #f57c00);
-  color: var(--color-on-primary, #fff);
+  background: var(--color-feedback-warning-strong, #f57c00);
+  color: var(--color-text-on-feedback, #fff);
 }
 .editor-status__score-badge--bad {
   background: var(--color-feedback-danger, #d32f2f);
-  color: var(--color-on-primary, #fff);
+  color: var(--color-text-on-feedback, #fff);
 }
 
 /* ── Shortcut tip chip (StatusBar) ──────────────────── */

@@ -243,7 +243,7 @@
 }
 .sidebar-item--active {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
+  color: var(--color-accent-on-subtle);
   font-weight: var(--font-weight-medium);
 }
 .sidebar-item-row {
@@ -252,7 +252,7 @@
   padding-right: var(--space-1);
 }
 .sidebar-item-row--drop-target {
-  outline: 2px dashed var(--color-accent-primary);
+  outline: 2px dashed var(--color-accent-on-subtle);
   outline-offset: -2px;
   border-radius: var(--radius-sm);
   background: var(--color-accent-subtle);
@@ -372,7 +372,7 @@
   font-size: var(--font-size-xs);
 }
 .sidebar-item--active .sidebar-item__count {
-  color: var(--color-text-on-accent);
+  color: var(--color-accent-on-subtle);
 }
 .sidebar-item__pin {
   margin-left: auto;
@@ -2837,13 +2837,11 @@
   bottom: var(--space-2);
   right: var(--space-2);
   z-index: var(--z-floating, 100);
-  opacity: 0.7;
-  transition: opacity var(--duration-quick) var(--ease-standard);
+  /* WCAG 1.4.3 fix (2026-08-10): opacity: 0.7 blended the label text 30%
+   * toward the background, dropping its rendered contrast to 4.21:1. The
+   * chip keeps its muted look via the sunken surface + border. */
   --color-text-muted: var(--color-text-muted-on-sunken);
   --color-text-subtle: var(--color-text-subtle-on-sunken);
-}
-.perf-profile:hover {
-  opacity: 1;
 }
 .perf-profile__stat {
   display: inline-flex;
