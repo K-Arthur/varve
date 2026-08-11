@@ -596,8 +596,8 @@ describe('ScaleTool — multi-object relative position', () => {
     const updaters = ctx.updateNodes.mock.calls[0][0] as Array<{ update: (n: unknown) => unknown }>;
     const fnA = updaters[0]!.update;
     const fnB = updaters[1]!.update;
-    const uA = fnA(nodeA);
-    const uB = fnB(nodeB);
+    const uA = fnA(nodeA) as typeof nodeA;
+    const uB = fnB(nodeB) as typeof nodeB;
     expect(uA.transform[0]).toBeCloseTo(3, 5);
     expect(uB.transform[0]).toBeCloseTo(3, 5);
   });
@@ -674,11 +674,11 @@ describe('ScaleTool — multi-object relative position', () => {
     const updaters = ctx.updateNodes.mock.calls[0][0] as Array<{ update: (n: unknown) => unknown }>;
     const fnA = updaters[0]!.update;
     const fnB = updaters[1]!.update;
-    const uA = fnA(nodeA);
-    const uB = fnB(nodeB);
+    const uA = fnA(nodeA) as typeof nodeA;
+    const uB = fnB(nodeB) as typeof nodeB;
 
-    const decA = decomposeAffine(uA.transform as Affine);
-    const decB = decomposeAffine(uB.transform as Affine);
+    const decA = decomposeAffine(uA.transform);
+    const decB = decomposeAffine(uB.transform);
     expect(decA).not.toBeNull();
     expect(decB).not.toBeNull();
     // Individual rotations preserved (not reset to a common value)

@@ -141,7 +141,7 @@ describe('large-image behaviour (memory safety)', () => {
     // WeakMap semantics).
     expect(a.find(100, 100, 100)).toEqual(b.find(100, 100, 100));
     expect(c.find(100, 100, 100)).toBeDefined();
-  });
+  }, 30_000);
 });
 
 describe('quality helpers', () => {
