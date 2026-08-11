@@ -500,8 +500,14 @@ test.describe('focus and keyboard', () => {
 
 test.describe('anchor navigation under the sticky header', () => {
   test('hash target clears the sticky header', async ({ page }) => {
+    // Neutralize smooth scrolling before the navigation: html has
+    // `scroll-behavior: smooth`, whose animation duration is not bounded and
+    // is slower under parallel load — a fixed sleep is a race. With instant
+    // scrolling the hash jump lands exactly at the scroll-padding offset, so
+    // the assertion measures the layout contract, not scroll timing.
+    await page.addStyleTag({ content: 'html { scroll-behavior: auto !important; }' });
     await page.goto('/about/license#user-rights-summary');
-    await page.waitForTimeout(700);
+    await page.waitForTimeout(300);
     const target = page.locator('#user-rights-summary');
     await expect(target).toBeVisible();
     const top = await target.evaluate((el) => el.getBoundingClientRect().top);
