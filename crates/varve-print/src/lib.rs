@@ -4524,8 +4524,9 @@ mod tests {
                         s.dict
                             .get(b"Subtype")
                             .ok()
-                            .and_then(|o| o.as_name_str().ok()),
-                        Some("Image")
+                            .and_then(|o| o.as_name().ok())
+                            .map(|b| String::from_utf8_lossy(b).into_owned()),
+                        Some("Image".to_string())
                     );
                     assert_eq!(
                         s.dict.get(b"Width").ok().and_then(|o| o.as_i64().ok()),

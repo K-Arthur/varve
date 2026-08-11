@@ -9,7 +9,7 @@ repository.workspace = true
 
 [dependencies]
 varve-core = { path = "../varve-core" }
-taffy = { version = "0.11", features = [] }
+taffy = { version = "0.13", features = [] }
 serde = { version = "1", features = ["derive"] }
 
 [lints]

@@ -25,7 +25,7 @@ serde_json = "1"
 chrono = "0.4"
 varve-core = { path = "../../../crates/varve-core" }
 varve-engine = { path = "../../../crates/varve-engine" }
-notify = "6"
+notify = "8"
 font-enumeration = "0.9"
 varve-sync = { path = "../../../crates/varve-sync" }
 varve-print = { path = "../../../crates/varve-print" }
@@ -38,16 +38,16 @@ varve-media = { path = "../../../crates/varve-media" }
 image = "0.25"
 arboard = { version = "3", features = ["wayland-data-control"] }
 tauri-plugin-fs = "2"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-sha2 = "0.10"
-base64 = "0.22"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+sha2 = "0.11"
+base64 = "0.23"
 # WDIO testing plugins (debug-only, excluded from release builds)
 tauri-plugin-wdio = { version = "=1.2.0", optional = true }
 tauri-plugin-wdio-webdriver = { version = "=1.2.0", optional = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
 # Wayland/KDE icon matching: g_set_prgname must equal the .desktop filename stem.
-glib = "0.20"
+glib = "0.22"
 # Reaching the raw WebKitGTK view to intercept its touchpad pinch page-zoom.
 # Pinned to the exact version wry links against so both share one GObject type
 # registry — a mismatched copy would hand back a foreign, unusable WebView.
