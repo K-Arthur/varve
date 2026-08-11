@@ -84,6 +84,15 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    pre-decodes on the main thread; `sceneCanUseWorkerRenderer` gates the worker path
    until every image src is loaded. Until then, main-thread replay applies.
 
+3. **Never composite a stale surface unless a fresh one is actually coming.**
+   Reusing already-painted pixels — a partial redraw, or a reprojected worker
+   bitmap — is only legitimate while a fresh authoritative render is on its way
+   to replace them. The moment the pipeline knows no fresh frame is coming for
+   the current state, it must fall back to the authoritative main-thread replay
+   (`compositorRef.current.drawVectorItems(ir)`), not keep showing the old
+   pixels. See "Reuse of already-painted pixels" below; this invariant is what
+   the many-image regression violated.
+
 ## WebGPU Compositor (2026-07-11; ownership invert 2026-07-13)
 
 | Feature | Implementation |
@@ -177,6 +186,65 @@ The compensation transform accounts for:
 - DPR scaling
 
 The worker asynchronously delivers a fresh render; once available, the next frame replaces the compensated bitmap.
+
+**The fast path is a loan against a frame that is on its way.** It is only
+correct while a fresh authoritative render really is coming. If it never
+arrives, the compensated bitmap is not a fast path — it is the scene, frozen,
+being resampled on every camera move. See "Reuse of already-painted pixels".
+
+## Reuse of already-painted pixels
+
+Three mechanisms show the user pixels that were not rendered for the current
+state: partial (dirty-rect) redraw, the camera-only fast path above, and
+`paintedSurfaceRef`. They are performance optimisations layered over one
+correctness rule:
+
+> Retained pixels must always equal what a full redraw of the same state would
+> have produced — or be a deliberate, *temporary* approximation that a fresh
+> authoritative frame is already scheduled to replace.
+
+Partial redraw is **not** the general answer to "the canvas is slow", and it is
+not the only thing that can put wrong pixels on screen. It is already guarded:
+`surfaceMatchesBackingStore` demands byte-exact camera and surface equality, so
+any pan/zoom/rotation/resize forces a full redraw. Those guards are sound and
+were not the cause of the 2026-08-11 regression.
+
+The failure mode that is easy to reintroduce is the *other* one: a frame that
+takes the worker branch, composites the cached bitmap, and then discovers
+asynchronously that no fresh frame will be produced. `collectImageBitmaps`
+refuses a frame for several reasons (manifest over the transfer budget,
+masked fills the worker cannot composite, unregistered resource handles), and
+its refusal lands in a `.then()` — long after the surface was painted. With no
+new frame ever posted, the surface stayed pinned to the last accepted worker
+bitmap and every camera change merely reprojected it.
+
+Observed symptoms, all from that one cause:
+
+- A 13-image document rendered the images that existed when the last accepted
+  worker frame was produced, and nothing after.
+- Fit-all looked like "images fail to load"; zooming into a single image
+  "fixed" it, because culling dropped the visible manifest back under the
+  budget so the worker could render again.
+- Panning smeared the old frame instead of repainting it.
+
+**Rules for anyone touching this path:**
+
+1. Every reason the worker might not produce a frame must be decidable
+   **synchronously**, before the frame chooses its branch. That is what
+   `admitWorkerImagePayload` is for; `collectImageBitmaps` calls the same
+   function, so the paint gate and the transfer path cannot disagree.
+2. If the answer is "no worker frame", render through
+   `compositorRef.current.drawVectorItems(ir)`. The main-thread replay is the
+   authoritative renderer; falling back to it is always correct, never a bug.
+3. Budgets that gate the worker must count what is actually being transferred.
+   The source-count budget originally counted resident sources too, so a fully
+   resident scene was refused forever — a refused frame transfers nothing, so
+   residency could never grow past the cap.
+4. When changing any of this, run the oracle rather than eyeballing it: hash
+   the surface after an interaction, call `window.__strataPerf.forceFullRedraw()`
+   at the same camera, hash again. Equal hashes mean every pixel on screen is
+   what a full redraw would have produced. `tests/e2e/canvas/many-image-render.spec.ts`
+   is the coverage-based regression guard for the specific failure above.
 
 ### sceneCompositing cache
 `sceneNeedsStructuralCompositing()` caches its result per document reference. Without caching, it scans every node on every frame to decide worker vs. main-thread path.
