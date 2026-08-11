@@ -5,7 +5,7 @@ import {
   hasGenuineStylusData,
   inputToStrokePoint,
   normalizeInputEvent,
-  zoomAwareDragThreshold,
+  worldDistanceForCssPixels,
 } from '../inputNormalizer';
 
 function makePointerEvent(overrides: Partial<PointerEvent> = {}): PointerEvent {
@@ -271,21 +271,21 @@ describe('hasGenuineStylusData', () => {
   });
 });
 
-describe('zoomAwareDragThreshold', () => {
+describe('worldDistanceForCssPixels', () => {
   it('returns cssPixels at zoom=1', () => {
-    expect(zoomAwareDragThreshold(3, 1)).toBe(3);
+    expect(worldDistanceForCssPixels(3, 1)).toBe(3);
   });
 
-  it('returns smaller threshold at higher zoom', () => {
-    expect(zoomAwareDragThreshold(3, 2)).toBe(1.5);
+  it('returns fewer world units at higher zoom', () => {
+    expect(worldDistanceForCssPixels(3, 2)).toBe(1.5);
   });
 
-  it('returns larger threshold at lower zoom', () => {
-    expect(zoomAwareDragThreshold(3, 0.5)).toBe(6);
+  it('returns more world units at lower zoom', () => {
+    expect(worldDistanceForCssPixels(3, 0.5)).toBe(6);
   });
 
   it('handles invalid zoom gracefully', () => {
-    expect(zoomAwareDragThreshold(3, 0)).toBe(3);
+    expect(worldDistanceForCssPixels(3, 0)).toBe(3);
   });
 });
 
