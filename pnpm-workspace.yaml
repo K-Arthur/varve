@@ -26,3 +26,6 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - '@testing-library/jest-dom@7.0.1'
+
+patchedDependencies:
+  jsdom@30.0.1: patches/jsdom@30.0.1.patch
