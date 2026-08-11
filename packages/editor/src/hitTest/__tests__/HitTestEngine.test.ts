@@ -268,7 +268,9 @@ describe('HitTestEngine', () => {
       return { ...doc, rootChildren: ids };
     }
 
-    it('hitTest scales near-linearly with candidate count, not quadratically', { timeout: 60_000 }, () => {
+    it('hitTest scales near-linearly with candidate count, not quadratically', {
+      timeout: 60_000,
+    }, () => {
       // 60s timeout: this is a ratio guard (largeMs < smallMs*20), not an
       // absolute-time guard; on loaded CI/parallel-agent hosts the doc setup
       // (2400 nodes) alone can exceed vitest's 5s default.
@@ -295,7 +297,9 @@ describe('HitTestEngine', () => {
       expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 200));
     });
 
-    it('findNodesAtPoint scales near-linearly with candidate count, not quadratically', { timeout: 60_000 }, () => {
+    it('findNodesAtPoint scales near-linearly with candidate count, not quadratically', {
+      timeout: 60_000,
+    }, () => {
       // 60s timeout: same rationale as the hitTest ratio guard above.
       const small = makeStackedDoc(300);
       const large = makeStackedDoc(2400);

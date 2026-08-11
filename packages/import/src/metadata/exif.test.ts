@@ -43,19 +43,21 @@ describe('parseExifOrientation', () => {
     expect(parseExifOrientation(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]))).toBe(1);
   });
 
-  it.each(
-    ORIENTATION_MATRICES,
-  )('reads orientation $orientation from a little-endian JPEG Exif segment', ({ orientation }) => {
-    const jpeg = buildJpegWithExifOrientation(orientation, true);
-    expect(parseExifOrientation(jpeg)).toBe(orientation);
-  });
+  it.each(ORIENTATION_MATRICES)(
+    'reads orientation $orientation from a little-endian JPEG Exif segment',
+    ({ orientation }) => {
+      const jpeg = buildJpegWithExifOrientation(orientation, true);
+      expect(parseExifOrientation(jpeg)).toBe(orientation);
+    },
+  );
 
-  it.each(
-    ORIENTATION_MATRICES,
-  )('reads orientation $orientation from a big-endian JPEG Exif segment', ({ orientation }) => {
-    const jpeg = buildJpegWithExifOrientation(orientation, false);
-    expect(parseExifOrientation(jpeg)).toBe(orientation);
-  });
+  it.each(ORIENTATION_MATRICES)(
+    'reads orientation $orientation from a big-endian JPEG Exif segment',
+    ({ orientation }) => {
+      const jpeg = buildJpegWithExifOrientation(orientation, false);
+      expect(parseExifOrientation(jpeg)).toBe(orientation);
+    },
+  );
 
   it('reads orientation from a standalone little-endian TIFF', () => {
     expect(parseExifOrientation(buildTiffWithOrientation(6, true))).toBe(6);
