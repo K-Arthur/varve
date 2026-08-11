@@ -516,7 +516,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         'Press B for the Brush tool. Use [ and ] to resize.',
         'Hold Shift while drawing for straight lines.',
         'Right-click (or Alt+click) for the color picker.',
-        'Toggle distraction-free mode with Ctrl+Shift+Period.',
+        'Toggle distraction-free mode with Ctrl+Shift+>.',
         'Pressure and tilt are mapped when using a stylus.',
       ],
     },
