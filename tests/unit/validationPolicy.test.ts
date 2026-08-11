@@ -189,4 +189,11 @@ describe('planner fixture classes', () => {
     const plan = buildPlan(['pnpm-lock.yaml']);
     expect(plan.full).toBe(true);
   });
+
+  it('serialization/schema change -> escalates to full', () => {
+    const plan = buildPlan(['packages/scene/src/version-migrations-v220.ts']);
+    expect(plan.full).toBe(true);
+    const sync = buildPlan(['crates/varve-sync/src/lib.rs']);
+    expect(sync.full).toBe(true);
+  });
 });

@@ -47,7 +47,7 @@ function cmd(argv) {
   const res = spawnSync(argv[0], argv.slice(1), {
     cwd: ROOT,
     stdio: 'inherit',
-    shell: true,
+    shell: false,
     env: { ...process.env, PATH },
   });
   if (res.error) {
@@ -55,6 +55,10 @@ function cmd(argv) {
     return 1;
   }
   return res.status ?? 1;
+}
+
+function shCmd(str) {
+  return cmd(['sh', '-c', str]);
 }
 
 function runVitestFiles(files) {
@@ -138,7 +142,7 @@ function runLane(lane) {
       'bench:table': 'pnpm bench:table',
       'bench:table-layout': 'pnpm bench:table-layout',
     }[lane];
-    status = cmd(['sh', '-c', benchCmd]);
+    status = shCmd(benchCmd);
   } else {
     const base = LANES[lane] ?? lane;
     let argv;
@@ -183,6 +187,7 @@ function runLane(lane) {
 }
 
 function main() {
+  const runStart = Date.now();
   const args = process.argv.slice(2);
   const mode = args[0];
   const planOpts = parseArgs(['node', 'x', ...args.slice(1)]);
@@ -237,13 +242,12 @@ function main() {
       ['pnpm', 'e2e:visual'],
     ];
     for (const h of heavy) {
-      const st = cmd([
-        'node',
-        'scripts/quality/heavy-lease.mjs',
-        ...h.slice(0, 1),
-        '--',
-        ...h.slice(1),
-      ]);
+      // heavy-lease takes a LABEL before `--` and the full command after it.
+      // The label is the first argv token ('pnpm' for 'pnpm test:ci:tools'),
+      // but the command must be the ENTIRE argv — passing the remainder
+      // (`h.slice(1)`) spawned 'test:ci:tools' as a bare executable and
+      // failed with ENOENT before the gate could run.
+      const st = cmd(['node', 'scripts/quality/heavy-lease.mjs', h[0], '--', ...h]);
       if (st !== 0) process.exit(st);
     }
     console.log('Full gate passed.');
@@ -286,8 +290,8 @@ function main() {
     process.exit(2);
   }
 
-  const tAll = ((Date.now() - 0) / 1000).toFixed(1);
-  console.log(`\nTotal: ${tAll}s`);
+  const tAll = (Date.now() - runStart) / 1000;
+  console.log(`\nTotal: ${tAll.toFixed(1)}s`);
 }
 
 main();
