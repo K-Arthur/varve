@@ -4,6 +4,7 @@ import {
   computeSourceFingerprint,
   type SubjectIsolationRequest,
   SubjectIsolationService,
+  type SubjectIsolationEngine,
 } from './SubjectIsolationService';
 
 function makeImageData(width = 100, height = 80): ImageData {
@@ -198,9 +199,7 @@ describe('computePlacementRevision', () => {
 
 describe('SubjectIsolationService', () => {
   let service: SubjectIsolationService;
-  let mockEngine: {
-    removeBackground: ReturnType<typeof vi.fn>;
-  };
+  let mockEngine: { removeBackground: SubjectIsolationEngine['removeBackground'] };
 
   beforeEach(() => {
     mockEngine = {

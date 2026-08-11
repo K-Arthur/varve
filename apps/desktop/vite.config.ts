@@ -75,12 +75,17 @@ export default defineConfig({
   envPrefix: ['VITE_', 'TAURI_'],
   build: {
     target: process.env.TAURI_PLATFORM === 'windows' ? 'chrome105' : 'safari14',
-    minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
+    // Vite 8 (Rolldown/Oxc): `minify: 'esbuild'` is deprecated and the
+    // default minifier is now Oxc. Debug builds stay unminified.
+    minify: process.env.TAURI_DEBUG ? false : undefined,
     sourcemap: !!process.env.TAURI_DEBUG,
-    rollupOptions: {
+    // Vite 8 removed the object form of `output.manualChunks`; the Rolldown
+    // equivalent is `output.codeSplitting.groups` (keeps onnxruntime-web in
+    // its own chunk so the WASM loader path is stable).
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          onnxruntime: ['onnxruntime-web'],
+        codeSplitting: {
+          groups: [{ name: 'onnxruntime', test: /onnxruntime-web/ }],
         },
       },
     },

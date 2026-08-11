@@ -38,8 +38,8 @@ function imageItem(...srcs: string[]): RenderItem {
 const mockWorkers: Array<{
   onmessage: ((e: MessageEvent) => void) | null;
   onerror: (() => void) | null;
-  postMessage: ReturnType<typeof vi.fn>;
-  terminate: ReturnType<typeof vi.fn>;
+  postMessage: (msg: unknown) => void;
+  terminate: () => void;
 }> = [];
 
 class MockWorker {
