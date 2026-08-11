@@ -9,8 +9,11 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Both builds are produced by `pnpm build:website:both` before the run.
  */
-const GH_PAGES_PORT = 4321;
-const CUSTOM_PORT = 4322;
+// Overridable so the suite can run alongside a website dev server, which
+// occupies 4321 by default. Without this the run aborts with "port already
+// used" and the only way out is killing the developer's own dev server.
+const GH_PAGES_PORT = Number(process.env.VARVE_WEBSITE_E2E_PORT ?? 4321);
+const CUSTOM_PORT = Number(process.env.VARVE_WEBSITE_E2E_PORT_ROOT ?? 4322);
 
 export default defineConfig({
   testDir: './apps/website/tests/e2e',
@@ -23,13 +26,13 @@ export default defineConfig({
   expect: { timeout: 10000 },
   webServer: [
     {
-      command: 'node apps/website/scripts/serve-dist.mjs 4321 apps/website/dist',
+      command: `node apps/website/scripts/serve-dist.mjs ${GH_PAGES_PORT} apps/website/dist`,
       port: GH_PAGES_PORT,
       reuseExistingServer: false,
       timeout: 15000,
     },
     {
-      command: 'node apps/website/scripts/serve-dist.mjs 4322 apps/website/dist-root',
+      command: `node apps/website/scripts/serve-dist.mjs ${CUSTOM_PORT} apps/website/dist-root`,
       port: CUSTOM_PORT,
       reuseExistingServer: false,
       timeout: 15000,
