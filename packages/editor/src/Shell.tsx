@@ -443,7 +443,7 @@ function ShellInner({
           document={editor.state.document}
           worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
-        {!hidePageNav && !distractionFreeMode && (
+        {!hidePageNav && !distractionFreeMode && pageCount > 0 && (
           <div className="page-nav-container">
             <PageNav />
           </div>

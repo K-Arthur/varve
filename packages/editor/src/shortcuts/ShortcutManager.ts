@@ -513,7 +513,9 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   toggleDistractionFree: {
-    binding: { key: '.', ctrl: true, shift: true },
+    // Shift+. produces e.key '>' — bindingMatchesEvent compares e.key, so a
+    // '.' key with shift:true could never fire.
+    binding: { key: '>', ctrl: true, shift: true },
     label: 'Toggle Distraction-Free Mode',
     category: 'View',
   },

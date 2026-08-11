@@ -71,26 +71,17 @@ test.describe('Print Mode — Preflight panel', () => {
     // Design mode (default): no preflight badge in the status bar.
     await expect(page.locator('.preflight-warnings__badge')).toHaveCount(0);
 
-    await page
-      .locator('.workspace-tabs__tab')
-      .filter({ hasText: /^Print$/ })
-      .click();
+    await page.locator('.workspace-tabs__tab[aria-label="Print workspace"]').click();
     await expect(page.locator('.preflight-warnings__badge')).toBeVisible();
 
-    await page
-      .locator('.workspace-tabs__tab')
-      .filter({ hasText: /^Draw$/ })
-      .click();
+    await page.locator('.workspace-tabs__tab[aria-label="Draw workspace"]').click();
     await expect(page.locator('.preflight-warnings__badge')).toHaveCount(0);
   });
 
   test('opens the panel and shows a detected issue plus which checks are not verified', async ({
     page,
   }) => {
-    await page
-      .locator('.workspace-tabs__tab')
-      .filter({ hasText: /^Print$/ })
-      .click();
+    await page.locator('.workspace-tabs__tab[aria-label="Print workspace"]').click();
     const badge = page.locator('.preflight-warnings__badge');
     await expect(badge).toBeVisible();
     await badge.click();
@@ -107,10 +98,7 @@ test.describe('Print Mode — Preflight panel', () => {
   test('resolving the underlying issue clears the preflight badge to a clean state', async ({
     page,
   }) => {
-    await page
-      .locator('.workspace-tabs__tab')
-      .filter({ hasText: /^Print$/ })
-      .click();
+    await page.locator('.workspace-tabs__tab[aria-label="Print workspace"]').click();
     const badge = page.locator('.preflight-warnings__badge');
     await expect(badge).toBeVisible();
     await expect(badge).toHaveAttribute('aria-label', /errors/i);
