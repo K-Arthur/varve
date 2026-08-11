@@ -242,11 +242,11 @@ test.describe('Content-Aware Fill dialog', () => {
     await newBtn.click({ force: true, timeout: 30_000 });
     await page
       .locator('dialog[open]')
-      .getByRole('button', { name: /^create$/i })
+      .getByRole('button', { name: /^create design$/i })
       .waitFor({ timeout: 5000 });
     await page
       .locator('dialog[open]')
-      .getByRole('button', { name: /^create$/i })
+      .getByRole('button', { name: /^create design$/i })
       .click({ timeout: 10_000 });
     await page.locator('.layers-panel').waitFor({ timeout: 15_000 });
 
