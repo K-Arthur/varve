@@ -56,7 +56,7 @@ import {
   sceneNodeToEngineNode,
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
-import { workerSourceCapFor } from '../render/collectImageBitmaps';
+import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import {
   collectMasterOffsets,
@@ -1564,7 +1564,25 @@ export function renderContent(deps: RenderContentDeps): void {
 
     // Worker path when structural compositing is not required and every
     // image fill src is loaded (ImageBitmap Structured Clone transport).
-    const workerReady = sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
+    //
+    // The image payload is admitted synchronously as part of this gate. It
+    // used to be decided only inside `collectImageBitmaps`, whose refusal
+    // arrives in an async continuation — by then this frame had already
+    // composited the previously cached worker bitmap, and since no fresh
+    // frame was ever posted the surface stayed pinned to that stale bitmap,
+    // reprojected on every camera move. A document carrying more distinct
+    // image sources than the transfer budget therefore rendered the images
+    // that existed when the last accepted worker frame was produced and
+    // nothing after: fit-all showed one image out of thirteen, and panning
+    // smeared the old frame instead of repainting. Deciding here keeps the
+    // rule "never composite a stale bitmap unless a fresh one is coming".
+    const workerImageRefusal = admitWorkerImagePayload(ir, {
+      maxEntries: budgets.workerImageBitmaps,
+      residentSources: renderWorkerRef.current?.knownImageSources,
+    });
+    const workerReady =
+      workerImageRefusal === null &&
+      sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
 
     // Mockup surface decoration: compose mockup frames into the IR list
     // (plate shapes, baked surface rasters, shadows, glows). Runs before
