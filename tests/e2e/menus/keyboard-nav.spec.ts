@@ -287,14 +287,16 @@ test.describe('Menu keyboard navigation', () => {
     let focused = await getFocusedMenuItem(page);
     await expect(focused).toContainText('Save');
 
-    // ArrowDown resets the type-ahead buffer and moves focus to the next
-    // item; a fresh 's' then matches the next item starting with 's'
-    // (Save As is the current focus, so the cycle lands on Settings).
+    // ArrowDown resets the type-ahead buffer and moves focus down one item.
+    // The next 's' is then a FRESH single-char buffer, which per the menu
+    // type-ahead contract starts a new search from the top of the list —
+    // landing back on Save. (Without the reset, the buffer would accumulate
+    // to "ss", which matches nothing, so focus would stay on Save As.)
     await page.keyboard.press('ArrowDown');
 
     await page.keyboard.press('s');
     focused = await getFocusedMenuItem(page);
-    await expect(focused).toContainText('Settings');
+    await expect(focused).toContainText('Save');
   });
 
   test('type-ahead: diacritic-insensitive matching', async ({ page }) => {
