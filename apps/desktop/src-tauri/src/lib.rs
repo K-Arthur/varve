@@ -2044,6 +2044,11 @@ fn home_read_file(
 }
 
 #[tauri::command]
+fn home_file_exists(path: String) -> bool {
+    std::path::Path::new(&path).exists()
+}
+
+#[tauri::command]
 fn home_upsert_file(
     store: tauri::State<'_, varve_sync::DocumentStore>,
     entry: HomeFileInput,
@@ -2706,6 +2711,7 @@ pub fn run() {
             home_list_trashed,
             home_get_file,
             home_read_file,
+            home_file_exists,
             home_upsert_file,
             home_touch_file,
             home_rename_file,
