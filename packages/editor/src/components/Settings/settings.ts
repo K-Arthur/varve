@@ -1,90 +1,14 @@
-export type SettingsSection =
-  | 'general'
-  | 'appearance'
-  | 'backup'
-  | 'shortcuts'
-  | 'export'
-  | 'performance'
-  | 'models'
-  | 'collab'
-  | 'ai'
-  | 'privacy'
-  | 'about';
-export type SettingsSectionLabel =
-  | 'General'
-  | 'Appearance'
-  | 'Shortcuts'
-  | 'Collab'
-  | 'AI'
-  | 'About';
-export type ThemeMode = 'light' | 'dark' | 'high-contrast' | 'system';
-export type UnitType = 'px' | 'pt' | 'cm' | 'mm' | 'in';
-export type FontSizeUI = 'small' | 'medium' | 'large';
-
-export interface Settings {
-  general: {
-    language: string;
-    units: UnitType;
-    autosaveInterval: number;
-  };
-  appearance: {
-    theme: ThemeMode;
-    fontSizeUI: FontSizeUI;
-  };
-  collab: {
-    displayName: string;
-    avatar: string;
-    notifyJoinLeave: boolean;
-    showLiveCursors: boolean;
-  };
-  ai: {
-    enabled: boolean;
-    model: string;
-    shareUsageData: boolean;
-  };
-}
-
-const STORAGE_KEY = 'varve-settings';
-
-export const DEFAULT_SETTINGS: Settings = {
-  general: {
-    language: 'en',
-    units: 'px',
-    autosaveInterval: 5,
-  },
-  appearance: {
-    theme: 'system',
-    fontSizeUI: 'medium',
-  },
-  collab: {
-    displayName: '',
-    avatar: '',
-    notifyJoinLeave: true,
-    showLiveCursors: true,
-  },
-  ai: {
-    enabled: false,
-    model: 'gpt-4',
-    shareUsageData: false,
-  },
-};
-
-export function loadSettings(): Settings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('strata-settings');
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw) as Partial<Settings>;
-    return {
-      general: { ...DEFAULT_SETTINGS.general, ...parsed.general },
-      appearance: { ...DEFAULT_SETTINGS.appearance, ...parsed.appearance },
-      collab: { ...DEFAULT_SETTINGS.collab, ...parsed.collab },
-      ai: { ...DEFAULT_SETTINGS.ai, ...parsed.ai },
-    };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-}
-
-export function saveSettings(settings: Settings): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-}
+/**
+ * Re-export the consolidated editor settings types for Settings dialog components.
+ * The canonical types and storage now live in ../../settings.ts (the editor
+ * settings store). This barrel file keeps the Settings dialog imports stable.
+ */
+export type { EditorSettings as Settings, FontSizeUI, ThemeMode, UnitType } from '../../settings';
+export {
+  DEFAULT_EDITOR_SETTINGS as DEFAULT_SETTINGS,
+  loadSettings,
+  saveSettings,
+} from '../../settings';
+// `SettingsSection` enumerates this dialog's panes, so it is owned here rather
+// than by the editor-wide settings store.
+export type { SettingsSection } from './SettingsContext';
