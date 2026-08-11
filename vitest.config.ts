@@ -7,6 +7,33 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Root Vitest config. Per-file environment override via:
 //   // @vitest-environment jsdom
 // at the top of a test file when DOM is needed.
+//
+// Vitest 4 removed `environmentMatchGlobs`; the same routing is expressed
+// with `projects`. NOTE: `extends: true` merges project arrays with the root
+// config (include concatenates), so the jsdom project is defined WITHOUT
+// extends and re-declares everything it needs explicitly; the node project
+// uses extends because its include/exclude are the root ones plus the jsdom
+// scoping. Coverage stays root-only.
+const JS_DOM_INCLUDE = [
+  'packages/ui/src/components/**/*.{test,spec}.{ts,tsx}',
+  'packages/editor/src/**/*.{test,spec}.{ts,tsx}',
+  'packages/home/src/**/*.{test,spec}.{ts,tsx}',
+];
+
+const INCLUDE = [
+  'packages/**/src/**/*.{test,spec}.{ts,tsx}',
+  'apps/**/src/**/*.{test,spec}.{ts,tsx}',
+  'tests/**/*.{test,spec}.{ts,tsx}',
+];
+
+const EXCLUDE = [
+  'tests/e2e/**',
+  '**/node_modules/**',
+  '**/.worktrees/**',
+  '**/__tests__/parity.test.ts',
+  '**/*.bench.ts',
+];
+
 export default defineConfig({
   optimizeDeps: {
     exclude: ['fast-check'],
@@ -31,18 +58,8 @@ export default defineConfig({
       },
     },
     setupFiles: ['./vitest.setup.ts'],
-    include: [
-      'packages/**/src/**/*.{test,spec}.{ts,tsx}',
-      'apps/**/src/**/*.{test,spec}.{ts,tsx}',
-      'tests/**/*.{test,spec}.{ts,tsx}',
-    ],
-    exclude: [
-      'tests/e2e/**',
-      '**/node_modules/**',
-      '**/.worktrees/**',
-      '**/__tests__/parity.test.ts',
-      '**/*.bench.ts',
-    ],
+    include: INCLUDE,
+    exclude: EXCLUDE,
     // `vitest bench` does NOT read `test.include`/`test.exclude` — it reads
     // `test.benchmark.*`, whose defaults exclude only node_modules/dist/.git.
     // Without this block a `pnpm bench` run discovers every `.bench.ts` inside
@@ -56,10 +73,37 @@ export default defineConfig({
       exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**'],
     },
     environment: 'node',
-    environmentMatchGlobs: [
-      ['packages/ui/src/components/**', 'jsdom'],
-      ['packages/editor/**', 'jsdom'],
-      ['packages/home/**', 'jsdom'],
+    // Vitest 4 replaces `environmentMatchGlobs` with projects. The jsdom
+    // project scopes the DOM-heavy packages; the node project excludes them
+    // so every test file runs in exactly one project (per-file
+    // `@vitest-environment` annotations keep working within both).
+    projects: [
+      {
+        // Standalone (no extends): with `extends: true` the root `include`
+        // concatenates into this project, which would route every package's
+        // tests through jsdom. Re-declare the shared options explicitly.
+        test: {
+          name: 'jsdom',
+          environment: 'jsdom',
+          setupFiles: ['./vitest.setup.ts'],
+          server: {
+            deps: {
+              inline: ['@varve/engine'],
+            },
+          },
+          include: JS_DOM_INCLUDE,
+          exclude: EXCLUDE,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'node',
+          environment: 'node',
+          include: INCLUDE,
+          exclude: [...EXCLUDE, ...JS_DOM_INCLUDE],
+        },
+      },
     ],
     coverage: {
       provider: 'v8',
