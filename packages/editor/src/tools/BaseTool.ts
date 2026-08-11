@@ -11,7 +11,6 @@
  * Each tool overrides onDragStart / onDragMove / onDragEnd / onDragCancel.
  */
 
-import { zoomAwareDragThreshold } from './inputNormalizer';
 import type {
   CursorSpec,
   GestureResult,
@@ -30,6 +29,17 @@ export interface DragState {
   currentWorld: { x: number; y: number };
 }
 
+/**
+ * How far the pointer must travel before a press becomes a drag.
+ *
+ * Screen-space by construction: it is compared against `startCanvas` /
+ * `currentCanvas`, which are `clientX/Y` (CSS pixels). It must NOT be scaled
+ * by zoom. The threshold models the user's hand — a hand tremor is the same
+ * physical distance whatever the camera is doing — so a zoom-scaled value
+ * makes the same gesture behave differently at different zoom levels: at 6%
+ * zoom `3 / 0.06` demanded 50 CSS px of travel before anything moved (the
+ * canvas felt stuck), and at 1600% `3 / 16` fired on 0.19 px of jitter.
+ */
 const DRAG_THRESHOLD_CSS_PX = 3;
 
 export abstract class BaseTool implements Tool {
@@ -87,10 +97,9 @@ export abstract class BaseTool implements Tool {
     this.drag.currentCanvas = canvas;
     this.drag.currentWorld = world;
 
-    const threshold = zoomAwareDragThreshold(DRAG_THRESHOLD_CSS_PX, ctx.zoom);
     const dx = Math.abs(canvas.x - this.drag.startCanvas.x);
     const dy = Math.abs(canvas.y - this.drag.startCanvas.y);
-    if (dx > threshold || dy > threshold) {
+    if (dx > DRAG_THRESHOLD_CSS_PX || dy > DRAG_THRESHOLD_CSS_PX) {
       if (!this.dragStartFired) {
         this.dragStartFired = true;
         this.onDragStart?.(ctx);
@@ -117,11 +126,10 @@ export abstract class BaseTool implements Tool {
   onKeyUp?(e: KeyboardEvent, ctx: ToolContext): void;
   onDoubleClick?(e: PointerEvent, ctx: ToolContext): void;
 
-  protected checkDragThreshold(ctx: ToolContext): boolean {
-    const threshold = zoomAwareDragThreshold(DRAG_THRESHOLD_CSS_PX, ctx.zoom);
+  protected checkDragThreshold(_ctx: ToolContext): boolean {
     const dx = Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x);
     const dy = Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y);
-    return dx > threshold || dy > threshold;
+    return dx > DRAG_THRESHOLD_CSS_PX || dy > DRAG_THRESHOLD_CSS_PX;
   }
 
   /**
@@ -222,11 +230,10 @@ export abstract class BaseTool implements Tool {
     return this.findContainingFrame(world, _ctx);
   }
 
-  protected isBelowThreshold(ctx: ToolContext): boolean {
-    const threshold = zoomAwareDragThreshold(DRAG_THRESHOLD_CSS_PX, ctx.zoom);
+  protected isBelowThreshold(_ctx: ToolContext): boolean {
     const dx = Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x);
     const dy = Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y);
-    return dx <= threshold && dy <= threshold;
+    return dx <= DRAG_THRESHOLD_CSS_PX && dy <= DRAG_THRESHOLD_CSS_PX;
   }
 
   private freshDrag(): DragState {
