@@ -1,5 +1,5 @@
 import type { ManagedColor } from '@varve/scene';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Tooltip } from '../Tooltip';
 
 const SPOT_COLORS: { name: string; c: number; m: number; y: number; k: number; family: string }[] =
@@ -27,6 +27,8 @@ export interface SpotColorBrowserProps {
 
 export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
   const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return SPOT_COLORS;
@@ -35,6 +37,51 @@ export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
       (s) => s.name.toLowerCase().includes(q) || s.family.toLowerCase().includes(q),
     );
   }, [query]);
+
+  // Keep the active option in range when the query narrows the list.
+  useEffect(() => {
+    if (activeIndex >= filtered.length) setActiveIndex(0);
+  }, [filtered.length, activeIndex]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (filtered.length === 0) return;
+    let next = activeIndex;
+    switch (e.key) {
+      case 'ArrowDown':
+        next = Math.min(filtered.length - 1, activeIndex + 1);
+        break;
+      case 'ArrowUp':
+        next = Math.max(0, activeIndex - 1);
+        break;
+      case 'Home':
+        next = 0;
+        break;
+      case 'End':
+        next = filtered.length - 1;
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        pickSpot(filtered[activeIndex]!);
+        return;
+      default:
+        return;
+    }
+    e.preventDefault();
+    setActiveIndex(next);
+    listRef.current
+      ?.querySelectorAll<HTMLElement>('[role="option"]')
+      [next]?.scrollIntoView({ block: 'nearest' });
+  };
+
+  const pickSpot = (spot: (typeof SPOT_COLORS)[number]) =>
+    onSelect({
+      space: 'spot',
+      name: spot.name,
+      tint: 100,
+      a: 255,
+      processFallback: { c: spot.c, m: spot.m, y: spot.y, k: spot.k },
+    });
 
   return (
     <div className="spot-color-browser">
@@ -51,24 +98,28 @@ export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
           />
         </div>
       </div>
-      <div className="spot-color-browser__list" role="listbox" aria-label="Spot colors">
-        {filtered.map((spot) => (
+      <div
+        ref={listRef}
+        className="spot-color-browser__list"
+        role="listbox"
+        aria-label="Spot colors"
+        tabIndex={0}
+        aria-activedescendant={
+          filtered[activeIndex] ? `spot-option-${filtered[activeIndex].name}` : undefined
+        }
+        onKeyDown={handleKeyDown}
+      >
+        {filtered.map((spot, i) => (
           <Tooltip key={spot.name} label={spot.name}>
             <button
               type="button"
               role="option"
-              aria-selected={false}
+              id={`spot-option-${spot.name}`}
+              aria-selected={i === activeIndex}
               aria-label={spot.name}
               className="spot-color-browser__item"
-              onClick={() =>
-                onSelect({
-                  space: 'spot',
-                  name: spot.name,
-                  tint: 100,
-                  a: 255,
-                  processFallback: { c: spot.c, m: spot.m, y: spot.y, k: spot.k },
-                })
-              }
+              onMouseEnter={() => setActiveIndex(i)}
+              onClick={() => pickSpot(spot)}
             >
               <span
                 className="spot-color-browser__swatch"

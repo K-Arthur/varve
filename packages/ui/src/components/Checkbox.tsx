@@ -27,8 +27,19 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
         id={checkboxId}
         type="checkbox"
         className="varve-checkbox__input"
-        data-indeterminate={indeterminate || undefined}
+        data-indeterminate={indeterminate ? 'true' : undefined}
         {...rest}
+        // WCAG 4.1.2 (2026-08-10): indeterminate must be announced as
+        // aria-checked="mixed", not just drawn as a minus icon.
+        aria-checked={
+          indeterminate
+            ? 'mixed'
+            : rest.checked === undefined
+              ? undefined
+              : rest.checked
+                ? 'true'
+                : 'false'
+        }
       />
       <span className="varve-checkbox__box">
         <SolidIcon name="Check" className="varve-checkbox__check" />
