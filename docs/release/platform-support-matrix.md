@@ -1,8 +1,8 @@
 # Varve — Platform & Architecture Support Matrix
 
 **Date:** 2026-08-03 (last updated 2026-08-10)
-**Applies to:** the current release line (v0.1.0 published 2026-08-09;
-v0.1.1 tagged, not yet published)
+**Applies to:** the current release line (v0.1.1 published 2026-08-11;
+v0.1.0 published 2026-08-09)
 
 The guiding rule: **do not advertise a platform we have not run the application on.**
 A successful `cargo build` is not evidence that an application works. Every "Supported" claim
