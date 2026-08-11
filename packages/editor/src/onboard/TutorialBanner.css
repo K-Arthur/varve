@@ -64,7 +64,7 @@
 
 .tutorial-banner__progress-fill {
   height: 100%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border-radius: var(--radius-pill);
   transition: width var(--duration-base) var(--ease-out);
 }
