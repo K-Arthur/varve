@@ -4,6 +4,7 @@ import type {
   UpscaleModeId,
   UpscaleProgressFn,
 } from '@varve/engine';
+import { cachedImageDims } from '@varve/engine';
 import type { EditorContextValue } from '../../context/types';
 import { insertDerivedImageShape, selectedImageShape } from '../../imageOperations';
 
@@ -38,16 +39,17 @@ export async function applyEnhancement(
 
   const sourceSrc = imageShapeSrc(imageNode);
   const image = await getImageCache().load(sourceSrc);
-  const width = Math.max(1, image.naturalWidth || image.width);
-  const height = Math.max(1, image.naturalHeight || image.height);
+  const { width, height } = cachedImageDims(image);
+  const safeWidth = Math.max(1, width);
+  const safeHeight = Math.max(1, height);
 
   const canvas = globalThis.document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = safeWidth;
+  canvas.height = safeHeight;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas pixel processing is unavailable');
-  ctx.drawImage(image, 0, 0, width, height);
-  const source = ctx.getImageData(0, 0, width, height);
+  ctx.drawImage(image, 0, 0, safeWidth, safeHeight);
+  const source = ctx.getImageData(0, 0, safeWidth, safeHeight);
 
   let outputImage: ImageData;
 

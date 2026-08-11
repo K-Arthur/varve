@@ -20,6 +20,21 @@ export type ImageLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 /** A decodable raster payload: HTMLImageElement or a decoded ImageBitmap. */
 export type CachedImage = HTMLImageElement | ImageBitmap;
 
+/**
+ * Resolve a CachedImage's pixel dimensions. HTMLImageElement reports
+ * naturalWidth/naturalHeight (falling back to layout width/height once
+ * decoded); ImageBitmap carries width/height directly.
+ */
+export function cachedImageDims(image: CachedImage): { width: number; height: number } {
+  if ('naturalWidth' in image) {
+    return {
+      width: image.naturalWidth || image.width,
+      height: image.naturalHeight || image.height,
+    };
+  }
+  return { width: image.width, height: image.height };
+}
+
 export interface ImageCacheEntry {
   state: ImageLoadState;
   image: CachedImage | null;
