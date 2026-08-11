@@ -36,6 +36,10 @@ import { applyWarpToSelection } from '../warp/warpActions';
 import { parseGridTemplate } from './gridTemplate';
 import { beginInteractionSpan, isSnapMetricsEnabled, recordSnapMetrics } from './perfRuntime';
 
+/** Stable empty-guides identity: most drag samples snap to nothing, and a
+ *  fresh array per sample would re-render the guides overlay pointlessly. */
+const EMPTY_SNAP_GUIDES: readonly SnapGuide[] = Object.freeze([]);
+
 export interface DeepSelectionCandidateSet {
   worldX: number;
   worldY: number;
@@ -341,7 +345,12 @@ export function buildToolContext(
         },
       );
       deps.snapSessionRef.current = result.session;
-      deps.setSnapGuides(result.guides);
+      // A fresh array identity on every sample forces the SnapGuidesOverlay
+      // re-render even when nothing snapped. Most drag samples produce no
+      // guides; reuse the stable empty array so those renders are skipped.
+      deps.setSnapGuides(
+        result.guides.length === 0 ? (EMPTY_SNAP_GUIDES as SnapGuide[]) : result.guides,
+      );
       finishSnapEvaluate({
         finePhaseCandidates: allTargets.length,
         winningX: result.x !== bounds.x,
