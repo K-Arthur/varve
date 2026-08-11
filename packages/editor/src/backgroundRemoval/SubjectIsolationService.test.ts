@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   computePlacementRevision,
   computeSourceFingerprint,
+  type SubjectIsolationEngine,
   type SubjectIsolationRequest,
   SubjectIsolationService,
-  type SubjectIsolationEngine,
 } from './SubjectIsolationService';
 
 function makeImageData(width = 100, height = 80): ImageData {
