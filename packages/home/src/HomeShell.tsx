@@ -336,6 +336,10 @@ export function HomeShell({
     { id: 'trash', label: 'Trash', icon: 'Archive', count: view.trashedFiles.length },
   ];
 
+  // E4 (2026-08-10): document-level heading for SR heading navigation.
+  const currentSectionLabel =
+    sidebarEntries.find((e) => e.id === view.state.section)?.label ?? 'Recent';
+
   const sidebarSectionCounts: Record<string, number> = {
     recent: view.recentSectionCounts.all,
     all: view.files.length - view.trashedFiles.length,
@@ -794,6 +798,7 @@ export function HomeShell({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        <h1 className="sr-only">{currentSectionLabel}</h1>
         {sidebarOpen && (
           <button
             type="button"
