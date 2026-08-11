@@ -9,7 +9,7 @@
 .collab-cursor-overlay__cursor {
   position: absolute;
   transform: translate(-2px, -2px);
-  color: var(--cursor-color, var(--color-accent-primary));
+  color: var(--cursor-color, var(--color-interactive-default));
 }
 
 .collab-cursor-overlay__cursor::before {
@@ -17,7 +17,7 @@
   display: block;
   width: 0;
   height: 0;
-  border-left: 8px solid var(--cursor-color, var(--color-accent-primary));
+  border-left: 8px solid var(--cursor-color, var(--color-interactive-default));
   border-top: 4px solid transparent;
   border-bottom: 10px solid transparent;
 }
@@ -30,7 +30,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary-on-overlay);
-  background: var(--cursor-color, var(--color-accent-primary));
+  background: var(--cursor-color, var(--color-interactive-default));
   border-radius: var(--radius-sm);
   white-space: nowrap;
 }

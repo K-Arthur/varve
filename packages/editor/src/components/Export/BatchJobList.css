@@ -112,7 +112,7 @@
   color: var(--color-feedback-danger);
 }
 .batch-job-row__status--running {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 .batch-job-row__status--pending {
   color: var(--color-text-muted);

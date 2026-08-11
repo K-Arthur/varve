@@ -32,7 +32,7 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--color-text-on-accent);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -40,7 +40,7 @@
 }
 
 .master-panel__add-btn:hover {
-  background: var(--color-accent-primary-hover);
+  background: var(--color-interactive-hover);
 }
 
 .master-panel__add-btn:focus-visible {
@@ -97,7 +97,7 @@
 }
 
 .master-panel__name:hover {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 .master-panel__name:focus-visible {
@@ -109,7 +109,7 @@
   flex: 1;
   font: inherit;
   padding: 2px 4px;
-  border: 1px solid var(--color-accent-primary);
+  border: 1px solid var(--color-interactive-default);
   border-radius: var(--radius-sm);
   background: var(--color-surface-app);
   color: var(--color-text-primary);
@@ -189,7 +189,7 @@
 }
 
 .master-panel__override-badge {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-size: var(--font-size-xs);
 }
 

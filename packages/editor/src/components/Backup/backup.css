@@ -79,9 +79,9 @@
   background: var(--color-surface-raised);
 }
 .backup-settings__button--primary {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 .backup-settings__button--primary:hover {
   opacity: 0.9;
@@ -128,7 +128,7 @@
   background: var(--color-surface-raised);
 }
 .restore-browser__item--selected {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
 }
 .restore-browser__item-type {
@@ -206,7 +206,7 @@
   cursor: not-allowed;
 }
 .restore-browser__button--primary {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }

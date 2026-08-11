@@ -123,7 +123,7 @@
   cursor: pointer;
 }
 .import-preview__option input {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 .import-preview__footer {
   display: flex;
@@ -149,7 +149,7 @@
   cursor: default;
 }
 .import-preview__btn--primary {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 .import-preview__btn--primary:hover:not(:disabled) {
