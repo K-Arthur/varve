@@ -13,6 +13,8 @@
 
 .shortcut-palette__panel {
   width: 26.25rem;
+  /* R5 (2026-08-10): fixed 420px panel overflowed narrow viewports. */
+  max-width: calc(100vw - 2rem);
   max-height: 25rem;
   display: flex;
   flex-direction: column;
@@ -74,7 +76,7 @@
 
 .shortcut-palette__remap-hint {
   font-size: var(--font-size-sm);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 .shortcut-palette__list {
@@ -162,7 +164,7 @@
 }
 
 .shortcut-palette__combo--active {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   background: transparent;
   border-color: transparent;
 }

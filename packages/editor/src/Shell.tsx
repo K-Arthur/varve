@@ -99,6 +99,15 @@ export interface ShellProps {
   platform?: Platform;
 }
 
+/** E4 (2026-08-10): document-level heading label for SR heading navigation. */
+function editorHeadingLabel(
+  sessions: { id: string; name: string }[],
+  activeId: string | null,
+): string {
+  const name = sessions.find((s) => s.id === activeId)?.name;
+  return name ? `${name} — Varve` : 'Varve editor';
+}
+
 function ShellInner({
   onBackToHome,
   openFile,
@@ -371,6 +380,10 @@ function ShellInner({
         <a href="#editor-main" className="editor-shell__skip-link">
           Skip to canvas
         </a>
+        {/* E4 (2026-08-10): document-level heading for SR heading navigation. */}
+        <h1 className="sr-only">
+          {editorHeadingLabel(editor.state.sessions, editor.state.activeId)}
+        </h1>
         {!distractionFreeMode && (
           <Menubar
             onBackToHome={onBackToHome}
