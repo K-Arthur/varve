@@ -48,7 +48,7 @@
 }
 
 .selection-breadcrumb__segment:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: 1px;
 }
 
@@ -88,7 +88,7 @@
 }
 
 .selection-breadcrumb__overflow-btn:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: 1px;
 }
 
@@ -144,6 +144,6 @@
 }
 
 .touch-candidate-item:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }

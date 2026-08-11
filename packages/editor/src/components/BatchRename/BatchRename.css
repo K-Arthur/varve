@@ -89,7 +89,7 @@
 }
 
 .batch-rename-dialog__input:focus {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   box-shadow: 0 0 0 2px var(--color-accent-subtle, rgb(57 208 198 / 0.15));
 }
 
@@ -121,7 +121,7 @@
 }
 
 .batch-rename-dialog__checkbox input[type="checkbox"] {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 .batch-rename-dialog__scope {
@@ -140,7 +140,7 @@
 }
 
 .batch-rename-dialog__scope input[type="radio"] {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 .batch-rename-dialog__match-count {
@@ -155,7 +155,7 @@
 }
 
 .batch-rename-dialog__match-count strong.changed {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 .batch-rename-dialog__preview {
@@ -184,7 +184,7 @@
 }
 
 .batch-rename-dialog__preview-icon {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   flex-shrink: 0;
   font-size: var(--font-size-xs);
 }
@@ -233,9 +233,9 @@
 }
 
 .batch-rename-dialog__btn--primary {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent, #000);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .batch-rename-dialog__btn--primary:hover {

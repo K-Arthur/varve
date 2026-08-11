@@ -347,13 +347,13 @@
   position: absolute;
   padding: 0;
   margin: 0;
-  border: 1px dashed var(--color-accent-primary);
+  border: 1px dashed var(--color-interactive-default);
   background: transparent;
   cursor: pointer;
 }
 
 .prototype-screen-view__hotspot:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: 1px;
 }
 
@@ -400,7 +400,7 @@
 }
 
 .prototype-flow__node--current {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .prototype-flow__edges {
@@ -431,7 +431,7 @@
 }
 
 .prototype-flow__edge-btn--selected {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   color: var(--color-text-primary);
   background: var(--elevation-surface-raised);
 }

@@ -11,7 +11,7 @@
 }
 
 .alignment-handle__bar {
-  stroke: var(--color-accent-primary);
+  stroke: var(--color-interactive-default);
   stroke-width: 2;
   fill: none;
 }
@@ -22,7 +22,7 @@
 }
 
 .alignment-handle__dot {
-  fill: var(--color-accent-primary);
+  fill: var(--color-interactive-default);
   cursor: ew-resize;
   pointer-events: auto;
 }
@@ -59,7 +59,7 @@
 }
 
 .alignment-guide__line {
-  stroke: var(--color-accent-primary);
+  stroke: var(--color-interactive-default);
   stroke-width: 1;
   stroke-dasharray: 4 4;
   opacity: 0.6;
@@ -71,7 +71,7 @@
 }
 
 .alignment-guide__label {
-  fill: var(--color-accent-primary);
+  fill: var(--color-interactive-default);
   font-size: var(--font-size-2xs);
   font-family: var(--font-mono, monospace);
   opacity: 0.6;

@@ -43,14 +43,14 @@
 }
 
 .auto-arrange__layout-btn:hover {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--color-surface-raised);
 }
 
 .auto-arrange__layout-btn--active {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
-  box-shadow: 0 0 0 1px var(--color-accent-primary);
+  box-shadow: 0 0 0 1px var(--color-interactive-default);
 }
 
 .auto-arrange__layout-icon {
@@ -79,7 +79,7 @@
 }
 
 .auto-arrange__checkbox {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 .auto-arrange__preview {

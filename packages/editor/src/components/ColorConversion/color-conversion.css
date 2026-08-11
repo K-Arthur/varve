@@ -48,7 +48,7 @@
 .color-conversion__warning {
   padding: var(--space-2);
   background: var(--color-surface-raised);
-  border-left: 3px solid var(--color-accent-primary);
+  border-left: 3px solid var(--color-interactive-default);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
@@ -72,7 +72,7 @@
 }
 
 .color-conversion__btn--primary {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-on-primary);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }

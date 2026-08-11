@@ -165,7 +165,7 @@
 
 .insp-interaction-row--selected {
   background: var(--elevation-surface-raised);
-  border-left: 2px solid var(--color-accent-primary);
+  border-left: 2px solid var(--color-interactive-default);
 }
 
 .insp-interaction-row__header {
@@ -311,7 +311,7 @@
   min-width: 1rem;
   height: 1rem;
   padding: 0 0.25rem;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border-radius: var(--radius-pill);
   font-size: 0.6rem;
@@ -390,7 +390,7 @@
   background: var(--color-surface-hover);
 }
 .insp-section-manager__item:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }
 .insp-section-manager__item--hidden {
@@ -400,7 +400,7 @@
   opacity: 0.4;
 }
 .insp-section-manager__item--drop-target {
-  box-shadow: inset 0 -2px 0 var(--color-accent-primary);
+  box-shadow: inset 0 -2px 0 var(--color-interactive-default);
 }
 .insp-section-manager__drag-handle {
   flex-shrink: 0;
@@ -429,7 +429,7 @@
   background: var(--color-surface-hover);
 }
 .insp-section-manager__toggle:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: -1px;
 }
 .insp-section-manager__toggle:disabled {
@@ -1051,7 +1051,7 @@
   width: var(--space-1);
   height: var(--space-1);
   border-radius: 50%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   margin-left: var(--space-05);
 }
 
@@ -1307,8 +1307,8 @@
 }
 .insp-image-fill__flip-btn--active {
   background: var(--color-accent-subtle);
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
 }
 .insp-image-fill__crop-info {
   display: flex;
@@ -1820,7 +1820,7 @@
 /* ---------- Variable font axis slider ---------- */
 .insp-slider__input {
   flex: 1;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
   cursor: pointer;
 }
 
@@ -2031,7 +2031,7 @@
 }
 .intelligence-toggle input[type="checkbox"] {
   margin: 0;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 /* ---------- Action button ---------- */
@@ -2213,7 +2213,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border: none;
   border-radius: var(--radius-sm);
@@ -2225,7 +2225,7 @@
   transition: background 0.15s;
 }
 .caf-entry-button:hover {
-  background: var(--color-accent-primary-hover);
+  background: var(--color-interactive-hover);
 }
 .caf-entry-button:focus-visible {
   outline: 2px solid var(--color-focus-ring);
@@ -2274,7 +2274,7 @@
 
 .insp-progress__bar {
   height: 100%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border-radius: var(--radius-full);
   transition: width 120ms ease-out;
 }
@@ -2384,7 +2384,7 @@
 .insp-range {
   flex: 1;
   min-width: 0;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 .insp-field__control output {
@@ -2896,7 +2896,7 @@
 }
 .insp-sm__state--selected,
 .insp-sm__transition--selected {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--color-bg-subtle);
 }
 .insp-sm__state-select,
@@ -2935,7 +2935,7 @@
   white-space: nowrap;
 }
 .insp-sm__badge--entry {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-on-accent, white);
 }
 .insp-sm__state-icon {
@@ -3072,7 +3072,7 @@
 }
 .contextual-audit-more {
   font-size: var(--font-size-xs);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   background: none;
   border: none;
   cursor: pointer;
@@ -3091,7 +3091,7 @@
   padding: 1px 2px;
 }
 .contextual-audit-link:hover {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 /* ------------------------------------------------------------------ */
@@ -3117,9 +3117,9 @@
   background: var(--color-surface-raised);
 }
 .intelligence-filter-chip--active {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 .intelligence-filter-chip--clear {
   border-style: dashed;

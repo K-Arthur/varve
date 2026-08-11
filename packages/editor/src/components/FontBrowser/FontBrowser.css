@@ -110,7 +110,7 @@
 }
 
 .font-browser__row--selected {
-  border-left-color: var(--color-accent-primary);
+  border-left-color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
 }
 
@@ -148,7 +148,7 @@
 }
 
 .font-browser__badge--var {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-style: italic;
   font-weight: var(--font-weight-bold);
 }
