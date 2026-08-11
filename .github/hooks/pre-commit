@@ -19,7 +19,10 @@ pnpm audit:emoji
 # 3. Health check: hub file budgets, complexity comments, over-ceiling guards
 node scripts/audit-health.mjs --staged
 
-# 4. Workflow validation (only if workflow files are staged)
+# 4. Validation-policy audit (cheap): impact config not stale + infra present
+node scripts/quality/audit-impact-config.mjs
+
+# 5. Workflow validation (only if workflow files are staged)
 STAGED_WORKFLOWS=$(git diff --cached --name-only --diff-filter=ACMR | grep '.github/workflows/' || true)
 if [ -n "$STAGED_WORKFLOWS" ]; then
   echo "  → Validating GitHub Actions workflows..."
@@ -30,7 +33,7 @@ if [ -n "$STAGED_WORKFLOWS" ]; then
   node scripts/pin-github-actions.mjs --verify
 fi
 
-# 5. Quick cycle check on changed packages (madge, runs only on JS/TS changes)
+# 6. Quick cycle check on changed packages (madge, runs only on JS/TS changes)
 STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -c '\.\(ts\|tsx\)$' || true)
 if [ "$STAGED_TS" -gt 0 ]; then
   echo "  → Checking dependency cycles..."
@@ -47,6 +50,13 @@ if [ "$STAGED_TS" -gt 0 ]; then
       fi
     fi
   done
+fi
+
+# 7. Policy test when validation infra itself changed (cheap; guards the system)
+STAGED_VALIDATION=$(git diff --cached --name-only --diff-filter=ACMR | grep -E 'scripts/quality/|validation-impact|tests/unit/validationPolicy' || true)
+if [ -n "$STAGED_VALIDATION" ]; then
+  echo "  → Validation infrastructure changed; running policy test..."
+  pnpm exec vitest run tests/unit/validationPolicy.test.ts
 fi
 
 echo "=== Pre-commit checks passed ==="
