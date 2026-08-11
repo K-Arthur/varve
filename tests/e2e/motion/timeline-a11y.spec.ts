@@ -28,22 +28,26 @@ test.describe('Timeline accessibility', () => {
   test('ruler responds to ArrowLeft keyboard navigation', async ({ page }) => {
     const ruler = page.locator('.timeline-ruler');
     await ruler.focus();
-    // Seek to midpoint first
-    const duration = Number((await ruler.getAttribute('aria-valuemax')) ?? '5000');
-    const midpoint = Math.floor(duration / 2);
-    await page.evaluate((time: number) => {
-      const el = document.querySelector('.timeline-ruler');
-      if (el) el.setAttribute('aria-valuenow', String(time));
-    }, midpoint);
+    // ArrowLeft at time 0 is a clamp no-op (and React bails out of the
+    // identical-state render, so the DOM attribute would not move). Seek
+    // right twice first, then verify the 100ms step back.
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    const at200 = Number((await ruler.getAttribute('aria-valuenow')) ?? '0');
+    expect(at200).toBe(200);
     await page.keyboard.press('ArrowLeft');
-    const timeAfter = await ruler.getAttribute('aria-valuenow');
-    expect(Number(timeAfter)).toBeLessThan(midpoint);
+    const at100 = Number((await ruler.getAttribute('aria-valuenow')) ?? '0');
+    expect(at100).toBe(100);
   });
 
-  test('playhead has slider role with time label', async ({ page }) => {
+  test('playhead is presentational; the ruler is the single slider', async ({ page }) => {
+    // The 2026-08-10 review removed the nested slider: the playhead was a
+    // second role=slider tab stop inside the ruler slider. The ruler owns
+    // all seek semantics; the playhead is an aria-hidden visual marker.
     const playhead = page.locator('.timeline-ruler__playhead');
-    await expect(playhead).toHaveAttribute('role', 'slider');
-    await expect(playhead).toHaveAttribute('aria-label', 'Playhead position');
+    await expect(playhead).toHaveAttribute('aria-hidden', 'true');
+    await expect(page.locator('.timeline-ruler[role="slider"]')).toHaveCount(1);
+    await expect(page.locator('.timeline-ruler [role="slider"]')).toHaveCount(0);
   });
 
   test('zoom buttons have accessible labels', async ({ page }) => {
