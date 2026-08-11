@@ -315,7 +315,11 @@ describe('tauri window service: native behaviors', () => {
 
     (window as unknown as { __TAURI__?: Record<string, unknown> }).__TAURI__ = {
       window: {
-        WebviewWindow: vi.fn((label: string, options: Record<string, unknown>) => {
+        // Vitest 4: `new WebviewWindow(...)` requires a constructible mock.
+        WebviewWindow: vi.fn(function WebviewWindowMock(
+          label: string,
+          options: Record<string, unknown>,
+        ) {
           const created = makeWindowLike(label);
           createdLabels.push(label);
           if (options.visible === true) created.show();
