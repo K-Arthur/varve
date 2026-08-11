@@ -19,11 +19,11 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: /^new$/i }).click();
   await page
     .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
+    .getByRole('button', { name: /^create design$/i })
     .waitFor({ timeout: 5000 });
   await page
     .locator('dialog')
-    .getByRole('button', { name: /^create$/i })
+    .getByRole('button', { name: /^create design$/i })
     .click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
 

@@ -86,7 +86,7 @@ test.describe('New File dialog — baseline capture', () => {
 
   test('create button exists and Enter/Escape behave', async ({ page }) => {
     const dialog = await openNewFileDialog(page);
-    await expect(dialog.getByRole('button', { name: /^create$/i })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^create design$/i })).toBeVisible();
 
     await page.keyboard.press('Escape');
     await expect(dialog).not.toBeVisible();
