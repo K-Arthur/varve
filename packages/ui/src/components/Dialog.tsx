@@ -142,16 +142,23 @@ export function AlertDialog({
   cancelLabel = 'Cancel',
   variant = 'primary',
 }: AlertDialogProps) {
+  const descriptionId = useId();
   return (
     <Dialog
       open={open}
       onClose={onClose}
       title={title}
-      dismissible
+      // N4/U16 (2026-08-10): confirmation dialogs must not dismiss on
+      // backdrop click — an accidental tap could discard a destructive
+      // confirmation. Esc still cancels via the handler below.
+      dismissible={false}
       role="alertdialog"
-      aria-describedby="alert-desc"
+      aria-describedby={descriptionId}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
     >
-      <p id="alert-desc" className="varve-dialog__desc">
+      <p id={descriptionId} className="varve-dialog__desc">
         {description}
       </p>
       <div className="varve-dialog__actions">

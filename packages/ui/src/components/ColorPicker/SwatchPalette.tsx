@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Tooltip } from '../Tooltip';
 import type { Color } from './color-utils';
 import { rgbToHex } from './color-utils';
@@ -46,6 +46,9 @@ export function SwatchPalette({
   label = 'Colors',
 }: SwatchPaletteProps) {
   const listRef = useRef<HTMLDivElement>(null);
+  // WCAG 4.1.2 (2026-08-10): track the last-picked swatch so role="option"
+  // elements carry a real aria-selected instead of a hardcoded false.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement;
@@ -92,22 +95,28 @@ export function SwatchPalette({
       <div>
         <div className="swatch-palette__section-title">{title}</div>
         <div className="swatch-palette__grid">
-          {colors.map(({ name, color }) => (
-            <Tooltip key={`${name}-${color.join(',')}`} label={name}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={false}
-                aria-label={name}
-                className="swatch-palette__swatch"
-                onClick={() => onSelect(color)}
-                style={{
-                  background: `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`,
-                  border: swatchBorder(color),
-                }}
-              />
-            </Tooltip>
-          ))}
+          {colors.map(({ name, color }) => {
+            const key = `${name}-${color.join(',')}`;
+            return (
+              <Tooltip key={key} label={name}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={selectedKey === key}
+                  aria-label={name}
+                  className="swatch-palette__swatch"
+                  onClick={() => {
+                    setSelectedKey(key);
+                    onSelect(color);
+                  }}
+                  style={{
+                    background: `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`,
+                    border: swatchBorder(color),
+                  }}
+                />
+              </Tooltip>
+            );
+          })}
         </div>
       </div>
     );
