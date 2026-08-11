@@ -37,7 +37,10 @@ function runBenchmarks() {
   // `pnpm test`). Use the dedicated bench config, otherwise `vitest run`
   // matches zero files and exits 1. See vitest.bench.config.ts.
   execSync(
-    'npx vitest run --config vitest.bench.config.ts packages/editor/src/canvas/__benchmarks__/renderPath.bench.ts --reporter=basic',
+    // Vitest 4 removed the 'basic' reporter name (its built-ins are
+    // default/minimal/verbose/dot/json/tap/...); 'minimal' is the closest
+    // equivalent for a CI perf gate that only needs the summary line.
+    'npx vitest run --config vitest.bench.config.ts packages/editor/src/canvas/__benchmarks__/renderPath.bench.ts --reporter=minimal',
     { cwd: ROOT, stdio: 'inherit' },
   );
 }
