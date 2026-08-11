@@ -1,6 +1,22 @@
 import './workspace/bootstrap';
 
+export { type ReplayExpansion, worldRectsToScreen } from './canvas/dirtyQuery';
+export {
+  computeDocumentDirtyRegion,
+  type DirtyRectReason,
+  type DirtyRectRecord,
+  type DirtyRegion,
+  type DirtyRegionRecorder,
+} from './canvas/dirtyRegion';
+export {
+  type DirtyMergePolicy,
+  type DirtyMergeResult,
+  mergeDirtyRects,
+} from './canvas/dirtyRegionMerge';
 export { ErrorBoundary } from './components/ErrorBoundary';
+export { SettingsProvider } from './components/Settings/SettingsContext';
+export type { SettingsDialogProps } from './components/Settings/SettingsDialog';
+export { SettingsDialog } from './components/Settings/SettingsDialog';
 export type { EditorContextValue, EditorState, SessionMeta, ToolId } from './context';
 export { EditorProvider, useEditor } from './context';
 export type { CrashCenterProps, CrashTestHooks } from './crash';
