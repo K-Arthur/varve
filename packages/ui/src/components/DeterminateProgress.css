@@ -39,7 +39,7 @@
 .det-progress__cancel {
   background: none;
   border: none;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
@@ -50,6 +50,11 @@
 
 .det-progress__cancel:hover {
   background: var(--color-surface-sunken);
+}
+/* U18 (2026-08-10): themed focus ring for the progress cancel button. */
+.det-progress__cancel:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 .det-progress__meta {
