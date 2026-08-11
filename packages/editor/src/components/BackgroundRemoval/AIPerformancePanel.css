@@ -66,7 +66,7 @@
 }
 
 .ai-perf__precision--int8 {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 .ai-perf__precision--fp32 {
@@ -83,7 +83,7 @@
   margin: var(--space-2) 0 0;
   padding: var(--space-2);
   background: var(--color-surface-warning-subtle, var(--elevation-surface-default));
-  border-left: 2px solid var(--color-accent-warning, var(--color-accent-primary));
+  border-left: 2px solid var(--color-accent-warning, var(--color-interactive-default));
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -154,7 +154,7 @@
 }
 
 .ai-perf__tag--int8 {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   background: var(--color-accent-wash, var(--elevation-surface-sunken));
 }
 

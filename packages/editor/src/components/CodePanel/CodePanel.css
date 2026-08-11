@@ -293,7 +293,7 @@
 
 .code-panel__pre .token.function,
 .code-panel__pre .token.class-name {
-  color: var(--color-accent-teal);
+  color: var(--color-interactive-default);
 }
 
 .code-panel__pre .token.regex,
@@ -463,7 +463,7 @@
   display: inline-block;
   margin-top: 2px;
   padding: 0 var(--space-1);
-  background: var(--color-accent-teal);
+  background: var(--color-interactive-default);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--color-text-on-accent);

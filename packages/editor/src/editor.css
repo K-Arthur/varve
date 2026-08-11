@@ -150,7 +150,9 @@ input[type="number"] {
       --logo-panel-width,
       0px
     );
-  grid-template-rows: var(--topbar-height) 32px 1fr auto auto auto var(--statusbar-height);
+  grid-template-rows: var(--topbar-height) 32px minmax(120px, 1fr) auto auto auto var(
+      --statusbar-height
+    );
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -216,7 +218,7 @@ input[type="number"] {
 }
 
 .image-compare-overlay {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }
 .image-compare-overlay__label {
@@ -224,7 +226,7 @@ input[type="number"] {
   top: var(--space-1);
   left: var(--space-1);
   padding: 2px var(--space-2);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
@@ -460,7 +462,8 @@ input[type="number"] {
   align-items: center;
   gap: var(--space-1);
   padding: 0 var(--space-2);
-  height: var(--space-6);
+  /* L3 (2026-08-10): measured 18px hit area — floor the tab at 28px. */
+  height: max(var(--space-6), 1.75rem);
   min-width: 80px;
   max-width: 180px;
   border: none;
@@ -494,7 +497,7 @@ input[type="number"] {
 .editor-tabs__tab--active {
   background: var(--color-surface-app);
   color: var(--color-text-primary);
-  border-bottom: 3px solid var(--color-accent-primary);
+  border-bottom: 3px solid var(--color-interactive-default);
   border-right-color: transparent;
 }
 
@@ -517,8 +520,9 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-3);
-  height: var(--space-3);
+  /* L3 (2026-08-10): 8-10px target was far under WCAG 2.5.8's 24px minimum. */
+  width: 1.5rem;
+  height: 1.5rem;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -532,8 +536,8 @@ input[type="number"] {
     background var(--duration-fast) var(--ease-default);
 }
 .editor-tabs__close:hover {
-  background: color-mix(in oklch, var(--color-accent-primary) 15%, transparent);
-  color: var(--color-accent-primary);
+  background: color-mix(in oklch, var(--color-interactive-default) 15%, transparent);
+  color: var(--color-interactive-default);
 }
 .editor-tabs__close:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -585,7 +589,7 @@ input[type="number"] {
   border-bottom: 1px solid var(--color-border-subtle);
 }
 [data-theme="high-contrast"] .editor-tabs__tab--active {
-  border-bottom: 3px solid var(--color-accent-primary);
+  border-bottom: 3px solid var(--color-interactive-default);
 }
 
 /* ── Snap guides overlay ────────────────────────────── */
@@ -595,7 +599,7 @@ input[type="number"] {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
    * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
   z-index: var(--z-raised);
@@ -978,7 +982,7 @@ input[type="number"] {
   color: var(--color-text-primary);
 }
 .editor-status__toggle--active {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 /* Separator dashes in status bar */
@@ -1093,7 +1097,7 @@ input[type="number"] {
 .editor-status__tip-chip-body {
   background: none;
   border: none;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font: inherit;
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -1173,8 +1177,8 @@ input[type="number"] {
   margin-top: 0.5em;
   padding: 0.25em 0.75em;
   border-radius: var(--radius-sm, 4px);
-  border: 1px solid var(--color-accent-primary, #39d0c6);
-  background: var(--color-accent-primary, #39d0c6);
+  border: 1px solid var(--color-interactive-default, #14998f);
+  background: var(--color-interactive-default, #14998f);
   color: var(--color-on-primary, #fff);
   cursor: pointer;
   font-size: inherit;
@@ -1229,7 +1233,7 @@ input[type="number"] {
   background: color-mix(in srgb, var(--color-feedback-warning, #f57c00) 10%, transparent);
 }
 .insp-panel__score-issue--info {
-  background: color-mix(in srgb, var(--color-accent-primary, #39d0c6) 8%, transparent);
+  background: color-mix(in srgb, var(--color-interactive-default, #14998f) 8%, transparent);
 }
 .insp-panel__score-issue-icon {
   flex-shrink: 0;
@@ -1311,7 +1315,10 @@ input[type="number"] {
   gap: var(--space-1);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  height: 1.75rem;
+  /* L3 (2026-08-10): 1.75rem (28px) hit area was under the 32px desktop
+   * floor and far under touch guidance; 2rem keeps the menubar compact
+   * while lifting the worst case. */
+  height: 2rem;
   padding: 0 var(--space-2);
   border: none;
   border-radius: var(--radius-sm);
@@ -1709,7 +1716,7 @@ input[type="number"] {
 .history-panel__tab--active {
   color: var(--text-primary);
   background: var(--elevation-surface-default);
-  border-bottom: 2px solid var(--accent-primary);
+  border-bottom: 2px solid var(--color-interactive-default);
   font-weight: 600;
 }
 
@@ -1732,8 +1739,8 @@ input[type="number"] {
   font-size: var(--font-size-xs);
 }
 .history-panel__search-input:focus {
-  outline: 2px solid var(--accent-primary);
-  border-color: var(--accent-primary);
+  outline: 2px solid var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
 }
 
 .history-panel__actions {
@@ -1802,12 +1809,12 @@ input[type="number"] {
   background: var(--elevation-surface-hover);
 }
 .history-panel__step:focus-visible {
-  outline: 2px solid var(--accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }
 .history-panel__step--head {
   background: var(--elevation-surface-active);
-  border-left-color: var(--accent-primary);
+  border-left-color: var(--color-interactive-default);
   font-weight: 600;
 }
 .history-panel__step--checkpoint {
@@ -1844,7 +1851,7 @@ input[type="number"] {
   font-weight: 500;
 }
 .history-panel__marker--head {
-  background: var(--accent-primary);
+  background: var(--color-interactive-default);
   color: var(--text-on-accent);
 }
 .history-panel__marker--checkpoint {
@@ -1881,7 +1888,7 @@ input[type="number"] {
 }
 .history-panel__branch--current {
   background: var(--elevation-surface-active);
-  border-left-color: var(--accent-primary);
+  border-left-color: var(--color-interactive-default);
   font-weight: 600;
 }
 .history-panel__branch-main {
@@ -1901,7 +1908,7 @@ input[type="number"] {
   border: 1px solid var(--border-default);
   border-radius: 4px;
   background: var(--elevation-surface-default);
-  color: var(--accent-primary);
+  color: var(--color-interactive-default);
   font-size: 10px;
   cursor: pointer;
 }
@@ -1959,9 +1966,9 @@ input[type="number"] {
 }
 .history-panel__compare-btn {
   padding: 4px 10px;
-  border: 1px solid var(--accent-primary);
+  border: 1px solid var(--color-interactive-default);
   border-radius: 4px;
-  background: var(--accent-primary);
+  background: var(--color-interactive-default);
   color: var(--text-on-accent);
   font-size: var(--font-size-xs);
   cursor: pointer;
@@ -2041,7 +2048,7 @@ input[type="number"] {
   border: 1px solid var(--border-default);
   border-radius: 3px;
   background: var(--elevation-surface-default);
-  color: var(--accent-primary);
+  color: var(--color-interactive-default);
   font-size: 10px;
   cursor: pointer;
 }
@@ -2190,7 +2197,7 @@ input[type="number"] {
   color: var(--text-tertiary);
 }
 .conflict-resolver__value--ours .conflict-resolver__value-label {
-  color: var(--accent-primary);
+  color: var(--color-interactive-default);
 }
 .conflict-resolver__value--theirs .conflict-resolver__value-label {
   color: var(--status-info-text, #1e40af);
@@ -2213,7 +2220,7 @@ input[type="number"] {
   cursor: pointer;
 }
 .conflict-resolver__choice input {
-  accent-color: var(--accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 .conflict-resolver__error {
   color: var(--status-error-text, #dc2626);
@@ -2239,8 +2246,8 @@ input[type="number"] {
   background: var(--elevation-surface-hover);
 }
 .conflict-resolver__btn--primary {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
+  background: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
   color: var(--text-on-accent);
 }
 .conflict-resolver__btn:disabled {
@@ -2521,7 +2528,7 @@ dialog.varve-dialog--settings[open] {
   background: transparent;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  border-left: 3px solid var(--color-accent-primary);
+  border-left: 3px solid var(--color-interactive-default);
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 .settings-dialog__tab:focus-visible {
@@ -2772,7 +2779,7 @@ dialog.varve-dialog--settings[open] {
 }
 .settings-about__link {
   font-size: var(--font-size-sm);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   text-decoration: none;
   cursor: pointer;
 }
@@ -2790,7 +2797,7 @@ dialog.varve-dialog--settings[open] {
   border: 1px solid var(--color-border-strong);
 }
 [data-theme="high-contrast"] .settings-dialog__tab--active {
-  border-left: 3px solid var(--color-accent-primary);
+  border-left: 3px solid var(--color-interactive-default);
 }
 [data-theme="high-contrast"] .settings-section {
   border: 1px solid var(--color-border-strong);
@@ -2807,14 +2814,14 @@ dialog.varve-dialog--settings[open] {
 
 /* ── Canvas drag-over ──────────────────────────────── */
 .editor-canvas--drag-over {
-  outline: 3px dashed var(--color-accent-primary);
+  outline: 3px dashed var(--color-interactive-default);
   outline-offset: -3px;
-  background-color: color-mix(in oklch, var(--color-accent-primary) 5%, transparent);
+  background-color: color-mix(in oklch, var(--color-interactive-default) 5%, transparent);
 }
 .editor-canvas--dnd-over {
-  outline: 3px solid var(--color-accent-primary);
+  outline: 3px solid var(--color-interactive-default);
   outline-offset: -3px;
-  background-color: color-mix(in oklch, var(--color-accent-primary) 8%, transparent);
+  background-color: color-mix(in oklch, var(--color-interactive-default) 8%, transparent);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -3175,7 +3182,7 @@ dialog.varve-dialog--settings[open] {
   height: var(--space-6);
   border: none;
   border-radius: var(--radius-lg);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   cursor: pointer;
   flex-shrink: 0;
@@ -3327,7 +3334,7 @@ dialog.varve-dialog--settings[open] {
 }
 .plugin-list__item:hover {
   background: var(--elevation-surface-raised);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 .plugin-list__item-icon {
   display: flex;
@@ -3365,7 +3372,7 @@ dialog.varve-dialog--settings[open] {
   background: none;
   border: none;
   font-size: var(--font-size-2xs);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   cursor: pointer;
   padding: 0;
   margin-top: var(--space-05);
@@ -3415,7 +3422,7 @@ dialog.varve-dialog--settings[open] {
   transition: transform var(--duration-fast) var(--ease-default);
 }
 .plugin-list__toggle input:checked + .plugin-list__toggle-slider {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border-color: transparent;
 }
 .plugin-list__toggle input:checked + .plugin-list__toggle-slider::before {
@@ -3532,7 +3539,7 @@ dialog.varve-dialog--settings[open] {
 }
 .plugin-marketplace__card:hover {
   transform: translateY(-2px);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   box-shadow: var(--elevation-shadow-raised);
 }
 .plugin-marketplace__card-icon {
@@ -3575,7 +3582,7 @@ dialog.varve-dialog--settings[open] {
   background: none;
   border: none;
   font-size: var(--font-size-2xs);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   cursor: pointer;
   padding: 0;
   border-radius: var(--radius-sm);
@@ -3724,7 +3731,7 @@ dialog.varve-dialog--settings[open] {
 
 /* ── Timeline playback button active state ─────────────── */
 .timeline-playback-btn--active {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   background: var(--color-interactive-hover);
 }
 
@@ -3834,8 +3841,8 @@ dialog.varve-dialog--settings[open] {
   height: 24px;
   padding: 0 var(--space-2);
   background: transparent;
-  color: var(--color-accent-primary);
-  border: 1px solid var(--color-accent-primary);
+  color: var(--color-interactive-default);
+  border: 1px solid var(--color-interactive-default);
   border-radius: var(--radius-sm);
   font: inherit;
   font-size: var(--font-size-xs);
@@ -3845,7 +3852,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-panel__create-btn:hover {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 
@@ -3911,7 +3918,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-panel__toggle-btn--active {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 .timeline-panel__empty {
@@ -3984,7 +3991,7 @@ dialog.varve-dialog--settings[open] {
   height: 8px;
   margin: -4px 0 0 -4px;
   border-radius: 50%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border: 1px solid var(--color-surface-raised);
   cursor: pointer;
   transition: transform var(--duration-quick) var(--ease-standard);
@@ -3999,7 +4006,7 @@ dialog.varve-dialog--settings[open] {
 .timeline-track-row__keyframe--selected {
   transform: scale(1.3);
   background: var(--color-surface-raised);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   border-width: 2px;
   z-index: 2;
 }
@@ -4024,7 +4031,7 @@ dialog.varve-dialog--settings[open] {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   z-index: 3;
   pointer-events: none;
 }
@@ -4036,7 +4043,7 @@ dialog.varve-dialog--settings[open] {
   left: -4px;
   width: 9px;
   height: 9px;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   clip-path: polygon(50% 100%, 0 0, 100% 0);
 }
 
@@ -4050,7 +4057,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .timeline-ruler__marker:hover {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
 }
 
 /* ── Graph Editor ────────────────────────────────────────── */
@@ -4172,7 +4179,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__radio input,
 .crash-dialog__checkbox input {
   margin-top: 3px;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 .crash-dialog__error {
   margin: 0;
@@ -4214,7 +4221,7 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-interactive-hover);
 }
 .crash-dialog__btn--send {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-on-surface);
 }
 .crash-dialog__btn--send:hover {
@@ -4227,7 +4234,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__link {
   border: none;
   background: none;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font: inherit;
   font-size: 0.8125rem;
   cursor: pointer;
@@ -4331,7 +4338,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__tech-summary {
   cursor: pointer;
   font-size: 0.8125rem;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   padding: 4px 0;
 }
 .crash-dialog__tech-body {
@@ -4415,7 +4422,7 @@ dialog.varve-dialog--settings[open] {
 }
 .safe-mode-screen__option input {
   margin-top: 4px;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 .safe-mode-screen__option-text {
   display: flex;

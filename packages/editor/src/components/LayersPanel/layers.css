@@ -22,7 +22,7 @@
   text-transform: uppercase;
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
-  border-top: 3px solid var(--color-accent-primary);
+  border-top: 3px solid var(--color-interactive-default);
 }
 
 .layers-panel__header-actions {
@@ -52,11 +52,11 @@
 }
 
 .layers-panel__auto-reveal-btn--active {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 
 .layers-panel__auto-reveal-btn--active:hover {
-  color: var(--color-accent-primary-hover);
+  color: var(--color-interactive-hover);
 }
 
 .layers-panel__isolation-breadcrumb {
@@ -567,7 +567,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   flex-shrink: 0;
   margin-right: var(--space-1);
   opacity: 0.8;
@@ -587,7 +587,7 @@
 .layers-row__scope-badge {
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
   border-radius: var(--radius-sm);
   padding: 0 var(--space-1);

@@ -132,7 +132,7 @@
   padding: var(--space-1) 0;
 }
 .export-dialog__checkbox-label input[type="checkbox"] {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 .export-dialog__bg-method {
   display: flex;

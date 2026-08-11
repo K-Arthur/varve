@@ -24,13 +24,13 @@
   background: var(--elevation-surface-raised);
 }
 .subject-card:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: 2px;
 }
 .subject-card--selected {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--elevation-surface-raised);
-  box-shadow: 0 0 0 1px var(--color-accent-primary);
+  box-shadow: 0 0 0 1px var(--color-interactive-default);
 }
 
 /* ── Thumbnail area ──────────────────────────────────────────────────────── */
@@ -70,7 +70,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-on-accent);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -84,7 +84,7 @@
   right: 4px;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-on-accent);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
@@ -125,7 +125,7 @@
 .subject-card__confidence-bar {
   height: 3px;
   border-radius: 2px;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   flex: 1;
   max-width: 60px;
 }
@@ -163,8 +163,8 @@
 }
 .subject-card__mode-btn--active {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
-  border-color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
 }
 
 /* ── Dialog & Panel Layout ───────────────────────────────────────────────── */

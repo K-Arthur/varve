@@ -124,7 +124,7 @@
 
 .quick-actions-bar__item--active {
   background: var(--color-interactive-hover);
-  box-shadow: inset 2px 0 0 var(--color-accent-primary);
+  box-shadow: inset 2px 0 0 var(--color-interactive-default);
   outline: none;
 }
 
@@ -167,7 +167,7 @@
 }
 
 [data-theme="high-contrast"] .quick-actions-bar__item--active {
-  box-shadow: inset 3px 0 0 var(--color-accent-primary);
+  box-shadow: inset 3px 0 0 var(--color-interactive-default);
   background: var(--color-interactive-hover);
 }
 
