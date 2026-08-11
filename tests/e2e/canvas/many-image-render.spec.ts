@@ -91,10 +91,10 @@ function writeFixtures(count: number): string[] {
   });
 }
 
-/** Fraction of sampled canvas pixels differing from the board colour. */
-async function paintedCoverage(
+/** Painted coverage, distinct colours, and a content hash of the whole surface. */
+async function surfaceState(
   page: import('@playwright/test').Page,
-): Promise<{ coverage: number; distinctColours: number }> {
+): Promise<{ coverage: number; distinctColours: number; hash: number }> {
   return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
     const surface = element as HTMLCanvasElement;
     const context = surface.getContext('2d');
@@ -103,12 +103,22 @@ async function paintedCoverage(
     const bg = [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0];
     let painted = 0;
     let total = 0;
+    let hash = 2166136261;
     const colours = new Set<number>();
-    for (let i = 0; i < data.length; i += 4 * 8) {
-      total++;
+    // Every 4th pixel: enough to make the hash sensitive to any real
+    // difference, a quarter of the work of a full-surface walk (this runs
+    // five times per test on a ~4M-pixel backing store).
+    for (let i = 0; i < data.length; i += 16) {
       const r = data[i] ?? 0;
       const g = data[i + 1] ?? 0;
       const b = data[i + 2] ?? 0;
+      hash ^= r;
+      hash = Math.imul(hash, 16777619);
+      hash ^= g;
+      hash = Math.imul(hash, 16777619);
+      hash ^= b;
+      hash = Math.imul(hash, 16777619);
+      total++;
       const diff =
         Math.abs(r - (bg[0] ?? 0)) + Math.abs(g - (bg[1] ?? 0)) + Math.abs(b - (bg[2] ?? 0));
       if (diff > 24) {
@@ -116,7 +126,11 @@ async function paintedCoverage(
         colours.add((r >> 3) * 1024 + (g >> 3) * 32 + (b >> 3));
       }
     }
-    return { coverage: total > 0 ? painted / total : 0, distinctColours: colours.size };
+    return {
+      coverage: total > 0 ? painted / total : 0,
+      distinctColours: colours.size,
+      hash: hash >>> 0,
+    };
   });
 }
 
@@ -146,8 +160,9 @@ test.describe('many-image canvas rendering', () => {
   test('paints every image after fit-all when the document exceeds the worker transfer budget', async ({
     page,
   }) => {
+    // `?perf=1` exposes `__strataPerf.forceFullRedraw`, the oracle below.
     await page.setViewportSize(VIEWPORT);
-    await navigateToEditor(page);
+    await navigateToEditor(page, '/?perf=1');
 
     await importSpreadImages(page, writeFixtures(OVER_BUDGET_COUNT));
 
@@ -157,7 +172,7 @@ test.describe('many-image canvas rendering', () => {
     await page.keyboard.press('Shift+1');
     await page.waitForTimeout(2000);
 
-    const painted = await paintedCoverage(page);
+    const painted = await surfaceState(page);
 
     // The stale-bitmap regression collapses this to ~0.004 / ~30 colours:
     // one image out of twelve, frozen from the last accepted worker frame.
@@ -171,5 +186,41 @@ test.describe('many-image canvas rendering', () => {
       painted.distinctColours,
       'every imported image should contribute its own colours',
     ).toBeGreaterThan(500);
+
+    // Stale-pixel oracle: scroll, then force an authoritative full redraw at
+    // the SAME camera. Equal hashes mean every pixel on screen is what a full
+    // redraw of that exact state would have produced — this is what proves
+    // the reported "scrolling leaves after effects" is gone, and it is the
+    // check to run whenever pixel-reuse logic changes (see AGENTS.md).
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('content canvas has no box');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    for (let burst = 0; burst < 2; burst++) {
+      for (let step = 0; step < 6; step++) {
+        // Small steps: a large delta at fit-all zoom scrolls the scene out of
+        // view entirely, and an empty viewport proves nothing.
+        await page.mouse.wheel(0, burst % 2 === 0 ? 8 : -8);
+        await page.waitForTimeout(16);
+      }
+      await page.waitForTimeout(600);
+
+      const live = await surfaceState(page);
+      await page.evaluate(() => {
+        (
+          window as unknown as { __strataPerf?: { forceFullRedraw?: () => void } }
+        ).__strataPerf?.forceFullRedraw?.();
+      });
+      await page.waitForTimeout(700);
+      const authoritative = await surfaceState(page);
+
+      expect(
+        live.hash,
+        `burst ${burst}: surface after scrolling must equal a full redraw of the same camera`,
+      ).toBe(authoritative.hash);
+      expect(
+        authoritative.coverage,
+        `burst ${burst}: content should still be on screen`,
+      ).toBeGreaterThan(0.05);
+    }
   });
 });
