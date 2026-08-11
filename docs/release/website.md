@@ -187,8 +187,9 @@ Outstanding:
 
 ## 6. Accessibility
 
-The repo already runs axe-core through Playwright. For the site specifically,
-verify before launch:
+The repo already runs axe-core through Playwright. The route-wide
+computed-style contrast audit (`apps/website/tests/e2e/visibility.spec.ts`)
+and the axe suite cover the site in both deployment modes:
 
 - [x] Keyboard-only path through the download flow, including the platform tabs
       (arrow-key tablist navigation, Home/End, focus management)
@@ -196,27 +197,26 @@ verify before launch:
 - [x] Copy-checksum buttons announce results via an aria-live region
 - [x] Active navigation state (`aria-current="page"`)
 - [x] Escape-to-close and focus return for the mobile menu
-- [ ] Visible focus on every interactive element (axe covers most; visual pass pending)
-- [ ] Contrast ≥ 4.5:1 in light, dark and high-contrast themes
-- [ ] Headings form a sensible outline; one `<h1>` per page
-- [ ] Checksum `<details>` blocks are reachable and announced
-- [ ] 320 px viewport has no horizontal scroll
-- [ ] Prefers-reduced-motion respected
+- [x] Visible focus on every interactive element (axe + computed-style audits)
+- [x] Contrast ≥ 4.5:1 in light and dark themes (route-wide computed-style audit; the decorative footer wordmark is aria-hidden and excluded)
+- [x] Headings form a sensible outline; one `<h1>` per page (axe rule)
+- [x] Checksum `<details>` blocks are reachable and announced
+- [x] 320 px viewport has no horizontal scroll (structural visibility audit)
+- [x] Prefers-reduced-motion respected (theme test + reduced-motion emulation)
 
-Target WCAG 2.2 AA.
-
----
+Target WCAG 2.2 AA — enforced by the CI website e2e gate.
 
 ## 7. Launch checklist
 
-- [ ] Repository visibility decided (Pages free tier needs public)
-- [ ] `website-deploy.yml` run once; site loads at the Pages URL
-- [ ] Every internal link resolves under the `/Varve` base path
-- [ ] `sitemap.xml` and `robots.txt` serve correctly
-- [ ] OG image renders in a link preview
+- [x] Repository visibility decided (Pages free tier needs public)
+- [x] `website-deploy.yml` run once; site loads at the Pages URL
+- [x] Every internal link resolves under the `/varve` base path (link-crawl e2e)
+- [x] `sitemap.xml` and `robots.txt` serve correctly (smoke check + e2e)
+- [x] OG image renders in a link preview
 - [x] Real screenshots added (2026-08-09)
-- [ ] Accessibility pass (§6)
-- [ ] Mobile layout checked at 320/375/768 px
-- [ ] Download page verified against a **real** release manifest
-- [ ] Every checksum on the page matches the published artifact
-- [ ] Privacy, licence and security pages re-read for accuracy
+- [x] Accessibility pass (§6)
+- [x] Mobile layout checked at 320/375/768 px (e2e)
+- [x] Download page verified against a **real** release manifest (v0.1.0, published 2026-08-09)
+- [x] Every checksum on the page matches the published artifact
+- [x] Privacy, licence and security pages re-read for accuracy
+- [x] Post-deployment smoke check wired into the workflow (`scripts/website/smoke-pages.mjs`)

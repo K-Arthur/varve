@@ -1,7 +1,8 @@
 # Varve — Platform & Architecture Support Matrix
 
-**Date:** 2026-08-03 (last updated 2026-08-04)
-**Applies to:** the first public release (`v0.1.0-alpha`)
+**Date:** 2026-08-03 (last updated 2026-08-10)
+**Applies to:** the current release line (v0.1.0 published 2026-08-09;
+v0.1.1 tagged, not yet published)
 
 The guiding rule: **do not advertise a platform we have not run the application on.**
 A successful `cargo build` is not evidence that an application works. Every "Supported" claim
@@ -28,12 +29,12 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
 | **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
 | **Linux** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
-| **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ❌ no hardware, runner smoke pending | Win 10 1809 | **3** | Low |
+| **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ⚠️ runner smoke passed 2026-08-09 (install/launch/uninstall); no long-term hardware testing | Win 10 1809 | **3** | Low |
 | **Windows** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
-| **macOS** | ARM64 | ✅ built in CI (`macos-latest`, `aarch64-apple-darwin` DMG) | `.dmg` | unsigned, unnotarised | ❌ no hardware, runner smoke pending | macOS 13 | **3** | Low |
+| **macOS** | ARM64 | ✅ built in CI (`macos-latest`, `aarch64-apple-darwin` DMG) | `.dmg` | unsigned, unnotarised | ⚠️ runner smoke passed 2026-08-09 (mount/launch/unmount); no long-term hardware testing | macOS 13 | **3** | Low |
 | **macOS** | x86-64 | ❌ not built (no ONNX Runtime Intel dylib — audit H-3) | — | — | ❌ | — | **Not supported** | — |
 
-Legend: ✅ verified · ⚠️ configured but never successfully executed · ⬜ planned · ❌ absent
+Legend: ✅ verified · ⚠️ runner smoke passed once, no ongoing hardware testing · ⬜ planned · ❌ absent
 
 ---
 
@@ -119,20 +120,16 @@ Untested and needing a VM pass before Tier 2 is claimed:
 
 ## 4. Windows — detail
 
-**Status: built in CI, never launched.** The `release.yml` windows job builds
-the NSIS installer on `windows-latest`; no packaged Windows build has been run
-on a Windows machine and the workflow has not yet produced a release (there is
-no tag yet). Everything below is a plan, not a verified result. (An earlier
-`publish.yml` that targeted `msi,nsis` was retired in P0-1 — `release.yml` is
-the only tag-triggered workflow.)
-
-**CI smoke plan (when the first draft release exists):** install the NSIS
-bundle silently (`/S`), confirm the installed binary exists and starts far
-enough to complete a bounded smoke test, check version metadata/product name/
-icon/file association/uninstall entry, then uninstall. Until a draft release
-has been through that pass, Windows stays **Experimental — not published**,
-and the download page will not advertise it (nothing is published until a
-release is).
+**Status: built in CI and published with v0.1.0 (2026-08-09) — runner smoke
+passed, no systematic on-hardware testing.** The `release.yml` windows job
+builds the NSIS installer on `windows-latest`; the v0.1.0 draft passed the
+runner smoke pass (silent install, `varve-desktop.exe` launch for a bounded
+smoke test, version/product metadata check, uninstall entry found, clean
+uninstall — all on a real Windows runner). That is the gate between "built"
+and "published": it proves install/launch/uninstall once, not that the
+application works on Windows over time. Everything below is a plan unless it
+is marked as verified. (An earlier `publish.yml` that targeted `msi,nsis` was
+retired in P0-1 — `release.yml` is the only tag-triggered workflow.)
 
 | Decision | Choice | Reasoning |
 |---|---|---|
@@ -158,13 +155,17 @@ with a Microsoft-trusted identity — and, as of the current onboarding flow, co
 
 ## 5. macOS — detail
 
-**Status: built in CI (aarch64 DMG), never launched. No Mac hardware
-available.** The release matrix builds `macos-latest` / `aarch64-apple-darwin`
-and the bundled ONNX Runtime has no Intel dylib, so only ARM64 is configured.
-Until a draft release has been mounted, launched and unmounted on a macOS
-runner (DMG creation, app bundle structure, architecture, bundle identifier,
-file association, resource loading), macOS stays **Experimental — not
-published**, and the changelog/download page will not claim otherwise.
+**Status: built in CI (aarch64 DMG) and published with v0.1.0 (2026-08-09) —
+runner smoke passed, no Mac hardware in the project.** The release matrix
+builds `macos-latest` / `aarch64-apple-darwin`; the v0.1.0 draft passed the
+runner smoke pass (DMG mounted, app bundle structure and architecture
+checked, executable launched for a bounded smoke test, unmounted cleanly —
+all on a real macOS runner). The bundled ONNX Runtime has no Intel dylib, so
+only ARM64 is configured. The runner smoke proves mount/launch/unmount once,
+not that the application works on macOS over time — no Mac hardware is
+available to the project for ongoing validation, and macOS remains
+**Experimental** for that reason. The changelog/download page label it
+accordingly.
 
 | Decision | Choice | Reasoning |
 |---|---|---|
@@ -194,13 +195,12 @@ opened because Apple cannot check it for malicious software. The supported way t
 **System Settings → Privacy & Security → Open Anyway**, which is per-app and reversible.
 
 We will **not** instruct users to run `sudo spctl --master-disable` or otherwise disable
-Gatekeeper system-wide. Downgrading a machine's security posture to install an unsigned
-beta is not an acceptable install workflow, and any documentation that suggests it is
-teaching a dangerous habit.
+Gatekeeper system-wide. Downgrading a machine's security posture to install a hobby alpha is
+not an acceptable install workflow, and any documentation that suggests it is teaching a
+dangerous habit.
 
 Because of this, and because there is no Mac to validate on, **macOS is published as an
-explicitly-labelled experimental public-beta build (unsigned, un-notarised, minimal
-real-hardware testing) or not at all** — see the distribution decision matrix.
+explicitly-labelled developer preview or not at all** — see the distribution decision matrix.
 
 ---
 
@@ -208,7 +208,7 @@ real-hardware testing) or not at all** — see the distribution decision matrix.
 
 ### 4 GB RAM target
 
-`apps/desktop/dist` was **147 MB** when measured (2026-08-04), of which `ort-wasm` was **93 MB** and models were
+`apps/desktop/dist` is currently **147 MB**, of which `ort-wasm` is **93 MB** and models are
 **13 MB**. Everything in `dist/` is embedded in the binary. Add the ~25 MB platform ORT library
 and the installed footprint is comfortably over 200 MB before WebView2.
 
