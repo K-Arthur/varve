@@ -3,6 +3,14 @@ import { defineConfig, devices } from '@playwright/test';
 const e2ePort = process.env.VARVE_E2E_PORT ?? '1420';
 const e2eBaseUrl = `http://localhost:${e2ePort}`;
 
+// Isolated output directories per execution: concurrent agents (or parallel
+// local runs) must never overwrite each other's reports/screenshots. A
+// unique suffix is derived from PID + port when VARVE_E2E_OUTPUT_DIR is not
+// set explicitly (CI sets its own per-run directories).
+const outputSuffix = process.env.VARVE_E2E_OUTPUT_DIR
+  ? process.env.VARVE_E2E_OUTPUT_DIR
+  : `run-${process.pid}-${e2ePort}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   // Warm the dev server's module graph before any spec runs (see
@@ -13,7 +21,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
-  reporter: 'html',
+  outputDir: `test-results/${outputSuffix}`,
   // 180s: measured cold first-paint on a fresh vite transform cache is ~100s
   // on this machine and worse on CI runners (shared cache, slower disks). A
   // 60s test timeout made every spec die in navigateToEditor's page.goto on
@@ -27,6 +35,9 @@ export default defineConfig({
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
+  // HTML report isolation: each execution writes its own directory so a
+  // concurrent agent's `playwright-report` is never clobbered.
+  reporter: [['html', { outputFolder: `playwright-report/${outputSuffix}` }]],
   projects: [
     // clipboard-read/write permission grants are only supported by
     // Chromium's Permissions API — Firefox and WebKit fail context/page
@@ -112,7 +123,11 @@ export default defineConfig({
   webServer: {
     command: `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`,
     url: e2eBaseUrl,
-    reuseExistingServer: true,
+    // Never reuse another agent's server: with VARVE_E2E_PORT set (per-agent)
+    // this port is unique, so no sharing happens. When unset, defaulting to
+    // reuse would let a second agent silently attach to the first one's
+    // server on 1420 — always start our own for isolation.
+    reuseExistingServer: false,
     timeout: 120000,
   },
 });
