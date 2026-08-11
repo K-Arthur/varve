@@ -175,6 +175,15 @@ const statusLabel = release.hasRelease && release.version
     border-bottom: 1px solid var(--border-footer);
     background:
       linear-gradient(115deg, var(--surface-inset) 0%, var(--surface-footer) 60%);
+    /* The band is a dark surface in BOTH themes, so the primary CTA inside
+       it must use the dark-band accent (light teal, dark text) even when the
+       page is in light mode — the light-mode accent (dark teal on dark
+       band) measured only 3.06:1 and read as a dark button on a dark
+       surface. Scoping the accent tokens here lets the shared .btn-primary
+       styles resolve correctly without theme-specific overrides. */
+    --accent-primary: var(--accent-dark-band);
+    --accent-primary-hover: var(--accent-dark-band-hover);
+    --text-on-accent: var(--text-on-accent-dark-band);
   }
 
   .footer-download-inner {
