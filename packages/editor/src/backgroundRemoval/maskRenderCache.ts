@@ -12,9 +12,9 @@ const MAX_MASK_RENDER_URLS = 32;
 
 interface MaskImageCache {
   isLoaded(url: string): boolean;
-  getImage(url: string): HTMLImageElement | null;
-  load(url: string): Promise<HTMLImageElement>;
-  setLoaded(url: string, image: HTMLImageElement): void;
+  getImage(url: string): HTMLImageElement | ImageBitmap | null;
+  load(url: string): Promise<HTMLImageElement | ImageBitmap>;
+  setLoaded(url: string, image: HTMLImageElement | ImageBitmap): void;
 }
 
 export function maskRenderDimensions(
@@ -90,7 +90,7 @@ async function createMaskRenderProxy(
 }
 
 async function createMaskRenderProxyFromImage(
-  image: HTMLImageElement,
+  image: HTMLImageElement | ImageBitmap,
   width: number,
   height: number,
 ): Promise<HTMLImageElement> {

@@ -112,10 +112,9 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
    * Load image from cache as full-size ImageData.
    */
   const loadImageData = useCallback(async (src: string): Promise<ImageData> => {
-    const { getImageCache } = await import('@varve/engine');
+    const { cachedImageDims, getImageCache } = await import('@varve/engine');
     const img = await getImageCache().load(src);
-    const w = Math.max(1, img.naturalWidth || img.width);
-    const h = Math.max(1, img.naturalHeight || img.height);
+    const { width: w, height: h } = cachedImageDims(img);
 
     const canvas = document.createElement('canvas');
     canvas.width = w;
