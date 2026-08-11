@@ -8054,15 +8054,16 @@ export function EditorProvider({
           const sourceSrc = imageShapeSrc(imageNode);
           const image = await engine.getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
-          const width = Math.max(1, image.naturalWidth || image.width);
-          const height = Math.max(1, image.naturalHeight || image.height);
+          const { width, height } = engine.cachedImageDims(image);
+          const safeWidth = Math.max(1, width);
+          const safeHeight = Math.max(1, height);
           const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
+          canvas.width = safeWidth;
+          canvas.height = safeHeight;
           const context = canvas.getContext('2d');
           if (!context) throw new Error('Canvas pixel processing is unavailable');
-          context.drawImage(image, 0, 0, width, height);
-          let source = context.getImageData(0, 0, width, height);
+          context.drawImage(image, 0, 0, safeWidth, safeHeight);
+          let source = context.getImageData(0, 0, safeWidth, safeHeight);
 
           // A background-removal mask lives beside the image and is composited
           // at render time, so these pixels are still the unmasked original.
@@ -8271,13 +8272,14 @@ export function EditorProvider({
         processingImageNodeRef.current = processingNodeId;
         announcerRef.current?.announce('Tracing image...');
         try {
-          const { getImageCache, dispatchTrace } = await import('@varve/engine');
+          const { cachedImageDims, getImageCache, dispatchTrace } = await import('@varve/engine');
           const { imageShapeSrc } = await import('@varve/scene');
           const sourceSrc = imageShapeSrc(imageNode);
           const image = await getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
-          let width = Math.max(1, image.naturalWidth || image.width);
-          let height = Math.max(1, image.naturalHeight || image.height);
+          let { width, height } = cachedImageDims(image);
+          width = Math.max(1, width);
+          height = Math.max(1, height);
           const MAX_TRACE_DIM = 4096;
           if (width > MAX_TRACE_DIM || height > MAX_TRACE_DIM) {
             const scale = Math.min(MAX_TRACE_DIM / width, MAX_TRACE_DIM / height);

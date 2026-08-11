@@ -201,7 +201,7 @@ export function BatchBgRemoveDialog({
     async (file: ProcessingFile): Promise<'done' | 'error'> => {
       const cache = getImageCache();
 
-      let img: HTMLImageElement;
+      let img: import('@varve/engine').CachedImage;
       try {
         img = await cache.load(file.src);
       } catch (err) {
