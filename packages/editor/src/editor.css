@@ -1705,7 +1705,7 @@ input[type="number"] {
   background: transparent;
   cursor: pointer;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   transition:
     color 0.15s,
     background 0.15s;
@@ -1714,7 +1714,7 @@ input[type="number"] {
   background: var(--elevation-surface-hover);
 }
 .history-panel__tab--active {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   background: var(--elevation-surface-default);
   border-bottom: 2px solid var(--color-interactive-default);
   font-weight: 600;
@@ -1732,10 +1732,10 @@ input[type="number"] {
 .history-panel__search-input {
   width: 100%;
   padding: 4px 8px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
 .history-panel__search-input:focus {
@@ -1750,16 +1750,16 @@ input[type="number"] {
 }
 .history-panel__action-btn {
   padding: 3px 8px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
 .history-panel__action-btn:hover {
   background: var(--elevation-surface-hover);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .history-panel__form {
@@ -1772,10 +1772,10 @@ input[type="number"] {
 .history-panel__form-input {
   width: 100%;
   padding: 4px 8px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
 .history-panel__form-actions {
@@ -1784,10 +1784,10 @@ input[type="number"] {
 }
 .history-panel__form-actions button {
   padding: 2px 8px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
@@ -1830,7 +1830,7 @@ input[type="number"] {
   gap: 6px;
 }
 .history-panel__step-label {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
 .history-panel__step-kind {
@@ -1852,7 +1852,7 @@ input[type="number"] {
 }
 .history-panel__marker--head {
   background: var(--color-interactive-default);
-  color: var(--text-on-accent);
+  color: var(--color-text-on-accent);
 }
 .history-panel__marker--checkpoint {
   background: var(--status-warning-bg, #fef3c7);
@@ -1897,7 +1897,7 @@ input[type="number"] {
   align-items: center;
 }
 .history-panel__branch-name {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .history-panel__branch-status {
   color: var(--text-tertiary);
@@ -1905,7 +1905,7 @@ input[type="number"] {
 }
 .history-panel__branch-switch {
   padding: 2px 8px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
   color: var(--color-interactive-default);
@@ -1921,7 +1921,7 @@ input[type="number"] {
   padding: 8px 8px 4px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -1939,7 +1939,7 @@ input[type="number"] {
   background: var(--elevation-surface-hover);
 }
 .history-panel__checkpoint-name {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 /* Compare */
@@ -1954,14 +1954,14 @@ input[type="number"] {
   flex-direction: column;
   gap: 2px;
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .history-panel__compare-select {
   padding: 4px 6px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
 .history-panel__compare-btn {
@@ -1969,7 +1969,7 @@ input[type="number"] {
   border: 1px solid var(--color-interactive-default);
   border-radius: 4px;
   background: var(--color-interactive-default);
-  color: var(--text-on-accent);
+  color: var(--color-text-on-accent);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
@@ -2000,7 +2000,7 @@ input[type="number"] {
 .history-panel__diff-renamed,
 .history-panel__diff-reordered,
 .history-panel__diff-text {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 /* Changed-entity tree (M10) */
@@ -2014,7 +2014,7 @@ input[type="number"] {
   padding: 6px 8px;
 }
 .history-panel__entity {
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   padding: 6px;
   background: var(--elevation-surface-subtle);
@@ -2027,7 +2027,7 @@ input[type="number"] {
 .history-panel__entity-id {
   font-family: var(--font-family-mono, monospace);
   font-size: 10px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2040,12 +2040,12 @@ input[type="number"] {
 .history-panel__entity-count {
   font-size: 10px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin-left: auto;
 }
 .history-panel__entity-show {
   padding: 1px 6px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 3px;
   background: var(--elevation-surface-default);
   color: var(--color-interactive-default);
@@ -2096,10 +2096,10 @@ input[type="number"] {
 .history-panel__change-badge--reordered,
 .history-panel__change-badge--text {
   background: var(--elevation-surface-default);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 .history-panel__change-summary {
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 .history-panel__change-path {
   font-size: 9px;
@@ -2117,7 +2117,7 @@ input[type="number"] {
 .history-panel__merge-status {
   padding: 6px 8px;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   border-bottom: var(--border-micro);
 }
 
@@ -2138,7 +2138,7 @@ input[type="number"] {
 }
 .conflict-resolver__subtitle {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   margin: 0;
 }
 .conflict-resolver__list {
@@ -2149,7 +2149,7 @@ input[type="number"] {
   max-height: 50vh;
 }
 .conflict-resolver__item {
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 6px;
   padding: 10px;
   display: flex;
@@ -2183,7 +2183,7 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   padding: 6px;
   background: var(--elevation-surface-default);
@@ -2235,10 +2235,10 @@ input[type="number"] {
 }
 .conflict-resolver__btn {
   padding: 6px 14px;
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   background: var(--elevation-surface-default);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
@@ -2248,7 +2248,7 @@ input[type="number"] {
 .conflict-resolver__btn--primary {
   background: var(--color-interactive-default);
   border-color: var(--color-interactive-default);
-  color: var(--text-on-accent);
+  color: var(--color-text-on-accent);
 }
 .conflict-resolver__btn:disabled {
   opacity: 0.5;
