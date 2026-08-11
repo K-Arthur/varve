@@ -359,6 +359,11 @@ describe('ExportDialog', () => {
       receivedBatch = batch;
       return { totalJobs: 1, successCount: 1, failureCount: 0, files: [] };
     });
+    // F-32 preflight gate (2026-08-10): handleExport blocks on
+    // error-severity findings via window.confirm; this batch's pdf-x4
+    // job on the default web platform is flagged, so confirm must resolve
+    // as a user clicking "Export anyway".
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(
       <ExportDialog
         isOpen={true}
@@ -372,6 +377,7 @@ describe('ExportDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
 
     await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
+    confirmSpy.mockRestore();
     const jobs = (receivedBatch as { jobs: Array<{ format: string; print?: unknown }> }).jobs;
     expect(jobs[0]?.format).toBe('pdf-x4');
     expect(jobs[0]?.print).toMatchObject({ bleedMm: expect.any(Number) });
