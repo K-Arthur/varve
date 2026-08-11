@@ -28,7 +28,7 @@ export function VectorizeDialog({ open, onClose }: VectorizeDialogProps) {
   const traceMetadata = replaceGroup?.kind === 'group' ? replaceGroup.traceMetadata : undefined;
   const initialSettings = traceMetadata ? settingsFromTraceMetadata(traceMetadata) : null;
   return (
-    <Dialog open={open} onClose={onClose} title="Vectorize image" dismissible>
+    <Dialog open={open} onClose={onClose} title="Vectorize image" dismissible focusFirstControl>
       <VectorizeWorkflow
         emptyStateNote="Select an image layer to vectorize it. The result is inserted beside the source as editable paths."
         initialSettings={initialSettings}
