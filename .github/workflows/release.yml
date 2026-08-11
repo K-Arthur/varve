@@ -344,7 +344,8 @@ jobs:
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
-            cmake pkg-config patchelf
+            cmake pkg-config patchelf \
+            squashfs-tools
 
       - name: Add macOS Rust target
         if: matrix.enabled && runner.os == 'macOS'
@@ -527,6 +528,18 @@ jobs:
           fi
 
       # ── Collect, rename, checksum, SBOM ────────────────────────────────
+      # The AppImage's bundled WebKit/GTK/GStreamer closure (from the
+      # ubuntu-22.04 build baseline) fails EGL display creation on newer
+      # Mesa/EGL stacks and renders a blank window — see
+      # scripts/release/prune-appimage-bundled-libs.mjs for the measured
+      # reproduction and fix. Prune it BEFORE collection so the artifact,
+      # manifest and checksums describe the shipped bytes.
+      - name: Prune bundled libraries from AppImage
+        if: matrix.enabled && runner.os == 'Linux'
+        run: |
+          node scripts/release/prune-appimage-bundled-libs.mjs \
+            --bundle-dir apps/desktop/src-tauri/target/release/bundle
+
       - name: Collect artifacts
         if: matrix.enabled
         run: |
