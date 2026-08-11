@@ -397,9 +397,18 @@ if (typeof globalThis.requestIdleCallback === 'undefined') {
       0,
     ) as unknown as number;
   }) as unknown as typeof globalThis.requestIdleCallback;
-  globalThis.cancelIdleCallback = vi.fn((id: number) =>
-    clearTimeout(id),
-  ) as unknown as typeof globalThis.cancelIdleCallback;
+  globalThis.cancelIdleCallback = vi.fn((id: number) => {
+    // Vitest 4 fakes requestIdleCallback natively (its ids are recorded as
+    // requestIdleCallback-typed timers) but leaves this polyfilled
+    // cancelIdleCallback in place; clearing a requestIdleCallback-typed id
+    // via clearTimeout throws "Cannot clear timer". The polyfill only needs
+    // to be a no-op-safe cancel — swallow the type mismatch.
+    try {
+      clearTimeout(id);
+    } catch {
+      // fake-timers id type mismatch (see comment above)
+    }
+  }) as unknown as typeof globalThis.cancelIdleCallback;
 }
 
 // jsdom does not implement HTMLDialogElement

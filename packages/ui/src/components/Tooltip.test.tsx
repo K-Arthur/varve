@@ -273,12 +273,14 @@ describe('Tooltip truncation-only mode', () => {
 
   it('observes the trigger with ResizeObserver in truncation-only mode', () => {
     const roSpy = vi.spyOn(global, 'ResizeObserver').mockImplementation(
-      () =>
-        ({
+      // Vitest 4: constructor mocks need a constructible implementation.
+      function () {
+        return {
           observe: vi.fn(),
           disconnect: vi.fn(),
           unobserve: vi.fn(),
-        }) as unknown as ResizeObserver,
+        } as unknown as ResizeObserver;
+      },
     );
     const { container } = render(
       <Tooltip label="Full text" truncationOnly>
