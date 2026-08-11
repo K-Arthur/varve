@@ -189,17 +189,26 @@ describe('release data states (shared builder)', () => {
     ).toThrow(/unknown format/);
   });
 
-  it('committed manifest tracks the published release', () => {
+  it('committed manifest is internally consistent about its version', () => {
     const data = loadManifest();
     // The committed manifest is refreshed by the release pipeline
     // (scripts/release/fetch-website-release.mjs on release.published, or
-    // update-website-manifest.mjs for local rehearsals). As of 2026-08-10 the
-    // published v0.1.0 release is the committed state; a future release
-    // refresh updates these assertions to the new version.
+    // update-website-manifest.mjs for local rehearsals).
+    //
+    // These assertions deliberately check the *invariant* rather than a
+    // literal version. Pinning the expected version to a string meant every
+    // release had to remember to edit this test, and when that was missed the
+    // committed manifest sat a release behind while the test still passed —
+    // which is exactly how the site shipped 0.1.0 download links after 0.1.1
+    // was published. Consistency checks catch real drift (a tag that does not
+    // match its version, URLs pointing at a different release) without going
+    // stale on their own.
     expect(data.hasRelease).toBe(true);
-    expect(data.version).toBe('0.1.0');
     expect(data.integrity).toBe('verified');
-    expect(data.checksumsUrl).toContain('/v0.1.0/SHA256SUMS.txt');
+    expect(data.version).toMatch(/^\d+\.\d+\.\d+(?:-[\w.]+)?$/);
+    expect(data.tag).toBe(`v${data.version}`);
+    expect(data.checksumsUrl).toContain(`/${data.tag}/`);
+    expect(data.releaseUrl).toContain(`/${data.tag}`);
   });
 });
 

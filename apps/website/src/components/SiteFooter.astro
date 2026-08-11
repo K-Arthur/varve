@@ -7,8 +7,9 @@
  * to four link groups.
  * Bottom: legal/status bar (license, privacy, release status, copyright,
  * source, contribution path).
- * Signature: an oversized cropped VARVE wordmark whose strata planes lean
- * subtly toward the pointer on fine pointers (no continuous animation).
+ * Signature: a full-bleed, cropped Varve wordmark drawn as SVG, with a
+ * vector-selection overlay showing it as the editable object it would be
+ * inside the app. Entirely static — no pointer tracking, no animation.
  */
 import DownloadCTA from './DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
@@ -127,65 +128,42 @@ const statusLabel = release.hasRelease && release.version
        Title case matches the lockup exactly, and mixed case gives the
        editorial serif its ascenders and ball terminals. Entirely decorative:
        aria-hidden, pointer-events: none, unselectable. -->
-  <div class="footer-signature" aria-hidden="true" data-footer-signature>
-    <span class="footer-signature-word">
-      <span class="footer-signature-letter">V</span><span class="footer-signature-letter">a</span><span class="footer-signature-letter">r</span><span class="footer-signature-letter">v</span><span class="footer-signature-letter">e</span>
-    </span>
+  <div class="footer-signature" aria-hidden="true">
+    <svg class="footer-signature-svg" viewBox="0 0 1200 168" role="presentation">
+      <defs>
+        <linearGradient id="varve-signature-fill" x1="0" y1="0" x2="1" y2="0.3">
+          <stop offset="0" stop-color="var(--brand-teal)" />
+          <stop offset="0.52" stop-color="var(--brand-sandstone)" />
+          <stop offset="1" stop-color="var(--brand-terracotta)" />
+        </linearGradient>
+      </defs>
 
-    <span class="footer-signature-selection">
-      <span class="footer-signature-node footer-signature-node-tl"></span>
-      <span class="footer-signature-node footer-signature-node-tr"></span>
-      <span class="footer-signature-node footer-signature-node-bl"></span>
-      <span class="footer-signature-node footer-signature-node-br"></span>
-      <span class="footer-signature-chip">
-        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path class="logo-strata-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
-          <path class="logo-strata-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
-          <path class="logo-strata-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
-        </svg>
-        Wordmark
-      </span>
-    </span>
+      <!-- Baseline sits below the viewBox so the glyphs are cropped at the
+           foot: the crop is the effect, not an accident of sizing. -->
+      <text
+        class="footer-signature-text"
+        x="600"
+        y="232"
+        text-anchor="middle"
+        fill="url(#varve-signature-fill)"
+      >Varve</text>
+
+      <!-- Selection overlay in the same coordinate space as the type, so it
+           stays locked to the "r" at every viewport instead of drifting the
+           way percentage positioning over live text does. -->
+      <g class="footer-signature-selection">
+        <rect x="612" y="74" width="104" height="132" />
+        <rect class="footer-signature-node" x="606" y="68" width="12" height="12" />
+        <rect class="footer-signature-node" x="710" y="68" width="12" height="12" />
+        <rect class="footer-signature-node" x="606" y="200" width="12" height="12" />
+        <rect class="footer-signature-node" x="710" y="200" width="12" height="12" />
+        <rect class="footer-signature-chip-bg" x="606" y="34" width="132" height="30" rx="6" />
+        <text class="footer-signature-chip-text" x="620" y="55">Wordmark</text>
+      </g>
+    </svg>
   </div>
 </footer>
 
-<script>
-  /**
-   * Subtle pointer response for the wordmark: each letter's strata lean
-   * shifts slightly toward the horizontal pointer position. Runs only on
-   * fine pointers with motion enabled; otherwise the signature stays
-   * perfectly static. One listener, transform-only updates.
-   */
-  import { isCoarsePointer, prefersMotion } from '../lib/motion';
-
-  const signature = document.querySelector<HTMLElement>('[data-footer-signature]');
-  if (signature && !isCoarsePointer() && prefersMotion()) {
-    // Letters only — the strata mark alongside them is not part of the lean.
-    const letters = [...signature.querySelectorAll<HTMLElement>('.footer-signature-letter')];
-    const frame = (clientX: number): void => {
-      const rect = signature.getBoundingClientRect();
-      const mid = rect.left + rect.width / 2;
-      const ratio = Math.max(-1, Math.min(1, (clientX - mid) / (rect.width / 2 || 1)));
-      letters.forEach((letter, i) => {
-        const skew = ratio * (i - (letters.length - 1) / 2) * 0.35;
-        letter.style.transform = `translateX(${skew.toFixed(2)}px)`;
-      });
-    };
-    let raf = 0;
-    document.addEventListener(
-      'pointermove',
-      (e) => {
-        if (e.pointerType !== 'mouse') return;
-        if (raf) return;
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          frame(e.clientX);
-        });
-      },
-      { passive: true },
-    );
-  }
-</script>
 
 <style>
   .site-footer {
@@ -386,182 +364,83 @@ const statusLabel = release.hasRelease && release.version
 
   /* The strata fills have to be declared here as well as in SiteHeader:
      Astro scopes component styles, so the header's rules never reached the
-     footer's copies of the mark. Both the brand lockup and the signature
-     chip were rendering with the SVG's own `fill="none"` — i.e. invisible. */
-  .footer-brand-lockup .logo-strata-1,
-  .footer-signature-chip .logo-strata-1 {
+     footer's copy of the mark, which fell back to the SVG's own
+     `fill="none"` — i.e. rendered invisible. */
+  .footer-brand-lockup .logo-strata-1 {
     fill: var(--brand-teal);
   }
 
-  .footer-brand-lockup .logo-strata-2,
-  .footer-signature-chip .logo-strata-2 {
+  .footer-brand-lockup .logo-strata-2 {
     fill: var(--brand-sandstone);
   }
 
-  .footer-brand-lockup .logo-strata-3,
-  .footer-signature-chip .logo-strata-3 {
+  .footer-brand-lockup .logo-strata-3 {
     fill: var(--brand-terracotta);
   }
 
   /* --- Signature wordmark ---
-     Full-bleed and edge to edge: the type is sized in vw so it spans the
-     viewport at every width instead of sitting as a centred block with
-     margins. The container crops it — a rule above, the bottom bar below —
-     so it reads as a section cut through the letterforms. */
+     Drawn as SVG rather than live text. Sizing HTML type to span the viewport
+     means guessing a vw value against the font's own advance widths: it held
+     at one viewport and broke at the next, leaving a fragment of a glyph and
+     an overlay pointing at empty space. An SVG viewBox scales the wordmark to
+     the container by construction at every width, and `slice` performs the
+     crop — so the composition is identical from 320px to ultrawide, and the
+     selection overlay shares the type's coordinate space instead of chasing
+     it with percentages. */
   .footer-signature {
     position: relative;
-    /* A fixed band, not the type's natural height: the wordmark is far
-       taller than this, and the crop is the whole point — a section cut
-       through the letterforms rather than a word that happens to be big. */
-    height: clamp(92px, 15vw, 220px);
     overflow: hidden;
     border-top: 1px solid var(--border-footer);
     margin-top: 1.5rem;
+    /* Aspect-ratio band: taller than the slice shows, so the glyphs are cut
+       at the foot the way a section cut through type would be. */
+    height: clamp(88px, 13vw, 190px);
     user-select: none;
     pointer-events: none;
   }
 
-  .footer-signature-word {
-    position: absolute;
-    left: 0;
-    right: 0;
-    /* Centred on the band so the crop takes an equal bite from the cap line
-       and the baseline. */
-    top: 50%;
-    transform: translateY(-48%);
-    text-align: center;
-    white-space: nowrap;
+  .footer-signature-svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .footer-signature-text {
     font-family: var(--font-editorial);
     font-weight: 700;
     font-variation-settings: 'opsz' 144;
-    /* Sized to span the viewport, not to fit a content column: "Varve" is
-       five glyphs, so reaching edge-to-edge needs roughly 0.42 x viewport
-       per em. The container crops the result rather than the type being
-       fitted to it — that crop is the effect. */
-    font-size: 40vw;
-    line-height: 0.68;
-    letter-spacing: -0.03em;
-    /* Strata gradient through the letterforms, left to right. At this scale
-       the gradient reads as one slow colour shift across the word rather
-       than as three stripes, which is why it works here and did not at the
-       previous, much smaller size. The flat ink stays as the fallback for
-       engines without background-clip: text, and as the forced-colors value
-       below. */
-    color: var(--footer-signature-ink);
-    background: linear-gradient(
-      100deg,
-      var(--brand-teal) 0%,
-      var(--brand-sandstone) 52%,
-      var(--brand-terracotta) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    opacity: 0.5;
+    font-size: 300px;
+    letter-spacing: -6px;
+    /* The gradient fill is applied via the `fill` attribute; this opacity
+       keeps the mark a ground rather than content competing with the links
+       above it. */
+    opacity: 0.55;
   }
 
-  @supports not ((background-clip: text) or (-webkit-background-clip: text)) {
-    .footer-signature-word {
-      background: none;
-      -webkit-text-fill-color: currentColor;
-      opacity: 1;
-    }
-  }
-
-  @media (forced-colors: active) {
-    .footer-signature-word {
-      background: none;
-      -webkit-text-fill-color: currentColor;
-      color: CanvasText;
-      opacity: 1;
-    }
-  }
-
-  .footer-signature-letter {
-    display: inline-block;
-    transition: transform 0.4s var(--ease-default);
-    will-change: transform;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .footer-signature-letter {
-      transition: none;
-    }
-  }
-
-  /* Selection overlay: the wordmark shown as a selected vector object, the
-     way it would look on the canvas. Positioned in percentages of the
-     signature box so it tracks the type as the viewport scales. */
-  /* Sits over the "r", roughly mid-word — percentages of the signature box,
-     so it tracks the type as the viewport scales. Inset from the band edges
-     so the chip above it stays inside the crop. */
-  .footer-signature-selection {
-    position: absolute;
-    left: 46%;
-    top: 38%;
-    width: 12%;
-    height: 46%;
-    border: 1px solid var(--brand-teal);
-    opacity: 0.9;
+  .footer-signature-selection rect {
+    fill: none;
+    stroke: var(--brand-teal);
+    stroke-width: 2;
   }
 
   .footer-signature-node {
-    position: absolute;
-    width: 7px;
-    height: 7px;
-    background: var(--surface-footer);
-    border: 1.5px solid var(--brand-teal);
-    border-radius: 1px;
+    fill: var(--surface-footer);
   }
 
-  .footer-signature-node-tl {
-    top: -4px;
-    left: -4px;
+  .footer-signature-chip-bg {
+    fill: var(--brand-teal);
+    stroke: none;
   }
 
-  .footer-signature-node-tr {
-    top: -4px;
-    right: -4px;
-  }
-
-  .footer-signature-node-bl {
-    bottom: -4px;
-    left: -4px;
-  }
-
-  .footer-signature-node-br {
-    bottom: -4px;
-    right: -4px;
-  }
-
-  /* Layer chip, like a selected object's name badge on the canvas. */
-  .footer-signature-chip {
-    position: absolute;
-    top: -1.9rem;
-    left: -1px;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 0.25rem;
-    background: var(--brand-teal);
-    color: var(--text-on-accent-dark-band);
+  .footer-signature-chip-text {
+    fill: var(--text-on-accent-dark-band);
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: 17px;
     font-weight: 600;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
   }
 
-  .footer-signature-chip svg {
-    width: 12px;
-    height: 12px;
-    flex: 0 0 auto;
-  }
-
-  /* Below ~640px the chip and nodes are larger than the glyph they annotate
-     and read as clutter; the cropped wordmark alone still carries the
-     composition. */
+  /* Below ~640px the overlay is larger than the glyph it annotates and reads
+     as clutter; the cropped wordmark alone still carries the composition. */
   @media (max-width: 640px) {
     .footer-signature-selection {
       display: none;
@@ -571,6 +450,11 @@ const statusLabel = release.hasRelease && release.version
   @media (forced-colors: active) {
     .footer-signature-selection {
       display: none;
+    }
+
+    .footer-signature-text {
+      fill: CanvasText;
+      opacity: 1;
     }
   }
 
