@@ -254,7 +254,6 @@ jobs:
         run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
 
   website-e2e:
-  website-e2e:
     name: Website E2E (dual deployment modes)
     timeout-minutes: 30
     needs: changes
