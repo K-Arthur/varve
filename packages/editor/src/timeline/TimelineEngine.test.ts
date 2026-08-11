@@ -6,11 +6,11 @@ import { TimelineEngine } from './TimelineEngine';
 
 describe('TimelineEngine', () => {
   let engine: TimelineEngine;
-  let onFrame: ReturnType<typeof vi.fn>;
+  let onFrame: (time: number, iteration: number) => void;
 
   beforeEach(() => {
     engine = new TimelineEngine({ duration: 5000 });
-    onFrame = vi.fn();
+    onFrame = vi.fn<(time: number, iteration: number) => void>();
   });
 
   afterEach(() => {

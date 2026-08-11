@@ -263,7 +263,7 @@ describe('workspaceStore — durable (platform) persistence', () => {
 
   it('records a diagnostic instead of throwing when the durable write fails', async () => {
     const platform = fakePlatform();
-    (platform.setAppSetting as unknown as ReturnType<typeof vi.fn>).mockRejectedValue(
+    (vi.mocked(platform.setAppSetting)).mockRejectedValue(
       new Error('quota exceeded'),
     );
     attachWorkspacePreferencePlatform(platform);

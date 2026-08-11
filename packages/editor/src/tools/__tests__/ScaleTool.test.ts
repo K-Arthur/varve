@@ -279,7 +279,7 @@ describe('ScaleTool — uniform toggle', () => {
 
     // First call with shiftKey=true — snaps
     (tool as any).onDragMove?.({ ...ctx, shiftKey: true, updateNodes: vi.fn() });
-    const snapCall = (ctx.updateNodes as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const snapCall = vi.mocked(ctx.updateNodes).mock.calls.at(-1);
     const snapFn = snapCall?.[1];
     if (snapFn) {
       const s = snapFn(node);
@@ -288,7 +288,7 @@ describe('ScaleTool — uniform toggle', () => {
 
     // Second call with shiftKey=false — unconstrained
     (tool as any).onDragMove?.({ ...ctx, shiftKey: false, updateNodes: vi.fn() });
-    const unconstrainCall = (ctx.updateNodes as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+    const unconstrainCall = vi.mocked(ctx.updateNodes).mock.calls.at(-1);
     const unconstrainFn = unconstrainCall?.[1];
     if (unconstrainFn) {
       const u = unconstrainFn(node);

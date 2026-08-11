@@ -79,7 +79,7 @@ function renderOverlay(
     nodeMap[n.id] = n;
   }
 
-  const mockUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
+  const mockUseEditor = useEditor as unknown as { mockReturnValue: (v: unknown) => void };
   mockUseEditor.mockReturnValue({
     state: {
       document: buildDoc(nodeMap),
