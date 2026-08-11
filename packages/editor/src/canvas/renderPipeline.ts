@@ -534,6 +534,10 @@ export function renderContent(deps: RenderContentDeps): void {
           surfaceW: canvas.width,
           surfaceH: canvas.height,
         };
+        // The presented bitmap is an authoritative render of the current
+        // document (docVersion must match for the present to succeed), so the
+        // dirty-diff baseline advances to it like any other completed frame.
+        lastRenderedDocRef.current = doc;
         return;
       }
     }
@@ -1858,28 +1862,62 @@ export function renderContent(deps: RenderContentDeps): void {
     });
     const diag = compositorRef.current?.getDiagnostics?.();
     if (diag) setCompositorDiagnostics(diag);
-    if (stateRef.current.document === doc) lastRenderedDocRef.current = doc;
-  })().finally(() => {
-    // Restore in reverse save order even when IR building or replay throws.
-    // An unbalanced dirty clip survives setTransform() and can make every
-    // later camera-only frame look blank.
-    if (dirtyClipOpen) {
-      ctx.restore();
-      dirtyClipOpen = false;
-    }
-    if (compositorFrameOpen) {
-      frameBackend?.endFrame();
-      compositorFrameOpen = false;
-    }
-    drawInFlightRef.current = false;
-    if (drawPendingRef.current) {
-      drawPendingRef.current = false;
-      // A trigger arrived during the in-flight draw — schedule one more pass
-      // (coalesced on the shared content key); the coordinator decides
-      // whether it actually needs to render.
-      redrawCoordinatorRef.current?.noteRescheduledDuringRender();
-      const pendingKey = contentDrawFrameKey.current;
-      if (pendingKey) scheduleCanvasFrame(pendingKey, 'canvas', scheduleDrawContent);
-    }
-  });
+    // The dirty-diff baseline must advance to the document this frame PAINTED,
+    // not merely the one that is still current. When a frame is overtaken
+    // mid-flight (a document change lands during the async IR build — real on
+    // desktop, where buildIr is a Tauri IPC await), the frame still paints its
+    // captured document, and the surface then shows THAT document's pixels.
+    // Guarding the advancement on `stateRef.current.document === doc` stalls
+    // the baseline at an older document: the next partial frame diffs against
+    // it, misses every pixel the overtaken frame painted (an intermediate
+    // drag position, or a node's last painted location before a delete during
+    // an interaction), and those pixels survive as stale ghosts.
+    //
+    // The advancement is safe because the partial diff's own completeness
+    // invariant guarantees the surface is equivalent to a clean full render of
+    // the painted document: everything outside the damage region was retained
+    // unchanged, and the region of change is exactly where the two documents
+    // differ. Diffing the next frame against the painted document therefore
+    // covers precisely the pixels that differ between the surface and the new
+    // document.
+    lastRenderedDocRef.current = doc;
+  })()
+    .catch((error: unknown) => {
+      // A frame that threw mid-paint left the surface partially repainted —
+      // not a faithful render of any document. Never let the next frame reuse
+      // those pixels: drop the painted-surface identity (the next frame must
+      // be an authoritative full redraw — `surfaceMatchesBackingStore` reports
+      // 'never-painted' for a null identity) and keep the dirty baseline at
+      // the previously completed document (this painted doc was never
+      // committed). One reschedule is requested so a failed frame is followed
+      // by a full redraw even when nothing else invalidates.
+      paintedSurfaceRef.current = null;
+      requestContentDrawRef.current?.('frame-error', 'backing-store-recovery');
+      if (typeof console !== 'undefined') {
+        console.error('[varve-canvas] frame render failed; forcing a full redraw', error);
+      }
+    })
+    .finally(() => {
+      // Restore in reverse save order even when IR building or replay throws.
+      // An unbalanced dirty clip survives setTransform() and can make every
+      // later camera-only frame look blank.
+      if (dirtyClipOpen) {
+        ctx.restore();
+        dirtyClipOpen = false;
+      }
+      if (compositorFrameOpen) {
+        frameBackend?.endFrame();
+        compositorFrameOpen = false;
+      }
+      drawInFlightRef.current = false;
+      if (drawPendingRef.current) {
+        drawPendingRef.current = false;
+        // A trigger arrived during the in-flight draw — schedule one more pass
+        // (coalesced on the shared content key); the coordinator decides
+        // whether it actually needs to render.
+        redrawCoordinatorRef.current?.noteRescheduledDuringRender();
+        const pendingKey = contentDrawFrameKey.current;
+        if (pendingKey) scheduleCanvasFrame(pendingKey, 'canvas', scheduleDrawContent);
+      }
+    });
 }
