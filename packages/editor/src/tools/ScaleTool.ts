@@ -139,6 +139,38 @@ export class ScaleTool extends BaseTool {
       id: string;
       update: (node: import('@varve/scene').SceneNode) => import('@varve/scene').SceneNode;
     }> = [];
+    // Parent space does not change during one scale sample: cache the
+    // rotation-only space matrix per parent so N nodes under one parent pay
+    // one ancestor-chain walk instead of N (deeply nested parents otherwise
+    // cost O(depth) per node per pointermove).
+    const spaceMatCache = new Map<string | null, Affine>();
+    const spaceMatFor = (
+      node: import('@varve/scene').SceneNode,
+      parentId: string | null,
+    ): Affine => {
+      const cached = spaceMatCache.get(parentId);
+      if (cached) return cached;
+      let spaceMat: Affine;
+      if (parentId) {
+        const parentTransform = nodeWorldTransform(ctx.document, parentId);
+        const angle = Math.atan2(parentTransform[1], parentTransform[0]);
+        spaceMat = [
+          Math.cos(angle),
+          Math.sin(angle),
+          -Math.sin(angle),
+          Math.cos(angle),
+          0,
+          0,
+        ] as Affine;
+      } else {
+        const rot = node.rotation ?? 0;
+        if (rot === 0) spaceMat = [1, 0, 0, 1, 0, 0] as Affine;
+        const rad = (rot * Math.PI) / 180;
+        spaceMat = [Math.cos(rad), Math.sin(rad), -Math.sin(rad), Math.cos(rad), 0, 0] as Affine;
+      }
+      spaceMatCache.set(parentId, spaceMat);
+      return spaceMat;
+    };
     for (const init of this.initialNodes) {
       updaters.push({
         id: init.id,
@@ -155,31 +187,7 @@ export class ScaleTool extends BaseTool {
           // For deeply nested objects, we extract only rotation (not translation)
           // from the parent world transform to avoid double-counting position.
           const parentId = ctx.document ? getParent(ctx.document, init.id) : null;
-          let spaceMat: Affine;
-          if (parentId) {
-            const parentTransform = nodeWorldTransform(ctx.document, parentId);
-            const angle = Math.atan2(parentTransform[1], parentTransform[0]);
-            spaceMat = [
-              Math.cos(angle),
-              Math.sin(angle),
-              -Math.sin(angle),
-              Math.cos(angle),
-              0,
-              0,
-            ] as Affine;
-          } else {
-            const rot = node.rotation ?? 0;
-            if (rot === 0) spaceMat = [1, 0, 0, 1, 0, 0] as Affine;
-            const rad = (rot * Math.PI) / 180;
-            spaceMat = [
-              Math.cos(rad),
-              Math.sin(rad),
-              -Math.sin(rad),
-              Math.cos(rad),
-              0,
-              0,
-            ] as Affine;
-          }
+          const spaceMat = spaceMatFor(node, parentId);
           const det = spaceMat[0] * spaceMat[3] - spaceMat[1] * spaceMat[2];
           let localDx = nodeDx;
           let localDy = nodeDy;
