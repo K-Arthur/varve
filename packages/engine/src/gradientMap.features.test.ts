@@ -209,20 +209,21 @@ describe('lutSize', () => {
   // sampled across its first 256 entries (and a low-resolution one is indexed
   // out of bounds, yielding NaN -> 0). Both cases are reachable from the
   // serialized `lutSize` adjustment field, so they are document-visible.
-  it.each([
-    64, 128, 256, 512, 1024, 4096,
-  ])('maps a white pixel to the final stop at lutSize=%i', (lutSize) => {
-    const img = createTestImageData(1, 1, [255, 255, 255, 255]);
-    applyGradientMapFilter(img, {
-      stops: redBlue,
-      dither: false,
-      preserveLuminosity: false,
-      lutSize,
-    });
-    // redBlue ends at pure blue — a full-luminance pixel must land there.
-    expect(img.data[0]).toBe(0);
-    expect(img.data[2]).toBe(255);
-  });
+  it.each([64, 128, 256, 512, 1024, 4096])(
+    'maps a white pixel to the final stop at lutSize=%i',
+    (lutSize) => {
+      const img = createTestImageData(1, 1, [255, 255, 255, 255]);
+      applyGradientMapFilter(img, {
+        stops: redBlue,
+        dither: false,
+        preserveLuminosity: false,
+        lutSize,
+      });
+      // redBlue ends at pure blue — a full-luminance pixel must land there.
+      expect(img.data[0]).toBe(0);
+      expect(img.data[2]).toBe(255);
+    },
+  );
 
   it.each([64, 512, 4096])('maps a mid-gray pixel to the ramp middle at lutSize=%i', (lutSize) => {
     const img = createTestImageData(1, 1, [128, 128, 128, 255]);
