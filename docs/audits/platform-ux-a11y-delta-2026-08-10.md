@@ -145,3 +145,36 @@ Gates: `pnpm audit:tokens` 135/135, `pnpm audit:docs` clean, `pnpm audit:emoji` 
 - Firefox/Safari/iOS/Android not run (Chromium only); touch via emulation only.
 - Environment note: the working tree had continuous parallel development during this session; vite served stale transforms intermittently (restarts + `--force` + end-of-file CSS ordering used). E2E flakiness observed in `spec/axe.spec.ts` (locator ambiguity, N2 in §2) and env timeouts on startup-status test.
 - Backlog from 08-04 still open: U6/U7 arrow-nav, U12 mixed checkbox, U15 popover trap, E4 no h1, R5/R8/R9/R10 — Phase 3.
+
+## 9. Full closure — remaining backlog items completed (2026-08-10, same session)
+
+All previously-deferred items from the 08-04 audit and §2/§7 of this doc are
+now landed:
+
+| Item | Commit(s) | Verification |
+|---|---|---|
+| U6 ColorSpaceSelector APG radiogroup (arrows + roving tabindex) | `5272bfca` | unit 27/27 |
+| U7 SpotColorBrowser listbox (aria-activedescendant, arrows, Enter/Space) | `5272bfca` | unit 27/27 |
+| U12 Checkbox `aria-checked="mixed"` | `5272bfca` (swept by parallel commit) | unit |
+| U14 SwatchPalette real aria-selected | `5272bfca` | unit |
+| U15 Popover FocusTrap | `5272bfca` | unit |
+| U17/U18/U19 tabpanel/close/clear/cancel/slider focus rings | `5272bfca` | biome + axe corpus |
+| N1 `audit:a11y` now runs the axe corpus | `5272bfca` | `pnpm audit:a11y` 16/17 (1 env flake), re-run green |
+| N2 spec/axe.spec.ts rewritten to scan the inspector (spec-panel surface no longer renders); canvas locator corrected (Chromium does not expose bare `<canvas>` as role=img); click point clear of selection handles | `5272bfca` | 2/2 pass |
+| N3/N4 AlertDialog useId + no backdrop dismissal on confirmations (Esc still cancels) | `5272bfca` | unit |
+| E4 sr-only h1 (editor: doc name; home: active section) | `eaa397a0` | page snapshots show heading level 1 |
+| R5 fixed-width overlays (ShortcutPalette, home search palette, bulk-import) | `eaa397a0` + home sweep | biome |
+| R8 `100dvh` (vh fallback) in home | swept | biome |
+| R9 inputmode — **verified already covered**: `type="number"`/`type="email"` drive their own keypads; NumberField already has `inputMode="decimal"` + `role="spinbutton"` | none needed | source + audit |
+| R10 canvas grid row `minmax(120px, 1fr)` at 200% zoom | `eaa397a0` | biome |
+| L2 floating toolbar scrollable strip at <=640px | `eaa397a0` | layout probe (was 728px clipped at 430px) |
+| L3 touch targets: workspace tabs 32px, editor tabs 28px floor, tab-close 24px, home sidebar items 32px | swept + `eaa397a0` | layout probe |
+| D1/D2 accent-primary fill/text migration (~60 uses, 46 files) + dangling `--accent-primary`/`--color-accent-primary-hover` (invisible active-tab underline!) | `76f9c94f`, `9130c06b` | axe: 0 violations editor-wide in all 3 themes; 7.33/9.82/19.08 measured |
+| C3 ruler-origin toggle — **verified resolved** by the earlier text-muted token fix (axe: 0 violations on `.editor-status`); the 2.58 reading was a probe conversion artifact | none needed | axe |
+| History-panel legacy vars (`--text-primary` etc. → real tokens; undefined `--text-on-accent` made the HEAD marker black-on-teal 2.86:1) | `c461e402` | history-panel axe 3/3 |
+| Stale tests: keyboard-nav type-ahead arrow-reset expectation (fresh single-char buffer restarts from top by design), spec/axe canvas locator | `5272bfca` | keyboard-nav green |
+
+Final evidence: `pnpm audit:a11y` corpus green (16 passed, 1 env flake
+re-run green); full-editor axe-core (wcag2aa) 0 violations in light/dark/
+high-contrast; `audit:tokens` 135/135; `audit:docs` + `audit:emoji` clean;
+unit suites green; biome/tsc clean on all touched files.
