@@ -19,8 +19,12 @@ export function formatCopy(product) {
   return {
     appimage: {
       title: 'AppImage',
-      blurb: 'Single file, runs on any x86-64 Linux. No install, no root.',
-      caveat: 'Requires FUSE2. On systems without it, run with --appimage-extract-and-run.',
+      blurb:
+        'Portable file for x86-64 Linux — no install, no root. Uses the system WebKitGTK ' +
+        'libraries (same requirement as the .deb).',
+      caveat:
+        'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
+        'FUSE2, run with --appimage-extract-and-run.',
       install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
     },
     deb: {
