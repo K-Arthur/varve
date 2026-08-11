@@ -11,7 +11,7 @@
 
 import type { ShapeNode } from '@varve/scene';
 import { buildParentIndexMap } from '@varve/scene';
-import type { Affine, Point, Rect } from '@varve/shared';
+import type { Affine, Camera, Point, Rect, Viewport } from '@varve/shared';
 import {
   applyAffine,
   computeResizeModifiers,
@@ -19,10 +19,10 @@ import {
   handlePositions,
   type ResizeHandle,
   type SelectionBox,
-  simpleScreenToWorld,
-  simpleWorldToScreen,
+  screenToWorld,
   transformRect,
   tryInvertAffine,
+  worldToScreen,
 } from '@varve/shared';
 import { Fragment, useCallback, useMemo, useRef } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
@@ -340,6 +340,38 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const endpointDragRef = useRef<EndpointDragState | null>(null);
   const cornerRadiusDragRef = useRef<CornerRadiusDragState | null>(null);
 
+  /**
+   * Screen<->world for the overlay, using the SAME camera the renderer uses.
+   *
+   * This used to go through `simpleScreenToWorld` / `simpleWorldToScreen`,
+   * which drop `cameraRotation` entirely. At rotation 0 those reduce to the
+   * identical affine, so the bug was invisible until the view was rotated
+   * (View > Rotate, or the rotate-view shortcuts) — and then the handles
+   * rendered somewhere the artwork was not, and a handle drag mapped the
+   * pointer to the wrong world point, so resize/rotate/skew stopped following
+   * the pointer. The overlay must agree with the artwork at every rotation:
+   * a selection box one transform behind the thing it is selecting is exactly
+   * what makes manipulation feel broken even when the frame rate is fine.
+   *
+   * The viewport is read live from the canvas element because the rotation
+   * term is about the viewport centre. A null canvas yields a 0x0 viewport,
+   * whose centre is the origin — which is precisely the legacy behaviour, so
+   * the fallback degrades to what this code did before rather than to nonsense.
+   */
+  const overlayViewport = (): Viewport => ({
+    width: canvasRef?.current?.clientWidth ?? 0,
+    height: canvasRef?.current?.clientHeight ?? 0,
+  });
+  const overlayCamera = (): Camera => ({
+    pan: state.pan,
+    zoom: state.zoom,
+    rotation: state.cameraRotation,
+  });
+  const overlayScreenToWorld = (sx: number, sy: number): Point =>
+    screenToWorld(overlayCamera(), sx, sy, overlayViewport());
+  const overlayWorldToScreen = (wx: number, wy: number): Point =>
+    worldToScreen(overlayCamera(), wx, wy, overlayViewport());
+
   // nodeWorldTransform/nodeWorldBounds walk the ancestor chain via getParent(),
   // which is O(n) per call. The overlay resolves world geometry for the whole
   // selection every render, so on a large selection (e.g. after select-all +
@@ -454,12 +486,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const canvasOffsetY = rect?.top ?? 0;
       const pointerScreenX = e.clientX - canvasOffsetX;
       const pointerScreenY = e.clientY - canvasOffsetY;
-      const pointerWorld: Point = simpleScreenToWorld(
-        pointerScreenX,
-        pointerScreenY,
-        state.zoom,
-        state.pan,
-      );
+      const pointerWorld: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
 
       const engine = new TransformEngine(state.document, state.selection, {
         bakeOnCommit: true,
@@ -537,7 +564,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const canvasOffsetY = rect?.top ?? 0;
       const pointerScreenX = e.clientX - canvasOffsetX;
       const pointerScreenY = e.clientY - canvasOffsetY;
-      const pw: Point = simpleScreenToWorld(pointerScreenX, pointerScreenY, state.zoom, state.pan);
+      const pw: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
       const sn = node as ShapeNode;
       const shape = sn.shape;
       if (shape.kind !== 'line' && shape.kind !== 'arrow') return;
@@ -583,7 +610,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const canvasOffsetY = rect?.top ?? 0;
       const pointerScreenX = e.clientX - canvasOffsetX;
       const pointerScreenY = e.clientY - canvasOffsetY;
-      const pw: Point = simpleScreenToWorld(pointerScreenX, pointerScreenY, state.zoom, state.pan);
+      const pw: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
       const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
       const invMat = tryInvertAffine(worldMat);
       if (!invMat) return;
@@ -609,12 +636,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (epDrag) {
         const pointerScreenX = e.clientX - epDrag.canvasOffsetX;
         const pointerScreenY = e.clientY - epDrag.canvasOffsetY;
-        const pw: Point = simpleScreenToWorld(
-          pointerScreenX,
-          pointerScreenY,
-          state.zoom,
-          state.pan,
-        );
+        const pw: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
         const worldDx = pw[0] - epDrag.initialPointer[0];
         const worldDy = pw[1] - epDrag.initialPointer[1];
         // Convert world delta to local delta
@@ -662,7 +684,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (sk) {
         const skScreenX = e.clientX - sk.canvasOffsetX;
         const skScreenY = e.clientY - sk.canvasOffsetY;
-        const skWorld: Point = simpleScreenToWorld(skScreenX, skScreenY, state.zoom, state.pan);
+        const skWorld: Point = overlayScreenToWorld(skScreenX, skScreenY);
         updateDoc((doc) => sk.engine.skew(skWorld, sk.axis, doc));
         return;
       }
@@ -670,12 +692,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (!g) return;
       const pointerScreenX = e.clientX - g.canvasOffsetX;
       const pointerScreenY = e.clientY - g.canvasOffsetY;
-      const pointerWorld: Point = simpleScreenToWorld(
-        pointerScreenX,
-        pointerScreenY,
-        state.zoom,
-        state.pan,
-      );
+      const pointerWorld: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
 
       if (g.isRotation) {
         const angle = Math.atan2(pointerWorld[1] - g.center[1], pointerWorld[0] - g.center[0]);
@@ -720,12 +737,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (crDrag) {
         const pointerScreenX = e.clientX - crDrag.canvasOffsetX;
         const pointerScreenY = e.clientY - crDrag.canvasOffsetY;
-        const pw: Point = simpleScreenToWorld(
-          pointerScreenX,
-          pointerScreenY,
-          state.zoom,
-          state.pan,
-        );
+        const pw: Point = overlayScreenToWorld(pointerScreenX, pointerScreenY);
         const localP = applyAffine(crDrag.invWorldTransform, pw);
         // Distance from top-left corner to pointer in local space
         const dx = localP[0] - crDrag.localBox.x;
@@ -784,17 +796,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
   const handles = handlePositions(box);
   const topCenter = handles.n;
-  const [rotX, rotY] = simpleWorldToScreen(topCenter[0], topCenter[1], state.zoom, state.pan);
+  const [rotX, rotY] = overlayWorldToScreen(topCenter[0], topCenter[1]);
   const rotScreenX = rotX;
   const rotScreenY = rotY - ROT_OFFSET;
 
-  const centerScreen = simpleWorldToScreen(box.cx, box.cy, state.zoom, state.pan);
-  const topLeftScreen = simpleWorldToScreen(
-    box.cx - box.w / 2,
-    box.cy - box.h / 2,
-    state.zoom,
-    state.pan,
-  );
+  const centerScreen = overlayWorldToScreen(box.cx, box.cy);
+  const topLeftScreen = overlayWorldToScreen(box.cx - box.w / 2, box.cy - box.h / 2);
   const rotationDeg = (box.rotation * 180) / Math.PI;
 
   return (
@@ -874,7 +881,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         return HANDLE_KEYS.slice(0, 8).map((key, i) => {
           if (!indices.has(i)) return null;
           const [hx, hy] = handles[key];
-          const [sx, sy] = simpleWorldToScreen(hx, hy, state.zoom, state.pan);
+          const [sx, sy] = overlayWorldToScreen(hx, hy);
           return (
             <Fragment key={key}>
               <rect
@@ -981,7 +988,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             },
           ];
           return edges.map(({ axis, key, pos, cursor, label }) => {
-            const [sx, sy] = simpleWorldToScreen(pos[0], pos[1], state.zoom, state.pan);
+            const [sx, sy] = overlayWorldToScreen(pos[0], pos[1]);
             return (
               <Fragment key={key}>
                 {/* Invisible hit target */}
@@ -1018,12 +1025,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {cornerHandlePos &&
         (() => {
-          const [sx, sy] = simpleWorldToScreen(
-            cornerHandlePos[0],
-            cornerHandlePos[1],
-            state.zoom,
-            state.pan,
-          );
+          const [sx, sy] = overlayWorldToScreen(cornerHandlePos[0], cornerHandlePos[1]);
           return (
             <Fragment key="cr-handle">
               <circle
@@ -1055,7 +1057,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         <>
           {/* Endpoint handle: from (start) */}
           {(() => {
-            const [sx, sy] = simpleWorldToScreen(fromWorld[0], fromWorld[1], state.zoom, state.pan);
+            const [sx, sy] = overlayWorldToScreen(fromWorld[0], fromWorld[1]);
             return (
               <Fragment key="ep-from">
                 <circle
@@ -1081,7 +1083,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           })()}
           {/* Endpoint handle: to (end) */}
           {(() => {
-            const [sx, sy] = simpleWorldToScreen(toWorld[0], toWorld[1], state.zoom, state.pan);
+            const [sx, sy] = overlayWorldToScreen(toWorld[0], toWorld[1]);
             return (
               <Fragment key="ep-to">
                 <circle
@@ -1111,8 +1113,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       {sel.length > 0 &&
         (() => {
           // Figma-style dimension pill: centered under the selection AABB.
-          const [midX] = simpleWorldToScreen(box.cx, box.cy + box.h / 2, state.zoom, state.pan);
-          const [, botY] = simpleWorldToScreen(handles.s[0], handles.s[1], state.zoom, state.pan);
+          const [midX] = overlayWorldToScreen(box.cx, box.cy + box.h / 2);
+          const [, botY] = overlayWorldToScreen(handles.s[0], handles.s[1]);
           const label = `${Math.round(box.w)} x ${Math.round(box.h)}`;
           const padX = 6;
           const padY = 3;
@@ -1152,7 +1154,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         (() => {
           const world = nodeWorldBounds(state.document, node!.id, parentIndex);
           if (!world) return null;
-          const [sx, sy] = simpleWorldToScreen(world.x, world.y + world.h, state.zoom, state.pan);
+          const [sx, sy] = overlayWorldToScreen(world.x, world.y + world.h);
           return (
             <text
               x={sx}
