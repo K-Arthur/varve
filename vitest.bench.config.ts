@@ -69,7 +69,7 @@ export default defineConfig({
           setupFiles: jsDomSetupFiles,
           server: jsDomServer,
           include: [...jsDomInclude, ...benchInclude],
-          exclude: jsDomExclude,
+          exclude: jsDomExclude.filter((p) => p !== '**/*.bench.ts'),
         },
       },
       {
@@ -79,7 +79,9 @@ export default defineConfig({
           environment: 'node',
           include: [...nodeInclude, ...benchInclude],
           exclude: [
-            ...nodeExclude.filter((p) => !JS_DOM_SCOPES_UNCONSTRAINED.includes(p)),
+            ...nodeExclude.filter(
+              (p) => !JS_DOM_SCOPES_UNCONSTRAINED.includes(p) && p !== '**/*.bench.ts',
+            ),
             ...JS_DOM_SCOPES_UNCONSTRAINED,
           ],
         },
