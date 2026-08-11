@@ -5,15 +5,73 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Periodic full-suite safety net (see docs/quality/validation-strategy.md)
+    - cron: '0 2 * * 1'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Change lanes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      js: ${{ steps.lanes.outputs.js }}
+      rust: ${{ steps.lanes.outputs.rust }}
+      desktop: ${{ steps.lanes.outputs.desktop }}
+      website: ${{ steps.lanes.outputs.website }}
+      e2e: ${{ steps.lanes.outputs.e2e }}
+      visual: ${{ steps.lanes.outputs.visual }}
+      docs: ${{ steps.lanes.outputs.docs }}
+      full: ${{ steps.lanes.outputs.full }}
+      models: ${{ steps.lanes.outputs.models }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          lfs: true
+          fetch-depth: 0
+      - id: lanes
+        run: |
+          # Default to full on scheduled runs and workflow_dispatch (safety net).
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "js=true" >> "$GITHUB_OUTPUT"
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            echo "desktop=true" >> "$GITHUB_OUTPUT"
+            echo "website=true" >> "$GITHUB_OUTPUT"
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+            echo "visual=true" >> "$GITHUB_OUTPUT"
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            echo "models=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # PR / push: classify by changed paths.
+          BASE="${{ github.event.pull_request.base.sha }}"
+          if [[ -z "$BASE" || "$BASE" == "null" ]]; then BASE="${{ github.event.before }}"; fi
+          if [[ -z "$BASE" || "$BASE" == "0000000000000000000000000000000000000000" ]]; then BASE="$(git rev-list --max-parents=0 HEAD | tail -1)"; fi
+          CHANGED="$(git diff --name-only "$BASE"...HEAD || git diff --name-only "$BASE" HEAD)"
+          touch /tmp/changed.txt
+          echo "$CHANGED" | grep -v '^$' > /tmp/changed.txt
+          # Lanes (conservative: any hit enables the lane)
+          if grep -qE '^(packages/(engine|scene|shared|editor|ui|platform|import|codegen|print|prototype|layout|compositor|ai|collab|crash|help|history|home|tokens)/|apps/desktop/src/)' /tmp/changed.txt; then echo "js=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^crates/|^apps/desktop/src-tauri/' /tmp/changed.txt; then echo "rust=true" >> "$GITHUB_OUTPUT"; echo "desktop=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^apps/website/' /tmp/changed.txt; then echo "website=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^tests/e2e/(canvas|settings|export|menus|layers|motion|home|editor|startup|save|thumbnails|workspace|logo|effects|gradient-map|model-quality|icons|inspector|intelligence|crash|workflow|format|a11y)/|^tests/e2e/.*\.spec\.ts$' /tmp/changed.txt; then echo "e2e=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^tests/e2e/visual/|^tests/e2e/canvas/.*visual.*spec\.ts$|^packages/ui/src/tokens/' /tmp/changed.txt; then echo "visual=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^docs/|\.md$' /tmp/changed.txt; then echo "docs=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^(package.json|pnpm-lock.yaml|pnpm-workspace.yaml|tsconfig.base.json|vitest.config.ts|playwright.config.ts|Cargo.toml|Cargo.lock|biome.json|justfile|scripts/quality/|validation-impact.config.mjs)' /tmp/changed.txt; then echo "full=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^apps/desktop/public/models/|^models-source/' /tmp/changed.txt; then echo "models=true" >> "$GITHUB_OUTPUT"; fi
+          # Log what we decided (agents/developers can see the classification)
+          echo "changed files: $(wc -l < /tmp/changed.txt)"
+
   rust:
     name: Rust (${{ matrix.os }})
     timeout-minutes: 60
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' || needs.changes.outputs.full == 'true' }}
     strategy:
       fail-fast: false
       # Limit simultaneous runner acquisitions: firing all three OS cells at
@@ -150,6 +208,8 @@ jobs:
   js:
     name: JS (pnpm)
     timeout-minutes: 30
+    needs: changes
+    if: ${{ needs.changes.outputs.js == 'true' || needs.changes.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -194,8 +254,11 @@ jobs:
         run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
 
   website-e2e:
+  website-e2e:
     name: Website E2E (dual deployment modes)
     timeout-minutes: 30
+    needs: changes
+    if: ${{ needs.changes.outputs.website == 'true' || needs.changes.outputs.full == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -229,7 +292,8 @@ jobs:
     name: E2E (Playwright)
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    needs: rust
+    needs: [rust, changes]
+    if: ${{ needs.changes.outputs.e2e == 'true' || needs.changes.outputs.visual == 'true' || needs.changes.outputs.full == 'true' }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
@@ -285,7 +349,8 @@ jobs:
     name: Native desktop E2E (${{ matrix.name }})
     timeout-minutes: 45
     runs-on: ${{ matrix.os }}
-    needs: rust
+    needs: [rust, changes]
+    if: ${{ needs.changes.outputs.desktop == 'true' || needs.changes.outputs.full == 'true' }}
     strategy:
       fail-fast: false
       matrix:

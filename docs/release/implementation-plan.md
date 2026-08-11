@@ -3,6 +3,14 @@
 **Date:** 2026-08-04
 **Status key:** ✅ done in this pass · ⬜ outstanding
 
+> **Status update (2026-08-10):** The plan is complete. v0.1.0 was published
+> (2026-08-09) and the v0.1.1 tag exists (unreleased); P0-11 (green CI build)
+> and P0-12 (package install-test) both resolved — release.yml has shipped
+> multiple artifact sets and `just verify-packages` now covers container
+> install-testing. See `CHANGELOG.md` and `docs/release/platform-support-matrix.md`
+> for current state; the per-item markers below reflect the plan as written
+> on 2026-08-04.
+
 Priorities are defined by what they unblock, not by effort:
 
 - **P0** — blocks any external testing at all
@@ -148,7 +156,7 @@ retry button. This removes the failure class instead of adding a timeout to it.
 
 ---
 
-## Critical path to the first release
+## Critical path to a first alpha
 
 ```
 P0-11 (green CI build)  →  P0-12 (VM install test)  →  alpha
