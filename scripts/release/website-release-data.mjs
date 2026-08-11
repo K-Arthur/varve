@@ -52,9 +52,9 @@ export function formatCopy(product) {
       title: 'macOS disk image',
       blurb: 'Apple Silicon.',
       caveat:
-        'Unsigned and not notarised: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+        'Unsigned and not notarized: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
       caveatSigned:
-        'Signed with an Apple Developer ID and notarised by Apple. No Gatekeeper override needed.',
+        'Signed with an Apple Developer ID and notarized by Apple. No Gatekeeper override needed.',
       install: `Open the .dmg and drag ${product} to Applications`,
     },
   };
@@ -104,7 +104,7 @@ export function platformTrustLabel(platform, signing = {}) {
     return {
       badge: 'Not code-signed',
       detail:
-        'Unsigned and not notarised: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
+        'Unsigned and not notarized: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
       signed: false,
     };
   }
