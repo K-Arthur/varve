@@ -14,7 +14,7 @@ workspace = true
 # kurbo: linebender 2D geometry (Point, Rect, Affine, Beziers). The de-facto
 # standard, shared with the vello/lyon ecosystem we adopt in task 0.6/0.7.
 # no_std-friendly -> compiles to wasm32 unchanged. Research basis: kurbo docs.
-kurbo = { version = "0.11", features = ["serde"] }
+kurbo = { version = "0.13", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
