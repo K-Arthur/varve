@@ -14,6 +14,8 @@
  *   5. The work can be cancelled or safely discarded
  */
 
+import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
+
 export interface PrefetchRegion {
   x: number;
   y: number;
@@ -127,6 +129,8 @@ export function schedulePrefetch(
 
   activeCount++;
 
+  let deferrals = 0;
+  const DEFER_LIMIT = 5;
   const runTask = async () => {
     if (cancelled) {
       activeCount--;
@@ -143,27 +147,33 @@ export function schedulePrefetch(
     }
   };
 
-  const doRun = () => {
-    if (!cancelled) runTask();
+  const scheduleIdle = (idleTimeout: number) => {
+    const doRun = () => {
+      // While a pointer/wheel interaction is open, idle callbacks with a
+      // timeout still fire mid-drag (the timeout is a hard bound, not a
+      // preference). Re-schedule instead of stealing frame budget from input
+      // (interaction audit §50). Bounded so a stuck interaction can never
+      // starve prefetch forever; once the interaction ends the browser runs
+      // the re-scheduled callback on the next idle slot.
+      if (!cancelled && isEditorInteractionActive() && deferrals < DEFER_LIMIT) {
+        deferrals++;
+        scheduleIdle(idleTimeout + 250);
+        return;
+      }
+      runTask();
+    };
+    if (typeof requestIdleCallback !== 'undefined') {
+      const handle = requestIdleCallback(doRun, { timeout: idleTimeout });
+      return handle;
+    }
+    return setTimeout(doRun, Math.min(idleTimeout, 50));
   };
 
-  if (typeof requestIdleCallback !== 'undefined') {
-    const handle = requestIdleCallback(doRun, { timeout });
-    return {
-      cancel: () => {
-        cancelled = true;
-        cancelIdleCallback(handle);
-      },
-      completed,
-    };
-  }
+  scheduleIdle(timeout);
 
-  // Fallback: setTimeout with a small delay to yield to pending work
-  const handle = setTimeout(doRun, Math.min(timeout, 50));
   return {
     cancel: () => {
       cancelled = true;
-      clearTimeout(handle);
     },
     completed,
   };

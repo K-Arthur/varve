@@ -105,4 +105,34 @@ describe('frame scheduler', () => {
     expect(scheduler.cancel('only-job')).toBe(true);
     expect(cancelled).toBe(42);
   });
+
+  it('tracks interaction depth for background-yield decisions', () => {
+    const scheduler = createFrameScheduler({});
+    expect(scheduler.isInteractionActive()).toBe(false);
+    scheduler.beginInteraction();
+    expect(scheduler.isInteractionActive()).toBe(true);
+    // Overlapping interactions (pointer + wheel) are reference-counted.
+    scheduler.beginInteraction();
+    scheduler.endInteraction();
+    expect(scheduler.isInteractionActive()).toBe(true);
+    scheduler.endInteraction();
+    expect(scheduler.isInteractionActive()).toBe(false);
+    // endInteraction never goes negative: a stray end cannot underflow.
+    scheduler.endInteraction();
+    expect(scheduler.isInteractionActive()).toBe(false);
+  });
+
+  it('resetInteractions force-closes all open interactions', () => {
+    const harness = makeHarness();
+    harness.scheduler.beginInteraction();
+    harness.scheduler.beginInteraction();
+    expect(harness.scheduler.isInteractionActive()).toBe(true);
+    harness.scheduler.resetInteractions();
+    expect(harness.scheduler.isInteractionActive()).toBe(false);
+    // Background work runs promptly after the reset.
+    const background = vi.fn();
+    harness.scheduler.request('bg', 'background', background);
+    harness.advance(150);
+    expect(background).toHaveBeenCalledOnce();
+  });
 });

@@ -19,6 +19,12 @@ import type { CanvasMode, EditorState } from '../context/types';
 import { physicalDigit } from '../input/physicalKey';
 import { dispatchToTool, documentComplexityBucket } from '../performance/dispatchSpan';
 import {
+  beginEditorInteraction,
+  endEditorInteraction,
+  isEditorInteractionActive,
+  resetEditorInteractions,
+} from '../performance/editorFrameRuntime';
+import {
   beginInteraction,
   beginInteractionSpan,
   endInteraction,
@@ -160,6 +166,20 @@ export function useCanvasInputs({
   // Explicit navigation-gesture state machine (see navigationState.ts). Owns
   // the viewport-level pan/pinch transitions; tools own their own drag state.
   const navigationStateRef = useRef<NavigationGestureState>('idle');
+  // Deferred end for wheel bursts: the wheel interaction stays open until the
+  // burst has been quiet for this long, so prefetch/thumbnail work does not
+  // interleave with an active flick.
+  const wheelInteractionEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function endWheelInteractionSoon(): void {
+    if (wheelInteractionEndTimer.current !== null) {
+      clearTimeout(wheelInteractionEndTimer.current);
+    }
+    wheelInteractionEndTimer.current = setTimeout(() => {
+      wheelInteractionEndTimer.current = null;
+      endEditorInteraction();
+    }, 150);
+  }
 
   function advanceNavigation(event: NavigationGestureEvent): NavigationGestureState {
     const t = transitionNavigationState(navigationStateRef.current, event);
@@ -276,6 +296,7 @@ export function useCanvasInputs({
 
       snapSessionForPointer.current = createSnapSession();
       snapIndexForPointer.current = null;
+      beginEditorInteraction();
       dispatchToTool('down', ne, dispatchAttributes(), () => {
         tmInst.handlePointerDown(ne, ctx);
       });
@@ -490,6 +511,7 @@ export function useCanvasInputs({
         tmInst.handlePointerUp(ne, upCtx);
       });
       endInteraction();
+      endEditorInteraction();
     },
     [tmRef, stopAutoPan, setSnapGuides, buildToolCtx, dispatchAttributes],
   );
@@ -507,6 +529,7 @@ export function useCanvasInputs({
       tmRef.current?.handlePointerCancel(ne, buildToolCtx(ne));
       setSnapGuides([]);
       endInteraction();
+      endEditorInteraction();
     },
     [tmRef, stopAutoPan, setSnapGuides, buildToolCtx],
   );
@@ -591,6 +614,10 @@ export function useCanvasInputs({
       }
       lastWheelTraceAt.current = started;
       const s = stateRef.current;
+      // Keep the scheduler interaction open for the whole wheel burst (and
+      // past the last event by the quiet window) so background work defers.
+      if (!isEditorInteractionActive()) beginEditorInteraction();
+      endWheelInteractionSoon();
       // Sequence-aware source: a fast trackpad flick whose per-event deltas
       // land in the ambiguous band must not be reclassified mid-gesture and
       // receive app inertia on top of the OS momentum it already carries.
@@ -771,6 +798,11 @@ export function useCanvasInputs({
       if (wheelTraceEndTimer.current !== null) {
         clearTimeout(wheelTraceEndTimer.current);
         wheelTraceEndTimer.current = null;
+      }
+      if (wheelInteractionEndTimer.current !== null) {
+        clearTimeout(wheelInteractionEndTimer.current);
+        wheelInteractionEndTimer.current = null;
+        endEditorInteraction();
       }
       if (hoverTraceEndTimer.current !== null) {
         clearTimeout(hoverTraceEndTimer.current);
@@ -1067,6 +1099,7 @@ export function useCanvasInputs({
       hoverTraceEndTimer.current = null;
     }
     endInteraction();
+    endEditorInteraction();
     editor.commitTransaction();
     tmRef.current?.activeTool.onPointerCancel?.(
       new PointerEvent('pointercancel'),
@@ -1088,6 +1121,9 @@ export function useCanvasInputs({
       interactionSession.reset();
       stopAutoPan();
       advanceNavigation({ type: 'reset' });
+      // Force-close any open interaction depth (a lost pointerup must never
+      // leave background work permanently deferred).
+      resetEditorInteractions();
     }
     function onWindowBlur() {
       resetInputState();
