@@ -14,6 +14,11 @@
  *  - idle-time scheduling with a bounded timeout fallback.
  */
 
+import { isEditorInteractionActive } from '../performance/editorFrameRuntime';
+
+/** Max drain deferrals while an interaction is open (see drain()). */
+const INTERACTION_DEFER_LIMIT = 10;
+
 export type ThumbnailJobPriority = 'visible' | 'current-doc' | 'background' | 'idle';
 
 const PRIORITY_ORDER: Record<ThumbnailJobPriority, number> = {
@@ -41,6 +46,7 @@ export class ThumbnailScheduler {
   private processing = false;
   private shutdownFlag = false;
   private aborters = new Map<string, AbortController>();
+  private interactionDeferrals = 0;
 
   constructor(public readonly maxConcurrency = 1) {}
 
@@ -119,6 +125,17 @@ export class ThumbnailScheduler {
   private drain(): void {
     this.processing = false;
     if (this.shutdownFlag) return;
+
+    // While a pointer/wheel interaction is open, the idle-callback timeout
+    // would fire mid-drag. Re-schedule instead of competing with input for
+    // the frame budget (interaction audit §50). Bounded so a stuck
+    // interaction can never starve thumbnail generation permanently.
+    if (isEditorInteractionActive() && this.interactionDeferrals < INTERACTION_DEFER_LIMIT) {
+      this.interactionDeferrals++;
+      this.scheduleDrain();
+      return;
+    }
+    this.interactionDeferrals = 0;
 
     while (this.running < this.maxConcurrency && this.queue.length > 0) {
       const job = this.pickNext();

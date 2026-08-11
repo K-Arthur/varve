@@ -41,6 +41,30 @@ export function cancelEditorFrame(key: string): boolean {
   return getEditorFrameScheduler().cancel(key);
 }
 
+/** Open a user interaction (drag/pinch/wheel burst) on the shared scheduler. */
+export function beginEditorInteraction(): void {
+  getEditorFrameScheduler().beginInteraction();
+}
+
+/** Close a user interaction. Must pair with beginEditorInteraction. */
+export function endEditorInteraction(): void {
+  getEditorFrameScheduler().endInteraction();
+}
+
+/**
+ * True while a pointer/keyboard/wheel interaction is open. Background work
+ * (viewport prefetch, thumbnail generation) defers itself while this is set
+ * so input keeps the frame budget (see §50 of the interaction audit).
+ */
+export function isEditorInteractionActive(): boolean {
+  return getEditorFrameScheduler().isInteractionActive();
+}
+
+/** Force-close open interactions after blur/visibility loss. */
+export function resetEditorInteractions(): void {
+  getEditorFrameScheduler().resetInteractions();
+}
+
 export function resetEditorFrameRuntimeForTests(): void {
   scheduler?.dispose();
   scheduler = null;
