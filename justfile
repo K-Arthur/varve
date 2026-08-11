@@ -127,7 +127,7 @@ check-affected:
 # Explicit full repository gate. Reserved for release checkpoints,
 # workspace/toolchain changes, and explicit requests. Requires a reason:
 #   just gate-full  (prompts)
-#   VARVE_FULL_GATE_REASON="..." just gate-full
+# VARVE_FULL_GATE_REASON="..." just gate-full
 gate-full:
     @if [ -z "$${VARVE_FULL_GATE_REASON:-}" ]; then \
       echo "gate-full requires a reason (VARVE_FULL_GATE_REASON). 'Just to be safe' is not a reason."; \
@@ -150,17 +150,17 @@ act-list:
     bash scripts/ci-local-run.sh list
 
 act-run JOB="js" ARGS="":
-    bash scripts/ci-local-run.sh run {{JOB}} {{ARGS}}
+    bash scripts/ci-local-run.sh run {{ JOB }} {{ ARGS }}
 
 act-dry WORKFLOW=".github/workflows/build.yml":
-    bash scripts/ci-local-run.sh dry-run {{WORKFLOW}}
+    bash scripts/ci-local-run.sh dry-run {{ WORKFLOW }}
 
 ci-debug RUN_ID="":
-    node scripts/ci-debug.mjs --run-id "{{RUN_ID}}"
+    node scripts/ci-debug.mjs --run-id "{{ RUN_ID }}"
 
 # Pipeline health: classify recent run failures (billing block / runner starvation / real)
 ci-health ARGS="":
-    node scripts/ci-health.mjs {{ARGS}}
+    node scripts/ci-health.mjs {{ ARGS }}
 
 # GitHub Actions incident status (githubstatus.com)
 ci-status:
@@ -270,17 +270,37 @@ release-check:
 
 # Show the version every manifest reports; pass a tag to assert they match it.
 release-version TAG="":
-    node scripts/release/version.mjs verify {{TAG}}
+    node scripts/release/version.mjs verify {{ TAG }}
 
 # Set the release version across all manifests (then refresh the lockfiles).
 release-set-version VERSION:
-    node scripts/release/version.mjs set {{VERSION}}
+    node scripts/release/version.mjs set {{ VERSION }}
     @echo "Now run: cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml"
 
 # Bump MAJOR/MINOR/PATCH across all manifests (0.1.0 -> bump patch -> 0.1.1).
 release-bump PART:
-    node scripts/release/version.mjs bump {{PART}}
+    node scripts/release/version.mjs bump {{ PART }}
     @echo "Now run: cargo check --workspace && cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml"
+
+# Full release-prep: bump version, refresh lockfiles, verify agreement, and
+# print the exact remaining steps (changelog, tag, push). Does NOT tag or
+# push — those stay human decisions.
+release-prep PART:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    node scripts/release/version.mjs bump "{{ PART }}"
+    echo "── Refreshing Cargo lockfiles for the new version ──"
+    cargo check --workspace
+    cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+    node scripts/release/version.mjs verify
+    NEW="$(node scripts/release/version.mjs get)"
+    echo ""
+    echo "Version bumped to ${NEW} and verified across all manifests."
+    echo "Remaining human steps:"
+    echo "  1. Add/update the '## [${NEW}]' section in CHANGELOG.md"
+    echo "  2. Commit the bump + changelog"
+    echo "  3. git tag v${NEW} && git push origin master --tags"
+    echo "  4. release.yml builds a DRAFT; verify the draft, then publish"
 
 # Deterministic dev-build version for the current HEAD (read-only):
 # <release>-dev.<short-sha>. Test bundles built with it never collide with a
@@ -291,23 +311,23 @@ release-snapshot:
 # Upload the large on-demand AI models to the models-v1 release.
 # Needs `git lfs pull --include="models-source/*.onnx"` first.
 release-publish-models *ARGS:
-    node scripts/release/publish-model-assets.mjs {{ARGS}}
+    node scripts/release/publish-model-assets.mjs {{ ARGS }}
 
 # Collect built bundles into dist/release with checksums and a manifest.
 release-collect *ARGS:
-    node scripts/release/collect-artifacts.mjs {{ARGS}}
+    node scripts/release/collect-artifacts.mjs {{ ARGS }}
 
 # Verify dist/release against its manifest and checksum file.
 release-verify *ARGS:
-    node scripts/release/verify-artifacts.mjs {{ARGS}}
+    node scripts/release/verify-artifacts.mjs {{ ARGS }}
 
 # Generate the CycloneDX SBOM.
 release-sbom OUT="dist/release/sbom.cdx.json":
-    node scripts/release/generate-sbom.mjs --out {{OUT}}
+    node scripts/release/generate-sbom.mjs --out {{ OUT }}
 
 # Point the website download page at a published release.
 release-website TAG:
-    node scripts/release/update-website-manifest.mjs --manifest dist/release/release-manifest.json --tag {{TAG}}
+    node scripts/release/update-website-manifest.mjs --manifest dist/release/release-manifest.json --tag {{ TAG }}
 
 # Validate AUR PKGBUILDs using Docker (requires docker; works on any OS).
 # Standard AUR CI pattern: useradd non-root builder + makepkg --printsrcinfo.
@@ -337,7 +357,7 @@ aur-validate:
 # Install-test the built .deb and .rpm in clean non-Arch containers.
 # Proves the glibc baseline claim that nothing else in the repo can check.
 verify-packages *ARGS:
-    bash scripts/release/verify-package-install.sh {{ARGS}}
+    bash scripts/release/verify-package-install.sh {{ ARGS }}
 
 # Smoke-test AppImage on the current Linux session (Wayland or X11).
 # Exits after 5 s to prevent hanging in CI.
