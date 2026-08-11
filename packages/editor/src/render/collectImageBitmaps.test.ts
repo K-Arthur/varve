@@ -7,6 +7,7 @@ import {
 } from '@varve/engine';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  admitWorkerImagePayload,
   collectImageBitmaps,
   imageSrcsFromIr,
   irHasUnsupportedWorkerMasks,
@@ -467,5 +468,66 @@ describe('canonical resource handles in worker collection', () => {
     const collected = await collectImageBitmaps(ir, { maxSourceDim: 2048 });
     expect(collected).not.toBeNull();
     expect(collected?.images['asset-cell']).toBe(cloned);
+  });
+});
+
+describe('synchronous worker image-payload admission', () => {
+  beforeEach(() => {
+    resetImageCache();
+    resetImageResourceRegistry();
+  });
+
+  it('admits a frame whose sources fit the transfer budget', () => {
+    expect(admitWorkerImagePayload([imageItem('a.png', 'b.png')], { maxEntries: 2 })).toBeNull();
+  });
+
+  it('admits a frame with no image fills at all', () => {
+    expect(admitWorkerImagePayload([], { maxEntries: 0 })).toBeNull();
+  });
+
+  it('refuses a frame carrying more distinct sources than the transfer budget', () => {
+    expect(admitWorkerImagePayload([imageItem('a.png', 'b.png', 'c.png')], { maxEntries: 2 })).toBe(
+      'source-count',
+    );
+  });
+
+  it('counts only sources that still need transferring, so a resident scene is admitted', () => {
+    // Regression: counting residents too refused a fully-resident scene
+    // forever — a refused frame transfers nothing, so residency could never
+    // grow past the cap and the worker never rendered the document again.
+    expect(
+      admitWorkerImagePayload([imageItem('a.png', 'b.png', 'c.png')], {
+        maxEntries: 1,
+        residentSources: new Set(['a.png', 'b.png']),
+      }),
+    ).toBeNull();
+  });
+
+  it('refuses masked fills the worker cannot composite', () => {
+    const masked = imageItem('a.png');
+    (masked.fills![0] as unknown as Record<string, unknown>).alphaMask = 'mask.png';
+    expect(admitWorkerImagePayload([masked])).toBe('masked');
+  });
+
+  it('refuses unregistered canonical resource handles', () => {
+    expect(admitWorkerImagePayload([imageItem('asset-0123456789abcdef')])).toBe(
+      'unresolvable-source',
+    );
+  });
+
+  it('agrees with collectImageBitmaps: every refusal reason also refuses collection', async () => {
+    // The paint gate and the transfer path must never disagree about whether
+    // a fresh worker frame is coming.
+    getImageCache().setLoaded('a.png', image('a.png'));
+    getImageCache().setLoaded('b.png', image('b.png'));
+    getImageCache().setLoaded('c.png', image('c.png'));
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bitmap(vi.fn()));
+
+    const ir = [imageItem('a.png', 'b.png', 'c.png')];
+    expect(admitWorkerImagePayload(ir, { maxEntries: 2 })).not.toBeNull();
+    await expect(collectImageBitmaps(ir, { maxEntries: 2 })).resolves.toBeNull();
+
+    expect(admitWorkerImagePayload(ir, { maxEntries: 3 })).toBeNull();
+    await expect(collectImageBitmaps(ir, { maxEntries: 3 })).resolves.not.toBeNull();
   });
 });
