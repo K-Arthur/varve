@@ -138,7 +138,8 @@ Before adding a new domain or resource type to the CSP:
    `https://github.com`).
 4. **Does it need to be in production?** Dev-only resources go in
    `devCsp` only.
-5. **Run `pnpm typecheck` and `pnpm test`** after any CSP change.
+5. **Run `pnpm verify:affected`** after any CSP change (plus the CSP
+   E2E spec; the planner selects the security-relevant lanes).
 
 Document the addition in the `connect-src` remote origins table above
 with purpose and risk review.
