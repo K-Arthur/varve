@@ -88,6 +88,14 @@
   --accent-strong: var(--color-interactive-default);
   --accent-strong-hover: var(--color-interactive-hover);
   --accent-soft: var(--color-accent-subtle);
+  /* Dark-band accent set: surfaces that stay dark in every theme (the footer
+     download band) must pin the dark theme's accent — the light-mode accent
+     is a dark teal that measured 3.06:1 against the dark band. These mirror
+     the [data-theme="dark"] values so a light-mode page renders the light
+     teal button with dark text on those bands. */
+  --accent-dark-band: oklch(0.779 0.1229 188.31);
+  --accent-dark-band-hover: oklch(0.8387 0.0977 187.29);
+  --text-on-accent-dark-band: oklch(0.1956 0.0217 263.87);
   --brand-teal: var(--color-brand-teal);
   --brand-sandstone: var(--color-brand-sandstone);
   --brand-terracotta: var(--color-brand-terracotta);
@@ -141,6 +149,12 @@
   --text-info: oklch(0.8 0.1 250);
   --accent-primary: var(--color-accent-primary);
   --accent-primary-hover: oklch(0.75 0.1 189);
+
+  /* Same values as the light block: dark-band surfaces are dark in every
+     theme, so their accent set does not change with the active theme. */
+  --accent-dark-band: oklch(0.779 0.1229 188.31);
+  --accent-dark-band-hover: oklch(0.8387 0.0977 187.29);
+  --text-on-accent-dark-band: oklch(0.1956 0.0217 263.87);
 
   --border-subtle: var(--color-border-subtle);
   --border-accent: oklch(0.7 0.09 190);
