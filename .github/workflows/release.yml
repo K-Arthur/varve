@@ -977,7 +977,18 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: release-final
-          path: dist/release
+          path: staged-final
+
+      # The release-final artifact stores the assets under a workspace-
+      # relative dist/release/ prefix (upload-artifact v4 keeps the paths
+      # given to it), with RELEASE_NOTES.md at the artifact root. Flatten the
+      # assets into a bare dist/release/ and keep the notes at the workspace
+      # root — the layout the v0.1.0 draft used successfully.
+      - name: Stage release directory
+        run: |
+          mkdir -p dist/release
+          find staged-final -type f ! -name 'RELEASE_NOTES.md' -exec cp {} dist/release/ \;
+          cp staged-final/RELEASE_NOTES.md RELEASE_NOTES.md
 
       - name: Create draft release
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
@@ -988,10 +999,15 @@ jobs:
           # `publish` job below.
           draft: true
           prerelease: ${{ needs.preflight.outputs.prerelease }}
-          body_path: dist/release/RELEASE_NOTES.md
-          files: |
-            dist/release/*
-            !dist/release/RELEASE_NOTES.md
+          body_path: RELEASE_NOTES.md
+          # NOTE: no negated patterns here. softprops/action-gh-release v2
+          # globs each `files` entry with the npm `glob` package, where a
+          # standalone `!pattern` matches nothing; with
+          # fail_on_unmatched_files: true the negation is a guaranteed
+          # failure (v0.1.1 draft). Keeping RELEASE_NOTES.md outside
+          # dist/release (see the Stage step above) makes the negation
+          # unnecessary.
+          files: dist/release/*
           fail_on_unmatched_files: true
 
       # The last gate before a human can publish: download the draft's assets
