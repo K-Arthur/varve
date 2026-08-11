@@ -159,8 +159,8 @@ describe('LineTool', () => {
     tool.onPointerMove?.(makePointerEvent(300, 200), ctx);
     tool.onPointerUp?.(makePointerEvent(300, 200), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const worldPos = callArgs?.[0];
     expect(worldPos).toBeDefined();
     // The position should be at the line's start point or center, not offset
@@ -177,8 +177,8 @@ describe('LineTool', () => {
     tool.onPointerMove?.(makePointerEvent(101, 100), ctx);
     tool.onPointerUp?.(makePointerEvent(101, 100), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     // Below-threshold uses drag.startWorld, no size
     expect(callArgs?.[0]).toEqual({ x: 100, y: 100 });
     expect(callArgs?.[1]).toBeUndefined();
@@ -190,8 +190,8 @@ describe('LineTool', () => {
     tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
     expect(ctx.setDraft).toHaveBeenCalled();
-    const mock = (ctx.setDraft as ReturnType<typeof vi.fn>).mock;
-    const draft = mock.calls[mock.calls.length - 1]?.[0];
+    const mock = vi.mocked(ctx.setDraft);
+    const draft = mock.mock.calls[mock.mock.calls.length - 1]?.[0];
     expect(draft).toBeDefined();
     if (draft && draft.kind === 'line') {
       // The angle should be snapped to a multiple of 45 degrees

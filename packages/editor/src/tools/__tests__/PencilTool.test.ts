@@ -169,7 +169,7 @@ describe('PencilTool', () => {
     tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
 
     expect(ctx.createShapeAt).toHaveBeenCalled();
-    const { mock } = ctx.createShapeAt as ReturnType<typeof vi.fn>;
+    const { mock } = vi.mocked(ctx.createShapeAt);
     const callArgs = mock.calls[0];
     const pathPoints = callArgs?.[3];
     expect(pathPoints).toBeDefined();
@@ -193,7 +193,7 @@ describe('PencilTool', () => {
 
     tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
 
-    const { mock } = ctx.createShapeAt as ReturnType<typeof vi.fn>;
+    const { mock } = vi.mocked(ctx.createShapeAt);
     const callArgs = mock.calls[0];
     const pathPoints = callArgs?.[3];
     expect(pathPoints).toHaveLength(2);
@@ -222,8 +222,8 @@ describe('PencilTool', () => {
 
     // Draft should have been set with kind 'freehand'
     expect(ctx.setDraft).toHaveBeenCalled();
-    const mock = (ctx.setDraft as ReturnType<typeof vi.fn>).mock;
-    const draftCalls = mock.calls.filter(
+    const mock = vi.mocked(ctx.setDraft);
+    const draftCalls = mock.mock.calls.filter(
       (c: unknown[]) => (c[0] as Record<string, unknown>)?.kind === 'freehand',
     );
     expect(draftCalls.length).toBeGreaterThan(0);
@@ -253,8 +253,8 @@ describe('PencilTool', () => {
 
     tool.onPointerUp?.(makePointerEvent(170, 220), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     // Position should be at drag start world
     expect(callArgs?.[0]).toEqual({ x: 150, y: 200 });
   });
@@ -273,8 +273,8 @@ describe('PencilTool', () => {
 
     tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
@@ -297,8 +297,8 @@ describe('PencilTool', () => {
 
     tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
@@ -321,8 +321,8 @@ describe('PencilTool', () => {
 
     tool.onPointerUp?.(makePointerEvent(120, 120), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;
@@ -361,11 +361,11 @@ describe('PencilTool', () => {
     expect(ctx.beginTransaction).toHaveBeenCalled();
     expect(ctx.createShapeAt).toHaveBeenCalled();
     expect(ctx.commitTransaction).toHaveBeenCalled();
-    const beginOrder = (ctx.beginTransaction as ReturnType<typeof vi.fn>).mock
+    const beginOrder = vi.mocked(ctx.beginTransaction).mock
       .invocationCallOrder[0]!;
-    const shapeAtOrder = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock
+    const shapeAtOrder = vi.mocked(ctx.createShapeAt).mock
       .invocationCallOrder[0]!;
-    const commitOrder = (ctx.commitTransaction as ReturnType<typeof vi.fn>).mock
+    const commitOrder = vi.mocked(ctx.commitTransaction).mock
       .invocationCallOrder[0]!;
     expect(beginOrder).toBeLessThan(shapeAtOrder);
     expect(shapeAtOrder).toBeLessThan(commitOrder);
@@ -393,8 +393,8 @@ describe('PencilTool', () => {
 
     tool.onPointerUp?.(makePointerEvent(200, 100), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     const pathPoints = callArgs?.[3] as Array<{ pressure?: number }>;
     expect(pathPoints).toBeDefined();
     if (!pathPoints) return;

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { createFinalizerRegistry } from '../finalizers';
 
 function controlledFinalizer(
@@ -19,7 +19,7 @@ describe('finalizer registry', () => {
     registry.register(high);
     registry.register(app);
     await registry.runFor('window');
-    const orderOf = (mock: ReturnType<typeof vi.fn>) => mock.mock.invocationCallOrder[0] ?? 0;
+    const orderOf = (mock: Mock) => mock.mock.invocationCallOrder[0] ?? 0;
     expect(orderOf(high.finalize)).toBeLessThan(orderOf(app.finalize));
     expect(orderOf(app.finalize)).toBeLessThan(orderOf(low.finalize));
   });

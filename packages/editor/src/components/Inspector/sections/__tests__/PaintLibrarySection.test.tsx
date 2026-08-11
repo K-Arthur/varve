@@ -9,7 +9,7 @@ vi.mock('../../../../context', () => ({ useEditor: vi.fn() }));
 import { useEditor } from '../../../../context';
 import { PaintLibrarySection } from '../PaintLibrarySection';
 
-const mockedUseEditor = useEditor as unknown as ReturnType<typeof vi.fn>;
+const mockedUseEditor = vi.mocked(useEditor);
 
 afterEach(cleanup);
 
