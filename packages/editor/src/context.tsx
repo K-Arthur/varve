@@ -9127,6 +9127,12 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
+/** Like `useEditor` but returns null when rendered outside `EditorProvider`
+ *  (e.g. the Home screen settings dialog, which has no open document). */
+export function useOptionalEditor(): EditorContextValue | null {
+  return useContext(EditorCtx);
+}
+
 export { useDocument } from './context/DocumentContext';
 export { useMotion } from './context/MotionContext';
 export { usePrototype } from './context/PrototypeContext';

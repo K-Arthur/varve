@@ -4,6 +4,8 @@ import {
   currentDocumentSchemaVersion,
   installCrashTestHooks,
   type OpenFileRequest,
+  SettingsDialog,
+  SettingsProvider,
   Shell,
   useStartup,
 } from '@varve/editor';
@@ -29,6 +31,7 @@ export function App() {
   const [editorMounted, setEditorMounted] = useState(false);
   const [openRequest, setOpenRequest] = useState<OpenFileRequest | null>(null);
   const [homeReady, setHomeReady] = useState(false);
+  const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
   const pendingHomeMilestone = useRef<(() => void) | null>(null);
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
 
@@ -300,15 +303,19 @@ export function App() {
       >
         <TitleBar />
         <div style={surfaceStyle(view === 'home')}>
-          <HomeShell
-            key={retryCount}
-            platform={platform}
-            onOpenFile={handleOpenFile}
-            onLocateFile={handleLocateFile}
-            onResumeEditing={editorMounted ? handleResumeEditing : undefined}
-            onReady={handleHomeReady}
-            active={view === 'home'}
-          />
+          <SettingsProvider>
+            <HomeShell
+              key={retryCount}
+              platform={platform}
+              onOpenFile={handleOpenFile}
+              onLocateFile={handleLocateFile}
+              onResumeEditing={editorMounted ? handleResumeEditing : undefined}
+              onReady={handleHomeReady}
+              active={view === 'home'}
+              onOpenSettings={() => setHomeSettingsOpen(true)}
+            />
+            <SettingsDialog open={homeSettingsOpen} onClose={() => setHomeSettingsOpen(false)} />
+          </SettingsProvider>
         </div>
         {editorMounted && (
           <div style={surfaceStyle(view === 'editor')}>

@@ -43,9 +43,12 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.file.createMonochromeVariant': 'Create Monochrome Variant',
   'menu.file.createReversedVariant': 'Create Reversed Variant',
   'menu.file.exportLogoPackage': 'Export Logo Package…',
+  'menu.file.logo': 'Logo',
   'menu.file.open': 'Open\u2026',
   'menu.file.save': 'Save',
   'menu.file.saveAs': 'Save As\u2026',
+  'menu.file.saveCopy': 'Save a Copy\u2026',
+  'menu.file.documentInfo': 'Document Info\u2026',
   'menu.file.closeDocument': 'Close Document',
   'menu.file.closeWindow': 'Close Window',
   'menu.file.quit': 'Quit Varve',
@@ -57,7 +60,6 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.file.archiveRestore': 'Restore Archive\u2026',
   'menu.file.downloadSnapshot': 'Download Snapshot\u2026',
   'menu.file.restoreFromSnapshot': 'Restore from Snapshot\u2026',
-  'menu.file.present': 'Present\u2026',
   'menu.file.settings': 'Settings\u2026',
 
   // ── Edit ───────────────────────────────────────────────────────────────────
@@ -104,6 +106,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.rotateViewCCW': 'Rotate View Counter-Clockwise',
   'menu.view.resetViewRotation': 'Reset View Rotation',
   'menu.view.inspectMode': 'Inspect Mode',
+  'menu.view.present': 'Present\u2026',
   'menu.view.toggleGrid': 'Show Grid',
   'menu.view.toggleSnap': 'Snap',
   'menu.view.toggleGuides': 'Guides',
