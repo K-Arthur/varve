@@ -14,7 +14,7 @@ describe('AutoSaveService', () => {
     document: Document;
     meta: { fileId?: string; name: string };
   };
-  let saveFn: ReturnType<typeof vi.fn>;
+  let saveFn: (json: string) => Promise<boolean>;
   let config: { intervalMs: number; idleThresholdMs: number; maxSaveRetries: number };
 
   beforeEach(() => {
@@ -31,7 +31,7 @@ describe('AutoSaveService', () => {
       } as Document,
       meta: { name: 'test' },
     });
-    saveFn = vi.fn().mockResolvedValue(true);
+    saveFn = vi.fn<(json: string) => Promise<boolean>>().mockResolvedValue(true);
     config = { intervalMs: 5000, idleThresholdMs: 1000, maxSaveRetries: 3 };
   });
 
@@ -202,7 +202,7 @@ describe('AutoSaveService', () => {
     svc.start();
     svc.notifyEdit();
     await svc.saveNow();
-    const firstCall = saveFn.mock.calls[0];
+    const firstCall = vi.mocked(saveFn).mock.calls[0];
     expect(firstCall).toBeDefined();
     const calledWith = (firstCall as [string])[0];
     const parsed = JSON.parse(calledWith);
@@ -323,7 +323,7 @@ describe('AutoSaveService', () => {
       svc.notifyEdit();
       await svc.saveNow();
       // Should not try to save again until next edit + interval
-      saveFn.mockClear();
+      vi.mocked(saveFn).mockClear();
       vi.advanceTimersByTime(3000);
       expect(saveFn).not.toHaveBeenCalled();
     });
@@ -345,7 +345,7 @@ describe('AutoSaveService', () => {
       svc.start();
       svc.notifyEdit();
       await svc.saveNow();
-      saveFn.mockClear();
+      vi.mocked(saveFn).mockClear();
       // Another edit
       svc.notifyEdit();
       vi.advanceTimersByTime(config.intervalMs + 500);

@@ -552,7 +552,7 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
       }),
     });
     // Override getNode to return current position
-    (ctx.getNode as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+    vi.mocked(ctx.getNode).mockImplementation(() => ({
       id: 'n1',
       transform: [1, 0, 0, 1, posX, 100],
     }));
@@ -563,7 +563,7 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     expect(ctx.setNodePositions).toHaveBeenCalledWith([{ id: 'n1', x: 101, y: 100 }]);
 
     // Repeat press shares the same transaction, moves to 102
-    (ctx.setNodePositions as ReturnType<typeof vi.fn>).mockClear();
+    vi.mocked(ctx.setNodePositions).mockClear();
     tool.onKeyDown({ key: 'ArrowRight', repeat: true } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).not.toHaveBeenCalled();

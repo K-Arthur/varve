@@ -159,8 +159,8 @@ describe('ArrowTool', () => {
     tool.onPointerMove?.(makePointerEvent(101, 100), ctx);
     tool.onPointerUp?.(makePointerEvent(101, 100), ctx);
 
-    const mock = (ctx.createShapeAt as ReturnType<typeof vi.fn>).mock;
-    const callArgs = mock.calls[0];
+    const mock = vi.mocked(ctx.createShapeAt);
+    const callArgs = mock.mock.calls[0];
     expect(callArgs?.[0]).toEqual({ x: 100, y: 100 });
     expect(callArgs?.[1]).toBeUndefined();
   });
@@ -171,8 +171,8 @@ describe('ArrowTool', () => {
     tool.onPointerMove?.(makePointerEvent(200, 150), ctx);
 
     expect(ctx.setDraft).toHaveBeenCalled();
-    const mock = (ctx.setDraft as ReturnType<typeof vi.fn>).mock;
-    const draft = mock.calls[mock.calls.length - 1]?.[0];
+    const mock = vi.mocked(ctx.setDraft);
+    const draft = mock.mock.calls[mock.mock.calls.length - 1]?.[0];
     expect(draft).toBeDefined();
     if (draft && draft.kind === 'arrow') {
       const angle = Math.atan2(draft.y2 - draft.y1, draft.x2 - draft.x1);

@@ -7,7 +7,7 @@ import type { PromptRequest } from '../types';
 
 function makeRequest(overrides: Partial<PromptRequest> = {}): {
   request: PromptRequest;
-  respond: ReturnType<typeof vi.fn>;
+  respond: (value: boolean) => void;
 } {
   const respond = vi.fn();
   const request: PromptRequest = {
