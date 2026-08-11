@@ -44,7 +44,7 @@ const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'See the beta st
 
 <a href={sitePath('/download')} class:list={['btn', `btn-${variant}`, `download-cta`, `download-cta-${size}`, className]} data-download-cta data-has-release={hasRelease ? 'true' : 'false'}>
   <span class="download-cta-label" data-cta-label>{fallbackLabel}</span>
-  {beta && <span class="download-cta-beta">{PRODUCT_STATUS.stage}</span>}
+  {beta && <span class="download-cta-beta">{PRODUCT_STATUS.label}</span>}
 </a>
 
 <script>
