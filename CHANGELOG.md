@@ -23,18 +23,25 @@ afford to lose.
 
 Fixes a Linux packaging defect in 0.1.0: the AppImage bundled WebKit/GTK
 libraries from the ubuntu-22.04 build baseline, and on distributions with a
-newer Mesa/EGL stack (Arch, CachyOS, Fedora) the stale bundled
-`libwayland-egl` combination made WebKit's DMA-BUF renderer fail EGL display
-creation. The web process aborted while the window stayed open — a white
-screen. The app now disables only the DMA-BUF renderer for AppImage runs, so
-the AppImage renders everywhere the deb/rpm already did.
+newer Mesa/EGL stack (Arch, CachyOS, Fedora) the bundled WebKitWebProcess
+fails EGL display creation. The web process aborts while the window stays
+open — a white screen. The release now prunes the bundled libraries from
+the AppImage payload, so it uses the host's WebKit/GTK (the same libraries
+the .deb depends on) and renders everywhere the deb/rpm already did.
 
 ### Fixed
 
-- AppImage white screen on modern Mesa/EGL hosts: `WEBKIT_DISABLE_DMABUF_RENDERER=1`
-  is set for AppImage runs before Tauri starts (`APPIMAGE`-gated in
-  `apps/desktop/src-tauri/src/lib.rs`); GPU compositing is preserved where the
-  bundled libraries support it.
+- AppImage white screen on modern Mesa/EGL hosts: the bundled WebKit/GTK
+  closure (built on the ubuntu-22.04 baseline) fails EGL display creation on
+  newer Mesa stacks. `scripts/release/prune-appimage-bundled-libs.mjs` now
+  strips `usr/lib` from the AppImage payload during the release build — the
+  binary resolves everything from the host, verified on a CachyOS host where
+  the released AppImage aborted and the pruned one rendered correctly. The
+  AppImage now requires system WebKitGTK (libwebkit2gtk-4.1) like the .deb;
+  the download page documents this instead of promising "runs on any Linux".
+  (The earlier in-app `WEBKIT_DISABLE_DMABUF_RENDERER=1` workaround was kept
+  but is not sufficient on its own: the EGL failure precedes renderer
+  selection.)
 - The release launch smoke can no longer pass on a blank window: it fails on
   the EGL/abort signature in the app output and requires a live
   `WebKitWebProcess`.
