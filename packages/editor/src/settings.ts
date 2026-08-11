@@ -17,6 +17,10 @@ import {
   type SectionVisibilityState,
 } from './components/Inspector/sectionState';
 
+export type ThemeMode = 'light' | 'dark' | 'high-contrast' | 'system';
+export type UnitType = 'px' | 'pt' | 'cm' | 'mm' | 'in';
+export type FontSizeUI = 'small' | 'medium' | 'large';
+
 export interface ExportSettingsStore {
   defaultScale: ExportScale;
   defaultFormat: ExportFormat;
@@ -46,12 +50,20 @@ export interface PanelSettingsStore {
 }
 
 export interface AppearanceSettingsStore {
-  theme: 'light' | 'dark' | 'high-contrast';
+  /**
+   * Includes `'system'` (follow the OS preference), which the Appearance
+   * dialog offers and explains. Keeping this narrower than `ThemeMode` made
+   * the dialog's own "Select System to follow OS preference" branch
+   * unreachable to the type checker.
+   */
+  theme: ThemeMode;
   reduceMotion: boolean;
   /** When true, bypasses all workspace-based menu filtering. */
   showAllMenuItems: boolean;
   /** Show shortcut-tip chip in the status bar. */
   showShortcutTips: boolean;
+  /** UI font size: 'small' | 'medium' | 'large'. */
+  fontSizeUI: 'small' | 'medium' | 'large';
 }
 
 export interface RenderSettingsStore {
@@ -107,7 +119,27 @@ export interface LayersSettingsStore {
   marqueeContainment: boolean;
 }
 
+export interface GeneralSettingsStore {
+  language: string;
+  units: 'px' | 'pt' | 'cm' | 'mm' | 'in';
+  autosaveInterval: number;
+}
+
+export interface CollabSettingsStore {
+  displayName: string;
+  avatar: string;
+  notifyJoinLeave: boolean;
+  showLiveCursors: boolean;
+}
+
+export interface AiSettingsStore {
+  enabled: boolean;
+  model: string;
+  shareUsageData: boolean;
+}
+
 export interface EditorSettings {
+  general: GeneralSettingsStore;
   export: ExportSettingsStore;
   appearance: AppearanceSettingsStore;
   panel: PanelSettingsStore;
@@ -117,6 +149,8 @@ export interface EditorSettings {
   sections: SectionSettingsStore;
   performance: PerformanceSettingsStore;
   layers: LayersSettingsStore;
+  collab: CollabSettingsStore;
+  ai: AiSettingsStore;
   features: {
     /** Enable finding navigation (deep-link + inspector section jump). */
     findingsNavigation: boolean;
@@ -151,6 +185,26 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
   reduceMotion: false,
   showAllMenuItems: false,
   showShortcutTips: true,
+  fontSizeUI: 'medium',
+};
+
+export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsStore = {
+  language: 'en',
+  units: 'px',
+  autosaveInterval: 5,
+};
+
+export const DEFAULT_COLLAB_SETTINGS: CollabSettingsStore = {
+  displayName: '',
+  avatar: '',
+  notifyJoinLeave: true,
+  showLiveCursors: true,
+};
+
+export const DEFAULT_AI_SETTINGS: AiSettingsStore = {
+  enabled: false,
+  model: 'gpt-4',
+  shareUsageData: false,
 };
 
 export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
@@ -222,6 +276,7 @@ export const DEFAULT_FEATURES = {
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
+  general: { ...DEFAULT_GENERAL_SETTINGS },
   export: { ...DEFAULT_EXPORT_SETTINGS },
   appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
   panel: { ...DEFAULT_PANEL_SETTINGS },
@@ -231,6 +286,8 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   sections: { ...DEFAULT_SECTION_SETTINGS },
   performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
   layers: { ...DEFAULT_LAYERS_SETTINGS },
+  collab: { ...DEFAULT_COLLAB_SETTINGS },
+  ai: { ...DEFAULT_AI_SETTINGS },
   features: { ...DEFAULT_FEATURES },
 };
 
@@ -247,8 +304,13 @@ function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undef
 export function loadSettings(): EditorSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('strata-editor-settings');
-    if (!raw)
-      return {
+    if (!raw) {
+      // Check for legacy UI-level settings and migrate them
+      const uiRaw =
+        localStorage.getItem('varve-settings') ?? localStorage.getItem('strata-settings');
+      const uiParsed = uiRaw ? (JSON.parse(uiRaw) as Record<string, unknown>) : undefined;
+      const result: EditorSettings = {
+        general: { ...DEFAULT_GENERAL_SETTINGS },
         export: { ...DEFAULT_EXPORT_SETTINGS },
         appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
         panel: { ...DEFAULT_PANEL_SETTINGS },
@@ -258,8 +320,45 @@ export function loadSettings(): EditorSettings {
         sections: { ...DEFAULT_SECTION_SETTINGS },
         performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
         layers: { ...DEFAULT_LAYERS_SETTINGS },
+        collab: { ...DEFAULT_COLLAB_SETTINGS },
+        ai: { ...DEFAULT_AI_SETTINGS },
         features: { ...DEFAULT_FEATURES },
       };
+      // Migrate legacy UI settings if present
+      if (uiParsed) {
+        const gen = uiParsed.general as Record<string, unknown> | undefined;
+        if (gen) {
+          if (typeof gen.language === 'string') result.general.language = gen.language;
+          if (typeof gen.units === 'string')
+            result.general.units = gen.units as GeneralSettingsStore['units'];
+          if (typeof gen.autosaveInterval === 'number')
+            result.general.autosaveInterval = gen.autosaveInterval;
+        }
+        const app = uiParsed.appearance as Record<string, unknown> | undefined;
+        if (app) {
+          if (typeof app.theme === 'string')
+            result.appearance.theme = app.theme as AppearanceSettingsStore['theme'];
+          if (typeof app.fontSizeUI === 'string')
+            result.appearance.fontSizeUI = app.fontSizeUI as AppearanceSettingsStore['fontSizeUI'];
+        }
+        const cl = uiParsed.collab as Record<string, unknown> | undefined;
+        if (cl) {
+          if (typeof cl.displayName === 'string') result.collab.displayName = cl.displayName;
+          if (typeof cl.avatar === 'string') result.collab.avatar = cl.avatar;
+          if (typeof cl.notifyJoinLeave === 'boolean')
+            result.collab.notifyJoinLeave = cl.notifyJoinLeave;
+          if (typeof cl.showLiveCursors === 'boolean')
+            result.collab.showLiveCursors = cl.showLiveCursors;
+        }
+        const ai = uiParsed.ai as Record<string, unknown> | undefined;
+        if (ai) {
+          if (typeof ai.enabled === 'boolean') result.ai.enabled = ai.enabled;
+          if (typeof ai.model === 'string') result.ai.model = ai.model;
+          if (typeof ai.shareUsageData === 'boolean') result.ai.shareUsageData = ai.shareUsageData;
+        }
+      }
+      return result;
+    }
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const exportSettings = mergePartial(
       DEFAULT_EXPORT_SETTINGS,
@@ -282,6 +381,10 @@ export function loadSettings(): EditorSettings {
       exportSettings.defaultFormat = 'png';
     }
     return {
+      general: mergePartial(
+        DEFAULT_GENERAL_SETTINGS,
+        parsed.general as Partial<GeneralSettingsStore>,
+      ),
       export: exportSettings,
       appearance: mergePartial(
         DEFAULT_APPEARANCE_SETTINGS,
@@ -312,6 +415,8 @@ export function loadSettings(): EditorSettings {
         parsed.performance as Partial<PerformanceSettingsStore>,
       ),
       layers: mergePartial(DEFAULT_LAYERS_SETTINGS, parsed.layers as Partial<LayersSettingsStore>),
+      collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
+      ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       features: {
         ...DEFAULT_FEATURES,
         ...(parsed.features as Partial<typeof DEFAULT_FEATURES> | undefined),
@@ -319,6 +424,7 @@ export function loadSettings(): EditorSettings {
     };
   } catch {
     return {
+      general: { ...DEFAULT_GENERAL_SETTINGS },
       export: { ...DEFAULT_EXPORT_SETTINGS },
       appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
       panel: { ...DEFAULT_PANEL_SETTINGS },
@@ -328,6 +434,8 @@ export function loadSettings(): EditorSettings {
       sections: { ...DEFAULT_SECTION_SETTINGS },
       performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
       layers: { ...DEFAULT_LAYERS_SETTINGS },
+      collab: { ...DEFAULT_COLLAB_SETTINGS },
+      ai: { ...DEFAULT_AI_SETTINGS },
       features: { ...DEFAULT_FEATURES },
     };
   }
@@ -338,6 +446,7 @@ export function saveSettings(settings: EditorSettings): void {
 }
 
 export interface EditorSettingsPatch {
+  general?: Partial<GeneralSettingsStore>;
   export?: Partial<ExportSettingsStore>;
   appearance?: Partial<AppearanceSettingsStore>;
   panel?: Partial<PanelSettingsStore>;
@@ -347,11 +456,14 @@ export interface EditorSettingsPatch {
   sections?: Partial<SectionSettingsStore>;
   performance?: Partial<PerformanceSettingsStore>;
   layers?: Partial<LayersSettingsStore>;
+  collab?: Partial<CollabSettingsStore>;
+  ai?: Partial<AiSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
   const current = loadSettings();
   const next: EditorSettings = {
+    general: { ...current.general, ...patch.general },
     export: { ...current.export, ...patch.export },
     appearance: { ...current.appearance, ...patch.appearance },
     panel: { ...current.panel, ...patch.panel },
@@ -365,6 +477,8 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     },
     performance: { ...current.performance, ...patch.performance },
     layers: { ...current.layers, ...patch.layers },
+    collab: { ...current.collab, ...patch.collab },
+    ai: { ...current.ai, ...patch.ai },
     features: { ...current.features },
   };
   saveSettings(next);
@@ -373,6 +487,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
 
 export function resetSettings(): EditorSettings {
   const defaults: EditorSettings = {
+    general: { ...DEFAULT_GENERAL_SETTINGS },
     export: { ...DEFAULT_EXPORT_SETTINGS },
     appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
     panel: { ...DEFAULT_PANEL_SETTINGS },
@@ -382,6 +497,8 @@ export function resetSettings(): EditorSettings {
     sections: { ...DEFAULT_SECTION_SETTINGS },
     performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
     layers: { ...DEFAULT_LAYERS_SETTINGS },
+    collab: { ...DEFAULT_COLLAB_SETTINGS },
+    ai: { ...DEFAULT_AI_SETTINGS },
     features: { ...DEFAULT_FEATURES },
   };
   saveSettings(defaults);

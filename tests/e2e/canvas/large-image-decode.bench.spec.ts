@@ -57,9 +57,11 @@ test('measure full vs preview decode for large photographs', async ({ page }) =>
         const pixels = imageData.data;
         for (let i = 0; i < pixels.length; i += 4) {
           const noise = (Math.random() * 48 - 24) | 0;
-          pixels[i] = Math.max(0, Math.min(255, pixels[i] + noise));
-          pixels[i + 1] = Math.max(0, Math.min(255, pixels[i + 1] + noise));
-          pixels[i + 2] = Math.max(0, Math.min(255, pixels[i + 2] + noise));
+          // `noUncheckedIndexedAccess` types these reads as possibly
+          // undefined; the loop bound guarantees they are in range.
+          pixels[i] = Math.max(0, Math.min(255, (pixels[i] ?? 0) + noise));
+          pixels[i + 1] = Math.max(0, Math.min(255, (pixels[i + 1] ?? 0) + noise));
+          pixels[i + 2] = Math.max(0, Math.min(255, (pixels[i + 2] ?? 0) + noise));
         }
         ctx.putImageData(imageData, 0, 0);
         canvas.toBlob(
