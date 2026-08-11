@@ -111,9 +111,17 @@ commit (format, emoji, audit-health: context.tsx 70 imports, +0).
   re-dispatch because the tool context still captures the editor object per
   event; the dominant term (render-state camera) is fixed. Further reduction
   would thread the live camera directly into `buildToolContext`.
-- ScaleTool batch updaters recompute parent space per node per sample;
-  a per-gesture parent-transform cache is a further optimization.
 - The wheel trajectory classifier is unit-tested but not yet validated
   against real Mac trackpad / Windows precision-touchpad event streams.
-- Frame-scheduler interaction-depth wiring (background lane deferral) has no
-  production users; left dormant.
+
+## Follow-up pass (2026-08-10, evening) — remaining limitations addressed
+
+| Item | Status |
+| ---- | ------ |
+| Background work yields during interaction (§50) | **Done.** The frame scheduler's interaction depth is now live: inputPipeline opens/closes it around pointer gestures and wheel bursts (150 ms quiet window) and force-resets it on blur/visibility loss. Viewport prefetch and the thumbnail scheduler re-schedule their idle work while an interaction is open (bounded deferrals, so a stuck interaction can never starve them). |
+| ScaleTool per-sample parent-space recompute | **Done.** Parent space matrices cached per parent per sample (N nodes under one parent pay one ancestor-chain walk instead of N). |
+| Auto-pan residual | **Measured.** Quiet-machine probe: 0.4 px residual (React-commit latency on the overlay box, not a systematic camera error). Closed as inherent to the render-driven overlay. |
+| Firefox validation | **Done.** drag-precision + nudge specs pass 9/9 on Playwright Firefox. |
+| WebKit validation | **NOT RUN — host limitation.** Playwright's bundled WebKit (WPE build) requires ICU 74 versioned symbols (`ureldatefmt_format_74`); the host ships ICU 78 and the system lacks WebKitGTK-6.0. Symbol shims cannot bridge a versioned-ABI break; install requires root. The Linux Tauri runtime (WebKitGTK 2.52) remains the intended validation target for WebKit semantics. |
+| Native Tauri | **In progress externally** — dev server port freed for `tauri:dev`. |
+
