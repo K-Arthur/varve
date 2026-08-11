@@ -47,7 +47,10 @@ describe('computeUpscalePreview', () => {
       expect(out.width).toBeLessThanOrEqual(520);
       expect(out.height).toBeLessThanOrEqual(520);
     }
-  });
+    // Lanczos3 over four scales on a 1000×563 source is heavy compute; the
+    // default 5s test timeout is flaky under parallel load (seen 2026-08-10:
+    // 5010ms). This is a correctness test, not a timing assertion.
+  }, 30_000);
 
   it('preserves detail rather than round-tripping through a smaller image', () => {
     // A downsample-then-upscale preview blurs 1px checks into flat grey. Real
