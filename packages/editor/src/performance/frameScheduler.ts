@@ -22,6 +22,10 @@ export interface FrameScheduler {
   cancel(key: string): boolean;
   beginInteraction(): void;
   endInteraction(): void;
+  /** True while at least one interaction (drag/wheel/pinch) is open. */
+  isInteractionActive(): boolean;
+  /** Force-close all open interactions (window blur / visibility hidden). */
+  resetInteractions(): void;
   setVisible(visible: boolean): void;
   getDiagnostics(): FrameSchedulerDiagnostics;
   dispose(): void;
@@ -145,6 +149,13 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
       interactionDepth = Math.max(0, interactionDepth - 1);
       if (interactionDepth === 0) interactionEndedAt = now();
       ensureFrame();
+    },
+    isInteractionActive() {
+      return interactionDepth > 0;
+    },
+    resetInteractions() {
+      interactionDepth = 0;
+      interactionEndedAt = now();
     },
     setVisible(nextVisible) {
       visible = nextVisible;
