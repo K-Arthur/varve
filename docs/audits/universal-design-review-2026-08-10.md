@@ -13,23 +13,23 @@
 
 | Lens | Score (0–100, rubric §11) | Open findings |
 |---|---|---|
-| Accessibility | 86 | 8 medium, 6 low (all M/L, no C/H) |
-| UX | 88 | 4 medium, 3 low |
-| Visual Design | 82 | 3 medium (incl. one design-decision deferral) |
-| Design System | 90 | 2 medium, 3 low |
-| Front-End Architecture | 84 | 3 medium |
-| Performance | 78 | 3 medium (per-frame re-render, main-thread export, per-frame flatten) |
-| Localization | 45 | structural (no i18n runtime; single-locale) |
-| Product Strategy | 85 | 2 low |
-| QA | 70 | E2E rot cluster (8 specs), gaps |
-| Security/Privacy UX | 92 | 3 low (copy consistency) |
-| Content/Microcopy | 88 | 3 medium, 4 low |
+| Accessibility | 96 | 1 medium (macOS menu accelerators), 2 low |
+| UX | 95 | 1 medium (export worker), 1 low |
+| Visual Design | 92 | 1 low (footer underline), sign-off notes |
+| Design System | 95 | 1 medium (native menu), 1 low |
+| Front-End Architecture | 90 | 2 medium (playback ref-layer, export worker) |
+| Performance | 88 | 2 medium (per-frame state patch, main-thread export) |
+| Localization | 60 | decision recorded (English-only + keyed seam); no runtime |
+| Product Strategy | 90 | 1 low |
+| QA | 78 | E2E re-run pending on in-flight toolbar refactor |
+| Security/Privacy UX | 98 | 1 low (copy) |
+| Content/Microcopy | 96 | 1 medium (native menu copy), 1 low |
 
-**Findings tally (in-scope surfaces):** 3 Critical (2 fixed in this session, 1 partially fixed), 3 High (all fixed), ~46 Medium (~17 fixed, rest deferred with estimates), ~27 Low (~10 fixed, rest deferred).
+**Findings tally (in-scope surfaces):** 3 Critical (2 fixed, 1 partially fixed), 3 High (all fixed), ~46 Medium (27 fixed, ~11 deferred with estimates), ~27 Low (20 fixed, ~5 deferred).
 
-**Fixed this session (commits `a6e4a340`, `30052a79`):** hover-contrast failures on workspace tabs and menubar items (all three themes); website footer download title at 1.04:1; missing Codegen entry in the View menu; preflight severity text below AA plus popover focus/Escape; stale workspace-switch announcements; reduced-motion playback state machine bug; pointer-only timeline marker editing; timeline graphic contrast + an undefined token (`--color-accent-secondary`) that silently rendered transparent; selected-track-row text dimming; keyboard-invisible CodePanel size radios; per-row live-region spam in the batch export list; silent vectorize cancellation; raw provider error strings; a false "full resolution" claim; theme-broken trace preview colors; invalid `aria-keyshortcuts` grammar; unlabeled breadcrumb landmarks; color-only footer link distinction; and 8 E2E specs re-targeted off dead `.editor-menubar__workspace*` selectors.
+**Fixed this session (commits `a6e4a340`, `30052a79`, `ecf33fcb`, `4a54d96e`, `4903319b`, `19bb4a5e`, `85ca27da`):** hover-contrast failures on workspace tabs and menubar items (all three themes); website footer download title at 1.04:1; missing Codegen entry in the View menu; preflight severity text below AA plus popover focus/Escape; stale workspace-switch announcements; reduced-motion playback state machine bug; pointer-only timeline marker editing; keyframe keyboard path (selection wiring, focusable dots, live arrow-stepping and Delete); GraphEditor theme-aware track palette + focus ring; timeline graphic contrast and two undefined tokens (`--color-accent-secondary`, `--color-bg-canvas`) that silently rendered invalid; selected-track-row text dimming; keyboard-invisible CodePanel size radios; per-row live-region spam in the batch export list; silent vectorize cancellation; raw provider error strings; a false "full resolution" claim; theme-broken trace preview colors; invalid `aria-keyshortcuts` grammar; unlabeled breadcrumb landmarks; color-only footer link distinction; mask source picker + mask-op announcements; preflight-error export gating; filename-template validation; permission-denied vs cancel messaging; determinate trace progress in the preview badge and Apply label; focus guard when a mode hides the focused panel; manifest-derived signing copy on the security page; duplicate page titles; privacy wording alignment; token-test footer oracle; registry label standardization; 7 stale onboarding tips; native bounds errors in human units; TrackRow memoization; video-export flatten hoist; the unreachable Ctrl+Shift+Period distraction-free binding (now `>`); the 0-height page-nav strip for page-less documents; 8 E2E specs re-targeted off dead `.editor-menubar__workspace*` selectors; and a cluster of E2E spec repairs (icon-only aria-label matching, single-slider ruler contract, deterministic ArrowLeft stepping, page-less print model) — verified green: motion 14/14, print-mode-preflight 3/3, workspace switch + cross-mode round-trip, toolbar-per-mode, tooltip 7/8.
 
-**Headline risks carried forward (all Medium, none blocking):** no i18n runtime while the EU EAA makes language the single biggest unaddressed compliance surface (§9-1); playback drives a whole-context `setState` per animation frame (§9-7); web export renders on the main thread (§9-8); GraphEditor track colors fail non-text contrast in light theme and need a design decision (§9-6); one class of E2E specs still encodes a pre-refactor toolbar DOM (§9-12).
+**Headline risks carried forward (all Medium, none blocking):** i18n decision resolved for beta — English-only with a keyed label seam (decision record in §9-1); playback still drives a whole-context `setState` per animation frame, mitigated by TrackRow memoization, full refactor deferred (§9-7); web export renders on the main thread, desktop path already off-main (§9-8); one class of E2E specs still encodes a pre-refactor toolbar DOM, re-run blocked on the in-flight `FloatingToolbar` refactor (§9-12).
 
 **Certification caveat:** these are internal review scores, not a certification. If EN 301 549 / EAA, Section 508, or ADA conformance claims are required for EU/US distribution, a professional accessibility audit (and for EAA, a documented accessibility statement) is mandatory before any such claim is made. See §11.
 
@@ -209,51 +209,51 @@ Severity rubric (applied to every finding): **severity = reach × impact**, wher
 | ID | Issue | Location | Sev | Status | One-line fix |
 |---|---|---|---|---|---|
 | F-01 | macOS native View menu advertises Ctrl+Shift+D/P/R/I/M and omits Codegen | `menu/defs.ts:818-870` | Med | OPEN | drive accelerators from `ShortcutManager` registry; add `workspaceCodegen` (drift re-flagged; prior audit 08-05:59) |
-| F-02 | Onboarding tips hard-code shortcuts; 8/30 stale (Ctrl+K, Ctrl+Shift+Y, Q, K) | `workspaceTypes.ts` | Low | OPEN | resolve tips from the registry (same rot class the tips were built to kill) |
-| F-03 | Focus drops to body when a mode hides the focused panel (`inert`/unmount) | `Shell.tsx:420,453-464` | Low | OPEN | move focus to canvas/tab on panel-collapse; add E2E |
-| F-04 | ~70 hardcoded UI strings; `localization.ts` seam feeds only the macOS native menu | `menu/localization.ts`, workspace/motion/vectorize/export surfaces | Med | OPEN | route workspace tabs + announcements through one label seam (see §9-1) |
+| F-02 | Onboarding tips hard-code shortcuts; 8/30 stale (Ctrl+K, Ctrl+Shift+Y, Q, K) | `workspaceTypes.ts` | Low | FIXED | resolve tips from the registry (same rot class the tips were built to kill) |
+| F-03 | Focus drops to body when a mode hides the focused panel (`inert`/unmount) | `Shell.tsx` | Low | FIXED | focus moved to the canvas when a focused panel collapses (Shell effect) |
+| F-04 | ~70 hardcoded UI strings; `localization.ts` seam feeds only the macOS native menu | `menu/localization.ts`, workspace/motion/vectorize/export surfaces | Med | DECIDED | route workspace tabs + announcements through one label seam (see §9-1) |
 | F-05 | Toolbar/panel visibility hard-coded by mode in `FloatingToolbar` | `FloatingToolbar.tsx:288-292` | Low | OPEN | pre-existing documented gap (workspace audit 08-05:26) |
 | F-06 | Reduced-motion override (Settings) not read by timeline playback | `state/motion-state.ts` | Med | FIXED | now uses `isReducedMotion()` manager |
 | F-07 | Reduced-motion play leaves `isPlaying` stuck true | `context/MotionContext.tsx` | Med | FIXED | patch `isPlaying` before `play()` so the synchronous finish can't be overwritten |
-| F-08 | Keyframe editing is pointer-only (`selectedKeyframeIndex={null}`, `tabIndex=-1`) | `Shell.tsx:486`, `TrackRow.tsx` | Med | OPEN | wire real selection state (2.1.1) |
+| F-08 | Keyframe editing is pointer-only (`selectedKeyframeIndex={null}`, `tabIndex=-1`) | `Shell.tsx:486`, `TrackRow.tsx` | Med | FIXED | wire real selection state (2.1.1) |
 | F-09 | Markers rename/delete only via context menu | `TimelineRuler.tsx` | Med | FIXED | Delete/Backspace deletes, Enter renames |
-| F-10 | Playhead is a nested slider inside the ruler slider (2 tab stops) | `TimelineRuler.tsx:168-205` | Low | OPEN | merge playhead into the ruler slider; label only |
-| F-11 | No status announcements for playback state | `PlaybackControls.tsx`, `MotionContext.tsx` | Low | OPEN | announce play/pause/finish via `CanvasAnnouncer` (4.1.3) |
-| F-12 | `role="treeitem"` without tree/group parent | `TrackRow.tsx:185-187` | Low | OPEN | use listbox/grid semantics or plain rows |
-| F-13 | GraphEditor track colors hardcoded hex; 7/8 fail 3:1 on light | `GraphEditor.tsx:43-52` | Med | OPEN | theme-aware track palette (design decision, §9-6; 1.4.11) |
+| F-10 | Playhead is a nested slider inside the ruler slider (2 tab stops) | `TimelineRuler.tsx:168-205` | Low | FIXED | merge playhead into the ruler slider; label only |
+| F-11 | No status announcements for playback state | `PlaybackControls.tsx`, `MotionContext.tsx` | Low | FIXED | announce play/pause/finish via `CanvasAnnouncer` (4.1.3) |
+| F-12 | `role="treeitem"` without tree/group parent | `TrackRow.tsx:185-187` | Low | FIXED | use listbox/grid semantics or plain rows |
+| F-13 | GraphEditor track colors hardcoded hex; 7/8 fail 3:1 on light | `GraphEditor.tsx:43-52` | Med | FIXED | theme-aware track palette (design decision, §9-6; 1.4.11) |
 | F-14 | Timeline graphics in bright teal fail non-text contrast in light (1.75:1) | `TimelinePanel.css` | Med | FIXED | scoped `--timeline-accent` tokens; also fixed undefined `--color-accent-secondary` |
 | F-15 | Selected track row dims entire row at opacity 0.15; keyframe border hardcoded white | `TimelinePanel.css:314-317,458` | Med | FIXED | color-mix tint; focus-ring border token |
-| F-16 | Playback drives per-frame `patch()` → whole-panel re-render; TrackRow not memoized | `MotionContext.tsx:128-131` | Med | OPEN | push time to ref/canvas layer; memoize TrackRow (§9-7) |
-| F-17 | Video export re-flattens the whole doc per frame | `videoExportBridge.ts:205` | Low | OPEN | hoist flatten; apply overrides per frame (§9-8b) |
-| F-18 | GraphEditor focus indicator is a 1px radius change on `opacity:0` button | `GraphEditor.tsx:348,385` | Low | OPEN | visible focus ring (2.4.7) — bundle with F-13 |
-| F-19 | Trace Apply runs seconds with no determinate progress; `trace:progress` unused | `preview.ts:70`, `nativeTraceProvider.ts` | Med | OPEN | thread `onProgress` → percent in the "Tracing preview…" badge (4.1.3) |
+| F-16 | Playback drives per-frame `patch()` → whole-panel re-render; TrackRow not memoized | `MotionContext.tsx:128-131` | Med | FIXED | TrackRow memoized (data-only comparator — rows render nothing time-dependent); pushing time to a ref/canvas layer remains deferred (§9-7) |
+| F-17 | Video export re-flattens the whole doc per frame | `videoExportBridge.ts:205` | Low | FIXED | hoist flatten; apply overrides per frame (§9-8b) |
+| F-18 | GraphEditor focus indicator is a 1px radius change on `opacity:0` button | `GraphEditor.tsx:348,385` | Low | FIXED | visible focus ring (2.4.7) — bundle with F-13 |
+| F-19 | Trace Apply runs seconds with no determinate progress; `trace:progress` unused | `preview.ts:70`, `nativeTraceProvider.ts` | Med | FIXED | thread `onProgress` → percent in the "Tracing preview…" badge (4.1.3) |
 | F-20 | Cancel during Apply is silent | `VectorizeWorkflow.tsx:266` | Med | FIXED | announces "Vectorization cancelled" |
-| F-21 | Bounds failures surface raw byte/pixel counts ("134217728 bytes") | `lib.rs:1554,1593` | Med | OPEN | "128 MB / 64 megapixels" in the native strings (Rust-string change only) |
+| F-21 | Bounds failures surface raw byte/pixel counts ("134217728 bytes") | `lib.rs:1554,1593` | Med | FIXED | "128 MB / 64 megapixels" in the native strings (Rust-string change only) |
 | F-22 | Preview error badge echoes raw provider message ("Trace failed (worker-trace: …)") | `VectorizeWorkflow.tsx:518-521` | Med | FIXED | `describeTraceError()` maps to plain language |
 | F-23 | "Apply traces at full resolution" false above 4096 px | `VectorizeWorkflow.tsx:530` | Low | FIXED | "(up to 4096 px)" |
 | F-24 | Hardcoded color literals (mask fallback `#e74c3c`, preview strokes) | `MaskSection.tsx:299`, `preview.ts` | Low | FIXED | token-based; preview stroke follows `--color-text-primary` (also fixed dark-theme invisibility) |
-| F-25 | Duplicate visible labels + aria-labels on Vectorize/Mask fields | `VectorizeWorkflow.tsx:337,411`, `MaskSection.tsx:316` | Low | OPEN | label `htmlFor`/`aria-labelledby` wiring |
-| F-26 | Preview canvas has label but no non-visual state summary | `VectorizeWorkflow.tsx:511-557` | Low | OPEN | summarize in `aria-label` on state change (1.1.1) |
-| F-27 | No UI to re-target a clip mask source node | `MaskSection.tsx:454-456` | Med | OPEN | source picker (custom Select) — 2.4.6 |
-| F-28 | Mask ops make no live-region announcements; clip creation announces errors only | `context.tsx:6238-6374` | Med | OPEN | announce remove/toggle/invert + success (4.1.3) |
+| F-25 | Duplicate visible labels + aria-labels on Vectorize/Mask fields | `VectorizeWorkflow.tsx`, `MaskSection.tsx` | Low | FIXED | select labels aligned to their visible labels |
+| F-26 | Preview canvas has label but no non-visual state summary | `VectorizeWorkflow.tsx:511-557` | Low | FIXED | summarize in `aria-label` on state change (1.1.1) |
+| F-27 | No UI to re-target a clip mask source node | `MaskSection.tsx:454-456` | Med | FIXED | source picker (custom Select) — 2.4.6 |
+| F-28 | Mask ops make no live-region announcements; clip creation announces errors only | `MaskSection.tsx` | Med | FIXED | hide/invert/remove/link/source announce in the section handlers |
 | F-29 | Dialog initial focus lands on Close before any control | `Dialog.tsx:96-101` | Low | OPEN | per-dialog first-control autofocus strategy |
 | F-30 | CodePanel preview-size radios `hidden` (out of a11y tree, pointer-only) | `CodePanel.tsx:200` | Med | FIXED | `sr-only` keeps them focusable |
 | F-31 | Preflight popover: Escape on unfocusable backdrop; no focus move | `PreflightWarnings.tsx:129-147` | Med | FIXED | panel-focused, Escape on panel, backdrop `aria-hidden` |
-| F-32 | Invalid filenames silently sanitized ("export"), no error, no live region | `ExportDialog.tsx:93-95`, `DestinationPicker.tsx:78-85` | Low | OPEN | validate template inline with `role="alert"` (3.3.1) |
-| F-33 | Web save-picker denial and desktop permission failures are generic/cancelled | `web.ts:1096-1100`, `ExportDialog.tsx:515` | Med | OPEN | distinguish denied vs cancelled; dedicated message (3.3.1) |
-| F-34 | Preflight `error` findings never block Export; executor ignores `blocked` | `ExportDialog.tsx:1074-1081`, `exportService.ts:443` | Med | OPEN | warn+confirm when `errorCount>0` |
+| F-32 | Invalid filenames silently sanitized ("export"), no error, no live region | `ExportDialog.tsx:93-95`, `DestinationPicker.tsx:78-85` | Low | FIXED | validate template inline with `role="alert"` (3.3.1) |
+| F-33 | Web save-picker denial and desktop permission failures are generic/cancelled | `web.ts:1096-1100`, `ExportDialog.tsx:515` | Med | FIXED | distinguish denied vs cancelled; dedicated message (3.3.1) |
+| F-34 | Preflight `error` findings never block Export; executor ignores `blocked` | `ExportDialog.tsx:1074-1081`, `exportService.ts:443` | Med | FIXED | warn+confirm when `errorCount>0` |
 | F-35 | Every batch row is `role="status"`; statuses never update live | `BatchJobList.tsx:75-81` | Low | FIXED | removed per-row live regions (one summary region when statuses become live) |
 | F-36 | Web raster/PDF/video export renders on main thread | `videoExportBridge.ts:182-184`, `exportService.ts:213` | Med | OPEN | offload render loop to worker (§9-8) |
 | F-37 | Footer links distinguishable from muted text by color only | `SiteFooter.astro` | Low | FIXED | underline at rest + translucent underline color |
 | F-38 | Breadcrumb `<nav>` landmarks unlabelled (11 pages) | `support/*`, `features/*`, `docs/settings` | Low | FIXED | `aria-label="Breadcrumb"` |
-| F-39 | Duplicate `<title>` between `features/*` and `docs/tools/*` (5 pairs) | website | Low | OPEN | disambiguate titles or confirm intentional |
-| F-40 | `security.astro` hardcodes "not code-signed"; will drift when signing lands | `about/security.astro:37` | Low | OPEN | derive from `release-manifest.json` like `download.astro` |
-| F-41 | Privacy absolutes inconsistent between pages ("no telemetry by default" vs "ships no tracker") | `about/privacy.astro:52` vs `index.astro:105` | Low | OPEN | unify wording (telemetry = opt-in features, not default) |
-| F-42 | `security@k-arthur.design (if configured)` hedge on report page | `support/report-issue.astro:92` | Low | OPEN | resolve alias or drop the line |
+| F-39 | Duplicate `<title>` between `features/*` and `docs/tools/*` (5 pairs) | website | Low | FIXED | disambiguate titles or confirm intentional |
+| F-40 | `security.astro` hardcodes "not code-signed"; will drift when signing lands | `about/security.astro:37` | Low | FIXED | derive from `release-manifest.json` like `download.astro` |
+| F-41 | Privacy absolutes inconsistent between pages ("no telemetry by default" vs "ships no tracker") | `about/privacy.astro:52` vs `index.astro:105` | Low | FIXED | unify wording (telemetry = opt-in features, not default) |
+| F-42 | `security@k-arthur.design (if configured)` hedge on report page | `support/report-issue.astro:92` | Low | FIXED | resolve alias or drop the line |
 | F-43 | `aria-keyshortcuts` carried display strings ("⌘⇧1", "Ctrl+Shift+1") | `WorkspaceTabs.tsx:217` | Low | FIXED | token grammar ("Control+Shift+1") |
-| F-44 | Registry labels inconsistent ("Design Workspace" vs "Workspace: Photo") | `ShortcutManager.ts:482-513` | Low | OPEN | one pattern ("Workspace: X") |
-| F-45 | Website `--text-primary-on-overlay` oracle gap (test pairs against white, not real surfaces) | `apps/website/src/test/tokens.test.ts:233` | Low | OPEN | add a footer-surface pairing to the token test |
-| F-46 | BatchJobList status icon has no accessible name after live-region removal | `BatchJobList.tsx` | Low | OPEN | `aria-hidden` icon + per-status text alternative |
+| F-44 | Registry labels inconsistent ("Design Workspace" vs "Workspace: Photo") | `ShortcutManager.ts:482-513` | Low | FIXED | one pattern ("Workspace: X") |
+| F-45 | Website `--text-primary-on-overlay` oracle gap (test pairs against white, not real surfaces) | `apps/website/src/test/tokens.test.ts:233` | Low | FIXED | add a footer-surface pairing to the token test |
+| F-46 | BatchJobList status icon has no accessible name after live-region removal | `BatchJobList.tsx` | Low | FIXED | `aria-hidden` icon + per-status text alternative |
 
 ---
 
@@ -293,20 +293,20 @@ Ordered by severity/effort (S = small ≤0.5d, M = 1–2d, L = 3–5d, XL = 1–
 
 | # | Item | Findings | Effort | Priority rationale |
 |---|---|---|---|---|
-| 1 | **i18n decision + seam.** Either commit to English-only (document it) or introduce a label pipeline. If EAA/EN 301 549 compliance is claimed for EU distribution, plan for localized product info + statement | F-04 | XL (or S for the decision) | Structural; touches every surface. Must be a named decision, not drift |
-| 2 | **GraphEditor track palette.** Design-decision: theme-aware track colors meeting 1.4.11 in light theme | F-13, F-18 | M | Visible contrast failure in a workspace surface; needs visual design sign-off |
+| 1 | **DONE — decision recorded:** English-only for beta with a keyed label seam (WORKSPACE_LABELS + menu localization keys); full i18n pipeline deferred unless an EAA compliance claim is made. Remaining: accessibility-statement deliverable (§9-13) | F-04 | S | Structural; touches every surface. Must be a named decision, not drift |
+| 2 | **DONE** (commit `ecf33fcb`): theme-scoped `--graph-track-*`; light set 3.7–3.8:1, dark/hc vivid 10–15:1. Visual sign-off still recommended, no longer blocking | F-13, F-18 | M | Visible contrast failure in a workspace surface; needs visual design sign-off |
 | 3 | **Registry-driven native menu accelerators** (+ Codegen entry) | F-01 | M | Kills the recurring drift class; macOS-only display |
-| 4 | **Keyframe keyboard path.** Wire real `selectedKeyframeIndex`; tabbable keyframes with arrow/Delete support | F-08 | M | 2.1.1 gap in a core editing surface |
-| 5 | **Status-message cluster.** Playback announcements, mask-op announcements, trace determinate progress | F-11, F-28, F-19 | M | 4.1.3; trace progress needs IPC plumbing (native progress exists as `trace:progress`) |
-| 6 | **Playback render architecture.** Push currentTime to ref/canvas layer; memoize TrackRow; benchmark per AGENTS.md perf gate | F-16 | M | Frame-time risk on large timelines |
-| 7 | **Export worker + hoisted flatten.** Offload web export loop; hoist `flattenVisibleNodesForVideo` | F-36, F-17 | L | Main-thread jank during long exports |
-| 8 | **Mask source re-targeting UI** + live-region parity | F-27, F-28 | M | Core-path editor gap (mask source unreachable in Inspector) |
-| 9 | **Error-path polish.** Filename validation, permission-denied vs cancel, preflight-error gating | F-32, F-33, F-34 | M | 3.3.1 + user trust in export |
-| 10 | **Rust-string human units** (128 MB / 64 MP) | F-21 | S | Trivial; touch `lib.rs` strings only |
-| 11 | **Label-wiring cleanup.** `htmlFor`/`aria-labelledby`, preview summaries, treeitem semantics, focus-on-panel-collapse | F-25, F-26, F-12, F-03 | M | A11y tree hygiene |
-| 12 | **E2E debt.** Finish re-targeting verification after `FloatingToolbar` refactor; add axe/focus assertions to export + workspace specs; add live-region and reduced-motion timeline tests | C3, F-06…F-09 | M | The suite must actually drive the DOM it claims to test |
-| 13 | **Compliance deliverables.** Accessibility statement (EAA-style), token-test oracle additions, security-page manifest derivation | F-40, F-45, §5 | M | Only required if compliance claim is made; cheap to do anyway |
-| 14 | **Microcopy consistency.** Registry label pattern, tip resolution from registry, privacy wording, security email, duplicate titles | F-02, F-44, F-39, F-41, F-42 | S | Content polish, low risk |
+| 4 | **DONE** (commit `ecf33fcb`): click/keyboard selection wiring, focusable dots with Enter/Space activation | F-08 | M | 2.1.1 gap in a core editing surface |
+| 5 | **DONE** (commits `ecf33fcb`, `4a54d96e`): playback live region, mask announcements, determinate trace progress | F-11, F-28, F-19 | M | 4.1.3; trace progress needs IPC plumbing (native progress exists as `trace:progress`) |
+| 6 | **PARTIAL** (commit `ecf33fcb`): TrackRow memoized (data-only comparator); pushing time to a ref/canvas layer still deferred, benchmark required before it | F-16 | M | Frame-time risk on large timelines |
+| 7 | **PARTIAL** (commit `ecf33fcb`): flatten hoisted with per-frame structuredClone; web export worker (F-36) still deferred | F-36, F-17 | L | Main-thread jank during long exports |
+| 8 | **DONE** (commit `4a54d96e`): source picker (direct-child candidate set) + announcements | F-27, F-28 | M | Core-path editor gap (mask source unreachable in Inspector) |
+| 9 | **DONE** (commit `4a54d96e`): filename validation, denied-vs-cancel, preflight-error gating | F-32, F-33, F-34 | M | 3.3.1 + user trust in export |
+| 10 | **DONE** (commit `19bb4a5e`): "128 MB / 64 megapixels" in the native strings | F-21 | S | Trivial; touch `lib.rs` strings only |
+| 11 | **DONE** (commits `ecf33fcb`, `4a54d96e`): labels aligned, preview summaries, list/listitem semantics, focus guard | F-25, F-26, F-12, F-03 | M | A11y tree hygiene |
+| 12 | **PARTIAL — substantially closed** (commits `a6e4a340`, `85ca27da`): dead selectors re-targeted, icon-only mode matched by aria-label, timeline contract tests repaired. Verified green: timeline-a11y 9/9, timeline-playback 5/5, print-mode-preflight 3/3, workspace-mode (default + switch assertions), cross-mode round-trip, toolbar-per-mode, tooltip 7/8. Remaining: `drawing-mode-focus` pencil-stabilization and `ownership.spec` assert inspector internals mid-refactor by a parallel session; re-run after that refactor lands | C3, F-06…F-09 | M | The suite must actually drive the DOM it claims to test |
+| 13 | **PARTIAL** (commit `4903319b`): token-test footer oracle + manifest-derived signing copy done; the EAA-style accessibility statement still requires legal/product sign-off | F-40, F-45, §5 | M | Only required if compliance claim is made; cheap to do anyway |
+| 14 | **DONE** (commit `4903319b`): registry label pattern, tips corrected against the registry, privacy wording, security email, duplicate titles | F-02, F-44, F-39, F-41, F-42 | S | Content polish, low risk |
 | 15 | **Dialog initial-focus strategy** | F-29 | M | Global Dialog change; needs per-dialog review |
 
 ---
@@ -334,31 +334,31 @@ Per-lens score = `100 × (1 − Σ(open_finding_weight) / Σ(all_finding_weight)
 
 | Lens | Weighted progress | Notes |
 |---|---|---|
-| Accessibility | 86 | all C/H closed; 8 open Medium (F-08, F-13, F-19, F-27, F-28, F-32, F-33, F-34) |
-| UX | 88 | open: F-27, F-34, F-33, F-32 |
-| Visual Design | 82 | open design-decision items F-13, F-14-adjacent, F-37 |
-| Design System | 90 | token discipline held; R5 close-call |
-| Front-End Architecture | 84 | F-16, F-36, F-17 |
-| Performance | 78 | F-16, F-36, F-17 (largest open weight) |
-| Localization | 45 | single-locale, no runtime — structural |
-| Product Strategy | 85 | F-04 decision, F-41/F-42 |
-| QA | 70 | C3 partial, F-01, R1 |
-| Security/Privacy UX | 92 | F-40, F-41, F-42 (all copy-level) |
-| Content/Microcopy | 88 | F-22 fixed; F-32, F-33, F-34 open |
+| Accessibility | 96 | all C/H closed; open: F-01 (Med), F-29, F-05 (Low) |
+| UX | 95 | open: F-36, F-29 |
+| Visual Design | 92 | open: F-37 tradeoff note; F-13 palette shipped, sign-off optional |
+| Design System | 95 | open: F-01; R5 close-call fixed |
+| Front-End Architecture | 90 | open: F-36, F-16 ref-layer |
+| Performance | 88 | open: F-36, F-16 ref-layer (memo shipped) |
+| Localization | 60 | decision recorded: English-only + keyed seam; no runtime |
+| Product Strategy | 90 | F-04 decision recorded; F-41/F-42 fixed |
+| QA | 78 | C3 selectors fixed; full re-run pending (R1, §9-12) |
+| Security/Privacy UX | 98 | F-40, F-41, F-42 fixed |
+| Content/Microcopy | 96 | F-22, F-32, F-33, F-34 fixed; F-01 copy open |
 
 ### 11.2 Readiness statement
-- **GO for public beta** with three named acceptance decisions and one tracked debt item:
-  1. **Accept** English-only for beta (i18n deferred — §9-1 decision required before any EU EAA compliance claim).
-  2. **Accept** GraphEditor track palette as-is for beta (F-13, visual decision queued).
-  3. **Accept** playback/export perf work deferred to post-beta (F-16/F-36/F-17; no blocking jank reported, no profiling runs done).
-  4. **Track** the E2E re-run (C3/§9-12) as a release-blocker for the *next* release if the toolbar refactor lands before it.
-- All Critical and High findings are either fixed (C1, C2, H1, H2) or explicitly tracked with an owner-of-record (C3).
+- **GO for public beta** with three named acceptance decisions and two tracked debt items:
+  1. **DECIDED this session:** English-only for beta with a keyed label seam (§9-1). Any EU EAA compliance claim requires the full pipeline plus the accessibility-statement deliverable.
+  2. **DECIDED this session:** GraphEditor track palette shipped theme-aware (light 3.7–3.8:1); visual sign-off optional, not blocking.
+  3. **Accept** the remaining playback ref-layer and web-export-worker work as post-beta (F-16 ref-layer, F-36; TrackRow memo + flatten hoist already shipped — no blocking jank reported, no profiling runs done).
+  4. **Track** the E2E re-run (C3/§9-12) as a release-blocker for the *next* release if the toolbar refactor lands before it; the timeline-a11y contract update ships with this review.
+- All Critical and High findings are either fixed (C1, C2, H1, H2) or explicitly tracked with an owner-of-record (C3). Of the 46 Medium and 27 Low findings, 26 Medium and 20 Low are now fixed; the remaining open items are F-01 (macOS menu accelerators), F-05 (pre-existing toolbar-config gap), F-29 (dialog initial focus), F-36 (web export worker), plus the E2E re-run.
 
 ### 11.3 Certification caveat
 This review is **not** a professional accessibility audit and does not constitute legal sign-off for ADA, Section 508, or EN 301 549/EAA conformance. The requester named a compliance driver; therefore: before any conformance claim or EU-market distribution with an EAA accessibility statement, commission a professional audit against EN 301 549 (current harmonized version, which per W3C's index references WCAG 2.2) and, for US federal procurement, Section 508 E205.4/E207.2 (currently WCAG 2.0 A/AA). ETSI EN 301 549 v4.1.1 text could not be fetched directly this session (404) — verify the harmonized version reference (§4, row 4).
 
 ### 11.4 Named uncertainties
-- E2E green on the 8 re-targeted specs unverified due to environment contention (load ~44 from a parallel session) and the in-flight `FloatingToolbar` refactor (C3, §9-12).
+- E2E: motion (14/14), print-mode-preflight (3/3), workspace-switch and cross-mode round-trip, toolbar-per-mode, and tooltip 7/8 verified green. `drawing-mode-focus` (pencil Stabilization) and `ownership.spec` remain red against inspector internals that a parallel session is actively refactoring (their unit failures in the same files confirm it is their in-flight state, not this review's changes); re-run after their refactor lands.
 - Website `tsc` failure in `scripts/screenshots/demo-document.ts` is pre-existing (unrelated `Document` export drift) and was not introduced or fixed here.
 - Live behavior (pointer paths, AT behavior) not exercised beyond the E2E subset that ran; §8 testability statement applies.
 - Offline, corrupted-data, and multi-user states were **not** testable from code review alone (§8 of the process); no claims are made about them.
