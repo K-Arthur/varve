@@ -238,11 +238,17 @@ export function inputToStrokePoint(
 }
 
 /**
- * Compute a zoom-aware drag threshold. At high zoom, small CSS-pixel
- * movements represent tiny world-space movements. This ensures consistent
- * drag thresholds in world space across zoom levels.
+ * Convert a CSS-pixel distance into the equivalent world-space distance at
+ * the current zoom.
+ *
+ * Only use this when the value is compared against a **world-space** delta.
+ * A drag threshold compared against screen-space pointer motion must stay a
+ * screen-space constant: dividing it by zoom makes the gesture require
+ * `cssPixels / zoom` of hand movement, which is ~50 px at 6% zoom (the object
+ * feels stuck) and ~0.2 px at 1600% (sub-pixel jitter starts a drag). See
+ * `BaseTool.DRAG_THRESHOLD_CSS_PX`.
  */
-export function zoomAwareDragThreshold(cssPixels: number, zoom: number): number {
+export function worldDistanceForCssPixels(cssPixels: number, zoom: number): number {
   if (zoom <= 0) return cssPixels;
   return cssPixels / zoom;
 }
