@@ -173,16 +173,20 @@ This is set in `justfile` (`package-linux`, `package-appimage`) and in
 
 **WebKit EGL white screen (AppImage only).** The AppImage bundles GTK/WebKit
 support libraries built on the ubuntu-22.04 baseline. On distros with a newer
-Mesa/EGL stack (Arch, CachyOS, Fedora) the stale bundled `libwayland-egl`
-combo makes WebKit's DMA-BUF renderer fail EGL display creation
-(`EGL_BAD_PARAMETER`) and the WebKit web process aborts while the window stays
-open — a white screen. Fixed in-app: when running from an AppImage
-(`APPIMAGE` env), the app sets `WEBKIT_DISABLE_DMABUF_RENDERER=1` before Tauri
-starts (`apps/desktop/src-tauri/src/lib.rs`), disabling only the DMA-BUF
-renderer and keeping GPU compositing. deb/rpm installs use the host's
-libraries and are unaffected. The release launch smoke fails on the
+Mesa/EGL stack (Arch, CachyOS, Fedora) the bundled WebKitWebProcess fails EGL
+display creation (`EGL_BAD_PARAMETER`) and aborts while the window stays open
+— a white screen. The in-app `WEBKIT_DISABLE_DMABUF_RENDERER=1` workaround
+(`APPIMAGE`-gated in `apps/desktop/src-tauri/src/lib.rs`) is NOT sufficient:
+the EGL display failure happens before renderer selection. The real fix is
+build-time: `scripts/release/prune-appimage-bundled-libs.mjs` removes the
+bundled `usr/lib` stack from the AppImage payload (verified 2026-08-11 on a
+CachyOS host: the pruned AppImage renders real content, the released one
+aborted). The AppImage then uses the host's WebKit/GTK/GStreamer/Mesa — the
+same libraries the `.deb` depends on. The release launch smoke fails on the
 EGL/abort signature and requires a live `WebKitWebProcess`, so a white screen
-cannot pass the gate.
+cannot pass the gate; it runs on the ubuntu-22.04 CI baseline, so it does
+NOT exercise the modern-Mesa path — the prune step exists because of that
+gap, not despite it.
 
 ### All Linux formats at once
 
