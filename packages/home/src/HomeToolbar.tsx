@@ -15,7 +15,7 @@ import {
   VarveLogo,
   ViewModeSwitcher,
 } from '@varve/ui';
-import { useCallback, useState } from 'react';
+import { type RefObject, useCallback, useState } from 'react';
 import { FilterDropdown } from './FilterDropdown';
 
 const WORKSPACE_FILTER_OPTIONS: { value: RecentWorkspaceFilter['mode']; label: string }[] = [
@@ -27,6 +27,8 @@ const WORKSPACE_FILTER_OPTIONS: { value: RecentWorkspaceFilter['mode']; label: s
 export interface HomeToolbarProps {
   sidebarCollapsed: boolean;
   onToggleSidebar: () => void;
+  /** Ref to the sidebar toggle button, so the drawer can restore focus on close. */
+  sidebarToggleRef?: RefObject<HTMLButtonElement | null>;
   viewMode: ViewMode;
   onViewModeChange: (v: ViewMode) => void;
   sortKey: SortKey;
@@ -53,6 +55,7 @@ export interface HomeToolbarProps {
 export function HomeToolbar({
   sidebarCollapsed,
   onToggleSidebar,
+  sidebarToggleRef,
   viewMode,
   onViewModeChange,
   onNewFile,
@@ -100,6 +103,7 @@ export function HomeToolbar({
         <Button
           variant="ghost"
           onClick={onToggleSidebar}
+          ref={sidebarToggleRef}
           aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
         >
           <SolidIcon name={SOLID_CHROME_ICONS.menu} label={undefined} />
