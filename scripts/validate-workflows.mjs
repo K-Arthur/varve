@@ -367,6 +367,29 @@ function validateReleaseSigningRules(content, stepBlocks, errors) {
     );
   }
 
+  // Negated globs in the draft job's `files` are a guaranteed failure:
+  // softprops/action-gh-release v2 globs each pattern with the npm `glob`
+  // package, where a standalone `!pattern` matches nothing; combined with
+  // fail_on_unmatched_files: true it always throws (v0.1.1 draft). The notes
+  // file must be staged OUTSIDE the globbed directory instead.
+  const draftText = (jobText.draft ?? []).join('\n');
+  if (/!\S*RELEASE_NOTES/.test(draftText) && /action-gh-release/.test(draftText)) {
+    errors.push(
+      'release.yml draft job: negated `files` pattern (!...RELEASE_NOTES...) with ' +
+        'fail_on_unmatched_files always fails in softprops/action-gh-release — stage ' +
+        'RELEASE_NOTES.md outside the globbed directory instead',
+    );
+  }
+  if (
+    /body_path:\s*dist\/release\/RELEASE_NOTES\.md/.test(draftText) &&
+    /action-gh-release/.test(draftText)
+  ) {
+    errors.push(
+      'release.yml draft job: body_path must point at a RELEASE_NOTES.md outside the ' +
+        '`files` glob (e.g. the workspace root) so it is not uploaded as a release asset',
+    );
+  }
+
   // Attestation of the FINAL bytes, after checksums, with least privilege.
   const attestIdx = content.indexOf('actions/attest@');
   if (attestIdx === -1) {

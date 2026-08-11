@@ -93,6 +93,118 @@ jobs:
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
 `;
 
+// ── draft job: negated globs must not come back ──────────────────────────────
+// softprops/action-gh-release v2 globs each `files` entry with the npm `glob`
+// package; a standalone `!pattern` matches nothing, so with
+// fail_on_unmatched_files: true the v0.1.1 draft always failed. The notes
+// must be staged outside the globbed directory instead.
+const RELEASE_DRAFT_GOOD = `name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo preflight
+  signing-preflight:
+    runs-on: ubuntu-latest
+    needs: preflight
+    steps:
+      - run: node scripts/release/signing-policy.mjs
+  gate:
+    runs-on: ubuntu-latest
+    needs: preflight
+    steps:
+      - run: pnpm install --frozen-lockfile
+      - name: Build frontend (required by tauri generate_context!)
+        run: pnpm build
+        working-directory: apps/desktop
+      - name: cargo test (desktop)
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+  bundle:
+    runs-on: ubuntu-latest
+    needs: [preflight, gate, signing-preflight]
+    steps:
+      - name: Tauri build
+        run: pnpm tauri build --bundles nsis --ci
+      - name: Collect artifacts
+        run: node scripts/release/collect-artifacts.mjs
+      - name: Verify Windows signature
+        run: powershell -File scripts/release/verify-windows-signature.ps1 -Path dist/release/x.exe
+      - name: Verify macOS signature
+        run: bash scripts/release/verify-macos-signature.sh --dmg dist/release/y.dmg
+  verify:
+    runs-on: ubuntu-latest
+    needs: bundle
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - run: node scripts/release/verify-release-trust.mjs --staged staged --out dist/release
+      - name: Generate final SHA256SUMS.txt
+        run: node scripts/release/generate-final-checksums.mjs --dir dist/release
+      - name: Attest final bytes
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: dist/release/*
+  draft:
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - name: Download the verified release set
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-final
+          path: staged-final
+      - name: Stage release directory
+        run: |
+          mkdir -p dist/release
+          find staged-final -type f ! -name 'RELEASE_NOTES.md' -exec cp {} dist/release/ \\;
+          cp staged-final/RELEASE_NOTES.md RELEASE_NOTES.md
+      - name: Create draft release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
+        with:
+          tag_name: v0.1.1
+          draft: true
+          body_path: RELEASE_NOTES.md
+          files: dist/release/*
+          fail_on_unmatched_files: true
+`;
+
+const RELEASE_DRAFT_NEGATED = `name: Release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the verified release set
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: release-final
+          path: dist/release
+      - name: Create draft release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
+        with:
+          tag_name: v0.1.1
+          draft: true
+          body_path: dist/release/RELEASE_NOTES.md
+          files: |
+            dist/release/*
+            !dist/release/RELEASE_NOTES.md
+          fail_on_unmatched_files: true
+`;
+
+const RELEASE_DRAFT_NOTES_INSIDE_GLOB = RELEASE_DRAFT_GOOD.replace(
+  '          body_path: RELEASE_NOTES.md',
+  '          body_path: dist/release/RELEASE_NOTES.md',
+);
+
 const PAGES_GOOD = `name: Website Deploy
 on:
   push:
@@ -170,6 +282,32 @@ assert.deepEqual(
   assert.ok(
     errors.some((e) => /missing "Build frontend"/.test(e)),
     'a gate job without the frontend build must be rejected',
+  );
+}
+
+// ── release.yml draft glob rules ─────────────────────────────────────────────
+assert.deepEqual(
+  validateVarveRules(RELEASE_DRAFT_GOOD, '.github/workflows/release.yml'),
+  [],
+  'draft job with notes staged outside the glob passes',
+);
+
+{
+  const errors = validateVarveRules(RELEASE_DRAFT_NEGATED, '.github/workflows/release.yml');
+  assert.ok(
+    errors.some((e) => /negated `files` pattern/.test(e)),
+    'a negated files pattern in the draft job must be rejected',
+  );
+}
+
+{
+  const errors = validateVarveRules(
+    RELEASE_DRAFT_NOTES_INSIDE_GLOB,
+    '.github/workflows/release.yml',
+  );
+  assert.ok(
+    errors.some((e) => /body_path must point at a RELEASE_NOTES.md outside/.test(e)),
+    'a body_path inside the globbed directory must be rejected',
   );
 }
 
