@@ -2,6 +2,7 @@ import { managedColorToCss, PRODUCT_STATUS } from '@varve/shared';
 import {
   Button,
   Dialog,
+  NestedOverlayProvider,
   NumberInput,
   Select,
   Tooltip,
@@ -10,9 +11,9 @@ import {
 } from '@varve/ui';
 import { getTheme, setTheme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { bumpThemeRevision, getBackupService, useEditor } from '../../context';
+import { bumpThemeRevision, getBackupService, useOptionalEditor } from '../../context';
 import { PrivacyDiagnosticsSection } from '../../crash';
-import { loadSettings, updateSettings } from '../../settings';
+import { loadSettings, type ThemeMode, type UnitType, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
@@ -22,8 +23,8 @@ import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ColorizationModelsTab } from './ColorizationModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
 import { PerformanceSettingsTab } from './PerformanceSettingsTab';
+import type { SettingsSection } from './SettingsContext';
 import { useSettings } from './SettingsContext';
-import type { SettingsSection, ThemeMode, UnitType } from './settings';
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'general', label: 'General' },
@@ -112,7 +113,7 @@ export function SettingsDialog({
   }, [resetSettings]);
 
   return (
-    <>
+    <NestedOverlayProvider>
       <Dialog
         open={open}
         onClose={onClose}
@@ -185,7 +186,7 @@ export function SettingsDialog({
         onClose={() => setShortcutsOpen(false)}
         onSelect={() => setShortcutsOpen(false)}
       />
-    </>
+    </NestedOverlayProvider>
   );
 }
 
@@ -203,12 +204,15 @@ function Divider() {
 }
 
 function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void }) {
-  const { settings, updateSection } = useSettings();
-  const [preferWebGpu, setPreferWebGpu] = useState(() => loadSettings().render.preferWebGpu);
-  const { state, setCanvasBackground, documentColorMode, beginTransaction, commitTransaction } =
-    useEditor();
-  const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
-  const canvasBgColor = state.document.canvasBackground ?? fallbackColor;
+  const { settings, updateSection, updateSettings: updateSettingsCtx } = useSettings();
+  const editor = useOptionalEditor();
+  // Document-scoped controls (canvas background) need an open document; the
+  // Home screen has none, so those rows are omitted there.
+  const fallbackColor = useMemo(
+    () => whiteForMode(editor?.documentColorMode ?? 'rgb'),
+    [editor?.documentColorMode],
+  );
+  const canvasBgColor = editor?.state.document.canvasBackground ?? fallbackColor;
   const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
 
   return (
@@ -230,21 +234,25 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
           label="Units"
         />
       </FieldRow>
-      <FieldRow label="Canvas background">
-        <InspectorColorPopover
-          label="Canvas background"
-          value={canvasBgColor}
-          onChange={setCanvasBackground}
-          swatchStyle={{ background: swatchBackground }}
-          documentColorMode={documentColorMode}
-          className="settings-color-swatch"
-          onEditStart={beginTransaction}
-          onEditEnd={commitTransaction}
-        />
-      </FieldRow>
-      <p className="settings-hint">
-        Background of the currently open document. Changes apply immediately.
-      </p>
+      {editor && (
+        <>
+          <FieldRow label="Canvas background">
+            <InspectorColorPopover
+              label="Canvas background"
+              value={canvasBgColor}
+              onChange={editor.setCanvasBackground}
+              swatchStyle={{ background: swatchBackground }}
+              documentColorMode={editor.documentColorMode}
+              className="settings-color-swatch"
+              onEditStart={editor.beginTransaction}
+              onEditEnd={editor.commitTransaction}
+            />
+          </FieldRow>
+          <p className="settings-hint">
+            Background of the currently open document. Changes apply immediately.
+          </p>
+        </>
+      )}
       <FieldRow label="Autosave interval (min)">
         <NumberInput
           value={settings.general.autosaveInterval}
@@ -261,11 +269,10 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
         <label className="settings-checkbox-row">
           <input
             type="checkbox"
-            checked={preferWebGpu}
+            checked={settings.render.preferWebGpu}
             onChange={(e) => {
               const next = e.target.checked;
-              setPreferWebGpu(next);
-              updateSettings({ render: { preferWebGpu: next } });
+              updateSettingsCtx({ render: { preferWebGpu: next } });
             }}
           />
           <span>Prefer WebGPU when available</span>
