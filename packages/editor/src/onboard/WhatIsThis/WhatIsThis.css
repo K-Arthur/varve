@@ -28,7 +28,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--color-accent-default);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-xs);
