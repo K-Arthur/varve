@@ -420,10 +420,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
               <div class="download-options">
                 {p.artifacts.map((artifact) => (
-                  <div class:list={['download-option', { recommended: artifact.format === 'appimage' }]}>
-                    <div class="option-header">
-                      <h3>{artifact.title ?? artifact.label}</h3>
-                      {artifact.format === 'appimage' && <span class="badge recommended">Recommended</span>}
+                  <div class:list={['download-option', { recommended: artifact.format === 'deb' }]}>
+                    <div class="download-option-head">
+                      {artifact.format === 'deb' && <span class="badge recommended">Recommended</span>}
                     </div>
                     <p>{artifact.blurb}</p>
                     <a href={artifact.url} class="btn-primary" download>
