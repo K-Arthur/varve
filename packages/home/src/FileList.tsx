@@ -1,6 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { FileEntry, SortDirection, SortKey } from '@varve/platform';
-import { formatBytes, formatRelativeTime } from '@varve/platform';
+import { fileKindLabel, formatBytes, formatRelativeTime } from '@varve/platform';
 import { Icon, Thumbnail } from '@varve/ui';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
@@ -296,6 +296,7 @@ export function FileList({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                   onClick={(e) => handleRowClick(e, virtualRow.index)}
+                  onDoubleClick={() => onOpen(entry)}
                   onContextMenu={(e) => onContext(e, entry)}
                   onFocus={() => setFocusIdx(virtualRow.index)}
                 >
@@ -358,7 +359,7 @@ export function FileList({
                       />
                     </button>
                   )}
-                  <span className="file-card__badge">{entry.kind}</span>
+                  <span className="file-card__badge">{fileKindLabel(entry.kind)}</span>
                   <button
                     type="button"
                     className="file-row__pin"

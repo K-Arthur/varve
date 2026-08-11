@@ -10,9 +10,19 @@
  * When the stage changes (e.g. beta -> stable), edit ONLY `stage` here and
  * regenerate/refresh the surfaces that display it; `label` and
  * `description` stay in sync automatically.
+ *
+ * `stage` is intentionally NOT a literal type: consumers widen it to compare
+ * against future stages (e.g. "is the product stable yet?"), and a literal
+ * would make those comparisons a type error today.
  */
-export const PRODUCT_STATUS = {
-  /** Maturity stage. One of: 'pre-alpha' | 'alpha' | 'beta' | 'stable'. */
+/** Maturity stage. One of: 'pre-alpha' | 'alpha' | 'beta' | 'stable'. */
+export type ProductStatusStage = 'pre-alpha' | 'alpha' | 'beta' | 'stable';
+
+export const PRODUCT_STATUS: {
+  stage: ProductStatusStage;
+  label: string;
+  description: string;
+} = {
   stage: 'beta',
   /** Short label for badges and UI chrome (title bar, About dialog, CTA chips). */
   label: 'Public Beta',
@@ -23,6 +33,4 @@ export const PRODUCT_STATUS = {
    */
   description:
     'Varve is in public beta: installers are published for Linux, macOS, and Windows. Core features work, but the file format and interfaces can still change and rough edges remain.',
-} as const;
-
-export type ProductStatusStage = (typeof PRODUCT_STATUS)['stage'];
+};

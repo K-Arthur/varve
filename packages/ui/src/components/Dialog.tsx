@@ -7,6 +7,7 @@ import {
   useId,
   useRef,
 } from 'react';
+import { useNestedOverlayRef } from './NestedOverlayContext';
 
 export interface DialogProps extends DialogHTMLAttributes<HTMLDialogElement> {
   open: boolean;
@@ -87,11 +88,18 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     [dismissible, onClose],
   );
 
+  const nestedOverlayRef = useNestedOverlayRef();
+
   const handleBackdropKey = useCallback(
     (e: React.KeyboardEvent<HTMLDialogElement>) => {
-      if (dismissible && e.key === 'Escape') onClose();
+      if (dismissible && e.key === 'Escape') {
+        // Don't close the dialog when a nested overlay (Select, Popover,
+        // etc.) is open — that overlay should consume the Escape first.
+        if (nestedOverlayRef.current) return;
+        onClose();
+      }
     },
-    [dismissible, onClose],
+    [dismissible, onClose, nestedOverlayRef],
   );
 
   return (

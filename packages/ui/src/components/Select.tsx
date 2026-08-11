@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { SolidIcon } from '../icons/SolidIcon';
 import { FloatingPortal } from './FloatingPortal';
+import { useNestedOverlayRegistration } from './NestedOverlayContext';
 
 export interface SelectOption {
   value: string;
@@ -50,6 +51,14 @@ export function Select({
   const announcerId = useId();
   const listboxId = useId();
   const errorId = useId();
+
+  const registerOverlay = useNestedOverlayRegistration();
+  useEffect(() => {
+    if (open) {
+      const unregister = registerOverlay();
+      return unregister;
+    }
+  }, [open, registerOverlay]);
 
   const selectedOption = useMemo(() => options.find((o) => o.value === value), [options, value]);
 

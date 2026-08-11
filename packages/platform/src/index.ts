@@ -29,6 +29,7 @@ export {
   emptyFilter,
   evaluateSmartCollection,
   extractTrigrams,
+  fileKindLabel,
   filterRecentByWorkspace,
   formatAbsoluteTime,
   formatBytes,
