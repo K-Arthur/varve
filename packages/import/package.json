@@ -20,7 +20,7 @@
     "@varve/shared": "workspace:*",
     "@webtoon/psd": "^0.4.0",
     "fflate": "^0.8.3",
-    "pdfjs-dist": "^6.1.200"
+    "pdfjs-dist": "^6.2.108"
   },
   "license": "FSL-1.1-MIT"
 }
