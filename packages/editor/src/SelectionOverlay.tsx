@@ -36,6 +36,14 @@ const ROT_OFFSET = 20;
 const ROT_SNAP = 15 * (Math.PI / 180);
 /** Minimum screen-px between adjacent handles before collapse. */
 const MIN_HANDLE_SPACING_PX = 14;
+/**
+ * Minimum screen-px box dimension before skew handles render. The skew hit
+ * targets are 20x20 screen px at the box edge midpoints; on a smaller box
+ * they overlap the box interior and swallow the shape's own move-drag at the
+ * center (a 20px box's center lies inside the 'n' target). Gate the
+ * affordance so tiny selections keep working as plain move/resize targets.
+ */
+const MIN_SKEW_BOX_PX = 60;
 
 /** Return which handle indices to show based on screen-space size. */
 function visibleHandles(
@@ -929,8 +937,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         </>
       )}
 
-      {/* Skew handles — diamond shape at edge midpoints */}
+      {/* Skew handles — diamond shape at edge midpoints. Hidden below
+          MIN_SKEW_BOX_PX: their 20px hit targets would cover a tiny box and
+          intercept the shape's own move-drag. */}
       {hasInteractiveHandles &&
+        box.w * state.zoom >= MIN_SKEW_BOX_PX &&
+        box.h * state.zoom >= MIN_SKEW_BOX_PX &&
         (() => {
           const edges: Array<{
             axis: SkewAxis;
