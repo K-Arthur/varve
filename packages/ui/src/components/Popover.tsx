@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { FocusTrap } from './FocusTrap';
 
 export interface PopoverProps {
   children: ReactNode;
@@ -317,7 +318,21 @@ export function Popover({
         style={popoverStyle}
         {...(label ? { role: 'dialog' as const, 'aria-label': label } : {})}
       >
-        {popover}
+        {/* U15 (2026-08-10): trap Tab inside the open popover (APG dialog
+         * pattern). The trap also restores focus to the trigger on close,
+         * which composes with Popover's own restore below. */}
+        <FocusTrap
+          active={isOpen}
+          onClose={() => {
+            if (isControlled) {
+              onOpenChange?.(false);
+            } else {
+              setInternalOpen(false);
+            }
+          }}
+        >
+          {popover}
+        </FocusTrap>
         <div
           ref={arrowRef}
           className="varve-popover__arrow"

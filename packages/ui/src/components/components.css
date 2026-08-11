@@ -90,7 +90,7 @@
 }
 .pill-group__btn--active {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 .pill-group__btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -406,6 +406,11 @@
 .varve-dialog__close:hover {
   background: var(--color-surface-sunken);
 }
+/* U18 (2026-08-10): themed focus ring for the dialog close button. */
+.varve-dialog__close:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
 .varve-dialog__body {
   padding: var(--space-4);
   min-height: 0;
@@ -544,7 +549,7 @@
   font-weight: 600;
   line-height: 1;
   border-radius: var(--radius-pill);
-  background: var(--color-accent-default);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 
@@ -593,6 +598,11 @@
 }
 .varve-search__clear:hover {
   color: var(--color-text-primary);
+}
+/* U18 (2026-08-10): themed focus ring for the search clear button. */
+.varve-search__clear:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 .varve-search__match {
   font-weight: var(--font-weight-semibold);
@@ -1033,10 +1043,12 @@
 }
 .varve-tabpanel {
   padding: var(--space-3);
-  outline: none;
 }
-.varve-tabpanel:focus {
-  outline: none;
+/* U17 (2026-08-10): the old `.varve-tabpanel:focus { outline: none }` was a
+ * trap for future focusable panels — a visible ring replaces it. */
+.varve-tabpanel:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 .varve-panel {
@@ -1125,7 +1137,7 @@
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
   line-height: 1.5;
-  border-left: 4px solid var(--color-accent-default);
+  border-left: 4px solid var(--color-interactive-default);
   animation: varve-toast-enter var(--duration-fast) var(--ease-out) both;
 }
 
@@ -1357,6 +1369,12 @@
 }
 .varve-slider--disabled .varve-slider__thumb {
   cursor: default;
+}
+/* U19 (2026-08-10): explicit focus ring for the slider thumb (previously
+ * UA-default only, invisible on some platforms). */
+.varve-slider__thumb:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 .varve-slider__value {
   min-width: var(--space-8);
@@ -1839,7 +1857,7 @@
 }
 .varve-toggle-btn--pressed {
   background: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 .varve-toggle-btn--pressed:hover {
   background: var(--color-accent-subtle);
