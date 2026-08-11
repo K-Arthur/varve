@@ -81,7 +81,7 @@
 .import-results__toggle {
   padding: var(--space-1) 0;
   font-size: var(--font-size-xs);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   background: none;
   border: none;
   cursor: pointer;
@@ -158,7 +158,7 @@
     opacity var(--duration-quick) var(--ease-default);
 }
 .import-results__btn--primary {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 .import-results__btn--primary:hover {

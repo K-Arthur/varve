@@ -42,7 +42,7 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   color: var(--color-text-on-accent);
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -50,7 +50,7 @@
 }
 
 .pages-panel__add-btn:hover {
-  background: var(--color-accent-primary-hover);
+  background: var(--color-interactive-hover);
 }
 
 .pages-panel__add-btn:focus-visible {
@@ -92,7 +92,7 @@
 
 .pages-panel__row--active {
   background: var(--color-accent-subtle);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .pages-panel__thumb {
@@ -162,7 +162,7 @@
 }
 
 .pages-panel__badge--section {
-  color: var(--color-accent-on-subtle, var(--color-accent-primary));
+  color: var(--color-accent-on-subtle, var(--color-interactive-default));
   background: var(--color-accent-subtle);
 }
 

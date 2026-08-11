@@ -786,7 +786,7 @@
 }
 .spec-codegen__pre .token.function,
 .spec-codegen__pre .token.class-name {
-  color: var(--color-accent-teal);
+  color: var(--color-interactive-default);
 }
 .spec-codegen__pre .token.regex,
 .spec-codegen__pre .token.important,

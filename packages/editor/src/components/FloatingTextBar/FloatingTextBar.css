@@ -67,7 +67,7 @@
 }
 
 .floating-text-bar__btn--active {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 

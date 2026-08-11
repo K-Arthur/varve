@@ -80,13 +80,13 @@
 
 .selection-quick-bar__btn--active,
 .selection-quick-bar__text-btn--active {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 
 .selection-quick-bar__btn--active:hover:not(:disabled),
 .selection-quick-bar__text-btn--active:hover:not(:disabled) {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   filter: brightness(1.05);
 }
@@ -201,7 +201,7 @@
 
 .selection-quick-bar__menuitem--active {
   background: var(--color-surface-sunken);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-weight: var(--font-weight-semibold, 600);
 }
 

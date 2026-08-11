@@ -27,7 +27,7 @@
 }
 .archive-dialog__tab--active {
   color: var(--color-text-primary);
-  border-bottom-color: var(--color-accent-primary);
+  border-bottom-color: var(--color-interactive-default);
 }
 .archive-dialog__tab:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -84,7 +84,7 @@
   background: var(--color-surface-raised);
 }
 .archive-dialog__type-btn--active {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   background: var(--color-surface-raised);
 }
 .archive-dialog__type-btn:focus-visible {
@@ -133,7 +133,7 @@
 }
 
 .archive-dialog__checkbox input[type="checkbox"] {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
   flex-shrink: 0;
 }
 
@@ -193,8 +193,8 @@
 }
 .archive-dialog__password-input:focus {
   outline: none;
-  border-color: var(--color-accent-primary);
-  box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-accent-primary) 30%, transparent);
+  border-color: var(--color-interactive-default);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--color-interactive-default) 30%, transparent);
 }
 
 .archive-dialog__password-toggle {
@@ -255,7 +255,7 @@
 }
 .archive-dialog__strength-fill--strong {
   width: 75%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
 }
 .archive-dialog__strength-fill--very-strong {
   width: 100%;
@@ -275,7 +275,7 @@
   color: var(--color-feedback-warning);
 }
 .archive-dialog__strength-label--strong {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
 }
 .archive-dialog__strength-label--very-strong {
   color: var(--color-feedback-success);
@@ -294,7 +294,7 @@
 }
 
 .archive-dialog__encryption-toggle input[type="checkbox"] {
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 /* ── Destination display ──────────────────────────────────────────── */
@@ -338,7 +338,7 @@
 
 .archive-dialog__progress-fill {
   height: 100%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   border-radius: var(--radius-full, 999px);
   transition: width var(--duration-base) var(--ease-out);
 }
@@ -499,12 +499,12 @@
     background var(--duration-fast) var(--ease-default);
 }
 .archive-dialog__drop-zone:hover {
-  border-color: var(--color-accent-primary);
-  background: color-mix(in oklch, var(--color-accent-primary) 5%, transparent);
+  border-color: var(--color-interactive-default);
+  background: color-mix(in oklch, var(--color-interactive-default) 5%, transparent);
 }
 .archive-dialog__drop-zone--active {
-  border-color: var(--color-accent-primary);
-  background: color-mix(in oklch, var(--color-accent-primary) 10%, transparent);
+  border-color: var(--color-interactive-default);
+  background: color-mix(in oklch, var(--color-interactive-default) 10%, transparent);
 }
 
 .archive-dialog__drop-icon {

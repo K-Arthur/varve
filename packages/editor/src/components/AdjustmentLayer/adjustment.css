@@ -13,7 +13,7 @@
 }
 
 .adj-panel__header-icon {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   flex-shrink: 0;
 }
 
@@ -197,8 +197,8 @@
 }
 
 .adj-panel__add-btn:hover {
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
   background-color: var(--color-accent-subtle);
 }
 
@@ -304,7 +304,7 @@
   width: var(--space-2);
   height: var(--space-2);
   border-radius: 50%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   cursor: pointer;
   border: 2px solid var(--color-surface-raised);
 }
@@ -313,7 +313,7 @@
   width: var(--space-2);
   height: var(--space-2);
   border-radius: 50%;
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   cursor: pointer;
   border: 2px solid var(--color-surface-raised);
 }
@@ -331,7 +331,7 @@
 
 .adj-editor__number:focus-visible {
   outline: none;
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .adj-editor__select {
@@ -345,7 +345,7 @@
 
 .adj-editor__select:focus-visible {
   outline: none;
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .adj-editor__curve-points {
@@ -378,8 +378,8 @@
 }
 
 .adj-editor__curve-add:hover {
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
 }
 
 .adj-editor__triplet {
@@ -422,7 +422,7 @@
 }
 
 .adj-layer-row__icon {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   flex-shrink: 0;
 }
 
@@ -432,7 +432,7 @@
   padding: var(--space-05) var(--space-1);
   border-radius: var(--radius-sm);
   background-color: var(--color-accent-subtle);
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
@@ -452,7 +452,7 @@
 }
 
 .adj-layer-row__add:hover {
-  color: var(--color-accent-primary);
+  color: var(--color-interactive-default);
   background-color: var(--color-interactive-hover);
 }
 
@@ -475,7 +475,7 @@
 }
 
 .gm-editor__bar:focus-visible {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   box-shadow: 0 0 0 2px var(--color-accent-subtle);
 }
 
@@ -499,7 +499,7 @@
 }
 
 .gm-editor__stop--selected {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   box-shadow:
     0 0 0 2px var(--color-accent-subtle),
     0 1px 4px rgb(0 0 0 / 0.4);
@@ -508,7 +508,7 @@
 
 .gm-editor__stop:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent-primary);
+  box-shadow: 0 0 0 2px var(--color-interactive-default);
 }
 
 .gm-editor__stop-controls {
@@ -544,7 +544,7 @@
 
 .gm-editor__number:focus-visible {
   outline: none;
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .gm-editor__unit {
@@ -602,7 +602,7 @@
 }
 
 .gm-editor__channel-delete:hover:not(:disabled) {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   color: var(--color-text-primary);
 }
 
@@ -630,7 +630,7 @@
 }
 
 .adj-lut-editor__import-btn:hover {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
   color: var(--color-text-primary);
 }
 
@@ -724,9 +724,9 @@
 }
 
 .insp-btn--primary {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .insp-btn--secondary {
@@ -752,12 +752,12 @@
 }
 
 .gm-editor__stop--opacity.gm-editor__stop--selected {
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 .gm-editor__slider {
   flex: 1;
-  accent-color: var(--color-accent-primary);
+  accent-color: var(--color-interactive-default);
 }
 
 /* ── Gradient preset browser ───────────────────────────────────────────── */
@@ -843,11 +843,11 @@
 
 .gmp-item--selected {
   background: var(--color-accent-subtle);
-  outline: 1px solid var(--color-accent-primary);
+  outline: 1px solid var(--color-interactive-default);
 }
 
 .gmp-item:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }
 
