@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
 /**
  * Remove the bundled WebKit/GTK/GStreamer library stack from the AppImage.
  *
@@ -15,36 +14,35 @@ import { execFileSync } from 'node:child_process';
  *
  * The web process dies, the window stays open and blank — the documented
  * "white screen". `bundleMediaFramework: false` does NOT prevent this: it
- * only stops Tauri's own webkit copy, while linuxdeploy-plugin-gtk still
- * bundles the full stack via ldd analysis. `WEBKIT_DISABLE_DMABUF_RENDERER=1`
- * (the v0.1.0 workaround) is not sufficient either: the EGL display
- * creation failure happens before the renderer selection.
+ * only stops Tauri's own webkit copy and the gstreamer plugin, while
+ * linuxdeploy-plugin-gtk still bundles the full stack via ldd analysis
+ * (see tauri-bundler linuxdeploy.rs: --plugin gtk is unconditional).
+ * `WEBKIT_DISABLE_DMABUF_RENDERER=1` (the v0.1.0 workaround) is not
+ * sufficient either: the EGL display creation failure happens before the
+ * renderer selection.
  *
- * The fix: delete the bundled libraries from the AppImage payload. The
- * binary resolves every library from the host (verified: `ldd` reports zero
- * unresolved), so the AppImage then behaves exactly like the .deb — which
- * works on every tested distribution. Trade-off: the AppImage now requires
- * the host to provide libwebkit2gtk-4.1, libgtk-3, GStreamer and Mesa —
- * the same system packages the .deb depends on. That is documented on the
- * download page; a silent white screen is worse than a declared dependency.
+ * The fix: delete the bundled libraries from the AppImage payload and
+ * re-assemble it with linuxdeploy's own AppImage output plugin, excluding
+ * the entire shared-library closure (`--exclude-library '*'`), so the
+ * AppImage carries only the binary, resources, icons and desktop files.
+ * The binary resolves every library from the host (verified: `ldd` reports
+ * zero unresolved), so the AppImage then behaves exactly like the .deb —
+ * which works on every tested distribution. Trade-off: the AppImage now
+ * requires the host to provide libwebkit2gtk-4.1, libgtk-3, GStreamer and
+ * Mesa — the same system packages the .deb depends on. That is documented
+ * on the download page; a silent white screen is worse than a declared
+ * dependency.
  *
  * Runs after `tauri build` on the Linux bundle directory, before collection.
  * Safe and idempotent: operates on the produced AppImage payload only.
  *
  *   node scripts/release/prune-appimage-bundled-libs.mjs \
- *     --bundle-dir apps/desktop/src-tauri/target/release/bundle
+ *     --bundle-dir apps/desktop/src-tauri/target/release/bundle \
+ *     [--tools-dir ~/.cache/tauri]
  */
-import {
-  chmodSync,
-  existsSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 function parseArgs(argv) {
@@ -62,19 +60,27 @@ function findAppImage(bundleDir) {
   return readdirSync(appImageDir).find((f) => f.endsWith('.AppImage'));
 }
 
+function findTool(toolsDir, names) {
+  for (const name of names) {
+    const p = join(toolsDir, name);
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const bundleDir = args['bundle-dir'] ?? 'apps/desktop/src-tauri/target/release/bundle';
+  const bundleDir = resolve(args['bundle-dir'] ?? 'apps/desktop/src-tauri/target/release/bundle');
+  const toolsDir =
+    args['tools-dir'] ?? process.env.TAURI_CACHE_DIR ?? join(homedir(), '.cache', 'tauri');
   const appImage = findAppImage(bundleDir);
   if (!appImage) {
     process.stdout.write('No AppImage found — nothing to prune.\n');
     return;
   }
 
-  // Resolve to an absolute path: execFileSync with `cwd` set resolves a
-  // relative command against the cwd (here: the temp dir), so the AppImage
-  // would not be found even though it exists relative to the repo root.
-  const appImagePath = resolve(join(bundleDir, 'appimage', appImage));
+  const appImageDir = join(bundleDir, 'appimage');
+  const appImagePath = join(appImageDir, appImage);
   const work = mkdtempSync(join(tmpdir(), 'varve-appimage-prune-'));
   const squashfsRoot = join(work, 'squashfs-root');
 
@@ -89,16 +95,13 @@ function main() {
   let removed = 0;
   for (const dir of libDirs) {
     if (!existsSync(dir)) continue;
-    // Keep nothing under usr/lib: every library the binary needs resolves
-    // from the host (validated with ldd on v0.1.1). Empty module dirs are
-    // harmless and left in place.
-    const entries = readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.isFile() || entry.isSymbolicLink()) {
-        rmSync(join(dir, entry.name), { force: true });
-        removed += 1;
-      }
-    }
+    // Remove the entire library tree (files, symlinks AND subdirectories
+    // such as usr/lib/x86_64-linux-gnu/gtk-3.0/*): every library the binary
+    // needs resolves from the host (validated with ldd on v0.1.1), and a
+    // leftover module .so makes linuxdeploy re-deploy dependencies and fail
+    // on libs the CI host does not have.
+    rmSync(dir, { recursive: true, force: true });
+    removed += 1;
   }
 
   if (removed === 0) {
@@ -107,35 +110,54 @@ function main() {
     return;
   }
 
-  // Repack: a type-2 AppImage is a runtime ELF prepended to a squashfs.
-  // Split the original at the squashfs magic ("hsqs") and concatenate the
-  // runtime with a fresh squashfs of the pruned payload.
-  const original = readFileSync(appImagePath);
-  const magicIndex = original.indexOf(Buffer.from('hsqs'));
-  if (magicIndex <= 0) {
+  // Re-assemble with linuxdeploy + its AppImage output plugin — the same
+  // toolchain Tauri used to build the original. A hand-rolled
+  // runtime + mksquashfs concatenation produces an invalid ELF (the runtime
+  // reads its squashfs offset from an ELF section, not by scanning for
+  // "hsqs" — verified 2026-08-11 with a segfaulting repack). Excluding the
+  // whole library closure keeps linuxdeploy from re-deploying the CI host's
+  // GTK/WebKit (which would recreate the broken bundle).
+  const linuxdeploy =
+    findTool(toolsDir, ['linuxdeploy-x86_64.AppImage', 'linuxdeploy.AppImage']) ??
+    process.env.LINUXDEPLOY;
+  if (!linuxdeploy) {
     rmSync(work, { recursive: true, force: true });
-    throw new Error('Cannot locate squashfs payload in AppImage (unexpected format).');
+    throw new Error(
+      `linuxdeploy not found in ${toolsDir}. Pass --tools-dir or set LINUXDEPLOY. ` +
+        'Tauri downloads it to ~/.cache/tauri during the build.',
+    );
   }
-  const runtime = original.subarray(0, magicIndex);
-  const runtimePath = join(work, 'runtime');
-  writeFileSync(runtimePath, runtime);
-  chmodSync(runtimePath, 0o755);
+  const pluginAppImage = findTool(toolsDir, ['linuxdeploy-plugin-appimage-x86_64.AppImage']);
+  if (pluginAppImage) {
+    process.env.LINUXDEPLOY_PLUGIN_APPIMAGE = pluginAppImage;
+  }
 
-  const newSquash = join(work, 'varve.squashfs');
+  const output = join(appImageDir, appImage);
+  rmSync(output, { force: true });
   execFileSync(
-    'mksquashfs',
-    [squashfsRoot, newSquash, '-noappend', '-comp', 'gzip', '-root-owned'],
-    { stdio: 'inherit' },
+    linuxdeploy,
+    [
+      '--appimage-extract-and-run',
+      '--appdir',
+      squashfsRoot,
+      '--exclude-library',
+      '*',
+      '--output',
+      'appimage',
+    ],
+    { cwd: work, env: { ...process.env, OUTPUT: output, ARCH: 'x86_64' }, stdio: 'inherit' },
   );
 
-  const output = resolve(join(bundleDir, 'appimage', appImage));
-  writeFileSync(output, Buffer.concat([runtime, readFileSync(newSquash)]));
+  if (!existsSync(output) || statSync(output).size === 0) {
+    rmSync(work, { recursive: true, force: true });
+    throw new Error('linuxdeploy did not produce the pruned AppImage.');
+  }
   chmodSync(output, 0o755);
 
   const prunedSize = statSync(output).size;
   rmSync(work, { recursive: true, force: true });
   process.stdout.write(
-    `Pruned ${removed} bundled libraries and repacked ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
+    `Pruned ${removed} bundled libraries and re-assembled ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
       'AppImage now uses host WebKit/GTK/GStreamer/Mesa — see module doc.\n',
   );
 }
