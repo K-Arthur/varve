@@ -110,6 +110,35 @@ install-dev-icons:
 gate: format-check lint test gates
     @echo "Cascade Review gate passed."
 
+# --- Affected-first validation (recommended inner loop) ---
+# Print the impact plan for the current changes without running anything.
+check-plan:
+    pnpm verify:plan
+
+# Tier 0 + Tier 1: format/lint on touched files + directly related tests.
+check-quick:
+    pnpm verify:quick
+
+# Tiers 0-4: dependency-aware affected validation. Run this instead of the
+# full gate for ordinary feature work — it selects tests by impact.
+check-affected:
+    pnpm verify:affected
+
+# Explicit full repository gate. Reserved for release checkpoints,
+# workspace/toolchain changes, and explicit requests. Requires a reason:
+#   just gate-full  (prompts)
+#   VARVE_FULL_GATE_REASON="..." just gate-full
+gate-full:
+    @if [ -z "$${VARVE_FULL_GATE_REASON:-}" ]; then \
+      echo "gate-full requires a reason (VARVE_FULL_GATE_REASON). 'Just to be safe' is not a reason."; \
+      exit 2; \
+    fi
+    pnpm verify:full
+
+# Show what the affected planner would run (dry-run).
+plan:
+    pnpm verify:plan
+
 # --- CI/CD local tooling ---
 install-git-hooks:
     node scripts/install-git-hooks.mjs
