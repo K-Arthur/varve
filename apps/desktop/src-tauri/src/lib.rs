@@ -588,7 +588,11 @@ async fn download_background_removal_model(
             ));
         }
         if let Some(expected) = &model.checksum_sha256 {
-            let actual = format!("{:x}", digest.finalize());
+            let actual = digest
+                .finalize()
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>();
             if &actual != expected {
                 return Err(format!(
                     "Model SHA-256 mismatch: expected {expected}, received {actual}"
