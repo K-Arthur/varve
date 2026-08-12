@@ -1,4 +1,4 @@
-# Strata — Release Readiness Audit
+# Release Readiness Audit (2026-08-03)
 
 **Audit date:** 2026-08-03
 **Audited commit:** `23e04b75` (branch `master`)

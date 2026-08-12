@@ -9,7 +9,7 @@ management). Created 2026-07-21.
 
 The current system stores all channels as 0-255 with no bit depth concept. CMYK uses analytical
 RGB↔CMYK conversion (duplicated in two modules) rather than ICC profiles. Blending happens in
-gamma-space (mathematically incorrect). The Rust ICC engine (`strata-colour`) exists but is
+gamma-space (mathematically incorrect). The Rust ICC engine (`varve-colour`) exists but is
 bypassed by the print pipeline. Import preserves color only from SVG; PSD/PDF/EPS discard it.
 Codegen collapses everything to sRGB hex/rgba strings.
 
@@ -91,7 +91,7 @@ new documents can opt into `'linear'`.
 Conversions use the first mechanism available:
 
 1. **ICC (profile-based)** when both source and target profiles are known — delegates to
-   `strata-colour` WASM (`IccEngine`) or to LittleCMS on the Rust print path.
+   `varve-colour` WASM (`IccEngine`) or to LittleCMS on the Rust print path.
 2. **Analytical fallback** — the existing `colorConversion.ts` math, now input-normalized.
 
 A single function `convertColor(color, targetSpace, opts)` exposes this. It never silently
