@@ -124,6 +124,28 @@ describe('findContainingFrameInDoc', () => {
     const result = findContainingFrameInDoc(doc, { x: 150, y: 125 });
     expect(result).toBe('f2');
   });
+
+  it('topmost artboard wins for overlapping same-depth frames', () => {
+    let doc = makeDoc();
+    // Children arrays are back-to-front: f1 is the bottom artboard, f2 the
+    // topmost. A point inside both must resolve to f2 — the first-array-item
+    // (bottom) artboard must NOT win.
+    doc = addFrame(doc, 'f1', 0, 0, 300, 300);
+    doc = addFrame(doc, 'f2', 100, 100, 300, 300);
+    const result = findContainingFrameInDoc(doc, { x: 200, y: 200 });
+    expect(result).toBe('f2');
+  });
+
+  it('deepest container still beats a shallower topmost sibling', () => {
+    let doc = makeDoc();
+    doc = addFrame(doc, 'f1', 0, 0, 400, 400);
+    doc = addChildFrame(doc, 'f1', 'nested', 50, 50, 200, 200);
+    doc = addFrame(doc, 'f2', 100, 100, 300, 300);
+    // Point inside nested (depth 2), f2 (depth 1) and f1 (depth 1): the
+    // deepest container wins even though f2 is the topmost sibling.
+    const result = findContainingFrameInDoc(doc, { x: 150, y: 150 });
+    expect(result).toBe('nested');
+  });
 });
 
 describe('page surfaces as drop targets', () => {
