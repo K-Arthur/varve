@@ -4,6 +4,7 @@ import {
   adjustmentsToFilters,
   anyRequiresRasterExport,
   applyFilterWithCompositing as applyFilters,
+  blendPixels,
   createRasterSurface,
   encodeRasterSurface,
   totalEffectExpansion,
@@ -20,6 +21,23 @@ import type { Document, SceneNode, ShapeNode } from '@varve/scene';
 // CPU reference kernels. Interactive preview stays synchronous CPU; export
 // is async and uses the chain. Built once per process.
 const EFFECT_CHAIN = buildEffectChain(gpuEffectProvider);
+
+/**
+ * Composite an accelerated effect result back over the pre-effect pixels.
+ * Providers return the fully transformed surface, so applying the result with
+ * putImageData alone would discard the adjustment's mix and blend mode.
+ */
+export function compositeDispatchedEffect(
+  source: ImageData,
+  result: ImageData,
+  opacity: number,
+  blendMode: string,
+): ImageData {
+  const amount = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1;
+  const mode = blendMode === 'passThrough' ? 'normal' : blendMode || 'normal';
+  if (amount >= 1 && mode === 'normal') return result;
+  return blendPixels(source, result, mode, amount);
+}
 
 export interface FlattenForExportOptions {
   scale: number;
@@ -380,8 +398,18 @@ export async function flattenForExport(
             rgba,
             EFFECT_CHAIN,
           );
+          const result = new ImageData(
+            out as unknown as Uint8ClampedArray<ArrayBuffer>,
+            pixelW,
+            pixelH,
+          );
           context.putImageData(
-            new ImageData(out as unknown as Uint8ClampedArray<ArrayBuffer>, pixelW, pixelH),
+            compositeDispatchedEffect(
+              imageData,
+              result,
+              filter.opacity ?? 1,
+              filter.blendMode ?? 'normal',
+            ),
             0,
             0,
           );
