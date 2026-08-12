@@ -495,4 +495,4 @@ For EACH feature, verify:
 
 ---
 
-*End of audit report. See `docs/plans/intelligence-implementation-plan.md` for the detailed implementation plan.*
+*End of audit report. See `docs/plans/archived/intelligence-implementation-plan.md` for the detailed implementation plan.*
