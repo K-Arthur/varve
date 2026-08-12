@@ -205,20 +205,21 @@ git push
 
 ### Domain Configuration
 The site is configured via `SITE_URL` / `SITE_BASE` environment variables in
-`astro.config.mjs`, defaulting to the GitHub Pages URL that actually exists
-(`https://k-arthur.github.io` with base `/varve`):
+`astro.config.mjs`. Production defaults are the purchased custom domain
+(`https://varve.studio`, base `/`); the legacy GitHub Pages project mode
+(`https://k-arthur.github.io`, base `/varve`) is built by `build:website:pages`
+for the CI dual-mode suite:
 
 ```js
-site: process.env.SITE_URL ?? 'https://k-arthur.github.io'
-base: process.env.SITE_BASE ?? '/varve'
+site: process.env.SITE_URL ?? 'https://varve.studio'
+base: process.env.SITE_BASE ?? '/'
 ```
 
-To configure GitHub Pages with a custom domain:
-1. Go to repo Settings > Pages
-2. Set Custom domain (e.g. `varve.design`)
-3. Add a CNAME record at your DNS provider pointing to `your-username.github.io`
-4. Enable Enforce HTTPS
-5. Set `SITE_URL` and `SITE_BASE` in the `website-deploy.yml` workflow
+The custom domain is configured in repo Settings > Pages (Custom domain =
+`varve.studio`), DNS lives at Porkbun (see `docs/release/custom-domain-runbook.md`
+for the exact records), Enforce HTTPS is on, and the deployment workflow
+(`website-deploy.yml`) builds the production defaults and smoke-checks the
+canonical origin after every deploy.
 
 ---
 
@@ -229,10 +230,10 @@ These items depend on accounts, money, or personal judgment and cannot be automa
 | Item | What to Do |
 |------|------------|
 | **GitHub Sponsors setup** | Go to repo Settings > Sponsors, link Stripe/bank account, set up tiers |
-| **Custom domain DNS** | Add CNAME record at domain registrar pointing to `your-username.github.io` |
+| **Custom domain DNS** | Done 2026-08-12 — DNS records live at Porkbun; see `docs/release/custom-domain-runbook.md` |
 | **Plausible analytics** | Sign up at plausible.io, set the `ANALYTICS_DOMAIN` build env var (Layout.astro gates the snippet and CSP on it; unset = no analytics) |
 | **Code signing cert** | Purchase from DigiCert/Apple Developer, add to CI secrets |
 | **Legal review** | Have a lawyer review terms of service, privacy policy, and AGPL licensing pages |
 | **Payment terminology** | Decide whether to call payments "donations" vs "sponsorships" (has tax implications) |
 | **Personal disclosure** | Decide what personal/identity information appears in the solo-developer story |
-| **Production cutover** | Point DNS to GitHub Pages for the first time |
+| **Production cutover** | Done 2026-08-12 — apex A/AAAA + `www` CNAME at Porkbun; see `docs/release/custom-domain-runbook.md` |
