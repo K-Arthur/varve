@@ -59,6 +59,14 @@ Thumbs.db
 .env.*
 !.env.example
 
+# --- Credential files (never commit) ---
+# A .npmrc containing registry auth, a .netrc with host credentials, or a
+# Cargo credentials file must never enter the repository.
+.netrc
+.npmrc
+credentials
+cargo-credentials
+
 # --- Signing material (NEVER commit) ---
 # Private keys, PKCS#12 bundles, certificate export passwords live only in
 # secret storage / offline backups. Nothing here may ever be committed.
@@ -74,6 +82,11 @@ Thumbs.db
 !packages/**/test-fixtures/**
 # CI-generated signing config merge (contains no secrets, but is CI-local)
 apps/desktop/src-tauri/tauri.signing.windows.json
+
+# --- Secret-scanner local state (never commit reports/baselines) ---
+.gitleaks/
+.gitleaks-report.*
+secret-scan-report.*
 
 # --- Logs ---
 *.log
