@@ -8,12 +8,12 @@
  *
  * Working color space
  * ────────────────────
- * All effects currently operate in sRGB gamma-encoded space (gamma ≈ 2.2),
- * matching the browser Canvas2D default.  The single exception is blur,
- * which converts to linear-light internally for correct colour-bleeding
- * and converts back.  Full ICC-aware processing (Display P3, embedded
- * image profiles, CMYK proofing) is a future milestone tracked in
- * docs/architecture/color-management.md.
+ * Most effects operate in sRGB gamma-encoded space (gamma ≈ 2.2), matching
+ * the browser Canvas2D default. Blur and bloom use linear-light stages for
+ * correct colour bleeding and highlight accumulation, while palette matching
+ * may use OKLab according to its explicit metric. Full ICC-aware processing
+ * (Display P3, embedded image profiles, CMYK proofing) is a future milestone
+ * tracked in docs/architecture/color-management.md.
  *
  * Alpha conventions
  * ─────────────────
