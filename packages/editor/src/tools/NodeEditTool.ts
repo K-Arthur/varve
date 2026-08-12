@@ -73,11 +73,20 @@ export class NodeEditTool extends BaseTool {
     const invWorld = invertAffine(worldMat);
     const local = applyAffine(invWorld, [world.x, world.y]);
 
+    // Screen-space hit radii converted to node-local units: the pointer is
+    // compared against anchors in LOCAL space, so the CSS-pixel radius must
+    // be divided by zoom (screen→world) and the node's world scale
+    // (world→local). Without this, a 10× scaled node gets an effective
+    // 80 px screen hit radius and a 0.1-zoom canvas becomes unclickable.
+    const worldScaleX = Math.hypot(worldMat[0], worldMat[1]) || 1;
+    const anchorRadiusLocal = ANCHOR_HIT_RADIUS / ctx.zoom / worldScaleX;
+    const handleRadiusLocal = HANDLE_HIT_RADIUS / ctx.zoom / worldScaleX;
+
     // Check handle hit first (handles have smaller radius 6px vs anchor 8px,
     // but we check handles first so they take priority when the user clicks
     // near a handle control point even if it's also within anchor radius).
-    const handleHit = findNearestHandle(node.shape.points, local, HANDLE_HIT_RADIUS);
-    const anchorHit = findNearestAnchorLocal(node.shape.points, local, ANCHOR_HIT_RADIUS);
+    const handleHit = findNearestHandle(node.shape.points, local, handleRadiusLocal);
+    const anchorHit = findNearestAnchorLocal(node.shape.points, local, anchorRadiusLocal);
 
     if (handleHit !== null && anchorHit !== null && anchorHit === handleHit.anchorIdx) {
       // Both within radius of the same anchor — anchor hit takes priority.
