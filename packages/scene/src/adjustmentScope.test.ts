@@ -180,6 +180,45 @@ describe('resolveAdjustmentScope', () => {
     expect(targets).toEqual([]);
   });
 
+  it('deduplicates targets and rejects the adjustment itself', () => {
+    const target = 'target1';
+    const adjustment = 'adj1';
+    let doc = addNode(makeTestDoc(), {
+      id: target,
+      kind: 'shape',
+      name: 'Target',
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      shape: { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+      strokes: [],
+      effects: [],
+    } as import('./types').ShapeNode);
+    doc = addNode(doc, {
+      ...makeAdjustmentNode(adjustment, 'levels', {
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
+      }),
+    } as import('./types').AdjustmentNode);
+
+    expect(
+      resolveAdjustmentScope(
+        doc,
+        { mode: 'explicit-targets', targetNodeIds: [target, target, adjustment] },
+        adjustment,
+      ),
+    ).toEqual([target]);
+  });
+
   it('resolves container-descendant scope', () => {
     const doc = makeTestDoc();
     const frameId = 'frame1';

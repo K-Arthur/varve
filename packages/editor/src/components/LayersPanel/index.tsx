@@ -607,7 +607,7 @@ interface BuildLayerMenuItemsArgs {
   handleSelectSameLayerColor: () => void;
   handleSelectAllOfType: () => void;
   handleRevealOnCanvas: () => void;
-  addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance') => void;
+  addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance', sourceNodeId?: string) => void;
   removeMaskFromSelected: () => void;
   toggleMask: () => void;
   invertMask: () => void;

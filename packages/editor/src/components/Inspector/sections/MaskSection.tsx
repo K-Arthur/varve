@@ -1,7 +1,7 @@
 import type { MaskType, SceneNode } from '@varve/scene';
-import { walkNodes } from '@varve/scene';
+import { canBeClipMaskSource, walkNodes } from '@varve/scene';
 import { Select, Tooltip } from '@varve/ui';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
@@ -52,7 +52,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
 
   const canHaveMask = node.kind === 'frame' || node.kind === 'group' || node.kind === 'adjustment';
   const hasChildren = 'children' in container && (container.children?.length ?? 0) > 0;
-  const canAddMask = canHaveMask && !mask && hasChildren;
+  const canAddMask = canHaveMask && !mask && (hasChildren || node.kind === 'adjustment');
 
   const nodeMap = useMemo(() => {
     if (!document || !mask?.sourceNodeId) return null;
@@ -68,13 +68,26 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   // Mask sources must be direct children (frame/group) of the container —
   // the picker only offers the valid set instead of free node selection.
   const sourceCandidates = useMemo(() => {
-    if (!document || !('children' in container) || !container.children) return [];
-    const childIds = container.children as string[];
-    return childIds
+    if (!document) return [];
+    const candidateIds =
+      node.kind === 'adjustment'
+        ? Object.keys(document.nodes)
+        : 'children' in container && container.children
+          ? container.children
+          : [];
+    return candidateIds
       .map((id) => document.nodes[id])
-      .filter((n) => n !== undefined && (n.kind === 'frame' || n.kind === 'group'))
-      .map((n) => ({ value: n.id, label: n.name ?? `${n.kind} ${n.id.slice(0, 6)}` }));
-  }, [document, container]);
+      .filter((candidate): candidate is SceneNode => {
+        if (!candidate || candidate.id === node.id || candidate.kind === 'adjustment') return false;
+        return mask?.type === 'clip' ? canBeClipMaskSource(candidate) : true;
+      })
+      .map((candidate) => ({
+        value: candidate.id,
+        label: candidate.name ?? `${candidate.kind} ${candidate.id.slice(0, 6)}`,
+      }));
+  }, [document, container, mask?.type, node.id, node.kind]);
+
+  const [pendingSourceId, setPendingSourceId] = useState('');
 
   const maskTypeLabel = useMemo(() => {
     if (!mask) return '';
@@ -100,18 +113,6 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     removeMaskFromSelected();
     editor.announce('Mask removed');
   }, [removeMaskFromSelected, editor]);
-
-  const handleAddClip = useCallback(() => {
-    addMaskToSelected('clip');
-  }, [addMaskToSelected]);
-
-  const handleAddAlpha = useCallback(() => {
-    addMaskToSelected('alpha');
-  }, [addMaskToSelected]);
-
-  const handleAddLuminance = useCallback(() => {
-    addMaskToSelected('luminance');
-  }, [addMaskToSelected]);
 
   const handleFeather = useCallback(
     (v: number) => {
@@ -177,13 +178,23 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
       {canAddMask && (
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
           <span className="insp-field__label">Add Mask</span>
+          {node.kind === 'adjustment' && sourceCandidates.length > 0 && (
+            <Select
+              label="Spatial mask source"
+              value={pendingSourceId}
+              options={sourceCandidates}
+              placeholder="Choose a mask source"
+              onChange={setPendingSourceId}
+            />
+          )}
           <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
             <Tooltip label="Clip mask: uses the first child's outline to clip other children">
               <button
                 type="button"
                 className="insp-btn-sm"
-                onClick={handleAddClip}
+                onClick={() => addMaskToSelected('clip', pendingSourceId || undefined)}
                 aria-label="Add clip mask"
+                disabled={node.kind === 'adjustment' && !pendingSourceId}
               >
                 Clip
               </button>
@@ -192,8 +203,9 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
               <button
                 type="button"
                 className="insp-btn-sm"
-                onClick={handleAddAlpha}
+                onClick={() => addMaskToSelected('alpha', pendingSourceId || undefined)}
                 aria-label="Add alpha mask"
+                disabled={node.kind === 'adjustment' && !pendingSourceId}
               >
                 Alpha
               </button>
@@ -202,8 +214,9 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
               <button
                 type="button"
                 className="insp-btn-sm"
-                onClick={handleAddLuminance}
+                onClick={() => addMaskToSelected('luminance', pendingSourceId || undefined)}
                 aria-label="Add luminance mask"
+                disabled={node.kind === 'adjustment' && !pendingSourceId}
               >
                 Luminance
               </button>

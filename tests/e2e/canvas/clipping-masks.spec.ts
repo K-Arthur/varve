@@ -353,7 +353,9 @@ test.describe('effect targeting', () => {
     });
     expect(setScope).toBe(true);
 
-    // Add a visible effect (Bloom) through the Adjustments panel.
+    // Add a deterministic color effect through the Adjustments panel. Bloom
+    // intentionally has little or no visible output on a flat matte-colored
+    // rectangle, so it is not a reliable scope oracle.
     const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
     await expect(adjustmentsTab).toBeVisible({ timeout: 5000 });
     await adjustmentsTab.click();
@@ -361,8 +363,9 @@ test.describe('effect targeting', () => {
     await page.locator('.adj-panel__add-menu').waitFor({ state: 'visible', timeout: 5000 });
     await page
       .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: /^Bloom$/ })
+      .filter({ hasText: /^Brightness$/ })
       .click();
+    await page.getByRole('slider', { name: 'Brightness', exact: true }).fill('60');
     await page.waitForTimeout(600);
 
     const hA = await settledHash(page, { x: 40, y: 40, w: 160, h: 160 });
@@ -379,7 +382,7 @@ test.describe('effect targeting', () => {
   test('spatial mask confines an adjustment to the matte region', async ({ page }) => {
     await navigateToCleanEditor(page);
     await addRect(page, 60, 60, 200, 200);
-    await addRect(page, 60, 340, 200, 60);
+    await addRect(page, 60, 140, 200, 60);
     await page.waitForTimeout(300);
 
     const created = await callEditor(page, 'createAdjustmentLayer');
@@ -441,6 +444,9 @@ test.describe('effect targeting', () => {
     });
     expect(configured).toBe(true);
 
+    const beforeInside = await settledHash(page, { x: 80, y: 150, w: 160, h: 40 });
+    const beforeOutside = await settledHash(page, { x: 80, y: 80, w: 160, h: 40 });
+
     const adjustmentsTab = page.getByRole('tab', { name: /Adjustments/i });
     await expect(adjustmentsTab).toBeVisible({ timeout: 5000 });
     await adjustmentsTab.click();
@@ -448,15 +454,24 @@ test.describe('effect targeting', () => {
     await page.locator('.adj-panel__add-menu').waitFor({ state: 'visible', timeout: 5000 });
     await page
       .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: /^Bloom$/ })
+      .filter({ hasText: /^Brightness$/ })
       .click();
+    await page.getByRole('slider', { name: 'Brightness', exact: true }).fill('60');
     await page.waitForTimeout(600);
 
-    const insideMatte = await settledHash(page, { x: 60, y: 340, w: 200, h: 60 });
-    const outsideMatte = await settledHash(page, { x: 60, y: 120, w: 200, h: 40 });
-    expect(insideMatte).not.toBe(outsideMatte);
+    const insideMatte = await settledHash(page, { x: 80, y: 150, w: 160, h: 40 });
+    const outsideMatte = await settledHash(page, { x: 80, y: 80, w: 160, h: 40 });
+    expect(insideMatte).not.toBe(beforeInside);
+    expect(outsideMatte).toBe(beforeOutside);
     await page.screenshot({ path: SHOT.canvas('09-masked-adjustment') });
     await page.screenshot({ path: SHOT.layers('09-masked-adjustment') });
+
+    // The spatial mask is also discoverable in the existing Appearance
+    // inspector, including its stable source picker.
+    const appearanceTab = page.getByRole('tab', { name: /^Appearance$/ });
+    await appearanceTab.click();
+    await expect(page.getByRole('combobox', { name: 'Mask source' })).toBeVisible();
+    await page.screenshot({ path: SHOT.canvas('09-mask-inspector') });
   });
 
   test('persistence: serialize → reload reproduces the clipping stack', async ({ page }) => {

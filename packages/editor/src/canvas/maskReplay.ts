@@ -198,6 +198,14 @@ export interface ContainerMaskReplayOptions {
  * Replay a masked container (clip/alpha/luminance group or frame) onto the
  * target context.
  *
+ * Returns true when the node was handled. Non-container nodes (shapes) are
+ * deliberately NOT handled: this module renders a node's children, which
+ * shapes do not have, and iterating `children` on a shape throws
+ * (`n.children is not iterable`), aborting the whole frame mid-paint.
+ * Shape-level raster masks (background removal) composite through the flat
+ * engine IR alphaMask path instead. Callers must fall through to the leaf
+ * paint path when this returns false.
+ *
  * - Plain hard clips use ctx.clip(); clips with invert/feather/density
  *   require per-pixel mask alpha and route through the alpha-compositing
  *   path (renderEnhancedMask).
@@ -210,7 +218,7 @@ export interface ContainerMaskReplayOptions {
 export function replayMaskedContainer(
   targetCtx: CanvasRenderingContext2D,
   options: ContainerMaskReplayOptions,
-): void {
+): boolean {
   const {
     node: n,
     mask,
@@ -222,9 +230,12 @@ export function replayMaskedContainer(
     replayNode,
     getWorldTransform,
   } = options;
-  // Adjustment nodes carry no children — their spatial mask is applied
-  // by the adjustment branch, not by the container machinery below.
-  if (n.kind !== 'adjustment') {
+  if (n.kind !== 'frame' && n.kind !== 'group') {
+    return false;
+  }
+  {
+    // Adjustment nodes never reach here (kind guard above); the container
+    // machinery below is the only consumer of this module.
     const compositeMaskedSurface = (surface: HTMLCanvasElement): void => {
       targetCtx.save();
       try {
@@ -279,12 +290,12 @@ export function replayMaskedContainer(
           if (childId !== maskSrcId) replayNode(childId, targetCtx);
         }
         if (!mask.hideMaskSource && maskSrcId) replayNode(maskSrcId, targetCtx);
-        return;
+        return true;
       }
       const result = acquireMaskSurface(targetCtx.canvas.width, targetCtx.canvas.height);
       try {
         const resultCtx = result.getContext('2d');
-        if (!resultCtx) return;
+        if (!resultCtx) return true;
         renderEnhancedMask(
           resultCtx,
           {
@@ -350,7 +361,7 @@ export function replayMaskedContainer(
           },
         );
         compositeMaskedSurface(result);
-        return;
+        return true;
       } finally {
         releaseMaskSurface(result);
       }
@@ -418,7 +429,7 @@ export function replayMaskedContainer(
       const result = acquireMaskSurface(targetCtx.canvas.width, targetCtx.canvas.height);
       try {
         const resultCtx = result.getContext('2d');
-        if (!resultCtx) return;
+        if (!resultCtx) return true;
         resultCtx.setTransform(baseTransform);
         drawClippedChildren(resultCtx);
         compositeMaskedSurface(result);
@@ -428,6 +439,6 @@ export function replayMaskedContainer(
     } else {
       drawClippedChildren(targetCtx);
     }
-    return;
+    return true;
   }
 }

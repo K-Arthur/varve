@@ -26,7 +26,6 @@ import {
   type RenderItem,
   type ReplayTarget,
   releaseMaskSurface,
-  renderEnhancedMask,
   replayIr,
   totalEffectExpansion,
   traceSceneNodeOutline,
@@ -412,17 +411,17 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           }
           contentSurfaceCtx.restore();
 
+          // The content surface has already been rendered above. Applying
+          // renderEnhancedMask here would render its separate `content`
+          // callback into a fresh surface; the no-op callback used to leave
+          // the actual content unmasked during export. Apply the rendered
+          // mask directly to the existing surface instead.
           contentSurfaceCtx.save();
           contentSurfaceCtx.setTransform(1, 0, 0, 1, 0, 0);
           try {
-            renderEnhancedMask(
+            applyMaskAlpha(
               contentSurfaceCtx as CanvasRenderingContext2D,
-              { draw: (ctx) => ctx.drawImage(maskSurface as CanvasImageSource, 0, 0) },
-              {
-                draw: (_ctx) => {
-                  // content is already rendered on contentSurface
-                },
-              },
+              (maskCtx) => maskCtx.drawImage(maskSurface as CanvasImageSource, 0, 0),
               {
                 luminance: mask.type === 'luminance',
                 inverted: mask.inverted === true,
@@ -430,12 +429,9 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
                 density: mask.density,
               },
             );
-          } catch {
-            // Fallback: standard destination-in (no post-processing)
-            contentSurfaceCtx.globalCompositeOperation = 'destination-in';
-            contentSurfaceCtx.drawImage(maskSurface as CanvasImageSource, 0, 0);
+          } finally {
+            contentSurfaceCtx.restore();
           }
-          contentSurfaceCtx.restore();
 
           target.save();
           try {
@@ -709,9 +705,10 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       if (scope) {
         targetIds = resolveAdjustmentScope(input.document, scope, nodeId);
       } else {
-        // Legacy (no scope): affect all visible flattened nodes — the
-        // pre-v2.3 semantics, equivalent to the live canvas fallback.
-        targetIds = input.flattenedIds.filter((id) => id !== nodeId);
+        // Legacy (no scope): retain the historical sibling-below behavior
+        // through the central resolver rather than replaying every flattened
+        // node into the adjustment surface.
+        targetIds = resolveAdjustmentScope(input.document, undefined, nodeId);
       }
       if (targetIds.length === 0) return;
 
@@ -800,8 +797,24 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       try {
         backdrop = createRasterSurface(Math.ceil(bw), Math.ceil(bh));
         const bCtx = backdrop.context;
-        bCtx.translate(-bx, -by);
-        bCtx.drawImage(target.canvas as CanvasImageSource, 0, 0);
+        // Build the filter input from the resolved target set. Capturing the
+        // whole export surface would let an explicit adjustment scope process
+        // unrelated pixels that happen to share the target bounds.
+        const camera = target.getTransform();
+        const targetSurface = acquireMaskSurface(cw, ch);
+        try {
+          const targetSurfaceCtx = targetSurface.getContext('2d');
+          if (!targetSurfaceCtx) return;
+          targetSurfaceCtx.setTransform(camera.a, camera.b, camera.c, camera.d, camera.e, camera.f);
+          for (const targetId of targetIds) {
+            replayNode(targetId, targetSurfaceCtx as unknown as SceneContext);
+          }
+          bCtx.setTransform(1, 0, 0, 1, 0, 0);
+          bCtx.translate(-bx, -by);
+          bCtx.drawImage(targetSurface, 0, 0);
+        } finally {
+          releaseMaskSurface(targetSurface);
+        }
       } catch {
         return;
       }

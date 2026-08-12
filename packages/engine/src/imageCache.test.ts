@@ -270,6 +270,27 @@ describe('ImageCache pending-load invalidation', () => {
     expect(cache.has('data:image/png;base64,cleared')).toBe(false);
     expect(cache.stats.bytes).toBe(0);
   });
+
+  it('does not let a late pending load overwrite a synchronously published replacement', async () => {
+    const created: MockImage[] = [];
+    MockImage.dispatch = (img) => created.push(img);
+
+    const cache = new ImageCache();
+    const pending = cache.load('data:image/png;base64,replaced');
+    await Promise.resolve();
+
+    const replacement = {
+      naturalWidth: 2,
+      naturalHeight: 2,
+      width: 2,
+      height: 2,
+    } as HTMLImageElement;
+    cache.setLoaded('data:image/png;base64,replaced', replacement);
+    created[0]?.onload?.();
+    await pending;
+
+    expect(cache.getImage('data:image/png;base64,replaced')).toBe(replacement);
+  });
 });
 
 describe('ImageCache at-size representations', () => {
@@ -396,6 +417,57 @@ describe('ImageCache at-size representations', () => {
     expect(close).toHaveBeenCalledTimes(1);
     cache.clear();
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes a stale at-size bitmap when cancellation wins the race', async () => {
+    const src = 'data:image/jpeg;base64,CANCELLED';
+    let resolveBitmap: (bitmap: ImageBitmap) => void = () => undefined;
+    const close = vi.fn();
+    globalThis.createImageBitmap = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveBitmap = resolve as (bitmap: ImageBitmap) => void;
+        }),
+    );
+    mockFetchBlob();
+
+    const cache = new ImageCache();
+    const pending = cache.loadAtSize(src, 2048, { width: 6000, height: 4000 });
+    await Promise.resolve();
+    await Promise.resolve();
+    cache.cancel(cache.atSizeKey(src, 2048));
+    resolveBitmap(mockBitmap(close));
+    await pending;
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(cache.isLoadedAtSize(src, 2048)).toBe(false);
+  });
+
+  it('does not close an oversized bitmap returned to the immediate caller', async () => {
+    const src = 'data:image/jpeg;base64,OVERSIZED';
+    const close = vi.fn();
+    const bitmap = mockBitmap(close, 2048, 2048);
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bitmap);
+    mockFetchBlob();
+
+    const cache = new ImageCache({ maxBytes: 1_000 });
+    await expect(cache.loadAtSize(src, 2048, { width: 6000, height: 4000 })).resolves.toBe(bitmap);
+
+    expect(close).not.toHaveBeenCalled();
+    expect(cache.isLoadedAtSize(src, 2048)).toBe(false);
+  });
+
+  it('closes a replaced retained bitmap exactly once', () => {
+    const firstClose = vi.fn();
+    const first = mockBitmap(firstClose, 10, 10);
+    const second = mockBitmap(vi.fn(), 10, 10);
+    const cache = new ImageCache({ maxBytes: 10_000 });
+
+    cache.setLoaded('same-source', first);
+    cache.setLoaded('same-source', second);
+
+    expect(firstClose).toHaveBeenCalledTimes(1);
+    expect(cache.getImage('same-source')).toBe(second);
   });
 
   it('never returns a closed at-size bitmap', async () => {
