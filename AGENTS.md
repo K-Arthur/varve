@@ -596,6 +596,33 @@ Rules that must not be violated:
 - Tauri updater keys (when the updater lands) are separate from all other
   signing material and are not created until then.
 
+## Trust boundaries (do not violate)
+
+Source sharing is not trust sharing. Canonical doc:
+`docs/security/trust-boundaries.md`. Machine-enforced by
+`scripts/security/validate-client-env.mjs` (client builds fail closed on
+private credential classes), `scripts/secret-scan.mjs --dir/--canary` (built
+artifacts are scanned, canary asserts no env leakage), the
+`scripts/security/workflow-policy.mjs` deny-lists (backend/DNS credentials in
+NO workflow; signing secrets only in release.yml gated on signed mode;
+`VARVE_SIGNING_STEP_ALLOWED` only in release.yml), and
+`scripts/security/import-boundaries.mjs` (apps never import each other;
+packages never import apps; the future `apps/api` is unreachable from
+clients). Run them with `pnpm audit:secrets`, `pnpm audit:clientenv`,
+`pnpm audit:artifacts`, `pnpm audit:boundaries`; the regression tests run in
+`pnpm test:ci:tools` and in ci.yml `pipeline-validate`.
+
+Rules that must not be violated:
+- Website and desktop builds consume only the documented client-safe
+  allowlist (see trust-boundaries.md §5); never add a private credential
+  class to a client build's environment.
+- Never reference signing, backend, DNS, or updater-private credentials from
+  any workflow other than the release pipeline paths the policy allowlists.
+- No client app may import another app or the future backend; shared code
+  lives in `packages/` only.
+- GitHub Secrets never enter client artifacts; if a value must reach the
+  artifact, it is public configuration by definition.
+
 ## Quality gates (Cascade Review) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
 → input-method audit → reduced-motion → 3-OS build → native backend on desktop.
