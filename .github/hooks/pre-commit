@@ -49,8 +49,15 @@ if command -v gitleaks >/dev/null 2>&1; then
   }
 fi
 
+# 5c. Import-boundary audit on JS/TS changes: apps never import each other,
+# packages never import apps, the future backend is unreachable from clients.
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -c '\.\(ts\|tsx\|mjs\|js\|jsx\)$' || true)
+if [ "$STAGED_TS" -gt 0 ]; then
+  echo "  → Checking import boundaries..."
+  node scripts/security/import-boundaries.mjs
+fi
+
 # 6. Quick cycle check on changed packages (madge, runs only on JS/TS changes)
-STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -c '\.\(ts\|tsx\)$' || true)
 if [ "$STAGED_TS" -gt 0 ]; then
   echo "  → Checking dependency cycles..."
   # Only check editor and scene (the two packages with recent cycle debt)

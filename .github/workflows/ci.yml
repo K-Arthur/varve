@@ -231,6 +231,16 @@ jobs:
         run: node scripts/security/workflow-policy.mjs
       - name: Workflow security policy regression tests
         run: node scripts/security/workflow-policy.test.mjs
+      - name: Client environment guard (CI baseline)
+        run: |
+          node scripts/security/validate-client-env.mjs --app website
+          node scripts/security/validate-client-env.mjs --app desktop
+      - name: Client environment guard regression tests
+        run: node scripts/security/validate-client-env.test.mjs
+      - name: Import-boundary audit
+        run: node scripts/security/import-boundaries.mjs
+      - name: Import-boundary regression tests
+        run: node scripts/security/import-boundaries.test.mjs
       - name: Verify pin-table integrity
         run: node scripts/pin-github-actions.test.mjs
       - name: Verify CI shell scripts
@@ -293,6 +303,11 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.website == 'true' || needs.changes.outputs.full == 'true' }}
     runs-on: ubuntu-latest
+    env:
+      # Trust-boundary canary: present on every build step in this job, then
+      # asserted ABSENT from the built artifacts below (see
+      # docs/security/trust-boundaries.md §Canary tests).
+      VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -312,10 +327,14 @@ jobs:
       # root custom domain. The e2e servers mount the project-site build beneath
       # an actual /varve/ path — a server at / alone cannot detect base-path
       # escapes.
-      - name: Build project-site mode
-        run: pnpm build:website
+      - name: Build project-site mode (base /varve)
+        run: pnpm build:website:pages
       - name: Build custom-domain (root) mode
-        run: pnpm build:website:root
+        run: pnpm build:website
+      - name: Scan website artifacts (secret + canary)
+        run: |
+          node scripts/secret-scan.mjs --dir apps/website/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
+          node scripts/secret-scan.mjs --dir apps/website/dist-pages --canary "$VARVE_PRIVATE_TEST_CANARY"
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
       - name: Website E2E (both modes)

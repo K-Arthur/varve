@@ -87,6 +87,18 @@ docs-check:
 health-check:
     node scripts/audit-health.mjs
 
+# Trust-boundary audits: tracked/artifact secret scans, client-build env guard,
+# workflow policy, import boundaries (see docs/security/trust-boundaries.md)
+audit-secrets:
+    pnpm audit:secrets
+audit-clientenv:
+    pnpm audit:clientenv
+audit-artifacts:
+    pnpm audit:artifacts
+audit-boundaries:
+    pnpm audit:boundaries
+security-audits: audit-secrets audit-clientenv audit-artifacts audit-boundaries
+
 # Architecture health: cycles, complexity, layer violations, hub-file budgets
 architecture-check:
     node scripts/audit-architecture.mjs --ci
