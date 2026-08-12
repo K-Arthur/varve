@@ -11,8 +11,22 @@ import type {
   Document as SceneDocument,
   SceneNode,
 } from '@varve/scene';
-import { managedColorToRgba } from '@varve/shared';
+import { managedColorToRgba, multiplyAffine, rotateDeg } from '@varve/shared';
 import type { TargetGap } from './types';
+
+/**
+ * Effective local transform of a node: its affine with the separate
+ * `rotation` field folded in as `transform · rotate(rotation)` — the exact
+ * composition order the canvas renderer uses (rotation about the node
+ * origin, applied after the transform). Every codegen emitter MUST use this
+ * instead of reading `node.transform` directly, or rotated nodes export
+ * unrotated.
+ */
+export function nodeEffectiveTransform(node: SceneNode): Affine {
+  const rot = node.rotation ?? 0;
+  if (rot === 0) return node.transform as Affine;
+  return multiplyAffine(node.transform as Affine, rotateDeg(rot));
+}
 
 /**
  * Report a nondestructive adjustment stack (curves, levels, halftone, etc.)

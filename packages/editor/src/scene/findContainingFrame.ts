@@ -86,7 +86,10 @@ export function findContainingFrameInDoc(
       const frameLocal = invertAffine(frameWorld);
       const localPt = applyAffine(frameLocal, [world.x, world.y]);
       if (localPt[0] >= 0 && localPt[0] <= n.w && localPt[1] >= 0 && localPt[1] <= n.h) {
-        if (entry.depth > deepestDepth) {
+        // `>=` (not `>`): sibling containers are walked back-to-front, so a
+        // later same-depth container is the visually topmost one and must
+        // win over an earlier overlapping artboard at the same z-level.
+        if (entry.depth >= deepestDepth) {
           deepest = nid;
           deepestDepth = entry.depth;
         }
@@ -117,7 +120,7 @@ export function findContainingFrameInDoc(
         );
         const childBoundsInGroup = transformRect(childTransform, childLocal);
         if (rectContains(childBoundsInGroup, [localPt[0], localPt[1]])) {
-          if (entry.depth > deepestDepth) {
+          if (entry.depth >= deepestDepth) {
             deepest = nid;
             deepestDepth = entry.depth;
           }

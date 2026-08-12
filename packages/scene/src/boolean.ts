@@ -9,4 +9,9 @@ export {
   shapeToPolygon,
 } from './boolean-geometry';
 export type { BooleanOpKind, Point2D } from './boolean-ops';
-export { booleanOp } from './boolean-ops';
+export {
+  booleanAnchorForNode,
+  booleanOp,
+  placeBooleanResult,
+  shapeNodesInWorldSpace,
+} from './boolean-ops';
