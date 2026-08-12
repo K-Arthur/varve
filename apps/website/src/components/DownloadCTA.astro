@@ -96,9 +96,19 @@ const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'See the beta st
     white-space: nowrap;
   }
 
-  /* Reserve width so the label swap never shifts the layout. */
+  /* Reserve width so the label swap never shifts the layout. 15ch is the
+     widest label ("Download for Linux"); at 320px viewport minus container
+     padding that forces a 286px button which overflows by 14px (measured
+     2026-08-12 on /features). Shrink the reservation on narrow screens —
+     a small shift on the swap beats horizontal page overflow. */
   .download-cta-large .download-cta-label {
     min-width: 15ch;
+  }
+
+  @media (max-width: 380px) {
+    .download-cta-large .download-cta-label {
+      min-width: 12ch;
+    }
   }
 
   .download-cta-compact .download-cta-label {
