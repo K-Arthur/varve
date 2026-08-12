@@ -8,7 +8,7 @@ name: Pipeline Smoke
 #
 # Usage:
 #   1. node scripts/ci-health.mjs --status   # wait for Actions: operational
-#   2. gh workflow run pipeline-smoke.yml    # or dispatch from the UI
+#   2. gh workflow run ci-smoke.yml         # or dispatch from the UI
 #
 # It runs the same quality gates the pre-push hook runs (minus cargo clippy /
 # cargo test, which are covered by the full matrix once a real push happens).
