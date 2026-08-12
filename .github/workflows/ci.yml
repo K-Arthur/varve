@@ -13,6 +13,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Explicit least privilege: the repo default is read-only, and this block
+# makes that durable against future settings changes. The four jobs that post
+# PR debug comments (rust/js/e2e/desktop-e2e) escalate `issues: write` — the
+# narrow scope needed to create a comment — nothing more.
+permissions:
+  contents: read
+
 jobs:
   changes:
     name: Change lanes
@@ -68,6 +75,9 @@ jobs:
           echo "changed files: $(wc -l < /tmp/changed.txt)"
 
   rust:
+    permissions:
+      contents: read
+      issues: write
     name: Rust (${{ matrix.os }})
     timeout-minutes: 60
     needs: changes
@@ -200,12 +210,23 @@ jobs:
         # master silently — release.yml only catches it at tag time, when a
         # fix means another commit + tag. Cheap and dependency-free.
         run: node scripts/release/version.mjs verify
+      - name: Secret scan (tracked tree)
+        run: node scripts/secret-scan.mjs
+      - name: Secret scan regression tests (canaries)
+        run: node scripts/secret-scan.test.mjs
+      - name: Workflow security policy audit
+        run: node scripts/security/workflow-policy.mjs
+      - name: Workflow security policy regression tests
+        run: node scripts/security/workflow-policy.test.mjs
       - name: Verify pin-table integrity
         run: node scripts/pin-github-actions.test.mjs
       - name: Verify CI shell scripts
         run: bash scripts/test-ci-shell-scripts.sh
 
   js:
+    permissions:
+      contents: read
+      issues: write
     name: JS (pnpm)
     timeout-minutes: 30
     needs: changes
@@ -288,6 +309,9 @@ jobs:
         run: pnpm exec playwright test -c playwright.website.config.ts
 
   e2e:
+    permissions:
+      contents: read
+      issues: write
     name: E2E (Playwright)
     timeout-minutes: 30
     runs-on: ubuntu-latest
@@ -345,6 +369,9 @@ jobs:
         run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
 
   desktop-e2e:
+    permissions:
+      contents: read
+      issues: write
     name: Native desktop E2E (${{ matrix.name }})
     timeout-minutes: 45
     runs-on: ${{ matrix.os }}

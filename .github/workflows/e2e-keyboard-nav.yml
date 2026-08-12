@@ -1,6 +1,9 @@
 name: E2E Keyboard Nav
 
 on:
+
+permissions:
+  contents: read
   push:
     branches: [master]
     paths:
