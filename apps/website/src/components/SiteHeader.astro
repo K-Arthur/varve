@@ -153,9 +153,13 @@ const versionLabel = release.hasRelease && release.version
     toggle.setAttribute('aria-expanded', 'true');
     toggle.setAttribute('aria-label', 'Close menu');
     document.body.style.overflow = 'hidden';
-    // Focus first link after animation
+    // Focus first link after animation. The panel close uses a delayed
+    // visibility transition (0.3s), so a rAF that lands after Escape could
+    // still move focus into the closing sheet and steal it from the toggle
+    // (CI caught this: Escape + rAF race on fast runners, 2026-08-12).
+    // Guard on isOpen so the handoff only happens while the menu stays open.
     requestAnimationFrame(() => {
-      navLinks?.[0]?.focus();
+      if (isOpen) navLinks?.[0]?.focus();
     });
   }
 
@@ -278,6 +282,20 @@ const versionLabel = release.hasRelease && release.version
     background: color-mix(in oklab, var(--surface-header) 82%, transparent);
     border-bottom-color: var(--border-subtle);
     box-shadow: 0 1px 0 var(--border-subtle), 0 12px 24px -18px oklch(0 0 0 / 0.35);
+  }
+
+
+
+  /* Scroll-state changes must not animate for reduced-motion users — the
+     full-page screenshot stitch also relies on this: the scroll-driven
+     background/border/opacity transitions left the header mid-animation
+     between the two stability passes and fullPage captures never settled
+     (CI, 2026-08-12). */
+  @media (prefers-reduced-motion: reduce) {
+    .site-header,
+    .site-header[data-scrolled='true'] .header-grid-texture {
+      transition: none;
+    }
   }
 
   @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
