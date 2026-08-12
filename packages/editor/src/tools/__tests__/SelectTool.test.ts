@@ -852,6 +852,44 @@ describe('SelectTool — drop target frame highlighting', () => {
 
     expect(snapPosition).toHaveBeenCalledWith({ x: 20, y: 20, w: 50, h: 50 }, []);
   });
+
+  it('snaps a multi-selection as a whole, preserving relative arrangement', () => {
+    const tool = new SelectTool();
+    // Snap response shifts the primary node by +7,+7 — the group must move
+    // rigidly (both nodes get the same world delta), never per-node amounts.
+    const snapPosition = vi.fn((b) => ({ x: b.x + 7, y: b.y + 7, guides: [] }));
+    const nodeWorldBounds = vi.fn().mockReturnValue({ x: 0, y: 0, w: 40, h: 40 });
+    const setNodePositions = vi.fn();
+    const ctx = makeCtx({
+      selection: ['n1', 'n2'],
+      snapEnabled: true,
+      snapPosition,
+      nodeWorldBounds,
+      setNodePositions,
+      getNode: vi.fn((id: string) => ({ id, transform: [1, 0, 0, 1, 0, 0] })),
+    });
+
+    (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: 20, y: 20 } };
+    (tool as any).initialPositions = new Map([
+      ['n1', { x: 0, y: 0 }],
+      ['n2', { x: 100, y: 0 }],
+    ]);
+    (tool as any).onDragMove?.(ctx);
+
+    const positions = setNodePositions.mock.calls[0]?.[0] as Array<{
+      id: string;
+      x: number;
+      y: number;
+    }>;
+    expect(positions).toHaveLength(2);
+    const n1 = positions.find((p) => p.id === 'n1');
+    const n2 = positions.find((p) => p.id === 'n2');
+    // n1: 0 + 20 + 7 = 27; n2 keeps its +100 offset: 100 + 20 + 7 = 127.
+    expect(n1).toMatchObject({ x: 27, y: 27 });
+    expect(n2).toMatchObject({ x: 127, y: 27 });
+    // One snap evaluation for the group, not one per node.
+    expect(snapPosition).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('SelectTool Alt-drag duplication', () => {
