@@ -185,7 +185,13 @@ export class SelectTool extends BaseTool {
 
       // B1: Depth-based cycling — if clicking an already-selected single node,
       // cycle to the next overlapping node below
-      if (!e.shiftKey && ctx.isSelected(hit.nodeId) && ctx.selection.length === 1) {
+      if (
+        !e.shiftKey &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        ctx.isSelected(hit.nodeId) &&
+        ctx.selection.length === 1
+      ) {
         const allAtPoint = this.findNodesAtPoint(world, ctx);
         const currentIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
         if (currentIdx >= 0 && currentIdx < allAtPoint.length - 1) {
@@ -208,11 +214,14 @@ export class SelectTool extends BaseTool {
       // instead of the topmost container.
       if (e.ctrlKey || e.metaKey) {
         const allAtPoint = this.findNodesAtPoint(world, ctx);
-        // Find deepest non-container child
-        const hitIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
+        // `findNodesAtPoint` returns candidates in paint order (topmost
+        // first), while the normal hit-test may return the containing frame.
+        // Do not start at the normal hit index: that would skip a child that
+        // appears before its parent and make Ctrl+Click select the frame.
+        // The first non-container candidate is the deepest visible leaf at
+        // this point under the established paint ordering.
         let deepTarget: { nodeId: string } | null = null;
-        for (let i = hitIdx; i < allAtPoint.length; i++) {
-          const candidate = allAtPoint[i]!;
+        for (const candidate of allAtPoint) {
           const n = ctx.document.nodes[candidate.nodeId];
           if (n && n.kind !== 'frame' && n.kind !== 'group') {
             deepTarget = candidate;
@@ -222,7 +231,11 @@ export class SelectTool extends BaseTool {
         const target = deepTarget ?? hit;
         if (e.shiftKey) {
           ctx.toggleSelection(target.nodeId, true);
-        } else if (!ctx.isSelected(target.nodeId)) {
+        } else {
+          // Explicitly select the resolved leaf even when it was already
+          // selected. This keeps the selection surface authoritative after
+          // a container hit and avoids leaving the LayersPanel on the parent
+          // when the model selection is already the child.
           ctx.setSelection(target.nodeId);
         }
       } else if (ctx.touchMultiSelect.active) {
