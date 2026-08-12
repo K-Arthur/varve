@@ -82,6 +82,10 @@ jobs:
         with:
           lfs: true
           ref: ${{ inputs.tag || github.ref }}
+          # Full history: the provenance gate below runs merge-base against
+          # the default branch, which needs real ancestry (a depth-1 clone
+          # would reject every valid release tag).
+          fetch-depth: 0
 
       - name: Resolve tag, version and channel
         id: resolve
@@ -118,6 +122,25 @@ jobs:
         # The whole point of the gate: a v0.1.0 tag must not produce installers
         # that identify themselves as 0.0.0 (audit RB-3).
         run: node scripts/release/version.mjs verify "${{ steps.resolve.outputs.tag }}"
+
+      - name: Verify tag points at an approved source commit
+        # A version-looking tag is not sufficient to ship code. The tagged
+        # commit must be reachable from the protected default branch; a
+        # workflow_dispatch input can name any existing tag, and without this
+        # gate it could release a commit that was never part of the default
+        # branch history. Fail closed.
+        run: |
+          set -euo pipefail
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch || 'master' }}"
+          TAG_COMMIT="$(git rev-parse "${{ steps.resolve.outputs.tag }}^{commit}")"
+          BASE_COMMIT="$(git rev-parse "origin/${DEFAULT_BRANCH}^{commit}")"
+          if ! git merge-base --is-ancestor "${TAG_COMMIT}" "${BASE_COMMIT}"; then
+            echo "::error::Tag ${{ steps.resolve.outputs.tag }} points at commit ${TAG_COMMIT}, which is not reachable"
+            echo "from the default branch (${DEFAULT_BRANCH} at ${BASE_COMMIT})."
+            echo "Release tags must point at a commit in the protected default branch history."
+            exit 1
+          fi
+          echo "Tag ${{ steps.resolve.outputs.tag }} (${TAG_COMMIT}) is reachable from ${DEFAULT_BRANCH} — provenance OK."
 
       - name: Verify changelog has an entry for this version
         # Uses the same extractor that generates the notes, so the gate cannot
@@ -405,7 +428,6 @@ jobs:
         run: |
           set -euo pipefail
           KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
-          echo "KEYCHAIN_PASSWORD=${KEYCHAIN_PASSWORD}" >> "$GITHUB_ENV"
           echo "${APPLE_CERTIFICATE}" | base64 --decode > /tmp/apple-certificate.p12
           security create-keychain -p "${KEYCHAIN_PASSWORD}" build.keychain
           security default-keychain -s build.keychain
@@ -472,16 +494,40 @@ jobs:
           echo "${APPLE_API_KEY_P8_BASE64}" | base64 --decode > /tmp/varve-apple-api-key.p8
           chmod 600 /tmp/varve-apple-api-key.p8
 
-      - name: Tauri build
-        if: matrix.enabled
+      - name: Tauri build (signed platforms)
+        if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed')
         shell: bash
+        env:
+          # Signing credentials are scoped to THIS step only — nothing is
+          # persisted through $GITHUB_ENV, so no later step (SBOM, checksums,
+          # artifact upload, failure diagnostics) can observe them.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: /tmp/varve-apple-api-key.p8
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_SIGNING_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_SIGNING_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_SIGNING_TENANT_ID }}
+          NO_STRIP: '1'
         run: |
           TAURI_EXTRA_ARGS=""
-          if [[ "${{ runner.os }}" == "Windows" && "${{ needs.signing-preflight.outputs.windows_mode }}" == "signed" ]]; then
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
             TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.signing.windows.json"
           fi
           pnpm tauri build --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
+
+      # Unsigned builds (prerelease / RELEASE_EXPECT_SIGNED unset) run in a
+      # separate step with NO signing variables in scope — Tauri treats a set
+      # APPLE_CERTIFICATE as a certificate to import, and an empty value would
+      # abort the macOS bundle (SecKeychainItemImport), so the variables must
+      # not exist at all here, not merely be empty.
+      - name: Tauri build (unsigned platforms)
+        if: matrix.enabled && needs.signing-preflight.outputs.macos_mode != 'signed' && needs.signing-preflight.outputs.windows_mode != 'signed'
+        shell: bash
         env:
           # linuxdeploy bundles an old binutils `strip` that cannot parse the
           # SHT_RELR (.relr.dyn) sections modern toolchains emit, and aborts the
@@ -489,43 +535,9 @@ jobs:
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
-
-      # Signing credentials are exported ONLY in signed mode. They must not be
-      # present — even as empty strings — in unsigned builds: Tauri's bundler
-      # treats a set APPLE_CERTIFICATE as a certificate to import and runs
-      # `security import` on it, which fails on an empty value
-      # (SecKeychainItemImport) and aborts the whole macOS bundle.
-      - name: Export signing credentials (signed mode only)
-        if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed')
-        shell: bash
-        env:
-          MACOS_SIGNED: ${{ needs.signing-preflight.outputs.macos_mode == 'signed' }}
-          WINDOWS_SIGNED: ${{ needs.signing-preflight.outputs.windows_mode == 'signed' }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          AZURE_SIGNING_CLIENT_ID: ${{ secrets.AZURE_SIGNING_CLIENT_ID }}
-          AZURE_SIGNING_CLIENT_SECRET: ${{ secrets.AZURE_SIGNING_CLIENT_SECRET }}
-          AZURE_SIGNING_TENANT_ID: ${{ secrets.AZURE_SIGNING_TENANT_ID }}
         run: |
-          set -euo pipefail
-          if [[ "${MACOS_SIGNED}" == "true" ]]; then
-            echo "APPLE_CERTIFICATE=${APPLE_CERTIFICATE}" >> "$GITHUB_ENV"
-            echo "APPLE_CERTIFICATE_PASSWORD=${APPLE_CERTIFICATE_PASSWORD}" >> "$GITHUB_ENV"
-            echo "APPLE_SIGNING_IDENTITY=${APPLE_SIGNING_IDENTITY}" >> "$GITHUB_ENV"
-            echo "APPLE_API_ISSUER=${APPLE_API_ISSUER}" >> "$GITHUB_ENV"
-            echo "APPLE_API_KEY=${APPLE_API_KEY}" >> "$GITHUB_ENV"
-            echo "APPLE_API_KEY_PATH=/tmp/varve-apple-api-key.p8" >> "$GITHUB_ENV"
-            echo "APPLE_TEAM_ID=${APPLE_TEAM_ID}" >> "$GITHUB_ENV"
-          fi
-          if [[ "${WINDOWS_SIGNED}" == "true" ]]; then
-            echo "AZURE_CLIENT_ID=${AZURE_SIGNING_CLIENT_ID}" >> "$GITHUB_ENV"
-            echo "AZURE_CLIENT_SECRET=${AZURE_SIGNING_CLIENT_SECRET}" >> "$GITHUB_ENV"
-            echo "AZURE_TENANT_ID=${AZURE_SIGNING_TENANT_ID}" >> "$GITHUB_ENV"
-          fi
+          pnpm tauri build --bundles ${{ matrix.bundles }} --ci
+        working-directory: apps/desktop
 
       # ── Collect, rename, checksum, SBOM ────────────────────────────────
       # The AppImage's bundled WebKit/GTK/GStreamer closure (from the
