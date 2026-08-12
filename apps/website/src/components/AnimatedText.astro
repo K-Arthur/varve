@@ -168,4 +168,22 @@ const { staticText = 'One canvas.', phrases = DEFAULT_PHRASES } = Astro.props;
       transform: translateY(-0.3em);
     }
   }
+
+  /* Narrow layouts keep the accessible phrase static. The rotor's absolute
+     line box is intentionally desktop-only; on phones it can clip against
+     the compact hero heading and leave fragments behind during a swap. */
+  @media (max-width: 640px) {
+    .hero-phrase {
+      min-width: 0 !important;
+      white-space: normal;
+    }
+
+    .hero-phrase-static {
+      opacity: 1 !important;
+    }
+
+    .hero-phrase-rotor {
+      display: none;
+    }
+  }
 </style>

@@ -2,14 +2,13 @@
 /**
  * SiteFooter — a deliberate closing composition.
  *
- * Top: download band with the product line and a strong CTA.
- * Middle: brand block (mark + wordmark + one sentence + beta status) next
- * to four link groups.
- * Bottom: legal/status bar (license, privacy, release status, copyright,
- * source, contribution path).
- * Signature: a full-bleed, cropped Varve wordmark drawn as SVG, with a
- * vector-selection overlay showing it as the editable object it would be
- * inside the app. Entirely static — no pointer tracking, no animation.
+ * Top: download band with product line and strong CTA.
+ * Middle: brand block + organized link columns.
+ * Bottom: legal bar.
+ * Signature: a full-bleed, cropped Varve wordmark in solid color
+ * (no gradient), with a selection box overlaid on one letter —
+ * the Affinity-style "the wordmark is a selected design object" concept.
+ * The wordmark fills the viewport width and is cropped top and bottom.
  */
 import DownloadCTA from './DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
@@ -40,6 +39,7 @@ const statusLabel = release.hasRelease && release.version
 
   <div class="footer-main container-custom">
     <div class="footer-brand">
+      <h2 class="footer-brand-title">Design without the detour.</h2>
       <a href={sitePath('/')} class="footer-brand-lockup">
         <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <path class="logo-strata-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
@@ -107,6 +107,21 @@ const statusLabel = release.hasRelease && release.version
     </nav>
   </div>
 
+  <!-- Closing signature: a clean, high-contrast full-bleed wordmark. The
+       oversized crop carries the Affinity/Antigravity reference without
+       introducing geometry that does not align with the live glyph. -->
+  <div class="footer-signature" aria-hidden="true">
+    <svg class="footer-signature-svg" viewBox="0 0 1400 600" role="presentation">
+      <text
+        class="footer-signature-text"
+        x="700"
+        y="530"
+        text-anchor="middle"
+        fill="var(--footer-signature-ink)"
+      >Var<tspan class="footer-signature-raised-v" dy="-0.14em">v</tspan><tspan dy="0.14em">e</tspan></text>
+    </svg>
+  </div>
+
   <div class="footer-bottom container-custom">
     <p>&copy; 2024&ndash;2026 K-Arthur. Source-available under FSL-1.1-MIT.</p>
     <p class="footer-bottom-links">
@@ -116,51 +131,6 @@ const statusLabel = release.hasRelease && release.version
       <a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer">Source</a>
       <a href={sitePath('/contribute')}>Contribute</a>
     </p>
-  </div>
-
-  <!-- Closing signature: the wordmark treated as what it actually is inside
-       Varve — an editable vector object. It runs full-bleed and is cropped
-       top and bottom by two rules, so it reads as a section cut through the
-       type rather than a heading that ran out of room. A selection box with
-       anchor nodes and a layer chip sits over one glyph, the way a selected
-       object looks on the canvas.
-
-       Title case matches the lockup exactly, and mixed case gives the
-       editorial serif its ascenders and ball terminals. Entirely decorative:
-       aria-hidden, pointer-events: none, unselectable. -->
-  <div class="footer-signature" aria-hidden="true">
-    <svg class="footer-signature-svg" viewBox="0 0 1200 168" role="presentation">
-      <defs>
-        <linearGradient id="varve-signature-fill" x1="0" y1="0" x2="1" y2="0.3">
-          <stop offset="0" stop-color="var(--brand-teal)" />
-          <stop offset="0.52" stop-color="var(--brand-sandstone)" />
-          <stop offset="1" stop-color="var(--brand-terracotta)" />
-        </linearGradient>
-      </defs>
-
-      <!-- Baseline sits below the viewBox so the glyphs are cropped at the
-           foot: the crop is the effect, not an accident of sizing. -->
-      <text
-        class="footer-signature-text"
-        x="600"
-        y="232"
-        text-anchor="middle"
-        fill="url(#varve-signature-fill)"
-      >Varve</text>
-
-      <!-- Selection overlay in the same coordinate space as the type, so it
-           stays locked to the "r" at every viewport instead of drifting the
-           way percentage positioning over live text does. -->
-      <g class="footer-signature-selection">
-        <rect x="612" y="74" width="104" height="132" />
-        <rect class="footer-signature-node" x="606" y="68" width="12" height="12" />
-        <rect class="footer-signature-node" x="710" y="68" width="12" height="12" />
-        <rect class="footer-signature-node" x="606" y="200" width="12" height="12" />
-        <rect class="footer-signature-node" x="710" y="200" width="12" height="12" />
-        <rect class="footer-signature-chip-bg" x="606" y="34" width="132" height="30" rx="6" />
-        <text class="footer-signature-chip-text" x="620" y="55">Wordmark</text>
-      </g>
-    </svg>
   </div>
 </footer>
 
@@ -175,14 +145,7 @@ const statusLabel = release.hasRelease && release.version
   /* --- Top download band --- */
   .footer-download-band {
     border-bottom: 1px solid var(--border-footer);
-    background:
-      linear-gradient(115deg, var(--surface-inset) 0%, var(--surface-footer) 60%);
-    /* The band is a dark surface in BOTH themes, so the primary CTA inside
-       it must use the dark-band accent (light teal, dark text) even when the
-       page is in light mode — the light-mode accent (dark teal on dark
-       band) measured only 3.06:1 and read as a dark button on a dark
-       surface. Scoping the accent tokens here lets the shared .btn-primary
-       styles resolve correctly without theme-specific overrides. */
+    background: var(--surface-inset);
     --accent-primary: var(--accent-dark-band);
     --accent-primary-hover: var(--accent-dark-band-hover);
     --text-on-accent: var(--text-on-accent-dark-band);
@@ -201,12 +164,9 @@ const statusLabel = release.hasRelease && release.version
     font-family: var(--font-editorial);
     font-size: clamp(1.6rem, 2.7vw + 0.5rem, 2.5rem);
     font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
+    font-variation-settings: "opsz" 144;
+    letter-spacing: -0.02em;
     line-height: 1.1;
-    /* --text-primary-on-overlay is a light-overlay token: on the dark footer
-       band it resolves to 1.04:1. Brand teal on the footer surface is
-       10.00:1 (19.07:1 in high-contrast). */
     color: var(--text-footer-heading);
     margin-bottom: 0.5rem;
   }
@@ -239,8 +199,6 @@ const statusLabel = release.hasRelease && release.version
     padding-bottom: 2.5rem;
   }
 
-  /* Same wordmark treatment as the header: editorial serif, low optical
-     size, weight 600. The lockup must read identically everywhere. */
   .footer-brand-lockup {
     display: inline-flex;
     align-items: center;
@@ -248,7 +206,7 @@ const statusLabel = release.hasRelease && release.version
     font-family: var(--font-editorial);
     font-size: 1.35rem;
     font-weight: 600;
-    font-variation-settings: 'opsz' 24;
+    font-variation-settings: "opsz" 24;
     letter-spacing: -0.005em;
     color: var(--text-footer);
     text-decoration: none;
@@ -311,9 +269,6 @@ const statusLabel = release.hasRelease && release.version
   .footer-section a {
     color: var(--text-footer-link);
     font-size: 0.9375rem;
-    /* Link luminance equals muted-text luminance in the footer (both
-       oklch L 0.78), so color alone cannot distinguish them (WCAG 1.4.1).
-       Underline at rest provides the non-color distinction. */
     text-decoration: underline;
     text-underline-offset: 3px;
     text-decoration-color: color-mix(in oklch, var(--text-footer-link) 55%, transparent);
@@ -362,39 +317,21 @@ const statusLabel = release.hasRelease && release.version
     text-decoration: underline;
   }
 
-  /* The strata fills have to be declared here as well as in SiteHeader:
-     Astro scopes component styles, so the header's rules never reached the
-     footer's copy of the mark, which fell back to the SVG's own
-     `fill="none"` — i.e. rendered invisible. */
-  .footer-brand-lockup .logo-strata-1 {
-    fill: var(--brand-teal);
-  }
-
-  .footer-brand-lockup .logo-strata-2 {
-    fill: var(--brand-sandstone);
-  }
-
-  .footer-brand-lockup .logo-strata-3 {
-    fill: var(--brand-terracotta);
-  }
+  /* Logo strata fills */
+  .footer-brand-lockup .logo-strata-1 { fill: var(--brand-teal); }
+  .footer-brand-lockup .logo-strata-2 { fill: var(--brand-sandstone); }
+  .footer-brand-lockup .logo-strata-3 { fill: var(--brand-terracotta); }
 
   /* --- Signature wordmark ---
-     Drawn as SVG rather than live text. Sizing HTML type to span the viewport
-     means guessing a vw value against the font's own advance widths: it held
-     at one viewport and broke at the next, leaving a fragment of a glyph and
-     an overlay pointing at empty space. An SVG viewBox scales the wordmark to
-     the container by construction at every width, and `slice` performs the
-     crop — so the composition is identical from 320px to ultrawide, and the
-     selection overlay shares the type's coordinate space instead of chasing
-     it with percentages. */
+     Antigravity technique: the wordmark band's height tracks the viewport
+     width (not a fixed px), with a controlled crop inside its own band.
+     The legal row remains separate and readable. */
   .footer-signature {
     position: relative;
     overflow: hidden;
-    border-top: 1px solid var(--border-footer);
-    margin-top: 1.5rem;
-    /* Aspect-ratio band: taller than the slice shows, so the glyphs are cut
-       at the foot the way a section cut through type would be. */
-    height: clamp(88px, 13vw, 190px);
+    height: clamp(160px, 20vw, 360px);
+    margin-top: 2rem;
+    margin-bottom: 0;
     user-select: none;
     pointer-events: none;
   }
@@ -408,53 +345,51 @@ const statusLabel = release.hasRelease && release.version
   .footer-signature-text {
     font-family: var(--font-editorial);
     font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    font-size: 300px;
-    letter-spacing: -6px;
-    /* The gradient fill is applied via the `fill` attribute; this opacity
-       keeps the mark a ground rather than content competing with the links
-       above it. */
-    opacity: 0.55;
+    font-variation-settings: "opsz" 144;
+    font-size: 680px;
+    letter-spacing: -12px;
   }
 
-  .footer-signature-selection rect {
-    fill: none;
-    stroke: var(--brand-teal);
-    stroke-width: 2;
+  /* The final v lifts like a selected typographic form, giving the otherwise
+     oversized wordmark a distinctive Varve gesture without adding another
+     color or decorative line. */
+  .footer-signature-raised-v {
+    font-weight: 750;
   }
 
-  .footer-signature-node {
-    fill: var(--surface-footer);
-  }
-
-  .footer-signature-chip-bg {
-    fill: var(--brand-teal);
-    stroke: none;
-  }
-
-  .footer-signature-chip-text {
-    fill: var(--text-on-accent-dark-band);
-    font-family: var(--font-mono);
-    font-size: 17px;
-    font-weight: 600;
-  }
-
-  /* Below ~640px the overlay is larger than the glyph it annotates and reads
-     as clutter; the cropped wordmark alone still carries the composition. */
-  @media (max-width: 640px) {
-    .footer-signature-selection {
-      display: none;
+  /* Wordmark animation — clearly visible, still tasteful:
+     a slow rise with a letter-spacing settle, then a gentle breathing
+     drift. Runs on a loop but is slow and calm. */
+  @media (prefers-reduced-motion: no-preference) {
+    .footer-signature-text {
+      animation:
+        fs-rise 1.6s var(--ease-default) both,
+        fs-breathe 7s ease-in-out 1.8s infinite;
+      transform-origin: 50% 50%;
     }
+  }
+
+  @keyframes fs-rise {
+    from {
+      opacity: 0;
+      letter-spacing: -2px;
+      transform: translateY(0.35em);
+    }
+    to {
+      opacity: 1;
+      letter-spacing: -12px;
+      transform: none;
+    }
+  }
+
+  @keyframes fs-breathe {
+    0%, 100% { opacity: 0.96; }
+    50% { opacity: 1; }
   }
 
   @media (forced-colors: active) {
-    .footer-signature-selection {
-      display: none;
-    }
-
     .footer-signature-text {
       fill: CanvasText;
-      opacity: 1;
     }
   }
 

@@ -1,6 +1,82 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+import ClosingCTA from '../../components/ClosingCTA.astro';
+
+interface KnownIssue {
+  title: string;
+  status: 'partial' | 'planned' | 'experimental';
+  description: string;
+  workaround?: string;
+  category: string;
+}
+
+const issues: KnownIssue[] = [
+  {
+    title: 'Complex script shaping not supported',
+    status: 'planned',
+    description: 'Complex scripts requiring shaping (Arabic, Devanagari, Thai) are not supported. Latin, CJK, and simple scripts work correctly.',
+    workaround: 'Use Latin or CJK scripts.',
+    category: 'Typography',
+  },
+  {
+    title: 'BiDi text layout not implemented',
+    status: 'planned',
+    description: 'Bidirectional text (mixed left-to-right and right-to-left) layout is not implemented.',
+    workaround: 'Use single-direction text.',
+    category: 'Typography',
+  },
+  {
+    title: 'Rich text per-span editing limited',
+    status: 'partial',
+    description: 'The rich text data model exists and inline editing works, but per-span formatting (different styles within a single text node) is limited in the UI.',
+    workaround: 'Use separate text nodes for different styles.',
+    category: 'Typography',
+  },
+  {
+    title: 'Bleed not visualized on canvas',
+    status: 'planned',
+    description: 'Bleed is an export-time parameter and is not visualized on canvas. You cannot see bleed margins while designing.',
+    workaround: 'Use guides to manually mark bleed areas.',
+    category: 'Color & Print',
+  },
+  {
+    title: '8-bit color storage only',
+    status: 'experimental',
+    description: 'Color storage is always 8-bit RGBA. No 16-bit, floating-point, or CMYK storage at the document level.',
+    category: 'Color & Print',
+  },
+  {
+    title: 'No artboard-local coordinate space',
+    status: 'planned',
+    description: 'Canvas uses global coordinates. There is no artboard-local coordinate space.',
+    category: 'Canvas & Tools',
+  },
+  {
+    title: 'Collaboration is UI scaffolding only',
+    status: 'experimental',
+    description: 'Collaboration features (PresenceIndicator, CollabCursorOverlay) are UI scaffolding with no transport or wire protocol. Real-time collaboration does not work.',
+    workaround: 'Use version control (git) for collaboration.',
+    category: 'Collaboration',
+  },
+  {
+    title: 'No state machine inspector',
+    status: 'planned',
+    description: 'State machine inspector for complex prototype flows is not implemented.',
+    workaround: 'Use timeline-based animation for now.',
+    category: 'Motion',
+  },
+  {
+    title: 'No rigging or IK',
+    status: 'planned',
+    description: 'Rigging and inverse kinematics (IK) are not implemented. Types are defined but rendering is deferred.',
+    workaround: 'Use manual keyframing for animation.',
+    category: 'Motion',
+  },
+];
+
+const categories = [...new Set(issues.map((i) => i.category))];
 ---
 
 <Layout title="Known Issues" description="Current known issues and limitations in Varve: complex script shaping, collaboration scaffolding, canvas bleed visualization, and platform constraints.">
@@ -10,98 +86,39 @@ import { sitePath } from '../../lib/siteUrl';
         <a href={sitePath('/support')}>Support</a> / Known Issues
       </nav>
 
-      <h1>Known Issues</h1>
-      <p class="support-intro">
+      <h1 class="page-hero-title">Known Issues</h1>
+      <p class="page-hero-sub">
         Current limitations and known issues in Varve. These are tracked and will be addressed in future releases.
       </p>
 
-      <div class="known-issues-section">
-        <h2>Typography</h2>
-        
-        <div class="issue-item">
-          <h3>Complex script shaping not supported</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>Complex scripts requiring shaping (Arabic, Devanagari, Thai) are not supported. Latin, CJK, and simple scripts work correctly.</p>
-          <p><strong>Workaround:</strong> Use Latin or CJK scripts. Complex script shaping is planned for future development.</p>
-        </div>
+      {categories.map((category) => (
+        <section class="known-issues-section" aria-labelledby={`section-${category}`}>
+          <h2 id={`section-${category}`} class="section-title">{category}</h2>
+          <div class="issues-list">
+            {issues.filter((i) => i.category === category).map((issue) => (
+              <article class="issue-card">
+                <div class="issue-card-header">
+                  <h3 class="issue-title">{issue.title}</h3>
+                  <StatusPill status={issue.status} />
+                </div>
+                <p class="issue-description">{issue.description}</p>
+                {issue.workaround && (
+                  <p class="issue-workaround">
+                    <strong>Workaround:</strong> {issue.workaround}
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      ))}
 
-        <div class="issue-item">
-          <h3>BiDi text layout not implemented</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>Bidirectional text (mixed left-to-right and right-to-left) layout is not implemented.</p>
-          <p><strong>Workaround:</strong> Use single-direction text. BiDi support is planned for future development.</p>
-        </div>
-
-        <div class="issue-item">
-          <h3>Rich text per-span editing limited</h3>
-          <p><strong>Status:</strong> Partial</p>
-          <p>The rich text data model exists and inline editing works, but per-span formatting (different styles within a single text node) is limited in the UI.</p>
-          <p><strong>Workaround:</strong> Use separate text nodes for different styles within the same area.</p>
-        </div>
-      </div>
-
-      <div class="known-issues-section">
-        <h2>Color & Print</h2>
-        
-        <div class="issue-item">
-          <h3>Bleed not visualized on canvas</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>Bleed is an export-time parameter and is not visualized on canvas. You cannot see bleed margins while designing.</p>
-          <p><strong>Workaround:</strong> Use guides to manually mark bleed areas. Canvas visualization is planned for future development.</p>
-        </div>
-
-        <div class="issue-item">
-          <h3>8-bit color storage only</h3>
-          <p><strong>Status:</strong> Limitation</p>
-          <p>Color storage is always 8-bit RGBA. No 16-bit, floating-point, or CMYK storage at the document level.</p>
-          <p><strong>Workaround:</strong> 8-bit is sufficient for most screen and print workflows. Higher bit-depth is planned for future development.</p>
-        </div>
-      </div>
-
-      <div class="known-issues-section">
-        <h2>Canvas & Tools</h2>
-        
-        <div class="issue-item">
-          <h3>No artboard-local coordinate space</h3>
-          <p><strong>Status:</strong> Limitation</p>
-          <p>Canvas uses global coordinates. There is no artboard-local coordinate space.</p>
-          <p><strong>Workaround:</strong> Work with global canvas coordinates. Artboard-local space is planned for future development.</p>
-        </div>
-      </div>
-
-      <div class="known-issues-section">
-        <h2>Collaboration</h2>
-        
-        <div class="issue-item">
-          <h3>Collaboration is UI scaffolding only</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>Collaboration features (PresenceIndicator, CollabCursorOverlay) are UI scaffolding with no transport or wire protocol. Real-time collaboration does not work.</p>
-          <p><strong>Workaround:</strong> Use version control (git) for collaboration. Real-time collaboration is planned for future development.</p>
-        </div>
-      </div>
-
-      <div class="known-issues-section">
-        <h2>Motion</h2>
-        
-        <div class="issue-item">
-          <h3>No state machine inspector</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>State machine inspector for complex prototype flows is not implemented.</p>
-          <p><strong>Workaround:</strong> Use timeline-based animation for now. State machine inspector is planned for future development.</p>
-        </div>
-
-        <div class="issue-item">
-          <h3>No rigging or IK</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>Rigging and inverse kinematics (IK) are not implemented. Types are defined but rendering is deferred.</p>
-          <p><strong>Workaround:</strong> Use manual keyframing for animation. Rigging and IK are planned for future development.</p>
-        </div>
-      </div>
-
-      <div class="known-issues-cta">
-        <h2>Want to help fix these issues?</h2>
-        <p>See the <a href={sitePath('/contribute')}>contribution guidelines</a> to help implement these features.</p>
-      </div>
+      <ClosingCTA
+        title="Want to help fix these?"
+        accentWord="issues."
+        text="See the contribution guidelines to help implement these features."
+        showDownload={false}
+      />
     </div>
   </div>
 </Layout>
@@ -112,86 +129,74 @@ import { sitePath } from '../../lib/siteUrl';
     margin: 0 auto;
     padding: 3rem 0;
   }
-  
+
   .breadcrumb {
     font-size: 0.875rem;
     margin-bottom: 1.5rem;
+    color: var(--text-muted);
   }
-  
+
   .breadcrumb a {
     color: var(--text-secondary);
   }
-  
-  .support-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-  
-  .support-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
-  
+
   .known-issues-section {
     margin-bottom: 3rem;
   }
-  
-  .known-issues-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
+
+  .known-issues-section .section-title {
+    margin-bottom: 1.25rem;
   }
-  
-  .issue-item {
+
+  .issues-list {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .issue-card {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: 0.75rem;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
+    padding: 1.25rem 1.5rem;
+    position: relative;
+    transition: border-color var(--duration-fast) var(--ease-default);
   }
-  
-  .issue-item h3 {
-    font-size: 1.125rem;
+
+  .issue-card:hover {
+    border-color: var(--border-strong);
+  }
+
+  .issue-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .issue-title {
+    font-size: 1.05rem;
     font-weight: 600;
-    margin-bottom: 0.75rem;
     color: var(--text-primary);
+    line-height: 1.3;
   }
-  
-  .issue-item p {
+
+  .issue-description {
     color: var(--text-secondary);
     line-height: 1.6;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9375rem;
   }
-  
-  .issue-item strong {
-    color: var(--text-primary);
+
+  .issue-workaround {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0;
   }
-  
-  .issue-item a {
-    color: var(--text-link);
-  }
-  
-  .known-issues-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-  
-  .known-issues-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  
-  .known-issues-cta p {
+
+  .issue-workaround strong {
     color: var(--text-secondary);
+    font-weight: 600;
   }
 </style>

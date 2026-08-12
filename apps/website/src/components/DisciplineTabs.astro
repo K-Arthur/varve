@@ -102,7 +102,8 @@ const disciplines: Discipline[] = [
             tabindex={i === 0 ? 0 : -1}
             data-discipline-tab={d.id}
           >
-            <svg class="discipline-glyph" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <span class="discipline-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+            <svg class="discipline-glyph" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               {d.glyph === 'vector' && (
                 <>
                   <path d="M4 20 L14 10" />
@@ -157,7 +158,10 @@ const disciplines: Discipline[] = [
           tabindex="0"
           data-discipline-panel={d.id}
         >
-          <h3 class="discipline-headline">{d.headline}</h3>
+          <div class="discipline-panel-head">
+            <span class="discipline-panel-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+            <h3 class="discipline-headline">{d.headline}</h3>
+          </div>
           <p class="discipline-body" set:html={d.body} />
           <ul class="discipline-points">
             {d.points.map((point) => <li>{point}</li>)}
@@ -266,20 +270,34 @@ const disciplines: Discipline[] = [
   .disciplines-tabs [role='tab'] {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.7rem 0.9rem;
+    gap: 0.6rem;
+    padding: 0.65rem 0.8rem;
     border: none;
     border-radius: 0.5rem;
     background: transparent;
     color: var(--text-secondary);
     font: inherit;
-    font-weight: 600;
-    font-size: 0.95rem;
+    font-weight: 500;
+    font-size: 0.9rem;
     cursor: pointer;
     text-align: left;
     transition:
       background-color var(--duration-fast) var(--ease-default),
       color var(--duration-fast) var(--ease-default);
+  }
+
+  .discipline-num {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    opacity: 0.6;
+    min-width: 1.4em;
+  }
+
+  .disciplines-tabs [role='tab'][aria-selected='true'] .discipline-num {
+    color: var(--accent-primary);
+    opacity: 1;
   }
 
   .disciplines-tabs [role='tab']:hover {
@@ -306,12 +324,28 @@ const disciplines: Discipline[] = [
     display: block;
   }
 
+  .discipline-panel-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .discipline-panel-num {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    opacity: 0.7;
+    flex: 0 0 auto;
+  }
+
   .discipline-headline {
-    font-size: clamp(1.4rem, 2vw + 0.5rem, 1.9rem);
+    font-size: clamp(1.3rem, 2vw + 0.4rem, 1.8rem);
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-primary);
-    margin-bottom: 0.75rem;
+    margin: 0;
   }
 
   .discipline-body {

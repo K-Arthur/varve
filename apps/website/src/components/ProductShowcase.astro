@@ -162,15 +162,16 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
     border: 1px solid var(--border-strong);
     background: var(--surface-card);
     box-shadow:
-      0 1px 2px oklch(0 0 0 / 0.08),
-      0 18px 48px -18px oklch(0 0 0 / 0.35);
+      0 1px 2px oklch(0 0 0 / 0.06),
+      0 4px 12px oklch(0 0 0 / 0.08),
+      0 20px 48px -18px oklch(0 0 0 / 0.3);
   }
 
   .window-chrome {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.65rem 1rem;
+    padding: 0.6rem 1rem;
     background: var(--surface-muted);
     border-bottom: 1px solid var(--border-default);
   }
@@ -180,14 +181,15 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
     height: 10px;
     border-radius: 50%;
     background: var(--border-strong);
-    opacity: 0.6;
+    opacity: 0.5;
   }
 
   .window-title {
     margin-left: 0.5rem;
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
     font-family: var(--font-mono);
+    letter-spacing: 0.01em;
   }
 
   .showcase-window img {
