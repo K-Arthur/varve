@@ -1,9 +1,9 @@
 name: Model Supply Chain Validation
 
-on:
-
 permissions:
   contents: read
+
+on:
   push:
     branches: [main, master]
     paths:

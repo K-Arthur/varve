@@ -1,9 +1,9 @@
 name: Model Quantization & Validation
 
-on:
-
 permissions:
   contents: read
+
+on:
   push:
     branches: [main, master]
     paths:
