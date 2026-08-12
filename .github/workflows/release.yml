@@ -664,7 +664,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             podman fuse xvfb dbus-x11 at-spi2-core \
-            libegl1 libgl1 libgles2 libgbm1 libxkbcommon0
+            libegl1 libgl1 libgles2 libgbm1 libxkbcommon0 \
+            libwebkit2gtk-4.1-0 libgtk-3-0 gstreamer1.0-plugins-base \
+            librsvg2-2
           podman info >/dev/null 2>&1 || echo "::warning::podman info failed — install tests will fail fast"
 
       - name: Install-test .deb and .rpm in clean containers
