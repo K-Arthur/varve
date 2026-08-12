@@ -72,6 +72,49 @@ export function getParent(doc: DocumentLike, id: NodeId): NodeId | null {
   return null;
 }
 
+/**
+ * Detect cycles in the children graph. Iterative DFS with explicit stack so
+ * even pathological graphs terminate; returns the first cycle found as an
+ * ordered id chain (cycle start repeated at the end), or null when acyclic.
+ *
+ * Used by load-time validation: world-transform composition and render walks
+ * must never loop forever on a corrupt document.
+ */
+export function findParentCycle(doc: DocumentLike): NodeId[] | null {
+  const nodeIds = Object.keys(doc.nodes) as NodeId[];
+  const state = new Map<NodeId, 0 | 1 | 2>();
+
+  for (const start of nodeIds) {
+    if (state.get(start) === 2) continue;
+    const stack: Array<{ nid: NodeId; childIndex: number }> = [{ nid: start, childIndex: 0 }];
+    state.set(start, 1);
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!;
+      const node = doc.nodes[frame.nid];
+      if (!node || !isContainer(node) || frame.childIndex >= node.children.length) {
+        state.set(frame.nid, 2);
+        stack.pop();
+        continue;
+      }
+      const childId = node.children[frame.childIndex]!;
+      frame.childIndex++;
+      const childState = state.get(childId) ?? 0;
+      if (childState === 1) {
+        // Back edge: reconstruct the cycle path.
+        const cycleStart = stack.findIndex((f) => f.nid === childId);
+        const cycle = stack.slice(cycleStart).map((f) => f.nid);
+        cycle.push(childId);
+        return cycle;
+      }
+      if (childState === 0) {
+        state.set(childId, 1);
+        stack.push({ nid: childId, childIndex: 0 });
+      }
+    }
+  }
+  return null;
+}
+
 export function validateDocument(doc: DocumentLike): DocValidationResult {
   const errors: string[] = [];
 
