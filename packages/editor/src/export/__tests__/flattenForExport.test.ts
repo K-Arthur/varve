@@ -1,6 +1,6 @@
 import type { Document, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { flattenForExport } from '../flattenForExport';
+import { compositeDispatchedEffect, flattenForExport } from '../flattenForExport';
 
 function makeNode(id: string): SceneNode {
   return {
@@ -67,6 +67,18 @@ function makeDoc(nodes: SceneNode[]): Document {
 }
 
 describe('flattenForExport', () => {
+  it('preserves live-effect opacity and blend mode for accelerated results', () => {
+    const source = new ImageData(new Uint8ClampedArray([100, 100, 100, 255]), 1, 1);
+    const result = new ImageData(new Uint8ClampedArray([200, 200, 200, 255]), 1, 1);
+
+    const mixed = compositeDispatchedEffect(source, result, 0.5, 'normal');
+    expect(Array.from(mixed.data)).toEqual([150, 150, 150, 255]);
+
+    const screened = compositeDispatchedEffect(source, result, 1, 'screen');
+    expect(screened.data[0]).toBeGreaterThan(200);
+    expect(screened.data[3]).toBe(255);
+  });
+
   it('returns empty assets for documents with no adjustment nodes', async () => {
     const doc = makeDoc([makeNode('n1')]);
     const result = await flattenForExport([doc.nodes.n1!], doc, { scale: 1 });
