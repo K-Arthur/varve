@@ -24,24 +24,7 @@ export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
   toastHandler = fn;
 }
 
-/** Module-level bridge letting status-bar badges (DebtBadge, LayoutScoreIndicator)
- *  request an inspector tab switch without PropertiesPanel's local tab state
- *  living in the shared reducer. Registered by PropertiesPanel on mount. */
-interface InspectorTabRequest {
-  tab: InspectorTab;
-  subTab?: IntelligenceTab;
-}
-
-let inspectorTabHandler: ((req: InspectorTabRequest) => void) | null = null;
-
-export function setInspectorTabHandler(fn: ((req: InspectorTabRequest) => void) | null): void {
-  inspectorTabHandler = fn;
-}
-
-/** Request the Inspector to switch to a tab, when a handler is registered. */
-export function requestInspectorTab(tab: InspectorTab): void {
-  inspectorTabHandler?.({ tab });
-}
+export { requestInspectorTab, setInspectorTabHandler } from './context/inspectorTabBridge';
 
 /** Module-level bridge: invalidate a specific node's layer thumbnail
  *  after the node's fill, shape, or dimensions change. Registered by
@@ -57,6 +40,7 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 }
 
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
+import { requestInspectorTab } from './context/inspectorTabBridge';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
@@ -1111,7 +1095,7 @@ export interface EditorContextValue {
   /** Detach the first selected component instance. */
   detachSelected: () => void;
   /** Create a mask on the selected container from the node above it (or the first shape child). */
-  addMaskToSelected: (type?: import('@varve/scene').MaskType) => void;
+  addMaskToSelected: (type?: import('@varve/scene').MaskType, sourceNodeId?: NodeId) => void;
   /** Remove the mask from the selected container. Does NOT delete the mask source node. */
   removeMaskFromSelected: () => void;
   /** Toggle the selected container's mask visibility. */
@@ -6025,7 +6009,7 @@ export function EditorProvider({
           patch({ rightPanelVisible: true });
           updateSettings({ panel: { rightPanelVisible: true } });
         }
-        inspectorTabHandler?.({ tab, subTab });
+        requestInspectorTab(tab, subTab);
       },
 
       openCafDialog: (nodeId) => {
@@ -6303,16 +6287,24 @@ export function EditorProvider({
         });
       },
 
-      addMaskToSelected: (type: MaskType = 'alpha') => {
+      addMaskToSelected: (type: MaskType = 'alpha', sourceNodeId?: NodeId) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
         updateDoc((doc) => {
           const container = doc.nodes[id];
-          if (!container || !('children' in container)) return doc;
-          const children = container.children;
-          // Use first child as mask source, or find a shape child
-          const maskSource = children.length > 0 ? children[0] : null;
+          if (!container || (container.kind !== 'adjustment' && !('children' in container))) {
+            return doc;
+          }
+          const children = 'children' in container ? container.children : [];
+          // Structural containers use a direct child by default. Adjustment
+          // layers have no children, so their spatial mask must be supplied by
+          // an explicit source (the inspector's target picker does this).
+          const maskSource =
+            sourceNodeId ??
+            (container.kind === 'adjustment'
+              ? sel.find((selectedId) => selectedId !== id && doc.nodes[selectedId])
+              : children.find((childId) => doc.nodes[childId] !== undefined));
           if (!maskSource || !doc.nodes[maskSource]) return doc;
           return addMaskDoc(doc, id, maskSource, type);
         });

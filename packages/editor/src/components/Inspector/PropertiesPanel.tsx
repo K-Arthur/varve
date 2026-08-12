@@ -111,8 +111,12 @@ export function PropertiesPanel() {
     const isFrameSelected = selNodes.length === 1 && selNodes[0]?.kind === 'frame';
     const isTextSelected = selNodes.length === 1 && selNodes[0]?.kind === 'text';
 
-    // Show Adjustments tab only for adjustment nodes (any mode) or images in Photo mode.
-    if (isAdjustmentSelected || (isImageSelected && state.workspaceMode === 'image')) {
+    // Show Adjustments tab for any single image selection: the image-editing
+    // actions the selection quick bar offers in every workspace (Remove
+    // background, Upscale, Vectorize) complete inside this tab, so hiding it
+    // outside the Photo workspace made those actions unreachable — the review
+    // region could never render and the bg-removal E2E suite went red.
+    if (isAdjustmentSelected || isImageSelected) {
       if (!tabs.includes('adjustments')) tabs.push('adjustments');
     }
 
