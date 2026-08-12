@@ -455,8 +455,8 @@ describe('CoordinateService — edge cases', () => {
     doc = addNode(doc, makeFrameNode('f2', { transform: [1, 0, 0, 1, 0, 0] }));
     // Manually corrupt: f1 -> f2 -> f1
     const nodes = { ...doc.nodes };
-    nodes.f1 = { ...nodes.f1!, children: ['f2'] };
-    nodes.f2 = { ...nodes.f2!, children: ['f1'] };
+    nodes.f1 = { ...(nodes.f1 as import('./types').FrameNode), children: ['f2'] };
+    nodes.f2 = { ...(nodes.f2 as import('./types').FrameNode), children: ['f1'] };
     const cyclic = { ...doc, nodes };
 
     const t = nodeWorldTransform(cyclic, 'f1');

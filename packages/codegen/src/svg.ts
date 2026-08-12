@@ -20,13 +20,20 @@ import type {
   VectorMaskData,
 } from '@varve/scene';
 import { computeTableLayout, isImageShape, resolveMask } from '@varve/scene';
-import { applyAffine, DEFAULT_ARTWORK_FONT_FAMILY, multiplyAffine, textWrap } from '@varve/shared';
+import {
+  applyAffine,
+  DEFAULT_ARTWORK_FONT_FAMILY,
+  multiplyAffine,
+  rotateDeg,
+  textWrap,
+} from '@varve/shared';
 import {
   adjustmentStackTargetGaps,
   affineToSvg,
   colorToSvgValue,
   escapeXml,
   getChildren,
+  nodeEffectiveTransform,
   rgba,
   shapeVerticesToPoints,
   svgCompositing,
@@ -298,7 +305,7 @@ function nodeSvgBounds(
   doc: SceneDocument,
   parentTransform: Affine = [1, 0, 0, 1, 0, 0],
 ): SvgBounds | null {
-  const worldTransform = multiplyAffine(parentTransform, node.transform);
+  const worldTransform = multiplyAffine(parentTransform, nodeEffectiveTransform(node));
   if (node.kind === 'group' || node.kind === 'frame') {
     return mergeBounds(
       getChildren(doc, node)
@@ -508,7 +515,11 @@ function renderSourceNodeAsMaskContent(
   const node = doc.nodes[sourceNodeId];
   if (!node) return '';
   const indent = '  '.repeat(depth + 2);
-  const t = affineToSvg(localTransform);
+  // Fold the source node's rotation field, same order as the renderer.
+  const rot = node.rotation ?? 0;
+  const effTransform: Affine =
+    rot !== 0 ? multiplyAffine(localTransform, rotateDeg(rot)) : localTransform;
+  const t = affineToSvg(effTransform);
   const withTransform = ` transform="${t}"`;
 
   switch (node.kind) {
@@ -933,6 +944,11 @@ function nodeToSvgTag(
   rasterAssets?: Record<string, import('./types').RasterAsset>,
 ): string {
   const indent = '  '.repeat(depth);
+  // Fold the node's separate `rotation` field (transform · rotate) so the
+  // emitted transform matches the canvas renderer. Callers pass the node's
+  // local transform; the rotation field lives on the node itself.
+  const rot = node.rotation ?? 0;
+  const effTransform: Affine = rot !== 0 ? multiplyAffine(transform, rotateDeg(rot)) : transform;
 
   // Check for a pre-rendered raster asset first — this handles gradient types
   // (angular, diamond) and effects that SVG cannot represent natively.
@@ -948,12 +964,12 @@ function nodeToSvgTag(
     const w = exp ? rasterAsset.cssWidth + exp.left + exp.right : rasterAsset.cssWidth;
     const h = exp ? rasterAsset.cssHeight + exp.top + exp.bottom : rasterAsset.cssHeight;
     const href = escapeXml(rasterAsset.dataUrl);
-    const t = affineToSvg(transform);
+    const t = affineToSvg(effTransform);
     return `${indent}<image href="${href}" x="${x}" y="${y}" width="${w}" height="${h}" transform="${t}" />`;
   }
 
   const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
-  const t = affineToSvg(transform);
+  const t = affineToSvg(effTransform);
   const withTransform = ` transform="${t}"`;
   const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
   const compositingAttrs = [

@@ -38,6 +38,11 @@ export function setInspectorTabHandler(fn: ((req: InspectorTabRequest) => void) 
   inspectorTabHandler = fn;
 }
 
+/** Request the Inspector to switch to a tab, when a handler is registered. */
+export function requestInspectorTab(tab: InspectorTab): void {
+  inspectorTabHandler?.({ tab });
+}
+
 /** Module-level bridge: invalidate a specific node's layer thumbnail
  *  after the node's fill, shape, or dimensions change. Registered by
  *  LayersTree on mount to forward to the sharedThumbnailCache. */
@@ -146,6 +151,7 @@ import {
   assignDocumentColorMode as assignDocumentColorModeDoc,
   assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
+  booleanAnchorForNode,
   buildParentIndexMap,
   canBeClipMaskSource,
   clearGuides,
@@ -218,6 +224,7 @@ import {
   pageBoundsInWorld,
   pasteboardBounds,
   pasteGuides as pasteGuidesDoc,
+  placeBooleanResult,
   promoteToRichText as promoteToRichTextOp,
   pushMasterChanges as pushMasterChangesDoc,
   rebuildSpreads as rebuildSpreadsDoc,
@@ -285,6 +292,7 @@ import {
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
   shapeHeight,
+  shapeNodesInWorldSpace,
   shapeWidth,
   spreadBoundsInWorld,
   storyForFrame,
@@ -7919,13 +7927,18 @@ export function EditorProvider({
             redoStackRef.current = [];
             redoSelStackRef.current = [];
           }
-          const result = doBooleanOp(op, shapeNodes);
+          // Boolean operands are clipped in WORLD space so selections
+          // spanning artboards/groups/pasteboard clip correctly; the result
+          // is then re-anchored at the first operand's home (parent + z) in
+          // that parent's local coordinates.
+          const anchorNode = shapeNodes[0]!;
+          const anchor = booleanAnchorForNode(s.document, anchorNode.id);
+          const worldNodes = shapeNodesInWorldSpace(s.document, shapeNodes);
+          const result = doBooleanOp(op, worldNodes);
           let d = s.document;
           for (const id of sel) d = removeNode(d, id);
-          const { id: newId, doc: d2 } = nextNodeId(d);
-          const newNode = { ...result, id: newId } as import('@varve/scene').ShapeNode;
-          d = addNode(d2, newNode);
-          return { ...s, document: d, selection: [newId], dirty: true };
+          const placed = placeBooleanResult(d, result, anchor);
+          return { ...s, document: placed.doc, selection: [placed.nodeId], dirty: true };
         });
       },
 
@@ -7982,7 +7995,11 @@ export function EditorProvider({
               node.id,
               node as unknown as Parameters<typeof alphaContoursToShapeNodes>[2],
             ) as unknown as import('@varve/scene').ShapeNode[];
-            rasterShapeNodes.push(...nodes);
+            // Contours are in image-source space with the source's LOCAL
+            // transform; boolean clipping happens in world space, so lift
+            // each derived shape to the image node's world transform.
+            const worldTransform = nodeWorldTransform(doc, node.id);
+            rasterShapeNodes.push(...nodes.map((n) => ({ ...n, transform: worldTransform })));
           }
 
           // Collect vector nodes
@@ -7998,16 +8015,22 @@ export function EditorProvider({
             return;
           }
 
-          const allShapeNodes = [...rasterShapeNodes, ...vectorShapeNodes];
           setState((s) => {
-            const result = doBooleanOp(kind, allShapeNodes);
+            // World-space operands: raster-derived shapes were lifted to
+            // their image node's world transform at extraction; vector
+            // shapes are lifted here. The result is re-anchored at the
+            // first real operand's home in that parent's local space.
+            const anchorNode = doc.nodes[allIds[0]!];
+            const anchor = anchorNode
+              ? booleanAnchorForNode(s.document, anchorNode.id)
+              : { parentId: null as string | null, index: 0 };
+            const worldVectorNodes = shapeNodesInWorldSpace(s.document, vectorShapeNodes);
+            const result = doBooleanOp(kind, [...rasterShapeNodes, ...worldVectorNodes]);
             let d = s.document;
             for (const id of allIds) d = removeNode(d, id);
-            const { id: newId, doc: d2 } = nextNodeId(d);
-            const newNode = { ...result, id: newId } as import('@varve/scene').ShapeNode;
-            d = addNode(d2, newNode);
+            const placed = placeBooleanResult(d, result, anchor);
             announcerRef.current?.announce('Boolean operation complete');
-            return { ...s, document: d, selection: [newId], dirty: true };
+            return { ...s, document: placed.doc, selection: [placed.nodeId], dirty: true };
           });
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error';
