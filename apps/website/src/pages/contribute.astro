@@ -6,11 +6,11 @@ import { sitePath } from '../lib/siteUrl';
 <Layout title="Contribute" description="Contribute to Varve: code, documentation, testing, and design. All contributions are welcome — the source is available on GitHub under FSL-1.1-MIT.">
   <div class="container-custom">
     <div class="contribute-page">
-      <h1>Contribute to Varve</h1>
-      <p class="contribute-intro">
+      <h1 class="page-hero-title">Contribute to Varve</h1>
+      <p class="page-hero-sub">
         Varve is community-shaped. Whether you contribute code, documentation, testing, or design, your help is valued and appreciated.
       </p>
-      <p class="contribute-intro">
+      <p class="page-hero-sub" style="margin-top: 0.5rem;">
         <strong>Varve is not yet accepting external contributions.</strong> The page below describes the process we intend to use once the project opens up. In the meantime, feedback and ideas are welcome in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.
       </p>
 
@@ -19,7 +19,12 @@ import { sitePath } from '../lib/siteUrl';
         
         <div class="contribute-cards">
           <div class="contribute-card">
-            <h3>Code Contributions</h3>
+            <div class="cc-head">
+              <div class="cc-icon cc-icon-teal" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </div>
+              <h3>Code Contributions</h3>
+            </div>
             <p>Fix bugs, add features, improve performance</p>
             <ul>
               <li>Read the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a></li>
@@ -30,7 +35,12 @@ import { sitePath } from '../lib/siteUrl';
           </div>
 
           <div class="contribute-card">
-            <h3>Documentation</h3>
+            <div class="cc-head">
+              <div class="cc-icon cc-icon-sand" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+              </div>
+              <h3>Documentation</h3>
+            </div>
             <p>Improve docs, write tutorials, translate content</p>
             <ul>
               <li>Fix typos or clarify confusing sections</li>
@@ -41,7 +51,12 @@ import { sitePath } from '../lib/siteUrl';
           </div>
 
           <div class="contribute-card">
-            <h3>Testing</h3>
+            <div class="cc-head">
+              <div class="cc-icon cc-icon-terra" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+              </div>
+              <h3>Testing</h3>
+            </div>
             <p>Test on different platforms and report bugs</p>
             <ul>
               <li>Test on specific Linux distributions</li>
@@ -52,7 +67,12 @@ import { sitePath } from '../lib/siteUrl';
           </div>
 
           <div class="contribute-card">
-            <h3>Design</h3>
+            <div class="cc-head">
+              <div class="cc-icon cc-icon-ink" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+              </div>
+              <h3>Design</h3>
+            </div>
             <p>Create UI mockups, icons, website improvements</p>
             <ul>
               <li>Design new feature interfaces</li>
@@ -113,20 +133,16 @@ import { sitePath } from '../lib/siteUrl';
     padding: 3rem 0;
   }
   
-  .contribute-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
+  .contribute-page .page-hero-title {
+    margin-bottom: 0.75rem;
   }
-  
-  .contribute-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
+
+  .contribute-page .page-hero-sub {
+    margin-bottom: 0.5rem;
+  }
+
+  .contribute-page .page-hero-sub:last-of-type {
+    margin-bottom: 2.5rem;
   }
   
   .contribute-section {
@@ -158,13 +174,76 @@ import { sitePath } from '../lib/siteUrl';
     border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
+    transition: border-color var(--duration-fast) var(--ease-default);
+  }
+
+  .contribute-card:hover {
+    border-color: var(--border-strong);
+  }
+
+  /* Icon + title as a flex row: icon cannot overlap the title at any
+     zoom level, and the layout stays stable when titles wrap. */
+  .cc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .cc-head .cc-icon {
+    margin-bottom: 0;
+    flex: 0 0 auto;
+  }
+
+  .cc-head h3 {
+    margin-bottom: 0;
+  }
+
+  /* Icon + title sit side by side in a flex row — in normal flow, so the
+     icon can never overlap the title at any font size, zoom, or reflow. */
+  .cc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .cc-icon {
+    flex: 0 0 auto;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cc-icon-teal {
+    background: color-mix(in oklab, var(--brand-teal) 12%, var(--surface-card));
+    color: var(--brand-teal);
+  }
+
+  .cc-icon-sand {
+    background: color-mix(in oklab, var(--brand-sandstone) 12%, var(--surface-card));
+    color: var(--brand-sandstone);
+  }
+
+  .cc-icon-terra {
+    background: color-mix(in oklab, var(--brand-terracotta) 12%, var(--surface-card));
+    color: var(--brand-terracotta);
+  }
+
+  .cc-icon-ink {
+    background: var(--surface-muted);
+    color: var(--text-primary);
   }
   
   .contribute-card h3 {
     font-size: 1.125rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin: 0;
     color: var(--text-primary);
+    line-height: 1.3;
   }
   
   .contribute-card p {

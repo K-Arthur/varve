@@ -1,76 +1,102 @@
 ---
 /**
- * HeroArtwork — the hero's centerpiece visual.
+ * HeroArtwork — the hero's centerpiece: a 3D-feeling geometric construction.
  *
- * Inspiration references (Behance: Spora, Agento, Protera) each anchor their
- * hero with one bold, tactile visual — a photo, a 3D object, an abstract
- * render. Varve's equivalent has to be about *designing*, not a generic
- * product shot: a small tilted stack of artboards, gradient-filled in the
- * brand's strata colours, with a visible vector path and anchor nodes drawn
- * across the top sheet — the same vocabulary as the DesignField background,
- * rendered once, crisply, as a static centerpiece rather than ambient noise.
+ * Inspired by the geometric construction reference (Bezier handles, anchor
+ * nodes, measurement annotations, construction circles, angle markers) and
+ * the AGENTO reference (central sculptural object with technical frame).
  *
- * Placement: absolutely positioned within `.hero` (which is already
- * `position: relative; overflow: hidden` for the DesignField), independent
- * of the centered text column — so it never interacts with Hero's layout or
- * DesignField's safe-zone math. Desktop only (see the media query): on
- * narrow viewports the hero is already a tall stack of centered text, and
- * there is no free corner to put this without crowding it.
+ * This is a CSS/SVG composition: layered artboards in perspective with a
+ * vector path, control handles, measurement labels, and construction
+ * geometry — a "living design object" being actively built. No WebGL.
+ * The 3D feel comes from CSS perspective transforms on stacked layers.
  *
- * A single self-contained inline SVG: no image request, no build step, a
- * few KB of markup. Pointer tilt is a small independent listener (mirrors
- * the pattern in DesignCursor.astro) rather than coupling to DesignField's
- * internal state, so the two components stay decoupled.
+ * Desktop only (1100px+). Reduced to nothing on mobile.
  */
 ---
 
 <div class="hero-artwork" aria-hidden="true" data-hero-artwork>
-  <svg viewBox="0 0 220 220" width="220" height="220" fill="none">
-    <defs>
-      <linearGradient id="ha-terra" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="var(--brand-terracotta)" />
-        <stop offset="1" stop-color="var(--df-terra)" />
-      </linearGradient>
-      <linearGradient id="ha-sand" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="var(--brand-sandstone)" />
-        <stop offset="1" stop-color="var(--df-sand)" />
-      </linearGradient>
-      <linearGradient id="ha-teal" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="var(--brand-teal)" />
-        <stop offset="1" stop-color="var(--df-teal)" />
-      </linearGradient>
-      <filter id="ha-shadow" x="-40%" y="-40%" width="180%" height="180%">
-        <feDropShadow dx="0" dy="10" stdDeviation="14" flood-opacity="0.28" />
-      </filter>
-    </defs>
+  <!-- Layer stack: three planes at different Z-depths for parallax -->
+  <div class="ha-layer ha-layer-back">
+    <svg viewBox="0 0 300 300" fill="none">
+      <!-- Construction circle (dashed) -->
+      <circle cx="150" cy="140" r="110" stroke="var(--df-grid)" stroke-width="0.8" stroke-dasharray="4 6" opacity="0.4" />
+      <!-- Angle annotation -->
+      <text x="265" y="60" font-family="ui-monospace, monospace" font-size="9" fill="var(--df-muted)" opacity="0.5">30°</text>
+      <path d="M250 65 L255 55" stroke="var(--df-muted)" stroke-width="0.6" opacity="0.5" />
+      <!-- Measurement label -->
+      <text x="150" y="255" font-family="ui-monospace, monospace" font-size="9" fill="var(--df-muted)" text-anchor="middle" opacity="0.5">164</text>
+    </svg>
+  </div>
 
-    <g filter="url(#ha-shadow)">
-      <!-- Back artboard: terracotta, most rotation. -->
-      <rect x="38" y="58" width="118" height="148" rx="10" fill="url(#ha-terra)" transform="rotate(-9 97 132)" opacity="0.92" />
-      <!-- Middle artboard: sandstone. -->
-      <rect x="46" y="46" width="118" height="148" rx="10" fill="url(#ha-sand)" transform="rotate(4 105 120)" opacity="0.95" />
-      <!-- Front artboard: teal, holds the vector path. -->
-      <rect x="40" y="34" width="130" height="160" rx="12" fill="var(--surface-card)" stroke="url(#ha-teal)" stroke-width="2" transform="rotate(-2 105 114)" />
-    </g>
+  <div class="ha-layer ha-layer-mid">
+    <svg viewBox="0 0 300 300" fill="none">
+      <!-- Outer construction shape: octagonal path with anchor nodes -->
+      <path d="M150 25 L235 60 L270 140 L235 220 L150 255 L65 220 L30 140 L65 60 Z"
+        stroke="var(--df-ink)" stroke-width="1.8" fill="none" />
+      <!-- Anchor nodes on the outer shape -->
+      <rect x="145" y="20" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <rect x="230" y="55" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <rect x="265" y="135" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <rect x="230" y="215" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <rect x="145" y="250" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <rect x="60" y="215" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <rect x="25" y="135" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <rect x="60" y="55" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--df-ink)" stroke-width="1.4" />
+      <!-- Construction circles (dashed) at key nodes -->
+      <circle cx="150" cy="25" r="22" stroke="var(--df-grid)" stroke-width="0.6" stroke-dasharray="3 5" opacity="0.35" />
+      <circle cx="270" cy="140" r="18" stroke="var(--df-grid)" stroke-width="0.6" stroke-dasharray="3 5" opacity="0.35" />
+      <circle cx="150" cy="255" r="20" stroke="var(--df-grid)" stroke-width="0.6" stroke-dasharray="3 5" opacity="0.35" />
+      <circle cx="30" cy="140" r="18" stroke="var(--df-grid)" stroke-width="0.6" stroke-dasharray="3 5" opacity="0.35" />
+      <!-- Measurement annotations -->
+      <text x="195" y="42" font-family="ui-monospace, monospace" font-size="8" fill="var(--df-muted)" opacity="0.5">132</text>
+      <text x="95" y="42" font-family="ui-monospace, monospace" font-size="8" fill="var(--df-muted)" opacity="0.5">164</text>
+    </svg>
+  </div>
 
-    <!-- The front sheet's content, in the same local frame as its rect
-         (rotate -2 about 105,114), so it rides along with the artboard. -->
-    <g transform="rotate(-2 105 114)">
-      <!-- A single open bezier path with two anchors and handle tangents —
-           the vector-tools vocabulary, legible at this size. -->
-      <path d="M62 150 C 78 108, 128 168, 148 90" stroke="var(--df-ink)" stroke-width="2" stroke-linecap="round" />
-      <line x1="62" y1="150" x2="80" y2="122" stroke="var(--df-muted)" stroke-width="1" stroke-dasharray="2 3" />
-      <line x1="148" y1="90" x2="130" y2="118" stroke="var(--df-muted)" stroke-width="1" stroke-dasharray="2 3" />
-      <circle cx="62" cy="150" r="4" fill="var(--surface-card)" stroke="var(--df-ink)" stroke-width="1.6" />
-      <circle cx="148" cy="90" r="4" fill="var(--surface-card)" stroke="var(--df-ink)" stroke-width="1.6" />
-      <circle cx="105" cy="120" r="3.2" fill="var(--df-snap)" />
+  <div class="ha-layer ha-layer-front">
+    <svg viewBox="0 0 300 300" fill="none">
+      <!-- The main bezier curve: a flowing S-curve through the construction -->
+      <path d="M60 230 C 90 160, 180 200, 200 120 S 250 60, 260 80"
+        stroke="var(--df-ink)" stroke-width="2.5" stroke-linecap="round" fill="none" />
 
-      <!-- A tiny swatch row, top-right of the sheet. -->
-      <rect x="118" y="52" width="10" height="10" rx="2.5" fill="var(--brand-teal)" />
-      <rect x="132" y="52" width="10" height="10" rx="2.5" fill="var(--brand-sandstone)" />
-      <rect x="146" y="52" width="10" height="10" rx="2.5" fill="var(--brand-terracotta)" />
-    </g>
-  </svg>
+      <!-- Bezier handle lines from the first anchor -->
+      <line x1="60" y1="230" x2="40" y2="180" stroke="var(--df-muted)" stroke-width="0.8" stroke-dasharray="2 3" />
+      <circle cx="40" cy="180" r="3" fill="var(--df-muted)" />
+      <!-- Bezier handle lines from the end anchor -->
+      <line x1="260" y1="80" x2="280" y2="50" stroke="var(--df-muted)" stroke-width="0.8" stroke-dasharray="2 3" />
+      <circle cx="280" cy="50" r="3" fill="var(--df-muted)" />
+
+      <!-- Anchor nodes (filled squares when selected) -->
+      <rect x="54" y="224" width="12" height="12" rx="1.5" fill="var(--brand-teal)" stroke="var(--surface-page)" stroke-width="1.5" />
+      <rect x="254" y="74" width="12" height="12" rx="1.5" fill="var(--brand-teal)" stroke="var(--surface-page)" stroke-width="1.5" />
+
+      <!-- Mid-curve control point -->
+      <circle cx="140" cy="175" r="3.5" fill="var(--brand-sandstone)" stroke="var(--surface-page)" stroke-width="1" />
+
+      <!-- Selection bounding box around the curve -->
+      <rect x="50" y="55" width="220" height="185" stroke="var(--brand-teal)" stroke-width="1.2" stroke-dasharray="5 4" fill="none" opacity="0.5" />
+
+      <!-- Corner handles on the selection box -->
+      <rect x="45" y="50" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--brand-teal)" stroke-width="1" />
+      <rect x="265" y="50" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--brand-teal)" stroke-width="1" />
+      <rect x="45" y="235" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--brand-teal)" stroke-width="1" />
+      <rect x="265" y="235" width="10" height="10" rx="1" fill="var(--surface-page)" stroke="var(--brand-teal)" stroke-width="1" />
+
+      <!-- Color swatches -->
+      <rect x="55" y="42" width="11" height="11" rx="2.5" fill="var(--brand-teal)" />
+      <rect x="70" y="42" width="11" height="11" rx="2.5" fill="var(--brand-sandstone)" />
+      <rect x="85" y="42" width="11" height="11" rx="2.5" fill="var(--brand-terracotta)" />
+
+      <!-- Tool label chip -->
+      <rect x="230" y="38" width="40" height="16" rx="4" fill="var(--brand-teal)" opacity="0.15" />
+      <text x="238" y="50" font-family="ui-monospace, monospace" font-size="8" fill="var(--brand-teal)" font-weight="600">pen</text>
+
+      <!-- Alignment guides (very faint crosshairs) -->
+      <line x1="150" y1="15" x2="150" y2="285" stroke="var(--df-snap)" stroke-width="0.4" stroke-dasharray="3 5" opacity="0.2" />
+      <line x1="15" y1="140" x2="285" y2="140" stroke="var(--df-snap)" stroke-width="0.4" stroke-dasharray="3 5" opacity="0.2" />
+    </svg>
+  </div>
 </div>
 
 <script>
@@ -79,8 +105,7 @@
   const host = document.querySelector<HTMLElement>('[data-hero-artwork]');
   if (host) {
     if (isCoarsePointer() || !prefersMotion()) {
-      // No tilt on touch or under reduced motion — the artwork stays put,
-      // which is a perfectly good static illustration on its own.
+      // Static on touch or reduced motion
     } else {
       let raf = 0;
       let targetX = 0;
@@ -89,9 +114,9 @@
       let curY = 0;
 
       const loop = (): void => {
-        curX += (targetX - curX) * 0.12;
-        curY += (targetY - curY) * 0.12;
-        host.style.transform = `perspective(700px) rotateX(${curY}deg) rotateY(${curX}deg)`;
+        curX += (targetX - curX) * 0.08;
+        curY += (targetY - curY) * 0.08;
+        host.style.transform = `perspective(900px) rotateX(${curY}deg) rotateY(${curX}deg)`;
         if (Math.abs(targetX - curX) > 0.01 || Math.abs(targetY - curY) > 0.01) {
           raf = requestAnimationFrame(loop);
         } else {
@@ -110,23 +135,18 @@
           const rect = host.getBoundingClientRect();
           const cx = rect.left + rect.width / 2;
           const cy = rect.top + rect.height / 2;
-          // Cap the tilt at a few degrees — a hint of depth, not a gimbal.
-          targetX = Math.max(-6, Math.min(6, ((e.clientX - cx) / rect.width) * 10));
-          targetY = Math.max(-6, Math.min(6, -((e.clientY - cy) / rect.height) * 10));
+          targetX = Math.max(-8, Math.min(8, ((e.clientX - cx) / rect.width) * 12));
+          targetY = Math.max(-8, Math.min(8, -((e.clientY - cy) / rect.height) * 12));
           ensureLoop();
         },
         { passive: true },
       );
 
-      window.addEventListener(
-        'blur',
-        () => {
-          targetX = 0;
-          targetY = 0;
-          ensureLoop();
-        },
-        { passive: true },
-      );
+      window.addEventListener('blur', () => {
+        targetX = 0;
+        targetY = 0;
+        ensureLoop();
+      }, { passive: true });
     }
   }
 </script>
@@ -135,26 +155,42 @@
   .hero-artwork {
     display: none;
     position: absolute;
-    /* Bottom-right of the hero, clear of the centered text column and
-       outside the DesignField's safe-zone ellipse (which only guarantees
-       clearance around the centre — this sits at the edge). */
-    right: clamp(1rem, 4vw, 4.5rem);
-    bottom: clamp(0.5rem, 3vh, 2.5rem);
-    width: clamp(140px, 14vw, 200px);
-    height: auto;
+    right: clamp(0rem, 3vw, 4rem);
+    bottom: clamp(0rem, 2vh, 2rem);
+    width: clamp(200px, 22vw, 320px);
+    height: clamp(200px, 22vw, 320px);
     pointer-events: none;
     will-change: transform;
     z-index: 1;
+    transform-style: preserve-3d;
   }
 
-  .hero-artwork svg {
+  /* Three layers at different Z-depths for parallax/3D feel */
+  .ha-layer {
+    position: absolute;
+    inset: 0;
+  }
+
+  .ha-layer svg {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
   }
 
-  /* Desktop only — see the component doc comment. 1100px clears the point
-     where the hero's centered copy starts approaching full width. */
+  .ha-layer-back {
+    transform: translateZ(-30px) scale(0.92);
+    opacity: 0.5;
+  }
+
+  .ha-layer-mid {
+    transform: translateZ(-10px) scale(0.97);
+    opacity: 0.75;
+  }
+
+  .ha-layer-front {
+    transform: translateZ(0);
+  }
+
   @media (min-width: 1100px) {
     .hero-artwork {
       display: block;

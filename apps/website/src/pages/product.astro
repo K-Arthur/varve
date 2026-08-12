@@ -1,13 +1,14 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import ClosingCTA from '../components/ClosingCTA.astro';
 ---
 
 <Layout title="What is Varve?" description="Varve is a local-first design suite for vector, layout, typography, motion, prototyping, and print production — all in one cross-platform environment.">
   <div class="container-custom">
     <div class="product-page">
-      <h1>What is Varve?</h1>
-      <p class="product-intro">
+      <h1 class="page-hero-title">What is Varve?</h1>
+      <p class="page-hero-sub">
         Varve is a local-first design suite for vector, layout, typography, motion, prototyping, and print production — all in one cross-platform environment. It runs natively on Linux, macOS, and Windows. The same engine is compiled to WASM for the web target, but there is no hosted web app yet — the desktop installers are how you use Varve today.
       </p>
 
@@ -115,11 +116,11 @@ import { sitePath } from '../lib/siteUrl';
         </p>
       </section>
 
-      <div class="product-cta">
-        <h2>Try Varve beta</h2>
-        <p>Free and source-available under FSL-1.1-MIT. Expect rough edges — it is an early release.</p>
-        <a href={sitePath('/download')} class="btn-primary">Download the beta</a>
-      </div>
+  <ClosingCTA
+    title="Try Varve"
+    accentWord="beta."
+    text="Free and source-available under FSL-1.1-MIT. Expect rough edges — it is an early release."
+  />
     </div>
   </div>
 </Layout>
@@ -128,23 +129,14 @@ import { sitePath } from '../lib/siteUrl';
   .product-page {
     max-width: 800px;
     margin: 0 auto;
-    padding: 3rem 0;
+    padding: 3rem 0 0;
   }
   
-  .product-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
+  .product-page .page-hero-title {
+    margin-bottom: 1rem;
   }
-  
-  .product-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    line-height: 1.8;
+
+  .product-page .page-hero-sub {
     margin-bottom: 3rem;
   }
   
@@ -186,7 +178,7 @@ import { sitePath } from '../lib/siteUrl';
   
   .audience-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
     margin-top: 1.5rem;
   }
@@ -257,19 +249,6 @@ import { sitePath } from '../lib/siteUrl';
     line-height: 1.6;
   }
   
-  .product-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-  
-  .product-cta h2 {
-    font-size: 1.75rem;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-  }
-  
   @media (max-width: 768px) {
     .product-page h1 {
       font-size: 2rem;
@@ -277,6 +256,10 @@ import { sitePath } from '../lib/siteUrl';
     
     .product-intro {
       font-size: 1rem;
+    }
+
+    .audience-grid {
+      grid-template-columns: 1fr;
     }
   }
 </style>

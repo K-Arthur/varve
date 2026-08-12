@@ -5,7 +5,6 @@ import TrustStrip from '../components/TrustStrip.astro';
 import ProductShowcase from '../components/ProductShowcase.astro';
 import DisciplineTabs from '../components/DisciplineTabs.astro';
 import Reveal from '../components/Reveal.astro';
-import DownloadCTA from '../components/DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
 import { PRODUCT_STATUS } from '@varve/shared';
 import release from '../data/release-manifest.json';
@@ -145,23 +144,6 @@ const softwareSchema = {
     </div>
   </section>
 
-  <section class="closing-download" aria-labelledby="closing-title">
-    <div class="container-custom closing-inner">
-      <Reveal as="div">
-        <p class="section-eyebrow">Get started</p>
-        <h2 id="closing-title" class="closing-title">
-          Start designing<br /><span class="workflow-accent">locally.</span>
-        </h2>
-        <p class="closing-text">
-          Free and source-available under FSL-1.1-MIT. Your designs stay on
-          your machine.
-        </p>
-        <div class="closing-actions">
-          <DownloadCTA size="large" beta />
-        </div>
-      </Reveal>
-    </div>
-  </section>
 </Layout>
 
 <style>
@@ -375,36 +357,6 @@ const softwareSchema = {
     gap: 0.75rem;
     justify-content: center;
     flex-wrap: wrap;
-  }
-
-  /* --- Closing download --- */
-  .closing-download {
-    border-top: 1px solid var(--border-default);
-    background:
-      radial-gradient(90% 120% at 50% 0%, var(--surface-sunken) 0%, var(--surface-page) 75%);
-    padding: clamp(4.5rem, 10vh, 7rem) 0;
-  }
-
-  .closing-inner {
-    text-align: center;
-    max-width: 760px;
-  }
-
-  .closing-title {
-    font-size: clamp(2.2rem, 4vw + 0.6rem, 3.75rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.03em;
-    line-height: 1.06;
-    color: var(--text-primary);
-    margin-bottom: 1.25rem;
-  }
-
-  .closing-text {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 2rem;
   }
 
   @media (max-width: 860px) {

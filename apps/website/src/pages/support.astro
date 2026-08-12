@@ -6,8 +6,8 @@ import { sitePath } from '../lib/siteUrl';
 <Layout title="Support" description="Get help with Varve: documentation, FAQ, troubleshooting, known issues, and bug reporting. Community help is available on GitHub Discussions.">
   <div class="container-custom">
     <div class="support-page">
-      <h1>Support</h1>
-      <p class="support-intro">
+      <h1 class="page-hero-title">Support</h1>
+      <p class="page-hero-sub">
         Get help with Varve through documentation, community forums, and issue tracking.
       </p>
 
@@ -69,20 +69,12 @@ import { sitePath } from '../lib/siteUrl';
     padding: 3rem 0;
   }
   
-  .support-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
+  .support-page .page-hero-title {
+    margin-bottom: 0.75rem;
   }
   
-  .support-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
+  .support-page .page-hero-sub {
+    margin-bottom: 2.5rem;
   }
   
   .support-sections {
