@@ -342,8 +342,8 @@ not current-state guidance. Treat them like the dated files in
 |-----|---------|
 | `CI_CD_RESILIENCE.md` | CI/CD failure modes and mitigations |
 | `desktop-runtime.md` | Desktop runtime (Tauri 2, WebKitGTK/WebView2) |
-| `menu-capability-matrix.md` | Menu items and required capabilities — point-in-time snapshot, source of truth is `menu/defs.ts` |
-| `menu-workspace-matrix.md` | Menu items per workspace — point-in-time snapshot, source of truth is `menu/defs.ts` |
+| `menu-capability-matrix.md` | Menu items and required capabilities — generated from `menu/defs.ts` (`scripts/regenerate-menu-matrices.mjs`) |
+| `menu-workspace-matrix.md` | Menu items per workspace — generated from `menu/defs.ts` (`scripts/regenerate-menu-matrices.mjs`) |
 | `menu-performance.md` | Menu performance notes |
 
 ## Performance
