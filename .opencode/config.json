@@ -2,13 +2,13 @@
   "project": "varve",
   "ephemeral_tree": true,
   "branch": "master",
-  "last_commit": "60f77ad3",
+  "last_commit": "bede3444",
   "recovery": {
     "branch_command": "git checkout master",
     "worktree_command": "git worktree add .worktrees/<feature> -b <feature>",
     "verify_command": "git log --oneline -3"
   },
-  "deferred_plan": "docs/plans/home-surface-deferred.md",
+  "deferred_plan": "docs/plans/layers-panel-deferred.md",
   "agent_files": {
     "AGENTS.md": "Main agent instructions with recovery info"
   },

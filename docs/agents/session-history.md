@@ -1355,7 +1355,7 @@ Closed Phases A–D from the deferred-work plan. Phase E (native Rust AI, hair m
 | **C** | RefineMask commit-on-drag-end tests; `[`/`]` brush shortcuts; all `.bg-removal__*` + export bg-method CSS |
 | **D** | `DEFAULT_PREVIEW_MAX_DIMENSION=2048` wired end-to-end; inspector downscale hint; WebGPU EP blocked on WebKitGTK (ADR-0005 note) |
 
-**Verification:** Focused bg-removal suite **145/145** pass; `@varve/engine` typecheck clean; `cargo clippy` + `cargo test --workspace` (166/166) clean. Full `pnpm test`: **3731/3743** pass (11 failures in uncommitted motion WIP). Phase E prompt: `docs/plans/bg-removal-phase-e-prompt.md`.
+**Verification:** Focused bg-removal suite **145/145** pass; `@varve/engine` typecheck clean; `cargo clippy` + `cargo test --workspace` (166/166) clean. Full `pnpm test`: **3731/3743** pass (11 failures in uncommitted motion WIP). Phase E prompt: `docs/plans/archived/bg-removal-phase-e-prompt.md`.
 
 ## Session 40 — Background Removal Phase E (2026-07-06)
 
