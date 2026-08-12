@@ -60,8 +60,9 @@ pair across all three themes.
 - **Contrast-friendly.** High-luminance teal pairs cleanly with cool-gray
   neutrals on both light and dark surfaces, which lets the ramp hit AA with
   conservative pairings (validated: 51/51 pairs pass).
-- **Brand mark coherence.** The layered "strata" icon (ADR: app icon) is drawn
-  in the teal ramp; tokens and mark share one identity.
+- **Brand mark coherence.** The layered icon (ADR: app icon) — whose stacked
+  planes evoke geological strata — is drawn in the teal ramp; tokens and mark
+  share one identity.
 
 ## Evidence
 
