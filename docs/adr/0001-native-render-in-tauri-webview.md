@@ -10,7 +10,7 @@
 The defining architectural rule (Strata plan §0.3) is that the desktop app runs
 the engine as **natively compiled Rust**, not WebAssembly, to escape the browser
 WASM memory ceiling (validated: wasm32 is hard-capped at ≤4 GB, default 2 GB —
-see Research basis in `crates/strata-engine/src/lib.rs`). Tauri 2 hosts the UI in
+see Research basis in `crates/varve-engine/src/lib.rs`). Tauri 2 hosts the UI in
 the **system webview** (WebKitGTK on Linux, WebView2 on Windows, WKWebView on
 macOS).
 
@@ -23,7 +23,7 @@ This ADR resolves how pixels get to the screen without violating the wedge.
 
 **Render by IR-replay, not by pixel-push.**
 
-1. The native engine (`crates/strata-engine`) computes the scene: geometry,
+1. The native engine (`crates/varve-engine`) computes the scene: geometry,
    layout, boolean ops, hit-testing, the document model — all in native memory
    (unbounded by the WASM ceiling). This is the heavy work and it stays native.
 2. The engine emits a **compact render-command IR** (ordered draw list: paths,

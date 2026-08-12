@@ -43,7 +43,7 @@ Native ONNX does **not** preempt Worker dispatch. It is an opt-in acceleration p
 
 - Opt-in only — **not enabled** in default CI/release workflows.
 - `ort` pinned to `=2.0.0-rc.11` (rc.12 breaks Linux x86_64 build).
-- Separate CI job: `cargo test -p strata-bgremove --features ai`
+- Separate CI job: `cargo test -p varve-bgremove --features ai`
 - `preview_max_dimension` default 2048 — parity with TS worker/direct paths
 - Dynamic ONNX input/output names (no hardcoded `"input"`)
 - Real confidence from output tensor mean distance from 0.5
@@ -57,6 +57,6 @@ Investigation (2026-07-06): `onnxruntime-web`'s WebGPU EP requires `navigator.gp
 - `packages/engine/src/backgroundRemoval/workerPool.ts`
 - `packages/engine/src/backgroundRemoval/__tests__/index.test.ts`
 - `packages/engine/src/backgroundRemoval/__tests__/directPreviewDownscale.test.ts`
-- `crates/strata-bgremove/src/model.rs` — metadata parity with manifest
-- `crates/strata-bgremove/src/inference.rs` — native ONNX parity
+- `crates/varve-bgremove/src/model.rs` — metadata parity with manifest
+- `crates/varve-bgremove/src/inference.rs` — native ONNX parity
 - Manifest at `apps/desktop/public/models/manifest.json`
