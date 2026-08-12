@@ -15,8 +15,9 @@ import {
   shapeNodesInWorldSpace,
 } from './boolean';
 import { nodeWorldTransform } from './coordinateService';
+import type { Document } from './document';
 import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from './document';
-import type { Document, ShapeNode } from './types';
+import type { ShapeNode } from './types';
 
 function makeRect(id: string, x: number, y: number, w = 50, h = 50): ShapeNode {
   return makeShapeNode(id, { kind: 'rect', x, y, w, h });
@@ -68,7 +69,7 @@ describe('boolean ops — coordinate spaces', () => {
     const placed = placeBooleanResult(doc, result, anchor);
     expect(placed.doc.nodes[placed.nodeId]!.kind).toBe('shape');
     // Result is a child of the artboard (not the root).
-    expect(placed.doc.nodes.art!.children).toContain(placed.nodeId);
+    expect((placed.doc.nodes.art as import('./types').FrameNode).children).toContain(placed.nodeId);
     // Its world origin equals the union of the world-space operands' origins
     // — i.e. the visual position inside the artboard is preserved.
     const resultWorld = worldOriginOf(placed.doc, placed.nodeId);
@@ -95,7 +96,9 @@ describe('boolean ops — coordinate spaces', () => {
     const result = booleanOp('union', worldNodes);
     const anchor = booleanAnchorForNode(doc, 'a');
     const placed = placeBooleanResult(doc, result, anchor);
-    expect(placed.doc.nodes.artA!.children).toContain(placed.nodeId);
+    expect((placed.doc.nodes.artA as import('./types').FrameNode).children).toContain(
+      placed.nodeId,
+    );
     // Union of world extents (120..200) — the operands were clipped in a
     // common world space, and the result polygon covers both.
     const bounds = worldPolygonBounds(placed.doc, placed.nodeId);
@@ -121,7 +124,7 @@ describe('boolean ops — coordinate spaces', () => {
     const result = booleanOp('union', worldNodes);
     const anchor = booleanAnchorForNode(doc, 'in');
     const placed = placeBooleanResult(doc, result, anchor);
-    expect(placed.doc.nodes.art!.children).toContain(placed.nodeId);
+    expect((placed.doc.nodes.art as import('./types').FrameNode).children).toContain(placed.nodeId);
     // Union of world extents: 'in' (-790..-730, -390..-330) ∪ 'out'
     // (-770..-710, -370..-310) → (-790..-710, -390..-310).
     const bounds = worldPolygonBounds(placed.doc, placed.nodeId);
