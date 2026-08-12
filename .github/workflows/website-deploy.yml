@@ -23,8 +23,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   # Never cancel a deployment halfway through — a half-published site is worse
@@ -44,6 +42,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          persist-credentials: false
 
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
@@ -61,15 +61,16 @@ jobs:
       - name: Type check + unit tests (incl. release-data states)
         run: pnpm test:website
 
-      # Both deployment modes must build from the same source: /varve project
-      # mode and a root custom-domain mode. The e2e suite (link crawl, asset
-      # existence, axe-core, canonical/sitemap/robots/404, mobile nav) runs
-      # against both builds, served beneath the real /varve path.
-      - name: Build project-site mode
+      # Both deployment modes must build from the same source: the production
+      # custom-domain build (base /, built from the astro.config.mjs defaults)
+      # and the legacy /varve project-site mode. The e2e suite (link crawl,
+      # asset existence, axe-core, canonical/sitemap/robots/404, mobile nav)
+      # runs against both builds, served beneath the real /varve path.
+      - name: Build production (custom-domain) mode
         run: pnpm build:website
 
-      - name: Build custom-domain (root) mode
-        run: pnpm build:website:root
+      - name: Build legacy project-site mode
+        run: pnpm build:website:pages
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
@@ -93,6 +94,8 @@ jobs:
           # default branch so the deploy passes the github-pages environment
           # protection.
           ref: master
+          # Nothing in this workflow pushes; never persist the token.
+          persist-credentials: false
 
       - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
@@ -132,8 +135,19 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 15
+    # Pages deployment needs exactly: read the repo, write Pages, and an OIDC
+    # token for actions/deploy-pages. Nothing else — no contents write, no
+    # secrets beyond the default token.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          # The smoke check only reads scripts/website/smoke-pages.mjs; the
+          # checkout exists for that script. No push capability needed.
+          persist-credentials: false
 
       - name: Deploy to GitHub Pages
         id: deployment
@@ -141,6 +155,7 @@ jobs:
 
       # Bounded-retry smoke check against the live URL: homepage, download,
       # docs, releases, sitemap, robots, favicons, 404 behaviour and the
-      # /varve canonical prefix. A deployment that 404s is a failed deploy.
+      # canonical origin (https://varve.studio). A deployment that 404s or
+      # canonicalizes to the wrong host is a failed deploy.
       - name: Smoke check the live deployment
-        run: node scripts/website/smoke-pages.mjs "${{ steps.deployment.outputs.page_url }}" --expect-prefix /varve
+        run: node scripts/website/smoke-pages.mjs "${{ steps.deployment.outputs.page_url }}" --expect-origin https://varve.studio
