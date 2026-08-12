@@ -43,6 +43,24 @@ const LONG_PRESS_MS = 500;
 /** Movement tolerance (px) for long-press to not be cancelled as a drag. */
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
+/**
+ * World-space centre of a node for reparent decisions (drag-drop and nudge).
+ *
+ * Bounds are the preferred source; when they are unavailable (empty groups
+ * have no own geometry) the node's world-origin translation is used — never
+ * the raw local `transform[4/5]`, which is in parent space and would resolve
+ * the wrong target frame/page for nodes inside transformed containers.
+ */
+function worldCenterOf(
+  doc: import('@varve/scene').Document,
+  selId: NodeId,
+  bounds?: { x: number; y: number; w: number; h: number } | null,
+): { x: number; y: number } {
+  if (bounds) return { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 };
+  const t = nodeWorldTransform(doc, selId);
+  return { x: t[4], y: t[5] };
+}
+
 export class SelectTool extends BaseTool {
   id = 'select' as const;
 
@@ -351,6 +369,29 @@ export class SelectTool extends BaseTool {
         ctx.setDropTargetFrame(dropTarget);
       }
 
+      // Snap the selection as a whole: one world-space response applied to
+      // every node. Snapping each node independently lets different members
+      // win different snap amounts, tearing relative arrangement apart.
+      // The primary (first) node's bounds anchor the response; the snapped
+      // delta is then added to every node's target so the selection moves
+      // rigidly and only the group's position changes.
+      let snapAdjust = { x: 0, y: 0 };
+      const primaryId = sel.find((id) => id && this.initialPositions.has(id));
+      const primaryInit = primaryId ? this.initialPositions.get(primaryId) : null;
+      const primaryNode = primaryId ? ctx.getNode(primaryId) : null;
+      if (primaryInit && primaryNode && !interaction.bypassSnap) {
+        const primaryBounds = ctx.nodeWorldBounds(primaryNode);
+        if (primaryBounds) {
+          const unsnappedX = primaryInit.x + totalDelta.dx;
+          const unsnappedY = primaryInit.y + totalDelta.dy;
+          const snapped = ctx.snapPosition(
+            { x: unsnappedX, y: unsnappedY, w: primaryBounds.w, h: primaryBounds.h },
+            [],
+          );
+          snapAdjust = { x: snapped.x - unsnappedX, y: snapped.y - unsnappedY };
+        }
+      }
+
       const positions: Array<{ id: string; x: number; y: number }> = [];
       for (const id of sel) {
         const node = ctx.getNode(id);
@@ -358,8 +399,8 @@ export class SelectTool extends BaseTool {
         // Compute target world position from stored initial world origin + total delta.
         const initWorld = this.initialPositions.get(id);
         if (!initWorld) continue;
-        const newWorldX = initWorld.x + totalDelta.dx;
-        const newWorldY = initWorld.y + totalDelta.dy;
+        const newWorldX = initWorld.x + totalDelta.dx + snapAdjust.x;
+        const newWorldY = initWorld.y + totalDelta.dy + snapAdjust.y;
 
         // Convert world target position to the node's parent local space.
         const parentId = getParent(ctx.document, id);
@@ -371,21 +412,6 @@ export class SelectTool extends BaseTool {
           return { x: local[0], y: local[1] };
         };
 
-        const thisBounds = ctx.nodeWorldBounds(node);
-        if (thisBounds) {
-          if (interaction.bypassSnap) {
-            const local = toLocal(newWorldX, newWorldY);
-            positions.push({ id, x: local.x, y: local.y });
-          } else {
-            const snapped = ctx.snapPosition(
-              { x: newWorldX, y: newWorldY, w: thisBounds.w, h: thisBounds.h },
-              [],
-            );
-            const local = toLocal(snapped.x, snapped.y);
-            positions.push({ id, x: local.x, y: local.y });
-          }
-          continue;
-        }
         const local = toLocal(newWorldX, newWorldY);
         positions.push({ id, x: local.x, y: local.y });
       }
@@ -483,13 +509,8 @@ export class SelectTool extends BaseTool {
             if (!node || node.locked || !node.visible) continue;
             // Use world-space center (accounts for parent transforms) for reparent.
             const worldBounds = nodeWorldBounds(ctx.document, selId);
-            let centerX = node.transform[4];
-            let centerY = node.transform[5];
-            if (worldBounds) {
-              centerX = worldBounds.x + worldBounds.w / 2;
-              centerY = worldBounds.y + worldBounds.h / 2;
-            }
-            const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
+            const center = worldCenterOf(ctx.document, selId, worldBounds);
+            const frameId = ctx.findContainingFrame(center);
             if (frameId) {
               const currentParent = getParent(ctx.document, selId);
               if (currentParent !== frameId) {
@@ -523,7 +544,7 @@ export class SelectTool extends BaseTool {
               const currentParent = getParent(ctx.document, selId);
               let destParent: NodeId | null = null;
               let alreadyHome = false;
-              const destPage = worldToPageAtPoint(ctx.document, { x: centerX, y: centerY });
+              const destPage = worldToPageAtPoint(ctx.document, center);
               if (destPage) {
                 const dest = ctx.document.pages?.find((p) => p.id === destPage.pageId);
                 if (dest) {
@@ -626,13 +647,8 @@ export class SelectTool extends BaseTool {
           const node = ctx.getNode(selId);
           if (!node || node.locked || !node.visible) continue;
           const worldBounds = nodeWorldBounds(ctx.document, selId);
-          let centerX = node.transform[4];
-          let centerY = node.transform[5];
-          if (worldBounds) {
-            centerX = worldBounds.x + worldBounds.w / 2;
-            centerY = worldBounds.y + worldBounds.h / 2;
-          }
-          const frameId = ctx.findContainingFrame({ x: centerX, y: centerY });
+          const center = worldCenterOf(ctx.document, selId, worldBounds);
+          const frameId = ctx.findContainingFrame(center);
           const currentParent = getParent(ctx.document, selId);
           if (frameId && currentParent !== frameId) {
             // Size heuristic: only reparent if node is not larger than target frame
@@ -664,8 +680,8 @@ export class SelectTool extends BaseTool {
             let destParent: NodeId | null = null;
             let alreadyHome = false;
             const destPage = worldToPageAtPoint(ctx.document, {
-              x: node.transform[4],
-              y: node.transform[5],
+              x: center.x,
+              y: center.y,
             });
             if (destPage) {
               const dest = ctx.document.pages?.find((p) => p.id === destPage.pageId);

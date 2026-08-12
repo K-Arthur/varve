@@ -8,7 +8,7 @@ import {
   walkNodes,
   worldToPageAtPoint,
 } from '@varve/scene';
-import { type Affine, transformRect } from '@varve/shared';
+import { type Affine, multiplyAffine, rotateDeg, transformRect } from '@varve/shared';
 import type { FrameSpatialIndex } from './spatialIndex';
 import { nodeLocalBounds, nodeWorldTransform } from './world';
 
@@ -107,11 +107,15 @@ export function findContainingFrameInDoc(
         const childLocal = nodeLocalBounds(child, doc);
         if (!childLocal) continue;
         // Transform child's own local bounds by its transform to get
-        // bounds in group-space, then check if the local point is inside
-        const childBoundsInGroup = transformRect(
+        // bounds in group-space, then check if the local point is inside.
+        // The separate `rotation` field composes AFTER the transform
+        // (transform · rotate, about the node origin) — folding it here
+        // keeps rotated children consistent with the renderer.
+        const childTransform = multiplyAffine(
           (child.transform ?? [1, 0, 0, 1, 0, 0]) as Affine,
-          childLocal,
+          rotateDeg(child.rotation ?? 0),
         );
+        const childBoundsInGroup = transformRect(childTransform, childLocal);
         if (rectContains(childBoundsInGroup, [localPt[0], localPt[1]])) {
           if (entry.depth > deepestDepth) {
             deepest = nid;
