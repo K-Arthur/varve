@@ -1,5 +1,12 @@
 # Varve Architecture Brief
 
+> **Point-in-time snapshot (generated 2026-07-25).** This brief maps the
+> subsystems as they were on that date: file/line references and schema
+> versions (e.g. document schema 2.14) have moved since (schema is now 2.20,
+> and there are seven workspace modes including `logo`). Verify against the
+> current code before relying on any line number or version claim. Current
+> guidance lives in `docs/architecture/` and the ADRs.
+
 Generated: 2026-07-25
 Scope: Everything an implementer needs to touch the following subsystems without re-deriving them.
 

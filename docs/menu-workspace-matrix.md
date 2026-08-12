@@ -1,5 +1,12 @@
 # Menu × Workspace Visibility Matrix
 
+> **Point-in-time snapshot (last fully maintained 2026-08-10).** The menu
+> registry (`packages/editor/src/menu/defs.ts`) is the source of truth; this
+> matrix predates ~40 recently added items (e.g. `workspaceCodegen`,
+> `setFileThumbnail`, `imageTrace`, `quitApp`, `linkTextFrames`, logo-project
+> items). Regenerate or hand-sync from `defs.ts` `workspaces` filters before
+> relying on it for completeness.
+
 **Status:** Implemented — menu visibility per workspace is applied at runtime
 via the `workspaces` filter on item definitions
 (`packages/editor/src/menu/defs.ts`, applied by `renderer.ts`); this matrix
