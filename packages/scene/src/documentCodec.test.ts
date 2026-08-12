@@ -40,6 +40,57 @@ describe('DocumentCodec', () => {
     expect(result.warnings.some((w) => w.code === 'document.migrated')).toBe(true);
   });
 
+  it('rejects a document with a cyclic parent graph instead of hanging', () => {
+    const cyclic = {
+      id: 'doc-cycle',
+      name: 'Cyclic',
+      formatVersion: CURRENT_DOCUMENT_VERSION,
+      rootChildren: ['f1'],
+      nodes: {
+        f1: {
+          id: 'f1',
+          kind: 'frame',
+          name: 'Frame 1',
+          transform: [1, 0, 0, 1, 0, 0],
+          rotation: 0,
+          children: ['f2'],
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          order: 'a0',
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          w: 100,
+          h: 100,
+        },
+        f2: {
+          id: 'f2',
+          kind: 'frame',
+          name: 'Frame 2',
+          transform: [1, 0, 0, 1, 0, 0],
+          rotation: 0,
+          children: ['f1'],
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          order: 'a1',
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          w: 100,
+          h: 100,
+        },
+      },
+      components: {},
+      nextId: 3,
+    };
+
+    const result = DocumentCodec.decode(JSON.stringify(cyclic));
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain('parent cycle');
+    expect(result.warnings.some((w) => w.code === 'document.parent-cycle')).toBe(true);
+  });
+
   it('normalizes broken root and child references without throwing', () => {
     let doc = createDocument('Broken', true);
     doc = addNode(
