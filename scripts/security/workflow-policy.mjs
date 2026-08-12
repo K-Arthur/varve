@@ -32,6 +32,11 @@
  *       commit reachable from the default branch.
  *   14. Every workflow declares explicit permissions (workflow or job level).
  *   15. Website-deploy checkouts persist no credentials.
+ *   16. Backend/service and DNS credential classes are referenced by NO
+ *       workflow (they have no legitimate consumer today; a future
+ *       backend-deploy workflow must extend the explicit allowlist, never
+ *       the deny rule).
+ *   17. `permissions: write-all` is never acceptable.
  */
 
 import { load } from 'js-yaml';
@@ -51,7 +56,66 @@ const SIGNING_SECRETS = [
   'AZURE_SIGNING_TENANT_ID',
   'TAURI_SIGNING_PRIVATE_KEY',
   'TAURI_SIGNING_PRIVATE_KEY_PASSWORD',
+  'TAURI_UPDATER_PRIVATE_KEY',
+  'TAURI_UPDATER_PRIVATE_KEY_PASSWORD',
+  'WINDOWS_SIGNING_PRIVATE_KEY',
 ];
+
+// Production secrets that belong to NO workflow in this repository today.
+// The website and desktop clients have no backend; signing and DNS classes
+// are separately denied. When a real backend arrives, extend this rule with
+// an explicit per-workflow allowlist (e.g. backend-deploy.yml may reference
+// the BACKEND_* family) — never loosen the denial for every workflow.
+const BACKEND_SECRET_NAMES = [
+  'OPENAI_API_KEY',
+  'ANTHROPIC_API_KEY',
+  'DATABASE_URL',
+  'DATABASE_PASSWORD',
+  'DATABASE_USER',
+  'REDIS_URL',
+  'REDIS_PASSWORD',
+  'STRIPE_SECRET_KEY',
+  'STRIPE_WEBHOOK_SECRET',
+  'SMTP_PASSWORD',
+  'SMTP_USER',
+  'WEBHOOK_SECRET',
+  'JWT_SIGNING_SECRET',
+  'JWT_PRIVATE_KEY',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
+  'GOOGLE_APPLICATION_CREDENTIALS',
+  'SENDGRID_API_KEY',
+  'EMAIL_PROVIDER_API_KEY',
+  'OBJECT_STORAGE_SECRET_KEY',
+  'GITHUB_PAT',
+];
+
+const BACKEND_SECRET_PREFIXES = [
+  'DATABASE_',
+  'REDIS_',
+  'STRIPE_',
+  'OPENAI_',
+  'ANTHROPIC_',
+  'SMTP_',
+  'WEBHOOK_',
+  'JWT_',
+  'AWS_',
+  'GCP_',
+  'SENDGRID_',
+  'OBJECT_STORAGE_',
+];
+
+const DNS_SECRET_NAMES = ['PORKBUN_API_KEY', 'PORKBUN_API_SECRET', 'PORKBUN_SECRET_API_KEY'];
+
+const DNS_SECRET_PREFIXES = ['PORKBUN_'];
+
+// The signing-step exception flag for the client environment guard: it may
+// only ever be set inside release.yml (the Tauri build step that holds
+// signing credentials in its process environment). The canary, by contrast,
+// is deliberately settable in any client build workflow — the artifact scan
+// asserts its value never reaches the output.
+const SIGNING_STEP_ALLOWED_FLAG = 'VARVE_SIGNING_STEP_ALLOWED';
 
 const SIGNING_REF = new RegExp(`\\$\\{\\{ secrets\\.(${SIGNING_SECRETS.join('|')})\\s*\\}\\}`);
 const ANY_SECRET_REF = /\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}/g;
@@ -227,6 +291,74 @@ export function auditWorkflow(doc, filename) {
             'from a pull_request-capable workflow — forked code must never see repo secrets',
         );
       }
+    }
+  }
+
+  // 16. Backend/service and DNS credential classes have no legitimate
+  // consumer in any workflow today. Unlike the signing rule (which has an
+  // explicit home in release.yml), there is no allowlist yet: a future
+  // backend-deploy workflow must extend the allowlist below, not weaken the
+  // denial. Applies to `secrets.` and `vars.` (DNS class) references.
+  const backendHits = new Set();
+  const dnsHits = new Set();
+  const walkAll = (value, path) => {
+    if (typeof value === 'string') {
+      const secretRefs = [...value.matchAll(/\$\{\{\s*(?:secrets|vars)\.([A-Za-z0-9_]+)\s*\}\}/g)];
+      for (const m of secretRefs) {
+        const name = m[1];
+        const isBackend =
+          BACKEND_SECRET_NAMES.includes(name) ||
+          BACKEND_SECRET_PREFIXES.some((p) => name.startsWith(p));
+        const isDns =
+          DNS_SECRET_NAMES.includes(name) || DNS_SECRET_PREFIXES.some((p) => name.startsWith(p));
+        if (isBackend) backendHits.add(name);
+        if (isDns) dnsHits.add(name);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i += 1) walkAll(value[i], `${path}[${i}]`);
+      return;
+    }
+    if (value && typeof value === 'object') {
+      for (const k of Object.keys(value)) walkAll(value[k], `${path}.${k}`);
+    }
+  };
+  walkAll(doc, '$');
+  if (backendHits.size > 0) {
+    errors.push(
+      `${base}: references backend/service credentials ([${[...backendHits].join(', ')}]) — ` +
+        'no workflow in this repository may consume backend secrets; they belong to a future ' +
+        'backend-deploy workflow with its own environment',
+    );
+  }
+  if (dnsHits.size > 0) {
+    errors.push(
+      `${base}: references DNS/registrar credentials ([${[...dnsHits].join(', ')}]) — ` +
+        'Porkbun credentials must stay out of application, website and CI workflows entirely',
+    );
+  }
+
+  // Client environment guard flags: the signing-step exception is consumed
+  // only by the release pipeline — a client build workflow that sets it
+  // would disable the guard's signing deny-list.
+  {
+    const flagRefs = findInValue(doc, new RegExp(`\\b${SIGNING_STEP_ALLOWED_FLAG}\\b`));
+    if (base !== 'release.yml' && flagRefs.length > 0) {
+      errors.push(
+        `${base}: sets ${SIGNING_STEP_ALLOWED_FLAG} — this client-env guard flag may only be used inside release.yml`,
+      );
+    }
+  }
+
+  // 17. write-all permission grant is never acceptable.
+  if (doc.permissions === 'write-all') {
+    errors.push(`${base}: workflow-level permissions: write-all — never acceptable`);
+  }
+  for (const [name, job] of jobEntries(doc)) {
+    if (typeof job !== 'object' || job === null) continue;
+    if (job.permissions === 'write-all') {
+      errors.push(`${base}: ${name} grants permissions: write-all — never acceptable`);
     }
   }
 
