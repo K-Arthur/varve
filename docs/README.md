@@ -183,6 +183,7 @@ written and are not updated retroactively. Current guidance lives in
 
 | Doc | Purpose |
 |-----|---------|
+| `ARCHITECTURE_BRIEF.md` | High-level architecture brief (docs root) — **dated snapshot (2026-07-25)** with line-precise file references that may have drifted; verify against code before relying on line numbers |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |

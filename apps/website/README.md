@@ -39,7 +39,8 @@ pnpm test:website:e2e       # Playwright E2E (build first)
 | `src/data/` | Release manifest, structured data |
 | `src/test/` | Vitest unit tests |
 | `tests/e2e/` | Playwright E2E specs (navigation, theme, visual) |
-| `scripts/` | Smoke tests, color migration, serving |
+| `scripts/` | Theme audit (`audit-theme.mjs`), color migration (`migrate-colors.mjs`), dist serving (`serve-dist.mjs`) |
+| `scripts/website/` (repo root) | Post-deploy smoke tests (`smoke-pages.mjs`) |
 
 ## Key docs
 
