@@ -1,5 +1,11 @@
 # Varve — Continuation Prompt (Session 5)
 
+> **Status: historical snapshot.** This file records project state and remaining
+> work as of 2026-06-28 (Session 5). Test counts, completed phases, and
+> priority-ordering reflect that point in time and are **not current**. For the
+> present state of the project, see `docs/README.md`, `CHANGELOG.md`, and the
+> `docs/architecture/` current-state docs.
+
 > Generated 2026-06-28 after completing Session 2 (P0 Frontend Depth).
 > Updated 2026-06-28 during the Stabilization & Feature-Completion pass.
 
