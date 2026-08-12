@@ -39,6 +39,7 @@ const SKIP_DIRS = new Set([
   'target',
   'dist',
   'dist-root',
+  'dist-pages',
   '.next',
   '.git',
   'coverage',

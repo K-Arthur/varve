@@ -2,15 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { canonicalUrl, ogImageUrl, siteOrigin, sitePath, siteUrl } from '../lib/siteUrl';
 
 /**
- * The site deploys from one source in two modes (GitHub Pages /varve project
- * site, and a future custom domain at /). Every internal link, asset, canonical
- * URL, sitemap entry and robots location flows through sitePath/siteUrl — these
- * tests pin the normalization rules so a hand-written URL cannot leak back in.
+ * The site deploys from one source in two modes (production at the custom
+ * domain `https://varve.studio` with base `/`, and the legacy GitHub Pages
+ * project site at base `/varve` used by the CI dual-mode suite). Every
+ * internal link, asset, canonical URL, sitemap entry and robots location
+ * flows through sitePath/siteUrl — these tests pin the normalization rules
+ * so a hand-written URL cannot leak back in.
  */
 const BASE_VARVE = '/varve';
 const BASE_ROOT = '/';
 const SITE_PAGES = 'https://k-arthur.github.io';
-const SITE_DOMAIN = 'https://varve.example';
+const SITE_DOMAIN = 'https://varve.studio';
 
 describe('sitePath normalization (project-site mode, base /varve)', () => {
   it('prefixes root-relative paths with the base', () => {
@@ -49,7 +51,7 @@ describe('sitePath normalization (project-site mode, base /varve)', () => {
   });
 });
 
-describe('sitePath normalization (custom-domain mode, base /)', () => {
+describe('sitePath normalization (production mode, base /)', () => {
   it('keeps root-relative paths at the root', () => {
     expect(sitePath('/docs', BASE_ROOT)).toBe('/docs');
     expect(sitePath('/favicon.svg', BASE_ROOT)).toBe('/favicon.svg');
@@ -58,7 +60,7 @@ describe('sitePath normalization (custom-domain mode, base /)', () => {
 });
 
 describe('siteUrl absolute URLs', () => {
-  it('joins origin and base for absolute metadata URLs', () => {
+  it('joins origin and base for absolute metadata URLs (legacy Pages mode)', () => {
     expect(siteUrl('/docs', BASE_VARVE, SITE_PAGES)).toBe('https://k-arthur.github.io/varve/docs');
     expect(siteUrl('/og-image.png', BASE_VARVE, SITE_PAGES)).toBe(
       'https://k-arthur.github.io/varve/og-image.png',
@@ -66,8 +68,8 @@ describe('siteUrl absolute URLs', () => {
     expect(siteUrl('', BASE_VARVE, SITE_PAGES)).toBe('https://k-arthur.github.io/varve/');
   });
 
-  it('uses the root on a custom-domain build', () => {
-    expect(siteUrl('/docs', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.example/docs');
+  it('uses the root on the production build', () => {
+    expect(siteUrl('/docs', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/docs');
   });
 
   it('returns fully-qualified URLs unchanged', () => {
@@ -76,7 +78,7 @@ describe('siteUrl absolute URLs', () => {
 });
 
 describe('canonicalUrl from a rendered pathname', () => {
-  it('strips trailing slashes and maps the root to the base', () => {
+  it('strips trailing slashes and maps the root to the base (legacy Pages mode)', () => {
     expect(canonicalUrl('/varve/docs/', BASE_VARVE, SITE_PAGES)).toBe(
       'https://k-arthur.github.io/varve/docs',
     );
@@ -88,18 +90,18 @@ describe('canonicalUrl from a rendered pathname', () => {
     );
   });
 
-  it('is root-relative on a custom-domain build', () => {
-    expect(canonicalUrl('/docs/', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.example/docs');
-    expect(canonicalUrl('/', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.example/');
+  it('is root-relative on the production build', () => {
+    expect(canonicalUrl('/docs/', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/docs');
+    expect(canonicalUrl('/', BASE_ROOT, SITE_DOMAIN)).toBe('https://varve.studio/');
   });
 });
 
 describe('siteOrigin', () => {
   it('strips a trailing slash', () => {
-    expect(siteOrigin('https://varve.example/')).toBe('https://varve.example');
+    expect(siteOrigin('https://varve.studio/')).toBe('https://varve.studio');
   });
-  it('defaults to the Pages origin', () => {
-    expect(siteOrigin(undefined)).toBe('https://k-arthur.github.io');
+  it('defaults to the production origin', () => {
+    expect(siteOrigin(undefined)).toBe('https://varve.studio');
   });
 });
 
