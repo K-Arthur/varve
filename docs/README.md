@@ -183,7 +183,6 @@ written and are not updated retroactively. Current guidance lives in
 
 | Doc | Purpose |
 |-----|---------|
-| `ARCHITECTURE_BRIEF.md` | High-level architecture brief (docs root) |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
@@ -240,6 +239,7 @@ The files below live in `docs/architecture/` but are **point-in-time records**
 not current-state guidance. Treat them like the dated files in
 `docs/audits/`/`docs/plans/`: verify against current code before acting.
 
+- `ARCHITECTURE_BRIEF.md` (docs root) — point-in-time subsystem map (generated 2026-07-25); file/line and schema-version claims are stale, verify against code
 - `architecture/interaction-systems-2026-07-27.md` — dated interaction-systems notes (Milestones 1–10)
 - `architecture/ai-competitor-intelligence-2026.md` — competitor research (2026-07)
 - `architecture/ai-feature-strategy-2026-07-21.md` — dated AI feature strategy (pre-rename title)
@@ -284,8 +284,8 @@ not current-state guidance. Treat them like the dated files in
 | `design/design-principles.md` | Design principles |
 | `design/component-status.md` | Component implementation status |
 | `design/migration-debt.md` | Design migration debt |
-| `brand-guide.md` | Brand guide (mark, wordmarks, usage) |
-| `brand/varve-brand-guide.md` | Detailed brand guidelines |
+| `brand-guide.md` | Brand guide (mark, wordmarks, usage) — current |
+| `brand/varve-brand-guide.md` | Superseded v1.0 brand guide (pre-rework mark); retained as a historical record |
 
 ## Privacy & Security
 
@@ -298,6 +298,7 @@ not current-state guidance. Treat them like the dated files in
 | `privacy/retention.md` | Retention policy |
 | `privacy/runbooks.md` | Privacy operations runbooks |
 | `crash-reporting/README.md` | Crash reporting architecture |
+| `security/security-hardening.md` | Security hardening contract and policy (CSP, workflow policy, secret scanning) |
 
 ## Quality
 
@@ -306,8 +307,34 @@ not current-state guidance. Treat them like the dated files in
 | `quality/test-reality.md` | What tests actually cover |
 | `quality/tauri-command-audit.md` | Tauri command surface audit |
 | `quality/editorprovider-surface.md` | EditorProvider surface |
-| `quality/cycles.md` / `quality/scene-cycle-report.md` / `quality/section-registry-cycle-report.md` / `quality/wasm-engine-cycle.md` | Dependency cycle reports |
-| `quality/report-audit.md` | Audit report quality review |
+| `quality/validation-strategy.md` | **Canonical validation policy** — impact-aware planning, tiers, escalation rules |
+| `quality/render-path-verification.md` | Render-path verification contract |
+| `quality/cycles.md` / `quality/scene-cycle-report.md` / `quality/section-registry-cycle-report.md` / `quality/wasm-engine-cycle.md` | Dependency cycle reports (dated records, 2026-07) |
+| `quality/report-audit.md` | Audit report quality review (dated record, 2026-07-25) |
+
+## Testing
+
+| Doc | Purpose |
+|-----|---------|
+| `testing/real-image-validation-corpus.md` | Real-image corpus plan for model-quality testing (corpus not yet generated) |
+| `testing/sam2-lineart-validation-2026-07-21.md` | Dated SAM2/lineart validation record |
+
+## Design Tokens
+
+| Doc | Purpose |
+|-----|---------|
+| `tokens/dtcgsync-audit.md` | DTCG sync milestone audit (dated record, 2026-08-05) |
+| `tokens/dtcgsync-architecture.md` | DTCG sync architecture record (dated record, 2026-08-05) |
+
+## Implementation Ledgers (historical)
+
+| Doc | Purpose |
+|-----|---------|
+| `implementation/cross-platform-menubar-progress.md` | Menubar buildout progress ledger |
+| `implementation/cross-platform-menubar-strategies.md` | Menubar strategy record |
+| `implementation/export-infrastructure-progress.md` | Export infrastructure progress ledger |
+| `implementation/export-pipeline-progress.md` | Export pipeline milestones ledger (dated 2026-08-02) |
+| `implementation/gradient-map-progress.md` | Gradient map system progress ledger |
 
 ## CI/CD & Operations
 
@@ -315,8 +342,8 @@ not current-state guidance. Treat them like the dated files in
 |-----|---------|
 | `CI_CD_RESILIENCE.md` | CI/CD failure modes and mitigations |
 | `desktop-runtime.md` | Desktop runtime (Tauri 2, WebKitGTK/WebView2) |
-| `menu-capability-matrix.md` | Menu items and required capabilities |
-| `menu-workspace-matrix.md` | Menu items per workspace |
+| `menu-capability-matrix.md` | Menu items and required capabilities — point-in-time snapshot, source of truth is `menu/defs.ts` |
+| `menu-workspace-matrix.md` | Menu items per workspace — point-in-time snapshot, source of truth is `menu/defs.ts` |
 | `menu-performance.md` | Menu performance notes |
 
 ## Performance
@@ -338,6 +365,7 @@ not current-state guidance. Treat them like the dated files in
 | `plans/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` |
 | `plans/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
+| `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `session-04-packaging.md` |
 
 ## Audits (historical)
 
@@ -386,6 +414,8 @@ records; check the current code before acting on their findings.
 | `implementation-memory/impeccable.md` | Design context and brand personality |
 | `implementation-memory/select-move-overhaul.md` | Selection and move overhaul |
 | `implementation-memory/typography-overhaul.md` | Typography system overhaul |
+| `implementation-memory/ui-ux-redesign-memory.md` | UI/UX neo-bento redesign session memory |
+| `implementation-memory/layers-panel-completion-memory.md` | Layers panel completion memory |
 
 Mirrored copies of several memory files also exist at the repository root
 (`.system_memory.md`, `.effects_system_memory.md`, etc.) for session-scoped
