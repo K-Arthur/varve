@@ -1,0 +1,22 @@
+# Varve gitleaks configuration.
+#
+# Only the default ruleset with a path allowlist for documented synthetic
+# fixtures. NEVER add a real credential here — rotate and remove it instead.
+# The allowlist entries mirror scripts/secret-scan.mjs ALLOWLISTED_PATHS so
+# the two scanners agree.
+
+title = "Varve gitleaks allowlist"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented synthetic fixtures / documentation strings (no real credentials)"
+paths = [
+  '''packages/crash/src/redactFixtures.ts''',
+  '''packages/crash/src/redact.test.ts''',
+  '''packages/editor/src/archive/encryption.test.ts''',
+  '''packages/engine/src/backgroundRemoval/__tests__/cloudConfig.test.ts''',
+  '''packages/engine/src/backgroundRemoval/__tests__/cloudProvider.test.ts''',
+  '''docs/audits/menubar-audit-2026-07-23.md''',
+]
