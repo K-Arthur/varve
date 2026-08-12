@@ -5,20 +5,23 @@
 | Area | File | Tests |
 |---|---|---|
 | Type-ahead (single char, buffer, cycling, timeout, diacritics) | `typeahead.spec.ts` | 8 tests |
-| Type-ahead (no match, arrow resets, diacritic-insensitive)* | `keyboard-nav.spec.ts` | 5 tests |
-| Top-level menubar arrow nav (ArrowRight/Left/Up/Down) | `keyboard-nav.spec.ts` | 2 tests |
+| Type-ahead (no match, arrow resets, diacritic-insensitive) | `keyboard-nav.spec.ts` | 7 tests |
+| Top-level menubar arrow nav (Tab, ArrowRight/Left/Up/Down) | `keyboard-nav.spec.ts` | 2 tests |
 | Enter/Space opens menu | `keyboard-nav.spec.ts` | 1 test |
 | Home/End in menubar and dropdown | `keyboard-nav.spec.ts` | 2 tests |
-| Escape closes, focus returns to trigger | `keyboard-nav.spec.ts` | 1 test |
+| Escape closes, focus returns to trigger | `keyboard-nav.spec.ts` | 2 tests |
 | ArrowRight/Left switches between menus | `keyboard-nav.spec.ts` | 2 tests |
-| Submenu open/close (ArrowRight/Left, Enter) | `keyboard-nav.spec.ts` | 3 tests |
+| ArrowDown/ArrowUp cycles menu items | `keyboard-nav.spec.ts` | 1 test |
+| Submenu open/close (ArrowRight/Left, Enter) | `keyboard-nav.spec.ts` | 2 tests |
 | Submenu ArrowDown/Up cycling | `keyboard-nav.spec.ts` | 1 test |
 | Disabled item not activatable | `keyboard-nav.spec.ts` | 1 test |
 | Accelerators fire (undo/redo) | `keyboard-nav.spec.ts` | 1 test |
 | Accelerators blocked in text fields | `keyboard-nav.spec.ts` | 1 test |
-| Focus never lands on body | `keyboard-nav.spec.ts` | 2 tests |
+| Focus never lands on body | `keyboard-nav.spec.ts` | 1 test |
 | ARIA roles (menubar, menuitem, aria-expanded) | `keyboard-nav.spec.ts` | 2 tests |
 | axe-core scan of open menu | `keyboard-nav.spec.ts` | 1 test |
+| Window-chrome integrity (no native title bar in browser build, no raw `menu.*` keys, menubar placement) | `chrome-integrity.spec.ts` | 3 tests |
+| Menubar visual integrity (no clipping, theme contrast via axe) | `visual-integrity.spec.ts` | 5 tests |
 
 ## NOT Covered (and why)
 
@@ -62,6 +65,6 @@ npx playwright test tests/e2e/menus --reporter=list
 
 ## Test architecture
 
-- `helpers/menu-helpers.ts` — shared utilities (`mod()`, `openMenu()`, `assertFocusNotOnBody()`, etc.)
+- `../helpers/menu-helpers.ts` — shared utilities (`mod()`, `openMenu()`, `assertFocusNotOnBody()`, etc.)
 - `shared.ts` — `navigateToEditor()` — canonical navigation to editor
 - Type-ahead timeout is controllable via `window.__VARVE_TYPEAHEAD_MS` (set per-test via `setTypeAheadTimeout`)
