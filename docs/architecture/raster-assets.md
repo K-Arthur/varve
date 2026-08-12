@@ -22,7 +22,7 @@ ImageFillData.assetId + normalized metadata (orientation, pixel dims)
         ↓
 sceneToEngine: short resource handle in render IR (registry maps handle → src)
         ↓
-ImageCache (typed load states, URL-keyed decode)
+ImageCache (typed load states, shared decode, byte-bounded ownership)
         ↓
 main-thread Canvas2D replay            render worker (resident source map,
   (placeholder: loading vs failed)      byte-budgeted admission, set deltas)
@@ -212,7 +212,11 @@ Implementation, conservative by the evidence:
   full-size element under the at-size key (no upscale, no extra decode).
   Failures flow through the same typed classifier. Eviction and `clear()`
   close retained ImageBitmaps; `close()` is a no-op on detached bitmaps, so
-  double-close paths are harmless.
+  double-close paths are harmless. A cancelled, cleared, superseded, or
+  synchronously replaced decode cannot repopulate the cache: if its late
+  result is an ImageBitmap, the stale completion closes it exactly once.
+  Results rejected for exceeding the cache budget are returned to the
+  immediate caller but are not cache-owned, so the cache does not close them.
 - `collectImageBitmaps` accepts `maxSourceDim` — a power-of-two,
   camera-derived cap (`workerSourceCapFor`: viewport max dim x DPR x
   max(zoom, 1) x 1.25, clamped to [2048, 8192]) — and uses the at-size
