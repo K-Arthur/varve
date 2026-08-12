@@ -1101,8 +1101,19 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
   it('Ctrl+click selects the deepest non-container child at the hit point', () => {
     const tool = new SelectTool();
     // Hit returns a frame; findNodesAtPoint returns [frame, child]
-    const frameNode = { id: 'f1', kind: 'frame' as const, name: 'Frame' };
-    const childNode = { id: 'c1', kind: 'shape' as const, name: 'Child' };
+    const frameNode = {
+      id: 'f1',
+      kind: 'frame' as const,
+      name: 'Frame',
+      children: ['c1'],
+      transform: [1, 0, 0, 1, 0, 0],
+    };
+    const childNode = {
+      id: 'c1',
+      kind: 'shape' as const,
+      name: 'Child',
+      transform: [1, 0, 0, 1, 10, 10],
+    };
     const ctx = makeCtx({
       ctrlKey: true,
       hitTest: vi.fn().mockReturnValue({ nodeId: 'f1', node: frameNode }),
@@ -1170,6 +1181,55 @@ describe('SelectTool deep selection (Ctrl+click)', () => {
       ctx,
     );
     expect(ctx.toggleSelection).toHaveBeenCalledWith('c1', true);
+  });
+
+  it('Ctrl+click deep-selects an already-selected child instead of cycling to its parent', () => {
+    const tool = new SelectTool();
+    const frameNode = {
+      id: 'f1',
+      kind: 'frame' as const,
+      name: 'Frame',
+      children: ['c1'],
+      transform: [1, 0, 0, 1, 0, 0],
+    };
+    const childNode = {
+      id: 'c1',
+      kind: 'shape' as const,
+      name: 'Child',
+      transform: [1, 0, 0, 1, 10, 10],
+    };
+    const ctx = makeCtx({
+      selection: ['c1'],
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'c1', node: childNode }),
+      isSelected: vi.fn().mockReturnValue(true),
+      getNode: vi.fn((id: string) => (id === 'f1' ? frameNode : childNode)),
+      document: {
+        nodes: { f1: frameNode, c1: childNode },
+        pages: [],
+        rootChildren: ['f1'],
+        activePageId: 'page1',
+      } as any,
+    });
+    (tool as any).findNodesAtPoint = vi.fn().mockReturnValue([
+      { nodeId: 'c1', node: childNode },
+      { nodeId: 'f1', node: frameNode },
+    ]);
+
+    tool.onPointerDown(
+      {
+        clientX: 50,
+        clientY: 50,
+        pointerId: 1,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: true,
+        metaKey: false,
+      } as any,
+      ctx,
+    );
+
+    expect(ctx.setSelection).toHaveBeenCalledWith('c1');
+    expect(ctx.setSelection).not.toHaveBeenCalledWith('f1');
   });
 });
 
