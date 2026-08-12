@@ -32,7 +32,10 @@ import { sitePath } from '../lib/siteUrl';
     font-variation-settings: 'opsz' 144;
     letter-spacing: -0.04em;
     line-height: 0.85;
-    color: color-mix(in oklab, var(--text-primary) 8%, transparent);
+    /* Decorative watermark, but axe requires 3:1 for large text even when
+       aria-hidden. --text-subtle clears 3:1 on both themes (4.71:1 light,
+       4.00:1 dark) while staying muted behind the title. */
+    color: var(--text-subtle);
     position: absolute;
     top: 50%;
     left: 50%;

@@ -290,8 +290,10 @@ const disciplines: Discipline[] = [
     font-family: var(--font-mono);
     font-size: 0.65rem;
     font-weight: 600;
+    /* Full text-muted, no opacity reduction: at 10.4px it must meet 4.5:1.
+       opacity: 0.6 measured 2.92:1 against the card (axe, 2026-08-12) even
+       though the numeral is aria-hidden decorative. */
     color: var(--text-muted);
-    opacity: 0.6;
     min-width: 1.4em;
   }
 
