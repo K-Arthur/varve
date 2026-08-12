@@ -84,9 +84,14 @@ reinterpret invalid profiles).
 ## Cache and worker rules
 
 - Identical cache requests share one pending load.
-- A cancelled, cleared, or superseded token cannot repopulate the cache.
+- A cancelled, cleared, superseded, or synchronously replaced token cannot
+  repopulate the cache; a stale `ImageBitmap` completion is closed exactly
+  once when the cache no longer owns it.
 - The decoded cache is bounded by both entry count and estimated RGBA bytes.
-- Oversized decodes may be used by the immediate caller but are not retained.
+- Oversized decodes may be used by the immediate caller but are not retained;
+  the cache does not close that caller-owned result.
+- Replacing a retained decoded bitmap closes the previous cache-owned bitmap
+  before publishing the replacement.
 - Cache reset clears pending state and listeners before replacing the singleton.
 - Cache failures are typed (`ImageLoadError`: missing/corrupt/unsupported/
   permission/unavailable/cors/unknown); remote failures are classified by

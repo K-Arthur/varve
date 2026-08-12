@@ -133,12 +133,12 @@ export class ImageCache {
     }
   }
 
-  private remove(url: string, countEviction: boolean): void {
+  private remove(url: string, countEviction: boolean, dispose = true): void {
     const bytes = this.entryBytes.get(url) ?? 0;
     this.retainedBytes = Math.max(0, this.retainedBytes - bytes);
     this.entryBytes.delete(url);
     const entry = this.cache.get(url);
-    if (entry?.state === 'loaded') this.closeImage(entry.image);
+    if (dispose && entry?.state === 'loaded') this.closeImage(entry.image);
     this.cache.delete(url);
     this.accessTimes.delete(url);
     if (countEviction) this.evictions++;
@@ -262,7 +262,13 @@ export class ImageCache {
     // Inline data:/blob: URLs are always same-origin, so skip the CORS dance.
     const promise = (isInline ? attempt(false) : attempt(true).catch(() => attempt(false)))
       .then((img) => {
-        if (this.loadTokens.get(url) !== loadToken) return img;
+        if (this.loadTokens.get(url) !== loadToken) {
+          // The request was cancelled, superseded, or cleared while the
+          // browser was decoding. The cache no longer owns this result, so
+          // release transferable resources instead of leaking them.
+          this.closeImage(img);
+          return img;
+        }
         const bytes = this.estimateBytes(img);
         this.cache.set(url, { state: 'loaded', image: img });
         this.pending.delete(url);
@@ -275,7 +281,11 @@ export class ImageCache {
         this.notifyListeners(url);
         if (bytes > this.maxBytes) {
           this.rejectedOversize++;
-          this.remove(url, false);
+          // The caller still owns an oversized result returned from load().
+          // It cannot be retained by this cache, but closing it here would
+          // make the successful return value unusable when it is an
+          // ImageBitmap.
+          this.remove(url, false, false);
         } else {
           this.evictIfNeeded();
         }
@@ -389,6 +399,14 @@ export class ImageCache {
    * already has the decoded image and wants it available synchronously.
    */
   setLoaded(url: string, image: CachedImage): void {
+    // Invalidate an older async decode before publishing the replacement.
+    // The stale completion will dispose its own result when it arrives.
+    this.loadTokens.delete(url);
+    this.pending.delete(url);
+    const previous = this.cache.get(url);
+    if (previous?.state === 'loaded' && previous.image && previous.image !== image) {
+      this.closeImage(previous.image);
+    }
     const previousBytes = this.entryBytes.get(url) ?? 0;
     this.retainedBytes = Math.max(0, this.retainedBytes - previousBytes);
     const bytes = this.estimateBytes(image);
@@ -518,7 +536,10 @@ export class ImageCache {
 
     const promise = this.decodeAtSize(url, maxDim, source)
       .then((image) => {
-        if (this.loadTokens.get(key) !== loadToken) return image;
+        if (this.loadTokens.get(key) !== loadToken) {
+          this.closeImage(image);
+          return image;
+        }
         const bytes = this.estimateBytes(image);
         this.cache.set(key, { state: 'loaded', image });
         this.pending.delete(key);
@@ -529,7 +550,9 @@ export class ImageCache {
         this.notifyListeners(key);
         if (bytes > this.maxBytes) {
           this.rejectedOversize++;
-          this.remove(key, false);
+          // As with full-size loads, an oversized at-size result is returned
+          // to the immediate caller but is not retained by the cache.
+          this.remove(key, false, false);
         } else {
           this.evictIfNeeded();
         }

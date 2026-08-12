@@ -8,6 +8,8 @@ import {
   SubjectIsolationService,
 } from '../backgroundRemoval/SubjectIsolationService';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
+import { setCollapsed } from '../components/Inspector/sectionState';
+import { requestInspectorTab } from './inspectorTabBridge';
 import type { EditorState, MaskPreviewMode, TrimapPenMode } from './types';
 
 export interface BackgroundRemovalAPI {
@@ -317,6 +319,15 @@ export function useBackgroundRemoval(
           finalized.width,
           finalized.height,
         );
+        // The review region lives inside the Inspector's Background Removal
+        // disclosure (registry-collapsed by default) on the Adjustments tab.
+        // Opening both here makes every entry point (quick bar in any
+        // workspace, inspector button, batch dialog) end on a visible review
+        // instead of a silently mounted but unreachable one.
+        requestInspectorTab('adjustments');
+        patch({
+          sectionVisibility: setCollapsed(state.sectionVisibility, 'background-removal', false),
+        });
         patch({
           backgroundRemovalPreviewSession: {
             nodeId: processingNodeId,

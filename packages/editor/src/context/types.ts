@@ -860,7 +860,7 @@ export interface EditorContextValue {
   setLayerColor: (id: NodeId, color: LayerColor) => void;
 
   // Masks
-  addMaskToSelected: (type?: import('@varve/scene').MaskType) => void;
+  addMaskToSelected: (type?: import('@varve/scene').MaskType, sourceNodeId?: NodeId) => void;
   removeMaskFromSelected: () => void;
   toggleMask: () => void;
   invertMask: () => void;
