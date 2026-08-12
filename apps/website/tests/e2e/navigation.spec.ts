@@ -45,10 +45,13 @@ test('mobile menu: aria-expanded, Escape closes, focus returns', async ({ page }
 
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-  await expect(page.locator('.nav-links')).toHaveClass(/active/);
+  // The redesigned header opens a dedicated mobile panel (aria-hidden toggles
+  // to false); the desktop .nav-links list is hidden at mobile widths.
+  await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'false');
 
   await page.keyboard.press('Escape');
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
   await expect(toggle).toBeFocused();
 });
 
@@ -56,10 +59,9 @@ test('mobile menu closes after choosing a destination', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/');
   await page.locator('.mobile-menu-toggle').click();
-  await page.locator('.nav-links a[href$="/download"]').click();
+  await page.locator('.mobile-nav-panel a[href$="/download"]').click();
   await expect(page).toHaveURL(/\/download/);
-  await page.goto('/');
-  await expect(page.locator('.nav-links')).not.toHaveClass(/active/);
+  await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
 });
 
 test('active navigation state marks the current section', async ({ page }) => {
