@@ -97,6 +97,10 @@ export function SelectionQuickBarHost({
       const pendingIds: QuickBarActionId[] =
         id === 'removeBg' || id === 'upscale' || id === 'vectorize' ? [id] : [];
       if (pendingIds.length) setPending(pendingIds);
+      // Background-removal review completes inside the Adjustments inspector
+      // tab; opening it here makes the quick-bar action self-contained in
+      // every workspace instead of ending with an invisible review panel.
+      if (id === 'removeBg') editor.setInspectorTab('adjustments');
       try {
         await dispatchQuickBarAction(id, {
           selection: state.selection,

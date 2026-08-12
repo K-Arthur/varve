@@ -34,6 +34,28 @@ deliberately one coherent subsystem, not a pile of per-feature special cases.
 objects) is *not* the same as an alpha mask, a luminance mask, a vector clip,
 or an effect target scope. The model has separate, typed concepts for each.
 
+## 1b. Capability matrix
+
+This is the implementation matrix, not a type-presence checklist. A check in
+the model column is only complete when the corresponding command, renderer,
+serialization, and test paths are also present.
+
+| Capability | Model | Commands | Canvas2D | WebGPU | UI | Save/load | Import | Export | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Vector clip / clipping stack | `Mask` + `GroupNode`/`FrameNode` | create/release, retarget | native structural replay | structural Canvas2D fallback | Layers roles, drag-to-matte, inspector | versioned JSON + clone remap | SVG/PSD importer | SVG `<clipPath>`, raster/PDF fallback | scene, replay, E2E | complete with documented source limits |
+| Alpha / luminance mask | `Mask.type` | add/remove/type/parameters | pooled offscreen alpha path | structural Canvas2D fallback | Mask inspector | versioned JSON + asset validation | SVG/PSD where represented | SVG `<mask>`, raster/PDF fallback | compositing + replay | complete |
+| Raster / brush mask | `RasterMaskData` + document asset | paint/commit/remove | image-fill and frame paths | structural Canvas2D fallback except leaf IR alpha masks | mask tool and inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask, PDF raster fallback | asset, replay, E2E | complete for supported coordinate spaces |
+| Group/frame clipping | container-owned mask | create/release/reparent | nested structural replay | structural Canvas2D fallback | visible source/content labels | invariant repair on load | importer groups | native SVG where possible | transform, nesting, E2E | complete |
+| Effect spatial mask | adjustment-owned `mask` | mask CRUD | output-region compositing | structural Canvas2D fallback | Mask inspector | stable node references | format-dependent | rasterized boundary where needed | replay + E2E | complete |
+| Explicit effect targets | `AdjustmentScope` stable IDs | scope mutation | target-only source replay | structural Canvas2D fallback | accessible target picker | clone/copy remap, missing-target filtering | not applicable | rasterized adjustment boundary | scope + replay + UI | complete for four scope modes |
+| Frame clipping intersection | `clipContent` + mask | existing frame commands | clip intersection | structural Canvas2D fallback | frame + mask sections | JSON | SVG/frame import | raster/PDF fallback | replay + E2E | complete |
+
+**Evidence locations:** scene invariants and scope resolution are in
+`packages/scene/src/masks.ts`, `clippingMask.ts`, and `adjustmentScope.ts`;
+live/export structural replay is in `packages/editor/src/canvas/maskReplay.ts`
+and `packages/editor/src/render/replayScene.ts`; UI coverage is in the Mask
+section, Layers tree, action registry, and `tests/e2e/canvas/clipping-masks.spec.ts`.
+
 ## 2. The clipping relationship
 
 Representation (option C in the design space — a dedicated container):
@@ -177,11 +199,11 @@ Adjustment
 └── mask      → WHERE the result is visible (output region)
 ```
 
-The mask is applied to the filtered backdrop in place (`destination-in`):
-outside the mask the backdrop keeps its original pixels, so the underlying
-content shows through untouched. A plain hard clip skips the ImageData
-round-trip; alpha/luminance masks (and clips with invert/feather/density)
-use the post-processing path. Implemented in the live canvas
+The mask is applied to the filtered resolved-target surface in place
+(`destination-in`): outside the mask the underlying content shows through
+untouched. A plain hard clip skips the ImageData round-trip;
+alpha/luminance masks (and clips with invert/feather/density) use the
+post-processing path. Implemented in the live canvas
 (`CanvasArea.tsx` adjustment branch) and the export replay
 (`replayScene.ts`), with unit tests in both.
 
