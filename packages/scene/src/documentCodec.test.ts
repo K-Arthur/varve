@@ -87,6 +87,7 @@ describe('DocumentCodec', () => {
     const result = DocumentCodec.decode(JSON.stringify(cyclic));
 
     expect(result.ok).toBe(false);
+    if (result.ok) return;
     expect(result.error).toContain('parent cycle');
     expect(result.warnings.some((w) => w.code === 'document.parent-cycle')).toBe(true);
   });
