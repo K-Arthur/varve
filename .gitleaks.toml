@@ -19,4 +19,7 @@ paths = [
   '''packages/engine/src/backgroundRemoval/__tests__/cloudConfig.test.ts''',
   '''packages/engine/src/backgroundRemoval/__tests__/cloudProvider.test.ts''',
   '''docs/audits/menubar-audit-2026-07-23.md''',
+  # Canary sources: the scanner regression tests contain fragment-built fake
+  # credentials by design (see scripts/secret-scan.mjs + secret-scan.test.mjs).
+  '''scripts/secret-scan.test.mjs''',
 ]
