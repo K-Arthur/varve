@@ -254,7 +254,6 @@ not current-state guidance. Treat them like the dated files in
 | Doc | Purpose |
 |-----|---------|
 | `release/README.md` | Overview of the release pipeline and tooling |
-| `release/release-readiness-audit.md` | Historical audit: can this repository ship? |
 | `release/platform-support-matrix.md` | Which OSes/architectures are supported vs claimed |
 | `release/production-build.md` | Verified production build commands |
 | `release/release-checklists.md` | Alpha/beta/RC/stable checklists + rollback runbooks |
@@ -263,6 +262,10 @@ not current-state guidance. Treat them like the dated files in
 | `release/website.md` | Website architecture and launch plan |
 | `release/budget-plan.md` | Launch budget (CAD $200) and purchase triggers |
 | `release/distribution-decision-matrix.md` | Distribution channel decisions |
+
+### Release Engineering — historical records
+
+- `release/release-readiness-audit.md` — point-in-time release readiness audit (2026-08-03); records state at audited commit, not current guidance.
 
 ## Development Guide
 
