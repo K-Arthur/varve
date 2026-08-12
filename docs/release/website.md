@@ -1,7 +1,7 @@
 # Varve — Website Architecture and Launch Plan
 
-**Date:** 2026-08-04
-**Status:** implemented, deployed and live at https://k-arthur.github.io/varve/ (project site). Custom-domain switch is configuration-only; see `custom-domain-runbook.md`.
+**Date:** 2026-08-04 (updated 2026-08-12)
+**Status:** implemented, deployed and live at **https://varve.studio** (custom domain, registered and DNS at Porkbun, hosted on GitHub Pages). See `custom-domain-runbook.md` for the DNS records, GitHub configuration and rollback.
 
 ---
 
@@ -116,12 +116,12 @@ this host and are not claimed.
 
 ## 4. Domain
 
-**Defer.** `k-arthur.github.io/varve` is a working, free, honest URL.
-
-When it is worth buying (public beta), Cloudflare Registrar sells at cost with
-no renewal markup — `.com` at USD $10.44/yr ≈ **CAD $24** with tax and FX
-buffer. Verify the renewal price equals the registration price before paying;
-that is the trap most registrars set.
+**Purchased 2026-08-12: `varve.studio`, registered at Porkbun.** Porkbun is
+the registrar AND the DNS provider (nameservers `curitiba/fortaleza/maceio/
+salvador.ns.porkbun.com`). Hosting stays on GitHub Pages; Porkbun hosting is
+not used. Canonical origin is `https://varve.studio`; `www.varve.studio`
+canonicalizes there. See `custom-domain-runbook.md` for the exact DNS records,
+GitHub Pages settings, verification state and rollback.
 
 Do not buy `.design` (~USD $40–50/yr) for a vanity TLD at alpha.
 

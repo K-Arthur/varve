@@ -1,190 +1,194 @@
-# Varve — Custom-Domain Runbook (GitHub Pages)
+# Varve — Production Domain (Porkbun + GitHub Pages)
 
-**Applies to:** moving the public site from its default project-site URL
-`https://k-arthur.github.io/varve/` to a purchased domain.
+**Applies to:** the production website origin `https://varve.studio`.
 
-**Status:** the configuration-only path described here is implemented and
-tested (both deployment modes pass the full e2e suite in CI). No domain has
-been purchased or configured — do not run these steps until one is.
+**Status:** performed 2026-08-12. `varve.studio` is registered at **Porkbun**,
+Porkbun is also the **DNS provider** (nameservers
+`curitiba/fortaleza/maceio/salvador.ns.porkbun.com`), and the site is **hosted
+on GitHub Pages** (Actions deployment, `build_type=workflow`). Porkbun Static
+Hosting is deliberately **not** used — hosting remains GitHub Pages; the
+registrar only registers the domain and serves DNS.
 
-**The default URL today:** `https://k-arthur.github.io/varve/`. Varve is a
-GitHub Pages **project site**; this repository is not named
-`K-Arthur.github.io`, so the owner-level site does not exist and is not
-required. Do not rename the repository.
+| Component | Owner | Value |
+|---|---|---|
+| Registrar | Porkbun | `varve.studio` |
+| DNS provider | Porkbun | porkbun nameservers |
+| Hosting | GitHub Pages | `K-Arthur/varve` (workflow build, `actions/deploy-pages`) |
+| Canonical origin | — | `https://varve.studio` |
+| `www` behavior | GitHub Pages | `www.varve.studio` serves the site, GitHub redirects it to the apex |
+| Deploy method | GitHub Actions | `.github/workflows/website-deploy.yml` |
+| Domain configured where | GitHub | Repository → Settings → Pages → Custom domain |
+| Legacy URL | GitHub | `https://k-arthur.github.io/varve/` (redirects to `https://varve.studio/`) |
 
-**One rule above all:** switching domains must be configuration and GitHub/DNS
-settings — never source-code edits. Every link, asset, canonical URL, Open
-Graph URL, sitemap entry, robots location and JSON-LD URL is derived from
+**One rule above all:** every link, asset, canonical URL, Open Graph URL,
+sitemap entry, robots location and JSON-LD URL on the site is derived from
 `SITE_URL` + `SITE_BASE` (see `apps/website/astro.config.mjs` and
-`apps/website/src/lib/siteUrl.ts`). Change the two variables, redeploy, done.
+`apps/website/src/lib/siteUrl.ts`). The production build uses the defaults
+(`https://varve.studio`, base `/`) with **no environment variables** in the
+deploy workflow. The legacy Pages mode is preserved as `build:website:pages`
+(`SITE_URL=https://k-arthur.github.io`, `SITE_BASE=/varve`) for the CI
+dual-mode suite and for rollback.
 
 ---
 
-## 1. Decide: apex or www
+## 1. DNS zone on Porkbun
 
-Choose ONE canonical address. GitHub can redirect the noncanonical variant to
-it, but you must configure both or the wrong one silently 404s.
+Zone as found before the migration (Porkbun parking defaults):
 
-| Canonical | Configure in Pages settings | DNS for the other |
-|---|---|---|
-| `varve.example` (apex) | `varve.example` | `www` → `k-arthur.github.io` (CNAME) |
-| `www.varve.example` (subdomain) | `www.varve.example` | apex → GitHub's `A` records (below) |
+| Type | Host | Answer | Purpose |
+|---|---|---|---|
+| A | (root/apex) | `207.207.210.107` | Porkbun parking page — replaced |
+| A | (root/apex) | `207.207.210.229` | Porkbun parking page — replaced |
+| CNAME | `www` | `pixie.porkbun.com` | Porkbun parking — replaced |
 
-`varve.github.io` is **not** available: that hostname belongs to the `varve`
-GitHub account or organization and cannot be claimed by this repository.
+There were no TXT, MX, CAA, AAAA or DNSSEC records, and nothing used for
+email, analytics, domain verification or other services. Nothing unrelated had
+to be preserved.
 
-## 2. Verify the domain in the account first
+### Required records
 
-In GitHub account settings (Settings → Pages → Verified domains — accessible
-from the account, not the repo), add the domain and complete the TXT-record
-verification **before** attaching it to the repository. This proves ownership
-to GitHub and prevents anyone else from claiming it.
+In Porkbun DNS for `varve.studio`, the root host field is left **blank**
+(blank root host = the apex; do not type `@`). TTL 600 (10 min) is
+recommended for cutover; 3600 after stability.
 
-## 3. Add the custom domain to the repository
+| Type | Host | Answer | TTL | Purpose |
+|---|---|---|---|---|
+| A | *(blank = apex)* | `185.199.108.153` | 600 | GitHub Pages IPv4 (apex) |
+| A | *(blank = apex)* | `185.199.109.153` | 600 | GitHub Pages IPv4 (apex) |
+| A | *(blank = apex)* | `185.199.110.153` | 600 | GitHub Pages IPv4 (apex) |
+| A | *(blank = apex)* | `185.199.111.153` | 600 | GitHub Pages IPv4 (apex) |
+| AAAA | *(blank = apex)* | `2606:50c0:8000::153` | 600 | GitHub Pages IPv6 (apex) |
+| AAAA | *(blank = apex)* | `2606:50c0:8001::153` | 600 | GitHub Pages IPv6 (apex) |
+| AAAA | *(blank = apex)* | `2606:50c0:8002::153` | 600 | GitHub Pages IPv6 (apex) |
+| AAAA | *(blank = apex)* | `2606:50c0:8003::153` | 600 | GitHub Pages IPv6 (apex) |
+| CNAME | `www` | `k-arthur.github.io` | 600 | `www` hostname; GitHub redirects to apex |
+| TXT | `_github-pages-challenge-<account>.varve.studio` | *value shown by GitHub* | 600 | Domain verification — only if GitHub requests it |
 
-Repository → Settings → Pages → Custom domain → enter the chosen domain and
-Save. Do this **before** changing DNS: GitHub uses the DNS state to provision
-the TLS certificate, and it needs to know the domain is intended.
+Notes:
 
-## 4. DNS for a subdomain
+- The CNAME target is a **hostname, not a URL**: `k-arthur.github.io`, never
+  `https://k-arthur.github.io` and never `k-arthur.github.io/varve` (a CNAME
+  cannot carry a path).
+- GitHub publishes the exact A/AAAA addresses in Repository → Settings →
+  Pages after the domain is added; **re-verify them there** — they have
+  changed before.
+- The apex records must be plain `A`/`AAAA` records. Porkbun also offers an
+  ALIAS feature; plain A/AAAA is what GitHub recommends and what is
+  configured here.
+- No `*.varve.studio` wildcard: a wildcard pointing at GitHub Pages is a
+  domain-takeover hazard. Only `www` is enumerated.
+- **Do not** enable Porkbun Static Hosting or Porkbun's GitHub Connect. The
+  site is hosted by GitHub Pages; Porkbun only registers the domain and
+  serves DNS.
+- **No MX/SPF/DKIM/DMARC records exist.** None are needed until an email
+  provider is chosen (then MX + SPF + DKIM + DMARC would be added at Porkbun;
+  see section 5 of `docs/plans/website-operations-guide.md` if one is ever
+  configured — nothing current blocks `hello@` / `support@` /
+  `security@` / `press@varve.studio` later).
 
-For a `www` (or any subdomain) canonical address, point it with a CNAME at the
-**bare Pages host**:
+## 2. GitHub Pages configuration
 
-```
-www  CNAME  k-arthur.github.io.
-```
+Configured in Repository → Settings → Pages (performed via the REST API
+`PUT /repos/K-Arthur/varve/pages` with `cname: varve.studio`):
 
-Never `k-arthur.github.io/varve` — a CNAME target is a hostname, and the
-`/varve` path is added by the site build via `SITE_BASE`.
+- **Custom domain:** `varve.studio`
+- **Enforce HTTPS:** on (once the certificate is provisioned — do not enable
+  it before TLS is issued, it locks the site behind broken HTTPS)
+- **Build and deployment:** GitHub Actions (`build_type=workflow`), source
+  `master`
 
-## 5. DNS for an apex domain
+Domain ownership: GitHub's account-level verified-domains feature (Settings →
+Pages → Verified domains) has no public API; if used, it issues a
+`_github-pages-challenge-<account>.varve.studio` TXT record to add at Porkbun.
+The repo-level custom-domain flow provisions TLS automatically once the apex
+A records resolve to GitHub's addresses. Do not remove the verification TXT
+record until GitHub explicitly reports the domain verified.
 
-GitHub currently supports apex domains via `A` (and `AAAA`) records or an
-`ALIAS`/`ANAME` record from your DNS provider. GitHub publishes the exact
-addresses in the Pages settings page after the domain is added; the current
-documented set is:
+TLS: the certificate for `varve.studio` is provisioned by **GitHub Pages**.
+Do not download or install a Porkbun SSL certificate, and never commit
+certificates or private keys to the repository.
 
-```
-@  A    185.199.108.153
-@  A    185.199.109.153
-@  A    185.199.110.153
-@  A    185.199.111.153
-@  AAAA  2606:50c0:8000::153
-@  AAAA  2606:50c0:8001::153
-@  AAAA  2606:50c0:8002::153
-@  AAAA  2606:50c0:8003::153
-```
+## 3. HTTPS + redirect behavior
 
-**Verify these addresses against GitHub's Pages settings page at configuration
-time** — they have changed before. If your provider supports ALIAS/ANAME for
-apex hosts, `@  ALIAS  k-arthur.github.io.` is a valid alternative.
+- `http://varve.studio` → `https://varve.studio` (GitHub Pages Enforce HTTPS)
+- `http://www.varve.studio` → `https://varve.studio` (www redirects to apex)
+- `https://www.varve.studio` → `https://varve.studio` (GitHub's www→apex
+  redirect; both must resolve for this to work)
+- `https://k-arthur.github.io/varve/` → `https://varve.studio/` (GitHub's
+  redirect for the legacy URL while the custom domain is configured)
 
-## 6. Do not use wildcard DNS
+HSTS is **not** preloaded and GitHub Pages cannot set the HSTS header; the
+domain should not be submitted to the HSTS preload list until HTTPS has been
+stable for a long period.
 
-`*.varve.example  CNAME  k-arthur.github.io` is a **domain-takeover hazard**:
-any subdomain pointing at a GitHub user with a Pages site (or future
-deployment) can serve content under your domain. GitHub's own DNS guidance
-rejects wildcards for this reason. Enumerate the subdomains you actually use.
+## 4. Verification
 
-## 7. Configure both apex and www
-
-GitHub redirects the noncanonical variant to the canonical one **only when
-both resolve**. If you host `varve.example` as canonical, also point `www`
-at `k-arthur.github.io` (or vice versa) so both work and the redirect lands
-where you expect.
-
-## 8. Wait for verification and TLS provisioning
-
-GitHub checks DNS and provisions the certificate automatically. This can take
-minutes to hours. The Pages settings page shows the state; do not proceed to
-"Enforce HTTPS" until the certificate is issued, or you will lock the site
-behind a broken HTTPS.
-
-## 9. Enforce HTTPS
-
-Pages settings → Enforce HTTPS → enable once the certificate is provisioned.
-
-## 10. Rebuild with SITE_BASE=/
-
-The site is deployed by `.github/workflows/website-deploy.yml`, which reads
-the build variables. Set, in the workflow or via repository environment
-variables:
-
-```
-SITE_URL=https://<chosen-domain>    # no trailing slash
-SITE_BASE=/                         # root deployment
-```
-
-The same source now produces a root-hosted site: internal links,
-canonical URLs, OG images, sitemap and robots all switch automatically. This
-is verified continuously by the `custom-domain` project in
-`playwright.website.config.ts` (built from the same `SITE_URL`/`SITE_BASE`
-variables, served at `/`).
-
-## 11. Verify redirects from the old project URL
-
-`https://k-arthur.github.io/varve/` should 301 to the new domain once DNS and
-Pages settings propagate. Verify:
+After any DNS change, verify with real DNS tools against multiple resolvers
+(propagation can take minutes to hours; do not mutate records repeatedly):
 
 ```sh
-curl -sI https://k-arthur.github.io/varve/ | head -5
+dig @1.1.1.1 varve.studio A
+dig @8.8.8.8 varve.studio AAAA
+dig www.varve.studio CNAME
+dig varve.studio TXT
+curl -sI https://varve.studio | head -5
+curl -sI https://www.varve.studio | head -5
 ```
 
-Then run the full post-deploy smoke suite (the workflow does this
-automatically after every deploy):
+The deploy workflow runs a bounded-retry smoke check after every deploy
+(`scripts/website/smoke-pages.mjs <url> --expect-origin https://varve.studio`):
+homepage, download, docs, nested docs page, releases, sitemap, robots,
+favicon, OG image, 404 behavior, and the canonical origin.
 
-```sh
-node scripts/website/smoke-pages.mjs https://<chosen-domain>
-```
+## 5. Troubleshooting
 
-## 12. Post-move checks
-
-- **Mixed content:** every asset, script and stylesheet must load over HTTPS
-  (the smoke check covers the asset set; grep the served HTML for `http://`).
-- **Stale canonical URLs:** fetch a few pages and confirm `<link rel=canonical>`
-  and `og:url` point at the new domain (they are derived from `SITE_URL`, so
-  a rebuild is the fix).
-- **Old sitemap entries:** the sitemap is generated from `SITE_URL`; confirm
-  no `k-arthur.github.io/varve` URLs remain in `sitemap.xml` and
-  `robots.txt`'s `Sitemap:` line.
-- **Cached assets:** Pages caches with long TTLs; if anything looks stale,
-  wait for cache expiry or bump asset filenames (Astro hashes `_astro/`
-  assets by content, so a rebuild normally suffices).
-- **Download links:** confirm the download page's asset URLs still point at
-  `https://github.com/K-Arthur/varve/releases/...` (they always have — the
-  downloads live on GitHub Releases, not on the site).
-
-## 13. Rollback
-
-To restore the default deployment:
-
-1. Revert `SITE_URL` to `https://k-arthur.github.io` and `SITE_BASE` to
-   `/varve` in the deploy configuration.
-2. Remove the custom domain from the repository's Pages settings.
-3. Redeploy (push a trivial website change or use workflow_dispatch).
-4. Confirm `https://k-arthur.github.io/varve/` serves again.
-5. Leave DNS records in place or remove them — GitHub stops serving the
-   custom domain when it is removed from settings.
-
----
-
-## How deployment actually works here (no committed CNAME)
-
-This project deploys with **GitHub Actions** (`website-deploy.yml` →
-`actions/upload-pages-artifact` + `actions/deploy-pages`). For Actions-based
-deployments, the custom domain is taken **from the repository's Pages
-settings**, and a committed `CNAME` file in the build output is not the source
-of truth and can be silently ignored (or, worse, conflict). Configure the
-domain in repository settings only; do not rely on a `CNAME` file.
-
-## What GitHub Pages can and cannot do here (honest list)
-
-| Capability | GitHub Pages | Impact |
+| Symptom | Likely layer | Fix |
 |---|---|---|
-| Custom domains + HTTPS | Yes, with the steps above | Full support |
-| HTTP→HTTPS redirect | Yes (Enforce HTTPS) | Full support |
-| Custom security headers (`_headers`-style) | **No** — Pages ignores `_headers` files and cannot set arbitrary headers | CSP is enforced via `<meta>` tag (in `Layout.astro`); other headers (X-Frame-Options etc.) cannot be set. Do not claim they are. |
-| HSTS | No (`Strict-Transport-Security` cannot be set) | Documented trade-off; GitHub serves over HTTPS anyway |
-| Server-side redirect rules (`_redirects`) | **No** | The `k-arthur.github.io/varve/` → new-domain redirect is done by GitHub itself, not by a rules file |
-| Cache control | Limited (`_headers` ignored; asset hashing is the caching strategy) | `_astro/` content-hashed filenames + `Cache-Control: max-age=0, must-revalidate` on HTML where supported |
+| `varve.studio` does not resolve | DNS | Confirm apex A records at Porkbun (blank root host); check `dig @1.1.1.1` |
+| Resolves but no HTTPS/cert pending | GitHub Pages | Wait — TLS provisioning takes minutes to hours after DNS is correct; check Settings → Pages |
+| Certificate mismatch | GitHub Pages | GitHub provisions per-hostname; make sure both `varve.studio` and `www` resolve (www needs the CNAME) |
+| `www` 404s while apex works | DNS / Pages | `www` CNAME missing, or the custom domain was never added in repo settings |
+| Assets 404 (`/varve/assets/...`) | Base path | Site is built root-based by default; a stale Pages-mode deploy (old workflow env) is serving — redeploy from master |
+| Canonical still `k-arthur.github.io` | Base path | Stale build; redeploy from master (defaults now `https://varve.studio`) |
+| Download page 404s after release | Build | Rebuild with the release workflow (`workflow_run` redeploys) |
+
+## 6. Rollback
+
+The migration is config-only and reversible per layer:
+
+1. **DNS:** at Porkbun, delete the GitHub A/AAAA/CNAME records and restore
+   the recorded parking defaults (section 1) — or leave them; GitHub stops
+   serving the custom domain when it is removed from settings.
+2. **GitHub Pages:** remove the custom domain in Settings → Pages (or
+   `DELETE`-style revert via the Pages API). `https://k-arthur.github.io/varve/`
+   serves again immediately.
+3. **Site build:** to deploy the legacy project-site build, set
+   `SITE_URL=https://k-arthur.github.io` / `SITE_BASE=/varve` as the
+   `build:website` defaults and redeploy. Rollback must be per-layer —
+   diagnose before changing anything, and never use destructive git resets.
+
+## 7. Registrar security checklist (owner, manual)
+
+- [ ] Porkbun account 2FA enabled (app or hardware key, not SMS-only)
+- [ ] Strong, unique account password in a password manager
+- [ ] Account recovery info current; API keys (if any) scoped and rotated
+- [ ] Domain lock enabled (prevents unauthorized transfer)
+- [ ] Auto-renewal enabled; payment method valid
+- [ ] Expiration date noted; renewal notifications on
+- [ ] WHOIS privacy enabled
+- [ ] DNSSEC: if enabled, confirm the chain validates; a broken DNSSEC chain
+      is worse than none — verify with `delv`/`dig +dnssec` after any change
+- [ ] Never paste Porkbun passwords, API keys, cookies or recovery codes into
+      the repository, issues, screenshots, logs or Actions artifacts
+
+## 8. What this project deliberately does NOT use
+
+| Thing | Status |
+|---|---|
+| Porkbun Static Hosting / GitHub Connect | Not used — hosting is GitHub Pages |
+| Porkbun SSL | Not used — TLS is GitHub Pages' |
+| Committed `CNAME` file | Not used — Actions deployments read the domain from repo settings; a committed CNAME is ignored/conflicting |
+| `_redirects` / `_headers` files | Not used — GitHub Pages ignores them; the `k-arthur.github.io/varve` → custom-domain redirect is GitHub's own |
+| Wildcard DNS | Not used |
+| HSTS preload | Deferred until HTTPS is long-stable |
+| Email records (MX/SPF/DKIM/DMARC) | None — to be added at Porkbun only when an email provider is chosen |

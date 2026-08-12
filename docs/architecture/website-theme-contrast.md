@@ -115,8 +115,8 @@ Unit/static (`pnpm test:website` — vitest):
 
 Browser (`pnpm test:website:e2e` — Playwright, `playwright.website.config.ts`):
 
-- two static servers: GitHub Pages mode (`/varve`, dist) and custom-domain
-  mode (`/`, dist-root) — the full suite runs in both;
+- two static servers: legacy GitHub Pages mode (`/varve`, dist-pages) and
+  production mode (`/`, dist) — the full suite runs in both;
 - computed-style contrast audit across 26 routes x 2 themes;
 - theme resolution, persistence, legacy migration, switcher `aria-pressed`
   and no-FOUC ordering; forced-colors emulation resolves surfaces to system
