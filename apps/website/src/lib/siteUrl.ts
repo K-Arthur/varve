@@ -3,15 +3,16 @@
  *
  * The site deploys in two modes from the same source:
  *
- *   - GitHub Pages project site:  origin https://k-arthur.github.io, base /varve
- *   - future custom domain:        origin https://<chosen-domain>, base /
+ *   - production custom domain:    origin https://varve.studio, base /
+ *   - legacy GitHub Pages project site: origin https://k-arthur.github.io,
+ *     base /varve (CI dual-mode suite and rollback only)
  *
  * `SITE_URL` / `SITE_BASE` in astro.config.mjs drive both modes; every link,
  * asset, canonical URL, OG image, sitemap entry and robots location must be
  * derived from them rather than hand-written. A root-relative `href="/docs"`
  * escapes the /varve project path on Pages and 404s; a hand-written
- * `https://k-arthur.github.io/varve/...` breaks the moment a custom domain is
- * configured. Both classes of bug are what this module exists to make
+ * `https://k-arthur.github.io/varve/...` breaks the moment the custom domain
+ * is the origin. Both classes of bug are what this module exists to make
  * impossible.
  *
  * `sitePath` produces a base-prefixed relative URL for internal links and
@@ -22,7 +23,7 @@
  * read `import.meta.env` (BASE_URL from the Astro base, SITE from the site).
  */
 
-const DEFAULT_SITE = 'https://k-arthur.github.io';
+const DEFAULT_SITE = 'https://varve.studio';
 
 function baseOf(base: string | undefined): string {
   const value = base || '/';
@@ -34,7 +35,7 @@ export function basePath(base?: string): string {
   return baseOf(base ?? import.meta.env.BASE_URL);
 }
 
-/** The configured site origin, without a trailing slash (e.g. https://k-arthur.github.io). */
+/** The configured site origin, without a trailing slash (e.g. https://varve.studio). */
 export function siteOrigin(site?: string): string {
   return (site ?? import.meta.env.SITE ?? DEFAULT_SITE).replace(/\/+$/, '');
 }
@@ -52,9 +53,10 @@ function isBasePrefixed(path: string, base: string): boolean {
 /**
  * Base-prefixed relative URL for an internal page or asset.
  *
- * `sitePath('/docs')` -> `/varve/docs` on the Pages build, `/docs` on a
- * custom-domain build. External URLs, mailto:/tel:/other schemes, fragments,
- * protocol-relative URLs and already-prefixed paths pass through unchanged.
+ * `sitePath('/docs')` -> `/docs` on the production build, `/varve/docs` on
+ * the legacy Pages build. External URLs, mailto:/tel:/other schemes,
+ * fragments, protocol-relative URLs and already-prefixed paths pass through
+ * unchanged.
  *
  * An empty path or the root page maps to the base itself.
  */
@@ -72,9 +74,9 @@ export function sitePath(path: string, base?: string): string {
 /**
  * Absolute URL for canonical/OG/sitemap-style metadata.
  *
- * `siteUrl('/docs')` -> `https://k-arthur.github.io/varve/docs` on Pages,
- * `https://<domain>/docs` on a custom domain. Also accepts a full URL, which
- * is returned unchanged.
+ * `siteUrl('/docs')` -> `https://varve.studio/docs` on production,
+ * `https://k-arthur.github.io/varve/docs` on the legacy Pages build. Also
+ * accepts a full URL, which is returned unchanged.
  */
 export function siteUrl(path: string, base?: string, site?: string): string {
   const full = /^[a-z][a-z0-9+.-]*:/i.test(path);
