@@ -339,6 +339,27 @@ jobs:
   expectCleanAudit(auditWorkflowYaml(text, 'release.yml'));
 }
 
+function testMisIndentedTopLevelKeyRejected() {
+  const text = `name: Fixture
+on:
+
+permissions:
+  contents: read
+  push:
+    branches: [master]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo
+`;
+  const violations = yaml(text);
+  assert.ok(
+    violations.some((v) => v.includes('triggers are nested under "permissions" instead of on:')),
+    `expected mis-indented key violation, got: ${JSON.stringify(violations, null, 2)}`,
+  );
+}
+
 function testRealWorkflowsPass() {
   let failures = 0;
   for (const file of readdirSync(WF_DIR).filter((f) => f.endsWith('.yml'))) {
@@ -373,7 +394,8 @@ testPublishGateMissingRejected();
 testTagProvenanceGateRequired();
 testMissingPermissionsBlockRejected();
 testWebsiteCheckoutPersistCredentialsRejected();
+testMisIndentedTopLevelKeyRejected();
 testCompliantReleaseFixtureClean();
 testRealWorkflowsPass();
 
-console.log('workflow-policy tests passed (17 scenarios).');
+console.log('workflow-policy tests passed (18 scenarios).');

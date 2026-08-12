@@ -1,9 +1,9 @@
 name: Build + Package
 
-on:
-
 permissions:
   contents: read
+
+on:
   push:
     branches: [main, master, feat/*]
   pull_request:

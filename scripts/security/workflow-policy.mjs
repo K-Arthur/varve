@@ -104,6 +104,49 @@ export function auditWorkflow(doc, filename) {
   const errors = [];
   const base = filename.split('/').pop();
 
+  // 16. `on:` must contain only known trigger keys. A top-level key
+  // mis-indented under `on:` (e.g. a `permissions:` block) parses silently —
+  // js-yaml yields `on: null` and the triggers land inside the misplaced key,
+  // and GitHub rejects the workflow before any job starts. Detect both
+  // symptoms: an absent `on` document and trigger keys nested under any
+  // non-`on` top-level key.
+  const KNOWN_TRIGGERS = [
+    'push',
+    'pull_request',
+    'pull_request_target',
+    'workflow_dispatch',
+    'schedule',
+    'workflow_run',
+    'workflow_call',
+    'repository_dispatch',
+  ];
+  const triggerIn = (obj) =>
+    obj && typeof obj === 'object' && !Array.isArray(obj)
+      ? Object.keys(obj).filter((k) => KNOWN_TRIGGERS.includes(k))
+      : [];
+  if (!doc.on || typeof doc.on !== 'object') {
+    const swallowedBy = Object.entries(doc)
+      .filter(([k]) => k !== 'on')
+      .map(([k, v]) => ({ key: k, triggers: triggerIn(v) }))
+      .filter((x) => x.triggers.length > 0);
+    if (swallowedBy.length > 0) {
+      errors.push(
+        `${base}: triggers are nested under "${swallowedBy[0].key}" instead of on: — ` +
+          'the workflow will fail before any job starts; check top-level key indentation',
+      );
+    } else {
+      errors.push(`${base}: no on: triggers found — the workflow cannot run`);
+    }
+  } else {
+    const badKeys = Object.keys(doc.on).filter((k) => !KNOWN_TRIGGERS.includes(k));
+    if (badKeys.length > 0) {
+      errors.push(
+        `${base}: on: contains unknown key(s) ${badKeys.join(', ')} — the workflow ` +
+          'will fail before any job starts; check top-level key indentation',
+      );
+    }
+  }
+
   // 1. pull_request_target is never acceptable in this repository.
   if (triggersOn('pull_request_target', doc.on)) {
     errors.push(`${base}: pull_request_target trigger — fork-privilege escalation risk`);
