@@ -4,10 +4,12 @@ import { defineConfig, devices } from '@playwright/test';
  * Website E2E configuration.
  *
  * Runs the same suite twice:
- *   - ghpages:      static build for GitHub Pages project mode (base /varve)
- *   - custom-domain: static build for a custom domain (base /)
+ *   - ghpages:       legacy GitHub Pages project-mode build (base /varve),
+ *                    built by `pnpm build:website:pages` into dist-pages
+ *   - custom-domain: production build for the custom domain (base /),
+ *                    built by `pnpm build:website` into dist
  *
- * Both builds are produced by `pnpm build:website:both` before the run.
+ * Both builds are produced by `pnpm test:website:e2e` before the run.
  */
 // Overridable so the suite can run alongside a website dev server, which
 // occupies 4321 by default. Without this the run aborts with "port already
@@ -26,13 +28,13 @@ export default defineConfig({
   expect: { timeout: 10000 },
   webServer: [
     {
-      command: `node apps/website/scripts/serve-dist.mjs ${GH_PAGES_PORT} apps/website/dist`,
+      command: `node apps/website/scripts/serve-dist.mjs ${GH_PAGES_PORT} apps/website/dist-pages`,
       port: GH_PAGES_PORT,
       reuseExistingServer: false,
       timeout: 15000,
     },
     {
-      command: `node apps/website/scripts/serve-dist.mjs ${CUSTOM_PORT} apps/website/dist-root`,
+      command: `node apps/website/scripts/serve-dist.mjs ${CUSTOM_PORT} apps/website/dist`,
       port: CUSTOM_PORT,
       reuseExistingServer: false,
       timeout: 15000,

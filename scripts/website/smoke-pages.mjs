@@ -9,21 +9,21 @@
  *
  * Checks: homepage, download, docs, a nested docs page, releases page,
  * sitemap, robots, favicon, OG image, and 404 behaviour. Also asserts the
- * project-site canonical prefix (/varve/) so a custom-domain misconfiguration
- * is caught here rather than by users.
+ * canonical origin (https://varve.studio) so a domain misconfiguration is
+ * caught here rather than by users.
  *
  * Usage:
- *   node scripts/website/smoke-pages.mjs <base-url> [--expect-prefix /varve]
+ *   node scripts/website/smoke-pages.mjs <base-url> [--expect-origin https://varve.studio]
  */
 const base = (process.argv[2] ?? '').replace(/\/+$/, '');
 if (!base) {
   process.stderr.write(
-    'usage: node scripts/website/smoke-pages.mjs <base-url> [--expect-prefix /varve]\n',
+    'usage: node scripts/website/smoke-pages.mjs <base-url> [--expect-origin https://varve.studio]\n',
   );
   process.exit(2);
 }
-const expectPrefix = process.argv.includes('--expect-prefix')
-  ? process.argv[process.argv.indexOf('--expect-prefix') + 1]
+const expectOrigin = process.argv.includes('--expect-origin')
+  ? process.argv[process.argv.indexOf('--expect-origin') + 1]
   : null;
 
 const ROUTES = [
@@ -96,16 +96,15 @@ for (const path of ROUTES) {
   good ? ok++ : failures++;
 }
 
-// Canonical prefix check: project-site mode must serve beneath /varve/.
-if (expectPrefix) {
+// Canonical origin check: the site must canonicalize to the production
+// origin (https://varve.studio), not the legacy GitHub Pages hostname.
+if (expectOrigin) {
   const home = await fetch(`${base}/`, { redirect: 'follow' });
   const html = await home.text();
   const canonical = html.match(/rel="canonical" href="([^"]+)"/)?.[1] ?? '';
-  const good =
-    canonical.startsWith(`${base}${expectPrefix}`) ||
-    canonical.startsWith(`https://k-arthur.github.io${expectPrefix}`);
+  const good = canonical.startsWith(expectOrigin);
   console.log(
-    `${good ? 'PASS' : 'FAIL'}  canonical prefix ${expectPrefix.padEnd(22)} ${canonical || '(none)'}`,
+    `${good ? 'PASS' : 'FAIL'}  canonical origin ${expectOrigin.padEnd(22)} ${canonical || '(none)'}`,
   );
   good ? ok++ : failures++;
 }
