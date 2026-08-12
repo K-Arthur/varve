@@ -486,7 +486,14 @@ import {
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
-import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  nodeLocalBounds,
+  nodeWorldBounds,
+  nodeWorldTransform,
+  rebaseWorldTransformToParent,
+  reparentLocalTransform,
+  worldToParent,
+} from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import { createInitialMediaState } from './state/media-state';
 import { createInitialMotionState } from './state/motion-state';
@@ -3628,9 +3635,10 @@ export function EditorProvider({
             // parent's coordinate space so that composing parent · child
             // yields the original world position. Without this, a shape
             // placed inside a translated frame jumps by the frame's offset.
-            const pWorld = nodeWorldTransform(d2, effectiveParentId);
-            const pInv = invertAffine(pWorld);
-            const localPos = applyAffine(pInv, [world.x, world.y]);
+            const localPos = worldToParent(d2, effectiveParentId, [world.x, world.y]) ?? [
+              world.x,
+              world.y,
+            ];
             const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
             node = {
               ...node,
@@ -3649,7 +3657,8 @@ export function EditorProvider({
               node.kind === 'shape' &&
               node.shape.kind === 'path'
             ) {
-              const absoluteLocal = pathPointsWorldToLocal(pathPoints, pWorld);
+              const parentWorld = nodeWorldTransform(d2, effectiveParentId);
+              const absoluteLocal = pathPointsWorldToLocal(pathPoints, parentWorld);
               const localPoints = absoluteLocal.map((p) => ({
                 ...p,
                 x: p.x - localPos[0],
@@ -6210,7 +6219,6 @@ export function EditorProvider({
           const node = doc.nodes[id];
           if (!node) return doc;
           const oldParentId = getParentFast(doc, id, parentCacheRef.current);
-          const oldWorld = nodeWorldTransform(doc, id);
           // A null newParentId means "move to the active page's top level."
           // doc.rootChildren holds each page's contentRoot group id, not page
           // content, so splicing directly into it (like createShapeAt used to)
@@ -6222,15 +6230,17 @@ export function EditorProvider({
           const effectiveParentId =
             newParentId ?? (contentRootId && doc.nodes[contentRootId] ? contentRootId : null);
           let newDoc: Document;
+          const newLocal = reparentLocalTransform(doc, id, effectiveParentId);
           if (effectiveParentId) {
             // Convert old world pos → new parent's local space.
-            const pWorld = nodeWorldTransform(doc, effectiveParentId);
-            const pInv = invertAffine(pWorld);
-            const newLocal = multiplyAffine(pInv, oldWorld);
-            newDoc = reparentNodeDoc(doc, id, effectiveParentId, toIndex, newLocal);
+            if (newLocal) {
+              newDoc = reparentNodeDoc(doc, id, effectiveParentId, toIndex, newLocal);
+            } else {
+              newDoc = doc;
+            }
           } else {
             // Move to root: local = world (root has identity transform).
-            newDoc = reparentNodeDoc(doc, id, null, toIndex, oldWorld);
+            newDoc = newLocal ? reparentNodeDoc(doc, id, null, toIndex, newLocal) : doc;
           }
           if (oldParentId) newDoc = applyFrameLayout(newDoc, oldParentId);
           if (effectiveParentId) newDoc = applyFrameLayout(newDoc, effectiveParentId);
@@ -6988,7 +6998,19 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
-        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets, closure.iconAssets);
+        // World anchor per selection root (placed world): lets paste rebuild
+        // the exact world pose inside a destination frame/artboard.
+        const worldAnchor: Record<string, Affine> = {};
+        for (const id of sel) {
+          worldAnchor[id] = nodeWorldTransform(state.document, id);
+        }
+        writeToClipboard(
+          nodes,
+          closure.rasterMaskAssets,
+          closure.assets,
+          closure.iconAssets,
+          worldAnchor,
+        );
         announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
@@ -6999,7 +7021,17 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
-        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets, closure.iconAssets);
+        const worldAnchor: Record<string, Affine> = {};
+        for (const id of sel) {
+          worldAnchor[id] = nodeWorldTransform(state.document, id);
+        }
+        writeToClipboard(
+          nodes,
+          closure.rasterMaskAssets,
+          closure.assets,
+          closure.iconAssets,
+          worldAnchor,
+        );
         updateDoc((doc) => {
           let d = doc;
           for (const id of sel) d = removeNode(d, id);
@@ -7082,6 +7114,21 @@ export function EditorProvider({
           let doc = s.document;
           const newIds: NodeId[] = [];
 
+          // Paste target: the deepest selected unlocked/visible frame or
+          // group receives pasted content. Pasting converts the source
+          // world pose into that parent's local space instead of
+          // reinterpreting local coordinates in the destination frame.
+          const targetFrameId: NodeId | null =
+            s.selection
+              .map((id) => s.document.nodes[id])
+              .find(
+                (n): n is import('@varve/scene').FrameNode =>
+                  n !== undefined &&
+                  !n.locked &&
+                  n.visible !== false &&
+                  (n.kind === 'frame' || n.kind === 'group'),
+              )?.id ?? null;
+
           if (varveData) {
             const tempNodes: Record<string, SceneNode> = {};
             for (const node of varveData.nodes) {
@@ -7107,6 +7154,7 @@ export function EditorProvider({
                 for (const childId of node.children) childIds.add(childId);
               }
             }
+            const worldAnchor = varveData.worldAnchor ?? {};
             for (const node of varveData.nodes) {
               if (childIds.has(node.id)) continue;
               // insertImportedSubtree deep-clones from tempDoc (handling
@@ -7118,6 +7166,36 @@ export function EditorProvider({
               const inserted = insertImportedSubtree(doc, tempDoc, node.id, (n) => n);
               if (!inserted) continue;
               doc = inserted.doc;
+              // World-pose preservation: the copy records each root's
+              // placed-world transform; rebase it into the destination
+              // frame's local space (or use it directly at the document
+              // top level). Without an anchor (legacy clipboard payloads)
+              // the source local coordinates are kept verbatim.
+              const anchor = worldAnchor[node.id];
+              if (anchor) {
+                if (targetFrameId && doc.nodes[targetFrameId]) {
+                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
+                  const local = rebaseWorldTransformToParent(parentWorld, anchor);
+                  if (local) {
+                    const parent = doc.nodes[targetFrameId] as ContainerNode;
+                    doc = reparentNodeDoc(
+                      doc,
+                      inserted.rootId,
+                      targetFrameId,
+                      parent?.children?.length ?? 0,
+                      local,
+                    );
+                  }
+                } else {
+                  const root = doc.nodes[inserted.rootId];
+                  if (root) {
+                    doc = {
+                      ...doc,
+                      nodes: { ...doc.nodes, [inserted.rootId]: { ...root, transform: anchor } },
+                    };
+                  }
+                }
+              }
               newIds.push(inserted.rootId);
             }
           }
@@ -7150,6 +7228,26 @@ export function EditorProvider({
               );
               if (!inserted) continue;
               doc = inserted.doc;
+              // Paste into the selected frame: rebase the viewport-centred
+              // placement into the frame's local space so the imported
+              // content lands at the intended world point INSIDE the frame.
+              if (targetFrameId && doc.nodes[targetFrameId]) {
+                const root = doc.nodes[inserted.rootId];
+                if (root) {
+                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
+                  const local = rebaseWorldTransformToParent(parentWorld, root.transform as Affine);
+                  if (local) {
+                    const parent = doc.nodes[targetFrameId] as ContainerNode;
+                    doc = reparentNodeDoc(
+                      doc,
+                      inserted.rootId,
+                      targetFrameId,
+                      parent?.children?.length ?? 0,
+                      local,
+                    );
+                  }
+                }
+              }
               newIds.push(inserted.rootId);
               pasteIndex += 1;
             }
