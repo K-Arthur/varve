@@ -54,15 +54,15 @@
   --text-link-hover: oklch(0.38 0.0577 191.62);
   --text-link-visited: oklch(0.4 0.09 250);
   --text-code: oklch(0.94 0.008 260);
-  --text-footer: oklch(0.82 0.012 260);
-  --text-footer-muted: oklch(0.78 0.015 260);
-  --text-footer-heading: var(--color-brand-teal);
-  --text-footer-link: oklch(0.78 0.012 260);
-  --text-footer-link-hover: var(--color-brand-teal);
-  /* Oversized closing wordmark. Decorative (aria-hidden), so it sits below
-     text-contrast requirements on purpose — it must read as a ground, not as
-     content competing with the links above it. */
-  --footer-signature-ink: oklch(0.31 0.026 260);
+  --text-footer: oklch(0.93 0.008 260);
+  --text-footer-muted: oklch(0.85 0.01 260);
+  --text-footer-heading: oklch(0.95 0.008 260);
+  --text-footer-link: oklch(0.93 0.008 260);
+  --text-footer-link-hover: oklch(0.97 0.02 190);
+  /* Oversized closing wordmark. Warm cream — deliberately distinct from the
+     neutral footer text, and high-contrast against the dark footer band in
+     BOTH themes (the footer surface stays dark in light mode too). */
+  --footer-signature-ink: oklch(0.955 0.012 80);
 
   /* --- Status text (on --surface-page) --- */
   --text-success: oklch(0.47 0.13 156);
@@ -77,14 +77,16 @@
   --border-interactive: var(--color-interactive-default);
   --border-accent: oklch(0.8 0.05 190);
   --border-warning: oklch(0.62 0.12 60);
-  --border-footer: oklch(0.3 0.02 260);
+  --border-footer: oklch(0.4 0.02 260);
   --focus-ring: var(--color-border-focus);
   --focus-ring-offset: 2px;
   --divider: var(--color-border-subtle);
 
   /* --- Brand / accent --- */
-  --accent-primary: oklch(0.48 0.085 190);
-  --accent-primary-hover: oklch(0.42 0.08 190);
+  /* Light mode: dark enough for white text (4.5:1+) on the accent surface,
+     and dark enough as text on white backgrounds (also 4.5:1+). */
+  --accent-primary: oklch(0.42 0.09 190);
+  --accent-primary-hover: oklch(0.36 0.085 190);
   --accent-strong: var(--color-interactive-default);
   --accent-strong-hover: var(--color-interactive-hover);
   --accent-soft: var(--color-accent-subtle);
@@ -93,17 +95,17 @@
      is a dark teal that measured 3.06:1 against the dark band. These mirror
      the [data-theme="dark"] values so a light-mode page renders the light
      teal button with dark text on those bands. */
-  --accent-dark-band: oklch(0.779 0.1229 188.31);
-  --accent-dark-band-hover: oklch(0.8387 0.0977 187.29);
-  --text-on-accent-dark-band: oklch(0.1956 0.0217 263.87);
+  --accent-dark-band: oklch(0.85 0.14 188);
+  --accent-dark-band-hover: oklch(0.9 0.12 187);
+  --text-on-accent-dark-band: oklch(0.13 0.02 264);
   --brand-teal: var(--color-brand-teal);
   --brand-sandstone: var(--color-brand-sandstone);
   --brand-terracotta: var(--color-brand-terracotta);
 
   /* --- Status badges (brand colors, dark text on them) --- */
   --status-built: var(--brand-teal);
-  --status-partial: oklch(0.75 0.12 60);
-  --status-dev: oklch(0.72 0.14 30);
+  --status-partial: oklch(0.82 0.14 60);
+  --status-dev: oklch(0.8 0.15 30);
 
   /* --- Design field (hero canvas artwork) --- */
   --df-ink: oklch(0.42 0.045 262);
@@ -113,6 +115,33 @@
   --df-sand: oklch(0.64 0.11 60);
   --df-terra: oklch(0.56 0.13 30);
   --df-snap: oklch(0.42 0.05 190);
+
+  /* --- Editorial / section accents --- */
+  --accent-warm: oklch(0.65 0.14 55);
+  --accent-warm-soft: oklch(0.95 0.04 55);
+  --surface-editorial: oklch(0.97 0.008 260);
+  --surface-dramatic: oklch(0.13 0.018 260);
+
+  /* --- Status pill tokens --- */
+  --pill-available-bg: oklch(0.93 0.04 156);
+  --pill-available-text: oklch(0.35 0.12 156);
+  --pill-available-border: oklch(0.78 0.08 156);
+  --pill-partial-bg: oklch(0.94 0.04 80);
+  --pill-partial-text: oklch(0.42 0.1 80);
+  --pill-partial-border: oklch(0.78 0.08 80);
+  --pill-beta-bg: oklch(0.94 0.035 250);
+  --pill-beta-text: oklch(0.42 0.09 250);
+  --pill-beta-border: oklch(0.78 0.07 250);
+  --pill-experimental-bg: oklch(0.94 0.04 30);
+  --pill-experimental-text: oklch(0.45 0.12 30);
+  --pill-experimental-border: oklch(0.78 0.08 30);
+  --pill-planned-bg: var(--surface-muted);
+  --pill-planned-text: var(--text-muted);
+  --pill-planned-border: var(--border-default);
+
+  /* --- Grid / technical overlay --- */
+  --grid-line: oklch(0.5 0.02 260 / 0.12);
+  --grid-line-strong: oklch(0.5 0.02 260 / 0.22);
 }
 
 [data-theme="dark"] {
@@ -139,27 +168,27 @@
   --text-muted: oklch(0.78 0.02 260);
   --text-subtle: oklch(0.8 0.018 260);
   --text-code: oklch(0.92 0.01 260);
-  --text-footer: oklch(0.82 0.012 260);
-  --text-footer-muted: oklch(0.78 0.015 260);
-  --text-footer-link: oklch(0.8 0.012 260);
+  --text-footer: oklch(0.93 0.008 260);
+  --text-footer-muted: oklch(0.85 0.01 260);
+  --text-footer-link: oklch(0.93 0.008 260);
 
   --text-success: oklch(0.81 0.12 156);
   --text-warning: oklch(0.82 0.11 80);
   --text-danger: oklch(0.79 0.13 27);
   --text-info: oklch(0.8 0.1 250);
-  --accent-primary: var(--color-accent-primary);
-  --accent-primary-hover: oklch(0.75 0.1 189);
+  --accent-primary: oklch(0.82 0.12 189);
+  --accent-primary-hover: oklch(0.88 0.1 189);
 
   /* Same values as the light block: dark-band surfaces are dark in every
      theme, so their accent set does not change with the active theme. */
-  --accent-dark-band: oklch(0.779 0.1229 188.31);
-  --accent-dark-band-hover: oklch(0.8387 0.0977 187.29);
-  --text-on-accent-dark-band: oklch(0.1956 0.0217 263.87);
+  --accent-dark-band: oklch(0.85 0.14 188);
+  --accent-dark-band-hover: oklch(0.9 0.12 187);
+  --text-on-accent-dark-band: oklch(0.13 0.02 264);
 
   --border-subtle: var(--color-border-subtle);
   --border-accent: oklch(0.7 0.09 190);
   --border-warning: oklch(0.72 0.11 60);
-  --border-footer: oklch(0.28 0.02 260);
+  --border-footer: oklch(0.38 0.02 260);
   --divider: var(--color-border-subtle);
 
   --df-ink: oklch(0.82 0.03 262);
@@ -169,6 +198,33 @@
   --df-sand: oklch(0.78 0.11 60);
   --df-terra: oklch(0.72 0.12 30);
   --df-snap: oklch(0.79 0.09 190);
+
+  /* --- Editorial / section accents (dark) --- */
+  --accent-warm: oklch(0.72 0.12 55);
+  --accent-warm-soft: oklch(0.25 0.04 55);
+  --surface-editorial: oklch(0.18 0.012 260);
+  --surface-dramatic: oklch(0.08 0.015 260);
+
+  /* --- Status pill tokens (dark) --- */
+  --pill-available-bg: oklch(0.25 0.04 156);
+  --pill-available-text: oklch(0.82 0.1 156);
+  --pill-available-border: oklch(0.4 0.08 156);
+  --pill-partial-bg: oklch(0.26 0.04 80);
+  --pill-partial-text: oklch(0.82 0.1 80);
+  --pill-partial-border: oklch(0.42 0.08 80);
+  --pill-beta-bg: oklch(0.26 0.035 250);
+  --pill-beta-text: oklch(0.82 0.08 250);
+  --pill-beta-border: oklch(0.42 0.07 250);
+  --pill-experimental-bg: oklch(0.26 0.04 30);
+  --pill-experimental-text: oklch(0.82 0.1 30);
+  --pill-experimental-border: oklch(0.42 0.08 30);
+  --pill-planned-bg: var(--surface-muted);
+  --pill-planned-text: var(--text-muted);
+  --pill-planned-border: var(--border-default);
+
+  /* --- Grid / technical overlay (dark) --- */
+  --grid-line: oklch(0.7 0.02 260 / 0.1);
+  --grid-line-strong: oklch(0.7 0.02 260 / 0.18);
 }
 
 /* No-JS / pre-paint fallback: match the inline theme script in Layout.astro. */
@@ -244,6 +300,27 @@
     --df-sand: Highlight;
     --df-terra: Highlight;
     --df-snap: Highlight;
+    --accent-warm: Highlight;
+    --accent-warm-soft: Canvas;
+    --surface-editorial: Canvas;
+    --surface-dramatic: Canvas;
+    --pill-available-bg: Highlight;
+    --pill-available-text: HighlightText;
+    --pill-available-border: Highlight;
+    --pill-partial-bg: Highlight;
+    --pill-partial-text: HighlightText;
+    --pill-partial-border: Highlight;
+    --pill-beta-bg: Highlight;
+    --pill-beta-text: HighlightText;
+    --pill-beta-border: Highlight;
+    --pill-experimental-bg: Highlight;
+    --pill-experimental-text: HighlightText;
+    --pill-experimental-border: Highlight;
+    --pill-planned-bg: Canvas;
+    --pill-planned-text: GrayText;
+    --pill-planned-border: ButtonBorder;
+    --grid-line: ButtonBorder;
+    --grid-line-strong: ButtonBorder;
   }
 }
 

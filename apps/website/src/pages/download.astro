@@ -111,22 +111,23 @@ function platformTrustLabel(
 const REQUIREMENTS: Record<string, string[]> = {
   linux: [
     'OS: any x86-64 distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
+    'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig',
     'CPU: x86-64',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Display: Wayland or X11',
-    'Storage: 500 MB',
+    'Storage: 500 MB minimum free disk',
   ],
   macos: [
     'OS: macOS 13 Ventura or later',
     'CPU: Apple Silicon',
     'RAM: 4 GB minimum, 8 GB recommended',
-    'Storage: 500 MB',
+    'Storage: 500 MB minimum free disk',
   ],
   windows: [
-    'OS: Windows 10 (1809) or Windows 11',
+    'OS: Windows 10 (version 1809) or Windows 11',
     'CPU: x86-64',
     'RAM: 4 GB minimum, 8 GB recommended',
-    'Storage: 500 MB',
+    'Storage: 500 MB minimum free disk',
   ],
 };
 
@@ -201,6 +202,14 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       <p class="download-intro">
         Source-available under FSL-1.1-MIT. Your designs stay on your machine.
       </p>
+
+      <div class="mobile-download-notice" id="mobile-download-notice" hidden>
+        <strong>Varve is a desktop application.</strong>
+        <p>
+          There are no mobile or tablet builds. Open this page on Linux, macOS, or Windows to
+          choose a desktop download, or send the release link to a desktop device.
+        </p>
+      </div>
 
       {!release.hasRelease && (
         <div class="prerelease-notice">
@@ -281,9 +290,12 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     Download {p.primary.arch !== 'universal' ? `for ${p.primary.arch}` : ''}
                   </a>
                   {p.secondary && (
-                    <a href={p.secondary.url} class="btn-secondary quick-download-btn quick-download-btn-secondary" download>
-                      {p.secondary.arch !== 'universal' ? `For ${p.secondary.arch}` : p.secondary.label} &middot; {p.secondary.size}
-                    </a>
+                    <p class="quick-download-alts">
+                      <span class="alts-label">Alternate:</span>{' '}
+                      <a href={p.secondary.url} download>
+                        {p.secondary.title ?? p.secondary.label} &middot; {p.secondary.size}
+                      </a>
+                    </p>
                   )}
 
                   {p.reqSummary && <p class="quick-download-req">{p.reqSummary}</p>}
@@ -491,39 +503,57 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
 <style>
   .download-page {
-    max-width: 900px;
+    max-width: 960px;
     margin: 0 auto;
     padding: 3rem 0;
   }
   
   .download-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-size: clamp(2rem, 5vw, 2.75rem);
     font-family: var(--font-editorial);
     font-weight: 700;
     font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
     color: var(--text-primary);
   }
   
   .download-intro {
     font-size: 1.125rem;
     color: var(--text-secondary);
-    margin-bottom: 3rem;
+    margin-bottom: 2.5rem;
+    max-width: 52ch;
   }
 
-  /* --- Quick download: one scannable OS row, real data, above the fold --- */
+  .mobile-download-notice {
+    background: var(--surface-info);
+    border: 1px solid var(--border-accent);
+    border-radius: 0.75rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+  }
+
+  .mobile-download-notice p {
+    margin: 0.35rem 0 0;
+    color: var(--text-secondary);
+    line-height: 1.55;
+  }
+
+  /* --- Quick download: Antigravity-inspired clean platform grid --- */
   .quick-download {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: 1rem;
-    padding: 2rem;
+    padding: 2.5rem;
     margin-bottom: 2rem;
     overflow: hidden;
   }
 
   .quick-download-header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-default);
   }
 
   .quick-download-title {
@@ -532,21 +562,21 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     flex-wrap: wrap;
     gap: 0.6rem;
     font-family: var(--font-editorial);
-    font-size: clamp(1.4rem, 2vw + 0.5rem, 1.85rem);
+    font-size: clamp(1.5rem, 2vw + 0.5rem, 2rem);
     font-weight: 700;
     font-variation-settings: 'opsz' 96;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
     color: var(--text-primary);
-    margin: 0 0 0.4rem;
+    margin: 0 0 0.5rem;
   }
 
   .version-badge,
   .channel-badge {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
-    letter-spacing: 0.01em;
-    padding: 0.2rem 0.55rem;
+    letter-spacing: 0.02em;
+    padding: 0.2em 0.6em;
     border-radius: 0.375rem;
   }
 
@@ -557,8 +587,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   .channel-badge {
     background: var(--surface-muted);
-    color: var(--text-secondary);
+    color: var(--text-muted);
     text-transform: uppercase;
+    letter-spacing: 0.08em;
   }
 
   .quick-download-sub {
@@ -567,9 +598,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     margin: 0;
   }
 
+  /* Three-column platform grid: each column is a clean card-like region */
   .quick-download-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 0;
   }
 
@@ -577,8 +609,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.6rem;
-    padding: 0 1.5rem;
+    gap: 0.75rem;
+    padding: 0 2rem;
     border-left: 1px solid var(--border-default);
   }
 
@@ -590,27 +622,46 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .quick-download-platform {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.6rem;
     font-weight: 600;
+    font-size: 1.05rem;
     color: var(--text-primary);
     margin-bottom: 0.25rem;
   }
 
   .platform-icon {
     display: inline-flex;
-    color: var(--text-secondary);
+    color: var(--accent-primary);
   }
 
   .quick-download-btn {
     width: 100%;
     justify-content: center;
-    padding: 0.65rem 1rem;
+    padding: 0.7rem 1.2rem;
     font-size: 0.9375rem;
+    border-radius: 0.5rem;
   }
 
-  .quick-download-btn-secondary {
-    padding: 0.5rem 1rem;
+  .quick-download-alts {
     font-size: 0.8125rem;
+    color: var(--text-muted);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .quick-download-alts .alts-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .quick-download-alts a {
+    color: var(--text-link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .quick-download-alts a:hover {
+    color: var(--text-link-hover);
   }
 
   .quick-download-req {
@@ -625,6 +676,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     text-decoration: none;
     margin-top: auto;
     padding-top: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
   }
 
   .quick-download-detail-link:hover {
@@ -646,15 +700,18 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
 
   @media (max-width: 720px) {
+    .quick-download {
+      padding: 1.5rem;
+    }
+
     .quick-download-grid {
       grid-template-columns: 1fr;
-      gap: 1.75rem;
+      gap: 1.5rem;
     }
 
     .quick-download-col {
-      padding: 0;
+      padding: 1.25rem 0 0;
       border-left: none;
-      padding-top: 1.25rem;
       border-top: 1px solid var(--border-default);
     }
 
@@ -673,15 +730,16 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
   
   .platform-tab {
-    padding: 1rem 2rem;
+    padding: 0.85rem 1.75rem;
     background: none;
     border: none;
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--text-secondary);
     cursor: pointer;
     border-bottom: 2px solid transparent;
     transition: all var(--duration-fast) var(--ease-default);
+    position: relative;
   }
   
   .platform-tab:hover {
@@ -702,8 +760,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
   
   .platform-section h2 {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
+    font-family: var(--font-editorial);
     font-weight: 700;
+    font-variation-settings: 'opsz' 96;
+    letter-spacing: -0.01em;
     margin-bottom: 0.5rem;
     color: var(--text-primary);
   }
@@ -715,7 +776,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   
   .download-options {
     display: grid;
-    gap: 1.5rem;
+    gap: 1.25rem;
     margin-bottom: 2rem;
   }
   
@@ -724,6 +785,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
+    transition: border-color var(--duration-fast) var(--ease-default);
+  }
+  
+  .download-option:hover {
+    border-color: var(--border-strong);
   }
   
   .download-option.recommended {
@@ -790,24 +856,29 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   
   .system-requirements {
     background: var(--surface-muted);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
     margin-bottom: 2rem;
   }
   
   .system-requirements h3 {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
   }
   
   .system-requirements ul {
     list-style: none;
+    display: grid;
+    gap: 0.4rem;
   }
   
   .system-requirements li {
-    margin-bottom: 0.5rem;
     color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
   }
   
   .system-requirements strong {
@@ -827,27 +898,35 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   .integrity-notice h2 {
     font-size: 1rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
   }
   
   .release-info p {
     color: var(--text-secondary);
     margin-bottom: 0.5rem;
+    line-height: 1.6;
   }
   
   .integrity-notice p {
     color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
   }
 
-    .prerelease-notice {
+  .prerelease-notice {
     background: var(--surface-warning);
     border: 1px solid var(--border-warning);
-    border-radius: 0.5rem;
-    padding: 1rem 1.25rem;
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
     margin-bottom: 2rem;
     font-size: 0.9375rem;
     color: var(--text-secondary);
     line-height: 1.6;
+  }
+
+  .prerelease-notice strong {
+    color: var(--text-primary);
   }
 
   .prerelease-notice a {
@@ -931,10 +1010,20 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   function detectPlatform() {
     const ua = navigator.userAgent;
+    if (/android|iphone|ipad|ipod|mobile|tablet|webos|iemobile|opera mini/i.test(ua)) {
+      return 'unknown';
+    }
     if (ua.includes('Linux') && !ua.includes('Mac')) return 'linux';
     if (ua.includes('Mac')) return 'macos';
     if (ua.includes('Windows')) return 'windows';
     return 'unknown';
+  }
+
+  function isMobileOrTablet() {
+    const ua = navigator.userAgent;
+    const touchDevice = navigator.maxTouchPoints > 1;
+    return /android|iphone|ipad|ipod|mobile|tablet|webos|iemobile|opera mini/i.test(ua)
+      || (touchDevice && Math.min(screen.width, screen.height) < 1024);
   }
 
   function showDetectionBanner(platform: string) {
@@ -947,6 +1036,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
   const platformTabs = document.querySelectorAll<HTMLButtonElement>('.platform-tab');
   const platformSections = document.querySelectorAll<HTMLElement>('.platform-section');
+  const mobileNotice = document.getElementById('mobile-download-notice');
+
+  if (mobileNotice && isMobileOrTablet()) {
+    mobileNotice.hidden = false;
+  }
 
   function activatePlatform(tab: HTMLButtonElement) {
     const platform = tab.getAttribute('data-platform');

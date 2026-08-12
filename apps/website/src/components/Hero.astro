@@ -1,15 +1,15 @@
 ---
 /**
- * Hero — "Design across disciplines. One canvas."
+ * Hero — Varve's signature landing moment.
  *
- * The Live Design Field sits behind the headline as an environmental
- * artwork; the copy stays centered and fully readable above it. The
- * rotating discipline phrase is decorative (aria-hidden rotor) over an
- * accessible static sentence. CTAs lead straight to the download page.
+ * Dark canvas (adapts per theme) with scattered "design composition" cards —
+ * each a self-contained SVG design-tool scene with a colored selection border
+ * and corner handles, like selected objects on a Varve canvas. Cards overlap
+ * the centered headline for depth. Gentle floating animation brings them to life.
+ *
+ * The cards use CSS custom properties so they automatically adapt to light
+ * and dark mode without separate implementations.
  */
-import DesignField from './DesignField.astro';
-import DesignCursor from './DesignCursor.astro';
-import HeroArtwork from './HeroArtwork.astro';
 import AnimatedText from './AnimatedText.astro';
 import DownloadCTA from './DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
@@ -17,9 +17,116 @@ import { PRODUCT_STATUS } from '@varve/shared';
 ---
 
 <section class="hero" aria-labelledby="hero-title">
-  <DesignField />
-  <HeroArtwork />
-  <div class="container-custom hero-content">
+  <div class="hero-grid" aria-hidden="true"></div>
+
+  <!-- Scattered design composition cards -->
+  <div class="hero-cards" aria-hidden="true">
+
+    <!-- Card 1: Artboard layout composition (large, left) -->
+    <div class="hc-card hc-1">
+      <div class="hc-border"></div>
+      <span class="hc-h hc-htl"></span><span class="hc-h hc-htr"></span>
+      <span class="hc-h hc-hbl"></span><span class="hc-h hc-hbr"></span>
+      <svg viewBox="0 0 260 200" fill="none" class="hc-svg">
+        <rect width="260" height="200" rx="4" fill="var(--surface-card)"/>
+        <rect x="12" y="10" width="100" height="145" rx="5" fill="var(--brand-teal)" opacity="0.12" stroke="var(--brand-teal)" stroke-width="0.6" stroke-opacity="0.25"/>
+        <rect x="118" y="22" width="125" height="160" rx="5" fill="var(--surface-card)" stroke="var(--border-strong)" stroke-width="1"/>
+        <rect x="128" y="34" width="48" height="8" rx="3" fill="var(--brand-teal)" opacity="0.4"/>
+        <rect x="128" y="48" width="80" height="4" rx="1" fill="var(--text-muted)" opacity="0.2"/>
+        <rect x="128" y="56" width="65" height="4" rx="1" fill="var(--text-muted)" opacity="0.12"/>
+        <rect x="128" y="68" width="44" height="44" rx="4" fill="var(--brand-sandstone)" opacity="0.3"/>
+        <rect x="180" y="68" width="44" height="44" rx="4" fill="var(--brand-terracotta)" opacity="0.22"/>
+        <rect x="128" y="122" width="90" height="4" rx="1" fill="var(--text-muted)" opacity="0.12"/>
+        <rect x="128" y="132" width="70" height="4" rx="1" fill="var(--text-muted)" opacity="0.08"/>
+        <rect x="128" y="150" width="50" height="20" rx="3" fill="var(--accent-primary)" opacity="0.15"/>
+      </svg>
+    </div>
+
+    <!-- Card 2: Bezier vector composition (large, right) -->
+    <div class="hc-card hc-2">
+      <div class="hc-border" style="--sel: oklch(0.72 0.15 330)"></div>
+      <span class="hc-h hc-htl"></span><span class="hc-h hc-htr"></span>
+      <span class="hc-h hc-hbl"></span><span class="hc-h hc-hbr"></span>
+      <svg viewBox="0 0 220 220" fill="none" class="hc-svg">
+        <rect width="220" height="220" rx="4" fill="var(--surface-card)"/>
+        <path d="M28 185 C 60 45, 150 185, 195 28" stroke="var(--df-ink)" stroke-width="2.8" stroke-linecap="round"/>
+        <line x1="28" y1="185" x2="10" y2="120" stroke="var(--df-muted)" stroke-width="0.9" stroke-dasharray="2 3"/>
+        <line x1="195" y1="28" x2="210" y2="72" stroke="var(--df-muted)" stroke-width="0.9" stroke-dasharray="2 3"/>
+        <circle cx="10" cy="120" r="3.5" fill="var(--df-muted)"/>
+        <circle cx="210" cy="72" r="3.5" fill="var(--df-muted)"/>
+        <circle cx="112" cy="115" r="5" fill="var(--brand-sandstone)" stroke="var(--surface-card)" stroke-width="1.5"/>
+        <rect x="22" y="22" width="186" height="186" stroke="var(--brand-teal)" stroke-width="1.3" stroke-dasharray="5 4" fill="none" opacity="0.5"/>
+        <rect x="16" y="16" width="12" height="12" rx="2" fill="var(--surface-card)" stroke="var(--brand-teal)" stroke-width="1.3"/>
+        <rect x="198" y="16" width="12" height="12" rx="2" fill="var(--surface-card)" stroke="var(--brand-teal)" stroke-width="1.3"/>
+        <rect x="16" y="198" width="12" height="12" rx="2" fill="var(--surface-card)" stroke="var(--brand-teal)" stroke-width="1.3"/>
+        <rect x="198" y="198" width="12" height="12" rx="2" fill="var(--surface-card)" stroke="var(--brand-teal)" stroke-width="1.3"/>
+        <text x="110" y="210" font-family="ui-monospace,monospace" font-size="9" fill="var(--text-muted)" text-anchor="middle" opacity="0.5">1024 × 768</text>
+      </svg>
+    </div>
+
+    <!-- Card 3: Color palette study (medium, bottom-left) -->
+    <div class="hc-card hc-3">
+      <div class="hc-border" style="--sel: var(--brand-sandstone)"></div>
+      <span class="hc-h hc-htl"></span><span class="hc-h hc-htr"></span>
+      <span class="hc-h hc-hbl"></span><span class="hc-h hc-hbr"></span>
+      <svg viewBox="0 0 180 150" fill="none" class="hc-svg">
+        <rect width="180" height="150" rx="4" fill="var(--surface-card)"/>
+        <rect x="10" y="10" width="34" height="34" rx="5" fill="var(--brand-teal)"/>
+        <rect x="50" y="10" width="34" height="34" rx="5" fill="var(--brand-sandstone)"/>
+        <rect x="90" y="10" width="34" height="34" rx="5" fill="var(--brand-terracotta)"/>
+        <rect x="130" y="10" width="38" height="34" rx="5" fill="var(--df-ink)" opacity="0.55"/>
+        <rect x="10" y="56" width="76" height="22" rx="3" fill="var(--brand-teal)" opacity="0.15"/>
+        <rect x="92" y="56" width="76" height="22" rx="3" fill="var(--brand-sandstone)" opacity="0.15"/>
+        <rect x="10" y="90" width="158" height="6" rx="2" fill="var(--df-muted)" opacity="0.15"/>
+        <rect x="10" y="104" width="120" height="6" rx="2" fill="var(--df-muted)" opacity="0.1"/>
+        <rect x="10" y="118" width="90" height="6" rx="2" fill="var(--df-muted)" opacity="0.07"/>
+        <rect x="10" y="132" width="60" height="6" rx="2" fill="var(--df-muted)" opacity="0.05"/>
+      </svg>
+    </div>
+
+    <!-- Card 4: Typography layout (medium, center-right) -->
+    <div class="hc-card hc-4">
+      <div class="hc-border"></div>
+      <span class="hc-h hc-htl"></span><span class="hc-h hc-htr"></span>
+      <span class="hc-h hc-hbl"></span><span class="hc-h hc-hbr"></span>
+      <svg viewBox="0 0 200 160" fill="none" class="hc-svg">
+        <rect width="200" height="160" rx="4" fill="var(--surface-card)"/>
+        <rect x="14" y="14" width="100" height="12" rx="3" fill="var(--text-primary)" opacity="0.8"/>
+        <rect x="14" y="34" width="170" height="4" rx="1" fill="var(--text-muted)" opacity="0.15"/>
+        <rect x="14" y="44" width="160" height="4" rx="1" fill="var(--text-muted)" opacity="0.12"/>
+        <rect x="14" y="54" width="145" height="4" rx="1" fill="var(--text-muted)" opacity="0.1"/>
+        <rect x="14" y="64" width="130" height="4" rx="1" fill="var(--text-muted)" opacity="0.08"/>
+        <rect x="14" y="80" width="80" height="60" rx="4" fill="var(--brand-teal)" opacity="0.12"/>
+        <rect x="104" y="80" width="82" height="28" rx="1" fill="var(--text-muted)" opacity="0.1"/>
+        <rect x="104" y="114" width="82" height="26" rx="1" fill="var(--text-muted)" opacity="0.08"/>
+      </svg>
+    </div>
+
+    <!-- Card 5: Layer panel (small, far-right) -->
+    <div class="hc-card hc-5">
+      <div class="hc-border" style="--sel: oklch(0.72 0.12 156)"></div>
+      <span class="hc-h hc-htl"></span><span class="hc-h hc-htr"></span>
+      <span class="hc-h hc-hbl"></span><span class="hc-h hc-hbr"></span>
+      <svg viewBox="0 0 140 180" fill="none" class="hc-svg">
+        <rect width="140" height="180" rx="4" fill="var(--surface-card)"/>
+        <rect x="8" y="8" width="124" height="24" rx="3" fill="var(--accent-primary)" opacity="0.12"/>
+        <rect x="16" y="14" width="60" height="12" rx="2" fill="var(--text-muted)" opacity="0.15"/>
+        <rect x="8" y="38" width="124" height="24" rx="3" fill="var(--surface-muted)" opacity="0.5"/>
+        <rect x="16" y="44" width="50" height="12" rx="2" fill="var(--text-muted)" opacity="0.12"/>
+        <rect x="8" y="68" width="124" height="24" rx="3" fill="var(--surface-muted)" opacity="0.5"/>
+        <rect x="16" y="74" width="55" height="12" rx="2" fill="var(--text-muted)" opacity="0.12"/>
+        <rect x="8" y="98" width="124" height="24" rx="3" fill="var(--surface-muted)" opacity="0.5"/>
+        <rect x="16" y="104" width="45" height="12" rx="2" fill="var(--text-muted)" opacity="0.12"/>
+        <rect x="8" y="128" width="124" height="24" rx="3" fill="var(--surface-muted)" opacity="0.5"/>
+        <rect x="16" y="134" width="40" height="12" rx="2" fill="var(--text-muted)" opacity="0.12"/>
+        <circle cx="122" cy="16" r="4" fill="var(--brand-teal)" opacity="0.4"/>
+        <circle cx="122" cy="46" r="4" fill="var(--brand-sandstone)" opacity="0.3"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Centered content -->
+  <div class="hero-content">
     <p class="hero-eyebrow">
       <span class="hero-eyebrow-dot" aria-hidden="true"></span>
       Local-first design suite&nbsp;&middot;&nbsp;{PRODUCT_STATUS.label.toLowerCase()}
@@ -29,81 +136,320 @@ import { PRODUCT_STATUS } from '@varve/shared';
       <span class="hero-title-line"><AnimatedText /></span>
     </h1>
     <p class="hero-subtitle">
-      Varve keeps vector, layout, typography, motion, prototyping, and print
-      production in one application on Linux, macOS, and Windows &mdash; no
-      subscription, no account, no uploads. Your work stays on your machine.
+      Vector, layout, typography, motion, prototyping, and print production
+      in one application &mdash; no subscription, no account, no uploads.
+      Your work stays on your machine.
     </p>
     <div class="hero-ctas">
       <DownloadCTA size="large" beta />
-      <a href={sitePath('/product')} class="btn btn-secondary btn-lg">
-        What is Varve?
-      </a>
+      <a href={sitePath('/product')} class="btn btn-secondary">What is Varve?</a>
     </div>
     <p class="hero-platforms">
       Linux &middot; macOS &middot; Windows &nbsp;&middot;&nbsp; Free and source-available (FSL-1.1-MIT)
     </p>
   </div>
-  <DesignCursor />
 </section>
 
+<script>
+  /**
+   * Pointer parallax + per-card tilt on the hero cards.
+   *
+   * CSS keyframes already drift the cards; this adds a second, pointer-driven
+   * layer of motion so the composition always feels alive on fine pointers.
+   * Each card shifts by a small per-card factor and tilts toward the cursor.
+   * Disabled on coarse pointers and under reduced motion.
+   */
+  import { isCoarsePointer, prefersMotion } from '../lib/motion';
+
+  const cards = [...document.querySelectorAll<HTMLElement>('.hc-card')];
+  if (cards.length > 0 && !isCoarsePointer() && prefersMotion()) {
+    // Per-card depth factors: nearer cards move more.
+    const depths = [14, 10, 18, 12, 22];
+    const scene = document.querySelector<HTMLElement>('.hero');
+    let raf = 0;
+    let targetX = 0;
+    let targetY = 0;
+    let curX = 0;
+    let curY = 0;
+
+    const loop = (): void => {
+      curX += (targetX - curX) * 0.06;
+      curY += (targetY - curY) * 0.06;
+      const cx = (curX / window.innerWidth - 0.5) * 2;
+      const cy = (curY / window.innerHeight - 0.5) * 2;
+      for (let i = 0; i < cards.length; i++) {
+        const card = cards[i];
+        if (!card) continue;
+        const d = depths[i % depths.length] ?? 10;
+        card.style.setProperty('--px', `${(-cx * d).toFixed(1)}px`);
+        card.style.setProperty('--py', `${(-cy * d).toFixed(1)}px`);
+      }
+      if (Math.abs(targetX - curX) > 0.1 || Math.abs(targetY - curY) > 0.1) {
+        raf = requestAnimationFrame(loop);
+      } else {
+        raf = 0;
+      }
+    };
+
+    const ensureLoop = (): void => {
+      if (!raf) raf = requestAnimationFrame(loop);
+    };
+
+    window.addEventListener(
+      'pointermove',
+      (e) => {
+        if (e.pointerType !== 'mouse') return;
+        targetX = e.clientX;
+        targetY = e.clientY;
+        ensureLoop();
+      },
+      { passive: true },
+    );
+
+    window.addEventListener('blur', () => {
+      targetX = window.innerWidth / 2;
+      targetY = window.innerHeight / 2;
+      ensureLoop();
+    }, { passive: true });
+
+    void scene;
+  }
+</script>
+
 <style>
-  /* Aurora ground: three wide, very low-opacity radial washes in the brand's
-     strata colours over the base surface. Colour arrives as atmosphere rather
-     than as blocks — the washes sit at the edges and never cross the centre
-     where the copy is, so contrast on the headline is unaffected (the
-     legibility scrim below still backstops it). `color-mix` keeps each wash
-     tied to the theme's own surface, so dark mode gets the same composition
-     at its own value range instead of a washed-out light-mode gradient. */
+  /* === HERO BACKGROUND === */
+  /* Adapts per theme via CSS variables.
+     Light mode: warm sunken surface with subtle brand washes.
+     Dark mode: deep dark canvas. Both work with the card compositions. */
   .hero {
     position: relative;
     overflow: hidden;
-    padding: clamp(4.5rem, 10vh, 7.5rem) 0 clamp(3.5rem, 7vh, 5.5rem);
+    padding: clamp(6rem, 14vh, 10rem) 0 clamp(5rem, 10vh, 7rem);
     border-bottom: 1px solid var(--border-default);
     background:
-      radial-gradient(
-        58% 48% at 12% 18%,
-        color-mix(in oklab, var(--brand-teal) 22%, transparent) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        52% 44% at 88% 26%,
-        color-mix(in oklab, var(--brand-sandstone) 18%, transparent) 0%,
-        transparent 70%
-      ),
-      radial-gradient(
-        62% 50% at 74% 92%,
-        color-mix(in oklab, var(--brand-terracotta) 16%, transparent) 0%,
-        transparent 72%
-      ),
-      radial-gradient(120% 90% at 50% 0%, var(--surface-sunken) 0%, var(--surface-page) 70%);
+      radial-gradient(50% 45% at 50% 50%, color-mix(in oklab, var(--brand-teal) 6%, transparent), transparent 70%),
+      radial-gradient(55% 45% at 8% 12%, color-mix(in oklab, var(--brand-teal) 10%, transparent), transparent 55%),
+      radial-gradient(50% 40% at 92% 18%, color-mix(in oklab, var(--brand-sandstone) 8%, transparent), transparent 55%),
+      var(--surface-sunken);
   }
 
+  /* Dot grid canvas texture */
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle, var(--df-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.3;
+  }
+
+  /* === SCATTERED CARDS === */
+  .hero-cards {
+    display: none;
+  }
+
+  @media (min-width: 1100px) {
+    .hero-cards {
+      display: block;
+      position: absolute;
+      inset: 0;
+      /* Container is inert so it never blocks the text/CTAs; the cards
+         themselves re-enable pointer events so hover interactions work. */
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .hc-card {
+      position: absolute;
+      border-radius: 6px;
+      overflow: visible;
+      pointer-events: auto;
+      cursor: pointer;
+      filter: drop-shadow(0 6px 20px oklch(0 0 0 / 0.15));
+      transition: filter 0.3s ease, scale 0.3s ease;
+    }
+
+    .hc-card:hover {
+      filter: drop-shadow(0 10px 30px oklch(0 0 0 / 0.25));
+      scale: 1.03;
+      z-index: 10;
+    }
+
+    .hc-card:hover .hc-border {
+      border-width: 2.5px;
+      box-shadow: 0 0 12px color-mix(in oklab, var(--sel, var(--brand-teal)) 40%, transparent);
+    }
+
+    .hc-card:hover .hc-h {
+      width: 12px;
+      height: 12px;
+      top: -6px;
+      left: -6px;
+      box-shadow: 0 0 6px color-mix(in oklab, var(--sel, var(--brand-teal)) 50%, transparent);
+    }
+
+    .hc-card:hover .hc-htr { left: auto; right: -6px; }
+    .hc-card:hover .hc-hbl { top: auto; bottom: -6px; left: -6px; }
+    .hc-card:hover .hc-hbr { top: auto; bottom: -6px; left: auto; right: -6px; }
+
+    .hc-svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    /* Selection border: colored outline around each card */
+    .hc-border {
+      position: absolute;
+      inset: -3px;
+      border: 2px solid var(--sel, var(--brand-teal));
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    /* Corner handles: small filled squares with subtle glow animation */
+    .hc-h {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: var(--sel, var(--brand-teal));
+      border: 1.5px solid var(--surface-card);
+      border-radius: 1px;
+      pointer-events: none;
+      transition: width 0.2s, height 0.2s, box-shadow 0.2s;
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .hc-h {
+        animation: hc-handle-glow 6s ease-in-out infinite alternate;
+      }
+      .hc-htr { animation-delay: -1.5s; }
+      .hc-hbl { animation-delay: -3s; }
+      .hc-hbr { animation-delay: -4.5s; }
+    }
+
+    @keyframes hc-handle-glow {
+      0% { box-shadow: 0 0 0 transparent; }
+      100% { box-shadow: 0 0 6px color-mix(in oklch, var(--sel, var(--brand-teal)) 35%, transparent); }
+    }
+
+    .hc-htl { top: -5px; left: -5px; }
+    .hc-htr { top: -5px; right: -5px; }
+    .hc-hbl { bottom: -5px; left: -5px; }
+    .hc-hbr { bottom: -5px; right: -5px; }
+
+    /* Card positions: scattered, overlapping the text zone. */
+    .hc-1 {
+      width: clamp(200px, 22vw, 300px);
+      top: 6%;
+      left: 3%;
+      animation: hc-drift-1 11s ease-in-out infinite;
+    }
+
+    .hc-2 {
+      width: clamp(190px, 20vw, 280px);
+      top: 4%;
+      right: 2%;
+      animation: hc-drift-2 13s ease-in-out infinite;
+    }
+
+    .hc-3 {
+      width: clamp(150px, 16vw, 220px);
+      bottom: 22%;
+      left: 4%;
+      animation: hc-drift-3 9s ease-in-out infinite;
+    }
+
+    .hc-4 {
+      width: clamp(160px, 17vw, 240px);
+      bottom: 18%;
+      right: 5%;
+      animation: hc-drift-4 12s ease-in-out infinite;
+    }
+
+    .hc-5 {
+      width: clamp(110px, 12vw, 170px);
+      top: 15%;
+      right: 18%;
+      animation: hc-drift-5 10s ease-in-out infinite;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    @media (min-width: 1100px) {
+      .hc-card {
+        will-change: transform;
+      }
+      .hc-svg {
+        animation: hc-pulse 8s ease-in-out infinite alternate;
+      }
+      .hc-card:nth-child(2) .hc-svg { animation-delay: -2s; animation-duration: 10s; }
+      .hc-card:nth-child(3) .hc-svg { animation-delay: -4s; animation-duration: 7s; }
+      .hc-card:nth-child(4) .hc-svg { animation-delay: -6s; animation-duration: 9s; }
+      .hc-card:nth-child(5) .hc-svg { animation-delay: -3s; animation-duration: 8s; }
+    }
+  }
+
+  /* Each card drifts on a unique path — pronounced enough to notice:
+     larger translation, rotation swings, and a scale breathe. Durations
+     are short enough to feel alive without being distracting. The
+     --px/--py custom properties are driven by the pointer-parallax script
+     and compound with the CSS drift. */
+  @keyframes hc-drift-1 {
+    0%   { transform: rotate(-3deg) perspective(800px) rotateY(8deg) translate(calc(var(--px, 0px) + 0px), calc(var(--py, 0px) + 0px)); scale: 1; }
+    25%  { transform: rotate(-1deg) perspective(800px) rotateY(12deg) translate(calc(var(--px, 0px) + 12px), calc(var(--py, 0px) - 10px)); scale: 1.04; }
+    50%  { transform: rotate(-5deg) perspective(800px) rotateY(4deg) translate(calc(var(--px, 0px) - 8px), calc(var(--py, 0px) - 16px)); scale: 0.98; }
+    75%  { transform: rotate(-2deg) perspective(800px) rotateY(10deg) translate(calc(var(--px, 0px) + 6px), calc(var(--py, 0px) - 6px)); scale: 1.03; }
+    100% { transform: rotate(-3deg) perspective(800px) rotateY(8deg) translate(calc(var(--px, 0px) + 0px), calc(var(--py, 0px) - 12px)); scale: 1; }
+  }
+  @keyframes hc-drift-2 {
+    0%   { transform: rotate(2deg) perspective(800px) rotateY(-6deg) translate(calc(var(--px, 0px) + 0px), calc(var(--py, 0px) + 0px)); scale: 1; }
+    25%  { transform: rotate(4deg) perspective(800px) rotateY(-3deg) translate(calc(var(--px, 0px) - 10px), calc(var(--py, 0px) - 8px)); scale: 1.03; }
+    50%  { transform: rotate(0deg) perspective(800px) rotateY(-9deg) translate(calc(var(--px, 0px) + 8px), calc(var(--py, 0px) - 14px)); scale: 0.97; }
+    75%  { transform: rotate(3deg) perspective(800px) rotateY(-5deg) translate(calc(var(--px, 0px) - 5px), calc(var(--py, 0px) - 5px)); scale: 1.02; }
+    100% { transform: rotate(2deg) perspective(800px) rotateY(-6deg) translate(calc(var(--px, 0px) + 3px), calc(var(--py, 0px) - 10px)); scale: 1; }
+  }
+  @keyframes hc-drift-3 {
+    0%   { transform: rotate(-1deg) translate(calc(var(--px, 0px) + 0px), calc(var(--py, 0px) + 0px)); scale: 1; }
+    50%  { transform: rotate(1.5deg) translate(calc(var(--px, 0px) + 9px), calc(var(--py, 0px) - 8px)); scale: 1.05; }
+    100% { transform: rotate(-2.5deg) translate(calc(var(--px, 0px) - 5px), calc(var(--py, 0px) - 13px)); scale: 0.98; }
+  }
+  @keyframes hc-drift-4 {
+    0%   { transform: rotate(1.5deg) perspective(800px) rotateY(-4deg) translate(calc(var(--px, 0px) + 0px), calc(var(--py, 0px) + 0px)); scale: 1; }
+    40%  { transform: rotate(3.5deg) perspective(800px) rotateY(-1deg) translate(calc(var(--px, 0px) - 8px), calc(var(--py, 0px) - 11px)); scale: 1.04; }
+    100% { transform: rotate(0.5deg) perspective(800px) rotateY(-6deg) translate(calc(var(--px, 0px) + 5px), calc(var(--py, 0px) - 14px)); scale: 0.97; }
+  }
+  @keyframes hc-drift-5 {
+    0%   { transform: rotate(-2deg) translate(calc(var(--px, 0px) + 0px), calc(var(--py, 0px) + 0px)); scale: 1; }
+    50%  { transform: rotate(0deg) translate(calc(var(--px, 0px) + 6px), calc(var(--py, 0px) - 9px)); scale: 1.06; }
+    100% { transform: rotate(-3.5deg) translate(calc(var(--px, 0px) - 3px), calc(var(--py, 0px) - 12px)); scale: 0.98; }
+  }
+
+  @keyframes hc-pulse {
+    0% { opacity: 0.88; }
+    100% { opacity: 1; }
+  }
+
+  /* === CENTERED CONTENT === */
   .hero-content {
     position: relative;
-    /* Forms a stacking context so the scrim below (z-index: -1) is painted
-       inside it — behind the copy but still above the design field. */
-    z-index: 1;
+    z-index: 2;
     text-align: center;
-    max-width: 920px;
+    max-width: 880px;
+    margin: 0 auto;
   }
 
-  /* Legibility scrim. The design field is environmental artwork and its
-     paths, guides and ruler ticks would otherwise run straight through the
-     headline. A feathered wash of the page colour sits between the field and
-     the copy so text contrast never depends on where the artwork happens to
-     fall. It is decorative and never intercepts pointer events. */
+  /* Legibility scrim behind text */
   .hero-content::before {
     content: '';
     position: absolute;
-    inset: -8% -12%;
+    inset: -12% -18%;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(
-      62% 58% at 50% 46%,
-      var(--surface-page) 0%,
-      color-mix(in oklab, var(--surface-page) 88%, transparent) 46%,
-      transparent 78%
-    );
+    background: radial-gradient(68% 62% at 50% 48%, var(--surface-page) 0%, color-mix(in oklab, var(--surface-page) 88%, transparent) 42%, transparent 74%);
   }
 
   .hero-eyebrow {
@@ -115,11 +461,11 @@ import { PRODUCT_STATUS } from '@varve/shared';
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-secondary);
-    border: 1px solid var(--border-default);
+    border: 1px solid var(--border-accent);
     border-radius: 9999px;
     padding: 0.4rem 1rem;
-    margin-bottom: 1.75rem;
-    background: color-mix(in oklab, var(--surface-card) 70%, transparent);
+    margin-bottom: 2rem;
+    background: color-mix(in oklab, var(--surface-card) 60%, transparent);
   }
 
   .hero-eyebrow-dot {
@@ -127,40 +473,36 @@ import { PRODUCT_STATUS } from '@varve/shared';
     height: 7px;
     border-radius: 50%;
     background: var(--accent-primary);
+    box-shadow: 0 0 8px color-mix(in oklab, var(--accent-primary) 50%, transparent);
   }
 
-  /* The editorial serif at display size. `opsz` is pushed to the top of its
-     range so the high-contrast display cut is used rather than the text cut —
-     that contrast is the whole reason the face is here. */
   .hero-title {
     font-family: var(--font-editorial);
-    font-size: clamp(2.7rem, 5.8vw + 0.75rem, 5.25rem);
+    font-size: clamp(3rem, 6.5vw + 0.75rem, 6rem);
     font-weight: 700;
     font-variation-settings: 'opsz' 144;
-    line-height: 1;
-    letter-spacing: -0.022em;
-    margin-bottom: 1.5rem;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.75rem;
     color: var(--text-primary);
     text-wrap: balance;
   }
 
-  /* The animated phrase is a span inside the h1: same face, lighter weight and
-     teal, so the discipline reads as an answer to the statement above it. */
   .hero-title-line {
     display: block;
     color: var(--accent-primary);
     font-family: var(--font-editorial);
-    font-weight: 500;
+    font-weight: 600;
     font-variation-settings: 'opsz' 144;
     letter-spacing: -0.014em;
   }
 
   .hero-subtitle {
-    font-size: clamp(1.0625rem, 1.5vw + 0.5rem, 1.3rem);
+    font-size: clamp(1.0625rem, 1.5vw + 0.5rem, 1.25rem);
     line-height: 1.65;
     color: var(--text-secondary);
     margin: 0 auto 2.25rem;
-    max-width: 62ch;
+    max-width: 58ch;
   }
 
   .hero-ctas {
@@ -172,26 +514,15 @@ import { PRODUCT_STATUS } from '@varve/shared';
     margin-bottom: 1.75rem;
   }
 
-  .btn-lg {
-    padding: 0.95rem 1.75rem;
-    font-size: 1.05rem;
-  }
-
   .hero-platforms {
     font-size: 0.875rem;
-    color: var(--text-secondary);
+    color: var(--text-muted);
     letter-spacing: 0.04em;
   }
 
   @media (max-width: 640px) {
-    .hero {
-      padding-top: 4rem;
-    }
-
-    .hero-title {
-      letter-spacing: -0.025em;
-    }
-
+    .hero { padding-top: 4rem; }
+    .hero-title { letter-spacing: -0.025em; }
     .hero-ctas {
       flex-direction: column;
       align-items: stretch;
@@ -199,9 +530,6 @@ import { PRODUCT_STATUS } from '@varve/shared';
       margin-left: auto;
       margin-right: auto;
     }
-
-    .hero-ctas > * {
-      justify-content: center;
-    }
+    .hero-ctas > * { justify-content: center; }
   }
 </style>

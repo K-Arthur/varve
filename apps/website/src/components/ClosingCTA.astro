@@ -1,0 +1,40 @@
+---
+/**
+ * ClosingCTA — reusable closing call-to-action section.
+ *
+ * Consistent across all pages: centered editorial heading with accent word,
+ * supporting text, and download/secondary action. Uses the shared .closing-cta
+ * styles from global.css.
+ */
+import DownloadCTA from './DownloadCTA.astro';
+import Reveal from './Reveal.astro';
+
+interface Props {
+  title?: string;
+  accentWord?: string;
+  text?: string;
+  showDownload?: boolean;
+}
+
+const {
+  title = 'Start designing',
+  accentWord = 'locally.',
+  text = 'Free and source-available under FSL-1.1-MIT. Your designs stay on your machine.',
+  showDownload = true,
+} = Astro.props;
+---
+
+<section class="closing-cta" aria-labelledby="closing-cta-title">
+  <div class="container-custom closing-cta-inner">
+    <Reveal as="div">
+      <p class="section-eyebrow">Get started</p>
+      <h2 id="closing-cta-title" class="closing-cta-title">
+        {title}{' '}<span class="closing-cta-accent">{accentWord}</span>
+      </h2>
+      <p class="closing-cta-text">{text}</p>
+      <div class="closing-cta-actions">
+        {showDownload && <DownloadCTA size="large" beta />}
+      </div>
+    </Reveal>
+  </div>
+</section>
