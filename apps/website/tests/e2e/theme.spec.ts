@@ -102,9 +102,12 @@ test.describe('theme switcher', () => {
   }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await freshPage(page);
+    // The redesign renders a ThemeToggle in the desktop header AND in the
+    // mobile panel; the mobile copy is hidden until the panel opens. Scope to
+    // the visible desktop toggle so the assertion matches one control.
     const state = await page.evaluate(() => ({
       theme: document.documentElement.getAttribute('data-theme'),
-      pressed: [...document.querySelectorAll('.theme-option')].map((b) => ({
+      pressed: [...document.querySelectorAll('.nav-actions .theme-option')].map((b) => ({
         choice: b.getAttribute('data-theme-choice'),
         pressed: b.getAttribute('aria-pressed'),
         active: b.classList.contains('active'),
@@ -116,8 +119,8 @@ test.describe('theme switcher', () => {
       { choice: 'dark', pressed: 'true', active: true },
     ]);
     // The active state must be visibly distinct (not icon-only).
-    const dark = page.locator('.theme-option[data-theme-choice="dark"]');
-    const light = page.locator('.theme-option[data-theme-choice="light"]');
+    const dark = page.locator('.nav-actions .theme-option[data-theme-choice="dark"]');
+    const light = page.locator('.nav-actions .theme-option[data-theme-choice="light"]');
     const darkBg = await dark.evaluate((el) => getComputedStyle(el).backgroundColor);
     const lightBg = await light.evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(darkBg).not.toBe(lightBg);
@@ -126,12 +129,12 @@ test.describe('theme switcher', () => {
   test('clicking a theme persists it, applies it, and survives reload', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await freshPage(page);
-    await page.locator('.theme-option[data-theme-choice="light"]').click();
+    await page.locator('.nav-actions .theme-option[data-theme-choice="light"]').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     const stored = await page.evaluate(() => localStorage.getItem('varve-theme'));
     expect(stored).toBe('light');
     const pressed = await page
-      .locator('.theme-option[data-theme-choice="light"]')
+      .locator('.nav-actions .theme-option[data-theme-choice="light"]')
       .getAttribute('aria-pressed');
     expect(pressed).toBe('true');
     await page.reload();
@@ -159,7 +162,7 @@ test.describe('theme switcher', () => {
     // The stale value stays until the user chooses (no surprise rewrites)...
     expect(await page.evaluate(() => localStorage.getItem('varve-theme'))).toBe('system');
     // ...and the first click converts it into an explicit persisted choice.
-    await page.locator('.theme-option[data-theme-choice="dark"]').click();
+    await page.locator('.nav-actions .theme-option[data-theme-choice="dark"]').click();
     expect(await page.evaluate(() => localStorage.getItem('varve-theme'))).toBe('dark');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -174,7 +177,7 @@ test.describe('theme switcher', () => {
     await page.reload();
     const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     expect(theme).toBe('light');
-    await page.locator('.theme-option[data-theme-choice="dark"]').click();
+    await page.locator('.nav-actions .theme-option[data-theme-choice="dark"]').click();
     expect(await page.evaluate(() => localStorage.getItem('varve-theme'))).toBe('dark');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -183,7 +186,7 @@ test.describe('theme switcher', () => {
   test('switcher works with keyboard activation', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light' });
     await freshPage(page);
-    const darkBtn = page.locator('.theme-option[data-theme-choice="dark"]');
+    const darkBtn = page.locator('.nav-actions .theme-option[data-theme-choice="dark"]');
     await darkBtn.focus();
     await page.keyboard.press('Enter');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
@@ -308,11 +311,11 @@ test.describe('hero visibility', () => {
       await expect(subtitle).toBeInViewport();
       const ctas = page.locator('.hero-ctas');
       await expect(ctas.getByRole('link', { name: /download/i }).first()).toBeVisible();
-      await expect(ctas.getByRole('link', { name: /what is varve/i })).toBeVisible();
+      await expect(ctas.getByRole('link', { name: /What is Varve/i })).toBeVisible();
 
       const subtitleText = await subtitle.textContent();
-      expect(subtitleText).toContain('keeps vector');
-      expect(subtitleText).toContain('stays on your machine');
+      expect(subtitleText).toContain('Vector, layout, typography');
+      expect(subtitleText).toContain('Your work stays on your machine');
     });
   }
 
@@ -431,29 +434,42 @@ test.describe('mobile navigation', () => {
     await expect(toggle).toBeVisible();
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('.nav-links')).toHaveClass(/active/);
+    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'false');
     await expect(page.getByRole('link', { name: 'Product', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // Wait for the panel to finish hiding first; the focus return is
+    // synchronous with closeMenu, so asserting it after the panel state
+    // settles cannot race the close animation under parallel load.
+    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
     await expect(toggle).toBeFocused();
-    await expect(page.locator('.nav-links')).not.toHaveClass(/active/);
   });
 
   test('menu closes on desktop resize', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
     await page.locator('.mobile-menu-toggle').click();
-    await expect(page.locator('.nav-links')).toHaveClass(/active/);
+    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'false');
     await page.setViewportSize({ width: 1280, height: 900 });
-    await expect(page.locator('.nav-links')).not.toHaveClass(/active/);
+    await expect(page.locator('.mobile-nav-panel')).toHaveAttribute('aria-hidden', 'true');
   });
 
   test('mobile menu offers a Download entry', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto('/');
     await page.locator('.mobile-menu-toggle').click();
-    await expect(page.locator('.nav-download-link a')).toBeVisible();
-    await expect(page.locator('.nav-download-link a')).toHaveAttribute('href', /\/download/);
+    await expect(
+      page
+        .locator('.mobile-nav-panel')
+        .getByRole('link', { name: /download/i })
+        .first(),
+    ).toBeVisible();
+    await expect(
+      page
+        .locator('.mobile-nav-panel')
+        .getByRole('link', { name: /download/i })
+        .first(),
+    ).toHaveAttribute('href', /\/download/);
   });
 });
 

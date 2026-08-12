@@ -506,10 +506,25 @@ const versionLabel = release.hasRelease && release.version
       inset: 0;
       z-index: 200;
       pointer-events: none;
+      /* The closed sheet is translated 100% off-canvas; transform does not
+         remove it from scrollWidth, which made the page overflow at 320px
+         (measured: /features overflowed by 14px, 2026-08-12). visibility
+         removes the closed panel from the scrollable overflow entirely,
+         and the open state's visibility change happens after the slide
+         transition starts, so the animation is unaffected. */
+      visibility: hidden;
     }
 
     .mobile-nav-panel[aria-hidden='false'] {
       pointer-events: auto;
+      visibility: visible;
+      /* Delay visibility so the slide-in is visible: hidden -> visible
+         applies immediately on open; visible -> hidden waits for the slide
+         to finish on close. */
+      transition: visibility 0s 0s;
+    }
+    .mobile-nav-panel[aria-hidden='true'] {
+      transition: visibility 0s 0.3s;
     }
 
     .mobile-nav-backdrop {

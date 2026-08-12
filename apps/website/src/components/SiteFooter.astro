@@ -199,6 +199,19 @@ const statusLabel = release.hasRelease && release.version
     padding-bottom: 2.5rem;
   }
 
+  .footer-brand-title {
+    /* The global h2 rule sets color: var(--text-primary) (dark), which on
+       the always-dark footer band measures ~1.04:1. The footer's own text
+       color is the light band token; assert it here so the heading follows
+       the band, not the page. */
+    color: var(--text-footer-heading);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin: 0 0 0.9rem;
+  }
+
   .footer-brand-lockup {
     display: inline-flex;
     align-items: center;
