@@ -147,7 +147,8 @@ the membership.
 | **4 — Stable** | Add Flathub; macOS only if a Mac exists | Revenue or validated demand | Deferred |
 
 **Status snapshot 2026-08-04:** repo public, Pages live at
-`k-arthur.github.io/varve`, CI unmetered, Linux packaging verified in
+`k-arthur.github.io/varve` (moved to `https://varve.studio` 2026-08-12, see
+§8), CI unmetered, Linux packaging verified in
 containers, Model Supply Chain gate fixed. The alpha is blocked only by
 the GUI-launch-on-VM smoke test and a first green three-OS CI run.
 
@@ -182,9 +183,9 @@ repository owner as an explicit decision:
 | Microsoft Store enrolment | Identity verification, legal agreement | Start at `https://storedeveloper.microsoft.com`, choose Individual **or** Company (see §3.1) |
 | Apple Developer Program | USD $99 payment, legal agreement | Defer until a Mac is available |
 | Azure Artifact Signing | Paid Azure subscription, identity validation | Defer — Store path is free |
-| Domain purchase | Payment | See budget plan and `custom-domain-runbook.md`; defer to Scenario B trigger |
+| ~~Domain purchase~~ | — | **Done 2026-08-12.** `varve.studio` registered at Porkbun; see budget plan §3 and `custom-domain-runbook.md` |
 | ~~Making the repository public~~ | — | **Done 2026-08-04.** Secret-audited first; CI and Pages are now free |
-| ~~Enabling GitHub Pages~~ | — | **Done 2026-08-04.** `build_type=workflow`; site at `https://k-arthur.github.io/varve/` |
+| ~~Enabling GitHub Pages~~ | — | **Done 2026-08-04.** `build_type=workflow`; site at `https://k-arthur.github.io/varve/` until the custom domain landed |
 | Publishing any release | Public distribution | All release automation lands as **draft**; publishing stays manual |
 
 ## 8. Decisions recorded 2026-08-06 (distribution hardening)
@@ -192,7 +193,7 @@ repository owner as an explicit decision:
 | Decision | Choice | Rationale |
 |---|---|---|
 | GitHub Pages URL architecture | Project site at `k-arthur.github.io/varve/`; no repository rename | A repo named `K-Arthur.github.io` would be the owner-level site and is not required. All URLs derive from `SITE_URL`/`SITE_BASE`; a domain switch is configuration, not migration |
-| Custom domain | Deferred until purchased; `SITE_URL`/`SITE_BASE` + Pages settings + DNS when it happens | Runbook in `docs/release/custom-domain-runbook.md`; no committed `CNAME` (Actions deployments use repository settings) |
+| Custom domain | **Done 2026-08-12.** `https://varve.studio` (Porkbun) — `SITE_URL`/`SITE_BASE` + Pages settings + DNS | Runbook executed: `docs/release/custom-domain-runbook.md`; no committed `CNAME` (Actions deployments use repository settings) |
 | Security headers on Pages | Only what the host supports: CSP via `<meta>`; `_headers` file removed | GitHub Pages cannot set arbitrary headers; claims of X-Frame-Options/HSTS on this host would be false |
 | Release channel policy for the download page | Latest published **stable**; if none, latest published **prerelease**; drafts/deleted never | `fetch-website-release.mjs`; "latest release" endpoint alone is wrong when the first public release is a prerelease |
 | Website analytics | None by default; `ANALYTICS_DOMAIN` opt-in; GitHub download counts as aggregate metrics only | Existing decision (§6) reaffirmed; counts are not unique users/retention |

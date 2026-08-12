@@ -30,7 +30,9 @@ weights to ONNX format for use in Varve's colorization pipeline.
 
 1. Clone `https://github.com/piddnad/DDColor` at the pinned commit.
 2. Download the `.pth` checkpoint from the HuggingFace repo (Apache-2.0).
-3. Verify the checkpoint SHA-256 against the value recorded in `checksums.txt`.
+3. Verify the checkpoint SHA-256: compute it locally (`sha256sum`) and record
+   it in the [Record](#record) table below — the table is the intended place
+   for the pinned values; no `checksums.txt` is kept in this directory.
 4. Run the official export script:
 
    ```bash
