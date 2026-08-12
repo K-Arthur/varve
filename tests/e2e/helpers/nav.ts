@@ -40,4 +40,12 @@ export async function navigateToCleanEditor(page: Page): Promise<void> {
       await close.click({ timeout: 2000 }).catch(() => undefined);
     }
   }
+
+  // Keep visual and interaction fixtures free of the in-editor onboarding
+  // checklist. It is not a dialog, so the startup dialog loop above cannot
+  // dismiss it and it otherwise obscures the Layers panel screenshots.
+  const onboardingDismiss = page.locator('.onboarding-checklist__dismiss');
+  if (await onboardingDismiss.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await onboardingDismiss.click({ timeout: 5000 });
+  }
 }

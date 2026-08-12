@@ -736,6 +736,22 @@ export function canNodeHaveMask(node: SceneNode, doc?: Pick<Document, 'paints'>)
   return isContainerNode(node) || isImageShape(doc ?? {}, node);
 }
 
+/**
+ * Return whether a node can provide geometric clip data for a container mask.
+ * Keep this predicate beside mask CRUD so commands, inspectors, and document
+ * validation cannot disagree about which sources are safe to trace.
+ */
+export function canBeClipMaskSource(node: SceneNode): boolean {
+  if (node.kind === 'shape') {
+    const shapeKind = node.shape.kind;
+    if (shapeKind === 'line' || shapeKind === 'arrow') return false;
+    if (shapeKind === 'path' && !node.shape.closed) return false;
+    return true;
+  }
+  if (node.kind === 'path') return node.closed;
+  return node.kind === 'frame';
+}
+
 // ── CRUD Operations ─────────────────────────────────────────────────────────
 
 const VALID_MASK_TYPES: MaskType[] = ['clip', 'alpha', 'luminance'];
@@ -1006,6 +1022,9 @@ export function addMask(
     // clip or trace to an adjustment as its mask source. Only an
     // adjustment's own spatial mask may reference an arbitrary node.
     if (doc.nodes[sourceNodeId]?.kind === 'adjustment') return doc;
+    if (type === 'clip' && !opts?.vectorMask && !canBeClipMaskSource(doc.nodes[sourceNodeId]!)) {
+      return doc;
+    }
   }
 
   const presentation = {
@@ -1159,6 +1178,18 @@ export function setMaskTransform(
 /** Change the mask type ('clip', 'alpha', or 'luminance'). */
 export function setMaskType(doc: Document, containerId: NodeId, type: MaskType): Document {
   if (!VALID_MASK_TYPES.includes(type)) return doc;
+  const container = doc.nodes[containerId];
+  const sourceId = container?.mask?.sourceNodeId;
+  if (
+    type === 'clip' &&
+    container &&
+    sourceId &&
+    !container.mask?.vectorMask &&
+    container.kind !== 'adjustment' &&
+    (!doc.nodes[sourceId] || !canBeClipMaskSource(doc.nodes[sourceId]!))
+  ) {
+    return doc;
+  }
   return updateMaskProperty(doc, containerId, 'type', type);
 }
 
@@ -1298,6 +1329,10 @@ export function setMaskSourceNode(
     // Adjustment nodes have no renderable geometry as a mask source for
     // frame/group containers (see addMask).
     if (doc.nodes[sourceNodeId]?.kind === 'adjustment') return doc;
+    if (container.mask.type === 'clip' && !container.mask.vectorMask) {
+      const source = doc.nodes[sourceNodeId];
+      if (!source || !canBeClipMaskSource(source)) return doc;
+    }
   }
 
   // Retargeting a mask source can introduce a cycle (e.g. B's mask now

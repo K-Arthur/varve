@@ -264,7 +264,13 @@ export function cacheContentParts(en: EngineNode): SubHashReport {
   }
 
   if (en.alphaMask) {
-    parts.push(`mask:${en.alphaMask.length}`);
+    // Mask URL length alone is not a safe identity: an edited mask (v1 → v2)
+    // or a swapped render proxy can produce a payload of the same byte
+    // length, and the cache would then keep serving the OLD mask URL — stale
+    // cutout pixels on a document that never changed otherwise. Sample the
+    // URL like image srcs do (bounded, position-spread) so any content
+    // change to the mask invalidates the cached IR.
+    parts.push(`mask:${imageSrcHashProxy(en.alphaMask)}`);
     sub.mask = true;
   }
 
