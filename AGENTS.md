@@ -5,9 +5,9 @@ Local-first, cross-platform design suite. Native Rust engine on desktop
 primary dev OS.
 
 ## Toolchain (confirmed working, 2026-06-29)
-- Rust: `~/.cargo/bin` (rustc 1.96 / cargo 1.96). Source with `. "$HOME/.cargo/env"`.
+- Rust: `~/.cargo/bin` (rustc 1.97 / cargo 1.97). Source with `. "$HOME/.cargo/env"`.
 - pnpm 11.9: `~/.local/share/pnpm/bin`. Export `PNPM_HOME="$HOME/.local/share/pnpm"` and add `$PNPM_HOME/bin` to PATH.
-- just 1.54: `~/.local/bin`.
+- just 1.58: `~/.local/bin`.
 - Node 26, npm 11.16.
 - wasm32 target installed.
 - WebKitGTK 2.52.4 / GTK 3.24.52 / librsvg / openssl / fontconfig / fuse2 confirmed via pkg-config.
@@ -560,6 +560,9 @@ See `docs/architecture/text-pipeline.md`.
 | `@varve/home` | **Built** | Home/Start surface: recent files, projects, templates, file management |
 | `@varve/layout` | **Built** | CSS-native flex/grid layout IR mirroring the `varve-layout` crate |
 | `@varve/print` | **Built** | TS facade for the `varve-print` crate: font outlining, CMYK, PDF/X |
+| `@varve/tokens` | **Built** | DTCG design-token engine: parsing, validation, serialization, semantic diff, merge |
+| `@varve/history` | **Built** | Persistent revision history: operation log, revision DAG, snapshots, recovery |
+| `@varve/cli` | **Built** | Headless tooling: canonicalize, validate, semantic diff, merge driver, review bundles |
 
 ### apps/
 | App | Status | Contents |
