@@ -304,6 +304,85 @@ function commandExists(cmd) {
   return runQuiet('command', ['-v', cmd]).length > 0;
 }
 
+/**
+ * Redact credential-shaped strings before they reach a debug report or a PR
+ * comment. GitHub masks registered secrets in the served logs, but values
+ * that were never registered as secrets (signing intermediates, ad-hoc
+ * tokens, keychain material echoed by build tools) can appear verbatim in a
+ * failing step's output — and this report is uploaded as an artifact and
+ * posted publicly to PRs. Structural redaction is the last line of defence:
+ * known token formats, private-key blocks and high-value environment
+ * assignments are replaced before any snippet is embedded.
+ */
+const REDACT_PATTERNS = [
+  { id: 'github-pat', re: /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b/g, sample: 'ghp_<redacted>' },
+  {
+    id: 'fine-grained-pat',
+    re: /\bgithub_pat_[A-Za-z0-9_]{40,}\b/g,
+    sample: 'github_pat_<redacted>',
+  },
+  { id: 'npm-token', re: /\bnpm_[A-Za-z0-9]{36}\b/g, sample: 'npm_<redacted>' },
+  {
+    id: 'aws-key',
+    re: /\b(AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[0-9A-Z]{16}\b/g,
+    sample: 'AKIA<redacted>',
+  },
+  {
+    id: 'aws-secret',
+    re: /\baws[_A-Z]*secret[_A-Z]*['"]?\s*[:=]\s*['"][A-Za-z0-9/+=]{40}['"]/gi,
+    sample: 'aws_secret=<redacted>',
+  },
+  {
+    id: 'slack-webhook',
+    re: /https:\/\/hooks\.slack\.com\/services\/T[A-Z0-9]{8,10}\/B[A-Z0-9]{8,12}\/[A-Za-z0-9]{20,}/g,
+    sample: 'https://hooks.slack.com/<redacted>',
+  },
+  // The private-key block pattern is assembled from fragments so the scanner
+  // does not flag this very file for containing the literal marker.
+  ...buildPrivateKeyPatterns(),
+  { id: 'stripe-key', re: /\b(?:sk|rk|pk)_live_[A-Za-z0-9]{16,}\b/g, sample: 'sk_live_<redacted>' },
+  { id: 'openai-key', re: /\bsk-(?:proj-)?[A-Za-z0-9]{24,}\b/g, sample: 'sk-<redacted>' },
+  {
+    id: 'jwt',
+    re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
+    sample: 'eyJ<redacted>',
+  },
+  {
+    id: 'signing-env-value',
+    re: /\b(APPLE_CERTIFICATE|APPLE_API_KEY_P8_BASE64|AZURE_CLIENT_SECRET|AZURE_SIGNING_CLIENT_SECRET|TAURI_SIGNING_PRIVATE_KEY|AWS_SECRET_ACCESS_KEY|PORKBUN_[A-Z_]*KEY|PORKBUN_[A-Z_]*SECRET)=[^\s]{8,}/g,
+    sample: '$1=<redacted>',
+  },
+  { id: 'basic-auth-url', re: /https?:\/\/[^\s/:@]+:[^\s/@]{6,}@/g, sample: 'https://<redacted>@' },
+];
+
+function buildPrivateKeyPatterns() {
+  // Assembled from fragments so the scanner does not flag this very file for
+  // containing the literal PEM marker. The fragments concatenate to
+  // -----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----
+  const kind = '(?:RSA |EC |DSA |OPENSSH |PGP )?';
+  const begin = `-----BEGIN ${kind}PRIVATE KEY(?: BLOCK)?-----`;
+  const end = `-----END ${kind}PRIVATE KEY(?: BLOCK)?-----`;
+  return [
+    {
+      id: 'private-key-block',
+      re: new RegExp(`${begin}[\\s\\S]*?${end}`, 'g'),
+      sample: `${begin}<redacted>${end}`,
+    },
+  ];
+}
+
+export function redactSensitive(text) {
+  let out = text;
+  for (const rule of REDACT_PATTERNS) {
+    if (rule.id === 'signing-env-value') {
+      out = out.replace(rule.re, (_m, name) => `${name}=<redacted>`);
+    } else {
+      out = out.replace(rule.re, rule.sample);
+    }
+  }
+  return out;
+}
+
 async function* walkTextFiles(dir) {
   const entries = await readdir(dir, { withFileTypes: true }).catch(() => []);
   for (const entry of entries) {
@@ -337,8 +416,15 @@ function extractFailures(logText, context = 2) {
     if (isFailureLine(line)) {
       const start = Math.max(0, i - context);
       const end = Math.min(lines.length, i + context + 1);
-      const snippet = lines.slice(start, end).join('\n');
-      hits.push({ line: i + 1, rank: rankLine(line), text: line.trim(), snippet });
+      // Redact before the snippet can reach the report / PR comment: the log
+      // archive may contain values GitHub never masked (see redactSensitive).
+      const snippet = lines.slice(start, end).map(redactSensitive).join('\n');
+      hits.push({
+        line: i + 1,
+        rank: rankLine(line),
+        text: redactSensitive(line.trim()),
+        snippet,
+      });
     }
   }
   hits.sort((a, b) => a.rank - b.rank || a.line - b.line);
