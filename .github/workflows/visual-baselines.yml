@@ -48,11 +48,11 @@ jobs:
       - name: Install dependencies (frozen)
         run: pnpm install --frozen-lockfile
 
-      - name: Build project-site mode
-        run: pnpm build:website
+      - name: Build project-site mode (base /varve)
+        run: pnpm build:website:pages
 
       - name: Build custom-domain (root) mode
-        run: pnpm build:website:root
+        run: pnpm build:website
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
