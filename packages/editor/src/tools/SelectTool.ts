@@ -30,7 +30,7 @@ import {
   pointToSegmentDistSq,
 } from '@varve/shared';
 import { executeNudge, type NudgeDirection } from '../commands/nudge';
-import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
+import { nodeWorldBounds, nodeWorldTransform, worldToParent } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 
@@ -406,9 +406,8 @@ export class SelectTool extends BaseTool {
         const parentId = getParent(ctx.document, id);
         const toLocal = (wx: number, wy: number): { x: number; y: number } => {
           if (!parentId) return { x: wx, y: wy };
-          const pWorld = nodeWorldTransform(ctx.document, parentId);
-          const pInv = invertAffine(pWorld);
-          const local = applyAffine(pInv, [wx, wy]);
+          const local = worldToParent(ctx.document, parentId, [wx, wy]);
+          if (!local) return { x: wx, y: wy };
           return { x: local[0], y: local[1] };
         };
 
