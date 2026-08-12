@@ -12,6 +12,7 @@ import {
   isFailureLine,
   isStuckQueued,
   rankLine,
+  redactSensitive,
 } from './ci-debug.mjs';
 
 function assertTrue(condition, message) {
@@ -198,5 +199,33 @@ const infraOnly = classifyRunFailures(
 );
 assert.deepStrictEqual(infraOnly.real, [], 'infra-only run has no real failures');
 assert.strictEqual(infraOnly.infra.length, 1, 'infra-only run keeps the block');
+
+// Redaction canaries: credential-shaped strings in failing logs must never
+// reach the report. Values are runtime-constructed so no live-format token
+// is committed to source.
+const canaryPat = `ghp_${'A'.repeat(36)}`;
+const canaryEnv = `APPLE_API_KEY_P8_BASE64=${'B'.repeat(48)}`;
+assert.ok(
+  !redactSensitive(canaryPat).includes('A'.repeat(36)),
+  'GitHub PAT payload must be redacted',
+);
+assert.ok(
+  !redactSensitive(canaryEnv).includes('B'.repeat(48)),
+  'signing env values must be redacted',
+);
+const redactedHits = extractFailures(
+  `Error: build failed
+secret=${canaryPat}
+`,
+  1,
+);
+assert.ok(
+  !redactedHits[0].text.includes('A'.repeat(36)),
+  'hit text must not contain the canary token payload',
+);
+assert.ok(
+  !redactedHits[0].snippet.includes('A'.repeat(36)),
+  'hit snippet must not contain the canary token payload',
+);
 
 console.log('ci-debug extraction tests passed.');

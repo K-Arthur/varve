@@ -31,6 +31,22 @@ if [ -n "$STAGED_WORKFLOWS" ]; then
   node scripts/pin-github-actions.mjs --check
   echo "  → Verifying pinned SHAs resolve upstream..."
   node scripts/pin-github-actions.mjs --verify
+  echo "  → Auditing workflow security policy..."
+  node scripts/security/workflow-policy.mjs
+fi
+
+# 5b. Secret scan on staged additions (fast, dependency-free). When gitleaks
+# is installed, the deeper staged-diff scan runs too — the Node scanner is
+# the portable baseline that always runs.
+echo "  → Scanning staged additions for secrets..."
+node scripts/secret-scan.mjs --staged
+if command -v gitleaks >/dev/null 2>&1; then
+  echo "  → gitleaks protect (staged)..."
+  gitleaks protect --staged --no-banner --source . || {
+    echo "  gitleaks found something. If it is a documented synthetic fixture,"
+    echo "  update the allowlist in .gitleaks.toml — never a real credential."
+    exit 1
+  }
 fi
 
 # 6. Quick cycle check on changed packages (madge, runs only on JS/TS changes)
