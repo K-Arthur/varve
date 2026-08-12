@@ -355,12 +355,19 @@ records; check the current code before acting on their findings.
 | Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |
 | Website dev | `cd apps/website && pnpm dev` | Development server at localhost:4321 |
 
+## Applications
+
+| Doc | Purpose |
+|-----|---------|
+| `apps/desktop/README.md` | Tauri 2 desktop app — architecture, running, building |
+| `apps/website/README.md` | Astro 5 marketing site — architecture, running, testing |
+
 ## AI-Assisted Development
 
 | Doc | Purpose |
 |-----|---------|
 | `agents/README.md` | Why and how AI tooling is used in this project |
-| `agents/continuation.md` | Session-level continuation context for AI |
+| `agents/continuation.md` | Historical session-5 continuation context (see file header) |
 | `agents/session-history.md` | Detailed per-session development records |
 
 ## Implementation Memory (historical)
@@ -383,3 +390,6 @@ records; check the current code before acting on their findings.
 Mirrored copies of several memory files also exist at the repository root
 (`.system_memory.md`, `.effects_system_memory.md`, etc.) for session-scoped
 AI tooling; the `docs/implementation-memory/` copies are the canonical ones.
+
+The root-level `CONTINUATION.md` (a pre-rename Session 5 artifact) was removed;
+its updated copy lives at `docs/agents/continuation.md`.
