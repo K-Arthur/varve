@@ -32,8 +32,8 @@ enables only the normal `default` Tauri capability; `wdio` permissions and the
 frontend bridge are enabled only by `tauri.test.conf.json` and Vite's `wdio`
 mode. Do not ship a build made with that feature.
 
-The pinned compatibility set is `@wdio/tauri-service` 1.2.0 with
-`@wdio/native-utils` 2.5.0. The override exists because service 1.2.0 imports
+The pinned compatibility set is `@wdio/tauri-service` 1.3.0 with
+`@wdio/native-utils` 2.5.0. The override exists because the service imports
 `installMockSyncOverride`, which 2.4.0 does not export. `tauri-driver` remains
 an optional manual diagnostic on Linux and Windows; it is not the canonical
 cross-platform native test provider.
