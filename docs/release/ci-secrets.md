@@ -1,12 +1,14 @@
 # Varve — CI Secrets, Permissions and Release Environment
 
-**Date:** 2026-08-03 (last updated 2026-08-08)
+**Date:** 2026-08-03 (last updated 2026-08-12)
 
 This document is the contract between `release.yml` and the repository
 settings: the names here are the names the workflow reads. See
 [code-signing-setup.md](code-signing-setup.md) for the human acquisition
 checklist and [signing-decision-record.md](signing-decision-record.md) for why
-these services were chosen.
+these services were chosen. The full security model (classification,
+compromise response, release trust, onboarding) lives in
+[`docs/security/security-hardening.md`](../security/security-hardening.md).
 
 **No real credential appears here, and none should ever be committed anywhere in
 this repository.**
@@ -171,13 +173,23 @@ reviewers and tag restriction, and declare it on the bundle job.
   never values.
 - Never pass a secret as a command-line argument — arguments appear in process
   listings. Use the environment.
+- Never persist a secret through `$GITHUB_ENV`. Since 2026-08-12 the signing
+  credentials are declared inline on the *Tauri build (signed platforms)*
+  step only, so no later step (SBOM, checksums, artifact upload, failure
+  diagnostics) can observe them. Enforced by
+  `scripts/security/workflow-policy.mjs`.
 - Never add a secret to a workflow triggered by `pull_request_target` or
   otherwise reachable from a fork. `release.yml` runs on tags only; the
-  validator blocks release writes from PR-capable workflows.
+  policy validator rejects non-default secrets in any PR-capable workflow.
+- Release tags must point at a commit reachable from the protected default
+  branch — the preflight provenance gate enforces this (a `workflow_dispatch`
+  tag input cannot release arbitrary code).
 - Rotate anything that appears in a log, even if the log was private, and even
-  if it was masked — masking is best-effort.
+  if it was masked — masking is best-effort. `scripts/ci-debug.mjs` redacts
+  credential-shaped strings before failure snippets reach reports or PR
+  comments.
 - `.gitignore` excludes `.env*`, `*.p12`, `*.pfx`, `*.p8`, `*.key`, `*.pem`,
-  `*.der`, `*.cer`, `*.crt`, `*.csr`, and the CI-generated
+  `*.der`, `*.cer`, `*.crt`, `*.csr`, `.npmrc`, `.netrc`, and the CI-generated
   `tauri.signing.windows.json`.
 - The App Store Connect `.p8` is decoded to `/tmp` on the runner and the
   keychain is a throwaway `build.keychain` — nothing is uploaded as an
