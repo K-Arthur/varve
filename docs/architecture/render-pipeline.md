@@ -83,6 +83,10 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    cannot construct `Image` or access main-thread `ImageCache`. `collectImageBitmaps`
    pre-decodes on the main thread; `sceneCanUseWorkerRenderer` gates the worker path
    until every image src is loaded. Until then, main-thread replay applies.
+   `ImageCache` owns retained decoded resources and closes replaced, evicted, or
+   cleared `ImageBitmap` entries. A stale completion after cancellation or source
+   replacement is never admitted; an oversized result is caller-owned because it
+   may be returned for immediate use without being retained.
 
 3. **Never composite a stale surface unless a fresh one is actually coming.**
    Reusing already-painted pixels — a partial redraw, or a reprojected worker

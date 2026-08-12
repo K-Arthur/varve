@@ -106,7 +106,10 @@ surface recreation because they reset context state.
 Worker rendering is optional. Messages include zoom, pan, rotation, viewport, DPR, and
 document version. Worker canvases resize when viewport or DPR changes. A stale bitmap
 is either transformed by the full affine camera delta or discarded for vector replay;
-all replaced `ImageBitmap` resources are closed. Worker and main-thread image fills
+all replaced `ImageBitmap` resources are closed. The shared main-thread image cache
+also closes stale decoded completions after cancellation/replacement, while resources
+that exceed its retention budget remain owned by the immediate caller. Worker and
+main-thread image fills
 share the same fit/fill/stretch/tile placement math. Pattern and alpha-mask scenes stay
 on structural main-thread replay until the worker can reproduce those semantics; this
 is an explicit capability decision, not a silent approximation.
