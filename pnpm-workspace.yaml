@@ -9,7 +9,7 @@ overrides:
   # `astro check` (Cannot find module 'release-manifest.json'); 2.16.11 is
   # the last good release. Revisit when a fixed release ships.
   "@astrojs/language-server": 2.16.11
-  # tauri-service 1.2.0 imports this API, but its published dependency range
+  # tauri-service 1.3.0 imports this API, but its published dependency range
   # resolves 2.4.0, where the export is absent. Keep this exact and covered by
   # scripts/desktop/compatibility.test.mjs.
   "@wdio/native-utils": 2.5.0

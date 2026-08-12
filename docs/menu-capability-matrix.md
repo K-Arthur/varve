@@ -1,5 +1,12 @@
 # Menu Item × Capability Visibility Matrix
 
+> **Point-in-time snapshot (last fully maintained 2026-08-10).** The menu
+> registry (`packages/editor/src/menu/defs.ts`, 202+ item ids) is the source
+> of truth; this matrix predates ~40 recently added items (e.g.
+> `workspaceCodegen`, `setFileThumbnail`, `imageTrace`, `closeWindow`,
+> `quitApp`, `tabClose`). Regenerate or hand-sync from `defs.ts` before
+> relying on it for completeness.
+
 Every item in the Varve menu system, its required capability (if any), and its
 visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 
