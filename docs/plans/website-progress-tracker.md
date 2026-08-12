@@ -102,7 +102,7 @@
 - ✅ Responsive: mobile menu toggle, stacked layouts at <768px, auto-fit grids at all breakpoints
 - ✅ Error testing: custom 404 page verified in build output
 - ✅ CSS import fix: `@import "@varve/ui/tokens.css"` corrected (was using internal path)
-- ✅ Detailed audit report: `docs/plans/website-hardening-report.md`
+- ✅ Detailed audit report: `docs/plans/archived/website-hardening-report.md`
 
 **Known remaining (human-only, documented in handoff):**
 - ⏳ Lighthouse CI validation (requires GitHub Pages deployment to run)
@@ -138,7 +138,7 @@
 - ✅ GitHub Actions deployment workflow created: `.github/workflows/deploy-website.yml`
 - ✅ Documentation index created: `docs/README.md` — source-of-truth map for all 45+ docs
 - ✅ Operations guides created: `docs/plans/website-operations-guide.md` — how to add new releases and platforms
-- ✅ Hardening and methodology report: `docs/plans/website-hardening-report.md` — includes AA/BB handoffs
+- ✅ Hardening and methodology report: `docs/plans/archived/website-hardening-report.md` — includes AA/BB handoffs
 - ✅ Build verified: 42 pages, 0 errors, 0 warnings
 - ✅ Tests verified: 9/9 pass
 
