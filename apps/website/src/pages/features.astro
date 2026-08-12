@@ -1,71 +1,79 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import StatusPill from '../components/StatusPill.astro';
+import ClosingCTA from '../components/ClosingCTA.astro';
 ---
 
 <Layout title="Features - Varve" description="Explore what Varve can do today — vector design, raster editing, layout, typography, motion, prototyping, color management, and code export.">
   <div class="container-custom">
     <div class="features-page">
-      <h1>Features</h1>
-      <p class="features-intro">
+      <h1 class="page-hero-title">Features</h1>
+      <p class="page-hero-sub">
         What Varve can do today, with honest status indicators for each area. Varve is in beta — features are functional but evolving.
       </p>
 
       <div class="features-grid">
         <a href={sitePath('/features/canvas')} class="feature-card">
-          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M9 21V9" opacity="0.6"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
           <h2>Canvas & Rendering</h2>
           <p>Infinite canvas, viewport culling, sticky snap, rulers, guides, grid overlays, multi-page documents</p>
         </a>
 
         <a href={sitePath('/features/vector-tools')} class="feature-card">
-          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L14 10"/><circle cx="17" cy="7" r="2.5"/><circle cx="6" cy="18" r="2"/><path d="M17 9.5 L19 7.5" opacity="0.6"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
           <h2>Vector Tools</h2>
           <p>Shapes, pen and pencil with bezier handles, boolean operations, node editing, layers, groups, frames</p>
         </a>
 
         <a href={sitePath('/features/typography')} class="feature-card">
-          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 L9.5 6 H14.5 L19 19"/><path d="M8 14.5h8" opacity="0.6"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
           <h2>Typography</h2>
           <p>Multi-line text, OpenType features, variable fonts, text-on-path, inline editing, CJK line breaking</p>
         </a>
 
         <a href={sitePath('/features/color-effects')} class="feature-card">
-          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" opacity="0.5"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
           <h2>Color & Effects</h2>
           <p>RGB and CMYK color management, ICC profiles, blend modes, shadows, blur, adjustment layers, halftone</p>
         </a>
 
         <a href={sitePath('/features/motion')} class="feature-card">
-          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V7l5 6V7l5 6V7l5 6V7" opacity="0.6"/><circle cx="20.5" cy="17" r="1.5" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
           <h2>Motion & Prototyping</h2>
           <p>Timeline animation, keyframes, easing, Smart Animate, prototype interactions, CSS/Lottie/video export</p>
         </a>
 
         <a href={sitePath('/features/export')} class="feature-card">
-          <span class="status built"><span class="status-dot" aria-hidden="true"></span>Built</span>
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3" opacity="0.6"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
           <h2>Export & Code Generation</h2>
           <p>SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, per-node export settings</p>
         </a>
       </div>
 
-      <div class="status-legend">
-        <h3>What the status labels mean</h3>
-        <div class="legend-items">
-          <div class="legend-item">
-            <span class="legend-status built"></span>
-            <span>Functional and tested. May have rough edges or missing polish.</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-status partial"></span>
-            <span>Core foundation exists. Some capabilities are deferred or incomplete.</span>
-          </div>
-          <div class="legend-item">
-            <span class="legend-status in-development"></span>
-            <span>Actively being built. Types and structure exist, rendering is in progress.</span>
-          </div>
-        </div>
-      </div>
+      <ClosingCTA
+        title="Explore Varve"
+        accentWord="features."
+        text="See what Varve can do for your design workflow."
+      />
     </div>
   </div>
 </Layout>
@@ -77,27 +85,19 @@ import { sitePath } from '../lib/siteUrl';
     padding: 3rem 0;
   }
   
-  .features-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
+  .features-page .page-hero-title {
+    margin-bottom: 0.75rem;
   }
-  
-  .features-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
+
+  .features-page .page-hero-sub {
+    margin-bottom: 2.5rem;
   }
   
   .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: 1.5rem;
-    margin-bottom: 3rem;
+    gap: 1.25rem;
+    margin-bottom: 2rem;
   }
   
   .feature-card {
@@ -105,16 +105,53 @@ import { sitePath } from '../lib/siteUrl';
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: 0.75rem;
-    padding: 2rem;
-    /* Room at the top-right for the corner badge so it never overlaps the
-       title on narrow cards. */
-    padding-top: 2.75rem;
+    padding: 1.75rem;
+    padding-top: 3.25rem;
     transition:
       transform var(--duration-fast) var(--ease-default),
       border-color var(--duration-fast) var(--ease-default),
       box-shadow var(--duration-fast) var(--ease-default);
     text-decoration: none;
     display: block;
+  }
+
+  /* Feature icon: a small colored tile with the design-tool glyph.
+     Uses the brand strata colors in rotation: teal, sandstone, terracotta. */
+  .feature-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.625rem;
+    margin-bottom: 0.75rem;
+    color: var(--accent-primary);
+    background: var(--surface-accent-soft);
+  }
+
+  .feature-card:nth-child(2) .feature-icon {
+    color: var(--brand-sandstone);
+    background: color-mix(in oklab, var(--brand-sandstone) 12%, var(--surface-card));
+  }
+
+  .feature-card:nth-child(3) .feature-icon {
+    color: var(--brand-terracotta);
+    background: color-mix(in oklab, var(--brand-terracotta) 12%, var(--surface-card));
+  }
+
+  .feature-card:nth-child(4) .feature-icon {
+    color: var(--brand-teal);
+    background: color-mix(in oklab, var(--brand-teal) 12%, var(--surface-card));
+  }
+
+  .feature-card:nth-child(5) .feature-icon {
+    color: var(--brand-sandstone);
+    background: color-mix(in oklab, var(--brand-sandstone) 12%, var(--surface-card));
+  }
+
+  .feature-card:nth-child(6) .feature-icon {
+    color: var(--brand-terracotta);
+    background: color-mix(in oklab, var(--brand-terracotta) 12%, var(--surface-card));
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -132,114 +169,23 @@ import { sitePath } from '../lib/siteUrl';
   }
 
   .feature-card h2 {
-    font-size: 1.25rem;
+    font-size: 1.2rem;
     font-weight: 600;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     color: var(--text-primary);
   }
 
   .feature-card p {
     color: var(--text-secondary);
-    margin-bottom: 1rem;
+    margin-bottom: 0;
     line-height: 1.6;
+    font-size: 0.9375rem;
   }
 
-  /* A positioned corner pill rather than an inline block at the bottom of
-     the copy: the status is metadata about the card, not part of the
-     description flow, and reads faster pinned to a fixed corner across the
-     whole grid. */
-  .status {
+  /* Position the StatusPill in the top-right corner of the card */
+  :global(.feature-card-pill) {
     position: absolute;
-    top: 1.1rem;
-    right: 1.1rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 0.3rem 0.7rem 0.3rem 0.6rem;
-    border-radius: 9999px;
-    border: 1px solid transparent;
-  }
-
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    flex: 0 0 auto;
-    /* The dot sits on the same solid fill as the label text, so it needs its
-       own faint ring or it disappears into the pill at 6px. */
-    box-shadow: 0 0 0 1px color-mix(in oklab, currentColor 30%, transparent);
-  }
-
-  /* Status tokens (--status-built etc.) are light, brand-hued fills designed
-     to pair with the fixed dark --text-on-status — the same pairing the
-     original inline badge used. A tinted-background/coloured-text version
-     was tried here and failed: --status-built resolves to the light brand
-     teal (L 0.78), so as *text* on an even lighter tinted background it
-     read as light-on-light. Solid fill + dark text is what actually holds
-     contrast in both themes; only the shape changed, corner pill instead of
-     an inline block. */
-  .status.built {
-    background: var(--status-built);
-    color: var(--text-on-status);
-  }
-
-  .status.partial {
-    background: var(--status-partial);
-    color: var(--text-on-status);
-  }
-
-  .status.in-development {
-    background: var(--status-dev);
-    color: var(--text-on-status);
-  }
-  
-  .status-legend {
-    background: var(--surface-muted);
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-  }
-  
-  .status-legend h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-  
-  .legend-items {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
-  
-  .legend-status {
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
-  }
-  
-  .legend-status.built {
-    background: var(--status-built);
-  }
-  
-  .legend-status.partial {
-    background: var(--status-partial);
-  }
-  
-  .legend-status.in-development {
-    background: var(--status-dev);
+    top: 1rem;
+    right: 1rem;
   }
 </style>

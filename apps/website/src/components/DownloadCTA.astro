@@ -63,6 +63,11 @@ const fallbackLabel = label ?? (hasRelease ? 'Download Varve' : 'See the beta st
         .userAgentData;
       const platform = uaData?.platform ?? '';
       const ua = navigator.userAgent;
+      // Mobile and tablet builds do not exist. Do not mistake Android's
+      // Linux user-agent for a supported desktop Linux download.
+      if (/android|iphone|ipad|ipod|mobile|tablet|webos|iemobile|opera mini/i.test(`${platform} ${ua}`)) {
+        return null;
+      }
       if (/^win/i.test(platform) || /windows/i.test(ua)) return 'windows';
       if (/^mac/i.test(platform) || /macintosh|mac os x/i.test(ua)) return 'macos';
       if (/^linux/i.test(platform) || /linux/i.test(ua)) return 'linux';

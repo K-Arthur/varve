@@ -6,7 +6,7 @@ import { sitePath } from '../lib/siteUrl';
 <Layout title="About Varve" description="Varve is built independently by one designer-developer: transparent development, honest limitations, and community input. Learn about the project, its FSL-1.1-MIT license, privacy, and security policies.">
   <div class="container-custom">
     <div class="about-page">
-      <h1>About Varve</h1>
+      <h1 class="page-hero-title">About Varve</h1>
 
       <section class="about-section">
         <h2>Built in the open</h2>
@@ -73,19 +73,13 @@ import { sitePath } from '../lib/siteUrl';
 
 <style>
   .about-page {
-    max-width: 700px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 3rem 0;
   }
   
-  .about-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
+  .about-page .page-hero-title {
     margin-bottom: 2rem;
-    color: var(--text-primary);
   }
   
   .about-section {
