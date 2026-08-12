@@ -10,7 +10,7 @@ metadata (reports carry `consentPolicyVersion`; never assume consent).
    (Privacy & Diagnostics → queued reports). Confirm the payload is the
    canonical form (schema v1; no unknown fields; no attachment content).
 2. **Classify**: `crash.type` + `crash.category` from the taxonomy
-   (`docs/crash-reporting/taxonomy.md` section of the audit doc). Filter out
+   (`docs/privacy/crash-audit.md` §3.1 data inventory). Filter out
    ordinary errors that are not crashes (e.g. `window-error` with category
    `command.failed` during a user-cancelled operation).
 3. **Group** by `groupFingerprint` (type + category + top frames + release
