@@ -179,6 +179,7 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0216-termination-lifecycle-coordinator.md` | Termination lifecycle coordinator |
 | `adr/0217-raster-colour-management.md` | Canonical raster colour encoding + colour-managed raster pipeline |
 | `adr/0218-thumbnail-system.md` | Unified thumbnail system (see `architecture/thumbnail-system.md`) |
+| `adr/0219-parent-local-coordinates.md` | Parent-local scene coordinates (see `architecture/coordinate-system.md`) |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -203,6 +204,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
 | `architecture/thumbnail-system.md` | Unified thumbnail system (ADR-0218) |
+| `architecture/coordinate-system.md` | Coordinate-space contract: spaces, storage, composition, reparenting, migration (ADR-0219) |
 | `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
 | `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2) |
 | `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |
