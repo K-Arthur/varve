@@ -881,10 +881,14 @@ export function makePathNode(
  */
 export function walkNodes(doc: Document, startIds?: NodeId[]): Map<NodeId, NodeEntry> {
   const entries = new Map<NodeId, NodeEntry>();
+  // Cycle safety: a malformed cyclic children graph must not hang the walk.
+  const visited = new Set<NodeId>();
   function walk(parentId: NodeId | null, ids: NodeId[], depth: number) {
     for (const nid of ids) {
+      if (visited.has(nid)) continue;
       const node = doc.nodes[nid];
       if (!node) continue;
+      visited.add(nid);
       entries.set(nid, { nodeId: nid, node, parentId, depth });
       if (isContainer(node) && node.children.length > 0) {
         walk(nid, node.children, depth + 1);
