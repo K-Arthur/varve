@@ -9,7 +9,7 @@ import {
   type SceneNode,
 } from '@varve/scene';
 import type { Camera } from '@varve/shared';
-import { type EditorContextValue, type EditorState, nodeWorldBoundsFn } from '../context';
+import type { EditorContextValue, EditorState } from '../context';
 import { HitTestEngine } from '../hitTest/HitTestEngine';
 import {
   type FrameSpatialIndex,
@@ -21,6 +21,7 @@ import {
   getWorldBounds as getCachedWorldBounds,
   type TransformCache,
 } from '../scene/transformCache';
+import { nodeWorldBounds } from '../scene/world';
 import type { DraftShape, ToolContext } from '../tools';
 import type { collectSourceEvents } from '../tools/inputNormalizer';
 import {
@@ -193,7 +194,7 @@ export function buildToolContext(
     setDropTargetFrame: deps.setDropTargetFrameId,
     nodeWorldBounds: (n) =>
       getCachedWorldBounds(deps.transformCacheRef.current, s.document, n.id) ??
-      nodeWorldBoundsFn(n),
+      nodeWorldBounds(s.document, n.id),
 
     engine: eng,
     canvasElement: deps.contentCanvasRef.current,
@@ -260,7 +261,7 @@ export function buildToolContext(
         // recomputes and the surrounding snap targets stay cached.
         const b =
           getCachedWorldBounds(deps.transformCacheRef.current, doc, node.id) ??
-          nodeWorldBoundsFn(node);
+          nodeWorldBounds(doc, node.id);
         if (b) nearbyBoundsWithIds.push({ nodeId: node.id, bounds: b });
       }
       const parentIdx = snapIndex.parentIndex;
@@ -292,12 +293,20 @@ export function buildToolContext(
         if (parentId) {
           const parentNode = doc.nodes[parentId];
           if (parentNode && 'w' in parentNode) {
-            pageBoundsTargets.push({
-              x: 0,
-              y: 0,
-              w: (parentNode as { w: number }).w,
-              h: (parentNode as { h: number }).h,
-            });
+            // The parent frame's edges are only a valid snap reference in
+            // world space. Its stored rect is frame-local ({0,0,w,h}), which
+            // coincides with world only for identity frames — a translated/
+            // rotated/scaled parent would emit wrong guides. World bounds
+            // compose the full ancestor chain.
+            const parentWorldBounds = nodeWorldBounds(doc, parentId);
+            if (parentWorldBounds) {
+              pageBoundsTargets.push({
+                x: parentWorldBounds.x,
+                y: parentWorldBounds.y,
+                w: parentWorldBounds.w,
+                h: parentWorldBounds.h,
+              });
+            }
           }
         }
       }

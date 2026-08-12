@@ -52,9 +52,9 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 }
 
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
-
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
+import { pathPointsWorldToLocal } from './tools/pathCoords';
 
 /** Module-level bridge giving the BackupSettingsPanel access to the editor's
  *  BackupService without threading it through the EditorContextValue interface.
@@ -2035,49 +2035,6 @@ function propagateFrameConstraints(
   return updates;
 }
 
-/**
- * Compute world-space bounding box for any node type.
- * Retained as a fallback only — prefers canonical `nodeWorldBounds(doc, id)`
- * which composes the full ancestor transform chain.
- */
-export function nodeWorldBoundsFn(
-  n: SceneNode,
-): { x: number; y: number; w: number; h: number } | null {
-  const tx = n.transform[4] ?? 0;
-  const ty = n.transform[5] ?? 0;
-  if (n.kind === 'shape') {
-    const s = n.shape;
-    if (s.kind === 'rect') return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
-    if (s.kind === 'ellipse')
-      return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
-    if (s.kind === 'circle')
-      return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
-    if (s.kind === 'line') {
-      const minX = Math.min(s.from[0], s.to[0]);
-      const minY = Math.min(s.from[1], s.to[1]);
-      return {
-        x: tx + minX,
-        y: ty + minY,
-        w: Math.abs(s.to[0] - s.from[0]) || 4,
-        h: Math.abs(s.to[1] - s.from[1]) || 4,
-      };
-    }
-    if (s.kind === 'polygon')
-      return { x: tx + s.cx - s.radius, y: ty + s.cy - s.radius, w: s.radius * 2, h: s.radius * 2 };
-    if (s.kind === 'star')
-      return {
-        x: tx + s.cx - s.outerRadius,
-        y: ty + s.cy - s.outerRadius,
-        w: s.outerRadius * 2,
-        h: s.outerRadius * 2,
-      };
-  }
-  if (n.kind === 'text')
-    return { x: tx, y: ty, w: (n.fontSize ?? 16) * 3, h: (n.fontSize ?? 16) * 1.4 };
-  if (n.kind === 'frame') return { x: tx, y: ty, w: n.w, h: n.h };
-  return null;
-}
-
 /** No-op fallback for media methods used before MediaProvider mounts. */
 const MEDIA_NOOP: MediaContextValue = {
   playMedia: () => {},
@@ -3672,6 +3629,29 @@ export function EditorProvider({
               transform: localTransform,
               constraints: defaultConstraints(),
             } as SceneNode;
+            // Path geometry under a transformed parent: anchors were rebased
+            // by translation only above, which is correct for identity
+            // parents but drifts by the parent's linear part (rotation/
+            // scale). Remap through the full inverse so the composed
+            // parent·node·point reproduces the drawn world path. Handles are
+            // vectors and are handled by pathPointsWorldToLocal.
+            if (
+              pathPoints &&
+              pathPoints.length > 0 &&
+              node.kind === 'shape' &&
+              node.shape.kind === 'path'
+            ) {
+              const absoluteLocal = pathPointsWorldToLocal(pathPoints, pWorld);
+              const localPoints = absoluteLocal.map((p) => ({
+                ...p,
+                x: p.x - localPos[0],
+                y: p.y - localPos[1],
+              }));
+              node = {
+                ...node,
+                shape: { ...node.shape, points: localPoints },
+              } as SceneNode;
+            }
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
@@ -3921,7 +3901,7 @@ export function EditorProvider({
 
       nodeWorldBounds: (n) =>
         getCachedWorldBounds(transformCacheRef.current, state.document, n.id) ??
-        nodeWorldBoundsFn(n),
+        nodeWorldBounds(state.document, n.id),
       getWorldTransform: (id) =>
         getCachedWorldTransform(transformCacheRef.current, state.document, id),
       getWorldBounds: (id) => getCachedWorldBounds(transformCacheRef.current, state.document, id),
