@@ -38,7 +38,6 @@ const HISTORICAL_PREFIXES = [
   'docs/plans/', // except the live operating guide, re-added below as CURRENT
   'docs/research/',
   'docs/superpowers/',
-  'docs/reports/',
   'docs/quality/', // except tauri-command-audit.md
 ];
 const HISTORICAL_EXACT = [
@@ -52,7 +51,8 @@ const HISTORICAL_EXACT = [
   'docs/development/provenance.md', // records the historical "Strata Founder" git identity
   'docs/privacy/crash-audit.md', // intentionally enumerates live legacy "Strata" identifiers
   'docs/release/release-readiness-audit.md',
-  'docs/release/marketing-copy-review-2026-08-04.md', // dated review snapshot
+  'docs/audits/marketing-copy-review-2026-08-04.md', // dated review snapshot (moved from docs/release/ 2026-08-12)
+  'docs/audits/marketing-copy-review-2026-08-10.md', // dated review snapshot
   'docs/architecture/ai-competitor-intelligence-2026.md',
   'docs/architecture/ai-feature-strategy-2026-07-21.md',
   'docs/architecture/icon-system-audit-2026-08-02.md',
