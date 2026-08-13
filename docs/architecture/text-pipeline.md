@@ -95,6 +95,11 @@ selection rectangles, diagnostics, and an identity suitable for bounded LRU
 caching. It is deliberately not wired into replay yet; the current canvas path
 must be switched only after fallback and font-revision policy are explicit.
 
+Rich text has a matching logical source index in
+`packages/scene/src/richTextIndex.ts`. It derives paragraph separators and
+run-local UTF-16 ranges without changing stored run order; formatting remains
+attached to logical ranges and can later be itemized into shaped snapshots.
+
 `FontRegistry.revision` is a monotone process-local invalidation token. The
 shaping cache accepts it, face identity, OpenType features, variation axes,
 width, and layout mode in its key and bounds both entries and estimated bytes;
