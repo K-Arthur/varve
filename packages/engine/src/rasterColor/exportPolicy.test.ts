@@ -11,6 +11,7 @@ import {
 } from './exportPolicy';
 import {
   allocatePixelBuffer,
+  convertPixelBufferFormat,
   isWithinPixelBudget,
   pixelBufferBytes,
   rgba16fToRgba32f,
@@ -174,5 +175,31 @@ describe('pixelBuffer accounting', () => {
         100,
       ),
     ).toThrow(/budget/);
+  });
+
+  it('quantizes only when copying into an explicit target storage format', () => {
+    const source = allocatePixelBuffer({
+      width: 1,
+      height: 1,
+      format: 'rgba32f',
+      colorEncoding: { model: 'rgb', provenance: 'named' },
+      alphaMode: 'straight',
+    });
+    source.data.set([0.1234, 0.1235, 0.5, 1]);
+    const rgba8 = convertPixelBufferFormat(source, 'rgba8');
+    const rgba16 = convertPixelBufferFormat(source, 'rgba16');
+
+    expect(Array.from(rgba8.data)).toEqual([31, 31, 128, 255]);
+    expect(Array.from(rgba16.data)).toEqual([
+      Math.round(0.1234 * 65535),
+      Math.round(0.1235 * 65535),
+      32768,
+      65535,
+    ]);
+    expect(Array.from(source.data)[0]).toBeCloseTo(0.1234, 6);
+    expect(Array.from(source.data)[1]).toBeCloseTo(0.1235, 6);
+    expect(Array.from(source.data).slice(2)).toEqual([0.5, 1]);
+    expect(rgba8.descriptor.format).toBe('rgba8');
+    expect(rgba16.descriptor.format).toBe('rgba16');
   });
 });
