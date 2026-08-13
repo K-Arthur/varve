@@ -198,6 +198,7 @@ export function createActionHandlers(
     clearAllGuides: () => e.clearAllGuides(),
     clearGuides: () => e.clearAllGuides(),
     softProof: () => e.setSoftProofEnabled(!e.state.softProofEnabled),
+    toggleBleedGuides: () => e.setBleedGuidesVisible(!e.state.bleedGuidesVisible),
     toggleFindingsOverlay: () => e.setFindingsOverlayVisible(!e.state.findingsOverlayVisible),
     toggleFindingsProviderContrast: () => e.setFindingsProviderOverride('contrast'),
     toggleFindingsProviderVectorIssues: () => e.setFindingsProviderOverride('vector-issues'),
