@@ -8,7 +8,7 @@ caret stops, and selection fragments are derived layout data.
 
 ## Current pipeline
 
-\`\`\`text
+```text
 TextNode.text / TextNode.richText / TextStory
   → sceneNodeToEngineNode
   → text render IR
@@ -17,7 +17,7 @@ TextNode.text / TextNode.richText / TextStory
       ├─ TS shaping seam (grapheme measurements; glyphId = 0)
       └─ Rust rustybuzz command (native, currently export/diagnostic oriented)
   → SVG/PDF/codegen-specific consumers
-\`\`\`
+```
 
 This is a transitional architecture. The browser’s shaping is not exposed
 enough to serve as Varve’s authoritative glyph, cluster, caret, or export data.
@@ -26,7 +26,7 @@ The exact findings and code references are in
 
 ## Target pipeline
 
-\`\`\`text
+```text
 logical source string
   → paragraph boundaries
   → UTF-16 / scalar / grapheme index map
@@ -45,7 +45,7 @@ logical source string
       └─ diagnostics and cache identity
   → canvas/WebGPU fallback renderer
   → editor, masks, raster export, SVG, PDF, and codegen
-\`\`\`
+```
 
 The snapshot is derived, revisioned, and bounded in memory. It must never be
 serialized as authoritative document content. A document edit, font revision,
@@ -70,15 +70,22 @@ change invalidates the appropriate paragraph/story scope.
 
 ## Backend strategy
 
-* Native desktop shaping uses the existing \`rustybuzz\` implementation over
+* Native desktop shaping uses the existing `rustybuzz` implementation over
   validated font bytes.
-* Web/WASM shaping uses the existing \`harfbuzzjs\` dependency behind the same
+* Web/WASM shaping uses the existing `harfbuzzjs` dependency behind the same
   request/result contract when font bytes are available.
 * Canvas2D measurement is a bounded fallback for environments without a font
   byte source. It is marked approximate and cannot satisfy glyph-level parity
   or PDF text requirements.
-* UAX #9 resolution is provided through a maintained adapter (\`bidi-js\` is the
+* UAX #9 resolution is provided through a maintained adapter (`bidi-js` is the
   first candidate) rather than growing a handwritten partial implementation.
+
+The backend contract currently lives in `packages/engine/src/shapingBackend.ts`.
+It normalizes native font units to the requested size and uses UTF-16 source
+cluster offsets. The HarfBuzz WASM adapter is lazy and owns one module instance
+per backend; font bytes are supplied per request and are not transferred every
+frame. This slice is an integration seam, not yet a switch of the live canvas
+renderer.
 
 ## Related decisions
 
