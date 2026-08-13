@@ -495,4 +495,22 @@ describe('ImageCache at-size representations', () => {
 
     expect(cache.getImageAtSize(src, 2048)).toBeNull();
   });
+
+  it('partitions full-size entries by color variant', () => {
+    const src = 'data:image/jpeg;base64,COLOR-VARIANT';
+    const srgb = { colorKey: 'srgb-source' };
+    const p3 = { colorKey: 'display-p3-working' };
+    const cache = new ImageCache();
+    const first = mockBitmap(vi.fn(), 10, 10);
+    const second = mockBitmap(vi.fn(), 10, 10);
+    cache.setLoaded(src, first, srgb);
+    cache.setLoaded(src, second, p3);
+
+    expect(cache.getImage(src, srgb)).toBe(first);
+    expect(cache.getImage(src, p3)).toBe(second);
+    expect(cache.getImage(src)).toBeNull();
+    expect(cache.isLoaded(src, srgb)).toBe(true);
+    expect(cache.isLoaded(src, p3)).toBe(true);
+    expect(cache.atSizeKey(src, 2048, srgb)).not.toBe(cache.atSizeKey(src, 2048, p3));
+  });
 });
