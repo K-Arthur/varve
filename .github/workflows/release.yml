@@ -78,7 +78,7 @@ jobs:
       build_windows: ${{ steps.resolve.outputs.build_windows }}
       build_macos: ${{ steps.resolve.outputs.build_macos }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
           ref: ${{ inputs.tag || github.ref }}
@@ -167,7 +167,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
@@ -185,18 +185,18 @@ jobs:
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config
 
-      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           # Keyed by tag so a release build never reuses a cache entry produced
           # by a different source tree. Stale generated artifacts leaking into a
           # release are exactly the failure mode caching invites.
           key: gate-${{ needs.preflight.outputs.tag }}
 
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -247,7 +247,7 @@ jobs:
       macos_mode: ${{ steps.policy.outputs.macos_mode }}
       signing_required: ${{ steps.policy.outputs.signing_required }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.preflight.outputs.tag }}
 
@@ -339,7 +339,7 @@ jobs:
             enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         if: matrix.enabled
         with:
           # Bundled models (u2netp.onnx, realesr-general-x4v3.onnx) are
@@ -374,17 +374,17 @@ jobs:
         if: matrix.enabled && runner.os == 'macOS'
         run: rustup target add aarch64-apple-darwin
 
-      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         if: matrix.enabled
         with:
           key: bundle-${{ matrix.name }}-${{ needs.preflight.outputs.tag }}
 
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         if: matrix.enabled
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         if: matrix.enabled
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -626,7 +626,7 @@ jobs:
 
       - name: Upload release artifacts
         if: matrix.enabled
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-${{ matrix.name }}
           path: dist/release/
@@ -640,7 +640,7 @@ jobs:
       # docs/release/production-build.md for the debug-symbol plan.
       - name: Upload unstripped binary for crash triage
         if: matrix.enabled && runner.os == 'Linux'
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: debug-binary-${{ matrix.name }}
           path: apps/desktop/src-tauri/target/release/varve-desktop
@@ -660,13 +660,13 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download Linux artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-linux-x86_64
           path: staged/linux
@@ -752,7 +752,7 @@ jobs:
             artifact: release-macos-aarch64
             enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         if: matrix.enabled
         with:
           lfs: true
@@ -760,7 +760,7 @@ jobs:
 
       - name: Download platform artifacts
         if: matrix.enabled
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: ${{ matrix.artifact }}
           path: staged
@@ -875,15 +875,15 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -891,7 +891,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Download all platform artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: release-*
           path: staged
@@ -969,7 +969,7 @@ jobs:
           echo "Generated $(wc -l < RELEASE_NOTES.md) lines of release notes."
 
       - name: Upload verified release set
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: release-final
           path: |
@@ -987,14 +987,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.preflight.outputs.tag }}
 
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -1002,7 +1002,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Download the verified release set
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: release-final
           path: staged-final
@@ -1019,7 +1019,7 @@ jobs:
           cp staged-final/RELEASE_NOTES.md RELEASE_NOTES.md
 
       - name: Create draft release
-        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           name: Varve ${{ needs.preflight.outputs.tag }}
@@ -1087,7 +1087,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
