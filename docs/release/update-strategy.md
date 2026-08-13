@@ -149,6 +149,11 @@ Hardening added on top of the first increment (2026-08-13, second pass):
 - **Release notes surface in Settings** with keyboard-focusable scroll and a
   polite live region for status; the download status line is a live region,
   not a color-only signal.
+- **Cancel.** An in-flight download or verification can be cancelled from
+  Settings. Tauri's updater exposes no transport abort, so cancel is a soft
+  cancel: the coordinator discards the completed transfer (never verifying or
+  installing it) and Tauri's byte cache is re-verified against the embedded
+  public key before any later reuse.
 
 The implementation is still not a production-enablement claim. The gates in
 §3 remain release-blocking until the packaged upgrade matrix and the actual
@@ -172,9 +177,51 @@ the beta manifest's URL. This is stricter than filtering a combined manifest by
 a `prerelease` flag, because a bug in the filter silently promotes every beta
 user's install to... whatever shipped last.
 
+**Nightly today.** No nightly builds are tagged or published, so no nightly
+feed is ever mirrored to the website (`fetch-website-release.mjs` handles only
+`stable` and `beta`). The generator accepts a `nightly` channel so the day a
+nightly pipeline exists it is a configuration change, not a new mechanism, and
+clients built with `VARVE_UPDATE_CHANNEL=nightly` already resolve only the
+nightly endpoint from their build-time config. The client-side channel gate
+(`update_packaging_context` + provider) refuses any channel the build was not
+compiled for, so a nightly build cannot be repointed at stable by webview
+configuration tampering.
+
 Downgrade protection: the client refuses any manifest version that does not
 compare greater than the running version under semver. Both sides must apply
 this — the server manifest can be replaced, the client check cannot.
+
+---
+
+## 5a. Document format migrations
+
+An updater can make a document incompatible with older Varve versions even
+when the install itself is flawless. Policy for any release whose persistent
+document format (scene schema, project metadata, trace metadata, tokens) is
+changed:
+
+1. **Verify the migration round trip before publishing an update feed entry:**
+   old Varve file → new Varve → open → save → reopen in new Varve. If the
+   migration is one-way (the saved file can no longer be opened by the old
+   version), that is acceptable only with the steps below — it is never a
+   silent side effect of auto-update.
+2. **State it in the release notes and the feed `notes` field.** The in-app
+   "Version X is available" panel renders the feed notes, so a one-way
+   migration warning reaches users *before* they download. A stable feed entry
+   whose notes mention a destructive migration is a release-notes
+   responsibility; the feed generator does not invent one.
+3. **Additive changes must keep old files openable.** Only genuinely
+   destructive migrations may rely on user-visible backup/versioning. Varve's
+   existing version history and recovery snapshots are the safety net for
+   those; they are not a substitute for the migration test in (1).
+4. **Rollback is a version-compat problem, not an installer problem.** The
+   updater can reinstall an older application, but a one-way migrated document
+   will not open in it. Reinstalling the previous version is therefore only
+   advertised when the document format is backward compatible.
+
+There is no central scene `schemaVersion` today; the migration test in (1) is
+the gate, and each release is responsible for running it on the artifact pair
+it publishes.
 
 ---
 
