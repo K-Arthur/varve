@@ -9,6 +9,8 @@
 
 const SHA256 = /^[0-9a-f]{64}$/;
 
+import { normalizeArchitecture, targetFor } from './targets.mjs';
+
 export const KNOWN_FORMATS = ['appimage', 'deb', 'rpm', 'nsis', 'msi', 'dmg'];
 export const KNOWN_OS = ['linux', 'macos', 'windows'];
 
@@ -152,6 +154,20 @@ export function verifyReleaseIntegrity({ tag, manifest, checksumsText, assetName
     if (!KNOWN_OS.includes(artifact.os)) {
       throw new Error(`Unsupported platform "${artifact.os}" for ${artifact.filename}. Refusing.`);
     }
+    let architecture;
+    try {
+      architecture = normalizeArchitecture(artifact.arch);
+      targetFor(artifact.os, architecture);
+    } catch {
+      throw new Error(
+        `Unsupported architecture "${artifact.arch}" for ${artifact.filename}. Refusing.`,
+      );
+    }
+    if (!artifact.filename.includes(`-${architecture}.`)) {
+      throw new Error(
+        `Artifact ${artifact.filename} does not agree with canonical architecture ${architecture}. Refusing.`,
+      );
+    }
     if (!artifact.sha256 || !SHA256.test(artifact.sha256)) {
       throw new Error(`Release asset ${artifact.filename} has no valid sha256 in the manifest`);
     }
@@ -195,11 +211,12 @@ export function verifyReleaseIntegrity({ tag, manifest, checksumsText, assetName
   const sbomAssets = assetNames.filter(
     (name) => name.endsWith('.cdx.json') || name.endsWith('.cdx.xml'),
   );
-  for (const os of new Set(artifacts.map((a) => a.os))) {
-    const hasPlatformSbom = sbomAssets.some((n) => n.includes(`-sbom-${os}-`));
+  for (const target of new Set(artifacts.map((a) => `${a.os}|${normalizeArchitecture(a.arch)}`))) {
+    const [targetOs, targetArch] = target.split('|');
+    const hasPlatformSbom = sbomAssets.some((n) => n.includes(`-sbom-${targetOs}-${targetArch}`));
     if (!hasPlatformSbom && !sbomAssets.some((n) => n.endsWith('-sbom.cdx.json'))) {
       throw new Error(
-        `Release advertises ${os} but has no ${os}-specific or combined SBOM. Refusing.`,
+        `Release advertises ${targetOs}/${targetArch} but has no ${targetOs}-specific or combined SBOM. Refusing.`,
       );
     }
   }
