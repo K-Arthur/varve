@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import type { ProofTransformConfig } from './proofTransform';
 import {
+  applyProofToNormalized,
   applyProofToRgba,
   clearProofConverters,
   isColorOutOfProofGamut,
   isProofingAvailable,
   proofConfigKey,
   registerProfileProofConverter,
+  registerProfileProofConverterNormalized,
 } from './proofTransform';
 
 const config = {
@@ -56,6 +59,23 @@ describe('applyProofToRgba', () => {
     registerProfileProofConverter('fogra39', () => null);
     expect(applyProofToRgba([1, 2, 3, 255], config).kind).toBe('unavailable');
     clearProofConverters();
+  });
+});
+
+describe('applyProofToNormalized', () => {
+  const config: ProofTransformConfig = {
+    profileId: 'fogra39',
+    renderingIntent: 'relative',
+    blackPointCompensation: true,
+    simulatePaperColor: false,
+    simulateBlackInk: false,
+  };
+
+  it('preserves fractional channels through a normalized provider', () => {
+    registerProfileProofConverterNormalized('fogra39', ([r, g, b, a]) => [r + 0.0001, g, b, a]);
+    const result = applyProofToNormalized([0.1234, 0.5, 0.75, 1], config);
+    expect(result.kind).toBe('icc');
+    if (result.kind === 'icc') expect(result.rgba[0]).toBeCloseTo(0.1235, 12);
   });
 });
 

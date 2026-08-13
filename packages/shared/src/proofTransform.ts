@@ -47,10 +47,17 @@ export type ProfileProofConverter = (
   rgba: [number, number, number, number],
 ) => [number, number, number, number] | null;
 
+/** Precision-preserving proof converter used before a display boundary. */
+export type ProfileProofConverterNormalized = (
+  rgba: [number, number, number, number],
+) => [number, number, number, number] | null;
+
 export type ProofTransformResult =
   | { kind: 'icc'; rgba: [number, number, number, number] }
   | { kind: 'analytical'; rgba: [number, number, number, number] }
   | { kind: 'unavailable'; rgba: [number, number, number, number] };
+
+export type NormalizedProofTransformResult = ProofTransformResult;
 
 /** Stable cache key for a proof configuration. */
 export function proofConfigKey(config: ProofTransformConfig): string {
@@ -65,6 +72,7 @@ export function proofConfigKey(config: ProofTransformConfig): string {
 
 /** Runtime-registered ICC/analytical proof converters, keyed by profile id. */
 const profileConverters = new Map<string, ProfileProofConverter>();
+const normalizedProfileConverters = new Map<string, ProfileProofConverterNormalized>();
 
 /**
  * Register a runtime proof converter (desktop bridge or WASM). Cleared by
@@ -77,12 +85,24 @@ export function registerProfileProofConverter(
   profileConverters.set(profileId, converter);
 }
 
+/** Register a proof converter that consumes/returns normalized float channels. */
+export function registerProfileProofConverterNormalized(
+  profileId: string,
+  converter: ProfileProofConverterNormalized,
+): void {
+  normalizedProfileConverters.set(profileId, converter);
+}
+
 /** Remove every runtime proof converter (document closed). */
 export function clearProofConverters(): void {
   profileConverters.clear();
+  normalizedProfileConverters.clear();
+  transformCache.clear();
+  normalizedTransformCache.clear();
 }
 
 const transformCache = new Map<string, [number, number, number, number]>();
+const normalizedTransformCache = new Map<string, [number, number, number, number]>();
 
 /** Bounded cache for deterministic proof transforms. */
 const TRANSFORM_CACHE_MAX = 4096;
@@ -96,6 +116,13 @@ function cacheSet(key: string, rgba: [number, number, number, number]): void {
     transformCache.clear();
   }
   transformCache.set(key, rgba);
+}
+
+function normalizedCacheSet(key: string, rgba: [number, number, number, number]): void {
+  if (normalizedTransformCache.size >= TRANSFORM_CACHE_MAX) {
+    normalizedTransformCache.clear();
+  }
+  normalizedTransformCache.set(key, rgba);
 }
 
 /**
@@ -120,6 +147,27 @@ export function applyProofToRgba(
     return { kind: 'unavailable', rgba };
   }
   cacheSet(cacheKey, converted);
+  return { kind: 'icc', rgba: converted };
+}
+
+/**
+ * Apply a normalized proof transform without reducing channels to RGBA8.
+ * Returns unavailable when the runtime has no precision-preserving provider;
+ * callers may then use the legacy RGBA8 provider as an explicit preview
+ * fallback.
+ */
+export function applyProofToNormalized(
+  rgba: [number, number, number, number],
+  config: ProofTransformConfig,
+): NormalizedProofTransformResult {
+  const converter = normalizedProfileConverters.get(config.profileId);
+  if (!converter) return { kind: 'unavailable', rgba };
+  const cacheKey = `${proofConfigKey(config)}:${rgba[0]},${rgba[1]},${rgba[2]},${rgba[3]}`;
+  const cached = normalizedTransformCache.get(cacheKey);
+  if (cached) return { kind: 'icc', rgba: cached };
+  const converted = converter(rgba);
+  if (!converted) return { kind: 'unavailable', rgba };
+  normalizedCacheSet(cacheKey, converted);
   return { kind: 'icc', rgba: converted };
 }
 
@@ -149,5 +197,7 @@ export function isColorOutOfProofGamut(
 
 /** True when any profile converter is registered (proofing is available). */
 export function isProofingAvailable(config: ProofTransformConfig): boolean {
-  return profileConverters.has(config.profileId);
+  return (
+    profileConverters.has(config.profileId) || normalizedProfileConverters.has(config.profileId)
+  );
 }
