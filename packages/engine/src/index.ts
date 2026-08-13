@@ -207,6 +207,7 @@ export {
   depthRangeToMask,
   deserializeDepthMap,
   normalizeDepthPrediction,
+  resizeDepthMap,
   sampleDepth,
   serializeDepthMap,
 } from './depthMap';
@@ -605,7 +606,13 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
-export { applyLensBlur, depthToBlurWeight, depthToHeatmapImageData } from './lensBlur';
+export type { DepthBlurOptions } from './lensBlur';
+export {
+  applyDepthBlur,
+  applyLensBlur,
+  depthToBlurWeight,
+  depthToHeatmapImageData,
+} from './lensBlur';
 export * from './liveEffects';
 export type {
   Lut1D,
@@ -845,6 +852,7 @@ export {
   spotHeal,
 } from './retouch';
 export * from './richTextLayout';
+export * from './semanticSimilarity';
 export {
   itemNeedsAlphaShadow,
   paintAlphaAwareDropShadow,

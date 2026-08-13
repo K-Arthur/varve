@@ -1497,7 +1497,7 @@ input[type="number"] {
 .editor__library-panel {
   grid-area: canvas;
   position: relative;
-  width: 300px;
+  width: var(--library-panel-width, 300px);
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
