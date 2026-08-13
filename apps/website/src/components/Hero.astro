@@ -393,6 +393,13 @@ import { PRODUCT_STATUS } from '@varve/shared';
     }
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .hc-card,
+    .hc-svg {
+      animation: none;
+    }
+  }
+
   /* Each card drifts on a unique path — pronounced enough to notice:
      larger translation, rotation swings, and a scale breathe. Durations
      are short enough to feel alive without being distracting. The
