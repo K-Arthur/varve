@@ -19,6 +19,7 @@
     "bench:canvas": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/replay.bench.ts",
     "bench:table": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/tableReplay.bench.ts",
     "bench:table-layout": "vitest run --config vitest.bench.config.ts packages/scene/src/__benchmarks__/tableLayout.bench.ts",
+    "bench:bgremove:report": "node scripts/bench/background-removal-report.mjs",
     "bench": "vitest bench --run --pool=forks",
     "typecheck": "pnpm -r --filter \"./packages/*\" typecheck && pnpm typecheck:e2e",
     "typecheck:e2e": "tsc -p tests/e2e/tsconfig.json --noEmit",
