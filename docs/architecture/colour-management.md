@@ -49,6 +49,11 @@ Canvas2D adapter formats the result as a CSS gradient stop. Canvas2D is still a
 display surface and cannot prove document precision; the source `ManagedColor`
 and the engine IR remain authoritative.
 
+Effect parameters follow the same rule. Color-bearing effect inputs are
+normalized from their tagged model before entering a display-only `ImageData`
+pass. The current backdrop/effect surface is still RGBA8, so it is documented
+as a preview boundary rather than claimed as a high-precision effect surface.
+
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas
 in `packages/shared/src/colorConversion.ts`:
