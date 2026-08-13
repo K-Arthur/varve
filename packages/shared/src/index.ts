@@ -44,6 +44,46 @@ export {
   obbToAABB,
   orientedBBox,
 } from './align';
+export type { AnalyticsProvider, HttpAnalyticsProviderOptions } from './analytics/client';
+export {
+  AnalyticsClient,
+  HttpAnalyticsProvider,
+  NoopAnalyticsProvider,
+  safeAnalyticsEndpoint,
+} from './analytics/client';
+export {
+  ANALYTICS_FORBIDDEN_KEYS,
+  eventFields,
+  sanitizeAnalyticsContext,
+  sanitizeAnalyticsEvent,
+} from './analytics/privacy';
+export type {
+  AnalyticsCategory,
+  AnalyticsConsent,
+  AnalyticsConsentState,
+  AnalyticsContext,
+  AnalyticsDurationBucket,
+  AnalyticsEvent,
+  AnalyticsEventMap,
+  AnalyticsEventName,
+  AnalyticsExportErrorCode,
+  AnalyticsExportFormat,
+  AnalyticsFeature,
+  AnalyticsOutboundDestination,
+  AnalyticsPackageType,
+  AnalyticsPlatform,
+  AnalyticsReleaseChannel,
+  AnalyticsRenderer,
+  AnalyticsRendererFallbackReason,
+  AnalyticsRuntime,
+  AnalyticsWebsitePlatform,
+  AnalyticsWebsiteRoute,
+} from './analytics/schema';
+export {
+  ANALYTICS_EVENT_CATEGORIES,
+  ANALYTICS_SCHEMA_VERSION,
+  DEFAULT_ANALYTICS_CONSENT,
+} from './analytics/schema';
 export type {
   AuditCategory,
   AuditFinding,
