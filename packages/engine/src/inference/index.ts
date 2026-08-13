@@ -1,3 +1,5 @@
+export type { EmbeddingCacheOptions } from '../segmentation/embeddingCache';
+export { EmbeddingCache } from '../segmentation/embeddingCache';
 export type { AlphaMask, MaskCombineMode } from '../segmentation/maskAlgebra';
 export { combineAlphaMasks, invertAlphaMask } from '../segmentation/maskAlgebra';
 export type {
