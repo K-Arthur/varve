@@ -29,6 +29,9 @@ test.describe('image palette extraction', () => {
       body: await paletteSection.screenshot(),
       contentType: 'image/png',
     });
+    if (process.env.VARVE_CAPTURE_PALETTE_SCREENSHOT) {
+      await page.screenshot({ path: process.env.VARVE_CAPTURE_PALETTE_SCREENSHOT });
+    }
 
     await paletteSection.getByRole('button', { name: 'Save extracted swatches' }).click();
     await expect(paletteSection.getByRole('status')).toContainText('saved as new document colors');
