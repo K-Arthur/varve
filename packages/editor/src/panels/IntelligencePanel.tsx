@@ -14,8 +14,19 @@ import {
   getInferenceWorkerHost,
   getModelLoader,
   normalizeEmbedding,
-  rankBySimilarity,
 } from '@varve/engine';
+import {
+  type EmbeddingVector,
+  type SimilarityCandidate,
+  type SimilaritySearchMode,
+} from '@varve/engine/semanticSimilarity';
+import {
+  dHash,
+  pHash,
+  searchNearDuplicates,
+  searchSemantic,
+  SIGLIP_IMAGE_MODEL,
+} from '@varve/engine/semanticSimilarity';
 import { validatePrototype } from '@varve/prototype';
 import type { Document, NodeId, ShapeNode } from '@varve/scene';
 import {
@@ -2346,7 +2357,7 @@ function ComponentsTab() {
 /*  Tab 9: Similar — Find Similar Images (SigLIP)                     */
 /* ------------------------------------------------------------------ */
 
-const SIGLIP_MODEL_ID = 'siglip-base-patch16-224';
+const SIGLIP_MODEL_ID = SIGLIP_IMAGE_MODEL.id;
 /** Bound how many document images get embedded per search — running
  * inference on an unbounded document could stall the UI for a long time. */
 const MAX_SIMILAR_CANDIDATES = 30;
@@ -2355,21 +2366,32 @@ interface SimilarMatch {
   nodeId: NodeId;
   src: string;
   similarity: number;
+  lane: SimilaritySearchMode;
 }
+
+const MAX_SEMANTIC_SOURCE_DIMENSION = 2048;
 
 function loadImageToImageDataForAI(src: string): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      const scale = Math.min(
+        1,
+        MAX_SEMANTIC_SOURCE_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight),
+      );
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
       }
-      ctx.drawImage(img, 0, 0);
+      // Make transparent assets deterministic: the embedding sees a neutral
+      // matte rather than browser-dependent transparent-black pixels.
+      ctx.fillStyle = 'rgb(128 128 128)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
     };
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -2382,12 +2404,15 @@ function SimilarTab() {
   const { state, setSelection, announce } = useEditor();
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
-  const embeddingCacheRef = useRef<Map<string, Float32Array>>(new Map());
+  const embeddingCacheRef = useRef<Map<string, EmbeddingVector>>(new Map());
+  const imageDataCacheRef = useRef<Map<string, ImageData>>(new Map());
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [modelAvailable, setModelAvailable] = useState(false);
   const [status, setStatus] = useState<'idle' | 'downloading' | 'searching' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [matches, setMatches] = useState<SimilarMatch[] | null>(null);
+  const [searchMode, setSearchMode] = useState<SimilaritySearchMode>('semantic');
+  const [scannedCount, setScannedCount] = useState(0);
 
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : null;
@@ -2440,11 +2465,16 @@ function SimilarTab() {
   }, []);
 
   const embed = useCallback(
-    async (src: string, modelPath: string, signal: AbortSignal): Promise<Float32Array> => {
-      const cached = embeddingCacheRef.current.get(src);
+    async (src: string, modelPath: string, signal: AbortSignal): Promise<EmbeddingVector> => {
+      const cacheKey = `${SIGLIP_MODEL_ID}:${SIGLIP_IMAGE_MODEL.preprocessingVersion}:${src}`;
+      const cached = embeddingCacheRef.current.get(cacheKey);
       if (cached) return cached;
 
-      const imageData = await loadImageToImageDataForAI(src);
+      let imageData = imageDataCacheRef.current.get(src);
+      if (!imageData) {
+        imageData = await loadImageToImageDataForAI(src);
+        imageDataCacheRef.current.set(src, imageData);
+      }
       if (signal.aborted) throw new Error('cancelled');
 
       const host = getInferenceWorkerHost();
@@ -2467,8 +2497,17 @@ function SimilarTab() {
       };
       const raw = rawOutputs.pooler_output;
       if (!raw) throw new Error('Embedding did not produce an output tensor');
-      const embedding = normalizeEmbedding(raw.data);
-      embeddingCacheRef.current.set(src, embedding);
+      const embedding: EmbeddingVector = {
+        modelId: SIGLIP_IMAGE_MODEL.id,
+        modelRevision: SIGLIP_IMAGE_MODEL.revision,
+        embeddingSpaceVersion: SIGLIP_IMAGE_MODEL.embeddingSpaceVersion,
+        preprocessingVersion: SIGLIP_IMAGE_MODEL.preprocessingVersion,
+        dimension: raw.data.length,
+        dtype: 'fp32',
+        normalized: true,
+        values: normalizeEmbedding(raw.data),
+      };
+      embeddingCacheRef.current.set(cacheKey, embedding);
       return embedding;
     },
     [],
@@ -2489,9 +2528,13 @@ function SimilarTab() {
       if (!modelPath) throw new Error('Find Similar model not downloaded');
 
       const queryEmbedding = await embed(imageSrc, modelPath, controller.signal);
+      const queryImageData =
+        searchMode === 'near-duplicates'
+          ? (imageDataCacheRef.current.get(imageSrc) ?? (await loadImageToImageDataForAI(imageSrc)))
+          : undefined;
+      if (queryImageData) imageDataCacheRef.current.set(imageSrc, queryImageData);
 
-      const candidates: Array<{ item: { nodeId: NodeId; src: string }; embedding: Float32Array }> =
-        [];
+      const candidates: Array<SimilarityCandidate & { src: string }> = [];
       let scanned = 0;
       for (const [nodeId, candidateNode] of Object.entries(state.document.nodes)) {
         if (controller.signal.aborted) throw new Error('cancelled');
@@ -2502,14 +2545,42 @@ function SimilarTab() {
         if (scanned >= MAX_SIMILAR_CANDIDATES) break;
         scanned++;
         const candidateEmbedding = await embed(src, modelPath, controller.signal);
-        candidates.push({ item: { nodeId: nodeId as NodeId, src }, embedding: candidateEmbedding });
+        const candidate: SimilarityCandidate & { src: string } = {
+          id: nodeId,
+          contentId: nodeId,
+          src,
+          embedding: candidateEmbedding,
+        };
+        if (searchMode === 'near-duplicates') {
+          const candidateImageData =
+            imageDataCacheRef.current.get(src) ?? (await loadImageToImageDataForAI(src));
+          imageDataCacheRef.current.set(src, candidateImageData);
+          candidate.dHash = dHash(candidateImageData);
+          candidate.pHash = pHash(candidateImageData);
+        }
+        candidates.push(candidate);
       }
 
-      const ranked = rankBySimilarity(queryEmbedding, candidates, 5);
+      setScannedCount(scanned);
+      const queryCandidate: SimilarityCandidate & { src: string } = {
+        id: selectedNode.id,
+        contentId: selectedNode.id,
+        src: imageSrc,
+        embedding: queryEmbedding,
+      };
+      if (queryImageData) {
+        queryCandidate.dHash = dHash(queryImageData);
+        queryCandidate.pHash = pHash(queryImageData);
+      }
+      const ranked =
+        searchMode === 'semantic'
+          ? searchSemantic(queryEmbedding, candidates, 5)
+          : searchNearDuplicates(queryCandidate, candidates, 5);
       const results: SimilarMatch[] = ranked.map((r) => ({
-        nodeId: r.item.nodeId,
-        src: r.item.src,
-        similarity: r.similarity,
+        nodeId: r.candidate.id as NodeId,
+        src: r.candidate.src,
+        similarity: r.score,
+        lane: r.lane,
       }));
 
       setMatches(results);
@@ -2524,7 +2595,7 @@ function SimilarTab() {
       setErrorMessage(err instanceof Error ? err.message : 'Search failed');
       setStatus('error');
     }
-  }, [imageSrc, selectedNode, state.document.nodes, embed, announce]);
+  }, [imageSrc, selectedNode, state.document.nodes, embed, announce, searchMode]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
@@ -2546,9 +2617,36 @@ function SimilarTab() {
   return (
     <div className="intelligence-tab-content">
       <p className="intelligence-hint">
-        Embeds the selected image and ranks other images in this document by visual/semantic
-        similarity. Image-to-image only — runs locally in a web worker.
+        Local image-to-image search. Text queries are not supported. Semantic search does not
+        pre-filter by hash; near duplicates use exact identity and visual fingerprints first.
       </p>
+
+      <div className="similarity-mode-picker" role="radiogroup" aria-label="Similarity search type">
+        <button
+          type="button"
+          aria-pressed={searchMode === 'semantic'}
+          className={
+            searchMode === 'semantic'
+              ? 'similarity-mode-picker__option is-active'
+              : 'similarity-mode-picker__option'
+          }
+          onClick={() => setSearchMode('semantic')}
+        >
+          Similar
+        </button>
+        <button
+          type="button"
+          aria-pressed={searchMode === 'near-duplicates'}
+          className={
+            searchMode === 'near-duplicates'
+              ? 'similarity-mode-picker__option is-active'
+              : 'similarity-mode-picker__option'
+          }
+          onClick={() => setSearchMode('near-duplicates')}
+        >
+          Near duplicates
+        </button>
+      </div>
 
       {needsDownload && (
         <button
@@ -2581,38 +2679,35 @@ function SimilarTab() {
       )}
 
       {matches && (
-        <div className="intelligence-issue-list">
+        <div className="similarity-results">
           {matches.length === 0 ? (
-            <p>No other images found in this document.</p>
+            <p className="intelligence-empty">No matching images found in this document.</p>
           ) : (
             matches.map((m) => (
-              <div key={m.nodeId} className="intelligence-issue intelligence-issue--info">
-                <Tooltip label="Select this node">
-                  <button
-                    type="button"
-                    className="intelligence-issue__target"
-                    onClick={() => setSelection(m.nodeId)}
-                  >
-                    <img
-                      src={m.src}
-                      alt=""
-                      style={{
-                        width: 28,
-                        height: 28,
-                        objectFit: 'cover',
-                        borderRadius: 4,
-                        marginRight: 'var(--space-1)',
-                      }}
-                    />
-                    <span className="intelligence-issue__type">
-                      {Math.round(m.similarity * 100)}% match
-                    </span>
-                  </button>
-                </Tooltip>
-              </div>
+              <Tooltip
+                key={m.nodeId}
+                label={`Select result, ${Math.round(m.similarity * 100)}% match`}
+              >
+                <button
+                  type="button"
+                  className="similarity-result"
+                  onClick={() => setSelection(m.nodeId)}
+                >
+                  <img src={m.src} alt="" className="similarity-result__image" />
+                  <span className="similarity-result__score">
+                    {Math.round(m.similarity * 100)}%
+                  </span>
+                </button>
+              </Tooltip>
             ))
           )}
         </div>
+      )}
+
+      {matches && scannedCount > 0 && (
+        <p className="intelligence-hint" role="status">
+          Scanned {scannedCount} image{scannedCount === 1 ? '' : 's'} in this document.
+        </p>
       )}
 
       {isSearching ? (

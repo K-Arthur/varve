@@ -1918,6 +1918,69 @@
   font-size: var(--font-size-xs);
 }
 
+.similarity-mode-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+}
+.similarity-mode-picker__option {
+  min-height: var(--space-5);
+  padding: 0 var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.similarity-mode-picker__option.is-active {
+  border-color: var(--color-border-default);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.similarity-mode-picker__option:focus-visible,
+.similarity-result:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.similarity-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+.similarity-result {
+  position: relative;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  cursor: pointer;
+}
+.similarity-result__image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+.similarity-result__score {
+  position: absolute;
+  right: var(--space-1);
+  bottom: var(--space-1);
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-surface-inverse) 85%, transparent);
+  color: var(--color-text-on-inverse);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
 /* ---------- Issue list (Audit tab) ---------- */
 .intelligence-issue-list {
   display: flex;
