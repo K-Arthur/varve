@@ -191,7 +191,7 @@ describe('workspace panel baseline: preference store (workspaceStore.ts)', () =>
     const after = getEffectivePanelConfig('design', prefs, 'layers');
     expect(after.visible).toBe(false);
     // Unoverridden fields still come from the base config.
-    expect(after.order).toBe(before.order);
+    expect(after.preferredWidth).toBe(before.preferredWidth);
   });
 
   it('resetModePreferences clears customization for one mode only', () => {

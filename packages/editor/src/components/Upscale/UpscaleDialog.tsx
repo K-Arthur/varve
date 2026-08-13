@@ -427,7 +427,9 @@ export function UpscaleDialog({
     setProgress(null);
     try {
       await onApply({
-        operation: resolved?.operation ?? operation,
+        // 'auto' is a UI-level selection; the resolver picks the concrete
+        // operation. Fall back to plain upscale when it has not resolved.
+        operation: resolved?.operation ?? (operation === 'auto' ? 'upscale' : operation),
         mode: modeId,
         scale,
         output,

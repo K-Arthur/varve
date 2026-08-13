@@ -115,9 +115,8 @@ artifacts/
 # --- Build caches ---
 .astro/
 
-# --- Runtime-downloaded models (fetched on demand; tracked models live in the manifest) ---
+# --- Runtime-downloaded models (fetched on demand; bundled models are committed) ---
 apps/desktop/public/models/depth_anything_v2_small_int8.onnx
-apps/desktop/public/models/yunet-face-detect.onnx
 
 # --- Downloaded test corpus (restore-system fixtures fetched by scripts) ---
 tests/fixtures/restore-corpus/

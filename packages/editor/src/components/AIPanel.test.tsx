@@ -25,7 +25,7 @@ async function sendMessage(text: string) {
 
 function lastAssistantReply(): HTMLElement | null {
   const bubbles = screen.getAllByText(/./, { selector: '.ai-panel__bubble-content' });
-  return bubbles.length > 0 ? bubbles[bubbles.length - 1] : null;
+  return bubbles.length > 0 ? (bubbles[bubbles.length - 1] ?? null) : null;
 }
 
 describe('AIPanel — on-device assistant', () => {

@@ -108,8 +108,8 @@ describe('applyPaintProperties', () => {
     const shapeTarget = shapeNode();
 
     const updatedText = applyPaintProperties(textTarget, extractPaintProperties(source));
-    expect(updatedText.fontSize).toBe(32);
-    expect(updatedText.fontFamily).toBe('Serif');
+    expect((updatedText as { fontSize?: number }).fontSize).toBe(32);
+    expect((updatedText as { fontFamily?: string }).fontFamily).toBe('Serif');
 
     const updatedShape = applyPaintProperties(shapeTarget, extractPaintProperties(source));
     expect((updatedShape as { fontSize?: number }).fontSize).toBeUndefined();
