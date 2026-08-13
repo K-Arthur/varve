@@ -116,6 +116,28 @@ function collect({ bundleDir, outDir, os, arch, version, product }) {
         size: humanSize(size),
         sha256: sha256(dest),
       });
+
+      // Tauri v2 reuses the AppImage/NSIS installer bytes for updater installs
+      // and emits the detached `.sig` beside them. The signature is a release
+      // input, not an OS code-signing claim; publish it so the feed can be
+      // audited against the exact bytes users download.
+      if (meta.format === 'appimage' || meta.format === 'nsis') {
+        copyUpdaterSignature({ source, canonical, outDir });
+      }
+    }
+  }
+
+  // macOS keeps the DMG as the distribution container, while Tauri's updater
+  // consumes a signed tarball of the installed `.app`.
+  const macosDir = join(bundleDir, 'macos');
+  if (existsSync(macosDir)) {
+    for (const entry of readdirSync(macosDir)) {
+      if (!entry.endsWith('.app.tar.gz')) continue;
+      const source = join(macosDir, entry);
+      if (!statSync(source).isFile()) continue;
+      const canonical = `${product}-${version}-${os}-${arch}.app.tar.gz`;
+      copyFileSync(source, join(outDir, canonical));
+      copyUpdaterSignature({ source, canonical, outDir });
     }
   }
 
@@ -128,6 +150,17 @@ function collect({ bundleDir, outDir, os, arch, version, product }) {
 
   artifacts.sort((a, b) => a.filename.localeCompare(b.filename));
   return artifacts;
+}
+
+function copyUpdaterSignature({ source, canonical, outDir }) {
+  const signatureSource = `${source}.sig`;
+  if (!existsSync(signatureSource) || !statSync(signatureSource).isFile()) {
+    throw new Error(
+      `Missing Tauri updater signature for ${source}. ` +
+        'Refusing to collect an installable updater artifact without its .sig.',
+    );
+  }
+  copyFileSync(signatureSource, join(outDir, `${canonical}.sig`));
 }
 
 function writeChecksums(outDir, artifacts) {

@@ -16,6 +16,7 @@ import { PrivacyDiagnosticsSection } from '../../crash';
 import { loadSettings, type ThemeMode, type UnitType, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
+import { useOptionalUpdateCoordinator } from '../../updates';
 import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
 import { InspectorColorPopover } from '../Inspector/controls/InspectorColorPopover';
 import { whiteForMode } from '../Inspector/panels/DocumentPanel';
@@ -37,6 +38,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'AI Assistant' },
   { id: 'privacy', label: 'Privacy & Diagnostics' },
+  { id: 'updates', label: 'Updates' },
   { id: 'about', label: 'About' },
 ];
 
@@ -170,6 +172,7 @@ export function SettingsDialog({
             {activeSection === 'collab' && <CollabSection />}
             {activeSection === 'ai' && <AISection />}
             {activeSection === 'privacy' && <PrivacyDiagnosticsSection />}
+            {activeSection === 'updates' && <UpdatesSection />}
             {activeSection === 'about' && <AboutSection />}
           </div>
         </div>
@@ -535,4 +538,176 @@ function AboutSection() {
       </div>
     </div>
   );
+}
+
+function UpdatesSection() {
+  const updates = useOptionalUpdateCoordinator();
+  if (!updates) {
+    return (
+      <div className="settings-section">
+        <h3 className="settings-section__title">Updates</h3>
+        <p className="settings-desc">Updates are unavailable in this build.</p>
+      </div>
+    );
+  }
+
+  const { context, preferences, state } = updates;
+  const canUseUpdater = context?.updateAuthority === 'self-managed' && context.runtimeSupported;
+  const status = updateStatusLabel(state);
+
+  return (
+    <div className="settings-section">
+      <h3 className="settings-section__title">Updates</h3>
+      <p className="settings-desc">
+        Update checks contact Varve's configured release endpoint. No account, document data, or
+        device identifier is sent.
+      </p>
+      <div className="settings-about">
+        <div className="settings-about__row">
+          <span className="settings-about__key">Version</span>
+          <span className="settings-about__value">{context?.currentVersion ?? 'Unavailable'}</span>
+        </div>
+        <div className="settings-about__row">
+          <span className="settings-about__key">Channel</span>
+          <span className="settings-about__value">{context?.channel ?? preferences.channel}</span>
+        </div>
+        <div className="settings-about__row">
+          <span className="settings-about__key">Build</span>
+          <span className="settings-about__value">{context?.buildLabel ?? 'Unavailable'}</span>
+        </div>
+        <div className="settings-about__row">
+          <span className="settings-about__key">Update authority</span>
+          <span className="settings-about__value">{authorityLabel(context?.updateAuthority)}</span>
+        </div>
+      </div>
+      <Divider />
+      <h4 className="settings-section__subtitle">Update permission</h4>
+      <fieldset className="settings-fieldset">
+        <legend className="settings-sr-only">Update permission</legend>
+        {(
+          [
+            ['manual', 'Manual — only check when I ask'],
+            ['notify', 'Automatically check and notify me'],
+            ['download-automatically', 'Automatically check and download verified updates'],
+          ] as const
+        ).map(([value, label]) => (
+          <label className="settings-checkbox-row" key={value}>
+            <input
+              type="radio"
+              name="update-consent"
+              value={value}
+              checked={preferences.consent === value}
+              onChange={() => updates.setPreferences({ consent: value })}
+              disabled={!canUseUpdater}
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+      </fieldset>
+      <label className="settings-checkbox-row">
+        <input
+          type="checkbox"
+          checked={preferences.installOnQuit}
+          onChange={(event) => updates.setPreferences({ installOnQuit: event.target.checked })}
+          disabled={!canUseUpdater || preferences.consent !== 'download-automatically'}
+        />
+        <span>Install a verified update when I quit Varve</span>
+      </label>
+      <p className="settings-hint">
+        Installation still waits for the normal save/close workflow. Varve never discards unsaved
+        design work to apply an update.
+      </p>
+      <Divider />
+      <p className="settings-hint" role="status" aria-live="polite">
+        Current status: {status}
+      </p>
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => void updates.check()}
+        disabled={!canUseUpdater || state.kind === 'checking'}
+      >
+        {state.kind === 'checking' ? 'Checking…' : 'Check for Updates'}
+      </Button>
+      {state.kind === 'update-available' && (
+        <div className="settings-dialog__footer">
+          <Button variant="primary" size="sm" onClick={() => void updates.download()}>
+            Download {state.update.version}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => updates.defer()}>
+            Later
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => updates.skipVersion()}>
+            Skip this version
+          </Button>
+        </div>
+      )}
+      {state.kind === 'ready-to-install' && (
+        <div className="settings-dialog__footer">
+          <p className="settings-hint" role="status">
+            Version {state.update.version} is downloaded and cryptographically verified. Varve will
+            save or ask about unsaved documents before restarting.
+          </p>
+          <Button variant="primary" size="sm" onClick={() => void updates.installAndRestart()}>
+            Install and Restart
+          </Button>
+        </div>
+      )}
+      {state.kind === 'error' && <p className="settings-hint">{state.error.message}</p>}
+    </div>
+  );
+}
+
+function authorityLabel(authority: string | undefined): string {
+  switch (authority) {
+    case 'self-managed':
+      return 'Varve Releases';
+    case 'package-manager-managed':
+      return 'System package manager';
+    case 'store-managed':
+      return 'App store';
+    case 'development-build':
+      return 'Development build';
+    default:
+      return 'Unavailable for this build';
+  }
+}
+
+function updateStatusLabel(state: import('../../updates').UpdateState): string {
+  switch (state.kind) {
+    case 'consent-required':
+      return 'Choose whether Varve may check for updates.';
+    case 'disabled':
+      return 'Updates are checked manually.';
+    case 'idle':
+      return 'Ready to check.';
+    case 'checking':
+      return 'Checking…';
+    case 'up-to-date':
+      return 'Varve is up to date.';
+    case 'update-available':
+      return `Version ${state.update.version} is available.`;
+    case 'downloading':
+      return state.totalBytes
+        ? `Downloading ${Math.round((state.downloadedBytes / state.totalBytes) * 100)}%.`
+        : 'Downloading…';
+    case 'verifying':
+      return 'Verifying…';
+    case 'ready-to-install':
+      return 'Ready to install.';
+    case 'installing':
+      return 'Installing…';
+    case 'restart-required':
+      return 'Restart required.';
+    case 'deferred':
+      return 'Update deferred.';
+    case 'cancelled':
+      return 'Update cancelled.';
+    case 'unsupported':
+      return state.reason.message;
+    case 'externally-managed':
+      return 'Updates are managed by the system package manager or store.';
+    case 'error':
+      return state.error.message;
+  }
 }
