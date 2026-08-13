@@ -4,12 +4,24 @@ import {
   type AnalyticsEvent,
   type AnalyticsEventMap,
   type AnalyticsProvider,
-  safeAnalyticsEndpoint,
   sanitizeAnalyticsContext,
 } from '@varve/shared';
 
 const CONSENT_KEY = 'varve:website-analytics-consent';
-const PLAUSIBLE_ENDPOINT = 'https://plausible.io/api/event';
+const PLAUSIBLE_SCRIPT = 'https://plausible.io/js/pa-9Rpt-MZjJts8awPbiRZl3.js';
+
+type PlausibleEventOptions = {
+  props?: Record<string, string>;
+  u?: string;
+  interactive?: boolean;
+};
+
+type PlausibleClient = ((name: string, options?: PlausibleEventOptions) => void) & {
+  init?: (options?: Record<string, unknown>) => void;
+  l?: boolean;
+  o?: Record<string, unknown>;
+  q?: Array<[string, PlausibleEventOptions?]>;
+};
 
 interface WebsiteAnalyticsOptions {
   domain: string;
@@ -18,6 +30,7 @@ interface WebsiteAnalyticsOptions {
 
 interface AnalyticsWindow extends Window {
   __varveWebsiteAnalytics?: WebsiteAnalyticsController;
+  plausible?: PlausibleClient;
 }
 
 interface DownloadTarget extends HTMLElement {
@@ -106,67 +119,86 @@ function releaseChannel(value: string | undefined): 'beta' | 'stable' | 'prerele
 }
 
 class PlausibleEventsProvider implements AnalyticsProvider {
-  private readonly endpoint: string | null;
   private readonly domain: string;
   private readonly pending: AnalyticsEvent[] = [];
 
   constructor(domain: string) {
     this.domain = domain;
-    this.endpoint = safeAnalyticsEndpoint(PLAUSIBLE_ENDPOINT);
   }
 
-  async initialize(): Promise<void> {}
+  async initialize(): Promise<void> {
+    const win = window as AnalyticsWindow;
+    if (win.plausible?.l) return;
+
+    let plausible = win.plausible;
+    if (!plausible) {
+      const queued: Array<[string, PlausibleEventOptions?]> = [];
+      plausible = ((...args: [string, PlausibleEventOptions?]) => {
+        queued.push(args);
+      }) as PlausibleClient;
+      plausible.q = queued;
+    }
+    plausible.q ??= [];
+    plausible.init ??= (options) => {
+      plausible.o = options;
+    };
+    plausible.init({
+      domain: this.domain,
+      autoCapturePageviews: false,
+      fileDownloads: false,
+      outboundLinks: false,
+      formSubmissions: false,
+    });
+    win.plausible = plausible;
+
+    if (!document.querySelector(`script[data-varve-plausible="true"]`)) {
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = PLAUSIBLE_SCRIPT;
+      script.dataset.varvePlausible = 'true';
+      document.head.appendChild(script);
+    }
+  }
 
   track(event: AnalyticsEvent): void {
     if (this.pending.length < 25) this.pending.push(event);
   }
 
   async flush(): Promise<void> {
-    if (!this.endpoint || this.pending.length === 0) return;
+    if (this.pending.length === 0) return;
+    const plausible = (window as AnalyticsWindow).plausible;
+    if (!plausible) return;
     const events = this.pending.splice(0, this.pending.length);
-    await Promise.all(
-      events.map(async (event) => {
-        const pagePayload = event.payload as AnalyticsEventMap['website_page_viewed'];
-        const route =
-          event.name === 'website_page_viewed'
-            ? pagePayload.route
-            : normalizedRoute(window.location.pathname);
-        const props =
-          event.name === 'website_download_started'
-            ? (() => {
-                const payload = event.payload as AnalyticsEventMap['website_download_started'];
-                return {
-                  release: payload.release,
-                  platform: payload.platform,
-                  architecture: payload.architecture,
-                  package_type: payload.packageType,
-                  release_channel: payload.releaseChannel,
-                };
-              })()
-            : event.name === 'website_outbound_clicked'
-              ? {
-                  destination: (event.payload as AnalyticsEventMap['website_outbound_clicked'])
-                    .destination,
-                }
-              : undefined;
-        try {
-          await fetch(this.endpoint!, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              domain: this.domain,
-              name: event.name === 'website_page_viewed' ? 'pageview' : event.name,
-              url: new URL(route, window.location.origin).toString(),
-              props,
-              interactive: false,
-            }),
-            keepalive: true,
-          });
-        } catch {
-          // Provider outages cannot affect navigation or downloads.
-        }
-      }),
-    );
+    for (const event of events) {
+      const pagePayload = event.payload as AnalyticsEventMap['website_page_viewed'];
+      const route =
+        event.name === 'website_page_viewed'
+          ? pagePayload.route
+          : normalizedRoute(window.location.pathname);
+      const props =
+        event.name === 'website_download_started'
+          ? (() => {
+              const payload = event.payload as AnalyticsEventMap['website_download_started'];
+              return {
+                release: payload.release,
+                platform: payload.platform,
+                architecture: payload.architecture,
+                package_type: payload.packageType,
+                release_channel: payload.releaseChannel,
+              };
+            })()
+          : event.name === 'website_outbound_clicked'
+            ? {
+                destination: (event.payload as AnalyticsEventMap['website_outbound_clicked'])
+                  .destination,
+              }
+            : undefined;
+      plausible(event.name === 'website_page_viewed' ? 'pageview' : event.name, {
+        props,
+        u: new URL(route, window.location.origin).toString(),
+        interactive: false,
+      });
+    }
   }
 
   async shutdown(): Promise<void> {
