@@ -10,6 +10,16 @@
 #![forbid(unsafe_code)]
 
 use image::{DynamicImage, ImageBuffer, Rgba};
+use std::path::PathBuf;
+use std::sync::OnceLock;
+
+static CONFIGURED_MODEL_DIRECTORY: OnceLock<PathBuf> = OnceLock::new();
+
+/// Inject the Tauri-resolved app model directory for desktop inference.
+/// Standalone callers retain the platform-data fallback in `model_path`.
+pub fn configure_model_directory(path: PathBuf) {
+    let _ = CONFIGURED_MODEL_DIRECTORY.set(path);
+}
 
 #[cfg(feature = "ai")]
 mod ai;
@@ -128,12 +138,14 @@ pub fn tiled_upscale(
     Ok(output)
 }
 
-/// Resolve model file path under the shared Strata models directory.
+/// Resolve model file path under the shared Varve models directory.
 pub fn model_path(model_id: &str) -> std::path::PathBuf {
-    let base = dirs_next::data_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join("strata")
-        .join("models");
+    let base = CONFIGURED_MODEL_DIRECTORY.get().cloned().unwrap_or_else(|| {
+        dirs_next::data_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("dev.varve.desktop")
+            .join("models")
+    });
     let by_id = base.join(format!("{model_id}.onnx"));
     if by_id.exists() {
         return by_id;
