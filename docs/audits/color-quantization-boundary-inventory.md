@@ -48,6 +48,125 @@ their working input.
 | Desktop background removal / AI helpers | Rust `DynamicImage::to_rgba8()` and RGBA8 output | Model and image codec contracts | For current model path | Yes only by retaining the source separately | Scoped processing boundary; source asset metadata/state must not be replaced by the preview result. |
 | Native/WebAssembly render bridge | Render IR carries tagged colors; shader validation fixtures write `rgba8unorm` | Preview shader target | No for canonical IR | Yes with a separate high-precision render target | Keep native/WASM IR color contract independent from preview texture format. |
 
+## Deep audit — raster lifecycle (2026-08-13)
+
+Full end-to-end flow from imported asset bytes to the compositor:
+
+| Hop | Module:function | Precision |
+| --- | --- | --- |
+| Import byte inspection | `import/import.ts` `importImageAsFile` | lossless (no decode) |
+| Asset bytes → data URL | `import/bitmap.ts` `bytesToDataUrl` | lossless |
+| ICC + `colorEncoding` (incl. bitDepth 8/10/12/16) recorded | `import/import.ts:90-149` → `DocumentAsset.metadata` | metadata only — **dies at the scene model** |
+| Decode for display | `engine/imageCache.ts:264` `new Image()`, `:627/:634` `createImageBitmap` | **8-bit boundary — browser decoder** |
+| Worker transfer | `editor/render/collectImageBitmaps.ts:283-367` | 8-bit bitmap handoff |
+| Replay | `engine/replay.ts:1061` `paintImageFill` → `drawImage` | 8-bit source drawn |
+| WebGPU composite | `compositor/webgpu/backend.ts:445` | images never uploaded to GPU textures — Canvas2D present surface |
+| Animated media | `crates/varve-media/src/decode.rs:188` (`STRIP_16`) → `media/frameCache.ts` | **16-bit stripped at decode** |
+| Raster paint layers | `engine/rasterPyramid/renderTiles.ts:243-245` (`createImageData`), `downsample.ts:88` | 8-bit |
+| Export flatten | `editor/export/flattenForExport.ts:388` → `exportPipeline/pipeline.ts` | 8-bit composite |
+| ICC export convert | `engine/iccImageConverter.ts:110/125` (`getImageData`) | 8-bit |
+| Native helpers | `desktop/src-tauri/src/lib.rs:1176,1658` (`to_rgba8`) | flattens 16-bit sources for upscale/trace |
+
+Key findings:
+1. **The browser decoder is the master boundary.** A 16-bit PNG / 10-bit AVIF is
+   decoded to 8-bit RGBA with no signal; the asset metadata still claims
+   `bitDepth: 16`. Preserving >8-bit for raster content requires native/WASM
+   decode paths (varve-media exists; it currently only handles GIF/APNG/WebP
+   and `STRIP_16`s APNG).
+2. **`ImageCache` keying is URL-only in practice.** The `ImageCacheColorVariant`
+   slot (designed to carry `rasterEncodingKey()` output, tested at
+   `imageCache.test.ts:499-515`) is never populated by any caller.
+3. **`rasterColor/` typed buffers are unwired.** `pixelBuffer.ts` /
+   `transform.ts` / `exportPolicy.ts` are complete and tested, but nothing in
+   decode, cache, worker transport, replay, or compositing consumes them.
+
+## Deep audit — effects and blend math (2026-08-13)
+
+- The entire effect/adjustment stack is byte-space by construction: every
+  kernel's input is `ImageData` via `filterCompositor.ts:150`
+  (`getImageData`), processed in 0-255 arithmetic, written back via
+  `putImageData`. There is no float pipeline between effect stages.
+- Confirmed avoidable mid-pipeline RGBA8 allocations (each quantizes in
+  series): `effectPipeline.ts:73-128` (glassMaterial — 4 sequential
+  getImageData/putImageData passes), `blur.ts` `gaussianBlurLinearLight`
+  (quantizes to byte immediately after linearization at :245-247 — the
+  "linear-light" contract in `effectContract.ts:146` is not honored),
+  `curves.ts:49-90` and `levels.ts:28-42` (hard `Uint8Array(256)` LUTs),
+  `gradientMap.ts` / `duotone.ts` / `tritone.ts` (256-entry byte LUTs),
+  `liveEffects/dither.ts:158-177` (float error diffusion re-quantized to
+  bytes for the palette lookup — defeats the purpose).
+- `*255` round trips: `effectPipeline.ts:52` (`extractRgb` —
+  `managedColorToNormalized()` immediately `×255`), `blendModes.ts:431-434`,
+  `porterDuff.ts:153-156`, `filterCompositor.ts:834-846,1038-1040,1070-1072`,
+  `blur.ts:17-32` (byte premultiply/unpremultiply — `255/a` amplifies
+  rounding at low alpha), `exportPipeline/palette.ts:200-202` (**dead**
+  `/255 → ×255` round trip inside palette scaling).
+- Byte-space premultiply/unpremultiply double-quantization: `blur.ts:7-32`,
+  `filterCompositor.ts:794-819` (sharpen), `liveEffects/crt.ts:268-278`,
+  `rgbSplit.ts:185-195`. Correct float helpers already exist in
+  `rasterColor/pixelBuffer.ts:251-277`.
+- Effect colour params reach kernels as 0-255 byte tuples
+  (`AdjustmentEditor.managedToColor` = `managedColorToRgba` — destroys
+  float/non-RGB precision before storage; `GradientMapEditor.tsx:18-22`
+  same). The one normalized path (`extractRgb`) quantizes immediately.
+- 256-bin assumptions: `curves.ts`/`levels.ts` LUTs, `histogram.ts` BINS=256
+  (fine for display; auto-levels stats could be float),
+  `gradientMap.ts` `DEFAULT_GRADIENT_LUT_SIZE=256`, `duotone.ts`/`tritone.ts`
+  luma-keyed 256 LUTs, `filterCompositor.ts:735-738` contrast pivot at 128,
+  `posterize.ts`/`threshold.ts`/`halftone.ts` 128 pivots.
+
+## Deep audit — export and print (2026-08-13)
+
+- All implemented raster encoders are 8-bit: PNG/JPEG/WebP go through
+  `rasterSurface.ts` `encodeRasterSurface` (`convertToBlob`/`toBlob`);
+  GIF is inherently 256-color. `RasterExportSettings.bitDepth (8|24|32)` is
+  declarative only — never read by the executor.
+- `exportPolicy.ts:50` `resolveExportEncoding` hardcodes `bitDepth: 8` — the
+  policy layer cannot express >8-bit output even when the source could.
+- TIFF declares `highBitDepth: true` but has no encoder ("No TIFF encoder is
+  implemented"). AVIF export throws.
+- **PDF CMYK round trip confirmed:** `crates/varve-print` `color_to_rgba_string`
+  / `color_to_cmyk_string` both start from `engine_color_rgba(fill)` — a
+  `CmykColor` is converted RGB with the naive `(1-c)(1-k)` formula
+  (`varve-colour/src/conversions.rs:283-321`) and then converted **back** to
+  CMYK. The `profile`/`bit_depth` fields on `EngineColor::Cmyk` are ignored.
+- `Document.colorConfig` is unused by export; `outputIntent` never reaches the
+  PDF path (the job's `iccProfile` option string is the sole profile input).
+- `PdfOptions.lossy` is never set true by any Tauri command — the precision
+  loss warning path is unreachable in production.
+- SVG: `preserveColorSpace` mode emits `icc-color()` with raw unnormalized
+  channel values; otherwise 8-bit `rgba()` via naive CMYK→RGB.
+- Import: ICC profiles are extracted (metadata only) for PNG/JPEG/WebP/TIFF/
+  AVIF; **no importer decodes >8-bit pixels** — decode is `createImageBitmap`
+  everywhere.
+
+## Deep audit — frontend (2026-08-13)
+
+- Picker contract is already ManagedColor-native
+  (`ColorPicker.tsx` `value: ManagedColor` / `onChange`). Losses concentrate
+  at: (a) HSV area/slider path (`hsvToRgb` `Math.round`s to 0-255,
+  `color-utils.ts:38`), (b) hex + RGB spinbutton inputs (0-255 scale even for
+  uint16 colors), (c) swatch selection — document/recent swatches are
+  flattened via `managedColorToRgba` (`InspectorColorPopover.tsx:110-121`)
+  then re-authored as fresh uint8 RGB (`ColorPicker.tsx:384-390`) — the
+  biggest fidelity loss in the UI, (d) `AdjustmentEditor` / `GradientMapEditor`
+  storing 0-255 tuples, (e) grid/axis colors via CSS strings
+  (`DocumentPanel.tsx:321-334`), (f) `GradientEditor` add-stop interpolation
+  from 8-bit tuples.
+- Bit-depth segmented control exists in the picker but no editor host passes
+  `bitDepth`/`onBitDepthChange` — dead UI today.
+- Document color settings UI: only mode assignment exists
+  (`DocumentPanel.tsx:70-103`); `bitDepth`, `workingSpace`, `rgbProfile`,
+  `displayProfile`, `outputIntent`, `blackGeneration` have no reachable
+  controls. `ColorConversionDialog` (Assign vs Convert) is orphaned —
+  renders nowhere, no menu/command entry. `convertDocumentColors` is wired in
+  context but unreachable.
+- Mixed selection: strokes and effects have proper `commonValue`/MIXED
+  handling; **fill color collapses to node[0]** (`FillSection.tsx:132-137`)
+  — no mixed fill-color state.
+- Lab/LCH authoring is float-exact (the model path); RGB/CMYK authoring is
+  8-bit through the HSV/hex/field inputs.
+
 ## Required changes derived from this audit
 
 1. ~~Make normalized working conversion direct from the tagged channels.~~
@@ -64,6 +183,23 @@ their working input.
    still pending.
 5. Keep Canvas2D, `ImageData`, `rgba8unorm`, JPEG, GIF, and model-specific RGBA8
    paths explicitly labeled as output/preview or capability boundaries.
+6. Fix document-feedback quantizers — results that are written back into
+   canonical document state must be bit-depth-aware: adaptive contrast
+   resolved colors, baked LUTs, adjustment/effect colour params
+   (`managedToColor` in AdjustmentEditor/GradientMapEditor), palette
+   extraction.
+7. Make the color picker precision-preserving end-to-end: float HSV editing,
+   bit-depth-aware numeric fields, swatch pass-through of full ManagedColor,
+   bit-depth control wired to hosts.
+8. Add reachable Document Color Settings UI (bitDepth, workingSpace, profiles)
+   and wire the orphaned ColorConversionDialog into menus/commands.
+9. Float-domain adjustment kernels (curves/levels) with single entry/exit
+   quantization for the effect pipeline; float premultiply in blur/sharpen.
+10. PDF: emit native CMYK channels without the RGB round trip; honor
+    `EngineColor::Cmyk.profile`.
+11. Export: plumb real bit-depth through the policy layer; add a 16-bit PNG
+    encoder path (Rust `png` crate is already a dependency of varve-media,
+    decode-only today).
 
 ## Baseline regression corpus
 
