@@ -1,9 +1,29 @@
+/**
+ * Canonical text layout snapshot.
+ *
+ * `layoutText()` is the authoritative derived layout for a logical source
+ * string: paragraph itemization (UAX #9 + scripts), word-level line breaking
+ * (never inside a grapheme), line-local visual run ordering (UAX #9 X8/L2),
+ * positioned glyphs, cluster-safe caret stops, and selection geometry.
+ *
+ * The snapshot is derived and revisioned; it is never serialized as document
+ * content. Source text remains logical Unicode order throughout.
+ *
+ * `buildTextLayoutSnapshot()` is retained as a single-paragraph compatibility
+ * entry point for consumers that already hold a `TextShaping` result.
+ */
+
 import type { ShapedGlyph, ShapedRun, TextShaping } from './types';
 import {
   createUnicodeIndexMap,
+  normalizeGraphemeRange,
   snapUtf16Offset,
   type UnicodeIndexMap,
 } from './unicode/unicodeIndices';
+import { segmentBreakUnits, graphemeBreakUnits, type BreakUnit } from './text/lineBreak';
+import type { ItemizedParagraph } from './text/paragraphs';
+import { itemizeParagraph, itemizeText } from './text/paragraphs';
+import { lineVisualRuns } from './text/visualOrder';
 
 export type CaretAffinity = 'leading' | 'trailing';
 
@@ -19,7 +39,7 @@ export interface TextLayoutIdentity {
 }
 
 export interface PositionedGlyph extends ShapedGlyph {
-  /** Exclusive source UTF-16 cluster end. */
+  /** Exclusive source UTF-16 cluster end (document-local). */
   sourceEnd: number;
   /** Line-local origin in CSS pixels. */
   x: number;
@@ -28,29 +48,39 @@ export interface PositionedGlyph extends ShapedGlyph {
 }
 
 export interface TextLayoutRun {
+  /** Document-local source start. */
   sourceStart: number;
+  /** Document-local source end. */
   sourceEnd: number;
+  /** Run origin x within the line. */
   x: number;
   width: number;
   direction: 'ltr' | 'rtl';
   level: number;
+  /** Positioned glyphs in visual order. */
   glyphs: readonly PositionedGlyph[];
   sourceRun: ShapedRun;
 }
 
 export interface TextLayoutLine {
+  /** Index of the containing paragraph. */
+  paragraphIndex: number;
+  /** Document-local logical start. */
   sourceStart: number;
+  /** Document-local logical end (exclusive). */
   sourceEnd: number;
   top: number;
   baseline: number;
   height: number;
   width: number;
+  /** Runs in visual (left-to-right) order. */
   runs: readonly TextLayoutRun[];
-  /** Source UTF-16 cluster starts in the line's visual traversal order. */
+  /** Document-local cluster starts in the line's visual traversal order. */
   visualClusters: readonly number[];
 }
 
 export interface CaretStop {
+  /** Document-local logical offset. */
   offset: number;
   lineIndex: number;
   x: number;
@@ -66,10 +96,22 @@ export interface SelectionRect {
   height: number;
 }
 
+export interface TextLayoutParagraphInfo {
+  index: number;
+  sourceStart: number;
+  sourceEnd: number;
+  baseDirection: 'ltr' | 'rtl';
+  baseLevel: number;
+  /** First line index (exclusive end at `lineEnd`). */
+  lineStart: number;
+  lineEnd: number;
+}
+
 export interface TextLayoutSnapshot {
   text: string;
   sourceMap: UnicodeIndexMap;
   identity: TextLayoutIdentity;
+  paragraphs: readonly TextLayoutParagraphInfo[];
   lines: readonly TextLayoutLine[];
   caretStops: readonly CaretStop[];
   width: number;
@@ -88,215 +130,393 @@ export interface BuildTextLayoutSnapshotOptions {
   variationKey?: string;
 }
 
+/** One paragraph's logical-order shaped runs for `layoutText`. */
+export interface LayoutParagraphInput {
+  paragraph: ItemizedParagraph;
+  /** Logical-order runs; glyph `clusterUtf16` is paragraph-local. */
+  runs: readonly ShapedRun[];
+}
+
+export interface LayoutTextInput {
+  text: string;
+  paragraphs: readonly LayoutParagraphInput[];
+  maxWidth: number;
+  sourceRevision?: string;
+  fontRevision?: string;
+  lineHeight?: number;
+  language?: string;
+  featureKey?: string;
+  variationKey?: string;
+  /** Paragraph direction override ('auto' = first-strong). */
+  direction?: 'auto' | 'ltr' | 'rtl';
+}
+
+/** Logical-order glyph record with paragraph-local cluster bounds. */
 interface GlyphRecord {
   run: ShapedRun;
   glyph: ShapedGlyph;
-  sourceEnd: number;
+  clusterStart: number;
+  clusterEnd: number;
+}
+
+interface LayoutUnit {
+  unit: BreakUnit;
+  records: readonly GlyphRecord[];
+  width: number;
+}
+
+interface RawLine {
+  units: readonly LayoutUnit[];
+  width: number;
 }
 
 /**
- * Turn one shaped result into the derived geometry consumed by later render,
- * caret, selection, and export layers. The source string remains logical;
- * `TextShaping.visualRuns` is used when available for visual traversal.
+ * Lay out a full logical string through the canonical pipeline. Paragraphs
+ * must come from `itemizeText` (or equivalent) and carry logical-order shaped
+ * runs with paragraph-local cluster offsets.
  */
-export function buildTextLayoutSnapshot(
-  text: string,
-  shaping: TextShaping,
-  options: BuildTextLayoutSnapshotOptions,
-): TextLayoutSnapshot {
-  const sourceMap = createUnicodeIndexMap(text);
-  const maxWidth = Math.max(0, options.maxWidth);
-  const lineHeight = options.lineHeight ?? shaping.height;
+export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
+  const sourceMap = createUnicodeIndexMap(input.text);
+  const maxWidth = Math.max(0, input.maxWidth);
+  const lines: TextLayoutLine[] = [];
+  const paragraphInfos: TextLayoutParagraphInfo[] = [];
+  const caretStops: CaretStop[] = [];
+  const baseDirection = paragraphBaseDirection(input.paragraphs, input.direction);
   const identity: TextLayoutIdentity = {
-    sourceRevision: options.sourceRevision ?? 'unknown',
-    fontRevision: options.fontRevision ?? 'unknown',
+    sourceRevision: input.sourceRevision ?? 'unknown',
+    fontRevision: input.fontRevision ?? 'unknown',
     maxWidth,
-    lineHeight: options.lineHeight ?? null,
-    direction: shaping.direction,
-    language: options.language ?? '',
-    featureKey: options.featureKey ?? '',
-    variationKey: options.variationKey ?? '',
+    lineHeight: input.lineHeight ?? null,
+    direction: baseDirection,
+    language: input.language ?? '',
+    featureKey: input.featureKey ?? '',
+    variationKey: input.variationKey ?? '',
   };
-  const records = buildGlyphRecords(text, sourceMap, shaping.visualRuns ?? shaping.runs);
-  const lines = buildLines(text, records, maxWidth, lineHeight);
-  const caretStops = buildCaretStops(text, lines);
+  const diagnostics: string[] = [];
+
+  for (const { paragraph, runs } of input.paragraphs) {
+    const records = buildGlyphRecords(runs, paragraph.text.length);
+    if (records.some((record) => record.glyph.glyphId === 0)) {
+      diagnostics.push('shaping contains unknown glyph IDs; geometry may be approximate');
+    }
+    const paragraphLineStart = lines.length;
+    const paragraphLines = layoutParagraphLines(
+      paragraph,
+      records,
+      maxWidth,
+      input.lineHeight ?? null,
+    );
+    for (const line of paragraphLines) lines.push(line);
+    paragraphInfos.push({
+      index: paragraph.index,
+      sourceStart: paragraph.sourceStart,
+      sourceEnd: paragraph.sourceEnd,
+      baseDirection: paragraph.baseDirection,
+      baseLevel: paragraph.baseLevel,
+      lineStart: paragraphLineStart,
+      lineEnd: lines.length,
+    });
+    caretStops.push(...buildCaretStops(paragraph, paragraphLines));
+  }
+
   const width = lines.reduce((largest, line) => Math.max(largest, line.width), 0);
   const height =
     lines.length === 0 ? 0 : lines[lines.length - 1]!.top + lines[lines.length - 1]!.height;
 
   return {
-    text,
+    text: input.text,
     sourceMap,
     identity,
+    paragraphs: paragraphInfos,
     lines,
     caretStops,
     width,
     height,
-    baseDirection: shaping.baseDirection,
-    diagnostics: shaping.runs.some((run) => run.glyphs.some((glyph) => glyph.glyphId === 0))
-      ? ['shaping contains unknown glyph IDs; geometry may be approximate']
-      : [],
+    baseDirection,
+    diagnostics,
   };
 }
 
-function buildGlyphRecords(
-  text: string,
-  sourceMap: UnicodeIndexMap,
-  runs: readonly ShapedRun[],
-): GlyphRecord[] {
-  const starts = [
-    ...new Set(
-      runs.flatMap((run) =>
-        run.glyphs.map((glyph) => snapUtf16Offset(sourceMap, glyph.clusterUtf16, 'floor')),
-      ),
-    ),
-  ]
-    .filter((offset) => offset >= 0 && offset < text.length)
+function paragraphBaseDirection(
+  paragraphs: readonly LayoutParagraphInput[],
+  direction?: 'auto' | 'ltr' | 'rtl',
+): 'ltr' | 'rtl' {
+  if (direction === 'ltr' || direction === 'rtl') return direction;
+  return paragraphs[0]?.paragraph.baseDirection ?? 'ltr';
+}
+
+/**
+ * Build logical-order glyph records with paragraph-local cluster bounds.
+ * A cluster end is the next distinct cluster start in the paragraph, or the
+ * paragraph length for the final cluster.
+ */
+function buildGlyphRecords(runs: readonly ShapedRun[], textLength: number): GlyphRecord[] {
+  const clusterStarts = [...new Set(runs.flatMap((run) => run.glyphs.map((g) => g.clusterUtf16)))]
+    .filter((offset) => offset >= 0 && offset < textLength)
     .sort((a, b) => a - b);
   const endFor = (start: number): number => {
-    const next = starts.find((candidate) => candidate > start);
-    return next ?? text.length;
+    const next = clusterStarts.find((candidate) => candidate > start);
+    return next ?? textLength;
   };
   const records: GlyphRecord[] = [];
   for (const run of runs) {
     for (const glyph of run.glyphs) {
-      const clusterUtf16 = snapUtf16Offset(sourceMap, glyph.clusterUtf16, 'floor');
-      records.push({
-        run,
-        glyph: clusterUtf16 === glyph.clusterUtf16 ? glyph : { ...glyph, clusterUtf16 },
-        sourceEnd: endFor(clusterUtf16),
-      });
+      records.push({ run, glyph, clusterStart: glyph.clusterUtf16, clusterEnd: endFor(glyph.clusterUtf16) });
     }
   }
   return records;
 }
 
-function buildLines(
-  text: string,
+/** Group glyph records by cluster start (logical order per cluster). */
+function recordsByCluster(records: readonly GlyphRecord[]): Map<number, GlyphRecord[]> {
+  const byCluster = new Map<number, GlyphRecord[]>();
+  for (const record of records) {
+    const list = byCluster.get(record.clusterStart) ?? [];
+    list.push(record);
+    byCluster.set(record.clusterStart, list);
+  }
+  return byCluster;
+}
+
+/**
+ * Segment the paragraph into width-annotated break units. Over-long words are
+ * re-broken at grapheme boundaries so a single unbreakable word still wraps.
+ */
+function buildLayoutUnits(
+  paragraph: ItemizedParagraph,
   records: readonly GlyphRecord[],
   maxWidth: number,
-  lineHeight: number,
-): TextLayoutLine[] {
-  const lines: TextLayoutLine[] = [];
-  let current: GlyphRecord[] = [];
+): LayoutUnit[] {
+  const byCluster = recordsByCluster(records);
+  const sourceMap = createUnicodeIndexMap(paragraph.text);
+  const units: LayoutUnit[] = [];
+  for (const unit of segmentBreakUnits(paragraph.text)) {
+    units.push(makeLayoutUnit(paragraph, unit, byCluster, sourceMap));
+  }
+  if (maxWidth > 0 && records.length > 0) {
+    for (let i = 0; i < units.length; i++) {
+      const unit = units[i]!;
+      if (unit.width > maxWidth && unit.unit.isWord && unit.records.length > 1) {
+        const pieces = graphemeBreakUnits(unit.unit.start, unit.unit.end, paragraph.text, sourceMap);
+        units.splice(i, 1, ...pieces.map((piece) => makeLayoutUnit(paragraph, piece, byCluster, sourceMap)));
+        i += pieces.length - 1;
+      }
+    }
+  }
+  return units;
+}
+
+function makeLayoutUnit(
+  paragraph: ItemizedParagraph,
+  unit: BreakUnit,
+  byCluster: Map<number, GlyphRecord[]>,
+  sourceMap: UnicodeIndexMap,
+): LayoutUnit {
+  const records: GlyphRecord[] = [];
+  const boundaries = sourceMap.graphemeBoundaries;
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const graphemeStart = boundaries[i]!;
+    if (graphemeStart >= unit.end) break;
+    const attached = byCluster.get(graphemeStart);
+    if (attached) records.push(...attached);
+  }
+  const width = records.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
+  return { unit, records, width };
+}
+
+/**
+ * Greedy word-level wrapping. Whitespace that overflows at a line end is
+ * dropped; a word that does not fit starts a new line. The paragraph's
+ * logical order is preserved: visual reordering happens per line afterwards.
+ */
+function wrapLines(paragraph: ItemizedParagraph, units: readonly LayoutUnit[], maxWidth: number): RawLine[] {
+  const lines: RawLine[] = [];
+  let current: LayoutUnit[] = [];
   let currentWidth = 0;
   const flush = (): void => {
-    const lineIndex = lines.length;
-    lines.push(buildLine(current, currentWidth, lineIndex, lineHeight));
-    current = [];
-    currentWidth = 0;
-  };
-
-  for (const record of records) {
-    const source = text.slice(record.glyph.clusterUtf16, record.sourceEnd);
-    if (source.includes('\n')) {
-      if (current.length > 0) flush();
-      else lines.push(buildLine([], 0, lines.length, lineHeight));
-      continue;
+    if (current.length > 0) {
+      lines.push({ units: current, width: currentWidth });
+      current = [];
+      currentWidth = 0;
     }
-    const advance = Math.max(0, record.glyph.xAdvance);
-    if (current.length > 0 && maxWidth > 0 && currentWidth + advance > maxWidth) flush();
-    current.push(record);
-    currentWidth += advance;
+  };
+  for (const unit of units) {
+    if (maxWidth > 0 && unit.width > 0 && current.length > 0 && currentWidth + unit.width > maxWidth) {
+      if (unit.unit.isWhitespace) {
+        continue;
+      }
+      flush();
+    }
+    current.push(unit);
+    currentWidth += unit.width;
   }
-  if (current.length > 0 || lines.length === 0) flush();
+  flush();
+  if (lines.length === 0 && paragraph.text.length === 0) {
+    return [{ units: [], width: 0 }];
+  }
   return lines;
 }
 
-function buildLine(
+/** Lay out one paragraph into positioned lines (left-aligned line boxes). */
+function layoutParagraphLines(
+  paragraph: ItemizedParagraph,
   records: readonly GlyphRecord[],
-  width: number,
-  lineIndex: number,
-  lineHeight: number,
-): TextLayoutLine {
-  const ascent = records.reduce((largest, record) => Math.max(largest, record.run.ascent), 0);
-  const height = Math.max(
-    lineHeight,
-    records.reduce(
-      (largest, record) => Math.max(largest, record.run.ascent + record.run.descent),
-      0,
-    ),
-  );
-  const top = lineIndex * height;
-  const baseline = top + ascent;
-  let cursorX = 0;
-  const positioned = records.map((record) => {
-    const positionedGlyph: PositionedGlyph = {
-      ...record.glyph,
-      sourceEnd: record.sourceEnd,
-      x: cursorX,
-      y: baseline + record.glyph.yOffset,
-    };
-    cursorX += Math.max(0, record.glyph.xAdvance);
-    return { record, positionedGlyph };
-  });
-  const runMap = new Map<ShapedRun, PositionedGlyph[]>();
-  for (const { record, positionedGlyph } of positioned) {
-    const glyphs = runMap.get(record.run) ?? [];
-    glyphs.push(positionedGlyph);
-    runMap.set(record.run, glyphs);
+  maxWidth: number,
+  lineHeightOverride: number | null,
+): TextLayoutLine[] {
+  const units = buildLayoutUnits(paragraph, records, maxWidth);
+  const rawLines = wrapLines(paragraph, units, maxWidth);
+  const lines: TextLayoutLine[] = [];
+  let top = 0;
+  for (const raw of rawLines) {
+    lines.push(positionLine(paragraph, raw, lines.length, top, lineHeightOverride));
+    top += lines[lines.length - 1]!.height;
   }
-  const runs: TextLayoutRun[] = [];
-  for (const [sourceRun, glyphs] of runMap) {
-    const sourceStart = Math.min(...glyphs.map((glyph) => glyph.clusterUtf16));
-    const sourceEnd = Math.max(...glyphs.map((glyph) => glyph.sourceEnd));
-    const x = Math.min(...glyphs.map((glyph) => glyph.x));
-    runs.push({
-      sourceStart,
-      sourceEnd,
-      x,
-      width: glyphs.reduce((sum, glyph) => sum + Math.max(0, glyph.xAdvance), 0),
-      direction: sourceRun.direction,
-      level: sourceRun.level,
+  return lines;
+}
+
+/** Position one raw line into a TextLayoutLine with visual run order. */
+function positionLine(
+  paragraph: ItemizedParagraph,
+  raw: RawLine,
+  lineIndex: number,
+  top: number,
+  lineHeightOverride: number | null,
+): TextLayoutLine {
+  const byCluster = recordsByCluster(raw.units.flatMap((unit) => unit.records));
+  const clusters = [...byCluster.keys()].sort((a, b) => a - b);
+  const logicalStart = clusters.length > 0 ? clusters[0]! : 0;
+  const logicalEnd = clusters.length > 0 ? Math.max(...clusters.map((c) => byCluster.get(c)![0]!.clusterEnd)) : 0;
+  const visualRuns = lineVisualRuns(paragraph, logicalStart, logicalEnd);
+
+  const positioned: PositionedGlyph[] = [];
+  const lineRuns: TextLayoutRun[] = [];
+  let ascent = 0;
+  let descent = 0;
+  for (const visualRun of visualRuns) {
+    const runRecords: GlyphRecord[] = [];
+    for (const cluster of clusters) {
+      if (cluster >= visualRun.start && cluster < visualRun.end) {
+        runRecords.push(...(byCluster.get(cluster) ?? []));
+      }
+    }
+    if (runRecords.length === 0) continue;
+    const sourceRun = runRecords[0]!.run;
+    const runWidth = runRecords.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
+    ascent = Math.max(ascent, sourceRun.ascent);
+    descent = Math.max(descent, sourceRun.descent);
+    const baseline = top + ascent;
+    const runLeft = runWidthOf(lineRuns);
+    const glyphs = positionRunGlyphs(paragraph, runRecords, runLeft, runWidth, baseline);
+    const minX = Math.min(...glyphs.map((g) => g.x));
+    lineRuns.push({
+      sourceStart: paragraph.sourceStart + visualRun.start,
+      sourceEnd: paragraph.sourceStart + visualRun.end,
+      x: minX,
+      width: runWidth,
+      direction: visualRun.direction,
+      level: visualRun.level,
       glyphs,
       sourceRun,
     });
+    positioned.push(...glyphs);
   }
+
+  const width = raw.width;
+  const height = Math.max(lineHeightOverride ?? 0, ascent + descent);
+  const visualClusters = distinctClusterStarts(positioned);
   return {
-    sourceStart:
-      records.length === 0 ? 0 : Math.min(...records.map((record) => record.glyph.clusterUtf16)),
-    sourceEnd: records.length === 0 ? 0 : Math.max(...records.map((record) => record.sourceEnd)),
+    paragraphIndex: paragraph.index,
+    sourceStart: paragraph.sourceStart + logicalStart,
+    sourceEnd: paragraph.sourceStart + logicalEnd,
     top,
-    baseline,
+    baseline: top + ascent,
     height,
     width,
-    runs,
-    visualClusters: records.map((record) => record.glyph.clusterUtf16),
+    runs: lineRuns,
+    visualClusters,
   };
 }
 
-function buildCaretStops(text: string, lines: readonly TextLayoutLine[]): CaretStop[] {
+function runWidthOf(runs: readonly TextLayoutRun[]): number {
+  return runs.reduce((sum, run) => sum + run.width, 0);
+}
+
+/** Position one visual run's glyphs. Glyphs are in visual order per run. */
+function positionRunGlyphs(
+  paragraph: ItemizedParagraph,
+  records: readonly GlyphRecord[],
+  runLeft: number,
+  runWidth: number,
+  baseline: number,
+): PositionedGlyph[] {
+  const isRtl = records[0]!.run.direction === 'rtl';
+  const origin = isRtl ? runLeft + runWidth : runLeft;
+  const positioned: PositionedGlyph[] = [];
+  let cursor = origin;
+  for (const record of records) {
+    const advance = Math.max(0, record.glyph.xAdvance);
+    const glyphX = isRtl ? cursor - advance : cursor;
+    positioned.push({
+      ...record.glyph,
+      sourceEnd: paragraph.sourceStart + record.clusterEnd,
+      x: glyphX + record.glyph.xOffset,
+      y: baseline + record.glyph.yOffset,
+      clusterUtf16: paragraph.sourceStart + record.glyph.clusterUtf16,
+    });
+    cursor = isRtl ? cursor - advance : cursor + advance;
+  }
+  return positioned;
+}
+
+function distinctClusterStarts(glyphs: readonly PositionedGlyph[]): number[] {
+  const seen = new Set<number>();
+  const result: number[] = [];
+  for (const glyph of glyphs) {
+    if (!seen.has(glyph.clusterUtf16)) {
+      seen.add(glyph.clusterUtf16);
+      result.push(glyph.clusterUtf16);
+    }
+  }
+  return result;
+}
+
+/**
+ * Cluster-safe caret stops per line: leading/trailing stops per distinct
+ * shaped cluster plus line-edge stops. Offsets are document-local.
+ */
+function buildCaretStops(
+  paragraph: ItemizedParagraph,
+  lines: readonly TextLayoutLine[],
+): CaretStop[] {
   const stops: CaretStop[] = [];
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
     const line = lines[lineIndex]!;
-    if (line.runs.length === 0) {
-      stops.push({
-        offset: line.sourceStart,
-        lineIndex,
-        x: 0,
-        affinity: 'leading',
-        direction: 'ltr',
-      });
-      continue;
-    }
+    const baseRtl = paragraph.baseLevel % 2 === 1;
+    stops.push({
+      offset: line.sourceStart,
+      lineIndex,
+      x: baseRtl ? line.width : 0,
+      affinity: 'leading',
+      direction: paragraph.baseDirection,
+    });
+    stops.push({
+      offset: line.sourceEnd,
+      lineIndex,
+      x: baseRtl ? 0 : line.width,
+      affinity: 'trailing',
+      direction: paragraph.baseDirection,
+    });
     for (const run of line.runs) {
+      const isRtl = run.direction === 'rtl';
+      let previousCluster = -1;
       for (const glyph of run.glyphs) {
-        const before = run.direction === 'rtl' ? glyph.x + glyph.xAdvance : glyph.x;
-        const after = run.direction === 'rtl' ? glyph.x : glyph.x + glyph.xAdvance;
-        stops.push({
-          offset: glyph.clusterUtf16,
-          lineIndex,
-          x: before,
-          affinity: 'leading',
-          direction: run.direction,
-        });
-        stops.push({
-          offset: Math.min(text.length, glyph.sourceEnd),
-          lineIndex,
-          x: after,
-          affinity: 'trailing',
-          direction: run.direction,
-        });
+        if (glyph.clusterUtf16 === previousCluster) continue;
+        previousCluster = glyph.clusterUtf16;
+        const before = isRtl ? glyph.x + glyph.xAdvance : glyph.x;
+        const after = isRtl ? glyph.x : glyph.x + glyph.xAdvance;
+        stops.push({ offset: glyph.clusterUtf16, lineIndex, x: before, affinity: 'leading', direction: run.direction });
+        stops.push({ offset: glyph.sourceEnd, lineIndex, x: after, affinity: 'trailing', direction: run.direction });
       }
     }
   }
@@ -313,6 +533,51 @@ function dedupeCaretStops(stops: readonly CaretStop[]): CaretStop[] {
   });
 }
 
+/**
+ * Single-paragraph compatibility entry point. `shaping.runs` must be in
+ * logical order with document-local cluster offsets (single paragraph).
+ */
+export function buildTextLayoutSnapshot(
+  text: string,
+  shaping: TextShaping,
+  options: BuildTextLayoutSnapshotOptions,
+): TextLayoutSnapshot {
+  const paragraph =
+    text.length === 0
+      ? emptyItemizedParagraph(shaping.baseDirection)
+      : itemizeParagraph(
+          { index: 0, start: 0, end: text.length, text },
+          shaping.baseDirection === 'rtl' ? 'rtl' : 'ltr',
+        );
+  return layoutText({
+    text,
+    paragraphs: [{ paragraph, runs: shaping.runs }],
+    maxWidth: options.maxWidth,
+    sourceRevision: options.sourceRevision,
+    fontRevision: options.fontRevision,
+    lineHeight: options.lineHeight ?? shaping.height,
+    language: options.language,
+    featureKey: options.featureKey,
+    variationKey: options.variationKey,
+  });
+}
+
+function emptyItemizedParagraph(direction: 'ltr' | 'rtl'): ItemizedParagraph {
+  return {
+    index: 0,
+    sourceStart: 0,
+    sourceEnd: 0,
+    text: '',
+    baseDirection: direction,
+    baseLevel: direction === 'rtl' ? 1 : 0,
+    runs: [],
+    levels: [],
+    mirroredCharacters: new Map(),
+    scriptedRuns: [],
+  };
+}
+
+/** Map a snapshot's line/width coordinates onto the object layout (kept). */
 export function hitTestTextLayout(snapshot: TextLayoutSnapshot, x: number, y: number): CaretStop {
   const lineIndex = snapshot.lines.reduce((best, line, index) => {
     const bestLine = snapshot.lines[best]!;
@@ -320,16 +585,21 @@ export function hitTestTextLayout(snapshot: TextLayoutSnapshot, x: number, y: nu
     const distance = distanceToLine(line, y);
     return distance < bestDistance ? index : best;
   }, 0);
+  const line = snapshot.lines[lineIndex];
+  if (!line) {
+    return { offset: 0, lineIndex: 0, x: 0, affinity: 'leading', direction: snapshot.baseDirection };
+  }
   const candidates = snapshot.caretStops.filter((stop) => stop.lineIndex === lineIndex);
   return candidates.reduce(
     (best, candidate) => (Math.abs(candidate.x - x) < Math.abs(best.x - x) ? candidate : best),
-    candidates[0] ?? {
-      offset: 0,
-      lineIndex,
-      x: 0,
-      affinity: 'leading',
-      direction: snapshot.baseDirection,
-    },
+    candidates[0] ??
+      {
+        offset: line.sourceStart,
+        lineIndex,
+        x: snapshot.baseDirection === 'rtl' ? line.width : 0,
+        affinity: 'leading' as const,
+        direction: snapshot.baseDirection,
+      },
   );
 }
 
@@ -353,18 +623,28 @@ export function textLayoutSnapshotCacheKey(text: string, identity: TextLayoutIde
   ]);
 }
 
+/**
+ * Selection geometry for a logical range: one or more visually discontiguous
+ * rectangles per line. Endpoints are snapped to grapheme boundaries; whole
+ * lines selected produce a full-line rectangle.
+ */
 export function selectionRects(
   snapshot: TextLayoutSnapshot,
   start: number,
   end: number,
 ): SelectionRect[] {
-  const rangeStart = Math.min(start, end);
-  const rangeEnd = Math.max(start, end);
+  const range = normalizeGraphemeRange(snapshot.sourceMap, start, end);
   const rects: SelectionRect[] = [];
   for (let lineIndex = 0; lineIndex < snapshot.lines.length; lineIndex++) {
     const line = snapshot.lines[lineIndex]!;
+    if (range.start <= line.sourceStart && range.end >= line.sourceEnd) {
+      rects.push({ lineIndex, x: 0, y: line.top, width: line.width, height: line.height });
+      continue;
+    }
     const selected = line.runs.flatMap((run) =>
-      run.glyphs.filter((glyph) => glyph.clusterUtf16 < rangeEnd && glyph.sourceEnd > rangeStart),
+      run.glyphs.filter(
+        (glyph) => glyph.clusterUtf16 < range.end && glyph.sourceEnd > range.start,
+      ),
     );
     if (selected.length === 0) continue;
     const ordered = [...selected].sort((a, b) => a.x - b.x);

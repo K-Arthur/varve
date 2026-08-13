@@ -820,7 +820,7 @@ export {
 } from './shadowSource';
 export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
 // ── Text pipeline: shaping, BiDi, grapheme segmentation ──────────────────
-export { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
+export { hitTestCaret, scriptCodeToTag, shapeParagraphRuns, shapeRun, shapeText } from './shaping';
 export type {
   NativeShapedRunPayload,
   ShapingBackend,
@@ -834,6 +834,9 @@ export {
 export type { ShapingCacheKeyOptions } from './shapingCache';
 export { ShapingCache, shapingCache } from './shapingCache';
 export * from './storyComposition';
+export * from './text/lineBreak';
+export * from './text/paragraphs';
+export * from './text/visualOrder';
 export * from './textLayout';
 export * from './textLayoutSnapshot';
 export type {
