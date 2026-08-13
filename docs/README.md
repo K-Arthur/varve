@@ -12,6 +12,10 @@ written and are not updated retroactively. Current guidance lives in
 
 ## Entry points
 
+Current image-enhancement architecture and evidence requirements are documented
+in [`architecture/image-enhancement-system.md`](architecture/image-enhancement-system.md)
+and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchmark.md).
+
 | Doc | Purpose |
 |-----|---------|
 | [README.md](../README.md) (root) | What Varve is, quick start, key packages |
@@ -180,6 +184,10 @@ written and are not updated retroactively. Current guidance lives in
 | `adr/0217-raster-colour-management.md` | Canonical raster colour encoding + colour-managed raster pipeline |
 | `adr/0218-thumbnail-system.md` | Unified thumbnail system (see `architecture/thumbnail-system.md`) |
 | `adr/0219-parent-local-coordinates.md` | Parent-local scene coordinates (see `architecture/coordinate-system.md`) |
+| `adr/0220-object-selection-runtime.md` | Model-independent Object Selection runtime boundary |
+| `adr/0221-local-asset-search-ranking-and-model-gate.md` | Hybrid local asset search and checkpoint gate |
+| `adr/0222-vision-runtime-selection.md` | Capability-driven visual-awareness runtime boundary |
+| `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 ## Architecture Docs (current state)
 
 | Doc | Purpose |
@@ -206,6 +214,8 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/palette-extraction-system.md` | Deterministic local image palette, harmony, and WCAG pair analysis |
 | `architecture/thumbnail-system.md` | Unified thumbnail system (ADR-0218) |
 | `architecture/coordinate-system.md` | Coordinate-space contract: spaces, storage, composition, reparenting, migration (ADR-0219) |
+| `architecture/asset-search-system.md` | Asset Browser retrieval lanes, vector identity, model/runtime gate, and degradation contract |
+| `architecture/visual-awareness-system.md` | Demand-driven face, hand, pose, object, and segmentation capability boundary |
 | `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
 | `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2) |
 | `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |
@@ -228,6 +238,8 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/icon-library.md` / `architecture/icon-system-naming.md` | Icon library and naming contract |
 | `architecture/onnx-inference-architecture.md` | ONNX inference architecture |
 | `architecture/semantic-asset-similarity.md` | Local image-to-image similarity, duplicate lanes, model/runtime boundaries, and current limitations |
+| `quality/semantic-asset-similarity-benchmark.md` | Exact-search scale baseline and held-out retrieval evaluation contract |
+| `architecture/object-selection-system.md` | Object Selection prompts, transient masks, runtime boundary, and persistence |
 | `architecture/int8-quantization.md` | INT8 model quantization |
 | `architecture/realesrgan-packaging.md` | Real-ESRGAN model packaging |
 | `architecture/debug-overlays.md` | Debug overlay contract |
