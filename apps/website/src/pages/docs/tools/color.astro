@@ -3,7 +3,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
 ---
 
-<Layout title="Color & Effects — Varve Docs" description="Varve color tools: color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
+<Layout title="Color & Effects — Varve Docs" description="Varve color tools: local image palette extraction, color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -86,6 +86,25 @@ import { sitePath } from '../../../lib/siteUrl';
         <h3>Image Fill</h3>
         <p>
           Fill a shape with a raster image. Varve's ImageCache handles async loading with LRU eviction (max 200 entries). The fill respects the shape's bounds and can be scaled via the <code>imageFit</code> property (cover, contain, fill).
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Image Palette Extraction</h2>
+        <p>
+          Select one image, open the <strong>Adjustments</strong> tab, and expand <strong>Palette</strong>. Varve decodes a bounded preview of the source and, when the image is cropped, analyses the visible crop. The calculation is local and deterministic: image pixels are not uploaded and no model download is required.
+        </p>
+        <ol>
+          <li>Choose a requested count from 3–12 colours and select <strong>Analyze</strong>.</li>
+          <li>Review extracted swatches with their coverage and role candidates. Transparent pixels are ignored rather than treated as a colour.</li>
+          <li>Use the HEX copy action, apply an extracted colour as a fill, or save the swatches to the document.</li>
+          <li>Review <strong>Derived harmonies</strong> and <strong>Accessible pairs</strong>. Harmony colours are generated suggestions, not colours sampled from the image.</li>
+        </ol>
+        <p>
+          Accessible pairs use the shared WCAG 2.1 contrast calculation: 4.5:1 for body-text AA, 3:1 for large-text AA, and the corresponding AAA thresholds. These checks are a review aid; final contrast still depends on typography, anti-aliasing, display, and export profile.
+        </p>
+        <p>
+          <strong>Save as color tokens</strong> creates new document variables without replacing existing variables. Both swatch and variable saves are ordinary document updates and can be undone.
         </p>
       </section>
 
