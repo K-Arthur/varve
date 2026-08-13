@@ -15,7 +15,7 @@
     "test": "pnpm test:ci:tools && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/ci-health.test.mjs && node scripts/pin-github-actions.test.mjs && node scripts/regenerate-menu-matrices.test.mjs && node scripts/validate-workflows.test.mjs && node scripts/release/release-pipeline.test.mjs && node scripts/release/signing-policy.test.mjs && bash scripts/test-ci-shell-scripts.sh",
+    "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/ci-health.test.mjs && node scripts/pin-github-actions.test.mjs && node scripts/regenerate-menu-matrices.test.mjs && node scripts/validate-workflows.test.mjs && node scripts/release/targets.test.mjs && node scripts/release/release-pipeline.test.mjs && node scripts/release/signing-policy.test.mjs && bash scripts/test-ci-shell-scripts.sh",
     "bench:canvas": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/replay.bench.ts",
     "bench:table": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/tableReplay.bench.ts",
     "bench:table-layout": "vitest run --config vitest.bench.config.ts packages/scene/src/__benchmarks__/tableLayout.bench.ts",
