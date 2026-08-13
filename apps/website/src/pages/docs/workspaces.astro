@@ -1,0 +1,166 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Workspaces"
+  description="Varve's seven task-focused workspaces: Design, Print, Draw, Photo, Motion, Logo, and Codegen — one document, one history, one canvas."
+>
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Workspaces
+      </nav>
+
+      <h1>Workspaces</h1>
+      <p class="docs-intro">
+        Varve organizes its tools into seven task-focused workspaces. Each workspace
+        curates the toolbar, panels, and workflow around a specific kind of design
+        work — but they all edit the <strong>same document</strong>, so nothing is
+        lost when you switch.
+      </p>
+
+      <section class="docs-section">
+        <h2>The Seven Workspaces</h2>
+        <p>
+          Switch workspaces from the workspace menu or with the keyboard shortcuts
+          below. Each mode remembers its own default tool and toolbar layout.
+        </p>
+        <ul>
+          <li><strong>Design</strong> (<code>Ctrl+Shift+1</code>) — UI/UX, components, and prototyping. Default tool: Select.</li>
+          <li><strong>Print</strong> (<code>Ctrl+Shift+2</code>) — Multi-page layouts, typography, preflight, and colour management. Default tool: Select.</li>
+          <li><strong>Draw</strong> (<code>Ctrl+Shift+3</code>) — Raster painting, vector freehand, and brushes. Default tool: Paint.</li>
+          <li><strong>Photo</strong> (<code>Ctrl+Shift+4</code>) — Nondestructive photo editing and adjustments. Default tool: Preserve.</li>
+          <li><strong>Motion</strong> (<code>Ctrl+Shift+5</code>) — Timeline animation, keyframes, and easing. Default tool: Select.</li>
+          <li><strong>Logo</strong> (<code>Ctrl+Shift+6</code>) — Wordmarks, marks, monograms, badges, and brand systems. Default tool: Select.</li>
+          <li><strong>Codegen</strong> (<code>Ctrl+Shift+9</code>) — Code export. Default tool: Select.</li>
+        </ul>
+        <p>
+          Note: the older <code>Ctrl+Shift+D/P/R/I/M</code> bindings shown in some
+          early documentation no longer switch workspaces — those keys are now used
+          by Repeat Duplicate, Present, Invert Selection, and Preview Mode.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>One Document, Many Modes</h2>
+        <p>Workspace switching is deliberately low-cost. All seven modes share:</p>
+        <ul>
+          <li><strong>One document model</strong> — a mode never forks the scene; there is no "Photo copy" of your file</li>
+          <li><strong>State preservation</strong> — document, selection, viewport, and undo history carry across switches</li>
+          <li><strong>Shared fundamentals</strong> — selection, transform, colour, layers, undo/redo, and copy/paste behave identically in every mode</li>
+        </ul>
+        <p>
+          This means you can sketch in Draw, refine in Design, check print colour in
+          Print, and animate in Motion — all in the same session, with one history.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Toolbar Composition</h2>
+        <p>
+          Each workspace declares its own toolbar: which tools appear, their order,
+          group separators, and which tools live in flyouts (for example, the Shapes
+          and Boolean-operation flyouts in Design mode). Customizing a workspace —
+          hiding a tool or moving it to a flyout — applies through your preference
+          overrides and is reflected in the toolbar immediately.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Next Steps</h2>
+        <p>
+          See the <a href={sitePath('/docs/getting-started/interface')}>Interface Overview</a>
+          for the surrounding layout, or the
+          <a href={sitePath('/docs/keyboard-shortcuts')}>keyboard shortcuts reference</a>.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  .docs-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-accent);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  .docs-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  .docs-section code:not(.code-block) {
+    background: var(--surface-muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--text-link);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  .docs-cta p {
+    color: var(--text-secondary);
+  }
+</style>
