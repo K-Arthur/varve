@@ -36,7 +36,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'performance', label: 'Performance' },
   { id: 'models', label: 'Offline Models' },
   { id: 'collab', label: 'Collab' },
-  { id: 'ai', label: 'AI Assistant' },
+  { id: 'ai', label: 'On-device Assistants' },
   { id: 'privacy', label: 'Privacy & Diagnostics' },
   { id: 'updates', label: 'Updates' },
   { id: 'about', label: 'About' },
@@ -61,13 +61,6 @@ const FONT_SIZE_OPTIONS = [
   { value: 'small', label: 'Small' },
   { value: 'medium', label: 'Medium' },
   { value: 'large', label: 'Large' },
-];
-
-const AI_MODEL_OPTIONS = [
-  { value: 'gpt-4', label: 'GPT-4' },
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'claude-3', label: 'Claude 3' },
-  { value: 'claude-3.5', label: 'Claude 3.5 Sonnet' },
 ];
 
 export interface SettingsDialogProps {
@@ -457,43 +450,19 @@ function CollabSection() {
 }
 
 function AISection() {
-  const { settings, updateSection } = useSettings();
-
   return (
     <div className="settings-section">
-      <h3 className="settings-section__title">AI Assistant</h3>
-      <FieldRow label="Enable AI">
-        <label className="settings-checkbox-row">
-          <input
-            type="checkbox"
-            checked={settings.ai.enabled}
-            onChange={(e) => updateSection('ai', { enabled: e.target.checked })}
-          />
-          <span>{settings.ai.enabled ? 'Enabled' : 'Disabled'}</span>
-        </label>
+      <h3 className="settings-section__title">On-device Assistants</h3>
+      <p className="settings-section__description">
+        Varve's design assistants (contrast checks, design-debt scans, layer-name suggestions,
+        spacing harmonization) run entirely on your device. Nothing is sent to a server and no model
+        downloads are required — the assistants work offline and never leave your document.
+      </p>
+      <FieldRow label="Usage & diagnostics">
+        <span className="settings-section__description">
+          Consent for product analytics and diagnostic reports is managed in the Privacy section.
+        </span>
       </FieldRow>
-      {settings.ai.enabled && (
-        <>
-          <FieldRow label="Model">
-            <Select
-              options={AI_MODEL_OPTIONS}
-              value={settings.ai.model}
-              onChange={(v) => updateSection('ai', { model: v })}
-              label="Model"
-            />
-          </FieldRow>
-          <FieldRow label="Privacy">
-            <label className="settings-checkbox-row">
-              <input
-                type="checkbox"
-                checked={settings.ai.shareUsageData}
-                onChange={(e) => updateSection('ai', { shareUsageData: e.target.checked })}
-              />
-              <span>Share anonymous usage data</span>
-            </label>
-          </FieldRow>
-        </>
-      )}
     </div>
   );
 }

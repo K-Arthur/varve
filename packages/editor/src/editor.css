@@ -3039,6 +3039,16 @@ dialog.varve-dialog--settings[open] {
   border-bottom: var(--border-micro);
   color: var(--color-text-primary);
 }
+.ai-panel__header-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.ai-panel__header-subtitle {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-secondary);
+}
 .ai-panel__log {
   flex: 1;
   overflow-y: auto;
