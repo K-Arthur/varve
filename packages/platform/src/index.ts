@@ -11,6 +11,25 @@
  * the adapter.
  */
 
+export type {
+  AssetEmbeddingDtype,
+  AssetEmbeddingIdentity,
+  AssetEmbeddingRecord,
+} from './assetEmbeddingIndex';
+export {
+  assetEmbeddingKey,
+  decodeFloat32Embedding,
+  encodeFloat32Embedding,
+  makeAssetEmbeddingRecord,
+} from './assetEmbeddingIndex';
+export type {
+  AssetSearchLane,
+  AssetSearchOptions,
+  AssetSearchReason,
+  AssetSearchResult,
+  NormalizedAssetQuery,
+} from './assetSearch';
+export { normalizeAssetSearchQuery, searchAssets } from './assetSearch';
 export type { PlatformKind } from './detect';
 export { detectPlatform, detectPlatformKind } from './detect';
 export { upsertPreservingMeta } from './filePersist';
