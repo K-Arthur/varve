@@ -6,9 +6,7 @@ test.describe('asset similarity marketing surface', () => {
     await page.goto('/features/asset-similarity');
     await expect(page.getByRole('heading', { name: 'Asset Similarity' })).toBeVisible();
     await expect(page.getByText(/image-to-image inference/i)).toBeVisible();
-    await expect(
-      page.getByText(/does not yet build a persistent cross-project library index/i),
-    ).toBeVisible();
+    await expect(page.getByText(/text-to-image inference/i)).toBeVisible();
     await expect(page.getByText('Experimental', { exact: true }).last()).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
