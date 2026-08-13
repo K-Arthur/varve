@@ -11,7 +11,7 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 
-import { expandGradientStops, managedColorToRgba } from '@varve/shared';
+import { expandGradientStops, managedColorToNormalized, managedColorToRgba } from '@varve/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 import {
@@ -243,6 +243,16 @@ function rgba(
   const [r, g, b, a] = managedColorToRgba(c as EngineColor);
   const alpha = opacityOverride !== undefined ? opacityOverride : a / 255;
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Format a working gradient color without rounding channels before Canvas2D. */
+function rgbaWorking(c: EngineColor | readonly [number, number, number, number]): string {
+  if (Array.isArray(c) || 'length' in c) {
+    const arr = c as readonly [number, number, number, number];
+    return `rgba(${arr[0]}, ${arr[1]}, ${arr[2]}, ${arr[3] / 255})`;
+  }
+  const [r, g, b, a] = managedColorToNormalized(c as EngineColor);
+  return `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a})`;
 }
 
 const TAU = Math.PI * 2;
@@ -1477,14 +1487,14 @@ function expandGradientStopsForFill(
     return fill.stops.map((s) => ({ position: s.position, color: s.color }));
   }
   const inputs = fill.stops.map((s) => {
-    const [r, g, b, a] = managedColorToRgba(s.color);
+    const [r, g, b, a] = managedColorToNormalized(s.color);
     return {
       position: s.position,
-      color: { space: 'rgb' as const, r, g, b, a },
+      color: { space: 'rgb' as const, r: r * 255, g: g * 255, b: b * 255, a: a * 255 },
       ...(s.midpoint !== undefined ? { midpoint: s.midpoint } : {}),
     };
   });
-  return expandGradientStops(inputs, space, 16).map((s) => ({
+  return expandGradientStops(inputs, space, 16, { precision: 'working' }).map((s) => ({
     position: s.position,
     color: s.color as EngineColor,
   }));
@@ -1630,28 +1640,28 @@ function createGradientStyle(
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else if (fill.gradientType === 'angular' && target.createConicGradient) {
     const grad = target.createConicGradient(rot, cx, cy);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else if (target.createLinearGradient) {
     const grad = target.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else {
@@ -1827,7 +1837,7 @@ function paintTiledGradientFill(
       tileSize / 2,
     );
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     tileCtx.fillStyle = grad;
     tileCtx.fillRect(0, 0, tileSize, tileSize);
@@ -1879,7 +1889,7 @@ function paintTiledGradientFill(
   // Paint the gradient across the canvas
   const grad = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
   for (const s of expanded) {
-    grad.addColorStop(s.position, rgba(s.color));
+    grad.addColorStop(s.position, rgbaWorking(s.color));
   }
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, bounds.w, bounds.h);

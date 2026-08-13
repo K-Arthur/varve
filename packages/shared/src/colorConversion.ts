@@ -180,6 +180,13 @@ export type ManagedColorShim =
   | RegistrationColorShim
   | UnresolvedColorShim;
 
+/**
+ * Normalized encoded sRGB working value. Unlike `managedColorToRgba`, this
+ * tuple is not reduced to 8-bit channels and is therefore safe for blending,
+ * interpolation, proof transforms, and other derived calculations.
+ */
+export type NormalizedRgba = [number, number, number, number];
+
 /** Engine RGBA tuple (0-255 per channel). */
 type ColorShim = readonly [number, number, number, number];
 
@@ -987,14 +994,87 @@ export function managedColorToRgba(color: ManagedColorShim): [number, number, nu
  *
  * All color spaces are reduced to normalized RGBA: CMYK and spot colors
  * go through their process-color equivalent first, gray expands to RGB.
- * Channels are/bitDepth-aware so 16-bit and float documents retain
- * precision through the compositing pipeline.
+ * Channels are bit-depth-aware and remain floating point. This function is
+ * deliberately independent from `managedColorToRgba`; the latter is an
+ * explicit 8-bit display boundary and must not be used as a working buffer.
  */
-export function managedColorToNormalized(
-  color: ManagedColorShim,
-): [number, number, number, number] {
-  const [r, g, b, a] = managedColorToRgba(color);
-  return [r / 255, g / 255, b / 255, a / 255];
+export function managedColorToNormalized(color: ManagedColorShim): NormalizedRgba {
+  switch (color.space) {
+    case 'rgb': {
+      const bitDepth = color.bitDepth ?? DEFAULT_BIT_DEPTH;
+      return [
+        normalizeChannel(color.r, bitDepth),
+        normalizeChannel(color.g, bitDepth),
+        normalizeChannel(color.b, bitDepth),
+        normalizeChannel(color.a, bitDepth),
+      ];
+    }
+    case 'cmyk': {
+      const bitDepth = color.bitDepth ?? DEFAULT_BIT_DEPTH;
+      const c = normalizeChannel(color.c, bitDepth);
+      const m = normalizeChannel(color.m, bitDepth);
+      const y = normalizeChannel(color.y, bitDepth);
+      const k = normalizeChannel(color.k, bitDepth);
+      return [
+        (1 - c) * (1 - k),
+        (1 - m) * (1 - k),
+        (1 - y) * (1 - k),
+        normalizeChannel(color.a, bitDepth),
+      ];
+    }
+    case 'gray': {
+      const bitDepth = color.bitDepth ?? DEFAULT_BIT_DEPTH;
+      const v = normalizeChannel(color.v, bitDepth);
+      return [v, v, v, normalizeChannel(color.a, bitDepth)];
+    }
+    case 'spot': {
+      const fallback = color.processFallback;
+      const c = fallback ? fallback.c / 255 : 1;
+      const m = fallback ? fallback.m / 255 : 1;
+      const y = fallback ? fallback.y / 255 : 1;
+      const k = fallback ? fallback.k / 255 : 1;
+      return [
+        (1 - c) * (1 - k),
+        (1 - m) * (1 - k),
+        (1 - y) * (1 - k),
+        (color.a / 255) * (color.tint / 100),
+      ];
+    }
+    case 'lab': {
+      const linear = xyzD65ToLinearRgb(labToXyz([color.l, color.av, color.b]));
+      const bitDepth = color.bitDepth ?? DEFAULT_BIT_DEPTH;
+      return [
+        linearToSrgbUnit(linear[0]),
+        linearToSrgbUnit(linear[1]),
+        linearToSrgbUnit(linear[2]),
+        normalizeChannel(color.a, bitDepth),
+      ];
+    }
+    case 'lch': {
+      const [l, av, b] = lchToLab([color.l, color.c, color.h]);
+      const linear = xyzD65ToLinearRgb(labToXyz([l, av, b]));
+      const bitDepth = color.bitDepth ?? DEFAULT_BIT_DEPTH;
+      return [
+        linearToSrgbUnit(linear[0]),
+        linearToSrgbUnit(linear[1]),
+        linearToSrgbUnit(linear[2]),
+        normalizeChannel(color.a, bitDepth),
+      ];
+    }
+    case 'registration':
+      return [0, 0, 0, color.a / 255];
+    case 'unresolved': {
+      const alpha = color.a / 255;
+      if (color.fallback) {
+        return [color.fallback.r / 255, color.fallback.g / 255, color.fallback.b / 255, alpha];
+      }
+      const parsed = cssStringToManagedColor(color.source);
+      if (parsed && parsed.space === 'rgb') {
+        return [parsed.r / 255, parsed.g / 255, parsed.b / 255, alpha];
+      }
+      return [0, 0, 0, alpha];
+    }
+  }
 }
 
 /**
@@ -1205,9 +1285,18 @@ function inGamut(linear: [number, number, number]): boolean {
  * Uses binary search on chroma to find the closest in-gamut color
  * while preserving lightness and hue.
  *
- * Returns [r, g, b] in 0-255 sRGB.
+ * Returns [r, g, b] in 0-255 sRGB, rounded for display compatibility.
  */
 export function gamutMapToSrgb(oklch: [number, number, number]): [number, number, number] {
+  return gamutMapToSrgbUnit(oklch).map((value) => Math.round(value)) as [number, number, number];
+}
+
+/**
+ * Map Oklch to sRGB without quantizing the encoded channels. This is the
+ * working-space counterpart to `gamutMapToSrgb`; callers should quantize only
+ * when they cross a display or file-format boundary.
+ */
+export function gamutMapToSrgbUnit(oklch: [number, number, number]): [number, number, number] {
   const [L, C, H] = oklch;
 
   // Oklch → Oklab
@@ -1219,11 +1308,11 @@ export function gamutMapToSrgb(oklch: [number, number, number]): [number, number
   const linear = oklabToLinearSrgb(oklab);
   if (inGamut(linear)) {
     // Fully in gamut — clamp and return
-    return linearRgbToRgb([
+    return [
       Math.max(0, Math.min(1, linear[0])),
       Math.max(0, Math.min(1, linear[1])),
       Math.max(0, Math.min(1, linear[2])),
-    ]);
+    ].map((value) => linearToSrgbUnit(value) * 255) as [number, number, number];
   }
 
   // Binary search on chroma
@@ -1245,9 +1334,9 @@ export function gamutMapToSrgb(oklch: [number, number, number]): [number, number
   const fa = lo * Math.cos(H);
   const fb = lo * Math.sin(H);
   const finalLinear = oklabToLinearSrgb([L, fa, fb]);
-  return linearRgbToRgb([
+  return [
     Math.max(0, Math.min(1, finalLinear[0])),
     Math.max(0, Math.min(1, finalLinear[1])),
     Math.max(0, Math.min(1, finalLinear[2])),
-  ]);
+  ].map((value) => linearToSrgbUnit(value) * 255) as [number, number, number];
 }
