@@ -110,6 +110,10 @@ The first implementation increment is deliberately conservative:
   install are separate state-machine operations; signature verification occurs
   inside Tauri's updater download boundary before the coordinator can expose
   `ready-to-install`.
+- Multiple desktop windows share update state and preferences through a
+  same-origin broadcast channel and an expiring operation lease, so only one
+  window owns a check/download/install transaction. A stale lease returns the
+  remaining windows to a recoverable settled state.
 - The ready-to-install UI does not bypass Varve's canonical termination/save
   coordinator. “Install and Restart” enters the existing restart transaction;
   install-on-quit enters the same transaction on a native quit request. A
