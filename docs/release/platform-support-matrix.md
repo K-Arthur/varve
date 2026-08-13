@@ -1,6 +1,6 @@
 # Varve — Platform & Architecture Support Matrix
 
-**Date:** 2026-08-03 (last updated 2026-08-10)
+**Date:** 2026-08-13
 **Applies to:** the current release line (v0.1.1 published 2026-08-11;
 v0.1.0 published 2026-08-09)
 
@@ -28,9 +28,9 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | `.deb` (host WebKitGTK) | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
 | **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
 | **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
-| **Linux** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
+| **Linux** | ARM64 | 🟡 matrix wired (`ubuntu-22.04-arm`); artifact/runtime gates pending | AppImage, `.deb`, `.rpm` | checksums + SBOM | ⬜ genuine ARM runtime and GUI smoke pending | glibc 2.35+ | **3 — Experimental** | Low |
 | **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ⚠️ runner smoke passed 2026-08-09 (install/launch/uninstall); no long-term hardware testing | Win 10 1809 | **3** | Low |
-| **Windows** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
+| **Windows** | ARM64 | 🟡 matrix wired (`windows-11-arm`); native executable/runtime gates pending | native ARM64 app in NSIS distribution | unsigned until signing gate passes | ⬜ Windows on ARM runtime smoke pending | Windows 10 1809 | **3 — Experimental** | Low |
 | **macOS** | ARM64 | ✅ built in CI (`macos-latest`, `aarch64-apple-darwin` DMG) | `.dmg` | unsigned, unnotarised | ⚠️ runner smoke passed 2026-08-09 (mount/launch/unmount); no long-term hardware testing | macOS 13 | **3** | Low |
 | **macOS** | x86-64 | ❌ not built (no ONNX Runtime Intel dylib — audit H-3) | — | — | ❌ | — | **Not supported** | — |
 
@@ -64,14 +64,14 @@ a stale pre-fix artifact).
 
 ## 3. Linux — detail
 
-### Why x86-64 only
+### ARM64 release path — experimental until runtime evidence exists
 
-ARM64 Linux is rejected for the first release, not deferred vaguely. Concretely:
-`scripts/fetch-onnxruntime.mjs` *does* define a `linux-aarch64` ORT build, so the AI path
-could work — but there is no ARM64 test hardware, no ARM64 CI runner in the free tier that
-also has WebKitGTK, and the WebGPU/compositor path has never been exercised on ARM Mali/Adreno.
-Publishing an untested ARM64 build of a *design application* invites data-loss reports we
-cannot reproduce. Revisit when there is hardware.
+Linux ARM64 now has a dedicated native `ubuntu-22.04-arm` release matrix entry.
+That is required because Tauri's current AppImage toolchain does not support
+cross-compiling ARM AppImages. It is a build and packaging path, not yet a
+supported-product claim: the release gate still needs binary-header inspection,
+package metadata checks, native ONNX inference, and a real ARM editor smoke
+workflow. QEMU-only results would not promote this target.
 
 ### Format decisions
 
@@ -133,7 +133,7 @@ retired in P0-1 — `release.yml` is the only tag-triggered workflow.)
 
 | Decision | Choice | Reasoning |
 |---|---|---|
-| Arch | x86-64 only | ARM64 Windows has no ORT bundle (`fetch-onnxruntime.mjs` comment: "low install base") and no test hardware |
+| Arch | x86-64 + ARM64 matrix | ARM64 uses the native `aarch64-pc-windows-msvc` target and official Windows ARM64 ONNX Runtime; real Windows-on-ARM runtime evidence is still pending |
 | Installer | **NSIS only** | Per-user install without admin rights — critical when the app is unsigned, because a UAC prompt on an unsigned installer is a much harder sell. MSI is dropped for v1: it duplicates the artifact, doubles the smoke-test surface, and its main advantage (Group Policy deployment) is irrelevant for a solo alpha |
 | MSI | Defer | Revisit if enterprise users ask |
 | MSIX | Defer | Only needed for Microsoft Store; revisit with the Store decision |
