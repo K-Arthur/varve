@@ -445,8 +445,7 @@ import { getActionTracker } from './intelligence/actionTracker';
 import { autoName } from './intelligence/autoNamer';
 import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
-import { computeFlexLayout } from './layout/computeFlexLayout';
-import { applyGridLayout } from './layout/computeGridLayout';
+import { reflowLayoutChildren } from './layout/reflow';
 import { type MediaContextValue, MediaProvider } from './media/MediaContext';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
@@ -1961,25 +1960,15 @@ const INITIAL_SESSION_ID = 'session-0';
 
 // ─── standalone helpers ─────────────────────────────────────────────────
 
-/** Apply layout to a frame's children and return the updated doc. */
+/**
+ * Apply layout to a frame's children and return the updated doc.
+ *
+ * Delegates to `reflowLayoutChildren`, the shared reflow entry point that
+ * canvas resize commits and inspector W/H edits also use (see
+ * `layout/reflow.ts`).
+ */
 function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {
-  if (!parentId) return doc;
-  const parent = doc.nodes[parentId];
-  if (parent?.kind !== 'frame' || !parent.layoutStyle) return doc;
-  if (parent.layoutStyle.mode === 'grid') {
-    return applyGridLayout(doc, parentId);
-  }
-  const childNodes = parent.children
-    .map((cid) => doc.nodes[cid])
-    .filter((n): n is SceneNode => Boolean(n));
-  const results = computeFlexLayout(parent, childNodes);
-  if (results.length === 0) return doc;
-  const nodes = { ...doc.nodes };
-  for (const r of results) {
-    const child = nodes[r.id];
-    if (child) nodes[r.id] = { ...child, transform: [1, 0, 0, 1, r.x, r.y] as Affine };
-  }
-  return { ...doc, nodes };
+  return reflowLayoutChildren(doc, parentId);
 }
 
 /**
@@ -4684,17 +4673,27 @@ export function EditorProvider({
             const oldW = node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w;
             nodes[id] = resizeNodeGeometry(node, w, bounds.h);
             invalidateNodeThumbnail(id);
-            // Propagate constraints to frame children
+            // Propagate constraints to frame children. Layout frames reflow
+            // instead — layout owns child positions (and fill/grow sizes).
             if (node.kind === 'frame') {
-              const childUpdates = propagateFrameConstraints(
-                { ...doc, nodes },
-                id,
-                oldW,
-                node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h,
-              );
-              for (const [cid, child] of Object.entries(childUpdates)) {
-                nodes[cid] = child;
-                invalidateNodeThumbnail(cid);
+              if (node.layoutStyle && node.layoutStyle.mode !== 'none') {
+                const reflowed = reflowLayoutChildren({ ...doc, nodes }, id);
+                for (const [cid, child] of Object.entries(reflowed.nodes)) {
+                  if (cid === id) continue;
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
+              } else {
+                const childUpdates = propagateFrameConstraints(
+                  { ...doc, nodes },
+                  id,
+                  oldW,
+                  node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h,
+                );
+                for (const [cid, child] of Object.entries(childUpdates)) {
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
               }
             }
           }
@@ -4715,17 +4714,27 @@ export function EditorProvider({
             const oldH = node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h;
             nodes[id] = resizeNodeGeometry(node, bounds.w, h);
             invalidateNodeThumbnail(id);
-            // Propagate constraints to frame children
+            // Propagate constraints to frame children. Layout frames reflow
+            // instead — layout owns child positions (and fill/grow sizes).
             if (node.kind === 'frame') {
-              const childUpdates = propagateFrameConstraints(
-                { ...doc, nodes },
-                id,
-                node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w,
-                oldH,
-              );
-              for (const [cid, child] of Object.entries(childUpdates)) {
-                nodes[cid] = child;
-                invalidateNodeThumbnail(cid);
+              if (node.layoutStyle && node.layoutStyle.mode !== 'none') {
+                const reflowed = reflowLayoutChildren({ ...doc, nodes }, id);
+                for (const [cid, child] of Object.entries(reflowed.nodes)) {
+                  if (cid === id) continue;
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
+              } else {
+                const childUpdates = propagateFrameConstraints(
+                  { ...doc, nodes },
+                  id,
+                  node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w,
+                  oldH,
+                );
+                for (const [cid, child] of Object.entries(childUpdates)) {
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
               }
             }
           }
