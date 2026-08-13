@@ -54,6 +54,11 @@ normalized from their tagged model before entering a display-only `ImageData`
 pass. The current backdrop/effect surface is still RGBA8, so it is documented
 as a preview boundary rather than claimed as a high-precision effect surface.
 
+Soft proofing accepts both the legacy RGBA8 provider and an optional normalized
+provider. The editor prefers the normalized provider when the runtime offers
+one, and falls back to the legacy provider only as an explicit preview
+degradation. Neither path writes proofed values back to the document.
+
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas
 in `packages/shared/src/colorConversion.ts`:
