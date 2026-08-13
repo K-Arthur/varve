@@ -20,13 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
-      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install just
-        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
         with:
           tool: just@1.54.0
       - name: Install wasm-pack
@@ -37,7 +37,7 @@ jobs:
       - name: wasm build (base + simd)
         run: just wasm-build-all
       - name: Upload wasm artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: varve-wasm-release
           path: apps/desktop/public/wasm/
@@ -80,15 +80,15 @@ jobs:
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
 
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
         with:
           version: 11.9.0
 
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 26
           cache: pnpm
@@ -117,7 +117,7 @@ jobs:
         if: runner.os == 'Windows'
         run: rustup target add x86_64-pc-windows-msvc
 
-      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
 
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
@@ -146,7 +146,7 @@ jobs:
         run: pnpm audit:emoji
 
       - name: Download wasm artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: varve-wasm-release
           path: apps/desktop/public/wasm/
@@ -190,7 +190,7 @@ jobs:
 
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: varve-debug-${{ matrix.os }}-${{ github.run_id }}
           path: ci-debug-report.md
