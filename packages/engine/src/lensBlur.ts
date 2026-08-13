@@ -1,4 +1,4 @@
-import type { DepthMap } from './depthMap';
+import { type DepthMap, resizeDepthMap } from './depthMap';
 
 function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
@@ -61,16 +61,92 @@ export interface DepthBlurOptions {
   /** In-focus interval around the focal plane, normalized 0..1. */
   transitionRange: number;
   invert?: boolean;
-  /** Reject farther samples across a depth edge to protect foreground contours. */
+  /**
+   * Reject samples on the far side of a depth edge to protect foreground
+   * contours. Governs both directions of the edge.
+   */
   edgeProtection?: number;
 }
 
 /**
- * Depth-aware gather blur. The gather is premultiplied-alpha and asymmetric at
- * depth discontinuities: a foreground pixel may gather nearer samples, but it
- * does not gather farther background samples across its silhouette. That
- * prevents the bright/dark halos produced by choosing independent Gaussian
- * levels per pixel.
+ * The gather is executed at most over this many pixels. Larger sources are
+ * downscaled first (premultiplied, bilinear) so full-resolution renders do
+ * not pay an O(width * height * radius^2) cost; the result is upscaled back.
+ * The depth field and the occlusion rules are scale-invariant, so the
+ * edge behaviour is preserved.
+ */
+const MAX_GATHER_PIXELS = 524_288;
+const MIN_GATHER_SCALE = 0.25;
+
+/** Premultiplied bilinear resize of raw RGBA pixels. */
+function resizeRgbaPremultiplied(
+  data: Uint8ClampedArray,
+  srcWidth: number,
+  srcHeight: number,
+  width: number,
+  height: number,
+): Uint8ClampedArray {
+  const output = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(srcHeight - 1, Math.max(0, ((y + 0.5) * srcHeight) / height - 0.5));
+    const y0 = Math.floor(sy);
+    const y1 = Math.min(srcHeight - 1, y0 + 1);
+    const ty = sy - y0;
+    for (let x = 0; x < width; x++) {
+      const sx = Math.min(srcWidth - 1, Math.max(0, ((x + 0.5) * srcWidth) / width - 0.5));
+      const x0 = Math.floor(sx);
+      const x1 = Math.min(srcWidth - 1, x0 + 1);
+      const tx = sx - x0;
+      const o = (y * width + x) * 4;
+      let aR = 0;
+      let aG = 0;
+      let aB = 0;
+      let aA = 0;
+      for (const [px, py, wy] of [
+        [x0, y0, (1 - tx) * (1 - ty)],
+        [x1, y0, tx * (1 - ty)],
+        [x0, y1, (1 - tx) * ty],
+        [x1, y1, tx * ty],
+      ] as const) {
+        const i = (py * srcWidth + px) * 4;
+        const a = data[i + 3]! / 255;
+        aR += data[i]! * a * wy;
+        aG += data[i + 1]! * a * wy;
+        aB += data[i + 2]! * a * wy;
+        aA += a * wy;
+      }
+      if (aA <= 0) {
+        output[o] = 0;
+        output[o + 1] = 0;
+        output[o + 2] = 0;
+        output[o + 3] = 0;
+        continue;
+      }
+      output[o] = clampByte(aR / aA);
+      output[o + 1] = clampByte(aG / aA);
+      output[o + 2] = clampByte(aB / aA);
+      output[o + 3] = clampByte(aA * 255);
+    }
+  }
+  return output;
+}
+
+/**
+ * Depth-aware gather blur. The gather is premultiplied-alpha and occlusion-aware
+ * at depth discontinuities:
+ *
+ * - A sample farther than the center pixel never contributes: its light path
+ *   is blocked by the center pixel's own (nearer) surface. This prevents the
+ *   bright/dark halos produced by choosing independent Gaussian levels per
+ *   pixel.
+ * - A sample nearer than the center pixel contributes only when its own plane
+ *   is out of focus (its light spreads). An in-focus plane keeps its light at
+ *   its own pixels, so a sharp subject does not smear into the blurred
+ *   background; an out-of-focus near plane still produces foreground bokeh.
+ *
+ * Sources above MAX_GATHER_PIXELS are processed at a reduced scale with a
+ * premultiplied bilinear round trip; images at or below that size (including
+ * every test fixture) are processed at full resolution.
  */
 export function applyDepthBlur(
   imageData: ImageData,
@@ -85,15 +161,53 @@ export function applyDepthBlur(
   const blurAmount = Math.max(0, options.blurAmount);
   if (blurAmount <= 0) return new ImageData(new Uint8ClampedArray(imageData.data), w, h);
 
+  const scale = Math.min(1, Math.max(MIN_GATHER_SCALE, Math.sqrt(MAX_GATHER_PIXELS / (w * h))));
+  if (scale >= 1) {
+    return gatherBlur(imageData, depthMap, options);
+  }
+
+  const sw = Math.max(1, Math.round(w * scale));
+  const sh = Math.max(1, Math.round(h * scale));
+  const scaledInput = new ImageData(resizeRgbaPremultiplied(imageData.data, w, h, sw, sh), sw, sh);
+  const scaledDepth = resizeDepthMap(depthMap, sw, sh);
+  const scaledOutput = gatherBlur(scaledInput, scaledDepth, {
+    ...options,
+    blurAmount: blurAmount * (sw / w),
+  });
+  return new ImageData(resizeRgbaPremultiplied(scaledOutput.data, sw, sh, w, h), w, h);
+}
+
+function gatherBlur(
+  imageData: ImageData,
+  depthMap: DepthMap,
+  options: DepthBlurOptions,
+): ImageData {
+  const w = imageData.width;
+  const h = imageData.height;
+  const blurAmount = Math.max(0, options.blurAmount);
+  if (blurAmount <= 0) return new ImageData(new Uint8ClampedArray(imageData.data), w, h);
+
   const focalDepth = Math.max(0, Math.min(1, options.focalDepth));
   const transitionRange = Math.max(0, Math.min(1, options.transitionRange));
   const invert = options.invert ?? false;
   const edgeProtection = Math.max(0, Math.min(1, options.edgeProtection ?? 0.035));
   const output = new Uint8ClampedArray(imageData.data.length);
   const radius = Math.max(1, Math.ceil(blurAmount));
-  const stride = radius > 18 ? 2 : 1;
+  const stride = radius > 14 ? 2 : 1;
   const sigma = Math.max(0.75, radius / 2.5);
   const sigma2 = 2 * sigma * sigma;
+
+  // Precompute the spatial weights once per frame instead of calling
+  // Math.exp for every candidate sample in the gather loop.
+  const tableRadius = Math.floor(radius / stride) * stride;
+  const weightStride = (tableRadius / stride) * 2 + 1;
+  const weights = new Float32Array(weightStride * weightStride);
+  for (let oy = -tableRadius; oy <= tableRadius; oy += stride) {
+    for (let ox = -tableRadius; ox <= tableRadius; ox += stride) {
+      weights[((oy + tableRadius) / stride) * weightStride + ((ox + tableRadius) / stride)] =
+        Math.exp(-(ox * ox + oy * oy) / sigma2);
+    }
+  }
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -116,23 +230,39 @@ export function applyDepthBlur(
         continue;
       }
 
-      const sampleRadius = Math.max(1, Math.ceil(desiredRadius));
-      let sumR = 0;
-      let sumG = 0;
-      let sumB = 0;
-      let sumA = 0;
-      let sumWeight = 0;
-      for (let oy = -sampleRadius; oy <= sampleRadius; oy += stride) {
-        for (let ox = -sampleRadius; ox <= sampleRadius; ox += stride) {
-          if (ox * ox + oy * oy > desiredRadius * desiredRadius) continue;
-          const sx = Math.max(0, Math.min(w - 1, x + ox));
-          const sy = Math.max(0, Math.min(h - 1, y + oy));
-          const sampleIndex = sy * w + sx;
-          if (!depthMap.valid[sampleIndex]) continue;
-          const sampleDepth = depthMap.values[sampleIndex] ?? centerDepth;
-          const fartherThanForeground = sampleDepth > centerDepth + edgeProtection;
-          if (fartherThanForeground) continue;
-          const spatialWeight = Math.exp(-(ox * ox + oy * oy) / sigma2);
+          const sampleRadius = Math.max(1, Math.ceil(desiredRadius));
+          let sumR = 0;
+          let sumG = 0;
+          let sumB = 0;
+          let sumA = 0;
+          let sumWeight = 0;
+          for (let oy = -sampleRadius; oy <= sampleRadius; oy += stride) {
+            for (let ox = -sampleRadius; ox <= sampleRadius; ox += stride) {
+              if (ox * ox + oy * oy > desiredRadius * desiredRadius) continue;
+              const sx = Math.max(0, Math.min(w - 1, x + ox));
+              const sy = Math.max(0, Math.min(h - 1, y + oy));
+              const sampleIndex = sy * w + sx;
+              if (!depthMap.valid[sampleIndex]) continue;
+              const sampleDepth = depthMap.values[sampleIndex] ?? centerDepth;
+              const sampleCanonicalDepth = invert ? 1 - sampleDepth : sampleDepth;
+              const centerCanonicalDepth = invert ? 1 - centerDepth : centerDepth;
+              const fartherThanCenter = sampleCanonicalDepth > centerCanonicalDepth + edgeProtection;
+              if (fartherThanCenter) continue;
+              const nearerThanCenter = sampleCanonicalDepth < centerCanonicalDepth - edgeProtection;
+              if (nearerThanCenter) {
+                // An in-focus nearer plane does not spread light to this pixel;
+                // only an out-of-focus plane contributes foreground bokeh.
+                const sampleBlurPx = depthToRadius(
+                  sampleCanonicalDepth,
+                  focalDepth,
+                  transitionRange,
+                  blurAmount,
+                  false,
+                );
+                if (sampleBlurPx < 1) continue;
+              }
+              const spatialWeight =
+                weights[((oy + tableRadius) / stride) * weightStride + ((ox + tableRadius) / stride)]!;
           const px = sampleIndex * 4;
           const alpha = imageData.data[px + 3]! / 255;
           sumR += imageData.data[px]! * alpha * spatialWeight;
