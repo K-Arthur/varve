@@ -621,6 +621,13 @@ function UpdatesSection() {
       <p className="settings-hint" role="status" aria-live="polite">
         Current status: {status}
       </p>
+      {(context?.installLocation === 'translocated' ||
+        context?.installLocation === 'not-writable') &&
+        context?.platform === 'darwin' && (
+          <p className="settings-hint">
+            Move Varve into your Applications folder and launch it from there to enable updates.
+          </p>
+        )}
       <Button
         variant="secondary"
         size="sm"
@@ -630,17 +637,25 @@ function UpdatesSection() {
         {state.kind === 'checking' ? 'Checking…' : 'Check for Updates'}
       </Button>
       {state.kind === 'update-available' && (
-        <div className="settings-dialog__footer">
-          <Button variant="primary" size="sm" onClick={() => void updates.download()}>
-            Download {state.update.version}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => updates.defer()}>
-            Later
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => updates.skipVersion()}>
-            Skip this version
-          </Button>
-        </div>
+        <>
+          {state.update.notes && <p className="settings-release-notes">{state.update.notes}</p>}
+          <div className="settings-dialog__footer">
+            <Button variant="primary" size="sm" onClick={() => void updates.download()}>
+              Download {state.update.version}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => updates.defer()}>
+              Later
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => updates.skipVersion()}>
+              Skip this version
+            </Button>
+          </div>
+        </>
+      )}
+      {state.kind === 'downloading' && (
+        <p className="settings-hint" role="status" aria-live="polite">
+          {status}
+        </p>
       )}
       {state.kind === 'ready-to-install' && (
         <div className="settings-dialog__footer">
