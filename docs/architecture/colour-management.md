@@ -454,3 +454,86 @@ default decode pipeline; no Display-P3 canvas surface is requested anywhere.
 
 "Convert" always means real pixel transformation; "preserve" means the
 authoritative source interpretation is retained and never relabelled.
+
+## High-precision pipeline status (2026-08-13)
+
+The following land on top of the representation work above. Each item
+cross-references the quantization-boundary inventory
+(`docs/audits/color-quantization-boundary-inventory.md`).
+
+### Canonical model and persistence (complete)
+
+- `ManagedColor` (RGB/CMYK/Gray/Lab/LCH/Spot/Registration/Unresolved) carries
+  `bitDepth` (`uint8`/`uint16`/`float16`/`float32`) and profile identity per
+  value; legacy values default to `uint8` without mutation.
+- Scene → engine IR preserves the tagged color object; `managedColorToRgba`
+  is an explicit display boundary and never feeds precision-sensitive math
+  (the normalized path `managedColorToNormalized` is the working path).
+- Save/reopen is lossless at any depth: see
+  `packages/scene/src/highPrecisionRegression.test.ts` (adjacent uint16
+  values stay distinct, 512-level ramps survive, float/CMYK channels are
+  exact, five save cycles show zero drift, legacy boundary values migrate
+  exactly).
+
+### Document color settings (complete)
+
+- Inspector → Document Color now exposes Mode (assign-only), **Precision**
+  (8-bit/16-bit/16f/32f — the default for newly authored colors) and
+  **Blend space** (sRGB/Linear). Both are settings-only operations
+  (`setDocumentBitDepth` / `setDocumentWorkingSpace` in
+  `packages/scene/src/colorMode.ts`); existing values are never rewritten.
+- File → **Document Color Mode…** opens the Assign vs Convert dialog
+  (`ColorConversionHost`), also reachable from the command palette
+  (`openColorConversion`). Assign keeps values; Convert rewrites them in one
+  undoable transaction (analytical in browser, ICC via the desktop engine).
+
+### Picker precision (complete)
+
+- HSV area/slider/alpha drafts run on float HSV with a normalized 0-1 emit;
+  storage quantization happens once at `denormalizeChannel`.
+- Numeric RGB fields are bit-depth aware: 0-255 (uint8), 0-65535 (uint16),
+  0-1 with 5 decimals (float16/float32). Editing one channel carries the
+  untouched channels from the canonical normalized value — editing R never
+  quantizes G/B (regression-tested in `ColorPicker.test.tsx`).
+- Swatches (document colors + recents) carry the full `ManagedColor`; only
+  the swatch face is 8-bit. Native-space swatches emit unchanged; RGB
+  swatches flow through the normalized path; precision is capped by the
+  document's bit depth, never by the 8-bit display.
+- Recents dedupe by canonical key and keep Lab/LCH values.
+- Gradient stop insertion interpolates in normalized 0-1 space
+  (`interpolateNormalizedColor` in `@varve/shared`) and stores at the
+  neighboring stops' bit depth.
+
+### Effects and blends (partial — see inventory)
+
+- `gaussianBlurLinearLight` runs the entire convolution on float32 linear
+  premultiplied values with one quantization at the end (the previous
+  implementation quantized linear values back to bytes before blurring).
+- `exportPipeline/palette.ts` lost a dead `/255 → ×255` round trip.
+- The adjustment stack (curves/levels/gradient maps/duotones) remains
+  byte-space by construction: every kernel consumes `ImageData` via
+  `filterCompositor.ts:150` and writes back through `putImageData`. A float
+  entry/exit for the whole effect pipeline (single quantization) is the
+  remaining work — the `rasterColor/` typed-buffer layer is the intended
+  carrier and is not yet wired into the effect path.
+- `liveEffects/dither.ts` already accumulates error diffusion in float; its
+  palette lookup is the genuine output boundary and stays byte-keyed.
+
+### Print (complete)
+
+- The PDF exporter emits authored CMYK channels directly (`cmyk_normalized`
+  is bit-depth aware: uint8 /255, uint16 /65535, float as-is) for solid
+  fills, strokes, and gradient samples. Native CMYK stops interpolate in
+  CMYK space. Pure K stays (0 0 0 1) — no four-color build from the naive
+  `(1-c)(1-k)` round trip. Tested in `crates/varve-print` (151 tests).
+
+### Remaining boundaries (explicit)
+
+| Boundary | Status |
+| --- | --- |
+| Browser raster decode (`new Image`/`createImageBitmap`) | 8-bit; 16-bit PNG/TIFF preservation requires native/WASM decode (varve-media is decode-only today) |
+| Canvas2D `ImageData` effect masks/backdrops | 8-bit preview boundary |
+| WebGPU effect textures | `rgba8unorm` only; capability-selected `rgba16float` is pending |
+| Export encoders | PNG/JPEG/WebP 8-bit only; PNG16/TIFF need a 16-bit composite path first (the compositor is Canvas2D 8-bit at the surface boundary) |
+| Grid/guide colors | scene model stores CSS strings (UI chrome, not document content) |
+| Document-wide precision conversion (uint8 → uint16 → float) | settings default exists; bulk value rewrite is not implemented |
