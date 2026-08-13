@@ -375,6 +375,8 @@ not current-state guidance. Treat them like the dated files in
 accessibility, platform UX, inference, and more). They are point-in-time
 records; check the current code before acting on their findings.
 
+| `audits/color-quantization-boundary-inventory.md` | Current high-precision color quantization-boundary inventory |
+
 ## Website-specific (current state)
 
 | Area | Location | Purpose |
