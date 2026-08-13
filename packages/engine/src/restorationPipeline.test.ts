@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchDenoise } from './denoiseProviders/dispatch';
-import { dispatchUpscale } from './upscaleProviders/dispatch';
 import { runRestoration } from './restorationPipeline';
+import { dispatchUpscale } from './upscaleProviders/dispatch';
 
 vi.mock('./denoiseProviders/dispatch', () => ({
   dispatchDenoise: vi.fn(),
@@ -85,5 +85,26 @@ describe('runRestoration', () => {
       runRestoration(image(), { operation: 'denoise' }, { signal: controller.signal }),
     ).rejects.toThrow('cancelled');
     expect(dispatchDenoise).not.toHaveBeenCalled();
+  });
+
+  it('bounds preview pixels before dispatch', async () => {
+    vi.mocked(dispatchDenoise).mockImplementation(async (input) => ({
+      denoised: input,
+      processingTimeMs: 1,
+      executionProvider: 'worker',
+      tilesUsed: 1,
+    }));
+
+    await runRestoration(image(1200, 800), {
+      operation: 'denoise',
+      denoise: { strength: 'light' },
+      preview: true,
+      previewMaxDimension: 256,
+    });
+
+    expect(vi.mocked(dispatchDenoise).mock.calls[0]?.[0]).toMatchObject({
+      width: 256,
+      height: 256,
+    });
   });
 });
