@@ -411,7 +411,7 @@ export function createActionHandlers(
           (n) => n?.kind === 'shape' && n.fills?.some((f) => f.type === 'image' && f.image?.src),
         );
       if (!imageNode) {
-        e.announce?.('Select an image layer to upscale');
+        e.announce?.('Select an image layer to enhance');
         return;
       }
       e.openUpscaleDialog();

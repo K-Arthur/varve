@@ -31,7 +31,7 @@ export const SHORTCUT_DEFS = {
   flipV: { binding: { key: 'v', shift: true }, label: 'Flip Vertical', category: 'Object' },
   upscaleImage: {
     binding: { key: 'u', ctrl: true, shift: true },
-    label: 'Upscale Image',
+    label: 'Enhance Image…',
     category: 'Object',
   },
   imageTrace: {

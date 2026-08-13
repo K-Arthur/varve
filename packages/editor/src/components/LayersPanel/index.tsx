@@ -711,7 +711,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
       },
       {
         id: 'upscale',
-        label: 'Upscale Image',
+        label: 'Enhance Image…',
         onAction: () => {
           setSelection(nodeId);
           openUpscaleDialog();
