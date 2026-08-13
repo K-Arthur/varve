@@ -44,29 +44,57 @@ used by the page inspector, canvas overlays, preflight, and page-bleed export
 planning. A page's trim bounds are its placed `width`/`height`; bleed bounds
 expand those bounds outward by the resolved top/right/bottom/left insets.
 
+**Application default is zero bleed.** Documents that never configured bleed
+(including every pre-bleed legacy document) resolve to `EMPTY_BLEED` — the
+canvas shows no production region and export stays trim-only. Real bleed
+values come from print presets at document creation or from the page/document
+inspector; nothing injects 3 mm into an old document.
+
 Bleed values are persisted in their declared physical unit (`mm`, `in`, `pt`,
 or another supported `DocumentUnit`). The resolver converts them once to the
 fixed-96-dpi document coordinate space. Raster/export DPI is a separate output
 calculation and never changes canvas geometry. This prevents a 3 mm bleed from
 changing when a document's export resolution changes.
 
+Canonical geometry lives in `scene/printGeometry.ts`:
+`pageBleedInsetsPx(doc, pageId)` resolves the per-edge insets in document
+pixels (document default merged with the page override), and
+`pageBleedBoundsInWorld(doc, pageId, origin)` expands a trim rect at a given
+origin by those insets. The canvas overlay, the export plan's `page-bleed`
+bounds, and preflight all consume the same resolver — there is no independent
+bleed arithmetic in renderers or exporters.
+
 The canvas's `bleedGuidesVisible` preference is view state, not document state:
 it can hide the dashed outer boundary and production band without changing
 bleed, dirty state, undo history, or export output. The guide is an SVG editor
 overlay with `pointer-events: none`; it is not a scene node, does not enter hit
-testing or bounds, and is never exported.
+testing or bounds, and is never exported. The overlay draws in screen space:
+origins map through `worldToCanvas` and sizes scale by zoom, so the physical
+bleed distance tracks the camera while the stroke stays screen-readable. The
+bleed boundary is a dashed accent-tinted rect with a subtle production band
+between trim and bleed; trim corner marks are drawn at the four cut corners.
 
 Page content remains editable on the pasteboard outside trim. The trim outline
 continues to identify the cut edge while the bleed guide identifies the
 production extent, so artwork that actually crosses trim remains visible for
 inspection without globally disabling ordinary frame clipping.
 
-PDF/X export receives trim dimensions and expands the media geometry around
-them. `BleedBox` is trim plus the configured bleed, `TrimBox`, `CropBox`, and
-`ArtBox` identify the trim boundary, and crop marks are positioned from trim
-rather than from the outer bleed edge. PNG/JPEG/WebP and screen PDF retain
-their own format capabilities; the editor must not imply that a view guide
-changes a format that does not support page-bleed export.
+The bleed value is edited in the Page Print inspector section (Page tool) in
+the resolved config's unit (mm for print documents, px for screen documents),
+clamped to non-negative values and to half the page's smaller dimension
+(ADR-0190 D5). The export dialog seeds its PDF/X bleed field from the active
+page's resolved bleed — the dialog value is an explicit export-job override of
+the document value, and the panel names the document bleed so the relationship
+is visible.
+
+PDF/X export receives the page size and the resolved bleed: `MediaBox` and
+`BleedBox` span the full exported page and `TrimBox` is inset by the bleed
+(bleed edges are uniform in the current encoder). Crop marks are positioned
+from the trim edge, not the bleed edge. ADR-0192's target semantics
+(`BleedBox` = trim + bleed, `CropBox`/`ArtBox` = trim) are not yet implemented
+in the encoder; screen PDF emits a MediaBox only. PNG/JPEG/WebP and screen PDF
+retain their own format capabilities; the editor must not imply that a view
+guide changes a format that does not support page-bleed export.
 
 ## Colour Conversion Pipeline
 
