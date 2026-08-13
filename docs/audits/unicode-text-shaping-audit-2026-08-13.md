@@ -53,8 +53,8 @@ rendering, editing, hit testing, selection, masks, and exports.
 | Rich-text commands | `packages/scene/src/richTextOps.ts` splits, formats, and merges runs | Useful pure foundation; offsets are not cluster-safe |
 | Graphemes | `Intl.Segmenter` with a fallback in `engine/src/unicode/grapheme.ts` | Good API shape; fallback and mapping need stronger invariants |
 | Script detection | `engine/src/unicode/script.ts` | Hand-maintained coverage table; suitable as a hint, not a shaping authority |
-| BiDi dependency | `bidi-js` is declared in `@varve/engine` | Not imported by the live implementation |
-| BiDi implementation | `engine/src/unicode/bidi.ts` hand-implements a subset of UAX #9 | Must be replaced/isolated behind a standards-based adapter |
+| BiDi dependency | `bidi-js` is declared in `@varve/engine` and now consumed by `engine/src/unicode/bidiUax9.ts` | Adapter is in place; conformance fixtures and live layout integration remain |
+| BiDi implementation | `engine/src/unicode/bidi.ts` delegates paragraph resolution to the `bidi-js` adapter | Existing public paragraph/run API is preserved; visual indices and mirroring are now derived from resolved levels |
 | Native shaping | `crates/varve-print/src/shaper.rs` uses `rustybuzz 0.20`; Tauri exposes `shape_text_command` | Strong native backend; needs canonical wire/layout integration |
 | Web shaping dependency | `harfbuzzjs 1.6.0` is declared | Not integrated; must be evaluated behind lazy loading and font-byte ownership |
 | Web rendering | `layoutRichText` and `replay.ts` use Canvas measurement and `fillText` | Browser text remains paint authority; no positioned glyph replay |
@@ -68,7 +68,7 @@ rendering, editing, hit testing, selection, masks, and exports.
 | Contract claimed by current docs/ADRs | Code evidence | Gap / required action |
 | --- | --- | --- |
 | “One canonical layout result” | `TextShaping` exists, but `replay.ts` calls `layoutRichText` and paints `fillText` | Introduce a real `TextLayoutSnapshot` and route live measurement/paint/hit testing through it |
-| Full UAX #9 BiDi | `unicode/bidi.ts` explicitly omits embeddings, isolates, bracket pairing, and full implicit levels | Use `bidi-js` or a native equivalent through a typed adapter; preserve logical offsets and line-level visual order |
+| Full UAX #9 BiDi | `unicode/bidiUax9.ts` delegates embedding levels, reorder indices, and mirrored-character lookup to `bidi-js` | Add broader conformance corpus coverage and feed line-level visual order into canonical layout |
 | OpenType shaping in web | `shaping.ts` measures each grapheme; `glyphId: 0`; `harfbuzzjs` unused | Integrate HarfBuzz-compatible shaping for font bytes, with Canvas fallback explicitly marked approximate/unavailable |
 | Complex-script correctness | Native Rust tests cover shaper calls, but live TS rendering does not consume native results | Add parity fixtures and a backend selection contract before advertising production support |
 | Rich text takes precedence in rendering | IR carries `richText`, while paint-time layout still has separate logic and fallback defaults | Make paragraph/run resolution an input to canonical layout, not a parallel renderer path |
@@ -110,9 +110,12 @@ The first implementation slice will define a backend-neutral request/response
 contract and a real web HarfBuzz adapter. It will not silently claim that
 Canvas2D measurement is equivalent. Native and web implementations must be
 covered by glyph/cluster/advance parity fixtures where the same font bytes are
-available. `bidi-js` is the initial UAX #9 adapter candidate because it is
-already installed; the adapter boundary leaves room for native/WASM BiDi if
-performance or worker ownership requires it.
+available. `bidi-js` is now the first UAX #9 adapter because it is already
+installed and provides embedding levels, reorder indices, and mirroring. The
+typed boundary leaves room for native/WASM BiDi if performance or worker
+ownership requires it. Its levels are character-indexed; Varve retains the
+source UTF-16 string and exposes the resolved visual index list separately so
+later line breaking can derive line-local order without mutating document text.
 
 ## Implementation order and commit boundaries
 
@@ -120,7 +123,7 @@ performance or worker ownership requires it.
 2. Unicode index model: explicit maps, cluster-safe boundaries, and property tests.
 3. Shaping backend contract: HarfBuzz WASM adapter, Rust bridge normalization,
    feature/variation/font identity in the request and result.
-4. Canonical layout snapshot: paragraph itemization, full BiDi resolution,
+4. Canonical layout snapshot: paragraph itemization, resolved BiDi visual order,
    line breaking, visual runs, metrics, cache, and stale font revisions.
 5. Rendering and editing consumers: positioned runs, caret/hit testing,
    discontiguous selection geometry, composition-safe transactions.
