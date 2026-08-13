@@ -20,6 +20,8 @@ describe('loadSettings', () => {
     expect(s.render.memoryBudget).toBe('medium');
     expect(s.performance.reducedMotionOverride).toBe('system');
     expect(s.performance.showPerformanceDiagnostics).toBe(false);
+    expect(s.privacy.usageAnalytics).toBe('unknown');
+    expect(s.privacy.diagnostics).toBe('unknown');
   });
 
   it('merges a partial performance/render patch without dropping unrelated fields', () => {
@@ -98,6 +100,17 @@ describe('loadSettings', () => {
     const loaded = loadSettings();
     expect(loaded.export.defaultFormat).toBe('svg');
     expect(loaded.export.defaultBleedMm).toBe(5);
+  });
+
+  it('keeps analytics consent granular and preserves unknown as the default', () => {
+    saveSettings({
+      ...loadSettings(),
+      privacy: { usageAnalytics: 'granted', diagnostics: 'denied' },
+    });
+    expect(loadSettings().privacy).toEqual({ usageAnalytics: 'granted', diagnostics: 'denied' });
+    localStorage.removeItem('varve-editor-settings');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ privacy: { usageAnalytics: 'invalid' } }));
+    expect(loadSettings().privacy).toEqual({ usageAnalytics: 'unknown', diagnostics: 'unknown' });
   });
 
   it('handles corrupt JSON gracefully', () => {
