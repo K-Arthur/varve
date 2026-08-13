@@ -141,6 +141,27 @@ export interface StatusSectionConfig {
   order: number;
 }
 
+/**
+ * Stable display labels for the status bar sections.
+ *
+ * The single source for user-facing names — the customize dialog, the status
+ * bar, and any future surface must not re-derive labels from ids.
+ */
+export const STATUS_SECTION_LABELS: Record<StatusSectionId, string> = {
+  toolName: 'Active Tool',
+  cursorPos: 'Cursor Position',
+  zoom: 'Zoom Controls',
+  selectionInfo: 'Selection Info',
+  unit: 'Units',
+  preflight: 'Preflight Warnings',
+  debt: 'Design Debt',
+  layoutScore: 'Layout Score',
+  colorMode: 'Color Mode',
+  imageInfo: 'Image Info',
+  pageInfo: 'Page Info',
+  shortcutTip: 'Shortcut Tips',
+};
+
 // ---------------------------------------------------------------------------
 // Canvas overlay configuration
 // ---------------------------------------------------------------------------
@@ -276,7 +297,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line', groupStart: true },
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
-        { toolId: 'pencil' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'select', groupStart: true },
@@ -292,7 +312,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],
@@ -384,7 +404,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],
@@ -659,7 +679,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],
@@ -755,7 +775,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],
@@ -807,7 +827,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   },
 
   motion: {
-    version: 2,
+    version: 1,
     panels: {
       layers: { visible: true, collapsed: false, order: 0, preferredWidth: '18rem' },
       inspector: { visible: true, collapsed: false, order: 0, preferredWidth: '18rem' },

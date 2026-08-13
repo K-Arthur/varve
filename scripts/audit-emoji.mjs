@@ -78,6 +78,11 @@ for (const f of files) {
     const line = lines[i];
 
     // Pass 1: emoji check — .ts/.tsx/.css/.html
+    // Fuzz fixtures (unicodeLayout.fuzz.test.ts and kin) deliberately embed
+    // emoji sequences as *test data* for the unicode layout engine. That is
+    // data, not UI affordance, so it is exempt — same principle as the ICON
+    // pass skipping comments.
+    if (f.endsWith('.fuzz.test.ts')) continue;
     if (EMOJI_RE.test(line)) {
       offenders.push(`EMOJI: ${relative(ROOT, f)}:${i + 1}: ${line.trim().slice(0, 100)}`);
       continue;
