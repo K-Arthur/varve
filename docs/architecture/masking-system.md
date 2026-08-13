@@ -47,6 +47,7 @@ serialization, and test paths are also present.
 | Raster / brush mask | `RasterMaskData` + document asset | paint/commit/remove | image-fill and frame paths | structural Canvas2D fallback except leaf IR alpha masks | mask tool and inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask, PDF raster fallback | asset, replay, E2E | complete for supported coordinate spaces |
 | Group/frame clipping | container-owned mask | create/release/reparent | nested structural replay | structural Canvas2D fallback | visible source/content labels | invariant repair on load | importer groups | native SVG where possible | transform, nesting, E2E | complete |
 | Effect spatial mask | adjustment-owned `mask` | mask CRUD | output-region compositing | structural Canvas2D fallback | Mask inspector | stable node references | format-dependent | rasterized boundary where needed | replay + E2E | complete |
+| Effect-local mask | `Effect.mask` + `EffectMaskBinding` | effect mask CRUD | raster effect stages; scene-node/vector sources are staged structural work | structural Canvas2D fallback | contract present; inspector integration pending | additive JSON; deterministic effect IDs | source-dependent | smallest correct raster boundary | unit coverage; E2E pending | staged |
 | Explicit effect targets | `AdjustmentScope` stable IDs | scope mutation | target-only source replay | structural Canvas2D fallback | accessible target picker | clone/copy remap, missing-target filtering | not applicable | rasterized adjustment boundary | scope + replay + UI | complete for four scope modes |
 | Frame clipping intersection | `clipContent` + mask | existing frame commands | clip intersection | structural Canvas2D fallback | frame + mask sections | JSON | SVG/frame import | raster/PDF fallback | replay + E2E | complete |
 
@@ -55,6 +56,26 @@ serialization, and test paths are also present.
 live/export structural replay is in `packages/editor/src/canvas/maskReplay.ts`
 and `packages/editor/src/render/replayScene.ts`; UI coverage is in the Mask
 section, Layers tree, action registry, and `tests/e2e/canvas/clipping-masks.spec.ts`.
+
+## 1c. Live matte and effect-local source contract
+
+The node `Mask` remains the owner of a layer/container mask. Per-effect masks
+use the separate `EffectMaskBinding` contract on the effect instance:
+
+```text
+EffectMaskBinding
+  source: scene-node | vector | raster-asset
+  type: alpha | luminance | clip
+  coordinateSpace: target-local | world
+  visible / inverted / density / feather / linked / transform
+```
+
+`buildCompositingDependencyGraph()` indexes source-to-dependent edges for node
+masks and effect-local masks. A source edit therefore has a discoverable path
+to its dependent repaint. `setEffectMask()` rejects missing sources, self
+references, group sources that contain their owner, and explicit graph cycles.
+Cross-document clone/paste drops foreign effect-mask source references while
+preserving the effect itself.
 
 ## 2. The clipping relationship
 
@@ -137,6 +158,25 @@ density order)
 → group opacity / blend mode / isolation
 → parent composition → adjustment layers → group masks
 ```
+
+For an ordinary node's local effect stack, the effect-local stage is more
+specific than the node mask:
+
+```text
+node source
+→ effect 1 input/effect result cross-fade by effect 1 mask
+→ effect 2 input/effect result cross-fade by effect 2 mask
+→ node/layer mask
+→ parent clipping/live matte
+→ group opacity/blend/isolation
+→ parent composition
+→ adjustment scope (what) + spatial mask (where)
+```
+
+The stage operation uses premultiplied-alpha coverage:
+`output = input × (1 − coverage) + evaluatedEffect × coverage`.
+Missing effect-mask sources are treated as an unavailable mask and do not make
+the owning content transparent.
 
 Decisions (each was settled by the renderer's existing structure and is
 tested — see `replayScene.test.ts` and the E2E corpus):

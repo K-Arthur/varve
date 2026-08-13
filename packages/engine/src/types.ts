@@ -165,7 +165,29 @@ export interface ChannelOffset {
   blueY: number;
 }
 
-export type Effect =
+export type EffectMaskSourceIR =
+  | { kind: 'scene-node'; nodeId: string }
+  | { kind: 'raster-asset'; assetId: string; src?: string }
+  | {
+      kind: 'vector';
+      points: PathPoint[];
+      closed: boolean;
+      fillRule: 'nonzero' | 'evenodd';
+    };
+
+export interface EffectMaskBindingIR {
+  source: EffectMaskSourceIR;
+  type: 'alpha' | 'luminance' | 'clip';
+  visible?: boolean;
+  inverted?: boolean;
+  density?: number;
+  feather?: number;
+  linked?: boolean;
+  transform?: Affine;
+  coordinateSpace: 'target-local' | 'world';
+}
+
+type EffectVariant =
   | {
       type: 'dropShadow';
       x: number;
@@ -249,6 +271,11 @@ export type Effect =
       opacity: number;
       visible: boolean;
     };
+
+export type Effect = EffectVariant & {
+  id?: string;
+  mask?: EffectMaskBindingIR;
+};
 
 export interface PathPoint {
   x: number;
