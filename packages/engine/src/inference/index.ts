@@ -1,3 +1,20 @@
+export type { AlphaMask, MaskCombineMode } from '../segmentation/maskAlgebra';
+export { combineAlphaMasks, invertAlphaMask } from '../segmentation/maskAlgebra';
+export type {
+  ImageEmbedding,
+  SegmentationBackend,
+  SegmentationBox,
+  SegmentationCacheKey,
+  SegmentationCandidate,
+  SegmentationCapabilities,
+  SegmentationImage,
+  SegmentationMaskPrompt,
+  SegmentationPoint,
+  SegmentationPointLabel,
+  SegmentationPrediction,
+  SegmentationPrompt,
+} from '../segmentation/types';
+export { isUsableSegmentationPrompt, serializeSegmentationCacheKey } from '../segmentation/types';
 export { DownloadManager } from './core/DownloadManager';
 export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';
 export { InferenceError, isInferenceError, toUserMessage } from './core/InferenceError';
