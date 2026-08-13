@@ -32,7 +32,8 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Text on path:</strong> Place text along any shape path — circle, bezier, rectangle, polygon, star</li>
           <li><strong>CJK support:</strong> Line breaking via Intl.Segmenter for Chinese, Japanese, and Korean text</li>
           <li><strong>Unicode foundations:</strong> Explicit UTF-16, code-point, grapheme, shaping-cluster, and visual-caret mappings</li>
-          <li><strong>BiDi foundations:</strong> UAX #9 embedding levels, visual run mappings, and mirrored punctuation in the engine</li>
+          <li><strong>BiDi foundations:</strong> UAX #9 embedding levels, per-line visual run ordering, mirrored punctuation, and cluster-safe caret geometry in the engine</li>
+          <li><strong>Paragraph layout:</strong> Script/language itemization, word-level line breaking that never splits a grapheme, and RTL-safe wrapping</li>
           <li><strong>Font system:</strong> Google Fonts loading, @fontsource bundled fonts, CSS fallback chains</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
         </ul>
@@ -41,7 +42,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. The current browser renderer still uses Canvas2D measurement as a clearly-labeled fallback while positioned glyph replay is integrated.
+          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. A paragraph-aware layout pipeline resolves UAX #9 base direction and embedding levels per paragraph, itemizes script and language runs, breaks lines at word boundaries without ever splitting an extended grapheme cluster, and derives line-level visual run order after wrapping — so wrapped RTL paragraphs reorder correctly. Cluster-safe caret stops, hit testing, and selection geometry come from the same snapshot. The browser renderer still uses Canvas2D measurement as a clearly-labeled fallback while font-byte shaping is integrated.
         </p>
         <p>
           SVG export includes multi-line and rich text support. Typography preflight checks font availability and CSS generation.
@@ -53,8 +54,8 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Complex-script shaping (Arabic, Devanagari, Thai, and similar scripts) is not yet guaranteed in the live Canvas2D and export paths</li>
-            <li>BiDi resolution exists in the engine, but line layout, caret geometry, renderer, and export consumers are still being migrated</li>
+            <li>Complex-script shaping (Arabic, Devanagari, Thai, and similar scripts) is not yet guaranteed in the live Canvas2D and export paths — the engine shapes contextually only when font bytes are available</li>
+            <li>The canonical paragraph layout pipeline (BiDi, line breaking, caret/selection geometry) is engine-complete, but the inline editor and pointer tools still use the legacy textarea/canvas path</li>
             <li>Text-to-outlines produces placeholder bounding boxes (real glyph path extraction deferred)</li>
             <li>Rich-text transactions and mixed inspector state exist, but insertion-style state, composition transactions, and complete shaped per-span rendering remain in development</li>
           </ul>
@@ -65,7 +66,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, Unicode indexing, BiDi foundations, and rich-text transactions are functional in the beta. Canonical shaped-glyph rendering and full complex-script editing remain in development.</p>
+          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, Unicode indexing, UAX #9 BiDi, canonical paragraph layout with cluster-safe caret geometry, and rich-text transactions are functional in the beta. Font-byte shaping in the live canvas and full complex-script editing remain in development.</p>
         </div>
       </section>
 

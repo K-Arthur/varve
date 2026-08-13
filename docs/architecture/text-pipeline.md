@@ -1,6 +1,6 @@
 # Text pipeline architecture
 
-**Status:** migration in progress — audit baseline recorded 2026-08-13; shaping, BiDi, and snapshot foundations landed
+**Status:** migration in progress — audit baseline recorded 2026-08-13; shaping, BiDi, snapshot foundations, and the canonical paragraph layout pipeline landed
 
 Varve’s text system keeps source text in logical Unicode order. Paragraphs and
 rich-text runs are document data; visual ordering, glyph clusters, line boxes,
@@ -121,6 +121,44 @@ with adjacent equivalent runs normalized after each transaction.
 `characterFormatValue` reports mixed values across a logical selection, and the
 existing rich-span inspector uses that state for its bold/italic controls while
 keeping formatting changes property-specific.
+
+## Canonical paragraph layout
+
+`packages/engine/src/text/` implements the paragraph-aware layout stage that
+the snapshot pipeline is built on:
+
+* `paragraphs.ts` — `splitParagraphs` splits a logical string at U+000A with
+  document offsets; `itemizeParagraph` runs UAX #9 (bidi-js) per paragraph and
+  retains per-code-unit embedding `levels` for line-local reordering, mirrored
+  punctuation, and script-itemized shaping runs (`scriptedRuns`). Common and
+  inherited characters (digits, combining marks, emoji) are absorbed into the
+  surrounding run so a grapheme is never split by itemization.
+* `lineBreak.ts` — `segmentBreakUnits` produces word-level break units via
+  `Intl.Segmenter` (CJK per-ideograph, Thai dictionary segmentation where the
+  runtime provides it). Units never split an extended grapheme cluster; NBSP is
+  whitespace but explicitly non-breaking (`isBreakable`); over-long words are
+  re-broken at grapheme boundaries.
+* `visualOrder.ts` — `lineVisualRuns` derives each wrapped line's visual run
+  sequence with UAX #9 X8/L2 applied to the line's character slice (bidi-js
+  `getReorderedIndices` with L1.4 trailing-whitespace reset), so RTL lines
+  reverse correctly after wrapping instead of using paragraph-level order.
+* `textLayoutSnapshot.ts` — `layoutText(input)` is the canonical entry:
+  paragraph itemization → word-level wrapping → per-line visual ordering →
+  positioned glyph runs (glyphs are consumed in the visual order the shaping
+  backend emits; the pen always advances left-to-right) → cluster-safe caret
+  stops (snapped to extended grapheme boundaries so a shaper's per-character
+  clusters can never create illegal insertion points) → hit testing and
+  selection rectangles. `buildTextLayoutSnapshot` remains the single-paragraph
+  compatibility wrapper.
+* `shaping.ts` — `shapeParagraphRuns` is the logical-order Canvas2D-measurement
+  bridge into `layoutText` (`glyphId` 0, no contextual joining); the
+  harfbuzz-wasm and rustybuzz-native backends fill the same contract.
+
+The paragraph pipeline is deterministic, source-preserving, and covered by the
+multilingual regression corpus in `text/fixtures.ts` (Arabic joining/lam-alef/
+harakat fixtures, Devanagari conjuncts, Thai vowels and tone marks, mixed
+LTR/RTL sentences, isolates, mirroring, emoji ZWJ, NBSP) plus conformance tests
+in `unicode/bidiConformance.test.ts`.
 
 `FontRegistry.revision` is a monotone process-local invalidation token. The
 shaping cache accepts it, face identity, OpenType features, variation axes,

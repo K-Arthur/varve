@@ -21,9 +21,9 @@ const issues: KnownIssue[] = [
     category: 'Typography',
   },
   {
-    title: 'Mixed-direction layout is not yet wired through every consumer',
+    title: 'Mixed-direction layout is canonical in the engine, but not yet in every consumer',
     status: 'partial',
-    description: 'The engine resolves paragraph embedding levels, visual run order, logical-to-visual mappings, and mirrored punctuation through a UAX #9 adapter. The live renderer, line wrapping, caret geometry, and export paths still need to consume the same canonical snapshot for mixed LTR/RTL text to be production-complete.',
+    description: 'The engine now resolves UAX #9 embedding levels, script itemization, per-line visual run ordering, word-level line breaking (never inside a grapheme), cluster-safe caret stops, hit testing, and selection geometry through one canonical paragraph layout pipeline. The inline editor and pointer tools still use the legacy textarea/canvas path, and export consumers are being migrated incrementally.',
     workaround: 'Keep mixed-direction text short while validating it, and check the final export. Explicit paragraph direction can make intent clearer than Auto for authored text.',
     category: 'Typography',
   },
