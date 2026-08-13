@@ -25,6 +25,8 @@ export {
   allocatePixelBuffer,
   BYTES_PER_PIXEL,
   DEFAULT_PIXEL_BUFFER_BUDGET_BYTES,
+  float32ToHalfFloat,
+  halfFloatToFloat32,
   isWithinPixelBudget,
   type PixelBuffer,
   type PixelBufferData,

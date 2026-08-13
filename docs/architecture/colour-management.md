@@ -82,6 +82,14 @@ explicit and tested, including negative and fractional values. Browser
 preview boundaries; they must not be used as the document or working-buffer
 storage contract.
 
+`createAnalyticRgbTransform()` now exposes `convertPixelBuffer()`, which
+converts `rgba8`, `rgba16`, `rgba16f`, and `rgba32f` buffers tile-wise. Integer
+formats quantize only when writing their explicitly selected storage format;
+float formats retain fractional working values. Premultiplied buffers are
+un-premultiplied for the color math and re-premultiplied afterward, while
+alpha remains untouched by the profile transform. The descriptor is switched
+to the target encoding only after a successful conversion.
+
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas
 in `packages/shared/src/colorConversion.ts`:

@@ -26,6 +26,9 @@ import {
   type RgbWorkingSpaceRef,
 } from '@varve/shared';
 import {
+  float32ToHalfFloat,
+  halfFloatToFloat32,
+  type PixelBuffer,
   type PixelBufferDescriptor,
   type PixelBufferFormat,
   premultiplyRgba32f,
@@ -42,6 +45,8 @@ export interface RasterColorTransform {
   convertImageData(pixels: ImageData, signal?: AbortSignal): Promise<void>;
   /** Convert a float32 RGBA buffer (0-1) in place (tiled + cancellable). */
   convertFloat32(pixels: Float32Array, signal?: AbortSignal): Promise<void>;
+  /** Convert any supported typed pixel buffer in place (tiled + cancellable). */
+  convertPixelBuffer(buffer: PixelBuffer, signal?: AbortSignal): Promise<void>;
 }
 
 /** Default tile height for tiled conversion (rows per tile). */
@@ -60,6 +65,7 @@ export function identityTransform(encoding: RasterColorEncoding): RasterColorTra
     supports: () => true,
     convertImageData: async () => {},
     convertFloat32: async () => {},
+    convertPixelBuffer: async () => {},
   };
 }
 
@@ -92,7 +98,7 @@ export function createAnalyticRgbTransform(
     sourceEncoding: source,
     targetEncoding: target,
     supports: (format: PixelBufferFormat) =>
-      format === 'rgba8' || format === 'rgba32f' || format === 'rgba16',
+      format === 'rgba8' || format === 'rgba16' || format === 'rgba16f' || format === 'rgba32f',
     convertImageData: (pixels: ImageData, signal?: AbortSignal) =>
       convertImageDataInPlace(
         pixels,
@@ -103,6 +109,13 @@ export function createAnalyticRgbTransform(
       convertFloat32InPlace(
         pixels,
         (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
+        signal,
+      ),
+    convertPixelBuffer: (buffer: PixelBuffer, signal?: AbortSignal) =>
+      convertPixelBufferInPlace(
+        buffer,
+        (rgb) => convertEncodedRgb(sourceSpace, targetSpace, rgb),
+        target,
         signal,
       ),
   };
@@ -176,6 +189,98 @@ async function convertFloat32InPlace(
   }
 }
 
+async function convertPixelBufferInPlace(
+  buffer: PixelBuffer,
+  transform: RowTransform,
+  targetEncoding: RasterColorEncoding,
+  signal?: AbortSignal,
+): Promise<void> {
+  const { descriptor, data } = buffer;
+  const { width, height, format, alphaMode } = descriptor;
+  const expectedChannels = width * height * 4;
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    throw new RangeError('pixel buffer dimensions must be positive safe integers');
+  }
+  if (data.length !== expectedChannels) {
+    throw new RangeError(`pixel buffer data length must be ${expectedChannels}`);
+  }
+  if (!isPixelBufferDataForFormat(data, format)) {
+    throw new TypeError(`pixel buffer data does not match ${format}`);
+  }
+
+  const tileHeight = Math.max(1, Math.min(DEFAULT_TILE_HEIGHT, height));
+  for (let row = 0; row < height; row += tileHeight) {
+    if (signal?.aborted) throw abortedError();
+    const end = Math.min(row + tileHeight, height);
+    for (let y = row; y < end; y += 1) {
+      const base = y * width * 4;
+      for (let x = 0; x < width; x += 1) {
+        const i = base + x * 4;
+        const alpha = readPixelChannel(data, format, i + 3);
+        let r = readPixelChannel(data, format, i);
+        let g = readPixelChannel(data, format, i + 1);
+        let b = readPixelChannel(data, format, i + 2);
+        if (alphaMode === 'premultiplied') {
+          if (alpha <= 0) {
+            r = 0;
+            g = 0;
+            b = 0;
+          } else {
+            r /= alpha;
+            g /= alpha;
+            b /= alpha;
+          }
+        }
+        const converted = transform([r, g, b]);
+        if (!converted) throw new Error('unsupported colour conversion');
+        if (alphaMode === 'premultiplied') {
+          converted[0] *= alpha;
+          converted[1] *= alpha;
+          converted[2] *= alpha;
+        }
+        writePixelChannel(data, format, i, converted[0]);
+        writePixelChannel(data, format, i + 1, converted[1]);
+        writePixelChannel(data, format, i + 2, converted[2]);
+      }
+    }
+  }
+  buffer.descriptor = { ...descriptor, colorEncoding: targetEncoding };
+}
+
+function isPixelBufferDataForFormat(data: PixelBuffer['data'], format: PixelBufferFormat): boolean {
+  if (format === 'rgba8') return data instanceof Uint8Array;
+  if (format === 'rgba16' || format === 'rgba16f') return data instanceof Uint16Array;
+  return data instanceof Float32Array;
+}
+
+function readPixelChannel(
+  data: PixelBuffer['data'],
+  format: PixelBufferFormat,
+  index: number,
+): number {
+  if (format === 'rgba8') return (data as Uint8Array)[index]! / 255;
+  if (format === 'rgba16') return (data as Uint16Array)[index]! / 65535;
+  if (format === 'rgba16f') return halfFloatToFloat32((data as Uint16Array)[index]!);
+  return (data as Float32Array)[index]!;
+}
+
+function writePixelChannel(
+  data: PixelBuffer['data'],
+  format: PixelBufferFormat,
+  index: number,
+  value: number,
+): void {
+  if (format === 'rgba8') {
+    (data as Uint8Array)[index] = clampByte(value * 255);
+  } else if (format === 'rgba16') {
+    (data as Uint16Array)[index] = clampUint16(value * 65535);
+  } else if (format === 'rgba16f') {
+    (data as Uint16Array)[index] = float32ToHalfFloat(value);
+  } else {
+    (data as Float32Array)[index] = value;
+  }
+}
+
 /** Heuristic: Float32 buffers produced by this pipeline are straight. */
 function isPremultiplied(_pixels: Float32Array): boolean {
   // The pipeline contract (pixelBuffer.ts) marks alpha mode explicitly on
@@ -187,6 +292,10 @@ function isPremultiplied(_pixels: Float32Array): boolean {
 
 function clampByte(v: number): number {
   return v <= 0 ? 0 : v >= 255 ? 255 : Math.round(v);
+}
+
+function clampUint16(v: number): number {
+  return v <= 0 ? 0 : v >= 65535 ? 65535 : Math.round(v);
 }
 
 function abortedError(): Error {

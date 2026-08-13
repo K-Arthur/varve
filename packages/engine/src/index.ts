@@ -732,6 +732,8 @@ export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type {
   ExportColorSpaceChoice,
+  PixelBuffer,
+  PixelBufferData,
   PixelBufferDescriptor,
   PixelBufferFormat,
   RasterColorTransform,
@@ -748,6 +750,8 @@ export {
   EXPORT_COLOR_POLICIES,
   exportColorPolicyLabel,
   exportProfileBytes,
+  float32ToHalfFloat,
+  halfFloatToFloat32,
   identityTransform,
   insertJpegIccProfile,
   isWebp,
