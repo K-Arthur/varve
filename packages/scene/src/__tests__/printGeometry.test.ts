@@ -1,11 +1,16 @@
 /**
- * Page-level print geometry resolution (M12, ADR-0166).
+ * Page-level print geometry resolution (M12, ADR-0190).
  */
 
 import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
 import { createDocument } from '../document';
-import { resolvePagePrintGeometry } from '../printGeometry';
+import {
+  documentBleedMm,
+  pageBleedBoundsInWorld,
+  pageBleedInsetsPx,
+  resolvePagePrintGeometry,
+} from '../printGeometry';
 
 function docWithDefaults(): Document {
   return {
@@ -24,6 +29,24 @@ describe('resolvePagePrintGeometry (M12)', () => {
       bottom: (3 * 96) / 25.4,
       left: (3 * 96) / 25.4,
     });
+  });
+
+  it('unconfigured documents resolve to zero bleed (application default)', () => {
+    const doc = createDocument('print-geometry', false);
+    const resolved = resolvePagePrintGeometry(doc, doc.pages![0]!.id);
+    expect(resolved.bleed.top).toBe(0);
+    expect(resolved.bleed.right).toBe(0);
+    expect(resolved.bleed.bottom).toBe(0);
+    expect(resolved.bleed.left).toBe(0);
+  });
+
+  it('clamps negative bleed to zero (D5)', () => {
+    const doc: Document = {
+      ...createDocument('print-geometry', false),
+      bleed: { top: -3, right: 0, bottom: 3, left: 3, linked: false, unit: 'mm' },
+    };
+    const resolved = resolvePagePrintGeometry(doc, doc.pages![0]!.id);
+    expect(resolved.bleed.top).toBe(0);
   });
 
   it('page overrides win per-edge and per-config', () => {
@@ -68,5 +91,54 @@ describe('resolvePagePrintGeometry (M12)', () => {
     expect(resolved.safeArea.top).toBeCloseTo((5 * 96) / 25.4, 5);
     expect(resolved.slug.enabled).toBe(true);
     expect(resolved.slug.top).toBeCloseTo((12 * 96) / 25.4, 5);
+  });
+});
+
+describe('canonical bleed geometry (pageBleedBoundsInWorld / pageBleedInsetsPx)', () => {
+  it('expands trim by per-edge bleed at a given origin (uniform mm)', () => {
+    const doc = docWithDefaults();
+    const pageId = doc.pages![0]!.id;
+    const insets = pageBleedInsetsPx(doc, pageId);
+    const b3 = (3 * 96) / 25.4;
+    expect(insets.top).toBeCloseTo(b3, 5);
+    expect(insets.left).toBeCloseTo(b3, 5);
+
+    const bounds = pageBleedBoundsInWorld(doc, pageId, { x: 100, y: 200 })!;
+    expect(bounds.x).toBeCloseTo(100 - b3, 5);
+    expect(bounds.y).toBeCloseTo(200 - b3, 5);
+    expect(bounds.width).toBeCloseTo(1920 + 2 * b3, 5);
+    expect(bounds.height).toBeCloseTo(1080 + 2 * b3, 5);
+  });
+
+  it('handles per-edge override and negative origins', () => {
+    let doc = docWithDefaults();
+    const page = doc.pages![0]!;
+    doc = {
+      ...doc,
+      pages: [
+        { ...page, bleed: { top: 5, right: 2, bottom: 0, left: 8, linked: false, unit: 'mm' } },
+      ],
+    };
+    const pageId = page.id;
+    const bounds = pageBleedBoundsInWorld(doc, pageId, { x: -1000, y: -500 })!;
+    const mm = (v: number) => (v * 96) / 25.4;
+    expect(bounds.x).toBeCloseTo(-1000 - mm(8), 5);
+    expect(bounds.y).toBeCloseTo(-500 - mm(5), 5);
+    expect(bounds.width).toBeCloseTo(1920 + mm(2) + mm(8), 5);
+    expect(bounds.height).toBeCloseTo(1080 + mm(5), 5);
+  });
+
+  it('zero bleed equals the trim rect (no phantom region)', () => {
+    const doc = createDocument('print-geometry', false);
+    const pageId = doc.pages![0]!.id;
+    const bounds = pageBleedBoundsInWorld(doc, pageId, { x: 0, y: 0 })!;
+    expect(bounds).toEqual({ x: 0, y: 0, width: 1920, height: 1080 });
+  });
+
+  it('documentBleedMm reports the document default in millimetres', () => {
+    const doc = docWithDefaults();
+    expect(documentBleedMm(doc)).toBeCloseTo(3, 5);
+    const noBleed = createDocument('print-geometry', false);
+    expect(documentBleedMm(noBleed)).toBe(0);
   });
 });
