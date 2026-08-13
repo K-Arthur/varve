@@ -18,6 +18,7 @@
  *    for native picker UX in Chromium; Firefox/Safari fall back transparently.
  */
 import { type IDBPDatabase, openDB } from 'idb';
+import { searchAssets as rankAssets } from './assetSearch';
 import type { Platform, PrinterInfo, PrintJobResult } from './platform';
 import {
   contentHash,
@@ -654,10 +655,8 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       await db.delete(STORE_ASSETS, id);
     },
     async searchAssets(query) {
-      if (!query.trim()) return await db.getAll(STORE_ASSETS);
-      const q = query.toLowerCase();
       const all = await db.getAll(STORE_ASSETS);
-      return all.filter((a) => a.name.toLowerCase().includes(q));
+      return rankAssets(all, query).map((result) => result.asset);
     },
     async createAssetFolder(workspaceId, name, parentId) {
       const now = Date.now();
