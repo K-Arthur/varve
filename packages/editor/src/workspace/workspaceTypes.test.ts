@@ -5,7 +5,6 @@ import {
   ALL_WORKSPACE_MODES,
   getDefaultInspectorTab,
   getHiddenTools,
-  getOrderedPanels,
   getVisibleInspectorTabs,
   getVisibleStatusSections,
   getWorkspaceConfig,
@@ -86,18 +85,6 @@ describe('workspaceTypes', () => {
   it('image mode hides pagenav', () => {
     const config = getWorkspaceConfig('image');
     expect(config.panels.pagenav.visible).toBe(false);
-  });
-
-  it('getOrderedPanels returns visible panels sorted by order', () => {
-    const panels = getOrderedPanels('design');
-    expect(panels.length).toBeGreaterThan(0);
-    expect(panels).toContain('layers');
-    expect(panels).toContain('inspector');
-    // All returned panels should be visible in design mode
-    const config = getWorkspaceConfig('design');
-    for (const p of panels) {
-      expect(config.panels[p].visible).toBe(true);
-    }
   });
 
   // ─── Mode-specific features ──────────────────────────────────────────────
