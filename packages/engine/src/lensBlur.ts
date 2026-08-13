@@ -168,13 +168,21 @@ export function applyDepthBlur(
 
   const sw = Math.max(1, Math.round(w * scale));
   const sh = Math.max(1, Math.round(h * scale));
-  const scaledInput = new ImageData(resizeRgbaPremultiplied(imageData.data, w, h, sw, sh), sw, sh);
+  const scaledInput = new ImageData(
+    resizeRgbaPremultiplied(imageData.data, w, h, sw, sh) as Uint8ClampedArray<ArrayBuffer>,
+    sw,
+    sh,
+  );
   const scaledDepth = resizeDepthMap(depthMap, sw, sh);
   const scaledOutput = gatherBlur(scaledInput, scaledDepth, {
     ...options,
     blurAmount: blurAmount * (sw / w),
   });
-  return new ImageData(resizeRgbaPremultiplied(scaledOutput.data, sw, sh, w, h), w, h);
+  return new ImageData(
+    resizeRgbaPremultiplied(scaledOutput.data, sw, sh, w, h) as Uint8ClampedArray<ArrayBuffer>,
+    w,
+    h,
+  );
 }
 
 function gatherBlur(
@@ -204,7 +212,7 @@ function gatherBlur(
   const weights = new Float32Array(weightStride * weightStride);
   for (let oy = -tableRadius; oy <= tableRadius; oy += stride) {
     for (let ox = -tableRadius; ox <= tableRadius; ox += stride) {
-      weights[((oy + tableRadius) / stride) * weightStride + ((ox + tableRadius) / stride)] =
+      weights[((oy + tableRadius) / stride) * weightStride + (ox + tableRadius) / stride] =
         Math.exp(-(ox * ox + oy * oy) / sigma2);
     }
   }
@@ -230,39 +238,39 @@ function gatherBlur(
         continue;
       }
 
-          const sampleRadius = Math.max(1, Math.ceil(desiredRadius));
-          let sumR = 0;
-          let sumG = 0;
-          let sumB = 0;
-          let sumA = 0;
-          let sumWeight = 0;
-          for (let oy = -sampleRadius; oy <= sampleRadius; oy += stride) {
-            for (let ox = -sampleRadius; ox <= sampleRadius; ox += stride) {
-              if (ox * ox + oy * oy > desiredRadius * desiredRadius) continue;
-              const sx = Math.max(0, Math.min(w - 1, x + ox));
-              const sy = Math.max(0, Math.min(h - 1, y + oy));
-              const sampleIndex = sy * w + sx;
-              if (!depthMap.valid[sampleIndex]) continue;
-              const sampleDepth = depthMap.values[sampleIndex] ?? centerDepth;
-              const sampleCanonicalDepth = invert ? 1 - sampleDepth : sampleDepth;
-              const centerCanonicalDepth = invert ? 1 - centerDepth : centerDepth;
-              const fartherThanCenter = sampleCanonicalDepth > centerCanonicalDepth + edgeProtection;
-              if (fartherThanCenter) continue;
-              const nearerThanCenter = sampleCanonicalDepth < centerCanonicalDepth - edgeProtection;
-              if (nearerThanCenter) {
-                // An in-focus nearer plane does not spread light to this pixel;
-                // only an out-of-focus plane contributes foreground bokeh.
-                const sampleBlurPx = depthToRadius(
-                  sampleCanonicalDepth,
-                  focalDepth,
-                  transitionRange,
-                  blurAmount,
-                  false,
-                );
-                if (sampleBlurPx < 1) continue;
-              }
-              const spatialWeight =
-                weights[((oy + tableRadius) / stride) * weightStride + ((ox + tableRadius) / stride)]!;
+      const sampleRadius = Math.max(1, Math.ceil(desiredRadius));
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
+      let sumA = 0;
+      let sumWeight = 0;
+      for (let oy = -sampleRadius; oy <= sampleRadius; oy += stride) {
+        for (let ox = -sampleRadius; ox <= sampleRadius; ox += stride) {
+          if (ox * ox + oy * oy > desiredRadius * desiredRadius) continue;
+          const sx = Math.max(0, Math.min(w - 1, x + ox));
+          const sy = Math.max(0, Math.min(h - 1, y + oy));
+          const sampleIndex = sy * w + sx;
+          if (!depthMap.valid[sampleIndex]) continue;
+          const sampleDepth = depthMap.values[sampleIndex] ?? centerDepth;
+          const sampleCanonicalDepth = invert ? 1 - sampleDepth : sampleDepth;
+          const centerCanonicalDepth = invert ? 1 - centerDepth : centerDepth;
+          const fartherThanCenter = sampleCanonicalDepth > centerCanonicalDepth + edgeProtection;
+          if (fartherThanCenter) continue;
+          const nearerThanCenter = sampleCanonicalDepth < centerCanonicalDepth - edgeProtection;
+          if (nearerThanCenter) {
+            // An in-focus nearer plane does not spread light to this pixel;
+            // only an out-of-focus plane contributes foreground bokeh.
+            const sampleBlurPx = depthToRadius(
+              sampleCanonicalDepth,
+              focalDepth,
+              transitionRange,
+              blurAmount,
+              false,
+            );
+            if (sampleBlurPx < 1) continue;
+          }
+          const spatialWeight =
+            weights[((oy + tableRadius) / stride) * weightStride + (ox + tableRadius) / stride]!;
           const px = sampleIndex * 4;
           const alpha = imageData.data[px + 3]! / 255;
           sumR += imageData.data[px]! * alpha * spatialWeight;
