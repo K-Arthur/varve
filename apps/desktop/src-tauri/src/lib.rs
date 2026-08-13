@@ -2876,6 +2876,10 @@ pub fn run() {
             let directories = filesystem::AppDirectories::resolve(app.handle())
                 .map_err(|error| error.message.clone())
                 .expect("resolve Varve application directories");
+            // Migrate before creating new roots. The migration itself is
+            // per-file and leaves legacy data in place; this ordering keeps a
+            // fresh Varve directory distinguishable from a completed copy.
+            let migration = migrate_legacy_data_dir(&directories.data);
             directories
                 .ensure_mutable_roots()
                 .map_err(|error| error.message.clone())
@@ -2885,12 +2889,14 @@ pub fn run() {
             // the authoritative Tauri-resolved model root.
             varve_bgremove::model::configure_models_dir(directories.models.clone());
             varve_upscale::configure_model_directory(directories.models.clone());
+            let model_migration = varve_bgremove::model::migrate_legacy_models();
             let data_dir = directories.data.clone();
             logs::init(&directories.logs);
-            let migration = migrate_legacy_data_dir(&data_dir);
             logs::log_line(
                 "migration",
-                &logs::redact_for_log(&format!("legacy data migration: {migration:?}")),
+                &logs::redact_for_log(&format!(
+                    "legacy data migration: {migration:?}; legacy model migration: {model_migration:?}"
+                )),
             );
             // Native crash capture: panic hook + sandboxed report filesystem.
             // Deliberately before any other subsystem — a panic later still
