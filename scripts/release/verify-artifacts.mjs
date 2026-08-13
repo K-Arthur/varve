@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizeArchitecture, targetFor } from './targets.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -79,6 +80,14 @@ function main() {
 
   for (const artifact of manifest.artifacts) {
     const path = join(dir, artifact.filename);
+
+    const architecture = normalizeArchitecture(artifact.arch);
+    targetFor(artifact.os, architecture);
+    if (!artifact.filename.includes(`-${architecture}.`)) {
+      problems.push(
+        `${artifact.filename}: manifest architecture ${architecture} disagrees with filename`,
+      );
+    }
 
     if (!existsSync(path)) {
       problems.push(`Manifest lists '${artifact.filename}' but it is not in ${dir}`);
