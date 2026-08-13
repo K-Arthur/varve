@@ -13,6 +13,10 @@
  * entry point for consumers that already hold a `TextShaping` result.
  */
 
+import { type BreakUnit, graphemeBreakUnits, segmentBreakUnits } from './text/lineBreak';
+import type { ItemizedParagraph } from './text/paragraphs';
+import { itemizeParagraph } from './text/paragraphs';
+import { lineVisualRuns } from './text/visualOrder';
 import type { ShapedGlyph, ShapedRun, TextShaping } from './types';
 import {
   createUnicodeIndexMap,
@@ -20,10 +24,6 @@ import {
   snapUtf16Offset,
   type UnicodeIndexMap,
 } from './unicode/unicodeIndices';
-import { segmentBreakUnits, graphemeBreakUnits, type BreakUnit } from './text/lineBreak';
-import type { ItemizedParagraph } from './text/paragraphs';
-import { itemizeParagraph, itemizeText } from './text/paragraphs';
-import { lineVisualRuns } from './text/visualOrder';
 
 export type CaretAffinity = 'leading' | 'trailing';
 
@@ -206,9 +206,8 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       maxWidth,
       input.lineHeight ?? null,
     );
-    const paragraphTop = lines.length > 0
-      ? lines[lines.length - 1]!.top + lines[lines.length - 1]!.height
-      : 0;
+    const paragraphTop =
+      lines.length > 0 ? lines[lines.length - 1]!.top + lines[lines.length - 1]!.height : 0;
     const positionedParagraphLines = paragraphLines.map((line) => shiftLine(line, paragraphTop));
     for (const line of positionedParagraphLines) lines.push(line);
     paragraphInfos.push({
@@ -278,7 +277,12 @@ function buildGlyphRecords(runs: readonly ShapedRun[], textLength: number): Glyp
   const records: GlyphRecord[] = [];
   for (const run of runs) {
     for (const glyph of run.glyphs) {
-      records.push({ run, glyph, clusterStart: glyph.clusterUtf16, clusterEnd: endFor(glyph.clusterUtf16) });
+      records.push({
+        run,
+        glyph,
+        clusterStart: glyph.clusterUtf16,
+        clusterEnd: endFor(glyph.clusterUtf16),
+      });
     }
   }
   return records;
@@ -308,14 +312,19 @@ function buildLayoutUnits(
   const sourceMap = createUnicodeIndexMap(paragraph.text);
   const units: LayoutUnit[] = [];
   for (const unit of segmentBreakUnits(paragraph.text)) {
-    units.push(makeLayoutUnit(paragraph, unit, byCluster, sourceMap));
+    units.push(makeLayoutUnit(unit, byCluster, sourceMap));
   }
   if (maxWidth > 0 && records.length > 0) {
     for (let i = 0; i < units.length; i++) {
       const unit = units[i]!;
       if (unit.width > maxWidth && unit.unit.isWord && unit.records.length > 1) {
-        const pieces = graphemeBreakUnits(unit.unit.start, unit.unit.end, paragraph.text, sourceMap);
-        units.splice(i, 1, ...pieces.map((piece) => makeLayoutUnit(paragraph, piece, byCluster, sourceMap)));
+        const pieces = graphemeBreakUnits(
+          unit.unit.start,
+          unit.unit.end,
+          paragraph.text,
+          sourceMap,
+        );
+        units.splice(i, 1, ...pieces.map((piece) => makeLayoutUnit(piece, byCluster, sourceMap)));
         i += pieces.length - 1;
       }
     }
@@ -324,7 +333,6 @@ function buildLayoutUnits(
 }
 
 function makeLayoutUnit(
-  paragraph: ItemizedParagraph,
   unit: BreakUnit,
   byCluster: Map<number, GlyphRecord[]>,
   sourceMap: UnicodeIndexMap,
@@ -350,7 +358,11 @@ function makeLayoutUnit(
  * dropped; a word that does not fit starts a new line. The paragraph's
  * logical order is preserved: visual reordering happens per line afterwards.
  */
-function wrapLines(paragraph: ItemizedParagraph, units: readonly LayoutUnit[], maxWidth: number): RawLine[] {
+function wrapLines(
+  paragraph: ItemizedParagraph,
+  units: readonly LayoutUnit[],
+  maxWidth: number,
+): RawLine[] {
   const lines: RawLine[] = [];
   let current: LayoutUnit[] = [];
   let currentWidth = 0;
@@ -362,7 +374,12 @@ function wrapLines(paragraph: ItemizedParagraph, units: readonly LayoutUnit[], m
     }
   };
   for (const unit of units) {
-    if (maxWidth > 0 && unit.width > 0 && current.length > 0 && currentWidth + unit.width > maxWidth) {
+    if (
+      maxWidth > 0 &&
+      unit.width > 0 &&
+      current.length > 0 &&
+      currentWidth + unit.width > maxWidth
+    ) {
       if (unit.unit.isBreakable) {
         // Drop a breakable space at the line end.
         continue;
@@ -396,7 +413,7 @@ function layoutParagraphLines(
   const lines: TextLayoutLine[] = [];
   let top = 0;
   for (const raw of rawLines) {
-    lines.push(positionLine(paragraph, raw, lines.length, top, lineHeightOverride));
+    lines.push(positionLine(paragraph, raw, top, lineHeightOverride));
     top += lines[lines.length - 1]!.height;
   }
   return lines;
@@ -406,14 +423,14 @@ function layoutParagraphLines(
 function positionLine(
   paragraph: ItemizedParagraph,
   raw: RawLine,
-  lineIndex: number,
   top: number,
   lineHeightOverride: number | null,
 ): TextLayoutLine {
   const byCluster = recordsByCluster(raw.units.flatMap((unit) => unit.records));
   const clusters = [...byCluster.keys()].sort((a, b) => a - b);
   const logicalStart = clusters.length > 0 ? clusters[0]! : 0;
-  const logicalEnd = clusters.length > 0 ? Math.max(...clusters.map((c) => byCluster.get(c)![0]!.clusterEnd)) : 0;
+  const logicalEnd =
+    clusters.length > 0 ? Math.max(...clusters.map((c) => byCluster.get(c)![0]!.clusterEnd)) : 0;
   const visualRuns = lineVisualRuns(paragraph, logicalStart, logicalEnd);
 
   const groups: Array<{ visualRun: (typeof visualRuns)[number]; records: GlyphRecord[] }> = [];
@@ -484,10 +501,6 @@ function positionLine(
   };
 }
 
-function runWidthOf(runs: readonly TextLayoutRun[]): number {
-  return runs.reduce((sum, run) => sum + run.width, 0);
-}
-
 /**
  * Position one visual run's glyphs. Glyphs arrive in visual order (left-to-
  * right on screen) from the shaping backend, so the pen always advances
@@ -497,7 +510,7 @@ function positionRunGlyphs(
   paragraph: ItemizedParagraph,
   records: readonly GlyphRecord[],
   runLeft: number,
-  runWidth: number,
+  _runWidth: number,
   baseline: number,
 ): PositionedGlyph[] {
   const positioned: PositionedGlyph[] = [];
@@ -569,8 +582,20 @@ function buildCaretStops(
         const clusterEnd = snap(glyph.sourceEnd - paragraph.sourceStart, 'ceil');
         const before = isRtl ? glyph.x + glyph.xAdvance : glyph.x;
         const after = isRtl ? glyph.x : glyph.x + glyph.xAdvance;
-        stops.push({ offset: clusterStart, lineIndex: lineIndex + lineIndexOffset, x: before, affinity: 'leading', direction: run.direction });
-        stops.push({ offset: clusterEnd, lineIndex: lineIndex + lineIndexOffset, x: after, affinity: 'trailing', direction: run.direction });
+        stops.push({
+          offset: clusterStart,
+          lineIndex: lineIndex + lineIndexOffset,
+          x: before,
+          affinity: 'leading',
+          direction: run.direction,
+        });
+        stops.push({
+          offset: clusterEnd,
+          lineIndex: lineIndex + lineIndexOffset,
+          x: after,
+          affinity: 'trailing',
+          direction: run.direction,
+        });
       }
     }
   }
@@ -644,19 +669,24 @@ export function hitTestTextLayout(snapshot: TextLayoutSnapshot, x: number, y: nu
   }, 0);
   const line = snapshot.lines[lineIndex];
   if (!line) {
-    return { offset: 0, lineIndex: 0, x: 0, affinity: 'leading', direction: snapshot.baseDirection };
+    return {
+      offset: 0,
+      lineIndex: 0,
+      x: 0,
+      affinity: 'leading',
+      direction: snapshot.baseDirection,
+    };
   }
   const candidates = snapshot.caretStops.filter((stop) => stop.lineIndex === lineIndex);
   return candidates.reduce(
     (best, candidate) => (Math.abs(candidate.x - x) < Math.abs(best.x - x) ? candidate : best),
-    candidates[0] ??
-      {
-        offset: line.sourceStart,
-        lineIndex,
-        x: snapshot.baseDirection === 'rtl' ? line.width : 0,
-        affinity: 'leading' as const,
-        direction: snapshot.baseDirection,
-      },
+    candidates[0] ?? {
+      offset: line.sourceStart,
+      lineIndex,
+      x: snapshot.baseDirection === 'rtl' ? line.width : 0,
+      affinity: 'leading' as const,
+      direction: snapshot.baseDirection,
+    },
   );
 }
 
@@ -699,9 +729,7 @@ export function selectionRects(
       continue;
     }
     const selected = line.runs.flatMap((run) =>
-      run.glyphs.filter(
-        (glyph) => glyph.clusterUtf16 < range.end && glyph.sourceEnd > range.start,
-      ),
+      run.glyphs.filter((glyph) => glyph.clusterUtf16 < range.end && glyph.sourceEnd > range.start),
     );
     if (selected.length === 0) continue;
     const ordered = [...selected].sort((a, b) => a.x - b.x);

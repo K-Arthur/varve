@@ -111,10 +111,7 @@ export function itemizeParagraph(
 }
 
 /** Itemize a full document string into paragraphs (Auto base direction default). */
-export function itemizeText(
-  text: string,
-  direction?: BidiDirection | 'auto',
-): ItemizedText {
+export function itemizeText(text: string, direction?: BidiDirection | 'auto'): ItemizedText {
   return {
     text,
     paragraphs: splitParagraphs(text).map((range) => itemizeParagraph(range, direction)),
@@ -171,10 +168,7 @@ function scriptSpansOf(text: string, start: number, end: number): ScriptSpan[] {
   return spans;
 }
 
-function buildScriptedRuns(bidi: {
-  text: string;
-  runs: readonly BidiRun[];
-}): ScriptedRun[] {
+function buildScriptedRuns(bidi: { text: string; runs: readonly BidiRun[] }): ScriptedRun[] {
   const result: ScriptedRun[] = [];
   for (const run of bidi.runs) {
     for (const span of scriptSpansOf(bidi.text, run.start, run.end)) {
