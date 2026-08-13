@@ -98,6 +98,7 @@ import {
 } from '@varve/prototype';
 import type {
   AdjustmentNode,
+  BitDepth,
   ColorMode,
   ContainerNode,
   ExportPreset,
@@ -112,6 +113,7 @@ import type {
   Slot,
   SyncResult,
   TableModel,
+  WorkingSpace,
 } from '@varve/scene';
 import {
   type ArrangeOp,
@@ -134,6 +136,8 @@ import {
   arrangeNode as arrangeNodeDoc,
   assignDocumentColorMode as assignDocumentColorModeDoc,
   assignMasterToPage as assignMasterToPageDoc,
+  setDocumentBitDepth as setDocumentBitDepthDoc,
+  setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   type BleedConfig,
   booleanAnchorForNode,
   buildParentIndexMap,
@@ -7749,6 +7753,16 @@ export function EditorProvider({
         const current = state.document.colorConfig?.mode;
         if (current === mode) return;
         updateDoc((doc) => convertDocumentColorsDoc(doc, mode).doc);
+      },
+
+      // Document settings: default bit depth and working space for newly
+      // authored colors. Settings-only — existing values are never
+      // rewritten by these operations.
+      setDocumentBitDepth: (bitDepth: BitDepth) => {
+        updateDoc((doc) => setDocumentBitDepthDoc(doc, bitDepth));
+      },
+      setDocumentWorkingSpace: (workingSpace: WorkingSpace) => {
+        updateDoc((doc) => setDocumentWorkingSpaceDoc(doc, workingSpace));
       },
 
       // F2/A8 — session (tab) management -----------------------------------

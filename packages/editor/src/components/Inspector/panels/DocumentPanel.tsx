@@ -1,4 +1,4 @@
-import type { ColorMode, IsometricAxis, ManagedColor } from '@varve/scene';
+import type { BitDepth, ColorMode, IsometricAxis, ManagedColor, WorkingSpace } from '@varve/scene';
 import {
   CMYK_PROFILES,
   ISOMETRIC_PRESETS,
@@ -31,6 +31,8 @@ export function DocumentPanel() {
     setCanvasBackground,
     assignDocumentColorMode,
     documentColorMode,
+    setDocumentBitDepth,
+    setDocumentWorkingSpace,
     setDocumentGrid,
     setPixelGridSnapEnabled,
     resetGridOrigin,
@@ -42,6 +44,9 @@ export function DocumentPanel() {
     setProofConfig,
   } = useEditor();
   const doc = state.document;
+  const colorConfig = doc.colorConfig;
+  const documentBitDepth: BitDepth = colorConfig?.bitDepth ?? 'uint8';
+  const workingSpace: WorkingSpace = colorConfig?.workingSpace ?? 'srgb';
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
   const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
@@ -98,6 +103,79 @@ export function DocumentPanel() {
           <p className="insp-panel__color-mode-note" role="note">
             Assigning a mode changes document intent only — existing colors keep their values and
             are converted at export. Use Convert to rewrite document colors now.
+          </p>
+        </div>
+        <div className="insp-panel__color-mode">
+          <span className="insp-panel__color-mode-label">Precision</span>
+          <div className="insp-panel__color-mode-buttons">
+            {(
+              [
+                { value: 'uint8', label: '8-bit' },
+                { value: 'uint16', label: '16-bit' },
+                { value: 'float16', label: '16f' },
+                { value: 'float32', label: '32f' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`insp-panel__color-mode-btn${documentBitDepth === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
+                onClick={() => {
+                  if (documentBitDepth === opt.value) return;
+                  beginTransaction();
+                  setDocumentBitDepth(opt.value);
+                  commitTransaction();
+                }}
+                aria-pressed={documentBitDepth === opt.value}
+                title={
+                  documentBitDepth === opt.value
+                    ? `Default precision: ${opt.label}`
+                    : `Author new colors at ${opt.label} precision (existing values unchanged)`
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            Precision sets the storage depth for newly authored colors. Existing values are never
+            rewritten by this setting. uint16/float colors keep their full channel range through
+            save/reopen; display and 8-bit exports quantize only at their explicit boundaries.
+          </p>
+        </div>
+        <div className="insp-panel__color-mode">
+          <span className="insp-panel__color-mode-label">Blend space</span>
+          <div className="insp-panel__color-mode-buttons">
+            {(
+              [
+                { value: 'srgb', label: 'sRGB' },
+                { value: 'linear', label: 'Linear' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`insp-panel__color-mode-btn${workingSpace === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
+                onClick={() => {
+                  if (workingSpace === opt.value) return;
+                  beginTransaction();
+                  setDocumentWorkingSpace(opt.value);
+                  commitTransaction();
+                }}
+                aria-pressed={workingSpace === opt.value}
+                title={
+                  workingSpace === opt.value
+                    ? `Blend space: ${opt.label}`
+                    : `Blend and composite in ${opt.label} light`
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            Linear-light blending matches physically correct compositing (multiply, screen, overlay).
+            sRGB is the backward-compatible default for existing documents.
           </p>
         </div>
       </DisclosureSection>

@@ -1,4 +1,5 @@
 export { ThumbnailPickerHost } from '../ThumbnailPicker/ThumbnailPickerHost';
+export { ColorConversionHost } from '../ColorConversion/ColorConversionHost';
 export { DnDShell } from './DnDShell';
 export { DocumentInfoDialog } from './DocumentInfoDialog';
 export { ExportLayer, type ExportLayerHandle } from './ExportLayer';
