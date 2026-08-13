@@ -274,6 +274,9 @@ jobs:
           P_AZURE_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT != '' }}
           P_AZURE_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE != '' }}
           P_AZURE_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT != '' }}
+          # Tauri updater signing is a separate trust layer from platform
+          # signing. Only its presence boolean reaches the policy resolver.
+          P_TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
           POLICY="$(node scripts/release/resolve-signing-policy.mjs)"
           echo "policy=${POLICY}"
@@ -293,6 +296,18 @@ jobs:
             echo "- Channel: ${{ needs.preflight.outputs.channel }}"
             echo "- RELEASE_EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED || '(unset)' }}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Require protected updater signing key
+        shell: bash
+        env:
+          TAURI_KEY_PRESENT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+        run: |
+          if [[ "${TAURI_KEY_PRESENT}" != "true" ]]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for release updater artifacts."
+            echo "The updater public key is embedded in the app; publishing an unsigned .sig/feed would be fail-open."
+            exit 1
+          fi
+          echo "Tauri updater signing key present (value never printed)."
 
   # ── 3. Platform bundles on native runners ───────────────────────────────────
   bundle:
@@ -526,6 +541,13 @@ jobs:
           echo "${APPLE_API_KEY_P8_BASE64}" | base64 --decode > /tmp/varve-apple-api-key.p8
           chmod 600 /tmp/varve-apple-api-key.p8
 
+      - name: Prepare updater channel configuration
+        if: matrix.enabled
+        env:
+          CHANNEL: ${{ needs.preflight.outputs.channel }}
+        run: |
+          node -e "const fs=require('fs'); const c=process.env.CHANNEL; if(!['stable','beta','nightly'].includes(c)) throw new Error('invalid channel'); fs.writeFileSync('apps/desktop/src-tauri/tauri.update.channel.json', JSON.stringify({plugins:{updater:{endpoints:['https://varve.studio/updates/'+c+'.json']}}}, null, 2)+'\\n');"
+
       - name: Tauri build (signed platforms)
         if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed')
         shell: bash
@@ -540,20 +562,23 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_PATH: /tmp/varve-apple-api-key.p8
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           AZURE_CLIENT_ID: ${{ secrets.AZURE_SIGNING_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_SIGNING_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_SIGNING_TENANT_ID }}
           NO_STRIP: '1'
+          VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
-          TAURI_EXTRA_ARGS=""
+          TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
           if [[ "${{ runner.os }}" == "Windows" ]]; then
-            TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.signing.windows.json"
+            TAURI_EXTRA_ARGS+=" --config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.signing.windows.json"
           fi
           pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
 
-      # Unsigned builds (prerelease / RELEASE_EXPECT_SIGNED unset) run in a
-      # separate step with NO signing variables in scope — Tauri treats a set
+      # Platform-unsigned builds run in a separate step with no OS certificate
+      # variables in scope — Tauri treats a set
       # APPLE_CERTIFICATE as a certificate to import, and an empty value would
       # abort the macOS bundle (SecKeychainItemImport), so the variables must
       # not exist at all here, not merely be empty.
@@ -567,8 +592,12 @@ jobs:
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
-          pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci
+          TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
+          pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
 
       # ── Collect, rename, checksum, SBOM ────────────────────────────────
@@ -984,6 +1013,15 @@ jobs:
             --out dist/release \
             --channel ${{ needs.preflight.outputs.channel }} \
             --expect-signed "${EXPECT}"
+
+      - name: Generate signed updater feed
+        shell: bash
+        run: |
+          node scripts/release/generate-updater-feed.mjs \
+            --dir dist/release \
+            --version '${{ needs.preflight.outputs.version }}' \
+            --channel '${{ needs.preflight.outputs.channel }}' \
+            --base-url 'https://github.com/K-Arthur/varve/releases/download/${{ needs.preflight.outputs.tag }}'
 
       # The combined SBOM describes the whole multi-platform release; its scope
       # is declared explicitly in its metadata. Platform-specific SBOMs arrived
