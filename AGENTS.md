@@ -486,7 +486,7 @@ gaps: `docs/architecture/workspace-system.md`.
 | **Design** | `Ctrl+Shift+1` | select | UI/UX, components, prototyping |
 | **Print** | `Ctrl+Shift+2` | select | Multi-page, typography, preflight, colour management |
 | **Draw** | `Ctrl+Shift+3` | paint | Raster painting, vector freehand, brushes |
-| **Photo** | `Ctrl+Shift+4` | preserve | Nondestructive photo editing, adjustments |
+| **Photo** | `Ctrl+Shift+4` | select | Nondestructive photo editing, adjustments |
 | **Motion** | `Ctrl+Shift+5` | select | Timeline animation, keyframes, easing |
 | **Logo** | `Ctrl+Shift+6` | select | Wordmarks, marks, monograms, badges, brand systems |
 | **Codegen** | `Ctrl+Shift+9` | select | Code export |

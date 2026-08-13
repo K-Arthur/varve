@@ -263,6 +263,13 @@ gaps:
 - **Schema hygiene:** motion declared `version: 2` while
   `WORKSPACE_CONFIG_VERSION` is 1; normalized to 1 and the switching test now
   asserts every built-in matches the constant.
+- **The Resources panel is resizable.** `PanelWidthDragEdge` (mounted inside
+  `ResourcesPanel`, no Shell changes) gives the library panel the same
+  APG window-splitter resize surface the sidebars have — drag, arrow keys
+  (+Shift coarse), Home/End, double-click reset — persisted per workspace
+  mode through `panelWidths.library` and cleared on reset
+  (`clearPanelWidths`). Codegen, Logo, and Timeline remain fixed-layout by
+  design (their content is code/text and timeline-spanning).
 
 ## Switching
 
