@@ -12,7 +12,6 @@ export * from './exportAdvisor';
 export * from './imageFitAdvisor';
 export * from './layoutClassifier';
 export * from './layoutScore';
-export * from './mlModelRegistry';
 export * from './motionPresetRecommender';
 export * from './onboardingAdapter';
 export * from './paletteMapper';

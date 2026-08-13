@@ -1,9 +1,10 @@
 /**
  * Workspace mode types — versioned, typed configuration over the same editor shell.
  *
- * A workspace mode controls which panels are shown, their order and collapsed
- * state, toolbar composition, default tools, canvas overlays, status-bar
- * sections, inspector tabs, shortcut layers, and performance preferences.
+ * A workspace mode controls which panels are shown, toolbar composition,
+ * default tools, canvas overlays, status-bar sections, inspector tabs, and
+ * onboarding. (`collapsed` and sidebar `order` were removed 2026-08-13:
+ * nothing consumed them — see docs/architecture/workspace-system.md.)
  *
  * A workspace mode does NOT:
  * - Fork the scene model or document
@@ -50,10 +51,6 @@ export type PanelId =
 export interface PanelConfig {
   /** Whether this panel is visible by default in this mode. */
   visible: boolean;
-  /** Whether this panel starts collapsed (zero-width). */
-  collapsed: boolean;
-  /** Panel position in the sidebar ordering (lower = closer to canvas). */
-  order: number;
   /** Preferred width as a CSS value (e.g. '16rem', '240px'). */
   preferredWidth?: string;
 }
@@ -276,14 +273,14 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   design: {
     version: 1,
     panels: {
-      layers: { visible: true, collapsed: false, order: 0 },
-      inspector: { visible: true, collapsed: false, order: 0 },
-      timeline: { visible: false, collapsed: false, order: 2 },
-      pagenav: { visible: true, collapsed: false, order: 3 },
-      library: { visible: false, collapsed: false, order: 4 },
-      codegen: { visible: false, collapsed: false, order: 5 },
-      logo: { visible: false, collapsed: false, order: 6 },
-      history: { visible: false, collapsed: false, order: 7 },
+      layers: { visible: true },
+      inspector: { visible: true },
+      timeline: { visible: false },
+      pagenav: { visible: true },
+      library: { visible: false },
+      codegen: { visible: false },
+      logo: { visible: false },
+      history: { visible: false },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -367,14 +364,14 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   print: {
     version: 1,
     panels: {
-      layers: { visible: true, collapsed: false, order: 0 },
-      inspector: { visible: true, collapsed: false, order: 0 },
-      timeline: { visible: false, collapsed: false, order: 2 },
-      pagenav: { visible: true, collapsed: false, order: 3 },
-      library: { visible: false, collapsed: false, order: 4 },
-      codegen: { visible: false, collapsed: false, order: 5 },
-      logo: { visible: false, collapsed: false, order: 6 },
-      history: { visible: false, collapsed: false, order: 7 },
+      layers: { visible: true },
+      inspector: { visible: true },
+      timeline: { visible: false },
+      pagenav: { visible: true },
+      library: { visible: false },
+      codegen: { visible: false },
+      logo: { visible: false },
+      history: { visible: false },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -460,14 +457,14 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   drawing: {
     version: 1,
     panels: {
-      layers: { visible: true, collapsed: false, order: 0 },
-      inspector: { visible: true, collapsed: false, order: 0 },
-      timeline: { visible: false, collapsed: false, order: 2 },
-      pagenav: { visible: false, collapsed: false, order: 3 },
-      library: { visible: false, collapsed: false, order: 4 },
-      codegen: { visible: false, collapsed: false, order: 5 },
-      logo: { visible: false, collapsed: false, order: 6 },
-      history: { visible: false, collapsed: false, order: 7 },
+      layers: { visible: true },
+      inspector: { visible: true },
+      timeline: { visible: false },
+      pagenav: { visible: false },
+      library: { visible: false },
+      codegen: { visible: false },
+      logo: { visible: false },
+      history: { visible: false },
     },
     defaultTool: 'paint',
     floatingToolbar: true,
@@ -546,14 +543,14 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   image: {
     version: 1,
     panels: {
-      layers: { visible: true, collapsed: false, order: 0 },
-      inspector: { visible: true, collapsed: false, order: 0 },
-      timeline: { visible: false, collapsed: false, order: 2 },
-      pagenav: { visible: false, collapsed: false, order: 3 },
-      library: { visible: false, collapsed: false, order: 4 },
-      codegen: { visible: false, collapsed: false, order: 5 },
-      logo: { visible: false, collapsed: false, order: 6 },
-      history: { visible: false, collapsed: false, order: 7 },
+      layers: { visible: true },
+      inspector: { visible: true },
+      timeline: { visible: false },
+      pagenav: { visible: false },
+      library: { visible: false },
+      codegen: { visible: false },
+      logo: { visible: false },
+      history: { visible: false },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -645,14 +642,14 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   codegen: {
     version: 1,
     panels: {
-      layers: { visible: true, collapsed: false, order: 0, preferredWidth: '16rem' },
-      inspector: { visible: true, collapsed: false, order: 0, preferredWidth: '20rem' },
-      timeline: { visible: false, collapsed: false, order: 2 },
-      pagenav: { visible: true, collapsed: false, order: 3 },
-      library: { visible: true, collapsed: false, order: 4 },
-      codegen: { visible: true, collapsed: false, order: 5, preferredWidth: '100%' },
-      logo: { visible: false, collapsed: false, order: 6 },
-      history: { visible: false, collapsed: false, order: 7 },
+      layers: { visible: true, preferredWidth: '16rem' },
+      inspector: { visible: true, preferredWidth: '20rem' },
+      timeline: { visible: false },
+      pagenav: { visible: true },
+      library: { visible: true },
+      codegen: { visible: true, preferredWidth: '100%' },
+      logo: { visible: false },
+      history: { visible: false },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -740,14 +737,14 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   logo: {
     version: 1,
     panels: {
-      layers: { visible: true, collapsed: false, order: 0 },
-      inspector: { visible: true, collapsed: false, order: 0 },
-      timeline: { visible: false, collapsed: false, order: 2 },
-      pagenav: { visible: false, collapsed: false, order: 3 },
-      library: { visible: false, collapsed: false, order: 4 },
-      codegen: { visible: false, collapsed: false, order: 5 },
-      logo: { visible: true, collapsed: false, order: 6 },
-      history: { visible: false, collapsed: false, order: 7 },
+      layers: { visible: true },
+      inspector: { visible: true },
+      timeline: { visible: false },
+      pagenav: { visible: false },
+      library: { visible: false },
+      codegen: { visible: false },
+      logo: { visible: true },
+      history: { visible: false },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -829,14 +826,14 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   motion: {
     version: 1,
     panels: {
-      layers: { visible: true, collapsed: false, order: 0, preferredWidth: '18rem' },
-      inspector: { visible: true, collapsed: false, order: 0, preferredWidth: '18rem' },
-      timeline: { visible: true, collapsed: false, order: 2, preferredWidth: '100%' },
-      pagenav: { visible: true, collapsed: false, order: 3 },
-      library: { visible: false, collapsed: false, order: 4 },
-      codegen: { visible: false, collapsed: false, order: 5 },
-      logo: { visible: false, collapsed: false, order: 6 },
-      history: { visible: false, collapsed: false, order: 7 },
+      layers: { visible: true, preferredWidth: '18rem' },
+      inspector: { visible: true, preferredWidth: '18rem' },
+      timeline: { visible: true, preferredWidth: '100%' },
+      pagenav: { visible: true },
+      library: { visible: false },
+      codegen: { visible: false },
+      logo: { visible: false },
+      history: { visible: false },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -995,17 +992,8 @@ export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
 // something else entirely.
 
 // ---------------------------------------------------------------------------
-// Panel layout helpers
+// Status bar helpers
 // ---------------------------------------------------------------------------
-
-/** Get panels sorted by their order value for a given mode. */
-export function getOrderedPanels(mode: WorkspaceMode): PanelId[] {
-  const config = getWorkspaceConfig(mode);
-  return (Object.entries(config.panels) as [PanelId, PanelConfig][])
-    .filter(([_, p]) => p.visible)
-    .sort((a, b) => a[1].order - b[1].order)
-    .map(([id]) => id);
-}
 
 /** Get visible status sections sorted by order. */
 export function getVisibleStatusSections(
@@ -1181,11 +1169,11 @@ export function migrateWorkspaceConfig(
     const base = getWorkspaceConfig(mode);
 
     const panels: PanelLayout = {
-      layers: { visible: old.visiblePanels?.layers ?? true, collapsed: false, order: 0 },
-      inspector: { visible: old.visiblePanels?.inspector ?? true, collapsed: false, order: 0 },
-      timeline: { visible: old.visiblePanels?.timeline ?? false, collapsed: false, order: 2 },
-      pagenav: { visible: old.visiblePanels?.pagenav ?? true, collapsed: false, order: 3 },
-      library: { visible: old.visiblePanels?.library ?? false, collapsed: false, order: 4 },
+      layers: { visible: old.visiblePanels?.layers ?? true },
+      inspector: { visible: old.visiblePanels?.inspector ?? true },
+      timeline: { visible: old.visiblePanels?.timeline ?? false },
+      pagenav: { visible: old.visiblePanels?.pagenav ?? true },
+      library: { visible: old.visiblePanels?.library ?? false },
       // Didn't exist in the pre-v1 format (like bleedGuides/layoutGrid/baselineGrid below) --
       // fall back to the target mode's own default rather than inventing a literal.
       codegen: base.panels.codegen,
