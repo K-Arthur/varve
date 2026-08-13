@@ -1,6 +1,6 @@
 # Image lifecycle architecture
 
-**Updated:** 2026-08-09
+**Updated:** 2026-08-13
 
 This document records the verified raster/image lifecycle and its ownership
 boundaries. It complements [image-geometry.md](image-geometry.md), which owns
@@ -19,7 +19,7 @@ File picker / drop / clipboard / foreign importer / generated result
   -> DocumentCodec normalize / encode / decode
   -> sceneToEngine and render IR (short asset resource handle, not the payload)
   -> engine image resource registry (handle -> loadable source)
-  -> @varve/engine ImageCache (shared HTMLImageElement decode, byte-bounded LRU,
+  -> @varve/engine ImageCache (shared full/at-size decode, byte-bounded LRU,
      typed failure states)
   -> main-thread Canvas2D replay (loading vs failed placeholders)
        or missing-only ImageBitmap delta -> render worker retained source map
@@ -162,7 +162,7 @@ PARTIAL = foundation landed, product surface remains; OPEN = unchanged.
 | Worker IR identity | IR carries the short content-addressed asset handle; registry resolves to the loadable source | Embedded data URLs were structured-cloned even when bitmap transfer is a delta | High performance | `imageResourceRegistry.ts`, `sceneToEngine.ts`; measured 205x structured-clone reduction | DONE |
 | Worker memory | Transfer/frame budgets exist; resident source bytes now reported + accounted; admission includes residency | Worker-retained image bytes were not a distinct diagnostic category | Medium-high | `renderBitmapBudget.ts`, `workerHost.ts` | DONE |
 | Raster masks | Masked fills are collected (alphaMask) and refused by the worker (A-without-M fallback) | Worker resource collection ignored alpha-mask resources | High correctness | `collectImageBitmaps.ts` | DONE |
-| Thumbnail | Multiple thumbnail converters | Some paths duplicate scene conversion and can request full-resolution decodes for tiny output | High drift/performance | editor thumbnail modules | OPEN — canonical conversion reuse; bounded preview representations deferred |
+| Thumbnail | Canonical `renderDocThumbnail` → `generateThumbnail` pipeline; image fills use `ImageCache.loadAtSize` at the physical output size when supported | Remote sources and runtimes without `createImageBitmap` still use full HTML-image decode; legacy callers remain | Medium performance | `packages/editor/src/thumbnail/thumbnailService.ts`, `packages/engine/src/thumbnail/service.ts`, `packages/engine/src/thumbnail/__tests__/thumbnail.test.ts` | DONE for canonical thumbnails — bounded inline previews; remote scaled decode remains platform-limited |
 | Export preload | Structural export runs a collect → settle → preflight → render barrier with typed failures, timeout and cancellation | Some structural raster-flatten paths could replay before images load | High correctness | `export/resourceReadiness.ts`, `compositor.ts`, `SpecPanel/export.ts` | DONE |
 | Loading/error UX | Typed failure model; placeholders distinguish loading from permanent failure; recovery hints per code | Loading, corrupt, missing, permission, and CORS failures were indistinguishable | Medium product correctness | `imageErrors.ts`, `imagePlaceholder.ts` | PARTIAL — canvas/export foundation landed; Inspector/relink UI flows remain |
 | Adaptive quality | Profile fields and prefetch helpers exist | Decode quality and prefetch depth have no runtime consumer | Medium performance | `adaptiveProfile.ts`, `viewportPrefetch.ts` | OPEN — connect only after large-image browser benchmarks establish a benefit |
