@@ -204,6 +204,39 @@ describe('assessNodeCapability', () => {
   });
 
   describe('effects', () => {
+    it('rasterizes effect-local masks for vector and PDF exports', () => {
+      const node = makeShapeNode(
+        's1',
+        { kind: 'rect' },
+        {
+          effects: [
+            {
+              id: 'fx-s1-1',
+              type: 'dropShadow',
+              visible: true,
+              x: 2,
+              y: 2,
+              blur: 4,
+              spread: 0,
+              color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
+              opacity: 0.5,
+              blendMode: 'normal',
+              mask: {
+                source: { kind: 'scene-node', nodeId: 'matte' },
+                type: 'alpha',
+                coordinateSpace: 'world',
+              },
+            },
+          ] as any,
+        },
+      );
+      const matte = makeShapeNode('matte', { kind: 'rect' });
+      const doc = makeDoc({ s1: node, matte });
+      expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+      expect(assessNodeCapability(node, doc, 'raster')).toBe(true);
+    });
+
     it('SVG rejects nodes with dropShadow', () => {
       const node = makeShapeNode(
         's1',

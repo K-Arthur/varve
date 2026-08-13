@@ -67,6 +67,7 @@ function computeFlattenInfo(node: SceneNode, _doc: Document): FlattenInfo {
 
   const effects = (node as { effects?: Effect[] }).effects ?? [];
   for (const e of effects) {
+    if (e.mask) reasons.push('effect-mask');
     if (e.type === 'innerShadow') reasons.push('inner-shadow');
     if (e.type === 'backgroundBlur') reasons.push('background-blur');
     if (e.type === 'layerBlur') reasons.push('layer-blur');
