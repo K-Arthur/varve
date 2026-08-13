@@ -15,6 +15,7 @@ import {
   resetWorkspacePreferenceCache,
   saveWorkspacePreferences,
   setPanelOverride,
+  setToolbarToolOverride,
   setWorkspacePreferences,
   subscribeWorkspacePreferences,
   updateWorkspacePreferences,
@@ -118,6 +119,19 @@ describe('workspaceStore — effective configuration', () => {
     expect(effective.panels.layers.visible).toBe(false);
     // Unoverridden panels keep their built-in values.
     expect(effective.panels.inspector.visible).toBe(true);
+  });
+
+  it('keeps essential navigation tools available when customization hides tools', () => {
+    let prefs = getWorkspacePreferences();
+    prefs = setToolbarToolOverride(prefs, 'design', 'rect', false);
+    prefs = setToolbarToolOverride(prefs, 'design', 'select', false);
+    prefs = setToolbarToolOverride(prefs, 'design', 'hand', false);
+    prefs = setToolbarToolOverride(prefs, 'design', 'zoom', false);
+    setWorkspacePreferences(prefs);
+
+    const toolIds = getEffectiveWorkspaceConfig('design').toolbar.tools.map((tool) => tool.toolId);
+    expect(toolIds).not.toContain('rect');
+    expect(toolIds).toEqual(expect.arrayContaining(['select', 'hand', 'zoom']));
   });
 
   it('resetModePreferences restores the built-in config', () => {

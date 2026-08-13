@@ -144,7 +144,7 @@ coordinate → teardown-safe listeners.
 | `panels.*.preferredWidth` | Layers/inspector: seeds CSS var when user has no saved width | Codegen/timeline `100%` values are panel-internal; no CSS var wired |
 | `panels.*.collapsed` / `order` | Config-declared only | No panel collapse/ordering state exists in the shell; deferred (panel layout engine) |
 | `defaultTool` | Applied on switch | |
-| `toolbar.tools` / `flyouts` | Composition not applied | FloatingToolbar builds its own per-mode list; wiring it to config is deferred (tool registry work) |
+| `toolbar.tools` / `flyouts` | Applied to the FloatingToolbar's supported tool groups | Effective visibility overrides are authoritative; shared tool definitions still own icons, actions, and labels |
 | `floatingToolbar` | Applied (visibility) | |
 | `statusBar` | Applied (Shell hides StatusBar/SelectionInfoBar) | Section-level `statusSections` ordering partially applied (preflight/debt/shortcutTip gated; others unconditional) |
 | `tabStrip` | Applied (Shell hides TabStrip) | |
@@ -174,7 +174,7 @@ coordinate → teardown-safe listeners.
 - Legacy storage: `strata-workspace-preferences` → `varve-workspace-
   preferences` fallback read; `strata-editor-settings` → `varve-editor-
   settings` (pre-existing). Corrupted JSON falls back to defaults; unknown
-  panel ids and invalid field types are sanitized.
+  panel ids, invalid field types, and invalid panel widths are sanitized.
 
 ## 5. Accessibility behavior
 
@@ -212,6 +212,11 @@ global flag.
   `updateWorkspacePreferences` (single write per toggle, not per frame).
 - Panel visibility toggles record overrides for the current mode; effective
   config merges them; reset-to-default clears the mode's overrides.
+- Layers and inspector widths are stored in `WorkspacePreference.panelWidths`
+  per workspace and mirrored to the legacy editor settings keys for existing
+  installations. Widths are clamped at application time so a smaller window
+  cannot strand the canvas below its minimum usable width. Selection, hand, and
+  zoom remain available even when toolbar customization attempts to hide them.
 - Per-tab viewport state (zoom/pan/rotation/grids/snapping/units/guides)
   stays in-memory per session (`sessionStoreRef`) and restores on
   `switchTab`; crash recovery sessions persist via the platform facade.

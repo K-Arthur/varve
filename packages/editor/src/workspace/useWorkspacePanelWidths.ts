@@ -14,7 +14,12 @@ import {
   defaultPanelWidth,
   type PanelSide,
 } from '../components/PanelResizeHandle';
-import { getPanelWidths, getWorkspacePreferences, savePanelWidths } from './workspaceStore';
+import {
+  getPanelWidths,
+  getWorkspacePreferences,
+  savePanelWidths,
+  updateWorkspacePreferences,
+} from './workspaceStore';
 import type { PanelId, WorkspaceMode } from './workspaceTypes';
 
 export function useWorkspacePanelWidths(
@@ -31,12 +36,13 @@ export function useWorkspacePanelWidths(
   useEffect(() => {
     if (prevModeRef.current !== workspaceMode) {
       // Save the old workspace's widths
-      const prefs = getWorkspacePreferences();
       const widthsToSave: Partial<Record<PanelId, number>> = {};
       if (widths.layers !== null) widthsToSave.layers = widths.layers;
       if (widths.inspector !== null) widthsToSave.inspector = widths.inspector;
       if (Object.keys(widthsToSave).length > 0) {
-        savePanelWidths(prefs, prevModeRef.current, widthsToSave);
+        updateWorkspacePreferences((current) =>
+          savePanelWidths(current, prevModeRef.current, widthsToSave),
+        );
       }
 
       // Restore the new workspace's widths
@@ -70,12 +76,13 @@ export function useWorkspacePanelWidths(
   }, [workspaceMode, widths.layers, widths.inspector, setWidth]);
 
   const saveCurrentWidths = useCallback(() => {
-    const prefs = getWorkspacePreferences();
     const widthsToSave: Partial<Record<PanelId, number>> = {};
     if (widths.layers !== null) widthsToSave.layers = widths.layers;
     if (widths.inspector !== null) widthsToSave.inspector = widths.inspector;
     if (Object.keys(widthsToSave).length > 0) {
-      savePanelWidths(prefs, workspaceMode, widthsToSave);
+      updateWorkspacePreferences((current) =>
+        savePanelWidths(current, workspaceMode, widthsToSave),
+      );
     }
   }, [workspaceMode, widths.layers, widths.inspector]);
 
