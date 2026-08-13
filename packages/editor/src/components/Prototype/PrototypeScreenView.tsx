@@ -1,9 +1,11 @@
 /**
- * Minimal prototype screen renderer — shows current frame with clickable hotspots.
+ * Prototype screen renderer — shows the frame's real content (rendered
+ * through the canonical scene→engine→IR pipeline) with clickable hotspots.
  */
 import type { Document, NodeId } from '@varve/scene';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HotspotTransitionOverride } from '../../motion/smartAnimateBridge';
+import { renderScreenToDataUrl } from './screenRender';
 
 export interface PrototypeScreenViewProps {
   document: Document;
@@ -27,6 +29,24 @@ export function PrototypeScreenView({
 }: PrototypeScreenViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const screen = document.nodes[screenId];
+  const [screenImage, setScreenImage] = useState<string | null>(null);
+
+  const frameW = screen?.kind === 'frame' ? (screen.w ?? 375) : 375;
+  const frameH = screen?.kind === 'frame' ? (screen.h ?? 812) : 812;
+
+  // Render the screen's real content once per screen/document/size. The
+  // render is cached (LRU); the promise resolves to null in environments
+  // without a raster path (jsdom), where hotspots-only remains correct.
+  useEffect(() => {
+    let cancelled = false;
+    setScreenImage(null);
+    void renderScreenToDataUrl(document, screenId, frameW, frameH).then((dataUrl) => {
+      if (!cancelled) setScreenImage(dataUrl);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [document, screenId, frameW, frameH]);
 
   const visibleIds = useMemo(() => {
     const ids = new Set<NodeId>();
@@ -58,9 +78,6 @@ export function PrototypeScreenView({
     return <div className="prototype-screen-view__empty">Screen not found</div>;
   }
 
-  const frameW = screen.w ?? 375;
-  const frameH = screen.h ?? 812;
-
   return (
     <div
       ref={containerRef}
@@ -70,6 +87,15 @@ export function PrototypeScreenView({
       role="application"
       aria-label={`Prototype screen: ${screen.name}`}
     >
+      {screenImage && (
+        <img
+          className="prototype-screen-view__image"
+          src={screenImage}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
+      )}
       <div className="prototype-screen-view__label">{screen.name}</div>
       {Array.from(visibleIds).map((nodeId) => {
         const bounds = getNodeBounds(nodeId);
