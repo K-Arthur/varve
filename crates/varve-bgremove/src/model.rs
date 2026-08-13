@@ -118,12 +118,17 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
 
 /// Get the directory where native models are stored.
 pub fn models_dir() -> PathBuf {
-    CONFIGURED_MODELS_DIR.get().cloned().unwrap_or_else(|| {
-        dirs_next::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("dev.varve.desktop")
-            .join("models")
-    })
+    CONFIGURED_MODELS_DIR.get().cloned().unwrap_or_else(fallback_models_dir)
+}
+
+/// Non-Tauri fallback used by standalone tests and CLI callers. It never
+/// falls back to the process working directory: the OS temp root is
+/// resolvable everywhere Varve runs and is deliberately process-independent.
+fn fallback_models_dir() -> PathBuf {
+    dirs_next::data_dir()
+        .unwrap_or_else(std::env::temp_dir)
+        .join("dev.varve.desktop")
+        .join("models")
 }
 
 /// Check if a model is already downloaded to native storage.
@@ -159,11 +164,46 @@ pub fn total_downloaded_size() -> u64 {
 }
 
 /// Write model bytes to native storage (explicit user action only).
+///
+/// The write is staged through a unique sibling temporary file and promoted
+/// with a rename so a crash mid-write can never leave a truncated file under
+/// the final model name. Windows `rename` refuses to replace an existing
+/// file, so a replace-retry is used there; the file is never deleted before
+/// the replacement is fully written.
 pub fn write_model(model_id: &str, bytes: &[u8]) -> Result<PathBuf, String> {
     let dir = models_dir();
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {e}"))?;
     let path = model_path(model_id);
-    std::fs::write(&path, bytes).map_err(|e| format!("Failed to write model: {e}"))?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("model");
+    let staging = dir.join(format!(
+        ".varve-model-{file_name}-{}.tmp",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    std::fs::write(&staging, bytes)
+        .map_err(|e| format!("Failed to write model staging file: {e}"))?;
+    let promoted = std::fs::rename(&staging, &path);
+    let promoted = match promoted {
+        Ok(()) => Ok(()),
+        // Windows: destination exists. Replace only now that the new bytes
+        // are fully on disk; never delete the old file first.
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            std::fs::remove_file(&path)
+                .map_err(|e| format!("Failed to replace existing model: {e}"))?;
+            std::fs::rename(&staging, &path)
+                .map_err(|e| format!("Failed to finalize model replacement: {e}"))
+        }
+        Err(error) => Err(format!("Failed to finalize model file: {error}")),
+    };
+    if promoted.is_err() {
+        let _ = std::fs::remove_file(&staging);
+    }
+    promoted?;
     Ok(path)
 }
 

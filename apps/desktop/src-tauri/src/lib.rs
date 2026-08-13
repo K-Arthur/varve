@@ -2,6 +2,7 @@ mod crash;
 mod font;
 mod font_storage;
 mod filesystem;
+mod logs;
 mod lifecycle;
 mod menu;
 mod print;
@@ -1182,6 +1183,11 @@ async fn upscale_image_command(
         .model_id
         .clone()
         .unwrap_or_else(|| "upscale-realesr-general".to_string());
+    // The model id becomes a filename under the app-owned models root. It is
+    // validated here (not inside varve-upscale, which is also used by
+    // non-desktop callers) so a `../` component can never escape the root on
+    // a read.
+    filesystem::validate_storage_key(&model_id).map_err(|error| error.message)?;
     let max_pixels = options.max_pixels;
     let target_width = options.target_width;
     let target_height = options.target_height;
@@ -2085,6 +2091,59 @@ fn project_to_home(p: varve_sync::ProjectRow) -> HomeProject {
     }
 }
 
+/// Recent-file record, mirroring the TS `RecentFileRecord` shape.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecentFileRecord {
+    id: String,
+    name: String,
+    last_opened_at: i64,
+    opened_count: i64,
+    pinned: bool,
+    hidden: bool,
+    workspace_relevance: Vec<String>,
+    user_workspace_tag: Option<String>,
+    encrypted: bool,
+    missing: bool,
+    version: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_workspace_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content_hash: Option<String>,
+}
+
+fn recent_to_home(r: varve_sync::RecentRow) -> RecentFileRecord {
+    let workspace_relevance = serde_json::from_str(&r.workspace_relevance)
+        .unwrap_or_default();
+    RecentFileRecord {
+        id: r.id,
+        name: r.name,
+        last_opened_at: r.last_opened_at,
+        opened_count: r.opened_count,
+        pinned: r.pinned,
+        hidden: r.hidden,
+        workspace_relevance,
+        user_workspace_tag: r.user_workspace_tag,
+        encrypted: r.encrypted,
+        missing: r.missing,
+        version: r.version,
+        source_workspace_id: r.source_workspace_id,
+        content_hash: r.content_hash,
+    }
+}
+
+/// Frontend-editable recent-file fields. Identity and counters are owned by
+/// the store and are never accepted from the frontend.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct RecentFilePatch {
+    pinned: Option<bool>,
+    hidden: Option<bool>,
+    user_workspace_tag: Option<Option<String>>,
+    name: Option<String>,
+    missing: Option<bool>,
+}
+
 fn now_rfc3339() -> String {
     chrono::Utc::now().to_rfc3339()
 }
@@ -2146,7 +2205,36 @@ fn home_read_file(
 
 #[tauri::command]
 fn home_file_exists(path: String) -> bool {
-    std::path::Path::new(&path).exists()
+    is_probeable_absolute_path(&path).is_some() && std::path::Path::new(&path).exists()
+}
+
+/// Batch existence probe for Home's missing-file sweep. One IPC round-trip
+/// instead of one per file row. Per-path validation failures report `false`
+/// (never-found), which is the conservative reading for an invalid input.
+#[tauri::command]
+fn home_check_files_exist(paths: Vec<String>) -> Vec<bool> {
+    paths
+        .into_iter()
+        .map(|path| match is_probeable_absolute_path(&path) {
+            Some(validated) => validated.exists(),
+            None => false,
+        })
+        .collect()
+}
+
+/// An existence probe must never accept relative or NUL-containing input, so
+/// a compromised renderer cannot turn this command into a path oracle for
+/// arbitrary strings. Only absolute OS paths (the shape native dialogs and
+/// drag/drop produce) are probed.
+fn is_probeable_absolute_path(path: &str) -> Option<&std::path::Path> {
+    if path.is_empty() || path.contains('\0') {
+        return None;
+    }
+    let parsed = std::path::Path::new(path);
+    if !parsed.is_absolute() {
+        return None;
+    }
+    Some(parsed)
 }
 
 #[tauri::command]
@@ -2442,6 +2530,73 @@ fn home_reorder_file(
         .map_err(|e| e.to_string())
 }
 
+// ── Recent files ─────────────────────────────────────────────────────────
+//
+// The recent list lives in the same SQLite store as the Home index, so it
+// survives restarts and stays consistent with file rows. Records keep
+// `missing` and `hidden` state instead of being deleted when a path is
+// temporarily unavailable (network/removable volumes), so a reconnect does
+// not lose history.
+
+#[tauri::command]
+fn home_list_recent_files(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    limit: Option<i64>,
+) -> Result<Vec<RecentFileRecord>, String> {
+    let limit = limit.unwrap_or(50).clamp(1, 200);
+    store
+        .list_recent_files(limit)
+        .map(|rows| rows.into_iter().map(recent_to_home).collect())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_touch_recent_file(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    id: String,
+    name: String,
+    source_workspace_id: Option<String>,
+    content_hash: Option<String>,
+) -> Result<RecentFileRecord, String> {
+    store
+        .touch_recent_file(&id, &name, source_workspace_id.as_deref(), content_hash.as_deref())
+        .map(recent_to_home)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_patch_recent_file(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    id: String,
+    patch: RecentFilePatch,
+) -> Result<(), String> {
+    store
+        .patch_recent_file(
+            &id,
+            patch.pinned,
+            patch.hidden,
+            patch.user_workspace_tag,
+            patch.name,
+            patch.missing,
+        )
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_remove_recent_file(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    id: String,
+) -> Result<(), String> {
+    store.remove_recent_file(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_clear_recent_history(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+) -> Result<(), String> {
+    store.clear_recent_history().map_err(|e| e.to_string())
+}
+
 // ── File-system read/write (for open/save from disk) ─────────────────────
 
 #[tauri::command]
@@ -2720,7 +2875,12 @@ pub fn run() {
             varve_bgremove::model::configure_models_dir(directories.models.clone());
             varve_upscale::configure_model_directory(directories.models.clone());
             let data_dir = directories.data.clone();
-            migrate_legacy_data_dir(&data_dir);
+            logs::init(&directories.logs);
+            let migration = migrate_legacy_data_dir(&data_dir);
+            logs::log_line(
+                "migration",
+                &logs::redact_for_log(&format!("legacy data migration: {migration:?}")),
+            );
             // Native crash capture: panic hook + sandboxed report filesystem.
             // Deliberately before any other subsystem — a panic later still
             // lands an emergency record.
@@ -2831,6 +2991,7 @@ pub fn run() {
             home_get_file,
             home_read_file,
             home_file_exists,
+            home_check_files_exist,
             home_upsert_file,
             home_touch_file,
             home_rename_file,
@@ -2855,6 +3016,11 @@ pub fn run() {
             home_delete_thumbnail,
             home_search_files,
             home_reorder_file,
+            home_list_recent_files,
+            home_touch_recent_file,
+            home_patch_recent_file,
+            home_remove_recent_file,
+            home_clear_recent_history,
             home_read_text_file,
             home_write_text_file,
             home_read_text_file_approved,
@@ -4387,11 +4553,13 @@ fn migrate_legacy_data_dir_from(
             //
             // Removing it means the next launch retries from a clean state.
             let _ = std::fs::remove_dir_all(data_dir);
-            eprintln!(
-                "[varve] could not migrate data from {}: {err}. \
-                 The previous directory is untouched; retrying on next launch.",
+            let message = format!(
+                "could not migrate data from {}: {err}. The previous directory \
+                 is untouched; retrying on next launch.",
                 legacy.display()
             );
+            eprintln!("[varve] {message}");
+            logs::log_line("migration", &logs::redact_for_log(&message));
             LegacyMigration::Failed
         }
     }
