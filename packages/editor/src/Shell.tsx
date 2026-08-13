@@ -38,6 +38,7 @@ import { SelectionInfoBar } from './components/SelectionInfoBar';
 import { SettingsProvider } from './components/Settings/SettingsContext';
 import { SettingsDialog } from './components/Settings/SettingsDialog';
 import {
+  ColorConversionHost,
   DnDShell,
   ExportLayer,
   type ExportLayerHandle,
@@ -927,6 +928,9 @@ function ShellInner({
 
         {/* File Thumbnail picker */}
         <ThumbnailPickerHost />
+
+        {/* Document Color Mode (Assign vs Convert) */}
+        <ColorConversionHost />
 
         {/* Canvas right-click context menu */}
         {canvasContextMenu &&
