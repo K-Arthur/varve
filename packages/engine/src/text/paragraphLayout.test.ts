@@ -65,6 +65,13 @@ describe('layoutText — paragraphs and line breaking', () => {
     expect(snapshot.lines.map((line) => line.sourceStart)).toEqual([0, 2, 4, 6]);
   });
 
+  it('never wraps at NBSP even when the line overflows', () => {
+    const snapshot = layout('ab\u00a0cd', 25);
+    // NBSP is glued to the first word; the break falls before "cd".
+    expect(snapshot.lines.map((line) => line.sourceStart)).toEqual([0, 3]);
+    expect(snapshot.lines[0]!.sourceEnd).toBe(3);
+  });
+
   it('never wraps inside an emoji ZWJ grapheme', () => {
     const snapshot = layout(`${SCRIPT_FIXTURES.emojiZwj}${SCRIPT_FIXTURES.emojiZwj}`, 11);
     expect(snapshot.lines.map((line) => line.sourceStart)).toEqual([0, 11]);
@@ -114,10 +121,13 @@ describe('layoutText — BiDi visual ordering', () => {
   it('reverses a pure RTL line into visual order', () => {
     const snapshot = layout('مرحبا', 1000);
     expect(snapshot.lines[0]!.runs.map((run) => run.direction)).toEqual(['rtl']);
+    // Glyphs are in visual (left-to-right) order: cluster indices descend
+    // while x positions ascend — the word reads right-to-left on screen.
     expect(snapshot.lines[0]!.visualClusters).toEqual([4, 3, 2, 1, 0]);
     const glyphs = snapshot.lines[0]!.runs[0]!.glyphs;
     for (let i = 1; i < glyphs.length; i++) {
-      expect(glyphs[i]!.x).toBeLessThan(glyphs[i - 1]!.x);
+      expect(glyphs[i]!.x).toBeGreaterThan(glyphs[i - 1]!.x);
+      expect(glyphs[i]!.clusterUtf16).toBeLessThan(glyphs[i - 1]!.clusterUtf16);
     }
   });
 
@@ -236,7 +246,7 @@ describe('layoutText — hit testing and selection', () => {
     // Just left of the Arabic word: the last LTR boundary (offset 16).
     expect(hitTest(snapshot, 162, 4).offset).toBe(16);
     // Just inside the Arabic word: the nearest logical cluster boundary.
-    expect(hitTest(snapshot, 205, 4).offset).toBe(20);
+    expect(hitTest(snapshot, 205, 4).offset).toBe(19);
   });
 
   it('produces one contiguous selection rectangle across a fully selected RTL word', () => {
