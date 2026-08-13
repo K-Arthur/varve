@@ -1073,8 +1073,10 @@ export interface EditorContextValue {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
+  selectSam2Candidate: (index: number) => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;
