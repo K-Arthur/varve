@@ -566,7 +566,21 @@ export {
   SCUNET_TENSOR_SPEC,
   validateScunetInput,
 } from './inference/models/scunet';
-export { normalizeEmbedding, rankBySimilarity } from './inference/models/siglip';
+export {
+  normalizeEmbedding,
+  rankBySimilarity,
+  SIGLIP_TEXT_EMBEDDING_OUTPUT_NAME,
+  SIGLIP_TEXT_MODEL_ID,
+  SIGLIP_TEXT_MAX_LENGTH,
+} from './inference/models/siglip';
+export type { SiglipTokenizedText } from './inference/models/siglipText';
+export {
+  loadSiglipTokenizer,
+  SIGLIP_TOKENIZER_CACHE,
+  SIGLIP_TOKENIZER_LOCAL_URL,
+  SIGLIP_TOKENIZER_URL,
+  SiglipTokenizer,
+} from './inference/models/siglipText';
 export type { TrOcrInput, TrOcrOutput } from './inference/models/trocr';
 export {
   postprocessTrOcr,
@@ -1062,6 +1076,15 @@ export {
 } from './videoExport';
 export type { FaceAwareCropOptions, FaceAwareCropSuggestion } from './vision/cropSolver';
 export { suggestFaceAwareCrop } from './vision/cropSolver';
+export {
+  ensureYuNetModel,
+  ONNX_FACE_BACKEND_ID,
+  ONNX_FACE_BACKEND_VERSION,
+  OnnxFaceBackend,
+  type YuNetFaceBackendOptions,
+  yuNetLandmarksToAnchors,
+  YU_NET_MODEL_ID,
+} from './vision/backends/onnxFaceBackend';
 export {
   type VisionErrorCode,
   VisionService,
