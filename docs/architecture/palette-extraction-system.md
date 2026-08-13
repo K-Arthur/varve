@@ -25,10 +25,13 @@ with `PALETTE_ANALYSIS_VERSION` and contains:
 ## Pixel pipeline
 
 The editor decodes only a bounded preview of the selected image. The preview
-is crop-aware: when an image has a visible crop, the analysis samples the
-visible crop rather than silently analysing pixels the user cannot see. The
-editor caps the temporary canvas at 256 × 256 pixels before transferring the
-RGBA bytes to the analysis service.
+is crop-aware: when an image has a visible crop, the Inspector offers a
+Full image / Visible crop choice, defaulting to the visible crop so the
+analysis samples pixels the user can see rather than silently analysing
+hidden ones. The choice is part of the analysis configuration: the two
+sources produce distinct cache keys and results. The editor caps the
+temporary canvas at 256 × 256 pixels before transferring the RGBA bytes to
+the analysis service.
 
 The engine then:
 

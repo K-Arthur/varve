@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { importImageFile, selectImageNode } from '../helpers/editor-helpers';
+import { enterCropMode, importImageFile, selectImageNode } from '../helpers/editor-helpers';
 import { navigateToEditor } from '../shared';
 
 test.describe('image palette extraction', () => {
@@ -63,5 +63,51 @@ test.describe('image palette extraction', () => {
       scrollWidth: element.scrollWidth,
     }));
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
+  });
+
+  test('palette source follows the visible crop or full image choice', async ({ page }) => {
+    await navigateToEditor(page);
+    await importImageFile(page);
+    await selectImageNode(page);
+
+    // Give the image a visible crop so the source toggle appears.
+    await enterCropMode(page);
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 10000 });
+    const eastHandle = page.getByRole('button', { name: 'Resize crop e', exact: true });
+    const box = await eastHandle.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 - 40, box.y + box.height / 2);
+      await page.mouse.up();
+    }
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(300);
+
+    await page.getByRole('tab', { name: /^Appearance/i }).click();
+    const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Palette/ });
+    await expect(paletteSection).toBeVisible({ timeout: 15000 });
+    const paletteTrigger = paletteSection.getByRole('button', { name: /^Palette$/ });
+    if ((await paletteTrigger.getAttribute('aria-expanded')) === 'false') {
+      await paletteTrigger.click();
+    }
+
+    const sourceGroup = paletteSection.getByRole('radiogroup', {
+      name: /palette analysis source/i,
+    });
+    await expect(sourceGroup).toBeVisible({ timeout: 15000 });
+    const cropRadio = sourceGroup.getByRole('radio', { name: 'Visible crop' });
+    const fullRadio = sourceGroup.getByRole('radio', { name: 'Full image' });
+    await expect(cropRadio).toBeChecked();
+
+    await fullRadio.check();
+    await expect(paletteSection.getByRole('heading', { name: 'Extracted colors' })).toBeVisible({
+      timeout: 15000,
+    });
+
+    await cropRadio.check();
+    await expect(paletteSection.getByRole('heading', { name: 'Extracted colors' })).toBeVisible({
+      timeout: 15000,
+    });
   });
 });
