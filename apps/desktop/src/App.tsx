@@ -1,7 +1,9 @@
 import {
   afterFirstVisiblePaint,
   CrashCenter,
+  configureDesktopAnalytics,
   currentDocumentSchemaVersion,
+  getDesktopAnalytics,
   installCrashTestHooks,
   type OpenFileRequest,
   SettingsDialog,
@@ -24,6 +26,11 @@ import { TitleBar } from './chrome/TitleBar';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
 import { revealMainWindow } from './startup/revealMainWindow';
 
+const desktopAnalytics = configureDesktopAnalytics({
+  platform: 'unknown',
+  endpoint: import.meta.env.VITE_VARVE_ANALYTICS_ENDPOINT ?? null,
+});
+
 const bootPlatform = detectPlatform();
 
 export function App() {
@@ -34,6 +41,14 @@ export function App() {
   const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
   const pendingHomeMilestone = useRef<(() => void) | null>(null);
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    desktopAnalytics.track('app_launched', { surface: 'desktop' });
+    void desktopAnalytics.flush();
+    return () => {
+      void getDesktopAnalytics().shutdown();
+    };
+  }, []);
 
   // In a plain browser the synchronous boot platform is the in-memory
   // fallback; upgrade to the real IndexedDB + File System Access backend as
