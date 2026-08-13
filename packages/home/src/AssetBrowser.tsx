@@ -1,4 +1,5 @@
 import type { Asset, AssetFolder, Platform } from '@varve/platform';
+import { searchAssets } from '@varve/platform';
 import { ContentSkeleton, Icon, type IconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -35,13 +36,10 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [assetList] = await Promise.all([
-        searchQuery.trim()
-          ? platform.searchAssets(searchQuery)
-          : platform.listAssets(workspaceId, selectedFolderId ?? undefined),
-        platform.listAssets(workspaceId).then(() => []),
-      ]);
-
+      const assetList = await platform.listAssets(workspaceId, selectedFolderId ?? undefined);
+      // Search locally over the scoped asset list. This keeps query updates
+      // instant and lets the browser use the same rank-fusion contract as the
+      // desktop/native adapters when OCR or semantic ranks become available.
       const fetchedFolders: AssetFolder[] = [];
       setAssets(assetList);
       setFolders(fetchedFolders);
@@ -51,7 +49,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     } finally {
       setLoading(false);
     }
-  }, [platform, workspaceId, selectedFolderId, searchQuery]);
+  }, [platform, workspaceId, selectedFolderId]);
 
   useEffect(() => {
     loadData();
@@ -99,6 +97,8 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     [folders, selectedFolderId],
   );
 
+  const searchResults = useMemo(() => searchAssets(assets, searchQuery), [assets, searchQuery]);
+
   return (
     <div className="asset-browser">
       <input
@@ -115,7 +115,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
           <input
             type="text"
             className="asset-browser__search-input"
-            placeholder="Search assets..."
+            placeholder="Describe an image or search by filename…"
             value={searchQuery}
             onChange={handleSearchChange}
             aria-label="Search assets"
@@ -131,6 +131,9 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
             </button>
           )}
         </div>
+        <span className="asset-browser__search-hint" aria-hidden="true">
+          Local: filename · OCR · tags
+        </span>
         <button
           type="button"
           className="asset-browser__import-btn"
@@ -184,7 +187,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
             <div className="asset-browser__loading">
               <ContentSkeleton variant="grid" columns={3} rows={3} label="Loading assets" />
             </div>
-          ) : assets.length === 0 && subFolders.length === 0 ? (
+          ) : searchResults.length === 0 && subFolders.length === 0 ? (
             <div className="asset-browser__empty">
               <Icon name="Image" label={undefined} size="2rem" />
               <p className="asset-browser__empty-text">
@@ -215,7 +218,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
               )}
 
               <div className="asset-browser__grid">
-                {assets.map((asset) => (
+                {searchResults.map(({ asset, reasons }) => (
                   <div key={asset.id} className="asset-browser__card">
                     <div className="asset-browser__card-thumb">
                       {asset.thumbnailHash ? (
@@ -240,6 +243,9 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
                         <span className="asset-browser__card-kind">{asset.kind}</span>
                         <span>{formatFileSize(asset.size)}</span>
                       </div>
+                      {searchQuery.trim() && reasons.length > 0 && (
+                        <span className="asset-browser__card-reason">{reasons[0]?.label}</span>
+                      )}
                     </div>
                     {onInsertAsset && (
                       <button

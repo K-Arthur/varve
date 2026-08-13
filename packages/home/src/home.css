@@ -2040,6 +2040,12 @@
 .asset-browser__search-input::placeholder {
   color: var(--color-text-muted);
 }
+.asset-browser__search-hint {
+  display: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
 .asset-browser__search-clear {
   display: flex;
   align-items: center;
@@ -2318,6 +2324,15 @@
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
 }
+.asset-browser__card-reason {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .asset-browser__card-insert {
   position: absolute;
   top: var(--space-1);
@@ -2342,6 +2357,11 @@
 @media (any-hover: none) {
   .asset-browser__card-insert {
     opacity: 1;
+  }
+}
+@media (min-width: 58rem) {
+  .asset-browser__search-hint {
+    display: inline;
   }
 }
 .asset-browser__card-insert:hover {
