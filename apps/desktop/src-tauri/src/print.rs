@@ -131,8 +131,20 @@ pub fn print_pdf(
     color_mode: &str,
     page_size: &str,
 ) -> PrintJobResult {
-    // Write PDF to a temp file for lp to consume
-    let tmp_path = temporary_dir.join(format!("varve_print_{}.pdf", job_id_counter()));
+    // Write PDF to a temp file for lp to consume. The name carries the
+    // process id and a timestamp so two Varve processes printing at once can
+    // never collide on a shared counter, and a stale sweep removes leftovers
+    // from crashed processes under our own naming prefix only.
+    sweep_stale_print_files(temporary_dir);
+    let tmp_path = temporary_dir.join(format!(
+        "varve_print_{}-{}-{}.pdf",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos(),
+        job_id_counter()
+    ));
     if let Err(e) = std::fs::write(&tmp_path, pdf_bytes) {
         return PrintJobResult {
             job_id: 0,
@@ -225,6 +237,34 @@ fn job_id_counter() -> u64 {
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     COUNTER.fetch_add(1, Ordering::SeqCst)
+}
+
+/// Remove print staging files left behind by crashed processes. Only files
+/// matching our own `varve_print_` prefix are touched, and only when they
+/// are older than a day — a crash leftover is preferable to deleting a file
+/// another process is still writing.
+fn sweep_stale_print_files(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let cutoff = std::time::SystemTime::now()
+        .checked_sub(std::time::Duration::from_secs(24 * 60 * 60));
+    let Some(cutoff) = cutoff else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if !entry.file_name().to_string_lossy().starts_with("varve_print_") {
+            continue;
+        }
+        let Ok(meta) = entry.metadata() else {
+            continue;
+        };
+        if let Ok(modified) = meta.modified() {
+            if modified < cutoff {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
 }
 
 #[cfg(test)]
