@@ -5,6 +5,7 @@ import {
   type GradientInterpolationSpace,
   type GradientStopInput,
   interpolateManagedColor,
+  interpolateNormalizedColor,
   sampleGradientColor,
 } from './colorInterpolation';
 
@@ -241,4 +242,41 @@ describe('interpolation space dispatch', () => {
       expect(mid.b).toBeLessThanOrEqual(255);
     });
   }
+});
+
+describe('interpolateNormalizedColor', () => {
+  const from = { r: 0.5, g: 0.25, b: 0.75, a: 1 };
+  const to = { r: 0.125, g: 0.625, b: 0.375, a: 0.5 };
+  const spaces: GradientInterpolationSpace[] = ['srgb', 'oklab', 'oklch', 'hsl'];
+
+  it('returns endpoints exactly', () => {
+    for (const space of spaces) {
+      expect(interpolateNormalizedColor(from, to, 0, space)).toEqual(from);
+      expect(interpolateNormalizedColor(from, to, 1, space)).toEqual(to);
+    }
+  });
+
+  it('produces 0-1 output in every space at t=0.5', () => {
+    for (const space of spaces) {
+      const mid = interpolateNormalizedColor(from, to, 0.5, space);
+      for (const v of [mid.r, mid.g, mid.b, mid.a]) {
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('preserves high precision: no 8-bit lattice in the result', () => {
+    // A result on the 8-bit lattice would be a multiple of 1/255.
+    const a = { r: 0.500015, g: 0.624817, b: 0.731232, a: 1 };
+    const b = { r: 0.25001, g: 0.5, b: 0.75, a: 1 };
+    for (const space of spaces) {
+      const mid = interpolateNormalizedColor(a, b, 0.5, space);
+      const lattice = (v: number) => Math.abs(v * 255 - Math.round(v * 255)) < 1e-9;
+      // Alpha is a straight lerp (0.5 exactly in srgb space only for that
+      // channel); the RGB channels must not all collapse to 8-bit levels.
+      const nonLattice = [mid.r, mid.g, mid.b].some((v) => !lattice(v));
+      expect(nonLattice).toBe(true);
+    }
+  });
 });

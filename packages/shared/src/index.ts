@@ -191,6 +191,7 @@ export {
   applyMidpointBias,
   expandGradientStops,
   interpolateManagedColor,
+  interpolateNormalizedColor,
   sampleGradientColor,
 } from './colorInterpolation';
 export type { Oklch, Rgb } from './colorMath';
