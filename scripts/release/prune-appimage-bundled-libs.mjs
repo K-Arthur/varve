@@ -44,6 +44,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { normalizeArchitecture } from './targets.mjs';
 
 function parseArgs(argv) {
   const args = {};
@@ -73,6 +74,7 @@ function main() {
   const bundleDir = resolve(args['bundle-dir'] ?? 'apps/desktop/src-tauri/target/release/bundle');
   const toolsDir =
     args['tools-dir'] ?? process.env.TAURI_CACHE_DIR ?? join(homedir(), '.cache', 'tauri');
+  const architecture = normalizeArchitecture(args.arch ?? process.arch);
   const appImage = findAppImage(bundleDir);
   if (!appImage) {
     process.stdout.write('No AppImage found — nothing to prune.\n');
@@ -118,8 +120,12 @@ function main() {
   // whole library closure keeps linuxdeploy from re-deploying the CI host's
   // GTK/WebKit (which would recreate the broken bundle).
   const linuxdeploy =
-    findTool(toolsDir, ['linuxdeploy-x86_64.AppImage', 'linuxdeploy.AppImage']) ??
-    process.env.LINUXDEPLOY;
+    findTool(
+      toolsDir,
+      architecture === 'aarch64'
+        ? ['linuxdeploy-aarch64.AppImage', 'linuxdeploy.AppImage']
+        : ['linuxdeploy-x86_64.AppImage', 'linuxdeploy.AppImage'],
+    ) ?? process.env.LINUXDEPLOY;
   if (!linuxdeploy) {
     rmSync(work, { recursive: true, force: true });
     throw new Error(
@@ -127,7 +133,10 @@ function main() {
         'Tauri downloads it to ~/.cache/tauri during the build.',
     );
   }
-  const pluginAppImage = findTool(toolsDir, ['linuxdeploy-plugin-appimage-x86_64.AppImage']);
+  const pluginAppImage = findTool(toolsDir, [
+    `linuxdeploy-plugin-appimage-${architecture}.AppImage`,
+    'linuxdeploy-plugin-appimage-x86_64.AppImage',
+  ]);
   if (pluginAppImage) {
     process.env.LINUXDEPLOY_PLUGIN_APPIMAGE = pluginAppImage;
   }
@@ -145,7 +154,7 @@ function main() {
       '--output',
       'appimage',
     ],
-    { cwd: work, env: { ...process.env, OUTPUT: output, ARCH: 'x86_64' }, stdio: 'inherit' },
+    { cwd: work, env: { ...process.env, OUTPUT: output, ARCH: architecture }, stdio: 'inherit' },
   );
 
   if (!existsSync(output) || statSync(output).size === 0) {
