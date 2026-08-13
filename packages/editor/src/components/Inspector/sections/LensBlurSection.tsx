@@ -321,9 +321,14 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       }
       const rawData = depthOutput.data;
       const dims = depthOutput.dims;
-      const outputH = dims[2] as number;
-      const outputW = dims[3] as number;
+      // The pinned export outputs [1, 518, 518]; older exports used
+      // [1, 1, H, W]. Read the last two dims so either shape works.
+      const outputH = dims[dims.length - 2] as number;
+      const outputW = dims[dims.length - 1] as number;
       const normalized = normalizeDepthPrediction(rawData, outputW, outputH, {
+        // The pinned export's raw convention is nearIsHigh (verified by
+        // scripts/models/verify-depth-model.mjs).
+        nearFarConvention: 'nearIsHigh',
         metadata: {
           modelId: DEPTH_MODEL_ID,
           modelVersion: '2.0.0',
