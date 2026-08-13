@@ -230,6 +230,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/realesrgan-packaging.md` | Real-ESRGAN model packaging |
 | `architecture/debug-overlays.md` | Debug overlay contract |
 | `architecture/workspace-navigation.md` | Workspace navigation behavior |
+| `architecture/filesystem-boundary.md` | Cross-platform directory, path, storage, and native filesystem boundary |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
