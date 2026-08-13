@@ -1,0 +1,87 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Print Production — Varve"
+  description="Design with page-level bleed and trim guides in Varve, then carry the same print geometry into PDF/X export."
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Print Production
+      </nav>
+
+      <h1>Print production you can see while designing</h1>
+      <p class="feature-intro">
+        Configure bleed on a page, inspect the production area on the canvas, and keep trim and
+        export geometry tied to the same document settings.
+      </p>
+
+      <section class="feature-section">
+        <h2>Bleed belongs to the page</h2>
+        <p>
+          A page's trim is its finished size. Bleed expands outward from that trim edge and is
+          stored in the document's physical units. Page overrides inherit the document default,
+          so mixed page sizes can keep their own production requirements without creating a
+          second canvas-only setting.
+        </p>
+        <ul>
+          <li>Set uniform or per-edge bleed in the Page Print inspector.</li>
+          <li>Use millimetres, inches, points, or the document's supported unit.</li>
+          <li>Keep bleed values separate from safe area, slug, and crop marks.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Trim and bleed guides on canvas</h2>
+        <p>
+          The dashed outer boundary and subtle production band are editor overlays, not artwork.
+          Toggle them from View without changing the document, undo history, or exported files.
+          Artwork that crosses the trim edge remains visible on the pasteboard, making missing
+          background coverage easy to spot before export.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Print-aware export</h2>
+        <p>
+          PDF/X export expands the media geometry around trim and writes distinct MediaBox,
+          BleedBox, TrimBox, CropBox, and ArtBox values. Crop marks reference trim, not the outer
+          bleed edge. Raster and screen-PDF export paths remain format-specific; check the export
+          capability before treating a bleed guide as an output promise.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Still in progress</h2>
+        <p>
+          Varve does not yet perform authoritative painted-coverage preflight for artwork that
+          stops at trim. For press-critical work, leave the guides visible and inspect the final
+          PDF/X proof. Multi-page PDF execution and full printer-mark preview remain separate
+          roadmap items.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Explore the complete export workflow</h2>
+        <a href={sitePath('/features/export')} class="btn-primary">Export &amp; Code Generation</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a, .feature-section a { color: var(--text-secondary); }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); font-weight: 700; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.8; }
+  .feature-section ul { padding-left: 1.25rem; }
+  .feature-cta { text-align: center; padding: 3rem 0; border-top: 1px solid var(--border-default); }
+  .feature-cta h2 { font-size: 1.25rem; margin-bottom: 1rem; color: var(--text-primary); }
+</style>

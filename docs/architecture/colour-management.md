@@ -36,6 +36,38 @@ Built-in profile registries are defined in `colorManagement.ts` (RGB: sRGB, Disp
 Adobe RGB, ProPhoto; CMYK: Fogra39, Fogra51, GRACoL 2006, SWOP Coated/Uncoated,
 Japan Color 2011).
 
+## Print geometry and bleed
+
+Print geometry is page-scoped. `Page.bleed` is an optional override of the
+document's `bleed` default; `resolvePagePrintGeometry()` is the only resolver
+used by the page inspector, canvas overlays, preflight, and page-bleed export
+planning. A page's trim bounds are its placed `width`/`height`; bleed bounds
+expand those bounds outward by the resolved top/right/bottom/left insets.
+
+Bleed values are persisted in their declared physical unit (`mm`, `in`, `pt`,
+or another supported `DocumentUnit`). The resolver converts them once to the
+fixed-96-dpi document coordinate space. Raster/export DPI is a separate output
+calculation and never changes canvas geometry. This prevents a 3 mm bleed from
+changing when a document's export resolution changes.
+
+The canvas's `bleedGuidesVisible` preference is view state, not document state:
+it can hide the dashed outer boundary and production band without changing
+bleed, dirty state, undo history, or export output. The guide is an SVG editor
+overlay with `pointer-events: none`; it is not a scene node, does not enter hit
+testing or bounds, and is never exported.
+
+Page content remains editable on the pasteboard outside trim. The trim outline
+continues to identify the cut edge while the bleed guide identifies the
+production extent, so artwork that actually crosses trim remains visible for
+inspection without globally disabling ordinary frame clipping.
+
+PDF/X export receives trim dimensions and expands the media geometry around
+them. `BleedBox` is trim plus the configured bleed, `TrimBox`, `CropBox`, and
+`ArtBox` identify the trim boundary, and crop marks are positioned from trim
+rather than from the outer bleed edge. PNG/JPEG/WebP and screen PDF retain
+their own format capabilities; the editor must not imply that a view guide
+changes a format that does not support page-bleed export.
+
 ## Colour Conversion Pipeline
 
 ### Working precision and display precision
