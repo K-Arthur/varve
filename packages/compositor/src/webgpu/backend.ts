@@ -19,6 +19,7 @@ import type { RenderItem } from '@varve/engine';
 import { selectWebGpuAdapter } from '@varve/engine';
 import { computeFloatingOrigin, managedColorToRgba } from '@varve/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
+import { buildStructuralRenderPlan } from '../structuralRenderPlan';
 import type { CompositorDiagnostics, CompositorFrame } from '../types';
 import {
   CIRCLE_FRAGMENT_WGSL,
@@ -138,14 +139,17 @@ function isGpuPrimitive(item: RenderItem): boolean {
  * GPU and Canvas2D partitions changes z-order when the two kinds interleave.
  */
 export function isGpuBatchSupported(items: readonly RenderItem[]): boolean {
-  return items.every(
-    (item) =>
-      isGpuPrimitive(item) &&
-      (item.fills?.length ?? 0) === 0 &&
-      (item.strokes?.length ?? 0) === 0 &&
-      (item.effects?.length ?? 0) === 0 &&
-      (item.filters?.length ?? 0) === 0 &&
-      (item.blendMode === undefined || item.blendMode === 'normal'),
+  const primitiveKinds = new Set(items.map((item) => item.primitive.kind));
+  return (
+    items.every(
+      (item) =>
+        isGpuPrimitive(item) &&
+        (item.fills?.length ?? 0) === 0 &&
+        (item.strokes?.length ?? 0) === 0 &&
+        (item.effects?.length ?? 0) === 0 &&
+        (item.filters?.length ?? 0) === 0 &&
+        (item.blendMode === undefined || item.blendMode === 'normal'),
+    ) && primitiveKinds.size <= 1
   );
 }
 
@@ -218,8 +222,10 @@ export class WebGPUBackend {
   private canvas: HTMLCanvasElement | null = null;
   private lastFrameVertexBytes = 0;
   private pipelineInitMs = 0;
-  private frameCleared = false;
   private gpuDrawnThisFrame = false;
+  private fallbackIslandCount = 0;
+  private fallbackNodeCount = 0;
+  private fallbackReasons: Record<string, number> = {};
 
   async init(canvas: HTMLCanvasElement): Promise<void> {
     this.canvas = canvas;
@@ -370,8 +376,10 @@ export class WebGPUBackend {
 
   beginFrame(frame: CompositorFrame, opts?: BeginOpts): void {
     this.currentFrame = frame;
-    this.frameCleared = false;
     this.gpuDrawnThisFrame = false;
+    this.fallbackIslandCount = 0;
+    this.fallbackNodeCount = 0;
+    this.fallbackReasons = {};
     const { viewport } = frame;
     const dpr = window.devicePixelRatio || 1;
     const w = Math.max(1, Math.floor(viewport.width * dpr));
@@ -411,15 +419,24 @@ export class WebGPUBackend {
       this.gpuCanvas
     ) {
       const frame = this.currentFrame;
-      if (frame && isGpuBatchSupported(items)) {
-        this.drawGpuItems(items, frame);
-        this.gpuDrawnThisFrame = true;
-        this.blitGpuToPresent();
-      } else {
-        // Present canvas already has camera from beginFrame / CanvasArea.
-        // Keep the batch intact so unsupported paint semantics and z-order
-        // remain authoritative on Canvas2D.
-        this.present?.drawVectorItems(items);
+      if (frame) {
+        const plan = buildStructuralRenderPlan(items, frame.structure);
+        this.fallbackIslandCount += plan.fallbackIslandCount;
+        this.fallbackNodeCount += plan.fallbackNodeCount;
+        for (const [reason, count] of Object.entries(plan.fallbackReasons)) {
+          this.fallbackReasons[reason] = (this.fallbackReasons[reason] ?? 0) + count;
+        }
+        for (const segment of plan.segments) {
+          if (segment.kind === 'webgpu-run' && isGpuBatchSupported(segment.items)) {
+            this.drawGpuItems([...segment.items], frame);
+            this.gpuDrawnThisFrame = true;
+            this.blitGpuToPresent();
+          } else {
+            // Keep the complete semantic island on Canvas2D. No backend
+            // partition is allowed to reorder the compositor's paint order.
+            this.present?.drawVectorItems([...segment.items]);
+          }
+        }
       }
       return;
     }
@@ -450,6 +467,9 @@ export class WebGPUBackend {
       adapterIsFallback: this.adapterIsFallback,
       pipelineInitMs: this.pipelineInitMs,
       deviceLost: this.deviceLost,
+      fallbackIslandCount: this.fallbackIslandCount,
+      fallbackNodeCount: this.fallbackNodeCount,
+      fallbackReasons: { ...this.fallbackReasons },
     };
   }
 
@@ -593,7 +613,10 @@ export class WebGPUBackend {
 
     const textureView = context.getCurrentTexture().createView();
     const encoder = device.createCommandEncoder();
-    let firstPass = !this.frameCleared;
+    // Each invocation is an ordered run. Earlier GPU pixels have already been
+    // presented to Canvas2D; retaining them here would make a later blit
+    // cumulative and duplicate earlier runs.
+    let firstPass = true;
     const dpr = window.devicePixelRatio || 1;
 
     if (solidItems.length > 0) {
@@ -631,7 +654,6 @@ export class WebGPUBackend {
           ],
         });
         firstPass = false;
-        this.frameCleared = true;
         pass.executeBundles([bundle]);
         pass.end();
       }
@@ -673,7 +695,6 @@ export class WebGPUBackend {
         ],
       });
       firstPass = false;
-      this.frameCleared = true;
       pass.setPipeline(circlePipeline);
       pass.setBindGroup(0, circleBindGroup);
       pass.setVertexBuffer(0, vBuf);
