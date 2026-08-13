@@ -142,9 +142,15 @@ test.describe('Background removal — all modes', () => {
 
   test('Inspector — AI Balanced bg removal', async ({ page }) => {
     await importTestImage(page);
-    const methodSelect = page.locator('select[aria-label="Background removal method"]');
+    await page.getByRole('tab', { name: 'Adjustments' }).click();
+    const backgroundRemovalSection = page.getByRole('button', { name: 'Background Removal' });
+    if ((await backgroundRemovalSection.getAttribute('aria-expanded')) === 'false') {
+      await backgroundRemovalSection.click();
+    }
+    const methodSelect = page.getByRole('combobox', { name: 'Background removal method' });
     await methodSelect.waitFor({ state: 'visible', timeout: 5000 });
-    await methodSelect.selectOption('ai-balanced');
+    await methodSelect.click();
+    await page.getByRole('option', { name: /AI Balanced/i }).click();
 
     // Click the inspector's Remove Background button
     const btn = page.getByRole('button', { name: 'Remove background from image' });

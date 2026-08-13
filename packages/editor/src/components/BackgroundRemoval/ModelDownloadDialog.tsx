@@ -1,5 +1,9 @@
 import { AVAILABLE_MODELS, getModelById, getModelLoader, UPSCALE_MODELS } from '@varve/engine';
 import { useCallback, useRef, useState } from 'react';
+import {
+  type NormalizedModelDownloadError,
+  normalizeModelDownloadError,
+} from '../../backgroundRemoval/normalizeModelDownloadError';
 import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';
 
@@ -17,7 +21,15 @@ function sourceHostname(url: string): string {
   }
 }
 
-type DownloadStatus = 'confirm' | 'downloading' | 'done' | 'error';
+type DownloadStatus =
+  | 'confirm'
+  | 'connecting'
+  | 'downloading'
+  | 'verifying'
+  | 'installing'
+  | 'ready'
+  | 'error'
+  | 'cancelled';
 
 export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownloadDialogProps) {
   const removalModel = AVAILABLE_MODELS.find((candidate) => candidate.id === modelId);
@@ -39,18 +51,21 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
       : undefined);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<DownloadStatus>('confirm');
-  const [error, setError] = useState('');
+  const [error, setError] = useState<NormalizedModelDownloadError | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const handleDownload = useCallback(async () => {
-    setStatus('downloading');
+    setStatus('connecting');
     setProgress(0);
-    setError('');
+    setError(null);
+    setDetailsOpen(false);
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     try {
       const loader = getModelLoader();
+      setStatus('downloading');
       await loader.downloadModel(
         modelId,
         (loaded, total) => {
@@ -58,25 +73,26 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
         },
         controller.signal,
       );
-      setStatus('done');
+      setStatus('ready');
       setTimeout(onComplete, 1000);
     } catch (e) {
       if (controller.signal.aborted) {
-        setStatus('confirm');
+        setStatus('cancelled');
         return;
       }
+      const normalized = normalizeModelDownloadError(e);
+      setError(normalized);
       setStatus('error');
-      setError((e as Error).message);
     } finally {
       abortRef.current = null;
     }
   }, [modelId, onComplete]);
 
   const handleCancel = useCallback(() => {
-    if (status === 'downloading') {
+    if (status === 'connecting' || status === 'downloading' || status === 'verifying') {
       abortRef.current?.abort();
       abortRef.current = null;
-      setStatus('confirm');
+      setStatus('cancelled');
       setProgress(0);
       return;
     }
@@ -90,7 +106,6 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
     : catalogEntry?.category === 'denoising'
       ? 'image denoising'
       : 'image upscaling';
-
   return (
     <div
       className="model-download-overlay"
@@ -133,6 +148,12 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
             </p>
           )}
 
+          {status === 'connecting' && (
+            <p className="model-download__status" role="status" aria-live="polite">
+              Connecting to {sourceHost}…
+            </p>
+          )}
+
           {status === 'downloading' && (
             <div className="model-download__progress" aria-live="polite">
               <div className="model-download__bar">
@@ -142,22 +163,64 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
             </div>
           )}
 
-          {status === 'done' && <p className="model-download__done">Model ready!</p>}
+          {status === 'verifying' && (
+            <p className="model-download__status" role="status" aria-live="polite">
+              Verifying the downloaded file…
+            </p>
+          )}
 
-          {status === 'error' && (
+          {status === 'installing' && (
+            <p className="model-download__status" role="status" aria-live="polite">
+              Installing the model…
+            </p>
+          )}
+
+          {status === 'ready' && <p className="model-download__done">Model ready!</p>}
+
+          {status === 'cancelled' && (
+            <p className="model-download__status" role="status" aria-live="polite">
+              Download cancelled. Nothing was installed.
+            </p>
+          )}
+
+          {status === 'error' && error && (
             <div className="model-download__error">
-              <p>Download failed: {error}</p>
-              <button type="button" className="button button--primary" onClick={handleDownload}>
-                Retry
+              <p className="model-download__error-title">{error.userMessage}</p>
+              <p className="model-download__error-detail">{error.detail}</p>
+              <button
+                type="button"
+                className="model-download__details-toggle"
+                onClick={() => setDetailsOpen((open) => !open)}
+                aria-expanded={detailsOpen}
+              >
+                {detailsOpen ? 'Hide details' : 'Details'}
               </button>
+              {detailsOpen && (
+                <details open className="model-download__details">
+                  <summary className="sr-only">Technical details</summary>
+                  <dl>
+                    <dt>Model</dt>
+                    <dd>{modelId}</dd>
+                    <dt>Error</dt>
+                    <dd>{error.technicalMessage || 'No error details were provided.'}</dd>
+                  </dl>
+                </details>
+              )}
             </div>
           )}
 
           {status !== 'confirm' && (
             <div className="model-download__actions">
               <button type="button" className="button button--ghost" onClick={handleCancel}>
-                {status === 'done' ? 'Close' : 'Cancel'}
+                {status === 'ready' || status === 'cancelled' || status === 'error'
+                  ? 'Close'
+                  : 'Cancel'}
               </button>
+              {status === 'error' && error?.retryable !== false && (
+                <button type="button" className="button button--primary" onClick={handleDownload}>
+                  Retry
+                </button>
+              )}
             </div>
           )}
         </div>

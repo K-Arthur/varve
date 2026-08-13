@@ -180,7 +180,7 @@ export const AVAILABLE_MODELS: ModelMetadata[] = [
     id: 'u2netp',
     name: 'U^2-Net Light',
     description: '4.7 MB — fast preview quality, works on most images',
-    size: 4_700_000,
+    size: 4_574_861,
     quality: 3,
     remoteUrl: 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx',
     checksum: '309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8',
@@ -209,7 +209,7 @@ export const AVAILABLE_MODELS: ModelMetadata[] = [
     id: 'birefnet-general',
     name: 'BiRefNet Full',
     description: '928 MB — best quality, handles hair/fur/transparency',
-    size: 928_000_000,
+    size: 972_666_916,
     quality: 5,
     remoteUrl:
       'https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx',

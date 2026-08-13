@@ -30,7 +30,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         id: "u2netp".to_owned(),
         name: "U^2-Net Light".to_owned(),
         description: "4.7 MB — fast preview quality, works on most images".to_owned(),
-        size_bytes: 4_700_000,
+        size_bytes: 4_574_861,
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx".to_owned(),
         checksum_sha256: Some(
             "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8".into(),
@@ -60,9 +60,11 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         id: "birefnet-general".to_owned(),
         name: "BiRefNet Full".to_owned(),
         description: "928 MB — best quality, handles hair/fur/transparency".to_owned(),
-        size_bytes: 928_000_000,
+        size_bytes: 972_666_916,
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx".to_owned(),
-        checksum_sha256: None,
+        checksum_sha256: Some(
+            "58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c".into(),
+        ),
     },
     ModelInfo {
         id: "scunet".to_owned(),
@@ -180,6 +182,57 @@ mod tests {
 
         let full = model_info("birefnet-general").expect("full model");
         assert!(full.remote_url.contains("BiRefNet-general-epoch_244"));
-        assert_eq!(full.size_bytes, 928_000_000);
+        assert_eq!(full.size_bytes, 972_666_916);
+    }
+
+    #[test]
+    fn u2netp_size_matches_the_actual_remote_and_bundled_file() {
+        // Regression: the size was rounded to 4_700_000 while the real file
+        // (rembg release asset, identical to the bundled public/models copy)
+        // is 4_574_861 bytes. The native download gate and the status API both
+        // compare exact byte sizes, so the rounded value made every u2netp
+        // download fail with "Model size mismatch" and reported the bundled
+        // model as not installed.
+        let u2netp = model_info("u2netp").expect("u2netp model");
+        assert_eq!(u2netp.size_bytes, 4_574_861);
+    }
+
+    #[test]
+    fn models_dir_resolves_inside_the_user_data_directory_not_the_app_dir() {
+        // Packaged media (AppImage, .deb, .rpm) are read-only; a model must
+        // never be written relative to the executable, the resource dir, or
+        // the working directory. dirs_next::data_dir() is the OS user-data
+        // location ($XDG_DATA_HOME / ~/.local/share on Linux, %APPDATA% on
+        // Windows, ~/Library/Application Support on macOS) — the writable
+        // per-user location that survives AppImage extraction.
+        let path = models_dir();
+        assert!(path.is_absolute(), "models dir must be absolute: {path:?}");
+        assert!(path.ends_with(std::path::Path::new("strata").join("models")));
+        let data_dir = dirs_next::data_dir().expect("user data dir");
+        assert!(
+            path.starts_with(&data_dir),
+            "models dir must live under the user data dir: {path:?}"
+        );
+        assert!(
+            !std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+                .map(|parent| path.starts_with(&parent))
+                .unwrap_or(false),
+            "models dir must never resolve under the executable directory"
+        );
+        assert_eq!(model_path("isnet-general-use"), path.join("isnet-general-use.onnx"));
+    }
+
+    #[test]
+    fn every_downloadable_model_uses_https() {
+        for model in AVAILABLE_MODELS.iter() {
+            assert!(
+                model.remote_url.starts_with("https://"),
+                "insecure model URL for {}: {}",
+                model.id,
+                model.remote_url
+            );
+        }
     }
 }
