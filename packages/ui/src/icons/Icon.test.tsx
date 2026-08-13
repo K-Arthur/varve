@@ -32,6 +32,13 @@ describe('<Icon>', () => {
     }
   });
 
+  it('keeps specialist tools visually distinguishable', () => {
+    expect(TOOL_ICONS.nodeEdit).toBe('SplinePointer');
+    expect(TOOL_ICONS.booleanIntersect).toBe('Blend');
+    expect(TOOL_ICONS.booleanExclude).toBe('CircleX');
+    expect(TOOL_ICONS.warp).toBe('Spline');
+  });
+
   it('all CHROME_ICONS values are valid Lucide names', () => {
     for (const [key, name] of Object.entries(CHROME_ICONS)) {
       expect(() => renderToStaticMarkup(<Icon name={name} label={key} />)).not.toThrow();

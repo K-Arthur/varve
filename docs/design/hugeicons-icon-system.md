@@ -97,3 +97,10 @@ creating a second snapshot baseline.
   a cold Vite rebuild and concurrent validation jobs, leaving the browser on
   the startup splash. It is not counted as a pass and must be rerun in a quiet
   environment before release. No visual baseline was updated from that run.
+- The editor workspace-mode selector intentionally remains on the existing
+  Phosphor solid family. Its seven concepts (`PenTool`, `Printer`, `PaintBrush`,
+  `Image`, `Play`, `Code`, `Stamp`) are distinct and the filled treatment gives
+  this compact segmented control the visual weight it needs. The toolbar is a
+  separate surface and remains on its previous Lucide outline family.
+- The visual matrix now captures the editor workspace switcher as its own
+  artifact in both themes, separate from the toolbar review.

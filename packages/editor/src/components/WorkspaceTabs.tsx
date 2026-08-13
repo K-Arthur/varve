@@ -51,6 +51,7 @@ const TAB_GAP = 6;
 /** Width of the "More" overflow button (icon + padding). */
 const OVERFLOW_BTN_WIDTH = 40;
 
+/** Workspace modes use distinct, high-contrast Phosphor solid concepts. */
 const SOLID_ICON_NAMES: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> = {
   design: 'penTool',
   print: 'printer',

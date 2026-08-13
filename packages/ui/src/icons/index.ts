@@ -60,13 +60,13 @@ export const TOOL_ICONS = {
   zoomIn: 'ZoomIn',
   zoom: 'ZoomIn',
   arrow: 'ArrowRight',
-  nodeEdit: 'Pointer',
+  nodeEdit: 'SplinePointer',
   scale: 'Maximize2',
   eyedropper: 'Pipette',
   booleanUnion: 'Combine',
   booleanSubtract: 'Diff',
-  booleanIntersect: 'Combine',
-  booleanExclude: 'Diff',
+  booleanIntersect: 'Blend',
+  booleanExclude: 'CircleX',
   inspect: 'SearchCode',
   paint: 'Brush',
   eraser: 'Eraser',
@@ -82,7 +82,7 @@ export const TOOL_ICONS = {
   sam2Segment: 'Scan',
   lasso: 'LassoSelect',
   table: 'Table',
-  warp: 'Grid3x3',
+  warp: 'Spline',
 } as const satisfies Record<string, IconName>;
 
 /** Filled-style tool icons (design system refresh — replaces outline TOOL_ICONS). */
