@@ -54,10 +54,10 @@ export interface ColorPickerProps {
    */
   onInteractionStart?: () => void;
   onInteractionEnd?: () => void;
-  /** Document swatches shown in the picker's swatch section. */
-  documentColors?: Color[];
-  /** Recently used colors shown in the picker's swatch section. */
-  recentColors?: Color[];
+  /** Document swatches shown in the picker's swatch section (canonical). */
+  documentColors?: ManagedColor[];
+  /** Recently used colors shown in the picker's swatch section (canonical). */
+  recentColors?: ManagedColor[];
   /**
    * Document CMYK working profile. Shown as context in the CMYK view and
    * attached to newly authored CMYK values in CMYK-mode documents.
@@ -435,12 +435,34 @@ export function ColorPicker({
     [handleFieldsChange],
   );
 
+  // Swatch selection carries the canonical ManagedColor: a swatch in its
+  // native space (matching the authoring space) is emitted unchanged at full
+  // precision; an RGB swatch is emitted through the normalized path so
+  // uint16/float channel values survive; other spaces convert via the
+  // display tuple into the authoring space.
   const handleSwatchSelect = useCallback(
-    (c: Color) => {
-      setDraftsFromRgb(c[0] / 255, c[1] / 255, c[2] / 255);
-      emitRgb(c[0], c[1], c[2], normalizeChannel(c[3], 'uint8'));
+    (c: ManagedColor) => {
+      if (c.space === authoringSpace && c.space !== 'rgb') {
+        const tuple = managedColorToRgba(c);
+        setDraftsFromRgb(tuple[0] / 255, tuple[1] / 255, tuple[2] / 255);
+        emit(c);
+        return;
+      }
+      if (c.space === 'rgb') {
+        const depth = c.bitDepth ?? 'uint8';
+        const r01 = normalizeChannel(c.r, depth);
+        const g01 = normalizeChannel(c.g, depth);
+        const b01 = normalizeChannel(c.b, depth);
+        const a01 = normalizeChannel(c.a, depth);
+        setDraftsFromRgb(r01, g01, b01);
+        emitRgbNormalized(r01, g01, b01, a01);
+        return;
+      }
+      const tuple = managedColorToRgba(c);
+      setDraftsFromRgb(tuple[0] / 255, tuple[1] / 255, tuple[2] / 255);
+      emitRgb(tuple[0], tuple[1], tuple[2], normalizeChannel(tuple[3], 'uint8'));
     },
-    [setDraftsFromRgb, emitRgb],
+    [authoringSpace, emit, emitRgb, emitRgbNormalized, setDraftsFromRgb],
   );
 
   const handleEyeDropper = useCallback(

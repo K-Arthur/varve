@@ -675,3 +675,91 @@ describe('ColorPicker — high-precision channel editing', () => {
     }
   });
 });
+
+describe('ColorPicker — swatch selection precision', () => {
+  it('selecting a uint16 document swatch keeps its channel values', () => {
+    const current: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    const swatch: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'uint16',
+      r: 32768,
+      g: 40951,
+      b: 47923,
+      a: 65535,
+    };
+    const onChange = vi.fn();
+    // The document is uint16 — the swatch must land at uint16 precision.
+    render(
+      <ColorPicker
+        value={current}
+        onChange={onChange}
+        bitDepth="uint16"
+        documentColors={[swatch]}
+      />,
+    );
+    const option = screen.getByRole('option', { name: '#809fba' });
+    act(() => {
+      option.click();
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted.space).toBe('rgb');
+    if (emitted.space === 'rgb') {
+      expect(emitted.bitDepth).toBe('uint16');
+      expect(emitted.r).toBe(32768);
+      expect(emitted.g).toBe(40951);
+      expect(emitted.b).toBe(47923);
+    }
+  });
+
+  it('selecting a uint16 swatch in a uint8 document re-authors at uint8', () => {
+    const current: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    const swatch: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'uint16',
+      r: 32768,
+      g: 40951,
+      b: 47923,
+      a: 65535,
+    };
+    const onChange = vi.fn();
+    render(<ColorPicker value={current} onChange={onChange} documentColors={[swatch]} />);
+    const option = screen.getByRole('option', { name: '#809fba' });
+    act(() => {
+      option.click();
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted.space).toBe('rgb');
+    if (emitted.space === 'rgb') {
+      // 32768/65535 ≈ 128/255 — the value survives, capped by doc depth.
+      expect(emitted.r).toBe(128);
+      expect(emitted.g).toBe(159);
+      expect(emitted.b).toBe(186);
+    }
+  });
+
+  it('selecting a native CMYK swatch in a CMYK-mode document emits it unchanged', () => {
+    const current: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    const swatch: ManagedColor = { space: 'cmyk', c: 0, m: 128, y: 0, k: 64, a: 255 };
+    const onChange = vi.fn();
+    render(
+      <ColorPicker
+        value={current}
+        onChange={onChange}
+        documentColorMode="cmyk"
+        documentColors={[swatch]}
+      />,
+    );
+    const option = screen.getByRole('option', { name: '#bf5fbf' });
+    act(() => {
+      option.click();
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted.space).toBe('cmyk');
+    if (emitted.space === 'cmyk') {
+      expect(emitted.c).toBe(0);
+      expect(emitted.m).toBe(128);
+      expect(emitted.y).toBe(0);
+      expect(emitted.k).toBe(64);
+    }
+  });
+});
