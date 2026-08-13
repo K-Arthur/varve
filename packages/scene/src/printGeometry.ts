@@ -12,7 +12,7 @@
  * never configured bleed keep exporting trim-only (legacy behaviour).
  */
 
-import { type DocumentUnit, physicalToPx } from '@varve/shared';
+import { convertDocumentUnit, type DocumentUnit, physicalToPx } from '@varve/shared';
 import type { BleedConfig, SafeAreaConfig, SlugConfig } from './colorManagement';
 import { DEFAULT_SAFE_AREA } from './colorManagement';
 import type { Document } from './document';
@@ -37,12 +37,41 @@ function resolveBleed(doc: Document, page?: { bleed?: Partial<BleedConfig> }): B
   const base = doc.bleed ?? EMPTY_BLEED;
   const pageBleed = page?.bleed;
   if (!pageBleed) return base;
+
+  // A partial page override may choose a different display unit. Convert the
+  // inherited edges before merging so the resulting BleedConfig never mixes
+  // mm/in/pt values under one unit tag.
+  const unit = pageBleed.unit ?? base.unit;
+  const inherited =
+    unit === base.unit
+      ? base
+      : {
+          ...base,
+          top: convertDocumentUnit(base.top, base.unit, unit),
+          right: convertDocumentUnit(base.right, base.unit, unit),
+          bottom: convertDocumentUnit(base.bottom, base.unit, unit),
+          left: convertDocumentUnit(base.left, base.unit, unit),
+        };
   return {
-    ...base,
+    ...inherited,
     ...pageBleed,
-    // Partial overrides keep the document's unit unless overridden.
-    unit: pageBleed.unit ?? base.unit,
+    unit,
   };
+}
+
+export type BleedEdge = 'top' | 'right' | 'bottom' | 'left';
+
+/**
+ * Update one authored bleed value without changing its physical unit.
+ * Linked configurations intentionally update all four edges together;
+ * invalid input is normalized to zero before it can reach persistence.
+ */
+export function updateBleedEdge(config: BleedConfig, edge: BleedEdge, value: number): BleedConfig {
+  const next = Number.isFinite(value) ? Math.max(0, value) : 0;
+  if (config.linked) {
+    return { ...config, top: next, right: next, bottom: next, left: next };
+  }
+  return { ...config, [edge]: next };
 }
 
 function resolveSafeArea(
