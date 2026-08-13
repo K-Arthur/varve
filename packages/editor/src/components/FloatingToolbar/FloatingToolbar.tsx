@@ -39,6 +39,7 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   select: 'Select',
   hand: 'Hand',
   zoom: 'Zoom',
+  crop: 'Crop',
   slice: 'Slice',
   eyedropper: 'Eyedropper',
   scale: 'Scale',
@@ -117,6 +118,7 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'inspect' },
   { id: 'warp' },
   { id: 'sam2Segment', groupStart: true },
+  { id: 'crop', groupStart: true },
   { id: 'paint', groupStart: true },
   { id: 'eraser' },
   { id: 'smudge' },
@@ -279,9 +281,6 @@ export function FloatingToolbar() {
   const config = useEffectiveWorkspaceConfig(workspaceMode);
   if (!config.floatingToolbar) return null;
 
-  const currentShape = (SHAPE_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
-    ? state.tool
-    : ('rect' as ToolId);
   const currentBoolean = (BOOLEAN_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
     ? state.tool
     : ('booleanUnion' as ToolId);
@@ -290,14 +289,26 @@ export function FloatingToolbar() {
   const isImageMode = workspaceMode === 'image';
   const isDesignMode = workspaceMode === 'design';
   const activeTools = isDrawingMode ? DRAWING_TOOLS : INDIVIDUAL_TOOLS;
-  const filteredTools =
-    isPrintMode || isDesignMode
-      ? activeTools.filter((t) => !STRUCTURED_MODE_HIDDEN_TOOLS.has(t.id))
-      : isImageMode
-        ? activeTools.filter((t) => !IMAGE_HIDDEN_TOOLS.has(t.id))
-        : activeTools;
+  const configuredTools = new Map(config.toolbar.tools.map((tool) => [tool.toolId, tool]));
+  const filteredTools = activeTools
+    .filter((t) => {
+      if (!configuredTools.has(t.id)) return false;
+      if ((isPrintMode || isDesignMode) && STRUCTURED_MODE_HIDDEN_TOOLS.has(t.id)) return false;
+      if (isImageMode && IMAGE_HIDDEN_TOOLS.has(t.id)) return false;
+      return true;
+    })
+    .map((tool) => ({
+      ...tool,
+      groupStart: configuredTools.get(tool.id)?.groupStart ?? tool.groupStart,
+    }));
+  const visibleShapeTools = SHAPE_SUB_TOOLS.filter((id) => configuredTools.has(id));
+  const currentShape = (visibleShapeTools as readonly ToolId[]).includes(state.tool as ToolId)
+    ? state.tool
+    : (visibleShapeTools[0] ?? ('rect' as ToolId));
+  const showBooleanTools =
+    config.toolbar.flyouts?.some((flyout) => flyout.id === 'boolean') ?? false;
 
-  const shapeItems: MenuEntry[] = SHAPE_SUB_TOOLS.map((id) => ({
+  const shapeItems: MenuEntry[] = visibleShapeTools.map((id) => ({
     id,
     label: TOOL_LABELS[id] ?? id,
     onAction: () => {
@@ -336,39 +347,43 @@ export function FloatingToolbar() {
                 <Icon name="FileSpreadsheet" size={16} />
               </button>
             )}
-            <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
-              <button
-                type="button"
-                className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
-                aria-pressed={state.tool === currentShape}
-                aria-label={TOOL_LABELS[currentShape] ?? currentShape}
-                data-tool={currentShape}
-                onClick={() => setTool(currentShape)}
-              >
-                <Icon name={iconName(currentShape)} size={16} />
-              </button>
-            </Tooltip>
-            <Tooltip label="Shapes menu">
-              <button
-                type="button"
-                className="floating-toolbar__chevron"
-                aria-label="Shapes menu"
-                onClick={(e) => {
-                  const r = e.currentTarget.getBoundingClientRect();
-                  if (shapeMenuPos) {
-                    setShapeMenuPos(null);
-                    return;
-                  }
-                  setShapeMenuPos({ x: r.left, y: r.top });
-                }}
-              >
-                <Icon name="ChevronDown" size={12} />
-              </button>
-            </Tooltip>
+            {visibleShapeTools.length > 0 && (
+              <>
+                <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
+                  <button
+                    type="button"
+                    className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
+                    aria-pressed={state.tool === currentShape}
+                    aria-label={TOOL_LABELS[currentShape] ?? currentShape}
+                    data-tool={currentShape}
+                    onClick={() => setTool(currentShape)}
+                  >
+                    <Icon name={iconName(currentShape)} size={16} />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Shapes menu">
+                  <button
+                    type="button"
+                    className="floating-toolbar__chevron"
+                    aria-label="Shapes menu"
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect();
+                      if (shapeMenuPos) {
+                        setShapeMenuPos(null);
+                        return;
+                      }
+                      setShapeMenuPos({ x: r.left, y: r.top });
+                    }}
+                  >
+                    <Icon name="ChevronDown" size={12} />
+                  </button>
+                </Tooltip>
+              </>
+            )}
             {filteredTools.map((t) => (
               <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
             ))}
-            {workspaceMode !== 'drawing' && workspaceMode !== 'image' && (
+            {showBooleanTools && (
               <>
                 <Tooltip
                   label={

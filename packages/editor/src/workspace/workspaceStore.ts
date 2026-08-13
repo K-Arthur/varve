@@ -144,6 +144,24 @@ function sanitizePreference(
     }
   }
 
+  // Sanitize per-workspace panel widths. Widths are application state rather
+  // than document content, so tolerate stale values and let the panel
+  // boundary clamp them against the current viewport when they are applied.
+  const widthRaw = pref.panelWidths;
+  const cleanWidths: Partial<Record<PanelId, number>> = {};
+  if (widthRaw && typeof widthRaw === 'object') {
+    for (const [panelId, value] of Object.entries(widthRaw)) {
+      if (
+        Object.hasOwn(base, panelId) &&
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        value > 0
+      ) {
+        cleanWidths[panelId as PanelId] = value;
+      }
+    }
+  }
+
   return {
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
@@ -153,6 +171,7 @@ function sanitizePreference(
     ...(cleanTools && Object.keys(cleanTools).length > 0
       ? { toolbarToolOverrides: cleanTools }
       : {}),
+    ...(cleanWidths && Object.keys(cleanWidths).length > 0 ? { panelWidths: cleanWidths } : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
   };
@@ -443,13 +462,17 @@ export function getEffectiveWorkspaceConfig(
 
   // Toolbar tool overrides — filter tools by visibility
   if (modePrefs.toolbarToolOverrides && Object.keys(modePrefs.toolbarToolOverrides).length > 0) {
+    // Selection, hand and zoom remain available as recovery/navigation tools.
+    // Customization may reduce clutter, but must not strand the user without
+    // a way to select objects or navigate the canvas.
+    const essentialTools = new Set<ToolId>(['select', 'hand', 'zoom']);
     result = {
       ...result,
       toolbar: {
         ...result.toolbar,
         tools: result.toolbar.tools.filter((t) => {
           const override = modePrefs.toolbarToolOverrides![t.toolId];
-          return override !== false; // visible unless explicitly hidden
+          return override !== false || essentialTools.has(t.toolId);
         }),
       },
     };
