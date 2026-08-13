@@ -1,6 +1,7 @@
 /* ResourcesPanel — Libraries + Icons tabs */
 
 .resources-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -52,4 +53,29 @@
 
 .resources-panel__pane--hidden {
   display: none;
+}
+
+/* Resize edge for the resources panel (PanelWidthDragEdge). Sits on the
+ * panel's right boundary; the container's --library-panel-width custom
+ * property drives the actual width (Shell default 300px). */
+.panel-width-edge {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: col-resize;
+  z-index: var(--elevation-z-sticky);
+}
+.panel-width-edge:hover,
+.panel-width-edge:focus-visible,
+.panel-width-edge--active {
+  background: var(--color-interactive-default);
+  opacity: 0.5;
+}
+.panel-width-edge:focus-visible {
+  outline: none;
 }

@@ -4,6 +4,7 @@ import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   attachWorkspacePreferencePlatform,
+  clearPanelWidths,
   flushWorkspacePreferences,
   getEffectiveWorkspaceConfig,
   getWorkspacePersistenceError,
@@ -13,6 +14,7 @@ import {
   resetAllPreferences,
   resetModePreferences,
   resetWorkspacePreferenceCache,
+  savePanelWidths,
   saveWorkspacePreferences,
   setPanelOverride,
   setToolbarToolOverride,
@@ -338,5 +340,29 @@ describe('workspaceStore — durable (platform) persistence', () => {
     expect(getWorkspacePersistenceError()?.message).toContain('quota exceeded');
     // …and the session snapshot is unaffected.
     expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+  });
+});
+
+describe('workspaceStore — panel widths', () => {
+  it('clearPanelWidths removes only the requested panels', () => {
+    const base = getWorkspacePreferences();
+    const withWidths = savePanelWidths(
+      savePanelWidths(base, 'design', { layers: 280, library: 360 }),
+      'design',
+      { inspector: 320 },
+    );
+    const cleared = clearPanelWidths(withWidths, 'design', ['library', 'inspector']);
+    expect(cleared.design.panelWidths?.layers).toBe(280);
+    expect(cleared.design.panelWidths?.library).toBeUndefined();
+    expect(cleared.design.panelWidths?.inspector).toBeUndefined();
+  });
+
+  it('clearPanelWidths is a no-op when nothing is saved', () => {
+    // Fresh defaults — the store cache is shared across tests in this file,
+    // so an earlier savePanelWidths would pollute getWorkspacePreferences().
+    const base = resetAllPreferences();
+    const cleared = clearPanelWidths(base, 'design', ['library']);
+    expect(cleared.design.panelWidths).toBeUndefined();
+    expect(cleared.design.customized).toBe(false);
   });
 });
