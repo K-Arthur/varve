@@ -8,6 +8,13 @@
   stroke: color-mix(in oklab, var(--color-accent-primary) 70%, transparent);
 }
 
+/* The content and draft canvases paint opaque surfaces at z-index 2/3.
+ * Keep this passive production overlay above those surfaces, while the
+ * interactive canvas overlays use z-index 10 and remain visually on top. */
+.print-overlays {
+  z-index: 5;
+}
+
 .print-bleed-band {
   fill: color-mix(in oklab, var(--color-accent-primary) 6%, transparent);
 }
