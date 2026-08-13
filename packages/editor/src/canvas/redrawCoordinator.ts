@@ -83,6 +83,8 @@ export interface FrameStateSnapshot {
    */
   mediaStamp: number;
   canvasMode: string;
+  /** Show-original override — changes rendered content without touching doc. */
+  showOriginalBgNodeId: string | null;
 }
 
 export type FrameBeginDecisionKind = 'skip' | 'present' | 'content';
@@ -154,6 +156,7 @@ export function beginContentFrame(args: {
     motion: { isPlaying: boolean; currentTime: number };
     media: { presentedStamp: number };
     canvasMode: string;
+    showOriginalBgNodeId?: string | null;
   };
   imageCacheStamp: number;
   fontLoadStamp: number;
@@ -184,6 +187,7 @@ export function beginContentFrame(args: {
     motionTime: s.motion.currentTime,
     mediaStamp: s.media.presentedStamp,
     canvasMode: s.canvasMode,
+    showOriginalBgNodeId: s.showOriginalBgNodeId ?? null,
   });
   const decision = args.coordinator.beginFrame(snapshot, args.hasPendingPresent);
   if (decision.kind === 'skip') {
@@ -225,6 +229,8 @@ export function createFrameSnapshot(args: {
   motionTime: number;
   mediaStamp: number;
   canvasMode: string;
+  /** Show-original override — changes rendered content without touching doc. */
+  showOriginalBgNodeId: string | null;
 }): FrameStateSnapshot {
   return {
     doc: args.doc,
@@ -242,6 +248,7 @@ export function createFrameSnapshot(args: {
     motionStamp: args.motionPlaying ? args.motionTime : 0,
     mediaStamp: args.mediaStamp,
     canvasMode: args.canvasMode,
+    showOriginalBgNodeId: args.showOriginalBgNodeId,
   };
 }
 
@@ -314,6 +321,12 @@ export function createRedrawCoordinator(options: RedrawCoordinatorOptions = {}):
     }
     if (previous.canvasMode !== snapshot.canvasMode) {
       reasons.push('canvas-mode');
+    }
+    // Show Original swaps a masked node's rendered pixels for its source
+    // without any document change; without this reason the frame would be
+    // suppressed and the toggle would do nothing visible.
+    if (previous.showOriginalBgNodeId !== snapshot.showOriginalBgNodeId) {
+      reasons.push('scene-mutation');
     }
     return reasons;
   }

@@ -477,6 +477,9 @@ class ModelLoader {
     return `${modelId}__externaldata`;
   }
 
+  /** One authoritative acquisition per model id; concurrent callers coalesce. */
+  private activeDownloads = new Map<string, Promise<void>>();
+
   /**
    * Fetch and store a model's external-weights sidecar, if it declares one.
    *
@@ -554,6 +557,25 @@ class ModelLoader {
   }
 
   async downloadModel(
+    modelId: string,
+    onProgress?: (loaded: number, total: number) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const active = this.activeDownloads.get(modelId);
+    if (active) return active;
+
+    const operation = this.downloadModelInternal(modelId, onProgress, signal);
+    this.activeDownloads.set(modelId, operation);
+    try {
+      await operation;
+    } finally {
+      if (this.activeDownloads.get(modelId) === operation) {
+        this.activeDownloads.delete(modelId);
+      }
+    }
+  }
+
+  private async downloadModelInternal(
     modelId: string,
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,
