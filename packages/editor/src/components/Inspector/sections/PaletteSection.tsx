@@ -142,6 +142,8 @@ export function PaletteSection() {
     ? `${source.assetId ?? source.src}:${source.contentHash ?? ''}:${JSON.stringify(source.crop ?? null)}`
     : 'none';
   const abortRef = useRef<AbortController | null>(null);
+  const sourceRef = useRef<ImageSource | null>(source);
+  sourceRef.current = source;
   const [status, setStatus] = useState<PaletteStatus>('idle');
   const [result, setResult] = useState<PaletteAnalysis | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -150,7 +152,8 @@ export function PaletteSection() {
 
   const runAnalysis = useCallback(
     async (force = false) => {
-      if (!source) return;
+      const currentSource = sourceRef.current;
+      if (!currentSource) return;
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -158,16 +161,16 @@ export function PaletteSection() {
       setErrorMessage(null);
       setSavedMessage(null);
       try {
-        const pixels = await loadBoundedPixels(source, controller.signal);
+        const pixels = await loadBoundedPixels(currentSource, controller.signal);
         const request: PaletteAnalysisRequest = {
           ...pixels,
           source: {
-            assetId: source.assetId,
-            contentHash: source.contentHash,
+            assetId: currentSource.assetId,
+            contentHash: currentSource.contentHash,
             width: pixels.width,
             height: pixels.height,
-            crop: source.crop,
-            colorProfile: source.colorProfile,
+            crop: currentSource.crop,
+            colorProfile: currentSource.colorProfile,
           },
         };
         const analysis = await analyzePaletteInWorker(
@@ -184,7 +187,7 @@ export function PaletteSection() {
         setErrorMessage(error instanceof Error ? error.message : 'Palette analysis failed.');
       }
     },
-    [colorCount, source],
+    [colorCount],
   );
 
   useEffect(() => {
