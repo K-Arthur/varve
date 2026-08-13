@@ -28,6 +28,10 @@
     "./semanticSimilarity": {
       "types": "./src/semanticSimilarity/index.ts",
       "default": "./src/semanticSimilarity/index.ts"
+    },
+    "./vision": {
+      "types": "./src/vision/index.ts",
+      "default": "./src/vision/index.ts"
     }
   },
   "scripts": {
