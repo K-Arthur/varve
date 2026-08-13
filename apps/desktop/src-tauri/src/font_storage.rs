@@ -13,6 +13,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
+use uuid::Uuid;
 
 /// Metadata stored alongside each font.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -123,11 +124,20 @@ pub fn store_font_on_filesystem(
     let font_path = dir.join(&file_name);
 
     // Atomically write font data
-    let tmp_path = dir.join(".font.tmp");
-    std::fs::write(&tmp_path, &data)
-        .map_err(|e| format!("Cannot write font file: {e}"))?;
-    std::fs::rename(&tmp_path, &font_path)
-        .map_err(|e| format!("Cannot finalize font file: {e}"))?;
+    // Never share a fixed staging name between concurrent app instances.
+    // The generated name is native path data and is not derived from the
+    // user's family name.
+    let tmp_path = dir.join(format!(".varve-font-{}.tmp", Uuid::new_v4()));
+    let write_result = std::fs::write(&tmp_path, &data)
+        .map_err(|e| format!("Cannot write font file: {e}"))
+        .and_then(|()| {
+            std::fs::rename(&tmp_path, &font_path)
+                .map_err(|e| format!("Cannot finalize font file: {e}"))
+        });
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&tmp_path);
+    }
+    write_result?;
 
     let file_size = data.len() as u64;
 
