@@ -536,6 +536,14 @@ export function createTauriPlatform(): Platform {
         return false;
       }
     },
+    async checkFilesExist(paths) {
+      const c = core();
+      try {
+        return (await c.invoke('home_check_files_exist', { paths })) as boolean[];
+      } catch {
+        return paths.map(() => false);
+      }
+    },
 
     async getViewState() {
       try {
@@ -674,9 +682,20 @@ export function createTauriPlatform(): Platform {
 
     async readDocumentText(path) {
       try {
-        return (await core().invoke('home_read_text_file_approved', { path })) as string;
-      } catch {
-        return undefined;
+        const text = (await core().invoke('home_read_text_file_approved', {
+          path,
+        })) as string;
+        return { ok: true, text };
+      } catch (err) {
+        const detail = (err ?? {}) as { kind?: string; message?: string };
+        if (detail.kind === 'NOT_FOUND') {
+          return { ok: false, reason: 'missing' };
+        }
+        return {
+          ok: false,
+          reason: 'unreadable',
+          message: detail.message ?? String(err),
+        };
       }
     },
     async saveBinaryFile(name, data, mimeType, extension) {

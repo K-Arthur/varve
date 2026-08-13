@@ -17,6 +17,7 @@ import type {
   Branch,
   Collection,
   CreateVersionInput,
+  DocumentReadResult,
   DocumentSaveTargetChoice,
   FileEntry,
   Folder,
@@ -232,6 +233,12 @@ export interface Platform {
 
   // ─── File existence ───────────────────────────────────────────────────────
   fileExists(path: string): Promise<boolean>;
+  /**
+   * Batch existence probe for missing-file sweeps. One IPC round-trip for
+   * the whole Home library instead of one probe per file. Per-path invalid
+   * input reports `false` (never found).
+   */
+  checkFilesExist(paths: string[]): Promise<boolean[]>;
 
   // ─── Thumbnails ──────────────────────────────────────────────────────────
   /**
@@ -291,9 +298,10 @@ export interface Platform {
   /** Write `contents` to an already-resolved save target. */
   writeSaveTarget(target: SaveTarget, contents: string): Promise<WriteSaveResult>;
   /** Read the current bytes of an external file target, for external-change
-   *  detection before overwriting. Returns undefined when the path is
-   *  missing/unreadable or the runtime cannot read arbitrary paths. */
-  readDocumentText(path: string): Promise<string | undefined>;
+   *  detection before overwriting. The result distinguishes a missing path
+   *  from a path that exists but cannot be read (permission, IO), so a save
+   *  never misreports a permission error as a vanished destination. */
+  readDocumentText(path: string): Promise<DocumentReadResult>;
   saveBinaryFile(
     name: string,
     data: Uint8Array,

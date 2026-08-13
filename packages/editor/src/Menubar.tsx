@@ -1576,7 +1576,11 @@ export function Menubar({
     setShowArchiveDialog,
     platform,
   } = useEditor();
-  const { entries: recentEntries, remove: removeRecent, clear: clearRecent } = useRecentFiles();
+  const {
+    entries: recentEntries,
+    remove: removeRecent,
+    clear: clearRecent,
+  } = useRecentFiles(platform);
   // `sessions` may be absent in unit-test harnesses that pass a partial state.
   const activeSession = (state.sessions ?? []).find((s) => s.id === state.activeId);
   const activeFilePath = activeSession?.filePath;
@@ -1762,6 +1766,33 @@ export function Menubar({
 
   const openRecentFile = useCallback(
     async (entry: RecentEntry) => {
+      if (entry.locator.kind === 'library') {
+        // Platform recent records are library references, not raw paths:
+        // read the document by id, restore the disk binding from the file
+        // row when one exists, and open the existing tab if already open.
+        if (!platform) {
+          setMissingFileDialog({
+            message: `Couldn't open ${entry.label} — no platform storage is available.`,
+            entryId: entry.id,
+          });
+          return;
+        }
+        const json = await platform.readFile(entry.id).catch(() => null);
+        if (!json) {
+          void platform
+            .patchRecentFile(entry.id, { name: entry.label, missing: true })
+            .catch(() => undefined);
+          setMissingFileDialog({
+            message: `Couldn't find ${entry.label} — it may have been moved or deleted`,
+            entryId: entry.id,
+          });
+          return;
+        }
+        const fileEntry = await platform.getFile(entry.id).catch(() => undefined);
+        openFile(entry.id, entry.label, fileEntry?.filePath, json);
+        return;
+      }
+
       if (entry.locator.kind === 'path') {
         if (typeof window !== 'undefined' && '__TAURI__' in window) {
           try {
@@ -1841,7 +1872,7 @@ export function Menubar({
 
       loadDocument('', { name: entry.label });
     },
-    [loadDocument, openFile],
+    [loadDocument, openFile, platform],
   );
 
   const handleAction = useCallback(
