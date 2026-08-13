@@ -17,6 +17,7 @@
 
 import type { Platform } from '@varve/platform';
 import type { ToolId } from '../tools/types';
+import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   ALL_WORKSPACE_MODES,
   getWorkspaceConfig,
@@ -465,14 +466,13 @@ export function getEffectiveWorkspaceConfig(
     // Selection, hand and zoom remain available as recovery/navigation tools.
     // Customization may reduce clutter, but must not strand the user without
     // a way to select objects or navigate the canvas.
-    const essentialTools = new Set<ToolId>(['select', 'hand', 'zoom']);
     result = {
       ...result,
       toolbar: {
         ...result.toolbar,
         tools: result.toolbar.tools.filter((t) => {
           const override = modePrefs.toolbarToolOverrides![t.toolId];
-          return override !== false || essentialTools.has(t.toolId);
+          return override !== false || ESSENTIAL_TOOL_IDS.has(t.toolId);
         }),
       },
     };

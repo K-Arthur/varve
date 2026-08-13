@@ -43,8 +43,8 @@ not merged into the analytics client.
 
 | Option | Ownership | Static Astro | Desktop | Main risk / tradeoff | Decision |
 |---|---|---:|---:|---|---|
-| No external provider | Varve | yes | yes | No measurement until an endpoint exists | Default for desktop and unconfigured site |
-| Plausible Events API | Hosted, paid; custom endpoint possible | yes | possible | Hosted processor and operational retention need review; no client secret may be used | Website adapter, only after explicit consent and `ANALYTICS_DOMAIN` |
+| No external provider | Varve | yes | yes | No measurement until an endpoint exists | Local and unconfigured builds |
+| Plausible Events API | Hosted, paid; custom endpoint possible | yes | yes | Hosted processor and operational retention need review; no client secret may be used | `varve.studio` website and desktop adapters, only after consent |
 | Umami | Open source; self-host or cloud | yes | possible | Requires operating a backend and retention/deletion policy; features such as session views must remain disabled | Future self-hosting candidate |
 | Custom Varve endpoint | Varve | not without a backend | yes | Highest maintenance/security burden | Future option only after backend threat model |
 
@@ -66,8 +66,9 @@ substitute for a legal review or provider DPA review.
 
 ## Remaining operational gaps
 
-- No production analytics ingestion endpoint is configured.
-- A future endpoint must have a documented retention period, access list,
-  deletion process, DPA/legal review, rate limiting, and server-side validation.
+- The Plausible account retention period, access list, deletion process, and
+  DPA/legal review must be recorded in the release operations checklist before
+  publishing the first analytics-enabled release.
+- Any future custom endpoint must add rate limiting and server-side validation.
 - Native WebKitGTK, WebView2, and WKWebView network behavior still requires a
   native-platform release validation once a real endpoint is enabled.

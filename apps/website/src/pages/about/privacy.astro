@@ -81,10 +81,10 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>GitHub Sponsors</strong> — for financial support. Transactions are processed through GitHub's platform. See <a href="https://docs.github.com/en/site-policy/privacy-policies" target="_blank" rel="noopener noreferrer">GitHub's Privacy Policy</a>.</li>
         </ul>
         <p>
-          Optional website analytics, when deliberately configured for a production deployment,
-          use the Plausible Events API after consent. The provider receives a normalized route and
-          aggregate event properties; no Varve secret is shipped to the browser. The default site
-          configuration does not contact Plausible.
+          Optional website analytics use the Plausible Events API after consent. The provider
+          receives normalized routes and aggregate download/outbound properties; no Varve secret,
+          personal information, or design data is shipped to the browser. Analytics are enabled
+          only in the deliberate production deployment configuration.
         </p>
       </section>
 
@@ -97,7 +97,7 @@ import { sitePath } from '../../lib/siteUrl';
           the desktop app, usage analytics, diagnostics telemetry, and crash reporting are three
           separate controls and can be changed at any time.
         </p>
-        <button type="button" class="privacy-choice" data-analytics-choice="denied">
+        <button type="button" class="privacy-choice" data-analytics-withdraw="true">
           Withdraw website analytics consent
         </button>
       </section>
@@ -106,10 +106,10 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Retention and access</h2>
         <p>
           The client keeps only a bounded in-memory queue and discards it on shutdown. Operational
-          retention for an enabled provider is configured by the Varve maintainers and must be
-          documented before production activation; no analytics backend is currently configured
-          in the default build. Access is limited to authorized maintainers, with provider account
-          security and deletion procedures handled as an operational responsibility.
+          retention for the enabled Plausible provider follows the configured provider account
+          policy and is limited to aggregate event data. Access is limited to authorized
+          maintainers, with provider account security and deletion procedures handled as an
+          operational responsibility.
         </p>
       </section>
 

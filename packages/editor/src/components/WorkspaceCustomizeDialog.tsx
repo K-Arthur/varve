@@ -9,6 +9,7 @@
 import { Dialog } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../context';
+import { ESSENTIAL_TOOL_IDS, toolLabel } from '../workspace/toolLabels';
 import {
   useEffectiveWorkspaceConfig,
   useWorkspaceCustomizations,
@@ -116,16 +117,26 @@ export function WorkspaceCustomizeDialog({
         {/* Toolbar tools */}
         <section className="workspace-customize__section">
           <h3>Toolbar Tools</h3>
+          <p className="workspace-customize__hint">
+            Select, Hand, and Zoom stay available so the canvas can always be navigated and
+            recovered.
+          </p>
           {builtIn.toolbar.tools.map((tool) => {
             const isVisible = effectiveConfig.toolbar.tools.some((t) => t.toolId === tool.toolId);
+            const isEssential = ESSENTIAL_TOOL_IDS.has(tool.toolId);
             return (
               <label key={tool.toolId} className="workspace-customize__toggle">
                 <input
                   type="checkbox"
                   checked={isVisible}
+                  disabled={isEssential}
+                  aria-label={`${toolLabel(tool.toolId)} toolbar tool${isEssential ? ' (always available)' : ''}`}
                   onChange={(e) => handleToggleTool(tool.toolId, e.target.checked)}
                 />
-                <span>{tool.toolId}</span>
+                <span>{toolLabel(tool.toolId)}</span>
+                {isEssential && (
+                  <span className="workspace-customize__always">Always available</span>
+                )}
               </label>
             );
           })}
@@ -156,7 +167,7 @@ export function WorkspaceCustomizeDialog({
                 checked={section.visible}
                 onChange={(e) => handleToggleStatusSection(section.id, e.target.checked)}
               />
-              <span>{section.id}</span>
+              <span>{section.id.replace(/([a-z])([A-Z])/g, '$1 $2')}</span>
             </label>
           ))}
         </section>
