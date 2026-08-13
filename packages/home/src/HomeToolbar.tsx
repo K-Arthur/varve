@@ -9,8 +9,8 @@ import type {
 import {
   Button,
   Popover,
+  SemanticIcon,
   SOLID_CHROME_ICONS,
-  SolidIcon,
   Tooltip,
   VarveLogo,
   ViewModeSwitcher,
@@ -108,10 +108,10 @@ export function HomeToolbar({
           ref={sidebarToggleRef}
           aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
         >
-          <SolidIcon name={SOLID_CHROME_ICONS.menu} label={undefined} />
+          <SemanticIcon name="Menu" size="sm" />
         </Button>
         <Button variant="primary" onClick={onNewFile} data-testid="new-file-button">
-          <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} />
+          <SemanticIcon name="Add" size="sm" />
           New
         </Button>
         <Button variant="ghost" onClick={onOpenFromDisk}>
@@ -154,7 +154,7 @@ export function HomeToolbar({
             }
           >
             <Button variant="ghost" aria-label="Workspace filter">
-              <SolidIcon name={SOLID_CHROME_ICONS.filter} label={undefined} size="0.85em" />
+              <SemanticIcon name="Filter" size="sm" />
               {currentWsFilterLabel}
             </Button>
           </Popover>
@@ -176,15 +176,7 @@ export function HomeToolbar({
             onClick={onSortDirToggle}
             aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
           >
-            <SolidIcon
-              name={
-                sortDirection === 'asc'
-                  ? SOLID_CHROME_ICONS.chevronUp
-                  : SOLID_CHROME_ICONS.chevronDown
-              }
-              label={undefined}
-              size="0.85em"
-            />
+            <SemanticIcon name={sortDirection === 'asc' ? 'Up' : 'Down'} size="xs" />
           </Button>
         </Tooltip>
         <ViewModeSwitcher
@@ -196,7 +188,7 @@ export function HomeToolbar({
         {onOpenSettings && (
           <Tooltip label="Settings" shortcut="Ctrl+,">
             <Button variant="ghost" onClick={onOpenSettings} aria-label="Settings">
-              <SolidIcon name={SOLID_CHROME_ICONS.settings} label={undefined} size="0.85em" />
+              <SemanticIcon name="Settings" size="sm" />
             </Button>
           </Tooltip>
         )}
