@@ -426,6 +426,7 @@ export {
   isConvertibleRgbEncoding,
   LEGACY_ASSUMED_ENCODING,
   rasterEncodingLabel,
+  rasterEncodingKey,
   rasterProvenanceLabel,
 } from './rasterColorEncoding';
 export type { BoxCandidate, ResizeHandle, ResizeOptions, SelectionBox } from './selectionBox';
