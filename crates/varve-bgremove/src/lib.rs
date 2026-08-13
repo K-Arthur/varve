@@ -8,6 +8,7 @@
 //! Without the `ai` feature, only heuristic methods are available.
 
 pub mod heuristic;
+pub mod metrics;
 
 #[cfg(feature = "ai")]
 pub mod inference;
