@@ -43,6 +43,8 @@
     "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/ibm-plex-sans": "^5.3.0",
+    "@hugeicons/core-free-icons": "^3.3.0",
+    "@hugeicons/react": "^1.1.9",
     "@phosphor-icons/react": "^2.1.10",
     "@varve/scene": "workspace:*",
     "@varve/shared": "workspace:*",
