@@ -212,8 +212,11 @@ export function App() {
           // (the document JSON may still be cached).
           const json = await platform.readFile(entry.id).catch(() => null);
           if (!json) {
-            // File is truly gone — mark recent entry as missing and abort.
-            void platform.patchRecentFile(entry.id, { name: entry.name }).catch(() => undefined);
+            // File is truly gone — record the missing state so Home and the
+            // Recent rail can surface it, and abort.
+            void platform
+              .patchRecentFile(entry.id, { name: entry.name, missing: true })
+              .catch(() => undefined);
             return;
           }
           // We have cached content but the file is missing on disk.
@@ -240,8 +243,10 @@ export function App() {
       // Normal open: read from storage.
       const json = await platform.readFile(entry.id).catch(() => null);
       if (!json) {
-        // Content not found — mark recent entry for cleanup.
-        void platform.patchRecentFile(entry.id, { name: entry.name }).catch(() => undefined);
+        // Content not found — record the missing state for the Recent rail.
+        void platform
+          .patchRecentFile(entry.id, { name: entry.name, missing: true })
+          .catch(() => undefined);
         return;
       }
 

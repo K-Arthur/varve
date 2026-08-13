@@ -74,6 +74,8 @@ export interface RecentFilePatch {
   hidden?: boolean;
   userWorkspaceTag?: EditorWorkspaceMode | null;
   name?: string;
+  /** True when the file is no longer reachable at its recorded location. */
+  missing?: boolean;
 }
 
 /** Filter config for recent-file workspace filtering. */
@@ -316,6 +318,14 @@ export type WriteSaveResult =
   | { kind: 'written' }
   | { kind: 'permission-denied'; error: SaveError }
   | { kind: 'failed'; error: SaveError };
+
+/** Pre-overwrite read of a document path. `missing` means the path does not
+ *  resolve to a file; `unreadable` means it exists but could not be read
+ *  (permission, IO, encoding); `unsupported` is used by runtimes without
+ *  path-based file access (web, memory). */
+export type DocumentReadResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: 'missing' | 'unreadable' | 'unsupported'; message?: string };
 
 // ─── Phase 1: Drafts ─────────────────────────────────────────────────────────
 /** Sentinel projectId meaning "this file is a draft" (personal sandbox). */

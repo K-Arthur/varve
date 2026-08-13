@@ -243,7 +243,17 @@ async function performSave(
     // Safety checks before overwriting: the destination may be gone (USB
     // unplugged) or changed by another app since we last read/wrote it.
     const disk = await platform.readDocumentText(target.path);
-    if (disk === undefined) {
+    if (!disk.ok) {
+      if (disk.reason === 'unreadable') {
+        const e = issue(
+          'filesystem-unavailable',
+          disk.message
+            ? `The original location exists but could not be read (${disk.message}). Use Save As to choose a new location, or retry.`
+            : 'The original location exists but could not be read. Use Save As to choose a new location, or retry.',
+        );
+        patch({ saveState: 'error', saveIssue: e });
+        return { status: 'failed', issue: e };
+      }
       const e = issue(
         'destination-missing',
         'The original location is unavailable. Use Save As to choose a new location. Recovery continues in the background.',
@@ -251,7 +261,7 @@ async function performSave(
       patch({ saveState: 'error', saveIssue: e });
       return { status: 'failed', issue: e };
     }
-    if (meta.diskContentHash && contentHash(disk) !== meta.diskContentHash) {
+    if (meta.diskContentHash && contentHash(disk.text) !== meta.diskContentHash) {
       const e = issue(
         'file-changed-externally',
         'The file changed on disk since it was opened. Save As to a new location, or use the File menu to decide how to proceed.',

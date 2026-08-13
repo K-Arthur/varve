@@ -2,7 +2,10 @@ export type FileLocator =
   | { kind: 'path'; path: string }
   | { kind: 'fsHandle'; handleKey: string }
   | { kind: 'opfs'; id: string }
-  | { kind: 'remote'; url: string };
+  | { kind: 'remote'; url: string }
+  /** A record in the platform recent-file store (SQLite on desktop,
+   *  IndexedDB on web); the document is read back by its library id. */
+  | { kind: 'library' };
 
 export interface RecentEntry {
   id: string;

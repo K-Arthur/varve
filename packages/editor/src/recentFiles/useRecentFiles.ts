@@ -1,74 +1,83 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  addEntry,
-  clearEntries,
-  loadEntries,
-  removeEntry,
-  subscribeToChanges,
-  togglePinEntry,
-} from './store';
+import type { Platform, RecentFileRecord } from '@varve/platform';
+import { useCallback, useEffect, useState } from 'react';
 import type { RecentEntry } from './types';
-import { SCHEMA_KEY } from './types';
-
-function subscribeToStorage(onChange: () => void): () => void {
-  const handler = (e: StorageEvent) => {
-    if (e.key === SCHEMA_KEY) onChange();
-  };
-  window.addEventListener('storage', handler);
-  return () => window.removeEventListener('storage', handler);
-}
+import { MAX_ENTRIES } from './types';
 
 export interface RecentFilesActions {
   entries: RecentEntry[];
-  add: (entry: Omit<RecentEntry, 'id' | 'lastOpenedAt'> & { id?: string }) => void;
   remove: (id: string) => void;
   clear: () => void;
   togglePin: (id: string) => void;
   refresh: () => void;
 }
 
-export function useRecentFiles(): RecentFilesActions {
-  const [entries, setEntries] = useState<RecentEntry[]>(() => loadEntries());
-  const generation = useRef(0);
+function recordToEntry(record: RecentFileRecord): RecentEntry {
+  return {
+    id: record.id,
+    label: record.name,
+    locator: { kind: 'library' },
+    lastOpenedAt: record.lastOpenedAt,
+    pinned: record.pinned,
+  };
+}
+
+/**
+ * The File → Open Recent surface, backed by the platform recent-file store
+ * (SQLite on desktop, IndexedDB on web) — the same store Home's Recent rail
+ * reads. Entries are library records, not raw path strings: a recent is
+ * opened by document id, and its disk binding is restored from the file row
+ * when one exists. Hidden and missing entries are excluded from the menu,
+ * but never deleted here: a temporarily unavailable network/removable file
+ * stays recoverable in Home.
+ */
+export function useRecentFiles(platform: Platform | undefined): RecentFilesActions {
+  const [entries, setEntries] = useState<RecentEntry[]>([]);
 
   const refresh = useCallback(() => {
-    const next = loadEntries();
-    setEntries(next);
-    generation.current++;
-  }, []);
+    if (!platform) {
+      setEntries([]);
+      return;
+    }
+    void platform
+      .listRecentFiles()
+      .then((records) => {
+        const visible = records
+          .filter((record) => !record.hidden && !record.missing)
+          .slice(0, MAX_ENTRIES);
+        setEntries(visible.map(recordToEntry));
+      })
+      .catch(() => setEntries([]));
+  }, [platform]);
 
   useEffect(() => {
-    const unsubStorage = subscribeToStorage(refresh);
-    const unsubChanges = subscribeToChanges(refresh);
-    return () => {
-      unsubStorage();
-      unsubChanges();
-    };
+    refresh();
   }, [refresh]);
 
-  const add = useCallback((entry: Omit<RecentEntry, 'id' | 'lastOpenedAt'> & { id?: string }) => {
-    const next = addEntry(loadEntries(), entry);
-    setEntries(next);
-    generation.current++;
-  }, []);
-
-  const removeById = useCallback((id: string) => {
-    const next = removeEntry(loadEntries(), id);
-    setEntries(next);
-    generation.current++;
-  }, []);
+  const remove = useCallback(
+    (id: string) => {
+      if (!platform) return;
+      void platform.removeRecentFile(id).catch(() => undefined);
+      refresh();
+    },
+    [platform, refresh],
+  );
 
   const clear = useCallback(() => {
-    clearEntries();
+    if (!platform) return;
+    void platform.clearRecentHistory().catch(() => undefined);
     setEntries([]);
-    generation.current++;
-  }, []);
+  }, [platform]);
 
-  const togglePin = useCallback((id: string) => {
-    const next = togglePinEntry(loadEntries(), id);
-    setEntries(next);
-    generation.current++;
-  }, []);
+  const togglePin = useCallback(
+    (id: string) => {
+      if (!platform) return;
+      const entry = entries.find((candidate) => candidate.id === id);
+      if (!entry) return;
+      void platform.patchRecentFile(id, { pinned: !entry.pinned }).catch(() => undefined);
+      refresh();
+    },
+    [entries, platform, refresh],
+  );
 
-  return { entries, add, remove: removeById, clear, togglePin, refresh };
+  return { entries, remove, clear, togglePin, refresh };
 }
