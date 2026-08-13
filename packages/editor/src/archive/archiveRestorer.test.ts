@@ -194,6 +194,31 @@ describe('archiveRestorer', () => {
       expect(result.error).toMatch(/unsafe path/i);
     });
 
+    it.each([
+      'C:/Windows/System32/file',
+      '\\\\server\\share\\file',
+      'file:///etc/passwd',
+      'dir/./file',
+    ])('rejects absolute, URL, and dot archive names: %s', async (entryName) => {
+      const { zipSync } = await import('fflate');
+      const files: Record<string, Uint8Array> = {
+        'manifest.json': strToU8(
+          JSON.stringify({
+            formatVersion: ARCHIVE_FORMAT_VERSION,
+            kind: 'settings-only',
+            appVersion: '0.1.0',
+            createdAt: new Date().toISOString(),
+            checksums: {},
+            compatibility: { minAppVersion: '0.1.0', flags: [] },
+          }),
+        ),
+        [entryName]: strToU8('malicious'),
+      };
+      const result = await validateArchive(zipSync(files));
+      expect(result.valid).toBe(false);
+      expect(result.error).toMatch(/unsafe path/i);
+    });
+
     it('rejects entries whose declared uncompressed size exceeds the per-entry cap', async () => {
       const { zipSync } = await import('fflate');
       // A highly compressible payload — small on disk, declares a huge
