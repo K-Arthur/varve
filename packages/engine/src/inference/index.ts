@@ -93,6 +93,14 @@ export {
   SCUNET_TENSOR_SPEC,
   validateScunetInput,
 } from './models/scunet';
+export type { SiglipTokenizedText } from './models/siglipText';
+export {
+  loadSiglipTokenizer,
+  SIGLIP_TOKENIZER_CACHE,
+  SIGLIP_TOKENIZER_LOCAL_URL,
+  SIGLIP_TOKENIZER_URL,
+  SiglipTokenizer,
+} from './models/siglipText';
 export type {
   TrOcrInput,
   TrOcrOutput,
