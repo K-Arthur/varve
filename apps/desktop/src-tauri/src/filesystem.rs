@@ -273,7 +273,7 @@ pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError>
 
 #[cfg(test)]
 mod tests {
-    use super::{generated_filename, validate_storage_key};
+    use super::{generated_filename, validate_portable_relative_path, validate_storage_key};
 
     #[test]
     fn generated_names_handle_windows_reserved_names_and_suffixes() {

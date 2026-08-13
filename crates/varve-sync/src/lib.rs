@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use rusqlite::{Connection, Transaction};
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Persistent storage for Strata documents.
@@ -40,6 +40,24 @@ pub struct ProjectRow {
     pub updated_at: String,
     pub pinned: bool,
     pub trashed_at: Option<String>,
+}
+
+/// Row type for recent-file entries (mirrors TS RecentFileRecord).
+#[derive(Debug, Clone)]
+pub struct RecentRow {
+    pub id: String,
+    pub name: String,
+    pub last_opened_at: i64,
+    pub opened_count: i64,
+    pub pinned: bool,
+    pub hidden: bool,
+    pub workspace_relevance: String,
+    pub user_workspace_tag: Option<String>,
+    pub encrypted: bool,
+    pub missing: bool,
+    pub version: i64,
+    pub source_workspace_id: Option<String>,
+    pub content_hash: Option<String>,
 }
 
 pub struct DocumentStore {
@@ -123,6 +141,21 @@ impl DocumentStore {
             CREATE TABLE IF NOT EXISTS view_state (
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS recent_files (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                last_opened_at INTEGER NOT NULL,
+                opened_count INTEGER NOT NULL DEFAULT 1,
+                pinned INTEGER NOT NULL DEFAULT 0,
+                hidden INTEGER NOT NULL DEFAULT 0,
+                workspace_relevance TEXT NOT NULL DEFAULT '[]',
+                user_workspace_tag TEXT,
+                encrypted INTEGER NOT NULL DEFAULT 0,
+                missing INTEGER NOT NULL DEFAULT 0,
+                version INTEGER NOT NULL DEFAULT 1,
+                source_workspace_id TEXT,
+                content_hash TEXT
             );",
         )?;
 
@@ -601,6 +634,122 @@ impl DocumentStore {
         )?;
         Ok(())
     }
+
+    // ── Recent files ──────────────────────────────────────────────────────────
+
+    fn recent_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RecentRow> {
+        Ok(RecentRow {
+            id: row.get("id")?,
+            name: row.get("name")?,
+            last_opened_at: row.get("last_opened_at")?,
+            opened_count: row.get("opened_count")?,
+            pinned: row.get("pinned")?,
+            hidden: row.get("hidden")?,
+            workspace_relevance: row.get("workspace_relevance")?,
+            user_workspace_tag: row.get("user_workspace_tag")?,
+            encrypted: row.get("encrypted")?,
+            missing: row.get("missing")?,
+            version: row.get("version")?,
+            source_workspace_id: row.get("source_workspace_id")?,
+            content_hash: row.get("content_hash")?,
+        })
+    }
+
+    /// Record an open. A re-open clears the missing state; a successful read
+    /// is the strongest evidence the file is reachable again.
+    pub fn touch_recent_file(
+        &self,
+        id: &str,
+        name: &str,
+        source_workspace_id: Option<&str>,
+        content_hash: Option<&str>,
+    ) -> Result<RecentRow, rusqlite::Error> {
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let conn = self.conn();
+        conn.execute(
+            "INSERT INTO recent_files
+                (id, name, last_opened_at, opened_count, pinned, hidden,
+                 workspace_relevance, user_workspace_tag, encrypted, missing,
+                 version, source_workspace_id, content_hash)
+             VALUES (?1, ?2, ?3, 1, 0, 0, '[]', NULL, 0, 0, 1, ?4, ?5)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                last_opened_at = excluded.last_opened_at,
+                opened_count = opened_count + 1,
+                missing = 0,
+                source_workspace_id = excluded.source_workspace_id,
+                content_hash = excluded.content_hash",
+            rusqlite::params![id, name, now_ms, source_workspace_id, content_hash],
+        )?;
+        let mut stmt = conn.prepare("SELECT * FROM recent_files WHERE id = ?1")?;
+        let mut rows = stmt.query(rusqlite::params![id])?;
+        rows.next()?
+            .map(|row| Self::recent_from_row(&row))
+            .transpose()
+            .and_then(|row| row.ok_or(rusqlite::Error::QueryReturnedNoRows))
+    }
+
+    /// Most-recent-first, newest opens first. The frontend filters hidden and
+    /// missing entries for display; the store keeps them so a temporarily
+    /// unavailable network/removable file is never silently forgotten.
+    pub fn list_recent_files(&self, limit: i64) -> Result<Vec<RecentRow>, rusqlite::Error> {
+        let conn = self.conn();
+        let mut stmt = conn.prepare(
+            "SELECT * FROM recent_files ORDER BY last_opened_at DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(rusqlite::params![limit], Self::recent_from_row)?;
+        rows.collect()
+    }
+
+    /// Apply a frontend-approved patch. Only the fields users may override are
+    /// writable here; identity fields (id, counts, timestamps) are not.
+    pub fn patch_recent_file(
+        &self,
+        id: &str,
+        pinned: Option<bool>,
+        hidden: Option<bool>,
+        user_workspace_tag: Option<Option<String>>,
+        name: Option<String>,
+        missing: Option<bool>,
+    ) -> Result<(), rusqlite::Error> {
+        let mut conn = self.conn();
+        let transaction = conn.transaction()?;
+        let current = {
+            let mut stmt = transaction.prepare("SELECT * FROM recent_files WHERE id = ?1")?;
+            let mut rows = stmt.query(rusqlite::params![id])?;
+            let Some(row) = rows.next()? else {
+                return Err(rusqlite::Error::QueryReturnedNoRows);
+            };
+            Self::recent_from_row(&row)?
+        };
+        let pinned = pinned.unwrap_or(current.pinned);
+        let hidden = hidden.unwrap_or(current.hidden);
+        let user_workspace_tag = match user_workspace_tag {
+            Some(value) => value,
+            None => current.user_workspace_tag,
+        };
+        let name = name.unwrap_or(current.name);
+        let missing = missing.unwrap_or(current.missing);
+        transaction.execute(
+            "UPDATE recent_files SET
+                pinned = ?2, hidden = ?3, user_workspace_tag = ?4, name = ?5, missing = ?6
+             WHERE id = ?1",
+            rusqlite::params![id, pinned, hidden, user_workspace_tag, name, missing],
+        )?;
+        transaction.commit()
+    }
+
+    pub fn remove_recent_file(&self, id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn();
+        conn.execute("DELETE FROM recent_files WHERE id = ?1", rusqlite::params![id])?;
+        Ok(())
+    }
+
+    pub fn clear_recent_history(&self) -> Result<(), rusqlite::Error> {
+        let conn = self.conn();
+        conn.execute("DELETE FROM recent_files", [])?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -1006,5 +1155,59 @@ mod tests {
             .list_files()
             .expect("list_files must not panic post-poison");
         assert!(files.iter().any(|f| f.id == "post-poison"));
+    }
+
+    #[test]
+    fn recent_files_record_opens_and_patch_updates_visibility_state() {
+        let store = temp_store();
+        let first = store
+            .touch_recent_file("doc-1", "Design.varve", Some("design"), Some("hash-1"))
+            .expect("first open");
+        assert_eq!(first.opened_count, 1);
+        assert!(!first.missing);
+        assert_eq!(first.source_workspace_id.as_deref(), Some("design"));
+
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let second = store
+            .touch_recent_file("doc-1", "Design.varve", None, Some("hash-2"))
+            .expect("second open");
+        assert_eq!(second.opened_count, 2);
+        assert_eq!(second.content_hash.as_deref(), Some("hash-2"));
+
+        store
+            .patch_recent_file("doc-1", None, Some(true), Some(None), None, Some(true))
+            .expect("patch hidden + missing");
+        let listed = store.list_recent_files(50).expect("list");
+        assert_eq!(listed.len(), 1);
+        assert!(listed[0].hidden);
+        assert!(listed[0].missing);
+        assert_eq!(listed[0].user_workspace_tag, None);
+
+        store
+            .patch_recent_file("doc-1", None, None, Some(Some("logo".to_string())), None, None)
+            .expect("set workspace tag");
+        let tagged = store.list_recent_files(50).expect("list again");
+        assert_eq!(tagged[0].user_workspace_tag.as_deref(), Some("logo"));
+
+        store.remove_recent_file("doc-1").expect("remove");
+        assert!(store.list_recent_files(50).expect("list after remove").is_empty());
+    }
+
+    #[test]
+    fn recent_files_are_sorted_newest_first_and_bounded() {
+        let store = temp_store();
+        store.touch_recent_file("a", "A.varve", None, None).expect("a");
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        store.touch_recent_file("b", "B.varve", None, None).expect("b");
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        store.touch_recent_file("c", "C.varve", None, None).expect("c");
+
+        let listed = store.list_recent_files(2).expect("bounded list");
+        assert_eq!(listed.len(), 2);
+        assert_eq!(listed[0].id, "c");
+        assert_eq!(listed[1].id, "b");
+
+        store.clear_recent_history().expect("clear");
+        assert!(store.list_recent_files(50).expect("list after clear").is_empty());
     }
 }
