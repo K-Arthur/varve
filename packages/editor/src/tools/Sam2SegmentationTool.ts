@@ -21,7 +21,7 @@ export class Sam2SegmentationTool extends BaseTool {
   id = 'sam2Segment' as const;
   private points: SegmentationPoint[] = [];
   private pendingBox: { x1: number; y1: number; x2: number; y2: number } | null = null;
-  private isDrawingBox = false;
+  private pendingPoint: SegmentationPoint | null = null;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
@@ -30,43 +30,44 @@ export class Sam2SegmentationTool extends BaseTool {
   override onActivate(_ctx: ToolContext): void {
     this.points = [];
     this.pendingBox = null;
-    this.isDrawingBox = false;
+    this.pendingPoint = null;
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
     if (e.button !== 0) return { consumed: false };
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-
-    // Shift+click = background point, plain click = foreground point
-    const label: 0 | 1 = e.shiftKey ? 0 : 1;
-    this.points.push({ x: world.x, y: world.y, label });
-
-    // Start potential box drag
-    this.isDrawingBox = true;
-    this.pendingBox = { x1: world.x, y1: world.y, x2: world.x, y2: world.y };
-
-    ctx.setPointerCapture(e.pointerId);
-    return { consumed: true, captured: true };
+    // A press is a point only after pointer-up confirms that it did not become
+    // a box. This prevents a box prompt from silently receiving an extra
+    // foreground point at its top-left corner.
+    this.pendingPoint = { x: world.x, y: world.y, label: e.shiftKey ? 0 : 1 };
+    this.pendingBox = null;
+    return super.onPointerDown(e, ctx);
   }
 
   override onDragMove(ctx: ToolContext): void {
-    if (!this.isDrawingBox || !this.pendingBox) return;
+    if (!this.pendingPoint) return;
     const world = ctx.canvasToWorld(this.drag.currentCanvas.x, this.drag.currentCanvas.y);
-    this.pendingBox.x2 = world.x;
-    this.pendingBox.y2 = world.y;
+    this.pendingBox = {
+      x1: this.pendingPoint.x,
+      y1: this.pendingPoint.y,
+      x2: world.x,
+      y2: world.y,
+    };
   }
 
   override onDragEnd(ctx: ToolContext): void {
-    this.isDrawingBox = false;
+    const point = this.pendingPoint;
+    this.pendingPoint = null;
+    if (!point) return;
 
-    // If the box has negligible area, treat as point-only prompt
-    if (this.pendingBox) {
-      const { x1, y1, x2, y2 } = this.pendingBox;
-      const area = Math.abs(x2 - x1) * Math.abs(y2 - y1);
-      if (area < 100) {
-        this.pendingBox = null;
-      }
+    const moved =
+      this.drag.kind === 'dragging' &&
+      (Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x) > 3 ||
+        Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y) > 3);
+    if (!moved || !this.pendingBox) {
+      this.pendingBox = null;
+      this.points.push(point);
     }
 
     // Trigger segmentation
@@ -74,7 +75,7 @@ export class Sam2SegmentationTool extends BaseTool {
   }
 
   override onDragCancel(_ctx: ToolContext): void {
-    this.isDrawingBox = false;
+    this.pendingPoint = null;
     this.pendingBox = null;
   }
 
@@ -82,8 +83,15 @@ export class Sam2SegmentationTool extends BaseTool {
     if (!(e instanceof KeyboardEvent)) return false;
     if (e.key === 'Escape') {
       this.points = [];
+      this.pendingPoint = null;
       this.pendingBox = null;
       ctx.announce('Selection cancelled');
+      return true;
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      if (this.points.length === 0) return false;
+      this.points.pop();
+      void this.runSegmentation(ctx);
       return true;
     }
     if (e.key === 'Enter') {

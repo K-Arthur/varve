@@ -10,7 +10,7 @@ import type { Document, NodeId } from '@varve/scene';
 import { useCallback, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
-import { nodeWorldBounds } from '../scene/world';
+import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import type { EditorState } from './types';
 
 type WorkerTensor = { data: Float32Array; dims: number[] };
@@ -162,8 +162,13 @@ export function useSam2Segmentation(
 
       if (combinedSignal.aborted) return null;
 
-      const worldBounds = nodeWorldBounds(currentDoc, nodeId);
-      const normPrompts = normalizePromptsTo01(prompts, worldBounds, naturalW, naturalH);
+      const imageMapper = prepareImageMaskMapper({
+        document: currentDoc,
+        node,
+        sourceWidth: naturalW,
+        sourceHeight: naturalH,
+      });
+      const normPrompts = normalizePromptsTo01(prompts, imageMapper, naturalW, naturalH);
 
       const encoderId = 'sam2-hiera-tiny-encoder';
       const decoderId = 'sam2-hiera-tiny-decoder';
@@ -369,35 +374,40 @@ function normalizePromptsTo01(
     points?: Array<{ x: number; y: number; label: 0 | 1 }>;
     box?: { x1: number; y1: number; x2: number; y2: number };
   },
-  worldBounds: { x: number; y: number; w: number; h: number } | null,
+  imageMapper: ReturnType<typeof prepareImageMaskMapper>,
   naturalW: number,
   naturalH: number,
 ): {
   points?: Array<{ x: number; y: number; label: 0 | 1 }>;
   box?: { x1: number; y1: number; x2: number; y2: number };
 } {
-  const bw = worldBounds?.w ?? naturalW;
-  const bh = worldBounds?.h ?? naturalH;
-  const bx = worldBounds?.x ?? 0;
-  const by = worldBounds?.y ?? 0;
-
   const result: typeof prompts = {};
 
   if (prompts.points) {
-    result.points = prompts.points.map((p) => ({
-      x: Math.max(0, Math.min(1, (p.x - bx) / bw)),
-      y: Math.max(0, Math.min(1, (p.y - by) / bh)),
-      label: p.label,
-    }));
+    result.points = prompts.points.flatMap((p) => {
+      const pixel = imageMapper?.mapWorldPoint({ x: p.x, y: p.y });
+      if (!pixel) return [];
+      return [
+        {
+          x: Math.max(0, Math.min(1, pixel.x / naturalW)),
+          y: Math.max(0, Math.min(1, pixel.y / naturalH)),
+          label: p.label,
+        },
+      ];
+    });
   }
 
   if (prompts.box) {
-    result.box = {
-      x1: Math.max(0, Math.min(1, (prompts.box.x1 - bx) / bw)),
-      y1: Math.max(0, Math.min(1, (prompts.box.y1 - by) / bh)),
-      x2: Math.max(0, Math.min(1, (prompts.box.x2 - bx) / bw)),
-      y2: Math.max(0, Math.min(1, (prompts.box.y2 - by) / bh)),
-    };
+    const first = imageMapper?.mapWorldPoint({ x: prompts.box.x1, y: prompts.box.y1 });
+    const second = imageMapper?.mapWorldPoint({ x: prompts.box.x2, y: prompts.box.y2 });
+    if (first && second) {
+      result.box = {
+        x1: Math.max(0, Math.min(1, Math.min(first.x, second.x) / naturalW)),
+        y1: Math.max(0, Math.min(1, Math.min(first.y, second.y) / naturalH)),
+        x2: Math.max(0, Math.min(1, Math.max(first.x, second.x) / naturalW)),
+        y2: Math.max(0, Math.min(1, Math.max(first.y, second.y) / naturalH)),
+      };
+    }
   }
 
   return result;
