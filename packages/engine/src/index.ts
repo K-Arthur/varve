@@ -745,6 +745,7 @@ export {
   buildMatrixProfile,
   convertExportImageData,
   convertImageDataTiled,
+  convertPixelBufferFormat,
   createAnalyticRgbTransform,
   defaultTransferFor,
   EXPORT_COLOR_POLICIES,

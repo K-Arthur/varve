@@ -24,6 +24,7 @@ export {
 export {
   allocatePixelBuffer,
   BYTES_PER_PIXEL,
+  convertPixelBufferFormat,
   DEFAULT_PIXEL_BUFFER_BUDGET_BYTES,
   float32ToHalfFloat,
   halfFloatToFloat32,

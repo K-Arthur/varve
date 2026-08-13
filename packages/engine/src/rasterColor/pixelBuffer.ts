@@ -81,6 +81,73 @@ export function allocatePixelBuffer(
   return { descriptor, data };
 }
 
+/**
+ * Copy a pixel buffer into an explicitly selected storage format.
+ *
+ * This is the quantization boundary: the source buffer is never mutated, and
+ * integer targets clamp/round only while writing the requested target plane.
+ * Color encoding and alpha semantics remain unchanged because this operation
+ * changes storage precision, not what the channels mean.
+ */
+export function convertPixelBufferFormat(
+  source: PixelBuffer,
+  targetFormat: PixelBufferFormat,
+  budgetBytes = DEFAULT_PIXEL_BUFFER_BUDGET_BYTES,
+): PixelBuffer {
+  assertPixelBufferData(source);
+  const target = allocatePixelBuffer({ ...source.descriptor, format: targetFormat }, budgetBytes);
+  for (let i = 0; i < source.data.length; i += 1) {
+    writeFormatChannel(
+      target.data,
+      targetFormat,
+      i,
+      readFormatChannel(source.data, source.descriptor.format, i),
+    );
+  }
+  return target;
+}
+
+function assertPixelBufferData(buffer: PixelBuffer): void {
+  const expected = buffer.descriptor.width * buffer.descriptor.height * 4;
+  if (buffer.data.length !== expected) {
+    throw new RangeError(`pixel buffer data length must be ${expected}`);
+  }
+  const { format } = buffer.descriptor;
+  const valid =
+    (format === 'rgba8' && buffer.data instanceof Uint8Array) ||
+    ((format === 'rgba16' || format === 'rgba16f') && buffer.data instanceof Uint16Array) ||
+    (format === 'rgba32f' && buffer.data instanceof Float32Array);
+  if (!valid) throw new TypeError(`pixel buffer data does not match ${format}`);
+}
+
+function readFormatChannel(
+  data: PixelBufferData,
+  format: PixelBufferFormat,
+  index: number,
+): number {
+  if (format === 'rgba8') return (data as Uint8Array)[index]! / 255;
+  if (format === 'rgba16') return (data as Uint16Array)[index]! / 65535;
+  if (format === 'rgba16f') return halfFloatToFloat32((data as Uint16Array)[index]!);
+  return (data as Float32Array)[index]!;
+}
+
+function writeFormatChannel(
+  data: PixelBufferData,
+  format: PixelBufferFormat,
+  index: number,
+  value: number,
+): void {
+  if (format === 'rgba8') {
+    (data as Uint8Array)[index] = value <= 0 ? 0 : value >= 1 ? 255 : Math.round(value * 255);
+  } else if (format === 'rgba16') {
+    (data as Uint16Array)[index] = value <= 0 ? 0 : value >= 1 ? 65535 : Math.round(value * 65535);
+  } else if (format === 'rgba16f') {
+    (data as Uint16Array)[index] = float32ToHalfFloat(value);
+  } else {
+    (data as Float32Array)[index] = value;
+  }
+}
+
 /** Human-readable format label for diagnostics. */
 export function pixelFormatLabel(format: PixelBufferFormat): string {
   switch (format) {
