@@ -227,6 +227,7 @@ written and are not updated retroactively. Current guidance lives in
 | `architecture/inspector-feature-ownership.md` | Inspector feature ownership |
 | `architecture/icon-library.md` / `architecture/icon-system-naming.md` | Icon library and naming contract |
 | `architecture/onnx-inference-architecture.md` | ONNX inference architecture |
+| `architecture/semantic-asset-similarity.md` | Local image-to-image similarity, duplicate lanes, model/runtime boundaries, and current limitations |
 | `architecture/int8-quantization.md` | INT8 model quantization |
 | `architecture/realesrgan-packaging.md` | Real-ESRGAN model packaging |
 | `architecture/debug-overlays.md` | Debug overlay contract |
