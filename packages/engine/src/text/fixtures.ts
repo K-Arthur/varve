@@ -51,9 +51,9 @@ export const SCRIPT_FIXTURES = {
   /** CJK (Japanese). */
   cjk: '日本語のテキストです',
   /** Emoji ZWJ family sequence — must stay one grapheme. */
-  emojiZwj: '👨‍👩‍👧‍👦',
+  emojiZwj: '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}',
   /** Regional indicators flag. */
-  emojiFlag: '🇧🇷',
+  emojiFlag: '\u{1f1e7}\u{1f1f7}',
   /** Combining marks after base. */
   combining: 'e\u0301\u0300',
   /** Hebrew. */
