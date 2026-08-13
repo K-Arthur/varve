@@ -507,7 +507,7 @@ export function isDirectionalIcon(name: SemanticIconName): boolean {
 export interface SemanticIconProps extends Omit<SVGProps<SVGSVGElement>, 'name' | 'size'> {
   /** Semantic concept name — the only name feature code should use. */
   name: SemanticIconName;
-  /** Visual family. Defaults to 'outline' (Lucide). */
+  /** Visual family. Defaults to 'huge' (Hugeicons Stroke Rounded). */
   family?: IconFamily;
   /** Pixel size, CSS size, or a semantic size token (default 'md' = 16px). */
   size?: number | string | IconSizeToken;

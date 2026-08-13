@@ -1,4 +1,4 @@
-import { useState } from '@storybook/preview-api';
+import { useState } from 'storybook/preview-api';
 import type { Meta, StoryObj } from '@storybook/react';
 import { RadioGroup } from './Radio';
 

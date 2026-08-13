@@ -38,9 +38,6 @@ overrides:
   # patched 0.35 line. Build script stays blocked (allowBuilds) and the
   # website does not configure the sharp image service.
   "sharp": 0.35.3
-  # GHSA-w5hq-g745-h8pq: uuid v3/v5/v6 buffer bounds check. storybook
-  # addon-actions (dev-only) uses uuid v4; 11.x keeps the CJS entry point.
-  "uuid": 11.1.1
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
