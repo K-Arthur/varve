@@ -1,7 +1,8 @@
 # Varve filesystem boundary
 
-Status: foundational contract introduced 2026-08-13; document lifecycle and
-archive/import migrations remain follow-up slices.
+Status: foundational contract introduced 2026-08-13; document lifecycle,
+archive/import migrations, and platform-native packaged-build tests remain
+follow-up slices. The slices below were implemented 2026-08-13.
 
 Varve treats these as different values:
 
@@ -100,6 +101,7 @@ platform adapter, never in a separator replacement helper.
 | Fonts | font commands / native service | app-managed | native | persistent | app data `fonts/`; unique staging names |
 | Models | download command / native service | app-managed + checksum | native | persistent | app data `models/` |
 | Recovery | editor recovery service | app-managed | native | durable until cleared | state `recovery/` |
+| Recent files | Home SQLite store | app-managed | library ids, not raw paths | durable | app data `documents.db` |
 | Crash reports | native panic hook / crash service | app-managed | native | bounded queue | state `crash-reports/` |
 | Thumbnails | home/index service | app-managed | native cache key | regenerable | cache `thumbnails/` |
 | Logs | native runtime | app-managed | native | bounded/rotated | Tauri app log dir |
@@ -109,7 +111,48 @@ platform adapter, never in a separator replacement helper.
 
 The contract does not claim that every legacy document/import/export path has
 already migrated. The next slices must apply it to Save As transactions,
-recent-file availability states, external linked assets, archive extraction,
-symlink-aware cleanup, temporary ownership, and packaged-build tests on each
-supported OS. Those operations must preserve the same distinction between
-portable references, native paths, URLs, and display strings.
+external linked assets, archive extraction, symlink-aware cleanup, temporary
+ownership, and packaged-build tests on each supported OS. Those operations
+must preserve the same distinction between portable references, native paths,
+URLs, and display strings.
+
+## Implemented since the contract (2026-08-13)
+
+- **Native recent-file store.** `recent_files` table (schema v2) in the Home
+  SQLite store with touch/list/patch/remove/clear commands. The frontend
+  facade already spoke this contract; the native side was missing entirely,
+  so the File → Open Recent menu was permanently empty in production. Records
+  keep `missing` and `hidden` state instead of being deleted when a path is
+  temporarily unavailable, so a network/removable volume that reconnects
+  does not lose history. The menu now opens records by library id and
+  restores the disk binding from the file row.
+- **Missing-file state is written.** `App.tsx` records `missing: true` when a
+  document's path or cached content is gone; a successful open clears it via
+  the touch command.
+- **Batch existence probes.** `home_check_files_exist` resolves Home's
+  per-file missing sweep in one IPC round-trip. `home_file_exists` rejects
+  relative and NUL-containing input so the command cannot act as an arbitrary
+  path oracle.
+- **Typed read errors.** `home_read_text_file_approved` returns structured
+  `FsError` categories; the pre-overwrite read in the editor now distinguishes
+  a vanished destination from a location that exists but cannot be read.
+- **Model-boundary validation.** The `varve-upscale` model id is validated as
+  a storage key at the command boundary so a `../` component can never escape
+  the models root on a read. Background-removal ids were already allow-listed.
+- **No CWD fallbacks.** The standalone inference crates' model-dir fallback
+  never resolves to the process working directory; it uses the OS data or
+  temp root.
+- **Atomic metadata writes.** Font `meta.json` and native model writes are
+  staged through unique sibling temporary files and atomic replacement
+  (Windows replace-retry, never delete-then-write).
+- **Bounded app-owned logs.** `logs.rs` writes `varve.log` into the
+  Tauri-resolved app log directory with rotation (1 MiB, 2 generations) and
+  redacts real HOME/USERPROFILE/temp/app roots before they reach the log.
+  Legacy-migration outcomes are recorded there.
+- **Collision-safe print staging.** Print temp files carry pid + timestamp
+  (no cross-process counter collision) and a stale sweep removes only
+  `varve_print_*` leftovers older than a day.
+- **Export naming.** `formatFileName` collapses a duplicate trailing
+  extension (`logo.png.png` → `logo.png`, case-insensitive) while keeping
+  legitimate interior dots; `extensionForExport` never derives `"."` from a
+  trailing-dot filename.

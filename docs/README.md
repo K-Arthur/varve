@@ -377,6 +377,7 @@ accessibility, platform UX, inference, and more). They are point-in-time
 records; check the current code before acting on their findings.
 
 | `audits/color-quantization-boundary-inventory.md` | Current high-precision color quantization-boundary inventory |
+| `audits/filesystem-hardening-2026-08-13.md` | Cross-OS directory/path hardening pass: findings fixed, storage map, limitations |
 
 ## Website-specific (current state)
 
