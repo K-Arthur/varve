@@ -788,7 +788,7 @@ export type {
   RasterTraceResult,
 } from './rasterTrace';
 export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
-export type { ReplayTarget } from './replay';
+export type { EffectMaskResolver, ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
 export {
   buildBrushMask,

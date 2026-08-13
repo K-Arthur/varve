@@ -43,11 +43,11 @@ export function buildCompositingDependencyGraph(doc: Document): CompositingDepen
     }
     for (const effect of effectList(node)) {
       const source = effect.mask?.source;
-      if (source?.kind === 'scene-node' && effect.id) {
+      if (source?.kind === 'scene-node') {
         edges.push({
           sourceNodeId: source.nodeId,
           targetNodeId: node.id,
-          effectId: effect.id,
+          ...(effect.id ? { effectId: effect.id } : {}),
           kind: 'effect-mask',
         });
       }
@@ -64,6 +64,33 @@ export function findCompositingDependents(doc: Document, sourceNodeId: NodeId): 
         .map((edge) => edge.targetNodeId),
     ),
   ];
+}
+
+/** Find every transitive repaint dependent of a changed matte source. */
+export function findAllCompositingDependents(
+  doc: Document,
+  sourceNodeIds: Iterable<NodeId>,
+): NodeId[] {
+  const adjacency = new Map<NodeId, NodeId[]>();
+  for (const edge of buildCompositingDependencyGraph(doc)) {
+    const targets = adjacency.get(edge.sourceNodeId) ?? [];
+    targets.push(edge.targetNodeId);
+    adjacency.set(edge.sourceNodeId, targets);
+  }
+  const pending = [...sourceNodeIds];
+  const seenSources = new Set<NodeId>();
+  const dependents = new Set<NodeId>();
+  while (pending.length > 0) {
+    const sourceNodeId = pending.shift()!;
+    if (seenSources.has(sourceNodeId)) continue;
+    seenSources.add(sourceNodeId);
+    for (const dependent of adjacency.get(sourceNodeId) ?? []) {
+      if (dependents.has(dependent)) continue;
+      dependents.add(dependent);
+      pending.push(dependent);
+    }
+  }
+  return [...dependents];
 }
 
 /** Return explicit compositing cycles as repeated node-id paths. */

@@ -13,7 +13,7 @@
 
 import { expandGradientStops, managedColorToRgba } from '@varve/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
-import { compositeMaskedEffectPixels } from './effectMaskCompositor';
+import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 import {
   applyChromaticAberration,
   applyGlassMaterialBackdrop,
@@ -154,6 +154,15 @@ export interface ReplayTarget {
   /** Read the current transform matrix (Canvas2D getTransform). */
   getTransform?(): { a: number; b: number; c: number; d: number; e: number; f: number };
 }
+
+/** Resolve non-raster effect masks in a structural scene replay. */
+export type EffectMaskResolver = (
+  binding: NonNullable<NonNullable<RenderItem['effects']>[number]['mask']>,
+  item: RenderItem,
+  target: ReplayTarget,
+  width: number,
+  height: number,
+) => PixelImageData | undefined;
 
 export interface ReplayPattern {
   /** Transform the pattern's coordinate system. */
@@ -337,11 +346,29 @@ function applyRasterEffectMask(
   canvas: CompositeCanvas,
   input: ImageData,
   effect: NonNullable<RenderItem['effects']>[number],
+  item: RenderItem,
+  effectMaskResolver?: EffectMaskResolver,
 ): void {
   const binding = effect.mask;
   const source = binding?.source;
-  if (!binding || binding.visible === false || source?.kind !== 'raster-asset' || !source.src)
+  if (!binding || binding.visible === false) return;
+  if (source?.kind !== 'raster-asset') {
+    const mask = effectMaskResolver?.(
+      binding,
+      item,
+      canvas.ctx as unknown as ReplayTarget,
+      input.width,
+      input.height,
+    );
+    if (!mask) return;
+    const evaluated = canvas.getImageData(0, 0, canvas.width, canvas.height);
+    const merged = compositeMaskedEffectPixels(input, evaluated, mask, binding);
+    canvas.putImageData(merged as unknown as ImageData, 0, 0);
     return;
+  }
+  if (!source.src) {
+    return;
+  }
   const image = resolveReplayImage(source.src, imageLookupForCurrentReplay, getImageCache());
   if (!image) return;
   const maskBuffer = createEffectBuffer(canvas.canvas.width, canvas.canvas.height);
@@ -638,11 +665,13 @@ function paintInsetEffect(
  * This avoids threading a parameter through 7 levels of function calls.
  */
 let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined) | null = null;
+let effectMaskResolverForCurrentReplay: EffectMaskResolver | null = null;
 
 function replayItemOnIsolatedSurface(
   target: ReplayTarget,
   item: RenderItem,
   imageLookup?: (src: string) => CanvasImageSource | undefined,
+  effectMaskResolver?: EffectMaskResolver,
 ): boolean {
   const canvas = target.canvas;
   if (
@@ -681,6 +710,7 @@ function replayItemOnIsolatedSurface(
       },
     ],
     imageLookup,
+    effectMaskResolver ?? effectMaskResolverForCurrentReplay ?? undefined,
   );
   applyFilterWithCompositing(
     surface.context as CanvasRenderingContext2D,
@@ -712,6 +742,7 @@ export function replayIr(
   target: ReplayTarget,
   ir: readonly RenderItem[],
   imageLookup?: (src: string) => CanvasImageSource | undefined,
+  effectMaskResolver?: EffectMaskResolver,
 ): void {
   // Sweep expired backdrop cache entries (preserves recent entries across frames)
   sweepBackdropCache();
@@ -719,10 +750,19 @@ export function replayIr(
   gradientCache.nextFrame();
   gradientCache.sweep();
   const previousImageLookup = imageLookupForCurrentReplay;
+  const previousEffectMaskResolver = effectMaskResolverForCurrentReplay;
   imageLookupForCurrentReplay = imageLookup ?? previousImageLookup;
+  effectMaskResolverForCurrentReplay = effectMaskResolver ?? previousEffectMaskResolver;
   try {
     for (const item of ir) {
-      if (replayItemOnIsolatedSurface(target, item, imageLookupForCurrentReplay ?? undefined)) {
+      if (
+        replayItemOnIsolatedSurface(
+          target,
+          item,
+          imageLookupForCurrentReplay ?? undefined,
+          effectMaskResolverForCurrentReplay ?? undefined,
+        )
+      ) {
         continue;
       }
       target.save();
@@ -824,7 +864,13 @@ export function replayIr(
               } else if (effect.type === 'glitch') {
                 applyGlitch(cc, cc.width, cc.height, effect);
               }
-              applyRasterEffectMask(cc, input, effect);
+              applyRasterEffectMask(
+                cc,
+                input,
+                effect,
+                item,
+                effectMaskResolverForCurrentReplay ?? undefined,
+              );
             }
 
             target.save();
@@ -961,6 +1007,7 @@ export function replayIr(
     }
   } finally {
     imageLookupForCurrentReplay = previousImageLookup;
+    effectMaskResolverForCurrentReplay = previousEffectMaskResolver;
   }
 }
 

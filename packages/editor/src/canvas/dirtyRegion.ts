@@ -9,6 +9,7 @@
 import type { Document, NodeId, RasterLayerNode } from '@varve/scene';
 import {
   buildParentIndexMap,
+  findAllCompositingDependents,
   isContainer,
   pageBoundsInWorld,
   parseTileKey,
@@ -34,6 +35,7 @@ export type DirtyRectReason =
   | 'node-after'
   | 'node-added'
   | 'node-removed'
+  | 'compositing-dependent'
   | 'raster-tile'
   | 'page-before'
   | 'page-after';
@@ -201,7 +203,19 @@ export function computeDocumentDirtyRegion(
   recorder?: DirtyRegionRecorder,
 ): DirtyRegion {
   if (previous === next || forceFull) return { kind: forceFull ? 'full' : 'none' };
-  const ids = new Set<NodeId>([...Object.keys(previous.nodes), ...Object.keys(next.nodes)]);
+  const changedNodeIds = new Set<NodeId>([
+    ...Object.keys(previous.nodes).filter((id) => previous.nodes[id] !== next.nodes[id]),
+    ...Object.keys(next.nodes).filter((id) => previous.nodes[id] !== next.nodes[id]),
+  ]);
+  const dependencyIds = new Set<NodeId>([
+    ...findAllCompositingDependents(previous, changedNodeIds),
+    ...findAllCompositingDependents(next, changedNodeIds),
+  ]);
+  const ids = new Set<NodeId>([
+    ...Object.keys(previous.nodes),
+    ...Object.keys(next.nodes),
+    ...dependencyIds,
+  ]);
   let bounds: Rect | null = null;
   let rectCount = 0;
   let changed = false;
@@ -290,8 +304,19 @@ export function computeDocumentDirtyRegion(
   for (const id of ids) {
     const before = previous.nodes[id];
     const after = next.nodes[id];
-    if (before === after) continue;
+    if (before === after && !dependencyIds.has(id)) continue;
     changed = true;
+
+    if (before === after && dependencyIds.has(id)) {
+      if (!nextParents) nextParents = buildParentIndexMap(next);
+      const parents = nextParents;
+      const dependentBounds = nodeVisualWorldBounds(next, id, nextStyles, parents);
+      if (!dependentBounds) return { kind: 'full' };
+      recorder?.add(dependentBounds, 'compositing-dependent', id);
+      bounds = unionBounds(bounds, dependentBounds);
+      rectCount++;
+      continue;
+    }
 
     if ((before && isContainer(before)) || (after && isContainer(after))) {
       return { kind: 'full' };

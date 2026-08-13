@@ -170,9 +170,11 @@ export type EffectMaskSourceIR =
   | { kind: 'raster-asset'; assetId: string; src?: string }
   | {
       kind: 'vector';
-      points: PathPoint[];
-      closed: boolean;
-      fillRule: 'nonzero' | 'evenodd';
+      vectorMask: {
+        points: PathPoint[];
+        closed: boolean;
+        fillRule: 'nonzero' | 'evenodd';
+      };
     };
 
 export interface EffectMaskBindingIR {
