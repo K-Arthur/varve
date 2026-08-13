@@ -47,7 +47,7 @@ serialization, and test paths are also present.
 | Raster / brush mask | `RasterMaskData` + document asset | paint/commit/remove | image-fill and frame paths | structural Canvas2D fallback except leaf IR alpha masks | mask tool and inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask, PDF raster fallback | asset, replay, E2E | complete for supported coordinate spaces |
 | Group/frame clipping | container-owned mask | create/release/reparent | nested structural replay | structural Canvas2D fallback | visible source/content labels | invariant repair on load | importer groups | native SVG where possible | transform, nesting, E2E | complete |
 | Effect spatial mask | adjustment-owned `mask` | mask CRUD | output-region compositing | structural Canvas2D fallback | Mask inspector | stable node references | format-dependent | rasterized boundary where needed | replay + E2E | complete |
-| Effect-local mask | `Effect.mask` + `EffectMaskBinding` | effect mask CRUD | raster effect stages; scene-node/vector sources are staged structural work | structural Canvas2D fallback | contract present; inspector integration pending | additive JSON; deterministic effect IDs | source-dependent | smallest correct raster boundary | unit coverage; E2E pending | staged |
+| Effect-local mask | `Effect.mask` + `EffectMaskBinding` | effect mask CRUD | raster effect stages + structural scene-node/vector replay | structural Canvas2D fallback | per-effect live source picker and parameters | additive JSON; deterministic effect IDs | source-dependent | smallest correct raster boundary | unit + inspector coverage; E2E pending | staged |
 | Explicit effect targets | `AdjustmentScope` stable IDs | scope mutation | target-only source replay | structural Canvas2D fallback | accessible target picker | clone/copy remap, missing-target filtering | not applicable | rasterized adjustment boundary | scope + replay + UI | complete for four scope modes |
 | Frame clipping intersection | `clipContent` + mask | existing frame commands | clip intersection | structural Canvas2D fallback | frame + mask sections | JSON | SVG/frame import | raster/PDF fallback | replay + E2E | complete |
 
@@ -75,7 +75,17 @@ masks and effect-local masks. A source edit therefore has a discoverable path
 to its dependent repaint. `setEffectMask()` rejects missing sources, self
 references, group sources that contain their owner, and explicit graph cycles.
 Cross-document clone/paste drops foreign effect-mask source references while
-preserving the effect itself.
+preserving the effect itself. Any effect-local binding makes the scene
+ineligible for the flat worker renderer and uses structural replay, preserving
+the same premultiplied stage operation for live text/group output.
+
+The Effects inspector exposes scene-node sources from the current document,
+including editable text and group output. It writes through `setEffectMask()`
+so self/containment/cycle checks remain centralized, preserves a stable effect
+identity when repairing legacy effects without IDs, and keeps mask parameters
+attached to the effect rather than its array position. Raster assets and vector
+payloads remain document/command-owned sources; they are not fabricated by the
+scene-node picker.
 
 ## 2. The clipping relationship
 
@@ -264,6 +274,8 @@ post-processing path. Implemented in the live canvas
 | Group opacity/blend after mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Frame clip ∩ mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Raster mask (leaf image) | ✓ (engine `alphaMask`) | ✓ | ✓ via engine IR | ✓ | ✓ |
+| Effect-local mask (raster) | ✓ (premultiplied stage) | ✓ | structural Canvas2D fallback | ✓ | rasterized boundary |
+| Effect-local mask (live node/vector) | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
 | Brush mask (frame, container-local) | ✓ (alpha path) | ✓ | falls back | ✓ | ✓ `<mask>`+`<image>` |
 | Adjustment scope | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
 | Spatial mask on adjustment | ✓ | ✓ | falls back | ✓ | rasterized per boundary |

@@ -135,6 +135,50 @@ describe('computeDocumentDirtyRegion', () => {
     });
   });
 
+  it('repaints leaf effect dependents when a live matte source changes', () => {
+    let before = createDocument('Dirty matte dependency', true);
+    before = addNode(before, makeShapeNode('source', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }));
+    const target = makeShapeNode('target', { kind: 'rect', x: 100, y: 0, w: 30, h: 30 });
+    before = addNode(before, {
+      ...target,
+      effects: [
+        {
+          id: 'fx-target-1',
+          type: 'dropShadow',
+          x: 0,
+          y: 0,
+          blur: 4,
+          spread: 0,
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+          mask: {
+            source: { kind: 'scene-node', nodeId: 'source' },
+            type: 'alpha',
+            coordinateSpace: 'world',
+          },
+        },
+      ],
+    });
+    const source = before.nodes.source!;
+    const after = {
+      ...before,
+      nodes: {
+        ...before.nodes,
+        source: { ...source, transform: [1, 0, 0, 1, 40, 0] as const },
+      },
+    };
+
+    const dirty = computeDocumentDirtyRegion(before, after);
+    expect(dirty.kind).toBe('partial');
+    if (dirty.kind === 'partial') {
+      expect(dirty.rectCount).toBe(3);
+      expect(dirty.bounds.x).toBe(0);
+      expect(dirty.bounds.w).toBe(142);
+    }
+  });
+
   it('reports no work for the same immutable document', () => {
     const document = createDocument('Dirty', true);
     expect(computeDocumentDirtyRegion(document, document)).toEqual({ kind: 'none' });

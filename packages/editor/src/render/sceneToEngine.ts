@@ -129,20 +129,7 @@ function resolveEffectMasksForEngine(
     const mask = effect.mask;
     if (!mask) return effect as import('@varve/engine').Effect;
     if (mask.source.kind === 'scene-node') return effect as import('@varve/engine').Effect;
-    if (mask.source.kind === 'vector') {
-      return {
-        ...effect,
-        mask: {
-          ...mask,
-          source: {
-            kind: 'vector' as const,
-            points: mask.source.vectorMask.points,
-            closed: mask.source.vectorMask.closed,
-            fillRule: mask.source.vectorMask.fillRule,
-          },
-        },
-      } as import('@varve/engine').Effect;
-    }
+    if (mask.source.kind === 'vector') return effect as import('@varve/engine').Effect;
     const asset = doc?.rasterMaskAssets?.[mask.source.assetId];
     return {
       ...effect,
