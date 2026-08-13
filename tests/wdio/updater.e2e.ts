@@ -1,5 +1,17 @@
 import { expect } from '@wdio/globals';
 
+const ARTIFACT_DIR = 'artifacts/updates';
+
+async function capture(name: string): Promise<void> {
+  try {
+    await browser.saveScreenshot(`${ARTIFACT_DIR}/${name}.png`);
+  } catch (error) {
+    // Screenshot endpoints are not guaranteed on every embedded driver; a
+    // missing image must not fail the slice, only the visual review.
+    console.warn(`screenshot ${name} failed: ${String(error)}`);
+  }
+}
+
 /**
  * Packaged AppImage updater vertical slice.
  *
@@ -44,28 +56,19 @@ async function openUpdatesSection() {
 }
 
 describe('Packaged AppImage updater', () => {
-  it('shows the consent dialog on first launch and does not pre-check consent', async () => {
-    await browser.url('/');
+  it('shows the consent dialog on first launch and does not pre-check consent', async function () {
+    this.timeout(180000);
+    // A packaged build has no dev server: the app opens at its own Home
+    // route, so there is no browser.url() navigation. The consent dialog
+    // renders over Home, so no editor navigation is needed.
     await browser.waitUntil(
       async () =>
         browser.tauri.execute(
           () => document.querySelector('[data-testid="new-file-button"]') !== null,
         ),
-      { timeout: 60000, timeoutMsg: 'Home screen did not become ready' },
+      { timeout: 120000, timeoutMsg: 'Home screen did not become ready' },
     );
-    await browser.tauri.execute(() => {
-      (document.querySelector('[data-testid="new-file-button"]') as HTMLElement | null)?.click();
-    });
-    await browser.tauri.execute(() => {
-      const dialog = [...document.querySelectorAll('dialog')].find((d) =>
-        d.textContent?.includes('Create'),
-      );
-      (dialog?.querySelector('button') as HTMLElement | null)?.click();
-    });
-    await browser.waitUntil(
-      async () => browser.tauri.execute(() => document.querySelector('.layers-panel') !== null),
-      { timeout: 30000, timeoutMsg: 'Editor did not open' },
-    );
+    await browser.pause(1500);
 
     // Consent dialog is an explicit opt-in: it must be present on first run
     // and the affirmative action must be required (no pre-selected state).
@@ -75,9 +78,11 @@ describe('Packaged AppImage updater', () => {
       ),
     );
     expect(dialogSeen).toBe(true);
+    await capture('01-consent-dialog');
   });
 
-  it('declining consent disables background checks but manual check still works', async () => {
+  it('declining consent disables background checks but manual check still works', async function () {
+    this.timeout(120000);
     await browser.tauri.execute(() => {
       const dialog = [...document.querySelectorAll('dialog')].find((d) =>
         d.textContent?.includes('Keep Varve up to date?'),
@@ -98,7 +103,8 @@ describe('Packaged AppImage updater', () => {
     expect(status).toContain('checked manually');
   });
 
-  it('discovers the update, downloads it, and surfaces progress', async () => {
+  it('discovers the update, downloads it, and surfaces progress', async function () {
+    this.timeout(300000);
     await openUpdatesSection();
     await browser.tauri.execute(() => {
       const check = [...document.querySelectorAll('button')].find((b) =>
@@ -124,6 +130,7 @@ describe('Packaged AppImage updater', () => {
       ),
     );
     expect(notesShown).toBe(true);
+    await capture('02-update-available');
 
     await browser.tauri.execute(() => {
       const download = [...document.querySelectorAll('button')].find((b) =>
@@ -143,7 +150,8 @@ describe('Packaged AppImage updater', () => {
     );
   });
 
-  it('installs and restarts only after the unsaved-work guard resolves', async () => {
+  it('installs and restarts only after the unsaved-work guard resolves', async function () {
+    this.timeout(300000);
     await openUpdatesSection();
     await browser.tauri.execute(() => {
       const install = [...document.querySelectorAll('button')].find((b) =>

@@ -106,6 +106,36 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <section class="docs-section">
+        <h2>Downloading and installing</h2>
+        <p>
+          A download can be cancelled from Settings while it is in progress or while the download
+          is being verified; a cancelled download is never installed. Even after a verified update
+          is ready, installation happens only when you choose <strong>Install and Restart</strong>
+          (or when the optional install-on-quit preference is enabled and you quit Varve). Before
+          Varve restarts, it runs the normal save/close workflow for every open document — unsaved
+          design work is never discarded to apply an update, and cancelling the save prompt also
+          cancels the restart.
+        </p>
+        <p>
+          If you use several windows, they share one update state: a download started in one window
+          is shown in the others, and a second window will not start its own download of the same
+          update.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Release channels</h2>
+        <p>
+          Each build is compiled for exactly one channel. A stable build checks only the stable
+          feed, a beta build checks only the beta feed, and neither can be redirected to another
+          channel. <strong>Stable builds never receive alpha, beta, or nightly releases</strong>.
+          Channel switching is a deliberate reinstall from the{' '}
+          <a href={sitePath('/download')}>download page</a>; an in-app update never silently
+          changes channels or downgrades the application.
+        </p>
+      </section>
+
       <div class="docs-cta">
         <h2>Related information</h2>
         <p>
