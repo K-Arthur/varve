@@ -11,6 +11,7 @@ import type {
   BlendMode,
   ChannelOffset,
   Effect,
+  EffectMaskBinding,
   FrameNode,
   GroupNode,
   ManagedColor,
@@ -18,6 +19,7 @@ import type {
   ShapeNode,
   TextNode,
 } from '@varve/scene';
+import { canBeMatteSource, removeEffectMask, setEffectMask } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import { Icon, Select } from '@varve/ui';
 import { useCallback, useId, useMemo, useState } from 'react';
@@ -1155,23 +1157,214 @@ function EffectParams({
   index: number;
   onChange: (updater: (e: Effect) => Effect) => void;
 }) {
+  const maskControl = <EffectMaskControl nodes={nodes} index={index} />;
   switch (type) {
     case 'dropShadow':
     case 'innerShadow':
-      return <ShadowParams nodes={nodes} index={index} onChange={onChange} />;
+      return (
+        <>
+          {maskControl}
+          <ShadowParams nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
     case 'outerGlow':
     case 'innerGlow':
-      return <GlowParams nodes={nodes} index={index} onChange={onChange} />;
+      return (
+        <>
+          {maskControl}
+          <GlowParams nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
     case 'layerBlur':
     case 'backgroundBlur':
-      return <SingleBlurParam nodes={nodes} index={index} onChange={onChange} />;
+      return (
+        <>
+          {maskControl}
+          <SingleBlurParam nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
     case 'glassMaterial':
-      return <GlassMaterialParams nodes={nodes} index={index} onChange={onChange} />;
+      return (
+        <>
+          {maskControl}
+          <GlassMaterialParams nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
     case 'chromaticAberration':
-      return <ChromaticAberrationParams nodes={nodes} index={index} onChange={onChange} />;
+      return (
+        <>
+          {maskControl}
+          <ChromaticAberrationParams nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
     case 'glitch':
-      return <GlitchParams nodes={nodes} index={index} onChange={onChange} />;
+      return (
+        <>
+          {maskControl}
+          <GlitchParams nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
   }
+}
+
+function effectIdFor(node: EffectNode, index: number): string {
+  return node.effects[index]?.id ?? `fx-${node.id}-${index + 1}`;
+}
+
+function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index: number }) {
+  const editor = useEditor();
+  const document = editor.state?.document;
+  const firstEffect = getEffect(nodes[0]!, index);
+  const binding = firstEffect?.mask;
+  const sourceId = binding?.source.kind === 'scene-node' ? binding.source.nodeId : '';
+  const sourceCandidates = useMemo(() => {
+    if (!document) return [];
+    const selectedIds = new Set(nodes.map((node) => node.id));
+    return Object.values(document.nodes)
+      .filter((candidate) => !selectedIds.has(candidate.id) && canBeMatteSource(candidate))
+      .map((candidate) => ({
+        value: candidate.id,
+        label: candidate.name ?? `${candidate.kind} ${candidate.id.slice(0, 6)}`,
+      }));
+  }, [document, nodes]);
+
+  const updateBinding = useCallback(
+    (next: EffectMaskBinding | null) => {
+      if (!document) return;
+      editor.updateDoc((doc) => {
+        let nextDoc = doc;
+        for (const node of nodes) {
+          const current = getEffect(node, index);
+          if (!current) continue;
+          const effectId = effectIdFor(node, index);
+          if (!current.id) {
+            nextDoc = {
+              ...nextDoc,
+              nodes: {
+                ...nextDoc.nodes,
+                [node.id]: {
+                  ...nextDoc.nodes[node.id],
+                  effects: node.effects.map((effect, effectIndex) =>
+                    effectIndex === index ? { ...effect, id: effectId } : effect,
+                  ),
+                } as EffectNode,
+              },
+            };
+          }
+          nextDoc = next
+            ? setEffectMask(nextDoc, node.id, effectId, next)
+            : removeEffectMask(nextDoc, node.id, effectId);
+        }
+        return nextDoc;
+      });
+      editor.announce(next ? 'Effect mask updated' : 'Effect mask removed');
+    },
+    [document, editor, index, nodes],
+  );
+
+  const selectSource = useCallback(
+    (value: string) => {
+      if (!value) {
+        updateBinding(null);
+        return;
+      }
+      updateBinding({
+        source: { kind: 'scene-node', nodeId: value },
+        type: binding?.type === 'luminance' ? 'luminance' : 'alpha',
+        visible: binding?.visible !== false,
+        inverted: binding?.inverted === true,
+        density: binding?.density ?? 1,
+        feather: binding?.feather ?? 0,
+        linked: binding?.linked !== false,
+        coordinateSpace: binding?.coordinateSpace ?? 'world',
+      });
+    },
+    [binding, updateBinding],
+  );
+
+  const patchBinding = useCallback(
+    (patch: Partial<EffectMaskBinding>) => {
+      if (!binding) return;
+      updateBinding({ ...binding, ...patch });
+    },
+    [binding, updateBinding],
+  );
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+        padding: 'var(--space-1) 0',
+        borderBottom: '1px solid var(--color-border-subtle)',
+      }}
+    >
+      <Select
+        label="Effect mask source"
+        value={sourceId}
+        options={[
+          { value: '', label: binding ? 'Remove effect mask' : 'No effect mask' },
+          ...sourceCandidates,
+        ]}
+        onChange={selectSource}
+      />
+      {binding && (
+        <>
+          <FieldRow label="Mask type">
+            <Select
+              label="Effect mask type"
+              value={binding.type}
+              options={[
+                { value: 'alpha', label: 'Alpha' },
+                { value: 'luminance', label: 'Luminance' },
+                { value: 'clip', label: 'Clip' },
+              ]}
+              onChange={(value) => patchBinding({ type: value as EffectMaskBinding['type'] })}
+            />
+          </FieldRow>
+          <div className="insp-field">
+            <NumberField
+              label="Density"
+              value={binding.density ?? 1}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(value) => patchBinding({ density: value })}
+            />
+            <NumberField
+              label="Feather"
+              value={binding.feather ?? 0}
+              min={0}
+              step={1}
+              onChange={(value) => patchBinding({ feather: value })}
+            />
+          </div>
+          <div className="insp-field">
+            <button
+              type="button"
+              className={`insp-toggle-btn${binding.inverted ? ' --active' : ''}`}
+              aria-pressed={binding.inverted === true}
+              onClick={() => patchBinding({ inverted: !binding.inverted })}
+            >
+              {binding.inverted ? 'Inverted' : 'Normal'}
+            </button>
+            <Select
+              label="Effect mask coordinates"
+              value={binding.coordinateSpace}
+              options={[
+                { value: 'world', label: 'World' },
+                { value: 'target-local', label: 'Target local' },
+              ]}
+              onChange={(value) =>
+                patchBinding({ coordinateSpace: value as EffectMaskBinding['coordinateSpace'] })
+              }
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function ShadowParams({

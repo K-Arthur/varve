@@ -26,10 +26,14 @@ output = I × (1 − M) + E × M
 
 The Canvas2D engine implements this operation for raster effect-mask sources
 using premultiplied-alpha pixel compositing, including alpha/luminance,
-inversion, density, and missing-source-safe behavior. Scene-node and vector
-sources already have a shared serializable contract and dependency graph; their
-structural replay and inspector integration are tracked as the next stage
-rather than approximated by a second renderer.
+inversion, density, and missing-source-safe behavior. Structural scene replay
+uses the same operation for live scene-node and vector sources. The Effects inspector can
+author a live scene-node source (including text and groups), edit alpha versus
+luminance, density, feather, inversion, and coordinate space, and remove it in
+one undoable document update. Scene-node and vector sources share the
+serializable contract and dependency graph; the flat worker path is routed to
+structural replay for these bindings. A missing source remains an unmasked
+effect rather than making the owner transparent.
 
 ## Canonical schema and native interchange
 

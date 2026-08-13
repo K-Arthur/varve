@@ -75,6 +75,31 @@ describe('sceneNeedsStructuralCompositing', () => {
     expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
   });
 
+  it('routes live effect mattes through structural replay', () => {
+    let doc = createDocument('effect matte');
+    const source = makeShapeNode('source', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 });
+    const target = {
+      ...makeShapeNode('target', { kind: 'rect', x: 0, y: 0, w: 80, h: 80 }),
+      effects: [
+        {
+          id: 'fx-target-1',
+          type: 'layerBlur' as const,
+          radius: 6,
+          visible: true,
+          mask: {
+            source: { kind: 'scene-node' as const, nodeId: source.id },
+            type: 'alpha' as const,
+            coordinateSpace: 'world' as const,
+          },
+        },
+      ],
+    };
+    doc = addNode(doc, source);
+    doc = addNode(doc, target);
+
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
+  });
+
   it('returns true for frames with children and default clipContent', () => {
     let doc = createDocument('test');
     doc = addNode(doc, makeFrameNode('f1', { name: 'Frame', w: 200, h: 160, children: ['r1'] }));
