@@ -64,7 +64,10 @@ export const PagePrintOverlays = memo(function PagePrintOverlays({
           bleed={page.bleed}
           safeArea={page.safeArea}
           slug={page.slug}
-          pxPerUnit={1}
+          // The overlay SVG lives in screen space: origins arrive via
+          // worldToCanvas (already zoomed), so geometry must be too —
+          // page/bleed sizes scale by zoom, stroke widths stay 1/zoom.
+          pxPerUnit={zoom}
           offsetX={page.origin.x}
           offsetY={page.origin.y}
         />
