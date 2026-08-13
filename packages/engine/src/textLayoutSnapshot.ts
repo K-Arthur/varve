@@ -200,11 +200,15 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       diagnostics.push('shaping contains unknown glyph IDs; geometry may be approximate');
     }
     const paragraphLineStart = lines.length;
+    // One paragraph-local source map feeds units, wrapping, and caret stops
+    // (Intl.Segmenter segmentation is the pipeline's most expensive primitive).
+    const paragraphMap = createUnicodeIndexMap(paragraph.text);
     const paragraphLines = layoutParagraphLines(
       paragraph,
       records,
       maxWidth,
       input.lineHeight ?? null,
+      paragraphMap,
     );
     const paragraphTop =
       lines.length > 0 ? lines[lines.length - 1]!.top + lines[lines.length - 1]!.height : 0;
@@ -219,7 +223,9 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       lineStart: paragraphLineStart,
       lineEnd: lines.length,
     });
-    caretStops.push(...buildCaretStops(paragraph, positionedParagraphLines, paragraphLineStart));
+    caretStops.push(
+      ...buildCaretStops(paragraph, positionedParagraphLines, paragraphLineStart, paragraphMap),
+    );
   }
 
   const width = lines.reduce((largest, line) => Math.max(largest, line.width), 0);
@@ -270,10 +276,12 @@ function buildGlyphRecords(runs: readonly ShapedRun[], textLength: number): Glyp
   const clusterStarts = [...new Set(runs.flatMap((run) => run.glyphs.map((g) => g.clusterUtf16)))]
     .filter((offset) => offset >= 0 && offset < textLength)
     .sort((a, b) => a - b);
-  const endFor = (start: number): number => {
-    const next = clusterStarts.find((candidate) => candidate > start);
-    return next ?? textLength;
-  };
+  // O(1) cluster-end lookup instead of a per-glyph scan (10k-char paragraphs
+  // must not degrade to quadratic time).
+  const endByStart = new Map<number, number>();
+  for (let i = 0; i < clusterStarts.length; i++) {
+    endByStart.set(clusterStarts[i]!, clusterStarts[i + 1] ?? textLength);
+  }
   const records: GlyphRecord[] = [];
   for (const run of runs) {
     for (const glyph of run.glyphs) {
@@ -281,7 +289,7 @@ function buildGlyphRecords(runs: readonly ShapedRun[], textLength: number): Glyp
         run,
         glyph,
         clusterStart: glyph.clusterUtf16,
-        clusterEnd: endFor(glyph.clusterUtf16),
+        clusterEnd: endByStart.get(glyph.clusterUtf16) ?? textLength,
       });
     }
   }
@@ -307,12 +315,19 @@ function buildLayoutUnits(
   paragraph: ItemizedParagraph,
   records: readonly GlyphRecord[],
   maxWidth: number,
+  sourceMap: UnicodeIndexMap,
 ): LayoutUnit[] {
   const byCluster = recordsByCluster(records);
-  const sourceMap = createUnicodeIndexMap(paragraph.text);
+  const attach = graphemeAttachList(sourceMap, byCluster);
   const units: LayoutUnit[] = [];
+  let attachCursor = 0;
   for (const unit of segmentBreakUnits(paragraph.text)) {
-    units.push(makeLayoutUnit(unit, byCluster, sourceMap));
+    // Units and grapheme attachments are both sorted: advance the cursor
+    // instead of rescanning the attach list per unit.
+    while (attachCursor < attach.length && attach[attachCursor]!.start < unit.start) {
+      attachCursor++;
+    }
+    units.push(makeLayoutUnit(unit, attach, attachCursor));
   }
   if (maxWidth > 0 && records.length > 0) {
     for (let i = 0; i < units.length; i++) {
@@ -324,7 +339,15 @@ function buildLayoutUnits(
           paragraph.text,
           sourceMap,
         );
-        units.splice(i, 1, ...pieces.map((piece) => makeLayoutUnit(piece, byCluster, sourceMap)));
+        let pieceCursor = attachCursorOf(attach, pieces[0]!.start);
+        units.splice(
+          i,
+          1,
+          ...pieces.map((piece) => {
+            pieceCursor = nextAttachCursor(attach, pieceCursor, piece.start);
+            return makeLayoutUnit(piece, attach, pieceCursor);
+          }),
+        );
         i += pieces.length - 1;
       }
     }
@@ -332,31 +355,66 @@ function buildLayoutUnits(
   return units;
 }
 
-function makeLayoutUnit(
-  unit: BreakUnit,
-  byCluster: Map<number, GlyphRecord[]>,
+function attachCursorOf(
+  attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
+  start: number,
+): number {
+  let cursor = 0;
+  while (cursor < attach.length && attach[cursor]!.start < start) cursor++;
+  return cursor;
+}
+
+function nextAttachCursor(
+  attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
+  cursor: number,
+  start: number,
+): number {
+  while (cursor < attach.length && attach[cursor]!.start < start) cursor++;
+  return cursor;
+}
+
+/** Records attached per grapheme start, in source order (shared across units). */
+function graphemeAttachList(
   sourceMap: UnicodeIndexMap,
-): LayoutUnit {
-  const records: GlyphRecord[] = [];
+  byCluster: Map<number, GlyphRecord[]>,
+): Array<{ start: number; records: readonly GlyphRecord[] }> {
+  const list: Array<{ start: number; records: readonly GlyphRecord[] }> = [];
   const boundaries = sourceMap.graphemeBoundaries;
   for (let i = 0; i < boundaries.length - 1; i++) {
     const graphemeStart = boundaries[i]!;
     const graphemeEnd = boundaries[i + 1]!;
-    if (graphemeStart >= unit.end) break;
-    if (graphemeEnd <= unit.start) continue;
+    const records: GlyphRecord[] = [];
     for (let cluster = graphemeStart; cluster < graphemeEnd; cluster++) {
       const attached = byCluster.get(cluster);
       if (attached) records.push(...attached);
     }
+    list.push({ start: graphemeStart, records });
+  }
+  return list;
+}
+
+function makeLayoutUnit(
+  unit: BreakUnit,
+  attach: Array<{ start: number; records: readonly GlyphRecord[] }>,
+  attachCursor: number,
+): LayoutUnit {
+  const records: GlyphRecord[] = [];
+  for (let i = attachCursor; i < attach.length; i++) {
+    const entry = attach[i]!;
+    if (entry.start >= unit.end) break;
+    records.push(...entry.records);
   }
   const width = records.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
   return { unit, records, width };
 }
 
 /**
- * Greedy word-level wrapping. Whitespace that overflows at a line end is
- * dropped; a word that does not fit starts a new line. The paragraph's
- * logical order is preserved: visual reordering happens per line afterwards.
+ * Greedy word-level wrapping. Whitespace never starts a new line and is never
+ * dropped: it stays attached to the current line so every source offset
+ * remains reachable by a caret (trailing spaces may overflow the line width
+ * and are trimmed at paint time). A word that does not fit starts a new line.
+ * The paragraph's logical order is preserved: visual reordering happens per
+ * line afterwards.
  */
 function wrapLines(
   paragraph: ItemizedParagraph,
@@ -380,16 +438,10 @@ function wrapLines(
       current.length > 0 &&
       currentWidth + unit.width > maxWidth
     ) {
-      if (unit.unit.isBreakable) {
-        // Drop a breakable space at the line end.
-        continue;
-      }
       if (!unit.unit.isWhitespace) {
         // A word does not fit: wrap before it.
         flush();
       }
-      // Non-breaking whitespace (NBSP) may overflow the line instead of
-      // breaking the glue it is part of.
     }
     current.push(unit);
     currentWidth += unit.width;
@@ -407,8 +459,9 @@ function layoutParagraphLines(
   records: readonly GlyphRecord[],
   maxWidth: number,
   lineHeightOverride: number | null,
+  sourceMap: UnicodeIndexMap,
 ): TextLayoutLine[] {
-  const units = buildLayoutUnits(paragraph, records, maxWidth);
+  const units = buildLayoutUnits(paragraph, records, maxWidth, sourceMap);
   const rawLines = wrapLines(paragraph, units, maxWidth);
   const lines: TextLayoutLine[] = [];
   let top = 0;
@@ -550,8 +603,8 @@ function buildCaretStops(
   paragraph: ItemizedParagraph,
   lines: readonly TextLayoutLine[],
   lineIndexOffset = 0,
+  sourceMap: UnicodeIndexMap = createUnicodeIndexMap(paragraph.text),
 ): CaretStop[] {
-  const sourceMap = createUnicodeIndexMap(paragraph.text);
   const snap = (paragraphLocal: number, bias: 'floor' | 'ceil'): number =>
     paragraph.sourceStart + snapUtf16Offset(sourceMap, paragraphLocal, bias);
   const stops: CaretStop[] = [];
