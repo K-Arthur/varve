@@ -206,7 +206,11 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       maxWidth,
       input.lineHeight ?? null,
     );
-    for (const line of paragraphLines) lines.push(line);
+    const paragraphTop = lines.length > 0
+      ? lines[lines.length - 1]!.top + lines[lines.length - 1]!.height
+      : 0;
+    const positionedParagraphLines = paragraphLines.map((line) => shiftLine(line, paragraphTop));
+    for (const line of positionedParagraphLines) lines.push(line);
     paragraphInfos.push({
       index: paragraph.index,
       sourceStart: paragraph.sourceStart,
@@ -216,7 +220,7 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       lineStart: paragraphLineStart,
       lineEnd: lines.length,
     });
-    caretStops.push(...buildCaretStops(paragraph, paragraphLines));
+    caretStops.push(...buildCaretStops(paragraph, positionedParagraphLines, paragraphLineStart));
   }
 
   const width = lines.reduce((largest, line) => Math.max(largest, line.width), 0);
@@ -234,6 +238,19 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
     height,
     baseDirection,
     diagnostics,
+  };
+}
+
+function shiftLine(line: TextLayoutLine, yOffset: number): TextLayoutLine {
+  if (yOffset === 0) return line;
+  return {
+    ...line,
+    top: line.top + yOffset,
+    baseline: line.baseline + yOffset,
+    runs: line.runs.map((run) => ({
+      ...run,
+      glyphs: run.glyphs.map((glyph) => ({ ...glyph, y: glyph.y + yOffset })),
+    })),
   };
 }
 
@@ -316,9 +333,13 @@ function makeLayoutUnit(
   const boundaries = sourceMap.graphemeBoundaries;
   for (let i = 0; i < boundaries.length - 1; i++) {
     const graphemeStart = boundaries[i]!;
+    const graphemeEnd = boundaries[i + 1]!;
     if (graphemeStart >= unit.end) break;
-    const attached = byCluster.get(graphemeStart);
-    if (attached) records.push(...attached);
+    if (graphemeEnd <= unit.start) continue;
+    for (let cluster = graphemeStart; cluster < graphemeEnd; cluster++) {
+      const attached = byCluster.get(cluster);
+      if (attached) records.push(...attached);
+    }
   }
   const width = records.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
   return { unit, records, width };
@@ -389,37 +410,56 @@ function positionLine(
   const logicalEnd = clusters.length > 0 ? Math.max(...clusters.map((c) => byCluster.get(c)![0]!.clusterEnd)) : 0;
   const visualRuns = lineVisualRuns(paragraph, logicalStart, logicalEnd);
 
+  const groups: Array<{ visualRun: (typeof visualRuns)[number]; records: GlyphRecord[] }> = [];
+  for (const visualRun of visualRuns) {
+    const runClusters = clusters
+      .filter((cluster) => cluster >= visualRun.start && cluster < visualRun.end)
+      .sort((a, b) => (visualRun.direction === 'rtl' ? b - a : a - b));
+    const runRecords = runClusters.flatMap((cluster) => byCluster.get(cluster) ?? []);
+    let current: GlyphRecord[] = [];
+    let currentSourceRun: ShapedRun | undefined;
+    for (const record of runRecords) {
+      if (currentSourceRun !== undefined && record.run !== currentSourceRun) {
+        groups.push({ visualRun, records: current });
+        current = [];
+      }
+      currentSourceRun = record.run;
+      current.push(record);
+    }
+    if (current.length > 0) groups.push({ visualRun, records: current });
+  }
+
   const positioned: PositionedGlyph[] = [];
   const lineRuns: TextLayoutRun[] = [];
   let ascent = 0;
   let descent = 0;
-  for (const visualRun of visualRuns) {
-    const runRecords: GlyphRecord[] = [];
-    for (const cluster of clusters) {
-      if (cluster >= visualRun.start && cluster < visualRun.end) {
-        runRecords.push(...(byCluster.get(cluster) ?? []));
-      }
-    }
-    if (runRecords.length === 0) continue;
-    const sourceRun = runRecords[0]!.run;
-    const runWidth = runRecords.reduce((sum, record) => sum + Math.max(0, record.glyph.xAdvance), 0);
+  for (const group of groups) {
+    const sourceRun = group.records[0]!.run;
     ascent = Math.max(ascent, sourceRun.ascent);
     descent = Math.max(descent, sourceRun.descent);
-    const baseline = top + ascent;
-    const runLeft = runWidthOf(lineRuns);
-    const glyphs = positionRunGlyphs(paragraph, runRecords, runLeft, runWidth, baseline);
+  }
+  const baseline = top + ascent;
+  let runLeft = 0;
+  for (const group of groups) {
+    const sourceRun = group.records[0]!.run;
+    const runWidth = group.records.reduce(
+      (sum, record) => sum + Math.max(0, record.glyph.xAdvance),
+      0,
+    );
+    const glyphs = positionRunGlyphs(paragraph, group.records, runLeft, runWidth, baseline);
     const minX = Math.min(...glyphs.map((g) => g.x));
     lineRuns.push({
-      sourceStart: paragraph.sourceStart + visualRun.start,
-      sourceEnd: paragraph.sourceStart + visualRun.end,
+      sourceStart: Math.min(...glyphs.map((glyph) => glyph.clusterUtf16)),
+      sourceEnd: Math.max(...glyphs.map((glyph) => glyph.sourceEnd)),
       x: minX,
       width: runWidth,
-      direction: visualRun.direction,
-      level: visualRun.level,
+      direction: sourceRun.direction,
+      level: sourceRun.level,
       glyphs,
       sourceRun,
     });
     positioned.push(...glyphs);
+    runLeft += runWidth;
   }
 
   const width = raw.width;
@@ -442,7 +482,11 @@ function runWidthOf(runs: readonly TextLayoutRun[]): number {
   return runs.reduce((sum, run) => sum + run.width, 0);
 }
 
-/** Position one visual run's glyphs. Glyphs are in visual order per run. */
+/**
+ * Position one visual run's glyphs. Glyphs arrive in visual order (left-to-
+ * right on screen) from the shaping backend, so the pen always advances
+ * positively; run direction only affects caret/selection edge semantics.
+ */
 function positionRunGlyphs(
   paragraph: ItemizedParagraph,
   records: readonly GlyphRecord[],
@@ -450,21 +494,17 @@ function positionRunGlyphs(
   runWidth: number,
   baseline: number,
 ): PositionedGlyph[] {
-  const isRtl = records[0]!.run.direction === 'rtl';
-  const origin = isRtl ? runLeft + runWidth : runLeft;
   const positioned: PositionedGlyph[] = [];
-  let cursor = origin;
+  let cursor = runLeft;
   for (const record of records) {
-    const advance = Math.max(0, record.glyph.xAdvance);
-    const glyphX = isRtl ? cursor - advance : cursor;
     positioned.push({
       ...record.glyph,
       sourceEnd: paragraph.sourceStart + record.clusterEnd,
-      x: glyphX + record.glyph.xOffset,
+      x: cursor + record.glyph.xOffset,
       y: baseline + record.glyph.yOffset,
       clusterUtf16: paragraph.sourceStart + record.glyph.clusterUtf16,
     });
-    cursor = isRtl ? cursor - advance : cursor + advance;
+    cursor += Math.max(0, record.glyph.xAdvance);
   }
   return positioned;
 }
@@ -483,26 +523,32 @@ function distinctClusterStarts(glyphs: readonly PositionedGlyph[]): number[] {
 
 /**
  * Cluster-safe caret stops per line: leading/trailing stops per distinct
- * shaped cluster plus line-edge stops. Offsets are document-local.
+ * shaped cluster plus line-edge stops. Offsets are snapped to extended
+ * grapheme boundaries so a shaper that reports per-character clusters can
+ * never create an illegal insertion point inside a combining sequence.
  */
 function buildCaretStops(
   paragraph: ItemizedParagraph,
   lines: readonly TextLayoutLine[],
+  lineIndexOffset = 0,
 ): CaretStop[] {
+  const sourceMap = createUnicodeIndexMap(paragraph.text);
+  const snap = (paragraphLocal: number, bias: 'floor' | 'ceil'): number =>
+    paragraph.sourceStart + snapUtf16Offset(sourceMap, paragraphLocal, bias);
   const stops: CaretStop[] = [];
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
     const line = lines[lineIndex]!;
     const baseRtl = paragraph.baseLevel % 2 === 1;
     stops.push({
       offset: line.sourceStart,
-      lineIndex,
+      lineIndex: lineIndex + lineIndexOffset,
       x: baseRtl ? line.width : 0,
       affinity: 'leading',
       direction: paragraph.baseDirection,
     });
     stops.push({
       offset: line.sourceEnd,
-      lineIndex,
+      lineIndex: lineIndex + lineIndexOffset,
       x: baseRtl ? 0 : line.width,
       affinity: 'trailing',
       direction: paragraph.baseDirection,
@@ -511,12 +557,14 @@ function buildCaretStops(
       const isRtl = run.direction === 'rtl';
       let previousCluster = -1;
       for (const glyph of run.glyphs) {
-        if (glyph.clusterUtf16 === previousCluster) continue;
-        previousCluster = glyph.clusterUtf16;
+        const clusterStart = snap(glyph.clusterUtf16 - paragraph.sourceStart, 'floor');
+        if (clusterStart === previousCluster) continue;
+        previousCluster = clusterStart;
+        const clusterEnd = snap(glyph.sourceEnd - paragraph.sourceStart, 'ceil');
         const before = isRtl ? glyph.x + glyph.xAdvance : glyph.x;
         const after = isRtl ? glyph.x : glyph.x + glyph.xAdvance;
-        stops.push({ offset: glyph.clusterUtf16, lineIndex, x: before, affinity: 'leading', direction: run.direction });
-        stops.push({ offset: glyph.sourceEnd, lineIndex, x: after, affinity: 'trailing', direction: run.direction });
+        stops.push({ offset: clusterStart, lineIndex: lineIndex + lineIndexOffset, x: before, affinity: 'leading', direction: run.direction });
+        stops.push({ offset: clusterEnd, lineIndex: lineIndex + lineIndexOffset, x: after, affinity: 'trailing', direction: run.direction });
       }
     }
   }
@@ -526,7 +574,10 @@ function buildCaretStops(
 function dedupeCaretStops(stops: readonly CaretStop[]): CaretStop[] {
   const seen = new Set<string>();
   return stops.filter((stop) => {
-    const key = `${stop.lineIndex}:${stop.offset}:${stop.affinity}`;
+    // Same line, offset, affinity, AND x: a line-edge stop and a cluster
+    // boundary can share an offset with different x (RTL line ends); both
+    // positions are legal caret locations and must be kept.
+    const key = `${stop.lineIndex}:${stop.offset}:${stop.affinity}:${Math.round(stop.x * 100)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

@@ -56,6 +56,7 @@ import {
   type ShadowOps,
 } from './shadowSource';
 import { shapeText } from './shaping';
+import { layoutRichTextSnapshot } from './richTextLayout';
 import { layoutRichText } from './textLayout';
 import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
 import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
@@ -2391,6 +2392,32 @@ function paintRichText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
 ): void {
+  if (target.measureText) {
+    const richText = p.richText! as import('./types').RichText;
+    const hasAdvancedParagraphFormatting = richText.paragraphs.some((paragraph) => {
+      const format = paragraph.format;
+      return format?.maxLines !== undefined || format?.textOverflow !== undefined;
+    });
+    if (!hasAdvancedParagraphFormatting) {
+      const snapshot = layoutRichTextSnapshot(
+        richText,
+        {
+          fontFamily: p.fontFamily,
+          fontSize: p.fontSize,
+          fontWeight: p.fontWeight,
+          fontStyle: p.fontStyle,
+          letterSpacing: p.letterSpacing,
+          tracking: p.tracking ?? 0,
+          direction: p.direction,
+          language: p.language,
+        },
+        target as import('./richTextLayout').RichTextMeasureContext,
+        { maxWidth: p.w, lineHeight: p.fontSize * p.lineHeight, language: p.language },
+      );
+      paintCanonicalRichText(target, p, richText, snapshot);
+      return;
+    }
+  }
   const defaultFormat = {
     fontSize: p.fontSize,
     fontFamily: p.fontFamily,
@@ -2480,6 +2507,65 @@ function paintRichText(
       }
 
       target.fillStyle = originalFillStyle;
+    }
+  }
+}
+
+function richTextFormatAt(
+  richText: import('./types').RichText,
+  offset: number,
+): import('./types').CharacterFormat {
+  let cursor = 0;
+  for (const paragraph of richText.paragraphs) {
+    for (const run of paragraph.runs) {
+      if (offset >= cursor && offset < cursor + run.text.length) return run.format ?? {};
+      cursor += run.text.length;
+    }
+    cursor += 1;
+  }
+  return {};
+}
+
+function paintCanonicalRichText(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+  richText: import('./types').RichText,
+  snapshot: TextLayoutSnapshot,
+): void {
+  const verticalOffset =
+    p.textAlignVertical === 'middle'
+      ? (p.h - snapshot.height) / 2
+      : p.textAlignVertical === 'bottom'
+        ? p.h - snapshot.height
+        : 0;
+  const originalFillStyle = target.fillStyle;
+  target.textAlign = 'left';
+  target.textBaseline = 'alphabetic';
+  for (const line of snapshot.lines) {
+    const xOffset =
+      p.textAlign === 'center'
+        ? (p.w - line.width) / 2
+        : p.textAlign === 'right'
+          ? p.w - line.width
+          : 0;
+    for (const run of line.runs) {
+      for (const glyph of run.glyphs) {
+        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
+        if (cluster.length === 0 || cluster.includes('\n')) continue;
+        const format = richTextFormatAt(richText, glyph.clusterUtf16);
+        const style = (format.fontStyle ?? run.sourceRun.fontStyle) === 'italic' ? 'italic ' : '';
+        const weight = format.fontWeight ?? run.sourceRun.fontWeight;
+        const size = format.fontSize ?? run.sourceRun.fontSize;
+        const family = format.fontFamily ?? run.sourceRun.fontFamily;
+        target.font = `${style}${Math.max(1, Math.min(1000, weight))} ${size}px "${family}"`;
+        if (format.color) target.fillStyle = rgba(format.color);
+        target.fillText(
+          cluster,
+          p.x + xOffset + glyph.x + glyph.xOffset,
+          p.y + verticalOffset + glyph.y,
+        );
+        target.fillStyle = originalFillStyle;
+      }
     }
   }
 }
