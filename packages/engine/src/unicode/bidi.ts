@@ -12,9 +12,11 @@
  * of truth for paragraph embedding levels.
  */
 
+import type { BidiDirection, BidiParagraph, BidiRun } from './bidiTypes';
 import { analyzeParagraphUax9 } from './bidiUax9';
 
-export type BidiDirection = 'ltr' | 'rtl';
+export type { BidiDirection, BidiParagraph, BidiRun } from './bidiTypes';
+
 export type BidiClass =
   | 'L'
   | 'R'
@@ -30,25 +32,6 @@ export type BidiClass =
   | 'S'
   | 'WS'
   | 'ON';
-
-export interface BidiRun {
-  start: number;
-  end: number;
-  direction: BidiDirection;
-  level: number;
-}
-
-export interface BidiParagraph {
-  text: string;
-  baseDirection: BidiDirection;
-  baseLevel: number;
-  runs: BidiRun[];
-  visualRuns: BidiRun[];
-  /** Character indices in line visual order, as resolved by UAX #9. */
-  visualOrder?: readonly number[];
-  /** Mirrored punctuation for visual presentation; source text is unchanged. */
-  mirroredCharacters?: ReadonlyMap<number, string>;
-}
 
 /** Map a codepoint (not UTF-16 code unit) to its bidi class. */
 export function bidiClassOf(code: number): BidiClass {

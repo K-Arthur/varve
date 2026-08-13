@@ -275,6 +275,7 @@ export function shapeText(
 
   return {
     runs,
+    visualRuns: runs,
     width,
     height: maxAscent + maxDescent,
     baseDirection: direction,
