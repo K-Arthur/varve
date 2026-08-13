@@ -11,6 +11,9 @@
 /** Whitespace incl. NBSP, ZWSP, and Unicode space separators. */
 const WHITESPACE_RE = /^[\t\n\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u200b\ufeff]+$/;
 
+/** Whitespace that permits a line break before it (space, tab, ZWSP, ...). */
+const BREAKABLE_WS_RE = /^[\t\n\f\r \u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u200b\ufeff]+$/;
+
 export interface BreakUnit {
   /** Paragraph-local UTF-16 start. */
   start: number;
@@ -21,6 +24,8 @@ export interface BreakUnit {
   isWhitespace: boolean;
   /** Word-like unit (letters/digits). Punctuation attaches to its word. */
   isWord: boolean;
+  /** May a line break before this unit when the line overflows? */
+  isBreakable: boolean;
 }
 
 let wordSegmenter: Intl.Segmenter | null | undefined;
@@ -38,7 +43,8 @@ function getWordSegmenter(): Intl.Segmenter | null {
 /**
  * Segment a paragraph into break units. Each unit is a maximal word-like
  * segment (including attached punctuation) or a whitespace run; units never
- * split graphemes. Explicit newlines are their own whitespace units.
+ * split graphemes. NBSP is whitespace but never a break opportunity (ICU may
+ * emit it as its own segment; it must stay glued to a word).
  */
 export function segmentBreakUnits(text: string): BreakUnit[] {
   if (text.length === 0) return [];
@@ -53,12 +59,15 @@ export function segmentBreakUnits(text: string): BreakUnit[] {
         text: t,
         isWhitespace: isWhitespaceUnit(t),
         isWord: segment.isWordLike === true,
+        isBreakable: BREAKABLE_WS_RE.test(t) && !NBSP_ONLY_RE.test(t),
       });
     }
     return units;
   }
   return fallbackBreakUnits(text);
 }
+
+const NBSP_ONLY_RE = /^[\u00a0]+$/;
 
 /**
  * Break an over-long unit at extended grapheme boundaries. Used when a single
@@ -80,12 +89,14 @@ export function graphemeBreakUnits(
     const unitEnd = Math.min(boundaries[i + 1]!, end);
     if (unitEnd > unitStart) {
       const t = text.slice(unitStart, unitEnd);
+      const isWs = isWhitespaceUnit(t);
       units.push({
         start: unitStart,
         end: unitEnd,
         text: t,
-        isWhitespace: isWhitespaceUnit(t),
-        isWord: !isWhitespaceUnit(t),
+        isWhitespace: isWs,
+        isWord: !isWs,
+        isBreakable: BREAKABLE_WS_RE.test(t) && !NBSP_ONLY_RE.test(t),
       });
     }
   }
@@ -94,7 +105,7 @@ export function graphemeBreakUnits(
 
 /** Whether this unit allows a line break before it when the line overflows. */
 export function canBreakBefore(unit: BreakUnit): boolean {
-  return !unit.isWord;
+  return unit.isBreakable;
 }
 
 export function isWhitespaceUnit(text: string): boolean {
@@ -116,6 +127,7 @@ function fallbackBreakUnits(text: string): BreakUnit[] {
           text: char,
           isWhitespace: false,
           isWord: true,
+          isBreakable: false,
         });
         offset += char.length;
       }
@@ -127,6 +139,7 @@ function fallbackBreakUnits(text: string): BreakUnit[] {
       text: part,
       isWhitespace: isWs,
       isWord: !isWs,
+      isBreakable: isWs && !NBSP_ONLY_RE.test(part),
     });
     offset += part.length;
   }
