@@ -561,6 +561,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'text' },
         { toolId: 'scale' },
         { toolId: 'inspect' },
+        { toolId: 'rect', groupStart: true },
+        { toolId: 'ellipse' },
       ],
       flyouts: [
         {
