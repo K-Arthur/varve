@@ -2609,6 +2609,25 @@ dialog.varve-dialog--settings[open] {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
+.settings-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.settings-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .settings-shortcuts-table {
   width: 100%;
   border-collapse: collapse;
@@ -4600,6 +4619,14 @@ dialog.varve-dialog--settings[open] {
 }
 .workspace-customize__toggle input[type="checkbox"] {
   accent-color: var(--color-interactive-default);
+}
+.workspace-customize__flyout {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  margin-inline-start: var(--space-1);
+}
+.workspace-customize__flyout::before {
+  content: "· ";
 }
 .workspace-customize__actions {
   display: flex;

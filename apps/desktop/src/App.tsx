@@ -9,6 +9,7 @@ import {
   SettingsDialog,
   SettingsProvider,
   Shell,
+  UpdateCoordinatorProvider,
   useStartup,
 } from '@varve/editor';
 import { HomeShell } from '@varve/home';
@@ -21,15 +22,25 @@ import {
 } from '@varve/platform';
 import { DocumentCodec } from '@varve/scene';
 import { StartupLoader, TooltipProvider } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
 import { revealMainWindow } from './startup/revealMainWindow';
+import { TauriUpdateProvider } from './updates/tauriUpdateProvider';
+
+const viteEnv = (
+  import.meta as ImportMeta & {
+    env?: {
+      VITE_VARVE_ANALYTICS_ENDPOINT?: string;
+      VITE_VARVE_ANALYTICS_DOMAIN?: string;
+    };
+  }
+).env;
 
 const desktopAnalytics = configureDesktopAnalytics({
   platform: 'unknown',
-  endpoint: import.meta.env.VITE_VARVE_ANALYTICS_ENDPOINT ?? null,
-  domain: import.meta.env.VITE_VARVE_ANALYTICS_DOMAIN ?? null,
+  endpoint: viteEnv?.VITE_VARVE_ANALYTICS_ENDPOINT ?? null,
+  domain: viteEnv?.VITE_VARVE_ANALYTICS_DOMAIN ?? null,
 });
 
 const bootPlatform = detectPlatform();
@@ -290,7 +301,9 @@ export function App() {
     });
   }, [view, editorMounted]);
 
-  return (
+  const updateProvider = useMemo(() => (isTauriRuntime() ? new TauriUpdateProvider() : null), []);
+
+  const appContent = (
     <TooltipProvider>
       {showLoader && (
         <StartupLoader
@@ -350,4 +363,14 @@ export function App() {
       </div>
     </TooltipProvider>
   );
+
+  return updateProvider ? (
+    <UpdateCoordinatorProvider provider={updateProvider}>{appContent}</UpdateCoordinatorProvider>
+  ) : (
+    appContent
+  );
+}
+
+function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }
