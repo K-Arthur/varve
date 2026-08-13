@@ -92,8 +92,8 @@ required benchmark matrix.
 
 ## Known limitations
 
-- Candidate cycling is represented in the session but not yet exposed as a
-  dedicated Inspector control.
+- Candidate masks can be cycled in the Inspector before Apply; the selected
+  candidate is the mask committed to the document.
 - The current SAM2 graph is promptable, not a semantic subject detector.
 - Hair, fur, glass, smoke, and other fractional-transparency cases need the
   existing matting/refinement tools and visual review.
