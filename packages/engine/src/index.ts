@@ -184,15 +184,13 @@ export {
 } from './contentAwareFill';
 export type {
   DenoiseOptions,
+  DenoiseProvider,
   DenoiseResult,
+  DenoiseTileRequest,
+  DenoiseTileResult,
 } from './denoiseProviders';
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
 export { dispatchDenoise, nativeDenoiseProvider, workerDenoiseProvider } from './denoiseProviders';
-export type {
-  DenoiseProvider,
-  DenoiseTileRequest,
-  DenoiseTileResult,
-} from './denoiseProviders/types';
 export type {
   DepthMap,
   DepthMapMetadata,

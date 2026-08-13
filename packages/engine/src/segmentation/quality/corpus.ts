@@ -307,14 +307,32 @@ function fixtureSoftAlpha(): SegmentationCorpusFixture {
 function fixtureMultipleSimilar(): SegmentationCorpusFixture {
   const w = 128;
   const h = 128;
-  const left = makeFixture('left', 'multiple-similar', w, h, (out, width, height) =>
-    fillCircle(32, 64, 24, out, width, height),
+  const left = makeFixture(
+    'left',
+    'multiple-similar',
+    w,
+    h,
+    (out, width, height) => fillCircle(32, 64, 24, out, width, height),
+    { points: [{ x: 32, y: 64, label: 1 }] },
+    'Left circle mask, composed into the multiple-similar scene.',
   );
-  const middle = makeFixture('middle', 'multiple-similar', w, h, (out, width, height) =>
-    fillCircle(64, 64, 24, out, width, height),
+  const middle = makeFixture(
+    'middle',
+    'multiple-similar',
+    w,
+    h,
+    (out, width, height) => fillCircle(64, 64, 24, out, width, height),
+    { points: [{ x: 64, y: 64, label: 1 }] },
+    'Middle circle mask — the oracle subject of the multiple-similar scene.',
   );
-  const right = makeFixture('right', 'multiple-similar', w, h, (out, width, height) =>
-    fillCircle(96, 64, 24, out, width, height),
+  const right = makeFixture(
+    'right',
+    'multiple-similar',
+    w,
+    h,
+    (out, width, height) => fillCircle(96, 64, 24, out, width, height),
+    { points: [{ x: 96, y: 64, label: 1 }] },
+    'Right circle mask, composed into the multiple-similar scene.',
   );
   const pixels = new Uint8ClampedArray(w * h * 4);
   const oracleMask = new Uint8Array(w * h);

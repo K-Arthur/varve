@@ -112,7 +112,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
   } = useSemanticAssetSearch(platform, assets, searchQuery);
 
   const searchResults = useMemo(
-    () => searchAssets(assets, searchQuery, { semanticRanks }),
+    () => searchAssets(assets, searchQuery, { semanticRanks: semanticRanks ?? undefined }),
     [assets, searchQuery, semanticRanks],
   );
 

@@ -46,7 +46,7 @@ const PATCH_SIZE = 32;
 function luminance(data: Uint8ClampedArray, width: number, height: number): Float32Array {
   const out = new Float32Array(width * height);
   for (let i = 0; i < width * height; i++) {
-    out[i] = 0.2126 * data[i * 4] + 0.7152 * data[i * 4 + 1] + 0.0722 * data[i * 4 + 2];
+    out[i] = 0.2126 * data[i * 4]! + 0.7152 * data[i * 4 + 1]! + 0.0722 * data[i * 4 + 2]!;
   }
   return out;
 }

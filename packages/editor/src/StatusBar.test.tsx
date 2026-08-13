@@ -151,7 +151,7 @@ describe('StatusBar section gating', () => {
   it('shows natural pixel dimensions for a selected raster node in image mode', () => {
     const editor = baseEditor();
     editor.state.workspaceMode = 'image';
-    editor.selectedNodes = () => [imageShapeNode];
+    editor.selectedNodes = (() => [imageShapeNode]) as unknown as typeof editor.selectedNodes;
     useEditorMock.mockReturnValue(editor);
     render(<StatusBar />);
     expect(screen.getByText('1920 \u00d7 1080 px')).toBeTruthy();
@@ -167,7 +167,7 @@ describe('StatusBar section gating', () => {
 
   it('gates the zoom controls, units select, and selection info by section ids', () => {
     const editor = baseEditor();
-    editor.selectedNodes = () => [namedShapeNode];
+    editor.selectedNodes = (() => [namedShapeNode]) as unknown as typeof editor.selectedNodes;
     useEditorMock.mockReturnValue(editor);
     render(<StatusBar />);
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeTruthy();

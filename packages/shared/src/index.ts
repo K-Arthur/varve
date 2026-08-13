@@ -186,6 +186,7 @@ export type {
   GradientInterpolationSpace,
   GradientStopInput,
   InterpolateOptions,
+  InterpolationRgba,
 } from './colorInterpolation';
 export {
   applyMidpointBias,
@@ -223,17 +224,6 @@ export {
   getArtboardRulerOrigin,
   worldToArtboard,
 } from './coordinates';
-export type {
-  PortablePathErrorCode,
-  PortablePathValidation,
-  PortableProjectPath,
-} from './portablePath';
-export {
-  joinPortableProjectPath,
-  portableProjectBasename,
-  portableProjectPath,
-  validatePortableProjectPath,
-} from './portablePath';
 export { cssStringToManagedColor, managedColorToCssString } from './cssColorParser';
 export { debounce, throttle } from './debounce';
 export type {
@@ -350,6 +340,17 @@ export {
   summarizeDurations,
   validatePerformanceTrace,
 } from './performance';
+export type {
+  PortablePathErrorCode,
+  PortablePathValidation,
+  PortableProjectPath,
+} from './portablePath';
+export {
+  joinPortableProjectPath,
+  portableProjectBasename,
+  portableProjectPath,
+  validatePortableProjectPath,
+} from './portablePath';
 export {
   deriveHeight,
   deriveWidth,
@@ -437,8 +438,8 @@ export {
   DISPLAY_SRGB_ENCODING,
   isConvertibleRgbEncoding,
   LEGACY_ASSUMED_ENCODING,
-  rasterEncodingLabel,
   rasterEncodingKey,
+  rasterEncodingLabel,
   rasterProvenanceLabel,
 } from './rasterColorEncoding';
 export type { BoxCandidate, ResizeHandle, ResizeOptions, SelectionBox } from './selectionBox';
