@@ -83,10 +83,10 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
-      name: 'How do Varve updates work?',
+      name: 'How do updates work?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve updates are consent-first. You can keep checks manual, receive notifications, or allow verified update files to download automatically in Settings > Updates. Installation is separate, with an optional install-on-quit preference. AppImage, Windows NSIS, and writable installed macOS builds can update in place when their runtime checks pass; Debian/RPM packages, mounted or read-only copies, development builds, and unsupported architectures remain manual-only.',
+        text: 'Varve updates are consent-first. You can keep checks manual, receive notifications, or allow verified update files to download automatically in Settings > Updates. Installation is separate, with an optional install-on-quit preference. Linux AppImage, Windows NSIS, and writable installed macOS builds can update in place when their runtime checks pass; Debian/RPM packages, mounted or read-only copies, development builds, and unsupported architectures remain manual-only.',
       },
     },
     {
@@ -132,7 +132,16 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>How do updates work?</h3>
-          <p>Varve asks for consent before any update check: on first launch you choose whether Varve may periodically check for newer versions, and you can change that at any time in Settings &gt; Updates. Declining means no background checks — a manual "Check for Updates" button always remains available. Downloads are cryptographically verified before installation, and Varve never restarts over unsaved design work. AppImage, Windows and macOS installs update in place; Debian and RPM packages are managed by your package manager.</p>
+          <p>
+            Updates are consent-first. On first launch you can keep checks manual, receive
+            notifications, or allow verified update files to download automatically; these choices
+            can be changed in <strong>Settings &gt; Updates</strong>. Installation is separate,
+            with an optional install-on-quit preference. Linux AppImage, Windows NSIS, and writable
+            installed macOS builds can update in place when their runtime checks pass; Debian/RPM
+            packages, mounted or read-only copies, development builds, and unsupported
+            architectures remain manual-only. See the <a href={sitePath('/docs/updates')}>Updates
+            guide</a> for details.
+          </p>
         </div>
 
         <div class="faq-item">
@@ -184,19 +193,6 @@ const faqSchema = {
           <p>Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href={sitePath('/features/export')}>Export & Code Generation</a> page for details.</p>
         </div>
 
-        <div class="faq-item">
-          <h3>How do Varve updates work?</h3>
-          <p>
-            Updates are consent-first. In <strong>Settings &gt; Updates</strong>, you can keep
-            checks manual, receive notifications, or allow verified update files to download
-            automatically. Installation is separate, with an optional install-on-quit preference.
-            AppImage, Windows NSIS, and
-            writable installed macOS builds can update in place when their runtime checks pass;
-            Debian/RPM packages, mounted or read-only copies, development builds, and unsupported
-            architectures remain manual-only. Read the <a href={sitePath('/docs/updates')}>Updates
-            guide</a> for the full package matrix and privacy details.
-          </p>
-        </div>
       </div>
 
       <div class="faq-section">
