@@ -50,7 +50,7 @@ rendering, editing, hit testing, selection, masks, and exports.
 | --- | --- | --- |
 | Document model | `TextNode.text`, optional `TextNode.richText`, paragraph/run formatting, story/frame types | Preserve; evolve in place |
 | Persistence | Canonical document codec and migrations; rich text is serialized as nested paragraphs/runs | Backward-compatible extension point |
-| Rich-text commands | `packages/scene/src/richTextOps.ts` splits, formats, and merges runs | Useful pure foundation; offsets are not cluster-safe |
+| Rich-text commands | `packages/scene/src/richTextOps.ts` splits, formats, and merges runs; `richTextIndex.ts` derives paragraph/run source ranges | Useful pure foundation; shaping-cluster transaction integration remains |
 | Graphemes | `Intl.Segmenter` with a fallback in `engine/src/unicode/grapheme.ts` | Good API shape; fallback and mapping need stronger invariants |
 | Script detection | `engine/src/unicode/script.ts` | Hand-maintained coverage table; suitable as a hint, not a shaping authority |
 | BiDi dependency | `bidi-js` is declared in `@varve/engine` and now consumed by `engine/src/unicode/bidiUax9.ts` | Adapter is in place; conformance fixtures and live layout integration remain |
@@ -71,7 +71,7 @@ rendering, editing, hit testing, selection, masks, and exports.
 | Full UAX #9 BiDi | `unicode/bidiUax9.ts` delegates embedding levels, reorder indices, and mirrored-character lookup to `bidi-js` | Add broader conformance corpus coverage and feed line-level visual order into canonical layout |
 | OpenType shaping in web | `shaping.ts` measures each grapheme; `glyphId: 0`; `harfbuzzjs` unused | Integrate HarfBuzz-compatible shaping for font bytes, with Canvas fallback explicitly marked approximate/unavailable |
 | Complex-script correctness | Native Rust tests cover shaper calls, but live TS rendering does not consume native results | Add parity fixtures and a backend selection contract before advertising production support |
-| Rich text takes precedence in rendering | IR carries `richText`, while paint-time layout still has separate logic and fallback defaults | Make paragraph/run resolution an input to canonical layout, not a parallel renderer path |
+| Rich text takes precedence in rendering | IR carries `richText`; `richTextIndex.ts` now provides logical paragraph/run ranges, while paint-time layout still has separate logic and fallback defaults | Make paragraph/run resolution an input to canonical layout, not a parallel renderer path |
 | Cluster-safe editing | `richTextOps.splitRunAt` and the text overlay now snap through the shared Unicode index map; overlay still reports only paragraph 0 | Add shaping-cluster stops and paragraph-aware editing transactions |
 | Caret/hit testing from shaped clusters | `hitTestCaret` treats glyph records as graphemes and returns the preceding cluster start | Return legal insertion stops with logical/visual maps and line geometry |
 | Cache keyed by font/layout identity | `TextLayoutSnapshot` and `ShapingCache` now carry font revision, features, axes, width, and layout-policy identity; both caches are bounded | Migrate live callers to the snapshot cache and connect registry revision events to cache invalidation |
