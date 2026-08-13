@@ -7,9 +7,7 @@ test('asset search feature page explains the local retrieval boundary', async ({
   await expect(
     page.getByRole('heading', { name: 'One search, several useful signals' }),
   ).toBeVisible();
-  await expect(
-    page.getByText('Visual search is being measured before it is marketed'),
-  ).toBeVisible();
+  await expect(page.getByText('Visual search is opt-in and experimental')).toBeVisible();
   await expect(page.locator('.search-demo__field')).toContainText('orange sunset over mountains');
 });
 
