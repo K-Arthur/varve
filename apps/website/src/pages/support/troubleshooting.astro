@@ -65,7 +65,7 @@ import { sitePath } from '../../lib/siteUrl';
         
         <div class="troubleshoot-item">
           <h3>Rich text not rendering correctly</h3>
-          <p><strong>Solution:</strong> Rich text, variable fonts, and OpenType features are declared in types but rendering is still in development. Use basic text styling (font family, size, weight) for now. See the <a href={sitePath('/features/typography')}>Typography</a> page for current status.</p>
+          <p><strong>Solution:</strong> Rich-text source indexing, grapheme-safe transactions, and selected mixed formatting controls are available, but the canonical shaped layout is still being connected to every renderer and export path. Keep complex per-span compositions short while testing and verify the final export. See the <a href={sitePath('/support/known-issues')}>Known Issues</a> and <a href={sitePath('/features/typography')}>Typography</a> pages for current status.</p>
         </div>
 
         <div class="troubleshoot-item">
@@ -75,7 +75,7 @@ import { sitePath } from '../../lib/siteUrl';
 
         <div class="troubleshoot-item">
           <h3>Print export not showing bleed</h3>
-          <p><strong>Solution:</strong> Bleed is an export-time parameter and is not visualized on canvas. Canvas bleed/trim visualization is planned for future development.</p>
+          <p><strong>Solution:</strong> Print bleed and trim guides are available in the current print workflow, but exported trim/bleed geometry remains the final authority. If guides appear stale after changing page settings, reopen the page or export again and verify the PDF.</p>
         </div>
       </div>
 

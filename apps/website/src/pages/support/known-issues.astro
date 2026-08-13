@@ -14,44 +14,32 @@ interface KnownIssue {
 
 const issues: KnownIssue[] = [
   {
-    title: 'Complex script shaping not supported',
-    status: 'planned',
-    description: 'Complex scripts requiring shaping (Arabic, Devanagari, Thai) are not supported. Latin, CJK, and simple scripts work correctly.',
-    workaround: 'Use Latin or CJK scripts.',
-    category: 'Typography',
-  },
-  {
-    title: 'BiDi text layout not implemented',
-    status: 'planned',
-    description: 'Bidirectional text (mixed left-to-right and right-to-left) layout is not implemented.',
-    workaround: 'Use single-direction text.',
-    category: 'Typography',
-  },
-  {
-    title: 'Rich text per-span editing limited',
+    title: 'Complex-script glyph shaping is still approximate in the live canvas',
     status: 'partial',
-    description: 'The rich text data model exists and inline editing works, but per-span formatting (different styles within a single text node) is limited in the UI.',
-    workaround: 'Use separate text nodes for different styles.',
+    description: 'Varve now has a standards-based shaping contract, Unicode source maps, and a HarfBuzz-compatible WASM adapter in the engine. The live Canvas2D renderer still uses browser measurement and fillText in this migration stage, so Arabic, Devanagari, Thai, and other contextual scripts are not yet guaranteed to match the canonical glyph layout across fonts and exports.',
+    workaround: 'For production-critical output, verify the selected font and export result. Basic Latin and CJK workflows remain the most predictable while the shaped-glyph renderer is integrated.',
     category: 'Typography',
   },
   {
-    title: 'Bleed not visualized on canvas',
-    status: 'planned',
-    description: 'Bleed is an export-time parameter and is not visualized on canvas. You cannot see bleed margins while designing.',
-    workaround: 'Use guides to manually mark bleed areas.',
-    category: 'Color & Print',
+    title: 'Mixed-direction layout is not yet wired through every consumer',
+    status: 'partial',
+    description: 'The engine resolves paragraph embedding levels, visual run order, logical-to-visual mappings, and mirrored punctuation through a UAX #9 adapter. The live renderer, line wrapping, caret geometry, and export paths still need to consume the same canonical snapshot for mixed LTR/RTL text to be production-complete.',
+    workaround: 'Keep mixed-direction text short while validating it, and check the final export. Explicit paragraph direction can make intent clearer than Auto for authored text.',
+    category: 'Typography',
   },
   {
-    title: '8-bit color storage only',
-    status: 'experimental',
-    description: 'Color storage is always 8-bit RGBA. No 16-bit, floating-point, or CMYK storage at the document level.',
-    category: 'Color & Print',
+    title: 'Rich text per-span editing is still being integrated',
+    status: 'partial',
+    description: 'Logical paragraph/run indexing, grapheme-safe formatting transactions, property removal, text replacement, and mixed bold/italic inspector state are now in place. Insertion-style state, full paragraph controls, composition transactions, and canonical shaped rendering for every span are still incomplete.',
+    workaround: 'Use the rich-span inspector for supported character properties and verify mixed-style text after editing. Separate text nodes remain the safest fallback for production-critical compositions.',
+    category: 'Typography',
   },
   {
-    title: 'No artboard-local coordinate space',
-    status: 'planned',
-    description: 'Canvas uses global coordinates. There is no artboard-local coordinate space.',
-    category: 'Canvas & Tools',
+    title: 'Canonical glyph layout is not yet the sole rendering authority',
+    status: 'partial',
+    description: 'The engine exposes a derived layout snapshot containing glyph clusters, lines, caret stops, selection fragments, bounds, diagnostics, and cache identity. The existing canvas, text-on-path, mask, and export consumers are being migrated incrementally and may still use independent browser measurement paths.',
+    workaround: 'Treat complex-script, mixed-direction, and font-loading results as beta behavior and inspect exported output before delivery.',
+    category: 'Typography',
   },
   {
     title: 'Collaboration is UI scaffolding only',
@@ -79,7 +67,7 @@ const issues: KnownIssue[] = [
 const categories = [...new Set(issues.map((i) => i.category))];
 ---
 
-<Layout title="Known Issues" description="Current known issues and limitations in Varve: complex script shaping, collaboration scaffolding, canvas bleed visualization, and platform constraints.">
+<Layout title="Known Issues" description="Current known issues and limitations in Varve, including the in-progress Unicode text layout migration, collaboration scaffolding, print visualization, and platform constraints.">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -89,6 +77,9 @@ const categories = [...new Set(issues.map((i) => i.category))];
       <h1 class="page-hero-title">Known Issues</h1>
       <p class="page-hero-sub">
         Current limitations and known issues in Varve. These are tracked and will be addressed in future releases.
+      </p>
+      <p class="known-issues-review">
+        Typography entries were reviewed on 13 August 2026 against the current engine and website implementation. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed.
       </p>
 
       {categories.map((category) => (
@@ -142,6 +133,16 @@ const categories = [...new Set(issues.map((i) => i.category))];
 
   .known-issues-section {
     margin-bottom: 3rem;
+  }
+
+  .known-issues-review {
+    background: var(--surface-muted);
+    border-left: 3px solid var(--border-accent);
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin: -1rem 0 2.5rem;
+    padding: 0.875rem 1rem;
   }
 
   .known-issues-section .section-title {
