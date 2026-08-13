@@ -35,5 +35,3 @@ and downloaded model files.
 - Real-model SAM2 quality/parity corpus and cold/warm latency measurements.
 - Visual review of mask quality on hair, fur, transparency, and rotated/cropped
   image placements.
-- Dedicated candidate-mask cycling control in the Inspector.
-
