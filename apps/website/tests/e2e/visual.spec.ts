@@ -185,6 +185,18 @@ test('docs page light', async ({ page }) => {
   });
 });
 
+test('workspaces docs page light', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
+  await seedTheme(page, 'light');
+  await page.goto('/docs/workspaces');
+  await expect(page.getByRole('heading', { name: 'Workspaces', exact: true })).toBeVisible();
+  await warmFullPage(page);
+  await expect(page).toHaveScreenshot('workspaces-docs-light.png', {
+    fullPage: true,
+    maxDiffPixelRatio: 0.02,
+  });
+});
+
 test('features page dark', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await seedTheme(page, 'dark');
