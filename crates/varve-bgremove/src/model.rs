@@ -10,7 +10,16 @@
 //! builds. Native storage is populated only via explicit export/import or
 //! future native download IPC — not automatic dual-storage.
 
-use std::{path::PathBuf, sync::LazyLock};
+use std::{path::PathBuf, sync::{LazyLock, OnceLock}};
+
+static CONFIGURED_MODELS_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// Inject the desktop app-data model root resolved by Tauri.  The fallback in
+/// [`models_dir`] exists for standalone native tests and command-line callers;
+/// the packaged desktop app always calls this during startup.
+pub fn configure_models_dir(path: PathBuf) {
+    let _ = CONFIGURED_MODELS_DIR.set(path);
+}
 
 /// Metadata for an available AI model.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -109,10 +118,12 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
 
 /// Get the directory where native models are stored.
 pub fn models_dir() -> PathBuf {
-    dirs_next::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("strata")
-        .join("models")
+    CONFIGURED_MODELS_DIR.get().cloned().unwrap_or_else(|| {
+        dirs_next::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("dev.varve.desktop")
+            .join("models")
+    })
 }
 
 /// Check if a model is already downloaded to native storage.
@@ -207,7 +218,7 @@ mod tests {
         // per-user location that survives AppImage extraction.
         let path = models_dir();
         assert!(path.is_absolute(), "models dir must be absolute: {path:?}");
-        assert!(path.ends_with(std::path::Path::new("strata").join("models")));
+        assert!(path.ends_with(std::path::Path::new("dev.varve.desktop").join("models")));
         let data_dir = dirs_next::data_dir().expect("user data dir");
         assert!(
             path.starts_with(&data_dir),

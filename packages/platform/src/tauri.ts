@@ -710,18 +710,24 @@ export function createTauriPlatform(): Platform {
       });
     },
     async writeBinaryFileToFolder(folder, relativePath, data) {
-      const normalized = relativePath.replaceAll('\\', '/');
+      // Export plans use the portable `/` separator. Native joining and
+      // containment are performed by the Rust command after this cheap
+      // intent check; this function never rewrites separators for a host OS.
       if (
-        normalized.startsWith('/') ||
-        /^[a-zA-Z]:/.test(normalized) ||
-        normalized.split('/').some((part) => part === '' || part === '.' || part === '..')
+        relativePath.length === 0 ||
+        relativePath.startsWith('/') ||
+        relativePath.startsWith('\\') ||
+        /^[a-zA-Z]:/.test(relativePath) ||
+        relativePath.includes('\\') ||
+        relativePath.split('/').some((part) => part.length === 0 || part === '.' || part === '..')
       ) {
         throw new Error('Export path must be a safe relative path');
       }
-      const separator = folder.includes('\\') && !folder.includes('/') ? '\\' : '/';
-      const path = `${folder.replace(/[\\/]$/, '')}${separator}${normalized.replaceAll('/', separator)}`;
-      await core().invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
-      return path;
+      return (await core().invoke('write_binary_file_to_folder', {
+        folder,
+        relativePath,
+        data: arrayBufferForBytes(data),
+      })) as string;
     },
 
     async listPrinters() {

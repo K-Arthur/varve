@@ -13,7 +13,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
-use tauri::Manager;
 
 /// Metadata stored alongside each font.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -45,11 +44,9 @@ fn family_dir_name(family: &str) -> String {
 
 /// Get the app data font directory.
 fn font_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let mut dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {e}"))?;
-    dir.push("fonts");
+    let dir = crate::filesystem::AppDirectories::resolve(app)
+        .map_err(|error| error.message)?
+        .fonts;
     std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create font dir: {e}"))?;
     Ok(dir)
 }

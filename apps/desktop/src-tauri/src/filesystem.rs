@@ -155,6 +155,34 @@ pub fn validate_storage_key(value: &str) -> Result<(), FsError> {
     Ok(())
 }
 
+/// Validate a document/export logical relative path without asking the host
+/// `Path` parser to interpret Windows syntax on Unix (or vice versa).
+pub fn validate_portable_relative_path(value: &str) -> Result<Vec<&str>, FsError> {
+    if value.is_empty()
+        || value.starts_with('/')
+        || value.starts_with('\\')
+        || (value.len() >= 2 && value.as_bytes()[1] == b':')
+        || value.contains('\\')
+        || value.contains('\0')
+    {
+        return Err(FsError::new(
+            FsErrorKind::InvalidPath,
+            "path is not a portable relative path",
+        ));
+    }
+    let components = value.split('/').collect::<Vec<_>>();
+    if components
+        .iter()
+        .any(|component| component.is_empty() || *component == "." || *component == "..")
+    {
+        return Err(FsError::new(
+            FsErrorKind::TraversalBlocked,
+            "portable path contains an invalid component",
+        ));
+    }
+    Ok(components)
+}
+
 /// Generate a cross-platform filename for data Varve creates itself.  User
 /// selected filenames are never passed through this function.
 pub fn generated_filename(stem: &str, extension: &str) -> String {
@@ -222,5 +250,22 @@ mod tests {
         assert!(validate_storage_key("../outside").is_err());
         assert!(validate_storage_key(r"..\outside").is_err());
         assert!(validate_storage_key("C:relative").is_ok());
+    }
+
+    #[test]
+    fn portable_relative_paths_reject_host_absolute_and_traversal_forms() {
+        for value in [
+            "../secret",
+            r"..\secret",
+            "/absolute/file",
+            r"C:\absolute\file",
+            r"\\server\share\file",
+            r"\\?\C:\path\file",
+            "file:///etc/passwd",
+        ] {
+            assert!(validate_portable_relative_path(value).is_err(), "accepted {value:?}");
+        }
+        assert!(validate_portable_relative_path("assets/%2e%2e/file.png").is_ok());
+        assert!(validate_portable_relative_path("assets/设计/file.png").is_ok());
     }
 }
