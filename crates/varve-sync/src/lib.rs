@@ -1210,4 +1210,35 @@ mod tests {
         store.clear_recent_history().expect("clear");
         assert!(store.list_recent_files(50).expect("list after clear").is_empty());
     }
+
+    #[test]
+    fn v1_databases_gain_the_recent_files_table_on_open() {
+        // Simulate a database created before the recents schema: v1 tables
+        // only, user_version = 1. Opening it must migrate in place without
+        // touching existing rows.
+        let path = temp_db_path();
+        {
+            let conn = rusqlite::Connection::open(&path).expect("open v1 db");
+            conn.execute_batch(
+                "CREATE TABLE files (
+                    id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'strata',
+                    project_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+                    opened_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z', size INTEGER NOT NULL DEFAULT 0,
+                    pinned INTEGER NOT NULL DEFAULT 0, trashed_at TEXT, file_path TEXT,
+                    ordering TEXT NOT NULL DEFAULT '', content_hash TEXT NOT NULL DEFAULT ''
+                );
+                INSERT INTO files (id, name, created_at, updated_at) VALUES ('legacy-1', 'Old.varve', 't', 't');
+                PRAGMA user_version = 1;",
+            )
+            .expect("seed v1 schema");
+        }
+        let store = DocumentStore::new(&path).expect("open v1 store");
+        let rows = store.list_files().expect("list pre-migration rows");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "legacy-1");
+        store
+            .touch_recent_file("legacy-1", "Old.varve", None, None)
+            .expect("recents usable after migration");
+        assert_eq!(store.list_recent_files(50).expect("list recents").len(), 1);
+    }
 }
