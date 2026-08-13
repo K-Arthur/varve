@@ -176,6 +176,21 @@ coordinate → teardown-safe listeners.
   settings` (pre-existing). Corrupted JSON falls back to defaults; unknown
   panel ids, invalid field types, and invalid panel widths are sanitized.
 
+### Browser fallback geometry
+
+The single-window browser fallback (`workspace/browserFallback.ts`) maps the
+logical dock layout to CSS-grid regions without relying on native windows.
+Visible panels in the same region are treated as tabs, so the region uses the
+largest configured slot size rather than adding tab widths together. Left and
+right regions use their configured preferred sizes, while timeline/bottom
+regions use their configured height (200px by default).
+
+When a narrow viewport cannot accommodate those preferred side-panel sizes
+while preserving the layout's requested `centerRatio`, the side regions are
+scaled proportionally. Region geometry is clamped to finite, non-negative
+dimensions, keeping the canvas and hit-testing coordinates valid during
+responsive resize and malformed host-size input.
+
 ## 5. Accessibility behavior
 
 - **Workspace switcher**: APG radiogroup — `role=radio`, `aria-checked`,
