@@ -147,6 +147,42 @@ describe('resolveBoundsRect', () => {
     expect(bleedBounds ? bleedBounds.width : 0).toBeGreaterThan(pageBounds?.width ?? 0);
     expect(bleedBounds ? bleedBounds.height : 0).toBeGreaterThan(pageBounds?.height ?? 0);
   });
+
+  it('page-bleed expands by the exact canonical per-edge bleed (3mm at 96dpi world scale)', () => {
+    const doc = createDocument('Doc', {
+      bleed: uniformBleed(3, 'mm'),
+      dpi: 300, // print dpi must NOT change the world-px expansion
+    });
+    const page = doc.pages?.[0];
+    const target = resolveTarget(
+      doc,
+      { type: 'page', pageId: page?.id ?? 'p1' },
+      { document: doc },
+    );
+    const bleedBounds = resolveBoundsRect(doc, target, 'page-bleed', { document: doc });
+    const b3 = (3 * 96) / 25.4; // 11.3386 world px per edge
+    expect(bleedBounds?.x).toBeCloseTo(-b3, 5);
+    expect(bleedBounds?.y).toBeCloseTo(-b3, 5);
+    expect(bleedBounds?.width).toBeCloseTo((page?.width ?? 0) + b3 * 2, 5);
+    expect(bleedBounds?.height).toBeCloseTo((page?.height ?? 0) + b3 * 2, 5);
+  });
+
+  it('unconfigured documents export trim-only (zero bleed)', () => {
+    const doc = createDocument('Doc', false); // no bleed configured
+    const page = doc.pages?.[0];
+    const target = resolveTarget(
+      doc,
+      { type: 'page', pageId: page?.id ?? 'p1' },
+      { document: doc },
+    );
+    const bleedBounds = resolveBoundsRect(doc, target, 'page-bleed', { document: doc });
+    expect(bleedBounds).toEqual({
+      x: 0,
+      y: 0,
+      width: page?.width,
+      height: page?.height,
+    });
+  });
 });
 
 describe('computeScaleFactor', () => {
