@@ -351,6 +351,9 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       // Memory platform doesn't have file paths; always return true
       return true;
     },
+    async checkFilesExist(paths) {
+      return paths.map(() => true);
+    },
 
     async getThumbnail(hash) {
       return state.thumbnails.get(hash)?.dataUrl;
@@ -956,7 +959,7 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       };
     },
     async readDocumentText() {
-      return undefined;
+      return { ok: false, reason: 'unsupported' };
     },
     async listPrinters() {
       return [
