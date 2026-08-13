@@ -556,12 +556,27 @@ export {
   TROCR_TENSOR_SPEC,
   validateTrOcrInput,
 } from './inference/models/trocr';
-export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
+export type {
+  ContrastPair,
+  HarmonyPalette,
+  PaletteAnalysis,
+  PaletteAnalysisConfig,
+  PalettePixelSource,
+  PaletteResult,
+  PaletteRole,
+  PaletteSourceInfo,
+  PaletteSwatch,
+  PaletteTimingInfo,
+  PaletteWarning,
+} from './intelligence/paletteExtractor';
 export {
   analogousHarmony,
+  analyzePalette,
   complementaryHarmony,
   extractPalette,
+  extractPaletteFromRgba,
   monochromaticHarmony,
+  PALETTE_ANALYSIS_VERSION,
   splitComplementaryHarmony,
   triadicHarmony,
 } from './intelligence/paletteExtractor';
@@ -810,6 +825,7 @@ export {
   patchRegion,
   spotHeal,
 } from './retouch';
+export * from './richTextLayout';
 export {
   itemNeedsAlphaShadow,
   paintAlphaAwareDropShadow,
@@ -834,7 +850,6 @@ export {
 export type { ShapingCacheKeyOptions } from './shapingCache';
 export { ShapingCache, shapingCache } from './shapingCache';
 export * from './storyComposition';
-export * from './richTextLayout';
 export * from './text/lineBreak';
 export * from './text/paragraphs';
 export * from './text/visualOrder';
