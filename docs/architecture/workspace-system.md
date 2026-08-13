@@ -28,6 +28,14 @@ inspector tabs and default tab, status-bar sections, canvas-overlay defaults,
 the active tool (only where the workspace declares `defaultTool`), and
 first-use guidance.
 
+### Responsive editor chrome
+
+At viewports below 900px, the layers and inspector panels become drawers and
+the panel FABs remain available over the canvas. The FABs must stay above the
+fixed 28px status bar so document name, save state, zoom, and fit controls are
+never obscured. The narrow-layout E2E assertion in
+`tests/e2e/canvas/workspace-mode.spec.ts` guards this geometry.
+
 ## Scope: the workspace is application-global
 
 The active workspace is global to the application. It is **not** stored per

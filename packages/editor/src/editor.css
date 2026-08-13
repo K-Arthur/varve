@@ -1623,6 +1623,10 @@ input[type="number"] {
 @media (max-width: 899px) {
   .editor__fab {
     display: flex;
+    /* Keep the responsive panel controls above the fixed-height status bar.
+       At compact heights the old 24px offset put the FABs over save/zoom
+       state, making those single-user controls unreadable. */
+    bottom: calc(28px + var(--space-3));
   }
 }
 .editor__fab--layers {
