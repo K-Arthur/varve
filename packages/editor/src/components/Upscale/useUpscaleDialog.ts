@@ -8,6 +8,7 @@
 import type {
   DenoiseStrength,
   PixelArtAlgorithm,
+  RestorationOperation,
   UpscaleModeId,
   UpscaleProgressFn,
 } from '@varve/engine';
@@ -33,6 +34,7 @@ interface UseUpscaleDialogReturn {
   openUpscaleDialog: (options?: UpscaleDialogOpenOptions) => void;
   closeUpscaleDialog: () => void;
   handleDialogApply: (options: {
+    operation: RestorationOperation;
     mode: UpscaleModeId;
     scale: number;
     output: 'new-layer' | 'replace-source' | 'non-destructive';
@@ -72,6 +74,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
 
   const handleDialogApply = useCallback(
     async (options: {
+      operation: RestorationOperation;
       mode: UpscaleModeId;
       scale: number;
       output: 'new-layer' | 'replace-source' | 'non-destructive';
@@ -96,6 +99,7 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
             ? 'upscale-realesrgan-anime'
             : undefined;
       await upscaleSelectedImage({
+        operation: options.operation,
         scale: options.scale,
         method,
         modelId,
