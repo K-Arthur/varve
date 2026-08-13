@@ -38,6 +38,7 @@ import {
   imageShapeSrc,
   imageShapeW,
   isImageShape,
+  pageBleedMm,
 } from '@varve/scene';
 import {
   buildExportPlan,
@@ -314,12 +315,18 @@ export function ExportDialog({
   const [printSettings, setPrintSettings] = useState<PrintOptions>(() => {
     const settings = loadSettings().export;
     // Seed the export-job bleed from the document's canonical print
-    // geometry when configured (the active page's resolved bleed in mm),
-    // falling back to the app-wide export default. The dialog value is an
-    // explicit export-job override of the document value — canvas preview
-    // and PDF/X share the same underlying document bleed unless the
-    // designer changes it here for this export.
-    const docBleedMm = document ? documentBleedMm(document) : 0;
+    // geometry when configured (the active page's resolved bleed in mm —
+    // page override included), falling back to the app-wide export
+    // default. The dialog value is an explicit export-job override of the
+    // document value — canvas preview and PDF/X share the same underlying
+    // bleed unless the designer changes it here for this export.
+    const activePageId = document?.activePageId;
+    const docBleedMm =
+      document && activePageId
+        ? pageBleedMm(document, activePageId)
+        : document
+          ? documentBleedMm(document)
+          : 0;
     return {
       bleedMm: docBleedMm > 0 ? docBleedMm : settings.defaultBleedMm,
       enforceDpi: 300,
@@ -871,7 +878,13 @@ export function ExportDialog({
                   standard={
                     selectedJobs.some((job) => job.format === 'pdf-x1a') ? 'pdf-x1a' : 'pdf-x4'
                   }
-                  documentBleedMm={document ? documentBleedMm(document) : undefined}
+                  documentBleedMm={
+                    document?.activePageId
+                      ? pageBleedMm(document, document.activePageId)
+                      : document
+                        ? documentBleedMm(document)
+                        : undefined
+                  }
                 />
               </section>
             )}

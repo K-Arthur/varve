@@ -54,6 +54,11 @@ export function addPage(
 
   return {
     ...d1,
+    // Adding the first page also makes it active — documents created from
+    // Home start flat (no pages, no activePageId), and an inactive page
+    // leaves Fit-to-Page and the page inspector silent. Later adds keep
+    // the current active page.
+    activePageId: d1.activePageId ?? page.id,
     pages: [...(d1.pages ?? []), page],
     rootChildren: [...d1.rootChildren, contentRootId],
     nodes: { ...d1.nodes, [contentRootId]: contentRoot },
