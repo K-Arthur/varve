@@ -131,8 +131,8 @@ pub fn store_font_on_filesystem(
     let write_result = std::fs::write(&tmp_path, &data)
         .map_err(|e| format!("Cannot write font file: {e}"))
         .and_then(|()| {
-            std::fs::rename(&tmp_path, &font_path)
-                .map_err(|e| format!("Cannot finalize font file: {e}"))
+            crate::filesystem::replace_file(&tmp_path, &font_path)
+                .map_err(|error| format!("Cannot finalize font file: {}", error.message))
         });
     if write_result.is_err() {
         let _ = std::fs::remove_file(&tmp_path);
