@@ -219,6 +219,45 @@ describe('extractPalette', () => {
     );
   });
 
+  it('preserves a tiny saturated accent on a dominant dark background', () => {
+    const width = 64;
+    const height = 64;
+    const data = new Uint8ClampedArray(width * height * 4);
+    fillRegion(data, width, 0, 0, width, height, 18, 20, 24, 255);
+    fillRegion(data, width, 30, 30, 2, 2, 0, 210, 190, 255);
+    const result = extractPalette(createImageData(width, height, data), 6);
+
+    expect(
+      result.extracted.some((swatch) => {
+        const color = swatch.color;
+        return color.space === 'rgb' && color.g > 150 && color.b > 130 && color.r < 80;
+      }),
+    ).toBe(true);
+    expect(result.extracted.some((swatch) => swatch.roleCandidate === 'dark-neutral')).toBe(true);
+  });
+
+  it('does not collapse a gradient into a single washed-out cluster', () => {
+    const width = 64;
+    const height = 64;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const offset = (y * width + x) * 4;
+        data[offset] = Math.round((x / width) * 255);
+        data[offset + 1] = 0;
+        data[offset + 2] = Math.round((y / height) * 255);
+        data[offset + 3] = 255;
+      }
+    }
+    const result = extractPalette(createImageData(width, height, data), 6);
+
+    expect(result.extracted.length).toBeGreaterThanOrEqual(3);
+    const chromas = result.extracted.map((swatch) =>
+      Math.hypot(swatch.oklab[1]!, swatch.oklab[2]!),
+    );
+    expect(Math.max(...chromas)).toBeGreaterThan(0.03);
+  });
+
   it('returns WCAG 2.1 contrast pair measurements with explicit criteria', () => {
     const data = createImageData(2, 1, new Uint8ClampedArray([0, 0, 0, 255, 255, 255, 255, 255]));
     const result = analyzePalette({ width: 2, height: 1, data: data.data }, { colorCount: 2 });
