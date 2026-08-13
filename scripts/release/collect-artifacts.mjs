@@ -41,6 +41,7 @@ import {
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { productSlug } from './product.mjs';
+import { currentTargetId, targetById, targetFor } from './targets.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -65,18 +66,6 @@ function parseArgs(argv) {
     args[argv[i].slice(2)] = argv[i + 1];
   }
   return args;
-}
-
-function detectOs() {
-  if (process.platform === 'darwin') return 'macos';
-  if (process.platform === 'win32') return 'windows';
-  return 'linux';
-}
-
-function detectArch() {
-  if (process.arch === 'arm64') return 'aarch64';
-  if (process.arch === 'x64') return 'x86_64';
-  return process.arch;
 }
 
 function sha256(path) {
@@ -189,8 +178,10 @@ function main() {
     args['bundle-dir'] ?? 'apps/desktop/src-tauri/target/release/bundle',
   );
   const outDir = resolve(repoRoot, args.out ?? 'dist/release');
-  const os = args.os ?? detectOs();
-  const arch = args.arch ?? detectArch();
+  const currentTarget = targetById(currentTargetId());
+  const os = args.os ?? currentTarget.os;
+  const arch = args.arch ?? currentTarget.architecture;
+  targetFor(os, arch);
 
   const version = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf-8')).version;
   if (version === '0.0.0') {

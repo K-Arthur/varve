@@ -26,17 +26,14 @@
 import { existsSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { currentTargetId, normalizeTargetId } from './targets.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const STAGE_DIR = join(repoRoot, 'apps/desktop/src-tauri/onnxruntime-libs');
 
 /** Matches `format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)` on the Rust side. */
 function currentPlatformKey() {
-  const os =
-    process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux';
-  const arch =
-    process.arch === 'arm64' ? 'aarch64' : process.arch === 'x64' ? 'x86_64' : process.arch;
-  return `${os}-${arch}`;
+  return currentTargetId();
 }
 
 function directorySize(dir) {
@@ -52,7 +49,8 @@ function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes('--dry-run');
   const targetIndex = args.indexOf('--target');
-  const target = targetIndex !== -1 ? args[targetIndex + 1] : currentPlatformKey();
+  const target =
+    targetIndex !== -1 ? normalizeTargetId(args[targetIndex + 1]) : currentPlatformKey();
 
   if (!existsSync(STAGE_DIR)) {
     process.stdout.write(
