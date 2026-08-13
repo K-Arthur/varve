@@ -1,7 +1,9 @@
 # Local asset search system
 
-Status: Phase 1 retrieval contract and Home integration implemented; local
-image/text model indexing is intentionally not advertised as complete.
+Status: lexical Home retrieval and an opt-in local image/text similarity lane
+are implemented. Persistent browser/Tauri-webview embedding storage is now
+available; native SQLite indexing and cross-project background indexing remain
+separate follow-ups.
 
 ## Product boundary
 
@@ -36,10 +38,12 @@ override.
   recognition workers. Search accepts normalized `Asset.ocrText` when a future
   indexing adapter persists that result; it does not rerun OCR in the query
   loop.
-- The existing ONNX worker/model manifest is the natural runtime boundary, but
-  the current SigLIP integration is image-to-image only. It does not yet wire a
-  tokenizer and text encoder, so it cannot honestly power natural-language
-  image retrieval.
+- The existing ONNX worker/model manifest is the runtime boundary. The verified
+  SigLIP image graph and matching text graph now share a 768-dimensional
+  embedding space. The SentencePiece Unigram tokenizer is fetched only when
+  text search is explicitly enabled and is cached through the browser Cache
+  API; lexical filename/OCR/metadata search remains available offline without
+  either model.
 - There is no complete native Home asset command implementation in the current
   Rust storage path. Native asset indexing therefore remains a follow-up rather
   than a silently partial SQLite feature.
@@ -67,12 +71,11 @@ candidate set and exact-rerank it in the same embedding space.
 
 ## Model/runtime decision status
 
-No checkpoint is selected for product distribution yet. Google SigLIP is a
-credible candidate because it has separate image and text encoders, but a
-production selection requires a trusted conversion, tokenizer/preprocessing
-parity tests, end-to-end ranking agreement, and a verified checkpoint license.
-The current Xenova SigLIP entry is retained as an image-only evaluation
-contract, not as a natural-language search claim.
+The first local natural-language lane uses the verified Xenova SigLIP image
+and text ONNX exports, with pinned SHA-256 records, matching preprocessing,
+and tokenizer/model contracts. It remains opt-in and experimental: the
+retrieval harness still needs a labelled Varve corpus and representative
+hardware measurements before the model is presented as a quality guarantee.
 
 OpenAI CLIP is not selected from its repository MIT license alone: its model
 card describes deployed use as out of scope. Apple MobileCLIP remains an
@@ -82,23 +85,16 @@ reviewed independently before a download entry is added.
 
 ## Graceful degradation
 
-The current Home UI labels the available local lanes as filename, OCR, and
-tags. Missing OCR metadata simply removes that lane. Missing semantic model or
-index must leave filename/OCR/metadata search and saved projects working. A
-model download is opt-in, checksum-verified, cancellable, and never required
-at application startup.
+The Home UI labels the always-available lanes as filename, OCR, and tags. The
+editor Similar panel additionally exposes image queries and natural-language
+descriptions after explicit model download. Missing OCR metadata or semantic
+models simply removes those optional lanes. Model downloads are opt-in,
+checksum-verified, cancellable, and never required at application startup.
 
 ## Next implementation gate
 
-Before enabling “describe an image” as a semantic product claim, add:
-
-1. a dual-encoder adapter with text tokenizer and image preprocessing;
-2. upstream/runtime embedding parity goldens and top-K agreement tests;
-3. persistent incremental indexing with cancellation, retry, progress, and
-   transactional replacement;
-4. a labelled Varve asset corpus covering descriptive, OCR, filename, and
-   design-specific queries;
-5. latency, throughput, memory, model-size, license, and cross-platform
-   benchmark results;
-6. a model manager entry only after the provenance gate passes.
-
+Before promoting “describe an image” beyond the experimental lane, add a
+labelled Varve corpus, human visual review sheet, retrieval-quality metrics,
+and representative CPU/GPU memory and latency measurements. ANN indexing and
+native SQLite persistence should be added only if those measurements show
+that the current exact, document-local scan is insufficient.

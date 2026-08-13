@@ -6,7 +6,7 @@ import StatusPill from '../../components/StatusPill.astro';
 
 <Layout
   title="Local asset search - Varve"
-  description="Find design assets by filename, recognized text, tags, and eventually visual description, with local-first retrieval in Varve."
+  description="Find design assets by filename, recognized text, tags, description, or an optional local visual query in Varve."
 >
   <div class="container-custom">
     <div class="feature-page">
@@ -38,16 +38,16 @@ import StatusPill from '../../components/StatusPill.astro';
           <article><h3>Filename and path</h3><p>Exact identifiers such as <code>IMG_4821</code> stay precise.</p></article>
           <article><h3>Recognized text</h3><p>OCR results can surface scans, invoices, and presentation slides.</p></article>
           <article><h3>Tags and metadata</h3><p>Kind, MIME type, descriptions, and user tags remain searchable.</p></article>
+          <article><h3>Visual description</h3><p>The Similar panel can compare a local text description with document images after the opt-in model download.</p></article>
         </div>
       </section>
 
       <section class="feature-section feature-section--note">
-        <h2>Visual search is being measured before it is marketed</h2>
+        <h2>Visual search is opt-in and experimental</h2>
         <p>
-          A local image/text embedding model is an optional next layer, not a hidden requirement.
-          Varve will enable it only after model terms, preprocessing parity, retrieval quality,
-          memory, and desktop/browser performance have been verified. The existing local search
-          lanes continue to work without that model.
+          The local image/text embedding pair is downloaded only when you ask for it and remains
+          inside the app. It is a ranking aid—not a quality guarantee—and filename, OCR, tags, and
+          metadata search continue to work without the model.
         </p>
       </section>
 
