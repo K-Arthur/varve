@@ -1,6 +1,7 @@
 import type { WorkerInferResult } from '@varve/engine';
 import {
   decodeSam2DecoderOutput,
+  EmbeddingCache,
   getImageCache,
   getInferenceWorkerHost,
   getModelLoader,
@@ -36,19 +37,29 @@ export function useSam2Segmentation(
 ): Sam2SegmentationAPI {
   const abortRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
-  const embeddingCacheRef = useRef<{
-    nodeId: NodeId;
-    src: string;
-    embeddings: Record<string, WorkerTensor>;
-    // The letterbox transform the encoder's *own* preprocessing applied to
-    // this image (scale-to-fit + center + pad for non-square images).
-    // Prompt encoding must reuse this exact transform — see sam2.ts — so
-    // it's cached alongside the embeddings it was computed from, not
-    // recomputed from the image dimensions independently.
-    letterbox: { offsetX: number; offsetY: number };
-    naturalW: number;
-    naturalH: number;
-  } | null>(null);
+  const embeddingCacheRef = useRef(
+    new EmbeddingCache<{
+      nodeId: NodeId;
+      src: string;
+      embeddings: Record<string, WorkerTensor>;
+      // The letterbox transform the encoder's *own* preprocessing applied to
+      // this image (scale-to-fit + center + pad for non-square images).
+      // Prompt encoding must reuse this exact transform — see sam2.ts — so
+      // it's cached alongside the embeddings it was computed from, not
+      // recomputed from the image dimensions independently.
+      letterbox: { offsetX: number; offsetY: number };
+      naturalW: number;
+      naturalH: number;
+    }>({
+      maxEntries: 2,
+      maxBytes: 512 * 1024 * 1024,
+      estimateBytes: (entry) =>
+        Object.values(entry.embeddings).reduce(
+          (total, tensor) => total + tensor.data.byteLength,
+          0,
+        ),
+    }),
+  );
 
   const cancelSam2Segmentation = useCallback(() => {
     abortRef.current?.abort();
@@ -170,8 +181,19 @@ export function useSam2Segmentation(
       try {
         const host = getInferenceWorkerHost();
 
-        let cached = embeddingCacheRef.current;
-        if (!cached || cached.nodeId !== nodeId || cached.src !== src) {
+        const cacheKey = [
+          currentDoc.id,
+          nodeId,
+          src,
+          naturalW,
+          naturalH,
+          encoderId,
+          'preprocess-v1',
+        ]
+          .map((part) => encodeURIComponent(String(part)))
+          .join('|');
+        let cached = embeddingCacheRef.current.get(cacheKey);
+        if (!cached) {
           if (combinedSignal.aborted) return null;
 
           const encResult: WorkerInferResult = await host.infer(
@@ -207,7 +229,7 @@ export function useSam2Segmentation(
             naturalW,
             naturalH,
           };
-          embeddingCacheRef.current = cached;
+          embeddingCacheRef.current.set(cacheKey, cached);
         }
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
