@@ -89,9 +89,17 @@ export default defineConfig({
         // Standalone (no extends): with `extends: true` the root `include`
         // concatenates into this project, which would route every package's
         // tests through jsdom. Re-declare the shared options explicitly.
+        //
+        // NOTE: options declared here are NOT inherited from the root `test`
+        // block. testTimeout is re-declared deliberately — without it the
+        // jsdom project falls back to vitest's 5s default while the node
+        // project gets the root 30s, which made EditorProvider-level tests
+        // time out under load (2026-08-13).
         test: {
           name: 'jsdom',
           environment: 'jsdom',
+          testTimeout: 30000,
+          hookTimeout: 30000,
           setupFiles: ['./vitest.setup.ts'],
           server: {
             deps: {

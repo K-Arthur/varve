@@ -90,6 +90,30 @@ describe('workspaceStore — persistence', () => {
     expect(ov.timeline?.visible).toBeUndefined();
   });
 
+  it('drops the removed collapsed/order override fields even when well-typed (self-healing migration)', () => {
+    // Pre-2026-08-13 payloads carried `collapsed`/`order` in panel overrides.
+    // The fields were decorative (no runtime consumer) and are gone from the
+    // schema; sanitizing them away here is the migration — stored payloads
+    // heal on load instead of needing a version bump.
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          panelOverrides: {
+            layers: { visible: false, collapsed: false, order: 2 },
+          },
+        },
+      }),
+    );
+    const prefs = loadWorkspacePreferences();
+    const ov = prefs.design.panelOverrides!;
+    expect(ov.layers?.visible).toBe(false);
+    expect(ov.layers?.collapsed).toBeUndefined();
+    expect(ov.layers?.order).toBeUndefined();
+    expect(JSON.stringify(ov.layers)).toBe(JSON.stringify({ visible: false }));
+  });
+
   it('missing modes fall back to defaults', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ design: { customized: true } }));
     const prefs = loadWorkspacePreferences();
@@ -132,6 +156,36 @@ describe('workspaceStore — effective configuration', () => {
     const toolIds = getEffectiveWorkspaceConfig('design').toolbar.tools.map((tool) => tool.toolId);
     expect(toolIds).not.toContain('rect');
     expect(toolIds).toEqual(expect.arrayContaining(['select', 'hand', 'zoom']));
+  });
+
+  it('applies tool overrides to flyout members, not just the main row', () => {
+    // Boolean operations live only in a flyout. The sanitizer used to accept
+    // override ids present in `toolbar.tools` only, so hiding a boolean op was
+    // discarded on save and the flyout ignored it on read.
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanExclude', false),
+    );
+    const boolean = getEffectiveWorkspaceConfig('design').toolbar.flyouts?.find(
+      (flyout) => flyout.id === 'boolean',
+    );
+    expect(boolean?.tools).not.toContain('booleanExclude');
+    expect(boolean?.tools).toContain('booleanUnion');
+  });
+
+  it('survives a reload with a flyout-only tool override', () => {
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanExclude', false),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarToolOverrides?.booleanExclude).toBe(false);
+  });
+
+  it('still rejects overrides for tools the workspace does not declare', () => {
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'notATool', false),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarToolOverrides?.notATool).toBeUndefined();
   });
 
   it('resetModePreferences restores the built-in config', () => {
