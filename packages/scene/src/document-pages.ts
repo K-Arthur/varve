@@ -65,6 +65,21 @@ export function addPage(
   };
 }
 
+/** Rename a page without changing its order, dimensions, or owned content. */
+export function renamePage(doc: Document, pageId: NodeId, name: string): Document {
+  const nextName = name.trim();
+  if (!nextName || !doc.pages) return doc;
+  const page = doc.pages.find((candidate) => candidate.id === pageId);
+  if (!page || page.name === nextName) return doc;
+
+  return {
+    ...doc,
+    pages: doc.pages.map((candidate) =>
+      candidate.id === pageId ? { ...candidate, name: nextName } : candidate,
+    ),
+  };
+}
+
 /**
  * Remove a page from the document.
  * Removes the contentRoot node (and all descendants) and any background nodes.

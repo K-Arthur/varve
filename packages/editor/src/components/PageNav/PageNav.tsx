@@ -7,12 +7,14 @@ import {
   duplicatePage,
   type NodeId,
   type Page,
+  renamePage,
   reorderPages,
 } from '@varve/scene';
 import { ContextMenu, type MenuEntry } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
+import { promptDialog } from '../PromptDialog';
 import { usePageThumbnail } from './usePageThumbnail';
 import './pagenav.css';
 
@@ -272,7 +274,18 @@ export function PageNav() {
     closeContextMenu();
   }, [ctxPageId, updateDoc, closeContextMenu]);
 
+  const handleRenamePage = useCallback(async () => {
+    if (!ctxPageId) return;
+    const page = pages.find((candidate) => candidate.id === ctxPageId);
+    if (!page) return;
+    closeContextMenu();
+    const nextName = await promptDialog('Rename page', page.name);
+    if (nextName === null || !nextName.trim()) return;
+    updateDoc((doc) => renamePage(doc, ctxPageId, nextName));
+  }, [ctxPageId, pages, updateDoc, closeContextMenu]);
+
   const ctxItems: MenuEntry[] = [
+    { id: 'rename', label: 'Rename page', onAction: handleRenamePage },
     { id: 'duplicate', label: 'Duplicate page', onAction: handleDuplicatePage },
     {
       id: 'use-as-file-thumbnail',
