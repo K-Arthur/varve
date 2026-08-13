@@ -1,3 +1,4 @@
+export { dHash, hammingDistance, pHash } from '../intelligence/perceptualHash';
 export {
   EMBEDDING_EVALUATION_CANDIDATES,
   SEMANTIC_PREPROCESSING_VERSION,
