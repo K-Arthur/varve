@@ -10,7 +10,7 @@
  */
 
 import { createEngine } from '../engine';
-import { getImageCache } from '../imageCache';
+import { type CachedImage, getImageCache } from '../imageCache';
 import { resolveImageResourceHandle } from '../imageResourceRegistry';
 import { createRasterSurface, encodeRasterSurface } from '../rasterSurface';
 import type { ReplayTarget } from '../replay';
@@ -220,33 +220,49 @@ function computeCacheKey(nodes: SceneNode[], opts: ThumbnailOptions): string {
  */
 async function preloadImageFills(
   nodes: SceneNode[],
+  maxDim: number,
   warnings: string[],
   signal?: AbortSignal,
-): Promise<void> {
-  const sources = new Set<string>();
+): Promise<Map<string, CanvasImageSource>> {
+  const sources = new Map<string, { width?: number; height?: number }>();
   for (const node of nodes) {
     for (const fill of node.fills ?? []) {
       if (fill.type === 'image' && fill.image?.src) {
-        sources.add(resolveImageResourceHandle(fill.image.src));
+        const src = resolveImageResourceHandle(fill.image.src);
+        const prior = sources.get(src);
+        sources.set(src, {
+          width: Math.max(prior?.width ?? 0, fill.image.imageWidth ?? 0) || undefined,
+          height: Math.max(prior?.height ?? 0, fill.image.imageHeight ?? 0) || undefined,
+        });
       }
     }
   }
-  if (sources.size === 0) return;
-  try {
-    await Promise.race([
-      getImageCache().preload([...sources]),
-      new Promise<void>((resolve) => setTimeout(resolve, IMAGE_PRELOAD_TIMEOUT_MS)),
-    ]);
-  } catch {
-    // Individual image failures are non-fatal; the render pass draws a
-    // placeholder and the caller marks the result provisional.
-  }
-  for (const src of sources) {
-    if (getImageCache().state(src) !== 'loaded') {
+  if (sources.size === 0) return new Map();
+
+  const resolved = new Map<string, CanvasImageSource>();
+  const cache = getImageCache();
+  const preload = Promise.allSettled(
+    [...sources].map(async ([src, dimensions]) => {
+      const source =
+        dimensions.width && dimensions.height
+          ? { width: dimensions.width, height: dimensions.height }
+          : undefined;
+      const image = await cache.loadAtSize(src, maxDim, source);
+      resolved.set(src, image as CachedImage as CanvasImageSource);
+    }),
+  );
+  await Promise.race([
+    preload,
+    new Promise<void>((resolve) => setTimeout(resolve, IMAGE_PRELOAD_TIMEOUT_MS)),
+  ]);
+
+  if (signal?.aborted) return resolved;
+  for (const src of sources.keys()) {
+    if (!resolved.has(src)) {
       warnings.push('image-not-ready');
     }
   }
-  void signal?.aborted;
+  return resolved;
 }
 
 /**
@@ -308,7 +324,8 @@ export async function generateThumbnail(
   // Preload raster fills before the single render pass so images (not
   // placeholders) appear when they are ready in the shared image cache.
   const warnings: string[] = [];
-  await preloadImageFills(nodes, warnings, signal);
+  const imageMaxDim = Math.max(1, Math.ceil(Math.max(outW, outH)));
+  const thumbnailImages = await preloadImageFills(nodes, imageMaxDim, warnings, signal);
 
   if (signal?.aborted) return null;
 
@@ -343,7 +360,10 @@ export async function generateThumbnail(
 
   const engine = await createEngine('stub');
   const ir: RenderItem[] = await engine.buildIr({ nodes });
-  replayIr(ctx as unknown as ReplayTarget, ir);
+  replayIr(ctx as unknown as ReplayTarget, ir, (src) => {
+    const loadable = resolveImageResourceHandle(src);
+    return thumbnailImages.get(loadable);
+  });
 
   ctx.restore();
 
