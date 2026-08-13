@@ -99,5 +99,16 @@ test.describe('Iconography visual QA', () => {
         fullPage: false,
       });
     });
+
+    test(`${theme}: editor workspace switcher`, async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await navigateToEditor(page);
+      await setTheme(page, theme);
+      const workspace = page.getByRole('radiogroup', { name: 'Workspace' });
+      await expect(workspace).toBeVisible({ timeout: 45000 });
+      await workspace.screenshot({
+        path: `${outputDir}/editor-${theme}-workspace-switcher.png`,
+      });
+    });
   }
 });
