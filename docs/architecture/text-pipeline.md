@@ -1,6 +1,6 @@
 # Text pipeline architecture
 
-**Status:** migration in progress — audit baseline recorded 2026-08-13
+**Status:** migration in progress — audit baseline recorded 2026-08-13; shaping, BiDi, and snapshot foundations landed
 
 Varve’s text system keeps source text in logical Unicode order. Paragraphs and
 rich-text runs are document data; visual ordering, glyph clusters, line boxes,
@@ -87,6 +87,13 @@ cluster offsets. The HarfBuzz WASM adapter is lazy and owns one module instance
 per backend; font bytes are supplied per request and are not transferred every
 frame. This slice is an integration seam, not yet a switch of the live canvas
 renderer.
+
+The first derived snapshot contract lives in
+`packages/engine/src/textLayoutSnapshot.ts`. It retains the logical source and
+Unicode index map while carrying line boxes, positioned glyphs, caret stops,
+selection rectangles, diagnostics, and an identity suitable for bounded LRU
+caching. It is deliberately not wired into replay yet; the current canvas path
+must be switched only after fallback and font-revision policy are explicit.
 
 ## Related decisions
 

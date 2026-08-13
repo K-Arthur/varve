@@ -8,7 +8,7 @@
  */
 
 import bidiFactory from 'bidi-js';
-import type { BidiDirection, BidiParagraph, BidiRun } from './bidi';
+import type { BidiDirection, BidiParagraph, BidiRun } from './bidiTypes';
 
 const bidi = bidiFactory();
 
