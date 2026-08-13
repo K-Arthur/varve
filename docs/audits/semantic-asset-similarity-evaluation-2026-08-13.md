@@ -30,6 +30,11 @@ claim that it is the best possible visual backbone for every Varve workload.
   lane split.
 - `pnpm exec vitest run packages/platform/src/assetEmbeddingIndex.test.ts packages/platform/src/assetSearch.test.ts`
   — 6 tests passed for content-addressed record encoding and hybrid ranking.
+- `pnpm exec vitest run packages/platform/src/semanticAssetIndex.test.ts packages/platform/src/semanticEmbeddingQueue.test.ts packages/engine/src/semanticSimilarity/metrics.test.ts packages/engine/src/semanticSimilarity/search.test.ts packages/engine/src/inference/models/siglip.test.ts`
+  — 19 tests passed for exact indexing, queue lifecycle, metrics, lane
+  separation, and the SigLIP contract.
+- `pnpm exec vitest run packages/engine/src/bench/semanticSearch.bench.test.ts`
+  — exact-search scale baseline passed at 100/1k/10k/50k candidates.
 - `pnpm --filter @varve/platform typecheck` — passed.
 
 The editor panel test was started during a period of concurrent repository
@@ -38,9 +43,11 @@ not counted as passed here.
 
 ## Quality gaps
 
-No Varve-specific labeled corpus or held-out retrieval metrics have been run
-yet. Recall@K, mAP, nDCG, duplicate precision/recall, CPU p50/p95, peak RAM,
-batch throughput, and exact-vs-ANN scale curves must be measured before
+No Varve-specific labeled corpus or held-out model-quality metrics have been
+run yet. The metrics helper and exact-search scale baseline cover evaluation
+plumbing, not model quality. Recall@K, mAP, nDCG, duplicate precision/recall,
+CPU p50/p95, peak RAM, batch throughput, and exact-vs-ANN scale curves still
+require a legally usable Varve corpus and representative hardware before
 selecting DINOv2 or replacing SigLIP. The visual review sheet and real-model
 ranking audit are also pending.
 
