@@ -1,4 +1,5 @@
 pub use crate::print_shared::{PrintJobResult, Printer};
+use std::path::Path;
 
 pub fn list_printers() -> Vec<Printer> {
     let output = std::process::Command::new("wmic")
@@ -105,6 +106,7 @@ fn parse_powershell_printers_json(json: &str) -> Vec<Printer> {
 }
 
 pub fn print_pdf(
+    temporary_dir: &Path,
     printer_name: &str,
     pdf_bytes: &[u8],
     job_title: &str,
@@ -113,9 +115,8 @@ pub fn print_pdf(
     _color_mode: &str,
     _page_size: &str,
 ) -> PrintJobResult {
-    let temp_dir = std::env::temp_dir();
     let safe_title: String = job_title.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    let pdf_path = temp_dir.join(format!("varve_print_{}.pdf", safe_title));
+    let pdf_path = temporary_dir.join(format!("varve_print_{}.pdf", safe_title));
 
     if let Err(e) = std::fs::write(&pdf_path, pdf_bytes) {
         return PrintJobResult {
