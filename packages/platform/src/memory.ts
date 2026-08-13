@@ -10,6 +10,8 @@
  * Research basis: Local-First §3 (the app must work fully offline with no
  * account) — a memory backend preserves that contract for ephemeral contexts.
  */
+
+import { searchAssets as rankAssets } from './assetSearch';
 import type { Platform } from './platform';
 import { contentHash, defaultViewState, uuid } from './pure';
 import type { ContentSearchMatch } from './searchIndex';
@@ -655,9 +657,7 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       state.assets.delete(id);
     },
     async searchAssets(query) {
-      if (!query.trim()) return [...state.assets.values()];
-      const q = query.toLowerCase();
-      return [...state.assets.values()].filter((a) => a.name.toLowerCase().includes(q));
+      return rankAssets([...state.assets.values()], query).map((result) => result.asset);
     },
     async createAssetFolder(workspaceId, name, parentId) {
       const now = Date.now();
