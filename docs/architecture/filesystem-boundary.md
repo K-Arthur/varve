@@ -77,6 +77,9 @@ platform adapter, never in a separator replacement helper.
   oversized values before `PathBuf::join`.
 - Atomic writes use an app-generated sibling temporary name and do not convert
   the target filename through `to_string_lossy()`.
+- Font downloads and print spooling use unique staging files under the
+  resolved application/temporary roots; they do not share a fixed process-wide
+  temporary filename.
 - Crash-path redaction recognizes POSIX, Windows drive, UNC, extended Windows,
   mixed-separator, and Unicode path forms. Redaction is best effort and is
   tested independently from crash storage.
@@ -90,7 +93,7 @@ platform adapter, never in a separator replacement helper.
 | --- | --- | --- | --- | --- | --- |
 | Open/save document | native dialog / user | user-selected | native | persistent | user-selected location |
 | Linked asset | document intent / user | external | portable reference or native location | persistent | project or external volume |
-| Fonts | font commands / native service | app-managed | native | persistent | app data `fonts/` |
+| Fonts | font commands / native service | app-managed | native | persistent | app data `fonts/`; unique staging names |
 | Models | download command / native service | app-managed + checksum | native | persistent | app data `models/` |
 | Recovery | editor recovery service | app-managed | native | durable until cleared | state `recovery/` |
 | Crash reports | native panic hook / crash service | app-managed | native | bounded queue | state `crash-reports/` |
