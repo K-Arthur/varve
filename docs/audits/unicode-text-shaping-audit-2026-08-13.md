@@ -67,14 +67,14 @@ rendering, editing, hit testing, selection, masks, and exports.
 
 | Contract claimed by current docs/ADRs | Code evidence | Gap / required action |
 | --- | --- | --- |
-| “One canonical layout result” | `TextShaping` exists, but `replay.ts` calls `layoutRichText` and paints `fillText` | Introduce a real `TextLayoutSnapshot` and route live measurement/paint/hit testing through it |
+| “One canonical layout result” | `TextLayoutSnapshot` now carries source maps, positioned glyphs, line boxes, caret stops, and selection geometry; `replay.ts` still calls `layoutRichText` and paints `fillText` | Route live measurement/paint/hit testing through the snapshot after fallback and font-revision policy are explicit |
 | Full UAX #9 BiDi | `unicode/bidiUax9.ts` delegates embedding levels, reorder indices, and mirrored-character lookup to `bidi-js` | Add broader conformance corpus coverage and feed line-level visual order into canonical layout |
 | OpenType shaping in web | `shaping.ts` measures each grapheme; `glyphId: 0`; `harfbuzzjs` unused | Integrate HarfBuzz-compatible shaping for font bytes, with Canvas fallback explicitly marked approximate/unavailable |
 | Complex-script correctness | Native Rust tests cover shaper calls, but live TS rendering does not consume native results | Add parity fixtures and a backend selection contract before advertising production support |
 | Rich text takes precedence in rendering | IR carries `richText`, while paint-time layout still has separate logic and fallback defaults | Make paragraph/run resolution an input to canonical layout, not a parallel renderer path |
 | Cluster-safe editing | `richTextOps.splitRunAt` slices at raw UTF-16 offsets; overlay reports only paragraph 0 | Add explicit UTF-16/code-point/grapheme/shaping-cluster maps and paragraph-aware edit operations |
 | Caret/hit testing from shaped clusters | `hitTestCaret` treats glyph records as graphemes and returns the preceding cluster start | Return legal insertion stops with logical/visual maps and line geometry |
-| Cache keyed by font/layout identity | `ShapingCache` key is text, family, size, direction, language | Include face identity, font revision, features, axes, width, and layout policy; bound by entries/bytes |
+| Cache keyed by font/layout identity | `TextLayoutSnapshot` has an identity and `textLayoutSnapshotCacheKey`; the older `ShapingCache` still has a narrower key | Migrate live callers to the snapshot key and add byte accounting/font-revision invalidation |
 | PDF Unicode fidelity | Non-WinAnsi text can be outlined; native path is not driven by the canonical TS layout | Keep outlining as honest fallback; add shaped CID/ToUnicode work as a separate export slice |
 | Thai line breaking | `textLayout.ts` uses `Intl.Segmenter`/whitespace/CJK heuristics | Separate shaping from UAX #14 breaking and document dictionary-based Thai limits |
 
@@ -124,7 +124,7 @@ later line breaking can derive line-local order without mutating document text.
 3. Shaping backend contract: HarfBuzz WASM adapter, Rust bridge normalization,
    feature/variation/font identity in the request and result.
 4. Canonical layout snapshot: paragraph itemization, resolved BiDi visual order,
-   line breaking, visual runs, metrics, cache, and stale font revisions.
+   line breaking, visual runs, metrics, cache identity, and stale font revisions.
 5. Rendering and editing consumers: positioned runs, caret/hit testing,
    discontiguous selection geometry, composition-safe transactions.
 6. Rich-text commands and inspector state: paragraph-aware ranges, insertion
