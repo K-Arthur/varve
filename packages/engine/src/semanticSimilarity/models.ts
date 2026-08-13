@@ -21,7 +21,8 @@ export const SIGLIP_IMAGE_MODEL: EmbeddingModelSpec = {
   normalized: true,
   runtime: 'onnx-worker',
   sizeBytes: 210_977_441,
-  notes: 'Image-to-image only. The text encoder/tokenizer is not wired into Varve.',
+  notes:
+    'Image-side encoder for the paired local text/image lane. The matching text graph and tokenizer are separate explicit downloads.',
 };
 
 /**
