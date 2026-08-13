@@ -258,6 +258,39 @@ export {
 export type { SharpenImageOptions, SharpenResult } from './exportPipeline/sharpen';
 export { sharpenImageData } from './exportPipeline/sharpen';
 export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
+export type {
+  FaceAnchorName,
+} from './vision/types';
+export type { FaceAwareCropOptions, FaceAwareCropSuggestion } from './vision/cropSolver';
+export { suggestFaceAwareCrop } from './vision/cropSolver';
+export type {
+  FaceBoundsOutput,
+  FaceDetection,
+  FaceKeypointsOutput,
+  HandLandmarksOutput,
+  ObjectBoundsOutput,
+  PoseLandmarksOutput,
+  SegmentationOutput,
+  VisionBackend,
+  VisionBox,
+  VisionCapability,
+  VisionOutput,
+  VisionOutputMap,
+  VisionPoint,
+  VisionPriority,
+  VisionQuality,
+  VisionRect,
+  VisionRequest,
+  VisionSource,
+} from './vision/types';
+export { VISION_CAPABILITIES, visionSourceKey } from './vision/types';
+export {
+  VisionService,
+  VisionServiceError,
+  type VisionErrorCode,
+  type VisionServiceOptions,
+  type VisionServiceStats,
+} from './vision/service';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
   Adjustment,
@@ -1006,6 +1039,12 @@ export {
   RestorationPlanningError,
   restorationTaskLabel,
 } from './restoration';
+export type {
+  RestorationExecutionOptions,
+  RestorationResult,
+  RestorationStageState,
+} from './restorationPipeline';
+export { runRestoration } from './restorationPipeline';
 export type { UpscaleModelMetadata } from './upscaleModels';
 export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export type { UpscaleMode, UpscaleModeId } from './upscaleModes';
