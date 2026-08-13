@@ -159,6 +159,8 @@ when their licenses and repository policy permit deterministic redistribution.
 Varve has enough existing model, font, native-shaper, and editor structure to
 evolve without replacing the document model. It does not yet have production
 Unicode shaping or BiDi layout because the live browser path remains an
-approximation and the canonical snapshot is not real. The next code slice is
-therefore the indexing foundation, not an Arabic-specific rendering patch.
-
+approximation and the canonical snapshot is not real. Slice 2 now provides the
+explicit source-index foundation: one map distinguishes UTF-16, scalar, and
+grapheme boundaries, and rich-text range formatting expands selection endpoints
+to legal grapheme boundaries. The next code slice is the backend-neutral
+HarfBuzz shaping contract, not an Arabic-specific rendering patch.

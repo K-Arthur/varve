@@ -6,17 +6,20 @@
  * Research basis: Figma multi-run text editing, ARIA textbox selection model.
  */
 
+import { createUnicodeIndexMap, normalizeGraphemeRange, snapUtf16Offset } from '@varve/engine';
 import type { CharacterFormat, Paragraph, RichText, TextRun } from './typography';
 
 // ── Run splitting ───────────────────────────────────────────────────────────
 
 /**
  * Split a run at a UTF-16 offset, returning the two resulting runs. The
- * `format` is preserved on both halves; only `characterStyleId` stays with
- * the left half (the right half carries no explicit style link).
+ * offset is snapped to an extended grapheme boundary so a run can never
+ * split a surrogate pair, combining sequence, or ZWJ sequence. The `format`
+ * is preserved on both halves; only `characterStyleId` stays with the left
+ * half (the right half carries no explicit style link).
  */
 export function splitRunAt(run: TextRun, offset: number): [TextRun, TextRun] {
-  const safeOffset = Math.max(0, Math.min(offset, run.text.length));
+  const safeOffset = snapUtf16Offset(createUnicodeIndexMap(run.text), offset);
   return [
     {
       text: run.text.slice(0, safeOffset),
@@ -72,6 +75,7 @@ export function mergeAdjacentRuns(para: Paragraph): Paragraph {
 
 /** A run address within a flattened rich-text plane. */
 export interface RichSelection {
+  /** UTF-16 code-unit offsets within the selected paragraph. */
   start: { paragraphIndex: number; offset: number };
   end: { paragraphIndex: number; offset: number };
 }
@@ -97,8 +101,14 @@ export function applyFormatToSelection(
     const para = paras[pi];
     if (!para) continue;
     const paraLen = paragraphLength(para);
-    const rangeStart = pi === start.paragraphIndex ? start.offset : 0;
-    const rangeEnd = pi === end.paragraphIndex ? end.offset : paraLen;
+    const paragraphMap = createUnicodeIndexMap(para.runs.map((run) => run.text).join(''));
+    const selectedRange = normalizeGraphemeRange(
+      paragraphMap,
+      pi === start.paragraphIndex ? start.offset : 0,
+      pi === end.paragraphIndex ? end.offset : paraLen,
+    );
+    const rangeStart = selectedRange.start;
+    const rangeEnd = selectedRange.end;
     if (rangeStart >= rangeEnd) continue;
 
     const newRuns: TextRun[] = [];

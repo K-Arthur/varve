@@ -26,6 +26,13 @@ describe('richTextOps', () => {
       expect(a.text).toBe('Hi');
       expect(b.text).toBe('');
     });
+
+    it('does not split an extended grapheme cluster', () => {
+      const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+      const [a, b] = splitRunAt({ text: `A${family}B` }, 3);
+      expect(a.text).toBe('A');
+      expect(b.text).toBe(`${family}B`);
+    });
   });
 
   describe('mergeAdjacentRuns', () => {
@@ -94,6 +101,20 @@ describe('richTextOps', () => {
       expect(result.paragraphs[0]!.runs[0]!.text).toBe('H');
       expect(result.paragraphs[0]!.runs[1]!.text).toBe('ell');
       expect(result.paragraphs[0]!.runs[1]!.format).toEqual({ fontWeight: 700 });
+    });
+
+    it('expands a selection that lands inside a ZWJ grapheme', () => {
+      const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+      const result = applyFormatToSelection(
+        rich({ text: `A${family}B` }),
+        { start: { paragraphIndex: 0, offset: 3 }, end: { paragraphIndex: 0, offset: 4 } },
+        { fontWeight: 700 },
+      );
+      expect(result.paragraphs[0]!.runs).toEqual([
+        { text: 'A' },
+        { text: family, format: { fontWeight: 700 } },
+        { text: 'B' },
+      ]);
     });
   });
 
