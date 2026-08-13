@@ -17,6 +17,13 @@ import type {
   UpdateProvider,
   UpdateState,
 } from './updateTypes';
+import {
+  BroadcastWindowSync,
+  isActiveUpdateState,
+  isSettledUpdateState,
+  UPDATE_ACTIVE_STALE_MS,
+  type UpdateWindowOperation,
+} from './updateWindowSync';
 
 const STORAGE_KEY = 'varve-update-preferences';
 
@@ -79,22 +86,76 @@ export function UpdateCoordinatorProvider({
   children: ReactNode;
 }) {
   const coordinator = useMemo(() => new UpdateCoordinator(provider, localStore), [provider]);
+  const sync = useMemo(
+    () =>
+      typeof window !== 'undefined' && 'BroadcastChannel' in window
+        ? new BroadcastWindowSync()
+        : null,
+    [],
+  );
   const [state, setState] = useState<UpdateState>(() => coordinator.getState());
   const [preferences, setPreferencesState] = useState<UpdatePreferences>(() =>
     coordinator.getPreferences(),
   );
   const [consentOpen, setConsentOpen] = useState(false);
   const installRequestedRef = useRef(false);
+  const lastSyncAtRef = useRef(0);
+
+  // One coordinator per process is impossible across windows, so each window
+  // mirrors the others' state through the sync channel. Local operations are
+  // lease-guarded: a second window never starts a duplicate download/install.
+  useEffect(() => {
+    if (!sync) return;
+    const unsubscribeLocal = coordinator.subscribe((next) => {
+      setState(next);
+      lastSyncAtRef.current = Date.now();
+      sync.publish({ type: 'state', state: next });
+    });
+    const unsubscribeRemote = sync.subscribe((message) => {
+      if (message.type === 'state' && message.state) {
+        const remote = message.state as UpdateState;
+        // A local active operation owns the truth until it finishes; anything
+        // else is safe to mirror. `synchronize` is a no-op for identical state.
+        const adopted = coordinator.synchronize(remote);
+        setState(adopted);
+        lastSyncAtRef.current = Date.now();
+      } else if (message.type === 'preferences' && message.preferences) {
+        const adopted = coordinator.adoptPreferences(message.preferences as UpdatePreferences);
+        setPreferencesState(adopted);
+        // The consent prompt is a per-window dialog; a decision made in one
+        // window closes it in the others.
+        if (adopted.consentPromptSeen || adopted.consent !== 'manual') setConsentOpen(false);
+        lastSyncAtRef.current = Date.now();
+      }
+    });
+
+    // If the window owning an active operation dies without finishing, the
+    // lease expires and this window recovers to a settled state instead of
+    // freezing on a mirrored "downloading" forever.
+    const staleTimer = window.setInterval(() => {
+      const local = coordinator.getState();
+      if (!isActiveUpdateState(local.kind)) return;
+      if (Date.now() - lastSyncAtRef.current > UPDATE_ACTIVE_STALE_MS) {
+        const adopted = coordinator.resetStaleOperation();
+        setState(adopted);
+      }
+    }, 30_000);
+
+    return () => {
+      unsubscribeLocal();
+      unsubscribeRemote();
+      window.clearInterval(staleTimer);
+      sync.close();
+    };
+  }, [coordinator, sync]);
 
   useEffect(() => {
-    const unsubscribe = coordinator.subscribe(setState);
     void coordinator.initialize().then((next) => {
       setState(next);
       const current = coordinator.getPreferences();
       setPreferencesState(current);
       setConsentOpen(next.kind === 'consent-required' && !current.consentPromptSeen);
     });
-    return unsubscribe;
   }, [coordinator]);
 
   const setPreferences = useCallback(
@@ -103,9 +164,27 @@ export function UpdateCoordinatorProvider({
         patch.consent ? { ...patch, consentPromptSeen: true } : patch,
       );
       setPreferencesState(next);
+      sync?.publish({ type: 'preferences', preferences: next });
       return next;
     },
-    [coordinator],
+    [coordinator, sync],
+  );
+
+  const runGuarded = useCallback(
+    async (kind: UpdateWindowOperation, operation: () => Promise<UpdateState>) => {
+      if (!sync || sync.claim(kind)) {
+        const renewTimer = window.setInterval(() => sync?.renew(kind), 30_000);
+        try {
+          return await operation();
+        } finally {
+          window.clearInterval(renewTimer);
+          sync?.release(kind);
+        }
+      }
+      // Another window owns the operation; mirror its state as it arrives.
+      return coordinator.getState();
+    },
+    [coordinator, sync],
   );
 
   const value = useMemo<UpdateContextValue>(
@@ -115,14 +194,14 @@ export function UpdateCoordinatorProvider({
       state,
       preferences,
       setPreferences,
-      check: () => coordinator.check('manual'),
-      download: () => coordinator.download(),
-      install: () => coordinator.install(),
+      check: () => runGuarded('check', () => coordinator.check('manual')),
+      download: () => runGuarded('download', () => coordinator.download()),
+      install: () => runGuarded('install', () => coordinator.install()),
       installAndRestart: async () => {
         installRequestedRef.current = true;
         const lifecycle = getLifecycleCoordinator();
         if (!lifecycle) {
-          const installed = await coordinator.install();
+          const installed = await runGuarded('install', () => coordinator.install());
           if (installed.kind !== 'restart-required') return installed;
           return coordinator.relaunch();
         }
@@ -133,15 +212,17 @@ export function UpdateCoordinatorProvider({
       skipVersion: () => {
         const next = coordinator.skipVersion();
         setPreferencesState(next);
+        sync?.publish({ type: 'preferences', preferences: next });
         return next;
       },
       resetSkippedVersions: () => {
         const next = coordinator.resetSkippedVersions();
         setPreferencesState(next);
+        sync?.publish({ type: 'preferences', preferences: next });
         return next;
       },
     }),
-    [coordinator, preferences, setPreferences, state],
+    [coordinator, preferences, runGuarded, setPreferences, state, sync],
   );
 
   useEffect(() => {
@@ -152,23 +233,35 @@ export function UpdateCoordinatorProvider({
           (preferences.installOnQuit && state.kind === 'ready-to-install'));
       if (!shouldInstall) return;
       installRequestedRef.current = false;
-      const installed = await coordinator.install();
-      if (installed.kind !== 'restart-required') {
-        throw new Error('Varve could not install the verified update.');
-      }
-      // A normal quit only needs the installer to finish; the next launch
-      // picks up the installed version. An explicit restart owns relaunching
-      // and therefore suppresses the bridge's ordinary exit approval.
-      if (intent === 'restart') {
-        await coordinator.relaunch();
-        return true;
+      // The canonical termination guard has already resolved unsaved work;
+      // only the window processing the quit installs the verified update.
+      if (sync && !sync.claim('install')) return;
+      const renewTimer = window.setInterval(() => sync?.renew('install'), 30_000);
+      try {
+        const installed = await coordinator.install();
+        if (installed.kind !== 'restart-required') {
+          throw new Error('Varve could not install the verified update.');
+        }
+        // A normal quit only needs the installer to finish; the next launch
+        // picks up the installed version. An explicit restart owns relaunching
+        // and therefore suppresses the bridge's ordinary exit approval.
+        if (intent === 'restart') {
+          await coordinator.relaunch();
+          return true;
+        }
+      } finally {
+        window.clearInterval(renewTimer);
+        sync?.release('install');
       }
     });
     return () => setLifecycleCommitHook(null);
-  }, [coordinator, preferences.installOnQuit, state.kind]);
+  }, [coordinator, preferences.installOnQuit, state.kind, sync]);
 
+  // Background check scheduler: fires from any settled state, so a first check
+  // that ended in up-to-date/error/deferred still schedules the next eligible
+  // check (24 h after success, 6 h after failure). Manual mode never schedules.
   useEffect(() => {
-    if (preferences.consent === 'manual' || state.kind !== 'idle') return;
+    if (preferences.consent === 'manual' || !isSettledUpdateState(state.kind)) return;
     const delay = preferences.nextEligibleCheckAt
       ? Math.max(0, preferences.nextEligibleCheckAt - Date.now())
       : 30_000;
