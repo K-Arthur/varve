@@ -75,7 +75,19 @@ change invalidates the appropriate paragraph/story scope.
 * Native desktop shaping uses the existing `rustybuzz` implementation over
   validated font bytes.
 * Web/WASM shaping uses the existing `harfbuzzjs` dependency behind the same
-  request/result contract when font bytes are available.
+  request/result contract when font bytes are available. The WASM adapter
+  always runs `buffer.guessSegmentProperties()` before applying explicit
+  direction/script/language overrides — a direction-only request must not
+  silently shape with the default script, which drops all Arabic/Indic GSUB
+  features (fixed 2026-08-13, covered by `shapingOracle.test.ts`).
+* Structural shaping invariants are verified against system Noto fonts by
+  `shapingOracle.test.ts` (skipped when the fonts are absent; never
+  redistributed): Arabic joining forms differ per position, harakat are
+  zero-advance GPOS-positioned marks, RTL output is visual-order with
+  monotone clusters, Devanagari conjuncts reduce glyph counts, and Thai
+  marks stay attached to their clusters. Lam-alef is asserted
+  font-independently: modern Noto Arabic does not ligate it, and both
+  shaped and ligated output are valid.
 * Canvas2D measurement is a bounded fallback for environments without a font
   byte source. It is marked approximate and cannot satisfy glyph-level parity
   or PDF text requirements.
