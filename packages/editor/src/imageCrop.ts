@@ -106,6 +106,45 @@ export function commitImageCrop(doc: Document, nodeId: NodeId, crop: LocalCropRe
   return commitImageCropExtended(doc, nodeId, { viewport: crop });
 }
 
+/**
+ * Commit a face/object-aware source crop suggestion without changing node
+ * geometry or baking a new raster. The input is already in decoded source
+ * pixel coordinates, which is the same coordinate space used by the scene
+ * crop field and by export/replay.
+ */
+export function commitSourceImageCrop(
+  doc: Document,
+  nodeId: NodeId,
+  crop: ImageCropRect,
+): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
+  const shapeNode = node as ShapeNode;
+  const bounds = getNodeBounds(node, doc);
+  const fill = getImageFill(shapeNode);
+  if (!bounds || !fill?.image) return doc;
+
+  const sourceWidth = fill.image.imageWidth ?? bounds.w;
+  const sourceHeight = fill.image.imageHeight ?? bounds.h;
+  const normalized = normalizeImageCropRect(crop, sourceWidth, sourceHeight);
+  const old = fill.image.crop;
+  const unchanged =
+    old?.x === normalized?.x &&
+    old?.y === normalized?.y &&
+    old?.w === normalized?.w &&
+    old?.h === normalized?.h;
+  if (unchanged) return doc;
+
+  const image = { ...fill.image };
+  if (normalized) image.crop = normalized;
+  else delete image.crop;
+  const fills = (shapeNode.fills ?? []).map((candidate) => {
+    if (candidate.type !== 'image' || !candidate.image) return candidate;
+    return { ...candidate, image };
+  });
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: { ...shapeNode, fills } } };
+}
+
 /** Convert a local viewport through the same placement used by replay/export. */
 function nodeLocalToSourceCrop(
   local: LocalCropRect,
