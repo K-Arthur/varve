@@ -16,6 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@varve/engine": "workspace:*",
     "@varve/shared": "workspace:*",
     "@varve/scene": "workspace:*"
   },
