@@ -1,4 +1,6 @@
 export { dHash, hammingDistance, pHash } from '../intelligence/perceptualHash';
+export type { LabeledQuery, RetrievalMetrics } from './metrics';
+export { evaluateRetrieval } from './metrics';
 export {
   EMBEDDING_EVALUATION_CANDIDATES,
   SEMANTIC_PREPROCESSING_VERSION,

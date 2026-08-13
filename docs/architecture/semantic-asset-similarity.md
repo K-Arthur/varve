@@ -1,6 +1,7 @@
 # Semantic asset similarity
 
-Status: shipped first slice (image-to-image, document-local, experimental)
+Status: shipped experimental foundation (image-to-image, document-local UI,
+reconstructible local index, and bounded queue primitives)
 
 Varve's similarity workflow is local-first and deliberately separates two
 different questions:
@@ -47,9 +48,11 @@ Content-addressed binary cache records are defined in
 `@varve/platform` (`assetEmbeddingIndex.ts`). Their key includes content hash,
 model version, preprocessing version, and embedding schema version. This lets a
 rename reuse derived work while a source edit or model/preprocessing change
-invalidates it. Wiring those records into the long-lived Home/SQLite stores and
-an incremental library queue remains a follow-up; the current editor cache is
-bounded to the active session.
+invalidates it. `SemanticAssetIndex` provides a reconstructible exact-search
+reference path, and `SemanticEmbeddingQueue` provides bounded priority,
+cancellation, pause/resume, and stale-result suppression primitives. Wiring
+those records into the long-lived Home/SQLite stores remains a follow-up; the
+current editor cache is bounded to the active session.
 
 ## Runtime decision
 
@@ -86,8 +89,9 @@ unable to prevent a source document from opening.
 
 The current UI cancels an in-flight query, suppresses stale results through the
 existing worker request signal, and never auto-deletes a candidate based on a
-similarity score. Background library indexing, pause/resume, cross-project
-search, clustering, and persistent index rebuild are not yet shipped.
+similarity score. Automatic background library indexing, cross-project UI,
+clustering, and platform-specific persistent index adapters are not yet
+shipped; the queue and index primitives are ready for those adapters.
 
 ## User-facing limitations
 
