@@ -17,6 +17,7 @@ import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
 import { MockupsPanel } from '../Mockups/MockupsPanel';
 import { PanelDragHandle } from '../PanelDragHandle';
+import { PanelWidthDragEdge } from './PanelWidthDragEdge';
 import './ResourcesPanel.css';
 
 /** Re-exported so Shell mounts the quick-insert dialog without a new import. */
@@ -44,6 +45,7 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
 
   return (
     <section className="resources-panel" aria-label="Resources">
+      <PanelWidthDragEdge />
       <PanelDragHandle
         panelTypeId="library"
         panelInstanceId="library-primary"
