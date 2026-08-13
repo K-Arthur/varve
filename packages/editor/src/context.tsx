@@ -489,6 +489,7 @@ import {
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
+import type { PanelId } from './workspace/workspaceTypes';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -3224,6 +3225,35 @@ export function EditorProvider({
         const next = !state.historyPanelVisible;
         patch({ historyPanelVisible: next });
         recordPanelVisibilityOverride(state.workspaceMode, 'history', next);
+      },
+      restoreAllPanels: () => {
+        // Recovery path for accidentally hidden panels: show every panel the
+        // active workspace knows, and record the choice as an override so the
+        // restored layout is what the next session boots into.
+        const patchObj: Partial<EditorState> = {
+          leftPanelVisible: true,
+          rightPanelVisible: true,
+          timelinePanelVisible: true,
+          libraryPanelVisible: true,
+          codegenPanelVisible: true,
+          logoPanelVisible: true,
+          historyPanelVisible: true,
+        };
+        patch(patchObj);
+        const mode = state.workspaceMode;
+        const panelIds: PanelId[] = [
+          'layers',
+          'inspector',
+          'timeline',
+          'library',
+          'codegen',
+          'logo',
+          'history',
+        ];
+        for (const panelId of panelIds) {
+          recordPanelVisibilityOverride(mode, panelId, true);
+        }
+        announcerRef.current?.announce('All panels restored');
       },
       toggleDistractionFreeMode: () => {
         const next = !state.distractionFreeMode;

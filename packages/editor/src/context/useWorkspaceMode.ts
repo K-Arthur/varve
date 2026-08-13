@@ -2,6 +2,7 @@ import type { Platform } from '@varve/platform';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import { loadSettings, updateSettings } from '../settings';
 import type { ToolId } from '../tools/types';
+import { emitWorkspaceReset } from '../workspace/workspaceResetEvents';
 import {
   getEffectiveWorkspaceConfig,
   getWorkspacePreferences,
@@ -36,6 +37,7 @@ export function panelVisibilityPatch(config: WorkspaceConfig) {
     libraryPanelVisible: config.panels.library.visible,
     codegenPanelVisible: config.panels.codegen.visible,
     logoPanelVisible: config.panels.logo.visible,
+    historyPanelVisible: config.panels.history.visible,
   };
 }
 
@@ -184,6 +186,7 @@ export function useWorkspaceMode(
     // settings mirror is rewritten from the defaults, so the pre-reset panel
     // visibility cannot come back on the next launch either.
     applyWorkspaceConfig(getWorkspaceConfig(mode), state.tool, patch);
+    emitWorkspaceReset({ kind: 'mode', mode });
     announcerRef.current?.announce(`Reset ${WORKSPACE_LABELS[mode]} workspace to defaults`);
   }, [state.workspaceMode, state.tool, patch, announcerRef]);
 
@@ -191,6 +194,7 @@ export function useWorkspaceMode(
     const mode = state.workspaceMode;
     updateWorkspacePreferences(() => resetAllPreferences());
     applyWorkspaceConfig(getWorkspaceConfig(mode), state.tool, patch);
+    emitWorkspaceReset({ kind: 'all' });
     announcerRef.current?.announce('Reset all workspaces to defaults');
   }, [state.workspaceMode, state.tool, patch, announcerRef]);
 

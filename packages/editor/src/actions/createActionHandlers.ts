@@ -210,6 +210,7 @@ export function createActionHandlers(
     toggleLogoPanel: () => e.toggleLogoPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
     toggleHistoryPanel: () => e.toggleHistoryPanel(),
+    restoreAllPanels: () => e.restoreAllPanels(),
     toggleGraphEditor: () => e.toggleGraphEditor(),
     toggleStateMachinePanel: () => e.toggleStateMachinePanel(),
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),

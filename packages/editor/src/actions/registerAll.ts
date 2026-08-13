@@ -193,6 +193,9 @@ export function registerEditorActions(
   reg('toggleLibraryPanel', 'Toggle Library Panel', 'panel', () => ctx.toggleLibraryPanel());
   reg('toggleCodegenPanel', 'Toggle Codegen Panel', 'panel', () => ctx.toggleCodegenPanel());
   reg('toggleLogoPanel', 'Toggle Logo Panel', 'panel', () => ctx.toggleLogoPanel());
+  reg('toggleTimelinePanel', 'Toggle Timeline Panel', 'panel', () => ctx.toggleTimelinePanel());
+  reg('toggleHistoryPanel', 'Toggle History Panel', 'panel', () => ctx.toggleHistoryPanel());
+  reg('restoreAllPanels', 'Show All Panels', 'panel', () => ctx.restoreAllPanels());
   reg('applyMockup', 'Apply Mockup…', 'object', () => {
     openMockupsWithSelection(ctx);
   });
