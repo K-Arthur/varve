@@ -120,6 +120,36 @@ The first implementation increment is deliberately conservative:
   normal quit installs and exits; an explicit restart installs and relaunches.
   Neither path can discard unsaved documents.
 
+Hardening added on top of the first increment (2026-08-13, second pass):
+
+- **Least-privilege updater capability.** `capabilities/default.json` grants
+  `updater:allow-check`, `updater:allow-download` and `updater:allow-install`
+  explicitly and never `updater:default` or `allow-download-and-install`, so
+  webview JavaScript cannot bypass the consent/state machine with one combined
+  call. The frontend only ever receives opaque downloaded/verified tokens and
+  never an executable path.
+- **Channel gating per build.** The feed endpoint is embedded at build time
+  (`tauri.update.channel.json` in release CI). The provider resolves the native
+  packaging context and refuses to check a channel the build was not compiled
+  for, so a stable build cannot be pointed at the beta feed by configuration
+  tampering in the webview.
+- **macOS translocation.** A Gatekeeper-translocated app (running from
+  `/private/var/folders/...`) is detected as `manual-only` with
+  `installLocation: "translocated"`: updating the quarantine copy would be
+  silently undone on the next launch. The Settings UI explains that Varve must
+  be moved into Applications.
+- **Background cadence.** The scheduler runs from any settled state, not only
+  idle: after an up-to-date check the next eligible check is 24 h later, after
+  a failure 6 h later (backoff). Manual mode never schedules. Manual checks
+  remain available in every consent mode.
+- **Skip semantics.** Skipping a version records it against
+  `channel + exact version`, transitions the offer to `deferred` instead of
+  leaving the download button live, and the next check suppresses only that
+  version.
+- **Release notes surface in Settings** with keyboard-focusable scroll and a
+  polite live region for status; the download status line is a live region,
+  not a color-only signal.
+
 The implementation is still not a production-enablement claim. The gates in
 §3 remain release-blocking until the packaged upgrade matrix and the actual
 release feed have been exercised on the supported runners.

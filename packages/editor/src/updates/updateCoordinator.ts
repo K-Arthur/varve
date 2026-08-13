@@ -10,7 +10,6 @@ import {
   UPDATE_FAILURE_BACKOFF_MS,
 } from './updatePolicy';
 import { transitionUpdateState } from './updateStateMachine';
-import { isActiveUpdateState } from './updateWindowSync';
 import type {
   PackagingContext,
   UpdateError,
@@ -21,6 +20,7 @@ import type {
   UpdateState,
   VerifiedUpdate,
 } from './updateTypes';
+import { isActiveUpdateState } from './updateWindowSync';
 
 export interface UpdateClock {
   now(): number;

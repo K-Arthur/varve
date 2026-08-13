@@ -18,24 +18,6 @@ export {
   UPDATE_FAILURE_BACKOFF_MS,
 } from './updatePolicy';
 export { transitionUpdateState } from './updateStateMachine';
-export {
-  BroadcastWindowSync,
-  claimOperationLease,
-  hasActiveOperationLease,
-  isActiveUpdateState,
-  isSettledUpdateState,
-  releaseOperationLease,
-  renewOperationLease,
-  UPDATE_ACTIVE_STALE_MS,
-  UPDATE_LEASE_KEY,
-  UPDATE_LEASE_TTL_MS,
-} from './updateWindowSync';
-export type {
-  UpdateLease,
-  UpdateWindowOperation,
-  WindowSyncMessage,
-  WindowSyncTransport,
-} from './updateWindowSync';
 export type {
   DownloadedUpdate,
   DownloadProgress,
@@ -56,3 +38,21 @@ export type {
   UpdateState,
   VerifiedUpdate,
 } from './updateTypes';
+export type {
+  UpdateLease,
+  UpdateWindowOperation,
+  WindowSyncMessage,
+  WindowSyncTransport,
+} from './updateWindowSync';
+export {
+  BroadcastWindowSync,
+  claimOperationLease,
+  hasActiveOperationLease,
+  isActiveUpdateState,
+  isSettledUpdateState,
+  releaseOperationLease,
+  renewOperationLease,
+  UPDATE_ACTIVE_STALE_MS,
+  UPDATE_LEASE_KEY,
+  UPDATE_LEASE_TTL_MS,
+} from './updateWindowSync';
