@@ -516,6 +516,20 @@ function buildMenus(
           action: 'paste',
         },
         {
+          label: 'Copy Properties',
+          shortcut: formatShortcut(SHORTCUT_DEFS.copyProperties.binding),
+          ariaKeyshortcut: ks('copyProperties'),
+          action: 'copyProperties',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Paste Properties',
+          shortcut: formatShortcut(SHORTCUT_DEFS.pasteProperties.binding),
+          ariaKeyshortcut: ks('pasteProperties'),
+          action: 'pasteProperties',
+          disabled: !hasSelection,
+        },
+        {
           label: 'Duplicate',
           shortcut: formatShortcut(SHORTCUT_DEFS.duplicate.binding),
           ariaKeyshortcut: ks('duplicate'),
