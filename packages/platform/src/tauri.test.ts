@@ -94,6 +94,7 @@ describe('createTauriPlatform', () => {
   it('chooses one export folder and writes safe relative files beneath it', async () => {
     const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
       if (cmd === 'plugin:dialog|open') return '/tmp/exports';
+      if (cmd === 'write_binary_file_to_folder') return '/tmp/exports/icons/logo.svg';
       return null;
     });
     globalWithTauri.__TAURI__ = {
@@ -113,8 +114,9 @@ describe('createTauriPlatform', () => {
     expect(invoke).toHaveBeenCalledWith('plugin:dialog|open', {
       options: { directory: true, multiple: false },
     });
-    expect(invoke).toHaveBeenCalledWith('write_binary_file', {
-      path: '/tmp/exports/icons/logo.svg',
+    expect(invoke).toHaveBeenCalledWith('write_binary_file_to_folder', {
+      folder: '/tmp/exports',
+      relativePath: 'icons/logo.svg',
       data: expect.any(ArrayBuffer),
     });
     await expect(

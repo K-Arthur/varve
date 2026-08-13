@@ -1,6 +1,7 @@
 mod crash;
 mod font;
 mod font_storage;
+mod filesystem;
 mod lifecycle;
 mod menu;
 mod print;
@@ -266,11 +267,10 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory {}: {e}", parent.display()))?;
     }
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let tmp = parent.join(format!(".{name}.tmp-{}", uuid()));
+    // The temporary name is app-generated, so it does not need to round-trip
+    // the target's native filename through UTF-8.  This keeps non-UTF-8 Unix
+    // filenames native and avoids using lossy text for path identity.
+    let tmp = parent.join(format!(".varve-write-{}.tmp", uuid()));
     let mut file = std::fs::File::create(&tmp)
         .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
     file.write_all(data)
@@ -364,6 +364,38 @@ fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
 fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
     let resolved = resolve_user_path(&path)?;
     write_file_atomic(&resolved, &data)
+}
+
+/// Write an export below a directory the user selected in the native folder
+/// dialog. The relative path is a portable export-plan path, not a native
+/// path; it is validated component-by-component before native joining.
+#[tauri::command]
+fn write_binary_file_to_folder(
+    folder: String,
+    relative_path: String,
+    data: Vec<u8>,
+) -> Result<String, String> {
+    let components = filesystem::validate_portable_relative_path(&relative_path)
+        .map_err(|error| error.message)?;
+
+    let root = resolve_user_path_approved(&folder)?;
+    if !root.is_dir() {
+        return Err("Export destination is not a directory".into());
+    }
+    let mut target = root.clone();
+    for component in components {
+        target.push(component);
+    }
+    let resolved = resolve_user_path_approved(
+        target
+            .to_str()
+            .ok_or_else(|| "Export path cannot be represented by the desktop IPC boundary".to_string())?,
+    )?;
+    if !resolved.starts_with(&root) {
+        return Err("Export path escapes the selected directory".into());
+    }
+    write_file_atomic(&resolved, &data)?;
+    Ok(filesystem::display_path(&resolved))
 }
 
 // ── Native clipboard ────────────────────────────────────────────────────
@@ -2428,29 +2460,33 @@ fn home_write_text_file_approved(path: String, contents: String) -> Result<(), S
 }
 
 fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to resolve app data dir: {e}"))?
-        .join("models");
+    let dir = filesystem::AppDirectories::resolve(app)
+        .map_err(|error| error.message)?
+        .models;
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {e}"))?;
     Ok(dir)
 }
 
 #[tauri::command]
 fn read_model_file(app: tauri::AppHandle, model_id: String) -> Result<Vec<u8>, String> {
+    filesystem::validate_storage_key(&model_id)
+        .map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     std::fs::read(&path).map_err(|e| format!("Failed to read model file {model_id}: {e}"))
 }
 
 #[tauri::command]
 fn write_model_file(app: tauri::AppHandle, model_id: String, data: Vec<u8>) -> Result<(), String> {
+    filesystem::validate_storage_key(&model_id)
+        .map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     write_file_atomic(&path, &data)
 }
 
 #[tauri::command]
 fn delete_model_file(app: tauri::AppHandle, model_id: String) -> Result<(), String> {
+    filesystem::validate_storage_key(&model_id)
+        .map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     if path.exists() {
         std::fs::remove_file(&path)
@@ -2656,13 +2692,24 @@ pub fn run() {
             // native_ai_status (see that command below), which can only
             // happen once the webview is already up and running JS.
 
-            let data_dir = app.path().app_data_dir().expect("no app data dir");
+            let directories = filesystem::AppDirectories::resolve(app.handle())
+                .map_err(|error| error.message.clone())
+                .expect("resolve Varve application directories");
+            directories
+                .ensure_mutable_roots()
+                .map_err(|error| error.message.clone())
+                .expect("create Varve application directories");
+            // The standalone inference crates use a platform-neutral fallback
+            // for non-Tauri callers, but the desktop process always injects
+            // the authoritative Tauri-resolved model root.
+            varve_bgremove::model::configure_models_dir(directories.models.clone());
+            varve_upscale::configure_model_directory(directories.models.clone());
+            let data_dir = directories.data.clone();
             migrate_legacy_data_dir(&data_dir);
-            std::fs::create_dir_all(&data_dir).expect("create data dir");
             // Native crash capture: panic hook + sandboxed report filesystem.
             // Deliberately before any other subsystem — a panic later still
             // lands an emergency record.
-            crash::install(data_dir.as_path());
+            crash::install(&directories.crash_reports);
             let db_path = data_dir.join("documents.db");
             let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
@@ -2798,6 +2845,7 @@ pub fn run() {
             home_read_text_file_approved,
             home_write_text_file_approved,
             write_binary_file,
+            write_binary_file_to_folder,
             read_dropped_file,
             read_clipboard_image_png,
             remove_background,

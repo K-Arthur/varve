@@ -83,7 +83,13 @@ fn detect_runtime() -> (&'static str, &'static str, &'static str, &'static str, 
         .map(|path| path.starts_with("/usr/") || path.starts_with("/opt/"))
         .unwrap_or(false);
     if package_managed {
-        ("linux", "unknown", "package-manager-managed", "unknown", false)
+        (
+            "linux",
+            "unknown",
+            "package-manager-managed",
+            "unknown",
+            false,
+        )
     } else {
         ("linux", "unknown", "manual-only", "unknown", false)
     }
@@ -150,7 +156,10 @@ fn appimage_capability(path: &Path) -> (&'static str, bool) {
     let Some(parent) = path.parent() else {
         return ("unknown", false);
     };
-    let valid_file = path.is_file() && std::fs::metadata(path).map(|m| m.len() > 0).unwrap_or(false);
+    let valid_file = path.is_file()
+        && std::fs::metadata(path)
+            .map(|m| m.len() > 0)
+            .unwrap_or(false);
     let location = if directory_writable(parent) {
         "writable"
     } else {
@@ -179,11 +188,37 @@ fn directory_writable(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::package_label;
+    use super::{appimage_capability, package_label};
+    use std::fs;
 
     #[test]
     fn package_labels_are_not_os_labels() {
         assert_eq!(package_label("appimage"), "AppImage");
         assert_eq!(package_label("unknown"), "build");
+    }
+
+    #[test]
+    fn appimage_requires_a_non_empty_file_and_writable_parent() {
+        let root = std::env::temp_dir().join(format!("varve-updater-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("create updater test directory");
+        let appimage = root.join("Varve.AppImage");
+        fs::write(&appimage, b"binary").expect("write updater test artifact");
+        assert_eq!(appimage_capability(&appimage), ("writable", true));
+
+        fs::write(&appimage, []).expect("truncate updater test artifact");
+        assert_eq!(appimage_capability(&appimage), ("writable", false));
+        fs::write(&appimage, b"binary").expect("restore updater test artifact");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o555))
+                .expect("make updater test directory read-only");
+            assert_eq!(appimage_capability(&appimage), ("not-writable", false));
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o755))
+                .expect("restore updater test directory");
+        }
+        fs::remove_dir_all(&root).expect("remove updater test directory");
     }
 }

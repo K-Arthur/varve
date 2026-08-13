@@ -29,7 +29,6 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Subdirectory of the app data dir that holds crash reports.
-pub const CRASH_REPORT_DIR: &str = "crash-reports";
 const EMERGENCY_PREFIX: &str = "emergency-";
 const MAX_REPORT_BYTES: u64 = 300 * 1024;
 const MAX_REPORT_NAME_LEN: usize = 96;
@@ -37,9 +36,10 @@ const MAX_REPORT_NAME_LEN: usize = 96;
 static CRASH_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 /// Installs the process panic hook and creates the report directory.
-/// Must be called once, from `setup`, after the data dir exists.
-pub fn install(data_dir: &Path) {
-    let dir = data_dir.join(CRASH_REPORT_DIR);
+/// Must be called once, from `setup`, after the Tauri directory resolver has
+/// supplied the app-owned crash root.
+pub fn install(report_dir: &Path) {
+    let dir = report_dir.to_owned();
     let _ = fs::create_dir_all(&dir);
     // Restrictive permissions on the report directory itself (unix).
     #[cfg(unix)]
@@ -57,26 +57,45 @@ pub fn install(data_dir: &Path) {
 fn sanitize_panic_payload(payload: &str) -> String {
     let mut out = String::with_capacity(payload.len().min(512));
     let mut rest = payload;
-    while let Some(start) = rest.find('/') {
-        // Look for an absolute path component: /dir/.../file.ext:line:col
-        out.push_str(&rest[..start]);
-        rest = &rest[start..];
-        let rel_end = rest.find(|c: char| c.is_whitespace() || c == ')' || c == ',');
-        let (candidate, consumed) = match rel_end {
-            Some(end) => (&rest[..end], end),
-            None => (rest, rest.len()),
-        };
-        let trimmed = candidate.trim_end_matches(|c: char| c == ':' || c.is_ascii_digit());
-        if let Some(seg) = trimmed.rsplit('/').next() {
-            out.push_str("…/");
-            out.push_str(seg);
+    while !rest.is_empty() {
+        let end = rest
+            .find(char::is_whitespace)
+            .unwrap_or(rest.len());
+        let (token, tail) = rest.split_at(end);
+        if looks_like_absolute_native_path(token) {
+            out.push_str(&redact_native_path_token(token));
         } else {
-            out.push_str("<path>");
+            out.push_str(token);
         }
-        rest = &rest[consumed..];
+        rest = tail;
+        if let Some(character) = rest.chars().next() {
+            out.push(character);
+            rest = &rest[character.len_utf8()..];
+        }
     }
-    out.push_str(rest);
     out
+}
+
+fn looks_like_absolute_native_path(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    value.starts_with('/')
+        || value.starts_with("\\\\")
+        || (bytes.len() >= 3
+            && bytes[1] == b':'
+            && (bytes[2] == b'/' || bytes[2] == b'\\'))
+}
+
+fn redact_native_path_token(value: &str) -> String {
+    let trimmed = value.trim_end_matches(|character| character == ')' || character == ',');
+    let basename = trimmed
+        .rsplit(|character| character == '/' || character == '\\')
+        .next()
+        .unwrap_or(trimmed);
+    if basename.is_empty() {
+        "<path>".to_owned()
+    } else {
+        format!("…/{basename}")
+    }
 }
 
 fn write_emergency_record(info: &std::panic::PanicHookInfo<'_>) {
@@ -94,7 +113,10 @@ fn write_emergency_record(info: &std::panic::PanicHookInfo<'_>) {
     };
     let (file, line) = match info.location() {
         Some(loc) => (
-            loc.file().rsplit('/').next().unwrap_or("unknown"),
+            loc.file()
+                .rsplit(|character| character == '/' || character == '\\')
+                .next()
+                .unwrap_or(loc.file()),
             loc.line(),
         ),
         None => ("unknown", 0u32),
@@ -276,5 +298,20 @@ mod tests {
         let out = sanitize_panic_payload(input);
         assert!(!out.contains("/home/alice"));
         assert!(out.contains("lib.rs"));
+    }
+
+    #[test]
+    fn sanitize_panic_payload_strips_windows_drive_unc_and_extended_paths() {
+        for input in [
+            r"panic at C:\Users\Alice\Documents\client\main.rs:12:4",
+            r"panic at D:\Projects\设计\main.rs:12:4",
+            r"panic at \\server\share\Alice\main.rs:12:4",
+            r"panic at \\?\C:\Users\Alice\Temp\main.rs:12:4",
+        ] {
+            let out = sanitize_panic_payload(input);
+            assert!(!out.contains("Alice"), "private component leaked: {out}");
+            assert!(!out.contains("C:\\"), "drive path leaked: {out}");
+            assert!(out.contains("main.rs"), "useful basename was lost: {out}");
+        }
     }
 }

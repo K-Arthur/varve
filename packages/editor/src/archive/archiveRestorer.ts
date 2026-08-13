@@ -41,9 +41,20 @@ const MAX_ENTRY_UNCOMPRESSED_SIZE = 200 * 1024 * 1024;
 
 /** Reject `..` segments and absolute paths (POSIX or Windows-drive-letter). */
 function isSafeArchivePath(name: string): boolean {
-  if (name.startsWith('/') || name.startsWith('\\')) return false;
+  if (
+    name.length === 0 ||
+    name.startsWith('/') ||
+    name.startsWith('\\') ||
+    name.includes('\0') ||
+    [...name].some((character) => character.charCodeAt(0) < 0x20)
+  )
+    return false;
   if (/^[a-zA-Z]:/.test(name)) return false;
-  return !name.split(/[/\\]/).some((segment) => segment === '..');
+  const parts = name.split(/[/\\]/);
+  return !parts.some(
+    (segment) =>
+      segment.length === 0 || segment === '.' || segment === '..' || segment.includes(':'),
+  );
 }
 
 /**
