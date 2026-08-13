@@ -1,0 +1,57 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+import StatusPill from '../../../components/StatusPill.astro';
+---
+
+<Layout title="Visual Awareness - Varve Docs" description="The current and planned visual-awareness workflows in Varve.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Visual Awareness
+      </nav>
+      <div class="kicker"><StatusPill status="planned" label="Foundation in development" /></div>
+      <h1>Visual Awareness</h1>
+      <p class="docs-intro">Varve is adding task-specific visual assistance for composition, selection, effects, and future anchors. The product surface is the design workflow, not a list of model names.</p>
+
+      <section class="docs-section">
+        <h2>What is available</h2>
+        <p><a href={sitePath('/docs/tools/object-selection')}>Object Selection</a> creates an editable mask from a point or box prompt. <a href={sitePath('/features/background-removal')}>Background removal</a> provides local fast, auto, and high-quality mask workflows. Both persist normal document mask data, so reopening does not require a model.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>What is being built</h2>
+        <ul>
+          <li><strong>Protect Faces</strong> requests face bounds only, then suggests a non-destructive image placement.</li>
+          <li><strong>Face anchors</strong> request semantic landmarks such as Left Eye instead of exposing backend landmark indices.</li>
+          <li><strong>Select Person</strong> will use a genuine person mask, not a face rectangle.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Privacy and performance</h2>
+        <p>Images are analyzed only when a workflow asks for a capability. Results are cached by source asset and revision, not by canvas position. Model downloads are explicit, verified, and local inference does not upload artwork. Face detection is geometric visual awareness, not identity recognition.</p>
+      </section>
+
+      <section class="docs-section docs-note">
+        <h2>Current limitation</h2>
+        <p>The capability router and crop solver are implemented, but a verified task-specific face backend and its quality/performance corpus are not yet shipped. Until that release gate closes, the website does not present automatic face-aware cropping, face protection, hand tracking, or pose tracking as available features.</p>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .kicker { margin-bottom: 1rem; }
+  .docs-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .docs-intro, .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.7; }
+  .docs-intro { font-size: 1.2rem; margin-bottom: 2.5rem; }
+  .docs-section { margin-bottom: 2.5rem; }
+  .docs-section h2 { color: var(--text-primary); margin-bottom: 1rem; }
+  .docs-section li + li { margin-top: 0.65rem; }
+  .docs-section a { color: var(--text-link); }
+  .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+</style>
