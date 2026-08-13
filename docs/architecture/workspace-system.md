@@ -181,6 +181,9 @@ These are known gaps, not settled design:
   notifies all workspace consumers. Toolbar visibility is applied by the shared
   `FloatingToolbar`; the effective configuration always keeps Select, Hand, and
   Zoom available as recovery/navigation tools.
+  The customization dialog uses the same human-readable tool labels as the
+  toolbar and disables those protected tools instead of allowing a misleading
+  unchecked state.
 - **`canvasOverlays.bleedGuides` and `layoutGrid` now have runtime consumers.**
   `bleedGuidesVisible` controls `PrintOverlays` rendering on the canvas.
   Both are projected from workspace config via `overlayPatch` and persisted

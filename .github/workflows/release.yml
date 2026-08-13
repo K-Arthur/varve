@@ -338,6 +338,10 @@ jobs:
             bundles: dmg
             enabled: ${{ needs.preflight.outputs.build_macos == 'true' }}
     runs-on: ${{ matrix.os }}
+    env:
+      # Public build-time configuration. App usage/diagnostics consent remains
+      # unknown until the user enables each category in Settings.
+      VITE_VARVE_ANALYTICS_DOMAIN: 'varve.studio'
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         if: matrix.enabled

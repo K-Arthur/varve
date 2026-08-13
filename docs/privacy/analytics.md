@@ -1,9 +1,10 @@
 # Analytics measurement plan and data inventory
 
-The default desktop build has no analytics endpoint, and the website has no
-analytics unless a production build sets `ANALYTICS_DOMAIN` and a visitor opts
-in. This document describes the permitted contract, not a promise that every
-event is currently transmitted.
+Production website and desktop release builds are configured for the
+`varve.studio` Plausible site, but transmission still requires the relevant
+user consent. Local and unconfigured builds remain network-silent. This
+document describes the permitted contract and the data transmitted by the
+enabled aggregate provider.
 
 | Question | Metric / event | Fields | Category | Retention | Decision |
 |---|---|---|---|---|---|

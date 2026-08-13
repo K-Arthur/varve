@@ -29,6 +29,7 @@ import { revealMainWindow } from './startup/revealMainWindow';
 const desktopAnalytics = configureDesktopAnalytics({
   platform: 'unknown',
   endpoint: import.meta.env.VITE_VARVE_ANALYTICS_ENDPOINT ?? null,
+  domain: import.meta.env.VITE_VARVE_ANALYTICS_DOMAIN ?? null,
 });
 
 const bootPlatform = detectPlatform();

@@ -166,12 +166,16 @@ analytics request). Desktop usage, diagnostics, and crash reporting are
 independent categories with unknown/denied fail-closed defaults. Privacy policy
 and the technical disclosure match the implementation.
 
-GitHub Releases already reports per-asset download counts via the API for free. That is the
-only metric that matters at alpha ("did anyone download it, and which platform"), and it
-requires no third-party script, no cookie banner, and no privacy-policy exposure.
+GitHub Releases still reports per-asset download counts via the API for free. The optional
+consent-gated Plausible measurement adds only normalized website routes, release/platform
+download categories, and approved outbound categories; it does not use a third-party script,
+cookies, personal identifiers, or design data.
 
-To enable website analytics later, set `ANALYTICS_DOMAIN` in a production
-deployment only after provider, retention, access, deletion, and legal review.
+The production website deployment sets `ANALYTICS_DOMAIN=varve.studio` and uses
+the matching Plausible site. Consent is still required before any request.
+Local and unconfigured builds leave the variable empty, so no prompt or request
+is emitted. Provider retention, access, deletion, and legal review remain
+operational responsibilities.
 
 ---
 

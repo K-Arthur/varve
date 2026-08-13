@@ -33,6 +33,9 @@ concurrency:
 env:
   PNPM_VERSION: '11.9.0'
   NODE_VERSION: '26'
+  # Public build-time configuration. Consent is still required in-browser;
+  # this only enables the consent UI and Plausible transport for varve.studio.
+  ANALYTICS_DOMAIN: 'varve.studio'
 
 jobs:
   # ── 1. Quality gates: typecheck, unit tests, a11y scans, dual-mode builds ──
