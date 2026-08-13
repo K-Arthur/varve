@@ -17,6 +17,7 @@ import {
   oklabToOkLch,
   oklchToOkLab,
   srgbToLinear,
+  srgbToLinearUnit,
 } from './colorConversion';
 
 /** Color space used for gradient stop interpolation. */
@@ -242,6 +243,144 @@ function normalizeStopColor(
     color as Parameters<typeof managedColorToNormalized>[0],
   );
   return { space: 'rgb', r: r * 255, g: g * 255, b: b * 255, a: a * 255 };
+}
+
+// ── Normalized (0-1) interpolation ───────────────────────────────────────────
+// The byte-space interpolator above is a display boundary. Authoring paths
+// (gradient stop creation, stop expansion in high-precision documents) must
+// interpolate in normalized 0-1 space so uint16/float channel values survive.
+
+/** Normalized RGBA channels, 0-1, straight (unassociated) alpha. */
+export interface NormalizedRgba {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+function rgbToHslUnit(r: number, g: number, b: number): [number, number, number] {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h * 360, s, l];
+}
+
+function hslToRgbUnit(h: number, s: number, l: number): [number, number, number] {
+  const hh = (((h % 360) + 360) % 360) / 360;
+  if (s === 0) return [l, l, l];
+  const hue2rgb = (p: number, q: number, t: number): number => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+    if (tt < 1 / 2) return q;
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return [hue2rgb(p, q, hh + 1 / 3), hue2rgb(p, q, hh), hue2rgb(p, q, hh - 1 / 3)];
+}
+
+/**
+ * Interpolate two normalized (0-1) RGBA colors at factor t.
+ *
+ * No 8-bit quantization anywhere in the working path: the result is exact
+ * at the caller's storage precision (uint16/float denormalization is the
+ * caller's single quantization boundary).
+ */
+export function interpolateNormalizedColor(
+  from: NormalizedRgba,
+  to: NormalizedRgba,
+  t: number,
+  space: GradientInterpolationSpace,
+  opts: { premultiplied?: boolean } = {},
+): NormalizedRgba {
+  if (t <= 0) return { ...from };
+  if (t >= 1) return { ...to };
+
+  const premultiplied = opts.premultiplied !== false;
+  if (premultiplied && (from.a < 1 || to.a < 1)) {
+    const pmFrom: NormalizedRgba = { r: from.r * from.a, g: from.g * from.a, b: from.b * from.a, a: from.a };
+    const pmTo: NormalizedRgba = { r: to.r * to.a, g: to.g * to.a, b: to.b * to.a, a: to.a };
+    const pmResult = interpolateNormalizedColor(pmFrom, pmTo, t, space, { premultiplied: false });
+    const outA = from.a + (to.a - from.a) * t;
+    if (outA === 0) return { r: 0, g: 0, b: 0, a: 0 };
+    return { r: pmResult.r / outA, g: pmResult.g / outA, b: pmResult.b / outA, a: outA };
+  }
+
+  const lerp = (a: number, b: number) => a + (b - a) * t;
+
+  switch (space) {
+    case 'srgb':
+      return {
+        r: lerp(from.r, to.r),
+        g: lerp(from.g, to.g),
+        b: lerp(from.b, to.b),
+        a: lerp(from.a, to.a),
+      };
+    case 'oklab': {
+      const toLin = (c: NormalizedRgba): [number, number, number] => [
+        srgbToLinearUnit(c.r),
+        srgbToLinearUnit(c.g),
+        srgbToLinearUnit(c.b),
+      ];
+      const [l1, a1, b1] = linearSrgbToOklab(toLin(from));
+      const [l2, a2, b2] = linearSrgbToOklab(toLin(to));
+      const [lr, lg, lb] = oklabToLinearSrgb([lerp(l1, l2), lerp(a1, a2), lerp(b1, b2)]);
+      return {
+        r: linearToSrgbUnit(lr),
+        g: linearToSrgbUnit(lg),
+        b: linearToSrgbUnit(lb),
+        a: lerp(from.a, to.a),
+      };
+    }
+    case 'oklch': {
+      const toLin = (c: NormalizedRgba): [number, number, number] => [
+        srgbToLinearUnit(c.r),
+        srgbToLinearUnit(c.g),
+        srgbToLinearUnit(c.b),
+      ];
+      const [l1, a1, b1] = linearSrgbToOklab(toLin(from));
+      const [l2, a2, b2] = linearSrgbToOklab(toLin(to));
+      const [L1, C1, H1] = oklabToOkLch([l1, a1, b1]);
+      const [L2, C2, H2] = oklabToOkLch([l2, a2, b2]);
+      // Near-zero chroma → undefined hue; fall back to OKLab (see the
+      // byte-space interpolator for the same rule).
+      if (C1 < 0.001 || C2 < 0.001) {
+        return interpolateNormalizedColor(from, to, t, 'oklab', { premultiplied: false });
+      }
+      let h2 = H2;
+      const h1 = H1;
+      const diff = h2 - h1;
+      if (diff > Math.PI) h2 -= 2 * Math.PI;
+      else if (diff < -Math.PI) h2 += 2 * Math.PI;
+      const [r, g, b] = gamutMapToSrgbUnit([
+        lerp(L1, L2),
+        lerp(C1, C2),
+        h1 + (h2 - h1) * t,
+      ]);
+      // gamutMapToSrgbUnit returns unquantized 0-255 floats — rescale to
+      // normalized 0-1 for the caller's storage precision.
+      return { r: r / 255, g: g / 255, b: b / 255, a: lerp(from.a, to.a) };
+    }
+    case 'hsl': {
+      const [h1, s1, l1] = rgbToHslUnit(from.r, from.g, from.b);
+      const [h2, s2, l2] = rgbToHslUnit(to.r, to.g, to.b);
+      let dh = h2 - h1;
+      if (dh > 180) dh -= 360;
+      else if (dh < -180) dh += 360;
+      const [r, g, b] = hslToRgbUnit(h1 + dh * t, lerp(s1, s2), lerp(l1, l2));
+      return { r, g, b, a: lerp(from.a, to.a) };
+    }
+  }
 }
 
 /**
