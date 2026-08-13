@@ -1,4 +1,4 @@
-import { gaussianBlurSeparable } from './blur';
+import type { DepthMap } from './depthMap';
 
 function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
@@ -29,69 +29,133 @@ export function applyLensBlur(
     invert: boolean;
   },
 ): ImageData {
-  const { blurAmount, focalDepth, transitionRange, invert } = options;
+  // Legacy callers receive 8-bit maps where 255 was near. The reusable
+  // DepthMap contract uses 0 = near, 1 = far, so adapt at this boundary.
+  const values = new Float32Array(depthMap.length);
+  const valid = new Uint8Array(depthMap.length).fill(1);
+  for (let i = 0; i < depthMap.length; i++) values[i] = 1 - depthMap[i]! / 255;
+  return applyDepthBlur(
+    imageData,
+    {
+      width: imageData.width,
+      height: imageData.height,
+      values,
+      valid,
+      metadata: {
+        depthType: 'relative',
+        unit: 'normalized',
+        nearFarConvention: 'nearIsLow',
+        inferenceVersion: 1,
+        preprocessingVersion: 1,
+      },
+    },
+    { ...options, focalDepth: 1 - options.focalDepth },
+  );
+}
+
+export interface DepthBlurOptions {
+  /** Maximum gather radius in source pixels. */
+  blurAmount: number;
+  /** Canonical depth where 0 = near and 1 = far. */
+  focalDepth: number;
+  /** In-focus interval around the focal plane, normalized 0..1. */
+  transitionRange: number;
+  invert?: boolean;
+  /** Reject farther samples across a depth edge to protect foreground contours. */
+  edgeProtection?: number;
+}
+
+/**
+ * Depth-aware gather blur. The gather is premultiplied-alpha and asymmetric at
+ * depth discontinuities: a foreground pixel may gather nearer samples, but it
+ * does not gather farther background samples across its silhouette. That
+ * prevents the bright/dark halos produced by choosing independent Gaussian
+ * levels per pixel.
+ */
+export function applyDepthBlur(
+  imageData: ImageData,
+  depthMap: DepthMap,
+  options: DepthBlurOptions,
+): ImageData {
   const w = imageData.width;
   const h = imageData.height;
-
-  if (blurAmount <= 0 || depthMap.length !== w * h) {
+  if (depthMap.width !== w || depthMap.height !== h || depthMap.values.length !== w * h) {
     return new ImageData(new Uint8ClampedArray(imageData.data), w, h);
   }
+  const blurAmount = Math.max(0, options.blurAmount);
+  if (blurAmount <= 0) return new ImageData(new Uint8ClampedArray(imageData.data), w, h);
 
-  const numLevels = 5;
-  const levelRadius = blurAmount / (numLevels - 1 || 1);
-
-  const blurredLevels: ImageData[] = [];
-  for (let i = 0; i < numLevels; i++) {
-    const radius = i * levelRadius;
-    if (i === 0) {
-      blurredLevels.push(new ImageData(new Uint8ClampedArray(imageData.data), w, h));
-    } else {
-      blurredLevels.push(
-        gaussianBlurSeparable(
-          new ImageData(new Uint8ClampedArray(imageData.data), w, h),
-          Math.round(radius),
-        ),
-      );
-    }
-  }
-
+  const focalDepth = Math.max(0, Math.min(1, options.focalDepth));
+  const transitionRange = Math.max(0, Math.min(1, options.transitionRange));
+  const invert = options.invert ?? false;
+  const edgeProtection = Math.max(0, Math.min(1, options.edgeProtection ?? 0.035));
   const output = new Uint8ClampedArray(imageData.data.length);
-  const len = depthMap.length;
+  const radius = Math.max(1, Math.ceil(blurAmount));
+  const stride = radius > 18 ? 2 : 1;
+  const sigma = Math.max(0.75, radius / 2.5);
+  const sigma2 = 2 * sigma * sigma;
 
-  for (let i = 0; i < len; i++) {
-    const depthNorm = depthMap[i]! / 255;
-    const desired = depthToRadius(depthNorm, focalDepth, transitionRange, blurAmount, invert);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const index = y * w + x;
+      const centerDepth = depthMap.values[index] ?? 0.5;
+      const canonicalDepth = invert ? 1 - centerDepth : centerDepth;
+      const desiredRadius = depthToRadius(
+        canonicalDepth,
+        focalDepth,
+        transitionRange,
+        blurAmount,
+        false,
+      );
+      const out = index * 4;
+      if (!depthMap.valid[index] || desiredRadius < 0.5) {
+        output[out] = imageData.data[out]!;
+        output[out + 1] = imageData.data[out + 1]!;
+        output[out + 2] = imageData.data[out + 2]!;
+        output[out + 3] = imageData.data[out + 3]!;
+        continue;
+      }
 
-    if (desired <= 0) {
-      const px = i * 4;
-      output[px] = imageData.data[px]!;
-      output[px + 1] = imageData.data[px + 1]!;
-      output[px + 2] = imageData.data[px + 2]!;
-      output[px + 3] = imageData.data[px + 3]!;
-      continue;
+      const sampleRadius = Math.max(1, Math.ceil(desiredRadius));
+      let sumR = 0;
+      let sumG = 0;
+      let sumB = 0;
+      let sumA = 0;
+      let sumWeight = 0;
+      for (let oy = -sampleRadius; oy <= sampleRadius; oy += stride) {
+        for (let ox = -sampleRadius; ox <= sampleRadius; ox += stride) {
+          if (ox * ox + oy * oy > desiredRadius * desiredRadius) continue;
+          const sx = Math.max(0, Math.min(w - 1, x + ox));
+          const sy = Math.max(0, Math.min(h - 1, y + oy));
+          const sampleIndex = sy * w + sx;
+          if (!depthMap.valid[sampleIndex]) continue;
+          const sampleDepth = depthMap.values[sampleIndex] ?? centerDepth;
+          const fartherThanForeground = sampleDepth > centerDepth + edgeProtection;
+          if (fartherThanForeground) continue;
+          const spatialWeight = Math.exp(-(ox * ox + oy * oy) / sigma2);
+          const px = sampleIndex * 4;
+          const alpha = imageData.data[px + 3]! / 255;
+          sumR += imageData.data[px]! * alpha * spatialWeight;
+          sumG += imageData.data[px + 1]! * alpha * spatialWeight;
+          sumB += imageData.data[px + 2]! * alpha * spatialWeight;
+          sumA += alpha * spatialWeight;
+          sumWeight += spatialWeight;
+        }
+      }
+      if (sumWeight <= 0 || sumA <= 0) {
+        output[out] = imageData.data[out]!;
+        output[out + 1] = imageData.data[out + 1]!;
+        output[out + 2] = imageData.data[out + 2]!;
+        output[out + 3] = imageData.data[out + 3]!;
+        continue;
+      }
+      const alpha = Math.max(0, Math.min(1, sumA / sumWeight));
+      output[out] = clampByte(sumR / sumA);
+      output[out + 1] = clampByte(sumG / sumA);
+      output[out + 2] = clampByte(sumB / sumA);
+      output[out + 3] = clampByte(alpha * 255);
     }
-
-    const lowerLevel = Math.min(
-      numLevels - 2,
-      Math.max(0, Math.floor(desired / (levelRadius || 1))),
-    );
-    const upperLevel = lowerLevel + 1;
-
-    const lowerDesired = lowerLevel * levelRadius;
-    const upperDesired = upperLevel * levelRadius;
-    const range = upperDesired - lowerDesired || 1;
-    const t = (desired - lowerDesired) / range;
-
-    const px = i * 4;
-    const lData = blurredLevels[lowerLevel]!.data;
-    const uData = blurredLevels[upperLevel]!.data;
-
-    output[px] = clampByte(lData[px]! * (1 - t) + uData[px]! * t);
-    output[px + 1] = clampByte(lData[px + 1]! * (1 - t) + uData[px + 1]! * t);
-    output[px + 2] = clampByte(lData[px + 2]! * (1 - t) + uData[px + 2]! * t);
-    output[px + 3] = clampByte(lData[px + 3]! * (1 - t) + uData[px + 3]! * t);
   }
-
   return new ImageData(output, w, h);
 }
 

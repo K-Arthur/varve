@@ -39,6 +39,7 @@ export interface DepthMap {
 
 export interface DepthMapResource extends DepthMapMetadata {
   id: string;
+  schemaVersion: 1;
   width: number;
   height: number;
   /** Little-endian uint16 scalar payload, encoded for document storage. */
@@ -171,6 +172,49 @@ export function sampleDepth(map: DepthMap, x: number, y: number, radius = 1): nu
   return count > 0 ? sum / count : null;
 }
 
+/** Resize a depth field with bilinear interpolation while preserving validity. */
+export function resizeDepthMap(map: DepthMap, width: number, height: number): DepthMap {
+  if (map.width === width && map.height === height) return map;
+  const values = new Float32Array(width * height);
+  const valid = new Uint8Array(width * height);
+  const xScale = map.width / width;
+  const yScale = map.height / height;
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(map.height - 1, Math.max(0, (y + 0.5) * yScale - 0.5));
+    const y0 = Math.floor(sy);
+    const y1 = Math.min(map.height - 1, y0 + 1);
+    const ty = sy - y0;
+    for (let x = 0; x < width; x++) {
+      const sx = Math.min(map.width - 1, Math.max(0, (x + 0.5) * xScale - 0.5));
+      const x0 = Math.floor(sx);
+      const x1 = Math.min(map.width - 1, x0 + 1);
+      const tx = sx - x0;
+      const i00 = y0 * map.width + x0;
+      const i10 = y0 * map.width + x1;
+      const i01 = y1 * map.width + x0;
+      const i11 = y1 * map.width + x1;
+      const out = y * width + x;
+      const count =
+        Number(map.valid[i00]) +
+        Number(map.valid[i10]) +
+        Number(map.valid[i01]) +
+        Number(map.valid[i11]);
+      if (count === 0) {
+        values[out] = 0.5;
+        valid[out] = 0;
+        continue;
+      }
+      values[out] =
+        map.values[i00]! * (1 - tx) * (1 - ty) +
+        map.values[i10]! * tx * (1 - ty) +
+        map.values[i01]! * (1 - tx) * ty +
+        map.values[i11]! * tx * ty;
+      valid[out] = 1;
+    }
+  }
+  return { ...map, width, height, values, valid };
+}
+
 /** Convert a continuous range into an ordinary semantic coverage mask. */
 export function depthRangeToMask(
   map: DepthMap,
@@ -235,6 +279,7 @@ export function serializeDepthMap(map: DepthMap, id: string): DepthMapResource {
   const valid = map.valid.some((value) => value === 0) ? bytesToBase64(map.valid) : undefined;
   return {
     id,
+    schemaVersion: 1,
     width: map.width,
     height: map.height,
     dataBase64: bytesToBase64(encoded),
@@ -245,6 +290,7 @@ export function serializeDepthMap(map: DepthMap, id: string): DepthMapResource {
 }
 
 export function deserializeDepthMap(resource: DepthMapResource): DepthMap {
+  if (resource.schemaVersion !== 1) throw new Error('Unsupported DepthMap resource version');
   const bytes = base64ToBytes(resource.dataBase64);
   if (bytes.byteLength !== resource.width * resource.height * 2) {
     throw new Error('Depth resource has an invalid scalar payload length');

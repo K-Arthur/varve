@@ -119,13 +119,22 @@ function resolvePaintRefs(
   return node;
 }
 
-export type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
+export type AssetLookupDoc = Pick<
+  Document,
+  'paints' | 'rasterMaskAssets' | 'nodes' | 'assets' | 'depthMaps'
+>;
 
 function resolveEffectMasksForEngine(
   effects: readonly import('@varve/scene').Effect[],
   doc: AssetLookupDoc | undefined,
 ): import('@varve/engine').Effect[] {
   return effects.map((effect) => {
+    if (effect.type === 'depthBlur') {
+      const depthMap = doc?.depthMaps?.[effect.depthMapId];
+      return depthMap
+        ? ({ ...effect, depthMap } as import('@varve/engine').Effect)
+        : (effect as import('@varve/engine').Effect);
+    }
     const mask = effect.mask;
     if (!mask) return effect as import('@varve/engine').Effect;
     if (mask.source.kind === 'scene-node') return effect as import('@varve/engine').Effect;

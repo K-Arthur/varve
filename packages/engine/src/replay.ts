@@ -13,6 +13,7 @@
 
 import { expandGradientStops, managedColorToNormalized, managedColorToRgba } from '@varve/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
+import { deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 import {
   applyChromaticAberration,
@@ -31,6 +32,7 @@ import {
   type ImagePlacement,
   type ImagePlacementRect,
 } from './imagePlacement';
+import { applyDepthBlur } from './lensBlur';
 import { paintWarpedImage, quadBoundsOf, resolveReplayImage } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
@@ -267,6 +269,7 @@ type BackgroundBlurEffect = Extract<
   { type: 'backgroundBlur' }
 >;
 type LayerBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'layerBlur' }>;
+type DepthBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'depthBlur' }>;
 type ChromaticAberrationEffect = Extract<
   NonNullable<RenderItem['effects']>[number],
   { type: 'chromaticAberration' }
@@ -319,12 +322,19 @@ const shadowOps: ShadowOps = {
 
 /** Maximum padding needed to keep content effects from being cropped. */
 function contentEffectPadding(
-  effects: readonly (LayerBlurEffect | ChromaticAberrationEffect | GlitchEffect)[],
+  effects: readonly (
+    | LayerBlurEffect
+    | DepthBlurEffect
+    | ChromaticAberrationEffect
+    | GlitchEffect
+  )[],
 ): number {
   let padding = 0;
   for (const e of effects) {
     if (e.type === 'layerBlur') {
       padding = Math.max(padding, Math.max(0, e.radius) * 3);
+    } else if (e.type === 'depthBlur') {
+      padding = Math.max(padding, Math.max(0, e.blurStrength) * 3);
     } else if (e.type === 'chromaticAberration') {
       const intensity = Math.max(0, e.intensity ?? 1);
       const o = e.offsets;
@@ -836,9 +846,14 @@ export function replayIr(
         // (layerBlur, chromaticAberration, glitch) in the order they are listed.
         const contentEffects =
           item.effects?.filter(
-            (e): e is LayerBlurEffect | ChromaticAberrationEffect | GlitchEffect =>
+            (
+              e,
+            ): e is LayerBlurEffect | DepthBlurEffect | ChromaticAberrationEffect | GlitchEffect =>
               e.visible &&
-              (e.type === 'layerBlur' || e.type === 'chromaticAberration' || e.type === 'glitch'),
+              (e.type === 'layerBlur' ||
+                e.type === 'depthBlur' ||
+                e.type === 'chromaticAberration' ||
+                e.type === 'glitch'),
           ) ?? [];
 
         // ── Backdrop-based effects (before fills — captures true backdrop) ───
@@ -874,6 +889,27 @@ export function replayIr(
               const input = cc.getImageData(0, 0, cc.width, cc.height);
               if (effect.type === 'layerBlur') {
                 cc.applyBlur(Math.max(0, effect.radius));
+              } else if (effect.type === 'depthBlur') {
+                if (effect.depthMap) {
+                  try {
+                    const depthMap = resizeDepthMap(
+                      deserializeDepthMap(effect.depthMap),
+                      cc.width,
+                      cc.height,
+                    );
+                    const blurred = applyDepthBlur(input, depthMap, {
+                      blurAmount: effect.blurStrength,
+                      focalDepth: effect.focusDepth,
+                      transitionRange: effect.focusRange * Math.max(0, effect.falloff),
+                      invert: effect.invert,
+                      edgeProtection: effect.edgeProtection,
+                    });
+                    cc.putImageData(blurred, 0, 0);
+                  } catch {
+                    // A missing/corrupt persisted resource must not blank the
+                    // document; keeping the input is the safe render fallback.
+                  }
+                }
               } else if (effect.type === 'chromaticAberration') {
                 applyChromaticAberration(cc, cc.width, cc.height, effect);
               } else if (effect.type === 'glitch') {
@@ -910,6 +946,7 @@ export function replayIr(
             if (!effect.visible) continue;
             if (
               effect.type === 'layerBlur' ||
+              effect.type === 'depthBlur' ||
               effect.type === 'backgroundBlur' ||
               effect.type === 'chromaticAberration' ||
               effect.type === 'glitch'

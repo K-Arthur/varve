@@ -215,6 +215,18 @@ type EffectVariant =
   | { type: 'layerBlur'; radius: number; visible: boolean }
   | { type: 'backgroundBlur'; radius: number; visible: boolean }
   | {
+      type: 'depthBlur';
+      depthMapId: string;
+      depthMap?: import('./depthMap').DepthMapResource;
+      focusDepth: number;
+      focusRange: number;
+      blurStrength: number;
+      falloff: number;
+      invert: boolean;
+      edgeProtection: number;
+      visible: boolean;
+    }
+  | {
       type: 'outerGlow';
       blur: number;
       spread: number;

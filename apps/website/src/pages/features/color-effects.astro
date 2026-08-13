@@ -38,17 +38,6 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
-      <figure class="feature-visual">
-        <img
-          src={sitePath('/screenshots/palette-inspector-light.png')}
-          alt="Varve showing a colorful image on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs"
-          width="1440"
-          height="900"
-          loading="lazy"
-        />
-        <figcaption>Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.</figcaption>
-      </figure>
-
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
@@ -153,28 +142,7 @@ import { sitePath } from '../../lib/siteUrl';
   .feature-section {
     margin-bottom: 3rem;
   }
-
-  .feature-visual {
-    margin: -1rem 0 3rem;
-  }
-
-  .feature-visual img {
-    display: block;
-    width: 100%;
-    height: auto;
-    border: 1px solid var(--border-default);
-    border-radius: 0.75rem;
-    box-shadow: var(--elevation-shadow-raised);
-  }
-
-  .feature-visual figcaption {
-    margin-top: 0.75rem;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    line-height: 1.5;
-    text-align: center;
-  }
-
+  
   .feature-section h2 {
     font-size: 1.5rem;
     font-weight: 700;
