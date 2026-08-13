@@ -9,7 +9,7 @@ test.describe('asset similarity marketing surface', () => {
     await expect(
       page.getByText(/does not yet build a persistent cross-project library index/i),
     ).toBeVisible();
-    await expect(page.getByText('Experimental')).toBeVisible();
+    await expect(page.getByText('Experimental', { exact: true }).last()).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     const layout = await page.locator('.feature-page').evaluate((element) => ({
@@ -17,5 +17,12 @@ test.describe('asset similarity marketing surface', () => {
       scrollWidth: element.scrollWidth,
     }));
     expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
+  });
+
+  test('is discoverable from the feature and documentation indexes', async ({ page }) => {
+    await page.goto('/features');
+    await expect(page.getByRole('link', { name: /Asset Similarity/i })).toBeVisible();
+    await page.goto('/docs');
+    await expect(page.getByRole('link', { name: /Asset Similarity/i })).toBeVisible();
   });
 });
