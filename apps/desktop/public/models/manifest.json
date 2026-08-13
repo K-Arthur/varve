@@ -1123,6 +1123,43 @@
       }
     },
     {
+      "id": "siglip-base-patch16-224-text",
+      "filename": "siglip-base-patch16-224-text.onnx",
+      "localPath": "/models/siglip-base-patch16-224-text.onnx",
+      "sha256": "09b7273e0672a8105ba0aa0f3d1ca34b4cd6eb3f0af735fdc8d632bfa4ad188b",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/text_model_quantized.onnx",
+      "precision": "int8",
+      "quantizationOrigin": "upstream",
+      "sourceLicense": "Apache-2.0",
+      "sourceRevision": "Xenova/siglip-base-patch16-224 (google/siglip-base-patch16-224 text encoder)",
+      "notes": "Text-side SigLIP encoder for local natural-language image search. It shares the 768-dimensional embedding space with siglip-base-patch16-224 image embeddings. Requires the pinned tokenizer.json asset; download is explicit and cached locally.",
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input_ids",
+            "dims": [1, 64],
+            "dtype": "int64"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "pooler_output",
+            "dims": [1, 768],
+            "dtype": "float32"
+          }
+        ],
+        "normalization": {
+          "mean": [0, 0, 0],
+          "std": [1, 1, 1],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 400000000
+      }
+    },
+    {
       "id": "paddleocr-det-v4",
       "filename": "paddleocr-det-v4.onnx",
       "localPath": "/models/paddleocr-det-v4.onnx",

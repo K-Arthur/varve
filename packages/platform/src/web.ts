@@ -58,7 +58,7 @@ import { DRAFTS_ID } from './types';
 import { chooseWebSaveTarget, writeWebSaveTarget } from './web-save';
 
 const DB_NAME = 'varve-home';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_FILES = 'files';
 const STORE_PROJECTS = 'projects';
 const STORE_THUMBS = 'thumbnails';
@@ -79,6 +79,7 @@ const STORE_FILE_TAGS = 'fileTags';
 const STORE_ACTIVITY = 'activity';
 const STORE_SAVED_SEARCHES = 'savedSearches';
 const STORE_RECENT_FILES = 'recentFiles';
+const STORE_SEMANTIC_EMBEDDINGS = 'semanticEmbeddings';
 const KV_VIEW_STATE = 'view-state';
 
 interface FileRecord {
@@ -114,6 +115,7 @@ interface DbSchema {
   activity: ActivityEvent;
   savedSearches: SavedSearch;
   recentFiles: RecentFileRecord;
+  semanticEmbeddings: import('./assetEmbeddingIndex').AssetEmbeddingRecord;
 }
 
 async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
@@ -209,6 +211,9 @@ async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
           const store = db.createObjectStore(STORE_RECENT_FILES, { keyPath: 'id' });
           store.createIndex('lastOpenedAt', 'lastOpenedAt');
         }
+      }
+      if (oldVersion < 4 && !db.objectStoreNames.contains(STORE_SEMANTIC_EMBEDDINGS)) {
+        db.createObjectStore(STORE_SEMANTIC_EMBEDDINGS, { keyPath: 'key' });
       }
     },
   });
