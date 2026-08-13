@@ -1,6 +1,20 @@
 /** @varve/ai — AI assistant chat controller. */
 
 export {
+  checkDesignPlanFreshness,
+  type DesignEditOperation,
+  type DesignEditPlan,
+  type DesignEditSnapshot,
+  type DesignInputKind,
+  type DesignPlanFreshness,
+  type DesignPlanMode,
+  type DesignPlanScope,
+  type DesignPlanSource,
+  type DesignPlanValidation,
+  type JsonValue,
+  validateDesignEditPlan,
+} from './designEditPlan';
+export {
   dispatchIntelligence,
   INTELLIGENCE_COMMANDS,
   type IntelligenceCommandMeta,
