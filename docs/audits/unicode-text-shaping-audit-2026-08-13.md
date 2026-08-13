@@ -74,7 +74,7 @@ rendering, editing, hit testing, selection, masks, and exports.
 | Rich text takes precedence in rendering | IR carries `richText`, while paint-time layout still has separate logic and fallback defaults | Make paragraph/run resolution an input to canonical layout, not a parallel renderer path |
 | Cluster-safe editing | `richTextOps.splitRunAt` slices at raw UTF-16 offsets; overlay reports only paragraph 0 | Add explicit UTF-16/code-point/grapheme/shaping-cluster maps and paragraph-aware edit operations |
 | Caret/hit testing from shaped clusters | `hitTestCaret` treats glyph records as graphemes and returns the preceding cluster start | Return legal insertion stops with logical/visual maps and line geometry |
-| Cache keyed by font/layout identity | `TextLayoutSnapshot` has an identity and `textLayoutSnapshotCacheKey`; the older `ShapingCache` still has a narrower key | Migrate live callers to the snapshot key and add byte accounting/font-revision invalidation |
+| Cache keyed by font/layout identity | `TextLayoutSnapshot` and `ShapingCache` now carry font revision, features, axes, width, and layout-policy identity; both caches are bounded | Migrate live callers to the snapshot cache and connect registry revision events to cache invalidation |
 | PDF Unicode fidelity | Non-WinAnsi text can be outlined; native path is not driven by the canonical TS layout | Keep outlining as honest fallback; add shaped CID/ToUnicode work as a separate export slice |
 | Thai line breaking | `textLayout.ts` uses `Intl.Segmenter`/whitespace/CJK heuristics | Separate shaping from UAX #14 breaking and document dictionary-based Thai limits |
 
