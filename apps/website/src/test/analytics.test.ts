@@ -3,6 +3,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { initWebsiteAnalytics } from '../lib/analytics';
 
+type PlausibleTestClient = {
+  o?: Record<string, unknown>;
+  q?: Array<
+    [string, { u?: string; props?: Record<string, string>; interactive?: boolean } | undefined]
+  >;
+};
+
 function mountConsentUi() {
   document.body.innerHTML = `
     <aside id="website-analytics-consent" hidden>
@@ -25,6 +32,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  document.querySelector('script[data-varve-plausible="true"]')?.remove();
+  delete (window as Window & { plausible?: unknown }).plausible;
   document.body.innerHTML = '';
 });
 
@@ -37,17 +46,22 @@ describe('website analytics consent boundary', () => {
   });
 
   it('sends a normalized page route only after explicit grant', async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue(new Response('{}', { status: 202 }));
     initWebsiteAnalytics({ domain: 'varve.studio', enabled: true });
     document.querySelector<HTMLElement>('[data-analytics-choice="granted"]')?.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const request = JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body));
-    expect(request.name).toBe('pageview');
-    expect(request.url).toBe(`${window.location.origin}/docs`);
-    expect(request.url).not.toContain('search=private-design');
+    const script = document.querySelector<HTMLScriptElement>('script[data-varve-plausible="true"]');
+    expect(script?.src).toBe('https://plausible.io/js/pa-9Rpt-MZjJts8awPbiRZl3.js');
+    const plausible = (window as Window & { plausible?: PlausibleTestClient }).plausible;
+    expect(plausible?.o).toMatchObject({
+      domain: 'varve.studio',
+      autoCapturePageviews: false,
+      fileDownloads: false,
+      outboundLinks: false,
+      formSubmissions: false,
+    });
+    expect(plausible?.q?.[0]?.[0]).toBe('pageview');
+    expect(plausible?.q?.[0]?.[1]?.u).toBe(`${window.location.origin}/docs`);
+    expect(plausible?.q?.[0]?.[1]?.u).not.toContain('search=private-design');
   });
 
   it('honors Global Privacy Control and does not show a consent prompt', () => {

@@ -36,8 +36,10 @@ categories, and shuts down the provider when no category remains granted.
 Feature code uses `AnalyticsClient.track(name, payload)`. It never imports a
 vendor. `NoopAnalyticsProvider` is the default. `HttpAnalyticsProvider` exists
 for a future Varve-owned aggregate endpoint and accepts only HTTPS endpoints.
-The website uses a small Plausible Events API adapter with manually normalized
-routes; it does not load a provider SDK.
+The website loads the supplied Plausible script only after website consent. Its
+automatic pageviews, file-download, outbound-link, and form-submission capture
+are disabled; Varve sends only the manually normalized events registered in the
+shared schema. The loader is therefore not present in denied or unknown states.
 
 The production desktop build uses the public `varve.studio` domain with the
 Plausible Events API. `VITE_VARVE_ANALYTICS_DOMAIN` is public configuration;
