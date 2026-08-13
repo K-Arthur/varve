@@ -21,7 +21,7 @@ update, not for someone reading the commit log.
   document-local, capped at 30 image candidates, and does not provide
   text-to-image search or automatic deletion. See
   `docs/architecture/semantic-asset-similarity.md`.
-- **Image palette extraction** — select an image and open Adjustments → Palette
+- **Image palette extraction** — select one image and open Appearance → Palette
   to generate a deterministic local palette in perceptual Oklab, review
   generated harmonies and WCAG 2.1 contrast pairs, copy HEX values, and save
   extracted colours as document swatches or colour variables. Analysis is
