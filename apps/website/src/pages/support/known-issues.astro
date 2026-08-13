@@ -77,10 +77,10 @@ const issues: KnownIssue[] = [
     category: 'Print & Export',
   },
   {
-    title: 'PDF/X page boxes are still full-page BleedBox',
+    title: 'Multi-page PDF/X execution is still limited',
     status: 'partial',
-    description: 'PDF/X exports emit MediaBox = BleedBox = the full page and a TrimBox inset by the configured bleed. The intended semantics (BleedBox = trim plus bleed, so mixed or page-specific bleed values are not overstated) are agreed in the page-box ADR but not yet implemented in the encoder.',
-    workaround: 'None required for standard print workflows; the current boxes are accepted by common RIPs.',
+    description: 'The native PDF/X path now emits distinct MediaBox, BleedBox, TrimBox, CropBox, and ArtBox values for the single-page production export path. Multi-page PDF execution and complete printer-mark preview are still being integrated.',
+    workaround: 'Export and inspect a PDF/X proof per page when the document contains multiple print pages.',
     category: 'Print & Export',
   },
   {
