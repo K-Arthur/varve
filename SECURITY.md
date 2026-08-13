@@ -71,3 +71,26 @@ fix is available.
 - Secret scanning is enabled on this repository (repository settings);
   suspected leaked credentials should be reported through an advisory
   even if GitHub's scanning has already flagged them.
+
+## Known unresolved dependency advisories
+
+Advisories that are open and cannot be remediated yet, with the reason and
+the mitigation in place. Verified on 2026-08-13 via Dependabot alerts and
+`pnpm audit` / `cargo audit`.
+
+- **GHSA-jmr9-qjv8-65gv — extract-zip 2.0.1 (npm, dev-only)**. Unvalidated
+  symlink path traversal during archive extraction. No patched release
+  exists (2.0.1 is the latest on npm; the advisory has no fix version).
+  Pulled in only by `@wdio/utils -> @puppeteer/browsers` for downloading
+  official browser binaries in the dev/test toolchain — archives are
+  trusted, downloads are pinned by checksum, and the code path never runs
+  in production. Tracked upstream; re-check on each alert review.
+- **GHSA-wrw7-89jp-8q8g — glib 0.18.x (cargo, desktop runtime)**.
+  Unsoundness in `Iterator`/`DoubleEndedIterator` impls for
+  `glib::VariantStrIter`; fixed in glib 0.20.0. The whole gtk-rs 0.18 stack
+  (gtk/gdk/gio/pango/atk, pulled by `tao`, `wry`, `tray-icon`, `tauri`)
+  is still pinned by Tauri 2.11.x — the latest release — so a fix is
+  blocked upstream. Exploitability here is minimal: GVariant string
+  iteration is not reachable from user-controlled IPC data (Tauri IPC uses
+  its own serialization, not GVariant). Re-evaluate when Tauri migrates to
+  the gtk-rs 0.20 line.
