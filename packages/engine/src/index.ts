@@ -906,6 +906,17 @@ export {
 } from './unicode/grapheme';
 export type { ScriptCode, ScriptRun } from './unicode/script';
 export { detectScript, dominantScript, segmentByScript } from './unicode/script';
+export type { BoundaryBias, UnicodeIndexMap } from './unicode/unicodeIndices';
+export {
+  codePointCount,
+  codePointToUtf16,
+  createUnicodeIndexMap,
+  graphemeToUtf16,
+  normalizeGraphemeRange,
+  snapUtf16Offset,
+  utf16ToCodePoint,
+  utf16ToGrapheme,
+} from './unicode/unicodeIndices';
 export type { UpscaleCapabilities } from './upscaleCapabilities';
 export { detectUpscaleCapabilities } from './upscaleCapabilities';
 export type { UpscaleModelMetadata } from './upscaleModels';
