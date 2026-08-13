@@ -19,6 +19,7 @@ import {
   applyMaskAlpha,
   CompositeCanvas,
   createRasterSurface,
+  type EffectMaskResolver,
   gaussianBlurSeparable,
   getImageCache,
   mapBlendMode,
@@ -50,6 +51,44 @@ export interface StructuredReplayInput {
 
 function setMatrix(context: SceneContext, matrix: DOMMatrix): void {
   context.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+}
+
+function traceEffectVectorMask(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  vector: {
+    points: readonly {
+      x: number;
+      y: number;
+      handleIn?: readonly [number, number] | null;
+      handleOut?: readonly [number, number] | null;
+    }[];
+    closed: boolean;
+    fillRule: 'nonzero' | 'evenodd';
+  },
+): void {
+  const first = vector.points[0];
+  if (!first) return;
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  for (let index = 1; index < vector.points.length; index++) {
+    const point = vector.points[index]!;
+    const previous = vector.points[index - 1]!;
+    if (previous.handleOut || point.handleIn) {
+      ctx.bezierCurveTo(
+        previous.handleOut?.[0] ?? previous.x,
+        previous.handleOut?.[1] ?? previous.y,
+        point.handleIn?.[0] ?? point.x,
+        point.handleIn?.[1] ?? point.y,
+        point.x,
+        point.y,
+      );
+    } else {
+      ctx.lineTo(point.x, point.y);
+    }
+  }
+  if (vector.closed) ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,1)';
+  ctx.fill(vector.fillRule);
 }
 
 // ── Group-level effects (parity with the live canvas) ─────────────────────────
@@ -261,6 +300,39 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     const node = input.document.nodes[nodeId];
     if (!node || !('children' in node)) return;
     for (const childId of node.children) replayNode(childId, target);
+  };
+
+  const resolveEffectMask: EffectMaskResolver = (binding, item, target, width, height) => {
+    if (binding.source.kind === 'raster-asset') return undefined;
+    let maskSurface: ReturnType<typeof createRasterSurface>;
+    try {
+      maskSurface = createRasterSurface(width, height);
+    } catch {
+      return undefined;
+    }
+    const maskCtx = maskSurface.context;
+    const current = target.getTransform?.();
+    if (current) {
+      maskCtx.setTransform(current.a, current.b, current.c, current.d, current.e, current.f);
+    }
+    const inverse = tryInvertAffine(item.transform);
+    if (!inverse) return undefined;
+    maskCtx.save();
+    try {
+      // Rendered scene-node mattes are world-space output. The effect surface
+      // is target-local, so project the matte through the inverse target
+      // transform before sampling it.
+      maskCtx.transform(...inverse);
+      if (binding.source.kind === 'scene-node') {
+        if (!input.document.nodes[binding.source.nodeId]) return undefined;
+        replayNode(binding.source.nodeId, maskCtx as unknown as SceneContext);
+      } else {
+        traceEffectVectorMask(maskCtx, binding.source.vectorMask);
+      }
+    } finally {
+      maskCtx.restore();
+    }
+    return maskCtx.getImageData(0, 0, width, height);
   };
 
   const compositeIsolated = (
@@ -516,7 +588,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     }
 
     if (node.kind === 'frame') {
-      if (item) replayIr(target as unknown as ReplayTarget, [item]);
+      if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
       const extras = input.extrasByNodeId?.get(nodeId);
       if (extras) {
         for (const extra of extras) replayIr(target as unknown as ReplayTarget, [extra]);
@@ -965,7 +1037,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       return;
     }
 
-    if (item) replayIr(target as unknown as ReplayTarget, [item]);
+    if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
   };
 
   for (const rootId of input.rootIds) replayNode(rootId, context);
