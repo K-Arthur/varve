@@ -27,6 +27,7 @@ export function analyzeParagraphUax9(
       visualRuns: [],
       visualOrder: [],
       mirroredCharacters: new Map(),
+      levels: [],
     };
   }
 
@@ -66,7 +67,30 @@ export function analyzeParagraphUax9(
     visualRuns,
     visualOrder,
     mirroredCharacters,
+    levels: [...result.levels],
   };
+}
+
+/**
+ * Line-local visual order for a logical sub-range (UAX #9 X8/L2).
+ *
+ * bidi-js's `getReorderedIndices` applies L1.4 + L2 to a character slice,
+ * which is exactly the line-level reordering required after line breaking.
+ * Returns paragraph-local character indices in left-to-right visual order.
+ */
+export function reorderLineIndices(
+  text: string,
+  levels: readonly number[],
+  baseLevel: number,
+  lineStart: number,
+  lineEnd: number,
+): number[] {
+  if (text.length === 0 || lineEnd <= lineStart || levels.length === 0) return [];
+  const result = {
+    levels: Uint8Array.from(levels),
+    paragraphs: [{ start: 0, end: text.length - 1, level: baseLevel }],
+  };
+  return bidi.getReorderedIndices(text, result, lineStart, Math.min(lineEnd, text.length) - 1);
 }
 
 function buildRuns(levels: Uint8Array, start: number, end: number): BidiRun[] {

@@ -17,4 +17,6 @@ export interface BidiParagraph {
   visualOrder?: readonly number[];
   /** Mirrored punctuation for visual presentation; source text is unchanged. */
   mirroredCharacters?: ReadonlyMap<number, string>;
+  /** UAX #9 embedding level per UTF-16 code unit (character-indexed). */
+  levels?: readonly number[];
 }

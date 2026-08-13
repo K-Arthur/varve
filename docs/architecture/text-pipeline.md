@@ -12,9 +12,10 @@ caret stops, and selection fragments are derived layout data.
 TextNode.text / TextNode.richText / TextStory
   → sceneNodeToEngineNode
   → text render IR
-  → replay-time greedy layout
-      ├─ Canvas measureText + browser fillText (live canvas)
-      ├─ TS shaping seam (grapheme measurements; glyphId = 0)
+  → replay-time layout selection
+      ├─ TextLayoutSnapshot → positioned cluster replay (plain text when shaping is available)
+      ├─ Canvas measureText → transient approximate snapshot → cluster replay (browser fallback)
+      ├─ rich-text layout fallback (until per-span shaping is wired)
       └─ Rust rustybuzz command (native, currently export/diagnostic oriented)
   → SVG/PDF/codegen-specific consumers
 ```
@@ -85,20 +86,26 @@ The backend contract currently lives in `packages/engine/src/shapingBackend.ts`.
 It normalizes native font units to the requested size and uses UTF-16 source
 cluster offsets. The HarfBuzz WASM adapter is lazy and owns one module instance
 per backend; font bytes are supplied per request and are not transferred every
-frame. This slice is an integration seam, not yet a switch of the live canvas
-renderer.
+frame. Plain-text replay now consumes a derived snapshot when a pre-shaped IR
+result is present, or derives a transient Canvas2D-measured snapshot when the
+target exposes `measureText`. The transient fallback is deliberately not
+cached because replay does not own a font-face revision token; late font
+loading must be allowed to change its measurement.
 
 The legacy Canvas measurement bridge now consumes the resolved visual BiDi run
 order from `analyzeParagraph`; it no longer reverses an entire RTL paragraph as
 a proxy for UAX-9 ordering. Glyph advances remain approximate until a font-byte
 shaping backend is selected, but the run-order contract is shared.
 
-The first derived snapshot contract lives in
+The derived snapshot contract lives in
 `packages/engine/src/textLayoutSnapshot.ts`. It retains the logical source and
 Unicode index map while carrying line boxes, positioned glyphs, caret stops,
 selection rectangles, diagnostics, and an identity suitable for bounded LRU
-caching. It is deliberately not wired into replay yet; the current canvas path
-must be switched only after fallback and font-revision policy are explicit.
+caching. `replay.ts` uses it for plain text; callers that own shaping and font
+revisions should continue to use the bounded shaping/snapshot caches outside
+the paint hot path. Rich-text, path text, and advanced legacy spacing/list
+cases retain explicit fallbacks until they can be itemized into the same
+snapshot without losing behavior.
 
 Rich text has a matching logical source index in
 `packages/scene/src/richTextIndex.ts`. It derives paragraph separators and
