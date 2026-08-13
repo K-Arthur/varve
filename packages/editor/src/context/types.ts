@@ -1134,6 +1134,8 @@ export interface EditorContextValue {
   removeTrack: (timelineId: string, trackId: string) => void;
   toggleTimelinePanel: () => void;
   toggleHistoryPanel: () => void;
+  /** Restore every panel's visibility for the active workspace (recovery path). */
+  restoreAllPanels: () => void;
   addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
   removeTimelineMarker: (timelineId: string, markerId: string) => void;
   renameTimelineMarker: (timelineId: string, markerId: string, name: string) => void;
