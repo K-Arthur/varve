@@ -391,18 +391,22 @@ export type {
 export type { ProductStatusStage } from './product';
 export { PRODUCT_STATUS } from './product';
 export type {
+  NormalizedProofTransformResult,
   ProfileProofConverter,
+  ProfileProofConverterNormalized,
   ProofRenderingIntent,
   ProofTransformConfig,
   ProofTransformResult,
 } from './proofTransform';
 export {
+  applyProofToNormalized,
   applyProofToRgba,
   clearProofConverters,
   isColorOutOfProofGamut,
   isProofingAvailable,
   proofConfigKey,
   registerProfileProofConverter,
+  registerProfileProofConverterNormalized,
 } from './proofTransform';
 export type {
   RasterAlphaMode,
