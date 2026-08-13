@@ -7,9 +7,6 @@ import { needsSam2GraphRepair, repairSam2EncoderGraph } from './sam2GraphRepair'
  * entries (plus ordinary populated entries that must survive).
  */
 function buildFakeEncoder(): Uint8Array {
-  const chunks: number[][] = [];
-
-  const dim = (value: number): number[] => [0x08, ...varint(value)];
   const tensorShape = (dims: number[]): number[] => {
     const body = dims.flatMap((d) => [0x0a, ...varint(d)]);
     return [0x12, ...varint(body.length), ...body];
@@ -96,12 +93,14 @@ describe('sam2GraphRepair', () => {
     // The standalone script's verified output hash (tiny encoder) — the
     // transform here must produce the same artifact from the same input.
     const upstream = new Uint8Array(
-      await fetch(
-        'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
-      ).then((r) => r.arrayBuffer()),
+      await (
+        await fetch(
+          'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
+        )
+      ).arrayBuffer(),
     );
     const repaired = repairSam2EncoderGraph(upstream);
-    const hash = await crypto.subtle.digest('SHA-256', repaired);
+    const hash = await crypto.subtle.digest('SHA-256', repaired.slice().buffer);
     const hex = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
     expect(hex).toBe('b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf');
     expect(repaired.length).toBe(134261247);

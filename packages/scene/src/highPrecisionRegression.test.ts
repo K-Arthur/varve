@@ -16,8 +16,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { ColorConfig, ManagedColor } from './colorManagement';
-import { migrateDocumentJson } from './version';
-import { serializeDocument } from './version';
+import { migrateDocumentJson, serializeDocument } from './version';
 
 function rgb(
   r: number,
@@ -86,7 +85,7 @@ function saveReopen(doc: Record<string, unknown>): ManagedColor {
   const reopened = migrateDocumentJson(json);
   expect(reopened).not.toBeNull();
   const nodes = (reopened as { nodes: Record<string, unknown> }).nodes;
-  const node = nodes['n1'] as { fill: ManagedColor };
+  const node = nodes.n1 as { fill: ManagedColor };
   return node.fill;
 }
 
@@ -106,9 +105,7 @@ describe('high-precision color persistence', () => {
   });
 
   it('float32 channel values survive save/reopen exactly', () => {
-    const reopened = saveReopen(
-      makeDoc(rgb(0.500015, 0.624817, 0.731232, 0.5, 'float32')),
-    );
+    const reopened = saveReopen(makeDoc(rgb(0.500015, 0.624817, 0.731232, 0.5, 'float32')));
     expect(reopened.space).toBe('rgb');
     if (reopened.space === 'rgb') {
       expect(reopened.r).toBeCloseTo(0.500015, 12);
@@ -123,12 +120,12 @@ describe('high-precision color persistence', () => {
     // 512 levels in a float document: serialize the full ramp, reopen, and
     // count distinct values.
     const doc = makeDoc(rgb(0, 0, 0, 1, 'float32'));
-    const nodes = (doc.nodes as Record<string, { fill: ManagedColor }>);
+    const nodes = doc.nodes as Record<string, { fill: ManagedColor }>;
     const levels = 512;
     const distinct = new Set<number>();
     for (let i = 0; i < levels; i++) {
       const v = i / (levels - 1);
-      nodes['n1']!.fill = rgb(v, v, v, 1, 'float32');
+      nodes.n1!.fill = rgb(v, v, v, 1, 'float32');
       const reopened = saveReopen(doc);
       if (reopened.space === 'rgb') distinct.add(reopened.r);
     }
@@ -164,9 +161,15 @@ describe('high-precision color persistence', () => {
     let doc = makeDoc(original);
     for (let cycle = 0; cycle < 5; cycle++) {
       const fill = saveReopen(doc);
-      doc = { ...doc, nodes: { ...(doc.nodes as object), n1: { ...(doc.nodes as Record<string, unknown>)['n1'], fill } } };
+      doc = {
+        ...doc,
+        nodes: {
+          ...(doc.nodes as object),
+          n1: { ...(doc.nodes as Record<string, Record<string, unknown>>).n1, fill },
+        },
+      };
     }
-    const final = (doc.nodes as Record<string, { fill: ManagedColor }>)['n1']!.fill;
+    const final = (doc.nodes as Record<string, { fill: ManagedColor }>).n1!.fill;
     expect(final.space).toBe('rgb');
     if (final.space === 'rgb') {
       expect(final.r).toBe(32768);
@@ -214,7 +217,12 @@ describe('legacy RGBA8 migration exactness', () => {
   it('legacy appearance stays stable: open → save → reopen is lossless', () => {
     const doc = makeDoc(rgb(255, 0, 0, 255)); // uint8 default (legacy-style)
     const reopened = saveReopen(doc);
-    const again = saveReopen({ ...doc, nodes: { n1: { ...(doc.nodes as Record<string, unknown>)['n1'], fill: reopened } } });
+    const again = saveReopen({
+      ...doc,
+      nodes: {
+        n1: { ...(doc.nodes as Record<string, Record<string, unknown>>).n1, fill: reopened },
+      },
+    });
     expect(again.space).toBe('rgb');
     if (again.space === 'rgb') {
       expect(again.r).toBe(255);

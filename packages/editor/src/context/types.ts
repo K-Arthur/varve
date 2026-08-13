@@ -510,6 +510,10 @@ export interface EditorState {
   vectorizeDialogOpen: boolean;
   /** Re-trace target for the Image Trace dialog (Edit Trace workflow). */
   vectorizeDialogPrefill: { replaceGroupId: string } | null;
+  /** Whether the Extract Color Palette dialog is open. */
+  paletteExtractDialogOpen: boolean;
+  /** Source image URL the palette dialog is analyzing. */
+  paletteExtractSrc: string | null;
   /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
@@ -1022,6 +1026,11 @@ export interface EditorContextValue {
   vectorizeDialogOpen: boolean;
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeVectorizeDialog: () => void;
+
+  // Extract Color Palette dialog
+  paletteExtractDialogOpen: boolean;
+  openPaletteExtract: (src: string) => void;
+  closePaletteExtract: () => void;
 
   // Archive
   showArchiveDialog: boolean;

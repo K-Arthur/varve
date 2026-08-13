@@ -3,6 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { BleedConfig } from '../colorManagement';
 import type { Document } from '../document';
 import { createDocument } from '../document';
 import {
@@ -71,7 +72,14 @@ describe('resolvePagePrintGeometry (M12)', () => {
     const page = base.pages![0]!;
     const doc: Document = {
       ...base,
-      pages: [{ ...page, bleed: { top: 1, unit: 'in' } }],
+      pages: [
+        {
+          ...page,
+          // Deliberately partial: only `top` + `unit` are overridden so the
+          // resolver must convert the inherited edges into the new unit.
+          bleed: { top: 1, unit: 'in' } as unknown as BleedConfig,
+        },
+      ],
     };
     const resolved = resolvePagePrintGeometry(doc, page.id);
     expect(resolved.bleed.unit).toBe('in');

@@ -18,6 +18,8 @@
  * used for embeddings because it diverges from the canonical pipeline
  * (no alpha matting, browser-dependent resampling).
  */
+
+import type { WorkerModelType } from '../inference/inferenceWorker';
 import { getInferenceWorkerHost } from '../inference/inferenceWorkerHost';
 import {
   normalizeEmbedding,
@@ -47,7 +49,7 @@ export interface SemanticRgbaImage {
 export interface ImageEmbeddingRuntimeSpec {
   model: EmbeddingModelSpec;
   preprocess: SemanticResizeSpec;
-  workerModelType: string;
+  workerModelType: WorkerModelType;
   outputName: string;
   extract: (raw: { data: Float32Array; dims: number[] }) => Float32Array;
 }
@@ -57,13 +59,10 @@ export interface TextEmbeddingRuntimeSpec {
   /** Space identity the vectors are stored under (must match the image lane
    * for cross-modal comparison — see embeddingSpaceKey). */
   model: EmbeddingModelSpec;
-  workerModelType: string;
+  workerModelType: WorkerModelType;
   outputName: string;
   maxLength: number;
-  encode: (
-    text: string,
-    signal?: AbortSignal,
-  ) => Promise<{ inputIds: Float32Array | Int32Array | BigInt64Array }>;
+  encode: (text: string, signal?: AbortSignal) => Promise<{ inputIds: BigInt64Array }>;
 }
 
 export const SIGLIP_IMAGE_EMBEDDING_SPEC: ImageEmbeddingRuntimeSpec = {

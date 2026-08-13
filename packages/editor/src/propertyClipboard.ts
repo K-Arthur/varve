@@ -28,8 +28,8 @@ export interface PaintProperties {
   fills?: SceneNode['fills'];
   /** Legacy single fill. */
   fill?: SceneNode['fill'];
-  strokes?: SceneNode['strokes'];
-  effects?: SceneNode['effects'];
+  strokes?: Extract<SceneNode, { strokes?: unknown }>['strokes'];
+  effects?: Extract<SceneNode, { effects?: unknown }>['effects'];
   opacity?: number;
   blendMode?: SceneNode['blendMode'];
   /** Shape/frame corner radius (uniform or per-corner). */
