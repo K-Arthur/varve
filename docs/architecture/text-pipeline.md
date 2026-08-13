@@ -99,6 +99,9 @@ Rich text has a matching logical source index in
 `packages/scene/src/richTextIndex.ts`. It derives paragraph separators and
 run-local UTF-16 ranges without changing stored run order; formatting remains
 attached to logical ranges and can later be itemized into shaped snapshots.
+Canonical scene operations in `packages/scene/src/richTextOps.ts` now also
+remove selected properties and replace text at grapheme-safe paragraph ranges,
+with adjacent equivalent runs normalized after each transaction.
 
 `FontRegistry.revision` is a monotone process-local invalidation token. The
 shaping cache accepts it, face identity, OpenType features, variation axes,
