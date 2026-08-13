@@ -88,6 +88,11 @@ per backend; font bytes are supplied per request and are not transferred every
 frame. This slice is an integration seam, not yet a switch of the live canvas
 renderer.
 
+The legacy Canvas measurement bridge now consumes the resolved visual BiDi run
+order from `analyzeParagraph`; it no longer reverses an entire RTL paragraph as
+a proxy for UAX-9 ordering. Glyph advances remain approximate until a font-byte
+shaping backend is selected, but the run-order contract is shared.
+
 The first derived snapshot contract lives in
 `packages/engine/src/textLayoutSnapshot.ts`. It retains the logical source and
 Unicode index map while carrying line boxes, positioned glyphs, caret stops,
