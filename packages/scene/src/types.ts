@@ -16,6 +16,7 @@
 import type {
   Adjustment,
   Affine,
+  DepthMapResource,
   PathPoint,
   Shape,
   WarpModifier,
@@ -403,6 +404,24 @@ type EffectVariant =
       visible: boolean;
     }
   | {
+      type: 'depthBlur';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
+      /** Reference to Document.depthMaps. */
+      depthMapId: string;
+      /** Canonical depth: 0 = near, 1 = far. */
+      focusDepth: number;
+      /** In-focus interval around focusDepth, normalized 0..1. */
+      focusRange: number;
+      /** Maximum gather radius in source pixels. */
+      blurStrength: number;
+      /** 0 = hard transition, 1 = soft transition. */
+      falloff: number;
+      invert: boolean;
+      edgeProtection: number;
+      visible: boolean;
+    }
+  | {
       type: 'outerGlow';
       /** Stable identifier for UI state and reordering. */
       id?: string;
@@ -644,6 +663,13 @@ export interface DocumentAsset {
    */
   animated?: AnimatedAssetMetadata;
 }
+
+/**
+ * Persisted continuous depth field. Kept separate from RasterMaskAsset:
+ * masks express semantic coverage, while a depth map preserves scalar values
+ * for effects and future range-based consumers.
+ */
+export type DepthMapAsset = DepthMapResource;
 
 /**
  * Non-destructive upscale metadata stored on an image fill.

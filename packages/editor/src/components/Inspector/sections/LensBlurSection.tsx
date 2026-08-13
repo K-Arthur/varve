@@ -1,14 +1,18 @@
+import type { DepthMap, DepthMapResource } from '@varve/engine';
 import {
-  applyLensBlur,
-  decodeDepthOutput,
+  applyDepthBlur,
   depthToHeatmapImageData,
+  deserializeDepthMap,
   getInferenceWorkerHost,
   getModelLoader,
+  normalizeDepthPrediction,
+  resizeDepthMap,
+  serializeDepthMap,
 } from '@varve/engine';
-import type { SceneNode, ShapeNode } from '@varve/scene';
+import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -59,7 +63,7 @@ async function checkDepthModelCached(): Promise<boolean> {
   return await loader.isModelAvailable(DEPTH_MODEL_ID);
 }
 
-interface LensBlurParams {
+interface DepthBlurParams {
   blurAmount: number;
   focalDepth: number;
   transitionRange: number;
@@ -75,18 +79,19 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const [modelError, setModelError] = useState<string | null>(null);
 
   const [depthState, setDepthState] = useState<'idle' | 'generating' | 'ready' | 'error'>('idle');
-  const [depthMap, setDepthMap] = useState<Uint8Array | null>(null);
-  const [depthWidth, setDepthWidth] = useState(0);
-  const [depthHeight, setDepthHeight] = useState(0);
+  const [depthData, setDepthData] = useState<DepthMap | null>(null);
+  const [depthResource, setDepthResource] = useState<DepthMapResource | null>(null);
   const [inferenceError, setInferenceError] = useState<string | null>(null);
 
-  const [params, setParams] = useState<LensBlurParams>({
+  const [params, setParams] = useState<DepthBlurParams>({
     blurAmount: 5,
     focalDepth: 50,
     transitionRange: 20,
     invert: false,
   });
   const [livePreview, setLivePreview] = useState(false);
+  const [previewDepth, setPreviewDepth] = useState(false);
+  const [pickFocus, setPickFocus] = useState(false);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -96,14 +101,35 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
   const src = node && isImageShape(node) ? imageShapeSrc(node) : '';
 
-  useEffect(() => {
-    setDepthMap(null);
-    setDepthState('idle');
-    setInferenceError(null);
-  }, [src]);
+  const existingDepthEffect = node?.effects?.find((effect) => effect.type === 'depthBlur');
 
   useEffect(() => {
-    if (!livePreview || !depthMap || !previewCanvasRef.current) return;
+    setDepthData(null);
+    setDepthResource(null);
+    setDepthState('idle');
+    setInferenceError(null);
+    if (!node || !existingDepthEffect || existingDepthEffect.type !== 'depthBlur') return;
+    const resource = state.document.depthMaps?.[existingDepthEffect.depthMapId];
+    if (!resource) return;
+    try {
+      const decoded = deserializeDepthMap(resource);
+      setDepthData(decoded);
+      setDepthResource(resource);
+      setDepthState('ready');
+      setParams({
+        blurAmount: existingDepthEffect.blurStrength,
+        focalDepth: existingDepthEffect.focusDepth * 100,
+        transitionRange: existingDepthEffect.focusRange * 100,
+        invert: existingDepthEffect.invert,
+      });
+    } catch {
+      setInferenceError('Saved depth map is unavailable. Regenerate it to continue.');
+      setDepthState('error');
+    }
+  }, [src, node, existingDepthEffect, state.document.depthMaps]);
+
+  useEffect(() => {
+    if (!livePreview || !depthData || !previewCanvasRef.current) return;
     const canvas = previewCanvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -123,36 +149,33 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      const depthResized = new Uint8Array(canvas.width * canvas.height);
-      const xRatio = depthWidth / canvas.width;
-      const yRatio = depthHeight / canvas.height;
-      for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-          const sx = Math.min(Math.floor(x * xRatio), depthWidth - 1);
-          const sy = Math.min(Math.floor(y * yRatio), depthHeight - 1);
-          depthResized[y * canvas.width + x] = depthMap[sy * depthWidth + sx]!;
-        }
-      }
-
-      const result = applyLensBlur(imageData, depthResized, params);
+      const depthResized = resizeDepthMap(depthData, canvas.width, canvas.height);
+      const result = applyDepthBlur(imageData, depthResized, {
+        blurAmount: params.blurAmount,
+        focalDepth: params.focalDepth / 100,
+        transitionRange: params.transitionRange / 100,
+        invert: params.invert,
+      });
       ctx.putImageData(result, 0, 0);
     };
     void render();
     return () => {
       cancelled = true;
     };
-  }, [livePreview, depthMap, depthWidth, depthHeight, params, src]);
+  }, [livePreview, depthData, params, src]);
 
   useEffect(() => {
-    if (!depthMap || !heatmapCanvasRef.current) return;
+    if (!depthData || !heatmapCanvasRef.current) return;
     const canvas = heatmapCanvasRef.current;
-    canvas.width = Math.min(depthWidth, 300);
-    canvas.height = Math.min(depthHeight, 200);
+    canvas.width = Math.min(depthData.width, 300);
+    canvas.height = Math.min(depthData.height, 200);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    const heatmap = depthToHeatmapImageData(depthMap, depthWidth, depthHeight);
+    const preview = new Uint8Array(depthData.values.length);
+    for (let i = 0; i < preview.length; i++) preview[i] = Math.round(depthData.values[i]! * 255);
+    const heatmap = depthToHeatmapImageData(preview, depthData.width, depthData.height);
     ctx.putImageData(heatmap, 0, 0);
-  }, [depthMap, depthWidth, depthHeight]);
+  }, [depthData]);
 
   useEffect(() => {
     let cancelled = false;
@@ -221,109 +244,131 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         { timeoutMs: 120_000 },
       );
 
-      // The worker keys each output by its real ONNX tensor name (never a
-      // generic "data"/"dims"). Verified directly against the downloaded
-      // depth-anything-v2-small graph: the single output is named
-      // "predicted_depth", not "data" — reading result.outputs.data here
-      // returned undefined and would have crashed on first real use.
-      const depthOutput = result.outputs.predicted_depth as { data: Float32Array; dims: number[] };
+      // Different verified exports use `output` or `predicted_depth`; accept
+      // both names but reject an unknown tensor rather than attaching garbage.
+      const depthOutput = (result.outputs.predicted_depth ?? result.outputs.output) as
+        | { data: Float32Array; dims: number[] }
+        | undefined;
+      if (!depthOutput?.data || !Array.isArray(depthOutput.dims)) {
+        throw new Error('Depth model returned no supported output tensor');
+      }
       const rawData = depthOutput.data;
       const dims = depthOutput.dims;
       const outputH = dims[2] as number;
       const outputW = dims[3] as number;
-
-      const decoded = decodeDepthOutput(
-        rawData,
-        outputW,
-        outputH,
-        imageData.width,
-        imageData.height,
-      );
-
-      setDepthMap(decoded.depthMap);
-      setDepthWidth(decoded.width);
-      setDepthHeight(decoded.height);
+      const normalized = normalizeDepthPrediction(rawData, outputW, outputH, {
+        metadata: {
+          modelId: DEPTH_MODEL_ID,
+          modelVersion: '2.0.0',
+          sourceAssetId: node?.fills?.find((fill) => fill.type === 'image')?.image?.assetId,
+          sourceRevision: 1,
+          preprocessingVersion: 1,
+          inferenceVersion: 1,
+          generatedAt: Date.now(),
+        },
+      });
+      const aligned = resizeDepthMap(normalized, imageData.width, imageData.height);
+      const sourceAssetId = node?.fills?.find((fill) => fill.type === 'image')?.image?.assetId;
+      const resourceId = `depth-${node?.id ?? 'image'}-${sourceAssetId ?? 'source'}`;
+      const resource = serializeDepthMap(aligned, resourceId);
+      setDepthData(aligned);
+      setDepthResource(resource);
       setDepthState('ready');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Depth inference failed';
       setInferenceError(msg);
       setDepthState('error');
     }
-  }, [src]);
+  }, [node, src]);
 
   const handleRegenerate = useCallback(() => {
-    setDepthMap(null);
+    setDepthData(null);
+    setDepthResource(null);
     setDepthState('idle');
     setInferenceError(null);
   }, []);
 
   const handleApply = useCallback(async () => {
-    if (!depthMap || depthState !== 'ready' || !src) return;
+    if (!depthResource || !depthData || depthState !== 'ready' || !node) return;
     setInferenceError(null);
     try {
-      const imageData = await loadImageToImageData(src);
-      const depthResized = new Uint8Array(imageData.width * imageData.height);
-      const xRatio = depthWidth / imageData.width;
-      const yRatio = depthHeight / imageData.height;
-      for (let y = 0; y < imageData.height; y++) {
-        for (let x = 0; x < imageData.width; x++) {
-          const sx = Math.min(Math.floor(x * xRatio), depthWidth - 1);
-          const sy = Math.min(Math.floor(y * yRatio), depthHeight - 1);
-          depthResized[y * imageData.width + x] = depthMap[sy * depthWidth + sx]!;
-        }
-      }
-
-      const result = applyLensBlur(imageData, depthResized, {
-        blurAmount: params.blurAmount,
-        focalDepth: params.focalDepth / 100,
-        transitionRange: params.transitionRange / 100,
+      const effect: Effect = {
+        type: 'depthBlur',
+        id: existingDepthEffect?.id ?? `depth-blur-${node.id}`,
+        depthMapId: depthResource.id,
+        focusDepth: params.focalDepth / 100,
+        focusRange: params.transitionRange / 100,
+        blurStrength: params.blurAmount,
+        falloff: 1,
         invert: params.invert,
+        edgeProtection: 0.035,
+        visible: true,
+      };
+      updateDoc((doc) => {
+        const current = doc.nodes[node.id];
+        if (!current || !('effects' in current)) return doc;
+        const effects = current.effects ?? [];
+        const index = effects.findIndex((candidate) => candidate.type === 'depthBlur');
+        const nextEffects = [...effects];
+        if (index >= 0) nextEffects[index] = effect;
+        else nextEffects.push(effect);
+        return {
+          ...doc,
+          depthMaps: { ...(doc.depthMaps ?? {}), [depthResource.id]: depthResource },
+          nodes: { ...doc.nodes, [node.id]: { ...current, effects: nextEffects } },
+        };
       });
-
-      const outputCanvas = document.createElement('canvas');
-      outputCanvas.width = result.width;
-      outputCanvas.height = result.height;
-      const outputCtx = outputCanvas.getContext('2d');
-      if (!outputCtx) throw new Error('Canvas 2D context unavailable');
-      outputCtx.putImageData(result, 0, 0);
-      const dataUrl = outputCanvas.toDataURL('image/png');
-
-      const { insertDerivedImageShape } = await import('../../../imageOperations');
-      const currentDoc = state.document;
-      const sourceId = state.selection[0];
-      if (!sourceId) throw new Error('No selection');
-      const sourceNode = currentDoc.nodes[sourceId];
-      if (!sourceNode) throw new Error('Source node no longer exists');
-
-      const inserted = insertDerivedImageShape(currentDoc, sourceId, {
-        dataUrl,
-        width: result.width,
-        height: result.height,
-        suffix: `lens-blur-${Math.round(params.blurAmount)}`,
-      });
-      updateDoc(() => inserted.doc);
-      announce(`Lens blur applied (blur ${params.blurAmount}px, focal ${params.focalDepth}%)`);
+      announce(`Depth Blur saved (blur ${params.blurAmount}px, focus ${params.focalDepth}%)`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Apply failed';
       setInferenceError(msg);
     }
-  }, [depthMap, depthState, depthWidth, depthHeight, params, src]);
+  }, [
+    announce,
+    depthData,
+    depthResource,
+    depthState,
+    existingDepthEffect?.id,
+    node,
+    params,
+    updateDoc,
+  ]);
+
+  const handleDepthPreviewClick = useCallback(
+    (event: MouseEvent<HTMLCanvasElement>) => {
+      if (!pickFocus || !depthData) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / Math.max(1, rect.width)) * depthData.width;
+      const y = ((event.clientY - rect.top) / Math.max(1, rect.height)) * depthData.height;
+      const index =
+        Math.min(depthData.height - 1, Math.max(0, Math.floor(y))) * depthData.width +
+        Math.min(depthData.width - 1, Math.max(0, Math.floor(x)));
+      if (!depthData.valid[index]) return;
+      setParams((current) => ({
+        ...current,
+        focalDepth: Math.round(depthData.values[index]! * 100),
+      }));
+      setPickFocus(false);
+      announce('Depth Blur focus selected from the depth preview');
+    },
+    [announce, depthData, pickFocus],
+  );
 
   if (!node || !isImageShape(node)) return null;
 
-  const showBlurControls = depthState === 'ready' && depthMap !== null;
+  const showBlurControls = depthState === 'ready' && depthData !== null && depthResource !== null;
 
   return (
-    <DisclosureSection title="Lens Blur" sectionId="lens-blur">
+    <DisclosureSection title="Depth Blur" sectionId="lens-blur">
       <div className="insp-field-group">
-        {modelState === 'idle' && (
+        {modelState === 'idle' && !depthResource && (
           <div className="insp-actions">
             <Button type="button" variant="primary" size="sm" onClick={handleDownloadModel}>
-              Enable Lens Blur
+              Enable Depth Blur
             </Button>
             <p className="insp-hint">
-              One-time download (~27 MB) to analyze depth in your photo. Stored on this device —
-              works offline afterward.
+              One-time local model download (~27 MB). It is stored on this device and is only needed
+              to generate or regenerate a DepthMap.
             </p>
           </div>
         )}
@@ -354,13 +399,13 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
           </p>
         )}
 
-        {modelState === 'ready' && depthState === 'idle' && (
+        {modelState === 'ready' && depthState === 'idle' && !depthResource && (
           <div className="insp-actions">
             <Button type="button" variant="primary" size="sm" onClick={handleGenerateDepth}>
               Generate Depth Map
             </Button>
             <p className="insp-hint">
-              Analyzes the photo to estimate depth, which drives the blur below.
+              Analyzes the photo once; the saved DepthMap can drive multiple effects.
             </p>
           </div>
         )}
@@ -377,18 +422,42 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
           </p>
         )}
 
-        {depthMap && depthState === 'ready' && (
+        {depthData && depthState === 'ready' && (
           <>
             <p className="insp-subsection__label">Depth Map Preview</p>
-            <div className="insp-depth-heatmap">
-              <canvas
-                ref={heatmapCanvasRef}
-                className="insp-depth-heatmap__canvas"
-                aria-label="Depth map heatmap overlay"
+            <label className="insp-check">
+              <input
+                type="checkbox"
+                className="insp-checkbox"
+                checked={previewDepth}
+                onChange={(event) => setPreviewDepth(event.target.checked)}
               />
-            </div>
+              <span>Preview Depth (near to far)</span>
+            </label>
+            {(previewDepth || pickFocus) && (
+              <div className="insp-depth-heatmap">
+                <canvas
+                  ref={heatmapCanvasRef}
+                  className="insp-depth-heatmap__canvas"
+                  aria-label="Depth map preview; near is blue and far is red"
+                  onClick={handleDepthPreviewClick}
+                  style={{ cursor: pickFocus ? 'crosshair' : 'default' }}
+                />
+              </div>
+            )}
 
             <div className="insp-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setPickFocus(true);
+                  setPreviewDepth(true);
+                }}
+              >
+                {pickFocus ? 'Click Depth Preview…' : 'Pick Focus'}
+              </Button>
               <Button type="button" variant="ghost" size="sm" onClick={handleRegenerate}>
                 Regenerate Depth Map
               </Button>
@@ -456,7 +525,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
                 checked={params.invert}
                 onChange={(e) => setParams((p) => ({ ...p, invert: e.target.checked }))}
               />
-              <span>Invert focus (near vs. far)</span>
+              <span>Invert Depth</span>
             </label>
 
             <label className="insp-check">
@@ -481,7 +550,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
             <div className="insp-actions">
               <Button type="button" variant="primary" size="sm" onClick={handleApply}>
-                Apply Lens Blur
+                Save Depth Blur
               </Button>
             </div>
           </>

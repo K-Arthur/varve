@@ -113,6 +113,15 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
       if (!isRecord(asset)) return `Document asset ${assetId} must be an object`;
     }
   }
+  if (raw.depthMaps !== undefined) {
+    if (!isRecord(raw.depthMaps)) return 'Document depthMaps must be an object';
+    for (const [depthMapId, depthMap] of Object.entries(raw.depthMaps)) {
+      if (!isRecord(depthMap)) return `Depth map resource ${depthMapId} must be an object`;
+      if (depthMap.schemaVersion !== 1) {
+        return `Depth map resource ${depthMapId} has an unsupported schema version`;
+      }
+    }
+  }
   if (raw.iccProfiles !== undefined) {
     if (!isRecord(raw.iccProfiles)) return 'Document iccProfiles must be an object';
     for (const [profileId, entry] of Object.entries(raw.iccProfiles)) {
