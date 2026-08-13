@@ -1,0 +1,97 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Workspaces - Varve"
+  description="Seven task-focused workspaces with per-workspace panels, toolbar, inspector, and status bar — customized once, remembered per mode."
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Workspaces
+      </nav>
+
+      <h1>Workspaces</h1>
+      <p class="feature-intro">
+        Seven task-focused modes over one document. Each workspace leads with the tools, panels, and
+        inspector tabs its task needs — and remembers how you arrange them.
+      </p>
+
+      <section class="feature-section">
+        <h2>One document, seven modes</h2>
+        <p>
+          Varve's workspaces are not separate apps or templates. Design, Print, Draw, Photo, Motion,
+          Logo, and Codegen all operate on the same document, selection, viewport, and undo history —
+          switching modes never forks your work, and switching back restores exactly what you left.
+        </p>
+        <ul>
+          <li><strong>Design</strong> — UI/UX design, components, tokens, responsive layouts, prototyping, and developer handoff.</li>
+          <li><strong>Print</strong> — multi-page layouts, typography, preflight, colour management, and production output.</li>
+          <li><strong>Draw</strong> — raster painting, vector freehand, brushes.</li>
+          <li><strong>Photo</strong> — nondestructive editing, retouching, selections, masking, and compositing.</li>
+          <li><strong>Motion</strong> — timeline animation, keyframes, and easing.</li>
+          <li><strong>Logo</strong> — wordmarks, marks, monograms, and brand systems.</li>
+          <li><strong>Codegen</strong> — design-to-code and design audit output.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Customize once, remembered per mode</h2>
+        <p>
+          The Customize Workspace dialog controls every surface a workspace owns, applied instantly
+          and saved per mode:
+        </p>
+        <ul>
+          <li><strong>Panels</strong> — show or hide Layers, Inspector, Timeline, Resources, Code, Logo, and History panels per workspace.</li>
+          <li><strong>Toolbar</strong> — reorder and hide tools, including tools that live inside flyout groups such as boolean operations and retouch brushes. Select, Hand, and Zoom always stay available so the canvas can never strand you.</li>
+          <li><strong>Inspector tabs</strong> — visibility per tab (Properties, Appearance, Adjustments, Export, Audit, Fonts).</li>
+          <li><strong>Status bar sections</strong> — active tool, cursor position, zoom, units, layout score, preflight, and more.</li>
+        </ul>
+        <p>
+          Layouts persist across launches even where browser storage is unreliable, and switching
+          modes saves your current panel widths to the mode you are leaving and restores the saved
+          widths of the mode you enter. Show All Panels recovers an accidentally hidden layout in one
+          command.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Safe by default</h2>
+        <p>
+          Customization cannot remove essential navigation, every stored preference is sanitized
+          against corrupted or outdated data, Reset restores the built-in layout for the current
+          mode, and Reset All asks before discarding every workspace's customizations at once.
+        </p>
+      </section>
+
+      <section class="feature-section note">
+        <h2>Beta note</h2>
+        <p>
+          Panel detaching, auxiliary windows, and per-panel docking are in development. The primary
+          workspace surface — visibility, widths, toolbar composition, inspector tabs, and status
+          sections — is complete and persisted per mode.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Pick your workspace</h2>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: 0.65rem; }
+  .note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+</style>
