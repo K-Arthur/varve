@@ -211,12 +211,13 @@ its workspace is active, and switching workspaces discards a queue built for
 the previous one. Ids are content-hashed (`workspace:<mode>:<hash>`) so that
 reordering a workspace's tips does not reassign which tip a user dismissed.
 
-`panels[].order` and `panels[].collapsed` remain decorative and are **not**
-fixed here: both are persisted inside `panelOverrides`, so removing them is a
-preference-schema change that needs a migration, and neither expresses anything
-the current two-sidebar `Shell` can act on. They are recorded here so the next
-pass either wires them to a real docking layout or removes them with a
-migration — not left to be rediscovered.
+`panels[].order` and `panels[].collapsed` were **removed** (2026-08-13, this
+pass): both were persisted inside `panelOverrides` with no runtime consumer
+(the two-sidebar `Shell` derives everything from visibility). Removal is
+self-healing — the preference sanitizer drops unknown fields on load, so
+stored payloads migrate without a version bump, and a dedicated
+`workspaceStore.test.ts` case locks the contract. `getOrderedPanels` was
+deleted with them. `preferredWidth` remains (Shell consumes it).
 
 ## Panel contract completion (2026-08-13)
 
