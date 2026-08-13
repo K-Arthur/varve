@@ -11,11 +11,11 @@
 
 use crate::marks::{self, MarksGeometry};
 use crate::subset::{
-    collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
-    EmbeddingPermission,
+    EmbeddingPermission, collect_used_chars, get_subset_tag, subset_font,
+    validate_embedding_permission,
 };
 use crate::{ImageRenderState, PdfOptions};
-use lopdf::{dictionary, Document, Object, Stream};
+use lopdf::{Document, Object, Stream, dictionary};
 use varve_colour::profiles::PrintProfile;
 pub use varve_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
 use varve_core::SceneNode;
@@ -35,6 +35,8 @@ fn build_pdfx_content(
     nodes: &[SceneNode],
     page_width: f64,
     page_height: f64,
+    trim_x: f64,
+    trim_y: f64,
     use_cmyk: bool,
     marks_geo: Option<&MarksGeometry>,
     draw_reg_marks: bool,
@@ -54,19 +56,28 @@ fn build_pdfx_content(
     }
     content.extend_from_slice(format!("0 0 {page_width:.2} {page_height:.2} re\nf\n").as_bytes());
 
+    // Scene coordinates are trim-local (the same contract used by the
+    // editor). PDF coordinates are media-local and Y-up, so move authored
+    // content into the trim position when the media sheet includes bleed or
+    // printer marks.
+    if trim_x != 0.0 || trim_y != 0.0 {
+        let pdf_y = -trim_y;
+        content.extend_from_slice(format!("q\n1 0 0 1 {trim_x:.4} {pdf_y:.4} cm\n").as_bytes());
+    }
     for node in nodes {
         let state = image_state.as_mut().map(|s| &mut **s);
         let cmd =
             crate::shape_to_pdf_content(node, page_height, state, manifest, use_cmyk, profile);
         content.extend_from_slice(&cmd);
     }
+    if trim_x != 0.0 || trim_y != 0.0 {
+        content.extend_from_slice(b"Q\n");
+    }
 
     // Draw crop marks if requested
-    if let Some(geo) = marks_geo {
-        let trim_x = geo.bleed_mm;
-        let trim_y = geo.bleed_mm;
-        let trim_w = page_width - 2.0 * geo.bleed_mm;
-        let trim_h = page_height - 2.0 * geo.bleed_mm;
+    if let Some(geo) = marks_geo.filter(|geo| geo.draw_crop_marks) {
+        let trim_w = page_width - 2.0 * trim_x;
+        let trim_h = page_height - 2.0 * trim_y;
 
         // Crop marks
         let lines = marks::crop_mark_lines(trim_x, trim_y, trim_w, trim_h, geo);
@@ -175,13 +186,35 @@ fn build_pdfx_document(
     let mut doc = Document::new();
     doc.version = pdf_version.to_string();
 
+    // PdfOptions carries trim dimensions. The media sheet grows to contain
+    // the configured bleed and, when present, the complete crop-mark arms.
+    // This keeps the page boxes in the same coordinate system as the content.
+    let (trim_x, trim_y, media_width, media_height) = if let Some(geo) = marks_geo {
+        let mark_extent = if geo.draw_crop_marks {
+            geo.trim_offset_mm + geo.mark_length_mm
+        } else {
+            0.0
+        };
+        let margin = geo.bleed_mm.max(mark_extent);
+        (
+            margin,
+            margin,
+            opts.page_width + margin * 2.0,
+            opts.page_height + margin * 2.0,
+        )
+    } else {
+        (0.0, 0.0, opts.page_width, opts.page_height)
+    };
+
     // -- Build content with image rendering support --------------------------
     let (image_refs, content) = {
         let mut image_state = ImageRenderState::new(&mut doc);
         let c = build_pdfx_content(
             nodes,
-            opts.page_width,
-            opts.page_height,
+            media_width,
+            media_height,
+            trim_x,
+            trim_y,
             use_cmyk,
             marks_geo,
             opts.registration_marks,
@@ -283,13 +316,11 @@ fn build_pdfx_document(
 
     let page_id = doc.new_object_id();
 
-    // MediaBox = page size, BleedBox = page size (includes bleed),
-    // TrimBox = content area with bleed offset
-    let bleed = marks_geo.map(|g| g.bleed_mm).unwrap_or(0.0);
-    let trim_x = bleed;
-    let trim_y = bleed;
-    let trim_w = opts.page_width - 2.0 * bleed;
-    let trim_h = opts.page_height - 2.0 * bleed;
+    let bleed = marks_geo.map(|g| g.bleed_mm.max(0.0)).unwrap_or(0.0);
+    let bleed_x = (trim_x - bleed).max(0.0);
+    let bleed_y = (trim_y - bleed).max(0.0);
+    let bleed_right = trim_x + opts.page_width + bleed;
+    let bleed_top = trim_y + opts.page_height + bleed;
 
     let pages_id = doc.new_object_id();
     let catalog_id = doc.new_object_id();
@@ -299,20 +330,32 @@ fn build_pdfx_document(
         "MediaBox" => vec![
             Object::Real(0.0),
             Object::Real(0.0),
-            Object::Real(opts.page_width as f32),
-            Object::Real(opts.page_height as f32),
+            Object::Real(media_width as f32),
+            Object::Real(media_height as f32),
         ],
         "BleedBox" => vec![
-            Object::Real(0.0),
-            Object::Real(0.0),
-            Object::Real(opts.page_width as f32),
-            Object::Real(opts.page_height as f32),
+            Object::Real(bleed_x as f32),
+            Object::Real(bleed_y as f32),
+            Object::Real(bleed_right as f32),
+            Object::Real(bleed_top as f32),
         ],
         "TrimBox" => vec![
             Object::Real(trim_x as f32),
             Object::Real(trim_y as f32),
-            Object::Real((trim_x + trim_w) as f32),
-            Object::Real((trim_y + trim_h) as f32),
+            Object::Real((trim_x + opts.page_width) as f32),
+            Object::Real((trim_y + opts.page_height) as f32),
+        ],
+        "CropBox" => vec![
+            Object::Real(trim_x as f32),
+            Object::Real(trim_y as f32),
+            Object::Real((trim_x + opts.page_width) as f32),
+            Object::Real((trim_y + opts.page_height) as f32),
+        ],
+        "ArtBox" => vec![
+            Object::Real(trim_x as f32),
+            Object::Real(trim_y as f32),
+            Object::Real((trim_x + opts.page_width) as f32),
+            Object::Real((trim_y + opts.page_height) as f32),
         ],
         "Contents" => Object::Reference(content_id),
         "Resources" => resources,
@@ -683,6 +726,75 @@ mod tests {
             content.contains("TrimBox"),
             "should contain TrimBox for mark alignment"
         );
+    }
+
+    #[test]
+    fn pdfx_boxes_keep_trim_and_bleed_distinct_and_fit_marks() {
+        let nodes = vec![rect_node(1, 0.0, 0.0, 100.0, 80.0)];
+        let opts = PdfOptions {
+            page_width: 100.0,
+            page_height: 80.0,
+            ..Default::default()
+        };
+        let geo = MarksGeometry {
+            bleed_mm: 3.0,
+            trim_offset_mm: 2.0,
+            mark_length_mm: 4.0,
+            ..Default::default()
+        };
+        let bytes = export_pdfx4_with_marks(&nodes, &opts, &geo).expect("pdfx4 boxes");
+        let pdf = Document::load_mem(&bytes).expect("parse PDF");
+        let page_id = *pdf.get_pages().values().next().expect("one page");
+        let page = pdf
+            .get_object(page_id)
+            .expect("page object")
+            .as_dict()
+            .expect("page dict");
+        let numbers = |key: &[u8]| -> Vec<f64> {
+            page.get(key)
+                .expect("box")
+                .as_array()
+                .expect("box array")
+                .iter()
+                .map(|value| match value {
+                    Object::Integer(n) => *n as f64,
+                    Object::Real(n) => *n as f64,
+                    other => panic!("unexpected box value: {other:?}"),
+                })
+                .collect()
+        };
+
+        assert_eq!(numbers(b"MediaBox"), vec![0.0, 0.0, 112.0, 92.0]);
+        assert_eq!(numbers(b"BleedBox"), vec![3.0, 3.0, 109.0, 89.0]);
+        assert_eq!(numbers(b"TrimBox"), vec![6.0, 6.0, 106.0, 86.0]);
+        assert_eq!(numbers(b"CropBox"), numbers(b"TrimBox"));
+        assert_eq!(numbers(b"ArtBox"), numbers(b"TrimBox"));
+    }
+
+    #[test]
+    fn pdfx_without_bleed_still_emits_coincident_page_boxes() {
+        let opts = PdfOptions {
+            page_width: 100.0,
+            page_height: 80.0,
+            ..Default::default()
+        };
+        let bytes = export_pdfx4(&[], &opts).expect("plain pdfx");
+        let pdf = Document::load_mem(&bytes).expect("parse PDF");
+        let page_id = *pdf.get_pages().values().next().expect("one page");
+        let page = pdf
+            .get_object(page_id)
+            .expect("page object")
+            .as_dict()
+            .expect("page dict");
+        for key in [
+            b"MediaBox".as_slice(),
+            b"BleedBox",
+            b"TrimBox",
+            b"CropBox",
+            b"ArtBox",
+        ] {
+            assert!(page.has(key), "missing {:?}", String::from_utf8_lossy(key));
+        }
     }
 
     // --- ICC-aware CMYK conversion tests ---
