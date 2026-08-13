@@ -7,7 +7,7 @@ import { sitePath } from '../../lib/siteUrl';
   <div class="container-custom">
     <div class="privacy-page">
       <h1>Privacy Policy</h1>
-      <p class="last-updated">Last updated: July 2026</p>
+      <p class="last-updated">Last updated: August 2026</p>
 
       <section class="privacy-section">
         <h2>What We Collect</h2>
@@ -54,6 +54,33 @@ import { sitePath } from '../../lib/siteUrl';
           The application does not report usage statistics or diagnostics unless you explicitly
           enable those categories under Settings &gt; Privacy &amp; Diagnostics. Crash reporting is a
           separate consent choice. Your designs belong to you and remain on your device.
+        </p>
+        <p>
+          <strong>Update checks are consent-based.</strong> Varve does not contact any update
+          server unless you choose to allow it (Settings &gt; Updates, or the first-launch
+          question "Keep Varve up to date?"). A check sends only your current version, platform,
+          architecture and release channel to Varve's release endpoint; no account, document
+          data, machine identifier or device fingerprint. Declining means no background checks —
+          you can still check for updates manually, and you can revoke or change the choice at
+          any time.
+        </p>
+      </section>
+
+      <section class="privacy-section">
+        <h2>Update Checks</h2>
+        <p>
+          Desktop update checks are a separate consent choice from analytics, diagnostics, and
+          crash reporting. If enabled, a check sends the current Varve version, platform,
+          architecture, and selected release channel to the configured HTTPS release endpoint so
+          it can return a compatible update. It does not send an account, document contents,
+          filenames, filesystem paths, project data, or a device identifier.
+        </p>
+        <p>
+          The endpoint still receives ordinary network metadata such as an IP address. Update
+          downloads are not installed silently: supported builds verify the update signature
+          before installation, and package-managed or unsupported builds remain on their manual
+          update path. See the <a href={sitePath('/docs/updates')}>Updates guide</a> for the
+          package-specific behaviour.
         </p>
       </section>
 

@@ -206,7 +206,7 @@ repository owner as an explicit decision:
 | Release integrity order | Installers → manifests → SBOMs → `SHA256SUMS.txt` last → upload → re-download → re-hash → publish | `generate-final-checksums.mjs` + `verify-downloaded.mjs`; the checksum file covers every public asset except itself |
 | SBOM scope | Per-platform CycloneDX 1.5 SBOMs (bundle contents differ by OS) + explicit all-platforms combined SBOM | `generate-sbom.mjs --os/--arch/--scope`; structural validator `validate-sbom.mjs` |
 | Signing claims | `signed`/`notarized` stay false until signature verification succeeds; release notes derive from the manifest | No certificates owned; no aspirational labels; checksums ≠ code signing (stated on the download page) |
-| Update mechanism | Manual only: download page + release notes; no updater, no background checks, no in-app check at alpha | `update-strategy.md` |
+| Update mechanism | Consent-first updater for supported self-managed desktop packages; package-managed, unsupported, and development builds remain manual | `update-strategy.md`; `update-system-audit-2026-08-13.md` |
 
 ## 9. Decisions recorded 2026-08-08 (code signing engineering)
 
