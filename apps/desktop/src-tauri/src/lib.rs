@@ -282,13 +282,7 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
         file.sync_all()
             .map_err(|e| format!("Failed to flush temp file: {e}"))?;
         drop(file);
-        std::fs::rename(&tmp, path).map_err(|e| {
-            format!(
-                "Failed to rename {} -> {}: {e}",
-                tmp.display(),
-                path.display()
-            )
-        })?;
+        filesystem::replace_file(&tmp, path).map_err(|error| error.message)?;
         Ok(())
     })();
     if result.is_err() {
@@ -3932,6 +3926,25 @@ mod tests {
     #[test]
     fn resolve_user_path_rejects_empty_path() {
         assert!(resolve_user_path("").is_err());
+    }
+
+    #[test]
+    fn atomic_write_replaces_content_without_leaving_staging_files() {
+        let dir = std::env::temp_dir().join(format!("varve_atomic_write_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"old").expect("write initial content");
+
+        write_file_atomic(&target, b"new").expect("atomic write succeeds");
+
+        assert_eq!(std::fs::read(&target).expect("read final content"), b"new");
+        let leftovers = std::fs::read_dir(&dir)
+            .expect("read test dir")
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with(".varve-write-"))
+            .count();
+        assert_eq!(leftovers, 0, "successful writes should consume their staging file");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

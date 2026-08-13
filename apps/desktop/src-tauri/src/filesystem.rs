@@ -148,6 +148,9 @@ pub fn validate_storage_key(value: &str) -> Result<(), FsError> {
     if value.contains('/')
         || value.contains('\\')
         || value.contains('\0')
+        || value
+            .chars()
+            .any(|character| matches!(character, '<' | '>' | ':' | '"' | '|' | '?' | '*'))
         || value.chars().any(|character| character.is_control())
     {
         return Err(FsError::new(FsErrorKind::TraversalBlocked, "storage key is not a filename"));
@@ -226,6 +229,48 @@ pub fn display_path(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
+/// Replace a file with a fully-written sibling temporary file. Windows does
+/// not make `std::fs::rename` replace an existing file, so use the native
+/// replace-and-flush primitive there as well as the platform rename elsewhere.
+pub fn replace_file(temporary: &Path, destination: &Path) -> Result<(), FsError> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        let source = temporary
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect::<Vec<_>>();
+        let target = destination
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect::<Vec<_>>();
+        let flags = windows_sys::Win32::Storage::FileSystem::MOVEFILE_REPLACE_EXISTING
+            | windows_sys::Win32::Storage::FileSystem::MOVEFILE_WRITE_THROUGH;
+        let replaced = unsafe {
+            windows_sys::Win32::Storage::FileSystem::MoveFileExW(
+                source.as_ptr(),
+                target.as_ptr(),
+                flags,
+            )
+        };
+        if replaced == 0 {
+            return Err(FsError::from_io(
+                "replace file",
+                destination,
+                &io::Error::last_os_error(),
+            ));
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        std::fs::rename(temporary, destination)
+            .map_err(|error| FsError::from_io("replace file", destination, &error))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{generated_filename, validate_storage_key};
@@ -249,7 +294,7 @@ mod tests {
         assert!(validate_storage_key("model-id").is_ok());
         assert!(validate_storage_key("../outside").is_err());
         assert!(validate_storage_key(r"..\outside").is_err());
-        assert!(validate_storage_key("C:relative").is_ok());
+        assert!(validate_storage_key("C:relative").is_err());
     }
 
     #[test]
