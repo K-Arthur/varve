@@ -367,9 +367,21 @@ export function selectionRects(
       run.glyphs.filter((glyph) => glyph.clusterUtf16 < rangeEnd && glyph.sourceEnd > rangeStart),
     );
     if (selected.length === 0) continue;
-    const left = Math.min(...selected.map((glyph) => glyph.x));
-    const right = Math.max(...selected.map((glyph) => glyph.x + glyph.xAdvance));
-    rects.push({ lineIndex, x: left, y: line.top, width: right - left, height: line.height });
+    const ordered = [...selected].sort((a, b) => a.x - b.x);
+    let fragment: PositionedGlyph[] = [];
+    const flush = (): void => {
+      if (fragment.length === 0) return;
+      const left = Math.min(...fragment.map((glyph) => glyph.x));
+      const right = Math.max(...fragment.map((glyph) => glyph.x + glyph.xAdvance));
+      rects.push({ lineIndex, x: left, y: line.top, width: right - left, height: line.height });
+      fragment = [];
+    };
+    for (const glyph of ordered) {
+      const previous = fragment[fragment.length - 1];
+      if (previous && glyph.x > previous.x + previous.xAdvance + 0.01) flush();
+      fragment.push(glyph);
+    }
+    flush();
   }
   return rects;
 }
