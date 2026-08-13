@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import { dismissTip, loadOnboardingState, saveOnboardingState } from '../onboardingStore';
 import { TIPS, type Tip } from './tips';
+import { workspaceTips } from './workspaceTips';
 
 const TIPS_TODAY_KEY = 'strata:tips-today';
 const IDLE_THRESHOLD_MS = 15000;
@@ -31,13 +33,26 @@ function saveTipsToday(data: TipsTodayData): void {
   localStorage.setItem(TIPS_TODAY_KEY, JSON.stringify(data));
 }
 
-export function useDidYouKnow(tracker: { getCount: (id: string, windowMs?: number) => number }): {
+export function useDidYouKnow(
+  tracker: { getCount: (id: string, windowMs?: number) => number },
+  /** Active workspace — surfaces that workspace's declared onboarding tips. */
+  mode?: WorkspaceMode,
+): {
   currentTip: Tip | null;
   dismiss: () => void;
   dontShowAgain: () => void;
 } {
   const [currentTip, setCurrentTip] = useState<Tip | null>(null);
   const queueRef = useRef<Tip[]>([]);
+  // The queue is built once and drained. A workspace switch changes which
+  // tips are eligible, so a queue built for the previous workspace must be
+  // discarded — otherwise Design's tips keep arriving after switching to
+  // Print, and Print's tips never surface at all.
+  const modeRef = useRef<WorkspaceMode | undefined>(mode);
+  if (modeRef.current !== mode) {
+    modeRef.current = mode;
+    queueRef.current = [];
+  }
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
@@ -93,9 +108,13 @@ export function useDidYouKnow(tracker: { getCount: (id: string, windowMs?: numbe
     const state = loadOnboardingState();
     const dismissed = new Set(state.dismissedTips);
 
-    // Build queue of eligible tips not already dismissed
+    // Build queue of eligible tips not already dismissed. The active
+    // workspace's own tips lead: they are the most specific advice available
+    // for what the user is doing right now.
     if (queueRef.current.length === 0) {
-      queueRef.current = TIPS.filter((tip) => {
+      const active = modeRef.current;
+      const candidates = active ? [...workspaceTips(active), ...TIPS] : TIPS;
+      queueRef.current = candidates.filter((tip) => {
         if (dismissed.has(tip.id)) return false;
         if (tipsToday.shownIds.includes(tip.id)) return false;
         if (tip.condition && !tip.condition(tracker.getCount.bind(tracker))) return false;
