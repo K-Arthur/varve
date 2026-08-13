@@ -211,8 +211,10 @@ export class WebsiteAnalyticsController {
       return;
     }
     const consent = readConsent();
-    if (consent === 'granted') this.enable();
-    else if (consent === 'unknown') this.showBanner();
+    if (consent === 'granted') {
+      this.enable();
+      this.trackPageView();
+    } else if (consent === 'unknown') this.showBanner();
   }
 
   choose(value: 'granted' | 'denied'): void {

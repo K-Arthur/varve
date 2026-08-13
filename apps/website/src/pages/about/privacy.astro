@@ -97,6 +97,9 @@ import { sitePath } from '../../lib/siteUrl';
           the desktop app, usage analytics, diagnostics telemetry, and crash reporting are three
           separate controls and can be changed at any time.
         </p>
+        <button type="button" class="privacy-choice" data-analytics-choice="denied">
+          Withdraw website analytics consent
+        </button>
       </section>
 
       <section class="privacy-section">
@@ -193,6 +196,21 @@ import { sitePath } from '../../lib/siteUrl';
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
     position: relative;
+  }
+
+  .privacy-choice {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.8rem;
+    background: var(--surface-muted);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .privacy-choice:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
   }
 
   .privacy-section li::before {

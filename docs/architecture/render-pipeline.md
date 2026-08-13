@@ -97,6 +97,11 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    pixels. See "Reuse of already-painted pixels" below; this invariant is what
    the many-image regression violated.
 
+4. **Cross-node mattes are explicit render dependencies.** The scene
+   `buildCompositingDependencyGraph()` indexes node-mask and effect-mask source
+   edges. A text or group edit outside a target's subtree therefore invalidates
+   the target boundary as well as the source's own paint.
+
 ## WebGPU Compositor (2026-07-11; ownership invert 2026-07-13)
 
 | Feature | Implementation |
