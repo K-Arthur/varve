@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Color & Effects" description="Varve's precision-aware color workflow: native CMYK document colors, RGB and grayscale, ICC profiles, soft proofing, effects, and print export.">
+<Layout title="Color & Effects" description="Varve's color management: RGB and CMYK with ICC profiles, blend modes, shadows, blur, adjustment layers, and halftone screening for print.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,13 +12,13 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Color & Effects</h1>
       <p class="feature-intro">
-        Keep print colors meaningful from document to export. Varve stores native CMYK values alongside RGB, grayscale, and spot colors, then carries precision-aware working values through conversion, gradients, effects, and proofing.
+        RGB and CMYK color management with ICC profiles, blend modes, layer effects, adjustment layers, halftone screening, and AI background removal.
       </p>
 
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. The effects system includes drop shadows, inner shadows, layer blur, background blur, and glow effects. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
+          Varve provides color management across RGB, CMYK, and grayscale color spaces with ICC profile support. The effects system includes drop shadows, inner shadows, layer blur, background blur, and glow effects. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
         </p>
       </section>
 
@@ -26,8 +26,6 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Key Capabilities</h2>
         <ul>
           <li><strong>Color spaces:</strong> RGB, CMYK, grayscale, and spot colors with analytical conversion</li>
-          <li><strong>Native document color:</strong> CMYK channels stay tagged as CMYK in the document model, ready for print-oriented editing and export</li>
-          <li><strong>Precision-aware working:</strong> 16-bit integer and floating-point channel values stay distinct through supported conversions, gradients, effects, and proof transforms; quantization is explicit at a display or codec boundary</li>
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
           <li><strong>Effects:</strong> Drop shadow, inner shadow, layer blur (GPU-accelerated up to 32px, software beyond), background blur, outer and inner glow</li>
@@ -40,19 +38,9 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section">
-        <h2>Print Preview, Honestly</h2>
-        <p>
-          Native desktop export is the print authority: it can apply the selected document profile, rendering intent, bleed, marks, and PDF/X settings. Browser previews use the browser's sRGB display path and current RGBA8 canvas surfaces, so they are useful for layout and directional proofing—not a substitute for a calibrated monitor or an exported contract proof.
-        </p>
-        <p>
-          High-precision raster decode, CMYK raster planes, and high-precision GPU preview targets remain active integration areas. The document model and typed working-buffer boundaries are designed so those paths can be added without silently rewriting stored color values.
-        </p>
-      </section>
-
-      <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with bit-depth-aware channels and analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses separable Gaussian kernels with premultiplied alpha and linear-light compositing for radii above 32px. Adjustment layers support 5 scoping modes for targeting specific layers.
+          Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses separable Gaussian kernels with premultiplied alpha and linear-light compositing for radii above 32px. Adjustment layers support 5 scoping modes for targeting specific layers.
         </p>
         <p>
           The halftone engine implements ISO 12647-2 standard CMYK screen angles. Background removal runs via an ONNX Runtime pipeline with native desktop support (faster) and WASM worker fallback for web.
@@ -64,8 +52,7 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Browser canvas and ImageData display surfaces remain 8-bit; higher-precision working buffers are available where the selected pipeline supports them, but they do not change the browser display surface</li>
-            <li>Profile-aware raster decode, CMYK raster-plane import, and high-precision GPU render targets are not yet the default browser path</li>
+            <li>Browser canvas and ImageData display surfaces remain 8-bit; higher-precision working buffers are available only where the selected pipeline supports them</li>
             <li>Print bleed and trim guides are available in the current print workflow; exported geometry remains the final authority</li>
             <li>Background removal with BiRefNet-Lite requires native desktop (crashes WASM at 4GB memory limit)</li>
           </ul>
@@ -76,7 +63,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Color management, native CMYK document values, effects, adjustment layers, halftone, background removal, precision-aware working buffers, and print guides are functional. Some browser display, raster decode, and GPU effect boundaries still use display precision.</p>
+          <p>Color management, effects, adjustment layers, halftone, background removal, precision-aware working buffers, and print guides are functional. Some browser display and effect boundaries still quantize to the display surface.</p>
         </div>
       </section>
 
