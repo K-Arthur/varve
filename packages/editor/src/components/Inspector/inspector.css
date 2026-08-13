@@ -1926,6 +1926,31 @@
   background: var(--color-surface-muted);
   border-radius: var(--radius-sm);
 }
+
+.intelligence-field-label {
+  display: block;
+  margin: 0.75rem 0 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.intelligence-text-input {
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: 0.45rem;
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.intelligence-text-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
 .similarity-mode-picker__option {
   min-height: var(--space-5);
   padding: 0 var(--space-1);
