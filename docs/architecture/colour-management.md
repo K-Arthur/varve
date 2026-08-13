@@ -87,14 +87,16 @@ page's resolved bleed — the dialog value is an explicit export-job override of
 the document value, and the panel names the document bleed so the relationship
 is visible.
 
-PDF/X export receives the page size and the resolved bleed: `MediaBox` and
-`BleedBox` span the full exported page and `TrimBox` is inset by the bleed
-(bleed edges are uniform in the current encoder). Crop marks are positioned
-from the trim edge, not the bleed edge. ADR-0192's target semantics
-(`BleedBox` = trim + bleed, `CropBox`/`ArtBox` = trim) are not yet implemented
-in the encoder; screen PDF emits a MediaBox only. PNG/JPEG/WebP and screen PDF
-retain their own format capabilities; the editor must not imply that a view
-guide changes a format that does not support page-bleed export.
+PDF/X export receives trim dimensions and the resolved bleed for the native
+single-page production path. The encoder expands the media sheet around trim
+to contain bleed and, when requested, the complete crop-mark arms; it emits
+distinct `MediaBox`, `BleedBox`, `TrimBox`, `CropBox`, and `ArtBox` values in
+that same coordinate system. `BleedBox` is trim plus the configured bleed,
+while crop marks are positioned from the trim edge, not the bleed edge. With
+zero bleed and no marks, the boxes coincide. ADR-0192's multi-page execution
+and screen-PDF work remain separate roadmap items. PNG/JPEG/WebP retain their
+own format capabilities; the editor must not imply that a view guide changes a
+format that does not support page-bleed export.
 
 ## Colour Conversion Pipeline
 
