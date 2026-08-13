@@ -442,6 +442,14 @@ export interface Asset {
   height?: number;
   thumbnailHash?: string;
   tags: string[];
+  /** Optional normalized OCR text; source bytes are never stored here. */
+  ocrText?: string;
+  /** Optional user or importer description used by the metadata lane. */
+  description?: string;
+  /** Optional source path for local filename/path retrieval. */
+  path?: string;
+  /** Content identity used to reuse embeddings across renames/copies. */
+  contentHash?: string;
   createdAt: number;
   updatedAt: number;
 }
