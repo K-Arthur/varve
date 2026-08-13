@@ -64,6 +64,31 @@ describe('TextLayoutSnapshot', () => {
     expect(hitTestTextLayout(snapshot, 18, 4).offset).toBe(2);
   });
 
+  it('can represent a visual selection as multiple fragments on one line', () => {
+    const snapshot = buildTextLayoutSnapshot('abcd', makeShaping('abcd'), { maxWidth: 100 });
+    const line = snapshot.lines[0]!;
+    const first = line.runs[0]!.glyphs[0]!;
+    const third = line.runs[0]!.glyphs[2]!;
+    const separated = {
+      ...snapshot,
+      lines: [
+        {
+          ...line,
+          runs: [
+            {
+              ...line.runs[0]!,
+              glyphs: [
+                { ...first, x: 0 },
+                { ...third, x: 30, clusterUtf16: 2, sourceEnd: 3 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(selectionRects(separated, 0, 3)).toHaveLength(2);
+  });
+
   it('bounds cache entries and refreshes least-recently-used order', () => {
     const cache = new TextLayoutSnapshotCache(2);
     const first = buildTextLayoutSnapshot('a', makeShaping('a'), { maxWidth: 100 });
