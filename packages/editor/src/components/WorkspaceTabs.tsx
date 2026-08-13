@@ -29,7 +29,7 @@
  * hidden tabs. useLayoutEffect applies the computed layout before the
  * browser paints, so there is no flash of a full-width strip.
  */
-import { Menu, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { Menu, SemanticIcon, type SemanticIconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useEditor } from '../context';
 import { useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
@@ -51,15 +51,15 @@ const TAB_GAP = 6;
 /** Width of the "More" overflow button (icon + padding). */
 const OVERFLOW_BTN_WIDTH = 40;
 
-/** Workspace modes use distinct, high-contrast Phosphor solid concepts. */
-const SOLID_ICON_NAMES: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> = {
-  design: 'penTool',
-  print: 'printer',
-  drawing: 'paintBrush',
-  image: 'image',
-  motion: 'play',
-  codegen: 'code',
-  logo: 'stamp',
+/** Workspace modes use distinct Hugeicons concepts, not one generic glyph. */
+const WORKSPACE_ICON_NAMES: Record<WorkspaceMode, SemanticIconName> = {
+  design: 'Layout',
+  print: 'Printer',
+  drawing: 'Brush',
+  image: 'Image',
+  motion: 'Play',
+  codegen: 'Code',
+  logo: 'Pen',
 };
 
 const INITIAL_LAYOUT: WorkspaceLayoutResult = {
@@ -237,7 +237,11 @@ export function WorkspaceTabs() {
               onKeyDown={(e) => handleKeyDown(e, mode)}
               onFocus={() => setFocusId(mode)}
             >
-              <SolidIcon name={SOLID_CHROME_ICONS[SOLID_ICON_NAMES[mode]]} size={15} />
+              <SemanticIcon
+                name={WORKSPACE_ICON_NAMES[mode]}
+                size={15}
+                data-workspace-icon={WORKSPACE_ICON_NAMES[mode]}
+              />
               {!iconOnly && <span className="workspace-tabs__label">{WORKSPACE_LABELS[mode]}</span>}
               {customizations[mode] && (
                 <>
@@ -261,7 +265,7 @@ export function WorkspaceTabs() {
                 aria-haspopup="menu"
                 onClick={() => setMoreOpen((o) => !o)}
               >
-                <SolidIcon name={SOLID_CHROME_ICONS.ellipsisVertical} size={15} />
+                <SemanticIcon name="More" size={15} />
               </button>
             </Tooltip>
           </>

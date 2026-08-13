@@ -48,4 +48,13 @@ describe('WorkspaceTabs', () => {
     // label span, so icon-only narrow strips stay accessible.
     expect(screen.getByRole('radio', { name: 'Design workspace' })).toBeTruthy();
   });
+
+  it('uses a distinct Hugeicons concept for every workspace mode', () => {
+    render(<WorkspaceTabs />);
+    const icons = [...document.querySelectorAll('[data-workspace-icon]')].map((icon) =>
+      icon.getAttribute('data-workspace-icon'),
+    );
+    expect(icons).toEqual(['Layout', 'Brush', 'Image', 'Printer', 'Play', 'Code', 'Pen']);
+    expect(new Set(icons).size).toBe(icons.length);
+  });
 });
