@@ -271,20 +271,30 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
     // the target's native filename through UTF-8.  This keeps non-UTF-8 Unix
     // filenames native and avoids using lossy text for path identity.
     let tmp = parent.join(format!(".varve-write-{}.tmp", uuid()));
-    let mut file = std::fs::File::create(&tmp)
-        .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
-    file.write_all(data)
-        .map_err(|e| format!("Failed to write temp file: {e}"))?;
-    file.sync_all()
-        .map_err(|e| format!("Failed to flush temp file: {e}"))?;
-    drop(file);
-    std::fs::rename(&tmp, path).map_err(|e| {
-        format!(
-            "Failed to rename {} -> {}: {e}",
-            tmp.display(),
-            path.display()
-        )
-    })?;
+    let result = (|| -> Result<(), String> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
+        file.write_all(data)
+            .map_err(|e| format!("Failed to write temp file: {e}"))?;
+        file.sync_all()
+            .map_err(|e| format!("Failed to flush temp file: {e}"))?;
+        drop(file);
+        std::fs::rename(&tmp, path).map_err(|e| {
+            format!(
+                "Failed to rename {} -> {}: {e}",
+                tmp.display(),
+                path.display()
+            )
+        })?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result?;
     // Best-effort directory fsync so the rename itself is durable, not just
     // the file contents. Not supported on every OS/filesystem (NFS, some
     // Windows volumes); failure here is ignored rather than failing the save.
@@ -2951,8 +2961,31 @@ fn list_printers() -> Vec<PrinterInfo> {
 }
 
 #[tauri::command]
-fn print_pdf(pdf_data: Vec<u8>, job_title: String, options: PrintOptions) -> PrintResult {
+fn print_pdf(
+    app: tauri::AppHandle,
+    pdf_data: Vec<u8>,
+    job_title: String,
+    options: PrintOptions,
+) -> PrintResult {
+    let temporary = match filesystem::AppDirectories::resolve(&app) {
+        Ok(directories) => directories.temporary,
+        Err(error) => {
+            return PrintResult {
+                job_id: 0,
+                message: error.message,
+                success: false,
+            };
+        }
+    };
+    if let Err(error) = std::fs::create_dir_all(&temporary) {
+        return PrintResult {
+            job_id: 0,
+            message: format!("Failed to create print staging directory: {error}"),
+            success: false,
+        };
+    }
     let result = crate::print::print_pdf(
+        &temporary,
         &options.printer_name,
         &pdf_data,
         &job_title,
