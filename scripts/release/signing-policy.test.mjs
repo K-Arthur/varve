@@ -519,7 +519,14 @@ const MACOS_OK = {
       signed: false,
       notarized: false,
       artifacts: [
-        { filename, os: 'windows', format: 'nsis', sizeBytes: after.length, sha256: sha256(after) },
+        {
+          filename,
+          os: 'windows',
+          arch: 'x64',
+          format: 'nsis',
+          sizeBytes: after.length,
+          sha256: sha256(after),
+        },
       ],
     }),
   );
