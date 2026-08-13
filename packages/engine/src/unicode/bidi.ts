@@ -6,13 +6,13 @@
  * - UTR #23: Unicode Character Property Model
  * - FriBidi / ICU4X BiDi reference implementations
  *
- * Scope:
- * Paragraph-level UAX #9 subset for design-tool text layout: automatic paragraph
- * direction, LTR/RTL run identification, neutral/weak resolution, run reordering
- * by embedding level, and logical-to-visual position mapping. Explicit embedding
- * overrides (LRE/RLE/RLO/LRO/PDF) and isolate sequences (LRI/RLI/FSI/PDI) are
- * not implemented — rare in authored design text, can be layered later.
+ * The public paragraph contract is now resolved by the conformance-tested
+ * bidi-js adapter in bidiUax9.ts. The legacy classification helpers remain
+ * exported for script itemization and compatibility; they are not the source
+ * of truth for paragraph embedding levels.
  */
+
+import { analyzeParagraphUax9 } from './bidiUax9';
 
 export type BidiDirection = 'ltr' | 'rtl';
 export type BidiClass =
@@ -44,6 +44,10 @@ export interface BidiParagraph {
   baseLevel: number;
   runs: BidiRun[];
   visualRuns: BidiRun[];
+  /** Character indices in line visual order, as resolved by UAX #9. */
+  visualOrder?: readonly number[];
+  /** Mirrored punctuation for visual presentation; source text is unchanged. */
+  mirroredCharacters?: ReadonlyMap<number, string>;
 }
 
 /** Map a codepoint (not UTF-16 code unit) to its bidi class. */
@@ -742,11 +746,7 @@ export function reorderRuns(runs: BidiRun[]): BidiRun[] {
  * Analyze a paragraph: detect direction, segment runs, reorder for display.
  */
 export function analyzeParagraph(text: string, explicitDirection?: BidiDirection): BidiParagraph {
-  const baseDirection = explicitDirection ?? autoParagraphDirection(text);
-  const baseLevel = baseDirection === 'rtl' ? 1 : 0;
-  const runs = segmentRuns(text, baseLevel);
-  const visualRuns = reorderRuns(runs);
-  return { text, baseDirection, baseLevel, runs, visualRuns };
+  return analyzeParagraphUax9(text, explicitDirection);
 }
 
 /**
@@ -758,6 +758,15 @@ export function logicalToVisual(
   para: BidiParagraph,
   logicalUtf16Index: number,
 ): { visualIndex: number; runIndex: number } {
+  if (para.visualOrder) {
+    const visualIndex = para.visualOrder.indexOf(logicalUtf16Index);
+    if (visualIndex >= 0) {
+      const run = para.visualRuns.findIndex(
+        (candidate) => logicalUtf16Index >= candidate.start && logicalUtf16Index < candidate.end,
+      );
+      return { visualIndex, runIndex: Math.max(0, run) };
+    }
+  }
   const isRTL = para.baseLevel % 2 === 1;
 
   if (!isRTL) {
@@ -849,6 +858,14 @@ export function visualToLogical(
   para: BidiParagraph,
   visualIndex: number,
 ): { logicalIndex: number; runIndex: number } {
+  if (para.visualOrder && para.visualOrder.length > 0) {
+    const clamped = Math.min(Math.max(0, Math.trunc(visualIndex)), para.visualOrder.length - 1);
+    const logicalIndex = para.visualOrder[clamped] ?? 0;
+    const runIndex = para.visualRuns.findIndex(
+      (candidate) => logicalIndex >= candidate.start && logicalIndex < candidate.end,
+    );
+    return { logicalIndex, runIndex: Math.max(0, runIndex) };
+  }
   const isRTL = para.baseLevel % 2 === 1;
   if (!isRTL) {
     return visualToLogicalLTR(para, visualIndex);
