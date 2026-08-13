@@ -17,6 +17,24 @@ function isStableStage(stage: ProductStatusStage): boolean {
   return stage === 'stable';
 }
 const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_STATUS.stage) ? 'Stable' : 'Beta';
+const analyticsReleaseChannel = release.prerelease
+  ? 'prerelease'
+  : isStableStage(PRODUCT_STATUS.stage)
+    ? 'stable'
+    : 'beta';
+
+function analyticsArchitecture(arch: string): 'x64' | 'arm64' | 'unknown' {
+  const normalized = arch.toLowerCase();
+  if (normalized.includes('arm') || normalized.includes('aarch')) return 'arm64';
+  if (normalized.includes('x64') || normalized.includes('x86_64') || normalized.includes('amd64')) return 'x64';
+  return 'unknown';
+}
+
+function analyticsPackageType(format: string): 'appimage' | 'deb' | 'rpm' | 'dmg' | 'nsis' | 'unknown' {
+  return format === 'appimage' || format === 'deb' || format === 'rpm' || format === 'dmg' || format === 'nsis'
+    ? format
+    : 'unknown';
+}
 
 // Every download control on this page is rendered from the generated release
 // manifest (scripts/release/update-website-manifest.mjs). Nothing about
@@ -286,13 +304,32 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     <span class="platform-name">{p.label}</span>
                   </div>
 
-                  <a href={p.primary.url} class="btn-primary quick-download-btn" download>
+                  <a
+                    href={p.primary.url}
+                    class="btn-primary quick-download-btn"
+                    download
+                    data-analytics-download="true"
+                    data-analytics-platform={p.id}
+                    data-analytics-architecture={analyticsArchitecture(p.primary.arch)}
+                    data-analytics-package-type={analyticsPackageType(p.primary.format)}
+                    data-analytics-release={release.version}
+                    data-analytics-release-channel={analyticsReleaseChannel}
+                  >
                     Download {p.primary.arch !== 'universal' ? `for ${p.primary.arch}` : ''}
                   </a>
                   {p.secondary && (
                     <p class="quick-download-alts">
                       <span class="alts-label">Alternate:</span>{' '}
-                      <a href={p.secondary.url} download>
+                      <a
+                        href={p.secondary.url}
+                        download
+                        data-analytics-download="true"
+                        data-analytics-platform={p.id}
+                        data-analytics-architecture={analyticsArchitecture(p.secondary.arch)}
+                        data-analytics-package-type={analyticsPackageType(p.secondary.format)}
+                        data-analytics-release={release.version}
+                        data-analytics-release-channel={analyticsReleaseChannel}
+                      >
                         {p.secondary.title ?? p.secondary.label} &middot; {p.secondary.size}
                       </a>
                     </p>
@@ -437,7 +474,17 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       {artifact.format === 'deb' && <span class="badge recommended">Recommended</span>}
                     </div>
                     <p>{artifact.blurb}</p>
-                    <a href={artifact.url} class="btn-primary" download>
+                    <a
+                      href={artifact.url}
+                      class="btn-primary"
+                      download
+                      data-analytics-download="true"
+                      data-analytics-platform={p.id}
+                      data-analytics-architecture={analyticsArchitecture(artifact.arch)}
+                      data-analytics-package-type={analyticsPackageType(artifact.format)}
+                      data-analytics-release={release.version}
+                      data-analytics-release-channel={analyticsReleaseChannel}
+                    >
                       Download {artifact.size}
                     </a>
                     <p class="download-meta">
