@@ -31,15 +31,15 @@ their working input.
 | `Document` fills, strokes, effects, gradient stops, text colors | Tagged `ManagedColor`; RGB/CMYK/Gray have optional `bitDepth` | None in the model; legacy colors default to `uint8` | No | Yes | Canonical model is already wider than RGBA8, but default factories still create legacy-scale values. |
 | Scene → engine IR | `EngineColor`/`ManagedColorShim` | No conversion at the type boundary | No | Yes | Preserve the tagged object; do not replace this with an RGBA tuple. |
 | `managedColorToRgba()` | RGBA8 tuple | Canvas/CSS and legacy engine consumers accept 0–255 channels | Yes for those callers | Yes, by using a separate normalized/working path | Legitimate display boundary only. It must never be the source for document edits or precision-sensitive math. |
-| `managedColorToNormalized()` | 0–1 tuple, currently after RGBA8 conversion | Historical helper implementation reused the display reducer | No | Yes | **Root cause:** 16-bit/float values are quantized before blending, gradients, and effects consume them. |
-| Gradient expansion in `engine/replay.ts` and shared interpolation | RGB colors with integer-rounded channels | Canvas gradients need display-compatible stops; interpolation helper clamps/rounds each result | Only at final Canvas2D stop construction | Yes | **Root cause:** high-precision stop values are reduced before interpolation. |
-| Proofing in `editor/render/proofing.ts` | Rebuilt RGB managed colors from RGBA8 | Proof transform is applied to a display tuple | No for the derived proof working value | Yes | Derived proof state must retain normalized precision until the final preview surface. |
+| `managedColorToNormalized()` | 0–1 tuple directly from tagged channels | None; display conversion is no longer on the working path | No | Yes | **Fixed:** 16-bit/float values remain distinct for blending, gradients, effects, and proof transforms. |
+| Gradient expansion in `engine/replay.ts` and shared interpolation | Fractional RGB channels until CSS/Canvas2D stop construction | Canvas gradients need display-compatible stops; final formatting is fractional but browser-surface precision remains limited | Only at final Canvas2D stop construction | Yes | **Fixed:** high-precision stop values are not rounded before interpolation. |
+| Proofing in `editor/render/proofing.ts` | Normalized provider result, with explicit RGBA8 fallback | Runtime may only expose the legacy display provider | No for the derived proof working value | Yes | **Fixed:** normalized proof providers are preferred; RGBA8 is disclosed as preview fallback. |
 | Effect color parameters in `engine/effectPipeline.ts` | Previously raw component numbers were mixed into an RGBA8 backdrop | Glass-material tinting consumed the union member directly | No | Yes, by normalizing the tagged color before the display-only effect pass | **Fixed in precision milestone:** RGB/CMYK/Gray/float colors now enter this pass through normalized working conversion. The `ImageData` backdrop remains an explicit preview boundary. |
 | Canvas2D CSS colors and `CanvasRenderingContext2D` | Browser display surface, effectively RGBA8 | Browser API/display surface | Yes | No on the surface; yes in canonical state | Explicit display boundary. Document state must remain separate. |
 | Canvas2D `ImageData` effects/masks | `Uint8ClampedArray` RGBA8 | `ImageData` API and existing effect contracts | Sometimes | Yes with a float/16-bit working buffer | Existing effects are display-precision operations unless upgraded or explicitly marked as preview fallback. |
 | WebGPU base compositor | `rgba8unorm` texture | Current backend selects the broadest universally available preview format | No for an intermediate | Yes with capability-selected `rgba16float`/`rgba32float` | Preview target must be treated as derived; backend capability and fallback need explicit reporting. |
 | WebGPU effect runner | `rgba8unorm` storage texture + `Uint8ClampedArray` readback | Current effect kernels and runner contract | No for canonical/effect working data | Yes with float storage/readback path | **Root cause:** GPU effects quantize every pass when used on high-precision content. |
-| Raster pixel buffer descriptor | `rgba8`, `rgba16`, `rgba16f`, `rgba32f` are modeled | Format is selected by owner | No | Yes | Good boundary contract; integration must carry the descriptor through decode/cache/effects. |
+| Raster pixel buffer descriptor | Typed `rgba8`, `rgba16`, `rgba16f`, `rgba32f` storage plus encoding/alpha metadata | Format is selected by owner | No | Yes | **Implemented:** budgeted allocator and explicit half-float conversion helpers; decode/cache integration remains separate. |
 | Raster analytic transform over `ImageData` | In-place RGBA8 | The API accepts `ImageData` | Yes for `ImageData` callers | Yes via `convertFloat32()`/typed buffers | Explicit low-precision adapter; must not be used to overwrite a higher-precision source asset. |
 | Raster analytic transform over `Float32Array` | RGBA32F | No quantization in transform math | No | Yes | Precision-preserving path exists and should be the preferred path for float buffers. |
 | PNG/JPEG/WebP export policy | Destination is currently 8-bit RGB | Common browser encoders/output contracts | Format-dependent | PNG16/TIFF/float outputs require separate encoders | Quantization is valid only when the selected target requires it and must be disclosed. |
@@ -49,14 +49,18 @@ their working input.
 
 ## Required changes derived from this audit
 
-1. Make normalized working conversion direct from the tagged channels. It must
-   not call the RGBA8 display reducer.
-2. Keep gradient interpolation in normalized/high-precision values and quantize
-   only while constructing a Canvas2D-compatible display stop.
-3. Ensure proofing and other derived transforms do not rebuild authoritative
-   colors from an RGBA8 tuple.
+1. ~~Make normalized working conversion direct from the tagged channels.~~
+   Completed in `@varve/shared`.
+2. ~~Keep gradient interpolation in normalized/high-precision values and
+   quantize only while constructing a Canvas2D-compatible display stop.~~
+   Completed in `@varve/engine` and `@varve/shared`.
+3. ~~Ensure proofing and other derived transforms do not rebuild authoritative
+   colors from an RGBA8 tuple.~~ Completed for effects and editor proofing;
+   legacy providers remain explicit preview fallbacks.
 4. Carry pixel-buffer format and color-encoding metadata across raster decode,
-   cache, transform, compositor, and export boundaries.
+   cache, transform, compositor, and export boundaries. The typed storage
+   contract is implemented; end-to-end decode/cache/compositor integration is
+   still pending.
 5. Keep Canvas2D, `ImageData`, `rgba8unorm`, JPEG, GIF, and model-specific RGBA8
    paths explicitly labeled as output/preview or capability boundaries.
 
