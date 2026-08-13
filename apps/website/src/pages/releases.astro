@@ -97,9 +97,9 @@ const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_S
 
           <h3>Known limitations</h3>
           <ul>
-            <li>Complex script shaping (Arabic, Devanagari) not supported</li>
+            <li>Complex-script shaping and mixed-direction layout have engine foundations but are not yet wired through every live renderer, caret, and export consumer</li>
             <li>Collaboration features are UI scaffolding only</li>
-            <li>Canvas bleed and trim visualization not implemented</li>
+            <li>Print bleed and trim guides are available, but exported trim and bleed geometry remains the final authority</li>
             <li>Background removal with BiRefNet-Lite requires native desktop (WASM has a 4GB memory limit)</li>
           </ul>
         </div>

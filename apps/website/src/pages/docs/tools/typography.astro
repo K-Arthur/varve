@@ -3,7 +3,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
 ---
 
-<Layout title="Typography — Varve Docs" description="Set type in Varve: multi-line text, OpenType features, variable fonts, text on path, and inline editing.">
+<Layout title="Typography — Varve Docs" description="Set type in Varve: Unicode-aware text foundations, multi-line text, OpenType features, variable fonts, text on path, and inline editing.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,7 +12,7 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <h1>Typography</h1>
       <p class="docs-intro">
-        Varve's text system provides professional typography controls with support for variable fonts, OpenType features, multi-line text, text on path, and CJK line breaking. The text engine renders via Canvas2D for pixel-perfect display.
+        Varve's text system provides typography controls with support for variable fonts, OpenType features, multi-line text, text on path, CJK line breaking, and Unicode-aware editing foundations. Canvas2D remains the current browser rasterization fallback; it is not the sole canonical source for complex-script glyph layout.
       </p>
 
       <section class="docs-section">
@@ -31,11 +31,21 @@ import { sitePath } from '../../../lib/siteUrl';
           There are two ways to edit existing text:
         </p>
         <ul>
-          <li><strong>Double-click</strong> the text node with the Select tool to enter inline editing. A positioned <code>&lt;textarea&gt;</code> overlay appears at the text's location on canvas, supporting IME input, RTL text, and keyboard navigation.</li>
+          <li><strong>Double-click</strong> the text node with the Select tool to enter inline editing. A positioned <code>&lt;textarea&gt;</code> overlay appears at the text's location on canvas, with composition-aware input and grapheme-safe selection mapping. Mixed-direction caret behavior remains under active integration.</li>
           <li><strong>Edit in Inspector</strong> — Select a text node and find the text content field in the Typography section of the Inspector. This is useful for longer text passages.</li>
         </ul>
         <p>
           Press <code>Escape</code> or click away to exit edit mode.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Unicode and text direction</h2>
+        <p>
+          Varve keeps document text in logical Unicode order. The engine distinguishes UTF-16 offsets used by browser editing from code-point, grapheme, shaping-cluster, glyph, and visual-caret positions. Rich-text ranges snap to extended grapheme boundaries so combining sequences and joined emoji are not split accidentally.
+        </p>
+        <p>
+          The engine resolves paragraph direction and mixed LTR/RTL runs through a UAX #9 adapter, including embedding levels, visual mappings, and mirrored punctuation. The live renderer, line wrapping, caret geometry, and export consumers are still being migrated to the same derived layout snapshot, so complex mixed-direction text should be validated in the final export.
         </p>
       </section>
 
@@ -124,7 +134,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Text Measurement</h2>
         <p>
-          Varve uses real canvas <code>measureText()</code> for accurate text metrics, falling back to content-length estimation only in non-DOM environments. The measurement system powers:
+          Varve uses canvas <code>measureText()</code> as the current browser fallback for text metrics, falling back to content-length estimation only in non-DOM environments. A canonical layout snapshot and shaping backend contract are being integrated so glyph clusters, caret geometry, bounds, and exports can share one authority. The current fallback powers:
         </p>
         <ul>
           <li>Auto-sizing text boxes</li>
