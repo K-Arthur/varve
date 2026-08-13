@@ -40,8 +40,7 @@ export function lineVisualRuns(
     lineStart,
     lineEnd,
   );
-  const levelAt = (index: number): number =>
-    paragraph.levels[index] ?? paragraph.baseLevel;
+  const levelAt = (index: number): number => paragraph.levels[index] ?? paragraph.baseLevel;
   const runs: LineVisualRun[] = [];
   let min = -1;
   let max = -1;
