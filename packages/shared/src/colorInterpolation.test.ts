@@ -99,6 +99,18 @@ describe('sampleGradientColor', () => {
     expect(mid.r).toBeGreaterThan(200);
     expect(mid.g).toBeGreaterThan(200);
   });
+
+  it('can retain fractional channels for a working-space sample', () => {
+    const precise: GradientStopInput[] = [
+      { position: 0, color: { space: 'rgb', r: 12.34, g: 40.12, b: 80.34, a: 255 } },
+      { position: 1, color: { space: 'rgb', r: 210.12, g: 180.34, b: 120.56, a: 255 } },
+    ];
+    const display = sampleGradientColor(precise, 0.5, 'srgb');
+    const working = sampleGradientColor(precise, 0.5, 'srgb', { precision: 'working' });
+    expect(display.r).toBe(111);
+    expect(working.r).toBeCloseTo(111.23, 10);
+    expect(working.r).not.toBe(display.r);
+  });
 });
 
 describe('expandGradientStops', () => {
