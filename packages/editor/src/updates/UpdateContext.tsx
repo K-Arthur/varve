@@ -37,6 +37,7 @@ interface UpdateContextValue {
   download(): Promise<UpdateState>;
   install(): Promise<UpdateState>;
   installAndRestart(): Promise<UpdateState>;
+  cancel(): UpdateState;
   defer(): UpdateState;
   skipVersion(): UpdatePreferences;
   resetSkippedVersions(): UpdatePreferences;
@@ -201,6 +202,12 @@ export function UpdateCoordinatorProvider({
       check: () => runGuarded('check', () => coordinator.check('manual')),
       download: () => runGuarded('download', () => coordinator.download()),
       install: () => runGuarded('install', () => coordinator.install()),
+      cancel: () => {
+        const next = coordinator.cancel();
+        setState(next);
+        sync?.publish({ type: 'state', state: next });
+        return next;
+      },
       installAndRestart: async () => {
         installRequestedRef.current = true;
         const lifecycle = getLifecycleCoordinator();
