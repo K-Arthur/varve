@@ -23,7 +23,8 @@ export interface PackagingContext {
   currentVersion: string;
   channel: UpdateChannel;
   updateAuthority: UpdateAuthority;
-  installLocation: 'writable' | 'not-writable' | 'unknown';
+  /** `translocated` = macOS Gatekeeper quarantine copy; never an update target. */
+  installLocation: 'writable' | 'not-writable' | 'translocated' | 'unknown';
   /** True only when the native adapter has verified the runtime package. */
   runtimeSupported: boolean;
   /** Human-readable build label, e.g. `x86_64 AppImage`. */
