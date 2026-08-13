@@ -1,5 +1,5 @@
-import type { EditorContextValue } from '../context';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
+import type { EditorContextValue } from '../context';
 import { openMockupsWithSelection } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
@@ -220,9 +220,19 @@ export function registerEditorActions(
     r.register(
       {
         id: 'upscaleImage',
-        label: 'Upscale Image',
+        label: 'Enhance Image…',
         category: 'object',
-        keywords: ['upscale', 'image', 'enlarge', 'ai', 'super-resolution', 'rescale'],
+        keywords: [
+          'enhance',
+          'upscale',
+          'image',
+          'denoise',
+          'restore',
+          'enlarge',
+          'ai',
+          'super-resolution',
+          'rescale',
+        ],
       },
       handlers.upscaleImage ?? (() => {}),
     );

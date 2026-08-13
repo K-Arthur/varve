@@ -155,13 +155,13 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   return (
     <DisclosureSection title="Image & Vector" sectionId="image-enhancement">
       <div className="insp-field-group">
-        <p className="insp-subsection__label">Upscale</p>
+        <p className="insp-subsection__label">Image Enhance</p>
         <p className="insp-hint">
-          Enlarge the image using traditional resampling or AI super-resolution.
+          Denoise, restore, or enlarge the image with a bounded local workflow.
         </p>
         <div className="insp-actions">
           <Button type="button" variant="primary" size="sm" onClick={() => openUpscaleDialog()}>
-            Open Upscale Dialog
+            Enhance image…
           </Button>
         </div>
       </div>
