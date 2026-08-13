@@ -124,12 +124,7 @@ fn main() -> Result<(), String> {
             "--iterations" => iterations = value().parse().map_err(|_| "bad --iterations")?,
             "--preview-max" => preview_max = value().parse().map_err(|_| "bad --preview-max")?,
             "--models" => {
-                models_filter = Some(
-                    value()
-                        .split(',')
-                        .map(str::to_owned)
-                        .collect::<Vec<_>>(),
-                )
+                models_filter = Some(value().split(',').map(str::to_owned).collect::<Vec<_>>())
             }
             other => return Err(format!("unknown argument: {other}")),
         }
@@ -176,7 +171,7 @@ fn main() -> Result<(), String> {
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&existing) {
                 if let Some(prior) = parsed["results"].as_array() {
                     for entry in prior {
-                        if let Some(id) = entry.get("case_id").and_then(|v| v.as_str()) {
+                        if entry.get("case_id").and_then(|v| v.as_str()).is_some() {
                             results.push(
                                 serde_json::from_value(entry.clone())
                                     .map_err(|e| format!("merge existing result: {e}"))?,
