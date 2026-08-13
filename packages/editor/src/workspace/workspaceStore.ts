@@ -131,15 +131,24 @@ function sanitizePreference(
     }
   }
 
-  // Sanitize toolbar tool overrides — only boolean visibility values for known tools
-  const baseToolIds = new Set(
-    base ? getWorkspaceConfig(mode).toolbar.tools.map((t) => t.toolId) : [],
+  // Sanitize toolbar tool overrides — only boolean visibility values for known
+  // tools. Flyout members count as known: boolean operations and any shape that
+  // lives only in a flyout are legitimate customization targets, and rejecting
+  // them here is what previously made those overrides unsavable.
+  const baseToolbar = getWorkspaceConfig(mode).toolbar;
+  const baseToolIds = new Set<string>(
+    base
+      ? [
+          ...baseToolbar.tools.map((t) => t.toolId),
+          ...(baseToolbar.flyouts ?? []).flatMap((f) => f.tools),
+        ]
+      : [],
   );
   const toolRaw = pref.toolbarToolOverrides;
   const cleanTools: Partial<Record<string, boolean>> = {};
   if (toolRaw && typeof toolRaw === 'object') {
     for (const [toolId, val] of Object.entries(toolRaw)) {
-      if (baseToolIds.has(toolId as ToolId) && typeof val === 'boolean') {
+      if (baseToolIds.has(toolId) && typeof val === 'boolean') {
         cleanTools[toolId] = val;
       }
     }
@@ -466,14 +475,26 @@ export function getEffectiveWorkspaceConfig(
     // Selection, hand and zoom remain available as recovery/navigation tools.
     // Customization may reduce clutter, but must not strand the user without
     // a way to select objects or navigate the canvas.
+    const overrides = modePrefs.toolbarToolOverrides;
+    const visible = (toolId: ToolId): boolean =>
+      overrides[toolId] !== false || ESSENTIAL_TOOL_IDS.has(toolId);
+    // Flyout members are filtered with the same rule. Without this a hidden
+    // boolean operation or shape stayed in its flyout, so the override applied
+    // to the main row only and customization looked broken for exactly the
+    // tools that live in a flyout.
     result = {
       ...result,
       toolbar: {
         ...result.toolbar,
-        tools: result.toolbar.tools.filter((t) => {
-          const override = modePrefs.toolbarToolOverrides![t.toolId];
-          return override !== false || ESSENTIAL_TOOL_IDS.has(t.toolId);
-        }),
+        tools: result.toolbar.tools.filter((t) => visible(t.toolId)),
+        ...(result.toolbar.flyouts
+          ? {
+              flyouts: result.toolbar.flyouts.map((flyout) => ({
+                ...flyout,
+                tools: flyout.tools.filter(visible),
+              })),
+            }
+          : {}),
       },
     };
   }

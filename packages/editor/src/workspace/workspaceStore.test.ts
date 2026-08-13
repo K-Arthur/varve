@@ -134,6 +134,36 @@ describe('workspaceStore — effective configuration', () => {
     expect(toolIds).toEqual(expect.arrayContaining(['select', 'hand', 'zoom']));
   });
 
+  it('applies tool overrides to flyout members, not just the main row', () => {
+    // Boolean operations live only in a flyout. The sanitizer used to accept
+    // override ids present in `toolbar.tools` only, so hiding a boolean op was
+    // discarded on save and the flyout ignored it on read.
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanExclude', false),
+    );
+    const boolean = getEffectiveWorkspaceConfig('design').toolbar.flyouts?.find(
+      (flyout) => flyout.id === 'boolean',
+    );
+    expect(boolean?.tools).not.toContain('booleanExclude');
+    expect(boolean?.tools).toContain('booleanUnion');
+  });
+
+  it('survives a reload with a flyout-only tool override', () => {
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanExclude', false),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarToolOverrides?.booleanExclude).toBe(false);
+  });
+
+  it('still rejects overrides for tools the workspace does not declare', () => {
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'notATool', false),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarToolOverrides?.notATool).toBeUndefined();
+  });
+
   it('resetModePreferences restores the built-in config', () => {
     updateWorkspacePreferences((prefs) =>
       setPanelOverride(prefs, 'design', 'inspector', { visible: false }),
