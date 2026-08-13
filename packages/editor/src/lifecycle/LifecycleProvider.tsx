@@ -23,6 +23,7 @@ import { getSharedRecoveryManager } from '../recovery';
 import { TerminationCoordinator } from './coordinator';
 import { createFinalizerRegistry } from './finalizers';
 import {
+  getLifecycleCommitHook,
   getLifecycleFinalizeHandler,
   installLifecycleCoordinator,
   LIFECYCLE_COMMIT_EVENT,
@@ -133,7 +134,9 @@ export function LifecycleProvider({ onBackToHome }: { onBackToHome?: () => void 
       finalizers,
       dialogs: { prompt: (request) => setPromptRequest(request) },
       trace: devTrace,
-      onCommit: (intent) => {
+      onCommit: async (intent) => {
+        const commitHook = getLifecycleCommitHook();
+        if (commitHook && (await commitHook(intent))) return;
         const handler = getLifecycleFinalizeHandler();
         return handler?.(intent);
       },
