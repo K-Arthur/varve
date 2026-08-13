@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { layoutText, selectionRects, type LayoutTextInput } from '../textLayoutSnapshot';
 import { scriptCodeToTag, shapeParagraphRuns } from '../shaping';
-import { itemizeParagraph, itemizeText } from './paragraphs';
+import { type LayoutTextInput, layoutText, selectionRects } from '../textLayoutSnapshot';
 import { BIDI_FIXTURES, SCRIPT_FIXTURES } from './fixtures';
+import { itemizeParagraph, itemizeText } from './paragraphs';
 
 /** Synthetic logical-order shaping: one run per scripted run, widthPerChar advances. */
 function shape(paragraph: ReturnType<typeof itemizeText>['paragraphs'][number], widthPerChar = 10) {
@@ -279,7 +279,7 @@ describe('layoutText — hit testing and selection', () => {
   });
 });
 
-function hitTest(snapshot: ReturnType<typeof layoutText>, x: number, y: number) {
+function hitTest(snapshot: ReturnType<typeof layoutText>, x: number, _y: number) {
   const stops = snapshot.caretStops.filter((stop) => stop.lineIndex === 0);
   const line = snapshot.lines[0]!;
   return stops.reduce(
@@ -291,7 +291,13 @@ function hitTest(snapshot: ReturnType<typeof layoutText>, x: number, y: number) 
         ? stop
         : best;
     },
-    stops[0] ?? { offset: line.sourceStart, lineIndex: 0, x: 0, affinity: 'leading' as const, direction: line.runs[0]?.direction ?? 'ltr' },
+    stops[0] ?? {
+      offset: line.sourceStart,
+      lineIndex: 0,
+      x: 0,
+      affinity: 'leading' as const,
+      direction: line.runs[0]?.direction ?? 'ltr',
+    },
   );
 }
 

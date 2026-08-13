@@ -9,10 +9,12 @@
  */
 
 /** Whitespace incl. NBSP, ZWSP, and Unicode space separators. */
-const WHITESPACE_RE = /^[\t\n\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u200b\ufeff]+$/;
+const WHITESPACE_RE =
+  /^[\t\n\f\r \u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u200b\ufeff]+$/;
 
 /** Whitespace that permits a line break before it (space, tab, ZWSP, ...). */
-const BREAKABLE_WS_RE = /^[\t\n\f\r \u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u200b\ufeff]+$/;
+const BREAKABLE_WS_RE =
+  /^[\t\n\f\r \u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\u200b\ufeff]+$/;
 
 export interface BreakUnit {
   /** Paragraph-local UTF-16 start. */
