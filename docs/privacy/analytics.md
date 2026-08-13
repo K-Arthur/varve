@@ -4,7 +4,9 @@ Production website and desktop release builds are configured for the
 `varve.studio` Plausible site, but transmission still requires the relevant
 user consent. Local and unconfigured builds remain network-silent. This
 document describes the permitted contract and the data transmitted by the
-enabled aggregate provider.
+enabled aggregate provider. The website loads Plausible's production script
+only after website consent and disables its automatic capture features; Varve
+emits only the events listed below.
 
 | Question | Metric / event | Fields | Category | Retention | Decision |
 |---|---|---|---|---|---|
