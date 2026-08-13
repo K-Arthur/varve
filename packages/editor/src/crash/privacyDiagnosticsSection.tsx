@@ -7,12 +7,17 @@
  */
 
 import type { CrashReport } from '@varve/crash';
+import type { AnalyticsConsentState } from '@varve/shared';
+import { Select } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
+import { updateDesktopAnalyticsConsent } from '../analytics/desktopAnalytics';
+import { useSettings } from '../components/Settings/SettingsContext';
 import { getCrashController } from './controllerRegistry';
 
 type ConsentChoice = 'askEachTime' | 'automaticAllowed' | 'denied';
 
 export function PrivacyDiagnosticsSection() {
+  const { settings, updateSettings } = useSettings();
   const controller = getCrashController();
   const [consent, setConsent] = useState(controller?.getState().consent);
   const [queued, setQueued] = useState<CrashReport[]>([]);
@@ -49,6 +54,13 @@ export function PrivacyDiagnosticsSection() {
 
   const setChoice = (next: ConsentChoice) => {
     controller?.setStandingConsent(next);
+  };
+
+  const setAnalyticsConsent = (category: 'usageAnalytics' | 'diagnostics', value: string) => {
+    if (value !== 'unknown' && value !== 'granted' && value !== 'denied') return;
+    const privacy = { ...settings.privacy, [category]: value as AnalyticsConsentState };
+    updateSettings({ privacy });
+    updateDesktopAnalyticsConsent(privacy);
   };
 
   const setExtendedFlag = (value: boolean) => {
@@ -101,6 +113,49 @@ export function PrivacyDiagnosticsSection() {
 
   return (
     <div className="privacy-section">
+      <h3 className="settings-section__title">Product usage analytics</h3>
+      <p className="privacy-section__description">
+        Optional aggregate feature-usage statistics help prioritize Varve development. They never
+        include designs, filenames, paths, text, images, or document data. This build has no
+        configured usage endpoint, so enabling this preference does not send a network request.
+      </p>
+      <div className="settings-field-row">
+        <span className="settings-field-row__label">Usage analytics</span>
+        <div className="settings-field-row__control">
+          <Select
+            label="Usage analytics consent"
+            options={[
+              { value: 'unknown', label: 'Not decided (off)' },
+              { value: 'granted', label: 'On' },
+              { value: 'denied', label: 'Off' },
+            ]}
+            value={settings.privacy.usageAnalytics}
+            onChange={(value) => setAnalyticsConsent('usageAnalytics', value)}
+          />
+        </div>
+      </div>
+
+      <h3 className="settings-section__title">Performance diagnostics</h3>
+      <p className="privacy-section__description">
+        Optional coarse performance and renderer-fallback measurements. Values are sent only as
+        buckets and are controlled independently from usage analytics.
+      </p>
+      <div className="settings-field-row">
+        <span className="settings-field-row__label">Diagnostics telemetry</span>
+        <div className="settings-field-row__control">
+          <Select
+            label="Diagnostics telemetry consent"
+            options={[
+              { value: 'unknown', label: 'Not decided (off)' },
+              { value: 'granted', label: 'On' },
+              { value: 'denied', label: 'Off' },
+            ]}
+            value={settings.privacy.diagnostics}
+            onChange={(value) => setAnalyticsConsent('diagnostics', value)}
+          />
+        </div>
+      </div>
+
       <h3 className="settings-section__title">Crash reporting</h3>
       <p className="privacy-section__description">{consentDescription}</p>
 
@@ -231,8 +286,8 @@ export function PrivacyDiagnosticsSection() {
 
       <p className="privacy-section__note">
         Crash reports are minimized and automatically scrubbed of file paths, names, and document
-        content — but technical information can still sometimes be identifying. They are never
-        combined with analytics, which Varve does not run.
+        content — but technical information can still sometimes be identifying. Crash reporting is a
+        separate consent category and is never enabled by usage analytics or diagnostics.
       </p>
     </div>
   );
