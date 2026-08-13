@@ -182,4 +182,35 @@ describe('UpdateCoordinator', () => {
     coordinator.synchronize({ kind: 'downloading', update, downloadedBytes: 1, totalBytes: 10 });
     expect(coordinator.resetStaleOperation().kind).toBe('idle');
   });
+
+  it('cancels an in-flight download and discards the completed transfer', async () => {
+    const provider = new FakeProvider();
+    const coordinator = new UpdateCoordinator(provider, new MemoryPreferences(), {
+      now: () => 1000,
+    });
+    await coordinator.initialize();
+    await coordinator.check('manual');
+    const downloadPromise = coordinator.download();
+    expect(coordinator.getState().kind).toBe('downloading');
+    const cancelled = coordinator.cancel();
+    expect(cancelled.kind).toBe('cancelled');
+    await downloadPromise;
+    expect(coordinator.getState().kind).toBe('cancelled');
+    expect(coordinator.getState()).not.toMatchObject({ kind: 'ready-to-install' });
+  });
+
+  it('cancelling from ready-to-install discards the verified handle', async () => {
+    const coordinator = new UpdateCoordinator(new FakeProvider(), new MemoryPreferences(), {
+      now: () => 1000,
+    });
+    await coordinator.initialize();
+    await coordinator.check('manual');
+    await coordinator.download();
+    expect(coordinator.getState()).toMatchObject({ kind: 'ready-to-install' });
+    coordinator.cancel();
+    expect(coordinator.getState().kind).toBe('cancelled');
+    const result = await coordinator.install();
+    expect(result.kind).toBe('error');
+    if (result.kind === 'error') expect(result.error.code).toBe('busy');
+  });
 });

@@ -33,6 +33,7 @@ export class UpdateCoordinator {
   private preferences: UpdatePreferences;
   private context: PackagingContext | null = null;
   private verified: VerifiedUpdate | null = null;
+  private downloadCancelled = false;
   private readonly listeners = new Set<(state: UpdateState) => void>();
 
   constructor(
@@ -170,6 +171,7 @@ export class UpdateCoordinator {
     if (this.state.kind !== 'update-available')
       return this.fail('busy', 'No update is available to download.');
     const update = this.state.update;
+    this.downloadCancelled = false;
     try {
       const downloaded = await this.provider.download(update, (progress) => {
         this.publish(
@@ -181,6 +183,11 @@ export class UpdateCoordinator {
           } as never),
         );
       });
+      // A cancel requested while the transfer was in flight wins over the
+      // completed transfer: the bytes are discarded, never verified or
+      // installed. Tauri may retain its transport cache; a later download can
+      // reuse it, which is fine — the cache is signature-checked again anyway.
+      if (this.downloadCancelled) return this.state;
       // Providers report completion only after the last byte is durable.
       if (this.state.kind === 'update-available') {
         this.publish(
@@ -189,6 +196,10 @@ export class UpdateCoordinator {
       }
       this.publish(transitionUpdateState(this.state, { type: 'download-finished' }));
       this.verified = await this.provider.verify(downloaded, update);
+      if (this.downloadCancelled) {
+        this.verified = null;
+        return this.state;
+      }
       return this.publish(transitionUpdateState(this.state, { type: 'verification-succeeded' }));
     } catch (error) {
       const normalized = normalizeError(error, 'download-failed');
@@ -225,6 +236,25 @@ export class UpdateCoordinator {
 
   defer(): UpdateState {
     return this.publish(transitionUpdateState(this.state, { type: 'defer' }));
+  }
+
+  /**
+   * Cancel an in-flight download or verification. The underlying transport has
+   * no abort API (Tauri's updater does not expose one), so the byte transfer
+   * may continue in the background — the coordinator discards the result and
+   * never moves to `ready-to-install`. The transfer cache may be reused by a
+   * later download, which is re-verified before install.
+   */
+  cancel(): UpdateState {
+    if (this.state.kind === 'downloading' || this.state.kind === 'verifying') {
+      this.downloadCancelled = true;
+      return this.publish(transitionUpdateState(this.state, { type: 'cancel' }));
+    }
+    if (this.state.kind === 'ready-to-install') {
+      this.verified = null;
+      return this.publish(transitionUpdateState(this.state, { type: 'cancel' }));
+    }
+    return this.state;
   }
 
   skipVersion(): UpdatePreferences {

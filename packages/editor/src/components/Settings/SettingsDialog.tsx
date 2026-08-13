@@ -622,9 +622,19 @@ function UpdatesSection() {
         </>
       )}
       {state.kind === 'downloading' && (
-        <p className="settings-hint" role="status" aria-live="polite">
-          {status}
-        </p>
+        <>
+          <p className="settings-hint" role="status" aria-live="polite">
+            {status}
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => updates.cancel()}>
+            Cancel download
+          </Button>
+        </>
+      )}
+      {state.kind === 'verifying' && (
+        <Button variant="ghost" size="sm" onClick={() => updates.cancel()}>
+          Cancel
+        </Button>
       )}
       {state.kind === 'ready-to-install' && (
         <div className="settings-dialog__footer">
