@@ -21,13 +21,28 @@ import { sitePath } from '../../../lib/siteUrl';
           All colors in Varve are represented as <strong>ManagedColor</strong>, a discriminated union that supports four color modes:
         </p>
         <ul>
-          <li><strong>RGB</strong> — Standard sRGB color with 8-bit channels (0-255)</li>
+          <li><strong>RGB</strong> — sRGB color with bit-depth-aware channels (8-bit 0-255, 16-bit 0-65535, or float 0-1)</li>
           <li><strong>CMYK</strong> — Cyan, Magenta, Yellow, Key (black) percentages for print production</li>
           <li><strong>Grayscale</strong> — Single channel grayscale</li>
           <li><strong>Spot</strong> — Named spot color (e.g., Pantone) for specialized print output</li>
         </ul>
         <p>
-          The ColorPicker supports all four modes with a tabbed interface. You can switch between RGB, CMYK, Grayscale, and Spot color selection at any time. A <strong>Gamut Warning</strong> indicator alerts you when a color falls outside the printable CMYK gamut.
+          The ColorPicker supports all four modes with a tabbed interface. You can switch between RGB, CMYK, Grayscale, and Spot color selection at any time. A <strong>Gamut Warning</strong> indicator alerts you when a color falls outside the printable CMYK gamut. Numeric fields adapt to the document's precision: 0-255 for 8-bit documents, 0-65535 for 16-bit, and 0-1 with decimals for float documents. Editing one channel carries the untouched channels at full precision, and 16-bit/float values survive save and reopen exactly.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Document Color Settings</h2>
+        <p>
+          The Inspector's Document Color section (no selection required) controls the document's color intent:
+        </p>
+        <ul>
+          <li><strong>Mode</strong> — Assign RGB, CMYK, or Grayscale as the working mode. Assignment changes intent only; existing colors keep their values and are converted at export.</li>
+          <li><strong>Precision</strong> — 8-bit, 16-bit, 16f, or 32f. Sets the storage depth for newly authored colors; existing values are never rewritten.</li>
+          <li><strong>Blend space</strong> — sRGB or linear-light compositing.</li>
+        </ul>
+        <p>
+          <strong>File &rarr; Document Color Mode&hellip;</strong> (also in the command palette) opens the Assign vs Convert dialog: <em>Assign</em> changes the working mode without rewriting values, <em>Convert</em> rewrites every process color in one undoable transaction (analytical in the browser; profile-accurate ICC conversion via the desktop engine).
         </p>
       </section>
 
