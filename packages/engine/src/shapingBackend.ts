@@ -126,9 +126,12 @@ export function createHarfBuzzWasmBackend(): ShapingBackend {
         const codePoint = request.text.codePointAt(start);
         if (codePoint !== undefined) buffer.add(codePoint, start);
       }
+      // Infer direction/script/language from the text first, then apply the
+      // explicit request fields — without the guess, a direction-only request
+      // shapes with the default script (no Arabic/Indic features).
+      buffer.guessSegmentProperties();
       if (request.direction)
         buffer.setDirection(directionToHarfBuzz(hb.Direction, request.direction));
-      else buffer.guessSegmentProperties();
       if (request.script) buffer.setScript(request.script);
       if (request.language) buffer.setLanguage(request.language);
       buffer.setClusterLevel(hb.ClusterLevel.MONOTONE_CHARACTERS);
