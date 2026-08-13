@@ -74,6 +74,7 @@ function nextAvailableName(usedNames: Set<string>, base: string): string {
 function loadBoundedPixels(
   source: ImageSource,
   signal: AbortSignal,
+  crop?: ImageSource['crop'],
 ): Promise<{ width: number; height: number; data: Uint8ClampedArray }> {
   if (typeof Image === 'undefined' || typeof document === 'undefined') {
     return Promise.reject(new Error('Image decoding is unavailable in this runtime.'));
@@ -96,23 +97,33 @@ function loadBoundedPixels(
       try {
         const naturalWidth = image.naturalWidth || source.width;
         const naturalHeight = image.naturalHeight || source.height;
-        const crop = source.crop
+        const effectiveCrop = crop
           ? {
-              x: Math.max(0, Math.min(naturalWidth - 1, source.crop.x)),
-              y: Math.max(0, Math.min(naturalHeight - 1, source.crop.y)),
-              w: Math.max(1, Math.min(naturalWidth, source.crop.w)),
-              h: Math.max(1, Math.min(naturalHeight, source.crop.h)),
+              x: Math.max(0, Math.min(naturalWidth - 1, crop.x)),
+              y: Math.max(0, Math.min(naturalHeight - 1, crop.y)),
+              w: Math.max(1, Math.min(naturalWidth, crop.w)),
+              h: Math.max(1, Math.min(naturalHeight, crop.h)),
             }
           : { x: 0, y: 0, w: naturalWidth, h: naturalHeight };
-        const width = Math.max(1, Math.min(256, Math.round(crop.w)));
-        const height = Math.max(1, Math.min(256, Math.round(crop.h)));
+        const width = Math.max(1, Math.min(256, Math.round(effectiveCrop.w)));
+        const height = Math.max(1, Math.min(256, Math.round(effectiveCrop.h)));
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
         const context = canvas.getContext('2d', { willReadFrequently: true });
         if (!context) throw new Error('Could not create an image analysis surface.');
         context.clearRect(0, 0, width, height);
-        context.drawImage(image, crop.x, crop.y, crop.w, crop.h, 0, 0, width, height);
+        context.drawImage(
+          image,
+          effectiveCrop.x,
+          effectiveCrop.y,
+          effectiveCrop.w,
+          effectiveCrop.h,
+          0,
+          0,
+          width,
+          height,
+        );
         const pixels = context.getImageData(0, 0, width, height);
         resolve({ width, height, data: new Uint8ClampedArray(pixels.data) });
       } catch (error) {
@@ -149,6 +160,7 @@ export function PaletteSection() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [colorCount, setColorCount] = useState(6);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [sourceMode, setSourceMode] = useState<'full' | 'crop'>('crop');
 
   const runAnalysis = useCallback(
     async (force = false) => {
@@ -161,7 +173,8 @@ export function PaletteSection() {
       setErrorMessage(null);
       setSavedMessage(null);
       try {
-        const pixels = await loadBoundedPixels(currentSource, controller.signal);
+        const crop = sourceMode === 'crop' ? currentSource.crop : undefined;
+        const pixels = await loadBoundedPixels(currentSource, controller.signal, crop);
         const request: PaletteAnalysisRequest = {
           ...pixels,
           source: {
@@ -169,7 +182,7 @@ export function PaletteSection() {
             contentHash: currentSource.contentHash,
             width: pixels.width,
             height: pixels.height,
-            crop: currentSource.crop,
+            ...(crop ? { crop } : {}),
             colorProfile: currentSource.colorProfile,
           },
         };
@@ -187,7 +200,7 @@ export function PaletteSection() {
         setErrorMessage(error instanceof Error ? error.message : 'Palette analysis failed.');
       }
     },
-    [colorCount],
+    [colorCount, sourceMode],
   );
 
   useEffect(() => {
@@ -201,6 +214,10 @@ export function PaletteSection() {
     void runAnalysis();
     return () => abortRef.current?.abort();
   }, [runAnalysis, sourceKey]);
+
+  useEffect(() => {
+    setSourceMode('crop');
+  }, [sourceKey]);
 
   useEffect(
     () => () => {
@@ -272,9 +289,35 @@ export function PaletteSection() {
       <div className="palette-section__controls">
         <fieldset className="palette-section__source">
           <legend className="palette-section__source-label">From {source.label}</legend>
-          <span className="palette-section__source-detail">
-            {source.crop ? 'Visible crop' : 'Full image'}; analysis stays local
-          </span>
+          {source.crop && (
+            <div
+              className="palette-section__source-modes"
+              role="radiogroup"
+              aria-label="Palette analysis source"
+            >
+              <label className="palette-section__source-mode">
+                <input
+                  type="radio"
+                  name="palette-source"
+                  value="crop"
+                  checked={sourceMode === 'crop'}
+                  onChange={() => setSourceMode('crop')}
+                />
+                Visible crop
+              </label>
+              <label className="palette-section__source-mode">
+                <input
+                  type="radio"
+                  name="palette-source"
+                  value="full"
+                  checked={sourceMode === 'full'}
+                  onChange={() => setSourceMode('full')}
+                />
+                Full image
+              </label>
+            </div>
+          )}
+          <span className="palette-section__source-detail">Analysis stays local</span>
         </fieldset>
 
         <div className="palette-section__toolbar">
