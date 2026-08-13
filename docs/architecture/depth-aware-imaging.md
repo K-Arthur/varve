@@ -1,6 +1,6 @@
 # Depth-aware imaging
 
-Status: implementation in progress (2026-08-13)
+Status: vertical slice implemented; model parity and final visual gate pending (2026-08-13)
 
 This document records the repository audit and the contract for Varve's
 depth-aware imaging foundation. It deliberately separates the user-facing
@@ -20,10 +20,12 @@ DepthMap concept from the model and inference runtime that creates it.
   output, an Apache-2.0 source license, and a pinned file hash. The manifest's
   `inferenceVerified` flag is currently false, so parity evidence remains a
   release gate rather than an assumption.
-- `packages/engine/src/inference/models/depth.ts` currently normalizes output
-  directly to an ephemeral 8-bit array. It uses nearest-neighbour resize and
-  does not preserve source revision, validity, model provenance, or a reusable
-  resource identity.
+- The reusable contract now lives in `packages/engine/src/depthMap.ts`.
+  Runtime predictions are percentile-normalized into canonical `0 = near`,
+  `1 = far` values, with validity, model provenance, source identity, and a
+  versioned little-endian uint16 document payload. The inference adapter still
+  needs a verified model-output parity fixture before the manifest can be
+  promoted to a verified release state.
 - `packages/engine/src/lensBlur.ts` builds several full-image Gaussian levels
   and chooses between them per pixel. This is useful as a prototype, but it is
   not sufficient for depth discontinuities: a foreground sample can bleed into
@@ -37,10 +39,11 @@ DepthMap concept from the model and inference runtime that creates it.
 - Effects are typed scene values and are lowered through
   `sceneNodeToEngineNode` into the shared Canvas2D replay and export paths.
   Existing layer/background blur effects do not have access to a depth resource.
-- The current editor integration is an image-only “Lens Blur” adjustment panel.
-  It downloads/loads the model, generates an in-memory map, previews it, and
-  inserts a new derived image. It therefore loses editability, does not survive
-  save/reopen, and cannot be reused by another depth-aware feature.
+- The editor integration is now a “Depth Blur” panel. It can download/load the
+  local model, generate and inspect a reusable map, pick a focus value from the
+  depth preview, and save a typed effect plus document-level resource. Rendering
+  uses the saved map and does not require the model. Source hashes invalidate a
+  saved map when the underlying image asset changes.
 - Browser inference is routed through the same worker abstraction. Saved
   raster/image assets already render without a model, so persisted depth must
   follow that rule; generation may remain capability-gated where the runtime is
@@ -105,6 +108,28 @@ Depth Blur will be non-destructive and will use a depth-aware gather/composite
 strategy with premultiplied alpha. The implementation must include explicit
 foreground/background boundary fixtures; a clean Gaussian level blend is not a
 substitute for occlusion handling.
+
+## Implemented contract
+
+- `DepthMapResource.schemaVersion` is currently `1`; scalar data is persisted
+  as uint16 little-endian values encoded in base64, with an optional validity
+  payload. Unsupported or corrupt resources are left in the document so the
+  renderer can fail soft and keep the source pixels visible.
+- `depthBlur` is a scene effect with a `depthMapId`, focal depth, focus range,
+  blur strength, falloff, inversion, edge protection, and visibility. Scene
+  normalization clamps numeric fields, while engine lowering attaches the
+  document resource only when it is present.
+- The Canvas2D replay path resizes the resource to the compositor surface and
+  applies a premultiplied-alpha depth-aware gather. Samples farther than the
+  center pixel plus the edge-protection threshold are rejected, preventing the
+  most obvious background bleed across a foreground boundary.
+- The Inspector preview remains a bounded image preview. The focus picker is
+  intentionally explicit about sampling the depth preview, not promising a
+  camera-space 3D measurement. A future canvas-integrated picker can reuse the
+  same canonical `sampleDepth` contract.
+
+The first slice does not claim metric depth, calibrated optical behavior, or
+verified model quality. Those claims remain release gates.
 
 ## Known release gates
 
