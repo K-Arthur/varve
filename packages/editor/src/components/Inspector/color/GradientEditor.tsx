@@ -17,7 +17,7 @@ import type {
   GradientType,
   ManagedColor,
 } from '@varve/scene';
-import type { NormalizedRgba } from '@varve/shared';
+import type { InterpolationRgba } from '@varve/shared';
 import {
   denormalizeChannel,
   expandGradientStops,
@@ -121,7 +121,7 @@ export function GradientEditor({
       let color: ManagedColor = sorted[0]?.color ?? defaultColor;
       // Interpolate in normalized 0-1 space so a new stop in a uint16/float
       // document is not collapsed to the 8-bit gradient lattice.
-      const toNormalized = (c: ManagedColor): NormalizedRgba => {
+      const toNormalized = (c: ManagedColor): InterpolationRgba => {
         if (c.space === 'rgb') {
           const bd = c.bitDepth ?? 'uint8';
           return {

@@ -271,6 +271,20 @@ class ModelLoader {
       try {
         const blob = await loadModelBlob(modelId);
         if (blob) {
+          // A stored blob can predate this loader (legacy stores, partially
+          // completed downloads committed by an older writer). Verify it
+          // against the manifest before handing it to the runtime: a corrupt
+          // copy passing availability silently breaks inference deep inside
+          // the ONNX backend with an opaque error, and — worse — keeps the
+          // UI from ever offering the download path again.
+          const manifestEntry = await getManifestEntry(modelId, signal).catch(() => null);
+          if (manifestEntry?.sha256) {
+            const ok = await verifyModelChecksum(await blob.arrayBuffer(), manifestEntry.sha256);
+            if (!ok) {
+              await deleteModelBlob(modelId).catch(() => {});
+              return null;
+            }
+          }
           if (this.activeBlobUrl) {
             URL.revokeObjectURL(this.activeBlobUrl);
           }

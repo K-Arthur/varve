@@ -390,7 +390,7 @@ export class TransformEngine {
                 transform: newChildLocal,
               } as SceneNode;
             }
-          } else if (node.layoutStyle && node.layoutStyle.mode !== 'none') {
+          } else if (node.layoutStyle) {
             // Layout frames reflow: layout owns child positions (and
             // fill/grow sizes), so a canvas resize must re-run the layout
             // against the frame's new box — constraint propagation alone
