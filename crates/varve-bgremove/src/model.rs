@@ -2,15 +2,20 @@
 //!
 //! Models are stored in the user's config directory when the `ai` feature is
 //! enabled (Option B per ADR-0005 Phase E amendment):
-//! - Linux: `~/.local/share/strata/models/`
-//! - macOS: `~/Library/Application Support/strata/models/`
-//! - Windows: `%APPDATA%/strata/models/`
+//! - Linux: `~/.local/share/dev.varve.desktop/models/`
+//! - macOS: `~/Library/Application Support/dev.varve.desktop/models/`
+//! - Windows: `%APPDATA%/dev.varve.desktop/models/`
 //!
 //! IndexedDB in the webview remains the primary download path for shipped
 //! builds. Native storage is populated only via explicit export/import or
 //! future native download IPC — not automatic dual-storage.
 
-use std::{path::PathBuf, sync::{LazyLock, OnceLock}};
+use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::{LazyLock, OnceLock},
+};
 
 static CONFIGURED_MODELS_DIR: OnceLock<PathBuf> = OnceLock::new();
 
@@ -118,7 +123,10 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
 
 /// Get the directory where native models are stored.
 pub fn models_dir() -> PathBuf {
-    CONFIGURED_MODELS_DIR.get().cloned().unwrap_or_else(fallback_models_dir)
+    CONFIGURED_MODELS_DIR
+        .get()
+        .cloned()
+        .unwrap_or_else(fallback_models_dir)
 }
 
 /// Non-Tauri fallback used by standalone tests and CLI callers. It never
@@ -139,6 +147,77 @@ pub fn is_model_downloaded(model_id: &str) -> bool {
 /// Get the file path for a downloaded model.
 pub fn model_path(model_id: &str) -> PathBuf {
     models_dir().join(format!("{model_id}.onnx"))
+}
+
+/// Copy valid models from pre-Varve application directories without deleting
+/// or replacing anything. This is intentionally per-file: a user may have a
+/// valid model in `strata/models` while the new directory already contains a
+/// different model. The old file remains available to older Varve builds.
+pub fn migrate_legacy_models() -> Result<usize, String> {
+    let destination = models_dir();
+    let mut candidates = Vec::new();
+    if let Some(app_data_dir) = destination.parent().and_then(Path::parent) {
+        candidates.push(app_data_dir.join("strata/models"));
+        candidates.push(app_data_dir.join("dev.strata.desktop/models"));
+    }
+    if let Some(data_dir) = dirs_next::data_dir() {
+        candidates.push(data_dir.join("strata/models"));
+        candidates.push(data_dir.join("dev.strata.desktop/models"));
+    }
+    candidates.sort();
+    candidates.dedup();
+
+    let mut migrated = 0;
+    for source in candidates {
+        migrated += migrate_legacy_models_from(&source, &destination)?;
+    }
+    Ok(migrated)
+}
+
+/// Testable migration primitive. It validates the source before copying and
+/// promotes through a sibling temporary file so an interrupted copy cannot
+/// become the apparent installed model.
+pub fn migrate_legacy_models_from(source: &Path, destination: &Path) -> Result<usize, String> {
+    if !source.is_dir() || source == destination {
+        return Ok(0);
+    }
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("Failed to create model directory: {error}"))?;
+
+    let mut migrated = 0;
+    for model in AVAILABLE_MODELS.iter() {
+        let source_path = source.join(format!("{}.onnx", model.id));
+        let destination_path = destination.join(format!("{}.onnx", model.id));
+        if destination_path.is_file() || !valid_model_file(model, &source_path) {
+            continue;
+        }
+        let staging = destination.join(format!(".legacy-{}.onnx.tmp", model.id));
+        fs::copy(&source_path, &staging)
+            .map_err(|error| format!("Failed to migrate {}: {error}", model.id))?;
+        if let Err(error) = fs::rename(&staging, &destination_path) {
+            let _ = fs::remove_file(&staging);
+            return Err(format!("Failed to finalize migrated {}: {error}", model.id));
+        }
+        migrated += 1;
+    }
+    Ok(migrated)
+}
+
+fn valid_model_file(model: &ModelInfo, path: &Path) -> bool {
+    let Ok(metadata) = path.metadata() else {
+        return false;
+    };
+    if !metadata.is_file() || metadata.len() != model.size_bytes {
+        return false;
+    }
+    let Some(expected) = model.checksum_sha256.as_deref() else {
+        return true;
+    };
+    let Ok(bytes) = fs::read(path) else {
+        return false;
+    };
+    let actual = format!("{:x}", Sha256::digest(bytes));
+    actual == expected
 }
 
 /// Get metadata for a model id.
@@ -272,7 +351,10 @@ mod tests {
                 .unwrap_or(false),
             "models dir must never resolve under the executable directory"
         );
-        assert_eq!(model_path("isnet-general-use"), path.join("isnet-general-use.onnx"));
+        assert_eq!(
+            model_path("isnet-general-use"),
+            path.join("isnet-general-use.onnx")
+        );
     }
 
     #[test]
@@ -285,5 +367,26 @@ mod tests {
                 model.remote_url
             );
         }
+    }
+
+    #[test]
+    fn legacy_migration_copies_only_valid_missing_models() {
+        let root =
+            std::env::temp_dir().join(format!("varve-model-migration-test-{}", std::process::id()));
+        let source = root.join("strata/models");
+        let destination = root.join("dev.varve.desktop/models");
+        std::fs::create_dir_all(&source).expect("create source");
+        std::fs::create_dir_all(&destination).expect("create destination");
+
+        // A malformed legacy file is ignored, never copied just because its
+        // filename looks familiar.
+        std::fs::write(source.join("u2netp.onnx"), b"not-a-model").expect("write invalid");
+        assert_eq!(
+            migrate_legacy_models_from(&source, &destination).expect("migrate"),
+            0
+        );
+        assert!(!destination.join("u2netp.onnx").exists());
+
+        let _ = std::fs::remove_dir_all(root);
     }
 }
