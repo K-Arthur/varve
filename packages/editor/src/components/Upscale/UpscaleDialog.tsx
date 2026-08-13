@@ -19,6 +19,7 @@ import {
   detectUpscaleCapabilities,
   getModelLoader,
   getUpscaleMode,
+  isRestorationOperationAvailable,
   runRestoration,
   UPSCALE_MODES,
   upscalePreviewRegion,
@@ -115,7 +116,10 @@ export function UpscaleDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
-  const operationAvailable = operation !== 'deblur' && operation !== 'compression-restoration';
+  // Availability comes from the validated capability registry, not a
+  // hardcoded per-operation rule, so a task lights up the moment its
+  // checkpoint passes validation and lands in the manifest.
+  const operationAvailable = useMemo(() => isRestorationOperationAvailable(operation), [operation]);
   const usesUpscale = operation === 'upscale' || operation === 'restore-upscale';
   const usesDenoise = operation === 'denoise' || operation === 'restore-upscale';
 
@@ -577,10 +581,17 @@ export function UpscaleDialog({
                     { value: 'upscale', label: 'Upscale' },
                     { value: 'denoise', label: 'Denoise' },
                     { value: 'restore-upscale', label: 'Restore + Upscale' },
-                    { value: 'deblur', label: 'Deblur (not available)' },
+                    {
+                      value: 'deblur',
+                      label: isRestorationOperationAvailable('deblur')
+                        ? 'Deblur'
+                        : 'Deblur (not available)',
+                    },
                     {
                       value: 'compression-restoration',
-                      label: 'Remove compression artifacts (not available)',
+                      label: isRestorationOperationAvailable('compression-restoration')
+                        ? 'Remove compression artifacts'
+                        : 'Remove compression artifacts (not available)',
                     },
                   ]}
                   onChange={(value) => {
@@ -789,7 +800,9 @@ export function UpscaleDialog({
               type="button"
               variant="primary"
               size="sm"
-              disabled={processing || memoryExceeded || !mode || modelMissing}
+              disabled={
+                processing || memoryExceeded || !mode || modelMissing || !operationAvailable
+              }
               loading={processing}
               onClick={() => void handleApply()}
             >
