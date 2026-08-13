@@ -64,9 +64,12 @@ describe('Inspector feature ownership', () => {
       'detect-text',
       'ocr',
       'blend-images',
-      'palette',
       'font-detect',
     ]);
+  });
+
+  it('keeps selected-image palette work beside reusable appearance resources', () => {
+    expect(getFeaturesForSurface('appearance')).toContain('palette');
   });
 
   it('uses only known ownership surfaces', () => {
