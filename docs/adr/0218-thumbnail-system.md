@@ -76,7 +76,9 @@ available. Remote URLs and runtimes without that API use the existing full
 HTML-image path, preserving Canvas2D correctness across WebKit/WebView
 deployments. A thumbnail render receives the selected resource through
 `replayIr`'s image lookup hook, so it does not change the main canvas cache
-entry or placement state.
+entry or placement state. The Layers Panel's 28×28 node-preview profile uses
+the same policy for image fills and raster masks; its node-thumbnail LRU is
+only encoded display output and is not a second decoded-image cache.
 
 ## Alternatives considered
 
