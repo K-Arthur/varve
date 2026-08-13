@@ -19,6 +19,7 @@ describe('Sam2SegmentationTool', () => {
       new PointerEvent('pointerdown', { clientX: 100, clientY: 100, button: 0 }),
       mockCtx(),
     );
+    tool.onDragEnd(mockCtx());
     expect(tool.getPrompts().points.length).toBe(1);
 
     tool.onActivate(mockCtx());
@@ -33,6 +34,7 @@ describe('Sam2SegmentationTool', () => {
       new PointerEvent('pointerdown', { clientX: 50, clientY: 50, button: 0 }),
       ctx,
     );
+    tool.onDragEnd(ctx);
 
     const { points } = tool.getPrompts();
     expect(points).toHaveLength(1);
@@ -54,6 +56,7 @@ describe('Sam2SegmentationTool', () => {
       }),
       ctx,
     );
+    tool.onDragEnd(ctx);
 
     const { points } = tool.getPrompts();
     expect(points).toHaveLength(1);
@@ -68,10 +71,12 @@ describe('Sam2SegmentationTool', () => {
       new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
       ctx,
     );
+    tool.onDragEnd(ctx);
     tool.onPointerDown(
       new PointerEvent('pointerdown', { clientX: 20, clientY: 20, button: 0, shiftKey: true }),
       ctx,
     );
+    tool.onDragEnd(ctx);
 
     expect(tool.getPrompts().points).toHaveLength(2);
   });
@@ -84,6 +89,7 @@ describe('Sam2SegmentationTool', () => {
       new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
       ctx,
     );
+    tool.onDragEnd(ctx);
     expect(tool.getPrompts().points.length).toBe(1);
 
     tool.clearPrompts();
@@ -121,6 +127,24 @@ describe('Sam2SegmentationTool', () => {
     expect(box).not.toBeNull();
     expect(box!.x2).toBeCloseTo(100);
     expect(box!.y2).toBeCloseTo(100);
+  });
+
+  it('uses a box prompt without injecting a point at the drag origin', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = mockCtx();
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
+      ctx,
+    );
+    (tool as unknown as { drag: { currentCanvas: { x: number; y: number } } }).drag.currentCanvas =
+      {
+        x: 100,
+        y: 80,
+      };
+    tool.onDragMove(ctx);
+    tool.onDragEnd(ctx);
+    expect(tool.getPrompts().points).toHaveLength(0);
+    expect(tool.getPrompts().box).toEqual({ x1: 10, y1: 10, x2: 100, y2: 80 });
   });
 });
 
