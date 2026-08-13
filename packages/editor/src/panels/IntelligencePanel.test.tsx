@@ -122,25 +122,23 @@ describe('IntelligencePanel — Naming tab', () => {
 });
 
 describe('IntelligencePanel — Similar tab', () => {
-  it('prompts to select an image when nothing is selected', () => {
+  it('offers a text query when nothing is selected', () => {
     render(
       <EditorProvider>
         <IntelligencePanel initialTab="similar" />
       </EditorProvider>,
     );
-    expect(
-      screen.getByText(/select an image to find visually similar images/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/describe an asset/i)).toBeInTheDocument();
+    expect(screen.getByText(/select an image or enter a description/i)).toBeInTheDocument();
   });
 
-  it('prompts to select an image when a non-image node is selected', () => {
+  it('keeps natural-language search available when a non-image node is selected', () => {
     render(
       <EditorProvider initialDocumentJson={JSON.stringify(lowContrastDocument())}>
         <IntelligencePanel initialTab="similar" />
       </EditorProvider>,
     );
-    expect(
-      screen.getByText(/select an image to find visually similar images/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/describe an asset/i)).toBeInTheDocument();
+    expect(screen.getByText(/select an image or enter a description/i)).toBeInTheDocument();
   });
 });
