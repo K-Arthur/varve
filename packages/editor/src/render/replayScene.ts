@@ -35,6 +35,7 @@ import type { Document, Effect, ManagedColor, Mask, NodeId } from '@varve/scene'
 import { nodeEffectPadding, resolveAdjustmentScope } from '@varve/scene';
 import { managedColorToRgba, tryInvertAffine } from '@varve/shared';
 import { nodeWorldTransform } from '../scene/world';
+import { alphaBounds } from './surfaceBounds';
 
 type SceneContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -288,7 +289,9 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     const item = itemById.get(nodeId);
 
     const mask: Mask | null = 'mask' in node && node.mask?.visible ? node.mask : null;
-    const maskSourceId = mask?.sourceNodeId;
+    const maskSourceId =
+      mask?.sourceNodeId ??
+      (mask?.matteSource?.kind === 'scene-node' ? mask.matteSource.nodeId : undefined);
     const maskSource = maskSourceId ? input.document.nodes[maskSourceId] : undefined;
     // Adjustment nodes have no children to clip — their spatial mask is
     // applied inside the adjustment branch below. A mask whose source is an
@@ -301,7 +304,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       node.kind !== 'adjustment' &&
       'children' in node &&
       mask &&
-      (maskSourceId || maskHasVector || maskHasRaster) &&
+      (maskSourceId || maskHasVector || maskHasRaster || mask?.matteSource) &&
       maskUsableSource
     ) {
       const clipFrameQuad = (ctx: SceneContext): void => {
@@ -779,10 +782,10 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       const devMinY = minY * camScale + cam.f;
       const devW = (maxX - minX) * camScale;
       const devH = (maxY - minY) * camScale;
-      const bx = devMinX - effectPad;
-      const by = devMinY - effectPad;
-      const bw = Math.min(cw, devW + effectPad * 2);
-      const bh = Math.min(ch, devH + effectPad * 2);
+      let bx = devMinX - effectPad;
+      let by = devMinY - effectPad;
+      let bw = devW + effectPad * 2;
+      let bh = devH + effectPad * 2;
       if (bw <= 0 || bh <= 0) return;
 
       const coordSpace = {
@@ -808,6 +811,15 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           targetSurfaceCtx.setTransform(camera.a, camera.b, camera.c, camera.d, camera.e, camera.f);
           for (const targetId of targetIds) {
             replayNode(targetId, targetSurfaceCtx as unknown as SceneContext);
+          }
+          const actual = alphaBounds(targetSurfaceCtx, targetSurface.width, targetSurface.height);
+          if (actual) {
+            bx = actual.x - effectPad;
+            by = actual.y - effectPad;
+            bw = actual.w + effectPad * 2;
+            bh = actual.h + effectPad * 2;
+            coordSpace.regionX = bx;
+            coordSpace.regionY = by;
           }
           bCtx.setTransform(1, 0, 0, 1, 0, 0);
           bCtx.translate(-bx, -by);
