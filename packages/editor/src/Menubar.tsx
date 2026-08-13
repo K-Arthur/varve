@@ -138,6 +138,7 @@ function buildMenus(
     beforeAfterCompare: boolean;
     rulerMode: string;
     snapEnabled: boolean;
+    bleedGuidesVisible: boolean;
   },
   recentEntries: RecentEntry[],
   caps: ReadonlySet<string>,
@@ -772,6 +773,10 @@ function buildMenus(
         {
           label: 'Facing Pages',
           action: 'toggleFacingPages',
+        },
+        {
+          label: state.bleedGuidesVisible ? 'Hide Bleed Guides' : 'Show Bleed Guides',
+          action: 'toggleBleedGuides',
         },
         {
           label: 'Soft Proofing',

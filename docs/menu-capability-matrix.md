@@ -141,6 +141,7 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 | `lockGuides` | `—` | ✓ | ✓ | ✓ |  |
 | `clearGuides` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleFacingPages` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleBleedGuides` | `—` | ✓ | ✓ | ✓ |  |
 | `softProof` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleTimelinePanel` | `—` | ✓ | ✓ | ✓ |  |
 | `toggleGraphEditor` | `—` | ✓ | ✓ | ✓ |  |

@@ -135,6 +135,7 @@ image, motion, logo, codegen.
 | lockGuides | Lock Guides | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | clearGuides | Clear Guides | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | toggleFacingPages | Facing Pages | – | ✓ | – | – | – | – | – |
+| toggleBleedGuides | Bleed Guides | – | ✓ | – | – | – | – | – |
 | softProof | Soft Proof | – | ✓ | – | ✓ | – | – | – |
 | toggleTimelinePanel | Timeline | ✓ | – | – | – | ✓ | – | – |
 | toggleGraphEditor | Graph Editor | ✓ | – | – | – | ✓ | – | – |
