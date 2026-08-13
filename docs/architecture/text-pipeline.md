@@ -95,6 +95,11 @@ selection rectangles, diagnostics, and an identity suitable for bounded LRU
 caching. It is deliberately not wired into replay yet; the current canvas path
 must be switched only after fallback and font-revision policy are explicit.
 
+`FontRegistry.revision` is a monotone process-local invalidation token. The
+shaping cache accepts it, face identity, OpenType features, variation axes,
+width, and layout mode in its key and bounds both entries and estimated bytes;
+callers must supply the revision when requesting font-dependent geometry.
+
 ## Related decisions
 
 * [ADR-0186 — text composition engine](../adr/0186-text-composition-engine.md)

@@ -821,6 +821,8 @@ export {
   createHarfBuzzWasmBackend,
   normalizeNativeShapedRun,
 } from './shapingBackend';
+export type { ShapingCacheKeyOptions } from './shapingCache';
+export { ShapingCache, shapingCache } from './shapingCache';
 export * from './storyComposition';
 export * from './textLayout';
 export * from './textLayoutSnapshot';
