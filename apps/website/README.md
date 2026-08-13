@@ -5,7 +5,7 @@ documentation, downloads, and community.
 
 ## Architecture
 
-- **Framework**: Astro 5 with static output (`astro build`)
+- **Framework**: Astro 7 with static output (`astro build`)
 - **Content**: `src/pages/` (42 pages), `src/components/`, `src/data/`
 - **Deployment**: GitHub Pages via `.github/workflows/website-deploy.yml`
 - **Testing**: Vitest unit tests (`src/test/`), Playwright E2E (`tests/e2e/`)
