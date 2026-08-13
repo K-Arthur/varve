@@ -819,6 +819,17 @@ export function useCanvasInputs({
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as KeyboardEvent;
+
+      // IME composition guard (AGENTS.md: keyboard shortcuts must not fire
+      // while the user is composing text). The global shortcut layer already
+      // checks `isComposing`, but the canvas-local handler does not — with
+      // some IMEs (Windows/IBus) the composition fires keydown events on the
+      // focused element, and Space (spring-load pan), digit zoom presets, or
+      // Tab selection cycling must not interleave with in-progress
+      // composition. `keyCode === 229` is the IME "still composing"
+      // sentinel reported by many engines when `isComposing` is false.
+      if (shouldSkipCanvasKeydown(ne)) return;
+
       const tmInst = tmRef.current;
       const activeTrace = isInteractionTracingEnabled() ? getActiveInteractionIdentity() : null;
       if (isInteractionTracingEnabled() && activeTrace === null) {
@@ -1161,4 +1172,19 @@ export function useCanvasInputs({
     onBlur,
     stopAutoPan,
   };
+}
+
+/**
+ * Decide whether a keydown on the canvas must be ignored because an IME
+ * composition is in flight.
+ *
+ * The global shortcut layer already checks `isComposing`, but the canvas
+ * handler must too — with some IMEs (Windows/IBus) the composition fires
+ * keydown events on the focused element, and Space (spring-load pan), digit
+ * zoom presets, or Tab selection cycling must not interleave with in-progress
+ * composition. `keyCode === 229` is the IME "still composing" sentinel
+ * reported by many engines when `isComposing` is false.
+ */
+export function shouldSkipCanvasKeydown(e: { isComposing?: boolean; keyCode?: number }): boolean {
+  return e.isComposing === true || e.keyCode === 229;
 }
