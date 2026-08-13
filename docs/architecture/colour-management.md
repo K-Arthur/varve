@@ -35,6 +35,20 @@ Japan Color 2011).
 
 ## Colour Conversion Pipeline
 
+### Working precision and display precision
+
+`managedColorToNormalized()` is the working-space adapter. It reads the
+tagged channels directly, including uint16 and float channels, and produces a
+normalized floating-point encoded-sRGB value without passing through RGBA8.
+`managedColorToRgba()` remains available for explicit display/legacy API
+boundaries only.
+
+Gradient interpolation has the same split: the working path retains
+fractional channels through stop normalization and interpolation, then the
+Canvas2D adapter formats the result as a CSS gradient stop. Canvas2D is still a
+display surface and cannot prove document precision; the source `ManagedColor`
+and the engine IR remain authoritative.
+
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas
 in `packages/shared/src/colorConversion.ts`:
