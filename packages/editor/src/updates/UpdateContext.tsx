@@ -81,11 +81,15 @@ const localStore: UpdatePreferencesStore = {
 export function UpdateCoordinatorProvider({
   provider,
   children,
+  preferenceStore,
 }: {
   provider: UpdateProvider;
   children: ReactNode;
+  /** Injectable for tests; defaults to localStorage-backed storage. */
+  preferenceStore?: UpdatePreferencesStore;
 }) {
-  const coordinator = useMemo(() => new UpdateCoordinator(provider, localStore), [provider]);
+  const store = preferenceStore ?? localStore;
+  const coordinator = useMemo(() => new UpdateCoordinator(provider, store), [provider, store]);
   const sync = useMemo(
     () =>
       typeof window !== 'undefined' && 'BroadcastChannel' in window

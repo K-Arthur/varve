@@ -2628,6 +2628,21 @@ dialog.varve-dialog--settings[open] {
   white-space: nowrap;
   border: 0;
 }
+.settings-release-notes {
+  max-height: 10rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+.settings-release-notes:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
 .settings-shortcuts-table {
   width: 100%;
   border-collapse: collapse;
