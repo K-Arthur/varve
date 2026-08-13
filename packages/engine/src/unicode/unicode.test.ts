@@ -176,6 +176,15 @@ describe('bidirectional layout', () => {
     expect(para.baseDirection).toBe('rtl');
     expect(para.baseLevel).toBe(1);
   });
+
+  it('resolves isolates and exposes mirrored punctuation without changing source text', () => {
+    const text = 'مرحبا (Varve) \u2067שלום\u2069';
+    const para = analyzeParagraph(text, 'rtl');
+    expect(para.text).toBe(text);
+    expect(para.visualOrder?.length).toBe(text.length);
+    expect(para.mirroredCharacters?.size).toBeGreaterThan(0);
+    expect(para.mirroredCharacters?.get(text.indexOf('('))).toBe(')');
+  });
 });
 
 describe('script detection', () => {

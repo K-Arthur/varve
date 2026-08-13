@@ -77,8 +77,9 @@ change invalidates the appropriate paragraph/story scope.
 * Canvas2D measurement is a bounded fallback for environments without a font
   byte source. It is marked approximate and cannot satisfy glyph-level parity
   or PDF text requirements.
-* UAX #9 resolution is provided through a maintained adapter (`bidi-js` is the
-  first candidate) rather than growing a handwritten partial implementation.
+* UAX #9 resolution is provided through the maintained `bidi-js` adapter in
+  `unicode/bidiUax9.ts`; the public paragraph API retains logical UTF-16
+  offsets while exposing resolved visual indices and mirrored-character data.
 
 The backend contract currently lives in `packages/engine/src/shapingBackend.ts`.
 It normalizes native font units to the requested size and uses UTF-16 source
