@@ -141,6 +141,35 @@ export function normalizeEffectParams(effect: Effect): Effect {
         radius: clampNum(e.radius, 0),
       } as Effect;
     }
+    case 'depthBlur': {
+      if (
+        typeof e.depthMapId === 'string' &&
+        isCleanEffect(e, [
+          'focusDepth',
+          'focusRange',
+          'blurStrength',
+          'falloff',
+          'edgeProtection',
+        ]) &&
+        inRange(e.focusDepth, 0, 1) &&
+        inRange(e.focusRange, 0, 1) &&
+        inRange(e.blurStrength, 0, 4096) &&
+        inRange(e.falloff, 0, 1) &&
+        inRange(e.edgeProtection, 0, 1)
+      )
+        return effect;
+      return {
+        ...e,
+        id: normalizedId(e.id),
+        depthMapId: typeof e.depthMapId === 'string' ? e.depthMapId : '',
+        focusDepth: clampNum(e.focusDepth, 0.5, 0, 1),
+        focusRange: clampNum(e.focusRange, 0.2, 0, 1),
+        blurStrength: clampNum(e.blurStrength, 12, 0, 4096),
+        falloff: clampNum(e.falloff, 0.5, 0, 1),
+        invert: e.invert === true,
+        edgeProtection: clampNum(e.edgeProtection, 0.035, 0, 1),
+      } as Effect;
+    }
     case 'glassMaterial': {
       if (
         isCleanEffect(e, [

@@ -110,6 +110,19 @@ function defaultEffect(type: Effect['type']): Effect {
       return { id, type, radius: 4, visible: true };
     case 'backgroundBlur':
       return { id, type, radius: 8, visible: true };
+    case 'depthBlur':
+      return {
+        id,
+        type,
+        depthMapId: '',
+        focusDepth: 0.5,
+        focusRange: 0.2,
+        blurStrength: 12,
+        falloff: 1,
+        invert: false,
+        edgeProtection: 0.035,
+        visible: true,
+      };
     case 'outerGlow':
       return {
         id,
@@ -370,7 +383,7 @@ function EffectRow({
   const type = isMixed(typeRaw) ? null : typeRaw;
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
 
-  const typeLabel = type ?? 'Mixed';
+  const typeLabel = type === 'depthBlur' ? 'Depth Blur' : (type ?? 'Mixed');
 
   // Collapsed by default: with several stacked effects, showing every
   // effect's full parameter set (shadows/glow/blur/glass/etc. can each be a
@@ -1183,6 +1196,13 @@ function EffectParams({
           <SingleBlurParam nodes={nodes} index={index} onChange={onChange} />
         </>
       );
+    case 'depthBlur':
+      return (
+        <>
+          {maskControl}
+          <DepthBlurParams nodes={nodes} index={index} onChange={onChange} />
+        </>
+      );
     case 'glassMaterial':
       return (
         <>
@@ -1642,6 +1662,57 @@ function SingleBlurParam({
         onChange={(v) =>
           onChange((e) =>
             e.type === 'layerBlur' || e.type === 'backgroundBlur' ? { ...e, radius: v } : e,
+          )
+        }
+      />
+    </div>
+  );
+}
+
+function DepthBlurParams({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const focusRaw = commonValue(nodes, (n) => {
+    const effect = getEffect(n, index);
+    return effect?.type === 'depthBlur' ? effect.focusDepth * 100 : 50;
+  });
+  const blurRaw = commonValue(nodes, (n) => {
+    const effect = getEffect(n, index);
+    return effect?.type === 'depthBlur' ? effect.blurStrength : 0;
+  });
+  return (
+    <div style={{ paddingLeft: 'var(--space-2)' }}>
+      <NumberField
+        label="Focus depth"
+        value={isMixed(focusRaw) ? 50 : focusRaw}
+        mixed={isMixed(focusRaw)}
+        min={0}
+        max={100}
+        step={1}
+        unit="%"
+        onChange={(value) =>
+          onChange((effect) =>
+            effect.type === 'depthBlur' ? { ...effect, focusDepth: value / 100 } : effect,
+          )
+        }
+      />
+      <NumberField
+        label="Blur strength"
+        value={isMixed(blurRaw) ? 0 : blurRaw}
+        mixed={isMixed(blurRaw)}
+        min={0}
+        max={4096}
+        step={1}
+        unit="px"
+        onChange={(value) =>
+          onChange((effect) =>
+            effect.type === 'depthBlur' ? { ...effect, blurStrength: value } : effect,
           )
         }
       />

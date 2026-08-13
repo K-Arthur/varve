@@ -988,6 +988,24 @@ export {
 } from './unicode/unicodeIndices';
 export type { UpscaleCapabilities } from './upscaleCapabilities';
 export { detectUpscaleCapabilities } from './upscaleCapabilities';
+export type {
+  CapabilityStatus,
+  RestorationCapability,
+  RestorationOperation,
+  RestorationPlan,
+  RestorationRequest,
+  RestorationRuntime,
+  RestorationStagePlan,
+  RestorationTask,
+} from './restoration';
+export {
+  capabilitiesForTask,
+  firstAvailableCapability,
+  planRestoration,
+  RESTORATION_CAPABILITIES,
+  RestorationPlanningError,
+  restorationTaskLabel,
+} from './restoration';
 export type { UpscaleModelMetadata } from './upscaleModels';
 export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export type { UpscaleMode, UpscaleModeId } from './upscaleModes';

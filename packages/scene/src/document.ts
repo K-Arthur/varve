@@ -299,6 +299,9 @@ export interface Document {
    */
   assets?: Record<string, import('./types').DocumentAsset>;
 
+  /** Persisted continuous depth fields keyed by resource id (resource v1). */
+  depthMaps?: Record<string, import('./types').DepthMapAsset>;
+
   /**
    * Content-addressed ICC profile registry (v2.19+). Referenced from
    * `DocumentAsset.metadata.iccProfileId`; identical profiles share one
