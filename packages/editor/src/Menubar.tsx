@@ -821,6 +821,11 @@ function buildMenus(
           action: 'toggleHistoryPanel',
         },
         { label: '---' },
+        {
+          label: 'Show All Panels',
+          action: 'restoreAllPanels',
+        },
+        { label: '---' },
         // Workspace
         {
           label: 'Workspace: Design',

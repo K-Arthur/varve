@@ -143,6 +143,118 @@ from the workspace's own toolbar. The previous hand-maintained
 `shortcuts.disabled` list was empty in all seven built-ins and suppressed
 nothing.
 
+## Toolbar composition
+
+`workspace/toolbarComposition.ts` turns a workspace's `ToolbarConfig` into the
+ordered slots `FloatingToolbar` renders. The config is authoritative for
+**order, grouping, and flyout membership**; the toolbar owns no tool list.
+
+`composeToolbar(toolbar)` returns `ToolbarSlot[]`:
+
+- Main-row tools appear in declared order, carrying their `groupStart`
+  separators. A repeated tool renders once.
+- Each flyout replaces its members and is anchored at the position of its first
+  declared member, inheriting that member's separator — so a config that starts
+  a group with `rect` starts that group with the Shapes flyout.
+- A flyout whose members are not in the main row (boolean operations are
+  commands, not selectable tools) is appended after it.
+- A flyout left with no members by customization is dropped rather than
+  rendering a chevron that opens nothing.
+
+Visibility policy stays in `getEffectiveWorkspaceConfig`, which applies the
+user's overrides — to flyout members as well as the main row — before the
+config reaches the composition. One place decides *whether* a tool is shown;
+one decides *where* it goes.
+
+Until 2026-08-13 `FloatingToolbar` rendered from two hard-coded arrays
+(`INDIVIDUAL_TOOLS` / `DRAWING_TOOLS`) and consulted the config only as a
+visibility filter. That violated invariant 9 and produced three defects, each
+now covered by `toolbarComposition.test.ts`:
+
+1. Declared order was ignored, so Image mode led with Line/Text instead of the
+   Select/Crop/retouch order its config declares for photo work.
+2. Declared tools missing from the hard-coded arrays were unreachable from the
+   toolbar even though they are implemented tools with icons — `nodeEdit`
+   (Logo), `refineMask` and `trimapEdit` (Image).
+3. Flyout contents were hard-coded, so `flyouts[].tools` never applied and
+   boolean operations could not be hidden: the preference sanitizer accepted
+   only ids present in `toolbar.tools`, which excludes flyout-only tools.
+
+## Config-field consumer audit (2026-08-13)
+
+Every `WorkspaceConfig` field was re-checked against its runtime consumers,
+the same review that found the toolbar defects above. Result:
+
+| Field | Consumer | Status |
+|---|---|---|
+| `panels[].visible` | `Shell`, `panelVisibilityPatch` | Live |
+| `panels[].preferredWidth` | `Shell` (layers, inspector) | Live for the two sidebars; `codegen`/`timeline` declare `'100%'`, which `Shell` ignores |
+| `panels[].order` | `getOrderedPanels` — exported, but called only by its own test | **Decorative** |
+| `panels[].collapsed` | preference sanitizer only; `Shell` derives `data-collapsed` from visibility | **Decorative** |
+| `toolbar` | `composeToolbar` + `FloatingToolbar` | Live (see above) |
+| `inspectorTabs` | `getVisibleInspectorTabs` / `getDefaultInspectorTab` → `PropertiesPanel` | Live |
+| `statusSections` | `getVisibleStatusSections` → `StatusBar` (honors `order`) | Live |
+| `canvasOverlays` | `useWorkspaceMode` overlay projection | Live |
+| `defaultTool` | `useWorkspaceMode` | Live |
+| `onboarding.description` | `WorkspaceCustomizeDialog` | Live |
+| `onboarding.tips` | `workspaceTips` → `useDidYouKnow` | Live **as of this pass** — see below |
+| `floatingToolbar` / `statusBar` / `tabStrip` | `Shell`, `FloatingToolbar` | Live |
+
+**Workspace onboarding tips are now shown.** All seven workspaces declared
+`onboarding.tips` (roughly 28 authored, workspace-specific hints) that nothing
+read, while the Did-You-Know surface drew only from the global, workspace-blind
+`TIPS` list. `onboard/DidYouKnow/workspaceTips.ts` adapts the declared tips into
+the existing `Tip` shape and `useDidYouKnow` merges them ahead of the global
+list, so they inherit the daily cap, idle trigger, dismissal, and "don't show
+again" rather than gaining a second tip surface. A tip is eligible only while
+its workspace is active, and switching workspaces discards a queue built for
+the previous one. Ids are content-hashed (`workspace:<mode>:<hash>`) so that
+reordering a workspace's tips does not reassign which tip a user dismissed.
+
+`panels[].order` and `panels[].collapsed` remain decorative and are **not**
+fixed here: both are persisted inside `panelOverrides`, so removing them is a
+preference-schema change that needs a migration, and neither expresses anything
+the current two-sidebar `Shell` can act on. They are recorded here so the next
+pass either wires them to a real docking layout or removes them with a
+migration — not left to be rediscovered.
+
+## Panel contract completion (2026-08-13)
+
+Follow-up pass on the consumer audit, closing the remaining declared-vs-live
+gaps:
+
+- **`panels.history` now projects at runtime.** `panelVisibilityPatch` was
+  missing `historyPanelVisible`, so the History panel was the one panel id with
+  no switch-time projection: overrides for it were recorded but never applied
+  by a workspace switch (invariant 9 violation). It is now in the projection
+  and in the customize dialog's panel list. All seven built-ins declare it
+  `visible: false`, so built-in layouts are unchanged; per-mode overrides now
+  work.
+- **The customize dialog covers the full surface.** The Toolbar Tools section
+  now lists flyout-only tools (boolean operations, retouch/mask members, …)
+  with their flyout membership, so hiding them is actually possible from the
+  UI (the store supported it; the dialog did not). Status-section labels come
+  from a single `STATUS_SECTION_LABELS` map instead of camelCase-split ids.
+  Reset All now requires an explicit confirmation dialog — it discards every
+  customization in all seven modes.
+- **The status bar is section-honest.** Every renderable section
+  (`toolName`, `cursorPos`, `layoutScore`, `unit`, `zoom`, `selectionInfo`,
+  plus the already-gated `preflight`/`debt`/`shortcutTip`) is gated by its
+  section id, so a user toggling a section in the customize dialog sees the
+  status bar change. Three previously declared-but-unrendered sections now
+  have renderers: `pageInfo` (active page name/position, print), `colorMode`
+  (document working color config, print/photo), `imageInfo` (natural source
+  pixel dimensions of the selected raster node, photo).
+- **`restoreAllPanels` ("Show All Panels")** is a recovery command in the View
+  menu and command palette: it reveals every panel the active workspace knows
+  and records the choice as overrides, so the restored layout persists.
+- **Dead code removed.** `saveCurrentWidths` / `restoreWorkspaceWidths` from
+  `useWorkspacePanelWidths` were exported but never consumed — widths are
+  written on switch and reset only. The hook no longer returns anything.
+- **Schema hygiene:** motion declared `version: 2` while
+  `WORKSPACE_CONFIG_VERSION` is 1; normalized to 1 and the switching test now
+  asserts every built-in matches the constant.
+
 ## Switching
 
 `requestWorkspaceSwitch(mode, options?)` on the editor context is the **only**
@@ -172,7 +284,8 @@ These are known gaps, not settled design:
   - `panelWidths` — per-workspace panel pixel widths, saved on switch
   - `inspectorTabOverrides` — visibility per inspector tab
   - `statusSectionOverrides` — visibility per status bar section
-  - `toolbarToolOverrides` — visibility per toolbar tool
+  - `toolbarToolOverrides` — visibility per toolbar tool, including
+    flyout-only tools such as the boolean operations
   All are persisted and restored on workspace switch. A dedicated customization
   dialog (`WorkspaceCustomizeDialog`) provides a toggle UI accessible from
   View > Customize Workspace or the command palette.
