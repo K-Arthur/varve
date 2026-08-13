@@ -109,6 +109,24 @@ made until a genuine conversion pipeline with numeric fixtures exists.
 `iccStatus: 'invalid'` is surfaced to print/preflight so a malformed
 profile warns instead of silently mis-colour-managing.
 
+## Precision planes
+
+Decoded raster pixels must not be identified solely by their JavaScript typed
+array. `packages/engine/src/rasterColor/pixelBuffer.ts` provides the shared
+`PixelBufferDescriptor` and a budgeted allocator for `rgba8`, `rgba16`,
+`rgba16f`, and `rgba32f` storage. The descriptor travels with the pixels and
+records color encoding and straight/premultiplied alpha. The allocator maps
+the formats to `Uint8Array`, `Uint16Array`, packed IEEE-754 half floats, and
+`Float32Array`, respectively, and rejects allocations above the 512 MiB
+default budget.
+
+This is the storage contract, not a claim that every browser decode or display
+path is already high precision. Canvas2D `ImageData` remains an explicit
+RGBA8 preview/export boundary. Integrating profile-aware decode, CMYK raster
+planes, and high-precision compositor surfaces is tracked separately; until
+those paths exist, source profile metadata is preserved and pixels are not
+silently relabelled.
+
 ## Export barrier
 
 `packages/editor/src/export/resourceReadiness.ts` is the single dependency

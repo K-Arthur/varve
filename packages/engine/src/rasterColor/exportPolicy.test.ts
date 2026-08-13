@@ -9,7 +9,14 @@ import {
   exportProfileBytes,
   resolveExportEncoding,
 } from './exportPolicy';
-import { isWithinPixelBudget, pixelBufferBytes, rgba32fToRgba8 } from './pixelBuffer';
+import {
+  allocatePixelBuffer,
+  isWithinPixelBudget,
+  pixelBufferBytes,
+  rgba16fToRgba32f,
+  rgba32fToRgba8,
+  rgba32fToRgba16f,
+} from './pixelBuffer';
 import { buildMatrixProfile, parseIccHeader } from './profiles';
 
 function imageData1x1(r: number, g: number, b: number, a = 255): ImageData {
@@ -117,5 +124,55 @@ describe('pixelBuffer accounting', () => {
     const target = new Uint8ClampedArray(8);
     rgba32fToRgba8(source, target);
     expect(Array.from(target)).toEqual([0, 128, 255, 64, 255, 0, 255, 255]);
+  });
+
+  it('allocates typed storage for a bounded half-float surface', () => {
+    const surface = allocatePixelBuffer(
+      {
+        width: 2,
+        height: 1,
+        format: 'rgba16f',
+        colorEncoding: {
+          model: 'rgb',
+          primaries: 'srgb',
+          transfer: 'linear',
+          bitDepth: 'float16',
+          provenance: 'named',
+        },
+        alphaMode: 'straight',
+      },
+      16,
+    );
+    expect(surface.data).toBeInstanceOf(Uint16Array);
+    expect(surface.data.byteLength).toBe(16);
+  });
+
+  it('round-trips half-float channels within half precision', () => {
+    const source = new Float32Array([0, 0.5, 1, 0.25, 1.5, -0.5, 0.1234, 1]);
+    const half = new Uint16Array(source.length);
+    const result = new Float32Array(source.length);
+    rgba32fToRgba16f(source, half);
+    rgba16fToRgba32f(half, result);
+    expect(result[0]).toBe(0);
+    expect(result[1]).toBe(0.5);
+    expect(result[2]).toBe(1);
+    expect(result[4]).toBe(1.5);
+    expect(result[5]).toBe(-0.5);
+    expect(result[6]).toBeCloseTo(0.1234, 3);
+  });
+
+  it('rejects allocations beyond the explicit byte budget', () => {
+    expect(() =>
+      allocatePixelBuffer(
+        {
+          width: 100,
+          height: 100,
+          format: 'rgba32f',
+          colorEncoding: { model: 'rgb', provenance: 'named' },
+          alphaMode: 'straight',
+        },
+        100,
+      ),
+    ).toThrow(/budget/);
   });
 });
