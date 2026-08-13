@@ -30,7 +30,7 @@ export interface ModelInfo {
 }
 
 export const QUICK_MODEL_INFO: ModelInfo = {
-  label: 'Quick',
+  label: 'Fast',
   description: 'Fast CPU heuristic — no AI model, works offline on every image.',
   diskSizeBytes: 0,
   estimatedPeakRamBytes: 16_000_000,
@@ -43,8 +43,8 @@ export const QUICK_MODEL_INFO: ModelInfo = {
 };
 
 export const AI_BALANCED_MODEL_INFO: ModelInfo = {
-  label: 'AI Balanced',
-  description: 'IS-Net enhanced mode with automatic U²-Net Light low-memory fallback.',
+  label: 'Auto',
+  description: 'General-purpose local AI with automatic low-memory fallback.',
   diskSizeBytes: 178_648_008,
   estimatedPeakRamBytes: 700_000_000,
   peakRamDisplay: 'up to ~700 MB',
@@ -56,8 +56,8 @@ export const AI_BALANCED_MODEL_INFO: ModelInfo = {
 };
 
 export const AI_QUALITY_MODEL_INFO: ModelInfo = {
-  label: 'AI High Quality',
-  description: 'BiRefNet Lite — best quality for hair, fur, and complex edges.',
+  label: 'High quality',
+  description: 'BiRefNet Lite for hair, fur, and complex edges.',
   diskSizeBytes: 224_000_000,
   estimatedPeakRamBytes: 900_000_000,
   peakRamDisplay: '~900 MB',

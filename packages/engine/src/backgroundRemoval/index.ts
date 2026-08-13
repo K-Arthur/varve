@@ -99,6 +99,12 @@ export { downscaleImageData } from './previewDownscale';
 export { cloudRemovalProvider } from './providers/cloudProvider';
 export { AI_PROVIDER_CHAIN } from './providers/dispatch';
 export type { RemovalProvider } from './providers/types';
+export type {
+  BenchmarkMetricSample,
+  MaskQualityMetrics,
+  MaskQualityOptions,
+} from './qualityMetrics';
+export { aggregateMetrics, computeMaskQualityMetrics } from './qualityMetrics';
 export type { ModelToSourceTransform, ReconstructionResult } from './reconstructMask';
 export {
   composeSourceAndSubjectAlpha,

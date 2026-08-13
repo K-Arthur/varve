@@ -91,7 +91,7 @@ const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_S
             <li>Export: SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, per-node export settings</li>
             <li>Import: SVG, PDF, PSD, AI, EPS, and common image formats</li>
             <li>Design systems: Styles, variables, components, variants, libraries</li>
-            <li>Background removal: AI-based with u2netp (bundled) and BiRefNet-Lite, hair edge refinement</li>
+            <li>Background removal: Fast, Auto, and High quality local masks with bundled U²-NetP, optional IS-Net/BiRefNet, hair refinement, trimap editing, and undoable application</li>
             <li>Workspace modes: Design, Print, Draw, Photo, Motion with per-mode toolbars and panels</li>
           </ul>
 
@@ -100,7 +100,7 @@ const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_S
             <li>Complex-script shaping and mixed-direction layout have engine foundations but are not yet wired through every live renderer, caret, and export consumer</li>
             <li>Collaboration features are UI scaffolding only</li>
             <li>Print bleed and trim guides are available, but exported trim and bleed geometry remains the final authority</li>
-            <li>Background removal with BiRefNet-Lite requires native desktop (WASM has a 4GB memory limit)</li>
+            <li>High-quality background removal is hardware/provider dependent; unsafe bare-WASM allocations are blocked and the actual fallback is shown in the editor</li>
           </ul>
         </div>
       </div>
