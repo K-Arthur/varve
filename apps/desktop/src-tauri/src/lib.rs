@@ -11,7 +11,7 @@ use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 use tauri::ipc::Response;
@@ -40,6 +40,32 @@ fn check_scene_node_bounds(nodes: &[IpcSceneNode]) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+/// Hash an existing native model without loading the whole model into memory.
+/// The digest, not the advertised byte count, is the installation authority.
+fn sha256_file(path: &std::path::Path) -> Result<(u64, String), String> {
+    let mut file = std::fs::File::open(path)
+        .map_err(|error| format!("Failed to open existing model: {error}"))?;
+    let mut digest = Sha256::new();
+    let mut bytes = 0u64;
+    let mut buffer = [0u8; 1024 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("Failed to read existing model: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        digest.update(&buffer[..read]);
+        bytes += read as u64;
+    }
+    let checksum = digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok((bytes, checksum))
 }
 
 fn convert_scene(nodes: Vec<IpcSceneNode>) -> Vec<varve_core::SceneNode> {
@@ -527,9 +553,22 @@ async fn download_background_removal_model(
         return Err("Native ONNX Runtime is unavailable on this desktop build".into());
     }
     let model = background_removal_model_info(&model_id)?.clone();
+    if !model.remote_url.starts_with("https://") {
+        return Err(format!("Refusing insecure model URL for {}", model.id));
+    }
+    let expected_checksum = model.checksum_sha256.clone().ok_or_else(|| {
+        format!(
+            "Model {} has no SHA-256 checksum and cannot be securely installed",
+            model.id
+        )
+    })?;
     let destination = varve_bgremove::model::model_path(&model_id);
-    if destination.metadata().map(|metadata| metadata.len()).ok() == Some(model.size_bytes) {
-        return Ok(model.size_bytes);
+    if destination.is_file() {
+        if let Ok((bytes, checksum)) = sha256_file(&destination) {
+            if checksum == expected_checksum {
+                return Ok(bytes);
+            }
+        }
     }
     if let Some(parent) = destination.parent() {
         std::fs::create_dir_all(parent)
@@ -538,7 +577,13 @@ async fn download_background_removal_model(
     let temporary = destination.with_extension(format!("onnx.download-{request_id}"));
     let result = async {
         let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::limited(8))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.url().scheme() == "https" {
+                    attempt.follow()
+                } else {
+                    attempt.stop()
+                }
+            }))
             .build()
             .map_err(|error| format!("Failed to create model downloader: {error}"))?;
         let mut response = client
@@ -581,30 +626,38 @@ async fn download_background_removal_model(
         }
         file.sync_all()
             .map_err(|error| format!("Failed to flush model file: {error}"))?;
-        if loaded != model.size_bytes {
+        let actual = digest
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+        if actual != expected_checksum {
             return Err(format!(
-                "Model size mismatch: expected {} bytes, received {loaded}",
-                model.size_bytes
+                "Model SHA-256 mismatch: expected {expected_checksum}, received {actual}"
             ));
         }
-        if let Some(expected) = &model.checksum_sha256 {
-            let actual = digest
-                .finalize()
-                .iter()
-                .map(|b| format!("{:02x}", b))
-                .collect::<String>();
-            if &actual != expected {
-                return Err(format!(
-                    "Model SHA-256 mismatch: expected {expected}, received {actual}"
-                ));
+        let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
+            .lock()
+            .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+            .remove(&request_id);
+        if cancelled {
+            return Err("Download cancelled".into());
+        }
+        // On Unix, rename replaces the destination atomically. Windows does
+        // not allow replacing an existing file, so retain a narrow fallback
+        // for that platform rather than deleting the good model first on all
+        // platforms.
+        if let Err(rename_error) = std::fs::rename(&temporary, &destination) {
+            if destination.exists() {
+                std::fs::remove_file(&destination)
+                    .map_err(|error| format!("Failed to replace native model: {error}"))?;
+                std::fs::rename(&temporary, &destination).map_err(|error| {
+                    format!("Failed to install native model after replacement: {error}")
+                })?;
+            } else {
+                return Err(format!("Failed to install native model: {rename_error}"));
             }
         }
-        if destination.exists() {
-            std::fs::remove_file(&destination)
-                .map_err(|error| format!("Failed to replace native model: {error}"))?;
-        }
-        std::fs::rename(&temporary, &destination)
-            .map_err(|error| format!("Failed to install native model: {error}"))?;
         Ok(loaded)
     }
     .await;

@@ -19,7 +19,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'u2netp',
     name: 'U\u00B2-Net Light (FP32)',
     description: 'Fast preview quality segmentation. Bundled with the app.',
-    sizeBytes: 4_700_000,
+    sizeBytes: 4_574_861,
     remoteUrl: 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx',
     checksum: '309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8',
     bundled: true,
