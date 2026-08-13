@@ -80,6 +80,50 @@ export interface RichSelection {
   end: { paragraphIndex: number; offset: number };
 }
 
+export interface MixedCharacterValue<T> {
+  value: T | undefined;
+  mixed: boolean;
+}
+
+/** Read one character property across a logical selection. */
+export function characterFormatValue<T extends keyof CharacterFormat>(
+  rich: RichText,
+  selection: RichSelection,
+  key: T,
+): MixedCharacterValue<CharacterFormat[T]> {
+  const { start, end } = normalizeSelection(selection);
+  const values: unknown[] = [];
+  for (
+    let paragraphIndex = start.paragraphIndex;
+    paragraphIndex <= end.paragraphIndex;
+    paragraphIndex++
+  ) {
+    const paragraph = rich.paragraphs[paragraphIndex];
+    if (!paragraph) continue;
+    const length = paragraphLength(paragraph);
+    const rangeStart = paragraphIndex === start.paragraphIndex ? start.offset : 0;
+    const rangeEnd = paragraphIndex === end.paragraphIndex ? end.offset : length;
+    let cursor = 0;
+    for (const run of paragraph.runs) {
+      const runEnd = cursor + run.text.length;
+      if (runEnd > rangeStart && cursor < rangeEnd) values.push(run.format?.[key]);
+      cursor = runEnd;
+    }
+  }
+  if (values.length === 0) return { value: undefined, mixed: false };
+  const first = values[0];
+  return {
+    value: first as CharacterFormat[T] | undefined,
+    mixed: values.some((value) => !sameFormatValue(value, first)),
+  };
+}
+
+function sameFormatValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 function paragraphLength(para: Paragraph): number {
   return para.runs.reduce((sum, r) => sum + r.text.length, 0);
 }
@@ -93,6 +137,54 @@ export function applyFormatToSelection(
   rich: RichText,
   selection: RichSelection,
   format: CharacterFormat,
+): RichText {
+  return rewriteCharacterFormat(rich, selection, (base) => mergeFormat(base, format));
+}
+
+/** Remove selected character-format properties without disturbing others. */
+export function removeCharacterFormat(
+  rich: RichText,
+  selection: RichSelection,
+  keys: readonly (keyof CharacterFormat)[],
+): RichText {
+  const removed = new Set<string>(keys as readonly string[]);
+  return rewriteCharacterFormat(rich, selection, (base) => {
+    if (!base) return undefined;
+    const next = Object.fromEntries(Object.entries(base).filter(([key]) => !removed.has(key)));
+    return Object.keys(next).length > 0 ? (next as CharacterFormat) : undefined;
+  });
+}
+
+/** Replace text in one paragraph while preserving surrounding run formats. */
+export function replaceTextInParagraph(
+  rich: RichText,
+  paragraphIndex: number,
+  start: number,
+  end: number,
+  replacement: string,
+  format?: CharacterFormat,
+): RichText {
+  const paragraph = rich.paragraphs[paragraphIndex];
+  if (!paragraph) return rich;
+  const text = paragraph.runs.map((run) => run.text).join('');
+  const safe = normalizeGraphemeRange(createUnicodeIndexMap(text), start, end);
+  const inherited = format ?? formatAtOffset(paragraph, safe.start);
+  const before = text.slice(0, safe.start);
+  const after = text.slice(safe.end);
+  const runs: TextRun[] = [];
+  if (before) runs.push({ text: before, format: formatAtOffset(paragraph, 0) });
+  if (replacement) runs.push({ text: replacement, format: inherited });
+  if (after) runs.push({ text: after, format: formatAtOffset(paragraph, safe.end) });
+  const paragraphs = rich.paragraphs.map((candidate, index) =>
+    index === paragraphIndex ? mergeAdjacentRuns({ ...candidate, runs }) : candidate,
+  );
+  return { paragraphs };
+}
+
+function rewriteCharacterFormat(
+  rich: RichText,
+  selection: RichSelection,
+  rewrite: (base: CharacterFormat | undefined) => CharacterFormat | undefined,
 ): RichText {
   const paras = rich.paragraphs.map((p) => ({ ...p, runs: [...p.runs.map((r) => ({ ...r }))] }));
   const { start, end } = normalizeSelection(selection);
@@ -132,7 +224,7 @@ export function applyFormatToSelection(
       }
       newRuns.push({
         text: run.text.slice(selStart, selEnd),
-        format: mergeFormat(run.format, format),
+        format: rewrite(run.format),
         characterStyleId: run.characterStyleId,
       });
       if (selEnd < run.text.length) {
@@ -144,6 +236,15 @@ export function applyFormatToSelection(
   }
 
   return { paragraphs: paras.map(mergeAdjacentRuns) };
+}
+
+function formatAtOffset(para: Paragraph, offset: number): CharacterFormat | undefined {
+  let cursor = 0;
+  for (const run of para.runs) {
+    if (offset <= cursor + run.text.length) return run.format;
+    cursor += run.text.length;
+  }
+  return para.runs[para.runs.length - 1]?.format;
 }
 
 function normalizeSelection(sel: RichSelection): RichSelection {
