@@ -138,3 +138,6 @@ scripts/perf/dump*.mjs
 # --- Local CI/CD (act) secrets stub — never commit real tokens ---
 .act-secrets
 .replay-browser-results.json
+
+# --- Non-bundled downloaded ONNX models (fetched on demand; never commit) ---
+apps/desktop/public/models/*.onnx
