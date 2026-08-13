@@ -32,7 +32,13 @@ import type {
   ShapeNode,
   Timeline,
 } from '@varve/scene';
-import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@varve/scene';
+import {
+  documentBleedMm,
+  imageShapeH,
+  imageShapeSrc,
+  imageShapeW,
+  isImageShape,
+} from '@varve/scene';
 import {
   buildExportPlan,
   type ExportBatchRequest,
@@ -307,8 +313,15 @@ export function ExportDialog({
   const [lastReport, setLastReport] = useState<ExportReport | null>(null);
   const [printSettings, setPrintSettings] = useState<PrintOptions>(() => {
     const settings = loadSettings().export;
+    // Seed the export-job bleed from the document's canonical print
+    // geometry when configured (the active page's resolved bleed in mm),
+    // falling back to the app-wide export default. The dialog value is an
+    // explicit export-job override of the document value — canvas preview
+    // and PDF/X share the same underlying document bleed unless the
+    // designer changes it here for this export.
+    const docBleedMm = document ? documentBleedMm(document) : 0;
     return {
-      bleedMm: settings.defaultBleedMm,
+      bleedMm: docBleedMm > 0 ? docBleedMm : settings.defaultBleedMm,
       enforceDpi: 300,
       includeCropMarks: true,
       includeRegistrationMarks: false,
@@ -858,6 +871,7 @@ export function ExportDialog({
                   standard={
                     selectedJobs.some((job) => job.format === 'pdf-x1a') ? 'pdf-x1a' : 'pdf-x4'
                   }
+                  documentBleedMm={document ? documentBleedMm(document) : undefined}
                 />
               </section>
             )}
