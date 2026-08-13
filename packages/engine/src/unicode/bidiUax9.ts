@@ -1,3 +1,5 @@
+/// <reference path="../bidi-js.d.ts" />
+
 /**
  * UAX #9 adapter backed by bidi-js.
  *
