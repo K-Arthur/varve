@@ -1259,6 +1259,16 @@ export interface EditorContextValue {
    * the desktop engine.
    */
   convertDocumentColors: (mode: ColorMode) => void;
+  /**
+   * Set the document's default bit depth for newly authored colors. Does
+   * not rewrite existing values.
+   */
+  setDocumentBitDepth: (bitDepth: import('@varve/scene').BitDepth) => void;
+  /**
+   * Set the document's compositing working space ('srgb' | 'linear').
+   * A settings change; existing values are not rewritten.
+   */
+  setDocumentWorkingSpace: (space: import('@varve/scene').WorkingSpace) => void;
 
   // Soft proofing
   /** Persisted proof configuration (document print intent). */

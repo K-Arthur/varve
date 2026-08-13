@@ -1,4 +1,5 @@
 import type { EditorContextValue } from '../context';
+import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import { openMockupsWithSelection } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import { registerThumbnailActions } from '../thumbnail/thumbnailCommands';
@@ -44,6 +45,9 @@ export function registerEditorActions(
   // Thumbnail commands: source selection + picker entry point. Registered
   // BEFORE registerAllShortcuts() so real handlers win over no-op stubs.
   registerThumbnailActions(ctx);
+
+  // Document color conversion dialog entry point (Assign vs Convert).
+  registerColorConversionActions();
 
   const reg = (id: string, label: string, category: ActionCategory, handler: () => void) => {
     if (!r.has(id)) {

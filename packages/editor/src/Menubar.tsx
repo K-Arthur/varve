@@ -12,6 +12,7 @@ import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
+import { OfflineBanner } from './components/OfflineBanner';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, useNativeMenu } from './menu';
@@ -415,6 +416,10 @@ function buildMenus(
         {
           label: 'Set File Thumbnail\u2026',
           action: 'openThumbnailPicker',
+        },
+        {
+          label: 'Document Color Mode\u2026',
+          action: 'openColorConversion',
         },
         ...(activeFilePath
           ? [
@@ -2093,6 +2098,7 @@ export function Menubar({
 
   return (
     <div className="editor-menubar" data-testid="menubar">
+      <OfflineBanner />
       <div className="editor-menubar__side">
         <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
           <button
