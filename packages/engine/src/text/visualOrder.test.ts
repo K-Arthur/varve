@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BIDI_FIXTURES } from './fixtures';
-import { itemizeParagraph, itemizeText } from './paragraphs';
+import { itemizeText } from './paragraphs';
 import { lineVisualRuns, mirroredCharAt } from './visualOrder';
 
 function paragraphOf(text: string) {
@@ -11,9 +11,7 @@ describe('lineVisualRuns', () => {
   it('keeps a pure LTR line in logical order', () => {
     const paragraph = paragraphOf('abcd');
     const runs = lineVisualRuns(paragraph, 0, 4);
-    expect(runs.map((r) => [r.start, r.end, r.direction])).toEqual([
-      [0, 4, 'ltr'],
-    ]);
+    expect(runs.map((r) => [r.start, r.end, r.direction])).toEqual([[0, 4, 'ltr']]);
   });
 
   it('reverses a pure RTL line into visual order', () => {

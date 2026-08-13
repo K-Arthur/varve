@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { createUnicodeIndexMap } from '../unicode/unicodeIndices';
 import { BIDI_FIXTURES, SCRIPT_FIXTURES } from './fixtures';
 import { itemizeParagraph, itemizeText, splitParagraphs } from './paragraphs';
-import { createUnicodeIndexMap } from '../unicode/unicodeIndices';
 
 describe('splitParagraphs', () => {
   it('splits on newlines with document offsets', () => {
@@ -73,10 +73,7 @@ describe('scriptedRuns', () => {
   });
 
   it('absorbs combining marks into the surrounding run', () => {
-    const paragraph = itemizeParagraph(
-      { index: 0, start: 0, end: 0, text: 'e\u0301' },
-      'auto',
-    );
+    const paragraph = itemizeParagraph({ index: 0, start: 0, end: 0, text: 'e\u0301' }, 'auto');
     expect(paragraph.scriptedRuns).toHaveLength(1);
     expect(paragraph.scriptedRuns[0]!.start).toBe(0);
     expect(paragraph.scriptedRuns[0]!.end).toBe(2);

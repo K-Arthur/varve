@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { analyzeParagraph } from './bidi';
 import { BIDI_FIXTURES } from '../text/fixtures';
+import { analyzeParagraph } from './bidi';
 
 function para(text: string) {
   return analyzeParagraph(text);
