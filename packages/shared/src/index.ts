@@ -126,7 +126,12 @@ export {
 } from './bezier';
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
-export type { BitDepth, ManagedColorShim, RgbWorkingSpaceRef } from './colorConversion';
+export type {
+  BitDepth,
+  ManagedColorShim,
+  NormalizedRgba,
+  RgbWorkingSpaceRef,
+} from './colorConversion';
 export {
   COLOR_DISPLAY_DECIMALS,
   COLOR_EQUALITY_TOLERANCE,
@@ -139,6 +144,7 @@ export {
   DEFAULT_BIT_DEPTH,
   denormalizeChannel,
   gamutMapToSrgb,
+  gamutMapToSrgbUnit,
   isAnalyticRgbWorkingSpace,
   labToLch,
   labToRgb,

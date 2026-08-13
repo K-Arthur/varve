@@ -155,9 +155,7 @@ describe('managedColorToNormalized', () => {
     expect(a).toBe(1);
   });
 
-  it('float32 returns values close to input (uint8 quantization applies)', () => {
-    // managedColorToNormalized goes through managedColorToRgba which converts
-    // to uint8 — so precision beyond 8 bits is lost in the RGBA path by design.
+  it('float32 returns values close to input without uint8 quantization', () => {
     const c = {
       space: 'rgb' as const,
       bitDepth: 'float32' as const,
@@ -167,9 +165,67 @@ describe('managedColorToNormalized', () => {
       a: 1.0,
     };
     const [r, g, b, a] = managedColorToNormalized(c);
-    expect(r).toBeCloseTo(0.5, 2);
-    expect(g).toBeCloseTo(0.5, 2);
-    expect(b).toBeCloseTo(0.5, 2);
+    expect(r).toBe(0.5);
+    expect(g).toBe(0.5);
+    expect(b).toBe(0.5);
+    expect(a).toBe(1);
+  });
+
+  it('preserves distinct float levels that collapse to the same RGBA8 value', () => {
+    const first = managedColorToNormalized({
+      space: 'rgb',
+      bitDepth: 'float32',
+      r: 0.1234,
+      g: 0.5,
+      b: 0.5,
+      a: 1,
+    });
+    const second = managedColorToNormalized({
+      space: 'rgb',
+      bitDepth: 'float32',
+      r: 0.1235,
+      g: 0.5,
+      b: 0.5,
+      a: 1,
+    });
+    expect(first[0]).toBe(0.1234);
+    expect(second[0]).toBe(0.1235);
+    expect(first[0]).not.toBe(second[0]);
+    expect(
+      managedColorToRgba({
+        space: 'rgb',
+        bitDepth: 'float32',
+        r: 0.1234,
+        g: 0.5,
+        b: 0.5,
+        a: 1,
+      })[0],
+    ).toBe(
+      managedColorToRgba({
+        space: 'rgb',
+        bitDepth: 'float32',
+        r: 0.1235,
+        g: 0.5,
+        b: 0.5,
+        a: 1,
+      })[0],
+    );
+  });
+
+  it('keeps fractional CMYK channels out of the display quantization path', () => {
+    const color = {
+      space: 'cmyk' as const,
+      bitDepth: 'float32' as const,
+      c: 0.1234,
+      m: 0.2345,
+      y: 0.3456,
+      k: 0.0123,
+      a: 1,
+    };
+    const [r, g, b, a] = managedColorToNormalized(color);
+    expect(r).toBeCloseTo((1 - color.c) * (1 - color.k), 12);
+    expect(g).toBeCloseTo((1 - color.m) * (1 - color.k), 12);
+    expect(b).toBeCloseTo((1 - color.y) * (1 - color.k), 12);
     expect(a).toBe(1);
   });
 
