@@ -95,6 +95,13 @@ describe('FontRegistry', () => {
     expect(a).toBe(b);
   });
 
+  it('advances its revision when font registration changes', () => {
+    const reg = new FontRegistry([]);
+    const initial = reg.revision;
+    reg.register({ family: 'Revision Test', weight: 400, style: 'normal', source: 'system' });
+    expect(reg.revision).not.toBe(initial);
+  });
+
   it('registers a font entry with url source', () => {
     const reg = new FontRegistry([]);
     reg.register({

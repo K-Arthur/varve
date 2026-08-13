@@ -82,6 +82,8 @@ export class FontRegistry {
   private injectedLinks: Set<string> = new Set();
   /** Subscribers notified when any font's load state changes. */
   private _listeners: Set<() => void> = new Set();
+  /** Monotone revision for invalidating derived text layout. */
+  private _revision = 0;
 
   constructor(initial?: FontEntry[]) {
     for (const entry of initial ?? DEFAULT_FONTS) {
@@ -96,6 +98,7 @@ export class FontRegistry {
   }
 
   private _notify(): void {
+    this._revision++;
     for (const fn of this._listeners) fn();
   }
 
@@ -104,6 +107,12 @@ export class FontRegistry {
     const existing = this.entries.get(entry.family) ?? [];
     existing.push(entry);
     this.entries.set(entry.family, existing);
+    this._revision++;
+  }
+
+  /** Stable process-local identity for font-dependent layout cache keys. */
+  get revision(): string {
+    return `font-registry:${this._revision}`;
   }
 
   /** Get all registered font families. */
