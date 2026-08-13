@@ -834,6 +834,7 @@ export {
 export type { ShapingCacheKeyOptions } from './shapingCache';
 export { ShapingCache, shapingCache } from './shapingCache';
 export * from './storyComposition';
+export * from './richTextLayout';
 export * from './text/lineBreak';
 export * from './text/paragraphs';
 export * from './text/visualOrder';
