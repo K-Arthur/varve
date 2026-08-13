@@ -55,7 +55,9 @@ import {
   paintGeometricDropShadow,
   type ShadowOps,
 } from './shadowSource';
+import { shapeText } from './shaping';
 import { layoutRichText } from './textLayout';
+import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
 import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
 import { splitGraphemes } from './unicode/grapheme';
 
@@ -92,6 +94,8 @@ export interface ReplayTarget {
   closePath(): void;
   clip(): void;
   fillText(text: string, x: number, y: number): void;
+  /** Optional measurement hook used to derive a canonical browser snapshot. */
+  measureText?(text: string): TextMetrics;
   font: string;
   textBaseline: CanvasTextBaseline;
   fillStyle: string | CanvasGradient | CanvasPattern;
@@ -2480,6 +2484,114 @@ function paintRichText(
   }
 }
 
+type TextPrimitive = Extract<RenderItem['primitive'], { kind: 'text' }>;
+
+function canUseCanonicalTextLayout(p: TextPrimitive): boolean {
+  return (
+    !p.richText &&
+    p.textMode !== 'path' &&
+    p.textCase === 'none' &&
+    p.listStyle === 'none' &&
+    p.textOverflow === 'visible' &&
+    p.paragraphSpacing === 0 &&
+    p.firstLineIndent === undefined &&
+    !p.text.includes('\t') &&
+    !p.glyphAdjustments &&
+    !p.pairAdjustments &&
+    p.kerningMode !== 'none'
+  );
+}
+
+function canonicalTextSnapshot(
+  target: ReplayTarget,
+  p: TextPrimitive,
+): TextLayoutSnapshot | null {
+  if (!canUseCanonicalTextLayout(p)) return null;
+
+  const maxWidth = p.textMode === 'area' ? p.w : 0;
+  const shaping =
+    p.shaping ??
+    (() => {
+      if (!target.measureText) return undefined;
+      const direction = p.direction ?? 'auto';
+      const language = p.language ?? '';
+      // Do not cache browser measurement here: this layer has no font-face
+      // revision token, and a late-loaded face must invalidate geometry.
+      return shapeText(
+        p.text,
+        p.fontFamily,
+        p.fontSize,
+        target as unknown as CanvasRenderingContext2D,
+        {
+          fontWeight: p.fontWeight,
+          fontStyle: p.fontStyle,
+          letterSpacing: p.letterSpacing,
+          tracking: p.tracking,
+          direction,
+          language,
+        },
+      );
+    })();
+
+  if (!shaping) return null;
+  return buildTextLayoutSnapshot(p.text, shaping, {
+    maxWidth,
+    lineHeight: p.fontSize * p.lineHeight,
+    language: p.language,
+  });
+}
+
+function paintCanonicalText(
+  target: ReplayTarget,
+  p: TextPrimitive,
+  snapshot: TextLayoutSnapshot,
+): void {
+  const verticalOffset =
+    p.textAlignVertical === 'middle'
+      ? (p.h - snapshot.height) / 2
+      : p.textAlignVertical === 'bottom'
+        ? p.h - snapshot.height
+        : 0;
+  const originalFillStyle = target.fillStyle;
+  target.textAlign = 'left';
+  target.textBaseline = 'alphabetic';
+
+  for (const line of snapshot.lines) {
+    const xOffset =
+      p.textAlign === 'center'
+        ? (p.w - line.width) / 2
+        : p.textAlign === 'right'
+          ? p.w - line.width
+          : 0;
+    for (const run of line.runs) {
+      const style = run.sourceRun.fontStyle === 'italic' ? 'italic ' : '';
+      const weight = Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
+      target.font = `${style}${weight} ${run.sourceRun.fontSize}px "${run.sourceRun.fontFamily}"`;
+      for (const glyph of run.glyphs) {
+        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
+        if (cluster.length === 0 || cluster.includes('\n')) continue;
+        target.fillText(
+          cluster,
+          p.x + xOffset + glyph.x + glyph.xOffset,
+          p.y + verticalOffset + glyph.y,
+        );
+      }
+    }
+    if (p.textDecoration === 'underline' || p.textDecoration === 'line-through') {
+      const decoY =
+        p.y + verticalOffset + line.baseline +
+        (p.textDecoration === 'underline' ? p.fontSize * 0.3 : -p.fontSize * 0.3);
+      target.beginPath();
+      target.moveTo(p.x + xOffset, decoY);
+      target.lineTo(p.x + xOffset + line.width, decoY);
+      target.strokeStyle = target.fillStyle;
+      target.lineWidth = 1;
+      target.stroke();
+    }
+  }
+  target.fillStyle = originalFillStyle;
+}
+
 /** Paint text along a path (text-on-path). */
 function paintPathText(
   target: ReplayTarget,
@@ -2583,6 +2695,11 @@ function paintText(
   }
   if (p.richText) {
     paintRichText(target, p);
+    return;
+  }
+  const snapshot = canonicalTextSnapshot(target, p);
+  if (snapshot) {
+    paintCanonicalText(target, p, snapshot);
     return;
   }
 
