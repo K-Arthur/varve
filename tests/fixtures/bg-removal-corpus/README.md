@@ -41,3 +41,27 @@ Large or licensed corpora stay outside Git. Record the source, license,
 redistribution permission, dimensions, category, mask classification, annotator,
 and known ambiguities in the external manifest. The checked-in
 `corpus.json` is the schema and hygiene contract for routine CI.
+
+## Synthetic reference fixtures
+
+The deterministic generator creates CC0 RGB/RGBA fixtures with exact masks in
+the PNG alpha channel. It does not borrow pixels and uses a fixed seed:
+
+```bash
+python3 -m venv /tmp/varve-bgremove-reference-venv
+. /tmp/varve-bgremove-reference-venv/bin/activate
+python -m pip install -r scripts/bench/bgremove-reference/requirements.txt
+python scripts/bench/bgremove-reference/generate_fixtures.py \
+  --output-dir /tmp/varve-bgremove-reference/images
+python scripts/bench/bgremove-reference/run_reference.py \
+  --models-dir /path/to/pinned-onnx-models \
+  --images-dir /tmp/varve-bgremove-reference/images \
+  --output-dir /tmp/varve-bgremove-reference/reference
+```
+
+The reference runner emits masks at source resolution and copies genuine
+source alpha channels into `*-ground-truth.png`. Binary fixtures remain
+segmentation targets; only alpha-bearing fixtures are marked as alpha targets.
+The runner requires the exact pinned ONNX files and records the requested
+model, preprocessing mode, and output paths. Missing models or dependencies
+are hard errors, so an incomplete run cannot be mistaken for parity evidence.
