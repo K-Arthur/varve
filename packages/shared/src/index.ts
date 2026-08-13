@@ -222,6 +222,17 @@ export {
   getArtboardRulerOrigin,
   worldToArtboard,
 } from './coordinates';
+export type {
+  PortablePathErrorCode,
+  PortablePathValidation,
+  PortableProjectPath,
+} from './portablePath';
+export {
+  joinPortableProjectPath,
+  portableProjectBasename,
+  portableProjectPath,
+  validatePortableProjectPath,
+} from './portablePath';
 export { cssStringToManagedColor, managedColorToCssString } from './cssColorParser';
 export { debounce, throttle } from './debounce';
 export type {
