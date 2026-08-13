@@ -31,10 +31,10 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Design</strong> (<code>Ctrl+Shift+1</code>) — UI/UX, components, and prototyping. Default tool: Select.</li>
           <li><strong>Print</strong> (<code>Ctrl+Shift+2</code>) — Multi-page layouts, typography, preflight, and colour management. Default tool: Select.</li>
           <li><strong>Draw</strong> (<code>Ctrl+Shift+3</code>) — Raster painting, vector freehand, and brushes. Default tool: Paint.</li>
-          <li><strong>Photo</strong> (<code>Ctrl+Shift+4</code>) — Nondestructive photo editing and adjustments. Default tool: Preserve.</li>
+          <li><strong>Photo</strong> (<code>Ctrl+Shift+4</code>) — Nondestructive photo editing and adjustments. Keeps your current tool; the toolbar leads with Select, Lasso, and the retouch and mask flyouts.</li>
           <li><strong>Motion</strong> (<code>Ctrl+Shift+5</code>) — Timeline animation, keyframes, and easing. Default tool: Select.</li>
           <li><strong>Logo</strong> (<code>Ctrl+Shift+6</code>) — Wordmarks, marks, monograms, badges, and brand systems. Default tool: Select.</li>
-          <li><strong>Codegen</strong> (<code>Ctrl+Shift+9</code>) — Code export. Default tool: Select.</li>
+          <li><strong>Codegen</strong> (<code>Ctrl+Shift+9</code>) — Code export. Keeps your current tool.</li>
         </ul>
         <p>
           Note: the older <code>Ctrl+Shift+D/P/R/I/M</code> bindings shown in some
@@ -54,6 +54,26 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           This means you can sketch in Draw, refine in Design, check print colour in
           Print, and animate in Motion — all in the same session, with one history.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Customizing a Workspace</h2>
+        <p>
+          <strong>Customize Workspace…</strong> (View menu or command palette) controls every
+          surface a workspace owns, applied instantly and remembered per mode:
+        </p>
+        <ul>
+          <li><strong>Panels</strong> — show or hide the Layers, Inspector, Timeline, Resources, Code, Logo, and History panels.</li>
+          <li><strong>Toolbar</strong> — hide tools, including tools that live inside flyouts (boolean operations, retouch, mask). Select, Hand, and Zoom always stay available.</li>
+          <li><strong>Inspector tabs</strong> and <strong>status bar sections</strong> — per-workspace visibility.</li>
+          <li><strong>Panel widths</strong> — resize the Layers, Inspector, and Resources panels with the drag handle; widths are remembered per workspace.</li>
+        </ul>
+        <p>
+          Layouts survive restarts even where browser storage is unreliable, and
+          <strong>Show All Panels</strong> (View menu) recovers an accidentally hidden layout.
+          Reset returns the current mode to its built-in layout; Reset All asks before clearing
+          every workspace's customizations.
         </p>
       </section>
 
