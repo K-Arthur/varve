@@ -18,20 +18,23 @@ integrations) builds on.
 - Call-site prefixes: `[Strata]`, `[Varve]`, `[spike]`, `[dbg-kd]`, `[nativeMenu]`.
 - No log files are written; no logs leave the device today.
 
-### 1.2 Telemetry / analytics
+### 1.2 Telemetry / analytics (updated 2026-08-13)
 
-- **Zero third-party telemetry, analytics, or crash SDKs.** No Sentry,
+- **No third-party telemetry, analytics, or crash SDKs are bundled.** No Sentry,
   Crashpad, Breakpad, Bugsnag, Rollbar, OpenTelemetry, PostHog, Mixpanel,
-  Amplitude, GA4, Plausible, or Segment anywhere in `package.json`,
-  `pnpm-lock.yaml`, `Cargo.toml`, or `Cargo.lock`.
-- All "analytics" is local-only and consent-free:
+  Amplitude, GA4, Plausible SDK, or Segment appears in `package.json`,
+  `pnpm-lock.yaml`, `Cargo.toml`, or `Cargo.lock`. The website has a
+  provider-neutral, explicit Plausible Events API adapter in its own app
+  boundary; it is disabled unless configured and consented.
+- Local product signals remain local-only and consent-free:
   - `ActionTracker` — localStorage `strata:actions` (editor intelligence).
   - Template usage — localStorage `varve-template-usage`.
   - Design fingerprint — localStorage `strata:design-fingerprint`.
   - Interaction traces — in-memory ring (dev diagnostics panel).
-- The only privacy toggle today is `ai.shareUsageData` (default `false`) in
-  `varve-settings`; nothing reads it. It is product-analytics-adjacent and is
-  **never** interpreted as crash-reporting consent.
+- Desktop usage analytics and diagnostics are separate explicit settings in
+  `varve-editor-settings`, both defaulting to `unknown` and failing closed.
+  `ai.shareUsageData` remains unrelated and is **never** interpreted as
+  analytics or crash-reporting consent. See `docs/architecture/analytics.md`.
 
 ### 1.3 Crash handlers (existing)
 
@@ -100,9 +103,11 @@ Only an explicit `strata:crash-consent` decision record may migrate (see
 3. Cloud bg-removal provider — user-configured, opt-in, disabled by default.
    Sends image content to the configured endpoint. Consent is explicit
    (user-configured), but not crash-related.
-4. **Nothing else.** No crash reports, no analytics transport, no beacons,
-   no DSNs. The audit found no place where crash or diagnostic data leaves
-   the device, because no such data is collected or transmitted today.
+4. Analytics transport exists only behind explicit category consent and an
+   endpoint/provider configuration. The default desktop build has no endpoint;
+   the website has no endpoint unless `ANALYTICS_DOMAIN` is set at production
+   build time. Crash reporting remains separately configured and defaults to a
+   no-op uploader.
 
 ## 2. Target architecture map
 

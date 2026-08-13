@@ -1,0 +1,72 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Analytics disclosure"
+  description="Varve's technical analytics disclosure: the small, consent-gated event inventory and the data Varve never collects."
+>
+  <div class="container-custom">
+    <article class="analytics-page">
+      <h1>Analytics disclosure</h1>
+      <p class="lead">
+        Varve measures only a few aggregate product and website questions. Unknown consent fails
+        closed, and no provider SDK, autocapture, session replay, cookie, or fingerprint is used.
+      </p>
+
+      <h2>Website events</h2>
+      <table>
+        <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>website_page_viewed</td><td>normalized route</td><td>Understand which documentation and product pages are useful.</td></tr>
+          <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Measure the download funnel and platform demand.</td></tr>
+          <tr><td>website_outbound_clicked</td><td>destination category</td><td>Understand whether GitHub, documentation, or community links help visitors.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Desktop events</h2>
+      <table>
+        <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td>app_launched</td><td>surface</td><td>Count opted-in product sessions.</td></tr>
+          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td></tr>
+          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td></tr>
+          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td></tr>
+          <tr><td>renderer_fallback / performance_sample</td><td>backend, reason, metric, duration bucket</td><td>Find platform-specific renderer and performance issues.</td></tr>
+        </tbody>
+      </table>
+
+      <h2>Never collected</h2>
+      <p>
+        Documents, canvas pixels, screenshots, exported artwork, clipboard data, filenames, paths,
+        project or layer names, user text, comments, URLs from designs, imported metadata, image
+        hashes, geometry, generated code, AI prompts, raw exception strings, raw stacks, device
+        identifiers, authentication identities, advertising identifiers, and arbitrary payload
+        fields are prohibited by the schema and runtime privacy boundary.
+      </p>
+
+      <h2>Consent and transport</h2>
+      <p>
+        Website consent is separate from desktop usage analytics, diagnostics telemetry, and crash
+        reporting. The client uses a bounded in-memory queue, never blocks editing or navigation,
+        and discards pending events when consent is revoked or the process ends. The default
+        deployment has no analytics endpoint configured.
+      </p>
+      <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .analytics-page { max-width: 900px; margin: 0 auto; padding: 3rem 0; }
+  h1 { color: var(--text-primary); font-family: var(--font-editorial); font-size: clamp(2rem, 5vw, 2.75rem); margin-bottom: 1rem; }
+  h2 { color: var(--text-primary); font-size: 1.5rem; margin: 2.5rem 0 0.75rem; }
+  p { color: var(--text-secondary); line-height: 1.75; margin-bottom: 1rem; }
+  .lead { font-size: 1.1rem; max-width: 65ch; }
+  table { width: 100%; border-collapse: collapse; color: var(--text-secondary); line-height: 1.55; }
+  th, td { border-bottom: 1px solid var(--border-default); padding: 0.75rem; text-align: left; vertical-align: top; }
+  th { color: var(--text-primary); }
+  a { color: var(--text-link); }
+  @media (max-width: 700px) { table { display: block; overflow-x: auto; } }
+</style>

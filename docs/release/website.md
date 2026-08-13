@@ -17,7 +17,7 @@ Three things made it unshippable, all now fixed:
 |---|---|---|
 | `site: 'https://strata.design'`, `base: '/'` | Domain not owned. On GitHub Pages a project repo serves from `/<repo>/`, so every absolute asset path 404'd and every canonical URL and `og:url` pointed at a host that does not resolve | `SITE_URL`/`SITE_BASE` env vars, defaulting to the Pages URL that actually exists |
 | `download.astro` never read `releases.json` | Hardcoded "Get it on GitHub" buttons, invented sizes, version `0.0.0`, and `yay -S varve-desktop` for a package that does not exist | Renders entirely from a generated manifest |
-| Plausible loaded unconditionally | A paid subscription pointed at a non-existent domain: cost, no data, third-party request on every page | Opt-in via `ANALYTICS_DOMAIN`; CSP derived from the same flag |
+| Plausible loaded unconditionally | A paid subscription pointed at a non-existent domain: cost, no data, third-party request on every page | Varve-owned consent-gated Events API adapter; `ANALYTICS_DOMAIN` unset means no prompt or request |
 
 A hand-maintained `public/sitemap.xml` listed 28 absolute URLs under the same
 dead domain; it is now generated from the configured site and the actual page
@@ -35,7 +35,8 @@ apps/website/
     ├── data/
     │   └── release-manifest.json    GENERATED — never hand-edited
     ├── lib/siteUrl.ts               ONE URL system: sitePath/siteUrl/canonical
-    ├── layouts/Layout.astro         meta, OG, CSP, opt-in analytics, active nav
+    ├── layouts/Layout.astro         meta, OG, CSP, consent surface, active nav
+    ├── lib/analytics.ts              normalized routes + explicit Plausible adapter
     ├── pages/
     │   ├── download.astro           renders from src/data/release-manifest.json
     │   ├── sitemap.xml.ts           generated from site + base + page files
@@ -146,11 +147,11 @@ Present and accurate:
       says so
 - [x] Unsigned-build warnings with the correct OS-specific walkthrough
 - [x] Data-loss warning, placed **above** the download controls
-- [x] Privacy policy matching actual behaviour (no analytics, no cookies)
+- [x] Privacy policy matching actual behaviour (consent-gated analytics, no cookies)
 - [x] Licence, security reporting, support and bug-report links
 - [x] Known issues, release notes, roadmap
 - [x] SEO + social metadata, favicon, custom 404
-- [x] No analytics by default
+- [x] No analytics by default; configured production analytics requires explicit visitor consent
 
 ### Advanced verification (for users who want to verify provenance)
 

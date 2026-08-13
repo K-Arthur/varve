@@ -155,20 +155,23 @@ the GUI-launch-on-VM smoke test and a first green three-OS CI run.
 
 ## 6. Analytics and privacy
 
-**Decision: ship with no analytics at all. Implemented 2026-08-04.**
+**Decision: ship with no analytics by default; provide a consent-gated adapter for
+deliberate production activation. Updated 2026-08-13.**
 
 `apps/website/src/layouts/Layout.astro` previously hardcoded the Plausible
 script, pointed at `strata.design` — a domain not owned, so it cost money and
-collected nothing. Analytics is now opt-in behind the `ANALYTICS_DOMAIN` build
-env var (empty by default, so the script tag and its CSP allowances are
-omitted entirely from production builds). Privacy policy updated to match.
+collected nothing. The website now uses a Varve-owned, consent-gated Events API
+adapter behind `ANALYTICS_DOMAIN` (empty by default, so there is no prompt or
+analytics request). Desktop usage, diagnostics, and crash reporting are
+independent categories with unknown/denied fail-closed defaults. Privacy policy
+and the technical disclosure match the implementation.
 
 GitHub Releases already reports per-asset download counts via the API for free. That is the
 only metric that matters at alpha ("did anyone download it, and which platform"), and it
 requires no third-party script, no cookie banner, and no privacy-policy exposure.
 
-To enable analytics later, set `ANALYTICS_DOMAIN` in the deploy workflow — no
-source change needed.
+To enable website analytics later, set `ANALYTICS_DOMAIN` in a production
+deployment only after provider, retention, access, deletion, and legal review.
 
 ---
 
