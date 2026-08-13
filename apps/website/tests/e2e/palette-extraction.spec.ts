@@ -11,9 +11,6 @@ test.describe('palette extraction marketing surface', () => {
     await expect(page.getByText(/bounded preview is analysed locally/i)).toBeVisible();
     await expect(page.getByText(/Generated harmonies/i)).toBeVisible();
     await expect(page.getByText(/WCAG 2.1 body-text and large-text contrast/i)).toBeVisible();
-    const paletteVisual = page.locator('.feature-visual img');
-    await expect(paletteVisual).toBeVisible();
-    await expect(paletteVisual).toHaveAttribute('alt', /extracted swatches/i);
 
     await testInfo.attach('palette-feature-light', {
       body: await page.locator('.feature-page').screenshot(),

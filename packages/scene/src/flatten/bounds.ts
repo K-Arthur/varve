@@ -21,6 +21,7 @@ export function effectPadding(effect: {
   type: string;
   blur?: number;
   spread?: number;
+  blurStrength?: number;
   x?: number;
   y?: number;
   radius?: number;
@@ -30,6 +31,7 @@ export function effectPadding(effect: {
   const offsetX = effect.x ?? 0;
   const offsetY = effect.y ?? 0;
   const radius = effect.radius ?? 0;
+  const depthBlurRadius = effect.blurStrength ?? 0;
 
   // Conservative blur-kernel extent. The Canvas2D shadow API and CSS blur
   // filters visibly spread ≈3× the radius, and the replay buffer pads by
@@ -60,6 +62,13 @@ export function effectPadding(effect: {
         top: radiusKernel,
         right: radiusKernel,
         bottom: radiusKernel,
+      };
+    case 'depthBlur':
+      return {
+        left: depthBlurRadius * 3,
+        top: depthBlurRadius * 3,
+        right: depthBlurRadius * 3,
+        bottom: depthBlurRadius * 3,
       };
     case 'glassMaterial':
       return { left: kernel, top: kernel, right: kernel, bottom: kernel };

@@ -520,7 +520,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
 
   {
     id: 'lens-blur',
-    title: 'Lens Blur',
+    title: 'Depth Blur',
     defaultExpanded: false,
     canHide: true,
     essential: false,
