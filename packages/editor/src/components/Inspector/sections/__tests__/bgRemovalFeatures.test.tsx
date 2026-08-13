@@ -622,6 +622,80 @@ describe('BackgroundRemovalSection - Refine mask wiring', () => {
   });
 });
 
+describe('BackgroundRemovalSection - Object Selection', () => {
+  it('renders the Object Selection entry for an image node and activates the tool', () => {
+    const setTool = vi.fn();
+    const announce = vi.fn();
+    mockedUseEditor.mockReturnValue(createMockEditorContext({ setTool, announce }));
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(document.querySelector('[data-title="Object Selection"]')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Object' }));
+    expect(setTool).toHaveBeenCalledWith('sam2Segment');
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('Object Selection active'));
+  });
+
+  it('shows session controls and applies or cancels the preview mask', () => {
+    const applySam2Segmentation = vi
+      .fn()
+      .mockResolvedValue({ mask: new Uint8Array(4), width: 2, height: 2, confidence: 0.9 });
+    const cancelSam2Segmentation = vi.fn();
+    mockedUseEditor.mockReturnValue(
+      createMockEditorContext({
+        applySam2Segmentation,
+        cancelSam2Segmentation,
+        state: {
+          objectSelectionSession: {
+            nodeId: 'n1',
+            width: 200,
+            height: 160,
+            candidates: [{ mask: new Uint8Array(200 * 160), confidence: 0.9 }],
+            selectedCandidate: 0,
+            points: [{ x: 100, y: 80, label: 1 }],
+            box: null,
+            confidence: 0.9,
+            status: 'ready',
+            modelId: 'sam2-hiera-tiny',
+            executionProvider: 'wasm',
+          },
+        },
+      }),
+    );
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(screen.getByText(/preview ready/i)).toBeTruthy();
+    expect(screen.getByText(/1 candidate mask/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
+    expect(applySam2Segmentation).toHaveBeenCalledWith(
+      expect.objectContaining({ nodeId: 'n1', operation: 'mask' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(cancelSam2Segmentation).toHaveBeenCalledTimes(1);
+  });
+
+  it('labels the entry as Continue when a session already exists', () => {
+    mockedUseEditor.mockReturnValue(
+      createMockEditorContext({
+        state: {
+          objectSelectionSession: {
+            nodeId: 'n1',
+            width: 200,
+            height: 160,
+            candidates: [],
+            selectedCandidate: 0,
+            points: [],
+            box: null,
+            confidence: 0,
+            status: 'ready',
+            modelId: 'sam2-hiera-tiny',
+            executionProvider: 'wasm',
+          },
+        },
+      }),
+    );
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(screen.getByRole('button', { name: 'Continue Object Selection' })).toBeTruthy();
+  });
+});
+
 describe('BackgroundRemovalSection - Phase E actions', () => {
   it('shows Refine edges (hair/fur) when background removal exists', () => {
     const node = makeImageNode({
