@@ -225,6 +225,49 @@ it publishes.
 
 ---
 
+## 10. Packaged AppImage vertical slice
+
+`scripts/update-test/` runs a real packaged upgrade on the developer machine:
+
+```
+build-fixtures.sh   # builds OLD (0.1.1-test) + NEW (0.1.2-test) RELEASE
+                    # AppImages, wdio feature for automation, TEST-ONLY key
+                    # ~/.varve/updater-test.key, localhost feed on :8899
+run-slice.sh        # wdio on the OLD AppImage: consent -> manual check ->
+                    # download -> unsaved-work guard -> install -> restart;
+                    # byte-level replacement check; then an INVALID-signature
+                    # feed must fail closed on the relaunched NEW AppImage
+```
+
+Both AppImages embed the test public key and a localhost endpoint with
+`dangerousInsecureTransportProtocol` (allowed only by
+`apps/desktop/src-tauri/tauri.update.test.json`, which release CI never
+reads). The fixtures differ only by version, and the same WebDriver (embedded
+via the wdio Cargo feature) drives the native webview, so the consent dialog,
+the Settings > Updates flow, the termination/save guard and the relaunch are
+exercised against real packaged bytes — not mocks.
+
+Covered assertions:
+
+- first launch shows the consent dialog and never pre-checks consent;
+- declining consent reports manual mode and still allows a manual check;
+- the update is discovered with its feed notes, download reaches
+  `ready-to-install` only after Tauri's signature verification;
+- "Install and Restart" is blocked by the canonical unsaved-document guard
+  until it is resolved;
+- after restart the AppImage at the original path is byte-identical to the
+  new fixture, still executable, and reports `0.1.2-test` via
+  `update_packaging_context`;
+- preferences survive the upgrade (no re-consent prompt);
+- a feed whose signature does not match the payload fails closed: error
+  state, no install offer, app still running.
+
+Not covered by the slice (documented gaps): the read-only/disk-full install
+failure paths, Windows NSIS and macOS installed-app upgrades (require
+platform runners), and the production feed (never used for tests).
+
+---
+
 ## 6. Key management
 
 Tauri's updater signs manifests with a minisign keypair. Expiry/rotation
