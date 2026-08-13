@@ -7,6 +7,7 @@ import { toolShortcutLabel } from '../../shortcuts';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
+import { toolLabel } from '../../workspace/toolLabels';
 
 const TOUCH_MULTISELECT_ACTIVE_CLASS = 'floating-toolbar__touch-multi--active';
 
@@ -24,42 +25,6 @@ const BOOLEAN_SUB_TOOLS: ToolId[] = [
   'booleanIntersect',
   'booleanExclude',
 ];
-
-const TOOL_LABELS: Partial<Record<ToolId, string>> = {
-  rect: 'Rectangle',
-  ellipse: 'Ellipse',
-  polygon: 'Polygon',
-  star: 'Star',
-  line: 'Line',
-  arrow: 'Arrow',
-  text: 'Text',
-  pen: 'Pen',
-  pencil: 'Pencil',
-  frame: 'Frame',
-  select: 'Select',
-  hand: 'Hand',
-  zoom: 'Zoom',
-  crop: 'Crop',
-  slice: 'Slice',
-  eyedropper: 'Eyedropper',
-  scale: 'Scale',
-  inspect: 'Inspect',
-  booleanUnion: 'Union',
-  booleanSubtract: 'Subtract',
-  booleanIntersect: 'Intersect',
-  booleanExclude: 'Exclude',
-  paint: 'Paint Brush',
-  eraser: 'Eraser',
-  cloneStamp: 'Clone Stamp',
-  healBrush: 'Healing Brush',
-  spotHeal: 'Spot Heal',
-  patch: 'Patch Tool',
-  smudge: 'Smudge',
-  sam2Segment: 'Select Subject',
-  lasso: 'Lasso',
-  table: 'Table',
-  warp: 'Warp',
-};
 
 /** Tools hidden in structured-layout modes (Print, Design): raster painting
  *  and photo retouching aren't part of page-layout or UI-component work —
@@ -139,7 +104,7 @@ function iconName(id: string): IconName {
 
 function ToolButton({ id, groupStart }: ToolButtonProps) {
   const { state, setTool } = useEditor();
-  const label = TOOL_LABELS[id] ?? id;
+  const label = toolLabel(id);
   const shortcut = toolShortcutLabel(id);
   return (
     <Tooltip label={label} shortcut={shortcut}>
@@ -310,7 +275,7 @@ export function FloatingToolbar() {
 
   const shapeItems: MenuEntry[] = visibleShapeTools.map((id) => ({
     id,
-    label: TOOL_LABELS[id] ?? id,
+    label: toolLabel(id),
     onAction: () => {
       setTool(id);
       setShapeMenuPos(null);
@@ -319,7 +284,7 @@ export function FloatingToolbar() {
 
   const booleanItems: MenuEntry[] = BOOLEAN_SUB_TOOLS.map((id) => ({
     id,
-    label: TOOL_LABELS[id] ?? id,
+    label: toolLabel(id),
     onAction: () => {
       const op = BOOLEAN_OP_MAP[id];
       if (op) {
@@ -349,12 +314,12 @@ export function FloatingToolbar() {
             )}
             {visibleShapeTools.length > 0 && (
               <>
-                <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
+                <Tooltip label={toolLabel(currentShape)}>
                   <button
                     type="button"
                     className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
                     aria-pressed={state.tool === currentShape}
-                    aria-label={TOOL_LABELS[currentShape] ?? currentShape}
+                    aria-label={toolLabel(currentShape)}
                     data-tool={currentShape}
                     onClick={() => setTool(currentShape)}
                   >
@@ -386,18 +351,14 @@ export function FloatingToolbar() {
             {showBooleanTools && (
               <>
                 <Tooltip
-                  label={
-                    canBoolean
-                      ? (TOOL_LABELS[currentBoolean] ?? currentBoolean)
-                      : 'Select 2+ shapes for boolean'
-                  }
+                  label={canBoolean ? toolLabel(currentBoolean) : 'Select 2+ shapes for boolean'}
                   disabledReason={!canBoolean ? 'Select 2+ shapes for boolean' : undefined}
                 >
                   <button
                     type="button"
                     className="floating-toolbar__btn floating-toolbar__btn--group-start"
                     aria-pressed={false}
-                    aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
+                    aria-label={toolLabel(currentBoolean)}
                     data-tool={currentBoolean}
                     aria-disabled={!canBoolean || undefined}
                     onClick={() => {

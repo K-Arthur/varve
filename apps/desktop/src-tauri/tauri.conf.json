@@ -46,7 +46,8 @@
           "https://*.hf.co",
           "https://api.iconify.design",
           "https://api.simplesvg.com",
-          "https://api.unisvg.com"
+          "https://api.unisvg.com",
+          "https://plausible.io"
         ],
         "worker-src": ["'self'"],
         "media-src": ["'self'", "blob:", "data:"],
@@ -76,7 +77,8 @@
           "https://*.hf.co",
           "https://api.iconify.design",
           "https://api.simplesvg.com",
-          "https://api.unisvg.com"
+          "https://api.unisvg.com",
+          "https://plausible.io"
         ],
         "worker-src": ["'self'"],
         "media-src": ["'self'", "blob:", "data:"],

@@ -39,10 +39,12 @@ for a future Varve-owned aggregate endpoint and accepts only HTTPS endpoints.
 The website uses a small Plausible Events API adapter with manually normalized
 routes; it does not load a provider SDK.
 
-The desktop environment variable `VITE_VARVE_ANALYTICS_ENDPOINT` is public
-configuration if used in the future. It is not a secret and must never be
-replaced with an administrative key. A configured endpoint also requires a
-deliberate Tauri CSP change and operational review.
+The production desktop build uses the public `varve.studio` domain with the
+Plausible Events API. `VITE_VARVE_ANALYTICS_DOMAIN` is public configuration;
+it is not a secret and must never be replaced with an administrative key. A
+custom Varve endpoint may still be supplied through
+`VITE_VARVE_ANALYTICS_ENDPOINT`, but requires a deliberate Tauri CSP change
+and operational review.
 
 ## Adding an event
 

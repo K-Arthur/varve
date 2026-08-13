@@ -203,6 +203,9 @@ global flag.
 - **Announcements**: mode switches announce via the existing announcer;
   navigation failures surface as toasts (aria-live) rather than silent
   no-ops.
+- **Workspace customization**: tool checkboxes use product labels and expose
+  an explicit “Always available” explanation for Select, Hand, and Zoom. Those
+  recovery tools cannot be hidden from the toolbar.
 
 ## 6. Persistence and migration
 

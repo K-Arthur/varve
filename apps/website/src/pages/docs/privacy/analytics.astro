@@ -50,8 +50,9 @@ import { sitePath } from '../../../lib/siteUrl';
       <p>
         Website consent is separate from desktop usage analytics, diagnostics telemetry, and crash
         reporting. The client uses a bounded in-memory queue, never blocks editing or navigation,
-        and discards pending events when consent is revoked or the process ends. The default
-        deployment has no analytics endpoint configured.
+        and discards pending events when consent is revoked or the process ends. The production
+        deployment is configured for the aggregate Plausible site at <code>varve.studio</code>;
+        local and unconfigured builds remain endpoint-free.
       </p>
       <p><a href={sitePath('/about/privacy')}>Read the full privacy policy</a>.</p>
     </article>

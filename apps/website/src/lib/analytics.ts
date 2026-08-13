@@ -227,6 +227,12 @@ export class WebsiteAnalyticsController {
     }
   }
 
+  withdraw(): void {
+    writeConsent('denied');
+    this.client.updateConsent({ website: 'denied', usage: 'denied', diagnostics: 'denied' });
+    this.showBanner();
+  }
+
   private enable(): void {
     this.client.updateConsent({ website: 'granted', usage: 'denied', diagnostics: 'denied' });
   }
@@ -290,5 +296,8 @@ export function initWebsiteAnalytics(options: WebsiteAnalyticsOptions): void {
       const value = element.dataset.analyticsChoice;
       if (value === 'granted' || value === 'denied') controller.choose(value);
     });
+  });
+  document.querySelectorAll<HTMLElement>('[data-analytics-withdraw]').forEach((element) => {
+    element.addEventListener('click', () => controller.withdraw());
   });
 }

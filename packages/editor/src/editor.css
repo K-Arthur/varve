@@ -4579,6 +4579,12 @@ dialog.varve-dialog--settings[open] {
   letter-spacing: 0.05em;
   margin-bottom: var(--space-2);
 }
+.workspace-customize__hint {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
 .workspace-customize__toggle {
   display: flex;
   align-items: center;
@@ -4586,6 +4592,11 @@ dialog.varve-dialog--settings[open] {
   padding: var(--space-1) 0;
   font-size: var(--font-size-sm);
   cursor: pointer;
+}
+.workspace-customize__always {
+  margin-inline-start: auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
 }
 .workspace-customize__toggle input[type="checkbox"] {
   accent-color: var(--color-interactive-default);
