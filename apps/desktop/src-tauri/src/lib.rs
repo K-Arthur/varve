@@ -1870,6 +1870,17 @@ impl PdfXOptions {
             } else {
                 varve_print::marks::MarksGeometry::default().bleed_mm
             },
+            draw_crop_marks: self.include_crop_marks,
+            trim_offset_mm: if self.include_crop_marks {
+                varve_print::marks::MarksGeometry::default().trim_offset_mm
+            } else {
+                0.0
+            },
+            mark_length_mm: if self.include_crop_marks {
+                varve_print::marks::MarksGeometry::default().mark_length_mm
+            } else {
+                0.0
+            },
             ..Default::default()
         })
     }
