@@ -560,6 +560,7 @@ export const SemanticIcon = forwardRef<SVGSVGElement, SemanticIconProps>(functio
       typeof pixelSize === 'string' ? { ...style, width: pixelSize, height: pixelSize } : style;
     return (
       <HugeiconsIcon
+        {...rest}
         ref={ref}
         icon={entry.huge}
         size={typeof pixelSize === 'number' ? pixelSize : 16}
@@ -570,7 +571,6 @@ export const SemanticIcon = forwardRef<SVGSVGElement, SemanticIconProps>(functio
         aria-label={label}
         aria-hidden={label ? undefined : true}
         focusable={false}
-        {...rest}
         style={hugeStyle}
       />
     );
