@@ -197,8 +197,8 @@ the same review that found the toolbar defects above. Result:
 |---|---|---|
 | `panels[].visible` | `Shell`, `panelVisibilityPatch` | Live |
 | `panels[].preferredWidth` | `Shell` (layers, inspector) | Live for the two sidebars; `codegen`/`timeline` declare `'100%'`, which `Shell` ignores |
-| `panels[].order` | `getOrderedPanels` — exported, but called only by its own test | **Decorative** |
-| `panels[].collapsed` | preference sanitizer only; `Shell` derives `data-collapsed` from visibility | **Decorative** |
+| `panels[].order` | removed 2026-08-13 (was decorative — see below) | — |
+| `panels[].collapsed` | removed 2026-08-13 (was decorative — see below) | — |
 | `toolbar` | `composeToolbar` + `FloatingToolbar` | Live (see above) |
 | `inspectorTabs` | `getVisibleInspectorTabs` / `getDefaultInspectorTab` → `PropertiesPanel` | Live |
 | `statusSections` | `getVisibleStatusSections` → `StatusBar` (honors `order`) | Live |
