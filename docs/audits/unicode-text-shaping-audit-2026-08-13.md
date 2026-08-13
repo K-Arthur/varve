@@ -50,7 +50,7 @@ rendering, editing, hit testing, selection, masks, and exports.
 | --- | --- | --- |
 | Document model | `TextNode.text`, optional `TextNode.richText`, paragraph/run formatting, story/frame types | Preserve; evolve in place |
 | Persistence | Canonical document codec and migrations; rich text is serialized as nested paragraphs/runs | Backward-compatible extension point |
-| Rich-text commands | `packages/scene/src/richTextOps.ts` splits, formats, and merges runs; `richTextIndex.ts` derives paragraph/run source ranges | Useful pure foundation; shaping-cluster transaction integration remains |
+| Rich-text commands | `packages/scene/src/richTextOps.ts` splits, formats, removes properties, replaces paragraph text, and merges runs; `richTextIndex.ts` derives paragraph/run source ranges | Shaping-cluster transaction integration and insertion-style state remain |
 | Graphemes | `Intl.Segmenter` with a fallback in `engine/src/unicode/grapheme.ts` | Good API shape; fallback and mapping need stronger invariants |
 | Script detection | `engine/src/unicode/script.ts` | Hand-maintained coverage table; suitable as a hint, not a shaping authority |
 | BiDi dependency | `bidi-js` is declared in `@varve/engine` and now consumed by `engine/src/unicode/bidiUax9.ts` | Adapter is in place; conformance fixtures and live layout integration remain |
