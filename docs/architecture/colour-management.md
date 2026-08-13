@@ -333,9 +333,11 @@ ENCODED IMAGE (PNG/JPEG/WebP/TIFF/AVIF)
 - **Alpha is never colour-transformed**; premultiplied sources are
   un-premultiplied for the colour math and re-premultiplied after
   (`@varve/engine` `rasterColor/pixelBuffer.ts`).
-- **Cache identity will include colour.** The ImageCache key remains
-  source-only today because decode is sRGB; a profile-aware decode provider
-  must extend the key before it lands (see image-lifecycle.md).
+- **Cache identity is color-partitionable.** `ImageCache` retains URL-only
+  compatibility for existing callers, while profile-aware decode/conversion
+  callers can supply a stable `rasterEncodingKey()` variant for both full-size
+  and at-size representations (see image-lifecycle.md). Decode conversion
+  itself remains a separate provider concern.
 
 ### Working spaces
 
