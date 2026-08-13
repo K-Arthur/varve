@@ -4,14 +4,14 @@
 #   scripts/update-test/run-slice.sh
 #
 # Phases:
-#   1. build-fixtures.sh --serve-only (feed server must already be up; start
-#      it in a separate terminal: `bash scripts/update-test/build-fixtures.sh`)
-#   2. wdio spec 1 on the OLD AppImage: consent -> check -> download -> guard
+#   1. wdio spec 1 on the OLD AppImage: consent -> check -> download -> guard
 #      -> install -> restart (app relaunches and replaces itself)
-#   3. verify-slice.sh: bytes replaced in place, executable bit retained
-#   4. swap feed to an INVALID signature for 0.1.3-test
-#   5. wdio spec 2 on the REPLACED AppImage: new version reported, no
+#   2. verify-slice.sh: bytes replaced in place, executable bit retained
+#   3. swap feed to an INVALID signature for 0.1.3-test
+#   4. wdio spec 2 on the REPLACED AppImage: new version reported, no
 #      re-consent, invalid signature fails closed
+#   5. swap feed to a VALID signature for 0.1.3-test, make the AppImage
+#      directory read-only mid-session; install must fail safely
 #   6. restore the good feed
 #
 # Env: UPDATE_TEST_DIR, FEED_PORT (defaults match build-fixtures.sh).
@@ -30,14 +30,23 @@ done
 WDIO=(pnpm exec wdio run wdio.conf.ts)
 export VARVE_DESKTOP_BINARY="$OLD_APPIMAGE"
 export WEBKIT_DISABLE_COMPOSITING_MODE=1
+# The AppImage runs via self-extraction (no FUSE dependency on the host).
+export APPIMAGE_EXTRACT_AND_RUN=1
+# Isolate app-data so every phase sees a pristine first-run state (the
+# consent prompt must not inherit localStorage from a previous phase or from
+# debug-build smoke tests that share dev.varve.desktop's data dir).
+export XDG_DATA_HOME="$TEST_DIR/xdg-data"
+export XDG_CONFIG_HOME="$TEST_DIR/xdg-config"
+export XDG_CACHE_HOME="$TEST_DIR/xdg-cache"
+mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 
-echo "==> [1/5] Old AppImage: consent -> check -> download -> install -> restart"
+echo "==> [1/6] Old AppImage: consent -> check -> download -> install -> restart"
 xvfb-run -a dbus-run-session -- "${WDIO[@]}" --spec tests/wdio/updater.e2e.ts
 
-echo "==> [2/5] Verify in-place byte replacement"
+echo "==> [2/6] Verify in-place byte replacement"
 bash scripts/update-test/verify-slice.sh
 
-echo "==> [3/5] Swap feed to an invalid signature (0.1.3-test)"
+echo "==> [3/6] Swap feed to an invalid signature (0.1.3-test)"
 node -e "
   const fs = require('fs');
   const feed = {
@@ -53,12 +62,29 @@ node -e "
   fs.writeFileSync('$TEST_DIR/feed.json', JSON.stringify(feed, null, 2));
 "
 
-echo "==> [4/5] Relaunched AppImage: version, no re-consent, fail-closed"
+echo "==> [4/6] Relaunched AppImage: version, no re-consent, fail-closed"
 export VARVE_DESKTOP_BINARY="$OLD_APPIMAGE"  # same path, now new bytes
 xvfb-run -a dbus-run-session -- "${WDIO[@]}" --spec tests/wdio/updater-launch.e2e.ts
 
-echo "==> [5/5] Restore the good feed"
+echo "==> [5/6] Swap feed to a VALID signature for 0.1.3-test (read-only dir phase)"
 node -e "
+  const fs = require('fs');
+  const sig = fs.readFileSync('$NEW_APPIMAGE.sig', 'utf8').trim();
+  const feed = {
+    version: '0.1.3-test',
+    notes: 'Read-only directory fixture. Payload reuses the new-fixture bytes with their real signature.',
+    platforms: {
+      'linux-x86_64': {
+        url: 'http://127.0.0.1:$FEED_PORT/$(basename "$NEW_APPIMAGE")',
+        signature: sig,
+      },
+    },
+  };
+  fs.writeFileSync('$TEST_DIR/feed.json', JSON.stringify(feed, null, 2));
+"
+xvfb-run -a dbus-run-session -- "${WDIO[@]}" --spec tests/wdio/updater-launch.e2e.ts --grep "not writable"
+
+echo "==> [6/6] Restore the good feed"node -e "
   const fs = require('fs');
   const sig = fs.readFileSync('$NEW_APPIMAGE.sig', 'utf8').trim();
   const feed = {

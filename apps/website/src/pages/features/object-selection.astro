@@ -1,0 +1,63 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Object Selection - Varve" description="Select an object in an image, refine the mask locally, and reuse it across Varve without destructive edits.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Object Selection
+      </nav>
+
+      <h1>Object Selection</h1>
+      <p class="feature-intro">
+        From object to editable mask. Select an image region on the canvas, refine it with include and exclude prompts, then reuse the mask wherever the design needs it.
+      </p>
+
+      <section class="feature-section">
+        <h2>Select with the canvas</h2>
+        <ul>
+          <li>Click to include an object or Shift-click to exclude a region.</li>
+          <li>Drag a box when a rough boundary is a better starting point.</li>
+          <li>Preview the result before it becomes part of the document.</li>
+          <li>Apply once to create a non-destructive raster mask that survives save, reload, and model removal.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Local by design</h2>
+        <p>
+          The optional segmentation model is downloaded explicitly, verified before use, and run on the device through Varve's worker-backed inference path. A model is not loaded at application startup, and image embeddings are kept in a bounded session cache rather than stored in your document.
+        </p>
+      </section>
+
+      <section class="feature-section note">
+        <h2>Set the right expectation</h2>
+        <p>
+          Promptable segmentation follows your points and box; it is not a guarantee of semantic subject understanding or perfect alpha matting. Hair, glass, smoke, and similar boundaries may need the existing brush or trimap refinement tools. Review the mask against the final background before export.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Make the mask part of the design</h2>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: 0.65rem; }
+  .note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .feature-cta h2 { color: var(--text-primary); margin-bottom: 1rem; }
+</style>

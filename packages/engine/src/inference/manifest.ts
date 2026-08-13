@@ -67,8 +67,8 @@ const KNOWN_SIZES: Record<string, number> = {
   'upscale-realesr-general': 4_866_438,
   'upscale-realesr-general-int8': 1_300_000,
   scunet: 18_000_000,
-  'sam2-hiera-tiny': 39_000_000,
-  'sam2-hiera-small': 92_000_000,
+  'sam2-hiera-tiny': 154_902_201,
+  'sam2-hiera-small': 183_344_379,
   'tr-ocr-base-printed': 340_000_000,
   'depth-anything-v2-small': 25_000_000,
 };

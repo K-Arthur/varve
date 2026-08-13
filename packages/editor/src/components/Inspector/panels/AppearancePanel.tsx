@@ -1,8 +1,10 @@
+import { isImageShape } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { EffectsSection } from '../sections/EffectsSection';
 import { MaskSection } from '../sections/MaskSection';
 import { PaintLibrarySection } from '../sections/PaintLibrarySection';
+import { PaletteSection } from '../sections/PaletteSection';
 
 /** Full, persistent appearance workflows that need more room than Properties. */
 export function AppearancePanel() {
@@ -27,6 +29,7 @@ export function AppearancePanel() {
     <>
       {nodes.length === 1 && <MaskSection nodes={nodes} />}
       <PaintLibrarySection />
+      {nodes.length === 1 && isImageShape(nodes[0]!) && <PaletteSection />}
       {effectsCompatible && <EffectsSection nodes={nodes} />}
     </>
   );
