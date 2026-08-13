@@ -193,6 +193,23 @@ export type {
   DenoiseTileRequest,
   DenoiseTileResult,
 } from './denoiseProviders/types';
+export type {
+  DepthMap,
+  DepthMapMetadata,
+  DepthMapResource,
+  DepthType,
+  DepthUnit,
+  NearFarConvention,
+} from './depthMap';
+export {
+  DepthMapCache,
+  depthCacheKey,
+  depthRangeToMask,
+  deserializeDepthMap,
+  normalizeDepthPrediction,
+  sampleDepth,
+  serializeDepthMap,
+} from './depthMap';
 export { applyDuotone, type DuotoneParams } from './duotone';
 export type { EffectContractEntry, QualityTier, WorkingSpace } from './effectContract';
 export {
@@ -467,6 +484,7 @@ export {
 } from './imageResourceRegistry';
 export type {
   DownloadProgress,
+  EmbeddingCacheOptions,
   InferenceEvents,
   InferenceProvider,
   InferenceRequest,
@@ -488,6 +506,7 @@ export {
   DownloadManager,
   deriveAcquisition,
   disposeInferenceWorkerHost,
+  EmbeddingCache,
   getInferenceWorkerHost,
   getModelById,
   getRuntimeCapabilities,
