@@ -25,7 +25,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>From Image to Working Palette</h2>
         <p>
-          In Adjustments → Palette, a bounded preview is analysed locally in perceptual Oklab. Large image files are not uploaded or scanned at full resolution by the editor path, and transparent pixels are handled explicitly.
+          In Appearance → Palette, a bounded preview is analysed locally in perceptual Oklab. Large image files are not uploaded or scanned at full resolution by the editor path, and transparent pixels are handled explicitly.
         </p>
         <ul>
           <li><strong>Useful roles:</strong> dominant, primary, secondary, accent, and neutral candidates with coverage information</li>
@@ -37,6 +37,17 @@ import { sitePath } from '../../lib/siteUrl';
           Palette roles are helpful starting points rather than semantic image understanding. Review the final type, profile, and export context before publishing.
         </p>
       </section>
+
+      <figure class="feature-visual">
+        <img
+          src={sitePath('/screenshots/palette-inspector-light.png')}
+          alt="Varve showing a colorful image on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs"
+          width="1440"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.</figcaption>
+      </figure>
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>
@@ -53,7 +64,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>
           <li><strong>Soft proofing:</strong> CMYK simulation overlay for previewing print output on screen</li>
-          <li><strong>Background removal:</strong> AI-based removal with u2netp (bundled) and BiRefNet-Lite models, hair edge refinement, subject picker</li>
+          <li><strong>Background removal:</strong> Fast, Auto, and High quality local cutouts with optional IS-Net/BiRefNet models, hair-edge refinement, subject picker, and an undoable mask workflow</li>
           <li><strong>Retouching tools:</strong> Clone stamp, healing brush, spot heal, patch tool</li>
         </ul>
       </section>
@@ -74,7 +85,7 @@ import { sitePath } from '../../lib/siteUrl';
           Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with bit-depth-aware channels and analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses separable Gaussian kernels with premultiplied alpha and linear-light compositing for radii above 32px. Adjustment layers support 5 scoping modes for targeting specific layers.
         </p>
         <p>
-          The halftone engine implements ISO 12647-2 standard CMYK screen angles. Background removal runs via an ONNX Runtime pipeline with native desktop support (faster) and WASM worker fallback for web.
+          The halftone engine implements ISO 12647-2 standard CMYK screen angles. Background removal runs locally through an ONNX Runtime pipeline: the browser worker handles the compatible path, while native desktop execution is preferred for heavier models.
         </p>
       </section>
 
@@ -86,7 +97,7 @@ import { sitePath } from '../../lib/siteUrl';
             <li>Browser canvas and ImageData display surfaces remain 8-bit; higher-precision working buffers are available where the selected pipeline supports them, but they do not change the browser display surface</li>
             <li>Profile-aware raster decode, CMYK raster-plane import, and high-precision GPU render targets are not yet the default browser path</li>
             <li>Print bleed and trim guides are available in the current print workflow; exported geometry remains the final authority</li>
-            <li>Background removal with BiRefNet-Lite requires native desktop (crashes WASM at 4GB memory limit)</li>
+            <li>Heavier background-removal models are provider- and memory-dependent. Unsafe bare-WASM runs are blocked before allocation and the UI explains any reduced-quality fallback.</li>
           </ul>
         </div>
       </section>
@@ -141,6 +152,27 @@ import { sitePath } from '../../lib/siteUrl';
   
   .feature-section {
     margin-bottom: 3rem;
+  }
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
   }
   
   .feature-section h2 {
