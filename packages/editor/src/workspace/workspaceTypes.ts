@@ -276,7 +276,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line', groupStart: true },
         { toolId: 'arrow' },
         { toolId: 'pen', groupStart: true },
-        { toolId: 'pencil' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'select', groupStart: true },
@@ -292,7 +291,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],
@@ -384,7 +383,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],
@@ -659,7 +658,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],
@@ -755,7 +754,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
         {
           id: 'boolean',
-          label: 'Boolean',
+          label: 'Boolean operations',
           tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
         },
       ],

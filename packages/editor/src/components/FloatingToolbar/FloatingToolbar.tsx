@@ -4,6 +4,7 @@ import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip, TooltipProvider } from
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolShortcutLabel } from '../../shortcuts';
+import { composeToolbar, type ToolbarFlyoutSlot } from '../../workspace/toolbarComposition';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
@@ -18,80 +19,9 @@ const BOOLEAN_OP_MAP: Record<string, BooleanOpKind> = {
   booleanExclude: 'exclude',
 };
 
-const SHAPE_SUB_TOOLS: ToolId[] = ['rect', 'ellipse', 'polygon', 'star'];
-const BOOLEAN_SUB_TOOLS: ToolId[] = [
-  'booleanUnion',
-  'booleanSubtract',
-  'booleanIntersect',
-  'booleanExclude',
-];
-
-/** Tools hidden in structured-layout modes (Print, Design): raster painting
- *  and photo retouching aren't part of page-layout or UI-component work —
- *  those live in Drawing and Image Editing mode respectively. */
-const STRUCTURED_MODE_HIDDEN_TOOLS = new Set<ToolId>([
-  'paint',
-  'eraser',
-  'cloneStamp',
-  'healBrush',
-  'spotHeal',
-  'patch',
-  'pencil',
-  'smudge',
-]);
-
-/** Tools hidden in Image Editing mode: artboard creation isn't relevant when
- *  editing an existing photo (retouch/mask tools stay — see INDIVIDUAL_TOOLS). */
-const IMAGE_HIDDEN_TOOLS = new Set<ToolId>(['frame']);
-
-/** Tools for the drawing toolbar subset (painting tools at front). */
-const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
-  { id: 'paint', groupStart: true },
-  { id: 'eraser' },
-  { id: 'smudge' },
-  { id: 'pen', groupStart: true },
-  { id: 'pencil' },
-  { id: 'line' },
-  { id: 'arrow' },
-  { id: 'select', groupStart: true },
-  { id: 'lasso' },
-  { id: 'hand' },
-  { id: 'zoom' },
-  { id: 'text' },
-  { id: 'eyedropper' },
-  { id: 'frame' },
-  { id: 'table' },
-  { id: 'warp' },
-  { id: 'sam2Segment', groupStart: true },
-];
-
-const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
-  { id: 'table', groupStart: true },
-  { id: 'line' },
-  { id: 'arrow' },
-  { id: 'text' },
-  { id: 'pen', groupStart: true },
-  { id: 'pencil' },
-  { id: 'frame' },
-  { id: 'select', groupStart: true },
-  { id: 'lasso' },
-  { id: 'hand' },
-  { id: 'zoom' },
-  { id: 'slice' },
-  { id: 'eyedropper' },
-  { id: 'scale' },
-  { id: 'inspect' },
-  { id: 'warp' },
-  { id: 'sam2Segment', groupStart: true },
-  { id: 'crop', groupStart: true },
-  { id: 'paint', groupStart: true },
-  { id: 'eraser' },
-  { id: 'smudge' },
-  { id: 'cloneStamp', groupStart: true },
-  { id: 'healBrush' },
-  { id: 'spotHeal' },
-  { id: 'patch' },
-];
+/** Flyouts whose members are commands applied to the selection rather than
+ *  tools that become active. Boolean operations need 2+ selected shapes. */
+const ACTION_FLYOUT_ID = 'boolean';
 
 interface ToolButtonProps {
   id: ToolId;
@@ -119,6 +49,69 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
         <Icon name={iconName(id)} size={16} />
       </button>
     </Tooltip>
+  );
+}
+
+interface FlyoutButtonProps {
+  slot: ToolbarFlyoutSlot;
+  /** Tool id shown on the primary button. */
+  current: ToolId;
+  /** Whether the primary button reflects the active tool. */
+  pressed: boolean;
+  disabledReason?: string;
+  onActivate: (toolId: ToolId) => void;
+  onToggleMenu: (rect: DOMRect) => void;
+}
+
+/**
+ * A grouped tool: a primary button for the current member plus a chevron that
+ * opens the member menu. Replaces the previously hard-coded shape and boolean
+ * groups so every workspace's declared flyouts render the same way.
+ */
+function FlyoutButton({
+  slot,
+  current,
+  pressed,
+  disabledReason,
+  onActivate,
+  onToggleMenu,
+}: FlyoutButtonProps) {
+  const disabled = disabledReason !== undefined;
+  return (
+    <>
+      <Tooltip
+        label={disabled ? disabledReason : toolLabel(current)}
+        disabledReason={disabledReason}
+      >
+        <button
+          type="button"
+          className={`floating-toolbar__btn${pressed ? ' floating-toolbar__btn--active' : ''}${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+          aria-pressed={pressed}
+          aria-label={toolLabel(current)}
+          data-tool={current}
+          aria-disabled={disabled || undefined}
+          onClick={() => {
+            if (!disabled) onActivate(current);
+          }}
+        >
+          <Icon name={iconName(current)} size={16} />
+        </button>
+      </Tooltip>
+      <Tooltip label={`${slot.label} menu`} disabledReason={disabledReason}>
+        <button
+          type="button"
+          className="floating-toolbar__chevron"
+          aria-label={`${slot.label} menu`}
+          disabled={disabled}
+          onClick={(e) => {
+            if (disabled) return;
+            onToggleMenu(e.currentTarget.getBoundingClientRect());
+          }}
+        >
+          <Icon name="ChevronDown" size={12} />
+        </button>
+      </Tooltip>
+    </>
   );
 }
 
@@ -235,8 +228,7 @@ export function FloatingToolbar() {
     setTouchMultiSelect,
     openCreateTableFromDataDialog,
   } = useEditor();
-  const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number } | null>(null);
-  const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [openMenu, setOpenMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
 
   // Resolve through the effective config, not the raw WORKSPACE_CONFIGS map:
@@ -246,52 +238,33 @@ export function FloatingToolbar() {
   const config = useEffectiveWorkspaceConfig(workspaceMode);
   if (!config.floatingToolbar) return null;
 
-  const currentBoolean = (BOOLEAN_SUB_TOOLS as readonly ToolId[]).includes(state.tool as ToolId)
-    ? state.tool
-    : ('booleanUnion' as ToolId);
   const isDrawingMode = workspaceMode === 'drawing';
-  const isPrintMode = workspaceMode === 'print';
-  const isImageMode = workspaceMode === 'image';
-  const isDesignMode = workspaceMode === 'design';
-  const activeTools = isDrawingMode ? DRAWING_TOOLS : INDIVIDUAL_TOOLS;
-  const configuredTools = new Map(config.toolbar.tools.map((tool) => [tool.toolId, tool]));
-  const filteredTools = activeTools
-    .filter((t) => {
-      if (!configuredTools.has(t.id)) return false;
-      if ((isPrintMode || isDesignMode) && STRUCTURED_MODE_HIDDEN_TOOLS.has(t.id)) return false;
-      if (isImageMode && IMAGE_HIDDEN_TOOLS.has(t.id)) return false;
-      return true;
-    })
-    .map((tool) => ({
-      ...tool,
-      groupStart: configuredTools.get(tool.id)?.groupStart ?? tool.groupStart,
-    }));
-  const visibleShapeTools = SHAPE_SUB_TOOLS.filter((id) => configuredTools.has(id));
-  const currentShape = (visibleShapeTools as readonly ToolId[]).includes(state.tool as ToolId)
-    ? state.tool
-    : (visibleShapeTools[0] ?? ('rect' as ToolId));
-  const showBooleanTools =
-    config.toolbar.flyouts?.some((flyout) => flyout.id === 'boolean') ?? false;
+  // Order, grouping and flyout membership all come from the workspace config.
+  // The toolbar owns no tool list of its own — see `toolbarComposition.ts`.
+  const slots = composeToolbar(config.toolbar);
 
-  const shapeItems: MenuEntry[] = visibleShapeTools.map((id) => ({
-    id,
-    label: toolLabel(id),
-    onAction: () => {
-      setTool(id);
-      setShapeMenuPos(null);
-    },
-  }));
-
-  const booleanItems: MenuEntry[] = BOOLEAN_SUB_TOOLS.map((id) => ({
-    id,
-    label: toolLabel(id),
-    onAction: () => {
-      const op = BOOLEAN_OP_MAP[id];
-      if (op) {
+  /** Apply a boolean flyout member as a command; select any other member. */
+  const activate = (flyoutId: string, toolId: ToolId) => {
+    if (flyoutId === ACTION_FLYOUT_ID) {
+      const op = BOOLEAN_OP_MAP[toolId];
+      if (op && canBoolean) {
         booleanOp(op);
         setTool('select');
       }
-      setBooleanMenuPos(null);
+      return;
+    }
+    setTool(toolId);
+  };
+
+  const openFlyout = slots.find(
+    (slot): slot is ToolbarFlyoutSlot => slot.kind === 'flyout' && slot.id === openMenu?.id,
+  );
+  const menuItems: MenuEntry[] = (openFlyout?.tools ?? []).map((id) => ({
+    id,
+    label: toolLabel(id),
+    onAction: () => {
+      if (openFlyout) activate(openFlyout.id, id);
+      setOpenMenu(null);
     },
   }));
 
@@ -312,90 +285,38 @@ export function FloatingToolbar() {
                 <Icon name="FileSpreadsheet" size={16} />
               </button>
             )}
-            {visibleShapeTools.length > 0 && (
-              <>
-                <Tooltip label={toolLabel(currentShape)}>
-                  <button
-                    type="button"
-                    className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
-                    aria-pressed={state.tool === currentShape}
-                    aria-label={toolLabel(currentShape)}
-                    data-tool={currentShape}
-                    onClick={() => setTool(currentShape)}
-                  >
-                    <Icon name={iconName(currentShape)} size={16} />
-                  </button>
-                </Tooltip>
-                <Tooltip label="Shapes menu">
-                  <button
-                    type="button"
-                    className="floating-toolbar__chevron"
-                    aria-label="Shapes menu"
-                    onClick={(e) => {
-                      const r = e.currentTarget.getBoundingClientRect();
-                      if (shapeMenuPos) {
-                        setShapeMenuPos(null);
-                        return;
-                      }
-                      setShapeMenuPos({ x: r.left, y: r.top });
-                    }}
-                  >
-                    <Icon name="ChevronDown" size={12} />
-                  </button>
-                </Tooltip>
-              </>
-            )}
-            {filteredTools.map((t) => (
-              <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
-            ))}
-            {showBooleanTools && (
-              <>
-                <Tooltip
-                  label={canBoolean ? toolLabel(currentBoolean) : 'Select 2+ shapes for boolean'}
-                  disabledReason={!canBoolean ? 'Select 2+ shapes for boolean' : undefined}
-                >
-                  <button
-                    type="button"
-                    className="floating-toolbar__btn floating-toolbar__btn--group-start"
-                    aria-pressed={false}
-                    aria-label={toolLabel(currentBoolean)}
-                    data-tool={currentBoolean}
-                    aria-disabled={!canBoolean || undefined}
-                    onClick={() => {
-                      const op = BOOLEAN_OP_MAP[currentBoolean];
-                      if (op && canBoolean) {
-                        booleanOp(op);
-                        setTool('select');
-                      }
-                    }}
-                  >
-                    <Icon name={iconName(currentBoolean)} size={16} />
-                  </button>
-                </Tooltip>
-                <Tooltip
-                  label="Boolean operations menu"
-                  disabledReason={!canBoolean ? 'Select 2+ shapes for boolean' : undefined}
-                >
-                  <button
-                    type="button"
-                    className="floating-toolbar__chevron"
-                    aria-label="Boolean operations menu"
-                    disabled={!canBoolean}
-                    onClick={(e) => {
-                      if (!canBoolean) return;
-                      const r = e.currentTarget.getBoundingClientRect();
-                      if (booleanMenuPos) {
-                        setBooleanMenuPos(null);
-                        return;
-                      }
-                      setBooleanMenuPos({ x: r.left, y: r.top });
-                    }}
-                  >
-                    <Icon name="ChevronDown" size={12} />
-                  </button>
-                </Tooltip>
-              </>
-            )}
+            {slots.map((slot) => {
+              if (slot.kind === 'tool') {
+                return (
+                  <ToolButton key={slot.toolId} id={slot.toolId} groupStart={slot.groupStart} />
+                );
+              }
+              const isAction = slot.id === ACTION_FLYOUT_ID;
+              // The primary button shows the active member when one is active,
+              // so the toolbar reflects the current tool rather than resetting
+              // to the first member on every render.
+              const current = slot.tools.includes(state.tool as ToolId)
+                ? (state.tool as ToolId)
+                : slot.tools[0];
+              if (!current) return null;
+              return (
+                <FlyoutButton
+                  key={slot.id}
+                  slot={slot}
+                  current={current}
+                  pressed={!isAction && state.tool === current}
+                  disabledReason={
+                    isAction && !canBoolean ? 'Select 2+ shapes for boolean' : undefined
+                  }
+                  onActivate={(toolId) => activate(slot.id, toolId)}
+                  onToggleMenu={(rect) =>
+                    setOpenMenu((prev) =>
+                      prev?.id === slot.id ? null : { id: slot.id, x: rect.left, y: rect.top },
+                    )
+                  }
+                />
+              );
+            })}
             <ToolOptionsPopover />
             <Tooltip
               label={
@@ -440,16 +361,13 @@ export function FloatingToolbar() {
         {isDrawingMode && <DrawingToolbarControls />}
       </div>
       <ContextMenu
-        items={shapeItems}
-        position={shapeMenuPos}
-        onClose={() => setShapeMenuPos(null)}
-        label="Shapes"
-      />
-      <ContextMenu
-        items={booleanItems}
-        position={booleanMenuPos}
-        onClose={() => setBooleanMenuPos(null)}
-        label="Boolean operations"
+        items={menuItems}
+        // Guard on the resolved flyout, not just the stored id: a workspace
+        // switch or customization can remove the open flyout, and an empty
+        // popup would otherwise linger at the last position.
+        position={openFlyout && openMenu ? { x: openMenu.x, y: openMenu.y } : null}
+        onClose={() => setOpenMenu(null)}
+        label={openFlyout?.label ?? ''}
       />
     </>
   );
