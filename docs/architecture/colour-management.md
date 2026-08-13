@@ -2,6 +2,13 @@
 
 ## Colour Representation
 
+The canonical document value is distinct from every render or export surface.
+See the [quantization-boundary inventory](../audits/color-quantization-boundary-inventory.md)
+for the current audit and the remaining precision leaks. In particular,
+`managedColorToRgba()` is an explicit RGBA8 display adapter; it is not a safe
+working-space representation for gradients, effects, proofing, or document
+edits.
+
 The document model uses `ManagedColor` (a discriminated union with 4 variants) as the
 canonical colour type for all fills, strokes, effects, gradient stops, swatches, and
 canvas backgrounds:
