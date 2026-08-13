@@ -9,14 +9,17 @@ for the current audit and the remaining precision leaks. In particular,
 working-space representation for gradients, effects, proofing, or document
 edits.
 
-The document model uses `ManagedColor` (a discriminated union with 4 variants) as the
+The document model uses `ManagedColor` (an eight-variant discriminated union) as the
 canonical colour type for all fills, strokes, effects, gradient stops, swatches, and
 canvas backgrounds:
 
-- `RgbColor` (`space: 'rgb'`) — 0-255 RGBA, optional ICC profile id
-- `CmykColor` (`space: 'cmyk'`) — 0-255 CMYKA, optional ICC profile id
-- `GrayColor` (`space: 'gray'`) — 0-255 grayscale, optional ICC profile id
+- `RgbColor` (`space: 'rgb'`) — bit-depth-scaled RGBA, optional ICC profile id
+- `CmykColor` (`space: 'cmyk'`) — bit-depth-scaled CMYKA, optional ICC profile id
+- `GrayColor` (`space: 'gray'`) — bit-depth-scaled grayscale, optional ICC profile id
 - `SpotColorRef` (`space: 'spot'`) — named ink with tint and process fallback
+- `LabColor` / `LchColor` — float-valued authoring spaces with bit-depth-scaled alpha
+- `RegistrationColor` — all-plates registration ink
+- `UnresolvedColor` — retained source plus display-only fallback
 
 **Location:** `packages/scene/src/colorManagement.ts`
 
@@ -58,6 +61,26 @@ Soft proofing accepts both the legacy RGBA8 provider and an optional normalized
 provider. The editor prefers the normalized provider when the runtime offers
 one, and falls back to the legacy provider only as an explicit preview
 degradation. Neither path writes proofed values back to the document.
+
+### Typed raster working buffers
+
+Raster code must carry a `PixelBufferDescriptor` alongside its storage. The
+engine allocator now provides the following explicit mappings:
+
+| Format | Storage | Channel range |
+| --- | --- | --- |
+| `rgba8` | `Uint8Array` | 0–255 integer |
+| `rgba16` | `Uint16Array` | 0–65535 integer |
+| `rgba16f` | packed IEEE-754 half floats in `Uint16Array` | normalized working values |
+| `rgba32f` | `Float32Array` | normalized working values |
+
+`allocatePixelBuffer()` rejects invalid dimensions and enforces a default
+512 MiB byte budget. Format, color encoding, and alpha mode remain metadata;
+they are not inferred from the typed array. Half-float conversion helpers are
+explicit and tested, including negative and fractional values. Browser
+`ImageData` and the current Canvas2D effect surface remain deliberate RGBA8
+preview boundaries; they must not be used as the document or working-buffer
+storage contract.
 
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas
@@ -335,6 +358,7 @@ default decode pipeline; no Display-P3 canvas surface is requested anywhere.
 | Custom-ICC conversion (native/WASM provider) | **no** (deferred) | no | no | no |
 | Display-P3 canvas surface | no (sRGB baseline) | no | no | no |
 | Monitor ICC accuracy | no | no | no | no |
+| Typed RGBA8/16/16F/32F working-buffer allocation | yes | yes | yes | yes |
 | Raster soft-proof of image fills | no (vector only) | no | no | no |
 | Export: sRGB (untagged baseline) | yes | yes | yes | yes |
 | Export: P3/Adobe/ProPhoto PNG (converted + iCCP) | yes | yes | yes | yes |
