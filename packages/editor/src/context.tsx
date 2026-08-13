@@ -2290,6 +2290,7 @@ export function EditorProvider({
       subjectHighlightId: null,
       cafDialogNodeId: null,
       backgroundRemovalPreviewSession: null,
+      objectSelectionSession: null,
       keyObjectId: null,
       alignToPage: false,
       colorBlindnessView: 'none',

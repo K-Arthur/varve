@@ -154,6 +154,24 @@ export interface BackgroundRemovalPreviewSession {
   precisionFallbackReason?: string;
 }
 
+/** Transient Object Selection state. Never serialized or added to history. */
+export interface ObjectSelectionSession {
+  nodeId: NodeId;
+  width: number;
+  height: number;
+  candidates: Array<{
+    mask: Uint8Array;
+    confidence: number;
+  }>;
+  selectedCandidate: number;
+  points: Array<{ x: number; y: number; label: 0 | 1 }>;
+  box: { x1: number; y1: number; x2: number; y2: number } | null;
+  confidence: number;
+  status: 'previewing' | 'ready' | 'error';
+  modelId: string;
+  executionProvider?: string;
+}
+
 export type CanvasMode = 'full' | 'outline' | 'preview';
 
 export type RulerMode = 'global' | 'artboard';
@@ -447,6 +465,7 @@ export interface EditorState {
   /** Component ID being hovered/focused in the subject picker, for canvas highlighting. */
   subjectHighlightId: number | null;
   backgroundRemovalPreviewSession: BackgroundRemovalPreviewSession | null;
+  objectSelectionSession: ObjectSelectionSession | null;
   keyObjectId: string | null;
   alignToPage: boolean;
   colorBlindnessView: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
