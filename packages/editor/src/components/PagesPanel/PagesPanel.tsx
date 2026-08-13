@@ -85,7 +85,9 @@ export function PagesPanel() {
   );
 
   const handleAddPage = useCallback(() => {
-    updateDoc((doc) => addPageDoc(doc, { name: `Page ${doc.pages!.length + 1}` }));
+    // Documents created from Home start flat (no pages array) — the page
+    // counter must not assume pages exist.
+    updateDoc((doc) => addPageDoc(doc, { name: `Page ${(doc.pages ?? []).length + 1}` }));
     setCurrentPageId(null);
   }, [updateDoc, setCurrentPageId]);
 
