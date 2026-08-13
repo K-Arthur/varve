@@ -18,9 +18,9 @@
  */
 import type { Affine } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
-import { resizeNodeGeometry } from '../scene/resizeGeometry';
 import { computeFlexLayout } from './computeFlexLayout';
 import { applyGridLayout } from './computeGridLayout';
+import { resizeNodeGeometry } from './resizeGeometry';
 
 /**
  * True when the node participates in its parent's layout size negotiation

@@ -1,7 +1,7 @@
 import type { Affine } from '@varve/engine';
 import type { Document, FrameNode, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { reflowLayoutChildren } from './reflow';
+import { reflowLayoutChildren } from '../reflow';
 
 function makeFrame(over: Partial<FrameNode> = {}): FrameNode {
   return {
@@ -18,11 +18,13 @@ function makeFrame(over: Partial<FrameNode> = {}): FrameNode {
       wrap: false,
       gap: 0,
       padding: [0, 0, 0, 0] as [number, number, number, number],
-      align: 'start',
-      justify: 'start',
+      grow: 0,
+      shrink: 0,
+      alignItems: 'start',
+      justifyContent: 'start',
     },
     ...over,
-  };
+  } as FrameNode;
 }
 
 function makeChild(id: string, x: number, y: number, w: number, h: number): SceneNode {
@@ -33,7 +35,7 @@ function makeChild(id: string, x: number, y: number, w: number, h: number): Scen
     transform: [1, 0, 0, 1, x, y] as Affine,
     shape: { kind: 'rect', x: 0, y: 0, w, h },
     fills: [],
-  } as SceneNode;
+  } as unknown as SceneNode;
 }
 
 function makeDoc(frame: FrameNode, children: SceneNode[]): Document {
@@ -50,7 +52,7 @@ function makeDoc(frame: FrameNode, children: SceneNode[]): Document {
 }
 
 function childTransform(doc: Document, id: string): number[] {
-  return doc.nodes[id]?.transform ?? [];
+  return (doc.nodes[id]?.transform ?? []) as number[];
 }
 
 describe('reflowLayoutChildren', () => {
@@ -117,8 +119,10 @@ describe('reflowLayoutChildren', () => {
         wrap: false,
         gap: 0,
         padding: [10, 20, 0, 20] as [number, number, number, number],
-        align: 'start',
-        justify: 'start',
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
       },
     });
     const a = makeChild('a', 0, 0, 50, 50);
@@ -141,8 +145,10 @@ describe('reflowLayoutChildren', () => {
         wrap: false,
         gap: 0,
         padding: [0, 0, 0, 0] as [number, number, number, number],
-        align: 'start',
-        justify: 'start',
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
         gridTemplateColumns: '1fr 1fr',
       },
     });
