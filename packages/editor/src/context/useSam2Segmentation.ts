@@ -65,6 +65,7 @@ export function useSam2Segmentation(
     abortRef.current?.abort();
     abortRef.current = null;
     generationRef.current += 1;
+    setState((prev) => ({ ...prev, objectSelectionSession: null }));
   }, []);
 
   const applySam2Segmentation = useCallback(
@@ -288,6 +289,22 @@ export function useSam2Segmentation(
             setState((prev) => ({
               ...prev,
               maskPreviewMode: 'overlay' as const,
+              objectSelectionSession: {
+                nodeId,
+                width: naturalW,
+                height: naturalH,
+                candidates: decoded.masks.map((candidate) => ({
+                  mask: candidate.mask,
+                  confidence: candidate.iouScore,
+                })),
+                selectedCandidate: decoded.selectedIndex,
+                points: prompts.points ?? [],
+                box: prompts.box ?? null,
+                confidence: decoded.confidence,
+                status: 'ready' as const,
+                modelId: 'sam2-hiera-tiny',
+                executionProvider: decOutputs.executionProvider,
+              },
             }));
             announcerRef.current?.announce(
               `Subject preview ready (${Math.round(decoded.confidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
@@ -312,6 +329,7 @@ export function useSam2Segmentation(
               return updated;
             });
             if (committed) {
+              setState((prev) => ({ ...prev, objectSelectionSession: null }));
               announcerRef.current?.announce(
                 `Selection applied as a mask (${Math.round(decoded.confidence * 100)}% confidence)`,
               );
@@ -324,6 +342,22 @@ export function useSam2Segmentation(
               ...prev,
               selection: [nodeId],
               maskPreviewMode: 'overlay' as const,
+              objectSelectionSession: {
+                nodeId,
+                width: naturalW,
+                height: naturalH,
+                candidates: decoded.masks.map((candidate) => ({
+                  mask: candidate.mask,
+                  confidence: candidate.iouScore,
+                })),
+                selectedCandidate: decoded.selectedIndex,
+                points: prompts.points ?? [],
+                box: prompts.box ?? null,
+                confidence: decoded.confidence,
+                status: 'ready' as const,
+                modelId: 'sam2-hiera-tiny',
+                executionProvider: decOutputs.executionProvider,
+              },
             }));
             announcerRef.current?.announce(
               `Selected subject (${Math.round(decoded.confidence * 100)}% confidence)`,
@@ -344,7 +378,11 @@ export function useSam2Segmentation(
                 sourceLocator: src,
               }),
             );
-            setState((prev) => ({ ...prev, selection: [nodeId] }));
+            setState((prev) => ({
+              ...prev,
+              selection: [nodeId],
+              objectSelectionSession: null,
+            }));
             announcerRef.current?.announce(
               `Selection created as a new mask layer (${Math.round(decoded.confidence * 100)}% confidence)`,
             );
