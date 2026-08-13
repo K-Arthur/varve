@@ -187,19 +187,37 @@ Key findings:
    canonical document state must be bit-depth-aware: adaptive contrast
    resolved colors, baked LUTs, adjustment/effect colour params
    (`managedToColor` in AdjustmentEditor/GradientMapEditor), palette
-   extraction.
+   extraction. **Done 2026-08-13:** adaptive-contrast write-back scales to
+   the document bit depth; the 3D LUT bake read pixels before running the
+   filter stack (identity LUTs) and now samples the filtered output;
+   adjustment colour params normalize at the color's own bit depth before
+   the 0-255 engine tuple.
 7. Make the color picker precision-preserving end-to-end: float HSV editing,
    bit-depth-aware numeric fields, swatch pass-through of full ManagedColor,
-   bit-depth control wired to hosts.
+   bit-depth control wired to hosts. **Done 2026-08-13:** float HSV drafts,
+   normalized emit path, 0-65535/0-1 fields, canonical swatch pass-through,
+   canonical-seeded drafts; gradient stop insertion interpolates in
+   normalized space. The picker's bit-depth segmented control still requires
+   a host passing `onBitDepthChange`.
 8. Add reachable Document Color Settings UI (bitDepth, workingSpace, profiles)
    and wire the orphaned ColorConversionDialog into menus/commands.
+   **Done 2026-08-13:** Precision + Blend space controls in the Inspector
+   Document Color section; File > Document Color Mode… + command palette
+   open the Assign vs Convert dialog.
 9. Float-domain adjustment kernels (curves/levels) with single entry/exit
    quantization for the effect pipeline; float premultiply in blur/sharpen.
+   **Partial:** linear-light blur now runs fully in float32 with one
+   quantization; the byte-space `ImageData` entry/exit of the adjustment
+   stack remains (curves/levels LUTs stay 256-bin byte tables — consistent
+   with the byte pipeline; float LUTs only pay off with a float entry).
 10. PDF: emit native CMYK channels without the RGB round trip; honor
-    `EngineColor::Cmyk.profile`.
+    `EngineColor::Cmyk.profile`. **Done 2026-08-13** in crates/varve-print
+    (solids, strokes, gradients; pure K preserved; bit-depth-aware scaling).
 11. Export: plumb real bit-depth through the policy layer; add a 16-bit PNG
     encoder path (Rust `png` crate is already a dependency of varve-media,
-    decode-only today).
+    decode-only today). **Not done:** the export composite is Canvas2D 8-bit;
+    PNG16 without a 16-bit composite path would be fake precision. Tracked
+    as an explicit boundary in colour-management.md and raster-assets.md.
 
 ## Baseline regression corpus
 
@@ -215,3 +233,9 @@ conversion. The high-precision regression suite must additionally prove:
 - a display conversion never mutates the source `ManagedColor`.
 
 These are numerical assertions; screenshots alone cannot establish them.
+
+**Status 2026-08-13:** `packages/scene/src/highPrecisionRegression.test.ts`
+proves save/reopen exactness for uint16 (adjacent values distinct), float32,
+CMYK (uint16 + float), a 512-level ramp, five save cycles without drift,
+zero-alpha RGB preservation, small-alpha survival, and legacy boundary-value
+migration. Picker channel-preservation is covered in `ColorPicker.test.tsx`.

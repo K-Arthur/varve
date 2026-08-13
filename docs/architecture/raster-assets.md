@@ -314,3 +314,28 @@ doc's extension rules.
   ship or real-hardware benchmarks show decode-bound pan/zoom.
 - Source-ICC → working-space conversion: profile extraction is wired;
   numeric colour fixtures and a conversion pipeline are a separate phase.
+
+## High-precision raster status (2026-08-13)
+
+Precision planes (`rgba8` / `rgba16` / `rgba16f` / `rgba32f` descriptors,
+`rasterColor/pixelBuffer.ts`) and the tiled, cancellable
+`convertPixelBuffer` transform are implemented and unit-tested. The typed
+buffer layer is **not yet wired into the runtime pipeline** — decode,
+cache, worker transport, and compositing still move 8-bit RGBA:
+
+- `imageCache` keys are URL-only in practice: the
+  `ImageCacheColorVariant` slot (designed to carry `rasterEncodingKey()`)
+  is never populated by a caller, so a future high-precision variant could
+  collide with the 8-bit cache entry.
+- Browser decode (`new Image` / `createImageBitmap`) is the master
+  8-bit boundary; 16-bit PNG / 10-bit AVIF sources are decoded to 8-bit
+  RGBA with no signal, while asset metadata still claims `bitDepth: 16`.
+  Preserving >8-bit raster content requires native/WASM decode
+  (varve-media exists; it is decode-only and strips 16-bit APNG today).
+- The export composite is Canvas2D 8-bit; PNG16/TIFF encoders are not
+  claimed until a 16-bit composite path exists.
+
+These are tracked in the quantization-boundary inventory
+(`docs/audits/color-quantization-boundary-inventory.md`) as the open
+integration items; nothing in the raster path writes 8-bit results back
+into canonical document state today.
