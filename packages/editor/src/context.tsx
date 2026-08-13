@@ -90,6 +90,7 @@ import {
   triadicHarmony,
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
+import { reflowLayoutChildren, resizeNodeGeometry } from '@varve/layout';
 import type { Platform } from '@varve/platform';
 import {
   PrototypeDebugConsole,
@@ -449,7 +450,6 @@ import { getActionTracker } from './intelligence/actionTracker';
 import { autoName } from './intelligence/autoNamer';
 import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
-import { reflowLayoutChildren } from './layout/reflow';
 import { type MediaContextValue, MediaProvider } from './media/MediaContext';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
 import {
@@ -466,7 +466,7 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
-import { resizeNodeGeometry } from './scene/resizeGeometry';
+
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   planLinkSelection,

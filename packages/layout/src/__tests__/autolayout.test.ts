@@ -1,6 +1,6 @@
 import type { FrameNode, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { computeFlexLayout } from '../../layout/computeFlexLayout';
+import { computeFlexLayout } from '../computeFlexLayout';
 
 function makeFrame(layoutStyle: FrameNode['layoutStyle']): FrameNode {
   return {
