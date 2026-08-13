@@ -1,8 +1,10 @@
 /**
- * PagePrintOverlays (M12, ADR-0166): per-page print geometry previews on
+ * PagePrintOverlays (M12, ADR-0190): per-page print geometry previews on
  * the shared canvas — bleed, slug and safe area resolve through
- * resolvePagePrintGeometry (document defaults + page overrides) and render
- * at each page's placed position. Mounted while bleed guides are visible.
+ * resolvePagePrintGeometry (document defaults + page overrides, converted
+ * to document pixels) and render at each page's placed position. Mounted
+ * while bleed guides are visible. This is the one page-aware overlay for
+ * all pages; it never participates in selection or export.
  */
 
 import type { Document } from '@varve/scene';
@@ -59,8 +61,6 @@ export const PagePrintOverlays = memo(function PagePrintOverlays({
           pageWidth={page.width}
           pageHeight={page.height}
           zoom={zoom}
-          documentUnit="px"
-          dpi={96}
           bleed={page.bleed}
           safeArea={page.safeArea}
           slug={page.slug}

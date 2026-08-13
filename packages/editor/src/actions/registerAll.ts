@@ -84,6 +84,7 @@ export function registerEditorActions(
     ['rulerModeArtboard', 'Use Artboard Rulers', 'view'],
     ['rulerModeGlobal', 'Use Global Rulers', 'view'],
     ['toggleGuides', 'Toggle Guides', 'view'],
+    ['toggleBleedGuides', 'Toggle Bleed Guides', 'view'],
     ['lockGuides', 'Lock Guides', 'view'],
     ['clearGuides', 'Clear Guides', 'view'],
     ['resetWorkspace', 'Reset Workspace', 'view'],
