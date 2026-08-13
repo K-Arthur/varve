@@ -10,6 +10,7 @@ import {
   pageBleedBoundsInWorld,
   pageBleedInsetsPx,
   resolvePagePrintGeometry,
+  updateBleedEdge,
 } from '../printGeometry';
 
 function docWithDefaults(): Document {
@@ -63,6 +64,19 @@ describe('resolvePagePrintGeometry (M12)', () => {
     // document's mm defaults.
     expect(resolved.bleed.top).toBeCloseTo(10, 5);
     expect(resolved.bleed.left).toBeCloseTo(3, 5);
+  });
+
+  it('converts inherited edges before merging a partial override in another unit', () => {
+    const base = docWithDefaults();
+    const page = base.pages![0]!;
+    const doc: Document = {
+      ...base,
+      pages: [{ ...page, bleed: { top: 1, unit: 'in' } }],
+    };
+    const resolved = resolvePagePrintGeometry(doc, page.id);
+    expect(resolved.bleed.unit).toBe('in');
+    expect(resolved.bleed.top).toBeCloseTo(96, 5);
+    expect(resolved.bleed.right).toBeCloseTo((3 / 25.4) * 96, 5);
   });
 
   it('resolves safe area and slug defaults', () => {
@@ -140,5 +154,19 @@ describe('canonical bleed geometry (pageBleedBoundsInWorld / pageBleedInsetsPx)'
     expect(documentBleedMm(doc)).toBeCloseTo(3, 5);
     const noBleed = createDocument('print-geometry', false);
     expect(documentBleedMm(noBleed)).toBe(0);
+  });
+
+  it('updates linked edges in the authored unit and normalizes invalid values', () => {
+    const linked = { top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' as const };
+    expect(updateBleedEdge(linked, 'top', 0.125)).toEqual({
+      top: 0.125,
+      right: 0.125,
+      bottom: 0.125,
+      left: 0.125,
+      linked: true,
+      unit: 'mm',
+    });
+    expect(updateBleedEdge({ ...linked, linked: false }, 'left', Number.NaN).left).toBe(0);
+    expect(updateBleedEdge({ ...linked, linked: false }, 'right', -2).right).toBe(0);
   });
 });
