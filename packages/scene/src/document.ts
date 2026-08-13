@@ -125,6 +125,7 @@ export {
   rebuildSpreads,
   removeGlobalChild,
   removePage,
+  renamePage,
   reorderPages,
   setActivePage,
   setFacingPagesEnabled,
