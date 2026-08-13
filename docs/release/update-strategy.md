@@ -1,7 +1,10 @@
 # Varve — Update and Release Channel Strategy
 
 **Date:** 2026-08-03
-**Current state:** no updater is configured, and that is deliberate for v1.
+**Current state:** the repository audit found no updater configured before the
+2026-08-13 implementation. The implementation is being introduced behind the
+consent, package-authority, release-signing, and acceptance-test gates recorded
+in [the update-system audit](../architecture/update-system-audit-2026-08-13.md).
 
 ---
 
@@ -19,10 +22,9 @@ decision to make is whether to add one for the first release.
 
 ---
 
-## 2. Recommendation for v1: manual updates
+## 2. Previous manual-update decision
 
-**Do not enable the Tauri updater for the first release.** Reasons, in order of
-weight:
+The following was the correct pre-updater decision for the first release:
 
 1. **Upgrade paths have never been tested.** Nobody has installed Varve `0.1.0`
    and upgraded it to `0.1.1` on any operating system. An auto-updater's entire
@@ -42,10 +44,9 @@ weight:
 4. **There is nothing to update to yet.** Update infrastructure built before the
    first release is infrastructure built against guesses.
 
-**What to ship instead:** the release notes and download page tell users to
-check the releases page, and the app can (later) do a version check against a
-static JSON file and *link* to the download page without downloading anything.
-A notification is not an update channel and carries none of the risk.
+That decision remains useful as the fallback for unsupported, externally
+managed, development, and not-yet-validated builds. It is no longer the whole
+product requirement: the consent-first updater is being added incrementally.
 
 **What exists today (audited 2026-08-06):**
 
@@ -66,19 +67,25 @@ A notification is not an update channel and carries none of the risk.
 
 ---
 
-## 3. When to add the updater
+## 3. Production enablement gates
 
 All of these should be true first:
 
-- [ ] At least two releases exist, and a manual upgrade between them has been
-      performed on Linux, Windows and macOS.
+- [ ] At least two releases exist, and a packaged upgrade has been performed on
+      every self-managed package that will be enabled.
 - [ ] Document migration has been tested: a file saved by version N opens
       correctly in N+1, and the failure mode when it cannot is a clear message
       rather than data loss.
 - [ ] Downgrade behaviour is defined — what happens when a user installs an
       older version over a newer document store.
-- [ ] Installers are code-signed on Windows and macOS.
-- [ ] A key-management procedure exists and has been rehearsed (§5).
+- [ ] Platform signing/notarization policy passes for the release; this remains
+      separate from Tauri updater signing.
+- [ ] A dedicated updater key-management procedure exists and has been
+      rehearsed (§5 and the signing runbooks).
+
+The audit and capability matrix are maintained separately so this historical
+decision record does not silently become a claim that package-specific
+self-update is safe before its acceptance tests pass.
 
 ---
 
