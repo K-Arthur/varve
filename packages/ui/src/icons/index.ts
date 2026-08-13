@@ -31,6 +31,8 @@ export {
   SemanticIcon,
   validateSemanticIconNames,
 } from './semantic';
+export type { TablerIconName, TablerIconProps } from './TablerIcon';
+export { TablerIcon } from './TablerIcon';
 export type { VarveLogoProps } from './VarveLogo';
 export { VarveLogo } from './VarveLogo';
 

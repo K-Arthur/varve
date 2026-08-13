@@ -29,7 +29,7 @@
  * hidden tabs. useLayoutEffect applies the computed layout before the
  * browser paints, so there is no flash of a full-width strip.
  */
-import { Menu, SemanticIcon, type SemanticIconName, Tooltip } from '@varve/ui';
+import { Menu, TablerIcon, type TablerIconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useEditor } from '../context';
 import { useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
@@ -51,15 +51,15 @@ const TAB_GAP = 6;
 /** Width of the "More" overflow button (icon + padding). */
 const OVERFLOW_BTN_WIDTH = 40;
 
-/** Workspace modes use distinct Hugeicons concepts, not one generic glyph. */
-const WORKSPACE_ICON_NAMES: Record<WorkspaceMode, SemanticIconName> = {
-  design: 'Layout',
+/** Heavy rounded Tabler line icons match the app chrome and reference style. */
+const WORKSPACE_ICON_NAMES: Record<WorkspaceMode, TablerIconName> = {
+  design: 'LayoutDashboard',
   print: 'Printer',
   drawing: 'Brush',
-  image: 'Image',
+  image: 'Photo',
   motion: 'Play',
   codegen: 'Code',
-  logo: 'Pen',
+  logo: 'Badge',
 };
 
 const INITIAL_LAYOUT: WorkspaceLayoutResult = {
@@ -237,9 +237,10 @@ export function WorkspaceTabs() {
               onKeyDown={(e) => handleKeyDown(e, mode)}
               onFocus={() => setFocusId(mode)}
             >
-              <SemanticIcon
+              <TablerIcon
                 name={WORKSPACE_ICON_NAMES[mode]}
                 size={15}
+                strokeWidth={2.25}
                 data-workspace-icon={WORKSPACE_ICON_NAMES[mode]}
               />
               {!iconOnly && <span className="workspace-tabs__label">{WORKSPACE_LABELS[mode]}</span>}
@@ -265,7 +266,7 @@ export function WorkspaceTabs() {
                 aria-haspopup="menu"
                 onClick={() => setMoreOpen((o) => !o)}
               >
-                <SemanticIcon name="More" size={15} />
+                <TablerIcon name="DotsVertical" size={15} strokeWidth={2.25} />
               </button>
             </Tooltip>
           </>

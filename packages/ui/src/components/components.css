@@ -151,7 +151,7 @@
   justify-content: center;
 }
 
-/* Hugeicons semantic renderer: keep SVGs aligned with text and prevent
+/* Semantic renderer: keep SVGs aligned with text and prevent
  * viewBox differences from changing button geometry. The parent control owns
  * the hit target; this rule only normalizes the visible glyph. */
 .varve-semantic-icon {

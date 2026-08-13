@@ -49,12 +49,21 @@ describe('WorkspaceTabs', () => {
     expect(screen.getByRole('radio', { name: 'Design workspace' })).toBeTruthy();
   });
 
-  it('uses a distinct Hugeicons concept for every workspace mode', () => {
+  it('uses a distinct heavy line icon for every workspace mode', () => {
     render(<WorkspaceTabs />);
     const icons = [...document.querySelectorAll('[data-workspace-icon]')].map((icon) =>
       icon.getAttribute('data-workspace-icon'),
     );
-    expect(icons).toEqual(['Layout', 'Brush', 'Image', 'Printer', 'Play', 'Code', 'Pen']);
+    expect(icons).toEqual([
+      'LayoutDashboard',
+      'Brush',
+      'Photo',
+      'Printer',
+      'Play',
+      'Code',
+      'Badge',
+    ]);
     expect(new Set(icons).size).toBe(icons.length);
+    expect(document.querySelectorAll('[data-icon-family="tabler"]').length).toBe(icons.length);
   });
 });
