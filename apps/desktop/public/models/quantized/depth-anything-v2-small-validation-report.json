@@ -1,0 +1,85 @@
+{
+  "model_id": "depth-anything-v2-small",
+  "model_file": "depth_anything_v2_small_int8.onnx",
+  "model_path": "/home/kevina/CodingProjects/varve/apps/desktop/public/models/depth_anything_v2_small_int8.onnx",
+  "sha256": "01aa7a23de3f4a0ee1a2bb9997e6918104c85a9f95dea46d27b9b3fb0c6b9001",
+  "pinned_sha256": "01aa7a23de3f4a0ee1a2bb9997e6918104c85a9f95dea46d27b9b3fb0c6b9001",
+  "ort_version": "unknown",
+  "runtime": "onnxruntime-node cpu",
+  "preprocessing": "letterbox 518x518, ImageNet normalize, NCHW, zero pad",
+  "output_contract": {
+    "input_name": "pixel_values",
+    "output_name": "predicted_depth",
+    "dims": [1, 518, 518]
+  },
+  "raw_convention": "nearIsHigh",
+  "canonical_convention": "0 = near, 1 = far",
+  "latency_ms": {
+    "cold_first_pass": 16401.991832999996,
+    "warm_p50": 17118.919277999998,
+    "warm_p95": 18901.224216000002
+  },
+  "checks": {
+    "integrity": {
+      "passed": true,
+      "message": "SHA-256 matches pinned"
+    },
+    "contract": {
+      "passed": true,
+      "message": "inputs pixel_values, outputs predicted_depth, output dims [1,518,518]"
+    },
+    "nan_free": {
+      "passed": true,
+      "message": "no NaN/Inf in any fixture output"
+    },
+    "two_plane_ordering": {
+      "passed": true,
+      "message": "two-plane rho 0.310, separation 0.344"
+    },
+    "corridor_ordering": {
+      "passed": true,
+      "message": "corridor rho 0.267"
+    },
+    "edge_alignment": {
+      "passed": true,
+      "message": "two-plane edge agreement 0.626"
+    }
+  },
+  "metrics": [
+    {
+      "fixture": "two_plane",
+      "output_dims": [1, 518, 518],
+      "nan_fraction": 0,
+      "inf_fraction": 0,
+      "spearman_rho": 0.31029096926025523,
+      "plane_separation": 0.3436360396932445,
+      "edge_alignment": 0.6256127450980392,
+      "normalization_range": [0.5894789695739746, 4.009373664855957],
+      "raw_convention": "nearIsHigh"
+    },
+    {
+      "fixture": "corridor",
+      "output_dims": [1, 518, 518],
+      "nan_fraction": 0,
+      "inf_fraction": 0,
+      "spearman_rho": 0.2670546550766231,
+      "plane_separation": 0.0749682630424423,
+      "edge_alignment": 0.3935617860851506,
+      "normalization_range": [0, 5.329357624053955],
+      "raw_convention": "nearIsHigh"
+    },
+    {
+      "fixture": "flat_uniform",
+      "output_dims": [1, 518, 518],
+      "nan_fraction": 0,
+      "inf_fraction": 0,
+      "spearman_rho": 0,
+      "plane_separation": 0,
+      "edge_alignment": 0,
+      "normalization_range": [1.1196143627166748, 3.6541929244995117],
+      "raw_convention": "nearIsHigh"
+    }
+  ],
+  "overall_passed": true,
+  "generation_timestamp": "2026-08-13T20:47:02.377Z"
+}
