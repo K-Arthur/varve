@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
@@ -77,14 +77,48 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     expect(options).toHaveFocus();
   });
 
-  it('Image mode hides the frame tool and boolean ops, keeps retouch tools', () => {
+  it('Image mode hides the frame tool and boolean ops, keeps retouch tools', async () => {
     renderInMode('image');
     expect(screen.queryByLabelText('Frame')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Boolean operations menu')).not.toBeInTheDocument();
+
+    // Retouch is one flyout rather than four permanently visible buttons —
+    // Image mode declares 21 tools, so the workspace's declared grouping is
+    // what keeps the toolbar readable. Every member stays reachable.
+    const retouch = await screen.findByLabelText('Retouch menu');
     expect(screen.getByLabelText('Clone Stamp')).toBeInTheDocument();
-    expect(screen.getByLabelText('Healing Brush')).toBeInTheDocument();
-    expect(screen.getByLabelText('Spot Heal')).toBeInTheDocument();
-    // Shape tool remains available (useful for selection marquees on a photo).
-    expect(screen.getByLabelText('Shapes menu')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Healing Brush')).not.toBeInTheDocument();
+    fireEvent.click(retouch);
+    const menu = await screen.findByRole('menu', { name: 'Retouch' });
+    for (const member of ['Clone Stamp', 'Healing Brush', 'Spot Heal', 'Patch Tool']) {
+      expect(within(menu).getByRole('menuitem', { name: member })).toBeInTheDocument();
+    }
+  });
+
+  it('Image mode exposes the mask tools its workspace declares', async () => {
+    // Regression: refineMask/trimapEdit are declared by the Image workspace and
+    // implemented as real tools, but the toolbar rendered from a hard-coded
+    // list that omitted them, so they were unreachable from the toolbar.
+    renderInMode('image');
+    fireEvent.click(await screen.findByLabelText('Mask menu'));
+    const menu = await screen.findByRole('menu', { name: 'Mask' });
+    expect(within(menu).getByRole('menuitem', { name: 'Refine Mask' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'Trimap Edit' })).toBeInTheDocument();
+  });
+
+  it('Logo mode exposes the node-edit tool its workspace declares', async () => {
+    renderInMode('logo');
+    expect(await screen.findByLabelText('Node Edit')).toBeInTheDocument();
+  });
+
+  it('orders the toolbar the way the workspace declares', async () => {
+    // The photo workspace leads with selection and navigation; the previous
+    // hard-coded order led every workspace with line/arrow/text.
+    renderInMode('image');
+    await screen.findByLabelText('Retouch menu');
+    const tools = Array.from(document.querySelectorAll('[data-tool]')).map((el) =>
+      el.getAttribute('data-tool'),
+    );
+    expect(tools.slice(0, 4)).toEqual(['select', 'lasso', 'hand', 'zoom']);
   });
 });
