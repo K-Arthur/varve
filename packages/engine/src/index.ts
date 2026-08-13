@@ -823,6 +823,7 @@ export {
 } from './shapingBackend';
 export * from './storyComposition';
 export * from './textLayout';
+export * from './textLayoutSnapshot';
 export type {
   EmbeddingRestriction,
   GlyphOutline,

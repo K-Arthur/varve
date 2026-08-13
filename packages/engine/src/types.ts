@@ -789,6 +789,8 @@ export interface ShapedRun {
 export interface TextShaping {
   /** Shaped runs in logical order (after BiDi run segmentation). */
   runs: ShapedRun[];
+  /** Optional visual traversal order resolved by the shaping/layout backend. */
+  visualRuns?: readonly ShapedRun[];
   /** Total width after shaping. */
   width: number;
   /** Total height (max ascent + max descent across runs). */
