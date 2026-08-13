@@ -393,7 +393,12 @@ export {
   scaleDimensions,
 } from './iccImageConverter';
 export * from './icon';
-export type { CachedImage, ImageCacheEntry, ImageLoadState } from './imageCache';
+export type {
+  CachedImage,
+  ImageCacheColorVariant,
+  ImageCacheEntry,
+  ImageLoadState,
+} from './imageCache';
 export { cachedImageDims, getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type {
   DenoiseStrength,
