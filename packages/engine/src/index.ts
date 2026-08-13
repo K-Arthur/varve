@@ -811,6 +811,16 @@ export {
 export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
 // ── Text pipeline: shaping, BiDi, grapheme segmentation ──────────────────
 export { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
+export type {
+  NativeShapedRunPayload,
+  ShapingBackend,
+  ShapingBackendRequest,
+  ShapingBackendResult,
+} from './shapingBackend';
+export {
+  createHarfBuzzWasmBackend,
+  normalizeNativeShapedRun,
+} from './shapingBackend';
 export * from './storyComposition';
 export * from './textLayout';
 export type {
