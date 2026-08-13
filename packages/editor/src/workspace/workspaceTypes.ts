@@ -304,6 +304,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'eyedropper' },
         { toolId: 'scale' },
         { toolId: 'inspect' },
+        { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
@@ -396,6 +397,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'eyedropper' },
         { toolId: 'scale' },
         { toolId: 'inspect' },
+        { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
@@ -486,6 +488,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'text' },
         { toolId: 'eyedropper' },
         { toolId: 'frame' },
+        { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
         {
@@ -572,6 +575,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'patch' },
         { toolId: 'refineMask', groupStart: true },
         { toolId: 'trimapEdit' },
+        { toolId: 'sam2Segment', groupStart: true },
         { toolId: 'pen', groupStart: true },
         { toolId: 'pencil' },
         { toolId: 'line' },
@@ -671,6 +675,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'pencil' },
         { toolId: 'scale', groupStart: true },
         { toolId: 'eyedropper' },
+        { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
@@ -767,6 +772,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'arrow' },
         { toolId: 'scale', groupStart: true },
         { toolId: 'eyedropper' },
+        { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [
         { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
@@ -855,6 +861,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'scale', groupStart: true },
         { toolId: 'eyedropper' },
         { toolId: 'inspect' },
+        { toolId: 'sam2Segment', groupStart: true },
       ],
       flyouts: [{ id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] }],
     },
