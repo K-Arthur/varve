@@ -84,6 +84,8 @@ export {
 export type { ContentSearchMatch } from './searchIndex';
 export type { SemanticIndexHit, SemanticIndexSnapshot } from './semanticAssetIndex';
 export { SEMANTIC_INDEX_SCHEMA_VERSION, SemanticAssetIndex } from './semanticAssetIndex';
+export type { SemanticEmbeddingStore } from './semanticEmbeddingStore';
+export { IndexedDbSemanticEmbeddingStore, MemorySemanticEmbeddingStore } from './semanticEmbeddingStore';
 export type {
   SemanticEmbeddingJob,
   SemanticEmbeddingQueueStats,
