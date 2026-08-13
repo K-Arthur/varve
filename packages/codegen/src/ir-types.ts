@@ -394,6 +394,7 @@ export type FlattenReason =
   | 'layer-blur'
   | 'alpha-mask'
   | 'luminance-mask'
+  | 'effect-mask'
   | 'angular-gradient'
   | 'diamond-gradient'
   | 'unsupported-blend'
