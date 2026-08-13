@@ -61,8 +61,9 @@ describe('UAX #9 conformance fixtures', () => {
     expect(p.baseDirection).toBe('rtl');
     const lriStart = p.text.indexOf('\u2066');
     const latinStart = lriStart + 1;
-    expect(p.levels![latinStart]).toBeGreaterThanOrEqual(2);
-    expect(p.levels![latinStart] % 2).toBe(0);
+    const latinLevel = p.levels![latinStart] ?? 0;
+    expect(latinLevel).toBeGreaterThanOrEqual(2);
+    expect(latinLevel % 2).toBe(0);
   });
 
   it('never mutates or reorders source text', () => {
@@ -84,7 +85,7 @@ describe('UAX #9 conformance fixtures', () => {
   it('supports explicit paragraph direction overrides', () => {
     expect(analyzeParagraph('hello', 'rtl').baseDirection).toBe('rtl');
     expect(analyzeParagraph('مرحبا', 'ltr').baseDirection).toBe('ltr');
-    expect(analyzeParagraph('مرحبا', 'auto').baseDirection).toBe('rtl');
+    expect(analyzeParagraph('مرحبا').baseDirection).toBe('rtl');
   });
 
   it('handles punctuation-heavy technical strings without losing characters', () => {

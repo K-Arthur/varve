@@ -138,6 +138,7 @@ function scriptSpansOf(text: string, start: number, end: number): ScriptSpan[] {
   const spans: ScriptSpan[] = [];
   let spanStart = start;
   let spanScript: ScriptCode | null = null;
+  let pendingStart: number | null = null;
   const flush = (spanEnd: number): void => {
     if (spanEnd > spanStart && spanScript !== null) {
       spans.push({ start: spanStart, end: spanEnd, script: spanScript });
@@ -148,17 +149,14 @@ function scriptSpansOf(text: string, start: number, end: number): ScriptSpan[] {
     const width = code > 0xffff ? 2 : 1;
     const script = detectScript(code);
     if (script === 'Zyyy' || script === 'Zzzz') {
-      if (spanScript === null) {
-        // Leading common/inherited chars: defer to the next strong script.
-        spanStart = offset;
+      if (spanScript === null && pendingStart === null) {
+        // Leading common/inherited chars absorb into the next strong run.
+        pendingStart = offset;
       }
       // Otherwise absorb into the current span.
     } else if (spanScript === null) {
-      if (spans.length === 0 && offset > start) {
-        // Leading common chars attach to the first strong run.
-        spans.push({ start, end: offset, script });
-      }
-      spanStart = offset;
+      spanStart = pendingStart ?? offset;
+      pendingStart = null;
       spanScript = script;
     } else if (script !== spanScript) {
       flush(offset);
