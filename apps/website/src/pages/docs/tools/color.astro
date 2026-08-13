@@ -62,6 +62,19 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Background Removal</h2>
+        <p>
+          Select an image and choose a user-facing mode: <strong>Fast</strong> for a local heuristic on simple backgrounds, <strong>Auto</strong> for the best available general-purpose local model, or <strong>High quality</strong> for difficult hair, fur, foliage, and thin edges. Auto prefers the optional IS-Net model when installed and otherwise uses bundled U²-NetP. High quality uses downloadable BiRefNet Lite where the available provider and memory budget are safe.
+        </p>
+        <p>
+          Model downloads require explicit consent, are checksum-verified, and stay on the device. A browser or desktop provider can refuse a model before an unsafe allocation; when that happens, Varve reports the actual model used instead of silently calling the result high quality. Review the mask on the checkerboard, white, and black backgrounds before applying it. The source image stays intact, and the mask can be refined with the brush or trimap tools and undone like any other document edit.
+        </p>
+        <p>
+          These models estimate foreground alpha. They are not a guarantee of true physical matting for glass, smoke, steam, or other translucent material; use the trimap editor and inspect the result against the final background for those cases.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Fill System</h2>
         <p>
           Every shape supports a stack of fills rendered from top to bottom. Each fill has its own opacity and blend mode:
@@ -92,7 +105,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Image Palette Extraction</h2>
         <p>
-          Select one image, open the <strong>Appearance</strong> tab, and expand <strong>Palette</strong> beside Paint Library. Varve decodes a bounded preview of the source and, when the image is cropped, analyses the visible crop. The calculation is local and deterministic: image pixels are not uploaded and no model download is required.
+          Select one image, open the <strong>Appearance</strong> tab, and expand <strong>Palette</strong> beside Paint Library. Varve decodes a bounded preview of the source and, when the image is cropped, analyses the visible crop (a <strong>Full image</strong> choice is available). The calculation is local and deterministic: image pixels are not uploaded and no model download is required.
         </p>
         <ol>
           <li>Choose a requested count from 3–12 colours and select <strong>Analyze</strong>.</li>
