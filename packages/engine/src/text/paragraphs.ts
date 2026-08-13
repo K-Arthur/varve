@@ -125,11 +125,15 @@ interface ScriptSpan {
   script: ScriptCode;
 }
 
+/** Nonspacing/enclosing marks (Unicode Mn/Me) must never split from their base. */
+const COMBINING_MARK_RE = /^[\p{Mn}\p{Me}]$/u;
+
 /**
- * Segment a logical BidiRun by Unicode script. Common ('Zyyy') and inherited
- * ('Zzzz'-classified combining marks) characters are absorbed into the
- * surrounding run so digits and combining sequences shape with the nearby
- * script and never split a grapheme.
+ * Segment a logical BidiRun by Unicode script. Common ('Zyyy'), inherited
+ * ('Zzzz'-classified), and combining marks (Mn/Me, e.g. Arabic harakat whose
+ * block classifies them as 'Arab') are absorbed into the surrounding run so
+ * digits, marks, and combining sequences shape with the nearby script and a
+ * grapheme is never split.
  */
 function scriptSpansOf(text: string, start: number, end: number): ScriptSpan[] {
   const spans: ScriptSpan[] = [];
@@ -145,7 +149,11 @@ function scriptSpansOf(text: string, start: number, end: number): ScriptSpan[] {
     const code = text.codePointAt(offset) ?? 0;
     const width = code > 0xffff ? 2 : 1;
     const script = detectScript(code);
-    if (script === 'Zyyy' || script === 'Zzzz') {
+    if (
+      script === 'Zyyy' ||
+      script === 'Zzzz' ||
+      COMBINING_MARK_RE.test(String.fromCodePoint(code))
+    ) {
       if (spanScript === null && pendingStart === null) {
         // Leading common/inherited chars absorb into the next strong run.
         pendingStart = offset;

@@ -79,6 +79,23 @@ describe('scriptedRuns', () => {
     expect(paragraph.scriptedRuns[0]!.end).toBe(2);
   });
 
+  it('absorbs Arabic harakat despite their block classifying them as Arab', () => {
+    // U+064B (fathatan) lives in the Arabic block, so detectScript reports
+    // 'Arab'; as an Mn mark it must still attach to the base character
+    // instead of splitting the grapheme into its own run.
+    const paragraph = itemizeParagraph({ index: 0, start: 0, end: 0, text: 'a\u064b' }, 'auto');
+    expect(paragraph.scriptedRuns).toHaveLength(1);
+    expect(paragraph.scriptedRuns[0]!.start).toBe(0);
+    expect(paragraph.scriptedRuns[0]!.end).toBe(2);
+  });
+
+  it('absorbs Arabic harakat into an Arabic base run', () => {
+    const paragraph = itemizeParagraph({ index: 0, start: 0, end: 0, text: 'عَرَبِيَّة' }, 'auto');
+    expect(paragraph.scriptedRuns).toHaveLength(1);
+    expect(paragraph.scriptedRuns[0]!.script).toBe('Arab');
+    expect(paragraph.scriptedRuns[0]!.end).toBe(paragraph.text.length);
+  });
+
   it('never splits grapheme clusters across script runs', () => {
     for (const text of [
       SCRIPT_FIXTURES.emojiZwj,
