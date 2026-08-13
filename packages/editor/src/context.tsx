@@ -1312,8 +1312,10 @@ export interface EditorContextValue {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
+  selectSam2Candidate: (index: number) => void;
 
   /** Enlarge the selected image into a new editable image layer. */
   upscaleSelectedImage: (options: import('@varve/engine').UpscaleOptions) => Promise<void>;
@@ -8296,12 +8298,12 @@ export function EditorProvider({
                 upscale:
                   operation === 'upscale' || operation === 'restore-upscale'
                     ? {
-                        method: usePixelArt
-                          ? 'pixel-art'
-                          : (options.method ?? 'bicubic'),
+                        method: usePixelArt ? 'pixel-art' : (options.method ?? 'bicubic'),
                         scale: options.scale ?? 2,
                         modelId: options.modelId,
-                        pixelArtAlgorithm: usePixelArt ? (pixelArtAlgo as PixelArtAlgorithm) : undefined,
+                        pixelArtAlgorithm: usePixelArt
+                          ? (pixelArtAlgo as PixelArtAlgorithm)
+                          : undefined,
                       }
                     : undefined,
               },
@@ -8682,6 +8684,7 @@ export function EditorProvider({
       // SAM2 segmentation
       applySam2Segmentation: sam2Seg.applySam2Segmentation,
       cancelSam2Segmentation: sam2Seg.cancelSam2Segmentation,
+      selectSam2Candidate: sam2Seg.selectSam2Candidate,
 
       ...(protoValue ?? PROTO_NOOP),
 
