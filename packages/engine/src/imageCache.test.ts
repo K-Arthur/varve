@@ -379,6 +379,18 @@ describe('ImageCache at-size representations', () => {
     expect(cache.isLoaded('https://example.com/photo.jpg')).toBe(true);
   });
 
+  it('falls back to the HTML image loader when createImageBitmap is unavailable', async () => {
+    const src = 'data:image/png;base64,NO_BITMAP_API';
+    MockImage.dispatch = (img) => img.onload?.();
+    globalThis.createImageBitmap = undefined as unknown as typeof createImageBitmap;
+
+    const cache = new ImageCache();
+    const result = await cache.loadAtSize(src, 256, { width: 4000, height: 3000 });
+
+    expect(result).toBeInstanceOf(MockImage);
+    expect(cache.isLoadedAtSize(src, 256)).toBe(true);
+  });
+
   it('deduplicates concurrent at-size loads and marks failures typed', async () => {
     const src = 'data:image/jpeg;base64,FAIL';
     let resolveBitmap: (b: ImageBitmap) => void = () => undefined;

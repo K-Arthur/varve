@@ -1,6 +1,6 @@
 # Canvas 2D Rendering System
 
-**Updated:** 2026-07-13
+**Updated:** 2026-08-13
 
 This document is the maintained contract for Varve's Canvas 2D path. It supersedes
 older implementation details in `docs/audits/canvas-system-audit.md`.
@@ -177,7 +177,11 @@ gigapixel exports.
 
 Home thumbnails use the portable raster surface and include text, frames, nested world
 transforms, fills, strokes, effects, visibility, opacity, and blend state supported by
-the thumbnail scene contract.
+the thumbnail scene contract. Canonical thumbnail image fills request an
+`ImageCache.loadAtSize` representation sized to the physical output when the
+runtime supports it; replay receives that resource through the same image lookup
+boundary used by worker rendering, while full-resolution source entries remain
+available for the live canvas and export.
 
 Native PDF export currently accepts the subset that `varve-print` can reproduce:
 scale 1, simple translation, opaque normal blending, supported solid paint, no live
