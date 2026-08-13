@@ -14,6 +14,13 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Experimental asset similarity** — the Intelligence panel now separates
+  image-to-image Similar search from Near duplicates. Similarity uses the
+  existing local SigLIP ONNX worker path; near-duplicate ranking keeps exact
+  identity and perceptual fingerprints separate. The current workflow is
+  document-local, capped at 30 image candidates, and does not provide
+  text-to-image search or automatic deletion. See
+  `docs/architecture/semantic-asset-similarity.md`.
 - **Image palette extraction** — select an image and open Adjustments → Palette
   to generate a deterministic local palette in perceptual Oklab, review
   generated harmonies and WCAG 2.1 contrast pairs, copy HEX values, and save
