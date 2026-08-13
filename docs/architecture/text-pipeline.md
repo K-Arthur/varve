@@ -15,7 +15,8 @@ TextNode.text / TextNode.richText / TextStory
   → replay-time layout selection
       ├─ TextLayoutSnapshot → positioned cluster replay (plain text when shaping is available)
       ├─ Canvas measureText → transient approximate snapshot → cluster replay (browser fallback)
-      ├─ rich-text layout fallback (until per-span shaping is wired)
+      ├─ rich-span snapshot → positioned cluster replay (Canvas2D measurement fallback)
+      ├─ legacy rich layout fallback (advanced paragraph controls)
       └─ Rust rustybuzz command (native, currently export/diagnostic oriented)
   → SVG/PDF/codegen-specific consumers
 ```
@@ -110,7 +111,9 @@ snapshot without losing behavior.
 Rich text has a matching logical source index in
 `packages/scene/src/richTextIndex.ts`. It derives paragraph separators and
 run-local UTF-16 ranges without changing stored run order; formatting remains
-attached to logical ranges and can later be itemized into shaped snapshots.
+attached to logical ranges. `richTextLayout.ts` now itemizes those logical
+paragraph/run ranges and routes supported measured spans through the same
+snapshot renderer; advanced paragraph controls retain a documented fallback.
 Canonical scene operations in `packages/scene/src/richTextOps.ts` now also
 remove selected properties and replace text at grapheme-safe paragraph ranges,
 with adjacent equivalent runs normalized after each transaction.
