@@ -47,11 +47,16 @@ if [[ "${1:-}" != "--serve-only" ]]; then
     exit 1
   fi
 
-  # Frontend is built once via vite directly (tsc can fail on unrelated
-  # in-flight workspace edits); tauri's beforeBuildCommand is overridden to a
-  # no-op so it never re-runs the repo's `pnpm build`.
-  echo "==> Building frontend dist (vite, no tsc)"
-  (cd "$ROOT/apps/desktop" && pnpm exec vite build)
+  # Frontend must be built with --mode wdio: main.tsx only loads the wdio
+  # bridge plugin when Vite's mode is 'wdio', and without it WebDriver cannot
+  # call browser.tauri.execute in the webview. tsc is skipped (can fail on
+  # unrelated in-flight workspace edits); tauri's beforeBuildCommand is
+  # overridden to a no-op so it never re-runs the repo's `pnpm build`.
+  # NO_STRIP mirrors the release runner: linuxdeploy's bundled strip chokes on
+  # newer .relr.dyn sections and would otherwise fail the AppImage bundle.
+  echo "==> Building frontend dist (vite --mode wdio, no tsc)"
+  (cd "$ROOT/apps/desktop" && pnpm exec vite build --mode wdio)
+  export NO_STRIP=1 CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-4}"
   node -e "require('fs').writeFileSync('$TEST_DIR/fixture-build.json', JSON.stringify({build:{beforeBuildCommand:'echo fixture frontend prebuilt'}}))"
 
   for spec in "old:$OLD_VERSION" "new:$NEW_VERSION"; do

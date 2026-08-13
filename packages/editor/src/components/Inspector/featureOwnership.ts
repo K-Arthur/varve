@@ -344,12 +344,13 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Multi-image blending is a focused compositing workflow.',
   },
   palette: {
-    surface: 'adjustments',
+    surface: 'appearance',
     scope: 'selection',
     frequency: 'rare',
     complexity: 'moderate',
     status: 'functional',
-    rationale: 'Palette extraction is an image-analysis result, not a property.',
+    rationale:
+      'Palette extraction turns selected-image appearance into reusable paints and tokens; it belongs beside Paint Library, not pixel adjustments.',
   },
   'adaptive-contrast': {
     surface: 'audit',

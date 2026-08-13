@@ -13,7 +13,6 @@ import { ImageEnhancementSection } from '../sections/ImageEnhancementSection';
 import { LensBlurSection } from '../sections/LensBlurSection';
 import { LineArtSection } from '../sections/LineArtSection';
 import { OcrSection } from '../sections/OcrSection';
-import { PaletteSection } from '../sections/PaletteSection';
 
 /**
  * Focused image-processing surface. This module is lazy-loaded so model-aware
@@ -51,7 +50,6 @@ export function AdjustmentsPanel() {
       <OcrSection nodes={nodes} />
       <FontDetectSection nodes={nodes} />
       <BlendImagesSection nodes={nodes} />
-      <PaletteSection />
     </>
   );
 }

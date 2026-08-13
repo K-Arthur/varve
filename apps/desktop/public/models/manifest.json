@@ -430,24 +430,22 @@
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
       "supportedProviders": ["wasm", "webgpu"],
-      "notes": "SAM2.1 Hiera Tiny — interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Encoder: ~39MB. Verified community source: onnx-community/sam2.1-hiera-tiny-ONNX (HuggingFace, Apache-2.0, converted from Meta). Separate ONNX graphs for encoder and decoder.",
+      "notes": "SAM2.1 Hiera Tiny — interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Composite download is the verified encoder + decoder pair; separate ONNX graphs are loaded by the worker.",
       "components": [
         {
           "id": "sam2-hiera-tiny-encoder",
-          "filename": "vision_encoder.onnx",
-          "localPath": "/models/sam2-hiera-tiny/vision_encoder.onnx",
-          "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx",
-          "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx.data",
+          "filename": "sam2_hiera_tiny.encoder.onnx",
+          "localPath": "/models/sam2_hiera_tiny.encoder.onnx",
+          "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx",
           "role": "encoder",
           "checksum": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
           "sizeBytes": 134261315
         },
         {
           "id": "sam2-hiera-tiny-decoder",
-          "filename": "prompt_encoder_mask_decoder.onnx",
-          "localPath": "/models/sam2-hiera-tiny/prompt_encoder_mask_decoder.onnx",
-          "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx",
-          "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx.data",
+          "filename": "sam2_hiera_tiny.decoder.onnx",
+          "localPath": "/models/sam2_hiera_tiny.decoder.onnx",
+          "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.decoder.onnx",
           "role": "decoder",
           "checksum": "f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf",
           "sizeBytes": 20640886
@@ -511,7 +509,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "Select Subject — image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. No SHA-256 pinned yet — compute and pin on first verified download."
+      "notes": "Select Subject — image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. SHA-256 is pinned from the verified download."
     },
     {
       "id": "sam2-hiera-tiny-decoder",
@@ -590,7 +588,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "Select Subject — prompt decoder (runs per click/drag, using the cached encoder output). ~20.6MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): inputs image_embed/high_res_feats_0/high_res_feats_1 (from encoder) + point_coords/point_labels/mask_input/has_mask_input -> outputs masks + iou_predictions. No SHA-256 pinned yet — compute and pin on first verified download."
+      "notes": "Select Subject — prompt decoder (runs per click/drag, using the cached encoder output). ~20.6MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): inputs image_embed/high_res_feats_0/high_res_feats_1 (from encoder) + point_coords/point_labels/mask_input/has_mask_input -> outputs masks + iou_predictions. SHA-256 is pinned from the verified download."
     },
     {
       "id": "depth-anything-v2-small",
