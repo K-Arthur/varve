@@ -198,22 +198,41 @@ just package-linux
 
 ---
 
-## 6. macOS and Windows — UNVERIFIED
-
-Never executed. No Mac, no Windows machine.
+## 6. Target-specific desktop builds
 
 ```sh
 # macOS, Apple Silicon — on a Mac or a macos-latest runner
 rustup target add aarch64-apple-darwin
-cd apps/desktop && pnpm tauri build --bundles dmg --ci
+cd apps/desktop && pnpm tauri build --target aarch64-apple-darwin --bundles dmg --ci
+
+# Linux ARM64 — use a native ubuntu-22.04-arm runner. Do not use QEMU for
+# AppImage release validation: Tauri's current linuxdeploy path cannot
+# cross-compile ARM AppImages.
+rustup target add aarch64-unknown-linux-gnu
+cd apps/desktop && pnpm tauri build --target aarch64-unknown-linux-gnu --bundles appimage,deb,rpm --ci
+
+# Windows ARM64 — use Windows with the C++ ARM64 MSVC build tools installed.
+rustup target add aarch64-pc-windows-msvc
+cd apps/desktop && pnpm tauri build --target aarch64-pc-windows-msvc --bundles nsis --ci
 
 # Windows x86-64 — on Windows or a windows-latest runner
-cd apps/desktop && pnpm tauri build --bundles nsis --ci
+cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc --bundles nsis --ci
 ```
 
 Note the macOS build deliberately targets `aarch64`, not `universal`: the
 bundled ONNX Runtime dylib has no macOS Intel build, so a "universal" binary
 would be half-degraded (audit H-3).
+
+For Windows ARM64, Tauri documents that the NSIS bootstrapper may remain an
+x86 process under emulation while the installed `varve-desktop.exe` is native
+ARM64. Verify the installed executable header; never infer application
+architecture from the installer filename.
+
+The release workflow uses the canonical entries in
+`scripts/release/targets.mjs`, passes each Rust target explicitly, verifies the
+native executable header, and runs Linux package/AppImage smoke tests on both
+native Linux architectures. These checks are necessary but do not replace a
+real editor workflow and native ONNX inference on ARM hardware.
 
 The honest way to get a first result for either is to run
 `.github/workflows/release.yml` via `workflow_dispatch` with

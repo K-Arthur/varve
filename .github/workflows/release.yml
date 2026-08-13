@@ -320,18 +320,44 @@ jobs:
             os: ubuntu-22.04
             os_slug: linux
             arch_slug: x86_64
+            rust_target: x86_64-unknown-linux-gnu
+            executable: varve-desktop
+            bundles: appimage,deb,rpm
+            enabled: true
+          - name: linux-aarch64
+            os: ubuntu-22.04-arm
+            os_slug: linux
+            arch_slug: aarch64
+            rust_target: aarch64-unknown-linux-gnu
+            executable: varve-desktop
+            # AppImage cannot be cross-compiled by linuxdeploy; this must stay
+            # on a native ARM64 runner rather than being moved to QEMU.
             bundles: appimage,deb,rpm
             enabled: true
           - name: windows-x86_64
             os: windows-latest
             os_slug: windows
             arch_slug: x86_64
+            rust_target: x86_64-pc-windows-msvc
+            executable: varve-desktop.exe
+            bundles: nsis
+            enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
+          - name: windows-aarch64
+            os: windows-11-arm
+            os_slug: windows
+            arch_slug: aarch64
+            rust_target: aarch64-pc-windows-msvc
+            executable: varve-desktop.exe
+            # Tauri's NSIS bootstrapper is x86 and runs under emulation, but
+            # the installed Varve executable is native ARM64.
             bundles: nsis
             enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
           - name: macos-aarch64
             os: macos-latest
             os_slug: macos
             arch_slug: aarch64
+            rust_target: aarch64-apple-darwin
+            executable: varve-desktop
             # ARM64 only, not universal: the bundled ONNX Runtime dylib has no
             # macOS Intel build (scripts/fetch-onnxruntime.mjs PLATFORMS), so a
             # "universal" DMG would be half-degraded. Audit H-3.
@@ -342,6 +368,8 @@ jobs:
       # Public build-time configuration. App usage/diagnostics consent remains
       # unknown until the user enables each category in Settings.
       VITE_VARVE_ANALYTICS_DOMAIN: 'varve.studio'
+      TAURI_TARGET_DIR: apps/desktop/src-tauri/target/${{ matrix.rust_target }}
+      TAURI_BUNDLE_DIR: apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         if: matrix.enabled
@@ -374,9 +402,9 @@ jobs:
             cmake pkg-config patchelf \
             squashfs-tools
 
-      - name: Add macOS Rust target
-        if: matrix.enabled && runner.os == 'macOS'
-        run: rustup target add aarch64-apple-darwin
+      - name: Add Rust target
+        if: matrix.enabled
+        run: rustup target add ${{ matrix.rust_target }}
 
       - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
         if: matrix.enabled
@@ -521,7 +549,7 @@ jobs:
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.signing.windows.json"
           fi
-          pnpm tauri build --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
+          pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci ${TAURI_EXTRA_ARGS}
         working-directory: apps/desktop
 
       # Unsigned builds (prerelease / RELEASE_EXPECT_SIGNED unset) run in a
@@ -540,7 +568,7 @@ jobs:
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
         run: |
-          pnpm tauri build --bundles ${{ matrix.bundles }} --ci
+          pnpm tauri build --target ${{ matrix.rust_target }} --bundles ${{ matrix.bundles }} --ci
         working-directory: apps/desktop
 
       # ── Collect, rename, checksum, SBOM ────────────────────────────────
@@ -554,14 +582,23 @@ jobs:
         if: matrix.enabled && runner.os == 'Linux'
         run: |
           node scripts/release/prune-appimage-bundled-libs.mjs \
-            --bundle-dir apps/desktop/src-tauri/target/release/bundle \
+            --bundle-dir "${TAURI_BUNDLE_DIR}" \
+            --arch ${{ matrix.arch_slug }} \
             --tools-dir "$HOME/.cache/tauri"
+
+      - name: Verify native executable architecture
+        if: matrix.enabled
+        shell: bash
+        run: |
+          node scripts/release/verify-binary-architecture.mjs \
+            --path "${TAURI_TARGET_DIR}/release/${{ matrix.executable }}" \
+            --architecture ${{ matrix.arch_slug }}
 
       - name: Collect artifacts
         if: matrix.enabled
         run: |
           node scripts/release/collect-artifacts.mjs \
-            --bundle-dir apps/desktop/src-tauri/target/release/bundle \
+            --bundle-dir "${TAURI_BUNDLE_DIR}" \
             --out dist/release \
             --os ${{ matrix.os_slug }} \
             --arch ${{ matrix.arch_slug }}
@@ -647,7 +684,7 @@ jobs:
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: debug-binary-${{ matrix.name }}
-          path: apps/desktop/src-tauri/target/release/varve-desktop
+          path: ${{ env.TAURI_TARGET_DIR }}/release/varve-desktop
           if-no-files-found: warn
           retention-days: 90
 
@@ -659,10 +696,24 @@ jobs:
   # under Xvfb — a launch smoke, not a GUI usability test. Both are explicit
   # gates between "built" and "draft" for the Linux platform.
   package-smoke:
-    name: Linux package smoke (containers + launch)
+    name: Linux package smoke (${{ matrix.name }})
     needs: [preflight, bundle]
-    runs-on: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: x86_64
+            os: ubuntu-22.04
+            arch_slug: x86_64
+            artifact: release-linux-x86_64
+            enabled: true
+          - name: aarch64
+            os: ubuntu-22.04-arm
+            arch_slug: aarch64
+            artifact: release-linux-aarch64
+            enabled: true
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
@@ -670,12 +721,14 @@ jobs:
           ref: ${{ needs.preflight.outputs.tag }}
 
       - name: Download Linux artifacts
+        if: matrix.enabled
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: release-linux-x86_64
-          path: staged/linux
+          name: ${{ matrix.artifact }}
+          path: staged/linux-${{ matrix.arch_slug }}
 
       - name: Install container runtime
+        if: matrix.enabled
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -686,16 +739,18 @@ jobs:
           podman info >/dev/null 2>&1 || echo "::warning::podman info failed — install tests will fail fast"
 
       - name: Install-test .deb and .rpm in clean containers
+        if: matrix.enabled
         run: |
           bash scripts/release/verify-package-install.sh \
-            --bundle-dir "$(pwd)/staged/linux"
+            --bundle-dir "$(pwd)/staged/linux-${{ matrix.arch_slug }}"
 
       - name: Launch smoke (AppImage under Xvfb)
+        if: matrix.enabled
         run: |
           set -euo pipefail
-          IMG="$(find staged/linux -name '*.AppImage' | head -1)"
+          IMG="$(find staged/linux-${{ matrix.arch_slug }} -name '*.AppImage' | head -1)"
           if [[ -z "${IMG}" ]]; then
-            echo "::error::No AppImage found in staged/linux"
+            echo "::error::No AppImage found in staged/linux-${{ matrix.arch_slug }}"
             exit 1
           fi
           chmod +x "${IMG}"
@@ -750,6 +805,10 @@ jobs:
           - name: windows
             os: windows-latest
             artifact: release-windows-x86_64
+            enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
+          - name: windows-aarch64
+            os: windows-11-arm
+            artifact: release-windows-aarch64
             enabled: ${{ needs.preflight.outputs.build_windows == 'true' }}
           - name: macos
             os: macos-latest

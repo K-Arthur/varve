@@ -22,6 +22,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from '
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readSigningReports, signingStateFromReport } from './signing-policy.mjs';
+import { normalizeArchitecture, targetFor } from './targets.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -70,6 +71,13 @@ export function mergeManifests({ stagedDir, outDir }) {
       );
     }
     for (const artifact of manifest.artifacts ?? []) {
+      const architecture = normalizeArchitecture(artifact.arch);
+      targetFor(artifact.os, architecture);
+      if (!artifact.filename.includes(`-${architecture}.`)) {
+        throw new Error(
+          `Manifest artifact ${artifact.filename} disagrees with canonical architecture ${architecture}.`,
+        );
+      }
       metadata.set(artifact.filename, artifact);
     }
   }
