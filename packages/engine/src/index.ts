@@ -258,39 +258,6 @@ export {
 export type { SharpenImageOptions, SharpenResult } from './exportPipeline/sharpen';
 export { sharpenImageData } from './exportPipeline/sharpen';
 export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
-export type {
-  FaceAnchorName,
-} from './vision/types';
-export type { FaceAwareCropOptions, FaceAwareCropSuggestion } from './vision/cropSolver';
-export { suggestFaceAwareCrop } from './vision/cropSolver';
-export type {
-  FaceBoundsOutput,
-  FaceDetection,
-  FaceKeypointsOutput,
-  HandLandmarksOutput,
-  ObjectBoundsOutput,
-  PoseLandmarksOutput,
-  SegmentationOutput,
-  VisionBackend,
-  VisionBox,
-  VisionCapability,
-  VisionOutput,
-  VisionOutputMap,
-  VisionPoint,
-  VisionPriority,
-  VisionQuality,
-  VisionRect,
-  VisionRequest,
-  VisionSource,
-} from './vision/types';
-export { VISION_CAPABILITIES, visionSourceKey } from './vision/types';
-export {
-  VisionService,
-  VisionServiceError,
-  type VisionErrorCode,
-  type VisionServiceOptions,
-  type VisionServiceStats,
-} from './vision/service';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
   Adjustment,
@@ -874,6 +841,36 @@ export type {
 export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
 export type { EffectMaskResolver, ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
+export type {
+  CapabilityStatus,
+  RestorationCapability,
+  RestorationOperation,
+  RestorationPlan,
+  RestorationRequest,
+  RestorationRuntime,
+  RestorationStagePlan,
+  RestorationTask,
+} from './restoration';
+export {
+  capabilitiesForTask,
+  firstAvailableCapability,
+  isRestorationErrorCode,
+  isRestorationOperationAvailable,
+  planRestoration,
+  RESTORATION_CAPABILITIES,
+  RESTORATION_ERROR_CODES,
+  RestorationError,
+  RestorationPlanningError,
+  restorationTaskLabel,
+  restorationTasksForOperation,
+  toRestorationError,
+} from './restoration';
+export type {
+  RestorationExecutionOptions,
+  RestorationResult,
+  RestorationStageState,
+} from './restorationPipeline';
+export { runRestoration } from './restorationPipeline';
 export {
   buildBrushMask,
   clonePixels,
@@ -1021,30 +1018,6 @@ export {
 } from './unicode/unicodeIndices';
 export type { UpscaleCapabilities } from './upscaleCapabilities';
 export { detectUpscaleCapabilities } from './upscaleCapabilities';
-export type {
-  CapabilityStatus,
-  RestorationCapability,
-  RestorationOperation,
-  RestorationPlan,
-  RestorationRequest,
-  RestorationRuntime,
-  RestorationStagePlan,
-  RestorationTask,
-} from './restoration';
-export {
-  capabilitiesForTask,
-  firstAvailableCapability,
-  planRestoration,
-  RESTORATION_CAPABILITIES,
-  RestorationPlanningError,
-  restorationTaskLabel,
-} from './restoration';
-export type {
-  RestorationExecutionOptions,
-  RestorationResult,
-  RestorationStageState,
-} from './restorationPipeline';
-export { runRestoration } from './restorationPipeline';
 export type { UpscaleModelMetadata } from './upscaleModels';
 export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export type { UpscaleMode, UpscaleModeId } from './upscaleModes';
@@ -1087,6 +1060,37 @@ export {
   computeVideoFrameCount,
   exportTimelineToVideo,
 } from './videoExport';
+export type { FaceAwareCropOptions, FaceAwareCropSuggestion } from './vision/cropSolver';
+export { suggestFaceAwareCrop } from './vision/cropSolver';
+export {
+  type VisionErrorCode,
+  VisionService,
+  VisionServiceError,
+  type VisionServiceOptions,
+  type VisionServiceStats,
+} from './vision/service';
+export type {
+  FaceAnchorName,
+  FaceBoundsOutput,
+  FaceDetection,
+  FaceKeypointsOutput,
+  HandLandmarksOutput,
+  ObjectBoundsOutput,
+  PoseLandmarksOutput,
+  SegmentationOutput,
+  VisionBackend,
+  VisionBox,
+  VisionCapability,
+  VisionOutput,
+  VisionOutputMap,
+  VisionPoint,
+  VisionPriority,
+  VisionQuality,
+  VisionRect,
+  VisionRequest,
+  VisionSource,
+} from './vision/types';
+export { VISION_CAPABILITIES, visionSourceKey } from './vision/types';
 export * from './warp';
 export type { WasmTraceModule } from './wasmLoader';
 export { loadWasmEngineModule, prewarmWasmEngine, tryLoadTraceWasm } from './wasmLoader';

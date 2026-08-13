@@ -127,6 +127,7 @@ export interface RestorationRequest {
     method: 'nearest' | 'bilinear' | 'bicubic' | 'lanczos3' | 'ai' | 'pixel-art';
     scale: number;
     modelId?: string;
+    pixelArtAlgorithm?: import('./pixelArtScaling').PixelArtAlgorithm;
   };
   /** Conservative behavior is the product default for design assets. */
   qualityPolicy?: 'faithful' | 'balanced';
@@ -157,6 +158,108 @@ export class RestorationPlanningError extends Error {
     this.name = 'RestorationPlanningError';
     this.code = code;
   }
+}
+
+/** Execution-side restoration failure taxonomy (see the enhance error policy). */
+export type RestorationErrorCode =
+  | 'model-not-installed'
+  | 'model-download-failed'
+  | 'hash-mismatch'
+  | 'unsupported-operation'
+  | 'unsupported-runtime'
+  | 'runtime-unavailable'
+  | 'tensor-allocation'
+  | 'invalid-image'
+  | 'dimension-limit'
+  | 'provider-failed'
+  | 'cancelled'
+  | 'stale-result';
+
+export const RESTORATION_ERROR_CODES: readonly RestorationErrorCode[] = [
+  'model-not-installed',
+  'model-download-failed',
+  'hash-mismatch',
+  'unsupported-operation',
+  'unsupported-runtime',
+  'runtime-unavailable',
+  'tensor-allocation',
+  'invalid-image',
+  'dimension-limit',
+  'provider-failed',
+  'cancelled',
+  'stale-result',
+];
+
+export function isRestorationErrorCode(value: string): value is RestorationErrorCode {
+  return (RESTORATION_ERROR_CODES as readonly string[]).includes(value);
+}
+
+export class RestorationError extends Error {
+  readonly code: RestorationErrorCode;
+
+  constructor(code: RestorationErrorCode, message: string) {
+    super(message);
+    this.name = 'RestorationError';
+    this.code = code;
+  }
+}
+
+/**
+ * Classify a thrown value into a typed restoration failure without losing the
+ * human-readable message. The native backend rejects with bare strings, so a
+ * code is only assigned when the message matches a known pattern; everything
+ * else is `provider-failed`.
+ */
+export function toRestorationError(caught: unknown): RestorationError {
+  const message = caught instanceof Error ? caught.message : String(caught);
+  if (message === 'cancelled') return new RestorationError('cancelled', message);
+  if (/not downloaded|model.*not found|not installed/i.test(message)) {
+    return new RestorationError('model-not-installed', message);
+  }
+  if (/checksum|hash mismatch|verification failed/i.test(message)) {
+    return new RestorationError('hash-mismatch', message);
+  }
+  if (/dimension|too large|16384|megapixel/i.test(message)) {
+    return new RestorationError('dimension-limit', message);
+  }
+  if (/allocation|out of memory|OOM|allocate/i.test(message)) {
+    return new RestorationError('tensor-allocation', message);
+  }
+  if (/runtime|worker|wasm|native ai/i.test(message)) {
+    return new RestorationError('runtime-unavailable', message);
+  }
+  return new RestorationError('provider-failed', message);
+}
+
+/** The tasks a user operation requires, if any (an operation maps to one or two tasks). */
+export function restorationTasksForOperation(operation: RestorationOperation): RestorationTask[] {
+  switch (operation) {
+    case 'none':
+      return [];
+    case 'denoise':
+      return ['denoise'];
+    case 'restore-upscale':
+      return ['denoise', 'upscale'];
+    case 'deblur':
+      return ['deblur'];
+    case 'compression-restoration':
+      return ['compression-restoration'];
+    case 'upscale':
+      return ['upscale'];
+    default: {
+      const exhaustive: never = operation;
+      return exhaustive;
+    }
+  }
+}
+
+/**
+ * Whether a user operation can be planned on this installation, derived from
+ * the validated capability registry rather than hardcoded per-operation rules.
+ */
+export function isRestorationOperationAvailable(operation: RestorationOperation): boolean {
+  const tasks = restorationTasksForOperation(operation);
+  return tasks.every((task) => firstAvailableCapability(task) !== null);
 }
 
 function capabilityForRequestedTask(task: RestorationTask, modelId?: string) {
