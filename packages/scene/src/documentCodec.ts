@@ -117,9 +117,9 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
     if (!isRecord(raw.depthMaps)) return 'Document depthMaps must be an object';
     for (const [depthMapId, depthMap] of Object.entries(raw.depthMaps)) {
       if (!isRecord(depthMap)) return `Depth map resource ${depthMapId} must be an object`;
-      if (depthMap.schemaVersion !== 1) {
-        return `Depth map resource ${depthMapId} has an unsupported schema version`;
-      }
+      // Decode-time validation is deliberately deferred to deserializeDepthMap.
+      // A newer or corrupt resource must not make the whole document unloadable;
+      // the renderer can keep the source pixels and report a controlled warning.
     }
   }
   if (raw.iccProfiles !== undefined) {
