@@ -108,6 +108,7 @@ export interface AnalyticsEventMap {
     route: AnalyticsWebsiteRoute;
   };
   website_download_started: {
+    release: string;
     platform: AnalyticsWebsitePlatform;
     architecture: 'x64' | 'arm64' | 'unknown';
     packageType: AnalyticsPackageType;

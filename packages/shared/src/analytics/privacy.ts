@@ -103,7 +103,13 @@ const EVENT_FIELDS: {
   renderer_fallback: ['from', 'to', 'reason'],
   performance_sample: ['metric', 'durationBucket'],
   website_page_viewed: ['route'],
-  website_download_started: ['platform', 'architecture', 'packageType', 'releaseChannel'],
+  website_download_started: [
+    'release',
+    'platform',
+    'architecture',
+    'packageType',
+    'releaseChannel',
+  ],
   website_outbound_clicked: ['destination'],
 };
 
@@ -146,7 +152,11 @@ export function sanitizeAnalyticsEvent<N extends AnalyticsEventName>(
   if (keys.length !== fields.length || keys.some((key) => !fields.includes(key))) return null;
   for (const key of fields) {
     const value = (payload as Record<string, unknown>)[key];
-    if (typeof value !== 'string' || !VALUE_SETS[key]?.includes(value)) return null;
+    if (key === 'release') {
+      if (!isSafeVersion(value)) return null;
+    } else if (typeof value !== 'string' || !VALUE_SETS[key]?.includes(value)) {
+      return null;
+    }
   }
   const safeContext = sanitizeAnalyticsContext(context);
   if (!safeContext || !Number.isFinite(occurredAt)) return null;
