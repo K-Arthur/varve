@@ -67,6 +67,11 @@ const EMPTY_PLACEHOLDER_SVG =
 
 export const EMPTY_DOCUMENT_PLACEHOLDER = EMPTY_PLACEHOLDER_SVG;
 
+/** Only settled thumbnails may become persistent platform records. */
+export function shouldPersistThumbnail(result: ThumbnailResult | null): boolean {
+  return Boolean(result?.dataUrl && !result.metadata.isProvisional);
+}
+
 /**
  * Render (not persist) a document thumbnail through the canonical pipeline.
  * Pure of platform storage; persistence is handled by the store module.
@@ -230,7 +235,7 @@ export async function persistDocThumbnail(
 ): Promise<RenderDocThumbnailOutcome | null> {
   try {
     const outcome = await renderDocThumbnail(doc, options);
-    if (!outcome.result?.dataUrl) return outcome;
+    if (!shouldPersistThumbnail(outcome.result)) return outcome;
     const r = outcome.result;
     await platform.putThumbnail({
       hash: outcome.identity.key,
