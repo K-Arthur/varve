@@ -13,6 +13,9 @@ test.describe('Object Selection workflow', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
 
     const inspector = page.locator('.inspector-panel');
+    // Object Selection lives on the Adjustments tab, which is auto-added for
+    // image selections in every workspace (see PropertiesPanel tab logic).
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
     await expect(inspector.getByText('Object Selection', { exact: true })).toBeVisible();
     await expect(inspector.getByRole('button', { name: 'Select Object' })).toBeVisible();
     await testInfo.attach('object-selection-editor-before', {
