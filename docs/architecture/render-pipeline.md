@@ -102,7 +102,7 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
 | Feature | Implementation |
 |---|---|
 | Init order | Present canvas stays Canvas2D; offscreen canvas acquires `webgpu` |
-| Fallback | Non-GPU primitives (text/path/effects) draw via present Canvas2D on top of GPU blit |
+| Fallback | Ordered `webgpu-run` / `canvas2d-island` segments; unsupported flat items are the smallest safe island until structural metadata widens the boundary |
 | Primitives | rect, circle, line (tessellated quad) on GPU; text/path/effects on 2D |
 | Pipeline | Explicit bind group layouts; shared camera uniform (floating origin + view rotation); per-circle discard shader; premul blend |
 | Affine | Vertex shader uses kurbo/canvas `a·x+c·y+e` / `b·x+d·y+f` (`transform`/`transform2` attrs) |
@@ -113,6 +113,21 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
 | Diagnostics | Status bar via `CompositorDiagnostics` |
 | Drift guard | `wgsl-drift.test.ts` keeps TS shaders ≡ `crates/varve-bridge/tests/wgsl_validation.rs` |
+
+### Structural fallback planning
+
+`packages/compositor/src/structuralRenderPlan.ts` builds an ordered plan before
+backend execution. A proven-safe contiguous run may execute on WebGPU; an
+unsupported item or declared structural boundary remains an atomic Canvas2D
+island. The plan is fail-closed and does not partition a flat batch by backend
+when that would lose parent compositing semantics.
+
+Each GPU run clears the transparent offscreen target before rendering and then
+blits only that run to the persistent Canvas2D presentation surface. Earlier
+GPU runs are therefore not retained and re-blitted after a Canvas2D island.
+When a scene compiler supplies `CompositorFrame.structure`, a boundary can widen
+an island to an isolated/masked/effect group without making the compositor
+depend on `@varve/scene`.
 
 ### Rollback & Incident Response
 

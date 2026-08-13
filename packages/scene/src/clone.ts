@@ -256,6 +256,24 @@ export function deepCloneSubtree(
     if (originalMask?.sourceNodeId) {
       newNodes[newId] = remapMaskReference(node, originalMask.sourceNodeId);
     }
+    if (original && 'effects' in original && Array.isArray(original.effects)) {
+      const nextEffects = original.effects.map((effect) => {
+        const source = effect.mask?.source;
+        if (source?.kind !== 'scene-node') return effect;
+        const mappedSource = idMap.get(source.nodeId);
+        if (mappedSource)
+          return {
+            ...effect,
+            mask: { ...effect.mask!, source: { ...source, nodeId: mappedSource } },
+          };
+        if (dropForeign) {
+          const { mask: _mask, ...withoutMask } = effect;
+          return withoutMask;
+        }
+        return effect;
+      });
+      newNodes[newId] = { ...newNodes[newId], effects: nextEffects } as SceneNode;
+    }
     if (original.kind === 'adjustment') {
       const originalScope = (original as { scope?: import('./types').AdjustmentScope }).scope;
       if (originalScope) {

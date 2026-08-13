@@ -13,6 +13,7 @@
 
 import { expandGradientStops, managedColorToRgba } from '@varve/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
+import { compositeMaskedEffectPixels } from './effectMaskCompositor';
 import {
   applyChromaticAberration,
   applyGlassMaterialBackdrop,
@@ -329,6 +330,36 @@ function contentEffectPadding(
     }
   }
   return padding;
+}
+
+/** Apply an effect-local raster mask to the current local effect surface. */
+function applyRasterEffectMask(
+  canvas: CompositeCanvas,
+  input: ImageData,
+  effect: NonNullable<RenderItem['effects']>[number],
+): void {
+  const binding = effect.mask;
+  const source = binding?.source;
+  if (!binding || binding.visible === false || source?.kind !== 'raster-asset' || !source.src)
+    return;
+  const image = resolveReplayImage(source.src, imageLookupForCurrentReplay, getImageCache());
+  if (!image) return;
+  const maskBuffer = createEffectBuffer(canvas.canvas.width, canvas.canvas.height);
+  if (!maskBuffer) return;
+  const maskCtx = maskBuffer.ctx as CanvasRenderingContext2D;
+  maskCtx.setTransform(1, 0, 0, 1, 0, 0);
+  maskCtx.clearRect(0, 0, maskBuffer.canvas.width, maskBuffer.canvas.height);
+  maskCtx.drawImage(
+    image as CanvasImageSource,
+    0,
+    0,
+    maskBuffer.canvas.width,
+    maskBuffer.canvas.height,
+  );
+  const mask = maskCtx.getImageData(0, 0, maskBuffer.canvas.width, maskBuffer.canvas.height);
+  const evaluated = canvas.getImageData(0, 0, canvas.width, canvas.height);
+  const merged = compositeMaskedEffectPixels(input, evaluated, mask, binding);
+  canvas.putImageData(merged as unknown as ImageData, 0, 0);
 }
 
 /** Paint fills and strokes to `target` (shared by direct and layerBlur offscreen paths). */
@@ -785,6 +816,7 @@ export function replayIr(
             paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
 
             for (const effect of contentEffects) {
+              const input = cc.getImageData(0, 0, cc.width, cc.height);
               if (effect.type === 'layerBlur') {
                 cc.applyBlur(Math.max(0, effect.radius));
               } else if (effect.type === 'chromaticAberration') {
@@ -792,6 +824,7 @@ export function replayIr(
               } else if (effect.type === 'glitch') {
                 applyGlitch(cc, cc.width, cc.height, effect);
               }
+              applyRasterEffectMask(cc, input, effect);
             }
 
             target.save();
