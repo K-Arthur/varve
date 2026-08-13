@@ -581,7 +581,11 @@ export class ImageCache {
     source?: { width: number; height: number },
   ): Promise<ImageBitmap | CachedImage> {
     if (typeof createImageBitmap === 'undefined') {
-      throw new Error(`createImageBitmap unavailable for at-size decode: ${url}`);
+      // At-size decode is an optimization, not a correctness requirement.
+      // Older WebKit/WebViews can still render the full HTML image, so keep
+      // thumbnails and the main Canvas2D path functional when the resize API
+      // is absent.
+      return this.load(url);
     }
     // Known source dims let us (a) skip the preview entirely when the source
     // already fits the cap and (b) target both axes so aspect ratio and
