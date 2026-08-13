@@ -2618,9 +2618,20 @@ fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
 // from a user dialog.
 
 #[tauri::command]
-fn home_read_text_file_approved(path: String) -> Result<String, String> {
-    let resolved = resolve_user_path_approved(&path)?;
-    std::fs::read_to_string(&resolved).map_err(|e| e.to_string())
+fn home_read_text_file_approved(path: String) -> Result<String, filesystem::FsError> {
+    let resolved = resolve_user_path_approved(&path).map_err(|message| {
+        // The only resolver rejection that means "the file and its parent
+        // chain are gone" is the no-existing-ancestor case; every other
+        // rejection is an invalid or traversing path.
+        let kind = if message.contains("does not resolve to any existing ancestor") {
+            filesystem::FsErrorKind::NotFound
+        } else {
+            filesystem::FsErrorKind::InvalidPath
+        };
+        filesystem::FsError::new(kind, message)
+    })?;
+    std::fs::read_to_string(&resolved)
+        .map_err(|error| filesystem::FsError::from_io("read", &resolved, &error))
 }
 
 #[tauri::command]
