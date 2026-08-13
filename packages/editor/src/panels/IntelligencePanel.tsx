@@ -2582,7 +2582,9 @@ function SimilarTab() {
           embeddingSpaceVersion: space.model.embeddingSpaceVersion,
           preprocessingVersion: stored.identity.preprocessingVersion,
           dimension: stored.dimension,
-          dtype: stored.dtype,
+          // The platform store labels raw float buffers 'float32'; the
+          // embedding contract's vocabulary is fp32/fp16/int8.
+          dtype: 'fp32',
           normalized: true,
           values: normalizeEmbedding(decodeFloat32Embedding(stored.bytes, stored.dimension)),
         };

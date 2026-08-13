@@ -43,7 +43,7 @@ function fakeEmbedding(seed: number): Float32Array {
   let norm = 0;
   for (let i = 0; i < 768; i++) norm += values[i]! * values[i]!;
   norm = Math.sqrt(norm) || 1;
-  for (let i = 0; i < 768; i++) values[i] /= norm;
+  for (let i = 0; i < 768; i++) values[i] = values[i]! / norm;
   return values;
 }
 

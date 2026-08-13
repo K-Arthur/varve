@@ -85,8 +85,8 @@ describe('workspaceStore — persistence', () => {
     const ov = prefs.design.panelOverrides!;
     expect(ov.layers?.visible).toBe(false);
     // Invalid-typed fields are dropped, not kept.
-    expect(ov.layers?.collapsed).toBeUndefined();
-    expect(ov.layers?.order).toBeUndefined();
+    expect((ov.layers as Record<string, unknown> | undefined)?.collapsed).toBeUndefined();
+    expect((ov.layers as Record<string, unknown> | undefined)?.order).toBeUndefined();
     // Unknown panel ids never surface.
     expect((ov as Record<string, unknown>).notAPanel).toBeUndefined();
     expect(ov.timeline?.visible).toBeUndefined();
@@ -111,8 +111,8 @@ describe('workspaceStore — persistence', () => {
     const prefs = loadWorkspacePreferences();
     const ov = prefs.design.panelOverrides!;
     expect(ov.layers?.visible).toBe(false);
-    expect(ov.layers?.collapsed).toBeUndefined();
-    expect(ov.layers?.order).toBeUndefined();
+    expect((ov.layers as Record<string, unknown> | undefined)?.collapsed).toBeUndefined();
+    expect((ov.layers as Record<string, unknown> | undefined)?.order).toBeUndefined();
     expect(JSON.stringify(ov.layers)).toBe(JSON.stringify({ visible: false }));
   });
 

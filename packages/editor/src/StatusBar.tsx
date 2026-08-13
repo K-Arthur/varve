@@ -71,13 +71,12 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
   const sc = (id: string) => formatShortcut(getEffectiveBinding(id));
 
   // Page info: the active page's position and name (print work).
-  const pageIndex = state.currentPageId
-    ? state.document.pages.findIndex((p) => p.id === state.currentPageId)
-    : -1;
-  const activePage = pageIndex >= 0 ? state.document.pages[pageIndex] : undefined;
+  const pages = state.document.pages ?? [];
+  const pageIndex = state.currentPageId ? pages.findIndex((p) => p.id === state.currentPageId) : -1;
+  const activePage = pageIndex >= 0 ? pages[pageIndex] : undefined;
   const pageInfoLabel =
     sectionVisible('pageInfo') && activePage
-      ? `Page ${pageIndex + 1} of ${state.document.pages.length}${activePage.name ? ` · ${activePage.name}` : ''}`
+      ? `Page ${pageIndex + 1} of ${pages.length}${activePage.name ? ` · ${activePage.name}` : ''}`
       : '';
 
   // Color mode: the document's working color configuration (print, photo).
@@ -92,7 +91,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
   if (sectionVisible('imageInfo') && singleSel) {
     const node = sel[0];
     if (node && isImageShape(node)) {
-      const img = getImageFill(node)?.image;
+      const img = getImageFill(node as import('@varve/scene').ShapeNode)?.image;
       if (img?.imageWidth && img?.imageHeight) {
         imageInfoLabel = `${img.imageWidth} \u00d7 ${img.imageHeight} px`;
       }

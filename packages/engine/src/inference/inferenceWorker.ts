@@ -64,7 +64,6 @@ export interface WorkerTensor {
   /** Defaults to float32; text/embedding models may feed int64 token ids. */
   dtype?: 'float32' | 'int64';
   dims: number[];
-  dtype?: 'float32' | 'int64';
 }
 
 export interface WorkerLetterbox {

@@ -18,6 +18,7 @@ export {
 export type { LabeledQuery, RetrievalMetrics } from './metrics';
 export { evaluateRetrieval } from './metrics';
 export {
+  DINOV2_SMALL_IMAGE_MODEL,
   EMBEDDING_EVALUATION_CANDIDATES,
   SEMANTIC_PREPROCESSING_VERSION,
   SIGLIP_IMAGE_MODEL,

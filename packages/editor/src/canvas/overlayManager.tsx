@@ -54,7 +54,10 @@ function drawObjectSelectionPreview(
 ): void {
   const candidate = session.candidates[session.selectedCandidate];
   if (!candidate || candidate.mask.length !== session.width * session.height) return;
-  const image = resolveNodePaints(node, doc).find((fill) => fill.type === 'image')?.image;
+  const image = resolveNodePaints(
+    node as unknown as Parameters<typeof resolveNodePaints>[0],
+    doc,
+  ).find((fill) => fill.type === 'image')?.image;
   const bounds = nodeLocalBounds(node, doc);
   if (!image || !bounds) return;
   const placement = computeImagePlacement({

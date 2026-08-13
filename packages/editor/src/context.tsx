@@ -40,6 +40,7 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 }
 
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
+import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
@@ -386,6 +387,7 @@ import {
 import { isReducedMotion } from './context/reducedMotionManager';
 import { resizeSceneNode, shapeForTool } from './context/sceneNodeGeometry';
 import type {
+  EditorContextValue as CanonicalEditorContextValue,
   CanvasMode,
   EditorState,
   GridOverlayMode,
@@ -629,7 +631,16 @@ function insertImportedSubtree(
   };
 }
 
-export interface EditorContextValue {
+/**
+ * The editor context contract.
+ *
+ * NOTE: `context/types.ts` declares the canonical `EditorContextValue`; this
+ * interface extends it so consumers importing from `../context` see every
+ * member (the two copies had drifted, leaving handlers referencing methods the
+ * consumer-facing type did not declare). New members belong in
+ * `context/types.ts` unless they are provider-local.
+ */
+export interface EditorContextValue extends CanonicalEditorContextValue {
   state: EditorState;
   /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
@@ -2315,6 +2326,8 @@ export function EditorProvider({
       upscaleDialogOpen: false,
       vectorizeDialogOpen: false,
       vectorizeDialogPrefill: null,
+      paletteExtractDialogOpen: false,
+      paletteExtractSrc: null,
       debugOverlay: {
         enabled: false,
         channels: {
@@ -4694,7 +4707,7 @@ export function EditorProvider({
             // Propagate constraints to frame children. Layout frames reflow
             // instead — layout owns child positions (and fill/grow sizes).
             if (node.kind === 'frame') {
-              if (node.layoutStyle && node.layoutStyle.mode !== 'none') {
+              if (node.layoutStyle) {
                 const reflowed = reflowLayoutChildren({ ...doc, nodes }, id);
                 for (const [cid, child] of Object.entries(reflowed.nodes)) {
                   if (cid === id) continue;
@@ -4735,7 +4748,7 @@ export function EditorProvider({
             // Propagate constraints to frame children. Layout frames reflow
             // instead — layout owns child positions (and fill/grow sizes).
             if (node.kind === 'frame') {
-              if (node.layoutStyle && node.layoutStyle.mode !== 'none') {
+              if (node.layoutStyle) {
                 const reflowed = reflowLayoutChildren({ ...doc, nodes }, id);
                 for (const [cid, child] of Object.entries(reflowed.nodes)) {
                   if (cid === id) continue;
@@ -5059,6 +5072,7 @@ export function EditorProvider({
         });
       },
 
+      pendingFormat: state.pendingFormat,
       setPendingFormat: (format: import('@varve/scene').CharacterFormat | null) => {
         setState((s) => ({ ...s, pendingFormat: format }));
       },
@@ -8070,6 +8084,13 @@ export function EditorProvider({
       closeVectorizeDialog: () => {
         patch({ vectorizeDialogOpen: false, vectorizeDialogPrefill: null });
       },
+      paletteExtractDialogOpen: state.paletteExtractDialogOpen,
+      openPaletteExtract: (src) => {
+        patch({ paletteExtractDialogOpen: true, paletteExtractSrc: src });
+      },
+      closePaletteExtract: () => {
+        patch({ paletteExtractDialogOpen: false, paletteExtractSrc: null });
+      },
 
       addPreset: (nodeId, preset) => {
         updateDoc((doc) => {
@@ -9375,6 +9396,14 @@ export function EditorProvider({
                   >
                     {children}
                   </PrototypeProvider>
+                  {state.paletteExtractDialogOpen && state.paletteExtractSrc && (
+                    <PaletteExtractDialogHost
+                      src={state.paletteExtractSrc}
+                      onClose={() =>
+                        patch({ paletteExtractDialogOpen: false, paletteExtractSrc: null })
+                      }
+                    />
+                  )}
                 </MediaProvider>
               </MotionProvider>
             </SelectionProvider>
