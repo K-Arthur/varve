@@ -14,6 +14,7 @@ const SCANS = [
   { route: '/', name: 'home' },
   { route: '/download', name: 'download' },
   { route: '/docs', name: 'docs' },
+  { route: '/docs/workspaces', name: 'workspaces' },
   { route: '/features', name: 'features' },
   { route: '/support/faq', name: 'faq' },
   { route: '/404', name: '404' },
