@@ -1,12 +1,11 @@
 import type { DepthMap, DepthMapResource } from '@varve/engine';
 import {
-  applyDepthBlur,
+  applyLensBlur,
   depthToHeatmapImageData,
   deserializeDepthMap,
   getInferenceWorkerHost,
   getModelLoader,
   normalizeDepthPrediction,
-  resizeDepthMap,
   serializeDepthMap,
 } from '@varve/engine';
 import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
@@ -63,6 +62,54 @@ async function checkDepthModelCached(): Promise<boolean> {
   return await loader.isModelAvailable(DEPTH_MODEL_ID);
 }
 
+function resizeDepthMapForPreview(map: DepthMap, width: number, height: number): DepthMap {
+  if (map.width === width && map.height === height) return map;
+  const values = new Float32Array(width * height);
+  const valid = new Uint8Array(width * height);
+  const xScale = map.width / width;
+  const yScale = map.height / height;
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(map.height - 1, Math.max(0, (y + 0.5) * yScale - 0.5));
+    const y0 = Math.floor(sy);
+    const y1 = Math.min(map.height - 1, y0 + 1);
+    const ty = sy - y0;
+    for (let x = 0; x < width; x++) {
+      const sx = Math.min(map.width - 1, Math.max(0, (x + 0.5) * xScale - 0.5));
+      const x0 = Math.floor(sx);
+      const x1 = Math.min(map.width - 1, x0 + 1);
+      const tx = sx - x0;
+      const i00 = y0 * map.width + x0;
+      const i10 = y0 * map.width + x1;
+      const i01 = y1 * map.width + x0;
+      const i11 = y1 * map.width + x1;
+      const out = y * width + x;
+      const count =
+        Number(map.valid[i00]) +
+        Number(map.valid[i10]) +
+        Number(map.valid[i01]) +
+        Number(map.valid[i11]);
+      if (count === 0) {
+        values[out] = 0.5;
+        continue;
+      }
+      values[out] =
+        map.values[i00]! * (1 - tx) * (1 - ty) +
+        map.values[i10]! * tx * (1 - ty) +
+        map.values[i01]! * (1 - tx) * ty +
+        map.values[i11]! * tx * ty;
+      valid[out] = 1;
+    }
+  }
+  return { ...map, width, height, values, valid };
+}
+
+function resizeDepthForPreview(map: DepthMap, width: number, height: number): Uint8Array {
+  const resized = resizeDepthMapForPreview(map, width, height);
+  const result = new Uint8Array(width * height);
+  for (let i = 0; i < result.length; i++) result[i] = Math.round((1 - resized.values[i]!) * 255);
+  return result;
+}
+
 interface DepthBlurParams {
   blurAmount: number;
   focalDepth: number;
@@ -94,14 +141,25 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const [pickFocus, setPickFocus] = useState(false);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const sourceGenerationRef = useRef(0);
 
   const blurAmountId = useId();
   const focalDepthId = useId();
   const transitionRangeId = useId();
 
   const src = node && isImageShape(node) ? imageShapeSrc(node) : '';
+  const sourceAssetId = node?.fills?.find((fill) => fill.type === 'image')?.image?.assetId;
+  const sourceAsset = sourceAssetId ? state.document.assets?.[sourceAssetId] : undefined;
 
   const existingDepthEffect = node?.effects?.find((effect) => effect.type === 'depthBlur');
+  const depthEffectId =
+    existingDepthEffect?.type === 'depthBlur' ? existingDepthEffect.id : undefined;
+  const depthMapId =
+    existingDepthEffect?.type === 'depthBlur' ? existingDepthEffect.depthMapId : undefined;
+
+  useEffect(() => {
+    sourceGenerationRef.current += 1;
+  }, [src, node?.id]);
 
   useEffect(() => {
     setDepthData(null);
@@ -109,8 +167,13 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     setDepthState('idle');
     setInferenceError(null);
     if (!node || !existingDepthEffect || existingDepthEffect.type !== 'depthBlur') return;
-    const resource = state.document.depthMaps?.[existingDepthEffect.depthMapId];
+    const resource = depthMapId ? state.document.depthMaps?.[depthMapId] : undefined;
     if (!resource) return;
+    if (resource.sourceHash && sourceAsset?.hash && resource.sourceHash !== sourceAsset.hash) {
+      setInferenceError('The source image changed. Regenerate the DepthMap to update this effect.');
+      setDepthState('error');
+      return;
+    }
     try {
       const decoded = deserializeDepthMap(resource);
       setDepthData(decoded);
@@ -126,7 +189,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       setInferenceError('Saved depth map is unavailable. Regenerate it to continue.');
       setDepthState('error');
     }
-  }, [src, node, existingDepthEffect, state.document.depthMaps]);
+  }, [src, node?.id, depthEffectId, depthMapId, sourceAsset?.hash, state.document.depthMaps]);
 
   useEffect(() => {
     if (!livePreview || !depthData || !previewCanvasRef.current) return;
@@ -149,8 +212,8 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-      const depthResized = resizeDepthMap(depthData, canvas.width, canvas.height);
-      const result = applyDepthBlur(imageData, depthResized, {
+      const depthResized = resizeDepthForPreview(depthData, canvas.width, canvas.height);
+      const result = applyLensBlur(imageData, depthResized, {
         blurAmount: params.blurAmount,
         focalDepth: params.focalDepth / 100,
         transitionRange: params.transitionRange / 100,
@@ -222,6 +285,9 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleGenerateDepth = useCallback(async () => {
     if (!src) return;
+    const generation = sourceGenerationRef.current;
+    const nodeAtStart = node;
+    const sourceAssetIdAtStart = sourceAssetId;
     setDepthState('generating');
     setInferenceError(null);
     try {
@@ -243,6 +309,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         },
         { timeoutMs: 120_000 },
       );
+      if (generation !== sourceGenerationRef.current) return;
 
       // Different verified exports use `output` or `predicted_depth`; accept
       // both names but reject an unknown tensor rather than attaching garbage.
@@ -260,26 +327,27 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         metadata: {
           modelId: DEPTH_MODEL_ID,
           modelVersion: '2.0.0',
-          sourceAssetId: node?.fills?.find((fill) => fill.type === 'image')?.image?.assetId,
+          sourceAssetId: sourceAssetIdAtStart,
+          sourceHash: sourceAsset?.hash,
           sourceRevision: 1,
           preprocessingVersion: 1,
           inferenceVersion: 1,
           generatedAt: Date.now(),
         },
       });
-      const aligned = resizeDepthMap(normalized, imageData.width, imageData.height);
-      const sourceAssetId = node?.fills?.find((fill) => fill.type === 'image')?.image?.assetId;
-      const resourceId = `depth-${node?.id ?? 'image'}-${sourceAssetId ?? 'source'}`;
+      const aligned = resizeDepthMapForPreview(normalized, imageData.width, imageData.height);
+      const resourceId = `depth-${nodeAtStart?.id ?? 'image'}-${sourceAssetIdAtStart ?? 'source'}`;
       const resource = serializeDepthMap(aligned, resourceId);
       setDepthData(aligned);
       setDepthResource(resource);
       setDepthState('ready');
     } catch (err) {
+      if (generation !== sourceGenerationRef.current) return;
       const msg = err instanceof Error ? err.message : 'Depth inference failed';
       setInferenceError(msg);
       setDepthState('error');
     }
-  }, [node, src]);
+  }, [node, sourceAsset?.hash, sourceAssetId, src]);
 
   const handleRegenerate = useCallback(() => {
     setDepthData(null);

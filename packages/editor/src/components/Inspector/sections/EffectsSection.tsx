@@ -207,6 +207,7 @@ const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
   { value: 'innerGlow', label: 'Inner Glow' },
   { value: 'layerBlur', label: 'Layer Blur' },
   { value: 'backgroundBlur', label: 'Background Blur' },
+  { value: 'depthBlur', label: 'Depth Blur' },
   { value: 'glassMaterial', label: 'Glass Material' },
   { value: 'chromaticAberration', label: 'Chromatic Aberration' },
   { value: 'glitch', label: 'Glitch' },
@@ -452,7 +453,8 @@ function EffectRow({
           type !== 'backgroundBlur' &&
           type !== 'glassMaterial' &&
           type !== 'chromaticAberration' &&
-          type !== 'glitch' && (
+          type !== 'glitch' &&
+          type !== 'depthBlur' && (
             <EffectColorSwatch nodes={nodes} index={index} onChange={onChange} />
           )}
         {type === 'glassMaterial' && (
