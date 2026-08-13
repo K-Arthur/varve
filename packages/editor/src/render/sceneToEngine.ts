@@ -121,6 +121,43 @@ function resolvePaintRefs(
 
 export type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
 
+function resolveEffectMasksForEngine(
+  effects: readonly import('@varve/scene').Effect[],
+  doc: AssetLookupDoc | undefined,
+): import('@varve/engine').Effect[] {
+  return effects.map((effect) => {
+    const mask = effect.mask;
+    if (!mask) return effect as import('@varve/engine').Effect;
+    if (mask.source.kind === 'scene-node') return effect as import('@varve/engine').Effect;
+    if (mask.source.kind === 'vector') {
+      return {
+        ...effect,
+        mask: {
+          ...mask,
+          source: {
+            kind: 'vector' as const,
+            points: mask.source.vectorMask.points,
+            closed: mask.source.vectorMask.closed,
+            fillRule: mask.source.vectorMask.fillRule,
+          },
+        },
+      } as import('@varve/engine').Effect;
+    }
+    const asset = doc?.rasterMaskAssets?.[mask.source.assetId];
+    return {
+      ...effect,
+      mask: {
+        ...mask,
+        source: {
+          kind: 'raster-asset' as const,
+          assetId: mask.source.assetId,
+          ...(asset?.dataUrl ? { src: asset.dataUrl } : {}),
+        },
+      },
+    } as import('@varve/engine').Effect;
+  });
+}
+
 /**
  * Rewrite an image fill's render identity: canonical assets carry their
  * short content-addressed `assetId` as the render `src` (registered in the
@@ -174,7 +211,7 @@ export function sceneNodeToEngineNode(
     blendMode: node.blendMode ?? ('normal' as const),
     rotation: node.rotation ?? 0,
     strokes: 'strokes' in node ? (node.strokes ?? []) : [],
-    effects: 'effects' in node ? (node.effects ?? []) : [],
+    effects: 'effects' in node ? resolveEffectMasksForEngine(node.effects ?? [], doc) : [],
   };
 
   if (node.kind === 'shape') {
