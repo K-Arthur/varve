@@ -43,23 +43,42 @@ export function lineVisualRuns(
   const levelAt = (index: number): number =>
     paragraph.levels[index] ?? paragraph.baseLevel;
   const runs: LineVisualRun[] = [];
-  let current: LineVisualRun | null = null;
-  for (const index of indices) {
-    if (index < lineStart || index >= lineEnd) continue;
-    const level = levelAt(index);
-    if (current && index === current.end && level === current.level) {
-      current.end = index + 1;
-    } else {
-      current = {
-        start: index,
-        end: index + 1,
+  let min = -1;
+  let max = -1;
+  let level = 0;
+  const flush = (): void => {
+    if (min >= 0) {
+      runs.push({
+        start: min,
+        end: max + 1,
         level,
         direction: level % 2 === 1 ? 'rtl' : 'ltr',
         visualIndex: runs.length,
-      };
-      runs.push(current);
+      });
     }
+  };
+  for (const index of indices) {
+    if (index < lineStart || index >= lineEnd) continue;
+    const nextLevel = levelAt(index);
+    if (min < 0) {
+      min = index;
+      max = index;
+      level = nextLevel;
+      continue;
+    }
+    // The visual sequence walks a level block either forward (LTR) or
+    // backward (RTL); extend the run while logical indices stay adjacent.
+    if (nextLevel === level && (index === max + 1 || index === min - 1)) {
+      min = Math.min(min, index);
+      max = Math.max(max, index);
+      continue;
+    }
+    flush();
+    min = index;
+    max = index;
+    level = nextLevel;
   }
+  flush();
   return runs;
 }
 

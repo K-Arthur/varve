@@ -363,10 +363,16 @@ function wrapLines(paragraph: ItemizedParagraph, units: readonly LayoutUnit[], m
   };
   for (const unit of units) {
     if (maxWidth > 0 && unit.width > 0 && current.length > 0 && currentWidth + unit.width > maxWidth) {
-      if (unit.unit.isWhitespace) {
+      if (unit.unit.isBreakable) {
+        // Drop a breakable space at the line end.
         continue;
       }
-      flush();
+      if (!unit.unit.isWhitespace) {
+        // A word does not fit: wrap before it.
+        flush();
+      }
+      // Non-breaking whitespace (NBSP) may overflow the line instead of
+      // breaking the glue it is part of.
     }
     current.push(unit);
     currentWidth += unit.width;
