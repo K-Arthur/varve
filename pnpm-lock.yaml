@@ -307,6 +307,9 @@ importers:
       '@varve/import':
         specifier: workspace:*
         version: link:../import
+      '@varve/layout':
+        specifier: workspace:*
+        version: link:../layout
       '@varve/platform':
         specifier: workspace:*
         version: link:../platform
@@ -461,6 +464,9 @@ importers:
 
   packages/layout:
     dependencies:
+      '@varve/engine':
+        specifier: workspace:*
+        version: link:../engine
       '@varve/scene':
         specifier: workspace:*
         version: link:../scene

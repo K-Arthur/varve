@@ -14,6 +14,7 @@
  */
 
 import type { PathPoint, Shape } from '@varve/engine';
+import { reflowLayoutChildren, resizeNodeGeometry } from '@varve/layout';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import { applyConstraints, getParent } from '@varve/scene';
 import type { Affine, Point, Rect } from '@varve/shared';
@@ -34,8 +35,7 @@ import {
   tryInvertAffine,
 } from '@varve/shared';
 import { OBJECT_RESIZE_POLICIES } from '../context/selectionState';
-import { reflowLayoutChildren } from '../layout/reflow';
-import { resizeNodeGeometry } from '../scene/resizeGeometry';
+
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
 export interface TransformNodeState {
