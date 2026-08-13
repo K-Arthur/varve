@@ -393,6 +393,7 @@ export function validateMaskSource(
     sourceNodeId?: NodeId;
     vectorMask?: VectorMaskData;
     rasterMask?: RasterMaskData;
+    matteSource?: import('./types').LiveMatteSource;
   },
 ): string | null {
   if (mask.rasterMask && ('sourceNodeId' in mask || 'vectorMask' in mask)) {
@@ -402,8 +403,18 @@ export function validateMaskSource(
   // vectorMask remains the sole geometry source in that compatible form.
   const hasVectorGeometry = Boolean(mask.vectorMask && mask.vectorMask.points.length > 0);
   const structuralSourceCount = hasVectorGeometry ? 1 : Number(Boolean(mask.sourceNodeId));
-  const sourceCount = structuralSourceCount + Number(Boolean(mask.rasterMask));
+  const liveSourceCount = Number(Boolean(mask.matteSource));
+  const sourceCount = structuralSourceCount + Number(Boolean(mask.rasterMask)) + liveSourceCount;
   if (sourceCount !== 1) return 'A mask must define exactly one meaningful source';
+  if (mask.matteSource) {
+    if (mask.type === 'clip') return 'A live matte source supports alpha or luminance masks only';
+    if (mask.matteSource.kind === 'scene-node' && doc && !doc.nodes[mask.matteSource.nodeId]) {
+      return 'A live matte source node is missing';
+    }
+    if (mask.matteSource.kind === 'vector' && mask.matteSource.vectorMask.points.length === 0) {
+      return 'A live matte vector source is empty';
+    }
+  }
   if (mask.rasterMask) {
     if (mask.type !== 'alpha') return 'A raster mask must use alpha mask type';
     if (
@@ -588,6 +599,7 @@ export function resolveMask(node: SceneNode, doc?: Pick<Document, 'paints'>): Ma
     }
     return node.mask;
   }
+  if (node.mask.matteSource) return node.mask;
   // A container-local raster mask (brush-painted layer mask on a frame) has
   // no child source and no vector geometry — it is a complete mask on its own.
   if (node.mask.rasterMask) return node.mask;
@@ -635,7 +647,10 @@ export function findNodesUsingMaskSource(doc: Document, sourceId: NodeId): NodeI
   const result: NodeId[] = [];
   for (const [id, node] of Object.entries(doc.nodes)) {
     const n = node as SceneNode & { mask?: Mask };
-    if (n.mask?.sourceNodeId === sourceId) {
+    if (
+      n.mask?.sourceNodeId === sourceId ||
+      (n.mask?.matteSource?.kind === 'scene-node' && n.mask.matteSource.nodeId === sourceId)
+    ) {
       result.push(id as NodeId);
     }
   }
@@ -659,6 +674,11 @@ export function validateMasks(doc: Document): NodeId[] {
     const n = node as SceneNode & { mask?: Mask };
     if (n.mask?.sourceNodeId && !doc.nodes[n.mask.sourceNodeId]) {
       dangling.push(id as NodeId);
+    } else if (
+      n.mask?.matteSource?.kind === 'scene-node' &&
+      !doc.nodes[n.mask.matteSource.nodeId]
+    ) {
+      dangling.push(id as NodeId);
     } else if (n.mask && validateMaskSource(doc, n.mask)) {
       dangling.push(id as NodeId);
     } else if (
@@ -681,7 +701,10 @@ export function clearMaskSource(doc: Document, sourceId: NodeId): Document {
   let nodes = { ...doc.nodes };
   for (const [id, node] of Object.entries(nodes)) {
     const n = node as SceneNode & { mask?: Mask };
-    if (n.mask?.sourceNodeId === sourceId) {
+    if (
+      n.mask?.sourceNodeId === sourceId ||
+      (n.mask?.matteSource?.kind === 'scene-node' && n.mask.matteSource.nodeId === sourceId)
+    ) {
       const { mask: _unused, ...rest } = n;
       nodes = { ...nodes, [id]: rest as SceneNode };
     }
@@ -750,6 +773,18 @@ export function canBeClipMaskSource(node: SceneNode): boolean {
   }
   if (node.kind === 'path') return node.closed;
   return node.kind === 'frame';
+}
+
+/** Rendered coverage sources are broader than geometric clip sources. */
+export function canBeMatteSource(node: SceneNode): boolean {
+  return (
+    node.kind === 'shape' ||
+    node.kind === 'path' ||
+    node.kind === 'text' ||
+    node.kind === 'frame' ||
+    node.kind === 'group' ||
+    node.kind === 'rasterLayer'
+  );
 }
 
 // ── CRUD Operations ─────────────────────────────────────────────────────────
@@ -945,9 +980,17 @@ export function detectMaskCycles(doc: Document): NodeId[][] {
     path.push(nid);
 
     const node = doc.nodes[nid];
+    if (!node) return;
     const n = node as SceneNode & { mask?: Mask; children?: NodeId[] };
-    if (n.mask?.sourceNodeId && n.mask.visible !== false) {
-      const srcId = n.mask.sourceNodeId;
+    const currentMask = n.mask;
+    const liveSourceId =
+      currentMask?.matteSource?.kind === 'scene-node' ? currentMask.matteSource.nodeId : undefined;
+    if (
+      currentMask &&
+      (currentMask.sourceNodeId ?? liveSourceId) &&
+      currentMask.visible !== false
+    ) {
+      const srcId = currentMask.sourceNodeId ?? liveSourceId!;
       const srcNode = doc.nodes[srcId];
       // Follow mask source if the source is itself a container (nested masks)
       if (srcNode && isContainerNode(srcNode)) {
@@ -1000,6 +1043,7 @@ export function addMask(
     hideMaskSource?: boolean;
     vectorMask?: VectorMaskData;
     fillRule?: MaskFillRule;
+    matteSource?: import('./types').LiveMatteSource;
   },
 ): Document {
   const container = doc.nodes[containerId];
@@ -1009,7 +1053,17 @@ export function addMask(
 
   // Structural masks need a node source, vector geometry, or both. When both
   // are present, vector geometry is meaningful and the node is visual content.
-  if (!sourceNodeId && (!opts?.vectorMask || opts.vectorMask.points.length === 0)) return doc;
+  if (
+    !sourceNodeId &&
+    (!opts?.vectorMask || opts.vectorMask.points.length === 0) &&
+    !opts?.matteSource
+  )
+    return doc;
+
+  if (opts?.matteSource?.kind === 'scene-node') {
+    const matte = doc.nodes[opts.matteSource.nodeId];
+    if (!matte || !canBeMatteSource(matte) || type === 'clip') return doc;
+  }
 
   // Source must exist if specified
   if (sourceNodeId && !doc.nodes[sourceNodeId]) return doc;
@@ -1037,13 +1091,16 @@ export function addMask(
     ...(opts?.transform ? { transform: opts.transform } : {}),
     ...(opts?.hideMaskSource ? { hideMaskSource: true } : {}),
     ...(opts?.fillRule ? { fillRule: opts.fillRule } : {}),
+    ...(opts?.matteSource ? { matteSource: opts.matteSource } : {}),
   };
   const vectorMask = opts?.vectorMask?.points.length ? opts.vectorMask : undefined;
-  const cleaned: Mask = vectorMask
-    ? sourceNodeId
-      ? { ...presentation, vectorMask, sourceNodeId }
-      : { ...presentation, vectorMask }
-    : { ...presentation, sourceNodeId: sourceNodeId! };
+  const cleaned: Mask = opts?.matteSource
+    ? { ...presentation, matteSource: opts.matteSource }
+    : vectorMask
+      ? sourceNodeId
+        ? { ...presentation, vectorMask, sourceNodeId }
+        : { ...presentation, vectorMask }
+      : { ...presentation, sourceNodeId: sourceNodeId! };
 
   // Check for cycles before adding the mask
   const testDoc = {
@@ -1219,7 +1276,7 @@ export function setMaskVectorPath(
   if (points.length === 0) {
     const node = doc.nodes[containerId];
     if (!node || !isContainerNode(node) || !node.mask?.vectorMask) return doc;
-    if (!node.mask.sourceNodeId) return removeMask(doc, containerId);
+    if (!node.mask.sourceNodeId && !node.mask.matteSource) return removeMask(doc, containerId);
   }
   return updateMaskProperty(
     doc,
@@ -1293,9 +1350,10 @@ export function hasSourceNode(mask: {
   type?: MaskType;
   visible?: boolean;
   sourceNodeId?: NodeId;
+  matteSource?: import('./types').LiveMatteSource;
   vectorMask?: VectorMaskData;
 }): boolean {
-  return !!mask.sourceNodeId;
+  return !!mask.sourceNodeId || mask.matteSource?.kind === 'scene-node';
 }
 
 /** Get all mask source node IDs in the document (for invalidation tracking). */
@@ -1305,6 +1363,9 @@ export function getAllMaskSourceIds(doc: Document): Set<NodeId> {
     const n = node as SceneNode & { mask?: Mask };
     if (n.mask?.sourceNodeId) {
       sources.add(n.mask.sourceNodeId);
+    }
+    if (n.mask?.matteSource?.kind === 'scene-node') {
+      sources.add(n.mask.matteSource.nodeId);
     }
   }
   return sources;
