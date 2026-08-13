@@ -7,7 +7,7 @@ test.describe('Visual Awareness marketing surface', () => {
     await expect(page.getByRole('heading', { name: "Visual awareness, on the designer's terms.", level: 1 })).toBeVisible();
     await expect(page.locator('.feature-kicker .status-pill')).toBeVisible();
     await expect(page.getByText(/Images are not uploaded for these workflows/i)).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Object Selection' })).toBeVisible();
+    await expect(page.locator('.link-grid').getByRole('link', { name: /Object Selection/ })).toBeVisible();
 
     await testInfo.attach('visual-awareness-feature-light', {
       body: await page.locator('.feature-page').screenshot(),
