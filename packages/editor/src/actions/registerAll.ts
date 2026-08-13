@@ -112,6 +112,20 @@ export function registerEditorActions(
     if (handler) reg(id, label, category, handler);
   }
 
+  // toggleBleedGuides must NOT go through the guarded path: its handler
+  // reads the current bleedGuidesVisible state, and a handler pinned to
+  // the boot context would always compute `!false` (toggling to true, i.e.
+  // never hiding the guides). Re-registering here on every state change
+  // keeps the closure fresh, like the SHORTCUT_DEFS-bound actions.
+  r.register(
+    {
+      id: 'toggleBleedGuides',
+      label: 'Toggle Bleed Guides',
+      category: 'view',
+    },
+    handlers.toggleBleedGuides ?? (() => {}),
+  );
+
   if (!r.has('runAudit')) {
     r.register(
       {

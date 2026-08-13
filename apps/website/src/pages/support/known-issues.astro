@@ -62,12 +62,54 @@ const issues: KnownIssue[] = [
     workaround: 'Use manual keyframing for animation.',
     category: 'Motion',
   },
+  {
+    title: 'Browser raster and GPU previews remain display-precision',
+    status: 'partial',
+    description: 'Native CMYK document values and precision-aware working buffers are supported. Browser raster decode and Canvas2D ImageData surfaces remain on the sRGB/RGBA8 display path, while the current WebGPU preview target is also RGBA8. Profile-aware raster decode, CMYK raster-plane import, and high-precision GPU targets are still being integrated.',
+    workaround: 'Use native desktop PDF/X or print export as the print authority, and treat the browser preview as directional. Verify the exported proof when color accuracy is production-critical.',
+    category: 'Color Management',
+  },
+  {
+    title: 'Raster exports do not include bleed',
+    status: 'partial',
+    description: 'Bleed is part of the print workflow: it is configured on the page, visualized on the canvas, and honored by PDF/X exports (page boxes and trim geometry). Raster formats (PNG/JPEG) still export the artwork\u2019s visual bounds only — the canonical page-plus-bleed bounds exist in the export plan but the standard export dialog does not use them.',
+    workaround: 'For raster deliverables with bleed, export at a larger scale and trim in post, or use the PDF/X path when the destination accepts PDF.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'PDF/X page boxes are still full-page BleedBox',
+    status: 'partial',
+    description: 'PDF/X exports emit MediaBox = BleedBox = the full page and a TrimBox inset by the configured bleed. The intended semantics (BleedBox = trim plus bleed, so mixed or page-specific bleed values are not overstated) are agreed in the page-box ADR but not yet implemented in the encoder.',
+    workaround: 'None required for standard print workflows; the current boxes are accepted by common RIPs.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'Screen PDFs have no trim or bleed boxes',
+    status: 'partial',
+    description: 'The plain PDF export writes a MediaBox only. TrimBox and BleedBox are emitted only by the PDF/X path, so screen PDFs carry no print geometry metadata.',
+    workaround: 'Use PDF/X for any file destined for print.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'Crop marks are not previewed on the canvas',
+    status: 'partial',
+    description: 'Bleed and trim guides are visualized on the canvas, and trim corner marks are shown with the print guides. The full printer mark set (crop/registration marks, color bars) is rendered only at PDF/X export time \u2014 there is no canvas print-preview of the exported mark layout.',
+    workaround: 'Export a PDF/X proof to review the mark layout before sending to print.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'Missing bleed coverage is not detected automatically',
+    status: 'planned',
+    description: 'Preflight flags documents with no bleed, bleed below the recommended minimum, or non-uniform bleed, but cannot detect artwork that stops exactly at the trim edge. A production-preflight coverage check that inspects painted content in the bleed region is a future enhancement.',
+    workaround: 'Turn on the bleed guides while designing and check that backgrounds and images reach the bleed boundary by eye.',
+    category: 'Print & Export',
+  },
 ];
 
 const categories = [...new Set(issues.map((i) => i.category))];
 ---
 
-<Layout title="Known Issues" description="Current known issues and limitations in Varve, including the in-progress Unicode text layout migration, collaboration scaffolding, print visualization, and platform constraints.">
+<Layout title="Known Issues" description="Current known issues and limitations in Varve, including color preview boundaries, the in-progress Unicode text layout migration, collaboration scaffolding, print visualization, and platform constraints.">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -79,7 +121,7 @@ const categories = [...new Set(issues.map((i) => i.category))];
         Current limitations and known issues in Varve. These are tracked and will be addressed in future releases.
       </p>
       <p class="known-issues-review">
-        Typography entries were reviewed on 13 August 2026 against the current engine and website implementation. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed.
+        Color Management, Typography, and Print &amp; Export entries were reviewed on 13 August 2026 against the current engine and website implementation. The color entry distinguishes native document values and working precision from browser display surfaces; print entries reflect the current export pipeline: bleed is configurable per page, visualized on the canvas, and honored by PDF/X. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed.
       </p>
 
       {categories.map((category) => (
