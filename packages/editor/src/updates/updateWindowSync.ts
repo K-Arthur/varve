@@ -28,7 +28,7 @@ export type WindowSyncMessage =
   | { type: 'preferences'; preferences: unknown };
 
 export interface WindowSyncTransport {
-  post(message: WindowSyncMessage): void;
+  publish(message: WindowSyncMessage): void;
   subscribe(listener: (message: WindowSyncMessage) => void): () => void;
   close(): void;
 }

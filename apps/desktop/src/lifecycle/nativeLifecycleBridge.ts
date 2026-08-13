@@ -69,13 +69,14 @@ async function approveExit(): Promise<void> {
  *  - quit-application → approve exit;
  *  - restart → approve exit (updater flow reuses the same guard).
  */
-async function finalize(intent: TerminationIntent): Promise<void> {
+async function finalize(intent: TerminationIntent): Promise<boolean | undefined> {
   const action = resolveNativeFinalize(intent, isMac());
   if (action === 'close-window') {
     await approveWindowClose('main');
   } else if (action === 'exit') {
     await approveExit();
   }
+  return undefined;
 }
 
 /**
