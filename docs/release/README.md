@@ -14,7 +14,7 @@ trust. Start with the audit; it explains why the rest of these exist.
 | [signing-incident-runbook.md](signing-incident-runbook.md) | Credential-compromise procedure: stop, revoke, scope, remediate, notify |
 | [budget-plan.md](budget-plan.md) | Exactly what to spend of the CAD $200, what not to, and why |
 | [production-build.md](production-build.md) | Every build command, marked VERIFIED or UNVERIFIED, with real measurements |
-| [update-strategy.md](update-strategy.md) | Why there is no updater yet, and the key-management procedure for when there is |
+| [update-strategy.md](update-strategy.md) | Consent-first updater design, package authority, production gates, and key management |
 | [release-checklists.md](release-checklists.md) | Alpha / beta / RC / stable, plus hotfix, rollback and incident runbooks |
 | [ci-secrets.md](ci-secrets.md) | Secret names, job permissions, and the enrolment steps a human must do |
 | [website.md](website.md) | Site architecture, the generated download-manifest flow, hosting and launch checklist |
