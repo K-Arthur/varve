@@ -149,8 +149,26 @@ describe('normalizeDocumentEffects', () => {
     doc = { ...doc, rootChildren: ['n1'], nodes: { ...doc.nodes, n1: node } };
     const normalized = normalizeDocumentEffects(doc);
     const effects = (normalized.nodes.n1 as { effects: Effect[] }).effects;
-    expect(effects[0]?.id).toBeTypeOf('string');
+    expect(effects[0]?.id).toBe('fx-n1-1');
     expect(effects[1]?.id).toBe('kept');
+  });
+
+  it('assigns legacy ids deterministically and idempotently', () => {
+    let doc = createDocument('Doc');
+    const node = makeShapeNode(
+      'legacy-node',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      { effects: [shadow(), shadow()] },
+    );
+    doc = { ...doc, rootChildren: ['legacy-node'], nodes: { ...doc.nodes, 'legacy-node': node } };
+    const first = normalizeDocumentEffects(doc);
+    const second = normalizeDocumentEffects(first);
+    const firstIds = (first.nodes['legacy-node'] as { effects: Effect[] }).effects.map((e) => e.id);
+    const secondIds = (second.nodes['legacy-node'] as { effects: Effect[] }).effects.map(
+      (e) => e.id,
+    );
+    expect(firstIds).toEqual(['fx-legacy-node-1', 'fx-legacy-node-2']);
+    expect(secondIds).toEqual(firstIds);
   });
 
   it('replaces duplicate ids within a node without changing the first effect', () => {

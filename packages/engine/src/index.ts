@@ -201,6 +201,7 @@ export {
   getEffectContracts,
   requiresColorManagedPipeline,
 } from './effectContract';
+export { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 export {
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,

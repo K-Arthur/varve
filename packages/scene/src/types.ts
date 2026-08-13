@@ -256,6 +256,25 @@ export type Mask = MaskPresentation &
     | { rasterMask: RasterMaskData; sourceNodeId?: never; vectorMask?: never }
   );
 
+/** A live source reference shared by matte and effect-mask owners. */
+export type LiveMatteSource =
+  | { kind: 'scene-node'; nodeId: NodeId }
+  | { kind: 'vector'; vectorMask: VectorMaskData }
+  | { kind: 'raster-asset'; assetId: string };
+
+/** Ownership-neutral parameters for a rendered coverage binding. */
+export interface EffectMaskBinding {
+  source: LiveMatteSource;
+  type: 'alpha' | 'luminance' | 'clip';
+  visible?: boolean;
+  inverted?: boolean;
+  density?: number;
+  feather?: number;
+  linked?: boolean;
+  transform?: Affine;
+  coordinateSpace: 'target-local' | 'world';
+}
+
 // ── Guide interface ──────────────────────────────────────────────────────────
 
 export interface Guide {
@@ -339,7 +358,7 @@ export interface ChannelOffset {
   blueY: number;
 }
 
-export type Effect =
+type EffectVariant =
   | {
       type: 'dropShadow';
       /** Stable identifier for UI state and reordering. */
@@ -449,6 +468,12 @@ export type Effect =
       opacity: number;
       visible: boolean;
     };
+
+/** Stable, reorder-safe effect identity plus an optional stage-local mask. */
+export type Effect = EffectVariant & {
+  id?: string;
+  mask?: EffectMaskBinding;
+};
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 

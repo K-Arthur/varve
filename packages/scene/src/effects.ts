@@ -79,6 +79,11 @@ function normalizedId(id: unknown): string {
   return typeof id === 'string' && id.length > 0 ? id : effectId();
 }
 
+/** Deterministic identity for an effect that came from a legacy document. */
+function legacyEffectId(nodeId: string, index: number): string {
+  return `fx-${nodeId}-${index + 1}`;
+}
+
 /** Assign an `id` to an effect if it lacks one. */
 export function ensureEffectId(effect: Effect): Effect {
   if (typeof effect.id === 'string' && effect.id.length > 0) return effect;
@@ -255,11 +260,17 @@ export function normalizeNodeEffects(node: SceneNode): SceneNode {
   if (!('effects' in node) || !Array.isArray(node.effects)) return node;
   let changed = false;
   const seenIds = new Set<string>();
-  const effects = (node.effects as Effect[]).map((effect) => {
+  const effects = (node.effects as Effect[]).map((effect, index) => {
+    const originalId = effect.id;
     let normalized = normalizeEffectParams(effect);
     const id = normalized.id;
-    if (!id || seenIds.has(id)) {
-      normalized = { ...normalized, id: effectId() };
+    if (!originalId || !id || seenIds.has(id)) {
+      let replacement = legacyEffectId(node.id, index);
+      let suffix = 2;
+      while (seenIds.has(replacement)) {
+        replacement = `${legacyEffectId(node.id, index)}-${suffix++}`;
+      }
+      normalized = { ...normalized, id: replacement };
     }
     seenIds.add(normalized.id as string);
     if (normalized !== effect) changed = true;
