@@ -111,6 +111,19 @@ fn detect_runtime() -> (&'static str, &'static str, &'static str, &'static str, 
     let Some(executable) = std::env::current_exe().ok() else {
         return ("darwin", "dmg-app", "manual-only", "unknown", false);
     };
+    // Gatekeeper's app translocation runs the app from a per-user quarantine
+    // location under /private/var/folders. Updating the translocated copy is
+    // pointless: the next launch re-translocates the original (old) bundle
+    // from its real location, silently undoing the update.
+    if is_translocated(&executable) {
+        return (
+            "darwin",
+            "dmg-app",
+            "manual-only",
+            "translocated",
+            false,
+        );
+    }
     let app_bundle = executable
         .ancestors()
         .find(|candidate| candidate.extension().is_some_and(|ext| ext == "app"));
@@ -134,6 +147,11 @@ fn detect_runtime() -> (&'static str, &'static str, &'static str, &'static str, 
         location,
         location == "writable",
     )
+}
+
+#[cfg(target_os = "macos")]
+fn is_translocated(path: &std::path::Path) -> bool {
+    path.to_string_lossy().starts_with("/private/var/folders/")
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
