@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Color & Effects" description="Varve's precision-aware color workflow: native CMYK document colors, RGB and grayscale, ICC profiles, soft proofing, effects, and print export.">
+<Layout title="Color & Effects" description="Varve's precision-aware color workflow: local image palette extraction, native CMYK document colors, RGB and grayscale, ICC profiles, soft proofing, effects, and print export.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -18,7 +18,23 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. The effects system includes drop shadows, inner shadows, layer blur, background blur, and glow effects. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
+          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes drop shadows, inner shadows, layer blur, background blur, and glow effects. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>From Image to Working Palette</h2>
+        <p>
+          In Adjustments → Palette, a bounded preview is analysed locally in perceptual Oklab. Large image files are not uploaded or scanned at full resolution by the editor path, and transparent pixels are handled explicitly.
+        </p>
+        <ul>
+          <li><strong>Useful roles:</strong> dominant, primary, secondary, accent, and neutral candidates with coverage information</li>
+          <li><strong>Generated harmonies:</strong> complementary, analogous, triadic, split-complementary, and monochromatic suggestions clearly labelled as derived—not sampled</li>
+          <li><strong>Accessibility review:</strong> WCAG 2.1 body-text and large-text contrast thresholds with foreground/background previews</li>
+          <li><strong>Reusable output:</strong> copy HEX values, apply a sampled colour as a fill, or save extracted colours as document swatches and variables</li>
+        </ul>
+        <p>
+          Palette roles are helpful starting points rather than semantic image understanding. Review the final type, profile, and export context before publishing.
         </p>
       </section>
 

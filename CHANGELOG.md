@@ -12,7 +12,14 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
-(empty — released in 0.1.1)
+### Added
+
+- **Image palette extraction** — select an image and open Adjustments → Palette
+  to generate a deterministic local palette in perceptual Oklab, review
+  generated harmonies and WCAG 2.1 contrast pairs, copy HEX values, and save
+  extracted colours as document swatches or colour variables. Analysis is
+  bounded, cancellable, worker-backed when available, and does not upload
+  image pixels or add derived analysis data to the document schema.
 
 ## [0.1.1] - 2026-08-11
 
