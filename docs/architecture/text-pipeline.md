@@ -160,6 +160,31 @@ harakat fixtures, Devanagari conjuncts, Thai vowels and tone marks, mixed
 LTR/RTL sentences, isolates, mirroring, emoji ZWJ, NBSP) plus conformance tests
 in `unicode/bidiConformance.test.ts`.
 
+Property testing (`text/unicodeLayout.fuzz.test.ts`) drives the pipeline with
+random Unicode — combining-mark runs, emoji ZWJ chains, BiDi controls,
+isolates, NBSP/ZWSP, multi-paragraph text — and asserts termination, finite
+coordinates, source-mapped cluster bounds, exact paragraph tiling, caret stops
+on grapheme boundaries, in-bounds selection rects, and determinism. It has
+already caught and fixed three real defects: dropped trailing whitespace
+breaking caret coverage, script itemization splitting Arabic harakat from
+their base, and ICU-reported grapheme boundaries for degenerate ZWJ chains.
+
+Line-level visual ordering is implemented locally in `reorderLineIndices`
+(UAX #9 L1.4 + L2 restricted to the line) instead of calling bidi-js
+`getReorderedIndices` per line, which allocates a full-paragraph index array
+per call (measured ~4 ms/line at 10k characters). Parity with bidi-js is
+pinned by `unicode/lineReorderParity.test.ts`, including an exhaustive sweep
+of all 65,536 BMP code points in trailing positions. Note: bidi-js's L1.4
+reset is only correct for ranges starting at index 0 — its `getReorderSegments`
+writes `lineLevels[i]` instead of `lineLevels[i - lineStart]`, so sub-range
+reorders silently skip the reset; the local implementation applies the reset
+correctly and the parity reference replicates bidi-js's intended semantics.
+
+Timing baseline (`text/layout.bench.test.ts`, min-of-7 on a 2026 developer
+workstation): 100 chars ≈ 1 ms, 1,000 chars ≈ 6–16 ms, 10,000 chars
+≈ 76–103 ms across Latin/Arabic/mixed; the per-line reorder change alone took
+10k-character RTL layout from ~2.1 s to ~0.2 s.
+
 `FontRegistry.revision` is a monotone process-local invalidation token. The
 shaping cache accepts it, face identity, OpenType features, variation axes,
 width, and layout mode in its key and bounds both entries and estimated bytes;
