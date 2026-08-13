@@ -1,0 +1,103 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+---
+
+<Layout
+  title="Local background removal - Varve"
+  description="Fast, Auto, and High quality background removal that keeps your artwork on-device."
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Background removal
+      </nav>
+
+      <div class="feature-kicker"><StatusPill status="available" /></div>
+      <h1>Cut out subjects without leaving your document.</h1>
+      <p class="feature-intro">
+        Varve keeps background removal local and undoable. Choose a simple fast cutout, let Auto
+        select the best installed model, or use High quality when hair, fur, foliage, and thin
+        edges deserve more time.
+      </p>
+
+      <section class="mode-grid" aria-label="Background removal modes">
+        <article class="mode-card">
+          <span class="mode-card__number">01</span>
+          <h2>Fast</h2>
+          <p>Instant heuristic masking for flat, studio, and colour-consistent backgrounds.</p>
+          <span class="mode-card__meta">No model download</span>
+        </article>
+        <article class="mode-card mode-card--accent">
+          <span class="mode-card__number">02</span>
+          <h2>Auto</h2>
+          <p>Uses optional IS-Net when installed and keeps bundled U²-NetP available on smaller systems.</p>
+          <span class="mode-card__meta">Local · optional 179 MB model</span>
+        </article>
+        <article class="mode-card">
+          <span class="mode-card__number">03</span>
+          <h2>High quality</h2>
+          <p>BiRefNet Lite for difficult boundaries, with native execution preferred for heavier work.</p>
+          <span class="mode-card__meta">Local · optional 224 MB model</span>
+        </article>
+      </section>
+
+      <section class="feature-section">
+        <h2>Review before you apply</h2>
+        <p>
+          Compare the original and cutout, switch between checkerboard, black, and white
+          backgrounds, then apply the mask as a normal document edit. Brush refinement, hair-edge
+          refinement, and trimap editing remain available after the first pass.
+        </p>
+      </section>
+
+      <section class="feature-section feature-section--note">
+        <h2>Honest about difficult pixels</h2>
+        <p>
+          Models estimate foreground alpha; they do not promise physical matting for glass, smoke,
+          steam, or every translucent edge. Unsafe bare-WASM allocations are blocked before they
+          can destabilize the editor, and any reduced-quality fallback is shown rather than hidden.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Measured, not marketed</h2>
+        <p>
+          Varve evaluates global masks and boundaries separately across hair, fur, products,
+          portraits, vehicles, illustrations, and other design-workload images. Large benchmark
+          corpora stay outside ordinary CI; model downloads require explicit consent and checksum
+          verification.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+        <a href={sitePath('/docs/tools/color')} class="btn-secondary">Read the workflow guide</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 900px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 2rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-kicker { margin-bottom: 1rem; }
+  .feature-page h1 { max-width: 760px; font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.02; font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1.25rem; }
+  .feature-intro { max-width: 700px; font-size: 1.25rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 3rem; }
+  .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 4rem; }
+  .mode-card { min-height: 220px; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: 0.75rem; background: var(--surface-card); }
+  .mode-card--accent { border-color: var(--border-accent); background: var(--surface-accent-soft); }
+  .mode-card__number { color: var(--text-tertiary); font: 0.75rem var(--font-mono); letter-spacing: 0.08em; }
+  .mode-card h2 { margin: 2.5rem 0 0.75rem; color: var(--text-primary); }
+  .mode-card p { color: var(--text-secondary); line-height: 1.6; }
+  .mode-card__meta { display: block; margin-top: 1.5rem; color: var(--text-tertiary); font-size: 0.8rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { color: var(--text-primary); font-size: 1.6rem; margin-bottom: 0.75rem; }
+  .feature-section p { color: var(--text-secondary); line-height: 1.8; }
+  .feature-section--note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); text-decoration: none; }
+  @media (max-width: 680px) { .mode-grid { grid-template-columns: 1fr; } .mode-card { min-height: auto; } .mode-card h2 { margin-top: 1.5rem; } }
+</style>
