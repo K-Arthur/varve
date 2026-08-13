@@ -577,6 +577,34 @@ export function getPanelWidths(
   return prefs[mode]?.panelWidths ?? {};
 }
 
+/** Remove saved per-workspace widths for the given panels (reset to default). */
+export function clearPanelWidths(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  panelIds: PanelId[],
+): WorkspacePreferences {
+  const modePrefs = prefs[mode];
+  if (!modePrefs?.panelWidths) return prefs;
+  const remaining: Partial<Record<PanelId, number>> = { ...modePrefs.panelWidths };
+  let changed = false;
+  for (const panelId of panelIds) {
+    if (panelId in remaining) {
+      delete remaining[panelId];
+      changed = true;
+    }
+  }
+  if (!changed) return prefs;
+  return {
+    ...prefs,
+    [mode]: {
+      ...modePrefs,
+      panelWidths: remaining,
+      customized: true,
+      lastCustomized: Date.now(),
+    },
+  };
+}
+
 /** Toggle a toolbar tool's visibility for a workspace. */
 export function setToolbarToolOverride(
   prefs: WorkspacePreferences,
