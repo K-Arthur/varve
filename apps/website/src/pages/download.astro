@@ -564,6 +564,50 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               </a>
             </p>
           </div>
+
+          <div class="updates-info">
+            <h2>Keeping Varve up to date</h2>
+            <p>
+              Varve checks for updates only after you choose to allow it. On first launch you are
+              asked whether Varve may periodically check for newer versions; you can change or
+              revoke that choice at any time in Settings &rarr; Updates. Update checks send only
+              your current version, platform, architecture and channel to Varve's release
+              endpoint — no account, document data or device identifier.
+            </p>
+            <p>
+              Downloads are cryptographically verified against a signature embedded in the
+              installed app before anything is installed, and Varve never restarts over unsaved
+              design work.
+            </p>
+            <ul>
+              <li>
+                <strong>AppImage:</strong> self-updates in place when the file is in a writable
+                location. If the AppImage cannot be replaced (read-only folder, moved after
+                launch), Varve explains what happened and offers the manual update path.
+              </li>
+              <li>
+                <strong>Windows (NSIS):</strong> updates install through the installer with a
+                visible progress window, and installation happens only after your approval.
+              </li>
+              <li>
+                <strong>macOS:</strong> updates the installed app in your Applications folder.
+                If you are running Varve from the mounted DMG or a Gatekeeper-translocated copy,
+                move it into Applications first.
+              </li>
+              <li>
+                <strong>Debian / RPM packages:</strong> installed files are owned by your package
+                manager. Varve does not overwrite them; use your package manager to install newer
+                versions from the release page.
+              </li>
+            </ul>
+            <p class="download-meta">
+              Updates are published only after every release gate passes: build, platform
+              signing/notarization, updater signature verification, checksums and SBOM.
+            </p>
+            <p class="download-meta">
+              <a href={sitePath('/docs/updates')}>Read the full update and privacy guide</a>.
+            </p>
+          </div>
         </>
       )}
     </div>
@@ -1001,6 +1045,38 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     color: var(--text-secondary);
     margin-bottom: 0.5rem;
     line-height: 1.6;
+  }
+
+  .updates-info {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .updates-info h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .updates-info p,
+  .updates-info li {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+  }
+
+  .updates-info ul {
+    padding-left: 1.25rem;
+    list-style: disc;
+    margin-bottom: 0.75rem;
+  }
+
+  .updates-info strong {
+    color: var(--text-primary);
   }
   
   .integrity-notice p {
