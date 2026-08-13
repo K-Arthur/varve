@@ -29,6 +29,21 @@ import { sitePath } from '../../../lib/siteUrl';
         blurred bitmap, so the same map can later drive additional depth-aware effects.
       </p>
 
+      <h2>Depth Range Mask</h2>
+      <p>
+        A saved DepthMap can also be converted into a non-destructive layer mask: set the near and far
+        thresholds, feather the transition, optionally invert the selection, then choose
+        <strong>Create Depth Mask</strong>. The mask is stored as a standard raster mask on the image
+        layer, so adjustments and other effects can consume it like any other mask.
+      </p>
+
+      <h2>Regenerate and remove</h2>
+      <p>
+        <strong>Regenerate Depth Map</strong> reruns local inference when you want a fresh estimate.
+        <strong>Remove Depth Blur</strong> deletes the effect and any depth resources that are no
+        longer referenced by other effects. Removing the map never touches the original image pixels.
+      </p>
+
       <h2>Persistence and invalidation</h2>
       <p>
         A persisted map records its dimensions, normalized near/far convention, model and preprocessing

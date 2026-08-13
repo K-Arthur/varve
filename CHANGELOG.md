@@ -14,6 +14,16 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Depth-aware effects** — a reusable, model-independent DepthMap resource
+  powers non-destructive Depth Blur: pick a focus point, adjust focus range
+  and blur strength, preview the depth field, or convert a depth range into a
+  layer mask. Depth maps are generated on demand by a ~27 MB local model
+  (Depth Anything V2 Small, Apache-2.0, SHA-256 pinned), cached per source
+  revision, persisted in the document (16-bit scalar field), and rendered
+  without the model, so saved documents reopen with identical results and no
+  inference. The blur compositor is occlusion-aware (sharp subjects do not
+  smear into blurred backgrounds) and premultiplied-alpha correct. Relative
+  depth only; no metric calibration is claimed.
 - **Experimental asset similarity** — the Intelligence panel now separates
   image-to-image Similar search from Near duplicates. Similarity uses the
   existing local SigLIP ONNX worker path; near-duplicate ranking keeps exact
