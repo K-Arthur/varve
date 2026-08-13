@@ -118,14 +118,17 @@ array. `packages/engine/src/rasterColor/pixelBuffer.ts` provides the shared
 records color encoding and straight/premultiplied alpha. The allocator maps
 the formats to `Uint8Array`, `Uint16Array`, packed IEEE-754 half floats, and
 `Float32Array`, respectively, and rejects allocations above the 512 MiB
-default budget.
+default budget. `createAnalyticRgbTransform().convertPixelBuffer()` can now
+convert each of these formats in bounded tiles, preserving straight versus
+premultiplied alpha semantics and switching the descriptor to the target
+encoding only after success.
 
 This is the storage contract, not a claim that every browser decode or display
 path is already high precision. Canvas2D `ImageData` remains an explicit
 RGBA8 preview/export boundary. Integrating profile-aware decode, CMYK raster
-planes, and high-precision compositor surfaces is tracked separately; until
-those paths exist, source profile metadata is preserved and pixels are not
-silently relabelled.
+planes, cache identity, and high-precision compositor surfaces is tracked
+separately; until those paths exist, source profile metadata is preserved and
+pixels are not silently relabelled.
 
 ## Export barrier
 
