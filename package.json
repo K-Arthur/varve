@@ -18,6 +18,7 @@
     "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/ci-health.test.mjs && node scripts/pin-github-actions.test.mjs && node scripts/regenerate-menu-matrices.test.mjs && node scripts/validate-workflows.test.mjs && node scripts/release/targets.test.mjs && node scripts/release/verify-binary-architecture.test.mjs && node scripts/release/generate-updater-feed.test.mjs && node scripts/release/release-pipeline.test.mjs && node scripts/release/signing-policy.test.mjs && bash scripts/test-ci-shell-scripts.sh",
     "bench:canvas": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/replay.bench.ts",
     "bench:table": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/tableReplay.bench.ts",
+    "bench:palette": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/paletteExtraction.bench.test.ts",
     "bench:table-layout": "vitest run --config vitest.bench.config.ts packages/scene/src/__benchmarks__/tableLayout.bench.ts",
     "bench:bgremove:report": "node scripts/bench/background-removal-report.mjs",
     "bench": "vitest bench --run --pool=forks",
