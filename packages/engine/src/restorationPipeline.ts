@@ -1,13 +1,15 @@
 import { dispatchDenoise } from './denoiseProviders/dispatch';
-import { dispatchUpscale } from './upscaleProviders/dispatch';
+import { scalePixelArt } from './pixelArtScaling';
 import {
   planRestoration,
   type RestorationOperation,
   type RestorationRequest,
   type RestorationStagePlan,
+  toRestorationError,
 } from './restoration';
+import { dispatchUpscale } from './upscaleProviders/dispatch';
 
-export interface RestorationStageState extends RestorationStagePlan {
+export interface RestorationStageState extends Omit<RestorationStagePlan, 'status'> {
   status: 'pending' | 'running' | 'completed' | 'cancelled' | 'failed';
   progress: number;
   processingTimeMs?: number;
@@ -48,6 +50,22 @@ function initialStage(plan: RestorationStagePlan): RestorationStageState {
   return { ...plan, status: 'pending', progress: 0 };
 }
 
+function cropForPreview(source: ImageData, maxDimension: number): ImageData {
+  const limit = Math.max(1, Math.round(maxDimension));
+  if (source.width <= limit && source.height <= limit) return source;
+  const width = Math.max(1, Math.min(source.width, limit));
+  const height = Math.max(1, Math.min(source.height, limit));
+  const originX = Math.floor((source.width - width) / 2);
+  const originY = Math.floor((source.height - height) / 2);
+  const result = new ImageData(width, height);
+  for (let y = 0; y < height; y += 1) {
+    const sourceStart = ((originY + y) * source.width + originX) * 4;
+    const sourceEnd = sourceStart + width * 4;
+    result.data.set(source.data.subarray(sourceStart, sourceEnd), y * width * 4);
+  }
+  return result;
+}
+
 /**
  * Execute a planned restoration request through the existing provider chains.
  * Model sessions remain lazy: planning only checks metadata, while dispatch is
@@ -62,7 +80,9 @@ export async function runRestoration(
   const stages = plan.stages.map(initialStage);
   const start = performance.now();
   const modelIds = stages.flatMap((stage) => (stage.modelId ? [stage.modelId] : []));
-  let currentImage = source;
+  const previewScale = request.upscale?.scale ?? 1;
+  const previewLimit = (request.previewMaxDimension ?? 512) / Math.max(1, previewScale);
+  let currentImage = request.preview ? cropForPreview(source, previewLimit) : source;
   let provider: string | undefined;
 
   reportStages(stages, options.onStageChange);
@@ -93,18 +113,24 @@ export async function runRestoration(
       } else if (stage.task === 'upscale') {
         const upscale = request.upscale;
         if (!upscale) throw new Error('Upscale settings are required');
-        currentImage = await dispatchUpscale(
-          currentImage,
-          {
-            method: upscale.method === 'pixel-art' ? 'nearest' : upscale.method,
+        if (upscale.method === 'pixel-art') {
+          currentImage = scalePixelArt(currentImage, {
+            algorithm: upscale.pixelArtAlgorithm ?? 'nearest',
             scale: upscale.scale,
-            modelId: stage.modelId,
-            preview: request.preview,
-            previewMaxDimension: request.previewMaxDimension,
-            pixelArtAlgorithm: undefined,
-          },
-          options.signal,
-        );
+          });
+        } else {
+          currentImage = await dispatchUpscale(
+            currentImage,
+            {
+              method: upscale.method,
+              scale: upscale.scale,
+              modelId: stage.modelId,
+              preview: request.preview,
+              previewMaxDimension: request.previewMaxDimension,
+            },
+            options.signal,
+          );
+        }
         provider = provider ?? (upscale.method === 'ai' ? 'ai' : 'cpu');
         stage.progress = 1;
         options.onProgress?.(stage, 1, 1);
@@ -122,7 +148,7 @@ export async function runRestoration(
       stage.processingTimeMs = performance.now() - stageStart;
       stage.status = options.signal?.aborted ? 'cancelled' : 'failed';
       reportStages(stages, options.onStageChange);
-      throw error;
+      throw toRestorationError(error);
     }
   }
 
