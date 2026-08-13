@@ -1,6 +1,6 @@
 # Raster asset architecture
 
-**Updated:** 2026-08-10
+**Updated:** 2026-08-13
 
 This document records the canonical raster asset architecture introduced to
 resolve Varve's raster pipeline gaps (EXIF/ICC ingestion, resource identity,
@@ -231,6 +231,23 @@ Result: a 48 MP photo (192 MB RGBA) previously blew the 128 MB worker
 admission budget and permanently fell back to the main thread; it now
 transfers as a ~12.7 MB viewport-sufficient bitmap while the full decode
 remains available for export and deep-zoom re-requests.
+
+### Thumbnail decode policy
+
+Canonical thumbnails use the same at-size cache mechanism. The requested
+representation is capped to the thumbnail's physical output long edge
+(including thumbnail DPR), and the resulting image is supplied to `replayIr`
+through its existing image lookup hook. This prevents a 256–512 px thumbnail
+from forcing a full embedded photo decode when inline `data:`/`blob:` input and
+`createImageBitmap` resizing are available. The full source remains the
+authoritative cache entry for Canvas2D replay and export.
+
+Remote sources continue through the full HTML-image load because browser
+portable scaled decode is unavailable for those URLs in the current contract.
+When `createImageBitmap` is unavailable, `loadAtSize` deliberately falls back
+to the full HTML-image loader so older WebKit/WebViews retain correct
+thumbnail behavior; at-size selection is an optimization, never a correctness
+requirement.
 
 ## Typed failures
 
