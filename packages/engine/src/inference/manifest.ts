@@ -59,11 +59,11 @@ function inferCategory(id: string): string {
 }
 
 const KNOWN_SIZES: Record<string, number> = {
-  u2netp: 4_700_000,
+  u2netp: 4_574_861,
   'u2netp-int8': 1_200_000,
   'isnet-general-use': 178_648_008,
   'birefnet-general-lite': 224_005_088,
-  'birefnet-general': 928_000_000,
+  'birefnet-general': 972_666_916,
   'upscale-realesr-general': 4_866_438,
   'upscale-realesr-general-int8': 1_300_000,
   scunet: 18_000_000,

@@ -27,6 +27,11 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
+.model-download__status {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
 .model-download__progress {
   display: flex;
   align-items: center;
@@ -71,6 +76,44 @@
   color: var(--color-feedback-danger);
   font-size: var(--font-size-sm);
   margin: 0;
+}
+.model-download__error-title {
+  font-weight: var(--font-weight-semibold);
+}
+.model-download__error .model-download__error-detail {
+  margin-top: var(--space-1);
+}
+.model-download__details-toggle {
+  margin-top: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-interactive-default);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.model-download__details {
+  margin-top: var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+.model-download__details dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+}
+.model-download__details dt {
+  color: var(--color-text-tertiary);
+}
+.model-download__details dd {
+  margin: 0;
+}
+.model-download__details-toggle:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 .model-download__actions {
   display: flex;

@@ -215,7 +215,7 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
 
   test('Apply / Edit / Show Original / Reset keep B C D intact and reveal lower content', async ({
     page,
-  }) => {
+  }, testInfo) => {
     // Place B (blue) first, then A (target) overlapping it so A's transparent
     // regions must reveal B after masking. C and D sit apart, untouched.
     const bUrl = await makeSolidImage(page, COLORS.blue);
@@ -292,6 +292,7 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
       .poll(async () => regionHash(page, aRect), { timeout: 20000 })
       .not.toBe(aBeforeMask);
     await page.waitForTimeout(1200);
+    await page.screenshot({ path: testInfo.outputPath('mask-applied.png'), fullPage: false });
 
     // …but B/C/D must be byte-identical in their regions.
     await expect.poll(async () => regionHash(page, bBox), { timeout: 10000 }).toBe(bBefore);
@@ -359,6 +360,7 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
     await expect.poll(async () => regionHash(page, bBox), { timeout: 10000 }).toBe(beforeStrokeB);
     await expect.poll(async () => regionHash(page, cBox), { timeout: 10000 }).toBe(beforeStrokeC);
     await expect.poll(async () => regionHash(page, dBox), { timeout: 10000 }).toBe(beforeStrokeD);
+    await page.screenshot({ path: testInfo.outputPath('mask-edited.png'), fullPage: false });
 
     // Mask edit must actually change A's pixels.
     const aAfterStroke = await regionHash(page, aRect);
@@ -376,13 +378,16 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
 
     // ── Show Original ────────────────────────────────────────────────
     await selectImageAt(page, aRect);
-    const showOriginal = page.getByRole('button', { name: /show original|showing original|hide original/i });
+    const showOriginal = page.getByRole('button', {
+      name: /show original|showing original|hide original/i,
+    });
     await expect(showOriginal.first()).toBeVisible({ timeout: 10000 });
     await showOriginal.first().click();
     await page.waitForTimeout(1500);
     // A shows its full source colour again…
     const aOriginal = await waitForColor(page, COLORS.aBg, 'A background while showing original');
     expect(aOriginal).not.toBeNull();
+    await page.screenshot({ path: testInfo.outputPath('show-original.png'), fullPage: false });
     // …and B/C/D remain unchanged.
     await expect.poll(async () => regionHash(page, bBox), { timeout: 10000 }).toBe(beforeStrokeB);
     await expect.poll(async () => regionHash(page, cBox), { timeout: 10000 }).toBe(beforeStrokeC);
@@ -391,13 +396,16 @@ test.describe('raster mask must not disturb unrelated canvas content', () => {
     await page.waitForTimeout(1000);
 
     // ── Reset ────────────────────────────────────────────────────────
-    const reset = page.getByRole('button', { name: /^reset background removal to original image$/i });
+    const reset = page.getByRole('button', {
+      name: /^reset background removal to original image$/i,
+    });
     await expect(reset).toBeVisible({ timeout: 10000 });
     await reset.click();
     await page.waitForTimeout(1500);
     await page.waitForTimeout(1200);
     const aReset = await waitForColor(page, COLORS.aBg, 'A background after reset');
     expect(aReset).not.toBeNull();
+    await page.screenshot({ path: testInfo.outputPath('mask-reset.png'), fullPage: false });
     await expect.poll(async () => regionHash(page, bBox), { timeout: 10000 }).toBe(beforeStrokeB);
     await expect.poll(async () => regionHash(page, cBox), { timeout: 10000 }).toBe(beforeStrokeC);
     await expect.poll(async () => regionHash(page, dBox), { timeout: 10000 }).toBe(beforeStrokeD);
