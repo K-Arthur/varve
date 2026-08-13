@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   commitImageCrop,
   commitImageCropExtended,
+  commitSourceImageCrop,
   resetImageCrop,
   setImageFlip,
   setImageRotation,
@@ -227,6 +228,43 @@ describe('commitImageCrop', () => {
     expect(next.nodes.i1?.mask?.visible).toBe(true);
     expect(next.nodes.i1?.mask?.rasterMask?.sourceIdentity.revision).toBe(1);
     expect(next.rasterMaskAssets?.['mask-i1']).toBeDefined();
+  });
+});
+
+describe('commitSourceImageCrop', () => {
+  it('stores a source-space suggestion without changing node geometry', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,SRC',
+      w: 200,
+      h: 100,
+      imageWidth: 400,
+      imageHeight: 200,
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    const next = commitSourceImageCrop(doc, 'i1', { x: 40, y: 20, w: 240, h: 160 });
+    const node = next.nodes.i1 as ShapeNode;
+    expect(node.shape.kind).toBe('rect');
+    if (node.shape.kind !== 'rect') throw new Error('expected rect');
+    expect(node.shape.w).toBe(200);
+    expect(node.shape.h).toBe(100);
+    expect(node.fills?.[0]?.image?.crop).toEqual({ x: 40, y: 20, w: 240, h: 160 });
+    expect(node.fills?.[0]?.image?.src).toBe('data:image/png;base64,SRC');
+  });
+
+  it('normalizes a full-source suggestion back to the ordinary no-crop state', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,SRC',
+      w: 100,
+      h: 100,
+      imageWidth: 100,
+      imageHeight: 100,
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    const cropped = commitSourceImageCrop(doc, 'i1', { x: 10, y: 10, w: 50, h: 50 });
+    const restored = commitSourceImageCrop(cropped, 'i1', { x: 0, y: 0, w: 100, h: 100 });
+    expect(restored.nodes.i1?.fills?.[0]?.image?.crop).toBeUndefined();
   });
 });
 
