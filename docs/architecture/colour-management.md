@@ -82,6 +82,13 @@ explicit and tested, including negative and fractional values. Browser
 preview boundaries; they must not be used as the document or working-buffer
 storage contract.
 
+`convertPixelBufferFormat()` is the explicit storage-precision boundary. It
+returns a new buffer, leaves the source untouched, preserves encoding and
+alpha metadata, and applies integer clamping/rounding only when the selected
+target format requires it. A display or export caller must choose this
+operation deliberately rather than allowing an intermediate `ImageData`
+allocation to overwrite the working buffer.
+
 `createAnalyticRgbTransform()` now exposes `convertPixelBuffer()`, which
 converts `rgba8`, `rgba16`, `rgba16f`, and `rgba32f` buffers tile-wise. Integer
 formats quantize only when writing their explicitly selected storage format;
