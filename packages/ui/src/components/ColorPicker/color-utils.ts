@@ -1,6 +1,18 @@
 export type Color = readonly [number, number, number, number];
 
 export function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
+  const [r, g, b] = hsvToRgbNormalized(h, s, v);
+  return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+/**
+ * HSV → normalized RGB (0-1 floats, no rounding).
+ *
+ * The 8-bit variant exists for legacy display callers; editing paths must
+ * use this one so a high-precision document never has its channels
+ * quantized to 8 bits by the HSV area/slider drafts.
+ */
+export function hsvToRgbNormalized(h: number, s: number, v: number): [number, number, number] {
   const hh = ((h % 360) + 360) % 360;
   const ss = s / 100;
   const vv = v / 100;
@@ -35,25 +47,32 @@ export function hsvToRgb(h: number, s: number, v: number): [number, number, numb
     g1 = 0;
     b1 = x;
   }
-  return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
+  return [r1 + m, g1 + m, b1 + m];
 }
 
 export function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
-  const rr = r / 255;
-  const gg = g / 255;
-  const bb = b / 255;
-  const max = Math.max(rr, gg, bb);
-  const min = Math.min(rr, gg, bb);
+  const [h, s, v] = rgbToHsvFloat(r / 255, g / 255, b / 255);
+  return [Math.round(h), Math.round(s), Math.round(v)];
+}
+
+/**
+ * Normalized RGB (0-1) → HSV without rounding. Draft values stay floats so
+ * editing continuity (and untouched-channel preservation) does not depend
+ * on 8-bit quantization of the display tuple.
+ */
+export function rgbToHsvFloat(r: number, g: number, b: number): [number, number, number] {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
   const d = max - min;
   let h = 0;
   if (d !== 0) {
-    if (max === rr) h = ((gg - bb) / d + (gg < bb ? 6 : 0)) * 60;
-    else if (max === gg) h = ((bb - rr) / d + 2) * 60;
-    else h = ((rr - gg) / d + 4) * 60;
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else h = ((r - g) / d + 4) * 60;
   }
   const s = max === 0 ? 0 : (d / max) * 100;
   const v = max * 100;
-  return [Math.round(h), Math.round(s), Math.round(v)];
+  return [h, s, v];
 }
 
 export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
