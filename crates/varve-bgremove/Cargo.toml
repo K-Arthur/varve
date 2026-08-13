@@ -21,7 +21,7 @@ dirs-next = "2.0"
 # the `api-18` feature (which `load-dynamic` does not enable) — breaks the
 # build on Linux x86_64 (our desktop target), not just Android.
 # https://github.com/pykeio/ort/issues/547
-ort = { version = "=2.0.0-rc.11", optional = true, default-features = false, features = ["load-dynamic"] }
+ort = { version = "=2.0.0-rc.13", optional = true, default-features = false, features = ["load-dynamic"] }
 sha2 = "0.11"
 
 [features]
