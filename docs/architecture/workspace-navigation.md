@@ -12,7 +12,7 @@ row: state owner / UI surface / input path / persistence / tests / gaps.
 |---|---|---|---|---|---|---|
 | Workspace mode | `EditorState.workspaceMode` | Menubar → `WorkspaceTabs` (APG radiogroup) | click; `Ctrl+Shift+<key>` shortcuts; command palette | subset of panel booleans via `settings.ts` | `WorkspaceTabs.test.tsx`, `workspaceMode.test.tsx`, `workspaceSwitching.test.tsx`, `workspaceReset.test.tsx` | No roving tabindex / arrow keys / Home-End; no focus restore after overflow; preferences store dead; most config fields decorative |
 | Document tabs | `sessions` / `activeId` + in-memory `sessionStoreRef` | `TabStrip` (APG tablist, roving) | click, arrows, Home/End, Enter/Space, Delete, middle-click | in-memory per session; crash-recovery sessions via platform | `TabStrip.test.tsx` | Dirty-close dialog had no Save / Don't-save / Cancel-with-save; no overflow/search for many tabs; no MRU order |
-| Pages | `document.pages` + `currentPageId` | `PageNav` (tablist + dnd-kit) | click, arrows, Enter, drag, context menu | in document (scene) | `PageNav.test.tsx` | No rename; no delete confirmation (delete of active page falls back deterministically); no searchable page nav |
+| Pages | `document.pages` + `currentPageId` | `PageNav` (tablist + dnd-kit) | click, arrows, Enter, drag, context menu | in document (scene) | `PageNav.test.tsx`, `page.test.ts` | No delete confirmation (delete of active page falls back deterministically); no searchable page nav |
 | Viewport / camera | `zoom` / `pan` / `cameraRotation` | canvas, `MinimapPanel`, StatusBar zoom chip + fit buttons | wheel, pinch, space-hand, minimap click-drag, keyboard | viewport defaults in `settings.ts`; per-tab snapshots in memory | `wheelClassifier.test.ts`, `navigationState.test.ts`, `viewportOps.test.ts` | Side buttons 3/4 swallowed (dead); no viewport back/forward history; minimap "fit all" was selection-oriented |
 | Deep links | (none — module dead) | none | none | none | none | Entire deep-link subsystem unwired; finding-only vocabulary; Tauri listener leaked |
 | Workspace preferences | `workspaceStore` (dead) | none | none | raw localStorage | none | Dead code: no loaders, no appliers, no UI |
@@ -214,7 +214,9 @@ global flag.
   interaction (drag to pan, double-click/Enter to fit the whole document);
   Escape collapses; roving-free single-stop tab.
 - **Page nav**: existing roving tablist; arrows auto-activate; focus moves
-  to the replacement page after delete and to the new page after add.
+  to the replacement page after delete and to the new page after add. The
+  context menu supports renaming through the shared local prompt and the
+  canonical `scene.renamePage` operation; blank names are ignored.
 - **Announcements**: mode switches announce via the existing announcer;
   navigation failures surface as toasts (aria-live) rather than silent
   no-ops.
