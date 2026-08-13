@@ -42,17 +42,24 @@ interface VerifyToken extends VerifiedUpdate {
  */
 export class TauriUpdateProvider implements UpdateProvider {
   private nativeUpdate: TauriUpdate | null = null;
+  private cachedContext: PackagingContext | null = null;
 
   async getPackagingContext(): Promise<PackagingContext> {
+    if (this.cachedContext) return this.cachedContext;
     const native = await invoke<NativePackagingContext>('update_packaging_context');
     // Version from Tauri is authoritative when the native command is mocked or
     // unavailable in a test harness; it is never used to select an artifact.
     const currentVersion = native.currentVersion || (await getVersion());
-    return { ...native, currentVersion };
+    this.cachedContext = { ...native, currentVersion };
+    return this.cachedContext;
   }
 
   async check(channel: UpdateChannel): Promise<UpdateInfo | null> {
-    if (channel !== 'stable') {
+    const context = await this.getPackagingContext();
+    // The build embeds one feed endpoint at build time (tauri.update.channel.json
+    // in release CI). A stable build must never resolve the beta/nightly feed,
+    // and a beta build only resolves the beta feed.
+    if (channel !== context.channel) {
       throw {
         code: 'unsupported-build',
         message: `The ${channel} update channel is not enabled in this build.`,
