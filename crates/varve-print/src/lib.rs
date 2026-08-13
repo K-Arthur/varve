@@ -111,6 +111,33 @@ fn color_to_rgb_string(fill: &EngineColor) -> String {
     format!("{rf:.3} {gf:.3} {bf:.3} rg")
 }
 
+/// Normalized 0-1 CMYK channels of an authored CMYK color.
+///
+/// Channel scale follows the color's declared bit depth (uint8 → /255,
+/// uint16 → /65535, float depths → as-is). Authored CMYK channels must be
+/// emitted directly — never round-tripped through RGB — so pure K stays
+/// (0 0 0 1) and profile association is preserved instead of being replaced
+/// by a naive `(1-c)(1-k)` build.
+fn cmyk_normalized(color: &EngineColor) -> Option<(f32, f32, f32, f32)> {
+    let EngineColor::Cmyk {
+        c,
+        m,
+        y,
+        k,
+        bit_depth,
+        ..
+    } = color
+    else {
+        return None;
+    };
+    let div: f32 = match bit_depth.as_deref().map(str::to_owned) {
+        Some(d) if d == "uint16" => 65535.0,
+        Some(d) if d == "float16" || d == "float32" => 1.0,
+        _ => 255.0,
+    };
+    Some((*c as f32 / div, *m as f32 / div, *y as f32 / div, *k as f32 / div))
+}
+
 fn is_spot_color(color: &EngineColor) -> bool {
     matches!(color, EngineColor::Spot { .. })
 }
@@ -136,6 +163,12 @@ fn spot_color_separation(color: &EngineColor) -> String {
 fn color_to_cmyk_string(fill: &EngineColor, profile: Option<PrintProfile>) -> String {
     if is_spot_color(fill) {
         return spot_color_separation(fill);
+    }
+    // Native CMYK: emit the authored channels at the color's own bit-depth
+    // scale. No CMYK→RGB→CMYK round trip (which would turn pure K into a
+    // four-color build and discard the authored profile association).
+    if let Some((c, m, y, k)) = cmyk_normalized(fill) {
+        return format!("{c:.3} {m:.3} {y:.3} {k:.3} k");
     }
     let (r, g, b, _) = engine_color_rgba(fill);
     let (c, m, y, k) = match profile {
@@ -167,6 +200,9 @@ fn color_to_stroke_rgb_string(fill: &EngineColor) -> String {
 }
 
 fn color_to_stroke_cmyk_string(fill: &EngineColor, profile: Option<PrintProfile>) -> String {
+    if let Some((c, m, y, k)) = cmyk_normalized(fill) {
+        return format!("{c:.3} {m:.3} {y:.3} {k:.3} K");
+    }
     let (r, g, b, _) = engine_color_rgba(fill);
     let (c, m, y, k) = match profile {
         Some(p) => crate::cmyk::rgb_to_cmyk_icc(
@@ -797,24 +833,37 @@ fn create_sampled_function(
     for i in 0..SAMPLES {
         let t = i as f64 / (SAMPLES - 1) as f64;
         let color = sample_gradient(stops, t);
-        let (r, g, b, _) = engine_color_rgba(&color);
         if use_cmyk {
-            let (cc, cm, cy, ck) = match profile {
-                Some(p) => crate::cmyk::rgb_to_cmyk_icc(
-                    p,
-                    r,
-                    g,
-                    b,
-                    crate::profiles::RenderingIntent::Relative,
-                    true,
+            // Native CMYK samples (from CMYK-space interpolation) emit
+            // directly; RGB samples convert via the profile/naive path.
+            let (cc, cm, cy, ck) = match cmyk_normalized(&color) {
+                Some((c, m, y, k)) => (
+                    (c * 255.0) as u8,
+                    (m * 255.0) as u8,
+                    (y * 255.0) as u8,
+                    (k * 255.0) as u8,
                 ),
-                None => crate::cmyk::rgb_to_cmyk(r, g, b),
+                None => {
+                    let (r, g, b, _) = engine_color_rgba(&color);
+                    match profile {
+                        Some(p) => crate::cmyk::rgb_to_cmyk_icc(
+                            p,
+                            r,
+                            g,
+                            b,
+                            crate::profiles::RenderingIntent::Relative,
+                            true,
+                        ),
+                        None => crate::cmyk::rgb_to_cmyk(r, g, b),
+                    }
+                }
             };
             samples.push(cc);
             samples.push(cm);
             samples.push(cy);
             samples.push(ck);
         } else {
+            let (r, g, b, _) = engine_color_rgba(&color);
             samples.push(r);
             samples.push(g);
             samples.push(b);
@@ -872,7 +921,24 @@ fn sample_gradient(stops: &[GradientStop], t: f64) -> EngineColor {
     } else {
         0.0
     };
-    // Linear interpolation in RGB space
+    // Native CMYK stops interpolate in CMYK space (channel lerp on the
+    // normalized values) so authored print values — including pure K — are
+    // never round-tripped through a naive RGB build.
+    if let (Some((c1, m1, y1, k1)), Some((c2, m2, y2, k2))) =
+        (cmyk_normalized(&lower.color), cmyk_normalized(&upper.color))
+    {
+        let lerp = |a: f32, b: f32| -> f64 { a as f64 + (b as f64 - a as f64) * local_t };
+        return EngineColor::Cmyk {
+            c: lerp(c1, c2),
+            m: lerp(m1, m2),
+            y: lerp(y1, y2),
+            k: lerp(k1, k2),
+            a: 255.0,
+            bit_depth: Some("float32".to_string()),
+            profile: None,
+        };
+    }
+    // Linear interpolation in RGB space (mixed-space gradients)
     let (r1, g1, b1, a1) = engine_color_rgba(&lower.color);
     let (r2, g2, b2, a2) = engine_color_rgba(&upper.color);
     let lerp = |a: u8, b: u8| -> f64 { a as f64 + (b as f64 - a as f64) * local_t };
@@ -4918,5 +4984,123 @@ mod tests {
             "analytical should be CMYK: {analytical}"
         );
         assert!(icc.ends_with('k'), "icc should be CMYK: {icc}");
+    }
+
+    // ── Native CMYK emission (no RGB round trip) ───────────────────────
+
+    fn cmyk_color(c: f64, m: f64, y: f64, k: f64, a: f64, bit_depth: Option<String>) -> EngineColor {
+        EngineColor::Cmyk {
+            c,
+            m,
+            y,
+            k,
+            a,
+            bit_depth,
+            profile: Some("fogra39".into()),
+        }
+    }
+
+    #[test]
+    fn color_to_cmyk_string_emits_native_channels() {
+        // Pure K must stay (0 0 0 1) — never a four-color build.
+        let pure_k = cmyk_color(0.0, 0.0, 0.0, 255.0, 255.0, None);
+        let s = color_to_cmyk_string(&pure_k, None);
+        assert_eq!(s, "0.000 0.000 0.000 1.000 k");
+
+        let rich = cmyk_color(60.0, 50.0, 50.0, 100.0, 255.0, None);
+        let s = color_to_cmyk_string(&rich, None);
+        assert_eq!(s, "0.235 0.196 0.196 0.392 k");
+    }
+
+    #[test]
+    fn color_to_cmyk_string_bit_depth_scaled() {
+        // uint16 channels scale by 65535.
+        let u16 = cmyk_color(0.0, 0.0, 0.0, 65535.0, 65535.0, Some("uint16".into()));
+        let s = color_to_cmyk_string(&u16, None);
+        assert_eq!(s, "0.000 0.000 0.000 1.000 k");
+
+        // float channels pass through unchanged.
+        let f = cmyk_color(0.0, 0.5, 0.0, 1.0, 1.0, Some("float32".into()));
+        let s = color_to_cmyk_string(&f, None);
+        assert_eq!(s, "0.000 0.500 0.000 1.000 k");
+    }
+
+    #[test]
+    fn color_to_stroke_cmyk_string_emits_native_channels() {
+        let pure_k = cmyk_color(0.0, 0.0, 0.0, 255.0, 255.0, None);
+        let s = color_to_stroke_cmyk_string(&pure_k, None);
+        assert_eq!(s, "0.000 0.000 0.000 1.000 K");
+    }
+
+    #[test]
+    fn sample_gradient_cmyk_stops_stay_in_cmyk() {
+        // Pure K → 0/0/0/255 gradient: every sample must be pure K.
+        let stops = vec![
+            GradientStop {
+                position: 0.0,
+                color: cmyk_color(0.0, 0.0, 0.0, 255.0, 255.0, None),
+                midpoint: None,
+            },
+            GradientStop {
+                position: 1.0,
+                color: cmyk_color(0.0, 0.0, 0.0, 255.0, 255.0, None),
+                midpoint: None,
+            },
+        ];
+        for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let c = sample_gradient(&stops, t);
+            match c {
+                EngineColor::Cmyk { k, c, m, y, .. } => {
+                    assert!((c - 0.0).abs() < 1e-6, "cyan must stay 0");
+                    assert!((m - 0.0).abs() < 1e-6, "magenta must stay 0");
+                    assert!((y - 0.0).abs() < 1e-6, "yellow must stay 0");
+                    assert!((k - 1.0).abs() < 1e-6, "black must stay pure K");
+                }
+                _ => panic!("native CMYK stops must interpolate in CMYK space"),
+            }
+        }
+    }
+
+    #[test]
+    fn gradient_samples_cmyk_preserve_pure_k() {
+        // A pure-K gradient exported with use_cmyk must produce K=255 samples
+        // (i.e. no four-color build from the naive formula).
+        let stops = vec![
+            GradientStop {
+                position: 0.0,
+                color: cmyk_color(0.0, 0.0, 0.0, 255.0, 255.0, None),
+                midpoint: None,
+            },
+            GradientStop {
+                position: 1.0,
+                color: cmyk_color(0.0, 0.0, 0.0, 255.0, 255.0, None),
+                midpoint: None,
+            },
+        ];
+        let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let mut doc = Document::default();
+        let id = create_sampled_function(&mut doc, &stops, true, None);
+        assert_ne!(id, ObjectId::default(), "shading should be registered");
+        // Extract the sampled stream and check the CMYK samples.
+        if let Object::Stream(stream) = &doc.objects[&id] {
+            let dict = &stream.dict;
+            let size = dict
+                .get(b"Size")
+                .ok()
+                .and_then(|v| match v {
+                    Object::Array(a) => a.first().and_then(|o| match o {
+                        Object::Integer(i) => Some(*i as usize),
+                        _ => None,
+                    }),
+                    _ => None,
+                })
+                .unwrap_or(0);
+            assert_eq!(size, 256, "gradient samples");
+            let data = &stream.content;
+            // Every 4th byte (K channel) must be 255 for a pure-K gradient.
+            for i in (3..data.len()).step_by(4) {
+                assert_eq!(data[i], 255, "K channel must stay pure");
+            }
+        }
     }
 }
