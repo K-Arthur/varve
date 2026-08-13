@@ -176,6 +176,11 @@ These are known gaps, not settled design:
   All are persisted and restored on workspace switch. A dedicated customization
   dialog (`WorkspaceCustomizeDialog`) provides a toggle UI accessible from
   View > Customize Workspace or the command palette.
+  Width payloads are sanitized on load, and the immutable preference update is
+  committed through `updateWorkspacePreferences` so resizing a panel actually
+  notifies all workspace consumers. Toolbar visibility is applied by the shared
+  `FloatingToolbar`; the effective configuration always keeps Select, Hand, and
+  Zoom available as recovery/navigation tools.
 - **`canvasOverlays.bleedGuides` and `layoutGrid` now have runtime consumers.**
   `bleedGuidesVisible` controls `PrintOverlays` rendering on the canvas.
   Both are projected from workspace config via `overlayPatch` and persisted
