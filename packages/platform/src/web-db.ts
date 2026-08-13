@@ -29,7 +29,7 @@ import type {
 // COMPLEXITY: 15
 
 export const DB_NAME = 'varve-home';
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 export const STORE_FILES = 'files';
 export const STORE_PROJECTS = 'projects';
 export const STORE_THUMBS = 'thumbnails';
@@ -50,6 +50,7 @@ export const STORE_FILE_TAGS = 'fileTags';
 export const STORE_ACTIVITY = 'activity';
 export const STORE_SAVED_SEARCHES = 'savedSearches';
 export const STORE_RECENT_FILES = 'recentFiles';
+export const STORE_SEMANTIC_EMBEDDINGS = 'semanticEmbeddings';
 export const KV_VIEW_STATE = 'view-state';
 
 export interface FileRecord {
@@ -175,6 +176,14 @@ export async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
         if (!db.objectStoreNames.contains(STORE_RECENT_FILES)) {
           const store = db.createObjectStore(STORE_RECENT_FILES, { keyPath: 'id' });
           store.createIndex('lastOpenedAt', 'lastOpenedAt');
+        }
+      }
+      if (oldVersion < 4) {
+        // Content-addressed semantic embeddings (derived, reconstructible —
+        // see semanticEmbeddingStore.ts). Keyed by the embedding identity
+        // string so renames reuse work while edits/model changes invalidate.
+        if (!db.objectStoreNames.contains(STORE_SEMANTIC_EMBEDDINGS)) {
+          db.createObjectStore(STORE_SEMANTIC_EMBEDDINGS, { keyPath: 'key' });
         }
       }
     },
