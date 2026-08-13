@@ -81,7 +81,7 @@ pub fn print_pdf(
     page_size: &str,
 ) -> PrintJobResult {
     let safe_title: String = job_title.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    let pdf_path = temporary_dir.join(format!("varve_print_{}.pdf", safe_title));
+    let pdf_path = temporary_dir.join(format!("varve_print_{}_{}.pdf", safe_title, staging_id()));
 
     if let Err(e) = std::fs::write(&pdf_path, pdf_bytes) {
         return PrintJobResult {
@@ -149,6 +149,13 @@ pub fn print_pdf(
             success: false,
         },
     }
+}
+
+fn staging_id() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos()
 }
 
 pub fn cancel_job(printer_name: &str, job_id: u32) -> Result<String, String> {
