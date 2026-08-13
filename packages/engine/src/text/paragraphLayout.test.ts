@@ -9,13 +9,19 @@ import { BIDI_FIXTURES, SCRIPT_FIXTURES } from './fixtures';
 function shape(paragraph: ReturnType<typeof itemizeText>['paragraphs'][number], widthPerChar = 10) {
   return paragraph.scriptedRuns.map((run) => {
     const text = paragraph.text.slice(run.start, run.end);
-    const glyphs = [...text].map((_, i) => ({
+    const clusters: number[] = [];
+    let cursor = 0;
+    for (const char of text) {
+      clusters.push(cursor);
+      cursor += char.length;
+    }
+    const glyphs = clusters.map((cluster) => ({
       glyphId: 1,
       xAdvance: widthPerChar,
       yAdvance: 0,
       xOffset: 0,
       yOffset: 0,
-      clusterUtf16: run.start + i,
+      clusterUtf16: run.start + cluster,
     }));
     if (run.direction === 'rtl') glyphs.reverse();
     return {
@@ -50,7 +56,7 @@ function layout(text: string, maxWidth: number, direction?: 'auto' | 'ltr' | 'rt
 describe('layoutText — paragraphs and line breaking', () => {
   it('wraps at word boundaries, never inside a word', () => {
     const snapshot = layout('hello world foo bar', 115);
-    expect(snapshot.lines.map((line) => line.sourceStart)).toEqual([0, 11, 16]);
+    expect(snapshot.lines.map((line) => line.sourceStart)).toEqual([0, 12]);
     expect(snapshot.lines[0]!.width).toBe(110);
   });
 
@@ -62,12 +68,15 @@ describe('layoutText — paragraphs and line breaking', () => {
   it('never wraps inside an emoji ZWJ grapheme', () => {
     const snapshot = layout(`${SCRIPT_FIXTURES.emojiZwj}${SCRIPT_FIXTURES.emojiZwj}`, 11);
     expect(snapshot.lines.map((line) => line.sourceStart)).toEqual([0, 11]);
+    expect(snapshot.lines[0]!.sourceEnd).toBe(11);
   });
 
   it('keeps CJK line breaking between ideographs', () => {
     const snapshot = layout(SCRIPT_FIXTURES.cjk, 20);
     expect(snapshot.lines.length).toBeGreaterThan(1);
-    const joined = snapshot.lines.map((line) => snapshot.text.slice(line.sourceStart, line.sourceEnd)).join('');
+    const joined = snapshot.lines
+      .map((line) => snapshot.text.slice(line.sourceStart, line.sourceEnd))
+      .join('');
     expect(joined).toBe(SCRIPT_FIXTURES.cjk);
   });
 
@@ -144,7 +153,7 @@ describe('layoutText — BiDi visual ordering', () => {
     const snapshot = layout(text, 70);
     const reconstructed = snapshot.lines
       .map((line) => snapshot.text.slice(line.sourceStart, line.sourceEnd))
-      .join(' ');
+      .join('');
     expect(reconstructed).toBe(text);
   });
 });
@@ -153,15 +162,18 @@ describe('layoutText — caret stops', () => {
   it('places RTL caret stops right-to-left with correct offsets', () => {
     const snapshot = layout('مرحبا', 1000);
     const stops = snapshot.caretStops.filter((stop) => stop.lineIndex === 0);
-    expect(stops.map((stop) => stop.offset).sort()).toEqual([0, 1, 2, 3, 4, 5]);
+    // Each cluster boundary carries both leading and trailing affinity.
+    expect(stops.map((stop) => stop.offset).sort()).toEqual([0, 1, 1, 2, 2, 3, 3, 4, 4, 5]);
     const start = stops.find((stop) => stop.offset === 0 && stop.affinity === 'leading')!;
     expect(start.x).toBe(snapshot.lines[0]!.width);
+    const end = stops.find((stop) => stop.offset === 5 && stop.affinity === 'trailing')!;
+    expect(end.x).toBe(0);
   });
 
   it('never creates caret stops inside an emoji ZWJ grapheme', () => {
     const snapshot = layout(SCRIPT_FIXTURES.emojiZwj, 1000);
-    const offsets = snapshot.caretStops.map((stop) => stop.offset);
-    expect(offsets.every((offset) => offset === 0 || offset === 11)).toBe(true);
+    const offsets = new Set(snapshot.caretStops.map((stop) => stop.offset));
+    expect([...offsets].sort((a, b) => a - b)).toEqual([0, 11]);
   });
 
   it('never creates caret stops inside a combining sequence', () => {
@@ -211,23 +223,36 @@ describe('layoutText — caret stops', () => {
 describe('layoutText — hit testing and selection', () => {
   it('hit tests RTL text: click near left edge lands at paragraph end', () => {
     const snapshot = layout('مرحبا', 1000);
-    expect(hitTest(snapshot, 2, 4).offset).toBe(4);
+    // Left of everything in an RTL line = the paragraph end (offset 5).
+    expect(hitTest(snapshot, 2, 4).offset).toBe(5);
+    // Right of everything = the paragraph start (offset 0).
     expect(hitTest(snapshot, 48, 4).offset).toBe(0);
+    // Inside the glyph run: nearest cluster boundary.
+    expect(hitTest(snapshot, 25, 4).offset).toBe(2);
   });
 
   it('hit tests the boundary between LTR and RTL runs', () => {
     const snapshot = layout(BIDI_FIXTURES.priceInArabic, 1000);
-    // Between the space and "د" (x=160): nearest stop is the Arabic start.
-    expect(hitTest(snapshot, 162, 4).offset).toBe(17);
+    // Just left of the Arabic word: the last LTR boundary (offset 16).
+    expect(hitTest(snapshot, 162, 4).offset).toBe(16);
+    // Just inside the Arabic word: the nearest logical cluster boundary.
+    expect(hitTest(snapshot, 205, 4).offset).toBe(20);
   });
 
-  it('produces visually discontiguous selection rectangles across an RTL word', () => {
+  it('produces one contiguous selection rectangle across a fully selected RTL word', () => {
     const snapshot = layout(BIDI_FIXTURES.priceInArabic, 1000);
     const rects = selectionRects(snapshot, 8, 25);
-    expect(rects).toHaveLength(2);
+    expect(rects).toHaveLength(1);
     expect(rects[0]!.x).toBe(80);
-    expect(rects[0]!.width).toBe(130);
-    expect(rects[1]!.x).toBe(220);
+    expect(rects[0]!.width).toBe(170);
+  });
+
+  it('produces per-line selection rectangles across a wrap', () => {
+    const snapshot = layout('مرحبا hello world', 55);
+    expect(snapshot.lines.length).toBeGreaterThan(1);
+    const rects = selectionRects(snapshot, 0, 100);
+    expect(rects.length).toBeGreaterThan(1);
+    expect(new Set(rects.map((rect) => rect.lineIndex)).size).toBe(snapshot.lines.length);
   });
 
   it('selects a whole line as one rectangle', () => {
@@ -248,8 +273,15 @@ function hitTest(snapshot: ReturnType<typeof layoutText>, x: number, y: number) 
   const stops = snapshot.caretStops.filter((stop) => stop.lineIndex === 0);
   const line = snapshot.lines[0]!;
   return stops.reduce(
-    (best, stop) => (Math.abs(stop.x - x) < Math.abs(best.x - x) ? stop : best),
-    { offset: line.sourceStart, x: 0, affinity: 'leading' as const, direction: line.runs[0]?.direction ?? 'ltr' },
+    (best, stop) => {
+      const distance = Math.abs(stop.x - x);
+      const bestDistance = Math.abs(best.x - x);
+      const rtl = line.runs[0]?.direction === 'rtl';
+      return distance < bestDistance || (rtl && distance === bestDistance && stop.x > best.x)
+        ? stop
+        : best;
+    },
+    stops[0] ?? { offset: line.sourceStart, lineIndex: 0, x: 0, affinity: 'leading' as const, direction: line.runs[0]?.direction ?? 'ltr' },
   );
 }
 
@@ -262,8 +294,9 @@ describe('shapeParagraphRuns — canvas bridge into the canonical pipeline', () 
     const paragraph = itemizeText(BIDI_FIXTURES.priceInArabic).paragraphs[0]!;
     const runs = shapeParagraphRuns(paragraph, ctx, { fontFamily: 'Test', fontSize: 16 });
     expect(runs.map((run) => run.direction)).toEqual(['ltr', 'rtl', 'ltr']);
-    expect(runs[1]!.glyphs[0]!.clusterUtf16).toBe(17);
-    expect(runs[1]!.glyphs[1]!.clusterUtf16).toBe(18);
+    // RTL run glyphs are in visual order (rightmost first).
+    expect(runs[1]!.glyphs[0]!.clusterUtf16).toBe(21);
+    expect(runs[1]!.glyphs[runs[1]!.glyphs.length - 1]!.clusterUtf16).toBe(17);
   });
 
   it('flows shaped bridge output through layoutText unchanged in structure', () => {
