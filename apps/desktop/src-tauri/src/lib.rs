@@ -5,6 +5,7 @@ mod lifecycle;
 mod menu;
 mod print;
 mod renderer;
+mod updates;
 
 use image::load_from_memory;
 use notify::Watcher;
@@ -2631,7 +2632,9 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_opener::init());
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build());
 
     // WDIO testing plugins (debug-only, excluded from release builds)
     #[cfg(feature = "wdio")]
@@ -2759,6 +2762,7 @@ pub fn run() {
             render_frame_pixels,
             report,
             done,
+            updates::update_packaging_context,
             // Home commands
             home_list_files,
             home_list_trashed,

@@ -8,7 +8,7 @@ in [the update-system audit](../architecture/update-system-audit-2026-08-13.md).
 
 ---
 
-## 1. What exists today
+## 1. What existed before the updater implementation
 
 Audited, not assumed:
 
@@ -17,8 +17,9 @@ Audited, not assumed:
 - No update signing keypair exists anywhere in the repository or CI secrets.
 - No update manifest endpoint is served.
 
-So there is no updater to audit for safety, and no key that could leak. The
-decision to make is whether to add one for the first release.
+That was the pre-implementation state. The current capability matrix and
+threat model are maintained in
+[update-system-audit-2026-08-13.md](../architecture/update-system-audit-2026-08-13.md).
 
 ---
 
@@ -48,10 +49,10 @@ That decision remains useful as the fallback for unsupported, externally
 managed, development, and not-yet-validated builds. It is no longer the whole
 product requirement: the consent-first updater is being added incrementally.
 
-**What exists today (audited 2026-08-06):**
+**Historical v1 snapshot (audited 2026-08-06):**
 
-- No updater plugin, no update keypair, no update endpoint — confirmed in
-  `tauri.conf.json` and `Cargo.toml`.
+- No updater plugin, no update keypair, no update endpoint — confirmed in the
+  then-current `tauri.conf.json` and `Cargo.toml`.
 - No in-app "Check for updates" action exists in the editor, and none is being
   added at alpha: an update check that is not an update is a button that opens
   the release page, and the download page already links the GitHub Releases
@@ -87,9 +88,41 @@ The audit and capability matrix are maintained separately so this historical
 decision record does not silently become a claim that package-specific
 self-update is safe before its acceptance tests pass.
 
+## 4. Current implementation boundary
+
+The first implementation increment is deliberately conservative:
+
+- Tauri v2.10.1 updater and v2.3.1 process plugins are registered only for the
+  desktop app. The embedded public key is a dedicated updater key, separate
+  from Windows Authenticode and Apple Developer ID trust.
+- Stable and beta feeds are static JSON files generated from the exact signed
+  updater artifacts after the existing release trust gate. Website deployment
+  mirrors published feeds to `/updates/stable.json` and `/updates/beta.json`;
+  drafts are never mirrored.
+- AppImage self-update is offered only when native runtime detection sees a
+  non-development AppImage at a non-empty, writable location. Non-AppImage
+  Linux installs are never self-replaced: conventional system locations are
+  presented as package-manager managed, and other extracted binaries are
+  manual-only.
+- Windows NSIS and an installed writable macOS `.app` use Tauri's updater
+  artifacts. A mounted/read-only DMG is not an update target.
+- Manual checking remains available without background consent. Download and
+  install are separate state-machine operations; signature verification occurs
+  inside Tauri's updater download boundary before the coordinator can expose
+  `ready-to-install`.
+- The ready-to-install UI does not bypass Varve's canonical termination/save
+  coordinator. “Install and Restart” enters the existing restart transaction;
+  install-on-quit enters the same transaction on a native quit request. A
+  normal quit installs and exits; an explicit restart installs and relaunches.
+  Neither path can discard unsaved documents.
+
+The implementation is still not a production-enablement claim. The gates in
+§3 remain release-blocking until the packaged upgrade matrix and the actual
+release feed have been exercised on the supported runners.
+
 ---
 
-## 4. Channel design (for when it lands)
+## 5. Channel design
 
 Channels derive from the tag shape, which `release.yml` already implements:
 
@@ -111,7 +144,7 @@ this — the server manifest can be replaced, the client check cannot.
 
 ---
 
-## 5. Key management (procedure to rehearse before use)
+## 6. Key management
 
 Tauri's updater signs manifests with a minisign keypair. Expiry/rotation
 calendar and compromise procedure: [signing-rotation-runbook.md](signing-rotation-runbook.md)
@@ -133,7 +166,10 @@ pnpm tauri signer generate -w ~/.varve/updater.key
 | Key password | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret | Anywhere alongside the key |
 | Public key | `tauri.conf.json`, committed | — |
 
-`.gitignore` already excludes `.env*`; add `*.key` before generating anything.
+`.gitignore` excludes updater key files. The working key generated during this
+implementation is outside the repository at `~/.varve/updater.key`; it is not
+committed or used as a CI credential. A protected release secret must be
+provisioned before the release workflow can build updater artifacts.
 
 **Rotation** is a slow operation and must be planned as one: the public key is
 compiled into every already-installed client, so a rotated key cannot sign
@@ -152,7 +188,7 @@ advisory, and treat it as the incident it is. See
 
 ---
 
-## 6. Failure modes the updater must handle
+## 7. Failure modes the updater must handle
 
 Listed because "it downloaded and installed" is the easy path and the other
 eleven are where users lose work:
@@ -174,7 +210,7 @@ eleven are where users lose work:
 
 ---
 
-## 7. Interim: version-check-only
+## 8. Historical interim: version-check-only
 
 A safe first step that is not an updater:
 

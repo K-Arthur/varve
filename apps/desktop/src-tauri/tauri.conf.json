@@ -44,6 +44,7 @@
           "https://*.githubusercontent.com",
           "https://*.huggingface.co",
           "https://*.hf.co",
+          "https://varve.studio",
           "https://api.iconify.design",
           "https://api.simplesvg.com",
           "https://api.unisvg.com",
@@ -93,6 +94,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["appimage", "deb", "rpm", "nsis", "dmg"],
     "resources": ["onnxruntime-libs/**/*"],
     "fileAssociations": [
@@ -198,6 +200,15 @@
         "language": ["en-US"]
       },
       "nsis": {}
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDM5N0Y3MEM1QTY5QkQ1RjUKUldUMTFadW14WEIvT1N5V0ROaG02L3NhTzZ5K3lMNEZxWmFMUzBsZU96TWFDSnFmdDF0a0J2ZVQK",
+      "endpoints": ["https://varve.studio/updates/stable.json"],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }
