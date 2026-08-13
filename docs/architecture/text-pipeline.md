@@ -181,6 +181,13 @@ already caught and fixed three real defects: dropped trailing whitespace
 breaking caret coverage, script itemization splitting Arabic harakat from
 their base, and ICU-reported grapheme boundaries for degenerate ZWJ chains.
 
+The application-level browser check in
+`tests/e2e/canvas/text-multilingual-visual.spec.ts` complements the primitive
+replay screenshots. It creates text through the real editor tool, renders the
+mixed-script string through the desktop compositor, fits the selection, and
+captures the canvas for human review. This catches editor-state, camera,
+selection-overlay, and compositor defects that engine-only screenshots cannot.
+
 Line-level visual ordering is implemented locally in `reorderLineIndices`
 (UAX #9 L1.4 + L2 restricted to the line) instead of calling bidi-js
 `getReorderedIndices` per line, which allocates a full-paragraph index array
