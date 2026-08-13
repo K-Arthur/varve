@@ -5,20 +5,31 @@ import { chat, createAssistant } from './index';
 const doc: Document = createDocument('Test');
 
 describe('chat', () => {
-  it('dispatches to a real intelligence command when the message matches and context is given', async () => {
+  it('dispatches to a real on-device command when the message matches and context is given', async () => {
     const reply = await chat('s1', 'scan for debt', { document: doc });
     expect(reply.role).toBe('assistant');
-    expect(reply.content).not.toMatch(/Varve AI assistant/i);
+    expect(reply.content).toMatch(/design debt/);
   });
 
-  it('falls back to the mock reply when no context is given', async () => {
-    const reply = await chat('s1', 'scan for debt');
-    expect(reply.role).toBe('assistant');
+  it('answers instantly — no simulated latency', async () => {
+    const started = Date.now();
+    const reply = await chat('s1', 'check contrast', { document: doc });
+    expect(Date.now() - started).toBeLessThan(50);
+    expect(reply.content).toMatch(/contrast/i);
   });
 
-  it('falls back to the mock reply when the message matches no command', async () => {
+  it('lists the real on-device commands for an unknown intent', async () => {
     const reply = await chat('s1', 'hello there', { document: doc });
-    expect(reply.content).toMatch(/Hello/i);
+    expect(reply.content).toMatch(/on-device/);
+    expect(reply.content).toMatch(/Check contrast/);
+    expect(reply.content).toMatch(/Scan for design debt/);
+    // No canned personality reply.
+    expect(reply.content).not.toMatch(/Hello! How can I help/i);
+  });
+
+  it('explains the editor context requirement when no context is supplied', async () => {
+    const reply = await chat('s1', 'scan for debt');
+    expect(reply.content).toMatch(/Open me from the editor/);
   });
 
   it('delegates naming commands to the supplied handler', async () => {
