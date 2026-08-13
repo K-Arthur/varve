@@ -163,8 +163,23 @@ pub fn store_font_on_filesystem(
 
     let meta_json = serde_json::to_string(&meta)
         .map_err(|e| format!("Cannot serialize metadata: {e}"))?;
-    std::fs::write(meta_path(&dir), &meta_json)
-        .map_err(|e| format!("Cannot write metadata: {e}"))?;
+    // Atomic metadata write: a crash mid-write must not leave a truncated
+    // meta.json that would hide the font or break its load.
+    let meta_tmp = dir.join(format!(
+        ".varve-meta-{}-{}.tmp",
+        std::process::id(),
+        staging_id
+    ));
+    let meta_result = std::fs::write(&meta_tmp, &meta_json)
+        .map_err(|e| format!("Cannot write metadata: {e}"))
+        .and_then(|()| {
+            crate::filesystem::replace_file(&meta_tmp, &meta_path(&dir))
+                .map_err(|error| format!("Cannot finalize metadata: {}", error.message))
+        });
+    if meta_result.is_err() {
+        let _ = std::fs::remove_file(&meta_tmp);
+    }
+    meta_result?;
 
     Ok(meta)
 }
