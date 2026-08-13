@@ -8277,7 +8277,41 @@ export function EditorProvider({
           const usePixelArt =
             options.method === 'nearest' && pixelArtAlgo && pixelArtAlgo !== 'nearest';
           let outputImage: ImageData;
-          if (denoiseStrength && denoiseStrength !== 'none') {
+          if (options.operation) {
+            const operation = options.operation;
+            const restorationResult = await engine.runRestoration(
+              source,
+              {
+                operation,
+                denoise:
+                  operation === 'denoise' || operation === 'restore-upscale'
+                    ? {
+                        strength:
+                          denoiseStrength && denoiseStrength !== 'none'
+                            ? denoiseStrength
+                            : 'medium',
+                        modelId: 'scunet',
+                      }
+                    : undefined,
+                upscale:
+                  operation === 'upscale' || operation === 'restore-upscale'
+                    ? {
+                        method: usePixelArt
+                          ? 'pixel-art'
+                          : (options.method ?? 'bicubic'),
+                        scale: options.scale ?? 2,
+                        modelId: options.modelId,
+                        pixelArtAlgorithm: usePixelArt ? (pixelArtAlgo as PixelArtAlgorithm) : undefined,
+                      }
+                    : undefined,
+              },
+              {
+                signal: controller.signal,
+                onProgress: (_stage, done, total) => options.onProgress?.(done, total),
+              },
+            );
+            outputImage = restorationResult.imageData;
+          } else if (denoiseStrength && denoiseStrength !== 'none') {
             const pipelineResult = await engine.runEnhancementPipeline({
               source,
               denoiseStrength,
@@ -8435,8 +8469,14 @@ export function EditorProvider({
             updateDoc(() => inserted.doc);
             patch({ selection: [inserted.nodeId] });
           }
+          const operationLabel =
+            options.operation === 'denoise'
+              ? 'denoised'
+              : options.operation === 'restore-upscale'
+                ? 'restored and upscaled'
+                : 'upscaled';
           announcerRef.current?.announce(
-            `Image upscaled to ${outputImage.width} by ${outputImage.height} pixels`,
+            `Image ${operationLabel} to ${outputImage.width} by ${outputImage.height} pixels`,
           );
         } catch (error) {
           if (controller.signal.aborted) throw new Error('cancelled');
