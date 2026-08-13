@@ -22,7 +22,7 @@ const faqSchema = {
       name: 'What platforms does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve supports Linux (x86_64), macOS (Apple Silicon, macOS 13 Ventura or later), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, and rpm. There is no Intel macOS build, and ARM builds are not available on Linux or Windows.',
+        text: 'Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the download page only after their runtime gates pass. There is no Intel macOS build.',
       },
     },
     {
@@ -70,7 +70,7 @@ const faqSchema = {
       name: 'Does Varve support ARM processors?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve supports Apple Silicon (ARM) on macOS via ARM64 builds. Linux ARM and Windows ARM are not currently supported.',
+        text: 'Varve supports Apple Silicon (ARM64) on macOS. Linux ARM64 and Windows ARM64 are being validated as native release targets; use the architecture-labeled download on the download page and do not install an x86_64 build by assumption.',
       },
     },
     {
@@ -124,7 +124,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>What platforms does Varve support?</h3>
-          <p>Varve supports Linux (x86_64), macOS (Apple Silicon, macOS 13 Ventura or later), and Windows 10/11 (x86_64). Linux packages include AppImage, deb, and rpm. There is no Intel macOS build yet, and ARM builds are not available on Linux or Windows.</p>
+          <p>Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the <a href={sitePath('/download')}>download page</a> only after their runtime gates pass. There is no Intel macOS build.</p>
         </div>
 
         <div class="faq-item">
@@ -158,7 +158,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>Does Varve support ARM processors?</h3>
-          <p>Varve supports Apple Silicon (ARM) on macOS via ARM64 builds. Linux ARM and Windows ARM are not currently supported.</p>
+          <p>Varve supports Apple Silicon (ARM64) on macOS. Linux ARM64 and Windows ARM64 are being validated as native release targets; use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a> and do not install an x86_64 build by assumption.</p>
         </div>
 
         <div class="faq-item">
