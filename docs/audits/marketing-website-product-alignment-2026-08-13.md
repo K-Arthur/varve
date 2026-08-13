@@ -22,6 +22,27 @@ capability map and the product truth matrix.
 - The documentation hub now links the dedicated `/docs/workspaces` page.
 - The existing `/docs/tools/*` links were verified against the generated
   static routes and remain the correct documentation destinations.
+- Screenshot review covered the homepage in light/dark desktop and 375px
+  mobile layouts, the product/features/download surfaces, and the new
+  Workspaces documentation page in desktop and mobile layouts. The rendered
+  pages had no clipping, horizontal overflow, unreadable theme transition, or
+  missing-content defect after deterministic motion settling.
+- Browser accessibility validation found and fixed a light-theme contrast gap
+  on the discipline panel index (`.discipline-panel-num`); its accent opacity
+  is now full-strength. The focused axe suite passes in both themes.
+
+## Validation record
+
+- Website type/build checks: `astro check` — 0 errors, 0 warnings, 1 existing
+  generated-bundle hint; static builds pass for both root and `/varve` bases.
+- Visual regression review: the existing homepage/product/features/download
+  snapshots show expected content-height/copy drift from the current product
+  truth updates, so they were not blindly regenerated. Representative actual
+  screenshots were inspected directly instead.
+- Browser checks: 14 focused axe checks pass after the contrast fix, including
+  the Workspaces route; the navigation suite passed its 8
+  interaction/base-path/overflow checks. The Workspaces page now has a
+  dedicated light-theme visual regression snapshot.
 
 ## Ongoing content rules
 
