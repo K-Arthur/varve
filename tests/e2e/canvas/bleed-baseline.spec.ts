@@ -72,6 +72,12 @@ test.describe('Bleed canvas behavior', () => {
   test.setTimeout(420000);
 
   test('no bleed config, content beyond trim, and inspector bleed guides', async ({ page }) => {
+    // Crash-loop debugging in shared dev environments must not force
+    // safe mode on the next boot.
+    await page.addInitScript(() => {
+      localStorage.removeItem('varve:crash-loop');
+      localStorage.removeItem('varve:safe-mode');
+    });
     await navigateToEditor(page);
 
     // A new document starts page-less (flat pasteboard); bleed is a page

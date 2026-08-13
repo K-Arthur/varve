@@ -163,6 +163,11 @@ export function documentBleedMm(doc: Document): number {
   return pxToMm(bleed.top, doc);
 }
 
+/** Resolved top-edge bleed in millimetres for a specific page (override-aware). */
+export function pageBleedMm(doc: Document, pageId: NodeId): number {
+  return pxToMm(resolvePagePrintGeometry(doc, pageId).bleed.top, doc);
+}
+
 /** Convert document pixels back to millimetres via the fixed 96dpi world scale. */
 export function pxToMm(px: number, _doc: Document): number {
   return (px * 25.4) / 96;
