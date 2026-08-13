@@ -420,8 +420,12 @@ describe('Menubar menu structure', () => {
     expect(within(menu).getByRole('menuitem', { name: /Undo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Redo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Cut/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Copy/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /Paste/ })).toBeTruthy();
+    // Accessible names include the rendered shortcut ("CopyCtrl+S"), so match
+    // on the label stem and disambiguate Copy from Copy Properties.
+    expect(within(menu).getByRole('menuitem', { name: /^Copy(?! Properties)/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Paste(?! Properties)/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Copy Properties/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Paste Properties/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /^Duplicate/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Delete/ })).toBeTruthy();
   });

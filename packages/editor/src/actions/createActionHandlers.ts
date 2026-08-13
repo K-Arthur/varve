@@ -58,6 +58,8 @@ export function createActionHandlers(
     copy: () => e.copySelected(),
     cut: () => e.cutSelected(),
     paste: () => e.paste(),
+    copyProperties: () => e.copySelectedProperties(),
+    pasteProperties: () => e.pastePropertiesToSelection(),
     duplicate: () => e.duplicateSelected(),
     repeatDuplicate: () => e.repeatDuplicate(),
     selectAll: () => {

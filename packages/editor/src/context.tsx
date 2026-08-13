@@ -136,8 +136,6 @@ import {
   arrangeNode as arrangeNodeDoc,
   assignDocumentColorMode as assignDocumentColorModeDoc,
   assignMasterToPage as assignMasterToPageDoc,
-  setDocumentBitDepth as setDocumentBitDepthDoc,
-  setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   type BleedConfig,
   booleanAnchorForNode,
   buildParentIndexMap,
@@ -253,7 +251,9 @@ import {
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
+  setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentProofConfig as setDocumentProofConfigDoc,
+  setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
   setLiveTraceParams as setLiveTraceParamsDoc,
@@ -452,6 +452,13 @@ import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
 import { reflowLayoutChildren } from './layout/reflow';
 import { type MediaContextValue, MediaProvider } from './media/MediaContext';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
+import {
+  applyPaintProperties,
+  extractPaintProperties,
+  getPropertyClipboard,
+  hasPaintProperties,
+  setPropertyClipboard,
+} from './propertyClipboard';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
@@ -7014,6 +7021,44 @@ export function EditorProvider({
           if (n.kind !== 'adjustment') return n;
           return { ...n, scope } as SceneNode;
         });
+      },
+
+      // Style painter: copy/paste visual properties (one undo entry for the
+      // paste regardless of how many nodes are targeted).
+      copySelectedProperties: () => {
+        const sel = state.selection;
+        const source = sel.length > 0 ? state.document.nodes[sel[0]!] : undefined;
+        if (!source) return;
+        setPropertyClipboard(extractPaintProperties(source));
+        announcerRef.current?.announce('Properties copied');
+      },
+      pastePropertiesToSelection: () => {
+        const props = getPropertyClipboard();
+        if (!hasPaintProperties(props)) {
+          announcerRef.current?.announce('No copied properties to paste');
+          return;
+        }
+        const sel = state.selection.filter((id) => {
+          const node = state.document.nodes[id];
+          return node && !node.locked;
+        });
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const updated = applyPaintProperties(node, props);
+            if (updated !== node) {
+              nodes[id] = updated;
+              invalidateNodeThumbnail(id);
+            }
+          }
+          return { ...doc, nodes };
+        });
+        announcerRef.current?.announce(
+          `Properties pasted to ${sel.length} layer${sel.length === 1 ? '' : 's'}`,
+        );
       },
 
       copySelected: () => {

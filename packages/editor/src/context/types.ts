@@ -941,6 +941,11 @@ export interface EditorContextValue {
   copySelected: () => void;
   cutSelected: () => void;
   paste: () => void;
+  /** Copy the visual properties (fills, strokes, effects, typography) of the
+   *  first selected node for style-painter pasting. */
+  copySelectedProperties: () => void;
+  /** Apply the copied properties to every selected node (one undo entry). */
+  pastePropertiesToSelection: () => void;
   importNode: (
     node: SceneNode,
     sourceDoc: Document,
