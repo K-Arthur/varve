@@ -57,7 +57,7 @@ rendering, editing, hit testing, selection, masks, and exports.
 | BiDi implementation | `engine/src/unicode/bidi.ts` delegates paragraph resolution to the `bidi-js` adapter | Existing public paragraph/run API is preserved; visual indices and mirroring are now derived from resolved levels |
 | Native shaping | `crates/varve-print/src/shaper.rs` uses `rustybuzz 0.20`; Tauri exposes `shape_text_command` | Strong native backend; needs canonical wire/layout integration |
 | Web shaping dependency | `harfbuzzjs 1.6.0` is declared | Not integrated; must be evaluated behind lazy loading and font-byte ownership |
-| Web rendering | `layoutRichText` and `replay.ts` use Canvas measurement and `fillText` | Browser text remains paint authority; no positioned glyph replay |
+| Web rendering | `layoutRichText` and `replay.ts` use Canvas measurement and `fillText`; the shaping bridge now consumes resolved visual BiDi runs | Browser text remains paint authority; no positioned glyph replay and no true web glyph IDs yet |
 | Font system | Font registry/resolver, font storage, Tauri enumeration, opentype.js outlines | Exact face/coverage/fallback revision is not part of canonical layout |
 | Editing | `TextEditOverlay` textarea, composition lifecycle, `RichTextSpanEditor` contenteditable | Composition exists; caret geometry and paragraph/BiDi editing are incomplete |
 | Export | SVG emits direction/features; PDF has native/outline paths; codegen preserves basic strings | Export semantics are not driven by the live shaped snapshot |

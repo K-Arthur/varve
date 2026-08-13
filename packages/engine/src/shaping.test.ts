@@ -116,6 +116,12 @@ describe('shapeRun', () => {
     expect(runs[0]!.direction).toBe('rtl');
   });
 
+  it('keeps mixed paragraph run order from the resolved visual BiDi mapping', () => {
+    const runs = shapeRun({ text: 'שלום hello', fontFamily: 'Arial', fontSize: 16, ctx });
+    expect(runs[0]?.direction).toBe('rtl');
+    expect(runs[runs.length - 1]?.direction).toBe('ltr');
+  });
+
   it('respects explicit LTR direction override', () => {
     const runs = shapeRun({
       text: 'Hello',
