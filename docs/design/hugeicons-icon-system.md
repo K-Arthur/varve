@@ -76,8 +76,24 @@ changing its command or data contract.
 ## Visual QA record
 
 The implementation requires a screenshot pass covering home default/empty and
-responsive states, the open workspace switcher, the editor toolbar with Warp
-active, and representative dialogs in light and dark themes. The run-specific
-results and any corrections are recorded alongside the implementation in the
-validation report before release; baselines must only be updated after direct
-visual inspection.
+responsive states, the open workspace switcher, the editor tool surface, and
+representative dialogs in light and dark themes. Warp remains covered by the
+existing `tests/e2e/canvas/warp-visual.spec.ts`, which exercises the actual
+selection-to-cage workflow rather than assuming the control is present on an
+empty canvas. The iconography matrix adds the home/editor states without
+creating a second snapshot baseline.
+
+### Review record — 2026-08-13
+
+- The isolated light-theme home run passed the default workflow and 420px
+  reflow. Direct inspection showed the empty-state hierarchy, New action,
+  settings tooltip, dialog scrim/focus treatment, and narrow toolbar remain
+  legible and unclipped.
+- The workspace assertion now checks `aria-expanded="true"` and captures the
+  popover element itself. This matters because the first page-level capture
+  did not make the transient menu visually obvious even though the locator was
+  present; the element capture is the review artifact for that state.
+- The dark-theme/editor rerun was attempted but the shared workspace was under
+  a cold Vite rebuild and concurrent validation jobs, leaving the browser on
+  the startup splash. It is not counted as a pass and must be rerun in a quiet
+  environment before release. No visual baseline was updated from that run.
