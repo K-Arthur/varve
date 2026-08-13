@@ -77,6 +77,10 @@ platform adapter, never in a separator replacement helper.
   oversized values before `PathBuf::join`.
 - Atomic writes use an app-generated sibling temporary name and do not convert
   the target filename through `to_string_lossy()`.
+- Replacement uses the host-native atomic replace operation: `rename` on
+  platforms where it replaces a destination, and Windows `MoveFileExW` with
+  replace/write-through flags where plain rename would fail on an existing
+  file.
 - Font downloads and print spooling use unique staging files under the
   resolved application/temporary roots; they do not share a fixed process-wide
   temporary filename.
