@@ -1,0 +1,79 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Depth-aware effects"
+  description="Varve's local-first DepthMap workflow and non-destructive Depth Blur for photographs."
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Depth-aware effects
+      </nav>
+
+      <h1>Depth-aware effects</h1>
+      <p class="feature-intro">
+        Generate a reusable relative DepthMap locally, then use it to focus blur without flattening
+        the photograph or baking in a one-off pixel result.
+      </p>
+
+      <section class="feature-section">
+        <h2>One depth field, many effects</h2>
+        <p>
+          Varve stores depth as a continuous, normalized field rather than a subject mask. Near and
+          far regions remain available to future effects, focus transitions are adjustable, and the
+          document keeps the original image as the source of truth.
+        </p>
+        <ul>
+          <li><strong>Local-first:</strong> the optional depth model is downloaded explicitly and runs through Varve's inference path.</li>
+          <li><strong>Non-destructive:</strong> Depth Blur is an effect referencing a persisted DepthMap, not a derived replacement image.</li>
+          <li><strong>Focus control:</strong> choose focal depth, transition range, blur strength, and inversion; sample a point from the depth preview.</li>
+          <li><strong>Stable rendering:</strong> saved documents render the effect from the stored map without requiring the model at display time.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Honest boundaries</h2>
+        <p>
+          The first workflow produces relative depth, not calibrated camera distance or a full 3D
+          reconstruction. Reflections, transparent materials, heavy occlusion, and unusual camera
+          viewpoints can produce uncertain predictions. Treat the depth preview as an editable guide,
+          and regenerate it when the source asset changes.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Workflow notes</h2>
+        <p>
+          The source asset, model provenance, preprocessing version, and resource schema travel with
+          the DepthMap metadata. Corrupt or unavailable maps fail soft: Varve preserves the source
+          pixels and reports that the effect needs regeneration.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Explore the workflow</h2>
+        <a href={sitePath('/docs/tools/depth-blur')} class="btn-primary">Read the Depth Blur guide</a>
+        <a href={sitePath('/features/color-effects')} class="btn-secondary">See Color &amp; Effects</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section ul { padding-left: 1.25rem; }
+  .feature-section li + li { margin-top: 0.75rem; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .feature-cta h2 { margin-bottom: 1rem; }
+  .btn-secondary { margin-left: 0.75rem; }
+</style>
