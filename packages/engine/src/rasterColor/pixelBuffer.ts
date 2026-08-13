@@ -135,18 +135,19 @@ export function rgba32fToRgba16(source: Float32Array, target: Uint16Array): void
 
 /** Convert packed IEEE-754 half-float bits to float32 values. */
 export function rgba16fToRgba32f(source: Uint16Array, target: Float32Array): void {
-  for (let i = 0; i < source.length; i += 1) target[i] = halfToFloat(source[i]!);
+  for (let i = 0; i < source.length; i += 1) target[i] = halfFloatToFloat32(source[i]!);
 }
 
 /** Convert float32 values to packed IEEE-754 half-float bits. */
 export function rgba32fToRgba16f(source: Float32Array, target: Uint16Array): void {
-  for (let i = 0; i < source.length; i += 1) target[i] = floatToHalf(source[i]!);
+  for (let i = 0; i < source.length; i += 1) target[i] = float32ToHalfFloat(source[i]!);
 }
 
 const halfScratch = new ArrayBuffer(4);
 const halfScratchView = new DataView(halfScratch);
 
-function floatToHalf(value: number): number {
+/** Convert one float32-compatible number to packed IEEE-754 half-float bits. */
+export function float32ToHalfFloat(value: number): number {
   halfScratchView.setFloat32(0, value);
   const bits = halfScratchView.getUint32(0);
   const sign = (bits >>> 16) & 0x8000;
@@ -163,7 +164,8 @@ function floatToHalf(value: number): number {
   return sign | (exponent << 10) | (mantissa >>> 13);
 }
 
-function halfToFloat(bits: number): number {
+/** Convert packed IEEE-754 half-float bits to a JavaScript number. */
+export function halfFloatToFloat32(bits: number): number {
   const sign = (bits & 0x8000) << 16;
   const exponent = (bits >>> 10) & 0x1f;
   const mantissa = bits & 0x3ff;
