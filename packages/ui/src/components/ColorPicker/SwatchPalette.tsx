@@ -1,12 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
+import type { ManagedColor } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import { Tooltip } from '../Tooltip';
 import type { Color } from './color-utils';
 import { rgbToHex } from './color-utils';
 
 export interface SwatchPaletteProps {
-  onSelect: (color: Color) => void;
-  documentColors?: Color[];
-  recentColors?: Color[];
+  /** Canonical ManagedColor swatches (document colors, recents). */
+  onSelect: (color: ManagedColor) => void;
+  documentColors?: ManagedColor[];
+  recentColors?: ManagedColor[];
   label?: string;
 }
 
@@ -37,6 +40,11 @@ function swatchBorder(c: Color): string {
   return luminance(c) > 160
     ? '1px solid var(--color-border-strong)'
     : '1px solid rgba(255,255,255,0.3)';
+}
+
+/** 8-bit display tuple of a canonical color — swatch face only. */
+function displayTuple(c: ManagedColor): Color {
+  return managedColorToRgba(c) as unknown as Color;
 }
 
 export function SwatchPalette({
@@ -87,7 +95,7 @@ export function SwatchPalette({
 
   interface SwatchSectionProps {
     title: string;
-    colors: { name: string; color: Color }[];
+    colors: { name: string; display: Color; value: ManagedColor }[];
   }
 
   function SwatchSection({ title, colors }: SwatchSectionProps) {
@@ -95,8 +103,8 @@ export function SwatchPalette({
       <div>
         <div className="swatch-palette__section-title">{title}</div>
         <div className="swatch-palette__grid">
-          {colors.map(({ name, color }) => {
-            const key = `${name}-${color.join(',')}`;
+          {colors.map(({ name, display, value }) => {
+            const key = `${name}-${display.join(',')}`;
             return (
               <Tooltip key={key} label={name}>
                 <button
@@ -107,11 +115,11 @@ export function SwatchPalette({
                   className="swatch-palette__swatch"
                   onClick={() => {
                     setSelectedKey(key);
-                    onSelect(color);
+                    onSelect(value);
                   }}
                   style={{
-                    background: `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`,
-                    border: swatchBorder(color),
+                    background: `rgba(${display[0]},${display[1]},${display[2]},${(display[3] / 255).toFixed(2)})`,
+                    border: swatchBorder(display),
                   }}
                 />
               </Tooltip>
@@ -122,17 +130,28 @@ export function SwatchPalette({
     );
   }
 
-  const recentSwatches = (recentColors ?? []).map((c) => ({
-    name: rgbToHex(c[0], c[1], c[2]),
-    color: c,
-  }));
+  const recentSwatches = (recentColors ?? []).map((c) => {
+    const display = displayTuple(c);
+    return { name: rgbToHex(display[0], display[1], display[2]), display, value: c };
+  });
 
-  const docSwatches = (documentColors ?? []).map((c) => ({
-    name: rgbToHex(c[0], c[1], c[2]),
-    color: c,
-  }));
+  const docSwatches = (documentColors ?? []).map((c) => {
+    const display = displayTuple(c);
+    return { name: rgbToHex(display[0], display[1], display[2]), display, value: c };
+  });
 
-  const themeSwatches = THEME_PALETTE;
+  const themeSwatches: { name: string; display: Color; value: ManagedColor }[] =
+    THEME_PALETTE.map(({ name, color }) => ({
+      name,
+      display: color,
+      value: {
+        space: 'rgb',
+        r: color[0],
+        g: color[1],
+        b: color[2],
+        a: color[3],
+      },
+    }));
 
   return (
     <div
