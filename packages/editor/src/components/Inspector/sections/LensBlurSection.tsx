@@ -1,6 +1,7 @@
 import type { DepthMap, DepthMapResource } from '@varve/engine';
 import {
   applyLensBlur,
+  depthRangeToMask,
   depthToHeatmapImageData,
   deserializeDepthMap,
   getInferenceWorkerHost,
@@ -12,6 +13,7 @@ import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
 import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
 import { type MouseEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { commitRasterMask } from '../../../backgroundRemoval/commitRasterMask';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -136,6 +138,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     transitionRange: 20,
     invert: false,
   });
+  const [maskParams, setMaskParams] = useState({ near: 0, far: 100, feather: 10, invert: false });
   const [livePreview, setLivePreview] = useState(false);
   const [previewDepth, setPreviewDepth] = useState(false);
   const [pickFocus, setPickFocus] = useState(false);
@@ -146,6 +149,9 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const blurAmountId = useId();
   const focalDepthId = useId();
   const transitionRangeId = useId();
+  const maskNearId = useId();
+  const maskFarId = useId();
+  const maskFeatherId = useId();
 
   const src = node && isImageShape(node) ? imageShapeSrc(node) : '';
   const sourceAssetId = node?.fills?.find((fill) => fill.type === 'image')?.image?.assetId;
@@ -427,6 +433,90 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     [announce, depthData, pickFocus],
   );
 
+  const handleCreateDepthMask = useCallback(() => {
+    if (!depthData || !depthResource || !node) return;
+    try {
+      const coverage = depthRangeToMask(
+        depthData,
+        maskParams.near / 100,
+        maskParams.far / 100,
+        maskParams.feather / 100,
+        maskParams.invert,
+      );
+      const canvas = document.createElement('canvas');
+      canvas.width = depthData.width;
+      canvas.height = depthData.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const encoded = new ImageData(
+        new Uint8ClampedArray(depthData.width * depthData.height * 4),
+        canvas.width,
+        canvas.height,
+      );
+      for (let i = 0; i < coverage.length; i++) {
+        const offset = i * 4;
+        encoded.data[offset] = 255;
+        encoded.data[offset + 1] = 255;
+        encoded.data[offset + 2] = 255;
+        encoded.data[offset + 3] = coverage[i]!;
+      }
+      ctx.putImageData(encoded, 0, 0);
+      const dataUrl = canvas.toDataURL('image/png');
+      updateDoc((doc) =>
+        commitRasterMask(doc, node.id, {
+          dataUrl,
+          width: depthData.width,
+          height: depthData.height,
+          method: 'quick',
+          runtime: 'typescript',
+          modelId: depthResource.modelId,
+          modelVersion: depthResource.modelVersion,
+          generatedAt: depthResource.generatedAt,
+          sourceLocator: imageShapeSrc(node),
+        }),
+      );
+      announce(
+        `Depth mask created for ${maskParams.invert ? 'outside' : 'inside'} the depth range`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Mask creation failed';
+      setInferenceError(msg);
+    }
+  }, [announce, depthData, depthResource, maskParams, node, updateDoc]);
+
+  const handleRemoveDepthBlur = useCallback(() => {
+    if (!node) return;
+    updateDoc((doc) => {
+      const current = doc.nodes[node.id];
+      if (!current || !('effects' in current)) return doc;
+      const effects = (current.effects ?? []).filter((effect) => effect.type !== 'depthBlur');
+      const next: typeof doc = {
+        ...doc,
+        nodes: { ...doc.nodes, [node.id]: { ...current, effects } },
+      };
+      // Drop depth resources no longer referenced by any node effect.
+      const referenced = new Set<string>();
+      for (const candidate of Object.values(next.nodes)) {
+        if (!('effects' in candidate)) continue;
+        for (const effect of candidate.effects ?? []) {
+          if (effect.type === 'depthBlur') referenced.add(effect.depthMapId);
+        }
+      }
+      const remaining = next.depthMaps
+        ? Object.fromEntries(Object.entries(next.depthMaps).filter(([id]) => referenced.has(id)))
+        : undefined;
+      return {
+        ...next,
+        depthMaps: remaining && Object.keys(remaining).length > 0 ? remaining : undefined,
+      };
+    });
+    setDepthData(null);
+    setDepthResource(null);
+    setDepthState('idle');
+    setInferenceError(null);
+    announce('Depth Blur removed');
+  }, [announce, node, updateDoc]);
+
   if (!node || !isImageShape(node)) return null;
 
   const showBlurControls = depthState === 'ready' && depthData !== null && depthResource !== null;
@@ -624,6 +714,78 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="insp-actions">
               <Button type="button" variant="primary" size="sm" onClick={handleApply}>
                 Save Depth Blur
+              </Button>
+              {depthEffectId && (
+                <Button type="button" variant="ghost" size="sm" onClick={handleRemoveDepthBlur}>
+                  Remove Depth Blur
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+
+        {depthData && depthState === 'ready' && (
+          <>
+            <hr className="insp-divider" />
+            <p className="insp-subsection__label">Depth Range Mask</p>
+            <p className="insp-hint">
+              Converts the DepthMap into a non-destructive layer mask. Useful for foreground or
+              background selection; the mask can be used by adjustments and other effects.
+            </p>
+            <FieldRow label="Near" htmlFor={maskNearId}>
+              <input
+                id={maskNearId}
+                type="range"
+                className="insp-range"
+                min={0}
+                max={100}
+                step={1}
+                value={maskParams.near}
+                aria-label="Mask near threshold"
+                onChange={(e) => setMaskParams((p) => ({ ...p, near: Number(e.target.value) }))}
+              />
+              <output htmlFor={maskNearId}>{maskParams.near}%</output>
+            </FieldRow>
+            <FieldRow label="Far" htmlFor={maskFarId}>
+              <input
+                id={maskFarId}
+                type="range"
+                className="insp-range"
+                min={0}
+                max={100}
+                step={1}
+                value={maskParams.far}
+                aria-label="Mask far threshold"
+                onChange={(e) => setMaskParams((p) => ({ ...p, far: Number(e.target.value) }))}
+              />
+              <output htmlFor={maskFarId}>{maskParams.far}%</output>
+            </FieldRow>
+            <FieldRow label="Feather" htmlFor={maskFeatherId}>
+              <input
+                id={maskFeatherId}
+                type="range"
+                className="insp-range"
+                min={0}
+                max={50}
+                step={1}
+                value={maskParams.feather}
+                aria-label="Mask feather"
+                onChange={(e) => setMaskParams((p) => ({ ...p, feather: Number(e.target.value) }))}
+              />
+              <output htmlFor={maskFeatherId}>{maskParams.feather}%</output>
+            </FieldRow>
+            <label className="insp-check">
+              <input
+                type="checkbox"
+                className="insp-checkbox"
+                checked={maskParams.invert}
+                onChange={(e) => setMaskParams((p) => ({ ...p, invert: e.target.checked }))}
+              />
+              <span>Invert (select outside range)</span>
+            </label>
+            <div className="insp-actions">
+              <Button type="button" variant="ghost" size="sm" onClick={handleCreateDepthMask}>
+                Create Depth Mask
               </Button>
             </div>
           </>
