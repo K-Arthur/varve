@@ -20,6 +20,11 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           Varve's code generation system exports scene documents to multiple formats including SVG, React with Tailwind CSS, React with CSS Modules, Flutter, and SwiftUI. The print production system supports PDF export with CMYK, bleed, crop marks, and color bars for professional print workflows.
         </p>
+        <p>
+          For page-based print work, <a href={sitePath('/features/print-production')}>Print Production</a>
+          adds design-time trim and bleed guides so the production area stays visible while you
+          design.
+        </p>
       </section>
 
       <section class="feature-section">
@@ -31,6 +36,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Flutter:</strong> Export to Flutter/Dart code</li>
           <li><strong>SwiftUI:</strong> Export to SwiftUI code</li>
           <li><strong>PDF export:</strong> PDF/X-1a and PDF/X-4 support with CMYK, bleed, crop marks, color bars</li>
+          <li><strong>Design-time bleed:</strong> Page-level bleed values, trim/bleed overlays, and PDF/X page-box parity</li>
           <li><strong>Print production:</strong> Bleed config, safe area, slug, swatches, spot colors</li>
           <li><strong>Export settings:</strong> Per-node export settings for different output formats</li>
         </ul>
