@@ -108,6 +108,7 @@ test.describe('Iconography visual QA', () => {
       await expect(workspace).toBeVisible({ timeout: 45000 });
       const workspaceIcons = workspace.locator('[data-workspace-icon]');
       await expect(workspaceIcons).toHaveCount(7);
+      await expect(workspace.locator('[data-icon-family="tabler"]')).toHaveCount(7);
       await workspace.screenshot({
         path: `${outputDir}/editor-${theme}-workspace-switcher.png`,
       });
