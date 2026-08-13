@@ -242,6 +242,12 @@ from forcing a full embedded photo decode when inline `data:`/`blob:` input and
 `createImageBitmap` resizing are available. The full source remains the
 authoritative cache entry for Canvas2D replay and export.
 
+The Layers Panel's 28×28 node-preview profile follows the same rule through
+`packages/editor/src/components/LayersPanel/useThumbnail.ts`, including its
+raster-mask input. Its node-local thumbnail cache remains separate display
+state keyed by document/node visual identity; it does not become an image
+source cache or alter asset ownership.
+
 Remote sources continue through the full HTML-image load because browser
 portable scaled decode is unavailable for those URLs in the current contract.
 When `createImageBitmap` is unavailable, `loadAtSize` deliberately falls back
