@@ -68,15 +68,17 @@ rendering, editing, hit testing, selection, masks, and exports.
 | Contract claimed by current docs/ADRs | Code evidence | Gap / required action |
 | --- | --- | --- |
 | “One canonical layout result” | `TextLayoutSnapshot` carries source maps, positioned glyphs, line boxes, caret stops, and selection geometry; plain-text replay now consumes it, while rich-text/path/advanced spacing retain explicit fallbacks | Route rich-text, path text, hit testing, masks, and export through the same snapshot; keep fallback boundaries visible |
-| Full UAX #9 BiDi | `unicode/bidiUax9.ts` delegates embedding levels, reorder indices, and mirrored-character lookup to `bidi-js` | Add broader conformance corpus coverage and feed line-level visual order into canonical layout |
-| OpenType shaping in web | `shaping.ts` measures each grapheme; `glyphId: 0`; `harfbuzzjs` unused | Integrate HarfBuzz-compatible shaping for font bytes, with Canvas fallback explicitly marked approximate/unavailable |
+| Full UAX #9 BiDi | `unicode/bidiUax9.ts` delegates embedding levels, reorder indices, and mirrored-character lookup to `bidi-js`; `text/visualOrder.ts` now applies X8/L2 per wrapped line | Broaden the conformance corpus beyond the current fixtures; feed line-level visual order into hit testing and selection consumers |
+| Paragraph itemization | `text/paragraphs.ts` splits paragraphs, retains per-unit levels, absorbs common/inherited chars into script runs | Rich-text span boundaries must itemize into the same runs (measured rich-span path exists; font-byte spans remain) |
+| UAX #14-adjacent line breaking | `text/lineBreak.ts` word-level units via `Intl.Segmenter`, NBSP non-breaking, grapheme-safe overlong-word breaks | Full UAX #14 pair tables and locale dictionary Thai breaking remain runtime-dependent |
+| OpenType shaping in web | `shaping.ts` measures each grapheme; `glyphId: 0`; `shapeParagraphRuns` fills the logical-order contract; `harfbuzzjs` still unused by live layout | Integrate HarfBuzz-compatible shaping for font bytes, with Canvas fallback explicitly marked approximate/unavailable |
 | Complex-script correctness | Native Rust tests cover shaper calls, but live TS rendering does not consume native results | Add parity fixtures and a backend selection contract before advertising production support |
 | Rich text takes precedence in rendering | IR carries `richText`; logical paragraph/run ranges now feed a measured per-span snapshot renderer, while advanced paragraph controls retain a fallback | Replace the measured fallback with font-byte shaping and route paragraph controls, masks, and export through the same snapshot |
 | Cluster-safe editing | `richTextOps.splitRunAt` and the text overlay now snap through the shared Unicode index map; overlay still reports only paragraph 0 | Add shaping-cluster stops and paragraph-aware editing transactions |
-| Caret/hit testing from shaped clusters | `hitTestCaret` treats glyph records as graphemes and returns the preceding cluster start | Return legal insertion stops with logical/visual maps and line geometry |
+| Caret/hit testing from shaped clusters | `textLayoutSnapshot.ts` derives cluster-safe caret stops (grapheme-snapped), line-local hit testing, and fragment-aware selection rectangles | Wire the editor overlay and pointer tools to the snapshot stops instead of the legacy `hitTestCaret` |
 | Cache keyed by font/layout identity | `TextLayoutSnapshot` and `ShapingCache` now carry font revision, features, axes, width, and layout-policy identity; both caches are bounded | Migrate live callers to the snapshot cache and connect registry revision events to cache invalidation |
 | PDF Unicode fidelity | Non-WinAnsi text can be outlined; native path is not driven by the canonical TS layout | Keep outlining as honest fallback; add shaped CID/ToUnicode work as a separate export slice |
-| Thai line breaking | `textLayout.ts` uses `Intl.Segmenter`/whitespace/CJK heuristics | Separate shaping from UAX #14 breaking and document dictionary-based Thai limits |
+| Thai line breaking | `lineBreak.ts` relies on `Intl.Segmenter` dictionary behavior where the runtime provides it | Document dictionary-based Thai limits; cluster-boundary breaking is guaranteed |
 
 ## Indexing findings
 
@@ -170,5 +172,13 @@ backend-neutral shaping contract and lazy HarfBuzz WASM adapter; the native
 response normalizer scales font units, clamps source clusters, and reports
 missing glyphs. Slice 6 now routes plain-text replay through a derived snapshot,
 with an uncached Canvas2D measurement fallback when no shaped IR is available.
+Slice 4 has landed as the canonical paragraph pipeline: `text/paragraphs.ts`
+itemizes paragraphs with per-unit levels and script runs, `text/lineBreak.ts`
+breaks at word units without splitting graphemes (NBSP non-breaking),
+`text/visualOrder.ts` resolves line-level visual runs (UAX #9 X8/L2 per line),
+and `textLayoutSnapshot.layoutText` produces positioned glyph runs, cluster-safe
+caret stops, hit testing, and selection geometry for the multilingual corpus.
+The next slice is wiring editing/pointer consumers to those stops and replacing
+the measured web bridge with font-byte shaping behind the same contract.
 The next slices are canonical paragraph/run integration for rich text, masks,
 and export—not Arabic-specific rendering patches.

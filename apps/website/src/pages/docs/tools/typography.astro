@@ -45,7 +45,7 @@ import { sitePath } from '../../../lib/siteUrl';
           Varve keeps document text in logical Unicode order. The engine distinguishes UTF-16 offsets used by browser editing from code-point, grapheme, shaping-cluster, glyph, and visual-caret positions. Rich-text ranges snap to extended grapheme boundaries so combining sequences and joined emoji are not split accidentally.
         </p>
         <p>
-          The engine resolves paragraph direction and mixed LTR/RTL runs through a UAX #9 adapter, including embedding levels, visual mappings, and mirrored punctuation. The live renderer, line wrapping, caret geometry, and export consumers are still being migrated to the same derived layout snapshot, so complex mixed-direction text should be validated in the final export.
+          The engine resolves paragraph direction and mixed LTR/RTL runs through a UAX #9 adapter, including embedding levels, visual mappings, and mirrored punctuation. A paragraph layout pipeline now derives per-line visual run order, word-level line breaks that never split a grapheme, cluster-safe caret stops, and selection geometry from one canonical snapshot. The inline editor, pointer tools, and export consumers are still being migrated to that snapshot, so complex mixed-direction text should be validated in the final export.
         </p>
       </section>
 
@@ -134,7 +134,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Text Measurement</h2>
         <p>
-          Varve uses canvas <code>measureText()</code> as the current browser fallback for text metrics, falling back to content-length estimation only in non-DOM environments. A canonical layout snapshot and shaping backend contract are being integrated so glyph clusters, caret geometry, bounds, and exports can share one authority. The current fallback powers:
+          Varve uses canvas <code>measureText()</code> as the current browser fallback for text metrics, falling back to content-length estimation only in non-DOM environments. A canonical paragraph layout pipeline (itemization, line breaking, per-line visual ordering, caret stops, hit testing, selection geometry) and a HarfBuzz-compatible shaping backend contract are in place so glyph clusters, caret geometry, bounds, and exports can share one authority; the live canvas consumes a derived snapshot for plain text, with measured fallbacks for rich text. The current fallback powers:
         </p>
         <ul>
           <li>Auto-sizing text boxes</li>
