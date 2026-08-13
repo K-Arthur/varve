@@ -8,6 +8,7 @@ import {
   applyItemAffine,
   isGpuBatchSupported,
   lineTessellationVertexCount,
+  normalizedGpuFillColor,
   WebGPUBackend,
 } from './backend';
 
@@ -85,6 +86,29 @@ describe('WebGPU golden diff vs Canvas2D', () => {
       effects: [],
     };
     expect(lineTessellationVertexCount(LINE_ITEM)).toBe(6);
+  });
+
+  it('uploads managed colors through normalized working values', () => {
+    expect(
+      normalizedGpuFillColor({
+        space: 'rgb',
+        bitDepth: 'float32',
+        r: 0.5,
+        g: 0.25,
+        b: 0.125,
+        a: 1,
+      }),
+    ).toEqual([0.5, 0.25, 0.125, 1]);
+    const cmyk = normalizedGpuFillColor({
+      space: 'cmyk',
+      bitDepth: 'float32',
+      c: 0,
+      m: 0.25,
+      y: 0.5,
+      k: 0,
+      a: 1,
+    });
+    expect(cmyk[0]).toBeCloseTo(1, 6);
   });
 
   it('fails closed for batches whose paint or ordering semantics WebGPU cannot reproduce', () => {
