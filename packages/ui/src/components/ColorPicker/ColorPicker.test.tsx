@@ -516,15 +516,17 @@ describe('ColorPicker — draft sync on external value change', () => {
       screen
         .getByRole('slider', { name: 'Color' })
         .querySelector('.color-area__thumb') as HTMLElement;
-    // hsv(210, 50, 78) → left 50%, top 22%
-    expect(thumb().style.left).toBe('50%');
-    expect(thumb().style.top).toBe('22%');
-    // External change (undo / selection switch) to hsv(20, 75, 78)
+    const leftPct = () => Number.parseFloat(thumb().style.left);
+    const topPct = () => Number.parseFloat(thumb().style.top);
+    // hsv(210, 50, 78.43) → left 50%, top 100 - 78.43 (float drafts)
+    expect(leftPct()).toBeCloseTo(50, 5);
+    expect(topPct()).toBeCloseTo(21.5686, 4);
+    // External change (undo / selection switch) to hsv(20, 75, 78.43)
     rerender(
       <ColorPicker value={{ space: 'rgb', r: 200, g: 100, b: 50, a: 255 }} onChange={() => {}} />,
     );
-    expect(thumb().style.left).toBe('75%');
-    expect(thumb().style.top).toBe('22%');
+    expect(leftPct()).toBeCloseTo(75, 5);
+    expect(topPct()).toBeCloseTo(21.5686, 4);
   });
 
   it('does not fight the user during a drag (self-echo keeps drafts)', () => {
@@ -580,5 +582,96 @@ describe('ColorPicker — bit-depth-aware alpha', () => {
     expect(emitted.space).toBe('rgb');
     expect(emitted.space === 'rgb' && emitted.bitDepth).toBe('float32');
     expect(emitted.a).toBeCloseTo(0.51, 5);
+  });
+});
+
+describe('ColorPicker — high-precision channel editing', () => {
+  it('editing R in a uint16 color preserves G/B exactly', () => {
+    const color: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'uint16',
+      r: 32768,
+      g: 40951,
+      b: 47923,
+      a: 65535,
+    };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      const btn = screen.getByRole('button', { name: 'RGB' });
+      btn.click();
+    });
+    // uint16 fields are 0-65535 scale.
+    const rField = screen.getByRole('spinbutton', { name: 'R' });
+    expect(rField).toHaveAttribute('aria-valuemax', '65535');
+    act(() => {
+      fireEvent.change(rField, { target: { value: '32769' } });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted.space).toBe('rgb');
+    if (emitted.space === 'rgb') {
+      expect(emitted.bitDepth).toBe('uint16');
+      expect(emitted.r).toBe(32769);
+      // Untouched channels survive at full uint16 precision — 32768 vs 32769
+      // are adjacent 16-bit values that collapse to the same 8-bit value.
+      expect(emitted.g).toBe(40951);
+      expect(emitted.b).toBe(47923);
+      expect(emitted.a).toBe(65535);
+    }
+  });
+
+  it('editing R in a float32 color preserves G/B exactly', () => {
+    const color: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'float32',
+      r: 0.500015,
+      g: 0.624817,
+      b: 0.731232,
+      a: 1,
+    };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      const btn = screen.getByRole('button', { name: 'RGB' });
+      btn.click();
+    });
+    // float fields are 0-1 with decimals.
+    const rField = screen.getByRole('spinbutton', { name: 'R' });
+    expect(rField).toHaveAttribute('aria-valuemax', '1');
+    act(() => {
+      fireEvent.change(rField, { target: { value: '0.5001' } });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted.space).toBe('rgb');
+    if (emitted.space === 'rgb') {
+      expect(emitted.bitDepth).toBe('float32');
+      expect(emitted.r).toBeCloseTo(0.5001, 6);
+      expect(emitted.g).toBeCloseTo(0.624817, 6);
+      expect(emitted.b).toBeCloseTo(0.731232, 6);
+    }
+  });
+
+  it('HSV editing of a uint16 color does not collapse channels to 8-bit', () => {
+    const color: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'uint16',
+      r: 32768,
+      g: 40951,
+      b: 47923,
+      a: 65535,
+    };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted.space).toBe('rgb');
+    if (emitted.space === 'rgb') {
+      // A channel quantized through 8-bit would be a multiple of 257
+      // (65535/255). Float-preserving HSV math must not produce those.
+      expect(emitted.g % 257).not.toBe(0);
+      expect(emitted.b % 257).not.toBe(0);
+    }
   });
 });
