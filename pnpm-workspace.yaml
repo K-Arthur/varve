@@ -13,6 +13,34 @@ overrides:
   # resolves 2.4.0, where the export is absent. Keep this exact and covered by
   # scripts/desktop/compatibility.test.mjs.
   "@wdio/native-utils": 2.5.0
+  # --- Transitive security remediations (2026-08-13) ---
+  # Each override pins a vulnerable transitive dependency to its patched line.
+  # Revisit each when the parent packages catch up and the overrides can be
+  # dropped. Verified by `pnpm audit` (zero findings) and the resolved graph.
+  # GHSA-v2hh-gcrm-f6hx / GHSA-7p8r-x3mc-p8w7: fast-uri host-confusion in
+  # ajv@8.18 (stryker) and yaml-language-server (@astrojs/check) chains.
+  "fast-uri": 3.1.5
+  # GHSA-q8mj-m7cp-5q26: qs DoS in typed-rest-client (stryker) chain.
+  "qs": 6.15.2
+  # GHSA-5c6j-r48x-rmvq / GHSA-qj8w-gfj5-8c6v: serialize-javascript RCE/DoS
+  # in mocha (wdio) worker-pool serializer. 7.x output remains valid for
+  # mocha's eval-based deserialization of options objects.
+  "serialize-javascript": 7.1.0
+  # GHSA-3jxr-9vmj-r5cp: brace-expansion DoS via minimatch@9 (wdio chain).
+  "brace-expansion@2": 2.1.4
+  # GHSA-28wg-ghj8-5hjv / GHSA-2v37-7h3g-55p8: nanoid 3.x indefinite loop in
+  # postcss (astro/stylelint chains). postcss@8 override dedupes onto
+  # 8.5.26; nanoid pin is belt-and-braces for any other 3.x consumer.
+  "nanoid@3": 3.3.18
+  "postcss@8": 8.5.26
+  # GHSA-f88m-g3jw-g9cj: sharp/libvips CVEs. astro 7 declares sharp as
+  # optional `^0.34.0 || ^0.35.0` which still resolves 0.34.x; force the
+  # patched 0.35 line. Build script stays blocked (allowBuilds) and the
+  # website does not configure the sharp image service.
+  "sharp": 0.35.3
+  # GHSA-w5hq-g745-h8pq: uuid v3/v5/v6 buffer bounds check. storybook
+  # addon-actions (dev-only) uses uuid v4; 11.x keeps the CJS entry point.
+  "uuid": 11.1.1
 
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
