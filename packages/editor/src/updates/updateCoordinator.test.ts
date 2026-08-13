@@ -131,4 +131,55 @@ describe('UpdateCoordinator', () => {
     expect(provider.downloads).toBe(1);
     expect(coordinator.getState()).toMatchObject({ kind: 'ready-to-install', update });
   });
+
+  it('re-enabling consent leaves the disabled state', () => {
+    const coordinator = new UpdateCoordinator(new FakeProvider(), new MemoryPreferences(), {
+      now: () => 1000,
+    });
+    coordinator.setPreferences({ consent: 'manual' });
+    expect(coordinator.getState().kind).toBe('disabled');
+    coordinator.setPreferences({ consent: 'notify' });
+    expect(coordinator.getState().kind).toBe('idle');
+  });
+
+  it('skip-version suppresses the offer and defers the state', async () => {
+    const provider = new FakeProvider();
+    const coordinator = new UpdateCoordinator(provider, new MemoryPreferences(), {
+      now: () => 1000,
+    });
+    await coordinator.initialize();
+    await coordinator.check('manual');
+    expect(coordinator.getState()).toMatchObject({ kind: 'update-available' });
+    coordinator.skipVersion();
+    expect(coordinator.getState().kind).toBe('deferred');
+    expect(coordinator.getPreferences().skippedVersions.stable).toBe('0.2.0');
+    await coordinator.check('manual');
+    expect(coordinator.getState().kind).toBe('up-to-date');
+  });
+
+  it('mirrors remote state but keeps a local active operation authoritative', async () => {
+    const coordinator = new UpdateCoordinator(new FakeProvider(), new MemoryPreferences(), {
+      now: () => 1000,
+    });
+    const remote = {
+      kind: 'downloading',
+      update,
+      downloadedBytes: 10,
+      totalBytes: 100,
+    } as const;
+    coordinator.synchronize(remote);
+    expect(coordinator.getState()).toEqual(remote);
+    const active = coordinator.synchronize({ kind: 'checking', source: 'manual' } as never);
+    expect(active).toEqual(remote);
+    const idempotent = coordinator.synchronize(remote);
+    expect(idempotent).toEqual(remote);
+  });
+
+  it('recovers from a stale mirrored active operation', async () => {
+    const coordinator = new UpdateCoordinator(new FakeProvider(), new MemoryPreferences(), {
+      now: () => 1000,
+    });
+    coordinator.synchronize({ kind: 'downloading', update, downloadedBytes: 1, totalBytes: 10 });
+    expect(coordinator.resetStaleOperation().kind).toBe('idle');
+  });
 });

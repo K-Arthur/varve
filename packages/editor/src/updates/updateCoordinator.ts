@@ -10,6 +10,7 @@ import {
   UPDATE_FAILURE_BACKOFF_MS,
 } from './updatePolicy';
 import { transitionUpdateState } from './updateStateMachine';
+import { isActiveUpdateState } from './updateWindowSync';
 import type {
   PackagingContext,
   UpdateError,
@@ -54,6 +55,35 @@ export class UpdateCoordinator {
     return this.context;
   }
 
+  /**
+   * Mirror state broadcast by another window. A local active operation wins
+   * over mirrored active/remote states; identical state is a no-op.
+   */
+  synchronize(remote: UpdateState): UpdateState {
+    if (isActiveUpdateState(this.state.kind) && isActiveUpdateState(remote.kind)) {
+      return this.state;
+    }
+    if (JSON.stringify(this.state) === JSON.stringify(remote)) return this.state;
+    return this.publish(remote);
+  }
+
+  /**
+   * Adopt preferences changed in another window. Unlike `setPreferences` this
+   * never triggers consent transitions — the owning window already applied
+   * them; followers only persist the same values.
+   */
+  adoptPreferences(preferences: UpdatePreferences): UpdatePreferences {
+    this.preferences = normalizeUpdatePreferences(preferences);
+    this.preferenceStore.save(this.preferences);
+    return this.getPreferences();
+  }
+
+  /** Recover from a mirrored active state whose owning window disappeared. */
+  resetStaleOperation(): UpdateState {
+    if (!isActiveUpdateState(this.state.kind)) return this.state;
+    return this.publish({ kind: 'idle' });
+  }
+
   subscribe(listener: (state: UpdateState) => void): () => void {
     this.listeners.add(listener);
     listener(this.state);
@@ -79,7 +109,10 @@ export class UpdateCoordinator {
       ['consent-required', 'idle'].includes(this.state.kind)
     ) {
       this.publish({ kind: 'disabled' });
-    } else if (this.preferences.consent !== 'manual' && this.state.kind === 'consent-required') {
+    } else if (
+      this.preferences.consent !== 'manual' &&
+      ['consent-required', 'disabled'].includes(this.state.kind)
+    ) {
       this.publish({ kind: 'idle' });
     }
     return this.getPreferences();
@@ -206,6 +239,12 @@ export class UpdateCoordinator {
           [this.preferences.channel]: this.state.update.version,
         },
       });
+      if (this.state.kind === 'update-available' || this.state.kind === 'ready-to-install') {
+        // A skipped version is suppressed by `acceptCandidate` on the next
+        // check; leaving the state as available would keep offering the
+        // download the user just declined.
+        this.publish(transitionUpdateState(this.state, { type: 'defer' }));
+      }
     }
     return this.getPreferences();
   }
