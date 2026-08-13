@@ -7,7 +7,7 @@
  */
 
 import type { BleedConfig, SafeAreaConfig, SlugConfig } from '@varve/scene';
-import { resolvePagePrintGeometry } from '@varve/scene';
+import { resolvePagePrintGeometry, updateBleedEdge } from '@varve/scene';
 import { BUILTIN_PRESET_GROUPS, physicalToPx, pxToPhysical } from '@varve/shared';
 import { Select } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
@@ -134,8 +134,9 @@ export function PagePrintSection() {
       // The page override stores values in the resolved config's unit (the
       // document default's unit unless the page override set its own), so
       // mm-configured documents keep editing in mm. Conversions go through
-      // the shared unit contract — the resolver converts back to document
-      // pixels, and the canvas and export read the same numbers.
+      // the shared unit contract — the resolver converts to document pixels,
+      // and the canvas and export read the same numbers. Do not convert to
+      // pixels here: BleedConfig values are stored in their declared unit.
       const unit = geometry.bleed.unit;
       const current: BleedConfig = page?.bleed ?? {
         top: 0,
@@ -145,11 +146,7 @@ export function PagePrintSection() {
         linked: true,
         unit,
       };
-      setPageBleed(pageId, {
-        ...current,
-        [edge]: physicalToPx(Math.max(0, value), unit),
-        unit,
-      });
+      setPageBleed(pageId, updateBleedEdge({ ...current, unit }, edge, value));
     },
     [pageId, page?.bleed, geometry, setPageBleed],
   );
