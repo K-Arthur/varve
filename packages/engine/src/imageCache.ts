@@ -56,8 +56,19 @@ export interface ImageCacheStats {
   rejectedOversize: number;
 }
 
+/** Color interpretation used to partition decoded cache entries. */
+export interface ImageCacheColorVariant {
+  /** Stable source/working encoding identity, e.g. `rasterEncodingKey()`. */
+  colorKey: string;
+}
+
 const DEFAULT_MAX_ENTRIES = 200;
 const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
+
+function cacheKey(url: string, variant?: ImageCacheColorVariant): string {
+  if (!variant?.colorKey) return url;
+  return `${url}\u0000varve-color=${encodeURIComponent(variant.colorKey)}`;
+}
 
 export class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
@@ -171,28 +182,30 @@ export class ImageCache {
   }
 
   /** Check if an image URL is cached (any state). */
-  has(url: string): boolean {
-    return this.cache.has(url);
+  has(url: string, variant?: ImageCacheColorVariant): boolean {
+    return this.cache.has(cacheKey(url, variant));
   }
 
   /** Check if an image URL is fully loaded and ready. */
-  isLoaded(url: string): boolean {
-    const entry = this.cache.get(url);
+  isLoaded(url: string, variant?: ImageCacheColorVariant): boolean {
+    const entry = this.cache.get(cacheKey(url, variant));
     return entry?.state === 'loaded' && entry.image !== null;
   }
 
   /** Get a cached image entry, or undefined if not cached. */
-  get(url: string): ImageCacheEntry | undefined {
-    const entry = this.cache.get(url);
-    if (entry) this.touch(url);
+  get(url: string, variant?: ImageCacheColorVariant): ImageCacheEntry | undefined {
+    const key = cacheKey(url, variant);
+    const entry = this.cache.get(key);
+    if (entry) this.touch(key);
     return entry;
   }
 
   /** Get the loaded cached image (element or bitmap), or null if not yet loaded. */
-  getImage(url: string): CachedImage | null {
-    const entry = this.cache.get(url);
+  getImage(url: string, variant?: ImageCacheColorVariant): CachedImage | null {
+    const key = cacheKey(url, variant);
+    const entry = this.cache.get(key);
     if (entry?.state === 'loaded') {
-      this.touch(url);
+      this.touch(key);
       return entry.image ?? null;
     }
     return null;
@@ -203,17 +216,18 @@ export class ImageCache {
    * Subsequent calls with the same URL return the same promise while loading,
    * or resolve immediately if already cached.
    */
-  async load(url: string): Promise<CachedImage> {
+  async load(url: string, variant?: ImageCacheColorVariant): Promise<CachedImage> {
+    const key = cacheKey(url, variant);
     // Already loaded
-    const existing = this.cache.get(url);
+    const existing = this.cache.get(key);
     if (existing?.state === 'loaded' && existing.image) {
       this.hits++;
-      this.touch(url);
+      this.touch(key);
       return existing.image;
     }
 
     // Already pending
-    const pending = this.pending.get(url);
+    const pending = this.pending.get(key);
     if (pending) {
       this.hits++;
       return pending;
@@ -239,9 +253,9 @@ export class ImageCache {
     }
 
     // Mark as loading
-    this.cache.set(url, { state: 'loading', image: null });
+    this.cache.set(key, { state: 'loading', image: null });
     const loadToken = Symbol(url);
-    this.loadTokens.set(url, loadToken);
+    this.loadTokens.set(key, loadToken);
 
     const isInline = url.startsWith('data:') || url.startsWith('blob:');
 
@@ -262,7 +276,7 @@ export class ImageCache {
     // Inline data:/blob: URLs are always same-origin, so skip the CORS dance.
     const promise = (isInline ? attempt(false) : attempt(true).catch(() => attempt(false)))
       .then((img) => {
-        if (this.loadTokens.get(url) !== loadToken) {
+        if (this.loadTokens.get(key) !== loadToken) {
           // The request was cancelled, superseded, or cleared while the
           // browser was decoding. The cache no longer owns this result, so
           // release transferable resources instead of leaking them.
@@ -270,44 +284,44 @@ export class ImageCache {
           return img;
         }
         const bytes = this.estimateBytes(img);
-        this.cache.set(url, { state: 'loaded', image: img });
-        this.pending.delete(url);
-        this.loadTokens.delete(url);
-        this.touch(url);
-        this.entryBytes.set(url, bytes);
+        this.cache.set(key, { state: 'loaded', image: img });
+        this.pending.delete(key);
+        this.loadTokens.delete(key);
+        this.touch(key);
+        this.entryBytes.set(key, bytes);
         this.retainedBytes += bytes;
         // Notify while the completed entry is observable, even when it cannot
         // be admitted to the retained cache and will be released immediately.
-        this.notifyListeners(url);
+        this.notifyListeners(key);
         if (bytes > this.maxBytes) {
           this.rejectedOversize++;
           // The caller still owns an oversized result returned from load().
           // It cannot be retained by this cache, but closing it here would
           // make the successful return value unusable when it is an
           // ImageBitmap.
-          this.remove(url, false, false);
+          this.remove(key, false, false);
         } else {
           this.evictIfNeeded();
         }
         return img;
       })
       .catch(async (error: Error) => {
-        if (this.loadTokens.get(url) !== loadToken) throw error;
+        if (this.loadTokens.get(key) !== loadToken) throw error;
         // Classify the failure so consumers can distinguish missing files
         // from corruption, CORS restrictions, permission problems, and
         // transient unavailability instead of one generic "image failed".
         const typed = await this.classifyFailure(url, error);
-        this.cache.set(url, { state: 'error', image: null, error: typed });
+        this.cache.set(key, { state: 'error', image: null, error: typed });
         this.evictIfNeeded();
-        this.pending.delete(url);
-        this.loadTokens.delete(url);
-        this.touch(url);
-        this.notifyListeners(url);
+        this.pending.delete(key);
+        this.loadTokens.delete(key);
+        this.touch(key);
+        this.notifyListeners(key);
         throw typed;
       });
 
-    this.pending.set(url, promise);
-    this.touch(url);
+    this.pending.set(key, promise);
+    this.touch(key);
     return promise;
   }
 
@@ -315,8 +329,8 @@ export class ImageCache {
    * Preload multiple images. Resolves when all are loaded (or all have failed).
    * Useful for batch preloading before rendering.
    */
-  async preload(urls: string[]): Promise<void> {
-    const results = await Promise.allSettled(urls.map((url) => this.load(url)));
+  async preload(urls: string[], variant?: ImageCacheColorVariant): Promise<void> {
+    const results = await Promise.allSettled(urls.map((url) => this.load(url, variant)));
     for (const result of results) {
       if (result.status === 'rejected') {
         // Errors are already recorded in the cache entry
@@ -327,20 +341,22 @@ export class ImageCache {
   /**
    * Cancel a pending load. Marks the entry as 'idle' so it can be retried later.
    */
-  cancel(url: string): void {
-    this.pending.delete(url);
-    this.loadTokens.delete(url);
-    const existing = this.cache.get(url);
+  cancel(url: string, variant?: ImageCacheColorVariant): void {
+    const key = cacheKey(url, variant);
+    this.pending.delete(key);
+    this.loadTokens.delete(key);
+    const existing = this.cache.get(key);
     if (existing?.state === 'loading') {
-      this.cache.set(url, { state: 'idle', image: null });
+      this.cache.set(key, { state: 'idle', image: null });
     }
   }
 
   /** Remove an entry from the cache. */
-  evict(url: string): void {
-    this.pending.delete(url);
-    this.loadTokens.delete(url);
-    this.remove(url, false);
+  evict(url: string, variant?: ImageCacheColorVariant): void {
+    const key = cacheKey(url, variant);
+    this.pending.delete(key);
+    this.loadTokens.delete(key);
+    this.remove(key, false);
   }
 
   /** Clear all cached images, closing retained ImageBitmap entries. */
@@ -374,23 +390,24 @@ export class ImageCache {
    * Subscribe to load state changes for a URL.
    * Returns an unsubscribe function.
    */
-  subscribe(url: string, callback: () => void): () => void {
-    if (!this.listeners.has(url)) {
-      this.listeners.set(url, new Set());
+  subscribe(url: string, callback: () => void, variant?: ImageCacheColorVariant): () => void {
+    const key = cacheKey(url, variant);
+    if (!this.listeners.has(key)) {
+      this.listeners.set(key, new Set());
     }
-    this.listeners.get(url)?.add(callback);
+    this.listeners.get(key)?.add(callback);
     return () => {
-      const set = this.listeners.get(url);
+      const set = this.listeners.get(key);
       if (set) {
         set.delete(callback);
-        if (set.size === 0) this.listeners.delete(url);
+        if (set.size === 0) this.listeners.delete(key);
       }
     };
   }
 
   /** Get the load state for a URL. */
-  state(url: string): ImageLoadState {
-    return this.cache.get(url)?.state ?? 'idle';
+  state(url: string, variant?: ImageCacheColorVariant): ImageLoadState {
+    return this.cache.get(cacheKey(url, variant))?.state ?? 'idle';
   }
 
   /**
@@ -398,27 +415,28 @@ export class ImageCache {
    * Intended for tests and offline-preload scenarios where the caller
    * already has the decoded image and wants it available synchronously.
    */
-  setLoaded(url: string, image: CachedImage): void {
+  setLoaded(url: string, image: CachedImage, variant?: ImageCacheColorVariant): void {
+    const key = cacheKey(url, variant);
     // Invalidate an older async decode before publishing the replacement.
     // The stale completion will dispose its own result when it arrives.
-    this.loadTokens.delete(url);
-    this.pending.delete(url);
-    const previous = this.cache.get(url);
+    this.loadTokens.delete(key);
+    this.pending.delete(key);
+    const previous = this.cache.get(key);
     if (previous?.state === 'loaded' && previous.image && previous.image !== image) {
       this.closeImage(previous.image);
     }
-    const previousBytes = this.entryBytes.get(url) ?? 0;
+    const previousBytes = this.entryBytes.get(key) ?? 0;
     this.retainedBytes = Math.max(0, this.retainedBytes - previousBytes);
     const bytes = this.estimateBytes(image);
-    this.cache.set(url, { state: 'loaded', image });
-    this.pending.delete(url);
-    this.touch(url);
-    this.entryBytes.set(url, bytes);
+    this.cache.set(key, { state: 'loaded', image });
+    this.pending.delete(key);
+    this.touch(key);
+    this.entryBytes.set(key, bytes);
     this.retainedBytes += bytes;
-    this.notifyListeners(url);
+    this.notifyListeners(key);
     if (bytes > this.maxBytes) {
       this.rejectedOversize++;
-      this.remove(url, false);
+      this.remove(key, false);
     } else {
       this.evictIfNeeded();
     }
@@ -447,15 +465,15 @@ export class ImageCache {
    * contain `@` before the payload (data: and blob: URLs), so the key cannot
    * collide with a real source of the same shape.
    */
-  atSizeKey(url: string, maxDim: number): string {
-    return `${url}@${Math.max(1, Math.floor(maxDim))}`;
+  atSizeKey(url: string, maxDim: number, variant?: ImageCacheColorVariant): string {
+    return cacheKey(`${url}@${Math.max(1, Math.floor(maxDim))}`, variant);
   }
 
   /**
    * Whether an at-size representation entry is loaded and ready.
    */
-  isLoadedAtSize(url: string, maxDim: number): boolean {
-    return this.isLoaded(this.atSizeKey(url, maxDim));
+  isLoadedAtSize(url: string, maxDim: number, variant?: ImageCacheColorVariant): boolean {
+    return this.isLoaded(this.atSizeKey(url, maxDim, variant));
   }
 
   /**
@@ -465,8 +483,12 @@ export class ImageCache {
    * an ImageBitmap (large sources) or the full-size element itself (sources
    * that fit the cap); both are valid `createImageBitmap` inputs.
    */
-  getImageAtSize(url: string, maxDim: number): CachedImage | null {
-    const key = this.atSizeKey(url, maxDim);
+  getImageAtSize(
+    url: string,
+    maxDim: number,
+    variant?: ImageCacheColorVariant,
+  ): CachedImage | null {
+    const key = this.atSizeKey(url, maxDim, variant);
     const entry = this.get(key);
     // A closed bitmap would throw on drawImage; guard defensively (the TS
     // DOM lib lacks the `closed` property, hence the cast).
@@ -497,11 +519,12 @@ export class ImageCache {
     url: string,
     maxDim: number,
     source?: { width: number; height: number },
+    variant?: ImageCacheColorVariant,
   ): Promise<ImageBitmap | CachedImage> {
     if (!this.isRepresentationCapable(url)) {
-      return this.load(url);
+      return this.load(url, variant);
     }
-    const key = this.atSizeKey(url, maxDim);
+    const key = this.atSizeKey(url, maxDim, variant);
     const existing = this.get(key);
     if (existing?.state === 'loaded' && existing.image) {
       this.hits++;
@@ -534,7 +557,7 @@ export class ImageCache {
     const loadToken = Symbol(key);
     this.loadTokens.set(key, loadToken);
 
-    const promise = this.decodeAtSize(url, maxDim, source)
+    const promise = this.decodeAtSize(url, maxDim, source, variant)
       .then((image) => {
         if (this.loadTokens.get(key) !== loadToken) {
           this.closeImage(image);
@@ -579,13 +602,14 @@ export class ImageCache {
     url: string,
     maxDim: number,
     source?: { width: number; height: number },
+    variant?: ImageCacheColorVariant,
   ): Promise<ImageBitmap | CachedImage> {
     if (typeof createImageBitmap === 'undefined') {
       // At-size decode is an optimization, not a correctness requirement.
       // Older WebKit/WebViews can still render the full HTML image, so keep
       // thumbnails and the main Canvas2D path functional when the resize API
       // is absent.
-      return this.load(url);
+      return this.load(url, variant);
     }
     // Known source dims let us (a) skip the preview entirely when the source
     // already fits the cap and (b) target both axes so aspect ratio and
@@ -597,7 +621,7 @@ export class ImageCache {
         // Source fits the cap: the full-size representation IS the
         // representation. Stored under the at-size key so the consumer's
         // lookup path stays uniform.
-        return this.load(url);
+        return this.load(url, variant);
       }
       const blob = await (await fetch(url)).blob();
       return createImageBitmap(blob, {
@@ -624,8 +648,8 @@ export class ImageCache {
    * Typed failure code for a cached source, or null when the entry is not
    * in a failed state. Never throws for uncached sources.
    */
-  failureCode(url: string): ImageErrorCode | null {
-    const error = this.cache.get(url)?.error;
+  failureCode(url: string, variant?: ImageCacheColorVariant): ImageErrorCode | null {
+    const error = this.cache.get(cacheKey(url, variant))?.error;
     return error && isImageErrorCode(error.code) ? error.code : null;
   }
 }
