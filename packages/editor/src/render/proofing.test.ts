@@ -3,6 +3,7 @@ import {
   clearProofConverters,
   type ProofTransformConfig,
   registerProfileProofConverter,
+  registerProfileProofConverterNormalized,
 } from '@varve/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { applyProofToIr, applyProofToItem } from './proofing';
@@ -143,6 +144,31 @@ describe('applyProofToItem', () => {
     });
     applyProofToItem(item, config);
     expect(item.fill).toEqual({ space: 'rgb', r: 255, g: 0, b: 0, a: 255 });
+    clearProofConverters();
+  });
+
+  it('prefers the normalized provider for high-precision colors', () => {
+    registerProfileProofConverterNormalized('fogra39', ([r, g, b, a]) => [r + 0.01, g, b, a]);
+    const item = rgbItem({
+      fill: { space: 'rgb', bitDepth: 'float32', r: 0.1234, g: 0.5, b: 0.75, a: 1 },
+    });
+    const out = applyProofToItem(item, config);
+    expect(out.fill).toEqual({
+      space: 'rgb',
+      bitDepth: 'float32',
+      r: 0.1334,
+      g: 0.5,
+      b: 0.75,
+      a: 1,
+    });
+    expect(item.fill).toEqual({
+      space: 'rgb',
+      bitDepth: 'float32',
+      r: 0.1234,
+      g: 0.5,
+      b: 0.75,
+      a: 1,
+    });
     clearProofConverters();
   });
 });

@@ -12,12 +12,25 @@
  */
 
 import type { RenderItem } from '@varve/engine';
-import { applyProofToRgba, managedColorToRgba, type ProofTransformConfig } from '@varve/shared';
+import {
+  applyProofToNormalized,
+  applyProofToRgba,
+  managedColorToNormalized,
+  managedColorToRgba,
+  type ProofTransformConfig,
+} from '@varve/shared';
 
 function proofColor(
   color: import('@varve/shared').ManagedColorShim,
   config: ProofTransformConfig,
 ): import('@varve/shared').ManagedColorShim {
+  const normalized = managedColorToNormalized(color);
+  const normalizedResult = applyProofToNormalized(normalized, config);
+  if (normalizedResult.kind !== 'unavailable') {
+    const [r, g, b, a] = normalizedResult.rgba;
+    return { ...color, space: 'rgb', bitDepth: 'float32', r, g, b, a };
+  }
+
   const rgba = managedColorToRgba(color);
   const result = applyProofToRgba(rgba, config);
   if (result.kind === 'unavailable') return color;
