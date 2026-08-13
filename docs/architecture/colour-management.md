@@ -90,6 +90,12 @@ un-premultiplied for the color math and re-premultiplied afterward, while
 alpha remains untouched by the profile transform. The descriptor is switched
 to the target encoding only after a successful conversion.
 
+The WebGPU solid-vector upload adapter uses the same normalized conversion
+for RGB, CMYK, Gray, Spot, and float colors. This prevents normalized float
+channels from being divided by 255 a second time. The WebGPU canvas target is
+still an RGBA8 display surface, so this fixes the upload math without claiming
+that the GPU preview target is a high-precision document surface.
+
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas
 in `packages/shared/src/colorConversion.ts`:

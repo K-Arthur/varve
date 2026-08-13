@@ -17,7 +17,7 @@ import type { RenderItem } from '@varve/engine';
  * Explicit pipeline layouts + vertex buffer ring pool.
  */
 import { selectWebGpuAdapter } from '@varve/engine';
-import { computeFloatingOrigin, managedColorToRgba } from '@varve/shared';
+import { computeFloatingOrigin, managedColorToNormalized } from '@varve/shared';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import { buildStructuralRenderPlan } from '../structuralRenderPlan';
 import type { CompositorDiagnostics, CompositorFrame } from '../types';
@@ -46,14 +46,8 @@ const PREMUL_BLEND: GPUBlendState = {
 
 function fillToRgba(fill: RenderItem['fill']): [number, number, number, number] {
   if (fill && typeof fill === 'object' && 'space' in fill) {
-    if (fill.space === 'rgb') {
-      return [fill.r / 255, fill.g / 255, fill.b / 255, fill.a / 255];
-    }
-    // For CMYK/Gray/Spot, convert via shared colour pipeline
     try {
-      const [r, g, b, a] = managedColorToRgba(fill);
-
-      return [r / 255, g / 255, b / 255, a / 255];
+      return managedColorToNormalized(fill);
     } catch {
       return [0, 0, 0, 1];
     }
@@ -62,6 +56,11 @@ function fillToRgba(fill: RenderItem['fill']): [number, number, number, number] 
     return [fill[0] / 255, fill[1] / 255, fill[2] / 255, fill[3] / 255];
   }
   return [0, 0, 0, 1];
+}
+
+/** Testable normalized upload adapter; the GPU target remains a display surface. */
+export function normalizedGpuFillColor(fill: RenderItem['fill']): [number, number, number, number] {
+  return fillToRgba(fill);
 }
 
 function buildVertices(items: RenderItem[]): GpuVertex[] {
