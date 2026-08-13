@@ -156,7 +156,6 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
   // Step 1: BiDi analysis of the line.
   const explicitDir = direction === 'auto' ? undefined : direction;
   const para: BidiParagraph = analyzeParagraph(text, explicitDir);
-  const isRTL = para.baseLevel % 2 === 1;
 
   // Set the font on the context for measurement.
   ctx.font = buildFontString(fontFamily, fontSize, fontWeight, fontStyle);
@@ -164,7 +163,8 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
   // Step 2: For each BiDi run, segment further by script and walk graphemes.
   const allRuns: ShapedRun[] = [];
 
-  for (const bidiRun of para.runs) {
+  const visualBidiRuns = para.visualRuns.length > 0 ? para.visualRuns : para.runs;
+  for (const bidiRun of visualBidiRuns) {
     const runText = text.substring(bidiRun.start, bidiRun.end);
 
     // Walk grapheme clusters in this run.
@@ -224,10 +224,6 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
     });
   }
 
-  // Step 3: Reorder runs visually if RTL.
-  if (isRTL && allRuns.length > 1) {
-    return [...allRuns].reverse();
-  }
   return allRuns;
 }
 
