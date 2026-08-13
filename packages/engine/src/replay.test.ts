@@ -856,6 +856,66 @@ describe('replayIr', () => {
     expect(String(rec.props.font ?? '')).toContain('14px');
   });
 
+  it('replays pre-shaped RTL glyphs in visual order without reversing source text', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 30,
+        text: 'אב',
+        fontSize: 16,
+        fontFamily: 'Noto Sans Hebrew',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.2,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        direction: 'rtl',
+        shaping: {
+          runs: [
+            {
+              fontFamily: 'Noto Sans Hebrew',
+              fontSize: 16,
+              fontWeight: 400,
+              fontStyle: 'normal',
+              direction: 'rtl',
+              level: 1,
+              script: 'hebr',
+              glyphs: [
+                { glyphId: 11, xAdvance: 10, yAdvance: 0, xOffset: 0, yOffset: 0, clusterUtf16: 0 },
+                { glyphId: 12, xAdvance: 11, yAdvance: 0, xOffset: 0, yOffset: 0, clusterUtf16: 1 },
+              ],
+              width: 21,
+              ascent: 12,
+              descent: 4,
+            },
+          ],
+          width: 21,
+          height: 16,
+          baseDirection: 'rtl',
+          direction: 'rtl',
+        },
+      },
+    };
+    const rec = new Recorder();
+    replayIr(rec, [item]);
+    expect(rec.calls).toContain('fillText("ב",0,12)');
+    expect(rec.calls).toContain('fillText("א",11,12)');
+    expect(rec.calls.indexOf('fillText("ב",0,12)')).toBeLessThan(
+      rec.calls.indexOf('fillText("א",11,12)'),
+    );
+  });
+
   it('renders a shape with image fill via the fill painting path', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
