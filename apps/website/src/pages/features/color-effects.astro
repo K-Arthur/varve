@@ -52,8 +52,8 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Color storage is 8-bit RGBA (no 16-bit or floating-point pipeline)</li>
-            <li>Canvas bleed and trim visualization not implemented (bleed is export-time only)</li>
+            <li>Browser canvas and ImageData display surfaces remain 8-bit; higher-precision working buffers are available only where the selected pipeline supports them</li>
+            <li>Print bleed and trim guides are available in the current print workflow; exported geometry remains the final authority</li>
             <li>Background removal with BiRefNet-Lite requires native desktop (crashes WASM at 4GB memory limit)</li>
           </ul>
         </div>
@@ -63,7 +63,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Color management, effects, adjustment layers, halftone, and background removal are functional. Canvas bleed visualization and 16-bit color pipeline are deferred.</p>
+          <p>Color management, effects, adjustment layers, halftone, background removal, precision-aware working buffers, and print guides are functional. Some browser display and effect boundaries still quantize to the display surface.</p>
         </div>
       </section>
 
