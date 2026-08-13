@@ -247,6 +247,26 @@ export function rasterEncodingLabel(encoding: RasterColorEncoding): string {
   return parts.join(' / ');
 }
 
+/**
+ * Deterministic cache identity for the semantic parts of a raster encoding.
+ * Diagnostics are intentionally excluded: they explain an interpretation but
+ * do not change the channel meaning. The field order is fixed so this key is
+ * stable across runtimes and document save/reopen cycles.
+ */
+export function rasterEncodingKey(encoding: RasterColorEncoding): string {
+  return JSON.stringify({
+    model: encoding.model,
+    primaries: encoding.primaries ?? null,
+    transfer: encoding.transfer ?? null,
+    matrixCoefficients: encoding.matrixCoefficients ?? null,
+    videoRange: encoding.videoRange ?? null,
+    bitDepth: encoding.bitDepth ?? null,
+    alphaMode: encoding.alphaMode ?? null,
+    profileId: encoding.profileId ?? null,
+    provenance: encoding.provenance,
+  });
+}
+
 /** Human-readable provenance label for UI/preflight. */
 export function rasterProvenanceLabel(provenance: RasterEncodingProvenance): string {
   switch (provenance) {

@@ -130,6 +130,14 @@ planes, cache identity, and high-precision compositor surfaces is tracked
 separately; until those paths exist, source profile metadata is preserved and
 pixels are not silently relabelled.
 
+Cache identity now accepts an optional stable color variant. The variant is
+derived from `rasterEncodingKey()` and partitions both full-size and at-size
+entries, so the same encoded source can safely have separate source/working
+representations. Existing callers omit the variant and retain the historical
+URL-only behavior. Decode still does not perform arbitrary ICC conversion;
+the key prevents a future converted representation from colliding with the
+source representation.
+
 ## Export barrier
 
 `packages/editor/src/export/resourceReadiness.ts` is the single dependency
