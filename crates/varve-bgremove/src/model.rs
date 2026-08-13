@@ -216,7 +216,13 @@ fn valid_model_file(model: &ModelInfo, path: &Path) -> bool {
     let Ok(bytes) = fs::read(path) else {
         return false;
     };
-    let actual = format!("{:x}", Sha256::digest(bytes));
+    // Iterate output bytes rather than `{:x}` formatting: the digest output
+    // array type differs between sha2 0.10 (generic-array) and 0.11
+    // (hybrid-array), and LowerHex is not implemented by both.
+    let actual = Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
     actual == expected
 }
 

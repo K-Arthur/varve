@@ -77,6 +77,14 @@ checkerboard, white, and black backgrounds. Reviewers should inspect hair,
 fur, thin structures, holes, halos, and translucent material separately from
 the aggregate numbers.
 
+For reproducible native measurements, `crates/varve-bgremove/examples/bgremove_bench.rs`
+records cold load, warm p50/p95, RSS, output masks, and optional reference
+metrics. The Python harness under `scripts/bench/bgremove-reference/` mirrors
+the pinned rembg stretch pipeline and Varve's letterbox pipeline, and preserves
+the exact alpha channel of generated RGBA fixtures. It is an experiment tool,
+reports mean/p95/max per-pixel divergence between those pipelines, and is not a
+substitute for an independently annotated held-out corpus.
+
 ## Resource and lifecycle safeguards
 
 - preview inference is capped and reconstructed to source dimensions;

@@ -110,6 +110,13 @@ Open the listed masks from `visual-report.json` beside the source and target;
 review on checkerboard, black, and white backgrounds. The external corpus must
 contain independent masks/mattes for any claim of absolute quality.
 
+The native harness was smoke-tested on 2026-08-13 with the bundled U²-NetP
+artifact, four real-image fixtures, two iterations, and the bundled Linux
+ONNX Runtime. Warm latency was 4.95–5.82 seconds per image and observed RSS
+was 405–511 MB on an AMD Ryzen 3 5300U. The optional IS-Net and BiRefNet
+artifacts were absent from this checkout and were skipped; no BiRefNet number
+is inferred from the U²-NetP run.
+
 Routine CI uses the small checked-in corpus and does not download large model
 weights. Full quality/performance runs are manual or scheduled, with hardware,
 OS, runtime, provider, model checksum, image category, resolution, latency,
