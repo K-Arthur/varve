@@ -36,20 +36,30 @@ claim that it is the best possible visual backbone for every Varve workload.
 - `pnpm exec vitest run packages/engine/src/bench/semanticSearch.bench.test.ts`
   — exact-search scale baseline passed at 100/1k/10k/50k candidates.
 - `pnpm --filter @varve/platform typecheck` — passed.
+- Real ONNX smoke check against the pinned SigLIP pair — text tokenizer produced
+  `[1,64]` int64 input, the text graph returned `pooler_output [1,768]`, the
+  image graph returned `image_embeds [1,768]`, and the two outputs produced a
+  finite cosine value. This validates graph compatibility only; it is not a
+  retrieval-quality score.
 
-The editor panel test was started during a period of concurrent repository
-validation and did not produce a completed reporter result; it is explicitly
-not counted as passed here.
+The focused editor panel test passed after the text-query changes. The full
+repository typecheck remains noisy because unrelated concurrent work adds
+errors in restoration, face-detection, and existing semantic-benchmark files.
 
 ## Quality gaps
 
 No Varve-specific labeled corpus or held-out model-quality metrics have been
-run yet. The metrics helper and exact-search scale baseline cover evaluation
-plumbing, not model quality. Recall@K, mAP, nDCG, duplicate precision/recall,
-CPU p50/p95, peak RAM, batch throughput, and exact-vs-ANN scale curves still
-require a legally usable Varve corpus and representative hardware before
-selecting DINOv2 or replacing SigLIP. The visual review sheet and real-model
-ranking audit are also pending.
+run yet. The tokenizer/graph smoke check, metrics helper, and exact-search
+scale baseline cover evaluation plumbing, not model quality. The optional
+SigLIP parity run also exposed runtime drift between the pinned Python
+reference and the Node 1.27 runtime (`max 1-cos=1.444e-2` against a `1e-4`
+gate); that needs a runtime/version decision before it can be called a
+golden. Recall@K, mAP, nDCG, duplicate precision/recall, CPU p50/p95, peak
+RAM, batch throughput, and exact-vs-ANN scale curves still require a legally
+usable Varve corpus and representative hardware before selecting DINOv2 or
+replacing SigLIP. The visual review sheet and real-model ranking audit are
+also pending.
 
 The current implementation therefore makes no marketing claim about model
-quality, automatic clustering, text search, or whole-library organization.
+quality, automatic clustering, or whole-library organization; text-to-image
+search is described only as an opt-in experimental document-local lane.

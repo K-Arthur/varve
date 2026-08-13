@@ -1,6 +1,7 @@
 # Semantic asset similarity
 
-Status: shipped experimental foundation (image-to-image, document-local UI,
+Status: shipped experimental foundation (image-to-image and text-to-image
+queries, document-local UI, persistent webview embedding cache,
 reconstructible local index, and bounded queue primitives)
 
 Varve's similarity workflow is local-first and deliberately separates two
@@ -21,7 +22,7 @@ pixels differ substantially.
 scene image / asset
   → bounded canonical preview (RGB, neutral alpha matte)
   → versioned preprocessing
-  → shared ONNX inference worker (SigLIP image encoder)
+  → shared ONNX inference worker (SigLIP image or text encoder)
   → normalized embedding vector
   → exact local ranking for the current document
   → Similarity panel result grid
@@ -45,22 +46,21 @@ The public contract lives in `@varve/engine/semanticSimilarity`:
   from semantic vectors.
 
 Content-addressed binary cache records are defined in
-`@varve/platform` (`assetEmbeddingIndex.ts`). Their key includes content hash,
-model version, preprocessing version, and embedding schema version. This lets a
-rename reuse derived work while a source edit or model/preprocessing change
-invalidates it. `SemanticAssetIndex` provides a reconstructible exact-search
-reference path, and `SemanticEmbeddingQueue` provides bounded priority,
-cancellation, pause/resume, and stale-result suppression primitives. Wiring
-those records into the long-lived Home/SQLite stores remains a follow-up; the
-current editor cache is bounded to the active session.
+`@varve/platform` (`assetEmbeddingIndex.ts`). The browser/Tauri-webview
+`IndexedDbSemanticEmbeddingStore` now persists them across launches, while
+`SemanticAssetIndex` provides a reconstructible exact-search reference path
+and `SemanticEmbeddingQueue` provides bounded priority, cancellation,
+pause/resume, and stale-result suppression primitives. Native SQLite and
+cross-project background indexing remain intentionally deferred.
 
 ## Runtime decision
 
-The first shipped encoder is the existing verified `siglip-base-patch16-224`
-ONNX export. Reusing Varve's worker and model manager avoids creating a second
-runtime, preserves provider fallback, and keeps the feature available to the
-browser worker path. It is an image-to-image encoder only; the text encoder and
-tokenizer are not wired, so text-to-image search is not supported.
+The first shipped encoder pair is the verified `siglip-base-patch16-224` image
+graph plus its matching `text_model_quantized.onnx` text graph. Both are
+downloaded explicitly through the model manager and are tied to pinned
+checksums. The SentencePiece Unigram tokenizer is versioned, tested, and
+cached locally. Text and image outputs are normalized into the same 768-wide
+embedding space before exact ranking.
 
 DINOv2 small/base are recorded as evaluation candidates, not silently treated
 as product defaults. DINOv2 weights are Apache-2.0, but a product choice still
@@ -88,10 +88,10 @@ index is derived data: it must be rebuildable, atomically replaceable, and
 unable to prevent a source document from opening.
 
 The current UI cancels an in-flight query, suppresses stale results through the
-existing worker request signal, and never auto-deletes a candidate based on a
-similarity score. Automatic background library indexing, cross-project UI,
-clustering, and platform-specific persistent index adapters are not yet
-shipped; the queue and index primitives are ready for those adapters.
+existing worker request signal, reuses persisted image embeddings, and never
+auto-deletes a candidate based on a similarity score. Automatic background
+library indexing, cross-project UI, clustering, and native SQLite adapters are
+not yet shipped; the queue and index primitives are ready for those adapters.
 
 ## User-facing limitations
 
