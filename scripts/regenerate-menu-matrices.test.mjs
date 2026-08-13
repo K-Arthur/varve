@@ -32,7 +32,7 @@ assert.deepEqual(
     file: 29,
     edit: 16,
     text: 12,
-    view: 51,
+    view: 52,
     object: 40,
     arrange: 19,
     page: 3,
