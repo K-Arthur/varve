@@ -1,5 +1,11 @@
 import './workspace/bootstrap';
 
+export {
+  configureDesktopAnalytics,
+  getDesktopAnalytics,
+  resetDesktopAnalyticsForTests,
+  updateDesktopAnalyticsConsent,
+} from './analytics/desktopAnalytics';
 export { type ReplayExpansion, worldRectsToScreen } from './canvas/dirtyQuery';
 export {
   computeDocumentDirtyRegion,
