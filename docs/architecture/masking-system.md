@@ -94,10 +94,10 @@ GroupNode / FrameNode (mask: { type: 'clip', sourceNodeId: <matte>, hideMaskSour
 - **One matte clips any number of siblings** — inserting another ordinary
   item into the run just clips it (no migration needed). Moving the matte
   within the run keeps the relationship (it must remain a direct child).
-- `canBeClipMaskSource` governs which nodes can be mattes: shapes (except
-  line/arrow and open paths), and frames. Live text and groups are excluded
-  (no tracable outline); text must be outlined first — this is an explicit
-  limitation, not an oversight.
+- `canBeClipMaskSource` governs geometric clip sources: shapes (except
+  line/arrow and open paths), and frames. Live text and groups remain excluded
+  from geometric clips, but `canBeMatteSource` allows their rendered output to
+  drive alpha/luminance `matteSource` bindings without outlining or flattening.
 - **Adjustment nodes cannot be mask sources for frame/group containers**
   (they have no renderable geometry). An adjustment's *own* mask may
   reference any node.
@@ -267,6 +267,8 @@ post-processing path. Implemented in the live canvas
 | Brush mask (frame, container-local) | ✓ (alpha path) | ✓ | falls back | ✓ | ✓ `<mask>`+`<image>` |
 | Adjustment scope | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
 | Spatial mask on adjustment | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
+| Live text alpha/luminance matte | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized where required |
+| Live group alpha/luminance matte | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized where required |
 
 **WebGPU:** the compositor renders leaf IR primitives only. Structural
 compositing — masks, clips, flattening, adjustments — is Canvas2D by

@@ -31,9 +31,12 @@ function isDescendant(doc: Document, ancestorId: NodeId, candidateId: NodeId): b
 export function buildCompositingDependencyGraph(doc: Document): CompositingDependency[] {
   const edges: CompositingDependency[] = [];
   for (const node of Object.values(doc.nodes)) {
-    if (node.mask?.sourceNodeId) {
+    const nodeMaskSource =
+      node.mask?.sourceNodeId ??
+      (node.mask?.matteSource?.kind === 'scene-node' ? node.mask.matteSource.nodeId : undefined);
+    if (nodeMaskSource) {
       edges.push({
-        sourceNodeId: node.mask.sourceNodeId,
+        sourceNodeId: nodeMaskSource,
         targetNodeId: node.id,
         kind: 'node-mask',
       });

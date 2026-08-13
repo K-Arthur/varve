@@ -168,6 +168,12 @@ export interface RasterMaskData {
   provenance?: BackgroundRemovalProvenance;
 }
 
+/** A live source reference for rendered alpha/luminance coverage. */
+export type LiveMatteSource =
+  | { kind: 'scene-node'; nodeId: NodeId }
+  | { kind: 'vector'; vectorMask: VectorMaskData }
+  | { kind: 'raster-asset'; assetId: string };
+
 /**
  * A mask on a container node (FrameNode, GroupNode, or AdjustmentNode).
  *
@@ -242,6 +248,8 @@ interface MaskPresentation {
    * (default: false — mask source is rendered normally)
    */
   hideMaskSource?: boolean;
+  /** External/live source for alpha or luminance mattes. */
+  matteSource?: LiveMatteSource;
 }
 
 /**
@@ -254,13 +262,8 @@ export type Mask = MaskPresentation &
     | { sourceNodeId: NodeId; vectorMask?: never; rasterMask?: never }
     | { vectorMask: VectorMaskData; sourceNodeId?: NodeId; rasterMask?: never }
     | { rasterMask: RasterMaskData; sourceNodeId?: never; vectorMask?: never }
+    | { matteSource: LiveMatteSource; sourceNodeId?: never; vectorMask?: never; rasterMask?: never }
   );
-
-/** A live source reference shared by matte and effect-mask owners. */
-export type LiveMatteSource =
-  | { kind: 'scene-node'; nodeId: NodeId }
-  | { kind: 'vector'; vectorMask: VectorMaskData }
-  | { kind: 'raster-asset'; assetId: string };
 
 /** Ownership-neutral parameters for a rendered coverage binding. */
 export interface EffectMaskBinding {
