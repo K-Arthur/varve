@@ -57,7 +57,9 @@ describe('layoutText — paragraphs and line breaking', () => {
   it('wraps at word boundaries, never inside a word', () => {
     const snapshot = layout('hello world foo bar', 115);
     expect(snapshot.lines.map((line) => line.sourceStart)).toEqual([0, 12]);
-    expect(snapshot.lines[0]!.width).toBe(110);
+    // Trailing whitespace stays in the line's advance so every source offset
+    // keeps a caret position (paint trims the space).
+    expect(snapshot.lines[0]!.width).toBe(120);
   });
 
   it('breaks an overlong word at grapheme boundaries', () => {

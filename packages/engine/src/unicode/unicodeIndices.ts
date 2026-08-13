@@ -129,10 +129,21 @@ function buildCodePointBoundaries(text: string): number[] {
   return boundaries;
 }
 
+let graphemeSegmenter: Intl.Segmenter | null | undefined;
+
+function getGraphemeSegmenter(): Intl.Segmenter | null {
+  if (graphemeSegmenter !== undefined) return graphemeSegmenter;
+  if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+    graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  } else {
+    graphemeSegmenter = null;
+  }
+  return graphemeSegmenter;
+}
+
 function buildGraphemeBoundaries(text: string): GraphemeBoundary[] {
-  const Segmenter = typeof Intl !== 'undefined' ? Intl.Segmenter : undefined;
-  if (Segmenter) {
-    const segmenter = new Segmenter(undefined, { granularity: 'grapheme' });
+  const segmenter = getGraphemeSegmenter();
+  if (segmenter) {
     return [...segmenter.segment(text)].map(({ index, segment }) => ({ index, segment }));
   }
   return fallbackGraphemeBoundaries(text);
