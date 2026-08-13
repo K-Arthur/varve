@@ -103,6 +103,10 @@ Canonical scene operations in `packages/scene/src/richTextOps.ts` now also
 remove selected properties and replace text at grapheme-safe paragraph ranges,
 with adjacent equivalent runs normalized after each transaction.
 
+`characterFormatValue` reports mixed values across a logical selection, and the
+existing rich-span inspector uses that state for its bold/italic controls while
+keeping formatting changes property-specific.
+
 `FontRegistry.revision` is a monotone process-local invalidation token. The
 shaping cache accepts it, face identity, OpenType features, variation axes,
 width, and layout mode in its key and bounds both entries and estimated bytes;
