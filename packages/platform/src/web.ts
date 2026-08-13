@@ -963,6 +963,11 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async fileExists() {
       return true;
     },
+    async checkFilesExist(paths) {
+      // Web has no path-based filesystem authority; availability is tracked
+      // by the staleness heuristic instead, so every probe reports found.
+      return paths.map(() => true);
+    },
 
     // ─── Thumbnails ───────────────────────────────────────────────────────────
     async getThumbnail(hash) {
@@ -1080,7 +1085,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async readDocumentText() {
       // Browsers have no path-based file API; external-change detection is
       // desktop-only.
-      return undefined;
+      return { ok: false, reason: 'unsupported' };
     },
 
     async saveBinaryFile(name, data, mimeType, extension) {

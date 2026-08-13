@@ -46,8 +46,12 @@ export function extensionForExport(fileName: string, mimeType: string, job?: Exp
   const fromMime = MIME_EXTENSIONS[mimeType];
   if (fromMime) return fromMime;
 
+  // The filename is only a hint. Reject a bare trailing dot (`Logo.` →
+  // `"."`), separators, and empty results; anything questionable falls back
+  // to a generic extension rather than producing a malformed filename.
   const dot = fileName.lastIndexOf('.');
-  if (dot > -1 && dot < fileName.length - 1) return fileName.slice(dot);
+  const derived = dot > 0 && dot < fileName.length - 1 ? fileName.slice(dot) : '';
+  if (derived.length > 1 && !/[\\/]/.test(derived)) return derived;
 
   return '.bin';
 }
