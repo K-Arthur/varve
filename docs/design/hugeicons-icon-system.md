@@ -1,24 +1,26 @@
-# Hugeicons icon system
+# Varve icon system
 
-Varve’s product UI now has a controlled Hugeicons migration at the semantic
-icon boundary. Feature code should ask for a concept through `SemanticIcon`
-(`Search`, `Workspace`, `Warp`, `Delete`) instead of importing a vendor glyph.
-The canonical family is Hugeicons’ free Stroke Rounded pack, rendered through
-`@hugeicons/react`; named imports keep the pack tree-shakeable. Lucide and
-Phosphor remain dependencies for legacy/document-specific consumers until the
-repository-wide audit proves they can be removed safely.
+Varve’s product UI uses a controlled semantic icon boundary. Feature code
+should request a concept through `SemanticIcon`, `TablerIcon`, or the existing
+`Icon`/`SolidIcon` wrappers instead of scattering glyph choices.
+
+The current visual language for compact navigation and workspace controls is
+Tabler’s rounded outline family: a clear 2px stroke, familiar silhouettes, and
+enough weight to remain legible at 14–16px. Phosphor remains available for
+surfaces that intentionally use filled icons, while Lucide remains the
+fallback for semantic concepts that have not yet been mapped to Tabler.
 
 ## Discovery audit — 2026-08-13
 
-- Production icon packages were `lucide-react` (outline `Icon`) and
-  `@phosphor-icons/react` (filled `SolidIcon`). Both were exposed through
-  `packages/ui/src/icons/`; home and editor feature code mostly consumed those
-  wrappers and the `TOOL_ICONS`/`SOLID_CHROME_ICONS` maps.
-- `semantic.tsx` already provided the right abstraction: semantic names,
-  directional metadata, size tokens, and an accessible/decorative contract.
-  It was extended rather than replaced.
-- The old system had duplicate outline/filled mappings, scattered direct
-  glyph names, mixed optical weights, and a few weak tool metaphors. The most
+- Production icon packages are `@tabler/icons-react` (preferred outline
+  family), `lucide-react` (outline fallback), and `@phosphor-icons/react`
+  (filled `SolidIcon`). They are exposed through `packages/ui/src/icons/`.
+- `semantic.tsx` provides the right abstraction: semantic names, directional
+  metadata, size tokens, and an accessible/decorative contract. Homepage and
+  workspace concepts resolve to Tabler; the remaining outline concepts use
+  Lucide until they receive an intentional Tabler mapping.
+- The old system had duplicate outline/filled mappings, scattered direct glyph
+  names, mixed optical weights, and a few weak tool metaphors. The most
   important example was Warp using a grid glyph even though its implementation
   edits envelope/mesh deformation.
 - Tooltip and dialog primitives already portal and manage core keyboard
@@ -34,14 +36,14 @@ repository-wide audit proves they can be removed safely.
 
 ```text
 feature
-  -> SemanticIcon / TOOL_SEMANTIC_ICONS
-  -> Hugeicons Stroke Rounded definition
-  -> HugeiconsIcon (currentColor, 1.5px default stroke)
+  -> SemanticIcon / TablerIcon / TOOL_SEMANTIC_ICONS
+  -> Tabler outline, Lucide fallback, or Phosphor filled definition
+  -> currentColor SVG with an explicit visual weight
 ```
 
-`Icon` and `SolidIcon` remain supported for unmigrated surfaces. This is
-intentional: removing either package before all legitimate consumers migrate
-would turn an icon refresh into an unrelated compatibility change.
+`Icon` and `SolidIcon` remain supported where a component consumes a broad
+legacy icon-name contract or where a filled treatment is intentional. New
+homepage and workspace UI should use Tabler through the semantic boundary.
 
 Semantic size tokens remain `xs` 12px, `sm` 14px, `md` 16px, `lg` 20px, and
 `xl` 24px. Interactive controls own the hit target; the icon glyph does not
@@ -51,18 +53,12 @@ continue to come from the surrounding control.
 
 ## Significant mappings
 
-| Varve concept | Previous source | Hugeicons replacement | Reason |
-| --- | --- | --- | --- |
-| Warp | Lucide `Grid3x3` / Phosphor `GridFour` | `BendToolIcon` | Matches envelope/mesh deformation and remains distinguishable from transform/scale at toolbar size. |
-| Workspace | Phosphor `SquaresFour` | `Layout01Icon` | Communicates a working surface/layout instead of an arbitrary app-grid metaphor. |
-| Select | Lucide `MousePointer2` / Phosphor `Cursor` | `Mouse02Icon` | Rounded pointer/mouse silhouette is clearer beside shape tools. |
-| Frame | Lucide `Frame` / Phosphor `FrameCorners` | `FramerIcon` | Keeps frame differentiated from a plain rectangle. |
-| Boolean union | Lucide `Combine` | `PathfinderUniteIcon` | Uses the familiar pathfinder metaphor for a geometry operation. |
-| Boolean intersect | Lucide `Combine` | `PathfinderIntersectIcon` | Distinguishes intersection from union. |
-| Boolean exclude | Lucide `Diff` | `PathfinderExcludeIcon` | Communicates pathfinder exclusion rather than a generic difference. |
-| Filter | Lucide `ListFilter` / Phosphor `Funnel` | `FilterHorizontalIcon` | Better balance in compact home toolbar controls. |
-| Search | Lucide `Search` / Phosphor `MagnifyingGlass` | `Search01Icon` | Consistent Stroke Rounded language across home and editor. |
-| Settings | Lucide `Settings` / Phosphor `Gear` | `Settings01Icon` | Maintains the established gear metaphor with one stroke family. |
+| Varve concept | Current mapping | Reason |
+| --- | --- | --- |
+| Warp | Lucide `Spline` | Matches deformation more clearly than a generic grid. |
+| Workspace modes | Tabler `LayoutDashboard`, `Brush`, `Photo`, `Printer`, `PlayerPlay`, `Code`, `Badge` | Gives every mode a distinct, recognizable metaphor at a heavier 2.25px stroke. |
+| Search | Tabler `Search` | Consistent rounded outline language across home and editor. |
+| Settings | Tabler `Settings` | Keeps the established gear metaphor with one stroke family. |
 
 ## Migration exceptions
 
@@ -85,21 +81,12 @@ creating a second snapshot baseline.
 
 ### Review record — 2026-08-13
 
-- The isolated light-theme home run passed the default workflow and 420px
-  reflow. Direct inspection showed the empty-state hierarchy, New action,
-  settings tooltip, dialog scrim/focus treatment, and narrow toolbar remain
-  legible and unclipped.
-- The workspace assertion now checks `aria-expanded="true"` and captures the
-  popover element itself. This matters because the first page-level capture
-  did not make the transient menu visually obvious even though the locator was
-  present; the element capture is the review artifact for that state.
-- The dark-theme/editor rerun was attempted but the shared workspace was under
-  a cold Vite rebuild and concurrent validation jobs, leaving the browser on
-  the startup splash. It is not counted as a pass and must be rerun in a quiet
-  environment before release. No visual baseline was updated from that run.
-- The editor workspace-mode selector now uses seven distinct Hugeicons
-  concepts (`Layout`, `Printer`, `Brush`, `Image`, `Play`, `Code`, `Pen`). The
-  toolbar is a separate surface and remains on its previous Lucide outline
-  family.
-- The visual matrix now captures the editor workspace switcher as its own
-  artifact in both themes, separate from the toolbar review.
+- The home review covers the default workflow, the workspace menu, settings
+  tooltip, new-document dialog, and 420px reflow in both themes.
+- The editor review captures the workspace switcher separately from the
+  toolbar. It checks that all seven modes use distinct Tabler glyphs and that
+  each rendered glyph carries the Tabler family marker.
+- The toolbar remains on its established Lucide treatment; the Tabler change is
+  intentionally scoped to the workspace switcher and homepage semantic icons.
+- Screenshots must be inspected manually after each icon-family change. A
+  passing DOM assertion alone is not a visual approval.
