@@ -40,6 +40,42 @@ const softwareSchema = {
 
   <ProductShowcase />
 
+  <section class="interface-section" aria-labelledby="interface-title">
+    <div class="container-custom interface-grid">
+      <Reveal as="div" class="interface-copy">
+        <p class="section-eyebrow">A calmer interface</p>
+        <h2 id="interface-title" class="interface-title">
+          The tool should feel consistent<br /><span class="interface-accent">before you notice it.</span>
+        </h2>
+        <p class="interface-text">
+          Varve uses one visual language across the home surface and editor:
+          clear semantic tools, predictable controls, keyboard-friendly
+          labels, and light or dark themes that keep the work in focus.
+        </p>
+        <a href={sitePath('/features')} class="workflow-link">
+          Explore the feature set
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"></path>
+          </svg>
+        </a>
+      </Reveal>
+      <Reveal as="div" class="interface-card" delay="150" aria-label="Varve interface principles">
+        <div class="interface-card-row">
+          <span class="interface-mark interface-mark-teal" aria-hidden="true"></span>
+          <div><strong>Meaningful tools</strong><span>Icons follow the action they represent.</span></div>
+        </div>
+        <div class="interface-card-row">
+          <span class="interface-mark interface-mark-sand" aria-hidden="true"></span>
+          <div><strong>Useful feedback</strong><span>Tooltips and states explain what happens next.</span></div>
+        </div>
+        <div class="interface-card-row">
+          <span class="interface-mark interface-mark-clay" aria-hidden="true"></span>
+          <div><strong>Room to work</strong><span>Responsive surfaces keep the canvas central.</span></div>
+        </div>
+      </Reveal>
+    </div>
+  </section>
+
   <DisciplineTabs />
 
   <section class="workflow-section" aria-labelledby="workflow-title">
@@ -201,6 +237,93 @@ const softwareSchema = {
     margin-top: 0.5rem;
   }
 
+  /* --- Interface: semantic, quiet, and work-first --- */
+  .interface-section {
+    padding: clamp(4.5rem, 9vh, 7rem) 0;
+    background: var(--surface-card);
+    border-top: 1px solid var(--border-default);
+  }
+
+  .interface-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: clamp(2.5rem, 6vw, 5rem);
+    align-items: center;
+  }
+
+  .interface-title {
+    font-size: clamp(2rem, 3.2vw + 0.6rem, 3.1rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    color: var(--text-primary);
+    margin-bottom: 1.25rem;
+  }
+
+  .interface-accent {
+    color: var(--accent-primary);
+  }
+
+  .interface-text {
+    max-width: 52ch;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .interface-card {
+    display: grid;
+    gap: 0.25rem;
+    padding: clamp(1.5rem, 3vw, 2.25rem);
+    border: 1px solid var(--border-default);
+    border-radius: 1rem;
+    background: var(--surface-sunken);
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .interface-card-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    padding: 1rem 0;
+  }
+
+  .interface-card-row + .interface-card-row {
+    border-top: 1px solid var(--border-default);
+  }
+
+  .interface-card-row strong,
+  .interface-card-row span:not(.interface-mark) {
+    display: block;
+  }
+
+  .interface-card-row strong {
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .interface-card-row span:not(.interface-mark) {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .interface-mark {
+    flex: 0 0 auto;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-top: 0.3rem;
+    border-radius: 0.2rem;
+    transform: rotate(45deg);
+  }
+
+  .interface-mark-teal { background: var(--brand-teal); }
+  .interface-mark-sand { background: var(--brand-sandstone); }
+  .interface-mark-clay { background: var(--brand-terracotta); }
+
   /* --- Local-first: full-bleed strata story --- */
   .local-first-section {
     background: var(--surface-sunken);
@@ -361,7 +484,8 @@ const softwareSchema = {
 
   @media (max-width: 860px) {
     .workflow-grid,
-    .local-first-grid {
+    .local-first-grid,
+    .interface-grid {
       grid-template-columns: 1fr;
     }
 

@@ -19,14 +19,16 @@ describe('semantic icon registry', () => {
   it('every semantic name resolves in both families', () => {
     const names = Object.keys(SEMANTIC_ICONS) as SemanticIconName[];
     for (const name of names) {
+      expect(resolveSemanticIcon(name, 'huge')).toBeTruthy();
       expect(resolveSemanticIcon(name, 'outline')).toBeTruthy();
       expect(resolveSemanticIcon(name, 'filled')).toBeTruthy();
     }
   });
 
-  it('renders every semantic icon in both families without throwing', () => {
+  it('renders every semantic icon in all supported families without throwing', () => {
     const names = Object.keys(SEMANTIC_ICONS) as SemanticIconName[];
     for (const name of names) {
+      expect(() => renderToStaticMarkup(<SemanticIcon name={name} family="huge" />)).not.toThrow();
       expect(() =>
         renderToStaticMarkup(<SemanticIcon name={name} family="outline" />),
       ).not.toThrow();
@@ -74,10 +76,17 @@ describe('semantic icon registry', () => {
 });
 
 describe('SemanticIcon component', () => {
-  it('renders the outline implementation by default', () => {
+  it('renders the Hugeicons implementation by default', () => {
     const markup = renderToStaticMarkup(<SemanticIcon name="Search" />);
     expect(markup).toMatch(/^<svg/i);
     expect(markup).toContain('</svg>');
+    expect(markup).toContain('stroke="currentColor"');
+  });
+
+  it('maps Warp to a deformation-specific semantic glyph', () => {
+    const markup = renderToStaticMarkup(<SemanticIcon name="Warp" label="Warp" />);
+    expect(markup).toContain('aria-label="Warp"');
+    expect(resolveSemanticIcon('Warp', 'huge')).toBe(SEMANTIC_ICONS.Warp.huge);
   });
 
   it('renders the filled implementation for family="filled"', () => {
