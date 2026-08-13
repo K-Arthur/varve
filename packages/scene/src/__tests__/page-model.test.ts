@@ -151,6 +151,19 @@ describe('Page model hygiene', () => {
       expect(secondPage.contentRoot).not.toBe(firstPageId);
     });
 
+    it('addPage on a flat document activates the first page', () => {
+      // Documents created from Home are flat (no pages, no active page);
+      // adding the first page must activate it so Fit-to-Page and the
+      // page inspector work immediately.
+      const doc = createDocument('test', true);
+      const updated = addPage(doc);
+      expect(updated.pages).toHaveLength(1);
+      expect(updated.activePageId).toBe(updated.pages?.[0]?.id);
+      // A later add keeps the current active page.
+      const second = addPage(updated);
+      expect(second.activePageId).toBe(updated.activePageId);
+    });
+
     it('removePage works with new activePageId scheme', () => {
       let doc = createDocument('test', false);
       const pageOne = doc.pages?.[0] as Page;
