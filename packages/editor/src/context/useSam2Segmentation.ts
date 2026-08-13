@@ -24,8 +24,10 @@ export interface Sam2SegmentationAPI {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
+  selectSam2Candidate: (index: number) => void;
 }
 
 export function useSam2Segmentation(
@@ -68,12 +70,32 @@ export function useSam2Segmentation(
     setState((prev) => ({ ...prev, objectSelectionSession: null }));
   }, []);
 
+  const selectSam2Candidate = useCallback(
+    (index: number) => {
+      setState((prev) => {
+        const session = prev.objectSelectionSession;
+        const candidate = session?.candidates[index];
+        if (!session || !candidate) return prev;
+        return {
+          ...prev,
+          objectSelectionSession: {
+            ...session,
+            selectedCandidate: index,
+            confidence: candidate.confidence,
+          },
+        };
+      });
+    },
+    [setState],
+  );
+
   const applySam2Segmentation = useCallback(
     async ({
       nodeId,
       prompts,
       signal: externalSignal,
       operation,
+      candidateIndex,
     }: {
       nodeId: NodeId;
       prompts: {
@@ -82,6 +104,7 @@ export function useSam2Segmentation(
       };
       signal?: AbortSignal;
       operation: 'preview' | 'mask' | 'selection' | 'layer';
+      candidateIndex?: number;
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
       const generation = ++generationRef.current;
       const currentDoc = stateRef.current.document;
@@ -169,6 +192,10 @@ export function useSam2Segmentation(
         sourceWidth: naturalW,
         sourceHeight: naturalH,
       });
+      if (!imageMapper) {
+        announcerRef.current?.announce('Could not map the image placement for selection prompts');
+        return null;
+      }
       const normPrompts = normalizePromptsTo01(prompts, imageMapper, naturalW, naturalH);
 
       const encoderId = 'sam2-hiera-tiny-encoder';
@@ -276,7 +303,11 @@ export function useSam2Segmentation(
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
-        const bestMask = decoded.masks[decoded.selectedIndex]!;
+        const selectedCandidate = Math.max(
+          0,
+          Math.min(decoded.masks.length - 1, candidateIndex ?? decoded.selectedIndex),
+        );
+        const bestMask = decoded.masks[selectedCandidate]!;
         const maskResult = {
           mask: bestMask.mask,
           width: naturalW,
@@ -297,7 +328,7 @@ export function useSam2Segmentation(
                   mask: candidate.mask,
                   confidence: candidate.iouScore,
                 })),
-                selectedCandidate: decoded.selectedIndex,
+                selectedCandidate,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,
                 confidence: decoded.confidence,
@@ -350,7 +381,7 @@ export function useSam2Segmentation(
                   mask: candidate.mask,
                   confidence: candidate.iouScore,
                 })),
-                selectedCandidate: decoded.selectedIndex,
+                selectedCandidate,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,
                 confidence: decoded.confidence,
@@ -404,7 +435,7 @@ export function useSam2Segmentation(
     [stateRef, setState, updateDoc, announcerRef],
   );
 
-  return { applySam2Segmentation, cancelSam2Segmentation };
+  return { applySam2Segmentation, cancelSam2Segmentation, selectSam2Candidate };
 }
 
 function normalizePromptsTo01(
