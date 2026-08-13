@@ -9,6 +9,7 @@
  */
 
 import type {
+  BitDepth,
   ColorMode,
   GradientFill,
   GradientStop,
@@ -16,7 +17,14 @@ import type {
   GradientType,
   ManagedColor,
 } from '@varve/scene';
-import { expandGradientStops, interpolateManagedColor, managedColorToRgba } from '@varve/shared';
+import type { NormalizedRgba } from '@varve/shared';
+import {
+  denormalizeChannel,
+  expandGradientStops,
+  interpolateNormalizedColor,
+  managedColorToRgba,
+  normalizeChannel,
+} from '@varve/shared';
 import { Icon, Select } from '@varve/ui';
 import { ColorPicker, rgbToHex } from '@varve/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
@@ -111,6 +119,26 @@ export function GradientEditor({
       const sorted = [...gradient.stops].sort((a, b) => a.position - b.position);
       const defaultColor: ManagedColor = { space: 'rgb', r: 57, g: 208, b: 198, a: 255 };
       let color: ManagedColor = sorted[0]?.color ?? defaultColor;
+      // Interpolate in normalized 0-1 space so a new stop in a uint16/float
+      // document is not collapsed to the 8-bit gradient lattice.
+      const toNormalized = (c: ManagedColor): NormalizedRgba => {
+        if (c.space === 'rgb') {
+          const bd = c.bitDepth ?? 'uint8';
+          return {
+            r: normalizeChannel(c.r, bd),
+            g: normalizeChannel(c.g, bd),
+            b: normalizeChannel(c.b, bd),
+            a: normalizeChannel(c.a, bd),
+          };
+        }
+        const [r, g, b, a] = managedColorToRgba(c);
+        return { r: r / 255, g: g / 255, b: b / 255, a: a / 255 };
+      };
+      // Storage depth: prefer the neighboring stops' precision, then the
+      // document default via the color-config-aware caller-supplied depth.
+      const depthOf = (c: ManagedColor): BitDepth =>
+        c.space === 'rgb' ? (c.bitDepth ?? 'uint8') : 'uint8';
+      const storageDepth: BitDepth = sorted[0]?.color ? depthOf(sorted[0].color) : 'uint8';
       for (let i = 0; i < sorted.length - 1; i++) {
         const a = sorted[i] as GradientStop;
         const b = sorted[i + 1] as GradientStop;
@@ -124,26 +152,22 @@ export function GradientEditor({
               : linearT <= midpoint
                 ? 0.5 * (linearT / midpoint)
                 : 0.5 + 0.5 * ((linearT - midpoint) / (1 - midpoint));
-          const fromRgb = {
-            space: 'rgb' as const,
-            ...(() => {
-              const [r, g, b, alpha] = managedColorToRgba(a.color);
-              return { r, g, b, a: alpha };
-            })(),
-          };
-          const toRgb = {
-            space: 'rgb' as const,
-            ...(() => {
-              const [r, g, blue, alpha] = managedColorToRgba(b.color);
-              return { r, g, b: blue, a: alpha };
-            })(),
-          };
-          color = interpolateManagedColor(
-            fromRgb,
-            toRgb,
+          const fromN = toNormalized(a.color);
+          const toN = toNormalized(b.color);
+          const mid = interpolateNormalizedColor(
+            fromN,
+            toN,
             blendT,
             gradient.interpolationSpace ?? 'oklab',
           );
+          color = {
+            space: 'rgb',
+            bitDepth: storageDepth !== 'uint8' ? storageDepth : undefined,
+            r: denormalizeChannel(mid.r, storageDepth),
+            g: denormalizeChannel(mid.g, storageDepth),
+            b: denormalizeChannel(mid.b, storageDepth),
+            a: denormalizeChannel(mid.a, storageDepth),
+          };
           break;
         }
       }
