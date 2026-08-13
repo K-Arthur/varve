@@ -24,6 +24,10 @@
     "./gpuAdapter": {
       "types": "./src/gpuAdapter.ts",
       "default": "./src/gpuAdapter.ts"
+    },
+    "./semanticSimilarity": {
+      "types": "./src/semanticSimilarity/index.ts",
+      "default": "./src/semanticSimilarity/index.ts"
     }
   },
   "scripts": {
