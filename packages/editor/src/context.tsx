@@ -1463,6 +1463,8 @@ export interface EditorContextValue {
   /** Show or hide guide overlay lines (guides remain in document). */
   setGuidesVisible: (visible: boolean) => void;
   toggleGuidesVisible: () => void;
+  /** Show or hide print guides (bleed/trim/slug/safe area) — view-only, never exported. */
+  setBleedGuidesVisible: (visible: boolean) => void;
   setSelectedGuideId: (id: string | null) => void;
   nudgeSelectedGuide: (dx: number, dy: number) => void;
   /** Copy the selected guide to the clipboard. */
@@ -7453,6 +7455,7 @@ export function EditorProvider({
       },
       setBleedGuidesVisible: (v: boolean) => {
         patch({ bleedGuidesVisible: v });
+        persistViewportPrefs({ ...stateRef.current, bleedGuidesVisible: v });
       },
       setLayoutGridVisible: (v: boolean) => {
         patch({ layoutGridVisible: v });

@@ -38,7 +38,7 @@ import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
 import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { PagePrintOverlays } from './PagePrintOverlays';
-
+import { PageToolOverlay } from './PageToolOverlay';
 import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
 import { SnapGuidesOverlay } from './SnapGuidesOverlay';
