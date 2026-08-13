@@ -1,6 +1,7 @@
 export { Canvas2DBackend } from './canvas2d/backend';
 export { SubtreeReplayCache, TileCache } from './canvas2d/tileCache';
 export { createCompositorBackend, detectWebGPU } from './router';
+export * from './structuralRenderPlan';
 export type {
   CompositorBackend,
   CompositorBackendId,
@@ -8,6 +9,7 @@ export type {
   CompositorDiagnostics,
   CompositorFrame,
   CompositorOptions,
+  RenderStructureNode,
 } from './types';
 export { WebGPUBackend } from './webgpu/backend';
 export type { EffectDispatchRequest as GpuEffectDispatchRequest } from './webgpu/effects/runner';
