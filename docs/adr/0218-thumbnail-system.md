@@ -42,7 +42,9 @@ Thumbnail is a platform capability with one source of truth:
 4. **Persistence unchanged in shape** — identity strings as cache keys in
    the existing platform store; `setThumbnailPreference` on the FileEntry
    (app metadata, never document bytes). Legacy entries are disposable
-   warm-migration fallbacks.
+   warm-migration fallbacks. `persistDocThumbnail` writes only settled
+   results; a result marked `isProvisional` remains disposable and is never
+   installed as the authoritative platform thumbnail.
 5. **One bounded scheduler** — concurrency 1, priority, dedupe,
    cancellation, stale-job guards (editor).
 6. **User-selected sources** — File menu, canvas/page context menus,
