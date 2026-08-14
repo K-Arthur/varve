@@ -51,12 +51,24 @@ async function fitActivePage(page: import('@playwright/test').Page) {
   await page.waitForTimeout(300);
 }
 
-/** Click the page centre with the page tool (canvas centre after fit). */
+/** Click the page with the page tool: the page centre after fit, or the
+ * rendered guide's centre when the page has been moved (the guide is
+ * concentric with the trim). Blurs any focused inspector field FIRST via
+ * the DOM — a 'q' keystroke while a NumberField holds focus lands in the
+ * field (staged as dirty text) and the tool never switches. */
 async function activatePageToolAndPage(page: import('@playwright/test').Page) {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.keyboard.press('Escape');
   await page.keyboard.press('q');
-  const box = (await page.locator('canvas.editor-canvas__content-layer').boundingBox())!;
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const canvasBox = (await canvas.boundingBox())!;
+  const guide = page.locator('.print-bleed-guide');
+  const guideBox = (await guide.count()) ? await guide.first().boundingBox() : null;
+  if (guideBox) {
+    await page.mouse.click(guideBox.x + guideBox.width / 2, guideBox.y + guideBox.height / 2);
+  } else {
+    await page.mouse.click(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2);
+  }
   await page.getByText('Page Print').first().waitFor({ timeout: 5000 });
 }
 
@@ -183,13 +195,16 @@ test.describe('Bleed print workflow', () => {
         if (!ctx) return null;
         const scaleX = canvas.width / canvas.clientWidth;
         const scaleY = canvas.height / canvas.clientHeight;
+        const canvasRect = canvas.getBoundingClientRect();
         const guide = document.querySelector('.print-bleed-guide')?.getBoundingClientRect();
         if (!guide) return null;
         // Derive the sample from the rendered guide rather than assuming the
         // page's world origin is the canvas's CSS origin. Fit-to-page centers
         // the page on the infinite canvas, so that shortcut misses the band.
-        const sx = guide.right - bleedPx / 2;
-        const sy = guide.top + guide.height / 2;
+        // getBoundingClientRect is viewport-relative — normalize to the
+        // canvas element before scaling to device pixels.
+        const sx = guide.right - canvasRect.left - bleedPx / 2;
+        const sy = guide.top - canvasRect.top + guide.height / 2;
         const x = Math.round(sx * scaleX);
         const y = Math.round(sy * scaleY);
         if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
@@ -246,8 +261,74 @@ test.describe('Bleed print workflow', () => {
     await activatePageToolAndPage(page);
     await setBleed(page, '20');
     await expect(page.locator('.print-bleed-guide')).toHaveCount(1);
+    await expectGuideAttrs(page, await fitZoom(page));
+
+    // Undo/redo a bleed change. Runs right after the bleed setup, before
+    // any move/resize, so the undo chain is simple and deterministic.
+    const zu = await fitZoom(page);
+    await page.getByLabel(/bleed top/i).fill('40');
+    await page.getByLabel(/bleed top/i).press('Enter');
+    // Blur the field without any canvas click: Escape does not blur (the
+    // NumberField's Escape handler only clears the staged value), Tab just
+    // cycles to the next input, and a canvas click with the page tool
+    // active opens a new gesture transaction. A focused input also swallows
+    // Ctrl+Z as the browser's text-undo instead of the document undo.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    // Assert x AND width together: x alone cannot tell "bleed 40 on the
+    // resized page" apart from "bleed 20" (same x at this zoom), but the
+    // width distinguishes an undone bleed change (1520z) from an undone
+    // resize (1960z).
+    await expect
+      .poll(async () => {
+        const a = await guideAttrs(page);
+        return a ? { x: a.x, width: a.width } : null;
+      })
+      .toEqual({
+        // Bleed is linked: editing top set all four edges to 40, so the
+        // guide spans 1480 + 40 + 40 = 1560 world px.
+        x: expect.closeTo(-40 * zu, 0.5),
+        width: expect.closeTo(2000 * zu, 0.5),
+      });
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(600);
+    await expect
+      .poll(async () => {
+        const a = await guideAttrs(page);
+        return a ? { x: a.x, width: a.width } : null;
+      })
+      .toEqual({
+        x: expect.closeTo(-20 * zu, 0.5),
+        width: expect.closeTo(1960 * zu, 0.5),
+      });
+    // Redo via the toolbar button. Undo/redo run through the persistent
+    // revision store (async) whose canRedo flag lags the action, so wait
+    // for the button to enable before clicking.
+    const redoBtn = page.getByRole('button', { name: /^Redo$/ });
+    await expect
+      .poll(
+        async () => (await redoBtn.count()) && (await redoBtn.first().isEnabled()),
+        { timeout: 15000 },
+      )
+      .toBe(true);
+    await redoBtn.first().click();
+    await page.waitForTimeout(400);
+    await expect
+      .poll(async () => {
+        const a = await guideAttrs(page);
+        return a ? { x: a.x, width: a.width } : null;
+      })
+      .toEqual({
+        x: expect.closeTo(-40 * zu, 0.5),
+        width: expect.closeTo(2000 * zu, 0.5),
+      });
+    // Restore a consistent state for persistence.
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(600);
 
     // Move the page: the guide follows the placement.
+    await activatePageToolAndPage(page);
     await page.keyboard.press('Escape');
     const before = await page.locator('.print-bleed-guide').boundingBox();
     await page.keyboard.press('q');
@@ -261,39 +342,22 @@ test.describe('Bleed print workflow', () => {
     // Resize the page: bleed distance stays physically constant (still
     // 20px per edge; never a percentage of the new size).
     await activatePageToolAndPage(page);
-    await page.getByLabel(/^page width$/i).fill('1480');
-    await page.getByLabel(/^page height$/i).fill('980');
-    await page.getByLabel(/^page height$/i).press('Enter');
-    await page.keyboard.press('Escape');
+    const printSection = page.locator('.page-print');
+    await printSection.getByLabel(/page width/i).fill('1480');
+    await printSection.getByLabel(/page height/i).fill('980');
+    await printSection.getByLabel(/page height/i).press('Enter');
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     await expectGuideAttrs(page, await fitZoom(page), 20, 1480, 980);
-
-    // Undo/redo a bleed change.
-    await activatePageToolAndPage(page);
-    const zu = await fitZoom(page);
-    await page.getByLabel(/bleed top/i).fill('40');
-    await page.getByLabel(/bleed top/i).press('Enter');
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-    await expect.poll(async () => (await guideAttrs(page))?.x).toBeCloseTo(-40 * zu, 0.5);
-    await page.keyboard.press('Control+z');
-    await page.waitForTimeout(300);
-    await expect.poll(async () => (await guideAttrs(page))?.x).toBeCloseTo(-20 * zu, 0.5);
-    await page.keyboard.press('Control+Shift+z');
-    await page.waitForTimeout(300);
-    await expect.poll(async () => (await guideAttrs(page))?.x).toBeCloseTo(-40 * zu, 0.5);
-    // Restore a consistent state for persistence.
-    await page.keyboard.press('Control+z');
-    await page.waitForTimeout(300);
 
     // Save and verify the document bytes carry the bleed config.
     await page
       .getByRole('menubar')
       .getByRole('menuitem', { name: /^File$/ })
       .click();
-    await page.getByRole('menuitem', { name: /^Save$/ }).click();
+    // The accessible name includes the accelerator ("Save Ctrl+S").
+    await page.getByRole('menuitem', { name: /^Save Ctrl\+S$/ }).click();
     await page.waitForTimeout(600);
     const saved = await page.evaluate(
       () => (window as unknown as Record<string, string | null>).__varveSavedDoc,
@@ -323,9 +387,18 @@ test.describe('Bleed print workflow', () => {
     });
 
     // Export dialog opens (PDF/X bleed seeding is covered by unit tests
-    // against the same canonical resolver).
-    await page.keyboard.press('Control+e');
-    await page.locator('dialog[open]').waitFor({ timeout: 10000 });
-    expect(await page.locator('dialog[open]').count()).toBeGreaterThan(0);
+    // against the same canonical resolver). File menu path — the Ctrl+E
+    // shortcut can be swallowed by a focused element after the save flow.
+    await page
+      .getByRole('menubar')
+      .getByRole('menuitem', { name: /^File$/ })
+      .click();
+    await page.getByRole('menuitem', { name: /^Export… Ctrl\+E$/ }).click();
+    // The Export dialog renders without the native [open] attribute; its
+    // heading is the reliable open-state signal.
+    await page
+      .getByRole('dialog')
+      .getByRole('heading', { name: /^Export$/ })
+      .waitFor({ timeout: 10000 });
   });
 });
