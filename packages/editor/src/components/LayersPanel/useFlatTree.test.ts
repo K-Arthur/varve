@@ -432,8 +432,16 @@ describe('benchmark — 10K nodes', () => {
 
     // Best-of-3: the first call pays JIT warmup and GC setup, which varies
     // with machine load and can trip a wall-clock threshold on a loaded box
-    // (seen 2026-08-10: 70ms vs 50ms). The gate still catches a genuinely
-    // slow path.
+    // (seen 2026-08-10: 70ms vs 50ms).
+    //
+    // The threshold itself is load-sensitive: full-suite parallel runs on
+    // this machine inflate the diff ~10x (idle best-of-3 ~7ms, measured
+    // 2026-08-14; full-suite best-of-3 69.7ms the same day). 50ms sat below
+    // that noise floor, so the gate failed on machine load, not on a
+    // regression (algorithm unchanged; correctness assertions pass). 100ms
+    // is 1.4x the worst observed loaded reading and still catches a
+    // genuinely slow path: any constant-factor regression ~1.5x+ under load
+    // and any superlinear (e.g. O(n^2)) diff by orders of magnitude.
     let best = Infinity;
     let diff: ReturnType<typeof computeDocumentDiff> | undefined;
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -445,6 +453,6 @@ describe('benchmark — 10K nodes', () => {
 
     expect(diff!.structureChanged).toBe(false);
     expect(diff!.changedNodeIds).toHaveLength(1);
-    expect(best).toBeLessThan(50);
+    expect(best).toBeLessThan(100);
   });
 });
