@@ -151,6 +151,17 @@
   justify-content: center;
 }
 
+/* Semantic renderer: keep SVGs aligned with text and prevent
+ * viewBox differences from changing button geometry. The parent control owns
+ * the hit target; this rule only normalizes the visible glyph. */
+.varve-semantic-icon {
+  display: block;
+  flex: 0 0 auto;
+  max-width: 100%;
+  max-height: 100%;
+  vertical-align: middle;
+}
+
 /* ── Button (base) ─────────────────────────────── */
 .varve-btn {
   display: inline-flex;

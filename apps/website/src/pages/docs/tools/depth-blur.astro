@@ -1,0 +1,77 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Depth Blur"
+  description="How to generate, inspect, and persist a DepthMap for Varve's non-destructive Depth Blur effect."
+>
+  <div class="container-custom">
+    <article class="doc-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Docs</a> / <a href={sitePath('/docs/tools')}>Tools</a> / Depth Blur
+      </nav>
+      <h1>Depth Blur</h1>
+      <p class="lead">Use a reusable relative DepthMap to control focus blur while keeping the source image editable.</p>
+
+      <h2>Generate a DepthMap</h2>
+      <ol>
+        <li>Select an image-filled shape and open <strong>Depth Blur</strong> in the Inspector.</li>
+        <li>Choose <strong>Enable Depth Blur</strong> to download the optional local model, then choose <strong>Generate Depth Map</strong>.</li>
+        <li>Turn on <strong>Preview Depth</strong> to inspect the near-to-far field. Use <strong>Pick Focus</strong> to sample a focal depth from that preview.</li>
+      </ol>
+
+      <h2>Adjust and save the effect</h2>
+      <p>
+        Tune blur amount, focal distance, and transition range. Saving creates a <code>depthBlur</code>
+        effect that references the document's DepthMap resource. It does not replace the image with a
+        blurred bitmap, so the same map can later drive additional depth-aware effects.
+      </p>
+
+      <h2>Depth Range Mask</h2>
+      <p>
+        A saved DepthMap can also be converted into a non-destructive layer mask: set the near and far
+        thresholds, feather the transition, optionally invert the selection, then choose
+        <strong>Create Depth Mask</strong>. The mask is stored as a standard raster mask on the image
+        layer, so adjustments and other effects can consume it like any other mask.
+      </p>
+
+      <h2>Regenerate and remove</h2>
+      <p>
+        <strong>Regenerate Depth Map</strong> reruns local inference when you want a fresh estimate.
+        <strong>Remove Depth Blur</strong> deletes the effect and any depth resources that are no
+        longer referenced by other effects. Removing the map never touches the original image pixels.
+      </p>
+
+      <h2>Persistence and invalidation</h2>
+      <p>
+        A persisted map records its dimensions, normalized near/far convention, model and preprocessing
+        provenance, source asset hash, and a versioned 16-bit scalar payload. Rendering only needs the
+        stored resource; model inference is needed only to create or regenerate it. If the source asset
+        changes, Varve marks the saved map stale and asks you to regenerate it.
+      </p>
+
+      <h2>Limitations</h2>
+      <p>
+        Depth is relative, not metric. It is a guide for image effects, not a measurement of real-world
+        distance. Transparent objects, reflections, thin structures, and severe occlusion may be uncertain.
+        Missing or corrupt maps fail soft and preserve the source pixels.
+      </p>
+
+      <p><a href={sitePath('/features/depth-aware-effects')}>Read the depth-aware effects overview →</a></p>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .doc-page { max-width: 760px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { font-family: var(--font-editorial); font-size: clamp(2rem, 5vw, 2.75rem); color: var(--text-primary); }
+  .lead { font-size: 1.2rem; color: var(--text-secondary); margin-bottom: 2.5rem; }
+  h2 { margin-top: 2.5rem; color: var(--text-primary); }
+  p, li { color: var(--text-secondary); line-height: 1.75; }
+  li + li { margin-top: 0.65rem; }
+  code { color: var(--text-primary); }
+</style>

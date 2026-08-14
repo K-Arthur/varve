@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@varve/platform';
 import { fileKindLabel, formatRelativeTime } from '@varve/platform';
-import { Icon, Thumbnail, Tooltip } from '@varve/ui';
+import { SemanticIcon, Thumbnail, Tooltip } from '@varve/ui';
 import {
   forwardRef,
   type HTMLAttributes,
@@ -192,11 +192,10 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
               onPointerDown={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              <Icon
+              <SemanticIcon
                 name="Star"
+                size="xs"
                 fill={entry.favoritedAt && entry.favoritedAt > 0 ? 'currentColor' : 'none'}
-                label={undefined}
-                size="0.75em"
               />
             </button>
           )}

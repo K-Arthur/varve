@@ -10,9 +10,13 @@ export type UpscaleMethod = 'nearest' | 'bilinear' | 'bicubic' | 'lanczos3' | 'a
 
 export type UpscaleProgressFn = (done: number, total: number) => void;
 
+export type { RestorationOperation } from './restoration';
+
 export type DenoiseStrength = 'none' | 'light' | 'medium' | 'strong';
 
 export interface UpscaleOptions {
+  /** Optional unified Enhance operation; omitted by legacy upscale callers. */
+  operation?: import('./restoration').RestorationOperation;
   scale?: number;
   targetWidth?: number;
   targetHeight?: number;

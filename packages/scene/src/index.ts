@@ -55,6 +55,7 @@ export {
   toggleFacingPages,
 } from './document';
 export * from './documentCodec';
+export * from './effectMasks';
 export * from './effects';
 export * from './expandWarp';
 export * from './export-types';
@@ -106,6 +107,7 @@ export * from './profiles';
 export * from './proof';
 export * from './property-path';
 export * from './rasterLayer';
+export * from './richTextIndex';
 export * from './richTextOps';
 export * from './selectionSet';
 export * from './sha256';

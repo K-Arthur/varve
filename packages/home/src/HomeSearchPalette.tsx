@@ -6,7 +6,7 @@ import type {
   TemplateLibrary,
 } from '@varve/platform';
 import { fuzzySearch } from '@varve/platform';
-import { Icon, Tooltip } from '@varve/ui';
+import { SemanticIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface ResultItem {
@@ -18,6 +18,13 @@ interface ResultItem {
   groupIcon: string;
   isFirstInGroup: boolean;
 }
+
+const SEARCH_GROUP_ICONS = {
+  FileText: 'FileText',
+  Folder: 'Folder',
+  LayoutGrid: 'Grid',
+  Search: 'Search',
+} as const;
 
 export interface HomeSearchPaletteProps {
   open: boolean;
@@ -280,7 +287,7 @@ export function HomeSearchPalette({
     >
       <div className="search-palette__container" ref={containerRef}>
         <div className="search-palette__input-wrap">
-          <Icon name="Search" label={undefined} size="1em" className="search-palette__input-icon" />
+          <SemanticIcon name="Search" size="sm" className="search-palette__input-icon" />
           <input
             ref={inputRef}
             type="text"
@@ -304,7 +311,7 @@ export function HomeSearchPalette({
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
               >
-                <Icon name="X" label={undefined} size="0.85em" />
+                <SemanticIcon name="Close" size="xs" />
               </button>
             </Tooltip>
           )}
@@ -328,10 +335,12 @@ export function HomeSearchPalette({
             if (item.groupKind === 'header') {
               return (
                 <div key={item.id} className="search-palette__group-label" role="presentation">
-                  <Icon
-                    name={item.groupIcon as 'FileText' | 'Folder' | 'LayoutGrid' | 'Search'}
-                    label={undefined}
-                    size="0.85em"
+                  <SemanticIcon
+                    name={
+                      SEARCH_GROUP_ICONS[item.groupIcon as keyof typeof SEARCH_GROUP_ICONS] ??
+                      'FileText'
+                    }
+                    size="sm"
                   />
                   {item.name}
                 </div>

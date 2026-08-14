@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Typography" description="Varve's typography: multi-line text, OpenType features, variable fonts, text-on-path, inline editing, and CJK line breaking.">
+<Layout title="Typography" description="Varve's typography system: Unicode-aware text foundations, multi-line layout, OpenType features, variable fonts, text-on-path, inline editing, and CJK line breaking.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,13 +12,13 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Typography</h1>
       <p class="feature-intro">
-        Multi-line text rendering, OpenType feature toggles, variable font axes, text-on-path, inline editing, and CJK line breaking.
+        Multi-line text rendering, OpenType feature toggles, variable font axes, text-on-path, inline editing, and Unicode-aware layout foundations.
       </p>
 
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve's typography system provides full text rendering with multi-line layout, text decoration, text overflow with ellipsis, list styles, per-glyph letter spacing, vertical alignment, and text case transforms. It supports OpenType feature toggles, variable font axis control, and text placed along arbitrary paths.
+          Varve's typography system provides multi-line layout, text decoration, overflow handling, list styles, letter spacing, vertical alignment, and text case transforms. It supports OpenType feature toggles, variable font axis control, text placed along arbitrary paths, and a logical Unicode source model designed to keep shaping, editing, and export aligned.
         </p>
       </section>
 
@@ -31,6 +31,9 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Variable fonts:</strong> Per-axis slider control with min/max/default from font metadata</li>
           <li><strong>Text on path:</strong> Place text along any shape path — circle, bezier, rectangle, polygon, star</li>
           <li><strong>CJK support:</strong> Line breaking via Intl.Segmenter for Chinese, Japanese, and Korean text</li>
+          <li><strong>Unicode foundations:</strong> Explicit UTF-16, code-point, grapheme, shaping-cluster, and visual-caret mappings</li>
+          <li><strong>BiDi foundations:</strong> UAX #9 embedding levels, per-line visual run ordering, mirrored punctuation, and cluster-safe caret geometry in the engine</li>
+          <li><strong>Paragraph layout:</strong> Script/language itemization, word-level line breaking that never splits a grapheme, and RTL-safe wrapping</li>
           <li><strong>Font system:</strong> Google Fonts loading, @fontsource bundled fonts, CSS fallback chains</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
         </ul>
@@ -39,7 +42,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          Text rendering uses cached offscreen canvas measurement for accurate metrics. The FontRegistry manages font loading, CSS fallback chains, and variable font axis discovery. Text-on-path uses adaptive Simpson integration for cubic bezier arc-length sampling. The engine IR carries all 15 typography properties through to the canvas replay.
+          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. A paragraph-aware layout pipeline resolves UAX #9 base direction and embedding levels per paragraph, itemizes script and language runs, breaks lines at word boundaries without ever splitting an extended grapheme cluster, and derives line-level visual run order after wrapping — so wrapped RTL paragraphs reorder correctly. Cluster-safe caret stops, hit testing, and selection geometry come from the same snapshot. The browser renderer still uses Canvas2D measurement as a clearly-labeled fallback while font-byte shaping is integrated.
         </p>
         <p>
           SVG export includes multi-line and rich text support. Typography preflight checks font availability and CSS generation.
@@ -51,10 +54,10 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Complex script shaping (Arabic, Devanagari, Thai) not supported — Latin, CJK, and simple scripts work</li>
-            <li>BiDi (bidirectional) text layout not implemented</li>
+            <li>Complex-script shaping (Arabic, Devanagari, Thai, and similar scripts) is not yet guaranteed in the live Canvas2D and export paths — the engine shapes contextually only when font bytes are available</li>
+            <li>The canonical paragraph layout pipeline (BiDi, line breaking, caret/selection geometry) is engine-complete, but the inline editor and pointer tools still use the legacy textarea/canvas path</li>
             <li>Text-to-outlines produces placeholder bounding boxes (real glyph path extraction deferred)</li>
-            <li>Rich text (per-span formatting) data model exists but UI editing is limited</li>
+            <li>Rich-text transactions and mixed inspector state exist, but insertion-style state, composition transactions, and complete shaped per-span rendering remain in development</li>
           </ul>
         </div>
       </section>
@@ -63,7 +66,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Core text rendering, OpenType features, variable fonts, text-on-path, and inline editing are functional. Complex script shaping and rich text editing are deferred.</p>
+          <p>Core text controls, OpenType settings, variable fonts, text-on-path, inline editing, Unicode indexing, UAX #9 BiDi, canonical paragraph layout with cluster-safe caret geometry, and rich-text transactions are functional in the beta. Font-byte shaping in the live canvas and full complex-script editing remain in development.</p>
         </div>
       </section>
 

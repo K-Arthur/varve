@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyFormatToSelection,
+  characterFormatValue,
   mergeAdjacentRuns,
   promoteToRichText,
+  removeCharacterFormat,
+  replaceTextInParagraph,
   splitRunAt,
 } from './richTextOps';
 import type { RichText, TextRun } from './typography';
@@ -25,6 +28,13 @@ describe('richTextOps', () => {
       const [a, b] = splitRunAt({ text: 'Hi' }, 99);
       expect(a.text).toBe('Hi');
       expect(b.text).toBe('');
+    });
+
+    it('does not split an extended grapheme cluster', () => {
+      const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+      const [a, b] = splitRunAt({ text: `A${family}B` }, 3);
+      expect(a.text).toBe('A');
+      expect(b.text).toBe(`${family}B`);
     });
   });
 
@@ -95,6 +105,20 @@ describe('richTextOps', () => {
       expect(result.paragraphs[0]!.runs[1]!.text).toBe('ell');
       expect(result.paragraphs[0]!.runs[1]!.format).toEqual({ fontWeight: 700 });
     });
+
+    it('expands a selection that lands inside a ZWJ grapheme', () => {
+      const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+      const result = applyFormatToSelection(
+        rich({ text: `A${family}B` }),
+        { start: { paragraphIndex: 0, offset: 3 }, end: { paragraphIndex: 0, offset: 4 } },
+        { fontWeight: 700 },
+      );
+      expect(result.paragraphs[0]!.runs).toEqual([
+        { text: 'A' },
+        { text: family, format: { fontWeight: 700 } },
+        { text: 'B' },
+      ]);
+    });
   });
 
   describe('promoteToRichText', () => {
@@ -115,5 +139,44 @@ describe('richTextOps', () => {
       const existing = rich({ text: 'Existing' });
       expect(promoteToRichText(existing, 'New')).toBe(existing);
     });
+  });
+
+  it('removes only requested character properties from a selection', () => {
+    const rich = {
+      paragraphs: [{ runs: [{ text: 'Hello', format: { fontWeight: 700, fontSize: 20 } }] }],
+    };
+    const next = removeCharacterFormat(
+      rich,
+      { start: { paragraphIndex: 0, offset: 1 }, end: { paragraphIndex: 0, offset: 4 } },
+      ['fontWeight'],
+    );
+    expect(next.paragraphs[0]?.runs).toEqual([
+      { text: 'H', format: { fontWeight: 700, fontSize: 20 } },
+      { text: 'ell', format: { fontSize: 20 } },
+      { text: 'o', format: { fontWeight: 700, fontSize: 20 } },
+    ]);
+  });
+
+  it('reports mixed character values across selected runs', () => {
+    const richText = rich(
+      { text: 'A', format: { fontSize: 12 } },
+      { text: 'B', format: { fontSize: 24 } },
+    );
+    expect(
+      characterFormatValue(
+        richText,
+        { start: { paragraphIndex: 0, offset: 0 }, end: { paragraphIndex: 0, offset: 2 } },
+        'fontSize',
+      ),
+    ).toEqual({
+      value: 12,
+      mixed: true,
+    });
+  });
+
+  it('replaces text at grapheme boundaries and inherits the range style', () => {
+    const rich = { paragraphs: [{ runs: [{ text: 'a\u0301b', format: { fontSize: 20 } }] }] };
+    const next = replaceTextInParagraph(rich, 0, 1, 2, 'X');
+    expect(next.paragraphs[0]?.runs).toEqual([{ text: 'Xb', format: { fontSize: 20 } }]);
   });
 });

@@ -128,6 +128,34 @@ describe('formatFileName', () => {
     });
     expect(name).toBe('Logo.jpg');
   });
+
+  it('collapses a duplicate extension when the name already carries it', () => {
+    // A node named `logo.png` must not export as `logo.png.png`.
+    const name = formatFileName('{name}.{ext}', {
+      ...base,
+      name: 'logo.png',
+      scale: { mode: 'multiplier', value: 1 },
+    });
+    expect(name).toBe('logo.png');
+  });
+
+  it('collapses a duplicate extension case-insensitively', () => {
+    const name = formatFileName('{name}.{ext}', {
+      ...base,
+      name: 'logo.PNG',
+      scale: { mode: 'multiplier', value: 1 },
+    });
+    expect(name).toBe('logo.png');
+  });
+
+  it('keeps legitimate interior dots when the extension differs', () => {
+    const name = formatFileName('{name}.{ext}', {
+      ...base,
+      name: 'my.design',
+      scale: { mode: 'multiplier', value: 1 },
+    });
+    expect(name).toBe('my.design.png');
+  });
 });
 
 describe('resolveCollisions', () => {

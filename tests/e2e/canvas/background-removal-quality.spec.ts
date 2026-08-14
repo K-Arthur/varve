@@ -18,14 +18,25 @@ interface BenchmarkResult {
   actualMethod?: string;
   executionProvider?: string;
   processingTimeMs?: number;
+  coldStartMs?: number;
+  warmP50Ms?: number;
+  warmP95Ms?: number;
   confidence?: number;
+  modelId?: string;
+  modelPrecision?: string;
   foregroundRatio?: number;
   softEdgeRatio?: number;
   iou?: number;
   dice?: number;
   precision?: number;
   recall?: number;
-  alphaMae?: number;
+  maskMae?: number;
+  boundaryFScore?: number;
+  boundaryPrecision?: number;
+  boundaryRecall?: number;
+  trimapBandMae?: number;
+  runtime?: string;
+  device?: string;
   error?: string;
 }
 
@@ -49,6 +60,10 @@ test.describe('real-image background-removal quality benchmark', () => {
     for (const method of METHODS) {
       test(`${fixture.id} — ${method}`, async ({ page }) => {
         test.setTimeout(method === 'ai-quality' ? 180_000 : 90_000);
+        const iterations = Math.max(
+          1,
+          Number.parseInt(process.env.VARVE_BGREMOVAL_BENCH_ITERATIONS ?? '1', 10) || 1,
+        );
         const imageDataUrl = fileDataUrl(path.join(BENCH_DIR!, fixture.image));
         const fixtureMaybeWithMask = fixture as { id: string; image: string; mask?: string };
         const maskDataUrl = fixtureMaybeWithMask.mask
@@ -59,7 +74,7 @@ test.describe('real-image background-removal quality benchmark', () => {
         )}`;
 
         const result = await page.evaluate(
-          async ({ caseId, engineModuleUrl, imageDataUrl, maskDataUrl, method }) => {
+          async ({ caseId, engineModuleUrl, imageDataUrl, maskDataUrl, method, iterations }) => {
             const decode = async (url: string): Promise<ImageData> => {
               const image = new Image();
               image.src = url;
@@ -74,11 +89,21 @@ test.describe('real-image background-removal quality benchmark', () => {
 
             try {
               const source = await decode(imageDataUrl);
+              const truthImage = maskDataUrl ? await decode(maskDataUrl) : undefined;
               const engine = await import(engineModuleUrl);
-              const output = await engine.removeBackground(source, {
-                method,
-                previewMaxDimension: 1024,
-              });
+              const outputs: Array<{
+                output: Awaited<ReturnType<typeof engine.removeBackground>>;
+                elapsedMs: number;
+              }> = [];
+              for (let iteration = 0; iteration < iterations; iteration++) {
+                const started = performance.now();
+                const output = await engine.removeBackground(source, {
+                  method,
+                  previewMaxDimension: 1024,
+                });
+                outputs.push({ output, elapsedMs: performance.now() - started });
+              }
+              const output = outputs.at(-1)!.output;
               const predicted = output.rawMask;
               if (!predicted) throw new Error('Provider returned no raw mask');
 
@@ -93,8 +118,7 @@ test.describe('real-image background-removal quality benchmark', () => {
                 foregroundRatio: foreground / predicted.length,
                 softEdgeRatio: softEdges / predicted.length,
               };
-              if (maskDataUrl) {
-                const truthImage = await decode(maskDataUrl);
+              if (truthImage) {
                 const truthCanvas = document.createElement('canvas');
                 truthCanvas.width = output.width;
                 truthCanvas.height = output.height;
@@ -105,30 +129,34 @@ test.describe('real-image background-removal quality benchmark', () => {
                 sourceCanvas.getContext('2d')!.putImageData(truthImage, 0, 0);
                 truthContext.drawImage(sourceCanvas, 0, 0, output.width, output.height);
                 const truth = truthContext.getImageData(0, 0, output.width, output.height).data;
-                let intersection = 0;
-                let union = 0;
-                let predictedPositive = 0;
-                let truthPositive = 0;
-                let absoluteError = 0;
-                for (let index = 0; index < predicted.length; index++) {
-                  const expected = truth[index * 4] ?? 0;
-                  const predPositive = predicted[index]! >= 128;
-                  const expectedPositive = expected >= 128;
-                  if (predPositive) predictedPositive++;
-                  if (expectedPositive) truthPositive++;
-                  if (predPositive && expectedPositive) intersection++;
-                  if (predPositive || expectedPositive) union++;
-                  absoluteError += Math.abs(predicted[index]! - expected) / 255;
+                const expectedMask = new Uint8Array(output.width * output.height);
+                for (let index = 0; index < expectedMask.length; index++) {
+                  expectedMask[index] = truth[index * 4] ?? 0;
                 }
-                metrics.iou = union ? intersection / union : 1;
-                metrics.dice =
-                  predictedPositive + truthPositive
-                    ? (2 * intersection) / (predictedPositive + truthPositive)
-                    : 1;
-                metrics.precision = predictedPositive ? intersection / predictedPositive : 1;
-                metrics.recall = truthPositive ? intersection / truthPositive : 1;
-                metrics.alphaMae = absoluteError / predicted.length;
+                const quality = engine.computeMaskQualityMetrics(
+                  predicted,
+                  expectedMask,
+                  output.width,
+                  output.height,
+                );
+                Object.assign(metrics, {
+                  iou: quality.iou,
+                  dice: quality.dice,
+                  precision: quality.precision,
+                  recall: quality.recall,
+                  maskMae: quality.mae,
+                  boundaryFScore: quality.boundaryFScore,
+                  boundaryPrecision: quality.boundaryPrecision,
+                  boundaryRecall: quality.boundaryRecall,
+                });
               }
+
+              const timings = outputs.map((entry) => entry.elapsedMs);
+              const warm = timings.slice(1).sort((a, b) => a - b);
+              const percentile = (values: number[], p: number) =>
+                values.length === 0
+                  ? undefined
+                  : values[Math.min(values.length - 1, Math.floor(values.length * p))];
 
               return {
                 caseId,
@@ -137,7 +165,14 @@ test.describe('real-image background-removal quality benchmark', () => {
                 actualMethod: output.method,
                 executionProvider: output.executionProvider,
                 processingTimeMs: output.processingTimeMs,
+                coldStartMs: timings[0],
+                warmP50Ms: percentile(warm, 0.5),
+                warmP95Ms: percentile(warm, 0.95),
                 confidence: output.confidence,
+                modelId: output.modelId,
+                modelPrecision: output.modelPrecision,
+                runtime: 'browser-onnx',
+                device: navigator.userAgent,
                 ...metrics,
                 maskDataUrl: output.maskDataUrl,
               };
@@ -150,7 +185,7 @@ test.describe('real-image background-removal quality benchmark', () => {
               };
             }
           },
-          { caseId: fixture.id, engineModuleUrl, imageDataUrl, maskDataUrl, method },
+          { caseId: fixture.id, engineModuleUrl, imageDataUrl, maskDataUrl, method, iterations },
         );
 
         const outputMask = 'maskDataUrl' in result ? result.maskDataUrl : undefined;
@@ -176,7 +211,20 @@ test.describe('real-image background-removal quality benchmark', () => {
     if (BENCH_DIR) {
       fs.writeFileSync(
         path.join(BENCH_DIR, 'results.json'),
-        `${JSON.stringify(results, null, 2)}\n`,
+        `${JSON.stringify(
+          {
+            schemaVersion: 2,
+            generatedAt: new Date().toISOString(),
+            gitCommit: process.env.GITHUB_SHA ?? 'working-tree',
+            runtime: 'browser-onnx',
+            iterations: Math.max(
+              1,
+              Number.parseInt(process.env.VARVE_BGREMOVAL_BENCH_ITERATIONS ?? '1', 10) || 1,
+            ),
+            results,
+          },
+          null,
+        )}\n`,
         'utf8',
       );
     }

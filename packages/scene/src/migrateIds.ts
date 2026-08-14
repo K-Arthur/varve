@@ -140,6 +140,12 @@ export function migrateLegacyIds(doc: Document, opts: MigrateIdsOptions = {}): I
     if (mask && typeof mask === 'object' && mask.sourceNodeId !== undefined) {
       mask.sourceNodeId = remapNode(mask.sourceNodeId);
     }
+    const matteSource = (
+      base.mask as { matteSource?: { kind?: string; nodeId?: string } } | undefined
+    )?.matteSource;
+    if (matteSource?.kind === 'scene-node' && matteSource.nodeId) {
+      matteSource.nodeId = remapNode(matteSource.nodeId);
+    }
     if (base.slots && typeof base.slots === 'object') {
       base.slots = Object.fromEntries(
         Object.entries(base.slots as Record<string, string>).map(([slotId, childId]) => [

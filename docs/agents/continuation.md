@@ -121,16 +121,23 @@ See `docs/plans/phase1-plan.md` for the full execution plan. Summary:
 
 ---
 
-## 3. Gate Requirements (same as always)
+## 3. Gate Requirements (affected-first — see docs/quality/validation-strategy.md)
 
-After every subtask:
+After every subtask, run the impact-aware validation, not the whole suite:
+
 ```
-cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
-pnpm exec biome check --write . && pnpm lint && pnpm typecheck && pnpm test
-pnpm audit:emoji && pnpm audit:tokens
+pnpm verify:plan         # understand the impact first — never skip this
+pnpm verify:affected     # Tiers 0-4: touched format/lint + related tests + typechecks
 ```
 
-All must pass. Non-negotiable.
+Full-suite operations (`just gate`, `pnpm verify:full`, `cargo test --workspace`,
+`pnpm test`) are reserved for explicit escalation conditions: workspace/toolchain
+changes, serialization/schema migrations, release checkpoints, or an explicit
+request with a stated reason (`VARVE_FULL_GATE_REASON`). "Same as always" no
+longer means "run everything".
+
+All selected checks must pass. Non-negotiable — but selection is by impact,
+not by repository size.
 
 ---
 

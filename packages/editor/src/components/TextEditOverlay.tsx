@@ -10,7 +10,7 @@
  */
 
 import type { Affine } from '@varve/engine';
-import { splitGraphemes } from '@varve/engine';
+import { createUnicodeIndexMap, normalizeGraphemeRange, utf16ToGrapheme } from '@varve/engine';
 import type { RichSelection, TextNode } from '@varve/scene';
 import {
   buildWorldToScreenAffine,
@@ -141,16 +141,10 @@ export function TextEditOverlay({
     const text = ta.value;
     const start = ta.selectionStart ?? 0;
     const end = ta.selectionEnd ?? 0;
-    const graphs = splitGraphemes(text);
-    let startOffset = 0;
-    let endOffset = 0;
-    let utf16 = 0;
-    for (let i = 0; i < graphs.length; i++) {
-      if (utf16 < start) startOffset = i;
-      if (utf16 < end) endOffset = i + 1;
-      const g = graphs[i];
-      if (g) utf16 += g.length;
-    }
+    const indexMap = createUnicodeIndexMap(text);
+    const normalized = normalizeGraphemeRange(indexMap, start, end);
+    const startOffset = utf16ToGrapheme(indexMap, normalized.start);
+    const endOffset = utf16ToGrapheme(indexMap, normalized.end);
     const range: RichSelection = {
       start: { paragraphIndex: 0, offset: startOffset },
       end: { paragraphIndex: 0, offset: endOffset },

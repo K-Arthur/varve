@@ -184,15 +184,31 @@ export {
 } from './contentAwareFill';
 export type {
   DenoiseOptions,
+  DenoiseProvider,
   DenoiseResult,
+  DenoiseTileRequest,
+  DenoiseTileResult,
 } from './denoiseProviders';
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
 export { dispatchDenoise, nativeDenoiseProvider, workerDenoiseProvider } from './denoiseProviders';
 export type {
-  DenoiseProvider,
-  DenoiseTileRequest,
-  DenoiseTileResult,
-} from './denoiseProviders/types';
+  DepthMap,
+  DepthMapMetadata,
+  DepthMapResource,
+  DepthType,
+  DepthUnit,
+  NearFarConvention,
+} from './depthMap';
+export {
+  DepthMapCache,
+  depthCacheKey,
+  depthRangeToMask,
+  deserializeDepthMap,
+  normalizeDepthPrediction,
+  resizeDepthMap,
+  sampleDepth,
+  serializeDepthMap,
+} from './depthMap';
 export { applyDuotone, type DuotoneParams } from './duotone';
 export type { EffectContractEntry, QualityTier, WorkingSpace } from './effectContract';
 export {
@@ -201,6 +217,7 @@ export {
   getEffectContracts,
   requiresColorManagedPipeline,
 } from './effectContract';
+export { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 export {
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
@@ -392,7 +409,12 @@ export {
   scaleDimensions,
 } from './iccImageConverter';
 export * from './icon';
-export type { CachedImage, ImageCacheEntry, ImageLoadState } from './imageCache';
+export type {
+  CachedImage,
+  ImageCacheColorVariant,
+  ImageCacheEntry,
+  ImageLoadState,
+} from './imageCache';
 export { cachedImageDims, getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type {
   DenoiseStrength,
@@ -461,6 +483,7 @@ export {
 } from './imageResourceRegistry';
 export type {
   DownloadProgress,
+  EmbeddingCacheOptions,
   InferenceEvents,
   InferenceProvider,
   InferenceRequest,
@@ -482,6 +505,7 @@ export {
   DownloadManager,
   deriveAcquisition,
   disposeInferenceWorkerHost,
+  EmbeddingCache,
   getInferenceWorkerHost,
   getModelById,
   getRuntimeCapabilities,
@@ -540,7 +564,21 @@ export {
   SCUNET_TENSOR_SPEC,
   validateScunetInput,
 } from './inference/models/scunet';
-export { normalizeEmbedding, rankBySimilarity } from './inference/models/siglip';
+export {
+  normalizeEmbedding,
+  rankBySimilarity,
+  SIGLIP_TEXT_EMBEDDING_OUTPUT_NAME,
+  SIGLIP_TEXT_MAX_LENGTH,
+  SIGLIP_TEXT_MODEL_ID,
+} from './inference/models/siglip';
+export type { SiglipTokenizedText } from './inference/models/siglipText';
+export {
+  loadSiglipTokenizer,
+  SIGLIP_TOKENIZER_CACHE,
+  SIGLIP_TOKENIZER_LOCAL_URL,
+  SIGLIP_TOKENIZER_URL,
+  SiglipTokenizer,
+} from './inference/models/siglipText';
 export type { TrOcrInput, TrOcrOutput } from './inference/models/trocr';
 export {
   postprocessTrOcr,
@@ -550,12 +588,27 @@ export {
   TROCR_TENSOR_SPEC,
   validateTrOcrInput,
 } from './inference/models/trocr';
-export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
+export type {
+  ContrastPair,
+  HarmonyPalette,
+  PaletteAnalysis,
+  PaletteAnalysisConfig,
+  PalettePixelSource,
+  PaletteResult,
+  PaletteRole,
+  PaletteSourceInfo,
+  PaletteSwatch,
+  PaletteTimingInfo,
+  PaletteWarning,
+} from './intelligence/paletteExtractor';
 export {
   analogousHarmony,
+  analyzePalette,
   complementaryHarmony,
   extractPalette,
+  extractPaletteFromRgba,
   monochromaticHarmony,
+  PALETTE_ANALYSIS_VERSION,
   splitComplementaryHarmony,
   triadicHarmony,
 } from './intelligence/paletteExtractor';
@@ -565,7 +618,13 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
-export { applyLensBlur, depthToBlurWeight, depthToHeatmapImageData } from './lensBlur';
+export type { DepthBlurOptions } from './lensBlur';
+export {
+  applyDepthBlur,
+  applyLensBlur,
+  depthToBlurWeight,
+  depthToHeatmapImageData,
+} from './lensBlur';
 export * from './liveEffects';
 export type {
   Lut1D,
@@ -731,6 +790,8 @@ export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type {
   ExportColorSpaceChoice,
+  PixelBuffer,
+  PixelBufferData,
   PixelBufferDescriptor,
   PixelBufferFormat,
   RasterColorTransform,
@@ -742,11 +803,14 @@ export {
   buildMatrixProfile,
   convertExportImageData,
   convertImageDataTiled,
+  convertPixelBufferFormat,
   createAnalyticRgbTransform,
   defaultTransferFor,
   EXPORT_COLOR_POLICIES,
   exportColorPolicyLabel,
   exportProfileBytes,
+  float32ToHalfFloat,
+  halfFloatToFloat32,
   identityTransform,
   insertJpegIccProfile,
   isWebp,
@@ -787,8 +851,47 @@ export type {
   RasterTraceResult,
 } from './rasterTrace';
 export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
-export type { ReplayTarget } from './replay';
+export type { EffectMaskResolver, ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
+export type {
+  CapabilityStatus,
+  RestorationCapability,
+  RestorationOperation,
+  RestorationPlan,
+  RestorationRequest,
+  RestorationRuntime,
+  RestorationStagePlan,
+  RestorationTask,
+} from './restoration';
+export {
+  capabilitiesForTask,
+  firstAvailableCapability,
+  isRestorationErrorCode,
+  isRestorationOperationAvailable,
+  planRestoration,
+  RESTORATION_CAPABILITIES,
+  RESTORATION_ERROR_CODES,
+  RestorationError,
+  RestorationPlanningError,
+  restorationTaskLabel,
+  restorationTasksForOperation,
+  toRestorationError,
+} from './restoration';
+export type {
+  AutoAnalysis,
+  AutoAnalysisSignal,
+  RestorationSuggestion,
+} from './restorationAuto';
+export {
+  analyzeImageForRestoration,
+  recommendationLabel,
+} from './restorationAuto';
+export type {
+  RestorationExecutionOptions,
+  RestorationResult,
+  RestorationStageState,
+} from './restorationPipeline';
+export { runRestoration } from './restorationPipeline';
 export {
   buildBrushMask,
   clonePixels,
@@ -799,6 +902,8 @@ export {
   patchRegion,
   spotHeal,
 } from './retouch';
+export * from './richTextLayout';
+export * from './semanticSimilarity';
 export {
   itemNeedsAlphaShadow,
   paintAlphaAwareDropShadow,
@@ -809,9 +914,25 @@ export {
 } from './shadowSource';
 export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
 // ── Text pipeline: shaping, BiDi, grapheme segmentation ──────────────────
-export { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
+export { hitTestCaret, scriptCodeToTag, shapeParagraphRuns, shapeRun, shapeText } from './shaping';
+export type {
+  NativeShapedRunPayload,
+  ShapingBackend,
+  ShapingBackendRequest,
+  ShapingBackendResult,
+} from './shapingBackend';
+export {
+  createHarfBuzzWasmBackend,
+  normalizeNativeShapedRun,
+} from './shapingBackend';
+export type { ShapingCacheKeyOptions } from './shapingCache';
+export { ShapingCache, shapingCache } from './shapingCache';
 export * from './storyComposition';
+export * from './text/lineBreak';
+export * from './text/paragraphs';
+export * from './text/visualOrder';
 export * from './textLayout';
+export * from './textLayoutSnapshot';
 export type {
   EmbeddingRestriction,
   GlyphOutline,
@@ -905,6 +1026,17 @@ export {
 } from './unicode/grapheme';
 export type { ScriptCode, ScriptRun } from './unicode/script';
 export { detectScript, dominantScript, segmentByScript } from './unicode/script';
+export type { BoundaryBias, UnicodeIndexMap } from './unicode/unicodeIndices';
+export {
+  codePointCount,
+  codePointToUtf16,
+  createUnicodeIndexMap,
+  graphemeToUtf16,
+  normalizeGraphemeRange,
+  snapUtf16Offset,
+  utf16ToCodePoint,
+  utf16ToGrapheme,
+} from './unicode/unicodeIndices';
 export type { UpscaleCapabilities } from './upscaleCapabilities';
 export { detectUpscaleCapabilities } from './upscaleCapabilities';
 export type { UpscaleModelMetadata } from './upscaleModels';
@@ -949,6 +1081,46 @@ export {
   computeVideoFrameCount,
   exportTimelineToVideo,
 } from './videoExport';
+export {
+  ensureYuNetModel,
+  ONNX_FACE_BACKEND_ID,
+  ONNX_FACE_BACKEND_VERSION,
+  OnnxFaceBackend,
+  YU_NET_MODEL_ID,
+  type YuNetFaceBackendOptions,
+  yuNetLandmarksToAnchors,
+} from './vision/backends/onnxFaceBackend';
+export type { FaceAwareCropOptions, FaceAwareCropSuggestion } from './vision/cropSolver';
+export { suggestFaceAwareCrop } from './vision/cropSolver';
+export {
+  type VisionErrorCode,
+  VisionService,
+  VisionServiceError,
+  type VisionServiceOptions,
+  type VisionServiceStats,
+} from './vision/service';
+export type {
+  FaceAnchorName,
+  FaceBoundsOutput,
+  FaceDetection,
+  FaceKeypointsOutput,
+  HandLandmarksOutput,
+  ObjectBoundsOutput,
+  PoseLandmarksOutput,
+  SegmentationOutput,
+  VisionBackend,
+  VisionBox,
+  VisionCapability,
+  VisionOutput,
+  VisionOutputMap,
+  VisionPoint,
+  VisionPriority,
+  VisionQuality,
+  VisionRect,
+  VisionRequest,
+  VisionSource,
+} from './vision/types';
+export { VISION_CAPABILITIES, visionSourceKey } from './vision/types';
 export * from './warp';
 export type { WasmTraceModule } from './wasmLoader';
 export { loadWasmEngineModule, prewarmWasmEngine, tryLoadTraceWasm } from './wasmLoader';

@@ -17,6 +17,7 @@
 
 import type { Platform } from '@varve/platform';
 import type { ToolId } from '../tools/types';
+import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   ALL_WORKSPACE_MODES,
   getWorkspaceConfig,
@@ -97,8 +98,6 @@ function sanitizePreference(
       const entry: Partial<PanelConfig> = {};
       const raw = ov as Record<string, unknown>;
       if (typeof raw.visible === 'boolean') entry.visible = raw.visible;
-      if (typeof raw.collapsed === 'boolean') entry.collapsed = raw.collapsed;
-      if (typeof raw.order === 'number' && Number.isFinite(raw.order)) entry.order = raw.order;
       if (typeof raw.preferredWidth === 'string') entry.preferredWidth = raw.preferredWidth;
       if (Object.keys(entry).length > 0) clean[panelId] = entry;
     }
@@ -130,16 +129,43 @@ function sanitizePreference(
     }
   }
 
-  // Sanitize toolbar tool overrides — only boolean visibility values for known tools
-  const baseToolIds = new Set(
-    base ? getWorkspaceConfig(mode).toolbar.tools.map((t) => t.toolId) : [],
+  // Sanitize toolbar tool overrides — only boolean visibility values for known
+  // tools. Flyout members count as known: boolean operations and any shape that
+  // lives only in a flyout are legitimate customization targets, and rejecting
+  // them here is what previously made those overrides unsavable.
+  const baseToolbar = getWorkspaceConfig(mode).toolbar;
+  const baseToolIds = new Set<string>(
+    base
+      ? [
+          ...baseToolbar.tools.map((t) => t.toolId),
+          ...(baseToolbar.flyouts ?? []).flatMap((f) => f.tools),
+        ]
+      : [],
   );
   const toolRaw = pref.toolbarToolOverrides;
   const cleanTools: Partial<Record<string, boolean>> = {};
   if (toolRaw && typeof toolRaw === 'object') {
     for (const [toolId, val] of Object.entries(toolRaw)) {
-      if (baseToolIds.has(toolId as ToolId) && typeof val === 'boolean') {
+      if (baseToolIds.has(toolId) && typeof val === 'boolean') {
         cleanTools[toolId] = val;
+      }
+    }
+  }
+
+  // Sanitize per-workspace panel widths. Widths are application state rather
+  // than document content, so tolerate stale values and let the panel
+  // boundary clamp them against the current viewport when they are applied.
+  const widthRaw = pref.panelWidths;
+  const cleanWidths: Partial<Record<PanelId, number>> = {};
+  if (widthRaw && typeof widthRaw === 'object') {
+    for (const [panelId, value] of Object.entries(widthRaw)) {
+      if (
+        Object.hasOwn(base, panelId) &&
+        typeof value === 'number' &&
+        Number.isFinite(value) &&
+        value > 0
+      ) {
+        cleanWidths[panelId as PanelId] = value;
       }
     }
   }
@@ -153,6 +179,7 @@ function sanitizePreference(
     ...(cleanTools && Object.keys(cleanTools).length > 0
       ? { toolbarToolOverrides: cleanTools }
       : {}),
+    ...(cleanWidths && Object.keys(cleanWidths).length > 0 ? { panelWidths: cleanWidths } : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
   };
@@ -443,14 +470,29 @@ export function getEffectiveWorkspaceConfig(
 
   // Toolbar tool overrides — filter tools by visibility
   if (modePrefs.toolbarToolOverrides && Object.keys(modePrefs.toolbarToolOverrides).length > 0) {
+    // Selection, hand and zoom remain available as recovery/navigation tools.
+    // Customization may reduce clutter, but must not strand the user without
+    // a way to select objects or navigate the canvas.
+    const overrides = modePrefs.toolbarToolOverrides;
+    const visible = (toolId: ToolId): boolean =>
+      overrides[toolId] !== false || ESSENTIAL_TOOL_IDS.has(toolId);
+    // Flyout members are filtered with the same rule. Without this a hidden
+    // boolean operation or shape stayed in its flyout, so the override applied
+    // to the main row only and customization looked broken for exactly the
+    // tools that live in a flyout.
     result = {
       ...result,
       toolbar: {
         ...result.toolbar,
-        tools: result.toolbar.tools.filter((t) => {
-          const override = modePrefs.toolbarToolOverrides![t.toolId];
-          return override !== false; // visible unless explicitly hidden
-        }),
+        tools: result.toolbar.tools.filter((t) => visible(t.toolId)),
+        ...(result.toolbar.flyouts
+          ? {
+              flyouts: result.toolbar.flyouts.map((flyout) => ({
+                ...flyout,
+                tools: flyout.tools.filter(visible),
+              })),
+            }
+          : {}),
       },
     };
   }
@@ -533,6 +575,34 @@ export function getPanelWidths(
   mode: WorkspaceMode,
 ): Partial<Record<PanelId, number>> {
   return prefs[mode]?.panelWidths ?? {};
+}
+
+/** Remove saved per-workspace widths for the given panels (reset to default). */
+export function clearPanelWidths(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  panelIds: PanelId[],
+): WorkspacePreferences {
+  const modePrefs = prefs[mode];
+  if (!modePrefs?.panelWidths) return prefs;
+  const remaining: Partial<Record<PanelId, number>> = { ...modePrefs.panelWidths };
+  let changed = false;
+  for (const panelId of panelIds) {
+    if (panelId in remaining) {
+      delete remaining[panelId];
+      changed = true;
+    }
+  }
+  if (!changed) return prefs;
+  return {
+    ...prefs,
+    [mode]: {
+      ...modePrefs,
+      panelWidths: remaining,
+      customized: true,
+      lastCustomized: Date.now(),
+    },
+  };
 }
 
 /** Toggle a toolbar tool's visibility for a workspace. */

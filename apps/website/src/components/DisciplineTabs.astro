@@ -43,7 +43,7 @@ const disciplines: Discipline[] = [
     id: 'typography',
     name: 'Typography',
     headline: 'Text that reads like a book',
-    body: 'Multi-line text with OpenType features, variable fonts, text-on-path, and CJK line breaking &mdash; shaped and laid out with HarfBuzz-grade care.',
+    body: 'Multi-line text with OpenType features, variable fonts, text-on-path, CJK line breaking, and Unicode-aware layout foundations — with canonical shaping still being integrated.',
     points: ['OpenType features and variable fonts', 'Text on path and inline editing', 'CJK line breaking'],
     href: '/features/typography',
     glyph: 'type',
@@ -338,7 +338,9 @@ const disciplines: Discipline[] = [
     font-size: 0.7rem;
     font-weight: 600;
     color: var(--accent-primary);
-    opacity: 0.7;
+    /* Keep the index at full accent contrast; it remains decorative via
+       aria-hidden, but visible text still needs to meet WCAG AA. */
+    opacity: 1;
     flex: 0 0 auto;
   }
 

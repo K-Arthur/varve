@@ -13,6 +13,7 @@
  * here from bytes that were either built or fetched; nothing is hand-typed.
  */
 import { productSlug } from './product.mjs';
+import { ARCHITECTURES, normalizeArchitecture, targetFor } from './targets.mjs';
 
 /** Copy for each installer format, keyed by the manifest `format` field. */
 export function formatCopy(product) {
@@ -156,19 +157,26 @@ export function buildWebsiteReleaseData({
 
   const knownFormats = new Set(Object.keys(copy));
   const platforms = {};
-  const sbomByPlatform = new Map();
+  const sbomByTarget = new Map();
   for (const filename of sbomFilenames) {
     const match = filename.match(/-sbom-([a-z]+)-([a-z0-9_]+)\.cdx\.json$/);
-    if (match) sbomByPlatform.set(match[1], filename);
+    if (!match) continue;
+    try {
+      const architecture = normalizeArchitecture(match[2]);
+      sbomByTarget.set(`${match[1]}|${architecture}`, filename);
+    } catch {
+      // Unknown SBOM names must not be assigned to a download on this page.
+    }
   }
 
   const combinedSbom = sbomFilenames.find((f) => f.endsWith('-sbom.cdx.json'));
-  const sbomFor = (os) => {
-    const platformSpecific = sbomByPlatform.get(os);
-    return platformSpecific ?? combinedSbom ?? null;
+  const sbomFor = (artifact) => {
+    const architecture = normalizeArchitecture(artifact.arch);
+    return sbomByTarget.get(`${artifact.os}|${architecture}`) ?? combinedSbom ?? null;
   };
 
   for (const artifact of manifest.artifacts ?? []) {
+    const target = targetFor(artifact.os, artifact.arch);
     if (!knownFormats.has(artifact.format)) {
       throw new Error(
         `Release asset ${artifact.filename} has unknown format "${artifact.format}" — ` +
@@ -186,10 +194,12 @@ export function buildWebsiteReleaseData({
       );
     }
 
-    const sbomName = sbomFor(artifact.os);
+    const sbomName = sbomFor(artifact);
     platforms[artifact.os] ??= [];
     platforms[artifact.os].push({
       ...artifact,
+      arch: target.architecture,
+      architectureLabel: ARCHITECTURES[target.architecture].label,
       url: `${base}/${encodeURIComponent(artifact.filename)}`,
       sbomUrl: sbomName ? `${base}/${encodeURIComponent(sbomName)}` : null,
       ...copy[artifact.format],

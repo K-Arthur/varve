@@ -98,7 +98,14 @@ class IndexedDBStorage implements ModelStorage {
       const request = tx.objectStore(this.storeName).get(modelId);
       request.onsuccess = () => {
         db.close();
-        const record = request.result as StoredModel | undefined;
+        const record = request.result as StoredModel | Blob | undefined;
+        // The model loader writes raw Blob values in the same store; expose
+        // them as bytes so DownloadManager state/size accounting works for
+        // models installed through either manager.
+        if (record instanceof Blob) {
+          void record.arrayBuffer().then(resolve, reject);
+          return;
+        }
         resolve(record?.bytes ?? null);
       };
       request.onerror = () => {

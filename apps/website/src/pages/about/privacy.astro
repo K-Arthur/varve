@@ -3,18 +3,20 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Privacy Policy" description="Varve's privacy policy: no telemetry, no cookies, no analytics, no accounts. This website makes no third-party requests, and the app keeps your designs on your machine.">
+<Layout title="Privacy Policy" description="Varve's privacy policy: optional, consent-based aggregate website analytics; no advertising trackers, fingerprinting, or design-content collection.">
   <div class="container-custom">
     <div class="privacy-page">
       <h1>Privacy Policy</h1>
-      <p class="last-updated">Last updated: July 2026</p>
+      <p class="last-updated">Last updated: August 2026</p>
 
       <section class="privacy-section">
         <h2>What We Collect</h2>
         <p>
-          <strong>Nothing.</strong> This website runs no analytics, sets no cookies, and loads
-          no third-party scripts. Its Content-Security-Policy permits no external hosts at all,
-          so your browser makes no requests to anyone but the host serving these pages.
+          This website sets no cookies and makes no analytics requests unless website analytics
+          has been enabled for a deployment and you explicitly allow it. The default Varve build
+          has analytics disabled. If enabled, the site sends only normalized page routes and the
+          small, enumerated properties described in the
+          <a href={sitePath('/docs/privacy/analytics')}>technical analytics disclosure</a>.
         </p>
         <p>
           The one thing we can see is what any web host sees: the requests its own server logs
@@ -22,7 +24,7 @@ import { sitePath } from '../../lib/siteUrl';
           does by default.
         </p>
         <p>
-          Download counts come from GitHub's own release statistics, which count downloads per
+          Download counts also come from GitHub's own release statistics, which count downloads per
           file. They tell us how many people downloaded a build. They do not tell us who.
         </p>
       </section>
@@ -31,15 +33,15 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>What We Don't Collect</h2>
         <ul>
           <li>No cookies</li>
-          <li>No analytics of any kind</li>
+          <li>No analytics without an explicit website choice or desktop product-analytics consent</li>
           <li>No browser fingerprinting</li>
           <li>No marketing or advertising trackers</li>
           <li>No social media tracking pixels</li>
           <li>No accounts, and no personal data</li>
         </ul>
         <p>
-          If privacy-respecting analytics are ever added, this page will say so before they are
-          switched on, and will name exactly what is collected.
+          Analytics never includes design contents, filenames, filesystem paths, text, images,
+          document names, clipboard data, arbitrary URLs, or persistent identifiers.
         </p>
       </section>
 
@@ -49,7 +51,36 @@ import { sitePath } from '../../lib/siteUrl';
           Varve is a <strong>local-first</strong> design application. All design data stays on your machine. There is no cloud sync, no user accounts, no authentication system, and no telemetry transmitted by default.
         </p>
         <p>
-          The application does not phone home. It does not report usage statistics, crash logs, or feature adoption metrics unless you explicitly enable such features. Your designs belong to you and remain on your device.
+          The application does not report usage statistics or diagnostics unless you explicitly
+          enable those categories under Settings &gt; Privacy &amp; Diagnostics. Crash reporting is a
+          separate consent choice. Your designs belong to you and remain on your device.
+        </p>
+        <p>
+          <strong>Update checks are consent-based.</strong> Varve does not contact any update
+          server unless you choose to allow it (Settings &gt; Updates, or the first-launch
+          question "Keep Varve up to date?"). A check sends only your current version, platform,
+          architecture and release channel to Varve's release endpoint; no account, document
+          data, machine identifier or device fingerprint. Declining means no background checks —
+          you can still check for updates manually, and you can revoke or change the choice at
+          any time.
+        </p>
+      </section>
+
+      <section class="privacy-section">
+        <h2>Update Checks</h2>
+        <p>
+          Desktop update checks are a separate consent choice from analytics, diagnostics, and
+          crash reporting. If enabled, a check sends the current Varve version, platform,
+          architecture, and selected release channel to the configured HTTPS release endpoint so
+          it can return a compatible update. It does not send an account, document contents,
+          filenames, filesystem paths, project data, or a device identifier.
+        </p>
+        <p>
+          The endpoint still receives ordinary network metadata such as an IP address. Update
+          downloads are not installed silently: supported builds verify the update signature
+          before installation, and package-managed or unsupported builds remain on their manual
+          update path. See the <a href={sitePath('/docs/updates')}>Updates guide</a> for the
+          package-specific behaviour.
         </p>
       </section>
 
@@ -77,7 +108,35 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>GitHub Sponsors</strong> — for financial support. Transactions are processed through GitHub's platform. See <a href="https://docs.github.com/en/site-policy/privacy-policies" target="_blank" rel="noopener noreferrer">GitHub's Privacy Policy</a>.</li>
         </ul>
         <p>
-          The website is hosted through a standard static hosting provider. No additional third-party services are integrated into the website or application.
+          Optional website analytics use Plausible after consent. The provider receives normalized
+          routes and aggregate download/outbound properties; automatic capture is disabled. No
+          Varve secret, personal information, or design data is shipped to the browser. Analytics
+          are enabled only in the deliberate production deployment configuration.
+        </p>
+      </section>
+
+      <section class="privacy-section">
+        <h2>Consent and choices</h2>
+        <p>
+          Website analytics starts in an unknown state and fails closed. A visitor can choose
+          “Not now” or “Allow website analytics”; the choice is stored locally only so the prompt
+          does not reappear. Global Privacy Control and Do Not Track block website analytics. In
+          the desktop app, usage analytics, diagnostics telemetry, and crash reporting are three
+          separate controls and can be changed at any time.
+        </p>
+        <button type="button" class="privacy-choice" data-analytics-withdraw="true">
+          Withdraw website analytics consent
+        </button>
+      </section>
+
+      <section class="privacy-section">
+        <h2>Retention and access</h2>
+        <p>
+          The client keeps only a bounded in-memory queue and discards it on shutdown. Operational
+          retention for the enabled Plausible provider follows the configured provider account
+          policy and is limited to aggregate event data. Access is limited to authorized
+          maintainers, with provider account security and deletion procedures handled as an
+          operational responsibility.
         </p>
       </section>
 
@@ -164,6 +223,21 @@ import { sitePath } from '../../lib/siteUrl';
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
     position: relative;
+  }
+
+  .privacy-choice {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.8rem;
+    background: var(--surface-muted);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .privacy-choice:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
   }
 
   .privacy-section li::before {

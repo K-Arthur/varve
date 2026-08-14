@@ -1,0 +1,5 @@
+# Reference benchmark dependencies. Keep this environment separate from the
+# application build; these packages are only needed for parity experiments.
+numpy>=2.0,<3
+Pillow>=10.0,<12
+onnxruntime>=1.18,<2

@@ -1,0 +1,91 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+---
+
+<Layout
+  title="Local asset search - Varve"
+  description="Find design assets by filename, recognized text, tags, description, or an optional local visual query in Varve."
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Asset search
+      </nav>
+
+      <div class="feature-kicker"><StatusPill status="available" /></div>
+      <h1>Find the asset you remember.</h1>
+      <p class="feature-intro">
+        Search the local asset library using the clue you still have: a description, a filename,
+        recognized text, a tag, a path. Varve keeps retrieval inside the asset browser instead of
+        turning a simple lookup into a chat session.
+      </p>
+
+      <section class="search-demo" aria-label="Asset search example">
+        <div class="search-demo__label">Search Assets</div>
+        <div class="search-demo__field"><span aria-hidden="true">⌕</span> orange sunset over mountains</div>
+        <div class="search-demo__results">
+          <span class="search-demo__thumb search-demo__thumb--sunset" aria-hidden="true"></span>
+          <span class="search-demo__thumb search-demo__thumb--ridge" aria-hidden="true"></span>
+          <span class="search-demo__thumb search-demo__thumb--poster" aria-hidden="true"></span>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>One search, several useful signals</h2>
+        <div class="lane-grid">
+          <article><h3>Filename and path</h3><p>Exact identifiers such as <code>IMG_4821</code> stay precise.</p></article>
+          <article><h3>Recognized text</h3><p>OCR results can surface scans, invoices, and presentation slides.</p></article>
+          <article><h3>Tags and metadata</h3><p>Kind, MIME type, descriptions, and user tags remain searchable.</p></article>
+          <article><h3>Visual description</h3><p>After the opt-in local model download, the Asset Browser ranks matching images when you describe what you remember — and the Similar panel compares text descriptions with document images.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section feature-section--note">
+        <h2>Visual search is opt-in and experimental</h2>
+        <p>
+          The local image/text embedding pair is downloaded only when you ask for it and remains
+          inside the app: queries, embeddings, and ranking never leave the device. It is a ranking
+          aid—not a quality guarantee—and filename, OCR, tags, and metadata search continue to
+          work without the model.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+        <a href={sitePath('/docs')} class="btn-secondary">Read the documentation</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 900px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 2rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-kicker { margin-bottom: 1rem; }
+  .feature-page h1 { max-width: 760px; font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.02; font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1.25rem; }
+  .feature-intro { max-width: 700px; font-size: 1.25rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 3rem; }
+  .search-demo { padding: 1.25rem; margin-bottom: 4rem; border: 1px solid var(--border-default); border-radius: 1rem; background: var(--surface-card); box-shadow: var(--elevation-shadow-raised); }
+  .search-demo__label { margin-bottom: 0.6rem; color: var(--text-tertiary); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; }
+  .search-demo__field { padding: 0.9rem 1rem; border: 1px solid var(--border-accent); border-radius: 0.6rem; color: var(--text-primary); font-family: var(--font-mono); }
+  .search-demo__field span { margin-right: 0.5rem; color: var(--accent-primary); }
+  .search-demo__results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-top: 1rem; }
+  .search-demo__thumb { aspect-ratio: 4 / 3; display: block; border-radius: 0.5rem; }
+  .search-demo__thumb--sunset { background: linear-gradient(155deg, #f7b267, #e76f51 48%, #273248 49%, #19202e); }
+  .search-demo__thumb--ridge { background: linear-gradient(165deg, #f3a261, #f4d35e 48%, #3d405b 49%, #202337); }
+  .search-demo__thumb--poster { background: linear-gradient(135deg, #ed6a5a 0 35%, #f4f1de 35% 62%, #3d405b 62%); }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { color: var(--text-primary); font-size: 1.6rem; margin-bottom: 1rem; }
+  .feature-section p { color: var(--text-secondary); line-height: 1.8; }
+  .feature-section--note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .lane-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .lane-grid article { padding: 1.25rem; border: 1px solid var(--border-default); border-radius: 0.7rem; background: var(--surface-card); }
+  .lane-grid h3 { margin-bottom: 0.5rem; color: var(--text-primary); font-size: 1rem; }
+  .lane-grid p { margin: 0; font-size: 0.95rem; }
+  code { color: var(--text-primary); }
+  .feature-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); text-decoration: none; }
+  @media (max-width: 680px) { .lane-grid { grid-template-columns: 1fr; } }
+</style>

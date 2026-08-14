@@ -27,6 +27,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { currentTargetId, normalizeTargetId } from './release/targets.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '..');
@@ -75,16 +76,19 @@ const PLATFORMS = {
     libName: 'onnxruntime.dll',
     kind: 'zip',
   },
+  'windows-aarch64': {
+    url: `https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-win-arm64-${ORT_VERSION}.zip`,
+    sha256: '6e22c2061ba6400b42a59663d700c8694e4e8fe654cf452c4700c24237407ae1',
+    archivePath: `onnxruntime-win-arm64-${ORT_VERSION}/lib/onnxruntime.dll`,
+    libName: 'onnxruntime.dll',
+    kind: 'zip',
+  },
   // Not bundled: macOS Intel (osx-x64 has no CPU-only asset in this release
-  // line) and Windows ARM64 (low install base). Both fall back to WASM.
+  // line). It remains outside the supported release target registry.
 };
 
 function currentPlatformKey() {
-  const os =
-    process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux';
-  const arch =
-    process.arch === 'arm64' ? 'aarch64' : process.arch === 'x64' ? 'x86_64' : process.arch;
-  return `${os}-${arch}`;
+  return currentTargetId();
 }
 
 async function sha256OfFile(path) {
@@ -174,7 +178,7 @@ async function extractFromZip(archiveBuffer, entryPath) {
 
 async function main() {
   const requested = process.argv[2];
-  const targets = requested ? [requested] : [currentPlatformKey()];
+  const targets = requested ? [normalizeTargetId(requested)] : [currentPlatformKey()];
 
   for (const key of targets) {
     const platform = PLATFORMS[key];

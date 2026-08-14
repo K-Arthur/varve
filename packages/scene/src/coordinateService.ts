@@ -53,7 +53,13 @@ export { nodeLocalBounds } from './nodeBounds';
  *
  * @param parentIndex Pre-built O(1) parent map (recommended for hot paths).
  *                    Use {@link buildParentIndexMap} to create one.
+ *
+ * Cycle safety: the ancestor walk terminates even on a malformed cyclic
+ * parent graph (visited-set guard + depth ceiling), so a corrupt document
+ * can never hang the renderer or hit-tester.
  */
+const MAX_WORLD_TRANSFORM_DEPTH = 256;
+
 export function nodeWorldTransform(
   doc: Document,
   id: NodeId,
@@ -70,8 +76,13 @@ export function nodeWorldTransform(
   const getParentFn = parentIndex
     ? (_d: Document, childId: NodeId) => parentIndex.get(childId) ?? null
     : getParent;
+  const visited = new Set<NodeId>([id]);
   let parentId = getParentFn(doc, id);
+  let depth = 0;
   while (parentId) {
+    if (visited.has(parentId) || depth >= MAX_WORLD_TRANSFORM_DEPTH) break;
+    visited.add(parentId);
+    depth++;
     const parent = doc.nodes[parentId];
     if (!parent) break;
     const parentRot = parent.rotation ?? 0;

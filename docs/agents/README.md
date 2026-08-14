@@ -11,7 +11,7 @@ automation.
 |------|----------|---------|
 | `AGENTS.md` (root) | AI agents | Cross-repository rules, architecture constraints, command reference |
 | `docs/agents/session-history.md` | Humans + agents | Historical record of development sessions |
-| `docs/plans/redesign-strategy.md` | AI agents + humans | UI redesign strategy (moved from `.opencode/plans/`) |
+| `docs/plans/archived/redesign-strategy.md` | AI agents + humans | UI redesign strategy (moved from `.opencode/plans/`) |
 | `.opencode/config.json` | opencode tool | Project configuration for the opencode CLI agent |
 | `.windsurf/plans/` | Windsurf IDE | Implementation plans for specific features |
 | `.devin/workflows/` | Devin agent | Workflow definitions |

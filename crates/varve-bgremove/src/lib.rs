@@ -8,6 +8,7 @@
 //! Without the `ai` feature, only heuristic methods are available.
 
 pub mod heuristic;
+pub mod metrics;
 
 #[cfg(feature = "ai")]
 pub mod inference;
@@ -153,7 +154,14 @@ pub use inference::DenoiseResult;
 /// model supported by [`denoise_image`] or the OCR pipeline.
 #[cfg(feature = "ai")]
 pub fn is_image_model(model_id: &str) -> bool {
-    matches!(model_id, "scunet" | "paddleocr-det-v4" | "paddleocr-rec-v4")
+    matches!(
+        model_id,
+        "scunet"
+            | "nafnet-deblur-gopro"
+            | "nafnet-denoise-sidd"
+            | "paddleocr-det-v4"
+            | "paddleocr-rec-v4"
+    )
 }
 
 /// Encode a binary mask buffer (0 or 255 per pixel) as a base64 PNG.

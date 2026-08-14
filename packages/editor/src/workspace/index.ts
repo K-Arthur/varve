@@ -38,7 +38,6 @@ export {
   getDefaultInspectorTab,
   getGroupedInspectorTabs,
   getHiddenTools,
-  getOrderedPanels,
   getVisibleInspectorTabs,
   getVisibleStatusSections,
   // Helpers

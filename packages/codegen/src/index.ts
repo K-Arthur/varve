@@ -10,7 +10,7 @@ import type { Affine } from '@varve/engine';
 import type { Document, ManagedColor, Mask, NodeId, SceneNode, VectorMaskData } from '@varve/scene';
 import { activePageNodes, isImageShape, resolveMask } from '@varve/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@varve/shared';
-import { svgCompositing } from './shared';
+import { nodeEffectiveTransform, svgCompositing } from './shared';
 import { imageContentTransform, imagePlacementForShape, svgRect } from './svg';
 import { exportShapeOf } from './warpBake';
 
@@ -197,7 +197,7 @@ function documentNodeBounds(
   doc: Document,
   parentTransform: Affine = [1, 0, 0, 1, 0, 0],
 ): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const transform = multiplyAffine(parentTransform, node.transform);
+  const transform = multiplyAffine(parentTransform, nodeEffectiveTransform(node));
   if (node.kind === 'group' || node.kind === 'frame') {
     const mask = resolveMask(node, doc);
     const children = node.children
@@ -519,7 +519,7 @@ function docBuildMaskDef(doc: Document, containerId: string, mask: Mask): string
     }
   } else if (hasSourceNode) {
     const sourceNode = doc.nodes[mask.sourceNodeId!]!;
-    const sourceTransform = affineToSvg(sourceNode.transform);
+    const sourceTransform = affineToSvg(nodeEffectiveTransform(sourceNode));
     if (mask.type === 'clip') {
       const fillRuleAttr = mask.fillRule === 'evenodd' ? ` clip-rule="evenodd"` : '';
       const unitsAttr = mask.linked === false ? ` clipPathUnits="userSpaceOnUse"` : '';
@@ -624,7 +624,7 @@ function nodeToSvg(
   const precision = options.precision ?? 3;
   const indent = options.minify ? '' : '  '.repeat(depth);
   const fill = rgba(node.fill);
-  const transform = affineToSvg(node.transform);
+  const transform = affineToSvg(nodeEffectiveTransform(node));
   const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
   const compositingAttrs = [
     ...compositing.attributes,
@@ -814,7 +814,7 @@ export function exportDocumentToReact(doc: Document): string {
       switch (node.kind) {
         case 'shape': {
           const s = node.shape;
-          const t = affineToSvg(node.transform);
+          const t = affineToSvg(nodeEffectiveTransform(node));
           switch (s.kind) {
             case 'rect':
               return `        <rect x={${s.x}} y={${s.y}} width={${s.w}} height={${s.h}} fill="${fill}" style={{ transform: "${t}" }} />`;
@@ -831,9 +831,9 @@ export function exportDocumentToReact(doc: Document): string {
           break;
         }
         case 'text':
-          return `        <text x={0} y={0} fill="${fill}" fontSize={${node.fontSize}} style={{ transform: "${affineToSvg(node.transform)}" }}>${escapeXml(node.text)}</text>`;
+          return `        <text x={0} y={0} fill="${fill}" fontSize={${node.fontSize}} style={{ transform: "${affineToSvg(nodeEffectiveTransform(node))}" }}>${escapeXml(node.text)}</text>`;
         case 'frame':
-          return `        <g style={{ transform: "${affineToSvg(node.transform)}" }}>\n          {/* frame children */}\n        </g>`;
+          return `        <g style={{ transform: "${affineToSvg(nodeEffectiveTransform(node))}" }}>\n          {/* frame children */}\n        </g>`;
         default:
           return '';
       }

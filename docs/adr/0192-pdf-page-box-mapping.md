@@ -62,3 +62,13 @@ disk-full/permission errors (existing job pipeline handles per-node errors).
 
 - Claiming PDF/X without profile validation.
 - Bleed from dialog only (status quo).
+
+## Implementation note (2026-08-13)
+
+The PDF/X encoder now applies D1 for its single-page native path. Its input
+dimensions are trim dimensions; when bleed or marks are enabled, the media
+sheet expands around trim, authored scene content is translated into the trim
+origin, and `MediaBox`, `BleedBox`, `TrimBox`, `CropBox`, and `ArtBox` are
+emitted in one coordinate system. With zero bleed the boxes coincide. The
+remaining multi-page and screen-PDF work described above is still separate
+from this correction.

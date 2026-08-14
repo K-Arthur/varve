@@ -11,6 +11,16 @@ export const SHORTCUT_DEFS = {
   copy: { binding: { key: 'c', ctrl: true }, label: 'Copy', category: 'Edit' },
   cut: { binding: { key: 'x', ctrl: true }, label: 'Cut', category: 'Edit' },
   paste: { binding: { key: 'v', ctrl: true }, label: 'Paste', category: 'Edit' },
+  copyProperties: {
+    binding: { key: 'c', ctrl: true, shift: true },
+    label: 'Copy Properties',
+    category: 'Edit',
+  },
+  pasteProperties: {
+    binding: { key: 'v', ctrl: true, shift: true },
+    label: 'Paste Properties',
+    category: 'Edit',
+  },
   duplicate: { binding: { key: 'd', ctrl: true }, label: 'Duplicate', category: 'Edit' },
   repeatDuplicate: {
     binding: { key: 'd', ctrl: true, shift: true },
@@ -21,7 +31,7 @@ export const SHORTCUT_DEFS = {
   flipV: { binding: { key: 'v', shift: true }, label: 'Flip Vertical', category: 'Object' },
   upscaleImage: {
     binding: { key: 'u', ctrl: true, shift: true },
-    label: 'Upscale Image',
+    label: 'Enhance Image…',
     category: 'Object',
   },
   imageTrace: {

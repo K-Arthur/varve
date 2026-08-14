@@ -1,3 +1,4 @@
+import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import type { EditorContextValue } from '../context';
 import { openMockupsWithSelection } from '../mockup/mockupActions';
 import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
@@ -45,6 +46,9 @@ export function registerEditorActions(
   // BEFORE registerAllShortcuts() so real handlers win over no-op stubs.
   registerThumbnailActions(ctx);
 
+  // Document color conversion dialog entry point (Assign vs Convert).
+  registerColorConversionActions();
+
   const reg = (id: string, label: string, category: ActionCategory, handler: () => void) => {
     if (!r.has(id)) {
       r.register({ id, label, category }, handler);
@@ -84,6 +88,7 @@ export function registerEditorActions(
     ['rulerModeArtboard', 'Use Artboard Rulers', 'view'],
     ['rulerModeGlobal', 'Use Global Rulers', 'view'],
     ['toggleGuides', 'Toggle Guides', 'view'],
+    ['toggleBleedGuides', 'Toggle Bleed Guides', 'view'],
     ['lockGuides', 'Lock Guides', 'view'],
     ['clearGuides', 'Clear Guides', 'view'],
     ['resetWorkspace', 'Reset Workspace', 'view'],
@@ -110,6 +115,20 @@ export function registerEditorActions(
     const handler = handlers[id];
     if (handler) reg(id, label, category, handler);
   }
+
+  // toggleBleedGuides must NOT go through the guarded path: its handler
+  // reads the current bleedGuidesVisible state, and a handler pinned to
+  // the boot context would always compute `!false` (toggling to true, i.e.
+  // never hiding the guides). Re-registering here on every state change
+  // keeps the closure fresh, like the SHORTCUT_DEFS-bound actions.
+  r.register(
+    {
+      id: 'toggleBleedGuides',
+      label: 'Toggle Bleed Guides',
+      category: 'view',
+    },
+    handlers.toggleBleedGuides ?? (() => {}),
+  );
 
   if (!r.has('runAudit')) {
     r.register(
@@ -178,6 +197,9 @@ export function registerEditorActions(
   reg('toggleLibraryPanel', 'Toggle Library Panel', 'panel', () => ctx.toggleLibraryPanel());
   reg('toggleCodegenPanel', 'Toggle Codegen Panel', 'panel', () => ctx.toggleCodegenPanel());
   reg('toggleLogoPanel', 'Toggle Logo Panel', 'panel', () => ctx.toggleLogoPanel());
+  reg('toggleTimelinePanel', 'Toggle Timeline Panel', 'panel', () => ctx.toggleTimelinePanel());
+  reg('toggleHistoryPanel', 'Toggle History Panel', 'panel', () => ctx.toggleHistoryPanel());
+  reg('restoreAllPanels', 'Show All Panels', 'panel', () => ctx.restoreAllPanels());
   reg('applyMockup', 'Apply Mockup…', 'object', () => {
     openMockupsWithSelection(ctx);
   });
@@ -198,9 +220,19 @@ export function registerEditorActions(
     r.register(
       {
         id: 'upscaleImage',
-        label: 'Upscale Image',
+        label: 'Enhance Image…',
         category: 'object',
-        keywords: ['upscale', 'image', 'enlarge', 'ai', 'super-resolution', 'rescale'],
+        keywords: [
+          'enhance',
+          'upscale',
+          'image',
+          'denoise',
+          'restore',
+          'enlarge',
+          'ai',
+          'super-resolution',
+          'rescale',
+        ],
       },
       handlers.upscaleImage ?? (() => {}),
     );

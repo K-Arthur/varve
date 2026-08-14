@@ -19,7 +19,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'u2netp',
     name: 'U\u00B2-Net Light (FP32)',
     description: 'Fast preview quality segmentation. Bundled with the app.',
-    sizeBytes: 4_700_000,
+    sizeBytes: 4_574_861,
     remoteUrl: 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx',
     checksum: '309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8',
     bundled: true,
@@ -27,7 +27,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 3,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 18_800_000,
+    peakMemoryBytes: 330_000_000,
     gpuRecommended: false,
   },
   {
@@ -73,7 +73,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 714_600_000,
+    peakMemoryBytes: 1_300_000_000,
     gpuRecommended: true,
   },
   {
@@ -89,7 +89,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4.5,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 896_000_000,
+    peakMemoryBytes: 7_000_000_000,
     gpuRecommended: true,
   },
   {
@@ -97,7 +97,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     name: 'BiRefNet Full',
     description:
       'Best quality segmentation for hair, fur, transparency, and fine detail. ' +
-      '~973MB download. Requires ~3.7GB peak memory. Not recommended on systems with less than 8GB RAM. ' +
+      '~973MB download. Measured retained RSS ~8.5GB (native CPU FP32, 2026-08-13). ' +
+      'Not recommended on systems with less than 16GB RAM. ' +
       'SHA-256 verified from the rembg release archive.',
     sizeBytes: 972_666_916,
     remoteUrl:
@@ -108,9 +109,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 5,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 3_890_000_000,
+    peakMemoryBytes: 8_500_000_000,
     gpuRecommended: true,
-    // ~973MB download, ~3.9GB peak. Use with caution on <8GB systems.
+    // ~973MB download; measured retained RSS ~8.5GB (native CPU, FP32). Use with caution on <16GB systems.
   },
   {
     id: 'upscale-realesr-general',
@@ -196,11 +197,31 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     ],
   },
   {
+    id: 'nafnet-deblur-gopro',
+    name: 'NAFNet Deblur (GoPro)',
+    description:
+      'Task-specific motion/defocus deblurring (NAFNet-GoPro-width64). BGR float32 input in [0,1], H/W divisible by 16 (padder_size), dynamic shape. Reproducible fp16 conversion of the official checkpoint, parity-verified against the trusted PyTorch reference.',
+    sizeBytes: 138_050_767,
+    remoteUrl:
+      'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx',
+    checksum: 'e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp16',
+    category: 'deblurring',
+    peakMemoryBytes: 420_000_000,
+    gpuRecommended: false,
+    source: 'megvii-research/NAFNet (official checkpoint, nyanko7 mirror)',
+    sourceLicense: 'MIT',
+    components: [],
+  },
+  {
     id: 'sam2-hiera-tiny',
     name: 'SAM2 Tiny',
     description:
       'SAM2.1-Hiera-Tiny — interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Click foreground/background points, drag boxes, iteratively refine. Embedding cached per image.',
-    sizeBytes: 39_000_000,
+    sizeBytes: 154_902_201,
     remoteUrl: '',
     checksum: '',
     bundled: false,
@@ -211,26 +232,28 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     peakMemoryBytes: 312_000_000,
     gpuRecommended: false,
     multiComponent: true,
-    source: 'onnx-community/sam2.1-hiera-tiny-ONNX',
+    source: 'vietanhdev/segment-anything-2-onnx-models',
     sourceLicense: 'Apache-2.0',
     components: [
       {
         id: 'sam2-hiera-tiny-encoder',
         role: 'encoder',
-        filename: 'vision_encoder.onnx',
-        sizeBytes: 354_238,
+        filename: 'sam2_hiera_tiny.encoder.onnx',
+        sizeBytes: 134261247,
         remoteUrl:
-          'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx',
-        checksum: '4f30aacd3aaefbca81a0b7fe4c1fc96345570ea0a6f80ced599493d1b3be2e8c',
+          'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
+        checksum: 'b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf',
+        upstreamChecksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
+        repair: 'sam2-empty-value-info',
       },
       {
         id: 'sam2-hiera-tiny-decoder',
         role: 'decoder',
-        filename: 'prompt_encoder_mask_decoder.onnx',
-        sizeBytes: 213_114,
+        filename: 'sam2_hiera_tiny.decoder.onnx',
+        sizeBytes: 20_640_886,
         remoteUrl:
-          'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx',
-        checksum: '874414704c5d686db7d206a35f6e15d26563d50c8c4468fccc6739bd7e491dcf',
+          'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.decoder.onnx',
+        checksum: 'f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf',
       },
     ],
   },
@@ -242,7 +265,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     sizeBytes: 134_261_315,
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
-    checksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
+    checksum: 'b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf',
+    upstreamChecksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
+    repair: 'sam2-empty-value-info',
     bundled: false,
     inputSpec: null,
     quality: 3.5,
@@ -291,10 +316,12 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         id: 'sam2-hiera-small-encoder',
         role: 'encoder',
         filename: 'sam2_hiera_small.encoder.onnx',
-        sizeBytes: 162_703_493,
+        sizeBytes: 162703425,
         remoteUrl:
           'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.encoder.onnx',
-        checksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+        checksum: '49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3',
+        upstreamChecksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+        repair: 'sam2-empty-value-info',
       },
       {
         id: 'sam2-hiera-small-decoder',
@@ -315,7 +342,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     sizeBytes: 162_703_493,
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.encoder.onnx',
-    checksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+    checksum: '49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3',
+    upstreamChecksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+    repair: 'sam2-empty-value-info',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -453,6 +482,45 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     gpuRecommended: false,
   },
   {
+    id: 'yunet-face-detect',
+    name: 'Detect Faces',
+    description:
+      'Detects faces with bounding boxes and five facial keypoints each — powers face-aware crop ("Protect Faces"), person selection anchors, and face keypoints. 233 KB, runs on-device. Verified source: opencv/face_detection_yunet_2023mar (MIT). SHA-256 computed from verified download. Decode verified bit-for-bit against OpenCV FaceDetectorYN.',
+    sizeBytes: 232_589,
+    remoteUrl:
+      'https://huggingface.co/opencv/face_detection_yunet/resolve/main/face_detection_yunet_2023mar.onnx',
+    checksum: '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4',
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'input', dims: [1, 3, 640, 640], dtype: 'float32' }],
+      outputs: [
+        { name: 'cls_8', dims: [1, 6400, 1], dtype: 'float32' },
+        { name: 'cls_16', dims: [1, 1600, 1], dtype: 'float32' },
+        { name: 'cls_32', dims: [1, 400, 1], dtype: 'float32' },
+        { name: 'obj_8', dims: [1, 6400, 1], dtype: 'float32' },
+        { name: 'obj_16', dims: [1, 1600, 1], dtype: 'float32' },
+        { name: 'obj_32', dims: [1, 400, 1], dtype: 'float32' },
+        { name: 'bbox_8', dims: [1, 6400, 4], dtype: 'float32' },
+        { name: 'bbox_16', dims: [1, 1600, 4], dtype: 'float32' },
+        { name: 'bbox_32', dims: [1, 400, 4], dtype: 'float32' },
+        { name: 'kps_8', dims: [1, 6400, 10], dtype: 'float32' },
+        { name: 'kps_16', dims: [1, 1600, 10], dtype: 'float32' },
+        { name: 'kps_32', dims: [1, 400, 10], dtype: 'float32' },
+      ],
+      normalization: { mean: [0, 0, 0], std: [1 / 255, 1 / 255, 1 / 255], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
+    bundled: true,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp32',
+    category: 'detection',
+    peakMemoryBytes: 8_000_000,
+    gpuRecommended: false,
+    source: 'opencv/face_detection_yunet',
+    sourceLicense: 'MIT',
+  },
+  {
     id: 'efficientnet-lite4',
     name: 'Auto-Tag Image',
     description:
@@ -527,7 +595,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'siglip-base-patch16-224',
     name: 'Find Similar Images',
     description:
-      'Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search). Text search is not yet available. Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
+      'Embeds an image so visually/semantically similar assets can be ranked and surfaced; the same artifact also carries the paired text tower used by natural-language asset search (see siglip-base-patch16-224-text). Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
     sizeBytes: 210_977_441,
     remoteUrl:
       'https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/model_quantized.onnx',
@@ -538,14 +606,56 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     precision: 'int8',
     peakMemoryBytes: 750_000_000,
     tensorContract: {
-      version: 1,
-      inputs: [{ name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' }],
-      outputs: [{ name: 'pooler_output', dims: [1, 768], dtype: 'float32' }],
+      version: 2,
+      inputs: [
+        { name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' },
+        { name: 'input_ids', dims: [1, 1], dtype: 'int64' },
+      ],
+      outputs: [{ name: 'image_embeds', dims: [1, 768], dtype: 'float32' }],
       normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5], channelOrder: 'rgb' },
       outputActivation: 'none',
     },
     category: 'embedding',
     gpuRecommended: true,
+  },
+  {
+    id: 'siglip-base-patch16-224-text',
+    name: 'Natural-Language Asset Search',
+    description:
+      'Text-side SigLIP encoder for local natural-language image search. Shares the 768-dimensional embedding space with siglip-base-patch16-224 image embeddings and requires the pinned tokenizer (siglip-tokenizer entry). Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
+    sizeBytes: 111_475_220,
+    remoteUrl:
+      'https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/text_model_quantized.onnx',
+    checksum: 'ad0329b1f35acc66d8953ff2559ce358da8eb0a7011794cf951523d63a4dbce2',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'int8',
+    peakMemoryBytes: 400_000_000,
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'input_ids', dims: [1, 64], dtype: 'int64' }],
+      outputs: [{ name: 'pooler_output', dims: [1, 768], dtype: 'float32' }],
+      normalization: { mean: [0, 0, 0], std: [1, 1, 1], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
+    category: 'embedding',
+    gpuRecommended: true,
+  },
+  {
+    id: 'siglip-tokenizer',
+    name: 'SigLIP Text Tokenizer',
+    description:
+      'SentencePiece Unigram vocabulary and normalizer charsmap for SigLIP text queries. Pinned from google/siglip-base-patch16-224 (Apache-2.0); the TypeScript tokenizer reproduces the reference pipeline exactly (parity-tested against transformers).',
+    sizeBytes: 2_399_357,
+    remoteUrl: 'https://huggingface.co/google/siglip-base-patch16-224/resolve/main/tokenizer.json',
+    checksum: 'c6e405cb7c670d56636a9402c81023a55bc6c3c53d89cf02b92f5c5005bfe920',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    peakMemoryBytes: 60_000_000,
+    category: 'embedding',
+    gpuRecommended: false,
   },
   {
     id: 'paddleocr-det-v4',

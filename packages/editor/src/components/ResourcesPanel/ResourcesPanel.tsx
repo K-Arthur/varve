@@ -11,11 +11,13 @@ import { Icon } from '@varve/ui';
 import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
 import { getMockupsTabRequest, subscribeMockupsTab } from '../../mockup/mockupTabStore';
+import { AIPanel } from '../AIPanel';
 import { IconBrowser } from '../IconBrowser/IconBrowser';
 import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { LibraryPanel } from '../LibraryPanel/LibraryPanel';
 import { MockupsPanel } from '../Mockups/MockupsPanel';
 import { PanelDragHandle } from '../PanelDragHandle';
+import { PanelWidthDragEdge } from './PanelWidthDragEdge';
 import './ResourcesPanel.css';
 
 /** Re-exported so Shell mounts the quick-insert dialog without a new import. */
@@ -27,7 +29,7 @@ export interface ResourcesPanelProps {
   onUninstallLibrary: (libraryId: string) => void;
 }
 
-type ResourcesTab = 'libraries' | 'icons' | 'mockups';
+type ResourcesTab = 'libraries' | 'icons' | 'mockups' | 'assistant';
 
 export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: ResourcesPanelProps) {
   const [activeTab, setActiveTab] = useState<ResourcesTab>('icons');
@@ -43,6 +45,7 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
 
   return (
     <section className="resources-panel" aria-label="Resources">
+      <PanelWidthDragEdge />
       <PanelDragHandle
         panelTypeId="library"
         panelInstanceId="library-primary"
@@ -79,6 +82,16 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
           >
             <Icon name="Smartphone" size={14} />
             Mockups
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'assistant'}
+            className={`resources-panel__tab ${activeTab === 'assistant' ? 'resources-panel__tab--active' : ''}`}
+            onClick={() => setActiveTab('assistant')}
+          >
+            <Icon name="Bot" size={14} />
+            Assistant
           </button>
         </div>
       </PanelDragHandle>
@@ -124,6 +137,13 @@ export function ResourcesPanel({ doc, onInstallLibrary, onUninstallLibrary }: Re
         aria-label="Mockups"
       >
         <MockupsPanel />
+      </div>
+      <div
+        className={`resources-panel__pane ${activeTab === 'assistant' ? '' : 'resources-panel__pane--hidden'}`}
+        role="tabpanel"
+        aria-label="Design Assistant"
+      >
+        <AIPanel />
       </div>
     </section>
   );

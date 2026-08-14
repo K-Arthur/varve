@@ -44,6 +44,46 @@ export {
   obbToAABB,
   orientedBBox,
 } from './align';
+export type { AnalyticsProvider, HttpAnalyticsProviderOptions } from './analytics/client';
+export {
+  AnalyticsClient,
+  HttpAnalyticsProvider,
+  NoopAnalyticsProvider,
+  safeAnalyticsEndpoint,
+} from './analytics/client';
+export {
+  ANALYTICS_FORBIDDEN_KEYS,
+  eventFields,
+  sanitizeAnalyticsContext,
+  sanitizeAnalyticsEvent,
+} from './analytics/privacy';
+export type {
+  AnalyticsCategory,
+  AnalyticsConsent,
+  AnalyticsConsentState,
+  AnalyticsContext,
+  AnalyticsDurationBucket,
+  AnalyticsEvent,
+  AnalyticsEventMap,
+  AnalyticsEventName,
+  AnalyticsExportErrorCode,
+  AnalyticsExportFormat,
+  AnalyticsFeature,
+  AnalyticsOutboundDestination,
+  AnalyticsPackageType,
+  AnalyticsPlatform,
+  AnalyticsReleaseChannel,
+  AnalyticsRenderer,
+  AnalyticsRendererFallbackReason,
+  AnalyticsRuntime,
+  AnalyticsWebsitePlatform,
+  AnalyticsWebsiteRoute,
+} from './analytics/schema';
+export {
+  ANALYTICS_EVENT_CATEGORIES,
+  ANALYTICS_SCHEMA_VERSION,
+  DEFAULT_ANALYTICS_CONSENT,
+} from './analytics/schema';
 export type {
   AuditCategory,
   AuditFinding,
@@ -86,7 +126,12 @@ export {
 } from './bezier';
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
-export type { BitDepth, ManagedColorShim, RgbWorkingSpaceRef } from './colorConversion';
+export type {
+  BitDepth,
+  ManagedColorShim,
+  NormalizedRgba,
+  RgbWorkingSpaceRef,
+} from './colorConversion';
 export {
   COLOR_DISPLAY_DECIMALS,
   COLOR_EQUALITY_TOLERANCE,
@@ -99,6 +144,7 @@ export {
   DEFAULT_BIT_DEPTH,
   denormalizeChannel,
   gamutMapToSrgb,
+  gamutMapToSrgbUnit,
   isAnalyticRgbWorkingSpace,
   labToLch,
   labToRgb,
@@ -140,11 +186,13 @@ export type {
   GradientInterpolationSpace,
   GradientStopInput,
   InterpolateOptions,
+  InterpolationRgba,
 } from './colorInterpolation';
 export {
   applyMidpointBias,
   expandGradientStops,
   interpolateManagedColor,
+  interpolateNormalizedColor,
   sampleGradientColor,
 } from './colorInterpolation';
 export type { Oklch, Rgb } from './colorMath';
@@ -292,6 +340,17 @@ export {
   summarizeDurations,
   validatePerformanceTrace,
 } from './performance';
+export type {
+  PortablePathErrorCode,
+  PortablePathValidation,
+  PortableProjectPath,
+} from './portablePath';
+export {
+  joinPortableProjectPath,
+  portableProjectBasename,
+  portableProjectPath,
+  validatePortableProjectPath,
+} from './portablePath';
 export {
   deriveHeight,
   deriveWidth,
@@ -345,18 +404,22 @@ export type {
 export type { ProductStatusStage } from './product';
 export { PRODUCT_STATUS } from './product';
 export type {
+  NormalizedProofTransformResult,
   ProfileProofConverter,
+  ProfileProofConverterNormalized,
   ProofRenderingIntent,
   ProofTransformConfig,
   ProofTransformResult,
 } from './proofTransform';
 export {
+  applyProofToNormalized,
   applyProofToRgba,
   clearProofConverters,
   isColorOutOfProofGamut,
   isProofingAvailable,
   proofConfigKey,
   registerProfileProofConverter,
+  registerProfileProofConverterNormalized,
 } from './proofTransform';
 export type {
   RasterAlphaMode,
@@ -375,6 +438,7 @@ export {
   DISPLAY_SRGB_ENCODING,
   isConvertibleRgbEncoding,
   LEGACY_ASSUMED_ENCODING,
+  rasterEncodingKey,
   rasterEncodingLabel,
   rasterProvenanceLabel,
 } from './rasterColorEncoding';

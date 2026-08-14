@@ -50,6 +50,7 @@ import { buildWebsiteReleaseData, emptyWebsiteReleaseData } from './website-rele
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = join(repoRoot, 'apps/website/src/data/release-manifest.json');
+const UPDATE_OUT_DIR = join(repoRoot, 'apps/website/public/updates');
 const API = 'https://api.github.com';
 
 function parseArgs(argv) {
@@ -100,6 +101,8 @@ async function main() {
     process.stderr.write(`release data fetch failed: ${err.message}\n`);
     process.exit(1);
   }
+
+  await refreshUpdaterFeeds(releases, token);
 
   const release = selectRelease(releases, pinnedTag);
   if (!release) {
@@ -172,6 +175,31 @@ async function main() {
     `Website release data refreshed from ${tag} (${verified.artifacts.length} artifacts, ` +
       `${verified.sbomAssets.length} SBOMs).\n`,
   );
+}
+
+async function refreshUpdaterFeeds(releases, token) {
+  const channels = {
+    stable: releases.filter((release) => release.prerelease !== true),
+    beta: releases.filter(
+      (release) => release.prerelease === true && /-beta(?:[.-]|$)/i.test(release.tag_name),
+    ),
+  };
+  mkdirSync(UPDATE_OUT_DIR, { recursive: true });
+  for (const [channel, candidates] of Object.entries(channels)) {
+    const release = selectRelease(candidates);
+    if (!release) continue;
+    const asset = (release.assets ?? []).find(
+      (item) => item.name === `varve-update-${channel}.json`,
+    );
+    if (!asset) continue; // Older releases predate updater feeds.
+    const feed = JSON.parse((await download(asset.browser_download_url, token)).toString('utf-8'));
+    const version = String(release.tag_name).replace(/^v/, '');
+    if (feed.version !== version || !feed.platforms || Object.keys(feed.platforms).length === 0) {
+      throw new Error(`Updater feed for ${release.tag_name} is malformed or version-mismatched`);
+    }
+    writeFileSync(join(UPDATE_OUT_DIR, `${channel}.json`), `${JSON.stringify(feed, null, 2)}\n`);
+    process.stdout.write(`Updater ${channel} feed refreshed from ${release.tag_name}.\n`);
+  }
 }
 
 try {
