@@ -95,17 +95,39 @@ substitute for an independently annotated held-out corpus.
 - stale editor jobs are rejected by request/document identity before commit;
 - Quick is never silently substituted for an AI request;
 - decontamination and hair/trimap refinement are optional mask operations, not
-  destructive source-pixel replacement.
+  destructive source-pixel replacement. Decontamination defaults to off on
+  every provider, native included (opt-in everywhere).
+
+## Reference parity and benchmarking
+
+`scripts/bench/bgremove-reference/` contains the reproducible reference
+pipeline (rembg-faithful ONNX inference for the pinned checkpoints), the
+synthetic ground-truth fixture generator, the divergence decomposer, and the
+contact-sheet renderer. `crates/varve-bgremove/examples/bgremove_bench.rs`
+measures the native path (cold/warm latency, RSS, quality vs reference masks)
+and writes machine-readable JSON with git commit and hardware metadata.
+`crates/varve-bgremove/src/metrics.rs` mirrors `qualityMetrics.ts` so native
+and browser reports are directly comparable.
+
+Adding a model: manifest entry + checksum-verified artifact + (when
+preprocessing differs) a model-spec entry in both the Rust `model_spec`/
+`image_model_spec` and TS `getSegmentationModelSpec` + corpus coverage.
+Adding a runtime: implement the existing provider contract and prove output
+parity (same checkpoint, same preprocessing) before placing it ahead of ONNX.
 
 ## Known limits
 
-The current repository has not completed a same-checkpoint reference-runtime
-parity run for BiRefNet because this development image has neither the
-reference Python stack nor the reference checkpoint installed. Native ONNX
-results and manifest/contract tests are useful evidence, but they do not close
-that parity gate. The exact reproduction command and required artifacts are
-tracked in the benchmark audit.
+Reference parity is measured, not assumed: `docs/audits/background-removal-parity-audit-2026-08-13.md`
+records the same-checkpoint rembg-faithful reference runs (u2netp and IS-Net
+verified; BiRefNet Lite/Full completed on a host with memory headroom — see the
+audit for the current status), the native-vs-reference noise floor, and the
+decomposition of the letterbox-vs-stretch and clamp-vs-min-max divergences.
+The output normalisation now follows the reference (sigmoid where required,
+then clamp — no min-max stretch), and a gated golden test pins native u2netp
+against a checked-in reference mask.
 
 Transparent glass, smoke, and similar materials need genuine alpha mattes or a
 user-authored trimap. A binary foreground estimate cannot honestly promise
-physical alpha separation for those cases.
+physical alpha separation for those cases. The synthetic `synth-glass` fixture
+is the regression target for this limit (u2netp/IS-Net/BiRefNet all score it
+low against the ground-truth matte; see the audit tables).
