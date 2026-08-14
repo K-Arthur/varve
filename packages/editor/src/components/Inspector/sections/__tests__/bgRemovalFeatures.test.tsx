@@ -191,6 +191,7 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     cancelBackgroundRemoval: vi.fn(),
     applyBackgroundRemovalPreview: vi.fn(),
     cancelBackgroundRemovalPreview: vi.fn(),
+    selectSam2Candidate: vi.fn(),
     updateDoc: vi.fn(),
     updateNode: vi.fn(),
     announce: vi.fn(),
@@ -693,6 +694,66 @@ describe('BackgroundRemovalSection - Object Selection', () => {
     );
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
     expect(screen.getByRole('button', { name: 'Continue Object Selection' })).toBeTruthy();
+  });
+
+  it('cycles candidate masks with Previous/Next and wraps around', () => {
+    const selectSam2Candidate = vi.fn();
+    mockedUseEditor.mockReturnValue(
+      createMockEditorContext({
+        selectSam2Candidate,
+        state: {
+          objectSelectionSession: {
+            nodeId: 'n1',
+            width: 200,
+            height: 160,
+            candidates: [
+              { mask: new Uint8Array(200 * 160), confidence: 0.4 },
+              { mask: new Uint8Array(200 * 160), confidence: 0.9 },
+              { mask: new Uint8Array(200 * 160), confidence: 0.7 },
+            ],
+            selectedCandidate: 1,
+            points: [],
+            box: null,
+            confidence: 0.9,
+            status: 'ready',
+            modelId: 'sam2-hiera-tiny',
+            executionProvider: 'wasm',
+          },
+        },
+      }),
+    );
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(screen.getByText(/Candidate 2 of 3/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Next object-selection candidate' }));
+    expect(selectSam2Candidate).toHaveBeenLastCalledWith(2);
+    fireEvent.click(screen.getByRole('button', { name: 'Previous object-selection candidate' }));
+    expect(selectSam2Candidate).toHaveBeenLastCalledWith(0);
+    expect(screen.queryByText(/Candidate 2 of 3/)).toBeTruthy();
+  });
+
+  it('omits candidate cycling controls for a single candidate', () => {
+    mockedUseEditor.mockReturnValue(
+      createMockEditorContext({
+        state: {
+          objectSelectionSession: {
+            nodeId: 'n1',
+            width: 200,
+            height: 160,
+            candidates: [{ mask: new Uint8Array(200 * 160), confidence: 0.9 }],
+            selectedCandidate: 0,
+            points: [],
+            box: null,
+            confidence: 0.9,
+            status: 'ready',
+            modelId: 'sam2-hiera-tiny',
+            executionProvider: 'wasm',
+          },
+        },
+      }),
+    );
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(screen.queryByRole('button', { name: 'Next object-selection candidate' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Apply as mask' })).toBeTruthy();
   });
 });
 
