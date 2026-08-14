@@ -17,12 +17,12 @@ import StatusPill from '../../../components/StatusPill.astro';
       <section class="docs-section">
         <h2>What is available</h2>
         <p><a href={sitePath('/docs/tools/object-selection')}>Object Selection</a> creates an editable mask from a point or box prompt. <a href={sitePath('/features/background-removal')}>Background removal</a> provides local fast, auto, and high-quality mask workflows. Both persist normal document mask data, so reopening does not require a model.</p>
+        <p><strong>Protect Faces</strong> is available in crop mode: it detects faces with the bundled YuNet model (233 KB, MIT, checksum-verified, runs locally) and repositions the crop window to keep them in frame without modifying source pixels.</p>
       </section>
 
       <section class="docs-section">
         <h2>What is being built</h2>
         <ul>
-          <li><strong>Protect Faces</strong> requests face bounds only, then suggests a non-destructive image placement.</li>
           <li><strong>Face anchors</strong> request semantic landmarks such as Left Eye instead of exposing backend landmark indices.</li>
           <li><strong>Select Person</strong> will use a genuine person mask, not a face rectangle.</li>
         </ul>
@@ -30,12 +30,12 @@ import StatusPill from '../../../components/StatusPill.astro';
 
       <section class="docs-section">
         <h2>Privacy and performance</h2>
-        <p>Images are analyzed only when a workflow asks for a capability. Results are cached by source asset and revision, not by canvas position. Model downloads are explicit, verified, and local inference does not upload artwork. Face detection is geometric visual awareness, not identity recognition.</p>
+        <p>Images are analyzed only when a workflow asks for a capability. Results are cached by source asset and revision, not by canvas position. The face model is bundled and inference is local; larger model downloads are explicit and verified. Face detection is geometric visual awareness, not identity recognition.</p>
       </section>
 
       <section class="docs-section docs-note">
         <h2>Current limitation</h2>
-        <p>The capability router and crop solver are implemented, but a verified task-specific face backend and its quality/performance corpus are not yet shipped. Until that release gate closes, the website does not present automatic face-aware cropping, face protection, hand tracking, or pose tracking as available features.</p>
+        <p>Face detection is shipped and verified against OpenCV parity; hand/pose/person workflows are not yet available and are not presented as shipped features.</p>
       </section>
     </div>
   </div>

@@ -88,8 +88,10 @@ function gitBaseFor({ since }) {
   return null;
 }
 
-/** Load pnpm workspace package map: name -> { dir, deps, devDeps } */
+/** Load pnpm workspace package map: name -> { dir, deps, devDeps } (cached per process) */
+const _PKGS_CACHE = new Map();
 function loadPackages() {
+  if (_PKGS_CACHE.has('pkgs')) return _PKGS_CACHE.get('pkgs');
   const _manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8'));
   const out = run('pnpm m ls --json --depth -1 2>/dev/null');
   const pkgs = {};
@@ -120,10 +122,14 @@ function loadPackages() {
       tests: countTests(app),
     };
   }
+  _PKGS_CACHE.set('pkgs', pkgs);
   return pkgs;
 }
 
+const _TEST_COUNT_CACHE = new Map();
+
 function countTests(dir) {
+  if (_TEST_COUNT_CACHE.has(dir)) return _TEST_COUNT_CACHE.get(dir);
   const base = join(ROOT, dir);
   if (!existsSync(base)) return 0;
   let n = 0;
@@ -131,17 +137,27 @@ function countTests(dir) {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const p = join(d, e.name);
       if (e.isDirectory()) {
-        if (e.name === 'node_modules' || e.name === 'dist' || e.name === '.worktrees') continue;
+        if (
+          e.name === 'node_modules' ||
+          e.name === 'dist' ||
+          e.name === '.worktrees' ||
+          e.name === 'target'
+        ) {
+          continue;
+        }
         walk(p);
       } else if (/\.(test|spec)\.(ts|tsx)$/.test(e.name)) n++;
     }
   };
   walk(base);
+  _TEST_COUNT_CACHE.set(dir, n);
   return n;
 }
 
-/** Load Cargo workspace: crate name -> { dir, deps } */
+/** Load Cargo workspace: crate name -> { dir, deps } (cached per process) */
+const _CRATES_CACHE = new Map();
 function loadCrates() {
+  if (_CRATES_CACHE.has('crates')) return _CRATES_CACHE.get('crates');
   const out = run('cargo metadata --format-version 1 --no-deps 2>/dev/null');
   if (!out) return {};
   const { packages } = JSON.parse(out);
@@ -153,6 +169,7 @@ function loadCrates() {
       deps: new Set(p.dependencies.map((d) => d.name)),
     };
   }
+  _CRATES_CACHE.set('crates', crates);
   return crates;
 }
 
@@ -291,14 +308,15 @@ function buildPlan(files, { includeReverse = true } = {}) {
     files.some((f) => matchesGlob(f, g)),
   );
   const sharedContract = IMPACT_CONFIG.sharedContractPaths.some((g) =>
-    files.some((f) => matchesGlob(f, g)),
+    files.some((f) => !/\.(test|spec)\.(ts|tsx)$/.test(f) && matchesGlob(f, g)),
   );
 
   for (const f of files) {
     if (f.startsWith('.worktrees/')) continue;
     const c = classifyFile(f, pkgs, crates);
     plan.changed[c.kind].push(f);
-    if (c.kind === 'js') changedPkgs.add(c.name);
+    const isTestFile = /\.(test|spec)\.(ts|tsx)$/.test(f);
+    if (c.kind === 'js' && !isTestFile) changedPkgs.add(c.name);
     if (c.kind === 'rust') changedCrates.add(c.name);
     if (c.kind === 'app') changedPkgs.add(c.name);
 
@@ -487,7 +505,43 @@ function buildPlan(files, { includeReverse = true } = {}) {
     reverseDependents: includeReverse
       ? plan.tiers[3].filter((l) => l.startsWith('js-unit:')).length
       : 0,
+    totalTestFiles: 0,
+    selectedTestFiles: 0,
+    selectedFraction: 0,
   };
+
+  // Validation budget (soft metric): fraction of repository test files the
+  // plan selects. A high fraction is an architectural signal (over-coupled
+  // packages, overly broad impact rules, a shared utility becoming a
+  // dependency hub), not a hard CI blocker across heterogeneous machines.
+  plan.stats.totalTestFiles =
+    Object.values(pkgs).reduce((n, p) => n + p.tests, 0) +
+    countTests('tests/unit') +
+    countTests('tests/e2e');
+  const pkgDirByName = new Map(Object.entries(pkgs).map(([n, p]) => [n, p.dir]));
+  let selectedTestFiles = 0;
+  for (let t = 0; t <= 4; t++) {
+    for (const lane of plan.tiers[t]) {
+      if (lane.startsWith('js-unit:file:')) selectedTestFiles += 1;
+      else if (lane.startsWith('js-unit:')) {
+        const name = lane.slice('js-unit:'.length);
+        const dir = pkgDirByName.get(name);
+        if (dir) selectedTestFiles += countTests(dir);
+      } else if (lane.startsWith('e2e:')) {
+        const dom = lane.slice('e2e:'.length);
+        if (dom === 'visual' || dom === 'all') selectedTestFiles += countTests('tests/e2e/visual');
+        else selectedTestFiles += countTests(`tests/e2e/${dom}`);
+      } else if (lane === 'website-unit') {
+        selectedTestFiles += countTests('apps/website/src/test');
+      } else if (lane === 'website-e2e') {
+        selectedTestFiles += countTests('apps/website/e2e') + countTests('apps/website/tests');
+      }
+    }
+  }
+  plan.stats.selectedTestFiles = selectedTestFiles;
+  plan.stats.selectedFraction = plan.stats.totalTestFiles
+    ? selectedTestFiles / plan.stats.totalTestFiles
+    : 0;
 
   return plan;
 }
@@ -528,13 +582,24 @@ function formatPlan(plan, opts) {
       lines.push('Skipped (deliberate):');
       for (const s of plan.skipped) lines.push(`  ${s}`);
     }
+    if (plan.stats.selectedFraction > 0.74) {
+      lines.push('');
+      lines.push(
+        `WARNING: affected selection covers ${(plan.stats.selectedFraction * 100).toFixed(0)}% ` +
+          `of repository test files (${plan.stats.selectedTestFiles}/${plan.stats.totalTestFiles}).`,
+      );
+      lines.push(
+        '  Investigate: is a package too highly coupled? Are impact rules too broad? ' +
+          'Did a shared utility become a dependency hub?',
+      );
+    }
   }
   return lines.join('\n');
 }
 
 // ── main ───────────────────────────────────────────────────────────────────
 
-export { buildPlan, defaultScope, formatPlan, gitBaseFor, gitChangedFiles };
+export { buildPlan, defaultScope, formatPlan, gitBaseFor, gitChangedFiles, loadPackages };
 
 export function parseArgs(argv) {
   const args = argv.slice(2);

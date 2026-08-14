@@ -237,6 +237,9 @@ global flag.
   installations. Widths are clamped at application time so a smaller window
   cannot strand the canvas below its minimum usable width. Selection, hand, and
   zoom remain available even when toolbar customization attempts to hide them.
+  Resetting one workspace or all workspaces clears both the saved preference
+  and the live shell CSS overrides immediately; a restart is not required to
+  see the default widths.
 - Per-tab viewport state (zoom/pan/rotation/grids/snapping/units/guides)
   stays in-memory per session (`sessionStoreRef`) and restores on
   `switchTab`; crash recovery sessions persist via the platform facade.
