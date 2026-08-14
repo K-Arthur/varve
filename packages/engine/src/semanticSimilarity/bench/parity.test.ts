@@ -68,7 +68,16 @@ const runParity = (modelId: string, tolerance: number) => {
     return;
   }
 
-  const fixtureImages = Object.keys(fixture.images).sort().slice(0, 24);
+  // Sample a deterministic subset of the fixture that still covers every
+  // preprocessing geometry: landscape base/variants (img-000..003) and
+  // portrait base/variants (img-019, 020, 026, 027 — the half-pixel
+  // letterbox-offset case that regressed banker's-rounding ports). The
+  // full 24-vector fixture stays committed for manual review; running all
+  // 24 through both models takes ~15 minutes on CPU-only CI machines.
+  const fixtureImages = Object.keys(fixture.images)
+    .sort()
+    .filter((id) => /^img-(000|001|002|003|019|020|026|027)$/.test(id));
+  if (fixtureImages.length !== 8) throw new Error('Unexpected parity fixture sample');
   const adapter =
     modelId === 'siglip-base-patch16-224'
       ? makeSiglipAdapter(join(MODELS_DIR, 'siglip-base-patch16-224.onnx'))

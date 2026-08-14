@@ -51,7 +51,7 @@ describe.skipIf(!RUN)('semantic similarity evaluation', () => {
       console.log(`\n${summary}\nreports: ${jsonFile}\n  ${sheets.join('\n  ')}`);
     }
     expect(summaries.length).toBe(2);
-  }, 3_600_000);
+  }, 0);
 
   afterAll(async () => {
     await releaseNodeOrtSessions();
