@@ -22,6 +22,45 @@ workspace; it is not a claim that the release model corpus is complete.
 - Website Chromium/mobile visual check for
   `apps/website/tests/e2e/object-selection-feature.spec.ts`
   (1 test passed)
+- Standard editor E2E (`tests/e2e/canvas/object-selection.spec.ts`): passed
+  against the warm dev server — Adjustments tab, disclosure, tool activation,
+  and the no-model download-requirement path all verified.
+
+## Real-model verification (2026-08-14, late session)
+
+Ran the full SAM2 pipeline in a real browser with the actual model files
+(134 MB encoder + 20.6 MB decoder, SHA-256 pinned):
+
+- Cold path (model load + encode + first prompt): 13 s to "Preview ready",
+  94% model confidence, 3 candidate masks.
+- Warm prompt on the same image (embedding cache hit): 1 s.
+- Candidate cycling wraps (3 → 1); Apply commits a mask with provenance;
+  Undo clears the provenance; Redo restores it.
+- Overlay verified visually: 2.5% of the canvas painted in the mask tint at
+  the cat subject, plus the prompt marker.
+
+Two production defects were found and fixed during this verification:
+
+1. **Inference worker broken in production builds.** The worker URL was
+   routed through a constructor parameter, so Vite could not statically
+   detect it as a worker; production builds emitted the raw `.ts` source as
+   an asset and the browser refused to run it (worker died with an empty
+   error). Fixed by placing the literal `new Worker(new URL(...))` pattern
+   in `inferenceWorkerHost.ts`; the built asset is now a real bundled worker.
+   This affected every worker-backed AI feature in production, not just
+   Object Selection.
+2. **SAM2 encoder rejected by ort-web wasm.** The upstream encoder declares
+   empty value_info shapes on two outputs; ort-web's shape inference rejects
+   the graph at session creation (ort-node tolerates it). The two
+   metadata-only entries are removed by `scripts/models/repair-sam2-graph.mjs`
+   (reproducible; bit-identical encoder outputs); repaired checksums are
+   pinned for both tiny and small variants. The same defect blocks the
+   packaged desktop app's webview path, so this repair is required before
+   shipping.
+
+The error path was also improved: "Model exceeds safe WASM memory limit" and
+worker-start failures now map to actionable user messages instead of raw
+backend text.
 
 ## Not passed / environment-limited
 
