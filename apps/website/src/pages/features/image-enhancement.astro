@@ -29,14 +29,28 @@ import { sitePath } from '../../lib/siteUrl';
           <h2 id="workflow-title">From source pixels to a considered result.</h2>
           <p>
             Choose the task you actually need. Denoise uses a task-specific local
-            model; Upscale uses the existing CPU or AI path; Restore + Upscale runs
+            model; Deblur reduces motion and defocus blur with a validated model;
+            Upscale uses the existing CPU or AI path; Restore + Upscale runs
             only those selected stages, in order.
           </p>
         </div>
+        <figure class="enhance-shot">
+          <img
+            src={sitePath('/screenshots/enhance-dialog-auto.png')}
+            alt="The Enhance dialog in Auto mode: it detected noise in a photographed document and recommends denoise with a confidence number, beside a before-and-after preview."
+            width="1440"
+            height="900"
+            loading="lazy"
+          />
+          <figcaption>
+            The Enhance dialog in Auto mode — it detected noise on a real import and
+            recommended a task in plain language.
+          </figcaption>
+        </figure>
         <div class="pipeline" aria-label="Enhance workflow stages">
           <div class="pipeline-step"><span>01</span><strong>Source image</strong><small>Existing pixels stay intact</small></div>
           <div class="pipeline-arrow" aria-hidden="true">→</div>
-          <div class="pipeline-step pipeline-step--accent"><span>02</span><strong>Enhance</strong><small>Denoise, upscale, or both</small></div>
+          <div class="pipeline-step pipeline-step--accent"><span>02</span><strong>Enhance</strong><small>Denoise, deblur, upscale, or both</small></div>
           <div class="pipeline-arrow" aria-hidden="true">→</div>
           <div class="pipeline-step"><span>03</span><strong>New layer</strong><small>Review before replacing</small></div>
         </div>
@@ -79,6 +93,9 @@ import { sitePath } from '../../lib/siteUrl';
   .workflow, .honesty { border: 1px solid var(--border-default); border-radius: 1rem; background: var(--surface-card); padding: clamp(1.5rem, 4vw, 3rem); }
   .workflow h2, .capabilities h2, .honesty h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
   .workflow p, .honesty p { color: var(--text-secondary); line-height: 1.75; }
+  .enhance-shot { margin: 2rem 0 0; }
+  .enhance-shot img { width: 100%; height: auto; border: 1px solid var(--border-default); border-radius: .8rem; }
+  .enhance-shot figcaption { color: var(--text-tertiary); font-size: .8rem; margin-top: .5rem; }
   .pipeline { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: .75rem; margin-top: 2rem; }
   .pipeline-step { display: flex; flex-direction: column; gap: .45rem; padding: 1rem; border: 1px solid var(--border-default); border-radius: .7rem; }
   .pipeline-step--accent { border-color: var(--border-accent); background: var(--surface-accent-soft); }
