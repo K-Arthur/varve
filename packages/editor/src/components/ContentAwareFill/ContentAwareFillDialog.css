@@ -206,6 +206,20 @@
   font-weight: var(--font-weight-semibold);
 }
 
+.caf-dialog__zoom-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.caf-dialog__zoom-value {
+  min-width: 44px;
+  padding: var(--space-1) var(--space-2);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 .caf-dialog__preview-area {
   flex: 1;
   position: relative;
