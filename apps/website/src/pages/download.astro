@@ -17,6 +17,33 @@ function isStableStage(stage: ProductStatusStage): boolean {
   return stage === 'stable';
 }
 const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_STATUS.stage) ? 'Stable' : 'Beta';
+const analyticsReleaseChannel = release.prerelease
+  ? 'prerelease'
+  : isStableStage(PRODUCT_STATUS.stage)
+    ? 'stable'
+    : 'beta';
+
+function analyticsArchitecture(arch: string): 'x64' | 'arm64' | 'unknown' {
+  const normalized = arch.toLowerCase();
+  if (normalized.includes('arm') || normalized.includes('aarch')) return 'arm64';
+  if (normalized.includes('x64') || normalized.includes('x86_64') || normalized.includes('amd64')) return 'x64';
+  return 'unknown';
+}
+
+function architectureLabel(arch: string): string {
+  const normalized = arch.toLowerCase();
+  if (normalized.includes('arm') || normalized.includes('aarch')) return 'ARM64';
+  if (normalized.includes('x64') || normalized.includes('x86_64') || normalized.includes('amd64')) {
+    return 'x86_64';
+  }
+  return arch;
+}
+
+function analyticsPackageType(format: string): 'appimage' | 'deb' | 'rpm' | 'dmg' | 'nsis' | 'unknown' {
+  return format === 'appimage' || format === 'deb' || format === 'rpm' || format === 'dmg' || format === 'nsis'
+    ? format
+    : 'unknown';
+}
 
 // Every download control on this page is rendered from the generated release
 // manifest (scripts/release/update-website-manifest.mjs). Nothing about
@@ -26,6 +53,7 @@ const channelLabel = release.prerelease ? 'Prerelease' : isStableStage(PRODUCT_S
 interface Artifact {
   filename: string;
   arch: string;
+  architectureLabel?: string;
   format: string;
   label: string;
   size: string;
@@ -110,9 +138,9 @@ function platformTrustLabel(
 
 const REQUIREMENTS: Record<string, string[]> = {
   linux: [
-    'OS: any x86-64 distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
+    'OS: any distribution with glibc 2.35 or newer (Ubuntu 22.04+, Fedora 38+, Arch, CachyOS)',
     'Libraries: WebKitGTK 4.1, GTK3, librsvg2, OpenSSL, fontconfig',
-    'CPU: x86-64',
+    'CPU: choose the download labeled x86_64 or ARM64 to match your Linux machine',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Display: Wayland or X11',
     'Storage: 500 MB minimum free disk',
@@ -125,7 +153,7 @@ const REQUIREMENTS: Record<string, string[]> = {
   ],
   windows: [
     'OS: Windows 10 (version 1809) or Windows 11',
-    'CPU: x86-64',
+    'CPU: choose the download labeled x86_64 or ARM64 to match your Windows device',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Storage: 500 MB minimum free disk',
   ],
@@ -163,14 +191,21 @@ function shortRequirement(requirements: string[], prefix: string): string | null
 }
 
 const quickPlatforms = available.map((p) => {
-  const primary = p.artifacts.find((a) => a.format === 'appimage') ?? p.artifacts[0]!;
-  const secondary = p.artifacts.find((a) => a !== primary) ?? null;
+  const architectures = [...new Set(p.artifacts.map((artifact) => artifact.arch))].map((arch) => {
+    const artifacts = p.artifacts.filter((artifact) => artifact.arch === arch);
+    const primary = artifacts.find((artifact) => artifact.format === 'appimage') ?? artifacts[0]!;
+    return {
+      arch,
+      label: primary.architectureLabel ?? architectureLabel(arch),
+      primary,
+      alternates: artifacts.filter((artifact) => artifact !== primary),
+    };
+  });
   const os = shortRequirement(p.requirements, 'OS:');
   const ram = shortRequirement(p.requirements, 'RAM:');
   return {
     ...p,
-    primary,
-    secondary,
+    architectures,
     reqSummary: [os, ram].filter(Boolean).join(' · '),
   };
 });
@@ -253,7 +288,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 Varve <span class="version-badge">{release.version}</span>
                 <span class="channel-badge">{channelLabel}</span>
               </h2>
-              <p class="quick-download-sub">Pick your platform. Full checksums and requirements are below.</p>
+              <p class="quick-download-sub">Pick your platform and architecture. Full checksums and requirements are below.</p>
             </div>
 
             <div class="quick-download-grid">
@@ -286,17 +321,41 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                     <span class="platform-name">{p.label}</span>
                   </div>
 
-                  <a href={p.primary.url} class="btn-primary quick-download-btn" download>
-                    Download {p.primary.arch !== 'universal' ? `for ${p.primary.arch}` : ''}
-                  </a>
-                  {p.secondary && (
-                    <p class="quick-download-alts">
-                      <span class="alts-label">Alternate:</span>{' '}
-                      <a href={p.secondary.url} download>
-                        {p.secondary.title ?? p.secondary.label} &middot; {p.secondary.size}
+                  {p.architectures.map((architecture) => (
+                    <div class="quick-architecture">
+                      <div class="quick-architecture-label">{architecture.label}</div>
+                      <a
+                        href={architecture.primary.url}
+                        class="btn-primary quick-download-btn"
+                        download
+                        data-analytics-download="true"
+                        data-analytics-platform={p.id}
+                        data-analytics-architecture={analyticsArchitecture(architecture.primary.arch)}
+                        data-analytics-package-type={analyticsPackageType(architecture.primary.format)}
+                        data-analytics-release={release.version}
+                        data-analytics-release-channel={analyticsReleaseChannel}
+                      >
+                        Download {architecture.primary.size}
                       </a>
-                    </p>
-                  )}
+                      {architecture.alternates.map((alternate) => (
+                        <p class="quick-download-alts">
+                          <span class="alts-label">Alternate:</span>{' '}
+                          <a
+                            href={alternate.url}
+                            download
+                            data-analytics-download="true"
+                            data-analytics-platform={p.id}
+                            data-analytics-architecture={analyticsArchitecture(alternate.arch)}
+                            data-analytics-package-type={analyticsPackageType(alternate.format)}
+                            data-analytics-release={release.version}
+                            data-analytics-release-channel={analyticsReleaseChannel}
+                          >
+                            {alternate.title ?? alternate.label} &middot; {alternate.size}
+                          </a>
+                        </p>
+                      ))}
+                    </div>
+                  ))}
 
                   {p.reqSummary && <p class="quick-download-req">{p.reqSummary}</p>}
                   <a href={`#platform-${p.id}`} class="quick-download-detail-link" data-jump-platform={p.id}>
@@ -437,11 +496,22 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       {artifact.format === 'deb' && <span class="badge recommended">Recommended</span>}
                     </div>
                     <p>{artifact.blurb}</p>
-                    <a href={artifact.url} class="btn-primary" download>
+                    <a
+                      href={artifact.url}
+                      class="btn-primary"
+                      download
+                      data-analytics-download="true"
+                      data-analytics-platform={p.id}
+                      data-analytics-architecture={analyticsArchitecture(artifact.arch)}
+                      data-analytics-package-type={analyticsPackageType(artifact.format)}
+                      data-analytics-release={release.version}
+                      data-analytics-release-channel={analyticsReleaseChannel}
+                    >
                       Download {artifact.size}
                     </a>
                     <p class="download-meta">
-                      {artifact.filename} &middot; {artifact.arch}
+                      <span class="architecture-badge">{artifact.architectureLabel ?? architectureLabel(artifact.arch)}</span>{' '}
+                      {artifact.filename}
                     </p>
                     {artifact.install && <code class="code-block">{artifact.install}</code>}
                     {artifact.caveat && <p class="download-meta"><strong>Note:</strong> {artifact.caveat}</p>}
@@ -492,6 +562,50 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
               <a href={release.releaseUrl} target="_blank" rel="noopener noreferrer">
                 Full release notes on GitHub
               </a>
+            </p>
+          </div>
+
+          <div class="updates-info">
+            <h2>Keeping Varve up to date</h2>
+            <p>
+              Varve checks for updates only after you choose to allow it. On first launch you are
+              asked whether Varve may periodically check for newer versions; you can change or
+              revoke that choice at any time in Settings &rarr; Updates. Update checks send only
+              your current version, platform, architecture and channel to Varve's release
+              endpoint — no account, document data or device identifier.
+            </p>
+            <p>
+              Downloads are cryptographically verified against a signature embedded in the
+              installed app before anything is installed, and Varve never restarts over unsaved
+              design work.
+            </p>
+            <ul>
+              <li>
+                <strong>AppImage:</strong> self-updates in place when the file is in a writable
+                location. If the AppImage cannot be replaced (read-only folder, moved after
+                launch), Varve explains what happened and offers the manual update path.
+              </li>
+              <li>
+                <strong>Windows (NSIS):</strong> updates install through the installer with a
+                visible progress window, and installation happens only after your approval.
+              </li>
+              <li>
+                <strong>macOS:</strong> updates the installed app in your Applications folder.
+                If you are running Varve from the mounted DMG or a Gatekeeper-translocated copy,
+                move it into Applications first.
+              </li>
+              <li>
+                <strong>Debian / RPM packages:</strong> installed files are owned by your package
+                manager. Varve does not overwrite them; use your package manager to install newer
+                versions from the release page.
+              </li>
+            </ul>
+            <p class="download-meta">
+              Updates are published only after every release gate passes: build, platform
+              signing/notarization, updater signature verification, checksums and SBOM.
+            </p>
+            <p class="download-meta">
+              <a href={sitePath('/docs/updates')}>Read the full update and privacy guide</a>.
             </p>
           </div>
         </>
@@ -640,6 +754,21 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     padding: 0.7rem 1.2rem;
     font-size: 0.9375rem;
     border-radius: 0.5rem;
+  }
+
+  .quick-architecture + .quick-architecture {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  .quick-architecture-label {
+    margin-bottom: 0.45rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
   .quick-download-alts {
@@ -852,6 +981,16 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     color: var(--text-muted);
     margin-top: 0.75rem;
   }
+
+  .architecture-badge {
+    display: inline-block;
+    padding: 0.12rem 0.4rem;
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
   
   
   .system-requirements {
@@ -906,6 +1045,38 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     color: var(--text-secondary);
     margin-bottom: 0.5rem;
     line-height: 1.6;
+  }
+
+  .updates-info {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .updates-info h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .updates-info p,
+  .updates-info li {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+  }
+
+  .updates-info ul {
+    padding-left: 1.25rem;
+    list-style: disc;
+    margin-bottom: 0.75rem;
+  }
+
+  .updates-info strong {
+    color: var(--text-primary);
   }
   
   .integrity-notice p {
@@ -1019,6 +1190,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     return 'unknown';
   }
 
+  function detectArchitecture() {
+    const ua = navigator.userAgent;
+    if (/arm64|aarch64|armv8/i.test(ua)) return 'arm64';
+    if (/x86_64|x64|win64|amd64/i.test(ua)) return 'x64';
+    return 'unknown';
+  }
+
   function isMobileOrTablet() {
     const ua = navigator.userAgent;
     const touchDevice = navigator.maxTouchPoints > 1;
@@ -1026,12 +1204,17 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
       || (touchDevice && Math.min(screen.width, screen.height) < 1024);
   }
 
-  function showDetectionBanner(platform: string) {
+  function showDetectionBanner(platform: string, architecture: string) {
     const banner = document.getElementById('detection-banner');
     if (!banner) return;
     if (platform === 'unknown') return;
+    const architectureHint = architecture === 'arm64'
+      ? ' The browser hints that this may be an ARM64 device.'
+      : architecture === 'x64'
+        ? ' The browser hints that this may be an x86_64 device.'
+        : '';
     banner.style.display = 'block';
-    banner.innerHTML = 'We detected you&rsquo;re on <strong>' + PLATFORM_NAMES[platform as keyof typeof PLATFORM_NAMES] + '</strong>. The recommended download is shown below. <a href="#choose-platform" style="margin-left:0.5rem;">Choose another platform</a>.';
+    banner.innerHTML = 'We detected you&rsquo;re on <strong>' + PLATFORM_NAMES[platform as keyof typeof PLATFORM_NAMES] + '</strong>.' + architectureHint + ' Choose the architecture-labeled download below; this browser hint may be wrong. <a href="#choose-platform" style="margin-left:0.5rem;">Choose another platform</a>.';
   }
 
   const platformTabs = document.querySelectorAll<HTMLButtonElement>('.platform-tab');
@@ -1120,9 +1303,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   });
 
   const detected = detectPlatform();
+  const detectedArchitecture = detectArchitecture();
   if (detected !== 'unknown') {
     const tab = document.querySelector('.platform-tab[data-platform="' + detected + '"]');
     if (tab instanceof HTMLButtonElement) activatePlatform(tab);
-    showDetectionBanner(detected);
+    showDetectionBanner(detected, detectedArchitecture);
   }
 </script>

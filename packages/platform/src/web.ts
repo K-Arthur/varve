@@ -18,9 +18,11 @@
  *    for native picker UX in Chromium; Firefox/Safari fall back transparently.
  */
 import { type IDBPDatabase, openDB } from 'idb';
+import { searchAssets as rankAssets } from './assetSearch';
 import type { Platform, PrinterInfo, PrintJobResult } from './platform';
 import {
   contentHash,
+  contentHashOf,
   defaultViewState,
   detectFileKind,
   mergeViewState,
@@ -57,7 +59,7 @@ import { DRAFTS_ID } from './types';
 import { chooseWebSaveTarget, writeWebSaveTarget } from './web-save';
 
 const DB_NAME = 'varve-home';
-const DB_VERSION = 3;
+const DB_VERSION = 5;
 const STORE_FILES = 'files';
 const STORE_PROJECTS = 'projects';
 const STORE_THUMBS = 'thumbnails';
@@ -78,6 +80,8 @@ const STORE_FILE_TAGS = 'fileTags';
 const STORE_ACTIVITY = 'activity';
 const STORE_SAVED_SEARCHES = 'savedSearches';
 const STORE_RECENT_FILES = 'recentFiles';
+const STORE_SEMANTIC_EMBEDDINGS = 'semanticEmbeddings';
+const STORE_ASSET_BYTES = 'assetBytes';
 const KV_VIEW_STATE = 'view-state';
 
 interface FileRecord {
@@ -113,6 +117,7 @@ interface DbSchema {
   activity: ActivityEvent;
   savedSearches: SavedSearch;
   recentFiles: RecentFileRecord;
+  semanticEmbeddings: import('./assetEmbeddingIndex').AssetEmbeddingRecord;
 }
 
 async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
@@ -208,6 +213,12 @@ async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
           const store = db.createObjectStore(STORE_RECENT_FILES, { keyPath: 'id' });
           store.createIndex('lastOpenedAt', 'lastOpenedAt');
         }
+      }
+      if (oldVersion < 4 && !db.objectStoreNames.contains(STORE_SEMANTIC_EMBEDDINGS)) {
+        db.createObjectStore(STORE_SEMANTIC_EMBEDDINGS, { keyPath: 'key' });
+      }
+      if (oldVersion < 5 && !db.objectStoreNames.contains(STORE_ASSET_BYTES)) {
+        db.createObjectStore(STORE_ASSET_BYTES, { keyPath: 'id' });
       }
     },
   });
@@ -643,21 +654,28 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         kind: mimeType.startsWith('image/') ? 'image' : 'other',
         mimeType,
         size: data.length,
+        contentHash: (await contentHashOf(data)) ?? undefined,
         tags: [],
         createdAt: now,
         updatedAt: now,
       };
       await db.put(STORE_ASSETS, asset);
+      if (data.length > 0) {
+        await db.put(STORE_ASSET_BYTES, { id: asset.id, bytes: data });
+      }
       return asset;
     },
     async deleteAsset(id) {
       await db.delete(STORE_ASSETS, id);
+      await db.delete(STORE_ASSET_BYTES, id);
+    },
+    async getAssetBytes(id) {
+      const record = await db.get(STORE_ASSET_BYTES, id);
+      return record?.bytes ?? null;
     },
     async searchAssets(query) {
-      if (!query.trim()) return await db.getAll(STORE_ASSETS);
-      const q = query.toLowerCase();
       const all = await db.getAll(STORE_ASSETS);
-      return all.filter((a) => a.name.toLowerCase().includes(q));
+      return rankAssets(all, query).map((result) => result.asset);
     },
     async createAssetFolder(workspaceId, name, parentId) {
       const now = Date.now();
@@ -963,6 +981,11 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async fileExists() {
       return true;
     },
+    async checkFilesExist(paths) {
+      // Web has no path-based filesystem authority; availability is tracked
+      // by the staleness heuristic instead, so every probe reports found.
+      return paths.map(() => true);
+    },
 
     // ─── Thumbnails ───────────────────────────────────────────────────────────
     async getThumbnail(hash) {
@@ -1080,7 +1103,7 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     async readDocumentText() {
       // Browsers have no path-based file API; external-change detection is
       // desktop-only.
-      return undefined;
+      return { ok: false, reason: 'unsupported' };
     },
 
     async saveBinaryFile(name, data, mimeType, extension) {

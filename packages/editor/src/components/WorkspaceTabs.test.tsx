@@ -48,4 +48,22 @@ describe('WorkspaceTabs', () => {
     // label span, so icon-only narrow strips stay accessible.
     expect(screen.getByRole('radio', { name: 'Design workspace' })).toBeTruthy();
   });
+
+  it('uses a distinct heavy line icon for every workspace mode', () => {
+    render(<WorkspaceTabs />);
+    const icons = [...document.querySelectorAll('[data-workspace-icon]')].map((icon) =>
+      icon.getAttribute('data-workspace-icon'),
+    );
+    expect(icons).toEqual([
+      'LayoutDashboard',
+      'Brush',
+      'Photo',
+      'Printer',
+      'Play',
+      'Code',
+      'Badge',
+    ]);
+    expect(new Set(icons).size).toBe(icons.length);
+    expect(document.querySelectorAll('[data-icon-family="tabler"]').length).toBe(icons.length);
+  });
 });

@@ -189,6 +189,40 @@ describe('browserFallback: computeGridRegions', () => {
     expect(regions.bottom.height).toBe(200);
     expect(regions.center.height).toBe(1080 - 200);
   });
+
+  it('uses the largest configured tab size for each dock region', () => {
+    const layout = createDefaultInPageDockLayout([
+      { id: 'pi-1', typeId: 'layers' },
+      { id: 'pi-2', typeId: 'pagenav' },
+      { id: 'pi-3', typeId: 'inspector' },
+    ]);
+    layout.slots.find((slot) => slot.panelInstanceId === 'pi-1')!.size = 360;
+    layout.slots.find((slot) => slot.panelInstanceId === 'pi-2')!.size = 300;
+    layout.slots.find((slot) => slot.panelInstanceId === 'pi-3')!.size = 410;
+
+    const { regions } = computeGridRegions(layout, 2400, 900);
+    expect(regions.left.width).toBe(360);
+    expect(regions.right.width).toBe(410);
+  });
+
+  it('keeps narrow and invalid containers non-negative', () => {
+    const layout = createDefaultInPageDockLayout([
+      { id: 'pi-1', typeId: 'layers' },
+      { id: 'pi-2', typeId: 'inspector' },
+    ]);
+    layout.centerRatio = 0.6;
+
+    const narrow = computeGridRegions(layout, 240, 120);
+    expect(narrow.regions.center.width).toBeGreaterThanOrEqual(0);
+    expect(narrow.regions.center.height).toBeGreaterThanOrEqual(0);
+    expect(
+      narrow.regions.left.width + narrow.regions.center.width + narrow.regions.right.width,
+    ).toBe(240);
+
+    const invalid = computeGridRegions(layout, Number.NaN, Number.POSITIVE_INFINITY);
+    expect(invalid.regions.center.width).toBe(0);
+    expect(invalid.regions.center.height).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

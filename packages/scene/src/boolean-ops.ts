@@ -1,6 +1,7 @@
 // COMPLEXITY: 70 — boolean operation dispatch and clipPolygons main algorithm.
 
 import type { PathPoint } from '@varve/engine';
+import { type Affine, applyAffine, invertAffine } from '@varve/shared';
 import type { Point2D, Run } from './boolean-geometry';
 import {
   assembleContour,
@@ -14,10 +15,86 @@ import {
   shapeToPolygon,
   splitPolygons,
 } from './boolean-geometry';
-import type { Fill, ShapeNode } from './types';
+import { nodeWorldTransform } from './coordinateService';
+import type { Document } from './document';
+import { getParent } from './document';
+import { addNode, reparentNode } from './document-nodes';
+import { nextNodeId } from './node-id';
+import type { Fill, NodeId, ShapeNode } from './types';
 
 export type BooleanOpKind = 'union' | 'subtract' | 'intersect' | 'exclude';
 export type { Point2D };
+
+// ── Coordinate-space-aware operand conversion ────────────────────────────────
+
+/**
+ * Convert a set of shape nodes into WORLD-space operands for
+ * {@link booleanOp}: each node's own transform is replaced with its composed
+ * world transform, so polygons from different parents (artboards, groups,
+ * pasteboard) are clipped in one common space instead of being mis-clipped
+ * across unrelated local frames.
+ */
+export function shapeNodesInWorldSpace(
+  doc: Document,
+  nodes: ShapeNode[],
+  parentIndex?: Map<NodeId, NodeId>,
+): ShapeNode[] {
+  return nodes.map((n) => ({
+    ...n,
+    transform: nodeWorldTransform(doc, n.id, parentIndex) as Affine,
+  }));
+}
+
+/** The home (parent + sibling index) of a node — where a boolean result that
+ *  replaces the node should be inserted so z-order is preserved. */
+export function booleanAnchorForNode(
+  doc: Document,
+  nodeId: NodeId,
+): { parentId: NodeId | null; index: number } {
+  const parentId = getParent(doc, nodeId);
+  if (parentId) {
+    const parent = doc.nodes[parentId];
+    if (parent && 'children' in parent) {
+      return { parentId, index: Math.max(0, parent.children.indexOf(nodeId)) };
+    }
+  }
+  return { parentId: null, index: Math.max(0, doc.rootChildren.indexOf(nodeId)) };
+}
+
+/**
+ * Insert a boolean result at the anchor node's home, converting the result
+ * geometry from world space into the anchor parent's local space.
+ *
+ * `booleanOp` produces polygon points in the operand transform space; with
+ * world-space operands the points are world coordinates, so they must be
+ * mapped into the destination parent frame before the node is stored —
+ * otherwise the result teleports by the parent's translation (or is
+ * mis-scaled/rotated inside a transformed parent).
+ */
+export function placeBooleanResult(
+  doc: Document,
+  result: ShapeNode,
+  anchor: { parentId: NodeId | null; index: number },
+  parentIndex?: Map<NodeId, NodeId>,
+): { doc: Document; nodeId: NodeId } {
+  const { id: newId, doc: d2 } = nextNodeId(doc);
+  let newNode: ShapeNode = { ...result, id: newId };
+  const localTransform: Affine = [1, 0, 0, 1, 0, 0];
+  if (anchor.parentId) {
+    const pWorld = nodeWorldTransform(d2, anchor.parentId, parentIndex);
+    const pInv = invertAffine(pWorld);
+    if (newNode.shape.kind === 'path') {
+      const points = newNode.shape.points.map((p) => {
+        const [x, y] = applyAffine(pInv, [p.x, p.y]);
+        return { ...p, x, y };
+      });
+      newNode = { ...newNode, shape: { ...newNode.shape, points } };
+    }
+  }
+  let d = addNode(d2, newNode);
+  d = reparentNode(d, newId, anchor.parentId, anchor.index, localTransform);
+  return { doc: d, nodeId: newId };
+}
 
 // ── Polygon boolean via segment walk (Vatti-style) ──────────────────────────
 

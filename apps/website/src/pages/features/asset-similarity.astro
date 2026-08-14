@@ -1,0 +1,64 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Asset Similarity - Varve" description="Find visually related images and near-duplicate variants locally in an open Varve document.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Asset Similarity
+      </nav>
+
+      <div class="feature-kicker"><StatusPill status="experimental" /></div>
+      <h1>Asset Similarity</h1>
+      <p class="feature-intro">
+        Find visually related images and near-duplicate variants without sending your artwork to a cloud search service.
+      </p>
+
+      <section class="feature-section">
+        <h2>Two useful kinds of “similar”</h2>
+        <ul>
+          <li><strong>Similar:</strong> ranks compatible image embeddings to surface related subjects, compositions, and visual styles.</li>
+          <li><strong>Near duplicates:</strong> uses exact identity and visual fingerprints for resized, recompressed, or lightly edited copies.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Local and explicit</h2>
+        <p>
+          The current workflow runs image-to-image or text-to-image inference in a worker and scans up to 30 images in the open document. The optional image and text models are downloaded only after you ask for them, verified before use, and cached locally. It does not yet build a persistent cross-project library index.
+        </p>
+      </section>
+
+      <section class="feature-section note">
+        <h2>Set the right expectation</h2>
+        <p>
+          Similarity scores are ranking signals, not truth. Results can favor color, background, style, or composition in surprising ways. Review candidates before using them in a workflow; Varve never deletes assets automatically because a model score is high.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Read the current workflow notes</h2>
+        <a href={sitePath('/docs/tools/asset-similarity')} class="btn-secondary">Open documentation</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-kicker { margin-bottom: 1rem; }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: 0.65rem; }
+  .note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .feature-cta h2 { color: var(--text-primary); margin-bottom: 1rem; }
+</style>

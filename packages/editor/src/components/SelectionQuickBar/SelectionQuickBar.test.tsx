@@ -14,7 +14,7 @@ const imageProfile: QuickBarProfile = {
   actions: [
     { id: 'crop', label: 'Crop' },
     { id: 'removeBg', label: 'Remove background' },
-    { id: 'upscale', label: 'Upscale' },
+    { id: 'upscale', label: 'Enhance' },
     { id: 'vectorize', label: 'Vectorize' },
     { id: 'flipH', label: 'Flip horizontal' },
     { id: 'flipV', label: 'Flip vertical' },

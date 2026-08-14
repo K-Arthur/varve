@@ -813,6 +813,14 @@ export function getViewMenu(
       run: () => runAction('toggleFacingPages'),
     },
     {
+      id: 'toggleBleedGuides',
+      labelKey: 'menu.view.toggleBleedGuides',
+      kind: 'command',
+      group: 'print',
+      workspaces: ['print'],
+      run: () => runAction('toggleBleedGuides'),
+    },
+    {
       id: 'softProof',
       labelKey: 'menu.view.softProof',
       kind: 'command',

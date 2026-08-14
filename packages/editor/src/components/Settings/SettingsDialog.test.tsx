@@ -45,6 +45,13 @@ describe('SettingsDialog', () => {
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('keeps usage, diagnostics, and crash consent in separate controls', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="privacy" />);
+    expect(screen.getByLabelText('Usage analytics consent')).toBeTruthy();
+    expect(screen.getByLabelText('Diagnostics telemetry consent')).toBeTruthy();
+    expect(screen.getByText('Crash reporting')).toBeTruthy();
+  });
 });
 
 describe('GeneralSection canvas background', () => {

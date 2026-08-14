@@ -1,5 +1,19 @@
-/** @varve/ai — AI assistant chat controller. */
+/** @varve/ai — on-device design assistants (chat surface) + Design Edit Plan contract. */
 
+export {
+  checkDesignPlanFreshness,
+  type DesignEditOperation,
+  type DesignEditPlan,
+  type DesignEditSnapshot,
+  type DesignInputKind,
+  type DesignPlanFreshness,
+  type DesignPlanMode,
+  type DesignPlanScope,
+  type DesignPlanSource,
+  type DesignPlanValidation,
+  type JsonValue,
+  validateDesignEditPlan,
+} from './designEditPlan';
 export {
   dispatchIntelligence,
   INTELLIGENCE_COMMANDS,
@@ -12,13 +26,27 @@ export {
 export type { AIMessage, AIModel, AISession } from './types';
 export const PACKAGE = '@varve/ai' as const;
 
-import { dispatchIntelligence, type IntelligenceDispatchContext } from './intelligenceRegistry';
+import {
+  dispatchIntelligence,
+  INTELLIGENCE_COMMANDS,
+  type IntelligenceDispatchContext,
+} from './intelligenceRegistry';
 
-const MOCK_RESPONSES = {
-  default:
-    "I'm the Varve AI assistant. I can help you with design suggestions, generate shapes, or automate repetitive tasks.",
-  help: 'Here are some things I can do:\n- Suggest color palettes\n- Generate layout ideas\n- Optimize your design for accessibility\n- Automate repetitive tasks\n\nTry asking me to "make this pop" or "suggest a better layout."',
-};
+/**
+ * The honest fallback reply for intents no on-device command understands.
+ *
+ * Varve is offline-first: there is no cloud model behind this surface, and
+ * pretending otherwise (canned personality replies, simulated latency)
+ * misrepresents what runs. Unknown intents list the commands that actually
+ * exist so the user can rephrase.
+ */
+function fallbackReply(hasContext: boolean): string {
+  const commands = INTELLIGENCE_COMMANDS.map((c) => `- ${c.label}`).join('\n');
+  if (!hasContext) {
+    return `I'm the on-device design assistant — everything runs locally with no connection. I can help with:\n${commands}\n\nOpen me from the editor to run them against your document.`;
+  }
+  return `I'm Varve's on-device design assistant — everything runs locally. I can help with:\n${commands}\n\nTry one of those, or rephrase what you want.`;
+}
 
 export async function chat(
   _sessionId: string,
@@ -26,21 +54,7 @@ export async function chat(
   ctx?: IntelligenceDispatchContext,
 ): Promise<import('./types').AIMessage> {
   const dispatched = ctx ? dispatchIntelligence(message, ctx) : null;
-
-  let reply: string;
-  if (dispatched) {
-    reply = dispatched.summary;
-  } else {
-    const lower = message.toLowerCase();
-    reply = MOCK_RESPONSES.default;
-    if (lower.includes('help') || lower.includes('what')) {
-      reply = MOCK_RESPONSES.help;
-    } else if (lower.includes('hello') || lower.includes('hi')) {
-      reply = 'Hello! How can I help with your design today?';
-    }
-  }
-
-  await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
+  const reply = dispatched ? dispatched.summary : fallbackReply(Boolean(ctx));
 
   return {
     id: crypto.randomUUID(),

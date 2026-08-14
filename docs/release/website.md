@@ -17,7 +17,7 @@ Three things made it unshippable, all now fixed:
 |---|---|---|
 | `site: 'https://strata.design'`, `base: '/'` | Domain not owned. On GitHub Pages a project repo serves from `/<repo>/`, so every absolute asset path 404'd and every canonical URL and `og:url` pointed at a host that does not resolve | `SITE_URL`/`SITE_BASE` env vars, defaulting to the Pages URL that actually exists |
 | `download.astro` never read `releases.json` | Hardcoded "Get it on GitHub" buttons, invented sizes, version `0.0.0`, and `yay -S varve-desktop` for a package that does not exist | Renders entirely from a generated manifest |
-| Plausible loaded unconditionally | A paid subscription pointed at a non-existent domain: cost, no data, third-party request on every page | Opt-in via `ANALYTICS_DOMAIN`; CSP derived from the same flag |
+| Plausible loaded unconditionally | A paid subscription pointed at a non-existent domain: cost, no data, third-party request on every page | Varve-owned consent-gated Events API adapter; `ANALYTICS_DOMAIN` unset means no prompt or request |
 
 A hand-maintained `public/sitemap.xml` listed 28 absolute URLs under the same
 dead domain; it is now generated from the configured site and the actual page
@@ -35,7 +35,8 @@ apps/website/
     ├── data/
     │   └── release-manifest.json    GENERATED — never hand-edited
     ├── lib/siteUrl.ts               ONE URL system: sitePath/siteUrl/canonical
-    ├── layouts/Layout.astro         meta, OG, CSP, opt-in analytics, active nav
+    ├── layouts/Layout.astro         meta, OG, CSP, consent surface, active nav
+    ├── lib/analytics.ts              normalized routes + explicit Plausible adapter
     ├── pages/
     │   ├── download.astro           renders from src/data/release-manifest.json
     │   ├── sitemap.xml.ts           generated from site + base + page files
@@ -77,11 +78,48 @@ release.yml  →  dist/release/release-manifest.json + SHA256SUMS.txt + SBOMs
     download.astro  →  cards, sizes, checksums, per-platform install steps
 ```
 
+The same published release also carries the signed Tauri updater feed when the
+release workflow produces one. `fetch-website-release.mjs` mirrors the latest
+published stable and beta feeds to the static routes
+`/updates/stable.json` and `/updates/beta.json`; drafts, withdrawn releases, and
+older releases without updater assets are not promoted. These machine-readable
+routes are consumed by supported desktop installs, while the human-facing
+package matrix and consent explanation live in
+[`/docs/updates`](../../apps/website/src/pages/docs/updates.astro) and the
+download page. The website does not promise self-update for package-manager,
+read-only, translocated, development, or unsupported builds.
+
 Nothing about a download is typed by hand. The page cannot advertise a file that
 was not built, a size that was not measured, or a checksum that was not computed.
 When a release cannot be verified (missing integrity files, hash mismatch,
 unknown artifact types, API outage) the deployment fails — an explicit error
 beats a download page that invents data.
+
+### Updater feeds
+
+The same deployment step mirrors the Tauri updater feeds:
+
+```
+release.yml → dist/release/varve-update-{stable,beta}.json   (generated after
+              the release trust gate, from the exact signed .sig/.app.tar.gz
+              assets; see docs/release/update-strategy.md)
+                        │
+                        ▼
+fetch-website-release.mjs → apps/website/public/updates/{stable,beta}.json
+                        │   (only from PUBLISHED releases; drafts never
+                        │    appear; malformed/version-mismatched feeds FAIL
+                        │    the deployment)
+                        ▼
+https://varve.studio/updates/stable.json   ← the endpoint embedded in
+https://varve.studio/updates/beta.json       tauri.conf.json / the per-channel
+                                             build config
+```
+
+Because the feed URLs point at GitHub release-download URLs for the artifacts,
+the JSON is only mirrored after the release is public — a draft release's
+assets 404, and `fetch-website-release.mjs` only considers published releases.
+This is the "publish update metadata last" invariant in action: a client can
+never see version X advertised before X's assets and signatures exist.
 
 `hasRelease: false` is a first-class rendered state: before the first tag, the
 page says there is nothing to download and warns against Varve-branded builds
@@ -146,11 +184,12 @@ Present and accurate:
       says so
 - [x] Unsigned-build warnings with the correct OS-specific walkthrough
 - [x] Data-loss warning, placed **above** the download controls
-- [x] Privacy policy matching actual behaviour (no analytics, no cookies)
+- [x] Privacy policy matching actual behaviour (consent-gated analytics, no cookies)
 - [x] Licence, security reporting, support and bug-report links
 - [x] Known issues, release notes, roadmap
 - [x] SEO + social metadata, favicon, custom 404
-- [x] No analytics by default
+- [x] No analytics by default; configured production analytics requires explicit visitor consent
+- [x] Consent-first updater guidance: package authority, privacy, signature verification, and manual fallbacks
 
 ### Advanced verification (for users who want to verify provenance)
 

@@ -124,12 +124,22 @@ function parseSketchArchive(data: Uint8Array, opts: ImportOptions): ImportResult
 }
 
 function isUnsafeZipPath(path: string): boolean {
-  return (
+  if (
+    path.length === 0 ||
     path.startsWith('/') ||
     path.startsWith('\\') ||
     path.includes('\\') ||
-    path.split('/').includes('..')
-  );
+    path.includes('\0') ||
+    [...path].some((character) => character.charCodeAt(0) < 0x20)
+  )
+    return true;
+  if (/^[a-zA-Z]:/.test(path)) return true;
+  return path
+    .split('/')
+    .some(
+      (segment) =>
+        segment.length === 0 || segment === '.' || segment === '..' || segment.includes(':'),
+    );
 }
 
 function readDocumentName(entries: Record<string, Uint8Array>): string | null {

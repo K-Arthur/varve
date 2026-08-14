@@ -173,6 +173,12 @@ export interface ModelManifestEntry {
   tensorContract?: TensorContract;
   validation?: ValidationInfo;
   multiComponent?: boolean;
+  /** Post-download graph repair the DownloadManager must apply before
+   *  hashing/serving the bytes (e.g. 'sam2-empty-value-info'). */
+  repair?: string;
+  /** Checksum of the upstream (pre-repair) artifact, when it differs from
+   *  the shipped `checksum` (repaired bytes). */
+  upstreamChecksum?: string;
   components?: ModelComponentEntry[];
   metadata?: Record<string, string>;
   /** Explicit acquisition strategy. Falls back to deriveAcquisition() when absent. */

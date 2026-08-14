@@ -1,5 +1,5 @@
 import type { FileEntry, Folder, Platform, Project } from '@varve/platform';
-import { Button, Icon, Tooltip } from '@varve/ui';
+import { Button, SemanticIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BreadcrumbSegment } from './BreadcrumbNav';
 import { FileGrid } from './FileGrid';
@@ -143,7 +143,7 @@ export function ProjectsView({
               setEditing(true);
             }}
           >
-            <Icon name="Pen" label={undefined} size="0.85em" />
+            <SemanticIcon name="Edit" size="sm" />
           </Button>
           <Button
             variant="ghost"
@@ -154,7 +154,7 @@ export function ProjectsView({
               }
             }}
           >
-            <Icon name="Trash2" label={undefined} size="0.85em" />
+            <SemanticIcon name="Delete" size="sm" />
           </Button>
         </div>
       </div>

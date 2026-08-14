@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getImageCache, resetImageCache } from '../../imageCache';
 import { generateThumbnail } from '../service';
 
 const EMPTY_REVISION = 'empty';
+
+afterEach(() => {
+  resetImageCache();
+  vi.restoreAllMocks();
+});
 
 describe('generateThumbnail', () => {
   it('returns null for empty nodes', async () => {
@@ -280,6 +287,51 @@ describe('generateThumbnail', () => {
     if (result!.metadata.isProvisional) {
       expect(result!.metadata.warnings).toContain('image-not-ready');
     }
+  });
+
+  it('requests thumbnail-sized image representations and replays them', async () => {
+    const src = 'data:image/png;base64,THUMBNAIL_SOURCE';
+    const thumbnail = {
+      width: 64,
+      height: 48,
+      close: vi.fn(),
+    } as unknown as ImageBitmap;
+    const loadAtSize = vi.spyOn(getImageCache(), 'loadAtSize').mockResolvedValue(thumbnail);
+
+    const result = await generateThumbnail(
+      [
+        {
+          id: 'image-node',
+          name: 'Image',
+          kind: 'shape',
+          transform: [1, 0, 0, 1, 0, 0],
+          shape: { kind: 'rect', x: 0, y: 0, w: 400, h: 300 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src,
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 4000,
+                imageHeight: 3000,
+              },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      ],
+      EMPTY_REVISION,
+      { maxWidth: 64, maxHeight: 48 },
+    );
+
+    expect(result).not.toBeNull();
+    expect(loadAtSize).toHaveBeenCalledWith(src, 64, { width: 4000, height: 3000 });
+    expect(result!.metadata.isProvisional).toBe(false);
   });
 
   it('accepts webp format when the encoder supports it', async () => {

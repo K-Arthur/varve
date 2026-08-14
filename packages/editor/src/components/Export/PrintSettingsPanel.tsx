@@ -25,9 +25,21 @@ export interface PrintSettingsPanelProps {
   onChange: (next: PrintOptions) => void;
   /** PDF/X standard being configured; affects the default mark set. */
   standard: 'pdf-x1a' | 'pdf-x4';
+  /**
+   * The document's canonical bleed in millimetres (resolved from
+   * printGeometry). Shown as a reference so the relationship is explicit:
+   * the field is an export-job override of the document bleed, which is
+   * what the canvas preview and trim geometry use.
+   */
+  documentBleedMm?: number;
 }
 
-export function PrintSettingsPanel({ value, onChange, standard }: PrintSettingsPanelProps) {
+export function PrintSettingsPanel({
+  value,
+  onChange,
+  standard,
+  documentBleedMm,
+}: PrintSettingsPanelProps) {
   const bleedId = useId();
   const dpiId = useId();
 
@@ -110,6 +122,14 @@ export function PrintSettingsPanel({ value, onChange, standard }: PrintSettingsP
       </div>
 
       <p className="print-settings__note">
+        {documentBleedMm != null && documentBleedMm > 0 ? (
+          <>
+            Document bleed: {documentBleedMm.toFixed(2)} mm — this field overrides it for this
+            export only.
+          </>
+        ) : (
+          'This document has no bleed configured; the field above applies to this export only.'
+        )}{' '}
         CMYK conversion uses the bundled Fogra39 profile. The resolution floor is a preflight
         threshold for embedded raster content, not an encoder resize.
       </p>

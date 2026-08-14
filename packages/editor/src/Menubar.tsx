@@ -12,6 +12,7 @@ import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
+import { OfflineBanner } from './components/OfflineBanner';
 import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, useNativeMenu } from './menu';
@@ -138,6 +139,7 @@ function buildMenus(
     beforeAfterCompare: boolean;
     rulerMode: string;
     snapEnabled: boolean;
+    bleedGuidesVisible: boolean;
   },
   recentEntries: RecentEntry[],
   caps: ReadonlySet<string>,
@@ -415,6 +417,10 @@ function buildMenus(
           label: 'Set File Thumbnail\u2026',
           action: 'openThumbnailPicker',
         },
+        {
+          label: 'Document Color Mode\u2026',
+          action: 'openColorConversion',
+        },
         ...(activeFilePath
           ? [
               {
@@ -508,6 +514,20 @@ function buildMenus(
           shortcut: formatShortcut(SHORTCUT_DEFS.paste.binding),
           ariaKeyshortcut: ks('paste'),
           action: 'paste',
+        },
+        {
+          label: 'Copy Properties',
+          shortcut: formatShortcut(SHORTCUT_DEFS.copyProperties.binding),
+          ariaKeyshortcut: ks('copyProperties'),
+          action: 'copyProperties',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Paste Properties',
+          shortcut: formatShortcut(SHORTCUT_DEFS.pasteProperties.binding),
+          ariaKeyshortcut: ks('pasteProperties'),
+          action: 'pasteProperties',
+          disabled: !hasSelection,
         },
         {
           label: 'Duplicate',
@@ -774,6 +794,10 @@ function buildMenus(
           action: 'toggleFacingPages',
         },
         {
+          label: state.bleedGuidesVisible ? 'Hide Bleed Guides' : 'Show Bleed Guides',
+          action: 'toggleBleedGuides',
+        },
+        {
           label: 'Soft Proofing',
           shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
           ariaKeyshortcut: ks('softProof'),
@@ -814,6 +838,11 @@ function buildMenus(
         {
           label: 'History Panel',
           action: 'toggleHistoryPanel',
+        },
+        { label: '---' },
+        {
+          label: 'Show All Panels',
+          action: 'restoreAllPanels',
         },
         { label: '---' },
         // Workspace
@@ -1547,7 +1576,11 @@ export function Menubar({
     setShowArchiveDialog,
     platform,
   } = useEditor();
-  const { entries: recentEntries, remove: removeRecent, clear: clearRecent } = useRecentFiles();
+  const {
+    entries: recentEntries,
+    remove: removeRecent,
+    clear: clearRecent,
+  } = useRecentFiles(platform);
   // `sessions` may be absent in unit-test harnesses that pass a partial state.
   const activeSession = (state.sessions ?? []).find((s) => s.id === state.activeId);
   const activeFilePath = activeSession?.filePath;
@@ -1733,6 +1766,33 @@ export function Menubar({
 
   const openRecentFile = useCallback(
     async (entry: RecentEntry) => {
+      if (entry.locator.kind === 'library') {
+        // Platform recent records are library references, not raw paths:
+        // read the document by id, restore the disk binding from the file
+        // row when one exists, and open the existing tab if already open.
+        if (!platform) {
+          setMissingFileDialog({
+            message: `Couldn't open ${entry.label} — no platform storage is available.`,
+            entryId: entry.id,
+          });
+          return;
+        }
+        const json = await platform.readFile(entry.id).catch(() => null);
+        if (!json) {
+          void platform
+            .patchRecentFile(entry.id, { name: entry.label, missing: true })
+            .catch(() => undefined);
+          setMissingFileDialog({
+            message: `Couldn't find ${entry.label} — it may have been moved or deleted`,
+            entryId: entry.id,
+          });
+          return;
+        }
+        const fileEntry = await platform.getFile(entry.id).catch(() => undefined);
+        openFile(entry.id, entry.label, fileEntry?.filePath, json);
+        return;
+      }
+
       if (entry.locator.kind === 'path') {
         if (typeof window !== 'undefined' && '__TAURI__' in window) {
           try {
@@ -1812,7 +1872,7 @@ export function Menubar({
 
       loadDocument('', { name: entry.label });
     },
-    [loadDocument, openFile],
+    [loadDocument, openFile, platform],
   );
 
   const handleAction = useCallback(
@@ -2083,6 +2143,7 @@ export function Menubar({
 
   return (
     <div className="editor-menubar" data-testid="menubar">
+      <OfflineBanner />
       <div className="editor-menubar__side">
         <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
           <button

@@ -1,6 +1,7 @@
 import type { WorkerInferResult } from '@varve/engine';
 import {
   decodeSam2DecoderOutput,
+  EmbeddingCache,
   getImageCache,
   getInferenceWorkerHost,
   getModelLoader,
@@ -9,7 +10,7 @@ import type { Document, NodeId } from '@varve/scene';
 import { useCallback, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
-import { nodeWorldBounds } from '../scene/world';
+import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import type { EditorState } from './types';
 
 type WorkerTensor = { data: Float32Array; dims: number[] };
@@ -23,8 +24,10 @@ export interface Sam2SegmentationAPI {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
+  selectSam2Candidate: (index: number) => void;
 }
 
 export function useSam2Segmentation(
@@ -36,25 +39,55 @@ export function useSam2Segmentation(
 ): Sam2SegmentationAPI {
   const abortRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
-  const embeddingCacheRef = useRef<{
-    nodeId: NodeId;
-    src: string;
-    embeddings: Record<string, WorkerTensor>;
-    // The letterbox transform the encoder's *own* preprocessing applied to
-    // this image (scale-to-fit + center + pad for non-square images).
-    // Prompt encoding must reuse this exact transform — see sam2.ts — so
-    // it's cached alongside the embeddings it was computed from, not
-    // recomputed from the image dimensions independently.
-    letterbox: { offsetX: number; offsetY: number };
-    naturalW: number;
-    naturalH: number;
-  } | null>(null);
+  const embeddingCacheRef = useRef(
+    new EmbeddingCache<{
+      nodeId: NodeId;
+      src: string;
+      embeddings: Record<string, WorkerTensor>;
+      // The letterbox transform the encoder's *own* preprocessing applied to
+      // this image (scale-to-fit + center + pad for non-square images).
+      // Prompt encoding must reuse this exact transform — see sam2.ts — so
+      // it's cached alongside the embeddings it was computed from, not
+      // recomputed from the image dimensions independently.
+      letterbox: { offsetX: number; offsetY: number };
+      naturalW: number;
+      naturalH: number;
+    }>({
+      maxEntries: 2,
+      maxBytes: 512 * 1024 * 1024,
+      estimateBytes: (entry) =>
+        Object.values(entry.embeddings).reduce(
+          (total, tensor) => total + tensor.data.byteLength,
+          0,
+        ),
+    }),
+  );
 
   const cancelSam2Segmentation = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     generationRef.current += 1;
+    setState((prev) => ({ ...prev, objectSelectionSession: null }));
   }, []);
+
+  const selectSam2Candidate = useCallback(
+    (index: number) => {
+      setState((prev) => {
+        const session = prev.objectSelectionSession;
+        const candidate = session?.candidates[index];
+        if (!session || !candidate) return prev;
+        return {
+          ...prev,
+          objectSelectionSession: {
+            ...session,
+            selectedCandidate: index,
+            confidence: candidate.confidence,
+          },
+        };
+      });
+    },
+    [setState],
+  );
 
   const applySam2Segmentation = useCallback(
     async ({
@@ -62,6 +95,7 @@ export function useSam2Segmentation(
       prompts,
       signal: externalSignal,
       operation,
+      candidateIndex,
     }: {
       nodeId: NodeId;
       prompts: {
@@ -70,6 +104,7 @@ export function useSam2Segmentation(
       };
       signal?: AbortSignal;
       operation: 'preview' | 'mask' | 'selection' | 'layer';
+      candidateIndex?: number;
     }): Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null> => {
       const generation = ++generationRef.current;
       const currentDoc = stateRef.current.document;
@@ -151,8 +186,17 @@ export function useSam2Segmentation(
 
       if (combinedSignal.aborted) return null;
 
-      const worldBounds = nodeWorldBounds(currentDoc, nodeId);
-      const normPrompts = normalizePromptsTo01(prompts, worldBounds, naturalW, naturalH);
+      const imageMapper = prepareImageMaskMapper({
+        document: currentDoc,
+        node,
+        sourceWidth: naturalW,
+        sourceHeight: naturalH,
+      });
+      if (!imageMapper) {
+        announcerRef.current?.announce('Could not map the image placement for selection prompts');
+        return null;
+      }
+      const normPrompts = normalizePromptsTo01(prompts, imageMapper, naturalW, naturalH);
 
       const encoderId = 'sam2-hiera-tiny-encoder';
       const decoderId = 'sam2-hiera-tiny-decoder';
@@ -170,8 +214,19 @@ export function useSam2Segmentation(
       try {
         const host = getInferenceWorkerHost();
 
-        let cached = embeddingCacheRef.current;
-        if (!cached || cached.nodeId !== nodeId || cached.src !== src) {
+        const cacheKey = [
+          currentDoc.id,
+          nodeId,
+          src,
+          naturalW,
+          naturalH,
+          encoderId,
+          'preprocess-v1',
+        ]
+          .map((part) => encodeURIComponent(String(part)))
+          .join('|');
+        let cached = embeddingCacheRef.current.get(cacheKey);
+        if (!cached) {
           if (combinedSignal.aborted) return null;
 
           const encResult: WorkerInferResult = await host.infer(
@@ -207,7 +262,7 @@ export function useSam2Segmentation(
             naturalW,
             naturalH,
           };
-          embeddingCacheRef.current = cached;
+          embeddingCacheRef.current.set(cacheKey, cached);
         }
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
@@ -248,7 +303,11 @@ export function useSam2Segmentation(
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
-        const bestMask = decoded.masks[decoded.selectedIndex]!;
+        const selectedCandidate = Math.max(
+          0,
+          Math.min(decoded.masks.length - 1, candidateIndex ?? decoded.selectedIndex),
+        );
+        const bestMask = decoded.masks[selectedCandidate]!;
         const maskResult = {
           mask: bestMask.mask,
           width: naturalW,
@@ -261,6 +320,22 @@ export function useSam2Segmentation(
             setState((prev) => ({
               ...prev,
               maskPreviewMode: 'overlay' as const,
+              objectSelectionSession: {
+                nodeId,
+                width: naturalW,
+                height: naturalH,
+                candidates: decoded.masks.map((candidate) => ({
+                  mask: candidate.mask,
+                  confidence: candidate.iouScore,
+                })),
+                selectedCandidate,
+                points: prompts.points ?? [],
+                box: prompts.box ?? null,
+                confidence: decoded.confidence,
+                status: 'ready' as const,
+                modelId: 'sam2-hiera-tiny',
+                executionProvider: decOutputs.executionProvider,
+              },
             }));
             announcerRef.current?.announce(
               `Subject preview ready (${Math.round(decoded.confidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
@@ -285,6 +360,7 @@ export function useSam2Segmentation(
               return updated;
             });
             if (committed) {
+              setState((prev) => ({ ...prev, objectSelectionSession: null }));
               announcerRef.current?.announce(
                 `Selection applied as a mask (${Math.round(decoded.confidence * 100)}% confidence)`,
               );
@@ -297,6 +373,22 @@ export function useSam2Segmentation(
               ...prev,
               selection: [nodeId],
               maskPreviewMode: 'overlay' as const,
+              objectSelectionSession: {
+                nodeId,
+                width: naturalW,
+                height: naturalH,
+                candidates: decoded.masks.map((candidate) => ({
+                  mask: candidate.mask,
+                  confidence: candidate.iouScore,
+                })),
+                selectedCandidate,
+                points: prompts.points ?? [],
+                box: prompts.box ?? null,
+                confidence: decoded.confidence,
+                status: 'ready' as const,
+                modelId: 'sam2-hiera-tiny',
+                executionProvider: decOutputs.executionProvider,
+              },
             }));
             announcerRef.current?.announce(
               `Selected subject (${Math.round(decoded.confidence * 100)}% confidence)`,
@@ -317,7 +409,11 @@ export function useSam2Segmentation(
                 sourceLocator: src,
               }),
             );
-            setState((prev) => ({ ...prev, selection: [nodeId] }));
+            setState((prev) => ({
+              ...prev,
+              selection: [nodeId],
+              objectSelectionSession: null,
+            }));
             announcerRef.current?.announce(
               `Selection created as a new mask layer (${Math.round(decoded.confidence * 100)}% confidence)`,
             );
@@ -326,7 +422,8 @@ export function useSam2Segmentation(
         }
       } catch (e) {
         if ((e as Error).message === 'cancelled') return null;
-        announcerRef.current?.announce(`Subject selection failed: ${(e as Error).message}`);
+        const message = mapSegmentationFailure((e as Error).message);
+        announcerRef.current?.announce(message);
         return null;
       } finally {
         if (generation === generationRef.current) {
@@ -339,7 +436,7 @@ export function useSam2Segmentation(
     [stateRef, setState, updateDoc, announcerRef],
   );
 
-  return { applySam2Segmentation, cancelSam2Segmentation };
+  return { applySam2Segmentation, cancelSam2Segmentation, selectSam2Candidate };
 }
 
 function normalizePromptsTo01(
@@ -347,35 +444,40 @@ function normalizePromptsTo01(
     points?: Array<{ x: number; y: number; label: 0 | 1 }>;
     box?: { x1: number; y1: number; x2: number; y2: number };
   },
-  worldBounds: { x: number; y: number; w: number; h: number } | null,
+  imageMapper: ReturnType<typeof prepareImageMaskMapper>,
   naturalW: number,
   naturalH: number,
 ): {
   points?: Array<{ x: number; y: number; label: 0 | 1 }>;
   box?: { x1: number; y1: number; x2: number; y2: number };
 } {
-  const bw = worldBounds?.w ?? naturalW;
-  const bh = worldBounds?.h ?? naturalH;
-  const bx = worldBounds?.x ?? 0;
-  const by = worldBounds?.y ?? 0;
-
   const result: typeof prompts = {};
 
   if (prompts.points) {
-    result.points = prompts.points.map((p) => ({
-      x: Math.max(0, Math.min(1, (p.x - bx) / bw)),
-      y: Math.max(0, Math.min(1, (p.y - by) / bh)),
-      label: p.label,
-    }));
+    result.points = prompts.points.flatMap((p) => {
+      const pixel = imageMapper?.mapWorldPoint({ x: p.x, y: p.y });
+      if (!pixel) return [];
+      return [
+        {
+          x: Math.max(0, Math.min(1, pixel.x / naturalW)),
+          y: Math.max(0, Math.min(1, pixel.y / naturalH)),
+          label: p.label,
+        },
+      ];
+    });
   }
 
   if (prompts.box) {
-    result.box = {
-      x1: Math.max(0, Math.min(1, (prompts.box.x1 - bx) / bw)),
-      y1: Math.max(0, Math.min(1, (prompts.box.y1 - by) / bh)),
-      x2: Math.max(0, Math.min(1, (prompts.box.x2 - bx) / bw)),
-      y2: Math.max(0, Math.min(1, (prompts.box.y2 - by) / bh)),
-    };
+    const first = imageMapper?.mapWorldPoint({ x: prompts.box.x1, y: prompts.box.y1 });
+    const second = imageMapper?.mapWorldPoint({ x: prompts.box.x2, y: prompts.box.y2 });
+    if (first && second) {
+      result.box = {
+        x1: Math.max(0, Math.min(1, Math.min(first.x, second.x) / naturalW)),
+        y1: Math.max(0, Math.min(1, Math.min(first.y, second.y) / naturalH)),
+        x2: Math.max(0, Math.min(1, Math.max(first.x, second.x) / naturalW)),
+        y2: Math.max(0, Math.min(1, Math.max(first.y, second.y) / naturalH)),
+      };
+    }
   }
 
   return result;
@@ -391,6 +493,26 @@ function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
     s.addEventListener('abort', () => controller.abort(s.reason), { once: true });
   }
   return controller.signal;
+}
+
+/**
+ * Map backend/worker failures to user-facing messages (error taxonomy in
+ * the object-selection docs). Never leak raw tensor/backtrace text.
+ */
+function mapSegmentationFailure(raw: string): string {
+  if (raw.includes('safe WASM memory limit')) {
+    return 'Object selection needs more memory than this device can safely use without GPU acceleration. Close other documents or try again on a device with more memory.';
+  }
+  if (raw.startsWith('Worker error:') || /worker.*(failed|undefined)/i.test(raw)) {
+    return 'The AI worker could not start. Reload the document and try again.';
+  }
+  if (raw.includes('Model exceeds') || raw.includes('not downloaded')) {
+    return 'The object-selection model is missing. Install it from Settings, AI Models, then try again.';
+  }
+  if (raw.includes('timed out') || raw.includes('Inference timed out')) {
+    return 'Object selection timed out. The model may still be loading — wait a moment and click again.';
+  }
+  return `Subject selection failed: ${raw}`;
 }
 
 async function maskToDataUrl(mask: Uint8Array, width: number, height: number): Promise<string> {

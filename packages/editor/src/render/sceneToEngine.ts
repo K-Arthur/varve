@@ -119,7 +119,40 @@ function resolvePaintRefs(
   return node;
 }
 
-export type AssetLookupDoc = Pick<Document, 'paints' | 'rasterMaskAssets' | 'nodes' | 'assets'>;
+export type AssetLookupDoc = Pick<
+  Document,
+  'paints' | 'rasterMaskAssets' | 'nodes' | 'assets' | 'depthMaps'
+>;
+
+function resolveEffectMasksForEngine(
+  effects: readonly import('@varve/scene').Effect[],
+  doc: AssetLookupDoc | undefined,
+): import('@varve/engine').Effect[] {
+  return effects.map((effect) => {
+    if (effect.type === 'depthBlur') {
+      const depthMap = doc?.depthMaps?.[effect.depthMapId];
+      return depthMap
+        ? ({ ...effect, depthMap } as import('@varve/engine').Effect)
+        : (effect as import('@varve/engine').Effect);
+    }
+    const mask = effect.mask;
+    if (!mask) return effect as import('@varve/engine').Effect;
+    if (mask.source.kind === 'scene-node') return effect as import('@varve/engine').Effect;
+    if (mask.source.kind === 'vector') return effect as import('@varve/engine').Effect;
+    const asset = doc?.rasterMaskAssets?.[mask.source.assetId];
+    return {
+      ...effect,
+      mask: {
+        ...mask,
+        source: {
+          kind: 'raster-asset' as const,
+          assetId: mask.source.assetId,
+          ...(asset?.dataUrl ? { src: asset.dataUrl } : {}),
+        },
+      },
+    } as import('@varve/engine').Effect;
+  });
+}
 
 /**
  * Rewrite an image fill's render identity: canonical assets carry their
@@ -174,7 +207,7 @@ export function sceneNodeToEngineNode(
     blendMode: node.blendMode ?? ('normal' as const),
     rotation: node.rotation ?? 0,
     strokes: 'strokes' in node ? (node.strokes ?? []) : [],
-    effects: 'effects' in node ? (node.effects ?? []) : [],
+    effects: 'effects' in node ? resolveEffectMasksForEngine(node.effects ?? [], doc) : [],
   };
 
   if (node.kind === 'shape') {

@@ -326,12 +326,22 @@
   border: 1px solid var(--color-border-strong);
 }
 
-/* ── Prototype screen view (minimal canvas renderer) ── */
+/* ── Prototype screen view (real content + hotspots) ── */
 .prototype-screen-view {
   position: relative;
   background: var(--elevation-surface-default);
   border: var(--border-micro);
   overflow: hidden;
+}
+
+.prototype-screen-view__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
 }
 
 .prototype-screen-view__label {

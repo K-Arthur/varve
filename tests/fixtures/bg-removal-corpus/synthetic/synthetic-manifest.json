@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "license": "CC0-1.0 (procedurally generated, no borrowed pixels)",
+  "source": "scripts/bench/bgremove-reference/generate_fixtures.py",
+  "seed": 20260813,
+  "note": "Binary fixtures carry an exact 0/255 label; synth-glass.png carries a genuine soft alpha matte.",
+  "fixtures": [
+    {
+      "id": "synth-hair",
+      "file": "synth-hair.png",
+      "width": 640,
+      "height": 480,
+      "category": "fine-structure",
+      "labelClass": "binary",
+      "description": "hair strands and flyaway lines over gradient background"
+    },
+    {
+      "id": "synth-shapes",
+      "file": "synth-shapes.png",
+      "width": 800,
+      "height": 600,
+      "category": "fine-structure",
+      "labelClass": "binary",
+      "description": "spoked wheel and fence grid \u2014 thin structure retention"
+    },
+    {
+      "id": "synth-glass",
+      "file": "synth-glass.png",
+      "width": 512,
+      "height": 512,
+      "category": "translucency",
+      "labelClass": "alpha",
+      "description": "semi-transparent pane with hard frame \u2014 genuine alpha matte"
+    },
+    {
+      "id": "synth-lowcontrast",
+      "file": "synth-lowcontrast.png",
+      "width": 512,
+      "height": 512,
+      "category": "difficult-composition",
+      "labelClass": "binary",
+      "description": "subject and background in the same colour family"
+    },
+    {
+      "id": "synth-subject-wide",
+      "file": "synth-subject-wide.png",
+      "width": 1280,
+      "height": 320,
+      "category": "aspect-ratio",
+      "labelClass": "binary",
+      "description": "wide panorama \u2014 aspect-preserving handling"
+    },
+    {
+      "id": "synth-subject-tall",
+      "file": "synth-subject-tall.png",
+      "width": 320,
+      "height": 1280,
+      "category": "aspect-ratio",
+      "labelClass": "binary",
+      "description": "tall crop \u2014 aspect-preserving handling"
+    },
+    {
+      "id": "synth-subject-tiny",
+      "file": "synth-subject-tiny.png",
+      "width": 96,
+      "height": 64,
+      "category": "input-edge-case",
+      "labelClass": "binary",
+      "description": "tiny image"
+    },
+    {
+      "id": "synth-grayscale",
+      "file": "synth-grayscale.png",
+      "width": 512,
+      "height": 512,
+      "category": "input-edge-case",
+      "labelClass": "binary",
+      "description": "grayscale input"
+    }
+  ]
+}

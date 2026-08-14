@@ -1,3 +1,4 @@
+import { getImageFill, isImageShape } from '@varve/scene';
 import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { useSyncExternalStore } from 'react';
 import { AuditBadge } from './components/AuditBadge';
@@ -15,7 +16,7 @@ import {
 } from './render/compositorDiagnosticsStore';
 import { formatShortcut, getEffectiveBinding } from './shortcuts/ShortcutManager';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
-import { getVisibleStatusSections } from './workspace/workspaceTypes';
+import { getVisibleStatusSections, type StatusSectionId } from './workspace/workspaceTypes';
 
 interface StatusBarProps {
   onOpenPalette?: (shortcutId?: string) => void;
@@ -61,12 +62,41 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
 
   const singleSel = sel.length === 1;
   const statusSectionIds = getVisibleStatusSections(state.workspaceMode, effectiveConfig);
-  const showPreflight = statusSectionIds.includes('preflight');
-  const showDebtBadge = statusSectionIds.includes('debt');
-  const showTipChip = statusSectionIds.includes('shortcutTip');
+  const sectionVisible = (id: StatusSectionId) => statusSectionIds.includes(id);
+  const showPreflight = sectionVisible('preflight');
+  const showDebtBadge = sectionVisible('debt');
+  const showTipChip = sectionVisible('shortcutTip');
   const { currentTip, dismiss } = useShortcutTips(state.workspaceMode, showTipChip);
 
   const sc = (id: string) => formatShortcut(getEffectiveBinding(id));
+
+  // Page info: the active page's position and name (print work).
+  const pages = state.document.pages ?? [];
+  const pageIndex = state.currentPageId ? pages.findIndex((p) => p.id === state.currentPageId) : -1;
+  const activePage = pageIndex >= 0 ? pages[pageIndex] : undefined;
+  const pageInfoLabel =
+    sectionVisible('pageInfo') && activePage
+      ? `Page ${pageIndex + 1} of ${pages.length}${activePage.name ? ` · ${activePage.name}` : ''}`
+      : '';
+
+  // Color mode: the document's working color configuration (print, photo).
+  const colorConfig = state.document.colorConfig;
+  const colorModeLabel =
+    sectionVisible('colorMode') && colorConfig
+      ? `${colorConfig.mode.toUpperCase()} · ${colorConfig.bitDepth}`
+      : '';
+
+  // Image info: natural source dimensions of a single selected raster node.
+  let imageInfoLabel = '';
+  if (sectionVisible('imageInfo') && singleSel) {
+    const node = sel[0];
+    if (node && isImageShape(node)) {
+      const img = getImageFill(node as import('@varve/scene').ShapeNode)?.image;
+      if (img?.imageWidth && img?.imageHeight) {
+        imageInfoLabel = `${img.imageWidth} \u00d7 ${img.imageHeight} px`;
+      }
+    }
+  }
 
   return (
     <TooltipProvider>
@@ -75,7 +105,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
           file over its import budget) stays untouched. */}
       <DocumentInfoDialog />
       <div className="editor-status">
-        <span>{state.tool}</span>
+        {sectionVisible('toolName') && <span>{state.tool}</span>}
         {showPreflight && <PreflightWarnings />}
         {showDebtBadge && <DebtBadge />}
         <AuditBadge />
@@ -90,12 +120,15 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             {compositorDiag.gpuActive ? '' : ' (cpu)'}
           </span>
         )}
-        {state.cursorPos && (
+        {pageInfoLabel && <span>{pageInfoLabel}</span>}
+        {colorModeLabel && <span>{colorModeLabel}</span>}
+        {imageInfoLabel && <span>{imageInfoLabel}</span>}
+        {sectionVisible('cursorPos') && state.cursorPos && (
           <span>
             X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}
           </span>
         )}
-        <LayoutScoreIndicator />
+        {sectionVisible('layoutScore') && <LayoutScoreIndicator />}
         <SaveStatusIndicator />
         {state.cameraRotation !== 0 && (
           <span>{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
@@ -108,19 +141,21 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
           />
         )}
         <span aria-hidden>—</span>
-        <Select
-          label="Units"
-          value={state.unitType}
-          options={[
-            { value: 'px', label: 'px' },
-            { value: 'pt', label: 'pt' },
-            { value: 'cm', label: 'cm' },
-            { value: 'mm', label: 'mm' },
-            { value: 'in', label: 'in' },
-            { value: '%', label: '%' },
-          ]}
-          onChange={(v) => setUnitType(v as typeof state.unitType)}
-        />
+        {sectionVisible('unit') && (
+          <Select
+            label="Units"
+            value={state.unitType}
+            options={[
+              { value: 'px', label: 'px' },
+              { value: 'pt', label: 'pt' },
+              { value: 'cm', label: 'cm' },
+              { value: 'mm', label: 'mm' },
+              { value: 'in', label: 'in' },
+              { value: '%', label: '%' },
+            ]}
+            onChange={(v) => setUnitType(v as typeof state.unitType)}
+          />
+        )}
         <Tooltip label="Toggle pixel grid">
           <button
             type="button"
@@ -205,44 +240,46 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
           </Tooltip>
         )}
         <span aria-hidden>—</span>
-        <div className="editor-status__zoom-chip">
-          <Tooltip label="Zoom out" shortcut={sc('zoomOut')}>
-            <button
-              type="button"
-              onClick={zoomOut}
-              aria-label="Zoom out"
-              className="editor-status__toggle"
-            >
-              <Icon name="Minus" size={10} />
-            </button>
-          </Tooltip>
-          <label htmlFor="status-zoom" className="sr-only">
-            Zoom
-          </label>
-          <input
-            id="status-zoom"
-            type="number"
-            min={1}
-            max={1000}
-            step={1}
-            value={Math.round(state.zoom * 100)}
-            onChange={handleZoomInput}
-            onKeyDown={handleZoomKey}
-            aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
-            className="editor-status__zoom-value"
-          />
-          <span aria-hidden>%</span>
-          <Tooltip label="Zoom in" shortcut={sc('zoomIn')}>
-            <button
-              type="button"
-              onClick={zoomIn}
-              aria-label="Zoom in"
-              className="editor-status__toggle"
-            >
-              <Icon name="Plus" size={10} />
-            </button>
-          </Tooltip>
-        </div>
+        {sectionVisible('zoom') && (
+          <div className="editor-status__zoom-chip">
+            <Tooltip label="Zoom out" shortcut={sc('zoomOut')}>
+              <button
+                type="button"
+                onClick={zoomOut}
+                aria-label="Zoom out"
+                className="editor-status__toggle"
+              >
+                <Icon name="Minus" size={10} />
+              </button>
+            </Tooltip>
+            <label htmlFor="status-zoom" className="sr-only">
+              Zoom
+            </label>
+            <input
+              id="status-zoom"
+              type="number"
+              min={1}
+              max={1000}
+              step={1}
+              value={Math.round(state.zoom * 100)}
+              onChange={handleZoomInput}
+              onKeyDown={handleZoomKey}
+              aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
+              className="editor-status__zoom-value"
+            />
+            <span aria-hidden>%</span>
+            <Tooltip label="Zoom in" shortcut={sc('zoomIn')}>
+              <button
+                type="button"
+                onClick={zoomIn}
+                aria-label="Zoom in"
+                className="editor-status__toggle"
+              >
+                <Icon name="Plus" size={10} />
+              </button>
+            </Tooltip>
+          </div>
+        )}
         <Tooltip label="Fit page" shortcut={sc('fitActivePage')}>
           <button
             type="button"
@@ -273,18 +310,22 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             Fit sel
           </button>
         </Tooltip>
-        <span className="editor-status__info">
-          {singleSel ? (
-            <span>{sel[0]?.name ?? 'unknown'}</span>
-          ) : (
-            <>
-              <span className="num-display">
-                {sel.length > 1 ? sel.length : rootNodes().length}
-              </span>
-              <span className="num-display__suffix">{sel.length > 1 ? 'selected' : 'layers'}</span>
-            </>
-          )}
-        </span>
+        {sectionVisible('selectionInfo') && (
+          <span className="editor-status__info">
+            {singleSel ? (
+              <span>{sel[0]?.name ?? 'unknown'}</span>
+            ) : (
+              <>
+                <span className="num-display">
+                  {sel.length > 1 ? sel.length : rootNodes().length}
+                </span>
+                <span className="num-display__suffix">
+                  {sel.length > 1 ? 'selected' : 'layers'}
+                </span>
+              </>
+            )}
+          </span>
+        )}
       </div>
     </TooltipProvider>
   );

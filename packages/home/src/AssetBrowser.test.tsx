@@ -106,9 +106,23 @@ describe('AssetBrowser', () => {
   it('search filters assets', async () => {
     const platform = createMockPlatform();
     render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
-    await waitFor(() => {
-      expect(screen.getByLabelText('Search assets')).toBeDefined();
-    });
+    const input = await screen.findByLabelText('Search assets');
+    fireEvent.change(input, { target: { value: 'logo' } });
+    expect(screen.getByText('logo.png')).toBeDefined();
+    expect(screen.queryByText('icon.svg')).toBeNull();
+  });
+
+  it('searches OCR text and exposes the match reason', async () => {
+    const platform = createMockPlatform([
+      { ...MOCK_ASSETS[0]!, name: 'scan.png', ocrText: 'Invoice 8472' },
+      MOCK_ASSETS[1]!,
+    ]);
+    render(<AssetBrowser platform={platform} workspaceId="ws-1" />);
+    const input = await screen.findByLabelText('Search assets');
+    fireEvent.change(input, { target: { value: '8472' } });
+    expect(screen.getByText('scan.png')).toBeDefined();
+    expect(screen.getByText('Recognized text match')).toBeDefined();
+    expect(screen.queryByText('icon.svg')).toBeNull();
   });
 
   it('shows empty state when no assets', async () => {

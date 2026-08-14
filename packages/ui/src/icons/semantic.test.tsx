@@ -24,7 +24,7 @@ describe('semantic icon registry', () => {
     }
   });
 
-  it('renders every semantic icon in both families without throwing', () => {
+  it('renders every semantic icon in all supported families without throwing', () => {
     const names = Object.keys(SEMANTIC_ICONS) as SemanticIconName[];
     for (const name of names) {
       expect(() =>
@@ -74,10 +74,17 @@ describe('semantic icon registry', () => {
 });
 
 describe('SemanticIcon component', () => {
-  it('renders the outline implementation by default', () => {
+  it('renders the Tabler implementation by default', () => {
     const markup = renderToStaticMarkup(<SemanticIcon name="Search" />);
     expect(markup).toMatch(/^<svg/i);
     expect(markup).toContain('</svg>');
+    expect(markup).toContain('stroke="currentColor"');
+  });
+
+  it('maps Warp to a deformation-specific semantic glyph', () => {
+    const markup = renderToStaticMarkup(<SemanticIcon name="Warp" label="Warp" />);
+    expect(markup).toContain('aria-label="Warp"');
+    expect(resolveSemanticIcon('Warp', 'outline')).toBe(SEMANTIC_ICONS.Warp.outline);
   });
 
   it('renders the filled implementation for family="filled"', () => {

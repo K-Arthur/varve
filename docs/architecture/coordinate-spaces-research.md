@@ -4,6 +4,10 @@ Research compiled 2026-07-20. Sources: Skia docs, MDN (Canvas2D/CSS/SVG),
 Godot 4.7 docs, Unity 6.5 scripting API, Bevy 0.19 source, Penpot matrix.cljc
 source, Figma REST API docs.
 
+> This file is the comparative research record. The canonical Varve
+> contract (spaces, storage, invariants, API, migration) is
+> `coordinate-system.md` (ADR-0219) — start there for implementation.
+
 ---
 
 ## 1. Comparative matrix

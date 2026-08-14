@@ -1,5 +1,6 @@
 import type { CompositorBackend, CompositorDiagnostics } from '@varve/compositor';
 import {
+  acquireMaskSurface,
   adjustmentsToFilters,
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
@@ -18,6 +19,7 @@ import {
   getImageCache,
   mapBlendMode,
   type ReplayTarget,
+  releaseMaskSurface,
   replayIr,
   totalEffectExpansion,
 } from '@varve/engine';
@@ -58,6 +60,7 @@ import {
 } from '../render/canvasRenderAdapter';
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
+import { alphaBounds } from '../render/surfaceBounds';
 import {
   collectMasterOffsets,
   offsetWorldBounds,
@@ -1030,18 +1033,25 @@ export function renderContent(deps: RenderContentDeps): void {
       const mask = 'mask' in n && n.mask && n.mask.visible ? n.mask : null;
       const maskSrcId = mask ? mask.sourceNodeId : null;
       const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
-      // Adjustment nodes carry no children — their spatial mask is applied
-      // inside the adjustment branch; containers replay through the
-      // shared maskReplay module.
+      // Container masks (clip/alpha/luminance on frames and groups) replay
+      // through the shared maskReplay module. Shape-level raster masks
+      // (background removal) must NOT take this branch: `replayMaskedContainer`
+      // renders the node's *children*, which shapes do not have — routing a
+      // masked shape here throws `n.children is not iterable` and aborts the
+      // frame mid-paint, leaving a half-cleared backing store (the reported
+      // "images disappear while selection bounds remain" failure). Shapes
+      // composite their alpha mask through the flat IR leaf path
+      // (FillIR.alphaMask in the engine replay), which is always correct.
       if (
         n.kind !== 'adjustment' &&
+        isContainer(n) &&
         mask &&
         (maskSrcId ||
           (mask.vectorMask && mask.vectorMask.points.length > 0) ||
           mask.rasterMask !== undefined)
       ) {
         replayForceAll = true;
-        replayMaskedContainer(targetCtx, {
+        const handled = replayMaskedContainer(targetCtx, {
           node: n as import('@varve/scene').SceneNode,
           mask,
           maskSrcId: maskSrcId ?? null,
@@ -1053,7 +1063,7 @@ export function renderContent(deps: RenderContentDeps): void {
           replayNode: (nodeId, ctx) => replaySubtreeToCtx(nodeId, ctx),
           getWorldTransform: (nodeId) => getCachedWorldTransform(cache, doc, nodeId),
         });
-        return;
+        if (handled) return;
       }
 
       if (n.kind === 'frame') {
@@ -1431,8 +1441,9 @@ export function renderContent(deps: RenderContentDeps): void {
           const resolved = resolveAdjustmentScope(doc, scope, nodeId);
           targetIds = new Set(resolved);
         } else {
-          // Legacy (no scope field): affect all visible nodes — match pre-v2.3 behavior
-          targetIds = new Set(Array.from(entries.keys()).filter((id: string) => id !== nodeId));
+          // Resolve legacy sibling-below behavior through the same central
+          // scope resolver so parent/child targets are not replayed twice.
+          targetIds = new Set(resolveAdjustmentScope(doc, undefined, nodeId));
         }
         if (targetIds.size === 0) return;
 
@@ -1500,10 +1511,10 @@ export function renderContent(deps: RenderContentDeps): void {
         const devMinY = minY * camScale + camOriginY;
         const devW = (maxX - minX) * camScale;
         const devH = (maxY - minY) * camScale;
-        const bx = devMinX - effectPad;
-        const by = devMinY - effectPad;
-        const bw = Math.min(cw, devW + effectPad * 2);
-        const bh = Math.min(ch, devH + effectPad * 2);
+        let bx = devMinX - effectPad;
+        let by = devMinY - effectPad;
+        let bw = devW + effectPad * 2;
+        let bh = devH + effectPad * 2;
         if (coordSpace) {
           coordSpace.regionX = bx;
           coordSpace.regionY = by;
@@ -1511,13 +1522,50 @@ export function renderContent(deps: RenderContentDeps): void {
 
         let backdrop: HTMLCanvasElement;
         try {
-          backdrop = document.createElement('canvas');
-          backdrop.width = Math.ceil(bw);
-          backdrop.height = Math.ceil(bh);
-          const bCtx = backdrop.getContext('2d');
-          if (!bCtx) return;
-          bCtx.translate(-bx, -by);
-          bCtx.drawImage(targetCtx.canvas, 0, 0);
+          // Render the resolved target set into the adjustment surface instead
+          // of copying the entire canvas. Copying the canvas only bounded the
+          // filter geographically; it still processed unrelated pixels inside
+          // that rectangle, which made explicit A+C targets affect B whenever
+          // their bounds overlapped.
+          const camera = targetCtx.getTransform();
+          const targetSurface = acquireMaskSurface(cw, ch);
+          try {
+            const targetSurfaceCtx = targetSurface.getContext('2d');
+            if (!targetSurfaceCtx) return;
+            targetSurfaceCtx.setTransform(
+              camera.a,
+              camera.b,
+              camera.c,
+              camera.d,
+              camera.e,
+              camera.f,
+            );
+            replayForceAll = true;
+            for (const targetId of targetIds) {
+              replaySubtreeToCtx(targetId, targetSurfaceCtx);
+            }
+            const actual = alphaBounds(targetSurfaceCtx, targetSurface.width, targetSurface.height);
+            if (actual) {
+              bx = actual.x - effectPad;
+              by = actual.y - effectPad;
+              bw = actual.w + effectPad * 2;
+              bh = actual.h + effectPad * 2;
+              if (coordSpace) {
+                coordSpace.regionX = bx;
+                coordSpace.regionY = by;
+              }
+            }
+            backdrop = document.createElement('canvas');
+            backdrop.width = Math.ceil(bw);
+            backdrop.height = Math.ceil(bh);
+            const bCtx = backdrop.getContext('2d');
+            if (!bCtx) return;
+            bCtx.setTransform(1, 0, 0, 1, 0, 0);
+            bCtx.translate(-bx, -by);
+            bCtx.drawImage(targetSurface, 0, 0);
+          } finally {
+            releaseMaskSurface(targetSurface);
+          }
         } catch {
           return;
         }

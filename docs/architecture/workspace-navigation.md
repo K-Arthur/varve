@@ -12,7 +12,7 @@ row: state owner / UI surface / input path / persistence / tests / gaps.
 |---|---|---|---|---|---|---|
 | Workspace mode | `EditorState.workspaceMode` | Menubar → `WorkspaceTabs` (APG radiogroup) | click; `Ctrl+Shift+<key>` shortcuts; command palette | subset of panel booleans via `settings.ts` | `WorkspaceTabs.test.tsx`, `workspaceMode.test.tsx`, `workspaceSwitching.test.tsx`, `workspaceReset.test.tsx` | No roving tabindex / arrow keys / Home-End; no focus restore after overflow; preferences store dead; most config fields decorative |
 | Document tabs | `sessions` / `activeId` + in-memory `sessionStoreRef` | `TabStrip` (APG tablist, roving) | click, arrows, Home/End, Enter/Space, Delete, middle-click | in-memory per session; crash-recovery sessions via platform | `TabStrip.test.tsx` | Dirty-close dialog had no Save / Don't-save / Cancel-with-save; no overflow/search for many tabs; no MRU order |
-| Pages | `document.pages` + `currentPageId` | `PageNav` (tablist + dnd-kit) | click, arrows, Enter, drag, context menu | in document (scene) | `PageNav.test.tsx` | No rename; no delete confirmation (delete of active page falls back deterministically); no searchable page nav |
+| Pages | `document.pages` + `currentPageId` | `PageNav` (tablist + dnd-kit) | click, arrows, Enter, drag, context menu | in document (scene) | `PageNav.test.tsx`, `page.test.ts` | No delete confirmation (delete of active page falls back deterministically); no searchable page nav |
 | Viewport / camera | `zoom` / `pan` / `cameraRotation` | canvas, `MinimapPanel`, StatusBar zoom chip + fit buttons | wheel, pinch, space-hand, minimap click-drag, keyboard | viewport defaults in `settings.ts`; per-tab snapshots in memory | `wheelClassifier.test.ts`, `navigationState.test.ts`, `viewportOps.test.ts` | Side buttons 3/4 swallowed (dead); no viewport back/forward history; minimap "fit all" was selection-oriented |
 | Deep links | (none — module dead) | none | none | none | none | Entire deep-link subsystem unwired; finding-only vocabulary; Tauri listener leaked |
 | Workspace preferences | `workspaceStore` (dead) | none | none | raw localStorage | none | Dead code: no loaders, no appliers, no UI |
@@ -144,7 +144,7 @@ coordinate → teardown-safe listeners.
 | `panels.*.preferredWidth` | Layers/inspector: seeds CSS var when user has no saved width | Codegen/timeline `100%` values are panel-internal; no CSS var wired |
 | `panels.*.collapsed` / `order` | Config-declared only | No panel collapse/ordering state exists in the shell; deferred (panel layout engine) |
 | `defaultTool` | Applied on switch | |
-| `toolbar.tools` / `flyouts` | Composition not applied | FloatingToolbar builds its own per-mode list; wiring it to config is deferred (tool registry work) |
+| `toolbar.tools` / `flyouts` | Applied to the FloatingToolbar's supported tool groups | Effective visibility overrides are authoritative; shared tool definitions still own icons, actions, and labels |
 | `floatingToolbar` | Applied (visibility) | |
 | `statusBar` | Applied (Shell hides StatusBar/SelectionInfoBar) | Section-level `statusSections` ordering partially applied (preflight/debt/shortcutTip gated; others unconditional) |
 | `tabStrip` | Applied (Shell hides TabStrip) | |
@@ -174,7 +174,22 @@ coordinate → teardown-safe listeners.
 - Legacy storage: `strata-workspace-preferences` → `varve-workspace-
   preferences` fallback read; `strata-editor-settings` → `varve-editor-
   settings` (pre-existing). Corrupted JSON falls back to defaults; unknown
-  panel ids and invalid field types are sanitized.
+  panel ids, invalid field types, and invalid panel widths are sanitized.
+
+### Browser fallback geometry
+
+The single-window browser fallback (`workspace/browserFallback.ts`) maps the
+logical dock layout to CSS-grid regions without relying on native windows.
+Visible panels in the same region are treated as tabs, so the region uses the
+largest configured slot size rather than adding tab widths together. Left and
+right regions use their configured preferred sizes, while timeline/bottom
+regions use their configured height (200px by default).
+
+When a narrow viewport cannot accommodate those preferred side-panel sizes
+while preserving the layout's requested `centerRatio`, the side regions are
+scaled proportionally. Region geometry is clamped to finite, non-negative
+dimensions, keeping the canvas and hit-testing coordinates valid during
+responsive resize and malformed host-size input.
 
 ## 5. Accessibility behavior
 
@@ -199,10 +214,15 @@ global flag.
   interaction (drag to pan, double-click/Enter to fit the whole document);
   Escape collapses; roving-free single-stop tab.
 - **Page nav**: existing roving tablist; arrows auto-activate; focus moves
-  to the replacement page after delete and to the new page after add.
+  to the replacement page after delete and to the new page after add. The
+  context menu supports renaming through the shared local prompt and the
+  canonical `scene.renamePage` operation; blank names are ignored.
 - **Announcements**: mode switches announce via the existing announcer;
   navigation failures surface as toasts (aria-live) rather than silent
   no-ops.
+- **Workspace customization**: tool checkboxes use product labels and expose
+  an explicit “Always available” explanation for Select, Hand, and Zoom. Those
+  recovery tools cannot be hidden from the toolbar.
 
 ## 6. Persistence and migration
 
@@ -212,6 +232,14 @@ global flag.
   `updateWorkspacePreferences` (single write per toggle, not per frame).
 - Panel visibility toggles record overrides for the current mode; effective
   config merges them; reset-to-default clears the mode's overrides.
+- Layers and inspector widths are stored in `WorkspacePreference.panelWidths`
+  per workspace and mirrored to the legacy editor settings keys for existing
+  installations. Widths are clamped at application time so a smaller window
+  cannot strand the canvas below its minimum usable width. Selection, hand, and
+  zoom remain available even when toolbar customization attempts to hide them.
+  Resetting one workspace or all workspaces clears both the saved preference
+  and the live shell CSS overrides immediately; a restart is not required to
+  see the default widths.
 - Per-tab viewport state (zoom/pan/rotation/grids/snapping/units/guides)
   stays in-memory per session (`sessionStoreRef`) and restores on
   `switchTab`; crash recovery sessions persist via the platform facade.

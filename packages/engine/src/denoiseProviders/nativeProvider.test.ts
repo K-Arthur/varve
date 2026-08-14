@@ -19,9 +19,9 @@ vi.mock('../upscaleProviders/pngDecode', () => ({
   encodeImageDataToPngBytes,
 }));
 
-import { nativeDenoiseProvider } from './nativeProvider';
+import { nativeRestorationProvider } from '../restorationProviders/nativeProvider';
 
-describe('nativeDenoiseProvider', () => {
+describe('nativeRestorationProvider', () => {
   beforeEach(() => {
     invoke.mockReset();
     decodeImageBytesToImageData.mockClear();
@@ -36,7 +36,7 @@ describe('nativeDenoiseProvider', () => {
       processingTimeMs: 27,
     });
 
-    const result = await nativeDenoiseProvider.denoise({
+    const result = await nativeRestorationProvider.restore({
       tensor: new Float32Array(12 * 8 * 3),
       width: 12,
       height: 8,
@@ -56,5 +56,31 @@ describe('nativeDenoiseProvider', () => {
     expect(result.imageData.width).toBe(12);
     expect(result.imageData.height).toBe(8);
     expect(result.processingTimeMs).toBe(27);
+  });
+
+  it('routes the model id through to the native command for task dispatch', async () => {
+    invoke.mockResolvedValue({
+      pngBase64: btoa(String.fromCharCode(137, 80, 78, 71)),
+      width: 12,
+      height: 8,
+      processingTimeMs: 5,
+    });
+
+    await nativeRestorationProvider.restore({
+      tensor: new Float32Array(12 * 8 * 3),
+      width: 12,
+      height: 8,
+      targetWidth: 12,
+      targetHeight: 8,
+      originalData: new Uint8ClampedArray(12 * 8 * 4),
+      alphaData: null,
+      strength: 0.5,
+      modelId: 'nafnet-deblur-gopro',
+    });
+
+    expect(invoke).toHaveBeenCalledWith('denoise_image', {
+      imageData: [1, 2, 3],
+      options: { modelId: 'nafnet-deblur-gopro', strength: 0.5 },
+    });
   });
 });

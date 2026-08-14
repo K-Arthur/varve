@@ -59,16 +59,16 @@ function inferCategory(id: string): string {
 }
 
 const KNOWN_SIZES: Record<string, number> = {
-  u2netp: 4_700_000,
+  u2netp: 4_574_861,
   'u2netp-int8': 1_200_000,
   'isnet-general-use': 178_648_008,
   'birefnet-general-lite': 224_005_088,
-  'birefnet-general': 928_000_000,
+  'birefnet-general': 972_666_916,
   'upscale-realesr-general': 4_866_438,
   'upscale-realesr-general-int8': 1_300_000,
   scunet: 18_000_000,
-  'sam2-hiera-tiny': 39_000_000,
-  'sam2-hiera-small': 92_000_000,
+  'sam2-hiera-tiny': 154902133_902_201,
+  'sam2-hiera-small': 183344311_344_379,
   'tr-ocr-base-printed': 340_000_000,
   'depth-anything-v2-small': 25_000_000,
 };
@@ -119,6 +119,16 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
   const category = inferCategory(raw.id) as ModelManifestEntry['category'];
 
   const sizeBytes = computeSizeBytes(raw.id, isBundled);
+  // Prefer the manifest's recorded peak (measured on hardware) over the
+  // size-derived heuristic: the heuristic underestimates segmentation
+  // models by 3-17x (measured retained RSS 2026-08-13: u2netp ~330 MB,
+  // IS-Net ~1.3 GB, BiRefNet Lite ~7 GB, BiRefNet Full ~8.5 GB).
+  const manifestPeak = (
+    raw as RawManifestEntry & {
+      tensorContract?: { peakMemoryBytes?: number };
+    }
+  ).tensorContract?.peakMemoryBytes;
+  const peakMemoryBytes = manifestPeak ?? computePeakMemory(sizeBytes, isInt8, isUpscale);
   const base: ModelManifestEntry = {
     id: raw.id,
     name: modelDisplayName(raw.id),
@@ -130,7 +140,7 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     bundled: isBundled,
     inputSpec: null,
     quality: modelQuality(raw.id),
-    peakMemoryBytes: computePeakMemory(sizeBytes, isInt8, isUpscale),
+    peakMemoryBytes,
     gpuRecommended: !isBundledInt8 && !isUpscale,
     precision: raw.precision ?? 'fp32',
     ...(raw.sourceModelId ? { sourceModelId: raw.sourceModelId } : {}),
@@ -234,8 +244,8 @@ function modelQuality(id: string): number {
     'upscale-realesr-general': 4,
     'upscale-realesr-general-int8': 3.5,
     scunet: 4,
-    'sam2-hiera-tiny': 3.5,
-    'sam2-hiera-small': 4,
+    'sam2-hiera-tiny': 154902133.5,
+    'sam2-hiera-small': 183344311,
     'tr-ocr-base-printed': 4,
     'depth-anything-v2-small': 4.5,
   };

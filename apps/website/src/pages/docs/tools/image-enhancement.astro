@@ -1,0 +1,53 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Image Enhance — Varve Docs" description="Use Varve's local-first image enhancement workflow for denoising, deblurring, and upscaling.">
+  <div class="container-custom">
+    <article class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/docs')}>Documentation</a> / Tools / Image Enhance</nav>
+      <h1>Image Enhance</h1>
+      <p class="docs-intro">Clean up and enlarge a selected image without leaving the canvas.</p>
+
+      <section class="docs-section">
+        <h2>Choose the task</h2>
+        <p>Open the image enhancement command for a selected image and choose the operation that matches the source problem. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a confidence number — you can always override it.</p>
+        <ul>
+          <li><strong>Denoise</strong> reduces sensor noise and grain using a task-specific local denoising model.</li>
+          <li><strong>Deblur</strong> reduces motion and defocus blur with a validated NAFNet checkpoint. Restoration is bounded: the model runs on a cropped preview first, and full-resolution work tiles adaptively so memory stays within budget.</li>
+          <li><strong>Upscale</strong> enlarges with CPU, pixel-art, or the available local AI super-resolution path.</li>
+          <li><strong>Restore + Upscale</strong> (and Deblur + Upscale) compose restoration before enlargement so noise or blur is not simply made larger.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Review before applying</h2>
+        <p>The dialog previews a bounded representative crop and provides a draggable before/after comparison. Use the preview at a useful zoom for text, logos, thin lines, transparency, and edge transitions. A preview is not a full-resolution final result.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Output behavior</h2>
+        <p><strong>New layer</strong> is the default and preserves the source. <strong>Replace source</strong> commits the derived pixels atomically and remains undoable. Use the output options only when their semantics suit the document; enhancement results are materialized pixels and do not silently become re-editable model operations.</p>
+      </section>
+
+      <section class="docs-section docs-note">
+        <h2>Honest capabilities</h2>
+        <p>JPEG artifact removal is not offered as an operation: no model has passed Varve's design-content quality corpus for that task (denoising models smear 1px lines and UI text, and the JPEG-trained candidates were rejected on provenance or shape safety). Varve does not relabel a denoiser as a compression-restoration model, and it does not substitute an unrelated fallback when a requested task cannot run. Model quality and conversion evidence are published in the benchmark report.</p>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 2.5rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section li { margin-bottom: .5rem; }
+  .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+</style>

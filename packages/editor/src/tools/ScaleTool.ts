@@ -140,33 +140,35 @@ export class ScaleTool extends BaseTool {
       update: (node: import('@varve/scene').SceneNode) => import('@varve/scene').SceneNode;
     }> = [];
     // Parent space does not change during one scale sample: cache the
-    // rotation-only space matrix per parent so N nodes under one parent pay
+    // parent-space mapping matrix per parent so N nodes under one parent pay
     // one ancestor-chain walk instead of N (deeply nested parents otherwise
     // cost O(depth) per node per pointermove).
     const spaceMatCache = new Map<string | null, Affine>();
-    const spaceMatFor = (
-      node: import('@varve/scene').SceneNode,
-      parentId: string | null,
-    ): Affine => {
+    const spaceMatFor = (parentId: string | null): Affine => {
       const cached = spaceMatCache.get(parentId);
       if (cached) return cached;
       let spaceMat: Affine;
       if (parentId) {
+        // Parent-space→world mapping of an OFFSET vector: the parent world
+        // transform's linear part (caller inverts it to map world→parent).
+        // Rotation-only was wrong for scaled parents (the adjustment then
+        // under/over-shoots by the parent's scale factor); the full linear
+        // part handles rotation AND scale (and skew, if a parent ever
+        // carries it).
         const parentTransform = nodeWorldTransform(ctx.document, parentId);
-        const angle = Math.atan2(parentTransform[1], parentTransform[0]);
         spaceMat = [
-          Math.cos(angle),
-          Math.sin(angle),
-          -Math.sin(angle),
-          Math.cos(angle),
+          parentTransform[0],
+          parentTransform[1],
+          parentTransform[2],
+          parentTransform[3],
           0,
           0,
         ] as Affine;
       } else {
-        const rot = node.rotation ?? 0;
-        if (rot === 0) spaceMat = [1, 0, 0, 1, 0, 0] as Affine;
-        const rad = (rot * Math.PI) / 180;
-        spaceMat = [Math.cos(rad), Math.sin(rad), -Math.sin(rad), Math.cos(rad), 0, 0] as Affine;
+        // Root-level: parent space IS world space — offsets need no mapping.
+        // (Mapping through the node's own rotation was a space error: the
+        // translation being adjusted is in world units for root nodes.)
+        spaceMat = [1, 0, 0, 1, 0, 0] as Affine;
       }
       spaceMatCache.set(parentId, spaceMat);
       return spaceMat;
@@ -184,10 +186,10 @@ export class ScaleTool extends BaseTool {
           // This is the correct space for adjusting position after scaling —
           // the node's transform is expressed relative to its parent, so the
           // position adjustment must also be in parent space.
-          // For deeply nested objects, we extract only rotation (not translation)
-          // from the parent world transform to avoid double-counting position.
+          // The parent-space→world linear part is inverted below; translation
+          // is deliberately excluded (offsets, not positions).
           const parentId = ctx.document ? getParent(ctx.document, init.id) : null;
-          const spaceMat = spaceMatFor(node, parentId);
+          const spaceMat = spaceMatFor(parentId);
           const det = spaceMat[0] * spaceMat[3] - spaceMat[1] * spaceMat[2];
           let localDx = nodeDx;
           let localDy = nodeDy;

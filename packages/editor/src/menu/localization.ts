@@ -117,6 +117,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.rulerModeGlobal': 'Global Rulers',
   'menu.view.rulerModeArtboard': 'Artboard Rulers',
   'menu.view.toggleFacingPages': 'Facing Pages',
+  'menu.view.toggleBleedGuides': 'Bleed Guides',
   'menu.view.toggleTimelinePanel': 'Timeline',
   'menu.view.toggleGraphEditor': 'Graph Editor',
   'menu.view.toggleStateMachinePanel': 'State Machine Panel',

@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { targetFor } from './targets.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -270,7 +271,9 @@ function buildMetadata(args, version) {
   })();
 
   const os = args.os ?? null;
-  const arch = args.arch ?? null;
+  const arch = os && args.arch ? targetFor(os, args.arch).architecture : (args.arch ?? null);
+  if (os && !args.arch) throw new Error('--arch is required when --os is supplied');
+  if (args.arch && !os) throw new Error('--os is required when --arch is supplied');
   const scope = args.scope ?? (os ? `${os}-${arch}` : 'all-platforms');
   const description =
     'Local-first design suite for vector, layout, typography, motion, prototyping and print production';

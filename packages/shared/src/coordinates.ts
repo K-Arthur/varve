@@ -1,6 +1,11 @@
 /**
  * Artboard / page coordinate helpers — display-layer conversions only.
- * Scene nodes remain stored in world (document) space.
+ *
+ * Scene nodes are stored in parent-local space: every node's `transform` is
+ * relative to its immediate parent, and world transforms are derived by
+ * ancestor-chain composition (see `@varve/scene` coordinateService). These
+ * helpers convert *world* points into an artboard/page-relative frame for
+ * display (rulers, inspector readouts); they are NOT the scene storage model.
  *
  * Research basis: Adobe Illustrator global vs artboard ruler modes,
  * Strata canvas audit Phase B.

@@ -1,14 +1,11 @@
 # Menu Item × Capability Visibility Matrix
 
-> **Point-in-time snapshot (last fully maintained 2026-08-10).** The menu
-> registry (`packages/editor/src/menu/defs.ts`, 202+ item ids) is the source
-> of truth; this matrix predates ~40 recently added items (e.g.
-> `workspaceCodegen`, `setFileThumbnail`, `imageTrace`, `closeWindow`,
-> `quitApp`, `tabClose`). Regenerate or hand-sync from `defs.ts` before
-> relying on it for completeness.
-
 Every item in the Varve menu system, its required capability (if any), and its
 visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
+
+**Generated output.** The item tables are produced from
+`packages/editor/src/menu/defs.ts` by `scripts/regenerate-menu-matrices.mjs`
+— do not hand-edit them. Regenerate after any change to `defs.ts`.
 
 ## Legend
 
@@ -44,201 +41,215 @@ visibility in browser (`web`) vs Tauri desktop (`tauri`) vs memory/test (`mem`).
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `new` | — | ✓ | ✓ | ✓ | |
-| `open` | — | ✓ | ✓ | ✓ | |
-| `openRecent` | — | ✓ | ✓ | ✓ | |
-| `reopenLast` | — | ✓ | ✓ | ✓ | |
-| `save` | — | ✓ | ✓ | ✓ | |
-| `saveAs` | — | ✓ | ✓ | ✓ | |
-| `import` | — | ✓ | ✓ | ✓ | |
-| `exportSvg` | — | ✓ | ✓ | ✓ | |
-| `export` | — | ✓ | ✓ | ✓ | |
+| `new` | `—` | ✓ | ✓ | ✓ |  |
+| `newLogoProject` | `—` | ✓ | ✓ | ✓ |  |
+| `logo` | `—` | ✓ | ✓ | ✓ |  |
+| `createLogoConcept` | `—` | ✓ | ✓ | ✓ |  |
+| `duplicateLogoConcept` | `—` | ✓ | ✓ | ✓ |  |
+| `createLogoVariant` | `—` | ✓ | ✓ | ✓ |  |
+| `createMonochromeVariant` | `—` | ✓ | ✓ | ✓ |  |
+| `createReversedVariant` | `—` | ✓ | ✓ | ✓ |  |
+| `open` | `—` | ✓ | ✓ | ✓ |  |
+| `openRecent` | `—` | ✓ | ✓ | ✓ |  |
+| `reopenLast` | `—` | ✓ | ✓ | ✓ |  |
+| `import` | `—` | ✓ | ✓ | ✓ |  |
+| `insertIcon` | `—` | ✓ | ✓ | ✓ |  |
+| `createTableFromClipboard` | `—` | ✓ | ✓ | ✓ |  |
+| `tabClose` | `—` | ✓ | ✓ | ✓ |  |
+| `closeWindow` | `—` | ✓ | ✓ | ✓ |  |
+| `save` | `—` | ✓ | ✓ | ✓ |  |
+| `saveAs` | `—` | ✓ | ✓ | ✓ |  |
+| `saveCopy` | `—` | ✓ | ✓ | ✓ |  |
+| `exportSvg` | `—` | ✓ | ✓ | ✓ |  |
+| `export` | `—` | ✓ | ✓ | ✓ |  |
+| `setFileThumbnail` | `—` | ✓ | ✓ | ✓ |  |
+| `documentInfo` | `—` | ✓ | ✓ | ✓ |  |
 | `archiveBackup` | `archive` | — | ✓ | — | Hidden in browser |
 | `archiveRestore` | `archive` | — | ✓ | — | Hidden in browser |
-| `downloadSnapshot` | ¬`archive` | ✓ | — | ✓ | Browser equivalent of archive |
-| `restoreFromSnapshot` | ¬`archive` | ✓ | — | ✓ | Browser equivalent of restore |
-| `present` | — | ✓ | ✓ | ✓ | |
-| `settings` | — | ✓ | ✓ | ✓ | |
+| `downloadSnapshot` | `¬archive` | ✓ | — | ✓ | Visible when capability absent |
+| `restoreFromSnapshot` | `¬archive` | ✓ | — | ✓ | Visible when capability absent |
+| `settings` | `—` | ✓ | ✓ | ✓ |  |
+| `quitApp` | `—` | ✓ | ✓ | ✓ | Hidden on macOS |
 
 ## Edit menu
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `undo` | — | ✓ | ✓ | ✓ | |
-| `redo` | — | ✓ | ✓ | ✓ | |
-| `cut` | — | ✓ | ✓ | ✓ | |
-| `copy` | — | ✓ | ✓ | ✓ | |
-| `paste` | — | ✓ | ✓ | ✓ | |
-| `duplicate` | — | ✓ | ✓ | ✓ | |
-| `repeatDuplicate` | — | ✓ | ✓ | ✓ | |
-| `selectAll` | — | ✓ | ✓ | ✓ | |
-| `delete` | — | ✓ | ✓ | ✓ | |
-| `findReplace` | — | ✓ | ✓ | ✓ | |
-| `selectionHistoryBack` | — | ✓ | ✓ | ✓ | |
-| `selectionHistoryForward` | — | ✓ | ✓ | ✓ | |
+| `undo` | `—` | ✓ | ✓ | ✓ |  |
+| `redo` | `—` | ✓ | ✓ | ✓ |  |
+| `cut` | `—` | ✓ | ✓ | ✓ |  |
+| `copy` | `—` | ✓ | ✓ | ✓ |  |
+| `paste` | `—` | ✓ | ✓ | ✓ |  |
+| `duplicate` | `—` | ✓ | ✓ | ✓ |  |
+| `repeatDuplicate` | `—` | ✓ | ✓ | ✓ |  |
+| `selectAll` | `—` | ✓ | ✓ | ✓ |  |
+| `selectNone` | `—` | ✓ | ✓ | ✓ |  |
+| `invertSelection` | `—` | ✓ | ✓ | ✓ |  |
+| `selectParent` | `—` | ✓ | ✓ | ✓ |  |
+| `selectChildren` | `—` | ✓ | ✓ | ✓ |  |
+| `delete` | `—` | ✓ | ✓ | ✓ |  |
+| `findReplace` | `—` | ✓ | ✓ | ✓ |  |
+| `selectionHistoryBack` | `—` | ✓ | ✓ | ✓ |  |
+| `selectionHistoryForward` | `—` | ✓ | ✓ | ✓ |  |
 
 ## Text menu
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `textBold` | — | ✓ | ✓ | ✓ | |
-| `textItalic` | — | ✓ | ✓ | ✓ | |
-| `textUnderline` | — | ✓ | ✓ | ✓ | |
-| `textIncreaseSize` | — | ✓ | ✓ | ✓ | |
-| `textDecreaseSize` | — | ✓ | ✓ | ✓ | |
-| `textAlignLeft` | — | ✓ | ✓ | ✓ | |
-| `textAlignCenter` | — | ✓ | ✓ | ✓ | |
-| `textAlignRight` | — | ✓ | ✓ | ✓ | |
-| `textAlignJustify` | — | ✓ | ✓ | ✓ | |
-| `textToOutlines` | — | ✓ | ✓ | ✓ | |
+| `linkTextFrames` | `—` | ✓ | ✓ | ✓ |  |
+| `unlinkTextFrames` | `—` | ✓ | ✓ | ✓ |  |
+| `textBold` | `—` | ✓ | ✓ | ✓ |  |
+| `textItalic` | `—` | ✓ | ✓ | ✓ |  |
+| `textUnderline` | `—` | ✓ | ✓ | ✓ |  |
+| `textIncreaseSize` | `—` | ✓ | ✓ | ✓ |  |
+| `textDecreaseSize` | `—` | ✓ | ✓ | ✓ |  |
+| `textAlignLeft` | `—` | ✓ | ✓ | ✓ |  |
+| `textAlignCenter` | `—` | ✓ | ✓ | ✓ |  |
+| `textAlignRight` | `—` | ✓ | ✓ | ✓ |  |
+| `textAlignJustify` | `—` | ✓ | ✓ | ✓ |  |
+| `textToOutlines` | `—` | ✓ | ✓ | ✓ |  |
 
 ## View menu
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `theme:*` | — | ✓ | ✓ | ✓ | |
-| `zoomReset` | — | ✓ | ✓ | ✓ | |
-| `zoomIn` | — | ✓ | ✓ | ✓ | |
-| `zoomOut` | — | ✓ | ✓ | ✓ | |
-| `canvasModeFull` | — | ✓ | ✓ | ✓ | |
-| `canvasModeOutline` | — | ✓ | ✓ | ✓ | |
-| `canvasModePreview` | — | ✓ | ✓ | ✓ | |
-| `inspectMode` | — | ✓ | ✓ | ✓ | |
-| `fitActivePage` | — | ✓ | ✓ | ✓ | |
-| `fitActiveFrame` | — | ✓ | ✓ | ✓ | |
-| `resetViewRotation` | — | ✓ | ✓ | ✓ | |
-| `rotateViewCW` | — | ✓ | ✓ | ✓ | |
-| `rotateViewCCW` | — | ✓ | ✓ | ✓ | |
-| `rulerModeArtboard` | — | ✓ | ✓ | ✓ | |
-| `rulerModeGlobal` | — | ✓ | ✓ | ✓ | |
-| `gridOverlayBaseline` | — | ✓ | ✓ | ✓ | |
-| `gridOverlayIsometric` | — | ✓ | ✓ | ✓ | |
-| `toggleSnap` | — | ✓ | ✓ | ✓ | |
-| `toggleGuides` | — | ✓ | ✓ | ✓ | |
-| `lockGuides` | — | ✓ | ✓ | ✓ | |
-| `clearGuides` | — | ✓ | ✓ | ✓ | |
-| `toggleFacingPages` | — | ✓ | ✓ | ✓ | |
-| `softProof` | — | ✓ | ✓ | ✓ | |
-| `toggleTimelinePanel` | — | ✓ | ✓ | ✓ | |
-| `toggleGraphEditor` | — | ✓ | ✓ | ✓ | |
-| `toggleStateMachinePanel` | — | ✓ | ✓ | ✓ | |
-| `workspaceDesign` | — | ✓ | ✓ | ✓ | |
-| `workspacePrint` | — | ✓ | ✓ | ✓ | |
-| `workspaceDrawing` | — | ✓ | ✓ | ✓ | |
-| `workspaceImage` | — | ✓ | ✓ | ✓ | |
-| `workspaceMotion` | — | ✓ | ✓ | ✓ | |
-| `workspaceLogo` | — | ✓ | ✓ | ✓ | |
-| `resetWorkspace` | — | ✓ | ✓ | ✓ | |
-| `toggleDistractionFree` | — | ✓ | ✓ | ✓ | |
-| `toggleBeforeAfterCompare` | — | ✓ | ✓ | ✓ | |
-| `colorBlindnessNone` | — | ✓ | ✓ | ✓ | |
-| `colorBlindnessProtanopia` | — | ✓ | ✓ | ✓ | |
-| `colorBlindnessDeuteranopia` | — | ✓ | ✓ | ✓ | |
-| `colorBlindnessTritanopia` | — | ✓ | ✓ | ✓ | |
-| `shortcutPalette` | — | ✓ | ✓ | ✓ | |
-| `home` | — | ✓ | ✓ | ✓ | |
+| `theme:light` | `—` | ✓ | ✓ | ✓ |  |
+| `theme:dark` | `—` | ✓ | ✓ | ✓ |  |
+| `theme:high-contrast` | `—` | ✓ | ✓ | ✓ |  |
+| `zoomReset` | `—` | ✓ | ✓ | ✓ |  |
+| `zoomIn` | `—` | ✓ | ✓ | ✓ |  |
+| `zoomOut` | `—` | ✓ | ✓ | ✓ |  |
+| `canvasModeFull` | `—` | ✓ | ✓ | ✓ |  |
+| `canvasModeOutline` | `—` | ✓ | ✓ | ✓ |  |
+| `canvasModePreview` | `—` | ✓ | ✓ | ✓ |  |
+| `inspectMode` | `—` | ✓ | ✓ | ✓ |  |
+| `present` | `—` | ✓ | ✓ | ✓ |  |
+| `fitActivePage` | `—` | ✓ | ✓ | ✓ |  |
+| `fitSpread` | `—` | ✓ | ✓ | ✓ |  |
+| `fitAllPages` | `—` | ✓ | ✓ | ✓ |  |
+| `fitActiveFrame` | `—` | ✓ | ✓ | ✓ |  |
+| `resetViewRotation` | `—` | ✓ | ✓ | ✓ |  |
+| `rotateViewCW` | `—` | ✓ | ✓ | ✓ |  |
+| `rotateViewCCW` | `—` | ✓ | ✓ | ✓ |  |
+| `rulerModeArtboard` | `—` | ✓ | ✓ | ✓ |  |
+| `rulerModeGlobal` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleGrid` | `—` | ✓ | ✓ | ✓ |  |
+| `gridOverlayBaseline` | `—` | ✓ | ✓ | ✓ |  |
+| `gridOverlayIsometric` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleSnap` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleGuides` | `—` | ✓ | ✓ | ✓ |  |
+| `lockGuides` | `—` | ✓ | ✓ | ✓ |  |
+| `clearGuides` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleFacingPages` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleBleedGuides` | `—` | ✓ | ✓ | ✓ |  |
+| `softProof` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleTimelinePanel` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleGraphEditor` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleStateMachinePanel` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleLogoPanel` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceDesign` | `—` | ✓ | ✓ | ✓ |  |
+| `workspacePrint` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceDrawing` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceImage` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceMotion` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceLogo` | `—` | ✓ | ✓ | ✓ |  |
+| `workspaceCodegen` | `—` | ✓ | ✓ | ✓ |  |
+| `resetWorkspace` | `—` | ✓ | ✓ | ✓ |  |
+| `logoPreview` | `—` | ✓ | ✓ | ✓ |  |
+| `exportLogoPackage` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleDistractionFree` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleBeforeAfterCompare` | `—` | ✓ | ✓ | ✓ |  |
+| `colorBlindnessNone` | `—` | ✓ | ✓ | ✓ |  |
+| `colorBlindnessProtanopia` | `—` | ✓ | ✓ | ✓ |  |
+| `colorBlindnessDeuteranopia` | `—` | ✓ | ✓ | ✓ |  |
+| `colorBlindnessTritanopia` | `—` | ✓ | ✓ | ✓ |  |
+| `shortcutPalette` | `—` | ✓ | ✓ | ✓ |  |
+| `home` | `—` | ✓ | ✓ | ✓ |  |
 
 ## Object menu
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `group` | — | ✓ | ✓ | ✓ | |
-| `ungroup` | — | ✓ | ✓ | ✓ | |
-| `flipH` | — | ✓ | ✓ | ✓ | |
-| `flipV` | — | ✓ | ✓ | ✓ | |
-| `newAdjustmentLayer` | — | ✓ | ✓ | ✓ | |
-| `createClippingMask` | — | ✓ | ✓ | ✓ | |
-| `releaseClippingMask` | — | ✓ | ✓ | ✓ | |
-| `batchBgRemove` | — | ✓ | ✓ | ✓ | |
-| `toolCrop` | — | ✓ | ✓ | ✓ | |
-| `extractPalette` | — | ✓ | ✓ | ✓ | |
-| `addAlphaMask` | — | ✓ | ✓ | ✓ | |
-| `addClipMask` | — | ✓ | ✓ | ✓ | |
-| `addLuminanceMask` | — | ✓ | ✓ | ✓ | |
-| `removeMask` | — | ✓ | ✓ | ✓ | |
-| `toggleMask` | — | ✓ | ✓ | ✓ | |
-| `invertMask` | — | ✓ | ✓ | ✓ | |
-| `flattenSelection` | — | ✓ | ✓ | ✓ | |
-| `rasterizeSelection` | — | ✓ | ✓ | ✓ | |
-| `mergeSelected` | — | ✓ | ✓ | ✓ | |
-| `booleanUnion` | — | ✓ | ✓ | ✓ | |
-| `booleanSubtract` | — | ✓ | ✓ | ✓ | |
-| `booleanIntersect` | — | ✓ | ✓ | ✓ | |
-| `booleanExclude` | — | ✓ | ✓ | ✓ | |
-| `runAudit` | — | ✓ | ✓ | ✓ | |
-| `scanDebt` | — | ✓ | ✓ | ✓ | |
-| `suggestNames` | — | ✓ | ✓ | ✓ | |
-| `detectDuplicates` | — | ✓ | ✓ | ✓ | |
+| `group` | `—` | ✓ | ✓ | ✓ |  |
+| `ungroup` | `—` | ✓ | ✓ | ✓ |  |
+| `flipH` | `—` | ✓ | ✓ | ✓ |  |
+| `flipV` | `—` | ✓ | ✓ | ✓ |  |
+| `newAdjustmentLayer` | `—` | ✓ | ✓ | ✓ |  |
+| `createClippingMask` | `—` | ✓ | ✓ | ✓ |  |
+| `releaseClippingMask` | `—` | ✓ | ✓ | ✓ |  |
+| `batchBgRemove` | `—` | ✓ | ✓ | ✓ |  |
+| `imageTrace` | `—` | ✓ | ✓ | ✓ |  |
+| `toolCrop` | `—` | ✓ | ✓ | ✓ |  |
+| `extractPalette` | `—` | ✓ | ✓ | ✓ |  |
+| `addAlphaMask` | `—` | ✓ | ✓ | ✓ |  |
+| `addClipMask` | `—` | ✓ | ✓ | ✓ |  |
+| `addLuminanceMask` | `—` | ✓ | ✓ | ✓ |  |
+| `removeMask` | `—` | ✓ | ✓ | ✓ |  |
+| `toggleMask` | `—` | ✓ | ✓ | ✓ |  |
+| `invertMask` | `—` | ✓ | ✓ | ✓ |  |
+| `flattenSelection` | `—` | ✓ | ✓ | ✓ |  |
+| `rasterizeSelection` | `—` | ✓ | ✓ | ✓ |  |
+| `mergeSelected` | `—` | ✓ | ✓ | ✓ |  |
+| `addClearSpaceGuides` | `—` | ✓ | ✓ | ✓ |  |
+| `booleanUnion` | `—` | ✓ | ✓ | ✓ |  |
+| `booleanSubtract` | `—` | ✓ | ✓ | ✓ |  |
+| `booleanIntersect` | `—` | ✓ | ✓ | ✓ |  |
+| `booleanExclude` | `—` | ✓ | ✓ | ✓ |  |
+| `path` | `—` | ✓ | ✓ | ✓ |  |
+| `expandStroke` | `—` | ✓ | ✓ | ✓ |  |
+| `offsetPath` | `—` | ✓ | ✓ | ✓ |  |
+| `roundCorners` | `—` | ✓ | ✓ | ✓ |  |
+| `simplifyPath` | `—` | ✓ | ✓ | ✓ |  |
+| `mirrorDuplicateHorizontal` | `—` | ✓ | ✓ | ✓ |  |
+| `mirrorDuplicateVertical` | `—` | ✓ | ✓ | ✓ |  |
+| `radialDuplicate` | `—` | ✓ | ✓ | ✓ |  |
+| `audit` | `—` | ✓ | ✓ | ✓ |  |
+| `auditSelection` | `—` | ✓ | ✓ | ✓ |  |
+| `auditPage` | `—` | ✓ | ✓ | ✓ |  |
+| `auditDocument` | `—` | ✓ | ✓ | ✓ |  |
+| `scanDebt` | `—` | ✓ | ✓ | ✓ |  |
+| `suggestNames` | `—` | ✓ | ✓ | ✓ |  |
+| `detectDuplicates` | `—` | ✓ | ✓ | ✓ |  |
 
 ## Arrange menu
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `bringFront` | — | ✓ | ✓ | ✓ | |
-| `bringForward` | — | ✓ | ✓ | ✓ | |
-| `sendBackward` | — | ✓ | ✓ | ✓ | |
-| `sendBack` | — | ✓ | ✓ | ✓ | |
-| `alignLeft` | — | ✓ | ✓ | ✓ | |
-| `alignCenterH` | — | ✓ | ✓ | ✓ | |
-| `alignRight` | — | ✓ | ✓ | ✓ | |
-| `alignTop` | — | ✓ | ✓ | ✓ | |
-| `alignCenterV` | — | ✓ | ✓ | ✓ | |
-| `alignBottom` | — | ✓ | ✓ | ✓ | |
-| `distributeHorizontal` | — | ✓ | ✓ | ✓ | |
-| `distributeVertical` | — | ✓ | ✓ | ✓ | |
-| `harmonizeSpacing` | — | ✓ | ✓ | ✓ | |
-| `nudgeLeft` | — | ✓ | ✓ | ✓ | |
-| `nudgeRight` | — | ✓ | ✓ | ✓ | |
-| `nudgeUp` | — | ✓ | ✓ | ✓ | |
-| `nudgeDown` | — | ✓ | ✓ | ✓ | |
+| `bringFront` | `—` | ✓ | ✓ | ✓ |  |
+| `bringForward` | `—` | ✓ | ✓ | ✓ |  |
+| `sendBackward` | `—` | ✓ | ✓ | ✓ |  |
+| `sendBack` | `—` | ✓ | ✓ | ✓ |  |
+| `align` | `—` | ✓ | ✓ | ✓ |  |
+| `alignLeft` | `—` | ✓ | ✓ | ✓ |  |
+| `alignCenterH` | `—` | ✓ | ✓ | ✓ |  |
+| `alignRight` | `—` | ✓ | ✓ | ✓ |  |
+| `alignTop` | `—` | ✓ | ✓ | ✓ |  |
+| `alignCenterV` | `—` | ✓ | ✓ | ✓ |  |
+| `alignBottom` | `—` | ✓ | ✓ | ✓ |  |
+| `distributeHorizontal` | `—` | ✓ | ✓ | ✓ |  |
+| `distributeVertical` | `—` | ✓ | ✓ | ✓ |  |
+| `tidySelected` | `—` | ✓ | ✓ | ✓ |  |
+| `harmonizeSpacing` | `—` | ✓ | ✓ | ✓ |  |
+| `nudgeLeft` | `—` | ✓ | ✓ | ✓ |  |
+| `nudgeRight` | `—` | ✓ | ✓ | ✓ |  |
+| `nudgeUp` | `—` | ✓ | ✓ | ✓ |  |
+| `nudgeDown` | `—` | ✓ | ✓ | ✓ |  |
 
 ## Page menu
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `createMaster` | — | ✓ | ✓ | ✓ | |
-| `applyMaster` | — | ✓ | ✓ | ✓ | |
-| `detachMaster` | — | ✓ | ✓ | ✓ | |
+| `createMaster` | `—` | ✓ | ✓ | ✓ |  |
+| `applyMaster` | `—` | ✓ | ✓ | ✓ |  |
+| `detachMaster` | `—` | ✓ | ✓ | ✓ |  |
 
 ## Help menu
 
 | Item | Cap | Web | Tauri | Mem | Notes |
 |------|-----|-----|-------|-----|-------|
-| `openHelp` | — | ✓ | ✓ | ✓ | |
-| `openHelpCenter` | — | ✓ | ✓ | ✓ | |
-| `whatIsThis` | — | ✓ | ✓ | ✓ | |
-| `startTour` | — | ✓ | ✓ | ✓ | |
-| `about` | — | ✓ | ✓ | ✓ | |
-| `installDesktopApp` | ¬`nativeMenu` | ✓ | — | ✓ | Also hidden if dismissed (localStorage) or in iframe |
-
-## Canvas context menu
-
-| Item | Cap | Web | Tauri | Mem | Notes |
-|------|-----|-----|-------|-----|-------|
-| `ctx-cut` | — | ✓ | ✓ | ✓ | |
-| `ctx-copy` | — | ✓ | ✓ | ✓ | |
-| `ctx-paste` | — | ✓ | ✓ | ✓ | |
-| `ctx-duplicate` | — | ✓ | ✓ | ✓ | |
-| `ctx-delete` | — | ✓ | ✓ | ✓ | |
-| `ctx-group` | — | ✓ | ✓ | ✓ | |
-| `ctx-ungroup` | — | ✓ | ✓ | ✓ | |
-| `ctx-selectAll` | — | ✓ | ✓ | ✓ | |
-
-## Summary
-
-| Status | Count |
-|--------|-------|
-| Always visible | 134 items |
-| Tauri-only (`archive`) | 2 items |
-| Browser-only (¬`archive`) | 2 items |
-| Browser-only (¬`nativeMenu`) | 1 item (installDesktopApp) |
-| **Total** | **139 items** |
-
-Counts are derived from the tables above (136 item rows plus `openRecent`,
-`reopenLast`, `workspaceLogo`). If you add or remove menu items in
-`packages/editor/src/menu/defs.ts`, update the tables and this summary
-together.
-
-No menu item currently requires `fs.watch`, `fs.recentPaths`, `multiWindow`,
-`fonts.local`, `clipboard.image`, `notifications`, or `autoUpdate` — these
-capabilities are reserved for future use.
+| `openHelp` | `—` | ✓ | ✓ | ✓ |  |
+| `openHelpCenter` | `—` | ✓ | ✓ | ✓ |  |
+| `whatIsThis` | `—` | ✓ | ✓ | ✓ |  |
+| `startTour` | `—` | ✓ | ✓ | ✓ |  |
+| `about` | `—` | ✓ | ✓ | ✓ |  |
+| `installDesktopApp` | `¬nativeMenu` | ✓ | — | ✓ | Visible when capability absent |

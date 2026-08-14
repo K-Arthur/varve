@@ -271,6 +271,20 @@ class ModelLoader {
       try {
         const blob = await loadModelBlob(modelId);
         if (blob) {
+          // A stored blob can predate this loader (legacy stores, partially
+          // completed downloads committed by an older writer). Verify it
+          // against the manifest before handing it to the runtime: a corrupt
+          // copy passing availability silently breaks inference deep inside
+          // the ONNX backend with an opaque error, and — worse — keeps the
+          // UI from ever offering the download path again.
+          const manifestEntry = await getManifestEntry(modelId, signal).catch(() => null);
+          if (manifestEntry?.sha256) {
+            const ok = await verifyModelChecksum(await blob.arrayBuffer(), manifestEntry.sha256);
+            if (!ok) {
+              await deleteModelBlob(modelId).catch(() => {});
+              return null;
+            }
+          }
           if (this.activeBlobUrl) {
             URL.revokeObjectURL(this.activeBlobUrl);
           }
@@ -477,6 +491,9 @@ class ModelLoader {
     return `${modelId}__externaldata`;
   }
 
+  /** One authoritative acquisition per model id; concurrent callers coalesce. */
+  private activeDownloads = new Map<string, Promise<void>>();
+
   /**
    * Fetch and store a model's external-weights sidecar, if it declares one.
    *
@@ -554,6 +571,25 @@ class ModelLoader {
   }
 
   async downloadModel(
+    modelId: string,
+    onProgress?: (loaded: number, total: number) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const active = this.activeDownloads.get(modelId);
+    if (active) return active;
+
+    const operation = this.downloadModelInternal(modelId, onProgress, signal);
+    this.activeDownloads.set(modelId, operation);
+    try {
+      await operation;
+    } finally {
+      if (this.activeDownloads.get(modelId) === operation) {
+        this.activeDownloads.delete(modelId);
+      }
+    }
+  }
+
+  private async downloadModelInternal(
     modelId: string,
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,

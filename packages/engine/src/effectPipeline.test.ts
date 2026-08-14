@@ -119,6 +119,30 @@ describe('effectPipeline', () => {
       expect(expected).toBe(228); // 200*0.5 + 255*0.5 = 227.5 → 228
     });
 
+    it('normalizes high-precision and CMYK tint colors before the display pass', () => {
+      const pixels = new Uint8ClampedArray([255, 255, 255, 255]);
+      const image = new ImageData(pixels, 1, 1);
+      const fakeCanvas = {
+        getImageData: () => image,
+        putImageData: (next: ImageData) => pixels.set(next.data),
+      } as unknown as CompositeCanvas;
+
+      applyGlassMaterialBackdrop(
+        fakeCanvas,
+        1,
+        1,
+        makeGlassEffect({
+          tint: { space: 'rgb' as const, bitDepth: 'float32' as const, r: 0.5, g: 0, b: 0, a: 1 },
+          tintOpacity: 0.5,
+        }),
+      );
+
+      // The tint is 127.5 display units, not the raw float value 0.5.
+      expect(pixels[0]).toBe(191);
+      expect(pixels[1]).toBe(128);
+      expect(pixels[2]).toBe(128);
+    });
+
     it('saturation=0 produces luma grayscale (manual pixel verification)', () => {
       // Verify the saturation formula matches replay.ts exactly:
       // luma = 0.2126*r + 0.7152*g + 0.0722*b

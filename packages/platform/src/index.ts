@@ -11,6 +11,25 @@
  * the adapter.
  */
 
+export type {
+  AssetEmbeddingDtype,
+  AssetEmbeddingIdentity,
+  AssetEmbeddingRecord,
+} from './assetEmbeddingIndex';
+export {
+  assetEmbeddingKey,
+  decodeFloat32Embedding,
+  encodeFloat32Embedding,
+  makeAssetEmbeddingRecord,
+} from './assetEmbeddingIndex';
+export type {
+  AssetSearchLane,
+  AssetSearchOptions,
+  AssetSearchReason,
+  AssetSearchResult,
+  NormalizedAssetQuery,
+} from './assetSearch';
+export { normalizeAssetSearchQuery, searchAssets } from './assetSearch';
 export type { PlatformKind } from './detect';
 export { detectPlatform, detectPlatformKind } from './detect';
 export { upsertPreservingMeta } from './filePersist';
@@ -63,6 +82,15 @@ export {
   setPlatformInfoForTest,
 } from './runtime';
 export type { ContentSearchMatch } from './searchIndex';
+export type { SemanticIndexHit, SemanticIndexSnapshot } from './semanticAssetIndex';
+export { SEMANTIC_INDEX_SCHEMA_VERSION, SemanticAssetIndex } from './semanticAssetIndex';
+export type { SemanticEmbeddingStore } from './semanticEmbeddingStore';
+export { IndexedDbSemanticEmbeddingStore, MemorySemanticEmbeddingStore } from './semanticEmbeddingStore';
+export type {
+  SemanticEmbeddingJob,
+  SemanticEmbeddingQueueStats,
+} from './semanticEmbeddingQueue';
+export { SemanticEmbeddingQueue } from './semanticEmbeddingQueue';
 export { createTauriPlatform } from './tauri';
 export * from './types';
 export type { WebPlatformOptions } from './web';

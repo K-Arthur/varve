@@ -1,5 +1,5 @@
 import type { FileKind } from '@varve/platform';
-import { Button, Icon, Popover } from '@varve/ui';
+import { Button, Popover, SemanticIcon } from '@varve/ui';
 import { useCallback } from 'react';
 
 export interface FilterDropdownProps {
@@ -127,7 +127,7 @@ export function FilterDropdown({
       }
     >
       <Button variant="ghost" aria-label={`Filters${count > 0 ? ` (${count} active)` : ''}`}>
-        <Icon name="ListFilter" label={undefined} />
+        <SemanticIcon name="Filter" size="sm" />
         Filters
         {count > 0 && <span className="filter-dropdown__badge">{count}</span>}
       </Button>

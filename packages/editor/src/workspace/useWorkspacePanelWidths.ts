@@ -8,35 +8,63 @@
  *   the new workspace's saved widths are applied.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   clampPanelWidthToViewport,
   defaultPanelWidth,
   type PanelSide,
 } from '../components/PanelResizeHandle';
-import { getPanelWidths, getWorkspacePreferences, savePanelWidths } from './workspaceStore';
+import { subscribeWorkspaceReset } from './workspaceResetEvents';
+import {
+  getPanelWidths,
+  getWorkspacePreferences,
+  savePanelWidths,
+  updateWorkspacePreferences,
+} from './workspaceStore';
 import type { PanelId, WorkspaceMode } from './workspaceTypes';
 
+/**
+ * useWorkspacePanelWidths — per-workspace panel width persistence.
+ *
+ * - When the workspace changes, the previous workspace's widths are saved and
+ *   the new workspace's saved widths are applied.
+ * - Reset events clear the live CSS overrides so a reset takes effect
+ *   immediately, not only after a restart.
+ *
+ * The return value was previously `{ saveCurrentWidths, restoreWorkspaceWidths }`
+ * — exported but never consumed anywhere. Widths are written on switch and on
+ * reset only, so those two callbacks were dead code and were removed.
+ */
 export function useWorkspacePanelWidths(
   workspaceMode: WorkspaceMode,
   widths: { layers: number | null; inspector: number | null },
   setWidth: (side: PanelSide, width: number | null) => void,
-): {
-  saveCurrentWidths: () => void;
-  restoreWorkspaceWidths: (mode: WorkspaceMode) => void;
-} {
+): void {
   const prevModeRef = useRef(workspaceMode);
+
+  // Resetting preferences updates the store synchronously, but the shell's
+  // width state is local to usePanelWidths. Clear the live CSS overrides too,
+  // otherwise reset appears to work only after a restart.
+  useEffect(() => {
+    return subscribeWorkspaceReset((scope) => {
+      if (scope.kind === 'all' || scope.mode === workspaceMode) {
+        setWidth('layers', null);
+        setWidth('inspector', null);
+      }
+    });
+  }, [workspaceMode, setWidth]);
 
   // Save current widths when workspace changes
   useEffect(() => {
     if (prevModeRef.current !== workspaceMode) {
       // Save the old workspace's widths
-      const prefs = getWorkspacePreferences();
       const widthsToSave: Partial<Record<PanelId, number>> = {};
       if (widths.layers !== null) widthsToSave.layers = widths.layers;
       if (widths.inspector !== null) widthsToSave.inspector = widths.inspector;
       if (Object.keys(widthsToSave).length > 0) {
-        savePanelWidths(prefs, prevModeRef.current, widthsToSave);
+        updateWorkspacePreferences((current) =>
+          savePanelWidths(current, prevModeRef.current, widthsToSave),
+        );
       }
 
       // Restore the new workspace's widths
@@ -68,46 +96,4 @@ export function useWorkspacePanelWidths(
       prevModeRef.current = workspaceMode;
     }
   }, [workspaceMode, widths.layers, widths.inspector, setWidth]);
-
-  const saveCurrentWidths = useCallback(() => {
-    const prefs = getWorkspacePreferences();
-    const widthsToSave: Partial<Record<PanelId, number>> = {};
-    if (widths.layers !== null) widthsToSave.layers = widths.layers;
-    if (widths.inspector !== null) widthsToSave.inspector = widths.inspector;
-    if (Object.keys(widthsToSave).length > 0) {
-      savePanelWidths(prefs, workspaceMode, widthsToSave);
-    }
-  }, [workspaceMode, widths.layers, widths.inspector]);
-
-  const restoreWorkspaceWidths = useCallback(
-    (mode: WorkspaceMode) => {
-      const prefs = getWorkspacePreferences();
-      const savedWidths = getPanelWidths(prefs, mode);
-      const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
-
-      if (savedWidths.layers !== undefined) {
-        const otherWidth = widths.inspector ?? defaultPanelWidth('inspector', viewport);
-        const clamped = clampPanelWidthToViewport(
-          'layers',
-          savedWidths.layers,
-          otherWidth,
-          viewport,
-        );
-        setWidth('layers', clamped);
-      }
-      if (savedWidths.inspector !== undefined) {
-        const otherWidth = widths.layers ?? defaultPanelWidth('layers', viewport);
-        const clamped = clampPanelWidthToViewport(
-          'inspector',
-          savedWidths.inspector,
-          otherWidth,
-          viewport,
-        );
-        setWidth('inspector', clamped);
-      }
-    },
-    [widths.layers, widths.inspector, setWidth],
-  );
-
-  return { saveCurrentWidths, restoreWorkspaceWidths };
 }

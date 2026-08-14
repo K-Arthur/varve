@@ -372,6 +372,13 @@ export function createTauriPlatform(): Platform {
     async deleteAsset(id) {
       await core().invoke('home_delete_asset', { id });
     },
+    async getAssetBytes() {
+      // Native asset commands are not implemented in the Rust backend; the
+      // desktop app currently runs the web platform adapter, which stores
+      // asset bytes in IndexedDB. Keep the contract explicit rather than
+      // invoking a command that does not exist.
+      return null;
+    },
     async searchAssets(query) {
       const c = core();
       return (await c.invoke('home_search_assets', { query })) as Asset[];
@@ -536,6 +543,14 @@ export function createTauriPlatform(): Platform {
         return false;
       }
     },
+    async checkFilesExist(paths) {
+      const c = core();
+      try {
+        return (await c.invoke('home_check_files_exist', { paths })) as boolean[];
+      } catch {
+        return paths.map(() => false);
+      }
+    },
 
     async getViewState() {
       try {
@@ -674,9 +689,20 @@ export function createTauriPlatform(): Platform {
 
     async readDocumentText(path) {
       try {
-        return (await core().invoke('home_read_text_file_approved', { path })) as string;
-      } catch {
-        return undefined;
+        const text = (await core().invoke('home_read_text_file_approved', {
+          path,
+        })) as string;
+        return { ok: true, text };
+      } catch (err) {
+        const detail = (err ?? {}) as { kind?: string; message?: string };
+        if (detail.kind === 'NOT_FOUND') {
+          return { ok: false, reason: 'missing' };
+        }
+        return {
+          ok: false,
+          reason: 'unreadable',
+          message: detail.message ?? String(err),
+        };
       }
     },
     async saveBinaryFile(name, data, mimeType, extension) {
@@ -710,18 +736,24 @@ export function createTauriPlatform(): Platform {
       });
     },
     async writeBinaryFileToFolder(folder, relativePath, data) {
-      const normalized = relativePath.replaceAll('\\', '/');
+      // Export plans use the portable `/` separator. Native joining and
+      // containment are performed by the Rust command after this cheap
+      // intent check; this function never rewrites separators for a host OS.
       if (
-        normalized.startsWith('/') ||
-        /^[a-zA-Z]:/.test(normalized) ||
-        normalized.split('/').some((part) => part === '' || part === '.' || part === '..')
+        relativePath.length === 0 ||
+        relativePath.startsWith('/') ||
+        relativePath.startsWith('\\') ||
+        /^[a-zA-Z]:/.test(relativePath) ||
+        relativePath.includes('\\') ||
+        relativePath.split('/').some((part) => part.length === 0 || part === '.' || part === '..')
       ) {
         throw new Error('Export path must be a safe relative path');
       }
-      const separator = folder.includes('\\') && !folder.includes('/') ? '\\' : '/';
-      const path = `${folder.replace(/[\\/]$/, '')}${separator}${normalized.replaceAll('/', separator)}`;
-      await core().invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
-      return path;
+      return (await core().invoke('write_binary_file_to_folder', {
+        folder,
+        relativePath,
+        data: arrayBufferForBytes(data),
+      })) as string;
     },
 
     async listPrinters() {

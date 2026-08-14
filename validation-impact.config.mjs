@@ -340,5 +340,10 @@ export const IMPACT_CONFIG = {
     workflow: ['tests/e2e/workflow/**'],
     format: ['tests/e2e/format/**'],
     editor: ['tests/e2e/editor/**'],
+    import: [
+      'tests/e2e/canvas/table-import.spec.ts',
+      'tests/e2e/lut/lut-import.spec.ts',
+      'tests/e2e/gradient-map/import-workflow.spec.ts',
+    ],
   },
 };

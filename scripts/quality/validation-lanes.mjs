@@ -81,6 +81,7 @@ export function laneCommand(lane, pkgDir) {
   }
   if (lane.startsWith('typecheck:') && !lane.endsWith(':all')) {
     const name = lane.slice('typecheck:'.length);
+    if (!pkgDir && !packageDirs[name]) return null;
     return `pnpm --filter ${name} typecheck`;
   }
   if (lane.startsWith('rust-test:') && !lane.endsWith(':all')) {

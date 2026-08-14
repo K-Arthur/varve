@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Color & Effects" description="Varve's color management: RGB and CMYK with ICC profiles, blend modes, shadows, blur, adjustment layers, and halftone screening for print.">
+<Layout title="Color & Effects" description="Varve's precision-aware color workflow: local image palette extraction, native CMYK document colors, RGB and grayscale, ICC profiles, soft proofing, effects, and print export.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,38 +12,80 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Color & Effects</h1>
       <p class="feature-intro">
-        RGB and CMYK color management with ICC profiles, blend modes, layer effects, adjustment layers, halftone screening, and AI background removal.
+        Keep print colors meaningful from document to export. Varve stores native CMYK values alongside RGB, grayscale, and spot colors, then carries precision-aware working values through conversion, gradients, effects, and proofing.
       </p>
 
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve provides color management across RGB, CMYK, and grayscale color spaces with ICC profile support. The effects system includes drop shadows, inner shadows, layer blur, background blur, and glow effects. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
+          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes drop shadows, inner shadows, layer blur, background blur, and glow effects. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print production.
         </p>
       </section>
+
+      <section class="feature-section">
+        <h2>From Image to Working Palette</h2>
+        <p>
+          In Appearance → Palette, a bounded preview is analysed locally in perceptual Oklab. Large image files are not uploaded or scanned at full resolution by the editor path, and transparent pixels are handled explicitly.
+        </p>
+        <ul>
+          <li><strong>Useful roles:</strong> dominant, primary, secondary, accent, and neutral candidates with coverage information</li>
+          <li><strong>Generated harmonies:</strong> complementary, analogous, triadic, split-complementary, and monochromatic suggestions clearly labelled as derived—not sampled</li>
+          <li><strong>Accessibility review:</strong> WCAG 2.1 body-text and large-text contrast thresholds with foreground/background previews</li>
+          <li><strong>Reusable output:</strong> copy HEX values, apply a sampled colour as a fill, or save extracted colours as document swatches and variables</li>
+        </ul>
+        <p>
+          Palette roles are helpful starting points rather than semantic image understanding. Review the final type, profile, and export context before publishing.
+        </p>
+      </section>
+
+      <figure class="feature-visual">
+        <img
+          src={sitePath('/screenshots/palette-inspector-light.png')}
+          alt="Varve showing a colorful image on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs"
+          width="1440"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.</figcaption>
+      </figure>
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
           <li><strong>Color spaces:</strong> RGB, CMYK, grayscale, and spot colors with analytical conversion</li>
+          <li><strong>Native document color:</strong> CMYK channels stay tagged as CMYK in the document model, ready for print-oriented editing and export</li>
+          <li><strong>Precision-aware working:</strong> 16-bit integer and floating-point channel values stay distinct through supported conversions, gradients, effects, and proof transforms; quantization is explicit at a display or codec boundary</li>
+          <li><strong>Document color settings:</strong> Inspector controls for precision (8-bit, 16-bit, 16f, 32f) and blend space (sRGB or linear-light), plus an explicit Assign vs Convert dialog for mode changes — assign keeps values, convert rewrites them in one undoable step</li>
+          <li><strong>Precision-preserving editing:</strong> bit-depth-aware numeric fields (0-255 / 0-65535 / 0-1), float HSV drafts, and swatches that carry the full canonical color — editing one channel never quantizes the others, and 16-bit values survive save/reopen exactly</li>
+          <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved — no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
           <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
           <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
           <li><strong>Effects:</strong> Drop shadow, inner shadow, layer blur (GPU-accelerated up to 32px, software beyond), background blur, outer and inner glow</li>
           <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
           <li><strong>Halftone screening:</strong> AM (clustered-dot, 5 dot shapes) and FM (Floyd-Steinberg + Bayer) with standard CMYK angles</li>
           <li><strong>Soft proofing:</strong> CMYK simulation overlay for previewing print output on screen</li>
-          <li><strong>Background removal:</strong> AI-based removal with u2netp (bundled) and BiRefNet-Lite models, hair edge refinement, subject picker</li>
+          <li><strong>Background removal:</strong> Fast, Auto, and High quality local cutouts with optional IS-Net/BiRefNet models, hair-edge refinement, subject picker, and an undoable mask workflow</li>
           <li><strong>Retouching tools:</strong> Clone stamp, healing brush, spot heal, patch tool</li>
         </ul>
       </section>
 
       <section class="feature-section">
-        <h2>Technical Depth</h2>
+        <h2>Print Preview, Honestly</h2>
         <p>
-          Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses separable Gaussian kernels with premultiplied alpha and linear-light compositing for radii above 32px. Adjustment layers support 5 scoping modes for targeting specific layers.
+          Native desktop export is the print authority: it can apply the selected document profile, rendering intent, bleed, marks, and PDF/X settings. Browser previews use the browser's sRGB display path and current RGBA8 canvas surfaces, so they are useful for layout and directional proofing—not a substitute for a calibrated monitor or an exported contract proof.
         </p>
         <p>
-          The halftone engine implements ISO 12647-2 standard CMYK screen angles. Background removal runs via an ONNX Runtime pipeline with native desktop support (faster) and WASM worker fallback for web.
+          Authoring precision — 16-bit and floating-point vector colors, precision-aware picker fields, and high-precision persistence through save/reopen — is shipped. High-precision raster decode (16-bit PNG/TIFF pixels), CMYK raster planes, and high-precision GPU preview targets remain active integration areas. The document model and typed working-buffer boundaries are designed so those paths can be added without silently rewriting stored color values.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with bit-depth-aware channels and analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses separable Gaussian kernels with premultiplied alpha and linear-light compositing for radii above 32px. Adjustment layers support 5 scoping modes for targeting specific layers.
+        </p>
+        <p>
+          The halftone engine implements ISO 12647-2 standard CMYK screen angles. Background removal runs locally through an ONNX Runtime pipeline: the browser worker handles the compatible path, while native desktop execution is preferred for heavier models.
         </p>
       </section>
 
@@ -52,9 +94,10 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Color storage is 8-bit RGBA (no 16-bit or floating-point pipeline)</li>
-            <li>Canvas bleed and trim visualization not implemented (bleed is export-time only)</li>
-            <li>Background removal with BiRefNet-Lite requires native desktop (crashes WASM at 4GB memory limit)</li>
+            <li>Browser canvas and ImageData display surfaces remain 8-bit; higher-precision working buffers are available where the selected pipeline supports them, but they do not change the browser display surface</li>
+            <li>Profile-aware raster decode, CMYK raster-plane import, and high-precision GPU render targets are not yet the default browser path</li>
+            <li>Print bleed and trim guides are available in the current print workflow; exported geometry remains the final authority</li>
+            <li>Heavier background-removal models are provider- and memory-dependent. Unsafe bare-WASM runs are blocked before allocation and the UI explains any reduced-quality fallback.</li>
           </ul>
         </div>
       </section>
@@ -63,7 +106,7 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Status</h2>
         <div class="status-badge built">
           <span class="badge-text">Built</span>
-          <p>Color management, effects, adjustment layers, halftone, and background removal are functional. Canvas bleed visualization and 16-bit color pipeline are deferred.</p>
+          <p>Color management, native CMYK document values, effects, adjustment layers, halftone, background removal, precision-aware working buffers, and print guides are functional. Some browser display, raster decode, and GPU effect boundaries still use display precision.</p>
         </div>
       </section>
 
@@ -109,6 +152,27 @@ import { sitePath } from '../../lib/siteUrl';
   
   .feature-section {
     margin-bottom: 3rem;
+  }
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
   }
   
   .feature-section h2 {

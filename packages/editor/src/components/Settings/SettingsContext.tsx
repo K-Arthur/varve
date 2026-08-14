@@ -21,6 +21,7 @@ export type SettingsSection =
   | 'collab'
   | 'ai'
   | 'privacy'
+  | 'updates'
   | 'about';
 
 export interface SettingsContextValue {

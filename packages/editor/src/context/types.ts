@@ -154,6 +154,24 @@ export interface BackgroundRemovalPreviewSession {
   precisionFallbackReason?: string;
 }
 
+/** Transient Object Selection state. Never serialized or added to history. */
+export interface ObjectSelectionSession {
+  nodeId: NodeId;
+  width: number;
+  height: number;
+  candidates: Array<{
+    mask: Uint8Array;
+    confidence: number;
+  }>;
+  selectedCandidate: number;
+  points: Array<{ x: number; y: number; label: 0 | 1 }>;
+  box: { x1: number; y1: number; x2: number; y2: number } | null;
+  confidence: number;
+  status: 'previewing' | 'ready' | 'error';
+  modelId: string;
+  executionProvider?: string;
+}
+
 export type CanvasMode = 'full' | 'outline' | 'preview';
 
 export type RulerMode = 'global' | 'artboard';
@@ -447,6 +465,7 @@ export interface EditorState {
   /** Component ID being hovered/focused in the subject picker, for canvas highlighting. */
   subjectHighlightId: number | null;
   backgroundRemovalPreviewSession: BackgroundRemovalPreviewSession | null;
+  objectSelectionSession: ObjectSelectionSession | null;
   keyObjectId: string | null;
   alignToPage: boolean;
   colorBlindnessView: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
@@ -491,6 +510,10 @@ export interface EditorState {
   vectorizeDialogOpen: boolean;
   /** Re-trace target for the Image Trace dialog (Edit Trace workflow). */
   vectorizeDialogPrefill: { replaceGroupId: string } | null;
+  /** Whether the Extract Color Palette dialog is open. */
+  paletteExtractDialogOpen: boolean;
+  /** Source image URL the palette dialog is analyzing. */
+  paletteExtractSrc: string | null;
   /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
@@ -771,6 +794,12 @@ export interface EditorContextValue {
   ) => void;
   /** Trim image bounds to the non-transparent alpha region of a background-removal mask. */
   trimToSubject: (padding?: number) => Promise<void>;
+  /** Position the crop window to keep detected faces in frame. Returns true
+   * when a face-aware crop was applied. */
+  applyFaceAwareCrop: (options?: {
+    safetyMargin?: number;
+    minimumConfidence?: number;
+  }) => Promise<boolean>;
   /** Expand image bounds by adding transparent space around the content. */
   expandImageBounds: (
     padding: number,
@@ -860,7 +889,7 @@ export interface EditorContextValue {
   setLayerColor: (id: NodeId, color: LayerColor) => void;
 
   // Masks
-  addMaskToSelected: (type?: import('@varve/scene').MaskType) => void;
+  addMaskToSelected: (type?: import('@varve/scene').MaskType, sourceNodeId?: NodeId) => void;
   removeMaskFromSelected: () => void;
   toggleMask: () => void;
   invertMask: () => void;
@@ -941,6 +970,11 @@ export interface EditorContextValue {
   copySelected: () => void;
   cutSelected: () => void;
   paste: () => void;
+  /** Copy the visual properties (fills, strokes, effects, typography) of the
+   *  first selected node for style-painter pasting. */
+  copySelectedProperties: () => void;
+  /** Apply the copied properties to every selected node (one undo entry). */
+  pastePropertiesToSelection: () => void;
   importNode: (
     node: SceneNode,
     sourceDoc: Document,
@@ -992,6 +1026,11 @@ export interface EditorContextValue {
   vectorizeDialogOpen: boolean;
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeVectorizeDialog: () => void;
+
+  // Extract Color Palette dialog
+  paletteExtractDialogOpen: boolean;
+  openPaletteExtract: (src: string) => void;
+  closePaletteExtract: () => void;
 
   // Archive
   showArchiveDialog: boolean;
@@ -1049,8 +1088,10 @@ export interface EditorContextValue {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
+  selectSam2Candidate: (index: number) => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;
@@ -1134,6 +1175,8 @@ export interface EditorContextValue {
   removeTrack: (timelineId: string, trackId: string) => void;
   toggleTimelinePanel: () => void;
   toggleHistoryPanel: () => void;
+  /** Restore every panel's visibility for the active workspace (recovery path). */
+  restoreAllPanels: () => void;
   addTimelineMarker: (timelineId: string, name: string, progress: number) => void;
   removeTimelineMarker: (timelineId: string, markerId: string) => void;
   renameTimelineMarker: (timelineId: string, markerId: string, name: string) => void;
@@ -1257,6 +1300,16 @@ export interface EditorContextValue {
    * the desktop engine.
    */
   convertDocumentColors: (mode: ColorMode) => void;
+  /**
+   * Set the document's default bit depth for newly authored colors. Does
+   * not rewrite existing values.
+   */
+  setDocumentBitDepth: (bitDepth: import('@varve/scene').BitDepth) => void;
+  /**
+   * Set the document's compositing working space ('srgb' | 'linear').
+   * A settings change; existing values are not rewritten.
+   */
+  setDocumentWorkingSpace: (space: import('@varve/scene').WorkingSpace) => void;
 
   // Soft proofing
   /** Persisted proof configuration (document print intent). */

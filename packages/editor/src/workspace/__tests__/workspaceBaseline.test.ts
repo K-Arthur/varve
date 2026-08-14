@@ -26,10 +26,12 @@ import {
 } from '../../components/PanelResizeHandle';
 import {
   getEffectivePanelConfig,
+  getPanelWidths,
   isModeCustomized,
   loadWorkspacePreferences,
   resetAllPreferences,
   resetModePreferences,
+  savePanelWidths,
   saveWorkspacePreferences,
   setPanelOverride,
 } from '../workspaceStore';
@@ -189,7 +191,7 @@ describe('workspace panel baseline: preference store (workspaceStore.ts)', () =>
     const after = getEffectivePanelConfig('design', prefs, 'layers');
     expect(after.visible).toBe(false);
     // Unoverridden fields still come from the base config.
-    expect(after.order).toBe(before.order);
+    expect(after.preferredWidth).toBe(before.preferredWidth);
   });
 
   it('resetModePreferences clears customization for one mode only', () => {
@@ -212,6 +214,27 @@ describe('workspace panel baseline: preference store (workspaceStore.ts)', () =>
     const prefs = loadWorkspacePreferences();
     expect(prefs.design?.customized).toBe(true);
     expect(prefs.design?.panelOverrides?.layers?.visible).toBe(false);
+  });
+
+  it('round-trips per-workspace panel widths and drops invalid values', () => {
+    let prefs = loadWorkspacePreferences();
+    prefs = savePanelWidths(prefs, 'design', { layers: 312, inspector: 404 });
+    saveWorkspacePreferences(prefs);
+
+    const reloaded = loadWorkspacePreferences();
+    expect(getPanelWidths(reloaded, 'design')).toEqual({ layers: 312, inspector: 404 });
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          panelWidths: { layers: 0, inspector: 'wide', notAPanel: 500 },
+        },
+      }),
+    );
+    const sanitized = loadWorkspacePreferences();
+    expect(getPanelWidths(sanitized, 'design')).toEqual({});
   });
 
   it('prefers the current key over the legacy key', () => {

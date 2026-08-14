@@ -712,6 +712,7 @@ export function CanvasArea({
     state.cameraRotation,
     state.canvasMode,
     state.themeRevision,
+    state.showOriginalBgNodeId,
     imageCacheStamp,
     fontLoadStamp,
     redrawCount,

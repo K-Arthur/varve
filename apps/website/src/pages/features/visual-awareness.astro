@@ -1,0 +1,114 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+---
+
+<Layout
+  title="Visual awareness - Varve"
+  description="Local, task-specific visual tools for editable masks, subject workflows, and future face-aware composition."
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Visual awareness
+      </nav>
+
+      <div class="feature-kicker"><StatusPill status="planned" label="In development" /></div>
+      <h1>Visual awareness, on the designer's terms.</h1>
+      <p class="feature-intro">
+        Varve is building task-specific visual tools that help with real design decisions without
+        turning your document into a model playground.
+      </p>
+
+      <section class="workflow-band" aria-label="Visual awareness principles">
+        <div>
+          <span class="workflow-label">A request</span>
+          <strong>Protect faces</strong>
+        </div>
+        <span class="workflow-arrow" aria-hidden="true">&rarr;</span>
+        <div>
+          <span class="workflow-label">A capability</span>
+          <strong>Face bounds</strong>
+        </div>
+        <span class="workflow-arrow" aria-hidden="true">&rarr;</span>
+        <div>
+          <span class="workflow-label">An editable result</span>
+          <strong>Non-destructive crop</strong>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Available today</h2>
+        <div class="link-grid">
+          <a href={sitePath('/features/object-selection')}>
+            <strong>Object Selection</strong>
+            <span>Prompt an image locally, refine the mask, and keep the result editable.</span>
+          </a>
+          <a href={sitePath('/features/background-removal')}>
+            <strong>Background removal</strong>
+            <span>Choose a local quality level and review the mask before applying it.</span>
+          </a>
+        </div>
+        <p class="feature-note">
+          <strong>Protect Faces</strong> is available in crop mode: a small bundled local model keeps
+          detected faces in frame with a non-destructive crop.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>In development</h2>
+        <ul>
+          <li>Face-protected effects and static landmarks for meaningful anchors.</li>
+          <li>Additional hand, pose, object, and person workflows only when a design feature needs them.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section feature-section--note">
+        <h2>Local by default, honest by design</h2>
+        <p>
+          Images are not uploaded for these workflows. The face model is a small bundled
+          model (233 KB, MIT) verified by checksum, and larger model downloads are explicit
+          and checksum-verified when present. Importing an image does not silently trigger a
+          general vision scan, and visual results do not become a hidden rendering dependency.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <a href={sitePath('/docs/tools/visual-awareness')} class="btn-primary">Read the workflow notes</a>
+        <a href={sitePath('/features/object-selection')} class="btn-secondary">Use Object Selection</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 900px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 2rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-kicker { margin-bottom: 1rem; }
+  .feature-page h1 { max-width: 760px; font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.02; font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1.25rem; }
+  .feature-intro { max-width: 700px; font-size: 1.25rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 3rem; }
+  .workflow-band { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 1rem; margin-bottom: 4rem; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: 0.75rem; background: var(--surface-muted); }
+  .workflow-band div { display: grid; gap: 0.35rem; }
+  .workflow-label { color: var(--text-tertiary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .workflow-band strong { color: var(--text-primary); }
+  .workflow-arrow { color: var(--accent-primary); font-size: 1.4rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { color: var(--text-primary); font-size: 1.6rem; margin-bottom: 0.9rem; }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.8; }
+  .feature-section li + li { margin-top: 0.65rem; }
+  .link-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+  .link-grid a { display: grid; gap: 0.5rem; padding: 1.25rem; border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); text-decoration: none; }
+  .link-grid a:hover { border-color: var(--border-accent); }
+  .link-grid span { color: var(--text-secondary); line-height: 1.6; }
+  .feature-note { margin-top: 1.25rem; color: var(--text-secondary); line-height: 1.7; }
+  .feature-section--note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); text-decoration: none; }
+  @media (max-width: 680px) {
+    .workflow-band { grid-template-columns: 1fr; }
+    .workflow-arrow { transform: rotate(90deg); justify-self: start; }
+    .link-grid { grid-template-columns: 1fr; }
+  }
+</style>

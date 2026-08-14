@@ -189,3 +189,51 @@ describe('downsample-blur-upsample', () => {
     expect(stdDev).toBeLessThan(42);
   });
 });
+
+describe('gaussianBlurLinearLight precision', () => {
+  it('is a no-op for radius 0', () => {
+    const src = makeGradient(16, 16);
+    const out = gaussianBlurLinearLight(src, 0);
+    expect(out.width).toBe(16);
+    expect(out.height).toBe(16);
+    expect(maxAbsDiff(src, out)).toBe(0);
+  });
+
+  it('keeps dark gradients smooth (no byte-linear collapse)', () => {
+    // Input channels 0..15: the old implementation quantized linear values
+    // to bytes before blurring (srgbToLinear(1)*255 ≈ 0.08 → 0), collapsing
+    // several dark inputs into the same level. The float working space
+    // preserves every input level through the convolution.
+    const w = 32;
+    const data = new Uint8ClampedArray(w * 4);
+    for (let x = 0; x < w; x++) {
+      const v = Math.round((x / (w - 1)) * 15);
+      data[x * 4] = v;
+      data[x * 4 + 1] = v;
+      data[x * 4 + 2] = v;
+      data[x * 4 + 3] = 255;
+    }
+    const src = new ImageData(data, w, 1);
+    const out = gaussianBlurLinearLight(src, 2);
+    const distinct = new Set<number>();
+    for (let x = 0; x < w; x++) distinct.add(out.data[x * 4]!);
+    // The blurred ramp must retain (nearly) all 16 input levels.
+    expect(distinct.size).toBeGreaterThanOrEqual(13);
+  });
+
+  it('does not blow up at very low alpha (float premultiply)', () => {
+    const data = new Uint8ClampedArray(4);
+    data[0] = 220;
+    data[1] = 40;
+    data[2] = 20;
+    data[3] = 1; // alpha = 1/255
+    const src = new ImageData(data, 1, 1);
+    const out = gaussianBlurLinearLight(src, 1);
+    // Unpremultiplied channels must stay finite and within byte range.
+    for (const v of [out.data[0]!, out.data[1]!, out.data[2]!]) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(255);
+      expect(Number.isFinite(v)).toBe(true);
+    }
+  });
+});

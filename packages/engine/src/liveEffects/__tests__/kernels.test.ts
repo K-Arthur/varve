@@ -313,6 +313,25 @@ describe('dither', () => {
     expect(snapshot(img)).toBe(before);
   });
 
+  it('paletteMode none is also a no-op for ordered patterns', () => {
+    const img = makeImage(16, 16, gradient);
+    const before = snapshot(img);
+    applyDither(img, {
+      algorithm: 'bayer',
+      paletteMode: 'none',
+      levels: 1,
+      colors: [],
+      metric: 'rgb',
+      serpentine: false,
+      strength: 1,
+      bayerSize: 4,
+      cellSize: 1,
+      alphaCutoff: 0,
+      seed: 0,
+    });
+    expect(snapshot(img)).toBe(before);
+  });
+
   it('transparent pixels below cutoff stay transparent', () => {
     const img = makeImage(8, 8, () => [200, 200, 200, 0]);
     applyDither(img, {
@@ -389,6 +408,31 @@ describe('dither', () => {
     // shifted row is the base row slid left by one cell.
     expect(shifted.slice(0, 28 * 4)).toEqual(base.slice(4 * 4, 32 * 4));
     expect(render(1).slice(0, 32 * 4)).not.toEqual(base.slice(0, 32 * 4));
+  });
+
+  it('Bayer phase remains valid for negative document coordinates', () => {
+    const img = makeImage(16, 16, () => [128, 128, 128, 255]);
+    applyDither(
+      img,
+      {
+        algorithm: 'bayer',
+        paletteMode: 'levels',
+        levels: 2,
+        colors: [],
+        metric: 'rgb',
+        serpentine: false,
+        strength: 1,
+        bayerSize: 4,
+        cellSize: 1,
+        alphaCutoff: 0,
+        seed: 0,
+      },
+      { scale: 1, originX: 0, originY: 0, regionX: -1, regionY: -1 },
+    );
+    expect(Array.from(img.data).some((value) => value > 0)).toBe(true);
+    for (let i = 0; i < img.data.length; i += 4) {
+      expect([0, 85, 170, 255]).toContain(img.data[i]);
+    }
   });
 });
 
