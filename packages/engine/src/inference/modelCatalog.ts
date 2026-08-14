@@ -27,7 +27,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 3,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 18_800_000,
+    peakMemoryBytes: 330_000_000,
     gpuRecommended: false,
   },
   {
@@ -73,7 +73,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 714_600_000,
+    peakMemoryBytes: 1_300_000_000,
     gpuRecommended: true,
   },
   {
@@ -89,7 +89,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4.5,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 896_000_000,
+    peakMemoryBytes: 7_000_000_000,
     gpuRecommended: true,
   },
   {
@@ -97,7 +97,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     name: 'BiRefNet Full',
     description:
       'Best quality segmentation for hair, fur, transparency, and fine detail. ' +
-      '~973MB download. Requires ~3.7GB peak memory. Not recommended on systems with less than 8GB RAM. ' +
+      '~973MB download. Measured retained RSS ~8.5GB (native CPU FP32, 2026-08-13). ' +
+      'Not recommended on systems with less than 16GB RAM. ' +
       'SHA-256 verified from the rembg release archive.',
     sizeBytes: 972_666_916,
     remoteUrl:
@@ -108,9 +109,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 5,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 3_890_000_000,
+    peakMemoryBytes: 8_500_000_000,
     gpuRecommended: true,
-    // ~973MB download, ~3.9GB peak. Use with caution on <8GB systems.
+    // ~973MB download; measured retained RSS ~8.5GB (native CPU, FP32). Use with caution on <16GB systems.
   },
   {
     id: 'upscale-realesr-general',
@@ -238,10 +239,10 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         id: 'sam2-hiera-tiny-encoder',
         role: 'encoder',
         filename: 'sam2_hiera_tiny.encoder.onnx',
-        sizeBytes: 134_261_315,
+        sizeBytes: 134261247,
         remoteUrl:
           'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
-        checksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
+        checksum: 'b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf',
       },
       {
         id: 'sam2-hiera-tiny-decoder',
@@ -262,7 +263,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     sizeBytes: 134_261_315,
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
-    checksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
+    checksum: 'b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf',
     bundled: false,
     inputSpec: null,
     quality: 3.5,
@@ -311,10 +312,10 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         id: 'sam2-hiera-small-encoder',
         role: 'encoder',
         filename: 'sam2_hiera_small.encoder.onnx',
-        sizeBytes: 162_703_493,
+        sizeBytes: 162703425,
         remoteUrl:
           'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.encoder.onnx',
-        checksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+        checksum: '49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3',
       },
       {
         id: 'sam2-hiera-small-decoder',
@@ -335,7 +336,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     sizeBytes: 162_703_493,
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.encoder.onnx',
-    checksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+    checksum: '49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3',
     bundled: false,
     inputSpec: null,
     quality: 4,
