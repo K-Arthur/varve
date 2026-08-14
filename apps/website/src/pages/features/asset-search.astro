@@ -17,8 +17,8 @@ import StatusPill from '../../components/StatusPill.astro';
       <div class="feature-kicker"><StatusPill status="available" /></div>
       <h1>Find the asset you remember.</h1>
       <p class="feature-intro">
-        Search the local asset library using the clue you still have: a filename, recognized text,
-        tag, path, or description. Varve keeps retrieval inside the asset browser instead of
+        Search the local asset library using the clue you still have: a description, a filename,
+        recognized text, a tag, a path. Varve keeps retrieval inside the asset browser instead of
         turning a simple lookup into a chat session.
       </p>
 
@@ -38,7 +38,7 @@ import StatusPill from '../../components/StatusPill.astro';
           <article><h3>Filename and path</h3><p>Exact identifiers such as <code>IMG_4821</code> stay precise.</p></article>
           <article><h3>Recognized text</h3><p>OCR results can surface scans, invoices, and presentation slides.</p></article>
           <article><h3>Tags and metadata</h3><p>Kind, MIME type, descriptions, and user tags remain searchable.</p></article>
-          <article><h3>Visual description</h3><p>The Similar panel can compare a local text description with document images after the opt-in model download.</p></article>
+          <article><h3>Visual description</h3><p>After the opt-in local model download, the Asset Browser ranks matching images when you describe what you remember — and the Similar panel compares text descriptions with document images.</p></article>
         </div>
       </section>
 
@@ -46,8 +46,9 @@ import StatusPill from '../../components/StatusPill.astro';
         <h2>Visual search is opt-in and experimental</h2>
         <p>
           The local image/text embedding pair is downloaded only when you ask for it and remains
-          inside the app. It is a ranking aid—not a quality guarantee—and filename, OCR, tags, and
-          metadata search continue to work without the model.
+          inside the app: queries, embeddings, and ranking never leave the device. It is a ranking
+          aid—not a quality guarantee—and filename, OCR, tags, and metadata search continue to
+          work without the model.
         </p>
       </section>
 

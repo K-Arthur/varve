@@ -3,33 +3,34 @@ import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
 ---
 
-<Layout title="Asset Similarity Documentation" description="How Varve's local image-to-image similarity and near-duplicate workflow works today.">
+<Layout title="Asset Similarity Documentation" description="How Varve's local similarity, natural-language search, and near-duplicate workflow works today.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href={sitePath('/docs')}>Documentation</a> / Asset Similarity
       </nav>
       <h1>Asset Similarity</h1>
-      <p class="docs-intro">A practical guide to the current experimental image-to-image workflow.</p>
+      <p class="docs-intro">A practical guide to the current experimental image, text, and near-duplicate workflows.</p>
 
       <section class="docs-section">
-        <h2>Open the workflow</h2>
-        <p>Select an image in a document, open the Intelligence panel, and choose <strong>Similar</strong> or <strong>Near duplicates</strong>. The first use may offer an explicit download for the optional local model.</p>
+        <h2>Describe what you remember</h2>
+        <p>In the <strong>Asset Browser</strong>, type a description like "orange sunset over mountains" and matching local images rank by visual content once the optional model is installed. The search field stays a search field: filenames, OCR text, tags, and metadata keep working with or without the model, and exact filename queries keep their ordering guarantee. Images are indexed in the background (bounded queue, deduplicated by content hash).</p>
+        <p>In a document, select an image, open the Intelligence panel, and choose <strong>Similar</strong> or <strong>Near duplicates</strong>. The Similar tab also accepts a free-text description. The first use may offer an explicit download for the optional local models.</p>
       </section>
       <section class="docs-section">
         <h2>Which mode should I use?</h2>
         <ul>
-          <li><strong>Similar</strong> searches compatible semantic image vectors and does not hash-prefilter candidates.</li>
+          <li><strong>Similar</strong> searches compatible semantic image vectors and does not hash-prefilter candidates. It accepts an image or a text description.</li>
           <li><strong>Near duplicates</strong> favors exact content identity and visual fingerprints. It is the better choice for exports, resized copies, and lightly edited variants.</li>
         </ul>
       </section>
       <section class="docs-section">
         <h2>Privacy and limitations</h2>
-        <p>Inference runs locally in a worker once the model is installed. The current workflow scans up to 30 images in the open document. It does not support text prompts, persistent cross-project indexing, automatic clustering, or automatic deletion.</p>
+        <p>Inference runs locally in a worker once the models are installed. Queries, embeddings, and ranking never leave the device. Similarity is a ranking aid, not objective truth — results can overemphasize style, composition, background, or color. The document panel scans up to 30 images; the Asset Browser indexes the current library in the background. Automatic clustering and automatic deletion are not supported.</p>
       </section>
       <section class="docs-section">
         <h2>Model notes</h2>
-        <p>Varve currently uses the existing checksum-pinned SigLIP base patch16/224 ONNX image encoder. DINOv2 and DINOv3 are evaluation candidates, not shipped defaults. A model change requires reference-vector parity, retrieval-quality evidence on a Varve corpus, and a license/distribution review.</p>
+        <p>Varve currently uses the checksum-pinned SigLIP base patch16/224 ONNX image encoder and its matching text encoder with a parity-verified tokenizer (Apache-2.0). DINOv2 and DINOv3 are evaluation candidates, not shipped defaults. A model change requires reference-vector parity, retrieval-quality evidence on a Varve corpus, and a license/distribution review — see ADR-0221.</p>
       </section>
       <div class="docs-cta">
         <p>For the implementation boundary and validation record, see the <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/semantic-asset-similarity.md">architecture notes</a>.</p>
