@@ -39,4 +39,14 @@ fetch \
   "dinov2-small.onnx" \
   "83141175ec78b4ff9a2bb58a4c7c264ba0054d1c2e122e5a8114b79a8d4179ea"
 
+fetch \
+  "https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/text_model_quantized.onnx" \
+  "siglip-base-patch16-224-text.onnx" \
+  "ad0329b1f35acc66d8953ff2559ce358da8eb0a7011794cf951523d63a4dbce2"
+
+fetch \
+  "https://huggingface.co/google/siglip-base-patch16-224/resolve/main/tokenizer.json" \
+  "siglip-tokenizer.json" \
+  "c6e405cb7c670d56636a9402c81023a55bc6c3c53d89cf02b92f5c5005bfe920"
+
 echo "models ready in $CACHE"
