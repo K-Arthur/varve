@@ -11,6 +11,12 @@
  * Protocol: main thread sends { type: 'infer', modelType, ...inputs }
  * Worker responds with { type: 'result', outputs } or { type: 'error' }
  */
+
+import {
+  DINOV2_PREPROCESS_SPEC,
+  preprocessSemanticInput,
+  type SemanticResizeSpec,
+} from '../semanticSimilarity/preprocess';
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor, packNhwcTensor } from './imageTensor';
 import { DD_COLOR_INPUT_SIZE, DD_COLOR_TENSOR_SPEC } from './models/ddcolor';
@@ -29,11 +35,6 @@ import type { Sam2Letterbox, Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
 import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
-import {
-  DINOV2_PREPROCESS_SPEC,
-  preprocessSemanticInput,
-  type SemanticResizeSpec,
-} from '../semanticSimilarity/preprocess';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
 
 export type WorkerModelType =
@@ -60,6 +61,8 @@ export type WorkerModelType =
 
 export interface WorkerTensor {
   data: Float32Array | BigInt64Array;
+  /** Defaults to float32; text/embedding models may feed int64 token ids. */
+  dtype?: 'float32' | 'int64';
   dims: number[];
   dtype?: 'float32' | 'int64';
 }

@@ -13,7 +13,7 @@
 
 import { searchAssets as rankAssets } from './assetSearch';
 import type { Platform } from './platform';
-import { contentHash, defaultViewState, uuid } from './pure';
+import { contentHash, contentHashOf, defaultViewState, uuid } from './pure';
 import type { ContentSearchMatch } from './searchIndex';
 import { indexDocumentContent, searchContentIndex } from './searchIndex';
 import type {
@@ -58,6 +58,7 @@ interface MemoryState {
   templates: Map<string, TemplateLibrary>;
   projectTemplates: Map<string, ProjectTemplate>;
   assets: Map<string, Asset>;
+  assetBytes: Map<string, Uint8Array>;
   assetFolders: Map<string, AssetFolder>;
   versions: Map<string, VersionEntry[]>;
   /** Content-addressed document store: hash → JSON string (dedup across versions). */
@@ -92,6 +93,7 @@ function freshState(): MemoryState {
     templates: new Map(),
     projectTemplates: new Map(),
     assets: new Map(),
+    assetBytes: new Map(),
     assetFolders: new Map(),
     versions: new Map(),
     versionContent: new Map(),
@@ -646,15 +648,21 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         kind: 'other',
         mimeType,
         size: data.length,
+        contentHash: (await contentHashOf(data)) ?? undefined,
         tags: [],
         createdAt: now,
         updatedAt: now,
       };
       state.assets.set(asset.id, asset);
+      if (data.length > 0) state.assetBytes.set(asset.id, data);
       return asset;
     },
     async deleteAsset(id) {
       state.assets.delete(id);
+      state.assetBytes.delete(id);
+    },
+    async getAssetBytes(id) {
+      return state.assetBytes.get(id) ?? null;
     },
     async searchAssets(query) {
       return rankAssets([...state.assets.values()], query).map((result) => result.asset);

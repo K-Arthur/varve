@@ -14,6 +14,7 @@ update, not for someone reading the commit log.
 
 ### Added
 
+<<<<<<< HEAD
 - **Image Enhance — Deblur and Auto/Recommended** — the Enhance workflow
   now ships a validated Deblur operation backed by a reproducible
   conversion of NAFNet-GoPro-width64 (MIT, ~138 MB fp16 ONNX, downloaded
@@ -42,6 +43,20 @@ update, not for someone reading the commit log.
   design-content corpus (SCUNet destroys 1px line patterns; the only
   JPEG-trained NAFNet checkpoint was rejected on provenance).
 
+- **Natural-language asset search** — the Asset Browser search field now
+  combines filename, OCR, tags, and metadata with an optional local visual
+  lane. Describe what you remember ("orange sunset over mountains") and
+  matching local assets rank by visual content even when the file is named
+  IMG_4281.jpg. Images are indexed in the background with a bounded,
+  cancellable queue (deduplicated by content hash, so renames and copies
+  never re-embed), search results keep match reasons, and exact filename
+  queries keep their ordering guarantee. The text tower and tokenizer are
+  parity-verified against the reference implementation; everything runs
+  locally with no uploads. Visual search is opt-in: the SigLIP image and
+  text models plus tokenizer download explicitly, verify SHA-256, and
+  filename/OCR/metadata search keeps working without them. See
+  `docs/architecture/asset-search-system.md` and ADR-0221.
+
 - **Object Selection** — select an image and use the Select Object tool
   (or the Adjustments tab) to prompt a local SAM2-Hiera-Tiny model with
   positive/negative points and drag boxes. The preview is transient until
@@ -52,6 +67,21 @@ update, not for someone reading the commit log.
   session cache and are never written into the document. Promptable
   segmentation is not semantic subject detection and is not a perfect
   alpha matte — brush and trimap refinement remain the edge-quality tools.
+=======
+- **Natural-language asset search** — the Asset Browser search field now
+  combines filename, OCR, tags, and metadata with an optional local visual
+  lane. Describe what you remember ("orange sunset over mountains") and
+  matching local assets rank by visual content even when the file is named
+  IMG_4281.jpg. Images are indexed in the background with a bounded,
+  cancellable queue (deduplicated by content hash, so renames and copies
+  never re-embed), search results keep match reasons, and exact filename
+  queries keep their ordering guarantee. The text tower and tokenizer are
+  parity-verified against the reference implementation; everything runs
+  locally with no uploads. Visual search is opt-in: the SigLIP image and
+  text models plus tokenizer download explicitly, verify SHA-256, and
+  filename/OCR/metadata search keeps working without them. See
+  `docs/architecture/asset-search-system.md` and ADR-0221.
+>>>>>>> feat/nl-asset-search
 - **Depth-aware effects** — a reusable, model-independent DepthMap resource
   powers non-destructive Depth Blur: pick a focus point, adjust focus range
   and blur strength, preview the depth field, or convert a depth range into a
