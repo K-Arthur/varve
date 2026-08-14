@@ -1,6 +1,6 @@
 # Native Tauri E2E Testing
 
-Strata supports two approaches for native Tauri desktop E2E testing:
+Varve supports two approaches for native Tauri desktop E2E testing:
 
 | Approach | Runner | macOS | Linux | Windows | Requires |
 |----------|--------|-------|-------|---------|----------|
@@ -87,6 +87,18 @@ sudo pacman -S webkit2gtk               # Arch (includes WebKitWebDriver)
 
 # Run
 ./scripts/tauri-e2e.sh
+```
+
+A Playwright spec for this path also lives in this directory:
+`tests/e2e/tauri/smoke.spec.ts`. It is **skipped unless `VARVE_TAURI_E2E=1`
+is set** (see the spec header), so it never affects the default `playwright
+test` run. `scripts/tauri-e2e.sh` runs the full flow: it verifies
+`tauri-driver` is installed, starts it against a Tauri dev build (the
+`withGlobalTauri: true` config exposes the IPC bridge), sets the env var, and
+runs the spec. To drive the spec manually:
+
+```bash
+VARVE_TAURI_E2E=1 npx playwright test tests/e2e/tauri/smoke.spec.ts --project=chromium --reporter=list
 ```
 
 ## CI

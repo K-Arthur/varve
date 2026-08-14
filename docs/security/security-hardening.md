@@ -5,7 +5,10 @@ is public, what is secret, where each kind of configuration belongs, what to
 do when a credential is compromised, and how release trust is composed.
 Companion documents: [CI Secrets, Permissions and Release
 Environment](../release/ci-secrets.md) (secret inventory + rotation
-procedures), [signing decision record](../release/signing-decision-record.md)
+procedures), [Trust Boundaries](trust-boundaries.md) (the architectural
+trust-zone model: which subsystem may consume which credential, client-safe
+config schema, artifact scans, import boundaries, future-backend design),
+[signing decision record](../release/signing-decision-record.md)
 (why these services were chosen), [SECURITY.md](../../SECURITY.md)
 (vulnerability reporting).
 
@@ -159,7 +162,9 @@ Pipeline invariants (enforced by `scripts/validate-workflows.mjs` +
 ## 6. CI permission matrix (summary)
 
 See the per-workflow `permissions:` blocks; `scripts/security/workflow-policy.mjs`
-enforces the whitelist.
+enforces the whitelist. The full trust-zone model (which workflow may consume
+which credential class, and the machine-enforced deny-lists for backend/DNS
+secrets) lives in [trust-boundaries.md](trust-boundaries.md).
 
 | Workflow | Privileged surfaces | Why |
 |---|---|---|
@@ -183,3 +188,27 @@ Actions token (read-only), branch/tag rulesets (block force-push and
 deletion; tag ruleset blocks force-updates), and the `release-publish`
 environment's required reviewers. Owner checklist: `docs/release/ci-secrets.md`
 §9 plus the rulesets under Settings → Rules.
+
+## 8. Client-build and artifact gates (defense-in-depth)
+
+Every client build now fails closed on secret ingress and every client
+artifact is scanned after the build:
+
+- **Environment guard** (`scripts/security/validate-client-env.mjs`, run
+  inside the website and desktop build scripts): client-safe allowlist
+  (SITE_URL, SITE_BASE, ANALYTICS_DOMAIN; VITE_BASE_URL, VARVE_* metadata,
+  TAURI_DEBUG) with value validation, plus a hard deny-list for signing,
+  backend, DNS and PRIVATE_/SIGNING_/DNS_ credential classes. The two
+  documented exceptions — the CI canary and the release signing-step flag —
+  are described in [trust-boundaries.md](trust-boundaries.md) §5.
+- **Artifact scans** (`scripts/secret-scan.mjs --dir`, wired into ci.yml,
+  website-deploy.yml and release.yml): the built website and desktop dist
+  are scanned for credential-shaped content after every build, including
+  binaries' text content as far as text files go.
+- **Canary tests**: CI sets `VARVE_PRIVATE_TEST_CANARY` on build steps and
+  asserts it never appears in the output.
+- **Import boundaries** (`scripts/security/import-boundaries.mjs`): apps
+  never import each other; packages never import apps; the reserved future
+  backend location is unreachable from client code.
+- Run locally with `pnpm audit:secrets`, `pnpm audit:clientenv`,
+  `pnpm audit:artifacts`, `pnpm audit:boundaries`.
