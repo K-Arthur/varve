@@ -46,8 +46,9 @@ export const AI_BALANCED_MODEL_INFO: ModelInfo = {
   label: 'Auto',
   description: 'General-purpose local AI with automatic low-memory fallback.',
   diskSizeBytes: 178_648_008,
-  estimatedPeakRamBytes: 700_000_000,
-  peakRamDisplay: 'up to ~700 MB',
+  // Measured retained RSS (native CPU, 2026-08-13 parity audit): ~1.3 GB.
+  estimatedPeakRamBytes: 1_300_000_000,
+  peakRamDisplay: '~1.3 GB RAM',
   diskSizeDisplay: '179 MB optional',
   quality: 'Very good',
   requiresDownload: true,
@@ -59,8 +60,10 @@ export const AI_QUALITY_MODEL_INFO: ModelInfo = {
   label: 'High quality',
   description: 'BiRefNet Lite for hair, fur, and complex edges.',
   diskSizeBytes: 224_000_000,
-  estimatedPeakRamBytes: 900_000_000,
-  peakRamDisplay: '~900 MB',
+  // Measured retained RSS (native CPU, arena disabled, 2026-08-13 parity
+  // audit): ~6.8 GB. Only recommend on machines with enough RAM.
+  estimatedPeakRamBytes: 6_800_000_000,
+  peakRamDisplay: '~7 GB RAM',
   diskSizeDisplay: '224 MB',
   quality: 'Best',
   requiresDownload: true,

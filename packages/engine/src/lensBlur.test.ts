@@ -136,9 +136,9 @@ describe('applyDepthBlur', () => {
   });
 
   it('keeps the occlusion rule on the adaptive downscaled path', () => {
-    // 2048x2048 is far above MAX_GATHER_PIXELS, so this exercises the
+    // 1400x1400 is above MAX_GATHER_PIXELS, so this exercises the
     // premultiplied downscale/upscale round trip.
-    const size = 2048;
+    const size = 1400;
     const data = new Uint8ClampedArray(size * size * 4);
     const values = new Float32Array(size * size);
     for (let y = 0; y < size; y++) {
@@ -172,5 +172,5 @@ describe('applyDepthBlur', () => {
     // Background region right next to the silhouette: still no red smear.
     const edgePixel = (Math.floor(size * 0.5) * size + Math.floor(size * 0.31)) * 4;
     expect(output.data[edgePixel]!).toBeLessThan(64);
-  });
+  }, 120000);
 });

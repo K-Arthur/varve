@@ -142,6 +142,9 @@ fn main() -> Result<(), String> {
     let mut images: Vec<PathBuf> = Vec::new();
     let mut walk = vec![images_dir.clone()];
     while let Some(dir) = walk.pop() {
+        if dir.file_name().and_then(|n| n.to_str()) == Some("reference") {
+            continue; // reference masks are not input images
+        }
         let Ok(entries) = std::fs::read_dir(&dir) else {
             continue;
         };
@@ -376,25 +379,22 @@ fn main() -> Result<(), String> {
                 reference_source,
                 error,
             });
+            // Incremental write: a killed run (OOM on a shared machine) must
+            // not discard measured cases.
+            persist_report(
+                &output_dir,
+                &git_commit_short(),
+                &cpu_name(),
+                iterations,
+                preview_max,
+                &results,
+            )
+            .map_err(|e| e.to_string())?;
         }
     }
 
-    let git_commit = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .filter(|out| out.status.success())
-        .map(|out| String::from_utf8_lossy(&out.stdout).trim().to_owned())
-        .unwrap_or_else(|| "unknown".to_owned());
-
-    let cpu = std::fs::read_to_string("/proc/cpuinfo")
-        .ok()
-        .and_then(|contents| {
-            contents
-                .lines()
-                .find(|line| line.starts_with("model name"))
-                .map(|line| line.split(':').nth(1).unwrap_or("").trim().to_owned())
-        });
+    let git_commit = git_commit_short();
+    let cpu = cpu_name();
 
     // Fresh measurements supersede merged ones with the same case id:
     // keep the newest occurrence of each case id.
@@ -403,7 +403,55 @@ fn main() -> Result<(), String> {
     results.retain(|entry| seen.insert(entry.case_id.clone()));
     results.reverse();
 
-    let report = serde_json::json!({
+    persist_report(
+        &output_dir,
+        &git_commit,
+        &cpu,
+        iterations,
+        preview_max,
+        &results,
+    )
+    .map_err(|e| e.to_string())?;
+    write_summary(
+        &output_dir,
+        &report_json(&git_commit, &cpu, iterations, preview_max, &results),
+    );
+    eprintln!(
+        "[bgremove-bench] done; artifacts in {}",
+        output_dir.display()
+    );
+    Ok(())
+}
+
+fn git_commit_short() -> String {
+    std::process::Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|out| out.status.success())
+        .map(|out| String::from_utf8_lossy(&out.stdout).trim().to_owned())
+        .unwrap_or_else(|| "unknown".to_owned())
+}
+
+fn cpu_name() -> Option<String> {
+    std::fs::read_to_string("/proc/cpuinfo")
+        .ok()
+        .and_then(|contents| {
+            contents
+                .lines()
+                .find(|line| line.starts_with("model name"))
+                .map(|line| line.split(':').nth(1).unwrap_or("").trim().to_owned())
+        })
+}
+
+fn report_json(
+    git_commit: &str,
+    cpu: &Option<String>,
+    iterations: usize,
+    preview_max: u32,
+    results: &[CaseResult],
+) -> serde_json::Value {
+    serde_json::json!({
         "schemaVersion": 2,
         "generatedAt": chrono_utc(),
         "gitCommit": git_commit,
@@ -416,19 +464,23 @@ fn main() -> Result<(), String> {
         "iterations": iterations,
         "previewMaxDimension": preview_max,
         "results": results,
-    });
+    })
+}
+
+fn persist_report(
+    output_dir: &Path,
+    git_commit: &str,
+    cpu: &Option<String>,
+    iterations: usize,
+    preview_max: u32,
+    results: &[CaseResult],
+) -> Result<(), String> {
+    let report = report_json(git_commit, cpu, iterations, preview_max, results);
     std::fs::write(
         output_dir.join("results.json"),
         serde_json::to_string_pretty(&report).map_err(|e| e.to_string())?,
     )
-    .map_err(|e| e.to_string())?;
-
-    write_summary(&output_dir, &report);
-    eprintln!(
-        "[bgremove-bench] done; artifacts in {}",
-        output_dir.display()
-    );
-    Ok(())
+    .map_err(|e| e.to_string())
 }
 
 fn chrono_utc() -> String {

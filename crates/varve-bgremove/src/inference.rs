@@ -117,8 +117,21 @@ impl InferenceRuntime for OrtInferenceRuntime {
         &self,
         model_path: &std::path::Path,
     ) -> Result<Box<dyn InferenceSession>, String> {
+        // Bounded-memory session options. The ONNX Runtime CPU memory arena
+        // retains its high-water allocation after inference; measured peak
+        // RSS for BiRefNet Lite at 1024×1024 with the arena enabled was
+        // ~11.2 GB on an 8-core x86_64 host (see docs/audits/
+        // background-removal-parity-audit-2026-08-13.md), which defeats the
+        // 4 GB support tier and the bounded session pool. Disabling the
+        // arena and the memory pattern trades a small allocation-speed
+        // constant for a much lower retained footprint; inference math is
+        // identical (the golden parity test runs with these options).
         let session = Session::builder()
             .map_err(|e| format!("Failed to create ONNX session: {e}"))?
+            .with_config_entry("session.enable_cpu_mem_arena", "0")
+            .map_err(|e| format!("Failed to disable CPU memory arena: {e}"))?
+            .with_memory_pattern(false)
+            .map_err(|e| format!("Failed to disable memory pattern: {e}"))?
             .commit_from_file(model_path)
             .map_err(|e| format!("Failed to load model from '{}': {e}", model_path.display()))?;
 
@@ -1321,9 +1334,8 @@ mod tests {
             return;
         };
         let root = env!("CARGO_MANIFEST_DIR");
-        let fixture = format!(
-            "{root}/../../tests/fixtures/bg-removal-corpus/synthetic/synth-hair.png"
-        );
+        let fixture =
+            format!("{root}/../../tests/fixtures/bg-removal-corpus/synthetic/synth-hair.png");
         let reference = format!(
             "{root}/../../tests/fixtures/bg-removal-corpus/reference/synth-hair-u2netp-rembg.png"
         );
@@ -1333,8 +1345,7 @@ mod tests {
         crate::runtime::init_native_runtime(std::path::Path::new(&dylib))
             .expect("onnxruntime dylib should load");
         let model = crate::model::model_path("u2netp");
-        std::fs::create_dir_all(model.parent().expect("model parent"))
-            .expect("model dir");
+        std::fs::create_dir_all(model.parent().expect("model parent")).expect("model dir");
         std::fs::copy(
             format!("{root}/../../apps/desktop/public/models/u2netp.onnx"),
             &model,

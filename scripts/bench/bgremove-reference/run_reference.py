@@ -92,7 +92,13 @@ def preprocess_rembg(img_rgb: np.ndarray, spec) -> np.ndarray:
 
 
 def preprocess_letterbox(img_rgb: np.ndarray, spec) -> tuple[np.ndarray, tuple]:
-    """Varve-faithful: aspect-preserving letterbox into (S, S) with mean-colour pad."""
+    """Varve-faithful: aspect-preserving letterbox into (S, S) with mean-colour pad.
+
+    The content resize deliberately uses an antialiased filter (PIL LANCZOS):
+    the Rust `image` crate's Triangle filter antialiases on downscale, while a
+    plain bilinear sample (cv2 INTER_LINEAR) aliases thin structure away. The
+    two must match at the noise floor, or sub-pixel lines flip model output.
+    """
     s = spec["input_size"]
     h, w = img_rgb.shape[:2]
     scale = min(s / w, s / h)
@@ -100,7 +106,7 @@ def preprocess_letterbox(img_rgb: np.ndarray, spec) -> tuple[np.ndarray, tuple]:
     ox, oy = (s - cw) // 2, (s - ch) // 2
     pad = np.array(spec["padding"], dtype=np.uint8)
     canvas = np.full((s, s, 3), pad, dtype=np.uint8)
-    content = cv2.resize(img_rgb, (cw, ch), interpolation=cv2.INTER_LINEAR)
+    content = np.asarray(Image.fromarray(img_rgb).resize((cw, ch), Image.LANCZOS))
     canvas[oy : oy + ch, ox : ox + cw] = content
     arr = canvas.astype(np.float32) / 255.0
     arr -= np.array(spec["mean"], dtype=np.float32)
@@ -154,6 +160,11 @@ def main() -> int:
         default="rembg,varve,varve-clamp",
         help="comma-separated pipeline modes",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="re-run images already present in the summary (pipeline changed)",
+    )
     args = parser.parse_args()
 
     import onnxruntime as ort
@@ -190,23 +201,43 @@ def main() -> int:
     summary.setdefault("preprocessing", "rembg stretch and Varve letterbox, both PIL bilinear")
     summary.setdefault("models", MODEL_FILES)
     results = summary.setdefault("results", [])
+    if args.force:
+        keep: list[dict] = []
+        for entry in results:
+            if (entry.get("image"), entry.get("model")) in {
+                (r["image"], r["model"]) for r in keep
+            }:
+                continue
+            if (entry["image"], entry["model"]) in set(
+                (im.name, model_id)
+                for model_id in args.models.split(",")
+                for im in images
+            ):
+                continue
+            keep.append(entry)
+        results.clear()
+        results.extend(keep)
     seen = {(r["image"], r["model"]) for r in results}
 
     for model_id in args.models.split(","):
         spec = MODEL_SPECS[model_id]
         path = args.models_dir / MODEL_FILES[model_id]
-        # Bounded thread pool: large FP32 models are memory-hungry; a fixed
-        # intra-op thread count keeps peak RSS predictable on shared machines.
+        # Bounded thread pool and arena policy: large FP32 models are
+        # memory-hungry; disabling the CPU arena avoids pre-growing a huge
+        # reservation that can trip heuristic overcommit on shared machines.
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = max(1, min(4, (os.cpu_count() or 4) // 2))
+        opts.enable_cpu_mem_arena = False
+        opts.enable_mem_pattern = False
         sess = ort.InferenceSession(
             str(path), sess_options=opts, providers=["CPUExecutionProvider"]
         )
         input_name = sess.get_inputs()[0].name
         for image_path in images:
             key = (image_path.name, model_id)
-            if key in seen:
+            if key in seen and not args.force:
                 print(f"skip {model_id} {image_path.name} (already in summary)")
+                continue
                 continue
             rgba = load_rgba(image_path)
             img_rgb = rgba[:, :, :3]
@@ -250,6 +281,9 @@ def main() -> int:
                     float(((mask > 0.03) & (mask < 0.97)).mean()), 4
                 )
             results.append(entry)
+            # Incremental write: a killed run (e.g. OOM on a shared machine)
+            # must not discard completed entries.
+            summary_path.write_text(json.dumps(summary, indent=2))
 
     summary_path.write_text(json.dumps(summary, indent=2))
     print(f"wrote {summary_path} ({len(results)} entries)", flush=True)

@@ -126,6 +126,18 @@ export const FEATURE_PARITY_MATRIX: FeatureParityEntry[] = [
     notes: 'INT8 quantized. SHA-256 verified.',
   },
   {
+    feature: 'Face Detection (YuNet)',
+    modelId: 'yunet-face-detect',
+    browser: 'browser',
+    browserWorker: 'browser-worker',
+    native: 'planned',
+    executionProviders: ['wasm', 'webgpu'],
+    platformRestrictions: [],
+    fallback: 'none',
+    notes:
+      '233 KB MIT. 5 keypoints per face. Decode verified bit-for-bit against OpenCV FaceDetectorYN.',
+  },
+  {
     feature: 'Image Classification',
     modelId: 'efficientnet-lite4',
     browser: 'browser',
