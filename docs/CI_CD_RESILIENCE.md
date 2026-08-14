@@ -12,19 +12,21 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 - **Set `timeout-minutes`** on every job so a hung runner is killed instead of burning minutes.
 - **Install `just` via `taiki-e/install-action`** (`tool: just@1.54.0`) before any `just` recipe runs — GitHub-hosted runners do not ship `just`.
 - **Add `rustup target add`** steps for macOS and Windows so `tauri build` can compile on the default `macos-latest` (Apple Silicon) and `windows-latest` runners.
-- **Add `actions: read`/`actions: write`** permissions where needed so `download-artifact`/`upload-artifact` and GitHub Pages artifact uploads do not fail with `Resource not accessible`.
-- **Use `if: failure()` debug steps** after every long/important job. The steps run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact.
+- **Declare explicit least-privilege `permissions:` blocks** (top-level and per job). `website-deploy.yml` uses `pages: write` + `id-token: write` for GitHub Pages; `ci-debug.yml` uses `actions: read`; `release.yml` scopes `contents: write` to the draft/publish jobs only. v4 `upload-artifact`/`download-artifact` need no `actions:` scope, so none is granted.
+- **Add `if: failure()` debug steps** to long-running workflows (`build.yml`, `ci-smoke.yml`, `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact). The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below).
 
 | Workflow | Trigger | Notes |
 |---|---|---|
-| `build.yml` | push, PR, manual | Build + package on Linux/macOS/Windows. |
-| `ci.yml` | push, PR, manual | Rust, JS, Playwright E2E matrix, plus `pipeline-validate` guard job. |
+| `build.yml` | push, PR, manual | WASM + tauri build. On PRs the matrix collapses to Linux only and builds with `--no-bundle` (no packages are produced); full 3-OS build runs on push/manual. |
+| `ci.yml` | push, PR, manual, weekly (Mon 02:00) | Rust, JS, website E2E, Playwright E2E matrix, desktop-e2e, plus `pipeline-validate` guard job. |
 | `release.yml` | tag, manual | Draft-then-approve release pipeline (replaced `publish.yml`); checksums, SBOM, artifact verification. |
-| `website-deploy.yml` | push to `apps/website/**`, manual | Astro build to GitHub Pages. |
-| `ci-debug.yml` | `workflow_run` after any workflow fails | Generates a consolidated debug report. |
-| `model-validation.yml` | push/PR on model paths, weekly | Manifest v3 + contract verification, ONNX graph inspection. |
-| `quantize.yml` | push/PR on model paths, weekly | Manifest v3 verification, quality validation, full quantization. |
-| `e2e-keyboard-nav.yml` | push/PR on menu/shortcut paths, weekly | Menu + canvas keyboard-nav E2E on 3 OS x browsers. |
+| `website-deploy.yml` | push touching `apps/website/**`, `scripts/release/**`, `package.json`, `pnpm-lock.yaml`, or the workflow file; `workflow_run` on Release `completed`; manual | Astro build to GitHub Pages at `https://varve.studio`. |
+| `ci-debug.yml` | `workflow_run` after CI, Build + Package, Release, Website Deploy, Model Supply Chain Validation, Model Quantization & Validation, or E2E Keyboard Nav fails | Generates a consolidated debug report. |
+| `model-validation.yml` | push/PR on model paths, weekly (Mon 08:00), manual | Manifest v3 + contract verification, ONNX graph inspection. |
+| `quantize.yml` | push/PR on model paths, weekly (Mon 06:00), manual | Manifest v3 verification, quality validation, full quantization. |
+| `e2e-keyboard-nav.yml` | push/PR on menu/shortcut paths, weekly, manual | Menu + canvas keyboard-nav E2E; the full 3-OS x 3-browser matrix runs on schedule/dispatch only, collapsed to 2 jobs on push/PR. |
+| `ci-smoke.yml` | manual only | Single cheap ubuntu job (format-check + typecheck + lint + test + audits + workflow/pin validation) — the health probe after any infra block lifts. |
+| `visual-baselines.yml` | manual only | Regenerates and commits the website visual-test baselines on runner infrastructure (ubuntu-latest). |
 
 ## Pipeline validation guard (new)
 
@@ -33,8 +35,13 @@ Every `ci.yml` run includes the `pipeline-validate` job, which:
 1. `node scripts/validate-workflows.mjs` — YAML structure + real-parser syntax check.
 2. `node scripts/pin-github-actions.mjs --check` — no mutable action refs.
 3. `node scripts/pin-github-actions.mjs --verify` — every pinned SHA resolves upstream.
-4. `node scripts/ci-debug.test.mjs` + `pin-github-actions.test.mjs` — extractor + pin-table regression.
-5. `bash scripts/test-ci-shell-scripts.sh` — CI shell-script TDD assertions.
+4. `node scripts/release/version.mjs verify` — version drift across the five manifests.
+5. `node scripts/secret-scan.mjs` + `secret-scan.test.mjs` — tracked-tree secret scan + canary tests.
+6. `node scripts/security/workflow-policy.mjs` + `workflow-policy.test.mjs` — signing-secret scoping and PR-safe release enforcement.
+7. `node scripts/security/validate-client-env.mjs` (website + desktop) + regression tests — client-side env guard.
+8. `node scripts/security/import-boundaries.mjs` + regression tests — package import-boundary audit.
+9. `node scripts/ci-debug.test.mjs` + `ci-health.test.mjs` + `pin-github-actions.test.mjs` — extractor + pin-table regression.
+10. `bash scripts/test-ci-shell-scripts.sh` — CI shell-script TDD assertions.
 
 This job would have caught the 2026-08-01 outage, where every workflow was pinned to fabricated SHAs.
 
@@ -61,7 +68,18 @@ The script:
 4. Extracts high-priority failure patterns (errors, panics, test failures, exit codes, `##[error]` annotations, unresolvable action refs, etc.).
 5. Writes a Markdown report with failed jobs, failure snippets, and local reproduction commands.
 
-In CI, every workflow runs `scripts/ci-debug.mjs` on failure and uploads `ci-debug-report.md`. A separate `ci-debug.yml` workflow also triggers on `workflow_run` events to produce a single consolidated report. `ci-debug.yml` is intentionally dependency-free (no `pnpm install`) — the script uses only Node builtins, so a broken dependency tree cannot prevent the debug report from being produced.
+In CI, failure-debug coverage is layered: `build.yml`, `ci-smoke.yml`, and
+`e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` inline (`if: failure()`)
+and upload `ci-debug-report.md`; the separate `ci-debug.yml` workflow
+triggers on `workflow_run` of the seven main pipelines to produce a
+consolidated report. `ci-debug.yml` is intentionally dependency-free (no
+`pnpm install`) — the script uses only Node builtins, so a broken dependency
+tree cannot prevent the debug report from being produced.
+
+Known gap: `visual-baselines.yml` has no failure-debug coverage (neither
+inline steps nor a `ci-debug.yml` trigger entry). It is a manual, low-volume
+workflow, so this is a cosmetic gap today — add its name to `ci-debug.yml`'s
+`workflow_run.workflows` list if it ever starts failing regularly.
 
 ## Infrastructure blocks: billing / runner outages
 
@@ -313,7 +331,13 @@ detected" section says so explicitly.
 
 ### `Resource not accessible by integration` on artifact upload/download
 
-Make sure the workflow has the correct `permissions` block. Upload needs `actions: write`; download needs `actions: read` when the job sets explicit `permissions`.
+Make sure the workflow has the correct `permissions` block for the action
+being used. `actions/upload-artifact@v4` / `actions/download-artifact@v4`
+need no `actions:` scope, but a job that sets an explicit `permissions:`
+block must still grant the scopes its own steps use (e.g. `pages: write` +
+`id-token: write` for `actions/deploy-pages`, `actions: read` for API reads
+in `ci-debug.mjs`). If a job omits the block entirely, it inherits the
+top-level workflow permissions.
 
 ### Every job dies at "Set up job" with `Unable to resolve action ... unable to find version ...`
 
