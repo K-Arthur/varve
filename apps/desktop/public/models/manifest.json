@@ -933,7 +933,9 @@
           "role": "encoder",
           "checksum": "b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf",
           "sizeBytes": 134261247,
-          "notes": "Graph repaired for onnxruntime-web: the upstream export declares empty value_info shapes on /conv_s0 and /conv_s1 outputs, which ort-web's wasm shape inference rejects at session creation (inferred=4 declared=0). Repair is reproducible via scripts/models/repair-sam2-graph.mjs and was verified bit-identical against the upstream graph (ort-node encode outputs match to the last digit)."
+          "notes": "Graph repaired for onnxruntime-web: the upstream export declares empty value_info shapes on /conv_s0 and /conv_s1 outputs, which ort-web's wasm shape inference rejects at session creation (inferred=4 declared=0). Repair is reproducible via scripts/models/repair-sam2-graph.mjs and was verified bit-identical against the upstream graph (ort-node encode outputs match to the last digit).",
+          "upstreamChecksum": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
+          "repair": "sam2-empty-value-info"
         },
         {
           "id": "sam2-hiera-tiny-decoder",
@@ -1034,7 +1036,9 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "Select Subject — image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. SHA-256 is pinned from the verified download."
+      "notes": "Select Subject — image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. SHA-256 is pinned from the verified download.",
+      "upstreamChecksum": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
+      "repair": "sam2-empty-value-info"
     },
     {
       "id": "sam2-hiera-tiny-decoder",
@@ -1470,7 +1474,9 @@
           "sha256": "f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40",
           "sizeBytes": 162703425,
           "checksum": "49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3",
-          "notes": "Graph repaired for onnxruntime-web: the upstream export declares empty value_info shapes on /conv_s0 and /conv_s1 outputs, which ort-web's wasm shape inference rejects at session creation (inferred=4 declared=0). Repair is reproducible via scripts/models/repair-sam2-graph.mjs and was verified bit-identical against the upstream graph (ort-node encode outputs match to the last digit)."
+          "notes": "Graph repaired for onnxruntime-web: the upstream export declares empty value_info shapes on /conv_s0 and /conv_s1 outputs, which ort-web's wasm shape inference rejects at session creation (inferred=4 declared=0). Repair is reproducible via scripts/models/repair-sam2-graph.mjs and was verified bit-identical against the upstream graph (ort-node encode outputs match to the last digit).",
+          "upstreamChecksum": "f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40",
+          "repair": "sam2-empty-value-info"
         },
         {
           "id": "sam2-hiera-small-decoder",
@@ -2097,7 +2103,9 @@
         "validationSummary": "SHA-256 pinned from verified download. Contract same architecture as sam2-hiera-tiny-encoder.",
         "contractVersion": 1
       },
-      "notes": "Select Subject — image encoder (runs once per image). ~163MB. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Same architecture as sam2-hiera-tiny."
+      "notes": "Select Subject — image encoder (runs once per image). ~163MB. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Same architecture as sam2-hiera-tiny.",
+      "upstreamChecksum": "f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40",
+      "repair": "sam2-empty-value-info"
     },
     {
       "id": "sam2-hiera-small-decoder",
