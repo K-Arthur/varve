@@ -32,6 +32,10 @@
     "./vision": {
       "types": "./src/vision/index.ts",
       "default": "./src/vision/index.ts"
+    },
+    "./segmentationQuality": {
+      "types": "./src/segmentation/quality/index.ts",
+      "default": "./src/segmentation/quality/index.ts"
     }
   },
   "scripts": {
