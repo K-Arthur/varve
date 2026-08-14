@@ -147,11 +147,131 @@ function testStagedOnlyScanIgnoresCommittedCanary() {
   }
 }
 
+// ── Artifact scans (--dir) and the trust-boundary canary ──────────────────
+
+function makeArtifactDir() {
+  return mkdtempSync(join(tmpdir(), 'varve-artifact-scan-'));
+}
+
+function assertArtifactFinding(dir, expectRule, extraArgs = []) {
+  const { exit, out } = runScanner(['--dir', dir, ...extraArgs], process.cwd());
+  assert.notEqual(exit, 0, `expected artifact scan failure, got: ${out}`);
+  assert.ok(out.includes(expectRule), `expected rule ${expectRule} in output: ${out}`);
+}
+
+function testArtifactDirCatchesCredentialShapedContent() {
+  const dir = makeArtifactDir();
+  try {
+    writeFileSync(join(dir, 'bundle.js'), `const k = "${FAKE.awsKey}";\n`, 'utf8');
+    assertArtifactFinding(dir, 'aws-access-key');
+  } finally {
+    execFileSync('rm', ['-rf', dir]);
+  }
+}
+
+function testArtifactScanIgnoresBinaries() {
+  const dir = makeArtifactDir();
+  try {
+    // Binary extensions are skipped by design (entropy scans on binaries
+    // produce noise; binary strings get their own forensic pass later).
+    writeFileSync(join(dir, 'icon.wasm'), FAKE.githubPat, 'utf8');
+    const { exit, out } = runScanner(['--dir', dir], process.cwd());
+    assert.equal(exit, 0, `expected clean binary skip, got: ${out}`);
+  } finally {
+    execFileSync('rm', ['-rf', dir]);
+  }
+}
+
+function testMissingArtifactDirTolerated() {
+  const { exit, out } = runScanner(['--dir', '/nonexistent/varve-artifact-dir'], process.cwd());
+  assert.equal(exit, 0, `expected missing dir tolerated, got: ${out}`);
+}
+
+function testCanaryAbsencePasses() {
+  const dir = makeArtifactDir();
+  try {
+    writeFileSync(join(dir, 'index.html'), '<html>Varve</html>\n', 'utf8');
+    const { exit, out } = runScanner(
+      ['--dir', dir, '--canary', 'VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP'],
+      process.cwd(),
+    );
+    assert.equal(exit, 0, `expected clean canary run, got: ${out}`);
+  } finally {
+    execFileSync('rm', ['-rf', dir]);
+  }
+}
+
+function testCanaryLeakFails() {
+  const dir = makeArtifactDir();
+  try {
+    writeFileSync(
+      join(dir, 'config.json'),
+      '{"x": "VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP"}\n',
+      'utf8',
+    );
+    const { exit, out } = runScanner(
+      ['--dir', dir, '--canary', 'VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP'],
+      process.cwd(),
+    );
+    assert.notEqual(exit, 0, 'expected canary leak to fail the scan');
+    assert.ok(out.includes('[canary]'), `expected canary rule in output: ${out}`);
+  } finally {
+    execFileSync('rm', ['-rf', dir]);
+  }
+}
+
+function testArtifactScanSkipsNodeModules() {
+  const dir = makeArtifactDir();
+  try {
+    mkdirSync(join(dir, 'node_modules'));
+    writeFileSync(join(dir, 'node_modules/evil.js'), FAKE.githubPat, 'utf8');
+    const { exit, out } = runScanner(['--dir', dir], process.cwd());
+    assert.equal(exit, 0, `expected node_modules skip, got: ${out}`);
+  } finally {
+    execFileSync('rm', ['-rf', dir]);
+  }
+}
+
+function testCertificateSizePemBlobFails() {
+  const dir = makeArtifactDir();
+  try {
+    // A realistic certificate-sized base64 blob (X.509/PKCS12 material is
+    // ~1-4 KB): must still be flagged.
+    const certBlob = `MII${'A'.repeat(2000)}==`;
+    writeFileSync(join(dir, 'config.json'), `{"cert": "${certBlob}"}\n`, 'utf8');
+    assertArtifactFinding(dir, 'pem-base64-blob');
+  } finally {
+    execFileSync('rm', ['-rf', dir]);
+  }
+}
+
+function testDataSizedPemBlobIgnored() {
+  const dir = makeArtifactDir();
+  try {
+    // Bundler-inlined binary data (e.g. the wawoff2 WASM decoder ships
+    // ~866 KB of base64) must not trigger the cert rule.
+    const hugeBlob = `MII${'B'.repeat(400000)}==`;
+    writeFileSync(join(dir, 'decoder.js'), `const wasm = "${hugeBlob}";\n`, 'utf8');
+    const { exit, out } = runScanner(['--dir', dir], process.cwd());
+    assert.equal(exit, 0, `expected data blob ignored, got: ${out}`);
+  } finally {
+    execFileSync('rm', ['-rf', dir]);
+  }
+}
+
 testStagedCanaryFails();
 testPrivateKeyCanaryFails();
 testEnvSecretCanaryFails();
 testSecretReferenceDoesNotFail();
 testAllowlistedFixturePathPasses();
 testStagedOnlyScanIgnoresCommittedCanary();
+testArtifactDirCatchesCredentialShapedContent();
+testArtifactScanIgnoresBinaries();
+testMissingArtifactDirTolerated();
+testCanaryAbsencePasses();
+testCanaryLeakFails();
+testArtifactScanSkipsNodeModules();
+testCertificateSizePemBlobFails();
+testDataSizedPemBlobIgnored();
 
-console.log('secret-scan tests passed (6 canaries).');
+console.log('secret-scan tests passed (14 canaries).');

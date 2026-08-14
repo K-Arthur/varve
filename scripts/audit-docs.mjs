@@ -138,6 +138,9 @@ async function headingIds(file) {
 // Main
 // ---------------------------------------------------------------------------
 const files = await walk(DOCS);
+for (const extra of ['apps', 'tests']) {
+  files.push(...(await walk(join(ROOT, extra))));
+}
 const violations = [];
 let checked = 0;
 
