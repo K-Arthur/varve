@@ -13,18 +13,37 @@
  */
 
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, globSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildPlan } from '../../scripts/quality/affected-plan.mjs';
+import { buildPlan, loadPackages } from '../../scripts/quality/affected-plan.mjs';
 import { auditImpactConfig } from '../../scripts/quality/audit-impact-config.mjs';
-import { LANES } from '../../scripts/quality/validation-lanes.mjs';
+import { LANES, laneCommand, packageDirs } from '../../scripts/quality/validation-lanes.mjs';
+import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 
 const ROOT = process.cwd();
+
+// Mirror what verify.mjs does before executing lanes: populate the shared
+// package-dir map so laneCommand() can resolve js-unit:<pkg>/typecheck:<pkg>
+// lanes to concrete commands.
+for (const [name, p] of Object.entries(loadPackages())) {
+  packageDirs[name] = p.dir;
+}
 
 function pnpmLs() {
   const out = execSync('pnpm m ls --json --depth -1', { encoding: 'utf8' });
   return JSON.parse(out);
+}
+
+// Reproduce verify.mjs's lane -> command resolution order so the executor's
+// contract is tested without spawning anything.
+function resolveLane(lane) {
+  if (lane === 'format:touched' || lane === 'lint:touched') return 'biome (changed files)';
+  if (lane.startsWith('js-unit:file:')) return 'vitest <file>';
+  if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual')
+    return 'playwright <domain paths>';
+  if (lane.startsWith('bench:')) return 'pnpm bench:<domain>';
+  return laneCommand(lane) ?? LANES[lane];
 }
 
 describe('validation infrastructure presence', () => {
@@ -195,5 +214,95 @@ describe('planner fixture classes', () => {
     expect(plan.full).toBe(true);
     const sync = buildPlan(['crates/varve-sync/src/lib.rs']);
     expect(sync.full).toBe(true);
+  });
+});
+
+describe('planner lane -> command resolution (executor contract)', () => {
+  const FIXTURES: Array<[string, string[]]> = [
+    ['leaf UI component', ['packages/ui/src/components/Select.tsx']],
+    ['shared type change', ['packages/shared/src/product.ts']],
+    ['canvas renderer change', ['packages/editor/src/canvas/cameraState.ts']],
+    ['settings change', ['packages/editor/src/components/Settings/SettingsDialog.tsx']],
+    ['keyboard infra change', ['packages/editor/src/shortcuts/ShortcutManager.ts']],
+    ['Rust crate change', ['crates/varve-core/src/geom.rs']],
+    ['engine render change', ['crates/varve-engine/src/lib.rs']],
+    ['website change', ['apps/website/src/pages/product.astro']],
+    ['docs change', ['docs/architecture/foo.md']],
+    ['model asset change', ['apps/desktop/public/models/catalog.json']],
+    ['editor test file change', ['packages/editor/src/clipboard.test.ts']],
+    ['canvas E2E spec change', ['tests/e2e/canvas/tools.spec.ts']],
+  ];
+
+  it('every lane the planner can emit resolves to an executable command', () => {
+    for (const [label, files] of FIXTURES) {
+      const plan = buildPlan(files);
+      const lanes = [
+        ...plan.tiers[0],
+        ...plan.tiers[1],
+        ...plan.tiers[2],
+        ...plan.tiers[3],
+        ...plan.tiers[4],
+      ];
+      expect(lanes.length, `${label}: expected some lanes`).toBeGreaterThan(0);
+      for (const lane of lanes) {
+        const cmd = resolveLane(lane);
+        expect(cmd, `${label}: lane '${lane}' did not resolve to a command`).toBeTruthy();
+        expect(cmd, `${label}: lane '${lane}' leaked a raw lane id to the shell`).not.toBe(lane);
+        expect(cmd, `${label}: lane '${lane}' resolved to a placeholder path`).not.toMatch(
+          /undefined/,
+        );
+      }
+    }
+  });
+
+  it('package lanes resolve to the package directory, not a double path', () => {
+    const plan = buildPlan(['packages/editor/src/context.tsx']);
+    const editor = plan.tiers[2].find((l) => l === 'js-unit:@varve/editor');
+    expect(editor).toBeTruthy();
+    expect(laneCommand('js-unit:@varve/editor')).toMatch(/packages\/editor$/);
+  });
+
+  it('every e2e domain in the impact config resolves to real spec paths', () => {
+    for (const [domain, globs] of Object.entries(IMPACT_CONFIG.e2eDomains)) {
+      // The executor passes these paths to playwright; every domain must map
+      // to at least one existing file or directory.
+      for (const g of globs) {
+        if (g.includes('*')) {
+          expect(globSync(g), `domain ${domain}: ${g} matches nothing`).not.toHaveLength(0);
+        } else {
+          expect(existsSync(join(ROOT, g)), `domain ${domain}: ${g} does not exist`).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+describe('planner validation budget and test-only changes', () => {
+  it('validation budget metrics are computed for every plan', () => {
+    const plan = buildPlan(['packages/editor/src/tools/select.ts']);
+    expect(plan.stats.totalTestFiles).toBeGreaterThan(0);
+    expect(plan.stats.selectedTestFiles).toBeGreaterThan(0);
+    expect(plan.stats.selectedFraction).toBeGreaterThan(0);
+    expect(plan.stats.selectedFraction).toBeLessThanOrEqual(1);
+  });
+
+  it('localized change does not trip the budget warning', () => {
+    const plan = buildPlan(['packages/editor/src/components/Settings/SettingsDialog.tsx']);
+    expect(plan.stats.selectedFraction).toBeLessThan(0.74);
+  });
+
+  it('test-only change -> changed test runs directly, no reverse-dependent fanout', () => {
+    const plan = buildPlan(['packages/editor/src/clipboard.test.ts']);
+    expect(plan.tiers[1]).toContain('js-unit:file:packages/editor/src/clipboard.test.ts');
+    expect(plan.tiers[2]).not.toContain('js-unit:@varve/editor');
+    expect(plan.tiers[3]).toHaveLength(0);
+    expect(plan.full).toBe(false);
+  });
+
+  it('test-only change in a shared package does not fan out to dependents', () => {
+    const plan = buildPlan(['packages/shared/src/product.test.ts']);
+    expect(plan.tiers[1].some((l) => l.includes('product.test.ts'))).toBe(true);
+    expect(plan.tiers[3]).toHaveLength(0);
+    expect(plan.full).toBe(false);
   });
 });

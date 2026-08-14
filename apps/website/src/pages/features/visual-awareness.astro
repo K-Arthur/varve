@@ -50,12 +50,15 @@ import StatusPill from '../../components/StatusPill.astro';
             <span>Choose a local quality level and review the mask before applying it.</span>
           </a>
         </div>
+        <p class="feature-note">
+          <strong>Protect Faces</strong> is available in crop mode: a small bundled local model keeps
+          detected faces in frame with a non-destructive crop.
+        </p>
       </section>
 
       <section class="feature-section">
         <h2>In development</h2>
         <ul>
-          <li>Face-aware crop suggestions that keep detected faces safely composed.</li>
           <li>Face-protected effects and static landmarks for meaningful anchors.</li>
           <li>Additional hand, pose, object, and person workflows only when a design feature needs them.</li>
         </ul>
@@ -64,9 +67,10 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section feature-section--note">
         <h2>Local by default, honest by design</h2>
         <p>
-          Images are not uploaded for these workflows. Optional model downloads are explicit and
-          checksum-verified. Importing an image does not silently trigger a general vision scan,
-          and visual results do not become a hidden rendering dependency.
+          Images are not uploaded for these workflows. The face model is a small bundled
+          model (233 KB, MIT) verified by checksum, and larger model downloads are explicit
+          and checksum-verified when present. Importing an image does not silently trigger a
+          general vision scan, and visual results do not become a hidden rendering dependency.
         </p>
       </section>
 
@@ -98,6 +102,7 @@ import StatusPill from '../../components/StatusPill.astro';
   .link-grid a { display: grid; gap: 0.5rem; padding: 1.25rem; border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); text-decoration: none; }
   .link-grid a:hover { border-color: var(--border-accent); }
   .link-grid span { color: var(--text-secondary); line-height: 1.6; }
+  .feature-note { margin-top: 1.25rem; color: var(--text-secondary); line-height: 1.7; }
   .feature-section--note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
   .feature-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
   .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: 0.5rem; color: var(--text-primary); text-decoration: none; }
