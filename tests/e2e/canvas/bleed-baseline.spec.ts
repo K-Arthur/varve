@@ -138,6 +138,9 @@ test.describe('Bleed canvas behavior', () => {
     await page.getByLabel(/bleed right/i).fill('20');
     await page.getByLabel(/bleed bottom/i).fill('20');
     await page.getByLabel(/bleed left/i).fill('20');
+    // NumberField commits on blur — the last field stays focused, so Enter
+    // commits it (Escape would revert the staged value).
+    await page.getByLabel(/bleed left/i).press('Enter');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.keyboard.press('Shift+3');
