@@ -8,7 +8,10 @@ settings: the names here are the names the workflow reads. See
 checklist and [signing-decision-record.md](signing-decision-record.md) for why
 these services were chosen. The full security model (classification,
 compromise response, release trust, onboarding) lives in
-[`docs/security/security-hardening.md`](../security/security-hardening.md).
+[`docs/security/security-hardening.md`](../security/security-hardening.md);
+the architectural trust-zone model (client-safe config schema, deny-lists,
+artifact scans, import boundaries, future backend) lives in
+[`docs/security/trust-boundaries.md`](../security/trust-boundaries.md).
 
 **No real credential appears here, and none should ever be committed anywhere in
 this repository.**
@@ -188,6 +191,12 @@ reviewers and tag restriction, and declare it on the bundle job.
   if it was masked — masking is best-effort. `scripts/ci-debug.mjs` redacts
   credential-shaped strings before failure snippets reach reports or PR
   comments.
+- Client builds fail closed on secret ingress: the environment guard
+  (`scripts/security/validate-client-env.mjs`) denies signing, backend, DNS
+  and PRIVATE_/SIGNING_/DNS_ classes from the website and desktop build
+  environments. The signed Tauri build step is the one documented exception
+  (`VARVE_SIGNING_STEP_ALLOWED=1`), and its output dist is always re-scanned
+  (`scripts/secret-scan.mjs --dir apps/desktop/dist --canary ...`).
 - `.gitignore` excludes `.env*`, `*.p12`, `*.pfx`, `*.p8`, `*.key`, `*.pem`,
   `*.der`, `*.cer`, `*.crt`, `*.csr`, `.npmrc`, `.netrc`, and the CI-generated
   `tauri.signing.windows.json`.
