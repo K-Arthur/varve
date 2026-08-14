@@ -15,8 +15,25 @@
  *   node scripts/secret-scan.mjs            # scan all git-tracked files
  *   node scripts/secret-scan.mjs --staged   # scan only staged additions
  *   node scripts/secret-scan.mjs --ci       # alias for the tracked-tree scan
+ *   node scripts/secret-scan.mjs --dir <path> [--dir <path>...]
+ *                                          # scan build artifacts (dist)
+ *   node scripts/secret-scan.mjs --canary <value>
+ *                                          # fail if <value> appears anywhere
  *
  * Exit codes: 0 = clean, 1 = findings.
+ *
+ * Artifact scanning (--dir): the tracked-tree scan skips gitignored output
+ * (dist/, target/...). Build artifacts get their own scan pass because a
+ * secret can only enter a shipped artifact by being embedded at build time —
+ * the source scan cannot see that. The artifact scan applies the same rules
+ * to every non-binary file under the given directories. A missing directory
+ * is tolerated (exit 0) so local runs are safe before the first build.
+ *
+ * Canary (--canary): the trust-boundary canary. CI sets
+ * VARVE_PRIVATE_TEST_CANARY on build steps (a value with no credential
+ * meaning) and this option fails the scan if that value ever appears in the
+ * scanned output — proving the build system embeds only what it is told to.
+ * See docs/security/trust-boundaries.md §Canary tests.
  *
  * Allowlist policy:
  *   - Path-based only, and only for files whose contents are *documented
@@ -38,7 +55,8 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024;
 
@@ -202,7 +220,14 @@ const RULES = [
   },
   {
     id: 'pem-base64-blob',
+    // Base64-encoded certificate/key material. A contiguous base64 run
+    // starting with MII (X.509 DER prefix) of certificate size: real
+    // certificates, PKCS12 bundles and .p8 keys are 500-32000 chars of
+    // base64. Larger runs are binary data inlined by bundlers (e.g. the
+    // wawoff2 WASM decoder ships ~866 KB of base64) and are not secrets —
+    // scanning the tracked tree or an artifact must not fail on those.
     re: /MII[A-Za-z0-9+/]{60,}={0,2}/g,
+    valid: (m) => m[0].length >= 500 && m[0].length <= 32000,
   },
   {
     id: 'minisign-signing-key',
@@ -239,6 +264,7 @@ function scanText(text, path, findings) {
       rule.re.lastIndex = 0;
       const match = rule.re.exec(line);
       if (match) {
+        if (rule.valid && !rule.valid(match)) continue;
         findings.push({
           path,
           line: i + 1,
@@ -263,14 +289,35 @@ function stagedFiles() {
   return out.split('\0').filter(Boolean);
 }
 
-function main() {
-  const args = process.argv.slice(2);
-  const staged = args.includes('--staged');
-  const files = staged ? stagedFiles() : trackedFiles();
+/**
+ * Recursively list every non-binary file under a build-output directory
+ * (gitignored, so it never appears in the tracked/staged scans).
+ */
+function filesUnder(dir) {
+  const found = [];
+  const walk = (current) => {
+    let entries;
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+        walk(full);
+      } else if (!isBinaryPath(entry.name) && entry.name !== '.DS_Store') {
+        found.push(full);
+      }
+    }
+  };
+  walk(dir);
+  return found;
+}
 
-  const findings = [];
-  for (const path of files) {
-    if (shouldSkip(path)) continue;
+function scanPaths(paths, findings) {
+  for (const path of paths) {
     let stat;
     try {
       stat = statSync(path);
@@ -286,19 +333,105 @@ function main() {
     }
     scanText(text, path, findings);
   }
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const staged = args.includes('--staged');
+  const dirs = [];
+  let canary = null;
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i] === '--dir') {
+      dirs.push(args[i + 1]);
+      i += 1;
+    } else if (args[i].startsWith('--dir=')) {
+      dirs.push(args[i].slice('--dir='.length));
+    } else if (args[i] === '--canary') {
+      canary = args[i + 1];
+      i += 1;
+    } else if (args[i].startsWith('--canary=')) {
+      canary = args[i].slice('--canary='.length);
+    }
+  }
+
+  const findings = [];
+  let artifactFileCount = 0;
+
+  if (dirs.length > 0) {
+    for (const dir of dirs) {
+      if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
+        console.warn(`  [secret-scan] note: artifact dir not found, skipping: ${dir}`);
+        continue;
+      }
+      const files = filesUnder(dir);
+      artifactFileCount += files.length;
+      scanPaths(files, findings);
+    }
+  } else {
+    const files = staged ? stagedFiles() : trackedFiles().filter((f) => !shouldSkip(f));
+    scanPaths(files, findings);
+  }
+
+  if (canary && canary.length > 0) {
+    // The trust-boundary canary must never appear in built output: CI sets it
+    // on build steps, then asserts absence here.
+    const canaryFindings = [];
+    const scanCanaryIn = (files) => {
+      for (const path of files) {
+        let stat;
+        try {
+          stat = statSync(path);
+        } catch {
+          continue;
+        }
+        if (stat.size > MAX_TEXT_BYTES) continue;
+        let text;
+        try {
+          text = readFileSync(path, 'utf8');
+        } catch {
+          continue;
+        }
+        if (text.includes(canary)) {
+          canaryFindings.push({ path, line: 1, rule: 'canary', match: redact(canary) });
+        }
+      }
+    };
+    if (dirs.length > 0) {
+      for (const dir of dirs) {
+        if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) continue;
+        scanCanaryIn(filesUnder(dir));
+      }
+    } else {
+      scanCanaryIn(staged ? stagedFiles() : trackedFiles().filter((f) => !shouldSkip(f)));
+    }
+    findings.push(...canaryFindings);
+  }
 
   if (findings.length > 0) {
-    console.error('Secret scan failed — likely credentials in tracked content:');
+    console.error('Secret scan failed — credentials or forbidden values in scanned content:');
     for (const f of findings) {
       console.error(`  ${f.path}:${f.line} [${f.rule}] ${f.match}`);
     }
-    console.error(
-      'If this is a documented synthetic fixture, add the exact path to ALLOWLISTED_PATHS in scripts/secret-scan.mjs — never add a real credential to an allowlist.',
-    );
+    if (dirs.length === 0) {
+      console.error(
+        'If this is a documented synthetic fixture, add the exact path to ALLOWLISTED_PATHS in scripts/secret-scan.mjs — never add a real credential to an allowlist.',
+      );
+    } else {
+      console.error(
+        'Artifact scan found credential-shaped content in built output. A secret can only reach ' +
+          'an artifact by being embedded at build time — inspect the build wiring, not the scanner.',
+      );
+    }
     process.exit(1);
   }
-  const what = staged ? 'staged additions' : 'tracked files';
-  console.log(`Secret scan clean (${what}).`);
+  if (dirs.length > 0) {
+    console.log(
+      `Secret scan clean (${artifactFileCount} artifact file(s) across ${dirs.length} dir(s)${canary ? ', canary verified absent' : ''}).`,
+    );
+  } else {
+    const what = staged ? 'staged additions' : 'tracked files';
+    console.log(`Secret scan clean (${what}).`);
+  }
 }
 
 main();

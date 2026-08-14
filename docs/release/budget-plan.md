@@ -43,7 +43,7 @@ may be self-assessed rather than charged at point of sale; the buffer covers eit
 | Linux packages | AppImage + `.deb` + `.rpm` | $0 |
 | Windows | Unsigned NSIS, documented SmartScreen steps | $0 |
 | macOS | **Omitted** (no Mac to validate on) | $0 |
-| Website | Astro → GitHub Pages at `k-arthur.github.io/varve` | $0 |
+| Website | Astro → GitHub Pages at `https://varve.studio` (Porkbun custom domain) | $0 hosting + domain cost (see §3) |
 | Integrity | SHA-256 manifest + SBOM, published alongside | $0 |
 | Updates | Manual — "check the releases page" | $0 |
 | Analytics | None (GitHub download counts only) | $0 |
@@ -59,9 +59,11 @@ is slow feedback regardless of who pays for it.
 - Repository made public (secret-audited first — see §4).
 - GitHub Pages enabled for the repo with build source `workflow`
   (`gh api -X POST repos/K-Arthur/varve/pages -f build_type=workflow`);
-  the site deploys to `https://k-arthur.github.io/varve/` via
-  `website-deploy.yml`. The earlier `HttpError: Not Found` deployment failures
-  were the Pages-not-enabled state, not a workflow defect.
+  the site deploys via `website-deploy.yml` (originally to
+  `https://k-arthur.github.io/varve/`). The earlier `HttpError: Not Found`
+  deployment failures were the Pages-not-enabled state, not a workflow defect.
+- **2026-08-12:** custom domain purchased (Porkbun) and the site moved to
+  `https://varve.studio` — see `docs/release/custom-domain-runbook.md`.
 - Container install-test tooling (`just verify-packages`) verified working with
   podman (rootless) against `ubuntu:22.04` and `fedora:38`.
 - The Model Supply Chain Validation gate (previously failing on every push) is
@@ -81,7 +83,7 @@ blocked on something money cannot fix.
 
 | # | Item | Provider | Status | Native | CAD est. | Tax+buffer | CAD total | Renewal | When | Why | If deferred |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | `.com` or `.app` domain | Cloudflare Registrar | **Optional — recommended** | USD $10.44–14 | $14.66–19.65 | +23% | **$24.17** | same, no markup | At public beta | Own the namespace; enables project email; prerequisite for a Store **Company** account | Site stays on `k-arthur.github.io/varve`; fully functional, less memorable |
+| 1 | `.com` or `.app` domain | Cloudflare Registrar | **Done 2026-08-12** — `varve.studio` via Porkbun (see `custom-domain-runbook.md`) | USD $10.44–14 | $14.66–19.65 | +23% | **$24.17** | same, no markup | At public beta | Own the namespace; enables project email; prerequisite for a Store **Company** account | N/A — purchased |
 | 2 | Real-device test time | Local shop / friend / rental | **Optional** | — | ~$50 | — | **$50.00** | one-off | Before any macOS or Windows claim | The one thing that actually unblocks macOS and Windows tiers | Windows/macOS stay Tier 3 forever |
 | 3 | Contingency reserve | — | **Mandatory** | — | — | — | **$125.83** | — | Held | LFS/Actions overage, domain renewal, unforeseen | No cushion for a surprise bill |
 | | **TOTAL COMMITTED** | | | | | | **$74.17** | | | | |
@@ -190,10 +192,10 @@ hardware produces claims that cannot be verified.
 
 ## 7. Purchase checklist (when the trigger fires)
 
-Nothing here has been executed. Each item requires payment or a legal agreement.
-
-- [ ] **Domain** — trigger: public beta announced. Cloudflare Registrar, `.com` or `.app`.
-      Verify the renewal price equals the registration price *before* paying.
+- [x] **Domain** — **executed 2026-08-12**: `varve.studio` registered at Porkbun
+      (~$24 CAD with buffer; see §3 row 1). DNS/Pages configured per
+      `docs/release/custom-domain-runbook.md`. Remaining checklist items are
+      still pending — each requires payment or a legal agreement:
 - [ ] **Microsoft Store account** — trigger: a Windows build launches successfully in a VM.
       Free. Decide Individual vs Company first (§3.1 of the distribution matrix) — it cannot be
       changed later.
