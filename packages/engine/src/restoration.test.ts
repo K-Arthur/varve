@@ -87,6 +87,16 @@ describe('restoration capability planning', () => {
     expect(restorationTasksForOperation('none')).toEqual([]);
   });
 
+  it('plans deblur + upscale as a composition of distinct stages', () => {
+    const plan = planRestoration({
+      operation: 'deblur-upscale',
+      upscale: { method: 'bicubic', scale: 2 },
+    });
+    expect(plan.stages.map((stage) => stage.task)).toEqual(['deblur', 'upscale']);
+    expect(plan.stages[0]?.modelId).toBe('nafnet-deblur-gopro');
+    expect(isRestorationOperationAvailable('deblur-upscale')).toBe(true);
+  });
+
   it('classifies thrown values into typed restoration errors', () => {
     expect(toRestorationError(new Error('cancelled'))).toMatchObject({ code: 'cancelled' });
     expect(toRestorationError('Model not downloaded. Download first.')).toMatchObject({

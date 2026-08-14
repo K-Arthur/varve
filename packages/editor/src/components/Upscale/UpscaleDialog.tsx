@@ -15,11 +15,14 @@ import type {
   UpscaleProgressFn,
 } from '@varve/engine';
 import {
+  type AutoAnalysis,
+  analyzeImageForRestoration,
   DEFAULT_UPSCALE_MODE,
   detectUpscaleCapabilities,
   getModelLoader,
   getUpscaleMode,
   isRestorationOperationAvailable,
+  recommendationLabel,
   runRestoration,
   UPSCALE_MODES,
   upscalePreviewRegion,
@@ -93,7 +96,7 @@ export function UpscaleDialog({
 }: UpscaleDialogProps) {
   const { announce } = useEditor();
   const [modeId, setModeId] = useState<UpscaleModeId>(DEFAULT_UPSCALE_MODE);
-  const [operation, setOperation] = useState<RestorationOperation>('upscale');
+  const [operation, setOperation] = useState<RestorationOperation | 'auto'>('auto');
   const [scale, setScale] = useState(2);
   const [output, setOutput] = useState<OutputBehavior>('new-layer');
   const [denoiseStrength, setDenoiseStrength] = useState<DenoiseStrength>('none');
@@ -119,14 +122,21 @@ export function UpscaleDialog({
   // Availability comes from the validated capability registry, not a
   // hardcoded per-operation rule, so a task lights up the moment its
   // checkpoint passes validation and lands in the manifest.
-  const operationAvailable = useMemo(() => isRestorationOperationAvailable(operation), [operation]);
-  const usesUpscale = operation === 'upscale' || operation === 'restore-upscale';
+  const operationAvailable = useMemo(() => {
+    if (operation === 'auto') return true;
+    return isRestorationOperationAvailable(operation);
+  }, [operation]);
+  const usesUpscale =
+    operation === 'upscale' || operation === 'restore-upscale' || operation === 'deblur-upscale';
   const usesDenoise = operation === 'denoise' || operation === 'restore-upscale';
 
   const buildRestorationRequest = useCallback((): RestorationRequest => {
     const method = mode?.id === 'pixel-art' ? 'pixel-art' : (mode?.method ?? 'bicubic');
+    // Auto shows the unchanged source as its preview; the recommended
+    // operation is resolved only when the user applies.
+    const activeOperation: RestorationOperation = operation === 'auto' ? 'none' : operation;
     return {
-      operation,
+      operation: activeOperation,
       denoise: usesDenoise
         ? { strength: denoiseStrength === 'none' ? 'medium' : denoiseStrength }
         : undefined,
@@ -148,6 +158,39 @@ export function UpscaleDialog({
     };
   }, [denoiseStrength, mode, operation, pixelArtAlgorithm, scale, usesDenoise, usesUpscale]);
 
+  /**
+   * Resolve the Auto recommendation into a concrete operation. Suggestions
+   * whose checkpoint is not installed are dropped with a note — the dialog
+   * never silently substitutes an unrelated model.
+   */
+  const [autoAnalysis, setAutoAnalysis] = useState<AutoAnalysis | null>(null);
+
+  const resolveAutoOperation = useCallback((): {
+    operation: RestorationOperation | null;
+    note?: string;
+  } => {
+    if (!autoAnalysis || autoAnalysis.recommendation[0] === 'none') return { operation: null };
+    const { recommendation } = autoAnalysis;
+    const restore =
+      recommendation.find(
+        (r) => r === 'deblur' || r === 'denoise' || r === 'compression-restoration',
+      ) ?? null;
+    const upscale = recommendation.includes('upscale');
+    const availableRestore =
+      restore === 'deblur' ? 'deblur' : restore === 'denoise' ? 'denoise' : null;
+    if (restore === 'compression-restoration') {
+      return {
+        operation: upscale ? 'restore-upscale' : 'denoise',
+        note: 'Compression-artifact cleanup is not available for this installation; Denoise is the closest validated operation.',
+      };
+    }
+    if (!availableRestore) return { operation: upscale ? 'upscale' : null };
+    if (upscale) {
+      return { operation: availableRestore === 'deblur' ? 'deblur-upscale' : 'restore-upscale' };
+    }
+    return { operation: availableRestore };
+  }, [autoAnalysis]);
+
   // Model prerequisites. Denoise needs SCUNet, Deblur needs the NAFNet
   // checkpoint, and the AI modes need their Real-ESRGAN weights; the CPU
   // resampling modes need nothing. Checking here means a missing model is
@@ -155,7 +198,7 @@ export function UpscaleDialog({
   // failure after the user commits to the operation.
   const requiredModelId = usesDenoise
     ? 'scunet'
-    : operation === 'deblur'
+    : operation === 'deblur' || operation === 'deblur-upscale'
       ? 'nafnet-deblur-gopro'
       : mode?.isAi
         ? modeId === 'illustration'
@@ -166,6 +209,24 @@ export function UpscaleDialog({
           : null;
   const [modelMissing, setModelMissing] = useState(false);
   const [showModelDownload, setShowModelDownload] = useState(false);
+
+  // Auto mode: run the cheap classical analysis once per open/source change.
+  useEffect(() => {
+    if (!open || operation !== 'auto' || !sourceImageData) {
+      setAutoAnalysis(null);
+      return;
+    }
+    let cancelled = false;
+    // Keep analysis off the critical path; it samples at most 64 patches.
+    const id = requestIdleCallback(() => {
+      const analysis = analyzeImageForRestoration(sourceImageData, { lowResolutionShortEdge: 900 });
+      if (!cancelled) setAutoAnalysis(analysis);
+    });
+    return () => {
+      cancelled = true;
+      cancelIdleCallback(id);
+    };
+  }, [open, operation, sourceImageData]);
 
   useEffect(() => {
     if (!open || !requiredModelId) {
@@ -332,6 +393,14 @@ export function UpscaleDialog({
 
   const handleApply = useCallback(async () => {
     if (!mode || memoryExceeded || processing || !operationAvailable) return;
+    // Auto resolves its recommendation at apply time; nothing to apply when
+    // the analysis suggested no restoration.
+    const resolved = operation === 'auto' ? resolveAutoOperation() : null;
+    if (operation === 'auto' && !resolved?.operation) {
+      announce('No specific restoration suggested');
+      return;
+    }
+    if (resolved?.note) setError(resolved.note);
     // Retire any queued or in-flight preview first. Both share the native
     // backend's single job slot, so a preview starting after this point would
     // cancel the real upscale.
@@ -341,16 +410,20 @@ export function UpscaleDialog({
     }
     previewAbortRef.current?.abort();
     previewAbortRef.current = null;
-    setError(null);
     setProcessing(true);
     setProgress(null);
     try {
       await onApply({
-        operation,
+        operation: resolved?.operation ?? operation,
         mode: modeId,
         scale,
         output,
-        denoiseStrength: usesDenoise ? denoiseStrength : 'none',
+        denoiseStrength:
+          resolved?.operation === 'denoise' || resolved?.operation === 'restore-upscale'
+            ? denoiseStrength
+            : usesDenoise
+              ? denoiseStrength
+              : 'none',
         pixelArtAlgorithm: modeId === 'pixel-art' ? pixelArtAlgorithm : undefined,
         onProgress,
       });
@@ -392,6 +465,7 @@ export function UpscaleDialog({
     buildRestorationRequest,
     operationAvailable,
     usesDenoise,
+    resolveAutoOperation,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -581,6 +655,7 @@ export function UpscaleDialog({
                   value={operation}
                   disabled={processing}
                   options={[
+                    { value: 'auto', label: 'Auto / Recommended' },
                     { value: 'upscale', label: 'Upscale' },
                     { value: 'denoise', label: 'Denoise' },
                     { value: 'restore-upscale', label: 'Restore + Upscale' },
@@ -598,7 +673,7 @@ export function UpscaleDialog({
                     },
                   ]}
                   onChange={(value) => {
-                    const next = value as RestorationOperation;
+                    const next = value as RestorationOperation | 'auto';
                     setOperation(next);
                     if (next === 'upscale') setDenoiseStrength('none');
                     if (next === 'denoise' && denoiseStrength === 'none') {
@@ -606,6 +681,29 @@ export function UpscaleDialog({
                     }
                   }}
                 />
+                {operation === 'auto' && (
+                  <div className="upscale-auto" role="status" aria-live="polite">
+                    {autoAnalysis ? (
+                      autoAnalysis.recommendation[0] === 'none' ? (
+                        <p className="insp-hint">No specific restoration suggested.</p>
+                      ) : (
+                        <>
+                          <p className="insp-hint">
+                            <strong>Detected:</strong>{' '}
+                            {autoAnalysis.findings.join('; ').toLowerCase()}
+                          </p>
+                          <p className="insp-hint">
+                            <strong>Recommended:</strong>{' '}
+                            {recommendationLabel(autoAnalysis.recommendation)} (confidence{' '}
+                            {Math.round(autoAnalysis.confidence * 100)}%)
+                          </p>
+                        </>
+                      )
+                    ) : (
+                      <p className="insp-hint">Analyzing image…</p>
+                    )}
+                  </div>
+                )}
                 {!operationAvailable && (
                   <p className="insp-hint insp-hint--warn">
                     No task-specific model is installed and validated for this operation yet.
@@ -806,22 +904,30 @@ export function UpscaleDialog({
               variant="primary"
               size="sm"
               disabled={
-                processing || memoryExceeded || !mode || modelMissing || !operationAvailable
+                processing ||
+                memoryExceeded ||
+                !mode ||
+                modelMissing ||
+                !operationAvailable ||
+                (operation === 'auto' &&
+                  (!autoAnalysis || autoAnalysis.recommendation[0] === 'none'))
               }
               loading={processing}
               onClick={() => void handleApply()}
             >
-              {operation === 'denoise'
-                ? 'Denoise image'
-                : operation === 'deblur'
-                  ? 'Deblur image'
-                  : operation === 'compression-restoration'
-                    ? 'Clean up image'
-                    : operation === 'restore-upscale'
-                      ? 'Restore and upscale'
-                      : mode?.isAi
-                        ? 'Upscale with AI'
-                        : 'Upscale image'}
+              {operation === 'auto'
+                ? 'Apply recommended'
+                : operation === 'denoise'
+                  ? 'Denoise image'
+                  : operation === 'deblur'
+                    ? 'Deblur image'
+                    : operation === 'compression-restoration'
+                      ? 'Clean up image'
+                      : operation === 'restore-upscale'
+                        ? 'Restore and upscale'
+                        : mode?.isAi
+                          ? 'Upscale with AI'
+                          : 'Upscale image'}
             </Button>
           </div>
 
