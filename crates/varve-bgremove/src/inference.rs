@@ -338,10 +338,14 @@ fn model_spec(model_id: &str) -> ModelSpec {
 }
 
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
-// SCUNet is fully convolutional: dynamic H×W (divisible by 8), identity
-// normalization (pixel / 255), no letterboxing. Input/output both [1,3,H,W].
+// SCUNet is fully convolutional: dynamic H×W, identity normalization
+// (pixel / 255), no letterboxing. Input/output both [1,3,H,W].
+// Padding must be a multiple of 64: the Heliosoph ONNX conversion bakes a
+// window-8 channel-attention reshape with floor-grid semantics, so any
+// padded dimension not divisible by 64 crashes the graph (verified on a
+// dimension sweep 2026-08-13; the manifest previously claimed 8).
 
-const DENOISE_INPUT_DIVISIBLE: u32 = 8;
+const DENOISE_INPUT_DIVISIBLE: u32 = 64;
 
 fn align_to(n: u32, to: u32) -> u32 {
     if n.is_multiple_of(to) {
