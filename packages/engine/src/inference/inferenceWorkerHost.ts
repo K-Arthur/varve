@@ -25,12 +25,24 @@ export class InferenceWorkerHost {
   private nextRequestId = 0;
   private workerReady = false;
 
-  constructor(private workerUrl: string | URL) {}
+  constructor(private workerUrl?: string | URL) {}
 
   private ensureWorker(): Worker {
     if (this.worker) return this.worker;
 
-    this.worker = new Worker(this.workerUrl, { type: 'module' });
+    // The default URL MUST be a literal `new Worker(new URL(...))` expression
+    // for Vite to bundle the worker: a URL routed through a variable (or a
+    // constructor parameter) is treated as a plain asset, the raw .ts source
+    // is emitted with its original extension, and the browser refuses to run
+    // it in production builds (the worker dies with an empty error event).
+    // See inferenceWorkerHost.ts / vite worker detection.
+    if (this.workerUrl) {
+      this.worker = new Worker(this.workerUrl, { type: 'module' });
+    } else {
+      this.worker = new Worker(new URL('./inferenceWorker.ts', import.meta.url), {
+        type: 'module',
+      });
+    }
     // A single permanent handler. An earlier readiness probe replaced this with
     // a listener that forwarded only `ready` and discarded everything else —
     // and because the worker emits `ready` *after* creating a session inside an
@@ -136,7 +148,7 @@ let sharedHost: InferenceWorkerHost | null = null;
 
 export function getInferenceWorkerHost(): InferenceWorkerHost {
   if (!sharedHost) {
-    sharedHost = new InferenceWorkerHost(new URL('./inferenceWorker.ts', import.meta.url));
+    sharedHost = new InferenceWorkerHost();
   }
   return sharedHost;
 }
