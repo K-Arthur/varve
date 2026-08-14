@@ -87,8 +87,9 @@ split encoder/decoder support. This is an implementation choice behind the
 contract, not a completed runtime benchmark decision. Candle + safetensors is
 not accepted merely because it is Rust-native; a replacement requires an
 official-predictor parity corpus, quality tolerances, cold/warm latency,
-memory, and cross-platform evidence. See ADR-0220 and the dated audit for the
-required benchmark matrix.
+memory, and cross-platform evidence. See ADR-0220, the dated audit, and
+`docs/quality/object-selection-parity.md` (corpus, metrics, tolerances, and
+the release-gate procedure) for the required benchmark matrix.
 
 ## Known limitations
 
