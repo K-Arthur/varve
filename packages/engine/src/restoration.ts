@@ -14,7 +14,8 @@ export type RestorationOperation =
   | 'deblur'
   | 'compression-restoration'
   | 'upscale'
-  | 'restore-upscale';
+  | 'restore-upscale'
+  | 'deblur-upscale';
 
 export type RestorationRuntime = 'onnx-native' | 'onnx-web' | 'classical-cpu';
 
@@ -264,6 +265,8 @@ export function restorationTasksForOperation(operation: RestorationOperation): R
       return ['denoise'];
     case 'restore-upscale':
       return ['denoise', 'upscale'];
+    case 'deblur-upscale':
+      return ['deblur', 'upscale'];
     case 'deblur':
       return ['deblur'];
     case 'compression-restoration':
@@ -352,6 +355,18 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       else stages.push({ id: 'upscale', task: 'upscale', status: 'ready' });
       warnings.push(
         'Restoration runs before super-resolution so the upscale does not enlarge noise.',
+      );
+      break;
+    case 'deblur-upscale':
+      addStage('deblur');
+      if (!request.upscale) {
+        throw new RestorationPlanningError('invalid-request', 'Upscale settings are required');
+      }
+      validateScale(request.upscale.scale);
+      if (request.upscale.method === 'ai') addStage('upscale', request.upscale.modelId);
+      else stages.push({ id: 'upscale', task: 'upscale', status: 'ready' });
+      warnings.push(
+        'Restoration runs before super-resolution so the upscale does not enlarge blur.',
       );
       break;
     case 'deblur':
