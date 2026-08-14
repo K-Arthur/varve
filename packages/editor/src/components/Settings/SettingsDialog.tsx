@@ -24,6 +24,7 @@ import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ColorizationModelsTab } from './ColorizationModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
 import { PerformanceSettingsTab } from './PerformanceSettingsTab';
+import { SemanticSearchTab } from './SemanticSearchTab';
 import type { SettingsSection } from './SettingsContext';
 import { useSettings } from './SettingsContext';
 
@@ -160,6 +161,7 @@ export function SettingsDialog({
               <>
                 <BgRemovalModelsTab />
                 <ColorizationModelsTab />
+                <SemanticSearchTab />
               </>
             )}
             {activeSection === 'collab' && <CollabSection />}
