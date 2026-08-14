@@ -7,6 +7,7 @@ import {
   getInferenceWorkerHost,
   getModelLoader,
   normalizeDepthPrediction,
+  sampleDepth,
   serializeDepthMap,
 } from '@varve/engine';
 import type { Effect, SceneNode, ShapeNode } from '@varve/scene';
@@ -14,7 +15,8 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { Button } from '@varve/ui';
 import { type MouseEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import { commitRasterMask } from '../../../backgroundRemoval/commitRasterMask';
-import { useEditor } from '../../../context';
+import { useEditor, useViewport } from '../../../context';
+import { worldPointToImageMaskPixel } from '../../../tools/imageMaskCoordinates';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 
@@ -121,6 +123,7 @@ interface DepthBlurParams {
 
 export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const { state, updateDoc, announce } = useEditor();
+  const { canvasToWorld } = useViewport();
   const node = nodes[0] as ShapeNode | undefined;
 
   const [modelState, setModelState] = useState<'idle' | 'downloading' | 'ready' | 'error'>('idle');
@@ -142,6 +145,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const [livePreview, setLivePreview] = useState(false);
   const [previewDepth, setPreviewDepth] = useState(false);
   const [pickFocus, setPickFocus] = useState(false);
+  const [pickFromCanvas, setPickFromCanvas] = useState(false);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
   const sourceGenerationRef = useRef(0);
@@ -433,6 +437,47 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
     [announce, depthData, pickFocus],
   );
 
+  // Canvas-integrated focus picking: while armed, the next pointer press on
+  // the canvas is mapped screen -> world -> node -> source pixel -> DepthMap
+  // sample, so focus follows the user's click at any zoom or rotation.
+  useEffect(() => {
+    if (!pickFromCanvas || !depthData || !node) return;
+    const canvasSelector = 'canvas.editor-canvas__content-layer';
+    const onPointerDown = (event: PointerEvent) => {
+      const canvas =
+        document.querySelector<HTMLElement>(canvasSelector) ??
+        document.querySelector<HTMLElement>('.editor-canvas');
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const world = canvasToWorld(event.clientX - rect.left, event.clientY - rect.top);
+      const pixel = worldPointToImageMaskPixel({
+        document: state.document,
+        node,
+        sourceWidth: depthData.width,
+        sourceHeight: depthData.height,
+        worldPoint: world,
+      });
+      // Clicks outside the image leave the picker armed.
+      if (!pixel) return;
+      const value = sampleDepth(depthData, pixel.x, pixel.y, 2);
+      if (value === null) return;
+      setParams((current) => ({ ...current, focalDepth: Math.round(value * 100) }));
+      setPickFromCanvas(false);
+      announce(`Depth Blur focus set to ${Math.round(value * 100)}% (picked from canvas)`);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setPickFromCanvas(false);
+      announce('Focus picking cancelled');
+    };
+    window.addEventListener('pointerdown', onPointerDown, { capture: true });
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, { capture: true });
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [announce, canvasToWorld, depthData, node, pickFromCanvas, state.document]);
+
   const handleCreateDepthMask = useCallback(() => {
     if (!depthData || !depthResource || !node) return;
     try {
@@ -620,6 +665,15 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
                 }}
               >
                 {pickFocus ? 'Click Depth Preview…' : 'Pick Focus'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setPickFromCanvas((armed) => !armed)}
+                aria-pressed={pickFromCanvas}
+              >
+                {pickFromCanvas ? 'Click Image on Canvas…' : 'Pick Focus from Canvas'}
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={handleRegenerate}>
                 Regenerate Depth Map
