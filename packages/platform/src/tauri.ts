@@ -372,6 +372,13 @@ export function createTauriPlatform(): Platform {
     async deleteAsset(id) {
       await core().invoke('home_delete_asset', { id });
     },
+    async getAssetBytes() {
+      // Native asset commands are not implemented in the Rust backend; the
+      // desktop app currently runs the web platform adapter, which stores
+      // asset bytes in IndexedDB. Keep the contract explicit rather than
+      // invoking a command that does not exist.
+      return null;
+    },
     async searchAssets(query) {
       const c = core();
       return (await c.invoke('home_search_assets', { query })) as Asset[];

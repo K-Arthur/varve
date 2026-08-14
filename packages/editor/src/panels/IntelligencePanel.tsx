@@ -10,12 +10,12 @@
  */
 import {
   decodeEfficientNetOutput,
+  embedImageForSearch,
+  embedTextForSearch,
   getFontRegistry,
   getInferenceWorkerHost,
   getModelLoader,
-  loadSiglipTokenizer,
   normalizeEmbedding,
-  SIGLIP_TEXT_MAX_LENGTH,
   SIGLIP_TEXT_MODEL_ID,
 } from '@varve/engine';
 import type {
@@ -37,7 +37,6 @@ import {
   makeAssetEmbeddingRecord,
   type SemanticEmbeddingStore,
 } from '@varve/platform';
-import { contentHashForSrc } from '../semantic/contentHash';
 import { validatePrototype } from '@varve/prototype';
 import type { Document, NodeId, ShapeNode } from '@varve/scene';
 import {
@@ -83,6 +82,7 @@ import {
   type SpacingAnalysis,
 } from '../intelligence/spacingHarmonizer';
 import { buildPromotionPlan, type VariantPromotionPlan } from '../intelligence/variantPromotion';
+import { contentHashForSrc } from '../semantic/contentHash';
 
 import '../components/Inspector/inspector.css';
 
@@ -2576,36 +2576,12 @@ function SimilarTab() {
       }
       if (signal.aborted) throw new Error('cancelled');
 
-      const host = getInferenceWorkerHost();
-      const result = await host.infer(
-        {
-          type: 'infer',
-          modelType: 'siglip-image',
-          modelPath,
-          modelId: SIGLIP_MODEL_ID,
-          imageData,
-          reuseSession: true,
-        },
-        { signal, timeoutMs: 30_000 },
-      );
+      // Canonical, parity-verified pipeline (preprocess.ts + worker) — the
+      // worker's canvas letterbox path is deliberately not used here because
+      // it diverges from the reference preprocessing (no alpha matting,
+      // browser-dependent resampling).
+      const embedding = await embedImageForSearch(imageData, modelPath, signal);
       if (signal.aborted) throw new Error('cancelled');
-
-      // Verified real output tensor name (see siglip.ts): "image_embeds".
-      const rawOutputs = result.outputs as {
-        image_embeds: { data: Float32Array; dims: number[] };
-      };
-      const raw = rawOutputs.image_embeds;
-      if (!raw) throw new Error('Embedding did not produce an output tensor');
-      const embedding: EmbeddingVector = {
-        modelId: SIGLIP_IMAGE_MODEL.id,
-        modelRevision: SIGLIP_IMAGE_MODEL.revision,
-        embeddingSpaceVersion: SIGLIP_IMAGE_MODEL.embeddingSpaceVersion,
-        preprocessingVersion: SIGLIP_IMAGE_MODEL.preprocessingVersion,
-        dimension: raw.data.length,
-        dtype: 'fp32',
-        normalized: true,
-        values: normalizeEmbedding(raw.data),
-      };
       embeddingCacheRef.current.set(cacheKey, embedding);
       const store = embeddingStoreRef.current;
       if (store) {
@@ -2627,44 +2603,9 @@ function SimilarTab() {
   );
 
   const embedText = useCallback(async (query: string, modelPath: string, signal: AbortSignal) => {
-    const tokenizer = await loadSiglipTokenizer(signal);
-    const encoded = tokenizer.encode(query, SIGLIP_TEXT_MAX_LENGTH);
-    const result = await getInferenceWorkerHost().infer(
-      {
-        type: 'infer',
-        modelType: 'siglip-text',
-        modelPath,
-        modelId: SIGLIP_TEXT_MODEL_ID,
-        tensors: {
-          input_ids: {
-            data: encoded.inputIds,
-            dims: [1, SIGLIP_TEXT_MAX_LENGTH],
-            dtype: 'int64',
-          },
-        },
-        reuseSession: true,
-      },
-      { signal, timeoutMs: 30_000 },
-    );
-    const rawOutputs = result.outputs as {
-      pooler_output?: { data: Float32Array; dims: number[] };
-    };
-    const raw =
-      rawOutputs.pooler_output ??
-      Object.values(rawOutputs).find((value): value is { data: Float32Array; dims: number[] } =>
-        Boolean(value && typeof value === 'object' && 'data' in value && 'dims' in value),
-      );
-    if (!raw) throw new Error('Text embedding did not produce an output tensor');
-    return {
-      modelId: SIGLIP_MODEL_ID,
-      modelRevision: SIGLIP_IMAGE_MODEL.revision,
-      embeddingSpaceVersion: SIGLIP_IMAGE_MODEL.embeddingSpaceVersion,
-      preprocessingVersion: SIGLIP_IMAGE_MODEL.preprocessingVersion,
-      dimension: raw.data.length,
-      dtype: 'fp32' as const,
-      normalized: true,
-      values: normalizeEmbedding(raw.data),
-    } satisfies EmbeddingVector;
+    // Reference-parity tokenizer + text tower (parity-tested against
+    // transformers for ids and embeddings).
+    return embedTextForSearch(query, modelPath, signal);
   }, []);
 
   const handleSearch = useCallback(async () => {
