@@ -35,20 +35,21 @@ describe('scunet', () => {
   });
 
   describe('alignTo8', () => {
-    it('rounds UP to multiple of 8', () => {
-      expect(alignTo8(16)).toBe(16);
-      expect(alignTo8(17)).toBe(24);
-      expect(alignTo8(23)).toBe(24);
-      expect(alignTo8(24)).toBe(24);
+    it('rounds UP to multiple of 64 (the graph-safe padding for the baked attention reshape)', () => {
+      expect(alignTo8(64)).toBe(64);
+      expect(alignTo8(65)).toBe(128);
+      expect(alignTo8(127)).toBe(128);
+      expect(alignTo8(128)).toBe(128);
     });
-    it('clamps minimum at 8', () => {
-      expect(alignTo8(1)).toBe(8);
-      expect(alignTo8(7)).toBe(8);
+    it('clamps minimum at 64', () => {
+      expect(alignTo8(1)).toBe(64);
+      expect(alignTo8(63)).toBe(64);
     });
     it('handles large values', () => {
       expect(alignTo8(512)).toBe(512);
-      expect(alignTo8(513)).toBe(520);
-      expect(alignTo8(1000)).toBe(1000);
+      expect(alignTo8(513)).toBe(576);
+      expect(alignTo8(1080)).toBe(1088);
+      expect(alignTo8(1000)).toBe(1024);
     });
   });
 
@@ -86,15 +87,16 @@ describe('scunet', () => {
         }
       const img = { data, width: 16, height: 16, colorSpace: 'srgb' } as unknown as ImageData;
       const ext = extractTile(img, { x: 4, y: 4, width: 4, height: 4 });
-      expect(ext.alignedWidth).toBe(8);
-      expect(ext.alignedHeight).toBe(8);
+      // alignment is to 64 (the graph-safe padding), edge-clamped content
+      expect(ext.alignedWidth).toBe(64);
+      expect(ext.alignedHeight).toBe(64);
       expect(ext.tensor[0]).toBeCloseTo(1);
     });
     it('clamps at boundaries', () => {
       const img = makeImageData(8, 8, 100);
       const ext = extractTile(img, { x: 4, y: 4, width: 8, height: 8 });
-      expect(ext.alignedWidth).toBe(8);
-      expect(ext.alignedHeight).toBe(8);
+      expect(ext.alignedWidth).toBe(64);
+      expect(ext.alignedHeight).toBe(64);
       for (const v of ext.tensor) expect(Number.isNaN(v)).toBe(false);
     });
     it('extracts alpha', () => {
@@ -115,7 +117,11 @@ describe('scunet', () => {
         { x: 0, y: 0, width: 8, height: 8 },
         { x: 4, y: 0, width: 8, height: 8 },
       ];
-      const results = [new Float32Array(64 * 3).fill(0.5), new Float32Array(64 * 3).fill(0.7)];
+      // results are aligned to 64x64 planes
+      const results = [
+        new Float32Array(64 * 64 * 3).fill(0.5),
+        new Float32Array(64 * 64 * 3).fill(0.7),
+      ];
       expect(blendTiles(tiles, results, 12, 8, 4).length).toBe(12 * 8 * 3);
     });
     it('averages overlaps', () => {
@@ -123,12 +129,13 @@ describe('scunet', () => {
         { x: 0, y: 0, width: 8, height: 8 },
         { x: 0, y: 0, width: 8, height: 8 },
       ];
-      const t1 = new Float32Array(64 * 3).fill(0.4);
-      const t2 = new Float32Array(64 * 3).fill(0.6);
+      const t1 = new Float32Array(64 * 64 * 3).fill(0.4);
+      const t2 = new Float32Array(64 * 64 * 3).fill(0.6);
+      // both tiles cover the pixel with equal weight
       expect(blendTiles(tiles, [t1, t2], 8, 8, 4)[4 * 8 + 4]).toBeCloseTo(0.5, 1);
     });
     it('preserves non-overlapping edges', () => {
-      const tensor = new Float32Array(64 * 3).fill(0.3);
+      const tensor = new Float32Array(64 * 64 * 3).fill(0.3);
       expect(blendTiles([{ x: 0, y: 0, width: 8, height: 8 }], [tensor], 8, 8, 4)[10]).toBeCloseTo(
         0.3,
       );
@@ -191,14 +198,17 @@ describe('scunet', () => {
 
   describe('preprocessScunet', () => {
     it('correct dims for aligned input', () => {
-      const r = preprocessScunet(makeImageData(16, 16, 200));
-      expect(r.alignedWidth).toBe(16);
-      expect(r.originalWidth).toBe(16);
+      const r = preprocessScunet(makeImageData(64, 64, 200));
+      expect(r.alignedWidth).toBe(64);
+      expect(r.originalWidth).toBe(64);
     });
-    it('pads to next 8-aligned', () => {
+    it('pads to next 64-aligned (graph-safe for the baked attention reshape)', () => {
       const r = preprocessScunet(makeImageData(15, 17, 200));
-      expect(r.alignedWidth).toBe(16);
-      expect(r.alignedHeight).toBe(24);
+      expect(r.alignedWidth).toBe(64);
+      expect(r.alignedHeight).toBe(64);
+      const r2 = preprocessScunet(makeImageData(1080, 1920, 200));
+      expect(r2.alignedWidth).toBe(1088);
+      expect(r2.alignedHeight).toBe(1920);
     });
     it('normalizes to [0,1]', () => {
       expect(preprocessScunet(makeImageData(8, 8, 200)).tensor[0]).toBeCloseTo(200 / 255, 4);
@@ -208,7 +218,7 @@ describe('scunet', () => {
       for (let y = 0; y < 10; y++) d[(y * 10 + 9) * 4] = 255;
       const img = { data: d, width: 10, height: 10, colorSpace: 'srgb' } as unknown as ImageData;
       const r = preprocessScunet(img);
-      expect(r.alignedWidth).toBe(16);
+      expect(r.alignedWidth).toBe(64);
       expect(r.tensor[10]).toBeCloseTo(1);
     });
     it('detects alpha', () => {
