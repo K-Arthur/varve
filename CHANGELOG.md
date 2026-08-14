@@ -14,6 +14,34 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Image Enhance — Deblur and Auto/Recommended** — the Enhance workflow
+  now ships a validated Deblur operation backed by a reproducible
+  conversion of NAFNet-GoPro-width64 (MIT, ~138 MB fp16 ONNX, downloaded
+  on demand through the model manifest with a pinned checksum; conversion
+  parity is bit-exact with the trusted PyTorch reference — 98.9 dB on the
+  official GoPro test subset). Deblur runs through the same shared
+  native→worker provider chain as Denoise, with adaptive tiling that
+  keeps tiles single-shot up to 1280 px because NAFNet’s global
+  receptive field makes small tiles visibly seamed. The dialog opens in
+  Auto/Recommended mode: a cheap classical analysis (noise, blur, JPEG
+  blockiness, resolution) proposes a restoration in human terms with a
+  confidence number, and `Restore + Upscale` composes only the stages it
+  needs (denoise, deblur, or deblur+upscale, always restoration before
+  super-resolution).
+- **Denoise fix: graph-safe padding** — the SCUNet ONNX conversion
+  actually requires padded dimensions divisible by 64 (its baked
+  attention reshape crashes otherwise), so 1080p and other non-64-
+  multiple images failed denoise. Padding, the native spec, and the
+  manifest contract were corrected (previously claimed 8).
+- **Restore benchmark tooling** — `scripts/bench/restore-reference/`
+  provides a deterministic degradation corpus (JPEG, Gaussian, motion
+  blur recipes with fixed seeds), TS-exact ONNX reference runners, and
+  contact-sheet rendering; measured results are in
+  `docs/quality/image-enhancement-benchmark.md`. Compression-artifact
+  removal remains unavailable by design: no model passed the
+  design-content corpus (SCUNet destroys 1px line patterns; the only
+  JPEG-trained NAFNet checkpoint was rejected on provenance).
+
 - **Object Selection** — select an image and use the Select Object tool
   (or the Adjustments tab) to prompt a local SAM2-Hiera-Tiny model with
   positive/negative points and drag boxes. The preview is transient until
