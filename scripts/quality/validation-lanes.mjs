@@ -71,10 +71,13 @@ export function laneCommand(lane, pkgDir) {
   if (lane.startsWith('js-unit:') && !lane.endsWith(':all')) {
     const name = lane.slice('js-unit:'.length);
     const dir = pkgDir || packageDirs[name];
-    return `pnpm exec vitest run packages/${dir}`;
+    if (!dir) return null;
+    // dir is repo-relative ("packages/editor"), as reported by pnpm m ls.
+    return `pnpm exec vitest run ${dir}`;
   }
   if (lane.startsWith('typecheck:') && !lane.endsWith(':all')) {
     const name = lane.slice('typecheck:'.length);
+    if (!pkgDir && !packageDirs[name]) return null;
     return `pnpm --filter ${name} typecheck`;
   }
   if (lane.startsWith('rust-test:') && !lane.endsWith(':all')) {

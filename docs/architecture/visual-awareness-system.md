@@ -80,8 +80,14 @@ precise facial boundaries matter.
 
 The runtime choice remains empirical. Before shipping a face backend, record
 cold load, warm p50/p95, preprocessing, postprocessing, peak RAM, model size,
-CPU behavior, GPU fallback, and output parity on the same corpus. No model is
-bundled or downloaded by the foundation slice.
+CPU behavior, GPU fallback, and output parity on the same corpus.
+
+The first shipped backend is YuNet (`opencv/face_detection_yunet` 2023mar, MIT,
+233 KB), bundled at `apps/desktop/public/models/yunet-face-detect.onnx` with a
+SHA-256-pinned manifest entry. It is small enough that bundling removes the
+download path entirely, so `Protect Faces` works offline and in CI without a
+network dependency. The bundling precedent is u2netp/Real-ESRGAN; larger vision
+models must not be silently bundled.
 
 ## Model and storage policy
 
@@ -116,9 +122,9 @@ verification path.
 
 ## Planned vertical slices
 
-1. Add and benchmark a task-specific `FACE_BOUNDS` backend against the service.
+1. Add and benchmark a task-specific `FACE_BOUNDS` backend against the service. *(Done: YuNet FACE_BOUNDS + FACE_KEYPOINTS via the shared ONNX worker; decode verified bit-for-bit against OpenCV FaceDetectorYN.)*
 2. Connect `Protect Faces` to the existing crop inspector with explicit model,
-   analyzing, no-face, unsupported, and download-failure states.
+   analyzing, no-face, unsupported, and download-failure states. *(Done: the model is bundled, so the state is always available; no-face and analyzing states remain.)*
 3. Add a landmark backend and semantic anchor resolver for static images.
 4. Add precise face-protection masks and compare them with the existing mask
    and background-removal quality corpus.
