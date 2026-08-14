@@ -71,6 +71,7 @@
         "integrityVerifiedAt": "2026-07-21T00:00:00Z",
         "provenanceStatus": "unverified",
         "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-08-13T00:00:00Z",
         "inferenceVerifiedAt": "2026-07-21T00:00:00Z",
         "validationSummary": "SHA-256 pinned from verified download. Full contract and provenance documented."
       },
@@ -827,78 +828,7 @@
         "integrityVerified": true,
         "provenanceStatus": "verified",
         "inferenceVerified": true,
-        "validationSummary": "Reproducible conversion from the official NAFNet-GoPro-width64 checkpoint (tools/nafnet-export): bit-exact parity with the trusted PyTorch reference on real photos (max diff <= 1/255), dynamic shape, fp16 internal weights with fp32 boundary. GoPro test-set PSNR gate recorded in docs/quality/image-enhancement-benchmark.md.",
-        "integrityVerifiedAt": "2026-08-13T00:00:00Z",
-        "contractVersion": 1,
-        "contractVerifiedAt": "2026-08-13T00:00:00Z"
-      },
-      "notes": "NAFNet-GoPro-width64 motion/defocus deblurring. Task-validated for deblur only; not advertised for denoise or JPEG restoration. BGR channel order (official OpenCV training convention; the runtime swaps at the boundary). H/W divisible by 16. MIT (c) 2022 megvii-model. ~138MB fp16 single-file."
-    },
-    {
-      "id": "nafnet-deblur-gopro",
-      "filename": "nafnet-gopro-width64-fp16b-embed.onnx",
-      "localPath": "/models/nafnet-gopro-width64-fp16b-embed.onnx",
-      "sha256": "e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e",
-      "bundled": false,
-      "remoteUrl": "https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx",
-      "precision": "fp16",
-      "modelVersion": "1.0.0",
-      "sourceRevision": "megvii-research/NAFNet @ 2b4af71; NAFNet-GoPro-width64.pth sha256 329d3ab4077b8d6b7ff61de376e483714667960bf85be027bf4335cda701196f",
-      "sourceLicense": "MIT",
-      "preprocessingVersion": 1,
-      "postprocessingVersion": 1,
-      "supportedProviders": [
-        "wasm",
-        "webgpu"
-      ],
-      "tensorContract": {
-        "version": 1,
-        "inputs": [
-          {
-            "name": "input",
-            "dims": [
-              1,
-              3,
-              null,
-              null
-            ],
-            "dtype": "float32"
-          }
-        ],
-        "outputs": [
-          {
-            "name": "output",
-            "dims": [
-              1,
-              3,
-              null,
-              null
-            ],
-            "dtype": "float32"
-          }
-        ],
-        "inputDivisor": 16,
-        "normalization": {
-          "mean": [
-            0,
-            0,
-            0
-          ],
-          "std": [
-            1,
-            1,
-            1
-          ],
-          "channelOrder": "bgr"
-        },
-        "outputActivation": "none",
-        "peakMemoryBytes": 420000000
-      },
-      "validation": {
-        "contractVerified": true,
-        "integrityVerified": true,
-        "provenanceStatus": "verified",
-        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-08-13T00:00:00Z",
         "validationSummary": "Reproducible conversion from the official NAFNet-GoPro-width64 checkpoint (tools/nafnet-export): bit-exact parity with the trusted PyTorch reference on real photos (max diff <= 1/255), dynamic shape, fp16 internal weights with fp32 boundary. GoPro test-set PSNR gate recorded in docs/quality/image-enhancement-benchmark.md.",
         "integrityVerifiedAt": "2026-08-13T00:00:00Z",
         "contractVersion": 1,
