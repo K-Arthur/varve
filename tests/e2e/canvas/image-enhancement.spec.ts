@@ -3,25 +3,35 @@ import { expect, test } from '@playwright/test';
 
 import { navigateToEditor } from '../shared';
 
-test('imports an image and upscales it through the dialog', async ({ page }) => {
-  test.setTimeout(180000);
+const DIALOG = 'Enhance image';
+
+/** Pick an operation in the Enhance dialog's custom Select. */
+async function selectOperation(page: import('@playwright/test').Page, label: string) {
+  await page.getByRole('combobox', { name: 'Enhancement operation' }).click();
+  await page.getByRole('option', { name: label }).click();
+}
+
+async function openEnhanceDialog(page: import('@playwright/test').Page) {
   await navigateToEditor(page);
   await page
     .locator('#file-import-input')
     .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
-
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-  await expect(page.getByRole('button', { name: /^Upscale$/ })).toBeVisible();
+  await page
+    .getByRole('button', { name: /^Enhance|^Upscale$/ })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible();
+}
 
-  // Open the upscale dialog via the canvas selection toolbar.
-  await page.getByRole('button', { name: /^Upscale$/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
+test('imports an image and upscales it through the dialog', async ({ page }) => {
+  test.setTimeout(180000);
+  await openEnhanceDialog(page);
 
-  // Apply the default deterministic CPU upscale. AI behavior is covered by
-  // provider tests and should not make this dialog interaction depend on a
-  // model download.
+  // The dialog opens in Auto/Recommended; pick a deterministic CPU upscale.
+  await selectOperation(page, 'Upscale');
   await page.getByRole('button', { name: 'Upscale image' }).click();
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).not.toBeVisible({
+  await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible({
     timeout: 120000,
   });
   await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
@@ -29,6 +39,22 @@ test('imports an image and upscales it through the dialog', async ({ page }) => 
   // Undo.
   await page.keyboard.press('Control+z');
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 5000 });
+});
+
+test('auto mode recommends an operation for a low-resolution import', async ({ page }) => {
+  test.setTimeout(60000);
+  await openEnhanceDialog(page);
+
+  // The 16x16 favicon is below the resolution threshold, so the analysis
+  // must recommend upscaling without any model download.
+  await expect(page.getByText(/Low source resolution/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Apply recommended' })).toBeEnabled();
+
+  await page.getByRole('button', { name: 'Apply recommended' }).click();
+  await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible({
+    timeout: 120000,
+  });
+  await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 });
 
 test('denoises with SCUNet before applying a CPU upscale', async ({ page }) => {
@@ -103,21 +129,26 @@ test('denoises with SCUNet before applying a CPU upscale', async ({ page }) => {
     .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-  await page.getByRole('button', { name: /^Upscale$/ }).click();
+  await page
+    .getByRole('button', { name: /^Enhance|^Upscale$/ })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible();
+  await selectOperation(page, 'Denoise');
   await page
     .getByRole('radiogroup', { name: 'Denoise strength' })
     .getByText('Light', { exact: true })
     .click();
-  await expect(page.getByRole('button', { name: 'Upscale image' })).toBeEnabled();
-  await page.getByRole('button', { name: 'Upscale image' }).click();
+  await expect(page.getByRole('button', { name: 'Denoise image' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Denoise image' }).click();
 
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).not.toBeVisible({
+  await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible({
     timeout: 30000,
   });
   await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 });
 
-test('opens the upscale dialog via keyboard shortcut', async ({ page }) => {
+test('opens the enhance dialog via keyboard shortcut', async ({ page }) => {
   test.setTimeout(60000);
   await navigateToEditor(page);
   await page
@@ -128,42 +159,27 @@ test('opens the upscale dialog via keyboard shortcut', async ({ page }) => {
 
   // Use the keyboard shortcut to open the dialog.
   await page.keyboard.press('Control+Shift+U');
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible();
 
   // Close via Escape.
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).not.toBeVisible();
+  await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible();
 });
 
-test('cancels the upscale dialog without applying', async ({ page }) => {
+test('cancels the enhance dialog without applying', async ({ page }) => {
   test.setTimeout(60000);
-  await navigateToEditor(page);
-  await page
-    .locator('#file-import-input')
-    .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
-
-  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-
-  await page.getByRole('button', { name: /^Upscale$/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
+  await openEnhanceDialog(page);
 
   // Cancel.
   await page.getByRole('button', { name: 'Cancel' }).click();
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).not.toBeVisible();
+  await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible();
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 5000 });
 });
 
-test('changes scale factor in the upscale dialog', async ({ page }) => {
+test('changes scale factor in the enhance dialog', async ({ page }) => {
   test.setTimeout(60000);
-  await navigateToEditor(page);
-  await page
-    .locator('#file-import-input')
-    .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
-
-  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-
-  await page.getByRole('button', { name: /^Upscale$/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
+  await openEnhanceDialog(page);
+  await selectOperation(page, 'Upscale');
 
   // Balanced mode (bicubic) is the default; change its scale.
   await page
@@ -175,17 +191,10 @@ test('changes scale factor in the upscale dialog', async ({ page }) => {
   await page.getByRole('button', { name: 'Cancel' }).click();
 });
 
-test('switches output behavior in the upscale dialog', async ({ page }) => {
+test('switches output behavior in the enhance dialog', async ({ page }) => {
   test.setTimeout(60000);
-  await navigateToEditor(page);
-  await page
-    .locator('#file-import-input')
-    .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
-
-  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-
-  await page.getByRole('button', { name: /^Upscale$/ }).click();
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
+  await openEnhanceDialog(page);
+  await selectOperation(page, 'Upscale');
 
   // Switch to "Replace source" output.
   await page
@@ -195,8 +204,8 @@ test('switches output behavior in the upscale dialog', async ({ page }) => {
 
   // Apply — should replace the source, not create a new layer.
   await page.getByRole('button', { name: 'Upscale image' }).click();
-  await expect(page.getByRole('dialog', { name: 'Upscale image' })).not.toBeVisible({
+  await expect(page.getByRole('dialog', { name: DIALOG })).not.toBeVisible({
     timeout: 30000,
   });
-  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 5000 });
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 });
