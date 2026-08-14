@@ -69,21 +69,6 @@ export interface SemanticSearchDeps {
   ) => Promise<{ width: number; height: number; data: Uint8ClampedArray }>;
 }
 
-function embeddingIdentityFor(
-  asset: Asset,
-  modelId: string,
-  modelVersion: string,
-  preprocessingVersion: string,
-): AssetEmbeddingIdentity {
-  return {
-    contentHash: asset.contentHash ?? `asset:${asset.id}`,
-    modelId,
-    modelVersion,
-    preprocessingVersion,
-    embeddingSchemaVersion: SEMANTIC_EMBEDDING_SCHEMA_VERSION,
-  };
-}
-
 const DEFAULT_EMBEDDING_IDENTITY = {
   modelId: MODEL_ID,
   modelVersion: MODEL_VERSION,
