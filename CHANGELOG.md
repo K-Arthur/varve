@@ -14,6 +14,19 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Natural-language asset search** — the Asset Browser search field now
+  combines filename, OCR, tags, and metadata with an optional local visual
+  lane. Describe what you remember ("orange sunset over mountains") and
+  matching local assets rank by visual content even when the file is named
+  IMG_4281.jpg. Images are indexed in the background with a bounded,
+  cancellable queue (deduplicated by content hash, so renames and copies
+  never re-embed), search results keep match reasons, and exact filename
+  queries keep their ordering guarantee. The text tower and tokenizer are
+  parity-verified against the reference implementation; everything runs
+  locally with no uploads. Visual search is opt-in: the SigLIP image and
+  text models plus tokenizer download explicitly, verify SHA-256, and
+  filename/OCR/metadata search keeps working without them. See
+  `docs/architecture/asset-search-system.md` and ADR-0221.
 - **Depth-aware effects** — a reusable, model-independent DepthMap resource
   powers non-destructive Depth Blur: pick a focus point, adjust focus range
   and blur strength, preview the depth field, or convert a depth range into a
