@@ -110,6 +110,17 @@ __pycache__/
 
 # --- Generated review artifacts (screenshots, mutation outputs) ---
 reports/
+artifacts/
+
+# --- Build caches ---
+.astro/
+
+# --- Runtime-downloaded models (fetched on demand; tracked models live in the manifest) ---
+apps/desktop/public/models/depth_anything_v2_small_int8.onnx
+apps/desktop/public/models/yunet-face-detect.onnx
+
+# --- Downloaded test corpus (restore-system fixtures fetched by scripts) ---
+tests/fixtures/restore-corpus/
 
 # --- Transient GPU-verify Chrome profile (verify-gpu-effects.mjs) ---
 .tmp-gpu-verify-profile/
