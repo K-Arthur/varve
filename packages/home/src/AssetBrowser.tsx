@@ -2,6 +2,7 @@ import type { Asset, AssetFolder, Platform } from '@varve/platform';
 import { searchAssets } from '@varve/platform';
 import { ContentSkeleton, Icon, type IconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSemanticAssetSearch } from './search/useSemanticAssetSearch';
 
 export interface AssetBrowserProps {
   platform: Platform;
@@ -97,7 +98,23 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     [folders, selectedFolderId],
   );
 
-  const searchResults = useMemo(() => searchAssets(assets, searchQuery), [assets, searchQuery]);
+  const hasQuery = searchQuery.trim().length > 0;
+  const hasImageAssets = useMemo(() => assets.some((asset) => asset.kind === 'image'), [assets]);
+
+  const {
+    semanticRanks,
+    status: semanticStatus,
+    semanticBusy,
+    downloadImageModel,
+    downloadTextModel,
+    downloadProgress,
+    downloadingModelId,
+  } = useSemanticAssetSearch(platform, assets, searchQuery);
+
+  const searchResults = useMemo(
+    () => searchAssets(assets, searchQuery, { semanticRanks }),
+    [assets, searchQuery, semanticRanks],
+  );
 
   return (
     <div className="asset-browser">
@@ -132,7 +149,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
           )}
         </div>
         <span className="asset-browser__search-hint" aria-hidden="true">
-          Local: filename · OCR · tags
+          Local: filename · OCR · tags · visual
         </span>
         <button
           type="button"
@@ -144,6 +161,49 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
           {importing ? 'Importing...' : 'Import'}
         </button>
       </div>
+
+      {(hasQuery ||
+        downloadingModelId ||
+        (!semanticStatus.imageModelAvailable && hasImageAssets) ||
+        (semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount)) && (
+        <div className="asset-browser__semantic-status" role="status" aria-live="polite">
+          {downloadingModelId ? (
+            <span>
+              <Icon name="Download" label={undefined} size="0.875rem" />
+              Preparing visual search
+              {downloadProgress !== null ? ` · ${Math.round(downloadProgress * 100)}%` : ''}
+            </span>
+          ) : hasQuery && !semanticStatus.textModelAvailable ? (
+            <button
+              type="button"
+              className="asset-browser__semantic-cta"
+              onClick={() => void downloadTextModel()}
+            >
+              <Icon name="Search" label={undefined} size="0.875rem" />
+              Download natural-language search model
+            </button>
+          ) : !semanticStatus.imageModelAvailable && hasImageAssets ? (
+            <button
+              type="button"
+              className="asset-browser__semantic-cta"
+              onClick={() => void downloadImageModel()}
+            >
+              <Icon name="Image" label={undefined} size="0.875rem" />
+              Download visual search model to index assets
+            </button>
+          ) : semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount ? (
+            <span>
+              <Icon name="Loader" label={undefined} size="0.875rem" />
+              Indexing local assets · {semanticStatus.indexedCount} / {semanticStatus.totalCount}
+            </span>
+          ) : semanticBusy ? (
+            <span>
+              <Icon name="Loader" label={undefined} size="0.875rem" />
+              Searching…
+            </span>
+          ) : null}
+        </div>
+      )}
 
       <div className="asset-browser__body">
         <aside className="asset-browser__sidebar">
