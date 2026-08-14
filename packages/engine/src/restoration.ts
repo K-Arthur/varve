@@ -65,7 +65,10 @@ export const RESTORATION_CAPABILITIES: readonly RestorationCapability[] = [
     sha256: '231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c',
     inputChannels: 3,
     inputRange: '[0,1]',
-    paddingMultiple: 8,
+    // The Heliosoph conversion's baked window-8 attention reshape requires
+    // padded dims divisible by 64 (verified by dimension sweep 2026-08-13);
+    // the manifest previously claimed 8 and crashed on e.g. 1080p inputs.
+    paddingMultiple: 64,
     outputScale: 1,
     peakMemoryBytes: 280_000_000,
     qualityTier: 'faithful',

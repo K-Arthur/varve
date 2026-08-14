@@ -33,11 +33,29 @@ export interface RestorationTaskDispatchResult {
   tilesUsed: number;
 }
 
+/**
+ * Deblur tile policy is adaptive, not static: NAFNet's global receptive
+ * field (16x downsampling + global channel attention) makes seams far
+ * worse than upscale/denoise tiling — measured 34 dB tiled-vs-whole at
+ * 768/128 vs 60 dB single-shot on a 1536px image (seam tests, see
+ * docs/quality/image-enhancement-benchmark.md). Images up to 1600px run
+ * single-shot; larger images use the biggest budget-safe tile.
+ */
+function deblurTilePolicy(width: number, height: number): { tileSize: number; overlap: number } {
+  const maxDim = Math.max(width, height);
+  if (maxDim <= 1600) {
+    return { tileSize: Math.max(768, Math.ceil(maxDim / 16) * 16), overlap: 0 };
+  }
+  return { tileSize: 1280, overlap: 256 };
+}
+
 interface TaskSpec {
   modelId: string;
   adapter: RestorationAdapter;
   tileSize: number;
   overlap: number;
+  /** Dynamic tile policy override (called with source dims). */
+  tilePolicy?: (width: number, height: number) => { tileSize: number; overlap: number };
 }
 
 const TASK_SPECS: Record<RestorationTask, TaskSpec> = {
@@ -51,12 +69,9 @@ const TASK_SPECS: Record<RestorationTask, TaskSpec> = {
   deblur: {
     modelId: NAFNET_DEBLUR_GOPRO_ID,
     adapter: nafnetAdapter,
-    // Deblur needs wider context than denoise: the NAFNet receptive field
-    // spans the whole downsampled feature map, so tiles keep a larger
-    // overlap to hide edge reconstruction error. Benchmark evidence in
-    // docs/quality/image-enhancement-benchmark.md (tile seam tests).
-    tileSize: 768,
-    overlap: 128,
+    tileSize: 1280,
+    overlap: 256,
+    tilePolicy: deblurTilePolicy,
   },
   'compression-restoration': {
     modelId: NAFNET_DEBLUR_GOPRO_ID,
@@ -76,8 +91,9 @@ export function resetTaskSpecOverrides(): void {
   TASK_SPECS.deblur = {
     modelId: NAFNET_DEBLUR_GOPRO_ID,
     adapter: nafnetAdapter,
-    tileSize: 768,
-    overlap: 128,
+    tileSize: 1280,
+    overlap: 256,
+    tilePolicy: deblurTilePolicy,
   };
   TASK_SPECS['compression-restoration'] = {
     modelId: NAFNET_DEBLUR_GOPRO_ID,
@@ -94,11 +110,12 @@ export async function dispatchRestorationTask(
   options: RestorationTaskOptions = {},
 ): Promise<RestorationTaskDispatchResult> {
   const spec = TASK_SPECS[task];
+  const policy = spec.tilePolicy?.(source.width, source.height);
   return runTiledRestoration(source, {
     modelId: spec.modelId,
     strength,
-    tileSize: options.tileSize ?? spec.tileSize,
-    overlap: options.overlap ?? spec.overlap,
+    tileSize: options.tileSize ?? policy?.tileSize ?? spec.tileSize,
+    overlap: options.overlap ?? policy?.overlap ?? spec.overlap,
     maxDim: options.maxDim,
     signal: options.signal,
     onProgress: options.onProgress,
