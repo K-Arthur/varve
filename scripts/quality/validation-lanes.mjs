@@ -7,6 +7,11 @@
  * policy test (tests/unit/validationPolicy.test.ts) asserts every lane
  * referenced by validation-impact.config.mjs exists here.
  */
+import { execSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const ROOT = process.cwd();
 
 export const LANES = {
   // ── Tier 0: changed-file checks ──────────────────────────────────────
@@ -70,8 +75,9 @@ export const HEAVY_LANES = new Set([
 export function laneCommand(lane, pkgDir) {
   if (lane.startsWith('js-unit:') && !lane.endsWith(':all')) {
     const name = lane.slice('js-unit:'.length);
+    ensurePackageDirs();
     const dir = pkgDir || packageDirs[name];
-    return `pnpm exec vitest run packages/${dir}`;
+    return dir ? `pnpm exec vitest run ${dir}` : undefined;
   }
   if (lane.startsWith('typecheck:') && !lane.endsWith(':all')) {
     const name = lane.slice('typecheck:'.length);
@@ -87,3 +93,33 @@ export function laneCommand(lane, pkgDir) {
 }
 
 export const packageDirs = {};
+
+let packageDirsLoaded = false;
+
+/**
+ * Lazily resolve workspace package name -> workspace-relative directory
+ * (mirrors the planner's `pnpm m ls --json` enumeration so the runner and
+ * the planner agree on package-scoped lanes).
+ */
+function ensurePackageDirs() {
+  if (packageDirsLoaded) return;
+  packageDirsLoaded = true;
+  try {
+    const out = execSync('pnpm m ls --json --depth -1', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    for (const p of JSON.parse(out)) {
+      if (!p.name || !p.path) continue;
+      packageDirs[p.name] = p.path.startsWith(`${ROOT}/`) ? p.path.slice(ROOT.length + 1) : p.path;
+    }
+  } catch {
+    // Fall back to the workspace apps when pnpm listing is unavailable.
+    for (const app of ['apps/desktop', 'apps/website']) {
+      const manifestPath = join(ROOT, app, 'package.json');
+      if (!existsSync(manifestPath)) continue;
+      const m = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+      if (m.name) packageDirs[m.name] = app;
+    }
+  }
+}

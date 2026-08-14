@@ -29,7 +29,7 @@ import {
   gitChangedFiles,
   parseArgs,
 } from './affected-plan.mjs';
-import { LANES } from './validation-lanes.mjs';
+import { LANES, laneCommand } from './validation-lanes.mjs';
 
 const _PLAN_URL = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
 const ROOT = process.cwd();
@@ -144,7 +144,7 @@ function runLane(lane) {
     }[lane];
     status = shCmd(benchCmd);
   } else {
-    const base = LANES[lane] ?? lane;
+    const base = laneCommand(lane) ?? LANES[lane] ?? lane;
     let argv;
     if (isHeavy) {
       argv = ['node', 'scripts/quality/heavy-lease.mjs', lane, '--', 'sh', '-c', base];
