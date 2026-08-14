@@ -12,11 +12,15 @@ test.describe('Object Selection workflow', () => {
       .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
 
-    const inspector = page.locator('.inspector-panel');
+    const inspector = page.locator('.editor__inspector-panel');
     // Object Selection lives on the Adjustments tab, which is auto-added for
     // image selections in every workspace (see PropertiesPanel tab logic).
     await inspector.getByRole('tab', { name: 'Adjustments' }).click();
-    await expect(inspector.getByText('Object Selection', { exact: true })).toBeVisible();
+    const section = inspector.getByText('Object Selection', { exact: true });
+    await expect(section).toBeVisible();
+    // The disclosure is collapsed until a session exists; expand it to reach
+    // the controls (APG Disclosure trigger carries the title as its name).
+    await inspector.getByRole('button', { name: 'Object Selection' }).click();
     await expect(inspector.getByRole('button', { name: 'Select Object' })).toBeVisible();
     await testInfo.attach('object-selection-editor-before', {
       body: await page.getByTestId('editor-canvas').screenshot(),
