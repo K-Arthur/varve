@@ -13,6 +13,11 @@ workspace; it is not a claim that the release model corpus is complete.
 - Biome check on the touched Object Selection/runtime files
 - `pnpm vitest run packages/editor/src/tools/Sam2SegmentationTool.test.ts packages/engine/src/segmentation/embeddingCache.test.ts packages/engine/src/segmentation/maskAlgebra.test.ts`
   (16 tests passed)
+- Unit coverage of the Object Selection Inspector section (tool activation,
+  session apply/cancel, Continue label, candidate cycling wrap-around and
+  single-candidate suppression): `bgRemovalFeatures.test.tsx` green on three
+  runs; workspace toolbar composition (`workspaceTypes`, `toolbarComposition`,
+  `FloatingToolbar`) 71 passed.
 - Website build: `pnpm --filter @varve/website build`
 - Website Chromium/mobile visual check for
   `apps/website/tests/e2e/object-selection-feature.spec.ts`
@@ -29,6 +34,15 @@ server, which also remained in cold module transformation and was terminated
 after it produced no assertion result. No Object Selection assertion failure
 was observed; a real model-backed preview still requires the release corpus
 and downloaded model files.
+
+A later attempt against a pre-warmed Vite server (port 1431) succeeded
+through navigation, image import, and layer creation with an extended-timeout
+variant of the spec; the run then lost its renderer to out-of-memory while
+activating the Adjustments tab (machine load 55-70, eight concurrent agents,
+20 GB swap). The standard spec was updated to activate the Adjustments tab
+explicitly — Object Selection lives there (auto-added for image selections in
+every workspace) — so the previous properties-tab assertion could never have
+passed. Run the spec on a quieter machine or CI before release.
 
 ## Deferred release gates
 
