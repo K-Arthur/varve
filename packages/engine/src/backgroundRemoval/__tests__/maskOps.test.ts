@@ -129,19 +129,26 @@ describe('packSegmentationChwFloat32', () => {
 });
 
 describe('normalizeSegmentationOutput', () => {
-  it('min-max normalizes U2-Net probabilities to a soft byte mask', () => {
+  it('scales U2-Net probabilities to a soft byte mask (rembg-faithful, no min-max)', () => {
     const mask = normalizeSegmentationOutput(new Float32Array([0.2, 0.4, 0.6]), false);
-    expect(Array.from(mask)).toEqual([0, 127, 255]);
+    expect(Array.from(mask)).toEqual([51, 102, 153]);
   });
 
-  it('applies sigmoid before normalizing BiRefNet logits', () => {
+  it('applies sigmoid before scaling BiRefNet logits', () => {
     const mask = normalizeSegmentationOutput(new Float32Array([-2, 0, 2]), true);
-    expect(Array.from(mask)).toEqual([0, 127, 255]);
+    expect(Array.from(mask)).toEqual([30, 128, 225]);
   });
 
-  it('returns an empty mask for a constant output', () => {
-    const mask = normalizeSegmentationOutput(new Float32Array([3, 3]), true);
-    expect(Array.from(mask)).toEqual([0, 0]);
+  it('clamps out-of-range values instead of stretching the map', () => {
+    const mask = normalizeSegmentationOutput(new Float32Array([-5, 0.5, 5]), false);
+    expect(Array.from(mask)).toEqual([0, 128, 255]);
+  });
+
+  it('does not stretch a near-flat probability map to full contrast', () => {
+    // The old min-max path turned a soft 0.50-0.52 band into 0-255 hard
+    // edges; rembg clamps probabilities, preserving soft alpha.
+    const mask = normalizeSegmentationOutput(new Float32Array([0.5, 0.51, 0.52]), false);
+    expect(Array.from(mask)).toEqual([128, 130, 133]);
   });
 });
 

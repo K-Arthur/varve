@@ -139,3 +139,10 @@ and memory captured in the report.
 Open gates are the same-checkpoint BiRefNet reference parity run, supported GPU
 provider measurements, cross-platform native measurements, and a larger
 independent held-out corpus. These are measurement gaps, not claims of success.
+
+**Status 2026-08-13 (evening):** the same-checkpoint parity run is COMPLETE
+for all four models — see `background-removal-parity-audit-2026-08-13.md` for
+the measured numbers, the memory findings, the implemented fixes, and the
+final model policy. Remaining gaps: GPU provider measurements (no GPU on the
+development host), cross-platform native measurements, and the larger
+held-out corpus.
