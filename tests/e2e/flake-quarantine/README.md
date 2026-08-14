@@ -1,8 +1,14 @@
 # Flake-Quarantine Convention
 
+> **Status: dormant.** The directory is currently empty — no tests are in
+> quarantine. This page documents the convention for when the next flaky test
+> needs one; do not delete it.
+
 Tests moved here are **known to be flaky** — they fail intermittently due to
 timing, rendering race conditions, or browser-specific behavior. They are
-excluded from the default `playwright test` run.
+excluded from the default `playwright test` run (nothing under this directory
+is referenced by `playwright.config.ts`; while the directory is empty that
+exclusion is vacuous — it takes effect again the moment a spec is added).
 
 ## Rules
 
@@ -19,6 +25,9 @@ excluded from the default `playwright test` run.
 ```bash
 npx playwright test tests/e2e/flake-quarantine --project=chromium --reporter=list
 ```
+
+(While the directory is empty this command fails with "no tests found" — that
+is expected until the first spec is quarantined.)
 
 ## What to quarantine
 
