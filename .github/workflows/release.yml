@@ -299,6 +299,12 @@ jobs:
     name: Bundle (${{ matrix.name }})
     needs: [preflight, gate, signing-preflight]
     timeout-minutes: 90
+    env:
+      # Trust-boundary canary: present on the frontend build steps, then
+      # asserted absent from the final dist (see
+      # docs/security/trust-boundaries.md §Canary tests). Benign value with
+      # no credential meaning.
+      VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
     strategy:
       fail-fast: false
       matrix:
@@ -511,6 +517,13 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_SIGNING_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_SIGNING_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_SIGNING_TENANT_ID }}
+          # This step legitimately holds signing credentials in the process
+          # environment (Tauri re-runs the frontend build via beforeBuildCommand).
+          # The client-env guard yields for the signing family ONLY with this
+          # flag set — it may appear in no other workflow (enforced by
+          # scripts/security/workflow-policy.mjs), and the resulting dist is
+          # re-scanned by the artifact scan step below.
+          VARVE_SIGNING_STEP_ALLOWED: '1'
           NO_STRIP: '1'
         run: |
           TAURI_EXTRA_ARGS=""
@@ -540,6 +553,15 @@ jobs:
         working-directory: apps/desktop
 
       # ── Collect, rename, checksum, SBOM ────────────────────────────────
+      # The frontend dist embedded in the bundles was last produced by the
+      # Tauri build step above (beforeBuildCommand re-runs `pnpm build`).
+      # This is the definitive client artifact: it must never contain private
+      # configuration or the CI canary. Scan it before collection.
+      - name: Scan frontend dist (secret + canary)
+        if: matrix.enabled
+        run: |
+          node scripts/secret-scan.mjs --dir apps/desktop/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
+
       # The AppImage's bundled WebKit/GTK/GStreamer closure (from the
       # ubuntu-22.04 build baseline) fails EGL display creation on newer
       # Mesa/EGL stacks and renders a blank window — see
