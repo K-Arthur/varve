@@ -1,9 +1,10 @@
 # Local asset search system
 
 Status: lexical Home retrieval and an opt-in local image/text similarity lane
-are implemented. Persistent browser/Tauri-webview embedding storage is now
-available; native SQLite indexing and cross-project background indexing remain
-separate follow-ups.
+are implemented, with persistent webview embedding storage, bounded background
+indexing in the Asset Browser, and a reference-parity text tower. Native
+SQLite indexing and cross-project background indexing remain separate
+follow-ups.
 
 ## Product boundary
 
@@ -22,6 +23,36 @@ score is never added directly to BM25/fuzzy/OCR scores because those channels
 do not share a calibrated numeric scale. The platform ranking contract uses
 Reciprocal Rank Fusion and applies an explicit exact filename/stem ordering
 override.
+
+## Natural-language lane
+
+When the optional models are installed, the Asset Browser's search field
+becomes a hybrid surface:
+
+```text
+query → lexical lanes (instant)          semantic lane (debounced 350 ms)
+       filename / OCR / metadata         tokenizer → text tower → vector
+              │                                   │
+              └──────────────┬────────────────────┘
+                             ▼
+              RRF fusion + exact-name override → ranked assets
+```
+
+- Queries are debounced; stale results are suppressed via AbortController.
+- Image embeddings are precomputed by a background queue
+  (`SemanticAssetSearchService` in `@varve/home`), keyed by
+  `contentHash + modelId + modelVersion + preprocessingVersion +
+  embeddingSchemaVersion`. Renames and duplicates reuse vectors; edited bytes
+  invalidate them.
+- The queue is bounded (concurrency 1), cancellable, pauses on document
+  visibility change, and never blocks lexical search.
+- The text tower and tokenizer are parity-verified against the reference
+  implementation (see `docs/quality/semantic-asset-similarity-benchmark.md`).
+- Asset bytes are retained by the web/memory platform adapters
+  (`getAssetBytes`) for indexing; the Tauri adapter returns null until the
+  native asset commands exist. Deleting an asset removes its bytes and its
+  derived embeddings on the next sync (records are content-addressed and
+  rebuilt on re-import).
 
 ## Repository audit
 
@@ -85,11 +116,24 @@ reviewed independently before a download entry is added.
 
 ## Graceful degradation
 
-The Home UI labels the always-available lanes as filename, OCR, and tags. The
-editor Similar panel additionally exposes image queries and natural-language
-descriptions after explicit model download. Missing OCR metadata or semantic
-models simply removes those optional lanes. Model downloads are opt-in,
-checksum-verified, cancellable, and never required at application startup.
+The Home UI labels the always-available lanes as filename, OCR, tags, and
+visual. The editor Similar panel additionally exposes image queries and
+natural-language descriptions after explicit model download. Missing OCR
+metadata or semantic models simply removes those optional lanes. Model
+downloads are opt-in, checksum-verified, cancellable, and never required at
+application startup.
+
+## Privacy
+
+Semantic search is fully local: queries, tokenization, text encoding, image
+encoding, embeddings, and ranking run inside the app. No artwork, query text,
+OCR text, embeddings, or asset paths leave the device — no telemetry payload
+includes them and no remote inference endpoint exists in the search path.
+Embeddings and OCR text are stored in the same local storage as the rest of
+the app's derived data (IndexedDB in the webview), are excluded from sync, and
+are deleted when the asset is deleted or the index is cleared. The only
+network access in the feature is the explicit, checksum-pinned model and
+tokenizer download from the approved sources.
 
 ## Next implementation gate
 
@@ -97,4 +141,4 @@ Before promoting “describe an image” beyond the experimental lane, add a
 labelled Varve corpus, human visual review sheet, retrieval-quality metrics,
 and representative CPU/GPU memory and latency measurements. ANN indexing and
 native SQLite persistence should be added only if those measurements show
-that the current exact, document-local scan is insufficient.
+that the current exact scan is insufficient.
