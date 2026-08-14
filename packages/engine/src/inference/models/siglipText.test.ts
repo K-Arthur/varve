@@ -42,7 +42,24 @@ describe('SigLIP text tokenizer', () => {
       ['<0xA9>', 0],
     ]).encode('é', 8);
 
-    expect(result.tokens.length).toBeGreaterThan(0);
-    expect(result.inputIds[result.tokens.length]).toBe(1n);
+    // é is outside the vocabulary: the Metaspace ▁ marker (not in this
+    // mini-vocab) falls back to <unk>, then é emits one <0xXX> piece per
+    // UTF-8 byte (C3 A9), then EOS/padding.
+    expect(result.tokens).toEqual(['▁', 'é']);
+    expect(Array.from(result.inputIds)).toEqual([2n, 3n, 4n, 1n, 1n, 1n, 1n, 1n]);
+  });
+
+  it('is deterministic and pads to the reference max length', () => {
+    const vocab: Array<[string, number]> = [
+      ['<pad>', 0],
+      ['</s>', 0],
+      ['<unk>', 0],
+      ['▁orange', -1],
+      ['▁sunset', -1],
+    ];
+    const a = tokenizer(vocab).encode('orange sunset', 64);
+    const b = tokenizer(vocab).encode('orange sunset', 64);
+    expect(a.inputIds).toEqual(b.inputIds);
+    expect(a.inputIds.length).toBe(64);
   });
 });

@@ -527,7 +527,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'siglip-base-patch16-224',
     name: 'Find Similar Images',
     description:
-      'Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search). Text search is not yet available. Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
+      'Embeds an image so visually/semantically similar assets can be ranked and surfaced; the same artifact also carries the paired text tower used by natural-language asset search (see siglip-base-patch16-224-text). Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
     sizeBytes: 210_977_441,
     remoteUrl:
       'https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/model_quantized.onnx',
@@ -538,14 +538,56 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     precision: 'int8',
     peakMemoryBytes: 750_000_000,
     tensorContract: {
-      version: 1,
-      inputs: [{ name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' }],
-      outputs: [{ name: 'pooler_output', dims: [1, 768], dtype: 'float32' }],
+      version: 2,
+      inputs: [
+        { name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' },
+        { name: 'input_ids', dims: [1, 1], dtype: 'int64' },
+      ],
+      outputs: [{ name: 'image_embeds', dims: [1, 768], dtype: 'float32' }],
       normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5], channelOrder: 'rgb' },
       outputActivation: 'none',
     },
     category: 'embedding',
     gpuRecommended: true,
+  },
+  {
+    id: 'siglip-base-patch16-224-text',
+    name: 'Natural-Language Asset Search',
+    description:
+      'Text-side SigLIP encoder for local natural-language image search. Shares the 768-dimensional embedding space with siglip-base-patch16-224 image embeddings and requires the pinned tokenizer (siglip-tokenizer entry). Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
+    sizeBytes: 111_475_220,
+    remoteUrl:
+      'https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/text_model_quantized.onnx',
+    checksum: 'ad0329b1f35acc66d8953ff2559ce358da8eb0a7011794cf951523d63a4dbce2',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'int8',
+    peakMemoryBytes: 400_000_000,
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'input_ids', dims: [1, 64], dtype: 'int64' }],
+      outputs: [{ name: 'pooler_output', dims: [1, 768], dtype: 'float32' }],
+      normalization: { mean: [0, 0, 0], std: [1, 1, 1], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
+    category: 'embedding',
+    gpuRecommended: true,
+  },
+  {
+    id: 'siglip-tokenizer',
+    name: 'SigLIP Text Tokenizer',
+    description:
+      'SentencePiece Unigram vocabulary and normalizer charsmap for SigLIP text queries. Pinned from google/siglip-base-patch16-224 (Apache-2.0); the TypeScript tokenizer reproduces the reference pipeline exactly (parity-tested against transformers).',
+    sizeBytes: 2_399_357,
+    remoteUrl: 'https://huggingface.co/google/siglip-base-patch16-224/resolve/main/tokenizer.json',
+    checksum: 'c6e405cb7c670d56636a9402c81023a55bc6c3c53d89cf02b92f5c5005bfe920',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    peakMemoryBytes: 60_000_000,
+    category: 'embedding',
+    gpuRecommended: false,
   },
   {
     id: 'paddleocr-det-v4',
