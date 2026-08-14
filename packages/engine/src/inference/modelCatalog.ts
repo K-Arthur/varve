@@ -196,6 +196,26 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     ],
   },
   {
+    id: 'nafnet-deblur-gopro',
+    name: 'NAFNet Deblur (GoPro)',
+    description:
+      'Task-specific motion/defocus deblurring (NAFNet-GoPro-width64). BGR float32 input in [0,1], H/W divisible by 16 (padder_size), dynamic shape. Reproducible fp16 conversion of the official checkpoint, parity-verified against the trusted PyTorch reference.',
+    sizeBytes: 138_050_767,
+    remoteUrl:
+      'https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx',
+    checksum: 'e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp16',
+    category: 'deblurring',
+    peakMemoryBytes: 420_000_000,
+    gpuRecommended: false,
+    source: 'megvii-research/NAFNet (official checkpoint, nyanko7 mirror)',
+    sourceLicense: 'MIT',
+    components: [],
+  },
+  {
     id: 'sam2-hiera-tiny',
     name: 'SAM2 Tiny',
     description:
@@ -453,6 +473,45 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     gpuRecommended: false,
   },
   {
+    id: 'yunet-face-detect',
+    name: 'Detect Faces',
+    description:
+      'Detects faces with bounding boxes and five facial keypoints each — powers face-aware crop ("Protect Faces"), person selection anchors, and face keypoints. 233 KB, runs on-device. Verified source: opencv/face_detection_yunet_2023mar (MIT). SHA-256 computed from verified download. Decode verified bit-for-bit against OpenCV FaceDetectorYN.',
+    sizeBytes: 232_589,
+    remoteUrl:
+      'https://huggingface.co/opencv/face_detection_yunet/resolve/main/face_detection_yunet_2023mar.onnx',
+    checksum: '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4',
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'input', dims: [1, 3, 640, 640], dtype: 'float32' }],
+      outputs: [
+        { name: 'cls_8', dims: [1, 6400, 1], dtype: 'float32' },
+        { name: 'cls_16', dims: [1, 1600, 1], dtype: 'float32' },
+        { name: 'cls_32', dims: [1, 400, 1], dtype: 'float32' },
+        { name: 'obj_8', dims: [1, 6400, 1], dtype: 'float32' },
+        { name: 'obj_16', dims: [1, 1600, 1], dtype: 'float32' },
+        { name: 'obj_32', dims: [1, 400, 1], dtype: 'float32' },
+        { name: 'bbox_8', dims: [1, 6400, 4], dtype: 'float32' },
+        { name: 'bbox_16', dims: [1, 1600, 4], dtype: 'float32' },
+        { name: 'bbox_32', dims: [1, 400, 4], dtype: 'float32' },
+        { name: 'kps_8', dims: [1, 6400, 10], dtype: 'float32' },
+        { name: 'kps_16', dims: [1, 1600, 10], dtype: 'float32' },
+        { name: 'kps_32', dims: [1, 400, 10], dtype: 'float32' },
+      ],
+      normalization: { mean: [0, 0, 0], std: [1 / 255, 1 / 255, 1 / 255], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
+    bundled: true,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp32',
+    category: 'detection',
+    peakMemoryBytes: 8_000_000,
+    gpuRecommended: false,
+    source: 'opencv/face_detection_yunet',
+    sourceLicense: 'MIT',
+  },
+  {
     id: 'efficientnet-lite4',
     name: 'Auto-Tag Image',
     description:
@@ -538,9 +597,12 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     precision: 'int8',
     peakMemoryBytes: 750_000_000,
     tensorContract: {
-      version: 1,
-      inputs: [{ name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' }],
-      outputs: [{ name: 'pooler_output', dims: [1, 768], dtype: 'float32' }],
+      version: 2,
+      inputs: [
+        { name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' },
+        { name: 'input_ids', dims: [1, 1], dtype: 'int64' },
+      ],
+      outputs: [{ name: 'image_embeds', dims: [1, 768], dtype: 'float32' }],
       normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5], channelOrder: 'rgb' },
       outputActivation: 'none',
     },

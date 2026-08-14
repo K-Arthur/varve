@@ -110,6 +110,20 @@ export async function runRestoration(
         });
         currentImage = result.denoised;
         provider = result.executionProvider;
+      } else if (stage.task === 'deblur' || stage.task === 'compression-restoration') {
+        // Both run through the shared restoration dispatch; the planner has
+        // already validated the checkpoint for the exact task.
+        const { dispatchRestorationTask } = await import('./restorationProviders/dispatch');
+        const result = await dispatchRestorationTask(currentImage, stage.task, 0.7, {
+          signal: options.signal,
+          onProgress: (done, total) => {
+            stage.progress = total > 0 ? done / total : 0;
+            options.onProgress?.(stage, done, total);
+            reportStages(stages, options.onStageChange);
+          },
+        });
+        currentImage = result.imageData;
+        provider = provider ?? result.executionProvider;
       } else if (stage.task === 'upscale') {
         const upscale = request.upscale;
         if (!upscale) throw new Error('Upscale settings are required');
