@@ -422,7 +422,8 @@ export function useSam2Segmentation(
         }
       } catch (e) {
         if ((e as Error).message === 'cancelled') return null;
-        announcerRef.current?.announce(`Subject selection failed: ${(e as Error).message}`);
+        const message = mapSegmentationFailure((e as Error).message);
+        announcerRef.current?.announce(message);
         return null;
       } finally {
         if (generation === generationRef.current) {
@@ -492,6 +493,26 @@ function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
     s.addEventListener('abort', () => controller.abort(s.reason), { once: true });
   }
   return controller.signal;
+}
+
+/**
+ * Map backend/worker failures to user-facing messages (error taxonomy in
+ * the object-selection docs). Never leak raw tensor/backtrace text.
+ */
+function mapSegmentationFailure(raw: string): string {
+  if (raw.includes('safe WASM memory limit')) {
+    return 'Object selection needs more memory than this device can safely use without GPU acceleration. Close other documents or try again on a device with more memory.';
+  }
+  if (raw.startsWith('Worker error:') || /worker.*(failed|undefined)/i.test(raw)) {
+    return 'The AI worker could not start. Reload the document and try again.';
+  }
+  if (raw.includes('Model exceeds') || raw.includes('not downloaded')) {
+    return 'The object-selection model is missing. Install it from Settings, AI Models, then try again.';
+  }
+  if (raw.includes('timed out') || raw.includes('Inference timed out')) {
+    return 'Object selection timed out. The model may still be loading — wait a moment and click again.';
+  }
+  return `Subject selection failed: ${raw}`;
 }
 
 async function maskToDataUrl(mask: Uint8Array, width: number, height: number): Promise<string> {
