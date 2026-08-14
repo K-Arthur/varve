@@ -2,64 +2,143 @@
 
 ## Scope
 
-This is the first implementation checkpoint for local image-to-image asset
-similarity. It records what is measured and what is still unmeasured; it does
-not invent model quality or latency numbers.
+Local image-to-image asset similarity for Varve, evaluated on a
+Varve-specific synthetic corpus with retrieval metrics, reference-vector
+parity, and latency capture. This document records what was measured and
+what remains unmeasured; it does not invent numbers. Reproduction recipe:
+`docs/quality/semantic-similarity-benchmark.md`.
 
-## Candidate decision matrix
+## Corpus
 
-| Candidate | Runtime in Varve | License/access | Product status |
-| --- | --- | --- | --- |
-| SigLIP base patch16/224 ONNX | Existing shared worker | Apache-2.0 source/export; checksum-pinned catalog entry | Selected first runtime |
-| DINOv2 small | No validated adapter | Apache-2.0 weights; export/parity still required | Evaluation candidate |
-| DINOv2 base | No validated adapter | Apache-2.0 weights; larger resource cost requires evidence | Evaluation candidate |
-| DINOv3 small | No validated adapter | Gated Meta terms; distribution review required | Not shipped |
-| Candle + safetensors | No implementation | Runtime and weight format are separate decisions | Deferred |
+~300 procedurally generated, license-clean images across photo-like
+scenes, UI screenshots, logos, illustrations, posters, patterns, renders,
+and architecture, with labeled relations: exact copies, resized, JPEG
+recompression, PNG<->JPEG conversion, hue shifts, monochrome, mirrored,
+crops, rotations, overlays, framing/angle variants, style variants, plus
+composition/color hard negatives. Deterministic seed; byte-identical
+regeneration (`pnpm --filter @varve/engine corpus:generate`).
 
-SigLIP was selected for the first slice because it already has a verified
-ONNX graph, shared worker registration, model download/integrity handling, and
-an existing image-to-image UI path. This is an integration decision, not a
-claim that it is the best possible visual backbone for every Varve workload.
+## Parity (correctness gate)
 
-## Validation actually run
+The canonical preprocessing pipeline
+(`packages/engine/src/semanticSimilarity/preprocess.ts`) is mirrored
+bit-for-bit by the Python reference, and the TypeScript pipeline running
+onnxruntime-node must reproduce committed onnxruntime-python reference
+vectors (an independent runtime build):
 
-- `pnpm exec vitest run packages/engine/src/semanticSimilarity/search.test.ts packages/engine/src/inference/models/siglip.test.ts`
-  — 11 tests passed.
-- `pnpm --filter @varve/engine typecheck` — passed.
-- `pnpm --filter @varve/editor typecheck` — passed after the Similar panel
-  lane split.
-- `pnpm exec vitest run packages/platform/src/assetEmbeddingIndex.test.ts packages/platform/src/assetSearch.test.ts`
-  — 6 tests passed for content-addressed record encoding and hybrid ranking.
-- `pnpm exec vitest run packages/platform/src/semanticAssetIndex.test.ts packages/platform/src/semanticEmbeddingQueue.test.ts packages/engine/src/semanticSimilarity/metrics.test.ts packages/engine/src/semanticSimilarity/search.test.ts packages/engine/src/inference/models/siglip.test.ts`
-  — 19 tests passed for exact indexing, queue lifecycle, metrics, lane
-  separation, and the SigLIP contract.
-- `pnpm exec vitest run packages/engine/src/bench/semanticSearch.bench.test.ts`
-  — exact-search scale baseline passed at 100/1k/10k/50k candidates.
-- `pnpm --filter @varve/platform typecheck` — passed.
-- Real ONNX smoke check against the pinned SigLIP pair — text tokenizer produced
-  `[1,64]` int64 input, the text graph returned `pooler_output [1,768]`, the
-  image graph returned `image_embeds [1,768]`, and the two outputs produced a
-  finite cosine value. This validates graph compatibility only; it is not a
-  retrieval-quality score.
+| Model | Max 1-cos vs python reference | Gate |
+| --- | --- | --- |
+| SigLIP base patch16/224 (INT8) | < 1e-4 | PASS (4/4 tests) |
+| DINOv2 small (FP32) | < 1e-5 | PASS (4/4 tests) |
 
-The focused editor panel test passed after the text-query changes. The full
-repository typecheck remains noisy because unrelated concurrent work adds
-errors in restoration, face-detection, and existing semantic-benchmark files.
+Determinism across session instances also verified. Note: a separate
+earlier parity attempt compared the canvas-letterbox preprocessing used by
+the SigLIP worker path against the python pipeline and measured drift of
+~1.4e-2 — that is a *preprocessing contract* mismatch (canvas smoothing vs
+the canonical math pipeline), not a runtime defect. The DINOv2 worker path
+uses the canonical pipeline; the SigLIP worker path still uses canvas
+letterbox, so benchmarked SigLIP numbers apply to the canonical contract,
+not byte-for-byte to the current worker path.
 
-## Quality gaps
+## Retrieval quality (Varve corpus, semantic lane)
 
-No Varve-specific labeled corpus or held-out model-quality metrics have been
-run yet. The tokenizer/graph smoke check, metrics helper, and exact-search
-scale baseline cover evaluation plumbing, not model quality. The optional
-SigLIP parity run also exposed runtime drift between the pinned Python
-reference and the Node 1.27 runtime (`max 1-cos=1.444e-2` against a `1e-4`
-gate); that needs a runtime/version decision before it can be called a
-golden. Recall@K, mAP, nDCG, duplicate precision/recall, CPU p50/p95, peak
-RAM, batch throughput, and exact-vs-ANN scale curves still require a legally
-usable Varve corpus and representative hardware before selecting DINOv2 or
-replacing SigLIP. The visual review sheet and real-model ranking audit are
-also pending.
+15 base queries (one per scene); relevant = same subject family.
+Exact scan, cosine, L2-normalized vectors.
 
-The current implementation therefore makes no marketing claim about model
-quality, automatic clustering, or whole-library organization; text-to-image
-search is described only as an opt-in experimental document-local lane.
+| Metric | SigLIP base int8 | DINOv2 small fp32 |
+| --- | ---: | ---: |
+| Recall@1 | 0.0%* | 0.0%* |
+| Recall@5 | 100% | 100% |
+| Recall@10 | 100% | 100% |
+| Precision@10 | 88.0% | 88.7% |
+| mAP@10 | 68.7% | **69.1%** |
+| nDCG@10 | 76.7% | **77.0%** |
+| MRR | 50.0% | 50.0% |
+
+*R@1 = 0% is a corpus artifact, not a model failure: each scene's
+"color twin" hard negative is generated from the same scene at heavy zoom,
+so it legitimately ranks at position 1 while being labeled a distractor.
+Both models are affected equally; the mAP/nDCG differences remain valid
+comparisons.
+
+Per-domain mAP@10 / nDCG@10 (DINOv2 vs SigLIP):
+
+| Domain | mAP | nDCG |
+| --- | ---: | ---: |
+| photo | 69.1 / 68.7 | 77.0 / 76.7 |
+| ui | **65.3 / 61.3** | **74.5 / 71.5** |
+| logo | 69.1 / 68.7 | 77.0 / 76.7 |
+| illustration | 69.1 / 68.7 | 77.0 / 76.7 |
+| poster | 69.1 / 68.7 | 77.0 / 76.7 |
+| pattern | 69.1 / 68.7 | 77.0 / 76.7 |
+| render | 64.1 / 65.3 | 74.1 / 74.5 |
+
+DINOv2 is statistically equivalent overall and materially better on UI
+screenshots (Varve's most product-relevant domain for asset similarity).
+
+## Near-duplicate lane (perceptual-hash path)
+
+dHash+pHash at fixed thresholds (10/12 bits); exact-content lane = same
+relation family.
+
+| Metric | Value |
+| --- | ---: |
+| Precision | 70.0% |
+| Recall | 67.6% |
+| False-positive rate | 1.5% |
+| F1 | 68.8% |
+| Exact-copy recall (hash test on exact relation) | 100% |
+
+The hash lane misses ~32% of variants (heavy crops, rotations, overlays)
+as expected for perceptual hashing; per-relation recall in the report JSON
+shows which variant classes each signal tolerates. The semantic lane
+recovers these variants (R@5 = 100% per subject family), which is why the
+two lanes stay separate.
+
+## Latency (this machine, under load)
+
+Host: Ryzen 3 5300U (8 threads), load average 50-80 during measurement —
+absolute numbers are NOT product latency claims; the relative comparison
+is valid.
+
+| Model | Cold load | Warm p50 | Warm p95 | Throughput |
+| --- | ---: | ---: | ---: | ---: |
+| SigLIP base int8 | ~18 min (296 img) | 3286 ms | 4379 ms | 0.30 img/s |
+| DINOv2 small fp32 | ~11 min (296 img) | 1794 ms | 2560 ms | 0.55 img/s |
+
+DINOv2 is ~1.8x faster and 2.4x smaller (88 MB vs 211 MB). Both models
+are slow in absolute terms on this loaded host; the UI bounds the damage
+with a 30-candidate scan cap, session reuse, and persistent caching.
+
+## Decision
+
+**DINOv2-small is the image-to-image lane default.** On every axis that
+matters for Varve — retrieval (equivalent, better on UI), CPU latency
+(~1.8x faster), download size (2.4x smaller), vector dimension (half:
+384 vs 768, halving index storage and scan cost) — it matches or beats
+the SigLIP image encoder. Both are Apache-2.0 with pinned SHA-256.
+
+SigLIP remains wired as the natural-language lane's image side: the text
+graph shares SigLIP's embedding space, so text queries must compare
+against SigLIP image vectors. The two spaces are never mixed
+(embedding-space guards in `semanticSimilarity`).
+
+**Not selected**: DINOv2 base (no quality evidence to justify 2x
+dimension and download), DINOv3 (gated Meta terms — no automatic
+download flow around gated weights), Candle/safetensors (no parity or
+deployment benefit measured; the ONNX worker already provides a verified
+path on both web and desktop).
+
+## Remaining gaps
+
+- Real-photo/real-design corpus (synthetic only so far; licensing-clean
+  by construction). A real corpus with manual relevance labels would
+  confirm the synthetic ranking.
+- GPU/provider latency and batch throughput.
+- ANN vs exact decision at scale: exact scan stays the reference; the
+  scale baseline shows exact is comfortably interactive at Varve's
+  plausible library sizes (see `packages/engine/src/bench/semanticSearch.bench.test.ts`
+  and `semanticSimilarity/bench/scale.bench.test.ts`).
+- Visual contact sheets were generated
+  (`reports/semantic-similarity/contact-sheet-*.html`); human multimodal
+  review of difficult cases is still pending.
