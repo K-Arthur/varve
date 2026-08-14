@@ -1,4 +1,11 @@
 export { dHash, hammingDistance, pHash } from '../intelligence/perceptualHash';
+export {
+  decodeSemanticImageBytes,
+  embedImageForSearch,
+  embedTextForSearch,
+  SEMANTIC_SOURCE_MAX_DIMENSION,
+  type SemanticRgbaImage,
+} from './embed';
 export type { LabeledQuery, RetrievalMetrics } from './metrics';
 export { evaluateRetrieval } from './metrics';
 export {

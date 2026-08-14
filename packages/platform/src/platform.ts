@@ -147,6 +147,12 @@ export interface Platform {
     mimeType: string,
   ): Promise<Asset>;
   deleteAsset(id: string): Promise<void>;
+  /**
+   * Read the stored source bytes of an imported asset (used by the semantic
+   * indexer to derive embeddings). Returns null when the platform does not
+   * retain asset bytes (e.g. native backends without asset commands).
+   */
+  getAssetBytes(id: string): Promise<Uint8Array | null>;
   searchAssets(query: string): Promise<Asset[]>;
   createAssetFolder(workspaceId: string, name: string, parentId?: string): Promise<AssetFolder>;
   deleteAssetFolder(id: string): Promise<void>;

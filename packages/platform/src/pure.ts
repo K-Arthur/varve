@@ -320,6 +320,22 @@ export function uuid(): string {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * SHA-256 hex digest of arbitrary bytes (content identity for asset
+ * deduplication and embedding reuse). Returns null when the platform has
+ * no WebCrypto (never blocks import in degraded environments).
+ */
+export async function contentHashOf(bytes: Uint8Array): Promise<string | null> {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', bytes.buffer as ArrayBuffer);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch {
+    return null;
+  }
+}
+
 /** True when a file kind is one of the importable foreign formats. */
 export function isImportableKind(kind: FileKind): boolean {
   return kind === 'figma' || kind === 'illustrator' || kind === 'image';
