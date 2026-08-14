@@ -379,6 +379,25 @@ test.describe('Content-Aware Fill dialog', () => {
     await expect(brushLabel).toContainText('50');
   });
 
+  test('preview zoom controls support precise editing at multiple scales', async ({ page }) => {
+    await triggerCafDialog(page, nodeId);
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
+
+    await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('Fit');
+    await dialog.getByRole('button', { name: 'Zoom in' }).click();
+    await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('125%');
+
+    await dialog.getByRole('button', { name: 'Zoom out' }).click();
+    await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('100%');
+    await expect(dialog.getByRole('button', { name: 'Center preview' })).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Fit', exact: true }).click();
+    await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('Fit');
+
+    await dialog.getByRole('button', { name: '1:1', exact: true }).click();
+    await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('100%');
+  });
+
   test('Clear Paint button clears the mask', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
     const clearBtn = page.getByRole('button', { name: /clear paint/i });
@@ -438,7 +457,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
     // A new "filled" image node should appear in the layers panel
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10_000 });
-    await expect(page.getByRole('treeitem').last()).toContainText(/filled/i);
+    await expect(page.getByRole('treeitem').filter({ hasText: /filled/i })).toHaveCount(1);
   });
 
   test('undo reverts the CAF apply operation', async ({ page }) => {
