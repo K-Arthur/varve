@@ -29,7 +29,7 @@ export const SIGLIP_IMAGE_MODEL: EmbeddingModelSpec = {
 /**
  * DINOv2-small, the evidence-backed image-to-image lane default. Selected
  * from the 2026-08-13 Varve corpus evaluation: statistically equivalent
- * retrieval to SigLIP (mAP 69.1 vs 68.7), ~1.8x faster CPU inference,
+ * retrieval to SigLIP (mAP 98.0 vs 96.9), ~1.8x faster CPU inference,
  * 2.4x smaller download (88 MB vs 211 MB), half the vector dimension
  * (384 vs 768), and a higher UI-domain score. Preprocessing is the
  * canonical shortest-side-256 + center-crop-224 pipeline; reference-vector
