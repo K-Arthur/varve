@@ -134,6 +134,19 @@ export interface ModelManifestEntry {
   remoteUrl: string;
   /** SHA-256 checksum for integrity verification. */
   checksum: string;
+  /**
+   * For artifacts that are post-processed after download (e.g. the SAM2
+   * encoder graph repair): SHA-256 of the file exactly as served upstream.
+   * The download verifies against this first, applies `repair`, then
+   * re-verifies against `checksum`.
+   */
+  upstreamChecksum?: string;
+  /**
+   * Optional post-download transform applied before install and final
+   * checksum verification. 'sam2-empty-value-info' removes the empty
+   * value_info shapes that ort-web's wasm shape inference rejects.
+   */
+  repair?: 'sam2-empty-value-info';
   /** True if the model ships with the app. */
   bundled: boolean;
   /** Input preprocessing spec (null = no preprocessing needed). */
@@ -192,6 +205,10 @@ export interface ModelComponentEntry {
   sizeBytes: number;
   remoteUrl?: string;
   checksum?: string;
+  /** SHA-256 of the file exactly as served upstream (pre-repair). */
+  upstreamChecksum?: string;
+  /** Optional post-download transform; see ModelManifestEntry.repair. */
+  repair?: 'sam2-empty-value-info';
 }
 
 export type ModelState = 'unavailable' | 'downloading' | 'ready' | 'error';
