@@ -47,34 +47,42 @@ Exact scan, cosine, L2-normalized vectors.
 
 | Metric | SigLIP base int8 | DINOv2 small fp32 |
 | --- | ---: | ---: |
-| Recall@1 | 0.0%* | 0.0%* |
+| Recall@1 | 100% | 100% |
 | Recall@5 | 100% | 100% |
 | Recall@10 | 100% | 100% |
-| Precision@10 | 88.0% | 88.7% |
-| mAP@10 | 68.7% | **69.1%** |
-| nDCG@10 | 76.7% | **77.0%** |
-| MRR | 50.0% | 50.0% |
+| Precision@10 | 96.9% | 98.0% |
+| mAP@10 | 96.9% | **98.0%** |
+| nDCG@10 | 98.2% | **98.9%** |
+| MRR | 100% | 100% |
 
-*R@1 = 0% is a corpus artifact, not a model failure: each scene's
-"color twin" hard negative is generated from the same scene at heavy zoom,
-so it legitimately ranks at position 1 while being labeled a distractor.
-Both models are affected equally; the mAP/nDCG differences remain valid
-comparisons.
+Both models rank the exact-copy variant first for every query on this
+corpus (the synthetic scenes are visually distinct, so family separation
+is near-perfect). An earlier reading of R@1 = 0% with mAP ~69% was a
+harness bug, not a model property: the semantic ranker compared against
+`query.id` on the query *vector* (always undefined), so the
+self-exclusion filter never fired and every query ranked itself at
+position 1. Fixed; the corrected numbers above are the valid comparison.
+DINOv2-small is better on mAP, nDCG, and precision; SigLIP remains a
+strong second.
 
 Per-domain mAP@10 / nDCG@10 (DINOv2 vs SigLIP):
 
 | Domain | mAP | nDCG |
 | --- | ---: | ---: |
-| photo | 69.1 / 68.7 | 77.0 / 76.7 |
-| ui | **65.3 / 61.3** | **74.5 / 71.5** |
-| logo | 69.1 / 68.7 | 77.0 / 76.7 |
-| illustration | 69.1 / 68.7 | 77.0 / 76.7 |
-| poster | 69.1 / 68.7 | 77.0 / 76.7 |
-| pattern | 69.1 / 68.7 | 77.0 / 76.7 |
-| render | 64.1 / 65.3 | 74.1 / 74.5 |
+| photo | 100 / 100 | 100 / 100 |
+| ui | **93.3 / 88.4** | **96.3 / 93.2** |
+| logo | 100 / 100 | 100 / 100 |
+| illustration | 100 / 90.0 | 100 / 93.6 |
+| poster | 100 / 100 | 100 / 100 |
+| pattern | 100 / 100 | 100 / 100 |
+| render | 91.8 / 93.3 | 95.7 / 96.3 |
 
-DINOv2 is statistically equivalent overall and materially better on UI
-screenshots (Varve's most product-relevant domain for asset similarity).
+DINOv2 is equivalent or better per domain (UI screenshots — Varve's most
+product-relevant domain — show the largest gap). Variant robustness
+(per-relation R@5) is imperfect for both: heavy crops, rotations, and
+overlays regularly fall below the top 5, which is why the near-duplicate
+hash lane exists alongside the semantic lane. Full per-relation numbers
+are in the report JSON under `semantic.perRelation`.
 
 ## Near-duplicate lane (perceptual-hash path)
 
