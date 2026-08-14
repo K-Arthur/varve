@@ -129,7 +129,10 @@ async function invokeTauriRemoveBackground(
       method: options.method,
       tolerance: options.tolerance,
       featherRadius: options.feather,
-      decontaminate: options.decontaminate ?? true,
+      // Default must match the worker/direct providers: decontamination is
+      // an explicit opt-in mask operation, not an implicit native default.
+      // The UI always passes the checkbox value explicitly.
+      decontaminate: options.decontaminate ?? false,
       clickX: options.clickPoint?.x,
       clickY: options.clickPoint?.y,
       previewMaxDimension: options.previewMaxDimension,

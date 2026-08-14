@@ -29,9 +29,13 @@ Status: enforced contract, 2026-08-13.
    Assistants" section states this; analytics/diagnostics consent lives in
    Privacy.
 4. **AI features are on-device or opt-in downloads.** Background removal,
-   upscaling, and image tracing run bundled ONNX models or the native engine
-   (ADR-0005); remote downloads are explicit user actions with a progress
-   surface, never implicit.
+  upscaling, and image tracing run bundled ONNX models or the native engine
+  (ADR-0005); remote downloads are explicit user actions with a progress
+  surface, never implicit.
+   Visual-awareness analysis follows the same rule: importing an image does not
+   trigger face, hand, pose, object, or segmentation analysis. A future
+   workflow requests one explicit capability and may download only its verified
+   task model after user action.
 5. **Saving is local disk, always.** `autoSaveService` + platform persistence
    never depend on reachability. The only network-dependent saves would be
    explicit cloud features, none of which exist yet.
