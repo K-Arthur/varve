@@ -1,9 +1,9 @@
 /**
  * @varve/ui/icons — typed `<Icon>` + curated icon maps.
  *
- * The `Icon` primitive is the only graphics path for UI affordances (Strata
- * plan §4.4: zero emoji, SVG via Lucide only). Curated maps group icons by
- * surface so toolbars/menus get a stable, reviewable name set.
+ * `SemanticIcon` is the canonical graphics path for migrated UI affordances.
+ * `Icon` and `SolidIcon` remain available for legacy/document-specific
+ * surfaces while the migration is intentionally incremental.
  *
  * `SolidIcon` provides filled-style icons via Phosphor Icons for the design
  * system refresh, coexisting with the Lucide-based `<Icon>`.
@@ -31,11 +31,14 @@ export {
   SemanticIcon,
   validateSemanticIconNames,
 } from './semantic';
+export type { TablerIconName, TablerIconProps } from './TablerIcon';
+export { TablerIcon } from './TablerIcon';
 export type { VarveLogoProps } from './VarveLogo';
 export { VarveLogo } from './VarveLogo';
 
 import type { IconName } from './Icon';
 import type { SolidIconName } from './SolidIcon';
+import type { SemanticIconName } from './semantic';
 
 /** Toolbar / tool set (Strata plan §5.3). */
 export const TOOL_ICONS = {
@@ -59,13 +62,13 @@ export const TOOL_ICONS = {
   zoomIn: 'ZoomIn',
   zoom: 'ZoomIn',
   arrow: 'ArrowRight',
-  nodeEdit: 'Pointer',
+  nodeEdit: 'SplinePointer',
   scale: 'Maximize2',
   eyedropper: 'Pipette',
   booleanUnion: 'Combine',
   booleanSubtract: 'Diff',
-  booleanIntersect: 'Combine',
-  booleanExclude: 'Diff',
+  booleanIntersect: 'Blend',
+  booleanExclude: 'CircleX',
   inspect: 'SearchCode',
   paint: 'Brush',
   eraser: 'Eraser',
@@ -81,7 +84,7 @@ export const TOOL_ICONS = {
   sam2Segment: 'Scan',
   lasso: 'LassoSelect',
   table: 'Table',
-  warp: 'Grid3x3',
+  warp: 'Spline',
 } as const satisfies Record<string, IconName>;
 
 /** Filled-style tool icons (design system refresh — replaces outline TOOL_ICONS). */
@@ -129,6 +132,60 @@ export const SOLID_TOOL_ICONS = {
   table: 'Table',
   warp: 'GridFour',
 } as const satisfies Record<string, SolidIconName>;
+
+/**
+ * Canonical semantic tool mapping for the editor toolbar. Keep this mapping
+ * at the design-system boundary so tool components depend on concepts rather
+ * than vendor glyph names. Warp deliberately uses `Warp` (BendToolIcon), not
+ * a generic grid, because the tool edits envelope/mesh deformation.
+ */
+export const TOOL_SEMANTIC_ICONS = {
+  select: 'Select',
+  frame: 'Frame',
+  rect: 'Rectangle',
+  ellipse: 'Ellipse',
+  polygon: 'Polygon',
+  star: 'Star',
+  line: 'Line',
+  pen: 'Pen',
+  pencil: 'Pencil',
+  text: 'Text',
+  image: 'Image',
+  component: 'Component',
+  group: 'Folder',
+  union: 'Union',
+  subtract: 'Subtract',
+  slice: 'Slice',
+  hand: 'Hand',
+  zoomIn: 'ZoomIn',
+  zoom: 'ZoomIn',
+  arrow: 'Transform',
+  nodeEdit: 'Select',
+  scale: 'Scale',
+  rotate: 'Rotate',
+  eyedropper: 'Eyedropper',
+  booleanUnion: 'Union',
+  booleanSubtract: 'Subtract',
+  booleanIntersect: 'Intersect',
+  booleanExclude: 'Exclude',
+  inspect: 'Search',
+  paint: 'Paint',
+  brush: 'Brush',
+  eraser: 'Eraser',
+  cloneStamp: 'Brush',
+  crop: 'Crop',
+  healBrush: 'Brush',
+  spotHeal: 'Brush',
+  patch: 'Brush',
+  refineMask: 'Brush',
+  trimapEdit: 'Brush',
+  adjustment: 'Settings',
+  smudge: 'Brush',
+  sam2Segment: 'Lasso',
+  lasso: 'Lasso',
+  table: 'Table',
+  warp: 'Warp',
+} as const satisfies Record<string, SemanticIconName>;
 
 /** General chrome icons. */
 export const CHROME_ICONS = {

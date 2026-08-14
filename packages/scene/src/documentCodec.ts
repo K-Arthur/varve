@@ -20,6 +20,7 @@ import {
 } from './assets';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
+import { type DocumentLike, findParentCycle } from './document-utils';
 import { normalizeDocumentEffects } from './effects';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import { normalizeLogoProject } from './logo/logoProject';
@@ -110,6 +111,15 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
     if (!isRecord(raw.assets)) return 'Document assets must be an object';
     for (const [assetId, asset] of Object.entries(raw.assets)) {
       if (!isRecord(asset)) return `Document asset ${assetId} must be an object`;
+    }
+  }
+  if (raw.depthMaps !== undefined) {
+    if (!isRecord(raw.depthMaps)) return 'Document depthMaps must be an object';
+    for (const [depthMapId, depthMap] of Object.entries(raw.depthMaps)) {
+      if (!isRecord(depthMap)) return `Depth map resource ${depthMapId} must be an object`;
+      // Decode-time validation is deliberately deferred to deserializeDepthMap.
+      // A newer or corrupt resource must not make the whole document unloadable;
+      // the renderer can keep the source pixels and report a controlled warning.
     }
   }
   if (raw.iccProfiles !== undefined) {
@@ -834,6 +844,18 @@ export const DocumentCodec = {
         ok: false,
         error: shapeError,
         warnings: [warning('document.invalid-shape', shapeError, 'error')],
+      };
+    }
+
+    // Parent-graph cycle guard: world-transform composition, render walks,
+    // and hit testing must never loop forever on a corrupt document.
+    const cycle = findParentCycle(migration.document as unknown as DocumentLike);
+    if (cycle) {
+      const errorMessage = `Document contains a parent cycle: ${cycle.join(' -> ')}`;
+      return {
+        ok: false,
+        error: errorMessage,
+        warnings: [warning('document.parent-cycle', errorMessage, 'error')],
       };
     }
 

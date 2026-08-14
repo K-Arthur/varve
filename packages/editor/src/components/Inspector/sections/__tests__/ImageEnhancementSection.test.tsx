@@ -329,7 +329,7 @@ describe('ImageEnhancementSection — original one-shot', () => {
     );
 
     // Upscale now opens a dialog
-    fireEvent.click(screen.getByRole('button', { name: /open upscale dialog/i }));
+    fireEvent.click(screen.getByRole('button', { name: /enhance image/i }));
     expect(openUpscaleDialog).toHaveBeenCalled();
 
     // Trace controls are still inline
@@ -360,7 +360,7 @@ describe('ImageEnhancementSection — original one-shot', () => {
     });
     render(<ImageEnhancementSection nodes={[imageNode()]} />);
 
-    fireEvent.click(screen.getByRole('button', { name: /open upscale dialog/i }));
+    fireEvent.click(screen.getByRole('button', { name: /enhance image/i }));
     expect(openUpscaleDialog).toHaveBeenCalled();
   });
 

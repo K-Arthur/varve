@@ -30,6 +30,7 @@ export {
   EMPTY_DOCUMENT_PLACEHOLDER,
   persistDocThumbnail,
   renderDocThumbnail,
+  shouldPersistThumbnail,
 } from './thumbnailService';
 export type { GenerateDocThumbnailOptions, ThumbnailSourceType } from './thumbnailSource';
 export { generateDocThumbnail, sourceLabel } from './thumbnailSource';

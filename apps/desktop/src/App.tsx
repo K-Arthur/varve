@@ -1,12 +1,15 @@
 import {
   afterFirstVisiblePaint,
   CrashCenter,
+  configureDesktopAnalytics,
   currentDocumentSchemaVersion,
+  getDesktopAnalytics,
   installCrashTestHooks,
   type OpenFileRequest,
   SettingsDialog,
   SettingsProvider,
   Shell,
+  UpdateCoordinatorProvider,
   useStartup,
 } from '@varve/editor';
 import { HomeShell } from '@varve/home';
@@ -19,10 +22,26 @@ import {
 } from '@varve/platform';
 import { DocumentCodec } from '@varve/scene';
 import { StartupLoader, TooltipProvider } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
 import { revealMainWindow } from './startup/revealMainWindow';
+import { TauriUpdateProvider } from './updates/tauriUpdateProvider';
+
+const viteEnv = (
+  import.meta as ImportMeta & {
+    env?: {
+      VITE_VARVE_ANALYTICS_ENDPOINT?: string;
+      VITE_VARVE_ANALYTICS_DOMAIN?: string;
+    };
+  }
+).env;
+
+const desktopAnalytics = configureDesktopAnalytics({
+  platform: 'unknown',
+  endpoint: viteEnv?.VITE_VARVE_ANALYTICS_ENDPOINT ?? null,
+  domain: viteEnv?.VITE_VARVE_ANALYTICS_DOMAIN ?? null,
+});
 
 const bootPlatform = detectPlatform();
 
@@ -34,6 +53,14 @@ export function App() {
   const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
   const pendingHomeMilestone = useRef<(() => void) | null>(null);
   const pendingEditorMilestone = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    desktopAnalytics.track('app_launched', { surface: 'desktop' });
+    void desktopAnalytics.flush();
+    return () => {
+      void getDesktopAnalytics().shutdown();
+    };
+  }, []);
 
   // In a plain browser the synchronous boot platform is the in-memory
   // fallback; upgrade to the real IndexedDB + File System Access backend as
@@ -185,8 +212,11 @@ export function App() {
           // (the document JSON may still be cached).
           const json = await platform.readFile(entry.id).catch(() => null);
           if (!json) {
-            // File is truly gone — mark recent entry as missing and abort.
-            void platform.patchRecentFile(entry.id, { name: entry.name }).catch(() => undefined);
+            // File is truly gone — record the missing state so Home and the
+            // Recent rail can surface it, and abort.
+            void platform
+              .patchRecentFile(entry.id, { name: entry.name, missing: true })
+              .catch(() => undefined);
             return;
           }
           // We have cached content but the file is missing on disk.
@@ -213,8 +243,10 @@ export function App() {
       // Normal open: read from storage.
       const json = await platform.readFile(entry.id).catch(() => null);
       if (!json) {
-        // Content not found — mark recent entry for cleanup.
-        void platform.patchRecentFile(entry.id, { name: entry.name }).catch(() => undefined);
+        // Content not found — record the missing state for the Recent rail.
+        void platform
+          .patchRecentFile(entry.id, { name: entry.name, missing: true })
+          .catch(() => undefined);
         return;
       }
 
@@ -274,7 +306,9 @@ export function App() {
     });
   }, [view, editorMounted]);
 
-  return (
+  const updateProvider = useMemo(() => (isTauriRuntime() ? new TauriUpdateProvider() : null), []);
+
+  const appContent = (
     <TooltipProvider>
       {showLoader && (
         <StartupLoader
@@ -334,4 +368,14 @@ export function App() {
       </div>
     </TooltipProvider>
   );
+
+  return updateProvider ? (
+    <UpdateCoordinatorProvider provider={updateProvider}>{appContent}</UpdateCoordinatorProvider>
+  ) : (
+    appContent
+  );
+}
+
+function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 }

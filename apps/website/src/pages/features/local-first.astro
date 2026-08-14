@@ -1,0 +1,76 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Local-first storage - Varve" description="Varve keeps your documents local while respecting native filesystem behavior across Linux, Windows, and macOS.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Local-first storage
+      </nav>
+
+      <h1>Local-first storage</h1>
+      <p class="feature-intro">
+        Your documents stay on your device, with native paths and platform storage handled by the desktop app rather than guessed in the browser.
+      </p>
+
+      <section class="feature-section">
+        <h2>Portable documents, native files</h2>
+        <p>
+          Varve keeps project references portable inside a document while preserving the real filesystem semantics of the location you choose. A Linux document can travel to Windows or macOS without turning a drive, network share, Unicode name, or external volume into a malformed path.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Designed for real storage</h2>
+        <ul>
+          <li>Documents can live on local, removable, network, and cloud-backed locations.</li>
+          <li>Fonts and optional models remain durable user data, separate from regenerable cache.</li>
+          <li>App data, configuration, recovery, logs, and cache use each operating system's supported application directories.</li>
+          <li>Packaged builds do not write beside the executable or into a read-only app bundle.</li>
+          <li>Recent files survive missing or unplugged locations: a moved document shows a clear missing state instead of silently vanishing from your history.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Offline is a feature, not a fallback</h2>
+        <p>
+          Everything essential works with no connection: creating and editing documents, saving,
+          undo history, fonts, printing, and export. The design assistants — contrast checks,
+          design-debt scans, layer-name suggestions, and spacing harmonization — run entirely on
+          your device with no model downloads and no data leaving the document. What offline
+          actually changes is surfaced honestly: online font and icon search are unavailable, and
+          nothing pretends a "sync" is pending that a local-first product does not have.
+        </p>
+      </section>
+
+      <section class="feature-section note">
+        <h2>Beta note</h2>
+        <p>
+          Varve is in beta. The filesystem boundary is being hardened across packaged Linux, Windows, and macOS builds; always keep normal backups for important work.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Keep designing locally</h2>
+        <a href={sitePath('/download')} class="btn-primary">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: 0.65rem; }
+  .note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .feature-cta h2 { color: var(--text-primary); margin-bottom: 1rem; }
+</style>

@@ -21,10 +21,72 @@ import {
   nodeWorldBounds as sceneNodeWorldBounds,
   nodeWorldTransform as sceneNodeWorldTransform,
 } from '@varve/scene';
-import type { Affine, Rect } from '@varve/shared';
-import { multiplyAffine } from '@varve/shared';
+import type { Affine, Point, Rect } from '@varve/shared';
+import { applyAffine, multiplyAffine, tryInvertAffine } from '@varve/shared';
 import type { PagePlacementMap } from './pagePlacement';
 import { buildPagePlacementMap, pagePlacementForNode } from './pagePlacement';
+
+/**
+ * Convert a placed-world point into a parent's local space via the full
+ * inverse parent world transform. Returns null when the parent is
+ * non-invertible.
+ *
+ * Canonical single entry point for the editor's world→parent conversion —
+ * tools and command handlers must call this instead of inlining
+ * `invertAffine(nodeWorldTransform(...))` per call site (historically five
+ * parallel implementations drifted apart).
+ */
+export function worldToParent(
+  doc: Document,
+  parentId: NodeId,
+  point: Point,
+  parentIndex?: Map<NodeId, NodeId>,
+): Point | null {
+  const pWorld = nodeWorldTransform(doc, parentId, parentIndex);
+  const pInv = tryInvertAffine(pWorld);
+  if (!pInv) return null;
+  return applyAffine(pInv, point);
+}
+
+/**
+ * Placed-world variant of {@link @varve/scene!computeReparentTransform}:
+ * the new local transform that preserves a node's placed-world pose after
+ * reparenting. `newParentId = null` moves to the document root (local =
+ * world). Returns null when the new parent is non-invertible.
+ */
+export function reparentLocalTransform(
+  doc: Document,
+  nodeId: NodeId,
+  newParentId: NodeId | null,
+  parentIndex?: Map<NodeId, NodeId>,
+): Affine | null {
+  const oldWorld = nodeWorldTransform(doc, nodeId, parentIndex);
+  if (!newParentId) return oldWorld;
+  const pWorld = nodeWorldTransform(doc, newParentId, parentIndex);
+  const pInv = tryInvertAffine(pWorld);
+  if (!pInv) return null;
+  return multiplyAffine(pInv, oldWorld);
+}
+
+/**
+ * Rebase an absolute world transform into a parent's local space, preserving
+ * the world pose: newLocal = parentWorld⁻¹ · worldTransform.
+ *
+ * The canonical `computeReparentTransform` in @varve/scene derives the world
+ * transform from the document's own hierarchy; this variant accepts an
+ * explicit world transform (e.g. a clipboard world anchor recorded at copy
+ * time) so pasted/imported content can be placed at its original world pose
+ * inside a destination frame. Both inputs must be in the same placed-world
+ * space. Returns null when the parent is non-invertible.
+ */
+export function rebaseWorldTransformToParent(
+  parentWorld: Affine,
+  worldTransform: Affine,
+): Affine | null {
+  const inv = tryInvertAffine(parentWorld);
+  if (!inv) return null;
+  return multiplyAffine(inv, worldTransform);
+}
 
 export { nodeLocalBounds } from './nodeBounds';
 

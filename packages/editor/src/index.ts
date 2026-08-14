@@ -1,5 +1,11 @@
 import './workspace/bootstrap';
 
+export {
+  configureDesktopAnalytics,
+  getDesktopAnalytics,
+  resetDesktopAnalyticsForTests,
+  updateDesktopAnalyticsConsent,
+} from './analytics/desktopAnalytics';
 export { type ReplayExpansion, worldRectsToScreen } from './canvas/dirtyQuery';
 export {
   computeDocumentDirtyRegion,
@@ -37,9 +43,11 @@ export type {
   TerminationState,
 } from './lifecycle';
 export {
+  getLifecycleCommitHook,
   getLifecycleCoordinator,
   getLifecycleFinalizeHandler,
   LifecycleProvider,
+  setLifecycleCommitHook,
   setLifecycleFinalizeHandler,
 } from './lifecycle';
 export type { PackageExportResult, PackageManifest } from './packageExport';
@@ -94,3 +102,42 @@ export { useStartup } from './startup/useStartup';
 export type { VisibleSurfaceOptions } from './startup/visibleSurface';
 export { afterFirstVisiblePaint } from './startup/visibleSurface';
 export { TabStrip } from './TabStrip';
+export type {
+  DownloadedUpdate,
+  DownloadProgress,
+  PackagingContext,
+  UpdateAction,
+  UpdateArchitecture,
+  UpdateAuthority,
+  UpdateChannel,
+  UpdateClock,
+  UpdateConsent,
+  UpdateError,
+  UpdateErrorCode,
+  UpdateInfo,
+  UpdatePackageType,
+  UpdatePlatform,
+  UpdatePreferences,
+  UpdatePreferencesStore,
+  UpdateProvider,
+  UpdateState,
+  VerifiedUpdate,
+} from './updates';
+export {
+  authorityState,
+  canBackgroundCheck,
+  canDownloadAutomatically,
+  canInstallOnQuit,
+  compareVersions,
+  DEFAULT_UPDATE_PREFERENCES,
+  isChannelMatch,
+  isCheckDue,
+  normalizeUpdatePreferences,
+  transitionUpdateState,
+  UPDATE_CHECK_INTERVAL_MS,
+  UPDATE_FAILURE_BACKOFF_MS,
+  UpdateCoordinator,
+  UpdateCoordinatorProvider,
+  useOptionalUpdateCoordinator,
+  useUpdateCoordinator,
+} from './updates';

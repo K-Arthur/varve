@@ -95,7 +95,9 @@ export function InspectorColorPopover({
   // Document swatches are snapshotted when the picker opens — extracting
   // walks every node, so recomputing per document change during a drag would
   // add O(nodes) work to every pointer event. The snapshot updates on reopen.
-  const [documentColors, setDocumentColors] = useState<Color[]>([]);
+  // Swatches keep the full canonical ManagedColor (native CMYK/Lab/float
+  // values survive selection) — only the swatch face is 8-bit.
+  const [documentColors, setDocumentColors] = useState<ManagedColor[]>([]);
 
   const toggle = useCallback(() => {
     if (disabled) return;
@@ -107,19 +109,17 @@ export function InspectorColorPopover({
       // Snapshot document swatches at open time — extracting walks every
       // node, so recomputing during a drag would add O(nodes) work to each
       // pointer event. Refreshed on the next open.
-      setDocumentColors(
-        doc ? extractDocumentColors(doc).map((c) => managedColorToRgba(c) as Color) : [],
-      );
+      setDocumentColors(doc ? extractDocumentColors(doc) : []);
     }
     setOpen((v) => !v);
   }, [disabled, open, doc, value]);
   const recentColors = useMemo(
-    () => getRecentColors().map((c) => managedColorToRgba(c) as Color),
+    () => getRecentColors(),
     // Re-read when the picker opens so recently used colors from other
     // pickers show up.
     [open],
   );
-  const [recentColorsState, setRecentColorsState] = useState<Color[]>(() => recentColors);
+  const [recentColorsState, setRecentColorsState] = useState<ManagedColor[]>(() => recentColors);
 
   const gestureActiveRef = useRef(false);
   const openValueRef = useRef<ManagedColor | null>(null);
@@ -148,7 +148,7 @@ export function InspectorColorPopover({
     const opened = openValueRef.current;
     const emitted = lastEmittedRef.current;
     if (opened && emitted && managedColorKey(opened) !== managedColorKey(emitted)) {
-      setRecentColorsState(addRecentColor(emitted).map((c) => managedColorToRgba(c) as Color));
+      setRecentColorsState(addRecentColor(emitted));
     }
     // Commit any in-flight gesture when the dialog is dismissed (Esc, Done,
     // outside click) so its changes land in exactly one undo entry.

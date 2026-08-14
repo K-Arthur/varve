@@ -73,9 +73,9 @@ test.describe('Deep Selection', () => {
     await page.keyboard.up('Control');
     await page.waitForTimeout(200);
 
-    // The child (rect) should be selected, not the frame
+    // The child shape should be selected, not the frame.
     const childItem = page.locator(
-      '[role="treeitem"][data-layer-type="rect"][aria-selected="true"]',
+      '[role="treeitem"][data-layer-type="shape"][aria-selected="true"]',
     );
     await expect(childItem).toHaveCount(1);
   });

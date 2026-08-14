@@ -12,6 +12,7 @@ import {
   nextNodeId,
   removeGlobalChild,
   removePage,
+  renamePage,
   reorderPages,
   setActivePage,
   setPageSize,
@@ -72,6 +73,26 @@ describe('Page operations', () => {
     expect(doc.pages?.length).toBe(2);
     expect(doc.pages?.[1]?.width).toBe(1080);
     expect(doc.pages?.[1]?.height).toBe(1920);
+  });
+
+  it('renamePage trims and changes only the requested page name', () => {
+    let doc = createDocument();
+    doc = addPage(doc, { name: 'Second' });
+    const page = doc.pages?.[1];
+    if (!page) throw new Error('Expected second page');
+    const renamed = renamePage(doc, page.id, '  Review  ');
+
+    expect(renamed.pages?.map((candidate) => candidate.name)).toEqual(['Page 1', 'Review']);
+    expect(renamed.pages?.[1]?.width).toBe(page.width);
+    expect(renamed.pages?.[1]?.contentRoot).toBe(page.contentRoot);
+  });
+
+  it('renamePage ignores blank, missing, and unchanged names', () => {
+    const doc = createDocument();
+    const page = firstPage(doc);
+    expect(renamePage(doc, page.id, '   ')).toBe(doc);
+    expect(renamePage(doc, 'missing', 'Other')).toBe(doc);
+    expect(renamePage(doc, page.id, page.name)).toBe(doc);
   });
 
   it('addPage adds contentRoot and background nodes correctly', () => {

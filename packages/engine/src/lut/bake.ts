@@ -11,9 +11,15 @@
 
 import { applySoftwareFilter } from '../filterCompositor';
 import { createRasterSurface } from '../rasterSurface';
+import type { RasterSurface } from '../rasterSurface';
 import type { FilterIR } from '../types';
 import type { Lut1D, Lut3D, LutInputSpace } from './types';
 import { makeIdentityLut1D, makeIdentityLut3D } from './types';
+
+/** Factory for the 1-pixel sampling surfaces the bake loop writes to.
+ *  Injectable so node tests can substitute a pixel-store fake for the
+ *  browser canvas. Defaults to the real raster surface. */
+export type SurfaceFactory = (width: number, height: number) => RasterSurface;
 
 export interface BakeOptions {
   /** Output format */
@@ -50,7 +56,11 @@ function allFiltersBakeable(filters: FilterIR[]): FilterIR[] {
  * Process: Render each filter onto an image with known input values,
  * sample the output, and build the LUT grid.
  */
-export function bakeFiltersToLut(filters: FilterIR[], options: BakeOptions): BakeResult {
+export function bakeFiltersToLut(
+  filters: FilterIR[],
+  options: BakeOptions,
+  surfaceFactory: SurfaceFactory = createRasterSurface,
+): BakeResult {
   const usable = allFiltersBakeable(filters);
   const incompatible = filters.filter((f) => !allFiltersBakeable(filters).includes(f));
   const size = options.size;
@@ -76,14 +86,18 @@ export function bakeFiltersToLut(filters: FilterIR[], options: BakeOptions): Bak
           const gi = domainMin[1] + (g / (size - 1)) * (domainMax[1] - domainMin[1]);
           const bi = domainMin[2] + (b / (size - 1)) * (domainMax[2] - domainMin[2]);
 
-          const surface = createRasterSurface(1, 1);
+          const surface = surfaceFactory(1, 1);
           surface.context.fillStyle = `rgb(${Math.round(ri * 255)}, ${Math.round(gi * 255)}, ${Math.round(bi * 255)})`;
           surface.context.fillRect(0, 0, 1, 1);
-          const imageData = surface.context.getImageData(0, 0, 1, 1);
 
           for (const filter of usable) {
             applySoftwareFilter(surface.context, filter, 1, 1);
           }
+
+          // Read the sampled output AFTER the filter stack runs. Reading
+          // before (the previous behavior) baked the identity input and
+          // silently ignored every filter.
+          const imageData = surface.context.getImageData(0, 0, 1, 1);
 
           data[idx] = imageData.data[0]! / 255;
           data[idx + 1] = imageData.data[1]! / 255;
@@ -116,7 +130,7 @@ export function bakeFiltersToLut(filters: FilterIR[], options: BakeOptions): Bak
       const t = i / (size - 1);
 
       // Sample red channel
-      const surfR = createRasterSurface(1, 1);
+      const surfR = surfaceFactory(1, 1);
       surfR.context.fillStyle = `rgb(${Math.round(t * 255)}, 0, 0)`;
       surfR.context.fillRect(0, 0, 1, 1);
       for (const filter of usable) {
@@ -126,7 +140,7 @@ export function bakeFiltersToLut(filters: FilterIR[], options: BakeOptions): Bak
       r[i] = imgR.data[0]! / 255;
 
       // Sample green channel
-      const surfG = createRasterSurface(1, 1);
+      const surfG = surfaceFactory(1, 1);
       surfG.context.fillStyle = `rgb(0, ${Math.round(t * 255)}, 0)`;
       surfG.context.fillRect(0, 0, 1, 1);
       for (const filter of usable) {
@@ -136,7 +150,7 @@ export function bakeFiltersToLut(filters: FilterIR[], options: BakeOptions): Bak
       g[i] = imgG.data[1]! / 255;
 
       // Sample blue channel
-      const surfB = createRasterSurface(1, 1);
+      const surfB = surfaceFactory(1, 1);
       surfB.context.fillStyle = `rgb(0, 0, ${Math.round(t * 255)})`;
       surfB.context.fillRect(0, 0, 1, 1);
       for (const filter of usable) {

@@ -2,7 +2,7 @@
 
 - **Status:** Accepted (Session 19 redesign)
 - **Date:** 2026-06-27 (original), 2026-07-01 (Redesign: OKLCH + elevation)
-- **Related:** Strata plan §6; ADR-0001 (render path); docs/plans/redesign-strategy.md
+- **Related:** Strata plan §6; ADR-0001 (render path); docs/plans/archived/redesign-strategy.md
 
 ## Context
 

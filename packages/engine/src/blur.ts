@@ -1,4 +1,4 @@
-import { linearToSrgb, srgbToLinear } from '@varve/shared';
+import { linearToSrgbUnit, srgbToLinearUnit } from '@varve/shared';
 
 function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
@@ -233,35 +233,106 @@ export function gaussianBlurSeparable(data: ImageData, radius: number): ImageDat
   return new ImageData(pixels, w, h);
 }
 
+function convolve1DFloat(
+  src: Float32Array,
+  dst: Float32Array,
+  w: number,
+  h: number,
+  kernel: number[],
+  horizontal: boolean,
+): void {
+  const radius = (kernel.length - 1) / 2;
+  if (horizontal) {
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let a = 0;
+        for (let k = 0; k < kernel.length; k++) {
+          const sx = clampEdge(x + k - radius, w);
+          const idx = (y * w + sx) * 4;
+          const kw = kernel[k]!;
+          r += src[idx]! * kw;
+          g += src[idx + 1]! * kw;
+          b += src[idx + 2]! * kw;
+          a += src[idx + 3]! * kw;
+        }
+        const idx = (y * w + x) * 4;
+        dst[idx] = r;
+        dst[idx + 1] = g;
+        dst[idx + 2] = b;
+        dst[idx + 3] = a;
+      }
+    }
+  } else {
+    for (let x = 0; x < w; x++) {
+      for (let y = 0; y < h; y++) {
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let a = 0;
+        for (let k = 0; k < kernel.length; k++) {
+          const sy = clampEdge(y + k - radius, h);
+          const idx = (sy * w + x) * 4;
+          const kw = kernel[k]!;
+          r += src[idx]! * kw;
+          g += src[idx + 1]! * kw;
+          b += src[idx + 2]! * kw;
+          a += src[idx + 3]! * kw;
+        }
+        const idx = (y * w + x) * 4;
+        dst[idx] = r;
+        dst[idx + 1] = g;
+        dst[idx + 2] = b;
+        dst[idx + 3] = a;
+      }
+    }
+  }
+}
+
+/**
+ * Linear-light gaussian blur with a float working space.
+ *
+ * The previous implementation converted sRGB → linear, quantized the linear
+ * values back to bytes, blurred in byte space, then un-quantized — the
+ * "linear-light" contract was not honored. Here the ENTIRE blur runs on
+ * float32 linear premultiplied values with a single quantization at the end
+ * (encoded sRGB bytes), which removes accumulation error and is exact at
+ * low alpha (no `255/a` rounding amplification).
+ */
 export function gaussianBlurLinearLight(data: ImageData, radius: number): ImageData {
   if (radius <= 0) return new ImageData(new Uint8ClampedArray(data.data), data.width, data.height);
-  const pixels = new Uint8ClampedArray(data.data);
+  const w = data.width;
+  const h = data.height;
+  const src = data.data;
 
-  // Convert to linear light: srgbToLinear on each RGB channel
-  for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i]!;
-    const g = pixels[i + 1]!;
-    const b = pixels[i + 2]!;
-    pixels[i] = clampByte(srgbToLinear(r) * 255);
-    pixels[i + 1] = clampByte(srgbToLinear(g) * 255);
-    pixels[i + 2] = clampByte(srgbToLinear(b) * 255);
+  // Encode → linear, straight → premultiplied, byte → float.
+  const px = new Float32Array(src.length);
+  for (let i = 0; i < src.length; i += 4) {
+    const a = src[i + 3]! / 255;
+    px[i] = srgbToLinearUnit(src[i]! / 255) * a;
+    px[i + 1] = srgbToLinearUnit(src[i + 1]! / 255) * a;
+    px[i + 2] = srgbToLinearUnit(src[i + 2]! / 255) * a;
+    px[i + 3] = a;
   }
 
-  const linearData = new ImageData(pixels, data.width, data.height);
-  const blurred = gaussianBlurSeparable(linearData, radius);
+  const kernel = gaussianKernel(radius);
+  const tmp = new Float32Array(px.length);
+  convolve1DFloat(px, tmp, w, h, kernel, true);
+  convolve1DFloat(tmp, px, w, h, kernel, false);
 
-  // Convert back to sRGB
-  const out = blurred.data;
-  for (let i = 0; i < out.length; i += 4) {
-    const r = out[i]! / 255;
-    const g = out[i + 1]! / 255;
-    const b = out[i + 2]! / 255;
-    out[i] = clampByte(linearToSrgb(r));
-    out[i + 1] = clampByte(linearToSrgb(g));
-    out[i + 2] = clampByte(linearToSrgb(b));
+  // Unpremultiply + linear → sRGB-encoded, quantize once at the end.
+  const out = new Uint8ClampedArray(px.length);
+  for (let i = 0; i < px.length; i += 4) {
+    const a = px[i + 3]!;
+    const inv = a === 0 ? 0 : 1 / a;
+    out[i] = clampByte(linearToSrgbUnit(px[i]! * inv) * 255);
+    out[i + 1] = clampByte(linearToSrgbUnit(px[i + 1]! * inv) * 255);
+    out[i + 2] = clampByte(linearToSrgbUnit(px[i + 2]! * inv) * 255);
+    out[i + 3] = clampByte(a * 255);
   }
-
-  return blurred;
+  return new ImageData(out, w, h);
 }
 
 function downsample(src: ImageData, dstW: number, dstH: number): ImageData {

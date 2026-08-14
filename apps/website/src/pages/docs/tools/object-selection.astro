@@ -1,0 +1,50 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Object Selection — Varve Docs" description="How to select, refine, apply, and reuse image masks in Varve.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Object Selection
+      </nav>
+      <h1>Object Selection</h1>
+      <p class="docs-intro">Create an editable image mask from a canvas prompt, then reuse it for background removal, adjustments, effects, extraction, or export.</p>
+
+      <section class="docs-section">
+        <h2>Workflow</h2>
+        <ol>
+          <li>Select an image and activate <strong>Select Object</strong>.</li>
+          <li>Click an object to add a positive prompt. Hold <strong>Shift</strong> while clicking to subtract a region.</li>
+          <li>Drag a box when a coarse region is easier to identify than a point.</li>
+          <li>Add more prompts to refine the temporary preview. Press <strong>Escape</strong> to discard it.</li>
+          <li>Choose <strong>Apply as mask</strong> when the preview is ready. Apply is one undoable document operation.</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Models and privacy</h2>
+        <p>The optional local model is downloaded explicitly from the AI Models settings, verified with its manifest checksum, and loaded lazily. Images are not uploaded by this workflow. Embeddings are temporary session data and are not stored in the document.</p>
+        <p>After applying, the document stores a normal raster mask resource, so reopening the document does not require the model to be installed.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Limitations</h2>
+        <p>Object Selection is promptable segmentation, not semantic recognition. A click tells the model which region to segment; it does not guarantee that an arbitrary automatic result is the subject. Hair, fur, glass, smoke, shadows, and translucent edges may need brush or trimap refinement.</p>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .docs-intro, .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.7; }
+  .docs-intro { font-size: 1.2rem; margin-bottom: 2.5rem; }
+  .docs-section { margin-bottom: 2.5rem; }
+  .docs-section h2 { color: var(--text-primary); margin-bottom: 1rem; }
+  .docs-section li + li { margin-top: 0.65rem; }
+</style>

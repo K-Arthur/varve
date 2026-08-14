@@ -249,6 +249,15 @@ function directNodeToTailwind(
   classes.push('absolute');
   classes.push(`left-[${tx}px]`);
   classes.push(`top-[${ty}px]`);
+  // The separate rotation field is dropped by transform[4/5]-only position
+  // reading; emit it explicitly. Rotation is about the node origin (0,0
+  // local), which coincides with the element's top-left — the same
+  // transform-origin the canvas renderer uses.
+  const rot = node.rotation ?? 0;
+  if (rot !== 0) {
+    classes.push(`rotate-[${rot}deg]`);
+    classes.push('origin-top-left');
+  }
 
   let w = 100,
     h = 100;

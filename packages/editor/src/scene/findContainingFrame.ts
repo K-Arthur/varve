@@ -8,7 +8,7 @@ import {
   walkNodes,
   worldToPageAtPoint,
 } from '@varve/scene';
-import { type Affine, transformRect } from '@varve/shared';
+import { type Affine, multiplyAffine, rotateDeg, transformRect } from '@varve/shared';
 import type { FrameSpatialIndex } from './spatialIndex';
 import { nodeLocalBounds, nodeWorldTransform } from './world';
 
@@ -86,7 +86,10 @@ export function findContainingFrameInDoc(
       const frameLocal = invertAffine(frameWorld);
       const localPt = applyAffine(frameLocal, [world.x, world.y]);
       if (localPt[0] >= 0 && localPt[0] <= n.w && localPt[1] >= 0 && localPt[1] <= n.h) {
-        if (entry.depth > deepestDepth) {
+        // `>=` (not `>`): sibling containers are walked back-to-front, so a
+        // later same-depth container is the visually topmost one and must
+        // win over an earlier overlapping artboard at the same z-level.
+        if (entry.depth >= deepestDepth) {
           deepest = nid;
           deepestDepth = entry.depth;
         }
@@ -107,13 +110,17 @@ export function findContainingFrameInDoc(
         const childLocal = nodeLocalBounds(child, doc);
         if (!childLocal) continue;
         // Transform child's own local bounds by its transform to get
-        // bounds in group-space, then check if the local point is inside
-        const childBoundsInGroup = transformRect(
+        // bounds in group-space, then check if the local point is inside.
+        // The separate `rotation` field composes AFTER the transform
+        // (transform · rotate, about the node origin) — folding it here
+        // keeps rotated children consistent with the renderer.
+        const childTransform = multiplyAffine(
           (child.transform ?? [1, 0, 0, 1, 0, 0]) as Affine,
-          childLocal,
+          rotateDeg(child.rotation ?? 0),
         );
+        const childBoundsInGroup = transformRect(childTransform, childLocal);
         if (rectContains(childBoundsInGroup, [localPt[0], localPt[1]])) {
-          if (entry.depth > deepestDepth) {
+          if (entry.depth >= deepestDepth) {
             deepest = nid;
             deepestDepth = entry.depth;
           }

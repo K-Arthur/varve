@@ -8,6 +8,7 @@
  * CanvasArea.tsx:1833-1890 (backgroundBlur), replay.ts:734-781 (layerBlur).
  */
 
+import { managedColorToNormalized } from '@varve/shared';
 import { gaussianBlurSeparable } from './blur';
 import { blendPixels, type CompositeCanvas } from './compositeCanvas';
 import type { EngineColor } from './types';
@@ -47,10 +48,8 @@ export function computeScreenBounds(
 
 /** Extract RGB channels from an EngineColor for tint blending. */
 function extractRgb(color: EngineColor): { r: number; g: number; b: number } {
-  if ('r' in color) return { r: color.r, g: color.g, b: color.b };
-  if ('c' in color) return { r: 0, g: 0, b: 0 };
-  if ('v' in color) return { r: color.v, g: color.v, b: color.v };
-  return { r: 0, g: 0, b: 0 };
+  const [r, g, b] = managedColorToNormalized(color);
+  return { r: r * 255, g: g * 255, b: b * 255 };
 }
 
 /**

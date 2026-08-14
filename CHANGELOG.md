@@ -12,7 +12,104 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
-(empty — released in 0.1.1)
+### Added
+
+<<<<<<< HEAD
+- **Image Enhance — Deblur and Auto/Recommended** — the Enhance workflow
+  now ships a validated Deblur operation backed by a reproducible
+  conversion of NAFNet-GoPro-width64 (MIT, ~138 MB fp16 ONNX, downloaded
+  on demand through the model manifest with a pinned checksum; conversion
+  parity is bit-exact with the trusted PyTorch reference — 98.9 dB on the
+  official GoPro test subset). Deblur runs through the same shared
+  native→worker provider chain as Denoise, with adaptive tiling that
+  keeps tiles single-shot up to 1280 px because NAFNet’s global
+  receptive field makes small tiles visibly seamed. The dialog opens in
+  Auto/Recommended mode: a cheap classical analysis (noise, blur, JPEG
+  blockiness, resolution) proposes a restoration in human terms with a
+  confidence number, and `Restore + Upscale` composes only the stages it
+  needs (denoise, deblur, or deblur+upscale, always restoration before
+  super-resolution).
+- **Denoise fix: graph-safe padding** — the SCUNet ONNX conversion
+  actually requires padded dimensions divisible by 64 (its baked
+  attention reshape crashes otherwise), so 1080p and other non-64-
+  multiple images failed denoise. Padding, the native spec, and the
+  manifest contract were corrected (previously claimed 8).
+- **Restore benchmark tooling** — `scripts/bench/restore-reference/`
+  provides a deterministic degradation corpus (JPEG, Gaussian, motion
+  blur recipes with fixed seeds), TS-exact ONNX reference runners, and
+  contact-sheet rendering; measured results are in
+  `docs/quality/image-enhancement-benchmark.md`. Compression-artifact
+  removal remains unavailable by design: no model passed the
+  design-content corpus (SCUNet destroys 1px line patterns; the only
+  JPEG-trained NAFNet checkpoint was rejected on provenance).
+
+- **Natural-language asset search** — the Asset Browser search field now
+  combines filename, OCR, tags, and metadata with an optional local visual
+  lane. Describe what you remember ("orange sunset over mountains") and
+  matching local assets rank by visual content even when the file is named
+  IMG_4281.jpg. Images are indexed in the background with a bounded,
+  cancellable queue (deduplicated by content hash, so renames and copies
+  never re-embed), search results keep match reasons, and exact filename
+  queries keep their ordering guarantee. The text tower and tokenizer are
+  parity-verified against the reference implementation; everything runs
+  locally with no uploads. Visual search is opt-in: the SigLIP image and
+  text models plus tokenizer download explicitly, verify SHA-256, and
+  filename/OCR/metadata search keeps working without them. See
+  `docs/architecture/asset-search-system.md` and ADR-0221.
+
+- **Object Selection** — select an image and use the Select Object tool
+  (or the Adjustments tab) to prompt a local SAM2-Hiera-Tiny model with
+  positive/negative points and drag boxes. The preview is transient until
+  you apply it: candidate masks can be cycled before applying, and Apply
+  creates one undoable non-destructive raster mask that survives save,
+  reload, and model removal. The ~155 MB model is an explicit, checksum-
+  pinned download (Apache-2.0) loaded lazily; embeddings live in a bounded
+  session cache and are never written into the document. Promptable
+  segmentation is not semantic subject detection and is not a perfect
+  alpha matte — brush and trimap refinement remain the edge-quality tools.
+=======
+- **Natural-language asset search** — the Asset Browser search field now
+  combines filename, OCR, tags, and metadata with an optional local visual
+  lane. Describe what you remember ("orange sunset over mountains") and
+  matching local assets rank by visual content even when the file is named
+  IMG_4281.jpg. Images are indexed in the background with a bounded,
+  cancellable queue (deduplicated by content hash, so renames and copies
+  never re-embed), search results keep match reasons, and exact filename
+  queries keep their ordering guarantee. The text tower and tokenizer are
+  parity-verified against the reference implementation; everything runs
+  locally with no uploads. Visual search is opt-in: the SigLIP image and
+  text models plus tokenizer download explicitly, verify SHA-256, and
+  filename/OCR/metadata search keeps working without them. See
+  `docs/architecture/asset-search-system.md` and ADR-0221.
+>>>>>>> feat/nl-asset-search
+- **Depth-aware effects** — a reusable, model-independent DepthMap resource
+  powers non-destructive Depth Blur: pick a focus point, adjust focus range
+  and blur strength, preview the depth field, or convert a depth range into a
+  layer mask. Depth maps are generated on demand by a ~27 MB local model
+  (Depth Anything V2 Small, Apache-2.0, SHA-256 pinned), cached per source
+  revision, persisted in the document (16-bit scalar field), and rendered
+  without the model, so saved documents reopen with identical results and no
+  inference. The blur compositor is occlusion-aware (sharp subjects do not
+  smear into blurred backgrounds) and premultiplied-alpha correct. Relative
+  depth only; no metric calibration is claimed.
+- **Experimental asset similarity** — the Intelligence panel now separates
+  image-to-image Similar search from Near duplicates. The image lane uses a
+  local DINOv2-small encoder (Apache-2.0, SHA-256 pinned, reference-vector
+  parity verified against an independent runtime; selected over the SigLIP
+  image encoder from a Varve-corpus evaluation — see
+  `docs/audits/semantic-asset-similarity-evaluation-2026-08-13.md`).
+  Near-duplicate ranking keeps exact identity and perceptual fingerprints
+  separate. Computed embeddings are cached locally by content hash, so
+  unchanged images never re-run inference. The current workflow is
+  document-local, capped at 30 image candidates, and does not provide
+  automatic deletion. See
+  `docs/architecture/semantic-asset-similarity.md`.
+- **Image palette extraction** — select one image and open Appearance → Palette
+  to generate a deterministic local palette in perceptual Oklab, review
+  generated harmonies and WCAG 2.1 contrast pairs, copy HEX values, and save
+  extracted colours as document swatches or colour variables. Analysis is
+  bounded, cancellable, worker-backed when available, and does not upload
+  image pixels or add derived analysis data to the document schema.
 
 ## [0.1.1] - 2026-08-11
 

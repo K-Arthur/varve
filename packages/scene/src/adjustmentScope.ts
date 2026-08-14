@@ -103,27 +103,50 @@ export function resolveAdjustmentScope(
     return resolveLegacyScope(doc, adjustmentNodeId);
   }
 
+  let resolved: NodeId[] = [];
   switch (scope.mode) {
     case 'image-local': {
       const target = doc.nodes[scope.targetNodeId];
-      return target && isAdjustmentEligible(target) ? [scope.targetNodeId] : [];
+      resolved = target && isAdjustmentEligible(target) ? [scope.targetNodeId] : [];
+      break;
     }
 
     case 'explicit-targets': {
-      return scope.targetNodeIds.filter((id) => {
+      resolved = scope.targetNodeIds.filter((id) => {
         const target = doc.nodes[id];
         return !!target && isAdjustmentEligible(target);
       });
+      break;
     }
 
     case 'container-descendant': {
-      return collectContainerDescendants(doc, scope.containerId, scope.includeNested);
+      resolved = collectContainerDescendants(doc, scope.containerId, scope.includeNested);
+      break;
     }
 
     case 'document': {
-      return collectAllEligibleNodes(doc);
+      resolved = collectAllEligibleNodes(doc);
+      break;
     }
   }
+
+  // Scope resolution is a render-graph boundary. De-duplicate IDs and reject
+  // an adjustment's own subtree so malformed or hand-authored documents cannot
+  // make the adjustment replay itself recursively. Missing targets are already
+  // filtered above and remain harmless after deletion/copy-paste repair.
+  const unique = new Set<NodeId>();
+  const candidates = resolved.filter((id) => {
+    if (unique.has(id) || id === adjustmentNodeId) return false;
+    if (isDescendantOf(doc, adjustmentNodeId, id)) return false;
+    unique.add(id);
+    return true;
+  });
+
+  // A parent target already contains its descendants. Keep only the outermost
+  // selected node so a group and its child are not replayed or filtered twice.
+  return candidates.filter(
+    (id) => !candidates.some((other) => other !== id && isDescendantOf(doc, id, other)),
+  );
 }
 
 /**
@@ -244,11 +267,18 @@ export function estimateAdjustmentImpact(
 function isDescendantOf(doc: Document, nodeId: NodeId, ancestorId: NodeId): boolean {
   const ancestor = doc.nodes[ancestorId];
   if (!ancestor || !isContainer(ancestor)) return false;
-  for (const childId of ancestor.children) {
-    if (childId === nodeId) return true;
-    if (isDescendantOf(doc, nodeId, childId)) return true;
-  }
-  return false;
+  const visited = new Set<NodeId>();
+  const visit = (currentId: NodeId): boolean => {
+    if (visited.has(currentId)) return false;
+    visited.add(currentId);
+    const current = doc.nodes[currentId];
+    if (!current || !isContainer(current)) return false;
+    for (const childId of current.children) {
+      if (childId === nodeId || visit(childId)) return true;
+    }
+    return false;
+  };
+  return visit(ancestorId);
 }
 
 /**

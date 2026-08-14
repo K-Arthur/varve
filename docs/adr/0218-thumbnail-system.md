@@ -35,11 +35,16 @@ Thumbnail is a platform capability with one source of truth:
 3. **Rendering through the canonical pipeline** — the editor service
    resolves sources, converts via `flattenSceneToEngine` (the same module
    the canvas uses), and renders via the engine `generateThumbnail` IR
-   service. One conversion; no parallel mini-renderer for covers.
+   service. One conversion; no parallel mini-renderer for covers. Raster
+   fills request an `ImageCache.loadAtSize` representation capped to the
+   thumbnail's physical output size when the runtime supports at-size decode;
+   the full source remains authoritative for live replay and export.
 4. **Persistence unchanged in shape** — identity strings as cache keys in
    the existing platform store; `setThumbnailPreference` on the FileEntry
    (app metadata, never document bytes). Legacy entries are disposable
-   warm-migration fallbacks.
+   warm-migration fallbacks. `persistDocThumbnail` writes only settled
+   results; a result marked `isProvisional` remains disposable and is never
+   installed as the authoritative platform thumbnail.
 5. **One bounded scheduler** — concurrency 1, priority, dedupe,
    cancellation, stale-job guards (editor).
 6. **User-selected sources** — File menu, canvas/page context menus,
@@ -63,6 +68,19 @@ Thumbnail is a platform capability with one source of truth:
 - Cost: an extra `@varve/scene` module and editor orchestration module;
   Home no longer generates thumbnails itself (editor save path does), so
   never-opened legacy files show placeholders until the next save.
+
+## Raster representation policy
+
+Thumbnail generation is allowed to use a disposable display representation,
+but never rewrites or replaces the embedded source. Inline `data:`/`blob:`
+assets use the shared byte-bounded at-size cache when `createImageBitmap` is
+available. Remote URLs and runtimes without that API use the existing full
+HTML-image path, preserving Canvas2D correctness across WebKit/WebView
+deployments. A thumbnail render receives the selected resource through
+`replayIr`'s image lookup hook, so it does not change the main canvas cache
+entry or placement state. The Layers Panel's 28×28 node-preview profile uses
+the same policy for image fills and raster masks; its node-thumbnail LRU is
+only encoded display output and is not a second decoded-image cache.
 
 ## Alternatives considered
 

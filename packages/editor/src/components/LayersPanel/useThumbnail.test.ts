@@ -1,4 +1,5 @@
 import { act, renderHook } from '@testing-library/react';
+import { getImageCache, resetImageCache } from '@varve/engine';
 import type { SceneNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailCacheKey } from './thumbnailCache';
@@ -41,6 +42,7 @@ describe('useThumbnail caching', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    resetImageCache();
   });
 
   it('starts null and renders asynchronously on first mount (cache miss)', async () => {
@@ -101,5 +103,42 @@ describe('useThumbnail caching', () => {
     expect(first.result.current).not.toBeNull();
     expect(sharedThumbnailCache.get(thumbnailCacheKey(node))).toBe(firstUrl);
     first.unmount();
+  });
+
+  it('uses the bounded image representation for image layer thumbnails', async () => {
+    const node = {
+      ...makeShapeNode('thumb-image'),
+      fills: [
+        {
+          type: 'image',
+          image: {
+            src: 'data:image/png;base64,LAYER_THUMB',
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 4000,
+            imageHeight: 3000,
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    } as unknown as SceneNode;
+    const loadAtSize = vi.spyOn(getImageCache(), 'loadAtSize').mockResolvedValue({
+      width: 28,
+      height: 21,
+    } as ImageBitmap);
+
+    const { result, unmount } = renderHook(() => useThumbnail(node));
+    await flushRenderTimer();
+
+    expect(result.current).not.toBeNull();
+    expect(loadAtSize).toHaveBeenCalledWith('data:image/png;base64,LAYER_THUMB', 28, {
+      width: 4000,
+      height: 3000,
+    });
+    unmount();
   });
 });

@@ -22,17 +22,26 @@ export {
   resolveExportEncoding,
 } from './exportPolicy';
 export {
+  allocatePixelBuffer,
   BYTES_PER_PIXEL,
+  convertPixelBufferFormat,
+  DEFAULT_PIXEL_BUFFER_BUDGET_BYTES,
+  float32ToHalfFloat,
+  halfFloatToFloat32,
   isWithinPixelBudget,
+  type PixelBuffer,
+  type PixelBufferData,
   type PixelBufferDescriptor,
   type PixelBufferFormat,
   pixelBufferBytes,
   pixelFormatLabel,
   premultiplyRgba32f,
   rgba8ToRgba32f,
+  rgba16fToRgba32f,
   rgba16ToRgba32f,
   rgba32fToRgba8,
   rgba32fToRgba16,
+  rgba32fToRgba16f,
   unpremultiplyRgba32f,
 } from './pixelBuffer';
 export {

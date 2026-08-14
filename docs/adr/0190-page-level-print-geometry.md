@@ -67,3 +67,14 @@ overlap check required but warned).
 - Reusing `Page.bleed` as the only bleed representation (needed for
   section/master layers).
 - Treating safe-area violations as errors.
+
+## Clarification (2026-08-13)
+
+The "application default" layer of D1 resolves to **zero bleed**
+(`EMPTY_BLEED` in `printGeometry.ts`), not to a conventional 3 mm. Print
+presets carry bleed into documents at creation; documents that never
+configured bleed (including legacy files) resolve to trim-only, so old
+exports keep their original dimensions. 3 mm must never be silently injected
+into an existing document. The export dialog's bleed field is the
+export-job override layer of D1: it seeds from the active page's resolved
+bleed and overrides only that job.

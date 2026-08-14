@@ -9,13 +9,15 @@
  */
 import {
   gamutMapToSrgb,
+  gamutMapToSrgbUnit,
   linearSrgbToOklab,
-  linearToSrgb,
-  managedColorToRgba,
+  linearToSrgbUnit,
+  managedColorToNormalized,
   oklabToLinearSrgb,
   oklabToOkLch,
   oklchToOkLab,
   srgbToLinear,
+  srgbToLinearUnit,
 } from './colorConversion';
 
 /** Color space used for gradient stop interpolation. */
@@ -38,6 +40,8 @@ export interface GradientStopInput {
 export interface InterpolateOptions {
   /** Interpolate RGB channels in premultiplied alpha space. Default true. */
   premultiplied?: boolean;
+  /** Keep fractional working channels instead of rounding to display bytes. */
+  precision?: 'display' | 'working';
 }
 
 type RgbColor = GradientStopInput['color'];
@@ -46,8 +50,15 @@ function clamp255(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));
 }
 
-function toRgbColor(r: number, g: number, b: number, a: number): RgbColor {
-  return { space: 'rgb', r: clamp255(r), g: clamp255(g), b: clamp255(b), a: clamp255(a) };
+function toRgbColor(
+  r: number,
+  g: number,
+  b: number,
+  a: number,
+  precision: 'display' | 'working' = 'display',
+): RgbColor {
+  const channel = precision === 'working' ? (v: number) => Math.max(0, Math.min(255, v)) : clamp255;
+  return { space: 'rgb', r: channel(r), g: channel(g), b: channel(b), a: channel(a) };
 }
 
 /** Convert sRGB 0-255 to HSL (h: 0-360, s/l: 0-1). */
@@ -69,9 +80,14 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
 }
 
 /** Convert HSL to sRGB 0-255. */
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+function hslToRgb(
+  h: number,
+  s: number,
+  l: number,
+  precision: 'display' | 'working' = 'display',
+): [number, number, number] {
   if (s === 0) {
-    const v = clamp255(l * 255);
+    const v = toRgbColor(l * 255, l * 255, l * 255, 255, precision).r;
     return [v, v, v];
   }
   const hue2rgb = (p: number, q: number, t: number): number => {
@@ -87,9 +103,9 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
   const p = 2 * l - q;
   return [
-    clamp255(hue2rgb(p, q, hn + 1 / 3) * 255),
-    clamp255(hue2rgb(p, q, hn) * 255),
-    clamp255(hue2rgb(p, q, hn - 1 / 3) * 255),
+    toRgbColor(hue2rgb(p, q, hn + 1 / 3) * 255, 0, 0, 255, precision).r,
+    toRgbColor(hue2rgb(p, q, hn) * 255, 0, 0, 255, precision).r,
+    toRgbColor(hue2rgb(p, q, hn - 1 / 3) * 255, 0, 0, 255, precision).r,
   ];
 }
 
@@ -128,17 +144,18 @@ export function interpolateManagedColor(
   if (t >= 1) return { ...to };
 
   const premultiplied = opts.premultiplied !== false;
+  const precision = opts.precision ?? 'display';
 
   if (premultiplied && (from.a < 255 || to.a < 255)) {
     const af = from.a / 255;
     const at = to.a / 255;
-    const pmFrom = toRgbColor(from.r * af, from.g * af, from.b * af, from.a);
-    const pmTo = toRgbColor(to.r * at, to.g * at, to.b * at, to.a);
+    const pmFrom = toRgbColor(from.r * af, from.g * af, from.b * af, from.a, precision);
+    const pmTo = toRgbColor(to.r * at, to.g * at, to.b * at, to.a, precision);
     const pmResult = interpolateManagedColor(pmFrom, pmTo, t, space, { premultiplied: false });
     const outA = clamp255(from.a + (to.a - from.a) * t);
     if (outA === 0) return toRgbColor(0, 0, 0, 0);
     const outAf = outA / 255;
-    return toRgbColor(pmResult.r / outAf, pmResult.g / outAf, pmResult.b / outAf, outA);
+    return toRgbColor(pmResult.r / outAf, pmResult.g / outAf, pmResult.b / outAf, outA, precision);
   }
 
   switch (space) {
@@ -148,6 +165,7 @@ export function interpolateManagedColor(
         from.g + (to.g - from.g) * t,
         from.b + (to.b - from.b) * t,
         from.a + (to.a - from.a) * t,
+        precision,
       );
 
     case 'oklab': {
@@ -162,10 +180,11 @@ export function interpolateManagedColor(
       const lab: [number, number, number] = [lerp(l1, l2), lerp(a1, a2), lerp(b1, b2)];
       const [lr, lg, lb] = oklabToLinearSrgb(lab);
       return toRgbColor(
-        linearToSrgb(lr),
-        linearToSrgb(lg),
-        linearToSrgb(lb),
+        linearToSrgbUnit(lr) * 255,
+        linearToSrgbUnit(lg) * 255,
+        linearToSrgbUnit(lb) * 255,
         from.a + (to.a - from.a) * t,
+        precision,
       );
     }
 
@@ -195,29 +214,174 @@ export function interpolateManagedColor(
       const H = h1 + (h2 - h1) * t;
       const oklab = oklchToOkLab([lerp(L1, L2), lerp(C1, C2), H]);
       const [lr, lg, lb] = oklabToLinearSrgb(oklab);
-      const [r, g, b] = gamutMapToSrgb([lerp(L1, L2), lerp(C1, C2), H]);
+      const [r, g, b] = (precision === 'working' ? gamutMapToSrgbUnit : gamutMapToSrgb)([
+        lerp(L1, L2),
+        lerp(C1, C2),
+        H,
+      ]);
       void lr;
       void lg;
       void lb;
-      return toRgbColor(r, g, b, from.a + (to.a - from.a) * t);
+      return toRgbColor(r, g, b, from.a + (to.a - from.a) * t, precision);
     }
 
     case 'hsl': {
       const [h1, s1, l1] = rgbToHsl(from.r, from.g, from.b);
       const [h2, s2, l2] = rgbToHsl(to.r, to.g, to.b);
       const lerp = (a: number, b: number) => a + (b - a) * t;
-      const [r, g, b] = hslToRgb(lerpHue(h1, h2, t), lerp(s1, s2), lerp(l1, l2));
-      return toRgbColor(r, g, b, from.a + (to.a - from.a) * t);
+      const [r, g, b] = hslToRgb(lerpHue(h1, h2, t), lerp(s1, s2), lerp(l1, l2), precision);
+      return toRgbColor(r, g, b, from.a + (to.a - from.a) * t, precision);
     }
   }
 }
 
 /** Normalize any color to RGB for interpolation. */
 function normalizeStopColor(
-  color: GradientStopInput['color'] | Parameters<typeof managedColorToRgba>[0],
+  color: GradientStopInput['color'] | Parameters<typeof managedColorToNormalized>[0],
 ): RgbColor {
-  const [r, g, b, a] = managedColorToRgba(color as Parameters<typeof managedColorToRgba>[0]);
-  return { space: 'rgb', r, g, b, a };
+  const [r, g, b, a] = managedColorToNormalized(
+    color as Parameters<typeof managedColorToNormalized>[0],
+  );
+  return { space: 'rgb', r: r * 255, g: g * 255, b: b * 255, a: a * 255 };
+}
+
+// ── Normalized (0-1) interpolation ───────────────────────────────────────────
+// The byte-space interpolator above is a display boundary. Authoring paths
+// (gradient stop creation, stop expansion in high-precision documents) must
+// interpolate in normalized 0-1 space so uint16/float channel values survive.
+
+/** Normalized RGBA channels, 0-1, straight (unassociated) alpha. */
+export interface InterpolationRgba {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
+
+function rgbToHslUnit(r: number, g: number, b: number): [number, number, number] {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [h * 360, s, l];
+}
+
+function hslToRgbUnit(h: number, s: number, l: number): [number, number, number] {
+  const hh = (((h % 360) + 360) % 360) / 360;
+  if (s === 0) return [l, l, l];
+  const hue2rgb = (p: number, q: number, t: number): number => {
+    let tt = t;
+    if (tt < 0) tt += 1;
+    if (tt > 1) tt -= 1;
+    if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+    if (tt < 1 / 2) return q;
+    if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+    return p;
+  };
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return [hue2rgb(p, q, hh + 1 / 3), hue2rgb(p, q, hh), hue2rgb(p, q, hh - 1 / 3)];
+}
+
+/**
+ * Interpolate two normalized (0-1) RGBA colors at factor t.
+ *
+ * No 8-bit quantization anywhere in the working path: the result is exact
+ * at the caller's storage precision (uint16/float denormalization is the
+ * caller's single quantization boundary).
+ */
+export function interpolateNormalizedColor(
+  from: InterpolationRgba,
+  to: InterpolationRgba,
+  t: number,
+  space: GradientInterpolationSpace,
+  opts: { premultiplied?: boolean } = {},
+): InterpolationRgba {
+  if (t <= 0) return { ...from };
+  if (t >= 1) return { ...to };
+
+  const premultiplied = opts.premultiplied !== false;
+  if (premultiplied && (from.a < 1 || to.a < 1)) {
+    const pmFrom: InterpolationRgba = {
+      r: from.r * from.a,
+      g: from.g * from.a,
+      b: from.b * from.a,
+      a: from.a,
+    };
+    const pmTo: InterpolationRgba = { r: to.r * to.a, g: to.g * to.a, b: to.b * to.a, a: to.a };
+    const pmResult = interpolateNormalizedColor(pmFrom, pmTo, t, space, { premultiplied: false });
+    const outA = from.a + (to.a - from.a) * t;
+    if (outA === 0) return { r: 0, g: 0, b: 0, a: 0 };
+    return { r: pmResult.r / outA, g: pmResult.g / outA, b: pmResult.b / outA, a: outA };
+  }
+
+  const lerp = (a: number, b: number) => a + (b - a) * t;
+
+  switch (space) {
+    case 'srgb':
+      return {
+        r: lerp(from.r, to.r),
+        g: lerp(from.g, to.g),
+        b: lerp(from.b, to.b),
+        a: lerp(from.a, to.a),
+      };
+    case 'oklab': {
+      const toLin = (c: InterpolationRgba): [number, number, number] => [
+        srgbToLinearUnit(c.r),
+        srgbToLinearUnit(c.g),
+        srgbToLinearUnit(c.b),
+      ];
+      const [l1, a1, b1] = linearSrgbToOklab(toLin(from));
+      const [l2, a2, b2] = linearSrgbToOklab(toLin(to));
+      const [lr, lg, lb] = oklabToLinearSrgb([lerp(l1, l2), lerp(a1, a2), lerp(b1, b2)]);
+      return {
+        r: linearToSrgbUnit(lr),
+        g: linearToSrgbUnit(lg),
+        b: linearToSrgbUnit(lb),
+        a: lerp(from.a, to.a),
+      };
+    }
+    case 'oklch': {
+      const toLin = (c: InterpolationRgba): [number, number, number] => [
+        srgbToLinearUnit(c.r),
+        srgbToLinearUnit(c.g),
+        srgbToLinearUnit(c.b),
+      ];
+      const [l1, a1, b1] = linearSrgbToOklab(toLin(from));
+      const [l2, a2, b2] = linearSrgbToOklab(toLin(to));
+      const [L1, C1, H1] = oklabToOkLch([l1, a1, b1]);
+      const [L2, C2, H2] = oklabToOkLch([l2, a2, b2]);
+      // Near-zero chroma → undefined hue; fall back to OKLab (see the
+      // byte-space interpolator for the same rule).
+      if (C1 < 0.001 || C2 < 0.001) {
+        return interpolateNormalizedColor(from, to, t, 'oklab', { premultiplied: false });
+      }
+      let h2 = H2;
+      const h1 = H1;
+      const diff = h2 - h1;
+      if (diff > Math.PI) h2 -= 2 * Math.PI;
+      else if (diff < -Math.PI) h2 += 2 * Math.PI;
+      const [r, g, b] = gamutMapToSrgbUnit([lerp(L1, L2), lerp(C1, C2), h1 + (h2 - h1) * t]);
+      // gamutMapToSrgbUnit returns unquantized 0-255 floats — rescale to
+      // normalized 0-1 for the caller's storage precision.
+      return { r: r / 255, g: g / 255, b: b / 255, a: lerp(from.a, to.a) };
+    }
+    case 'hsl': {
+      const [h1, s1, l1] = rgbToHslUnit(from.r, from.g, from.b);
+      const [h2, s2, l2] = rgbToHslUnit(to.r, to.g, to.b);
+      let dh = h2 - h1;
+      if (dh > 180) dh -= 360;
+      else if (dh < -180) dh += 360;
+      const [r, g, b] = hslToRgbUnit(h1 + dh * t, lerp(s1, s2), lerp(l1, l2));
+      return { r, g, b, a: lerp(from.a, to.a) };
+    }
+  }
 }
 
 /**
@@ -227,6 +391,7 @@ export function sampleGradientColor(
   stops: GradientStopInput[],
   position: number,
   space: GradientInterpolationSpace = 'oklab',
+  opts: InterpolateOptions = {},
 ): RgbColor {
   if (stops.length === 0) return { space: 'rgb', r: 0, g: 0, b: 0, a: 0 };
   if (stops.length === 1) return normalizeStopColor(stops[0]!.color);
@@ -255,6 +420,7 @@ export function sampleGradientColor(
         normalizeStopColor(b.color),
         blendT,
         space,
+        opts,
       );
     }
   }
@@ -270,6 +436,7 @@ export function expandGradientStops(
   stops: GradientStopInput[],
   space: GradientInterpolationSpace = 'oklab',
   subdivisions: number = 16,
+  opts: InterpolateOptions = {},
 ): { position: number; color: RgbColor }[] {
   if (stops.length === 0) return [];
   if (stops.length === 1) {
@@ -303,7 +470,7 @@ export function expandGradientStops(
       const frac = s / (steps - 1);
       const pos = segStart + (segEnd - segStart) * frac;
       if (i > 0 && s === 0) continue; // avoid duplicate at segment boundary
-      add(pos, sampleGradientColor(sorted, pos, space));
+      add(pos, sampleGradientColor(sorted, pos, space, opts));
     }
   }
 

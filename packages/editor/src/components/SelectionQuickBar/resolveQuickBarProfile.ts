@@ -97,7 +97,7 @@ function imageProfile(node: ShapeNode, input: ResolveQuickBarInput): QuickBarPro
   const actions: QuickBarAction[] = [
     action('crop', 'Crop'),
     action('removeBg', 'Remove background'),
-    action('upscale', 'Upscale'),
+    action('upscale', 'Enhance'),
     action('vectorize', 'Vectorize'),
     action('flipH', 'Flip horizontal'),
     action('flipV', 'Flip vertical'),

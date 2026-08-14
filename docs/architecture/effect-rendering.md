@@ -10,6 +10,31 @@ Every `RenderItem` with effects goes through 5 rendering passes in
 a specific subset of effect types via `if/else if` dispatch and
 `continue` for already-processed types.
 
+### Effect-local masks (staged)
+
+An effect mask belongs to an effect identity, never to an array position. The
+scene contract is `Effect.mask: EffectMaskBinding`; legacy effect IDs are
+materialized deterministically as `fx-<node-id>-<ordinal>`, so reordering does
+not move a mask to another effect. The canonical stage operation is:
+
+```text
+I = input before the effect
+E = fully evaluated effect
+M = effect mask coverage
+output = I × (1 − M) + E × M
+```
+
+The Canvas2D engine implements this operation for raster effect-mask sources
+using premultiplied-alpha pixel compositing, including alpha/luminance,
+inversion, density, and missing-source-safe behavior. Structural scene replay
+uses the same operation for live scene-node and vector sources. The Effects inspector can
+author a live scene-node source (including text and groups), edit alpha versus
+luminance, density, feather, inversion, and coordinate space, and remove it in
+one undoable document update. Scene-node and vector sources share the
+serializable contract and dependency graph; the flat worker path is routed to
+structural replay for these bindings. A missing source remains an unmasked
+effect rather than making the owner transparent.
+
 ## Canonical schema and native interchange
 
 The document-level `Effect` discriminated union is owned by `@varve/scene`.

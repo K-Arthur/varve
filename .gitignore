@@ -7,6 +7,7 @@ Cargo.lock.bak
 node_modules
 .pnpm-store
 dist
+.astro
 build
 .next
 .turbo
@@ -114,9 +115,8 @@ artifacts/
 # --- Build caches ---
 .astro/
 
-# --- Runtime-downloaded models (fetched on demand; tracked models live in the manifest) ---
+# --- Runtime-downloaded models (fetched on demand; bundled models are committed) ---
 apps/desktop/public/models/depth_anything_v2_small_int8.onnx
-apps/desktop/public/models/yunet-face-detect.onnx
 
 # --- Downloaded test corpus (restore-system fixtures fetched by scripts) ---
 tests/fixtures/restore-corpus/
@@ -148,3 +148,6 @@ scripts/perf/dump*.mjs
 # --- Local CI/CD (act) secrets stub — never commit real tokens ---
 .act-secrets
 .replay-browser-results.json
+
+# --- Non-bundled downloaded ONNX models (fetched on demand; never commit) ---
+apps/desktop/public/models/*.onnx

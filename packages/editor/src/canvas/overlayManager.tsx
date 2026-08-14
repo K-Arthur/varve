@@ -7,7 +7,14 @@
  * overlay rendering here instead of managing it inline.
  */
 
-import { canBeClipMaskSource, type NodeId } from '@varve/scene';
+import { computeImagePlacement } from '@varve/engine';
+import {
+  canBeClipMaskSource,
+  type Document,
+  type NodeId,
+  resolveNodePaints,
+  type ShapeNode,
+} from '@varve/scene';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { EditorState } from '../context/types';
 import type { TransformCache } from '../scene/transformCache';
@@ -15,6 +22,7 @@ import {
   getWorldBounds as getCachedWorldBounds,
   getWorldTransform as getCachedWorldTransform,
 } from '../scene/transformCache';
+import { nodeLocalBounds } from '../scene/world';
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
@@ -35,6 +43,125 @@ export interface UseOverlayDrawOptions {
   draft: unknown | null;
   dropTargetFrameId: NodeId | null;
   maskDropTargetId: NodeId | null;
+}
+
+function drawObjectSelectionPreview(
+  ctx: CanvasRenderingContext2D,
+  doc: Document,
+  node: ShapeNode,
+  session: NonNullable<EditorState['objectSelectionSession']>,
+  worldTransform: readonly [number, number, number, number, number, number],
+): void {
+  const candidate = session.candidates[session.selectedCandidate];
+  if (!candidate || candidate.mask.length !== session.width * session.height) return;
+  const image = resolveNodePaints(
+    node as unknown as Parameters<typeof resolveNodePaints>[0],
+    doc,
+  ).find((fill) => fill.type === 'image')?.image;
+  const bounds = nodeLocalBounds(node, doc);
+  if (!image || !bounds) return;
+  const placement = computeImagePlacement({
+    fit: image.fit,
+    sourceWidth: session.width,
+    sourceHeight: session.height,
+    bounds,
+    x: image.x,
+    y: image.y,
+    scale: image.scale,
+    sourceCrop: image.crop,
+    rotation: image.rotation,
+    flipH: image.flipH,
+    flipV: image.flipV,
+  });
+  if (!placement) return;
+
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = session.width;
+  maskCanvas.height = session.height;
+  const maskCtx = maskCanvas.getContext('2d');
+  if (!maskCtx) return;
+  const pixels = maskCtx.createImageData(session.width, session.height);
+  for (let i = 0; i < candidate.mask.length; i += 1) {
+    const alpha = Math.round(candidate.mask[i]! * 0.42);
+    pixels.data[i * 4] = 32;
+    pixels.data[i * 4 + 1] = 160;
+    pixels.data[i * 4 + 2] = 255;
+    pixels.data[i * 4 + 3] = alpha;
+  }
+  maskCtx.putImageData(pixels, 0, 0);
+
+  const [a, b, c, d, e, f] = worldTransform;
+  const source = placement.sourceRect;
+  const destination = placement.sampleDrawRect;
+  ctx.save();
+  ctx.transform(a, b, c, d, e, f);
+  const transformed = placement.rotation !== 0 || placement.flipH || placement.flipV;
+  if (transformed) {
+    const centerX = placement.drawRect.x + placement.drawRect.w / 2;
+    const centerY = placement.drawRect.y + placement.drawRect.h / 2;
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate((placement.rotation * Math.PI) / 180);
+    ctx.scale(placement.flipH ? -1 : 1, placement.flipV ? -1 : 1);
+    ctx.drawImage(
+      maskCanvas,
+      source.x,
+      source.y,
+      source.w,
+      source.h,
+      destination.x - centerX,
+      destination.y - centerY,
+      destination.w,
+      destination.h,
+    );
+    ctx.restore();
+  } else {
+    ctx.drawImage(
+      maskCanvas,
+      source.x,
+      source.y,
+      source.w,
+      source.h,
+      destination.x,
+      destination.y,
+      destination.w,
+      destination.h,
+    );
+  }
+  ctx.restore();
+}
+
+function drawObjectSelectionPrompts(
+  ctx: CanvasRenderingContext2D,
+  session: NonNullable<EditorState['objectSelectionSession']>,
+  zoom: number,
+): void {
+  ctx.save();
+  ctx.lineWidth = 2 / zoom;
+  for (const point of session.points) {
+    const positive = point.label === 1;
+    ctx.fillStyle = positive ? 'rgba(32,160,255,0.95)' : 'rgba(236,72,153,0.95)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 7 / zoom, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = 'white';
+    ctx.font = `bold ${10 / zoom}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(positive ? '+' : '−', point.x, point.y);
+  }
+  if (session.box) {
+    const x = Math.min(session.box.x1, session.box.x2);
+    const y = Math.min(session.box.y1, session.box.y2);
+    const w = Math.abs(session.box.x2 - session.box.x1);
+    const h = Math.abs(session.box.y2 - session.box.y1);
+    ctx.strokeStyle = 'rgba(32,160,255,0.95)';
+    ctx.setLineDash([6 / zoom, 4 / zoom]);
+    ctx.strokeRect(x, y, w, h);
+  }
+  ctx.restore();
 }
 
 export function useOverlayDraw({
@@ -154,6 +281,17 @@ export function useOverlayDraw({
           ctx.setLineDash([]);
         }
         ctx.restore();
+      }
+    }
+
+    // ── Object Selection preview ─────────────────────────────────────────
+    const objectSession = s.objectSelectionSession;
+    const objectNode = objectSession?.nodeId ? doc.nodes[objectSession.nodeId] : undefined;
+    if (objectSession && objectNode?.kind === 'shape') {
+      const objectTransform = getCachedWorldTransform(cache, doc, objectNode.id);
+      if (objectTransform) {
+        drawObjectSelectionPreview(ctx, doc, objectNode, objectSession, objectTransform);
+        drawObjectSelectionPrompts(ctx, objectSession, s.zoom);
       }
     }
 

@@ -4,6 +4,7 @@ import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   attachWorkspacePreferencePlatform,
+  clearPanelWidths,
   flushWorkspacePreferences,
   getEffectiveWorkspaceConfig,
   getWorkspacePersistenceError,
@@ -13,8 +14,10 @@ import {
   resetAllPreferences,
   resetModePreferences,
   resetWorkspacePreferenceCache,
+  savePanelWidths,
   saveWorkspacePreferences,
   setPanelOverride,
+  setToolbarToolOverride,
   setWorkspacePreferences,
   subscribeWorkspacePreferences,
   updateWorkspacePreferences,
@@ -82,11 +85,35 @@ describe('workspaceStore — persistence', () => {
     const ov = prefs.design.panelOverrides!;
     expect(ov.layers?.visible).toBe(false);
     // Invalid-typed fields are dropped, not kept.
-    expect(ov.layers?.collapsed).toBeUndefined();
-    expect(ov.layers?.order).toBeUndefined();
+    expect((ov.layers as Record<string, unknown> | undefined)?.collapsed).toBeUndefined();
+    expect((ov.layers as Record<string, unknown> | undefined)?.order).toBeUndefined();
     // Unknown panel ids never surface.
     expect((ov as Record<string, unknown>).notAPanel).toBeUndefined();
     expect(ov.timeline?.visible).toBeUndefined();
+  });
+
+  it('drops the removed collapsed/order override fields even when well-typed (self-healing migration)', () => {
+    // Pre-2026-08-13 payloads carried `collapsed`/`order` in panel overrides.
+    // The fields were decorative (no runtime consumer) and are gone from the
+    // schema; sanitizing them away here is the migration — stored payloads
+    // heal on load instead of needing a version bump.
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: {
+          customized: true,
+          panelOverrides: {
+            layers: { visible: false, collapsed: false, order: 2 },
+          },
+        },
+      }),
+    );
+    const prefs = loadWorkspacePreferences();
+    const ov = prefs.design.panelOverrides!;
+    expect(ov.layers?.visible).toBe(false);
+    expect((ov.layers as Record<string, unknown> | undefined)?.collapsed).toBeUndefined();
+    expect((ov.layers as Record<string, unknown> | undefined)?.order).toBeUndefined();
+    expect(JSON.stringify(ov.layers)).toBe(JSON.stringify({ visible: false }));
   });
 
   it('missing modes fall back to defaults', () => {
@@ -118,6 +145,49 @@ describe('workspaceStore — effective configuration', () => {
     expect(effective.panels.layers.visible).toBe(false);
     // Unoverridden panels keep their built-in values.
     expect(effective.panels.inspector.visible).toBe(true);
+  });
+
+  it('keeps essential navigation tools available when customization hides tools', () => {
+    let prefs = getWorkspacePreferences();
+    prefs = setToolbarToolOverride(prefs, 'design', 'rect', false);
+    prefs = setToolbarToolOverride(prefs, 'design', 'select', false);
+    prefs = setToolbarToolOverride(prefs, 'design', 'hand', false);
+    prefs = setToolbarToolOverride(prefs, 'design', 'zoom', false);
+    setWorkspacePreferences(prefs);
+
+    const toolIds = getEffectiveWorkspaceConfig('design').toolbar.tools.map((tool) => tool.toolId);
+    expect(toolIds).not.toContain('rect');
+    expect(toolIds).toEqual(expect.arrayContaining(['select', 'hand', 'zoom']));
+  });
+
+  it('applies tool overrides to flyout members, not just the main row', () => {
+    // Boolean operations live only in a flyout. The sanitizer used to accept
+    // override ids present in `toolbar.tools` only, so hiding a boolean op was
+    // discarded on save and the flyout ignored it on read.
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanExclude', false),
+    );
+    const boolean = getEffectiveWorkspaceConfig('design').toolbar.flyouts?.find(
+      (flyout) => flyout.id === 'boolean',
+    );
+    expect(boolean?.tools).not.toContain('booleanExclude');
+    expect(boolean?.tools).toContain('booleanUnion');
+  });
+
+  it('survives a reload with a flyout-only tool override', () => {
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'booleanExclude', false),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarToolOverrides?.booleanExclude).toBe(false);
+  });
+
+  it('still rejects overrides for tools the workspace does not declare', () => {
+    setWorkspacePreferences(
+      setToolbarToolOverride(getWorkspacePreferences(), 'design', 'notATool', false),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarToolOverrides?.notATool).toBeUndefined();
   });
 
   it('resetModePreferences restores the built-in config', () => {
@@ -270,5 +340,29 @@ describe('workspaceStore — durable (platform) persistence', () => {
     expect(getWorkspacePersistenceError()?.message).toContain('quota exceeded');
     // …and the session snapshot is unaffected.
     expect(getWorkspacePreferences().design.panelOverrides?.layers?.visible).toBe(false);
+  });
+});
+
+describe('workspaceStore — panel widths', () => {
+  it('clearPanelWidths removes only the requested panels', () => {
+    const base = getWorkspacePreferences();
+    const withWidths = savePanelWidths(
+      savePanelWidths(base, 'design', { layers: 280, library: 360 }),
+      'design',
+      { inspector: 320 },
+    );
+    const cleared = clearPanelWidths(withWidths, 'design', ['library', 'inspector']);
+    expect(cleared.design.panelWidths?.layers).toBe(280);
+    expect(cleared.design.panelWidths?.library).toBeUndefined();
+    expect(cleared.design.panelWidths?.inspector).toBeUndefined();
+  });
+
+  it('clearPanelWidths is a no-op when nothing is saved', () => {
+    // Fresh defaults — the store cache is shared across tests in this file,
+    // so an earlier savePanelWidths would pollute getWorkspacePreferences().
+    const base = resetAllPreferences();
+    const cleared = clearPanelWidths(base, 'design', ['library']);
+    expect(cleared.design.panelWidths).toBeUndefined();
+    expect(cleared.design.customized).toBe(false);
   });
 });

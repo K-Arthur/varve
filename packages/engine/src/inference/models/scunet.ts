@@ -1,5 +1,11 @@
 /**
  * SCUNet — real-world blind image denoising.
+ *
+ * Padding constraint: the Heliosoph ONNX conversion bakes a window-8
+ * channel-attention reshape with floor-grid semantics, so padded H and W
+ * must each be divisible by 64 — the manifest's "divisible by 8" contract
+ * is wrong and crashes the graph for e.g. 1080p inputs (1080 % 64 != 0).
+ * Verified 2026-08-13 on a dimension sweep (OK exactly when % 64 == 0).
  */
 import type { TensorSpec } from '../imageTensor';
 
@@ -26,8 +32,13 @@ export interface ScunetInferenceOutput {
   processedHeight: number;
 }
 
+/**
+ * SCUNet requires padded H and W divisible by 64 (see the header note on
+ * the baked attention reshape). The name stays `alignTo8` for
+ * compatibility; the 64 alignment is the only safe padding.
+ */
 export function alignTo8(n: number): number {
-  return Math.max(8, Math.ceil(n / 8) * 8);
+  return Math.max(64, Math.ceil(n / 64) * 64);
 }
 
 export interface ScunetPreprocessResult {
@@ -172,6 +183,10 @@ export function blendTiles(
   const pixelCount = outputWidth * outputHeight;
   const output = new Float32Array(pixelCount * 3);
   const weightAccum = new Float32Array(pixelCount);
+  // Zero-weight pixels (image borders covered by a single tile's edge) fall
+  // back to the last tile's raw value — without this, the `weightAccum || 1`
+  // fallback divides 0 by 1 and paints black border lines on tiled output.
+  const rawFallback = new Float32Array(pixelCount * 3);
   for (let t = 0; t < tiles.length; t++) {
     const tile = tiles[t]!;
     const result = tileResults[t]!;
@@ -193,15 +208,24 @@ export function blendTiles(
           output[outIdx + pixelCount]! + result[srcIdx + srcPixels]! * weight;
         output[outIdx + pixelCount * 2] =
           output[outIdx + pixelCount * 2]! + result[srcIdx + srcPixels * 2]! * weight;
+        rawFallback[outIdx] = result[srcIdx]!;
+        rawFallback[outIdx + pixelCount] = result[srcIdx + srcPixels]!;
+        rawFallback[outIdx + pixelCount * 2] = result[srcIdx + srcPixels * 2]!;
         weightAccum[outIdx] = weightAccum[outIdx]! + weight;
       }
     }
   }
   for (let i = 0; i < pixelCount; i++) {
-    const w = weightAccum[i]! || 1;
-    output[i] = output[i]! / w;
-    output[i + pixelCount] = output[i + pixelCount]! / w;
-    output[i + pixelCount * 2] = output[i + pixelCount * 2]! / w;
+    const w = weightAccum[i]!;
+    if (w > 0) {
+      output[i] = output[i]! / w;
+      output[i + pixelCount] = output[i + pixelCount]! / w;
+      output[i + pixelCount * 2] = output[i + pixelCount * 2]! / w;
+    } else {
+      output[i] = rawFallback[i]!;
+      output[i + pixelCount] = rawFallback[i + pixelCount]!;
+      output[i + pixelCount * 2] = rawFallback[i + pixelCount * 2]!;
+    }
   }
   return output;
 }

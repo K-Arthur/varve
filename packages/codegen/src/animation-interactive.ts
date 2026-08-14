@@ -25,6 +25,7 @@ import type {
   StateMachine,
 } from '@varve/scene';
 import { isRgbColor } from '@varve/scene';
+import { nodeEffectiveTransform } from './shared';
 
 export interface InteractiveExportOptions {
   /** Emit CSS animation-timeline scroll bindings where supported. */
@@ -74,7 +75,7 @@ function collectFrames(doc: Document): FrameNode[] {
 /** Build inline SVG for a node (rect, ellipse, circle, text). */
 function nodeToSvgElement(doc: Document, node: SceneNode, depth: number): string {
   const indent = '  '.repeat(depth);
-  const t = node.transform;
+  const t = nodeEffectiveTransform(node);
   const transform = `matrix(${t[0]},${t[1]},${t[2]},${t[3]},${t[4]},${t[5]})`;
   const fill = 'fill' in node && node.fill ? renderColor(node.fill) : '#888888';
 

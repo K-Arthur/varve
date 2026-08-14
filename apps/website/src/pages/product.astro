@@ -25,7 +25,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       <section class="product-section">
         <h2>Local-first, your files, your machine</h2>
         <p>
-          Varve stores all design data locally. No account is required, no cloud sync is needed, and no telemetry is transmitted. You own your files, you control where they live, and you can work offline. The desktop application uses a native Rust engine; the same engine is compiled to WASM for the web target (a hosted web app is not available yet).
+          Varve stores all design data locally. No account is required, no cloud sync is needed, and no design content or personal information is transmitted. Optional aggregate measurements require separate consent. You own your files, you control where they live, and you can work offline. The desktop application uses a native Rust engine; the same engine is compiled to WASM for the web target (a hosted web app is not available yet).
         </p>
       </section>
 
@@ -101,7 +101,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
         <ul>
           <li><strong>Critical production deadlines:</strong> expect bugs, incomplete tools, and workflow changes. Keep backups and test before relying on it for paid work.</li>
           <li><strong>Teams needing real-time collaboration:</strong> collaboration is not implemented — this is a single-user tool today.</li>
-          <li><strong>Arabic, Hebrew, or Devanagari text:</strong> complex script shaping is not supported yet.</li>
+          <li><strong>Complex-script text:</strong> the engine has a canonical UAX #9 + paragraph layout pipeline (itemization, line breaking, visual run order, caret geometry), but live Canvas2D shaping and export parity for Arabic, Hebrew, Devanagari, Thai, and similar scripts remains in development.</li>
           <li><strong>Linux or Windows on ARM:</strong> only x86_64 is supported on those platforms (macOS builds target Apple Silicon).</li>
         </ul>
       </section>

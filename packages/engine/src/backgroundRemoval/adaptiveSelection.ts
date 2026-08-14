@@ -77,7 +77,7 @@ const TIER_SPECS: Record<'fast' | 'balanced' | 'quality' | 'maximum', TierSpec> 
   fast: {
     id: 'u2netp',
     name: 'U^2-Net Light',
-    sizeBytes: 4_700_000,
+    sizeBytes: 4_574_861,
     peakMultiplier: 3,
     minProvider: 'wasm',
     wasmSafe: true,
@@ -101,7 +101,7 @@ const TIER_SPECS: Record<'fast' | 'balanced' | 'quality' | 'maximum', TierSpec> 
   maximum: {
     id: 'birefnet-general',
     name: 'BiRefNet Full',
-    sizeBytes: 928_000_000,
+    sizeBytes: 972_666_916,
     peakMultiplier: 4,
     minProvider: 'native',
     wasmSafe: false,

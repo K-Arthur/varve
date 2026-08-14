@@ -5,15 +5,16 @@
 
 import type { Document, ManagedColor, SceneNode } from '@varve/scene';
 import { resolveNodeFills } from '@varve/scene';
-import { managedColorToRgba } from '@varve/shared';
+import { managedColorKey, managedColorToRgba } from '@varve/shared';
 
 const MAX_DOC_COLORS = 32;
 const MAX_RECENT_COLORS = 16;
 const RECENT_KEY = 'strata:recent-colors';
 
 function colorKey(c: ManagedColor): string {
-  const [r, g, b, a] = managedColorToRgba(c);
-  return `${r},${g},${b},${a}`;
+  // Canonical identity key — two colors that differ below 8-bit resolution
+  // (e.g. adjacent uint16 values) must not collapse into one swatch.
+  return managedColorKey(c);
 }
 
 export function extractDocumentColors(doc: Document): ManagedColor[] {
@@ -55,13 +56,22 @@ export function getRecentColors(): ManagedColor[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ManagedColor[];
     if (!Array.isArray(parsed)) return [];
+    // All authorable spaces are kept (including Lab/LCH — they are valid
+    // canonical values and the picker handles them natively). Registration
+    // and unresolved values are excluded: registration prints on every
+    // plate, and unresolved colors have no authoritative interpretation.
     return parsed.filter(
       (c): c is ManagedColor =>
         typeof c === 'object' &&
         c !== null &&
         !Array.isArray(c) &&
         'space' in c &&
-        (c.space === 'rgb' || c.space === 'cmyk' || c.space === 'gray' || c.space === 'spot'),
+        (c.space === 'rgb' ||
+          c.space === 'cmyk' ||
+          c.space === 'gray' ||
+          c.space === 'spot' ||
+          c.space === 'lab' ||
+          c.space === 'lch'),
     );
   } catch {
     return [];

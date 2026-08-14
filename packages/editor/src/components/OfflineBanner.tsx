@@ -1,10 +1,24 @@
+import { Icon } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 
+/**
+ * OfflineBanner — a truthful offline indicator for a local-first app.
+ *
+ * Varve saves to local disk and runs all editing tools offline, so being
+ * offline changes nothing about document safety. What offline actually
+ * affects are the online conveniences: remote font providers (Google Fonts,
+ * Fontsource), icon providers, and optional model downloads. The banner says
+ * exactly that — it must never imply that changes are at risk or that a
+ * "sync" is pending (there is none in a local-first product).
+ */
 export function OfflineBanner() {
   const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
   const [dismissed, setDismissed] = useState(false);
 
-  const handleOffline = useCallback(() => setIsOffline(true), []);
+  const handleOffline = useCallback(() => {
+    setIsOffline(true);
+    setDismissed(false);
+  }, []);
   const handleOnline = useCallback(() => setIsOffline(false), []);
 
   useEffect(() => {
@@ -24,9 +38,14 @@ export function OfflineBanner() {
       role="status"
       aria-live="polite"
       aria-hidden={!visible}
+      // inert keeps the dismiss button out of the tab order while hidden —
+      // aria-hidden alone would still leave it focusable.
+      inert={!visible || undefined}
     >
+      <Icon name="WifiOff" size={14} />
       <span className="editor-offline-banner__text">
-        Working offline &mdash; changes will sync when you reconnect
+        Offline — your document and all tools keep working locally. Online font and icon search is
+        unavailable.
       </span>
       <button
         type="button"
@@ -34,19 +53,7 @@ export function OfflineBanner() {
         aria-label="Dismiss offline notice"
         onClick={() => setDismissed(true)}
       >
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden
-        >
-          <title>Close</title>
-          <line x1="18" y1="6" x2="6" y2="18" />
-          <line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
+        <Icon name="X" size={14} />
       </button>
     </div>
   );

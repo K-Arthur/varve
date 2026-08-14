@@ -32,6 +32,12 @@ IR-replay remains the stable seam; compositor consumes `RenderItem[]`.
 
 WebGPUBackend acquires a real `GPUDevice` when `navigator.gpu` is available; unsupported primitives and device loss fall back to the embedded Canvas2D backend.
 
+The compositor now plans ordered structural segments before execution. GPU-safe
+runs and Canvas2D fallback islands may interleave in paint order. Until the
+editor supplies richer structure metadata, the planner uses an unsupported
+flat item as the smallest safe island; it never claims a parent boundary that
+has already been discarded by flattening.
+
 ## Canvas ownership (amended 2026-07-13)
 
 The present/content `<canvas>` **always** keeps a Canvas2D context. GPU work targets an offscreen canvas with a `webgpu` context; results are `drawImage`'d onto the 2D present surface. This was required because `CanvasArea.drawContent` needs `getContext('2d')` for board fill, camera, structural masks, and partial redraw — binding `webgpu` on the content canvas made `getContext('2d')` return null and blanked the editor when `preferWebGpu` was on.

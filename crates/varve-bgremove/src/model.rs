@@ -2,15 +2,29 @@
 //!
 //! Models are stored in the user's config directory when the `ai` feature is
 //! enabled (Option B per ADR-0005 Phase E amendment):
-//! - Linux: `~/.local/share/strata/models/`
-//! - macOS: `~/Library/Application Support/strata/models/`
-//! - Windows: `%APPDATA%/strata/models/`
+//! - Linux: `~/.local/share/dev.varve.desktop/models/`
+//! - macOS: `~/Library/Application Support/dev.varve.desktop/models/`
+//! - Windows: `%APPDATA%/dev.varve.desktop/models/`
 //!
 //! IndexedDB in the webview remains the primary download path for shipped
 //! builds. Native storage is populated only via explicit export/import or
 //! future native download IPC — not automatic dual-storage.
 
-use std::{path::PathBuf, sync::LazyLock};
+use sha2::{Digest, Sha256};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::{LazyLock, OnceLock},
+};
+
+static CONFIGURED_MODELS_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// Inject the desktop app-data model root resolved by Tauri.  The fallback in
+/// [`models_dir`] exists for standalone native tests and command-line callers;
+/// the packaged desktop app always calls this during startup.
+pub fn configure_models_dir(path: PathBuf) {
+    let _ = CONFIGURED_MODELS_DIR.set(path);
+}
 
 /// Metadata for an available AI model.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -30,7 +44,7 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         id: "u2netp".to_owned(),
         name: "U^2-Net Light".to_owned(),
         description: "4.7 MB — fast preview quality, works on most images".to_owned(),
-        size_bytes: 4_700_000,
+        size_bytes: 4_574_861,
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx".to_owned(),
         checksum_sha256: Some(
             "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8".into(),
@@ -60,9 +74,11 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         id: "birefnet-general".to_owned(),
         name: "BiRefNet Full".to_owned(),
         description: "928 MB — best quality, handles hair/fur/transparency".to_owned(),
-        size_bytes: 928_000_000,
+        size_bytes: 972_666_916,
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx".to_owned(),
-        checksum_sha256: None,
+        checksum_sha256: Some(
+            "58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c".into(),
+        ),
     },
     ModelInfo {
         id: "scunet".to_owned(),
@@ -72,6 +88,16 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         remote_url: "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx".to_owned(),
         checksum_sha256: Some(
             "231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c".into(),
+        ),
+    },
+    ModelInfo {
+        id: "nafnet-deblur-gopro".to_owned(),
+        name: "NAFNet Deblur".to_owned(),
+        description: "138 MB — task-specific deblurring (NAFNet-GoPro-width64, fp16). Parity-verified against the trusted reference.".to_owned(),
+        size_bytes: 138_050_767,
+        remote_url: "https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx".to_owned(),
+        checksum_sha256: Some(
+            "e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e".into(),
         ),
     },
     ModelInfo {
@@ -107,9 +133,19 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
 
 /// Get the directory where native models are stored.
 pub fn models_dir() -> PathBuf {
+    CONFIGURED_MODELS_DIR
+        .get()
+        .cloned()
+        .unwrap_or_else(fallback_models_dir)
+}
+
+/// Non-Tauri fallback used by standalone tests and CLI callers. It never
+/// falls back to the process working directory: the OS temp root is
+/// resolvable everywhere Varve runs and is deliberately process-independent.
+fn fallback_models_dir() -> PathBuf {
     dirs_next::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("strata")
+        .unwrap_or_else(std::env::temp_dir)
+        .join("dev.varve.desktop")
         .join("models")
 }
 
@@ -121,6 +157,83 @@ pub fn is_model_downloaded(model_id: &str) -> bool {
 /// Get the file path for a downloaded model.
 pub fn model_path(model_id: &str) -> PathBuf {
     models_dir().join(format!("{model_id}.onnx"))
+}
+
+/// Copy valid models from pre-Varve application directories without deleting
+/// or replacing anything. This is intentionally per-file: a user may have a
+/// valid model in `strata/models` while the new directory already contains a
+/// different model. The old file remains available to older Varve builds.
+pub fn migrate_legacy_models() -> Result<usize, String> {
+    let destination = models_dir();
+    let mut candidates = Vec::new();
+    if let Some(app_data_dir) = destination.parent().and_then(Path::parent) {
+        candidates.push(app_data_dir.join("strata/models"));
+        candidates.push(app_data_dir.join("dev.strata.desktop/models"));
+    }
+    if let Some(data_dir) = dirs_next::data_dir() {
+        candidates.push(data_dir.join("strata/models"));
+        candidates.push(data_dir.join("dev.strata.desktop/models"));
+    }
+    candidates.sort();
+    candidates.dedup();
+
+    let mut migrated = 0;
+    for source in candidates {
+        migrated += migrate_legacy_models_from(&source, &destination)?;
+    }
+    Ok(migrated)
+}
+
+/// Testable migration primitive. It validates the source before copying and
+/// promotes through a sibling temporary file so an interrupted copy cannot
+/// become the apparent installed model.
+pub fn migrate_legacy_models_from(source: &Path, destination: &Path) -> Result<usize, String> {
+    if !source.is_dir() || source == destination {
+        return Ok(0);
+    }
+    fs::create_dir_all(destination)
+        .map_err(|error| format!("Failed to create model directory: {error}"))?;
+
+    let mut migrated = 0;
+    for model in AVAILABLE_MODELS.iter() {
+        let source_path = source.join(format!("{}.onnx", model.id));
+        let destination_path = destination.join(format!("{}.onnx", model.id));
+        if destination_path.is_file() || !valid_model_file(model, &source_path) {
+            continue;
+        }
+        let staging = destination.join(format!(".legacy-{}.onnx.tmp", model.id));
+        fs::copy(&source_path, &staging)
+            .map_err(|error| format!("Failed to migrate {}: {error}", model.id))?;
+        if let Err(error) = fs::rename(&staging, &destination_path) {
+            let _ = fs::remove_file(&staging);
+            return Err(format!("Failed to finalize migrated {}: {error}", model.id));
+        }
+        migrated += 1;
+    }
+    Ok(migrated)
+}
+
+fn valid_model_file(model: &ModelInfo, path: &Path) -> bool {
+    let Ok(metadata) = path.metadata() else {
+        return false;
+    };
+    if !metadata.is_file() || metadata.len() != model.size_bytes {
+        return false;
+    }
+    let Some(expected) = model.checksum_sha256.as_deref() else {
+        return true;
+    };
+    let Ok(bytes) = fs::read(path) else {
+        return false;
+    };
+    // Iterate output bytes rather than `{:x}` formatting: the digest output
+    // array type differs between sha2 0.10 (generic-array) and 0.11
+    // (hybrid-array), and LowerHex is not implemented by both.
+    let actual = Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    actual == expected
 }
 
 /// Get metadata for a model id.
@@ -146,11 +259,46 @@ pub fn total_downloaded_size() -> u64 {
 }
 
 /// Write model bytes to native storage (explicit user action only).
+///
+/// The write is staged through a unique sibling temporary file and promoted
+/// with a rename so a crash mid-write can never leave a truncated file under
+/// the final model name. Windows `rename` refuses to replace an existing
+/// file, so a replace-retry is used there; the file is never deleted before
+/// the replacement is fully written.
 pub fn write_model(model_id: &str, bytes: &[u8]) -> Result<PathBuf, String> {
     let dir = models_dir();
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {e}"))?;
     let path = model_path(model_id);
-    std::fs::write(&path, bytes).map_err(|e| format!("Failed to write model: {e}"))?;
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("model");
+    let staging = dir.join(format!(
+        ".varve-model-{file_name}-{}.tmp",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos()
+    ));
+    std::fs::write(&staging, bytes)
+        .map_err(|e| format!("Failed to write model staging file: {e}"))?;
+    let promoted = std::fs::rename(&staging, &path);
+    let promoted = match promoted {
+        Ok(()) => Ok(()),
+        // Windows: destination exists. Replace only now that the new bytes
+        // are fully on disk; never delete the old file first.
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            std::fs::remove_file(&path)
+                .map_err(|e| format!("Failed to replace existing model: {e}"))?;
+            std::fs::rename(&staging, &path)
+                .map_err(|e| format!("Failed to finalize model replacement: {e}"))
+        }
+        Err(error) => Err(format!("Failed to finalize model file: {error}")),
+    };
+    if promoted.is_err() {
+        let _ = std::fs::remove_file(&staging);
+    }
+    promoted?;
     Ok(path)
 }
 
@@ -180,6 +328,81 @@ mod tests {
 
         let full = model_info("birefnet-general").expect("full model");
         assert!(full.remote_url.contains("BiRefNet-general-epoch_244"));
-        assert_eq!(full.size_bytes, 928_000_000);
+        assert_eq!(full.size_bytes, 972_666_916);
+    }
+
+    #[test]
+    fn u2netp_size_matches_the_actual_remote_and_bundled_file() {
+        // Regression: the size was rounded to 4_700_000 while the real file
+        // (rembg release asset, identical to the bundled public/models copy)
+        // is 4_574_861 bytes. The native download gate and the status API both
+        // compare exact byte sizes, so the rounded value made every u2netp
+        // download fail with "Model size mismatch" and reported the bundled
+        // model as not installed.
+        let u2netp = model_info("u2netp").expect("u2netp model");
+        assert_eq!(u2netp.size_bytes, 4_574_861);
+    }
+
+    #[test]
+    fn models_dir_resolves_inside_the_user_data_directory_not_the_app_dir() {
+        // Packaged media (AppImage, .deb, .rpm) are read-only; a model must
+        // never be written relative to the executable, the resource dir, or
+        // the working directory. dirs_next::data_dir() is the OS user-data
+        // location ($XDG_DATA_HOME / ~/.local/share on Linux, %APPDATA% on
+        // Windows, ~/Library/Application Support on macOS) — the writable
+        // per-user location that survives AppImage extraction.
+        let path = models_dir();
+        assert!(path.is_absolute(), "models dir must be absolute: {path:?}");
+        assert!(path.ends_with(std::path::Path::new("dev.varve.desktop").join("models")));
+        let data_dir = dirs_next::data_dir().expect("user data dir");
+        assert!(
+            path.starts_with(&data_dir),
+            "models dir must live under the user data dir: {path:?}"
+        );
+        assert!(
+            !std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|p| p.to_path_buf()))
+                .map(|parent| path.starts_with(&parent))
+                .unwrap_or(false),
+            "models dir must never resolve under the executable directory"
+        );
+        assert_eq!(
+            model_path("isnet-general-use"),
+            path.join("isnet-general-use.onnx")
+        );
+    }
+
+    #[test]
+    fn every_downloadable_model_uses_https() {
+        for model in AVAILABLE_MODELS.iter() {
+            assert!(
+                model.remote_url.starts_with("https://"),
+                "insecure model URL for {}: {}",
+                model.id,
+                model.remote_url
+            );
+        }
+    }
+
+    #[test]
+    fn legacy_migration_copies_only_valid_missing_models() {
+        let root =
+            std::env::temp_dir().join(format!("varve-model-migration-test-{}", std::process::id()));
+        let source = root.join("strata/models");
+        let destination = root.join("dev.varve.desktop/models");
+        std::fs::create_dir_all(&source).expect("create source");
+        std::fs::create_dir_all(&destination).expect("create destination");
+
+        // A malformed legacy file is ignored, never copied just because its
+        // filename looks familiar.
+        std::fs::write(source.join("u2netp.onnx"), b"not-a-model").expect("write invalid");
+        assert_eq!(
+            migrate_legacy_models_from(&source, &destination).expect("migrate"),
+            0
+        );
+        assert!(!destination.join("u2netp.onnx").exists());
+
+        let _ = std::fs::remove_dir_all(root);
     }
 }

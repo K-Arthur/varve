@@ -9,6 +9,7 @@
 import type { Document, NodeId, RasterLayerNode } from '@varve/scene';
 import {
   buildParentIndexMap,
+  findAllCompositingDependents,
   isContainer,
   pageBoundsInWorld,
   parseTileKey,
@@ -34,6 +35,7 @@ export type DirtyRectReason =
   | 'node-after'
   | 'node-added'
   | 'node-removed'
+  | 'compositing-dependent'
   | 'raster-tile'
   | 'page-before'
   | 'page-after';
@@ -175,6 +177,23 @@ function changedRasterTileBounds(before: RasterLayerNode, after: RasterLayerNode
   return rects;
 }
 
+/**
+ * The effective alpha-mask identity of a node: the authoritative mask asset
+ * data URL, or the legacy inline mask data URL. Used to detect mask changes
+ * that a bounds diff cannot see (a mask appearing, being edited, or being
+ * removed leaves the node's geometry unchanged).
+ */
+function nodeAlphaMaskIdentity(
+  node:
+    | { mask?: { rasterMask?: { assetId?: string } }; backgroundRemoval?: { maskDataUrl?: string } }
+    | undefined,
+): string {
+  if (!node) return '';
+  const assetId = node.mask?.rasterMask?.assetId;
+  if (assetId) return `asset:${assetId}`;
+  return node.backgroundRemoval?.maskDataUrl ?? '';
+}
+
 export function computeDocumentDirtyRegion(
   previous: Document,
   next: Document,
@@ -184,7 +203,19 @@ export function computeDocumentDirtyRegion(
   recorder?: DirtyRegionRecorder,
 ): DirtyRegion {
   if (previous === next || forceFull) return { kind: forceFull ? 'full' : 'none' };
-  const ids = new Set<NodeId>([...Object.keys(previous.nodes), ...Object.keys(next.nodes)]);
+  const changedNodeIds = new Set<NodeId>([
+    ...Object.keys(previous.nodes).filter((id) => previous.nodes[id] !== next.nodes[id]),
+    ...Object.keys(next.nodes).filter((id) => previous.nodes[id] !== next.nodes[id]),
+  ]);
+  const dependencyIds = new Set<NodeId>([
+    ...findAllCompositingDependents(previous, changedNodeIds),
+    ...findAllCompositingDependents(next, changedNodeIds),
+  ]);
+  const ids = new Set<NodeId>([
+    ...Object.keys(previous.nodes),
+    ...Object.keys(next.nodes),
+    ...dependencyIds,
+  ]);
   let bounds: Rect | null = null;
   let rectCount = 0;
   let changed = false;
@@ -273,10 +304,37 @@ export function computeDocumentDirtyRegion(
   for (const id of ids) {
     const before = previous.nodes[id];
     const after = next.nodes[id];
-    if (before === after) continue;
+    if (before === after && !dependencyIds.has(id)) continue;
     changed = true;
 
+    if (before === after && dependencyIds.has(id)) {
+      if (!nextParents) nextParents = buildParentIndexMap(next);
+      const parents = nextParents;
+      const dependentBounds = nodeVisualWorldBounds(next, id, nextStyles, parents);
+      if (!dependentBounds) return { kind: 'full' };
+      recorder?.add(dependentBounds, 'compositing-dependent', id);
+      bounds = unionBounds(bounds, dependentBounds);
+      rectCount++;
+      continue;
+    }
+
     if ((before && isContainer(before)) || (after && isContainer(after))) {
+      return { kind: 'full' };
+    }
+
+    // A raster-mask identity change (background removal applied, edited, or
+    // reset) keeps the node's geometry identical but can turn opaque pixels
+    // transparent — revealing content painted BELOW the node that a partial
+    // repaint would never replay. The partial path's dependency expansion
+    // covers ancestors, mask sources, and flatten subtrees, not lower
+    // overlapping siblings, so a cleared region around a masked node is not
+    // reconstructable from its replay set. Fall back to a full redraw for any
+    // mask identity change (the mission's "revealed content" invariant):
+    // correctness first; a targeted lower-sibling expansion can be recovered
+    // later with regression coverage. A node that merely moves keeps its mask
+    // identity, and its old+new bounds already pull the revealed lower
+    // content into the dirty set, so plain moves stay partial.
+    if (nodeAlphaMaskIdentity(before) !== nodeAlphaMaskIdentity(after)) {
       return { kind: 'full' };
     }
 

@@ -140,6 +140,9 @@ previous code mixed document and device units, misplacing effects at
 zoom ≠ 100%). Effects with unbounded influence (bloom, flares, streaks) use
 the registry-driven `effectPixelExpansion`, applied with a 512px cap for
 live-preview memory safety; export applies the full expansion.
+Expansion is accumulated in filter order. A displacement after bloom must have
+room for both the bloom spill and the displaced spill; taking only the largest
+individual radius would clip valid pixels.
 
 The IR path (`replay.ts`) now derives the same coordSpace from the current
 canvas transform when compositing adjustment filters, so zoom stability holds

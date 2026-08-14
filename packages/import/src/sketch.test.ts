@@ -65,4 +65,14 @@ describe('createSketchParser', () => {
     expect(result.nodeIds).toHaveLength(0);
     expect(result.warnings.join('\n')).toContain('unsafe path');
   });
+
+  it.each(['C:/Windows/System32/file', 'file:///etc/passwd', 'pages/./page.json'])(
+    'rejects non-portable Sketch entry %s',
+    (entryName) => {
+      const result = createSketchParser().parse(
+        sketchZip({ [entryName]: '{}', 'document.json': { _class: 'document' } }),
+      );
+      expect(result.warnings.join('\n')).toContain('unsafe path');
+    },
+  );
 });

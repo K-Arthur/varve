@@ -11,8 +11,10 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 
-import { expandGradientStops, managedColorToRgba } from '@varve/shared';
+import { expandGradientStops, managedColorToNormalized, managedColorToRgba } from '@varve/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
+import { deserializeDepthMap, resizeDepthMap } from './depthMap';
+import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 import {
   applyChromaticAberration,
   applyGlassMaterialBackdrop,
@@ -30,6 +32,7 @@ import {
   type ImagePlacement,
   type ImagePlacementRect,
 } from './imagePlacement';
+import { applyDepthBlur } from './lensBlur';
 import { paintWarpedImage, quadBoundsOf, resolveReplayImage } from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
@@ -54,7 +57,10 @@ import {
   paintGeometricDropShadow,
   type ShadowOps,
 } from './shadowSource';
+import { shapeText } from './shaping';
+import { layoutRichTextSnapshot } from './richTextLayout';
 import { layoutRichText } from './textLayout';
+import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
 import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
 import { splitGraphemes } from './unicode/grapheme';
 
@@ -91,6 +97,8 @@ export interface ReplayTarget {
   closePath(): void;
   clip(): void;
   fillText(text: string, x: number, y: number): void;
+  /** Optional measurement hook used to derive a canonical browser snapshot. */
+  measureText?(text: string): TextMetrics;
   font: string;
   textBaseline: CanvasTextBaseline;
   fillStyle: string | CanvasGradient | CanvasPattern;
@@ -153,6 +161,15 @@ export interface ReplayTarget {
   /** Read the current transform matrix (Canvas2D getTransform). */
   getTransform?(): { a: number; b: number; c: number; d: number; e: number; f: number };
 }
+
+/** Resolve non-raster effect masks in a structural scene replay. */
+export type EffectMaskResolver = (
+  binding: NonNullable<NonNullable<RenderItem['effects']>[number]['mask']>,
+  item: RenderItem,
+  target: ReplayTarget,
+  width: number,
+  height: number,
+) => PixelImageData | undefined;
 
 export interface ReplayPattern {
   /** Transform the pattern's coordinate system. */
@@ -235,6 +252,16 @@ function rgba(
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/** Format a working gradient color without rounding channels before Canvas2D. */
+function rgbaWorking(c: EngineColor | readonly [number, number, number, number]): string {
+  if (Array.isArray(c) || 'length' in c) {
+    const arr = c as readonly [number, number, number, number];
+    return `rgba(${arr[0]}, ${arr[1]}, ${arr[2]}, ${arr[3] / 255})`;
+  }
+  const [r, g, b, a] = managedColorToNormalized(c as EngineColor);
+  return `rgba(${r * 255}, ${g * 255}, ${b * 255}, ${a})`;
+}
+
 const TAU = Math.PI * 2;
 
 type BackgroundBlurEffect = Extract<
@@ -242,6 +269,7 @@ type BackgroundBlurEffect = Extract<
   { type: 'backgroundBlur' }
 >;
 type LayerBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'layerBlur' }>;
+type DepthBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'depthBlur' }>;
 type ChromaticAberrationEffect = Extract<
   NonNullable<RenderItem['effects']>[number],
   { type: 'chromaticAberration' }
@@ -294,12 +322,19 @@ const shadowOps: ShadowOps = {
 
 /** Maximum padding needed to keep content effects from being cropped. */
 function contentEffectPadding(
-  effects: readonly (LayerBlurEffect | ChromaticAberrationEffect | GlitchEffect)[],
+  effects: readonly (
+    | LayerBlurEffect
+    | DepthBlurEffect
+    | ChromaticAberrationEffect
+    | GlitchEffect
+  )[],
 ): number {
   let padding = 0;
   for (const e of effects) {
     if (e.type === 'layerBlur') {
       padding = Math.max(padding, Math.max(0, e.radius) * 3);
+    } else if (e.type === 'depthBlur') {
+      padding = Math.max(padding, Math.max(0, e.blurStrength) * 3);
     } else if (e.type === 'chromaticAberration') {
       const intensity = Math.max(0, e.intensity ?? 1);
       const o = e.offsets;
@@ -329,6 +364,54 @@ function contentEffectPadding(
     }
   }
   return padding;
+}
+
+/** Apply an effect-local raster mask to the current local effect surface. */
+function applyRasterEffectMask(
+  canvas: CompositeCanvas,
+  input: ImageData,
+  effect: NonNullable<RenderItem['effects']>[number],
+  item: RenderItem,
+  effectMaskResolver?: EffectMaskResolver,
+): void {
+  const binding = effect.mask;
+  const source = binding?.source;
+  if (!binding || binding.visible === false) return;
+  if (source?.kind !== 'raster-asset') {
+    const mask = effectMaskResolver?.(
+      binding,
+      item,
+      canvas.ctx as unknown as ReplayTarget,
+      input.width,
+      input.height,
+    );
+    if (!mask) return;
+    const evaluated = canvas.getImageData(0, 0, canvas.width, canvas.height);
+    const merged = compositeMaskedEffectPixels(input, evaluated, mask, binding);
+    canvas.putImageData(merged as unknown as ImageData, 0, 0);
+    return;
+  }
+  if (!source.src) {
+    return;
+  }
+  const image = resolveReplayImage(source.src, imageLookupForCurrentReplay, getImageCache());
+  if (!image) return;
+  const maskBuffer = createEffectBuffer(canvas.canvas.width, canvas.canvas.height);
+  if (!maskBuffer) return;
+  const maskCtx = maskBuffer.ctx as CanvasRenderingContext2D;
+  maskCtx.setTransform(1, 0, 0, 1, 0, 0);
+  maskCtx.clearRect(0, 0, maskBuffer.canvas.width, maskBuffer.canvas.height);
+  maskCtx.drawImage(
+    image as CanvasImageSource,
+    0,
+    0,
+    maskBuffer.canvas.width,
+    maskBuffer.canvas.height,
+  );
+  const mask = maskCtx.getImageData(0, 0, maskBuffer.canvas.width, maskBuffer.canvas.height);
+  const evaluated = canvas.getImageData(0, 0, canvas.width, canvas.height);
+  const merged = compositeMaskedEffectPixels(input, evaluated, mask, binding);
+  canvas.putImageData(merged as unknown as ImageData, 0, 0);
 }
 
 /** Paint fills and strokes to `target` (shared by direct and layerBlur offscreen paths). */
@@ -607,11 +690,13 @@ function paintInsetEffect(
  * This avoids threading a parameter through 7 levels of function calls.
  */
 let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined) | null = null;
+let effectMaskResolverForCurrentReplay: EffectMaskResolver | null = null;
 
 function replayItemOnIsolatedSurface(
   target: ReplayTarget,
   item: RenderItem,
   imageLookup?: (src: string) => CanvasImageSource | undefined,
+  effectMaskResolver?: EffectMaskResolver,
 ): boolean {
   const canvas = target.canvas;
   if (
@@ -650,6 +735,7 @@ function replayItemOnIsolatedSurface(
       },
     ],
     imageLookup,
+    effectMaskResolver ?? effectMaskResolverForCurrentReplay ?? undefined,
   );
   applyFilterWithCompositing(
     surface.context as CanvasRenderingContext2D,
@@ -681,6 +767,7 @@ export function replayIr(
   target: ReplayTarget,
   ir: readonly RenderItem[],
   imageLookup?: (src: string) => CanvasImageSource | undefined,
+  effectMaskResolver?: EffectMaskResolver,
 ): void {
   // Sweep expired backdrop cache entries (preserves recent entries across frames)
   sweepBackdropCache();
@@ -688,10 +775,19 @@ export function replayIr(
   gradientCache.nextFrame();
   gradientCache.sweep();
   const previousImageLookup = imageLookupForCurrentReplay;
+  const previousEffectMaskResolver = effectMaskResolverForCurrentReplay;
   imageLookupForCurrentReplay = imageLookup ?? previousImageLookup;
+  effectMaskResolverForCurrentReplay = effectMaskResolver ?? previousEffectMaskResolver;
   try {
     for (const item of ir) {
-      if (replayItemOnIsolatedSurface(target, item, imageLookupForCurrentReplay ?? undefined)) {
+      if (
+        replayItemOnIsolatedSurface(
+          target,
+          item,
+          imageLookupForCurrentReplay ?? undefined,
+          effectMaskResolverForCurrentReplay ?? undefined,
+        )
+      ) {
         continue;
       }
       target.save();
@@ -750,9 +846,14 @@ export function replayIr(
         // (layerBlur, chromaticAberration, glitch) in the order they are listed.
         const contentEffects =
           item.effects?.filter(
-            (e): e is LayerBlurEffect | ChromaticAberrationEffect | GlitchEffect =>
+            (
+              e,
+            ): e is LayerBlurEffect | DepthBlurEffect | ChromaticAberrationEffect | GlitchEffect =>
               e.visible &&
-              (e.type === 'layerBlur' || e.type === 'chromaticAberration' || e.type === 'glitch'),
+              (e.type === 'layerBlur' ||
+                e.type === 'depthBlur' ||
+                e.type === 'chromaticAberration' ||
+                e.type === 'glitch'),
           ) ?? [];
 
         // ── Backdrop-based effects (before fills — captures true backdrop) ───
@@ -785,13 +886,42 @@ export function replayIr(
             paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
 
             for (const effect of contentEffects) {
+              const input = cc.getImageData(0, 0, cc.width, cc.height);
               if (effect.type === 'layerBlur') {
                 cc.applyBlur(Math.max(0, effect.radius));
+              } else if (effect.type === 'depthBlur') {
+                if (effect.depthMap) {
+                  try {
+                    const depthMap = resizeDepthMap(
+                      deserializeDepthMap(effect.depthMap),
+                      cc.width,
+                      cc.height,
+                    );
+                    const blurred = applyDepthBlur(input, depthMap, {
+                      blurAmount: effect.blurStrength,
+                      focalDepth: effect.focusDepth,
+                      transitionRange: effect.focusRange * Math.max(0, effect.falloff),
+                      invert: effect.invert,
+                      edgeProtection: effect.edgeProtection,
+                    });
+                    cc.putImageData(blurred, 0, 0);
+                  } catch {
+                    // A missing/corrupt persisted resource must not blank the
+                    // document; keeping the input is the safe render fallback.
+                  }
+                }
               } else if (effect.type === 'chromaticAberration') {
                 applyChromaticAberration(cc, cc.width, cc.height, effect);
               } else if (effect.type === 'glitch') {
                 applyGlitch(cc, cc.width, cc.height, effect);
               }
+              applyRasterEffectMask(
+                cc,
+                input,
+                effect,
+                item,
+                effectMaskResolverForCurrentReplay ?? undefined,
+              );
             }
 
             target.save();
@@ -816,6 +946,7 @@ export function replayIr(
             if (!effect.visible) continue;
             if (
               effect.type === 'layerBlur' ||
+              effect.type === 'depthBlur' ||
               effect.type === 'backgroundBlur' ||
               effect.type === 'chromaticAberration' ||
               effect.type === 'glitch'
@@ -928,6 +1059,7 @@ export function replayIr(
     }
   } finally {
     imageLookupForCurrentReplay = previousImageLookup;
+    effectMaskResolverForCurrentReplay = previousEffectMaskResolver;
   }
 }
 
@@ -1397,14 +1529,14 @@ function expandGradientStopsForFill(
     return fill.stops.map((s) => ({ position: s.position, color: s.color }));
   }
   const inputs = fill.stops.map((s) => {
-    const [r, g, b, a] = managedColorToRgba(s.color);
+    const [r, g, b, a] = managedColorToNormalized(s.color);
     return {
       position: s.position,
-      color: { space: 'rgb' as const, r, g, b, a },
+      color: { space: 'rgb' as const, r: r * 255, g: g * 255, b: b * 255, a: a * 255 },
       ...(s.midpoint !== undefined ? { midpoint: s.midpoint } : {}),
     };
   });
-  return expandGradientStops(inputs, space, 16).map((s) => ({
+  return expandGradientStops(inputs, space, 16, { precision: 'working' }).map((s) => ({
     position: s.position,
     color: s.color as EngineColor,
   }));
@@ -1550,28 +1682,28 @@ function createGradientStyle(
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else if (fill.gradientType === 'angular' && target.createConicGradient) {
     const grad = target.createConicGradient(rot, cx, cy);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else if (fill.gradientType === 'diamond' && target.createRadialGradient) {
     const grad = target.createRadialGradient(cx, cy, 0, cx, cy, halfDiag);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else if (target.createLinearGradient) {
     const grad = target.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
     const expanded = expandGradientStopsForFill(fill);
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     result = grad;
   } else {
@@ -1747,7 +1879,7 @@ function paintTiledGradientFill(
       tileSize / 2,
     );
     for (const s of expanded) {
-      grad.addColorStop(s.position, rgba(s.color));
+      grad.addColorStop(s.position, rgbaWorking(s.color));
     }
     tileCtx.fillStyle = grad;
     tileCtx.fillRect(0, 0, tileSize, tileSize);
@@ -1799,7 +1931,7 @@ function paintTiledGradientFill(
   // Paint the gradient across the canvas
   const grad = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
   for (const s of expanded) {
-    grad.addColorStop(s.position, rgba(s.color));
+    grad.addColorStop(s.position, rgbaWorking(s.color));
   }
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, bounds.w, bounds.h);
@@ -2297,6 +2429,32 @@ function paintRichText(
   target: ReplayTarget,
   p: Extract<RenderItem['primitive'], { kind: 'text' }>,
 ): void {
+  if (target.measureText) {
+    const richText = p.richText! as import('./types').RichText;
+    const hasAdvancedParagraphFormatting = richText.paragraphs.some((paragraph) => {
+      const format = paragraph.format;
+      return format?.maxLines !== undefined || format?.textOverflow !== undefined;
+    });
+    if (!hasAdvancedParagraphFormatting) {
+      const snapshot = layoutRichTextSnapshot(
+        richText,
+        {
+          fontFamily: p.fontFamily,
+          fontSize: p.fontSize,
+          fontWeight: p.fontWeight,
+          fontStyle: p.fontStyle,
+          letterSpacing: p.letterSpacing,
+          tracking: p.tracking ?? 0,
+          direction: p.direction,
+          language: p.language,
+        },
+        target as import('./richTextLayout').RichTextMeasureContext,
+        { maxWidth: p.w, lineHeight: p.fontSize * p.lineHeight, language: p.language },
+      );
+      paintCanonicalRichText(target, p, richText, snapshot);
+      return;
+    }
+  }
   const defaultFormat = {
     fontSize: p.fontSize,
     fontFamily: p.fontFamily,
@@ -2388,6 +2546,173 @@ function paintRichText(
       target.fillStyle = originalFillStyle;
     }
   }
+}
+
+function richTextFormatAt(
+  richText: import('./types').RichText,
+  offset: number,
+): import('./types').CharacterFormat {
+  let cursor = 0;
+  for (const paragraph of richText.paragraphs) {
+    for (const run of paragraph.runs) {
+      if (offset >= cursor && offset < cursor + run.text.length) return run.format ?? {};
+      cursor += run.text.length;
+    }
+    cursor += 1;
+  }
+  return {};
+}
+
+function paintCanonicalRichText(
+  target: ReplayTarget,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+  richText: import('./types').RichText,
+  snapshot: TextLayoutSnapshot,
+): void {
+  const verticalOffset =
+    p.textAlignVertical === 'middle'
+      ? (p.h - snapshot.height) / 2
+      : p.textAlignVertical === 'bottom'
+        ? p.h - snapshot.height
+        : 0;
+  const originalFillStyle = target.fillStyle;
+  target.textAlign = 'left';
+  target.textBaseline = 'alphabetic';
+  for (const line of snapshot.lines) {
+    const xOffset =
+      p.textAlign === 'center'
+        ? (p.w - line.width) / 2
+        : p.textAlign === 'right'
+          ? p.w - line.width
+          : 0;
+    for (const run of line.runs) {
+      for (const glyph of run.glyphs) {
+        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
+        if (cluster.length === 0 || cluster.includes('\n')) continue;
+        const format = richTextFormatAt(richText, glyph.clusterUtf16);
+        const style = (format.fontStyle ?? run.sourceRun.fontStyle) === 'italic' ? 'italic ' : '';
+        const weight = format.fontWeight ?? run.sourceRun.fontWeight;
+        const size = format.fontSize ?? run.sourceRun.fontSize;
+        const family = format.fontFamily ?? run.sourceRun.fontFamily;
+        target.font = `${style}${Math.max(1, Math.min(1000, weight))} ${size}px "${family}"`;
+        if (format.color) target.fillStyle = rgba(format.color);
+        target.fillText(
+          cluster,
+          p.x + xOffset + glyph.x + glyph.xOffset,
+          p.y + verticalOffset + glyph.y,
+        );
+        target.fillStyle = originalFillStyle;
+      }
+    }
+  }
+}
+
+type TextPrimitive = Extract<RenderItem['primitive'], { kind: 'text' }>;
+
+function canUseCanonicalTextLayout(p: TextPrimitive): boolean {
+  return (
+    !p.richText &&
+    p.textMode !== 'path' &&
+    p.textCase === 'none' &&
+    p.listStyle === 'none' &&
+    p.textOverflow === 'visible' &&
+    p.paragraphSpacing === 0 &&
+    p.firstLineIndent === undefined &&
+    !p.text.includes('\t') &&
+    !p.glyphAdjustments &&
+    !p.pairAdjustments &&
+    p.kerningMode !== 'none'
+  );
+}
+
+function canonicalTextSnapshot(
+  target: ReplayTarget,
+  p: TextPrimitive,
+): TextLayoutSnapshot | null {
+  if (!canUseCanonicalTextLayout(p)) return null;
+
+  const maxWidth = p.textMode === 'area' ? p.w : 0;
+  const shaping =
+    p.shaping ??
+    (() => {
+      if (!target.measureText) return undefined;
+      const direction = p.direction ?? 'auto';
+      const language = p.language ?? '';
+      // Do not cache browser measurement here: this layer has no font-face
+      // revision token, and a late-loaded face must invalidate geometry.
+      return shapeText(
+        p.text,
+        p.fontFamily,
+        p.fontSize,
+        target as unknown as CanvasRenderingContext2D,
+        {
+          fontWeight: p.fontWeight,
+          fontStyle: p.fontStyle,
+          letterSpacing: p.letterSpacing,
+          tracking: p.tracking,
+          direction,
+          language,
+        },
+      );
+    })();
+
+  if (!shaping) return null;
+  return buildTextLayoutSnapshot(p.text, shaping, {
+    maxWidth,
+    lineHeight: p.fontSize * p.lineHeight,
+    language: p.language,
+  });
+}
+
+function paintCanonicalText(
+  target: ReplayTarget,
+  p: TextPrimitive,
+  snapshot: TextLayoutSnapshot,
+): void {
+  const verticalOffset =
+    p.textAlignVertical === 'middle'
+      ? (p.h - snapshot.height) / 2
+      : p.textAlignVertical === 'bottom'
+        ? p.h - snapshot.height
+        : 0;
+  const originalFillStyle = target.fillStyle;
+  target.textAlign = 'left';
+  target.textBaseline = 'alphabetic';
+
+  for (const line of snapshot.lines) {
+    const xOffset =
+      p.textAlign === 'center'
+        ? (p.w - line.width) / 2
+        : p.textAlign === 'right'
+          ? p.w - line.width
+          : 0;
+    for (const run of line.runs) {
+      const style = run.sourceRun.fontStyle === 'italic' ? 'italic ' : '';
+      const weight = Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
+      target.font = `${style}${weight} ${run.sourceRun.fontSize}px "${run.sourceRun.fontFamily}"`;
+      for (const glyph of run.glyphs) {
+        const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
+        if (cluster.length === 0 || cluster.includes('\n')) continue;
+        target.fillText(
+          cluster,
+          p.x + xOffset + glyph.x + glyph.xOffset,
+          p.y + verticalOffset + glyph.y,
+        );
+      }
+    }
+    if (p.textDecoration === 'underline' || p.textDecoration === 'line-through') {
+      const decoY =
+        p.y + verticalOffset + line.baseline +
+        (p.textDecoration === 'underline' ? p.fontSize * 0.3 : -p.fontSize * 0.3);
+      target.beginPath();
+      target.moveTo(p.x + xOffset, decoY);
+      target.lineTo(p.x + xOffset + line.width, decoY);
+      target.strokeStyle = target.fillStyle;
+      target.lineWidth = 1;
+      target.stroke();
+    }
+  }
+  target.fillStyle = originalFillStyle;
 }
 
 /** Paint text along a path (text-on-path). */
@@ -2493,6 +2818,11 @@ function paintText(
   }
   if (p.richText) {
     paintRichText(target, p);
+    return;
+  }
+  const snapshot = canonicalTextSnapshot(target, p);
+  if (snapshot) {
+    paintCanonicalText(target, p, snapshot);
     return;
   }
 

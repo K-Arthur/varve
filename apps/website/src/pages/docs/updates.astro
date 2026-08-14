@@ -1,0 +1,236 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Updates"
+  description="How Varve's consent-first desktop updates work: privacy, signatures, supported installers, and manual update paths."
+>
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Updates
+      </nav>
+
+      <h1>Updates</h1>
+      <p class="docs-intro">
+        Varve's desktop updater is consent-first, package-aware, and designed to keep you in
+        control of when software is downloaded or installed.
+      </p>
+
+      <section class="docs-section">
+        <h2>What happens on first launch?</h2>
+        <p>
+          Varve asks whether it may periodically check for a newer version. Choosing{' '}
+          <strong>Not now</strong>{' '}keeps update checks manual. Choosing automatic checks lets Varve
+          look for updates on a schedule and notify you when one is available. You can change or
+          revoke this choice in <strong>Settings &gt; Updates</strong>.
+        </p>
+        <p>
+          Checking for an update is separate from downloading and installing it. Even when
+          automatic downloads are enabled, installation remains a separate action. An optional
+          install-on-quit preference is available only when you explicitly enable it, and Varve
+          routes installation through its save/quit protection so unsaved work is not silently
+          discarded.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>What information is sent?</h2>
+        <p>
+          An update check contacts Varve's HTTPS release endpoint with the information needed to
+          select a compatible feed: your current version, platform, architecture, and update
+          channel. It does not send an account, document contents, filenames, filesystem paths,
+          project data, or a device identifier. The endpoint still receives ordinary network
+          information such as an IP address, as any HTTPS server does; see the{' '}
+          <a href={sitePath('/about/privacy')}>privacy policy</a>{' '}for the broader data practices.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Which installs can update in the app?</h2>
+        <ul>
+          <li>
+            <strong>Linux AppImage:</strong> supported only when the running AppImage is in a
+            writable location and can replace itself.
+          </li>
+          <li>
+            <strong>Windows NSIS:</strong> the updater artifact is verified before installation,
+            which happens only after you approve the download and install action.
+          </li>
+          <li>
+            <strong>macOS:</strong> supported for a writable app installed in Applications. A
+            mounted DMG or Gatekeeper-translocated copy must be moved into Applications first.
+          </li>
+        </ul>
+        <p>
+          Availability is determined by the installed package, not only by the operating system.
+          Development builds, unsupported architectures, and builds that fail their runtime
+          capability checks remain manual-only.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Which installs stay manual?</h2>
+        <ul>
+          <li>
+            <strong>Debian and RPM packages:</strong> the package manager owns the installed
+            files, so update them through your configured package source or the{' '}
+            <a href={sitePath('/download')}>download page</a>.
+          </li>
+          <li>
+            <strong>Read-only, mounted, or extracted copies:</strong> download a new release and
+            replace the copy using the installation method for that build.
+          </li>
+          <li>
+            <strong>Web and development builds:</strong> use the relevant deployment or source
+            workflow; they do not participate in the desktop update feed.
+          </li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>How is an update verified?</h2>
+        <p>
+          Release feeds are published only after the release workflow has built the artifacts and
+          verified the updater signatures, platform trust reports, checksums, and SBOMs. The
+          installed app contains the updater public key and verifies the downloaded update before
+          it can become ready to install. A failed or interrupted verification leaves the current
+          installation in place.
+        </p>
+        <p>
+          If an update is unavailable, fails verification, or cannot replace the current package,
+          Varve explains the limitation and leaves the{' '}
+          <a href={sitePath('/releases')}>release notes</a>{' '}and manual download path available.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Downloading and installing</h2>
+        <p>
+          A download can be cancelled from Settings while it is in progress or while the download
+          is being verified; a cancelled download is never installed. Even after a verified update
+          is ready, installation happens only when you choose <strong>Install and Restart</strong>
+          (or when the optional install-on-quit preference is enabled and you quit Varve). Before
+          Varve restarts, it runs the normal save/close workflow for every open document — unsaved
+          design work is never discarded to apply an update, and cancelling the save prompt also
+          cancels the restart.
+        </p>
+        <p>
+          If you use several windows, they share one update state: a download started in one window
+          is shown in the others, and a second window will not start its own download of the same
+          update.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Release channels</h2>
+        <p>
+          Each build is compiled for exactly one channel. A stable build checks only the stable
+          feed, a beta build checks only the beta feed, and neither can be redirected to another
+          channel. <strong>Stable builds never receive alpha, beta, or nightly releases</strong>.
+          Channel switching is a deliberate reinstall from the{' '}
+          <a href={sitePath('/download')}>download page</a>; an in-app update never silently
+          changes channels or downgrades the application.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related information</h2>
+        <p>
+          See <a href={sitePath('/docs/settings')}>Settings &amp; Preferences</a> for the in-app
+          controls, <a href={sitePath('/download')}>Download</a> for package-specific guidance,
+          or <a href={sitePath('/about/security')}>Security</a> for release integrity details.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .breadcrumb a,
+  .docs-section a,
+  .docs-cta a {
+    color: var(--text-link);
+  }
+
+  .docs-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .docs-section p,
+  .docs-section li {
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .docs-section p {
+    margin-bottom: 1rem;
+  }
+
+  .docs-section ul {
+    margin: 0 0 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .docs-section li {
+    margin-bottom: 0.75rem;
+  }
+
+  .docs-section strong {
+    color: var(--text-primary);
+  }
+
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .docs-cta p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+</style>

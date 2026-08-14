@@ -28,6 +28,7 @@
 
 import type { Document } from '../document';
 import { computeFlattenBounds } from '../flatten/bounds';
+import { pageBleedInsetsPx } from '../printGeometry';
 import type { NodeId } from '../types';
 import { capabilitiesForFormat, type PlatformKind } from './capabilities';
 import {
@@ -200,27 +201,20 @@ export function resolveBoundsRect(
         const b = computeFlattenBounds(doc, target.nodeIds, false);
         return b ? toBoundsRect(b) : null;
       }
-      const dpi = doc.dpi ?? DEFAULT_DPI;
-      const pxPerMm = dpi / 25.4;
-      const bleed = policy === 'page-bleed' ? resolveBleedPx(doc, page.id, pxPerMm) : 0;
+      // Bleed expansion comes from the canonical print-geometry resolver
+      // (document px, per-edge, per-unit) — never from a local dpi/25.4
+      // formula that could drift from the canvas preview.
+      const insets = pageBleedInsetsPx(doc, page.id);
+      const bleed = policy === 'page-bleed' ? insets : { top: 0, right: 0, bottom: 0, left: 0 };
       const origin = page.rulerOrigin ?? { x: 0, y: 0 };
       return {
-        x: origin.x - bleed,
-        y: origin.y - bleed,
-        width: page.width + bleed * 2,
-        height: page.height + bleed * 2,
+        x: origin.x - bleed.left,
+        y: origin.y - bleed.top,
+        width: page.width + bleed.left + bleed.right,
+        height: page.height + bleed.top + bleed.bottom,
       };
     }
   }
-}
-
-function resolveBleedPx(doc: Document, pageId: string, pxPerMm: number): number {
-  const page = doc.pages?.find((p) => p.id === pageId);
-  const bleed = page?.bleed ?? doc.bleed;
-  if (!bleed) return 0;
-  const value = bleed.top;
-  const px = value * pxPerMm;
-  return Math.max(0, px);
 }
 
 function toBoundsRect(b: { x: number; y: number; w: number; h: number }): BoundsRect {

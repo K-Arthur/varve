@@ -7,8 +7,8 @@
  *   A. Windows Authenticode (Artifact Signing / certificates)
  *   B. Apple Developer ID + notarization + stapling
  *   C. Linux artifact trust (checksums, SBOM, GitHub attestations, optional GPG)
- *   D. Tauri updater signing (minisign keys — NOT used by Varve, see
- *      docs/release/update-strategy.md; keys are separate when it lands)
+ *   D. Tauri updater signing (minisign keys — separate from all platform
+ *      signing and verified by the updater feed gate)
  *
  * A `.sig` for the updater is not Authenticode. A checksum is not notarization.
  * A GitHub attestation is not a trusted Windows publisher. This module never

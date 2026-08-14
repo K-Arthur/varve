@@ -231,6 +231,20 @@ export function formatFileName(template: string, ctx: FileNameContext): string {
     return cleaned;
   });
 
+  // A node named `logo.png` rendered through the default `{name}.{ext}`
+  // template would become `logo.png.png`. When the final segment ends in the
+  // extension twice, the template's extension is authoritative: collapse the
+  // duplicate (case-insensitive) rather than shipping a double extension.
+  if (segments.length > 0 && extension.length > 0) {
+    const escaped = extension.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const duplicate = new RegExp(`\\.${escaped}\\.${escaped}$`, 'i');
+    const last = segments.length - 1;
+    const finalSegment = segments[last];
+    if (finalSegment) {
+      segments[last] = finalSegment.replace(duplicate, `.${extension}`);
+    }
+  }
+
   return normalizeRelativePath(segments);
 }
 

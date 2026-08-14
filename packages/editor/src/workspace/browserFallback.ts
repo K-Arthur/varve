@@ -55,7 +55,7 @@ export function createDefaultInPageDockLayout(
       region,
       panelTypeId: pi.typeId,
       panelInstanceId: pi.id,
-      size: 280,
+      size: region === 'left' ? 280 : region === 'right' ? 320 : region === 'bottom' ? 200 : 280,
       visible: index < 4, // first 4 visible by default
     };
   });
@@ -145,29 +145,44 @@ export function computeGridRegions(
   const hasRight = visibleSlots.some((s) => s.region === 'right');
   const hasBottom = visibleSlots.some((s) => s.region === 'bottom');
 
-  const leftWidth = hasLeft ? 280 : 0;
-  const rightWidth = hasRight ? 320 : 0;
-  const bottomHeight = hasBottom ? 200 : 0;
+  const width = finiteNonNegative(containerWidth);
+  const height = finiteNonNegative(containerHeight);
+  const leftPreferred = hasLeft ? preferredRegionSize(visibleSlots, 'left', 280) : 0;
+  const rightPreferred = hasRight ? preferredRegionSize(visibleSlots, 'right', 320) : 0;
+  const bottomHeight = hasBottom ? preferredRegionSize(visibleSlots, 'bottom', 200) : 0;
+
+  // Keep a useful canvas region even when a narrow browser window cannot fit
+  // both preferred side-panel widths. The panels are proportionally reduced;
+  // the geometry never reports negative dimensions to CSS or hit testing.
+  const preferredSideWidth = leftPreferred + rightPreferred;
+  const desiredCenterRatio = clamp(layout.centerRatio, 0, 1);
+  const minimumCenterWidth = width * desiredCenterRatio;
+  const sideScale =
+    preferredSideWidth > 0
+      ? Math.min(1, Math.max(0, width - minimumCenterWidth) / preferredSideWidth)
+      : 1;
+  const leftWidth = Math.round(leftPreferred * sideScale);
+  const rightWidth = Math.round(rightPreferred * sideScale);
 
   const centerX = leftWidth;
   const centerY = 0;
-  const centerWidth = containerWidth - leftWidth - rightWidth;
-  const centerHeight = containerHeight - bottomHeight;
+  const centerWidth = Math.max(0, width - leftWidth - rightWidth);
+  const centerHeight = Math.max(0, height - bottomHeight);
 
   const regions: Record<DockRegion, GridRegionDefinition> = {
-    left: { area: 'left', x: 0, y: 0, width: leftWidth, height: containerHeight },
+    left: { area: 'left', x: 0, y: 0, width: leftWidth, height },
     right: {
       area: 'right',
-      x: containerWidth - rightWidth,
+      x: width - rightWidth,
       y: 0,
       width: rightWidth,
-      height: containerHeight,
+      height,
     },
     top: { area: 'top', x: leftWidth, y: 0, width: centerWidth, height: 0 },
     bottom: {
       area: 'bottom',
-      x: leftWidth,
-      y: containerHeight - bottomHeight,
+      x: centerX,
+      y: height - bottomHeight,
       width: centerWidth,
       height: bottomHeight,
     },
@@ -180,6 +195,27 @@ export function computeGridRegions(
   }`.trim();
 
   return { template, regions };
+}
+
+function finiteNonNegative(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
+}
+
+/** Use the largest tabbed panel in a region as that region's preferred size. */
+function preferredRegionSize(
+  slots: InPageDockSlot[],
+  region: DockRegion,
+  fallback: number,
+): number {
+  const sizes = slots
+    .filter((slot) => slot.region === region)
+    .map((slot) => slot.size)
+    .filter((size) => Number.isFinite(size) && size > 0);
+  return sizes.length > 0 ? Math.max(...sizes) : fallback;
 }
 
 // ---------------------------------------------------------------------------

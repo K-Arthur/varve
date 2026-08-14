@@ -96,6 +96,7 @@ function nodeWithShadow(id: string): ShapeNode & { effects: [DropShadowEffect] }
 
 describe('EffectsSection — glass material tint swatch', () => {
   const updateNode = vi.fn();
+  const updateDoc = vi.fn();
   const beginTransaction = vi.fn();
   const commitTransaction = vi.fn();
   const announce = vi.fn();
@@ -188,6 +189,37 @@ describe('EffectsSection — glass material tint swatch', () => {
     const swatch = screen.getByRole('button', { name: /glass tint/i });
     // managedColorToRgba returns [200, 220, 255, 60]; 60/255 ≈ 0.24
     expect(swatch).toHaveStyle({ background: 'rgba(200,220,255,0.24)' });
+  });
+
+  it('authors a live scene-node effect mask through the inspector', () => {
+    const target = nodeWithShadow('n1');
+    const source = nodeWithShadow('source');
+    const document = {
+      nodes: { n1: target, source },
+      rootChildren: ['n1', 'source'],
+    };
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      updateDoc,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+      state: { document },
+    } as never);
+
+    render(<EffectsSection nodes={[target]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand dropshadow parameters/i }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Effect mask source' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Rect' }));
+
+    expect(updateDoc).toHaveBeenCalledWith(expect.any(Function));
+    const next = updateDoc.mock.calls[0]![0](document);
+    expect(next.nodes.n1.effects[0].mask).toMatchObject({
+      source: { kind: 'scene-node', nodeId: 'source' },
+      type: 'alpha',
+      coordinateSpace: 'world',
+    });
   });
 });
 
