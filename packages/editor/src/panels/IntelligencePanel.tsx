@@ -25,6 +25,7 @@ import type {
 } from '@varve/engine/semanticSimilarity';
 import {
   dHash,
+  DINOV2_SMALL_IMAGE_MODEL,
   pHash,
   SIGLIP_IMAGE_MODEL,
   searchNearDuplicates,
@@ -2365,9 +2366,22 @@ function ComponentsTab() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Tab 9: Similar — Find Similar Images (SigLIP)                     */
+/*  Tab 9: Similar — Find Similar Images                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Image-to-image lane uses DINOv2-small (evidence-backed default: parity
+ * verified, retrieval ≈ SigLIP, ~1.8x faster, 2.4x smaller). The
+ * natural-language lane compares against SigLIP *image* embeddings, so
+ * it keeps the SigLIP image encoder (separate space — see
+ * EmbeddingVector compatibility guards in semanticSimilarity).
+ */
+const EMBED_IMAGE_MODEL = DINOV2_SMALL_IMAGE_MODEL;
+const EMBED_IMAGE_MODEL_ID = EMBED_IMAGE_MODEL.id;
+const EMBED_IMAGE_WORKER_TYPE = 'dinov2-image';
+const EMBED_IMAGE_OUTPUT = 'last_hidden_state';
+/** CLS token index of the DINOv2 output [B, 257, 384]. */
+const EMBED_IMAGE_CLS_INDEX = 0;
 const SIGLIP_MODEL_ID = SIGLIP_IMAGE_MODEL.id;
 /** Bound how many document images get embedded per search — running
  * inference on an unbounded document could stall the UI for a long time. */
@@ -2453,7 +2467,7 @@ function SimilarTab() {
     (async () => {
       const loader = getModelLoader();
       const [available, textAvailable] = await Promise.all([
-        loader.isModelAvailable(SIGLIP_MODEL_ID),
+        loader.isModelAvailable(EMBED_IMAGE_MODEL_ID),
         loader.isModelAvailable(SIGLIP_TEXT_MODEL_ID),
       ]);
       if (!cancelled) {
@@ -2475,7 +2489,7 @@ function SimilarTab() {
     try {
       const loader = getModelLoader();
       await loader.downloadModel(
-        SIGLIP_MODEL_ID,
+        EMBED_IMAGE_MODEL_ID,
         (loaded, total) => {
           setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
         },
@@ -2530,7 +2544,26 @@ function SimilarTab() {
   }, [announce]);
 
   const embed = useCallback(
-    async (src: string, modelPath: string, signal: AbortSignal): Promise<EmbeddingVector> => {
+    async (
+      src: string,
+      modelPath: string,
+      signal: AbortSignal,
+      space: {
+        model: typeof EMBED_IMAGE_MODEL;
+        workerType: string;
+        outputName: string;
+        extract: (raw: { data: Float32Array; dims: number[] }) => Float32Array;
+      } = {
+        model: EMBED_IMAGE_MODEL,
+        workerType: EMBED_IMAGE_WORKER_TYPE,
+        outputName: EMBED_IMAGE_OUTPUT,
+        extract: (raw) =>
+          raw.data.subarray(
+            EMBED_IMAGE_CLS_INDEX * EMBED_IMAGE_MODEL.dimension,
+            (EMBED_IMAGE_CLS_INDEX + 1) * EMBED_IMAGE_MODEL.dimension,
+          ),
+      },
+    ): Promise<EmbeddingVector> => {
       // E2E-only deterministic seam (see WindowSimilarityTestHook).
       const testMock = window.__varveSimilarityTest?.mockEmbed;
       if (testMock) {
@@ -2541,9 +2574,9 @@ function SimilarTab() {
 
       const identity = {
         contentHash: await contentHashForSrc(src),
-        modelId: SIGLIP_MODEL_ID,
-        modelVersion: SIGLIP_IMAGE_MODEL.revision,
-        preprocessingVersion: SIGLIP_IMAGE_MODEL.preprocessingVersion,
+        modelId: space.model.id,
+        modelVersion: space.model.revision,
+        preprocessingVersion: space.model.preprocessingVersion,
         embeddingSchemaVersion: 'semantic-embedding-v1',
       };
       const cacheKey = assetEmbeddingKey(identity);
@@ -2558,7 +2591,7 @@ function SimilarTab() {
         const embedding: EmbeddingVector = {
           modelId: stored.identity.modelId,
           modelRevision: stored.identity.modelVersion,
-          embeddingSpaceVersion: 'siglip-image-pooler-v1',
+          embeddingSpaceVersion: space.model.embeddingSpaceVersion,
           preprocessingVersion: stored.identity.preprocessingVersion,
           dimension: stored.dimension,
           dtype: stored.dtype,
@@ -2580,9 +2613,9 @@ function SimilarTab() {
       const result = await host.infer(
         {
           type: 'infer',
-          modelType: 'siglip-image',
+          modelType: space.workerType,
           modelPath,
-          modelId: SIGLIP_MODEL_ID,
+          modelId: space.model.id,
           imageData,
           reuseSession: true,
         },
@@ -2590,21 +2623,21 @@ function SimilarTab() {
       );
       if (signal.aborted) throw new Error('cancelled');
 
-      // Verified real output tensor name (see siglip.ts): "image_embeds".
-      const rawOutputs = result.outputs as {
-        image_embeds: { data: Float32Array; dims: number[] };
-      };
-      const raw = rawOutputs.image_embeds;
+      const rawOutputs = result.outputs as Record<
+        string,
+        { data: Float32Array; dims: number[] }
+      >;
+      const raw = rawOutputs[space.outputName];
       if (!raw) throw new Error('Embedding did not produce an output tensor');
       const embedding: EmbeddingVector = {
-        modelId: SIGLIP_IMAGE_MODEL.id,
-        modelRevision: SIGLIP_IMAGE_MODEL.revision,
-        embeddingSpaceVersion: SIGLIP_IMAGE_MODEL.embeddingSpaceVersion,
-        preprocessingVersion: SIGLIP_IMAGE_MODEL.preprocessingVersion,
-        dimension: raw.data.length,
+        modelId: space.model.id,
+        modelRevision: space.model.revision,
+        embeddingSpaceVersion: space.model.embeddingSpaceVersion,
+        preprocessingVersion: space.model.preprocessingVersion,
+        dimension: space.model.dimension,
         dtype: 'fp32',
         normalized: true,
-        values: normalizeEmbedding(raw.data),
+        values: normalizeEmbedding(space.extract(raw)),
       };
       embeddingCacheRef.current.set(cacheKey, embedding);
       const store = embeddingStoreRef.current;
