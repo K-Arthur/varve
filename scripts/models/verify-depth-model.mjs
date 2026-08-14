@@ -187,6 +187,68 @@ function fixtureUniform(seed = 3) {
 }
 
 /**
+ * Portrait-like silhouette: a head-and-shoulders figure on a graded
+ * background. People are the strongest near-cue class for a model trained on
+ * photography, so this fixture tests the cue that Depth Blur relies on most.
+ */
+function fixturePortrait(seed = 23) {
+  const width = 640;
+  const height = 800;
+  const data = new Uint8ClampedArray(width * height * 4);
+  const noise = rng(seed);
+  const cx = Math.round(width / 2);
+  const headY = Math.round(height * 0.3);
+  const headR = Math.round(width * 0.14);
+  const shoulderY = Math.round(height * 0.52);
+  const shoulderHalf = Math.round(width * 0.34);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const o = (y * width + x) * 4;
+      const inHead = (x - cx) ** 2 + (y - headY) ** 2 <= headR * headR;
+      const inNeck = Math.abs(x - cx) < headR * 0.45 && y > headY + headR * 0.6 && y < shoulderY;
+      const inShoulders =
+        y >= shoulderY &&
+        Math.abs(x - cx) <=
+          shoulderHalf * Math.max(0.15, 1 - ((y - shoulderY) / (height - shoulderY)) * 0.6);
+      if (inHead || inNeck || inShoulders) {
+        // Figure: dark clothing with gentle shading and texture.
+        const shade = 0.82 + 0.18 * Math.max(0, (x - cx) / width);
+        const v = Math.round(70 * shade + noise() * 12);
+        data[o] = v;
+        data[o + 1] = Math.round(64 * shade + noise() * 10);
+        data[o + 2] = Math.round(78 * shade + noise() * 12);
+      } else {
+        // Background: sky-to-floor gradient with soft bokeh-like discs.
+        const t = y / height;
+        const r = Math.round(170 - 60 * t + noise() * 8);
+        const g = Math.round(190 - 70 * t + noise() * 8);
+        const b = Math.round(210 - 90 * t + noise() * 8);
+        data[o] = r;
+        data[o + 1] = g;
+        data[o + 2] = b;
+        const disc = ((x * 37 + y * 53) % 251) - 125;
+        if (disc > 60) {
+          data[o] = Math.min(255, data[o] + Math.round(disc * 0.12));
+          data[o + 1] = Math.min(255, data[o + 1] + Math.round(disc * 0.12));
+          data[o + 2] = Math.min(255, data[o + 2] + Math.round(disc * 0.12));
+        }
+      }
+      data[o + 3] = 255;
+    }
+  }
+  const expectedNear = (x, y) => {
+    const inHead = (x - cx) ** 2 + (y - headY) ** 2 <= headR * headR;
+    const inNeck = Math.abs(x - cx) < headR * 0.45 && y > headY + headR * 0.6 && y < shoulderY;
+    const inShoulders =
+      y >= shoulderY &&
+      Math.abs(x - cx) <=
+        shoulderHalf * Math.max(0.15, 1 - ((y - shoulderY) / (height - shoulderY)) * 0.6);
+    return inHead || inNeck || inShoulders;
+  };
+  return { data, width, height, expectedNear };
+}
+
+/**
  * Letterbox + bilinear resize + ImageNet normalization + NCHW packing,
  * matching the documented contract used by the app's inference worker
  * (DEPTH_ANYTHING_TENSOR_SPEC: 518x518, mean/std ImageNet, zero padding).
@@ -401,6 +463,7 @@ async function main() {
   const fixtures = [
     { key: 'two_plane', ...fixtureTwoPlane() },
     { key: 'corridor', ...fixtureCorridor() },
+    { key: 'portrait', ...fixturePortrait() },
     { key: 'flat_uniform', ...fixtureUniform() },
   ];
 
@@ -433,7 +496,11 @@ async function main() {
   const p95 = latencies[Math.min(latencies.length - 1, Math.ceil(latencies.length * 0.95))];
 
   // 5. Metric evaluation on dedicated runs (fresh inference per fixture).
+  // Each fixture measures its OWN raw sign: monocular relative depth can
+  // carry a per-image sign ambiguity, and a fixed inversion assumption must
+  // not hide that from the report.
   let observedNearIsHigh = null;
+  const perFixtureConventions = [];
   for (const fixture of fixtures) {
     const { tensor, transform } = preprocess(fixture.data, fixture.width, fixture.height);
     const feeds = {
@@ -448,36 +515,48 @@ async function main() {
 
     const nanFraction = countNonFinite(raw) / raw.length;
 
-    // Determine sign from the two-plane fixture: canonical 0 = near.
-    let invert = false;
-    if (fixture.key === 'two_plane' && observedNearIsHigh === null) {
-      let nearMean = 0;
-      let farMean = 0;
-      let nearCount = 0;
-      let farCount = 0;
+    // Raw near/far means for THIS fixture (letterbox-aware mapping).
+    let rawNearMean = 0;
+    let rawFarMean = 0;
+    let nearCount = 0;
+    let farCount = 0;
+    if (fixture.key !== 'flat_uniform') {
       for (let y = 0; y < h; y++) {
         for (let x = 0; x < w; x++) {
           const { x: sx, y: sy } = toFixture(transform, fixture.width, fixture.height, x, y);
           const v = raw[y * w + x];
           if (fixture.expectedNear(sx, sy)) {
-            nearMean += v;
+            rawNearMean += v;
             nearCount++;
           } else {
-            farMean += v;
+            rawFarMean += v;
             farCount++;
           }
         }
       }
-      nearMean /= Math.max(1, nearCount);
-      farMean /= Math.max(1, farCount);
-      observedNearIsHigh = nearMean > farMean;
-      invert = observedNearIsHigh; // raw near-is-high → invert to canonical near-is-low
+      rawNearMean /= Math.max(1, nearCount);
+      rawFarMean /= Math.max(1, farCount);
+    }
+    const fixtureNearIsHigh = rawNearMean > rawFarMean;
+    perFixtureConventions.push({
+      fixture: fixture.key,
+      nearIsHigh: fixtureNearIsHigh,
+      rawNearMean,
+      rawFarMean,
+    });
+    if (fixture.key !== 'flat_uniform' && observedNearIsHigh === null) {
+      observedNearIsHigh = fixtureNearIsHigh;
       console.log(
-        `[depth-verify] raw convention: nearIs${observedNearIsHigh ? 'High' : 'Low'} ` +
-          `(near mean ${nearMean.toFixed(3)}, far mean ${farMean.toFixed(3)})`,
+        `[depth-verify] raw convention (${fixture.key}): ` +
+          `nearIs${fixtureNearIsHigh ? 'High' : 'Low'} ` +
+          `(near mean ${rawNearMean.toFixed(3)}, far mean ${rawFarMean.toFixed(3)})`,
       );
     }
 
+    // Canonicalize with THIS fixture's own sign so ordering metrics measure
+    // the model's true near/far agreement, not the sign assumption. Sign
+    // consistency across fixtures is reported and gated separately.
+    const invert = fixtureNearIsHigh;
     const canonical = canonicalize(raw, w, h, invert);
     let rho = 0;
     let separation = 0;
@@ -519,7 +598,9 @@ async function main() {
       plane_separation: separation,
       edge_alignment: edgeScore,
       normalization_range: [canonical.low, canonical.high],
-      raw_convention: observedNearIsHigh ? 'nearIsHigh' : 'nearIsLow',
+      raw_convention: fixtureNearIsHigh ? 'nearIsHigh' : 'nearIsLow',
+      raw_near_mean: rawNearMean,
+      raw_far_mean: rawFarMean,
     };
     results.push(entry);
     console.log(
@@ -558,6 +639,22 @@ async function main() {
       passed: (corridor?.spearman_rho ?? 0) > 0.2,
       message: `corridor rho ${(corridor?.spearman_rho ?? 0).toFixed(3)}`,
     },
+    portrait_ordering: {
+      passed: (results.find((r) => r.fixture === 'portrait')?.spearman_rho ?? 0) > 0.2,
+      message: `portrait rho ${(results.find((r) => r.fixture === 'portrait')?.spearman_rho ?? 0).toFixed(3)}`,
+    },
+    sign_consistency: {
+      passed:
+        new Set(
+          perFixtureConventions
+            .filter((c) => c.fixture !== 'flat_uniform')
+            .map((c) => c.nearIsHigh),
+        ).size === 1,
+      message: perFixtureConventions
+        .filter((c) => c.fixture !== 'flat_uniform')
+        .map((c) => `${c.fixture}=nearIs${c.nearIsHigh ? 'High' : 'Low'}`)
+        .join(', '),
+    },
     edge_alignment: {
       passed: (twoPlane?.edge_alignment ?? 0) > 0.55,
       message: `two-plane edge agreement ${(twoPlane?.edge_alignment ?? 0).toFixed(3)}`,
@@ -580,6 +677,7 @@ async function main() {
       dims: [1, INPUT_SIZE, INPUT_SIZE],
     },
     raw_convention: observedNearIsHigh ? 'nearIsHigh' : 'nearIsLow',
+    per_fixture_conventions: perFixtureConventions,
     canonical_convention: '0 = near, 1 = far',
     latency_ms: { cold_first_pass: coldLoad, warm_p50: p50, warm_p95: p95 },
     checks,
