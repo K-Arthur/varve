@@ -61,8 +61,10 @@ export interface TerminationCoordinatorDeps {
   dialogs: TerminationDialogs;
   marker: LifecycleMarker;
   finalizers?: FinalizerRunner;
-  /** Commit-time platform action (native close/exit, reload, restart). */
-  onCommit?: (intent: TerminationIntent) => void | Promise<void>;
+  /** Commit-time platform action (native close/exit, reload, restart).
+   *  Returning `true` short-circuits the remaining commit pipeline (used by
+   *  the updater's install-on-quit hook, which owns the exit itself). */
+  onCommit?: (intent: TerminationIntent) => void | boolean | Promise<void | boolean>;
   /** Called at commit for intentionally discarded documents — the host
    *  removes their recovery snapshots (never while a dialog is open). */
   onDiscardCommitted?: (docs: UnsavedDocument[]) => void | Promise<void>;

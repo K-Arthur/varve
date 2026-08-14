@@ -10,6 +10,7 @@
  */
 
 import type { ExportFormat, ExportScale, RenderingIntent } from '@varve/scene';
+import type { AnalyticsConsentState } from '@varve/shared';
 import {
   createDefaultSectionState,
   migrateLegacyDisclosureState,
@@ -138,6 +139,12 @@ export interface AiSettingsStore {
   shareUsageData: boolean;
 }
 
+/** Product usage and diagnostics consent. Crash reporting is separate. */
+export interface PrivacySettingsStore {
+  usageAnalytics: AnalyticsConsentState;
+  diagnostics: AnalyticsConsentState;
+}
+
 export interface EditorSettings {
   general: GeneralSettingsStore;
   export: ExportSettingsStore;
@@ -151,6 +158,7 @@ export interface EditorSettings {
   layers: LayersSettingsStore;
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
+  privacy: PrivacySettingsStore;
   features: {
     /** Enable finding navigation (deep-link + inspector section jump). */
     findingsNavigation: boolean;
@@ -205,6 +213,11 @@ export const DEFAULT_AI_SETTINGS: AiSettingsStore = {
   enabled: false,
   model: 'gpt-4',
   shareUsageData: false,
+};
+
+export const DEFAULT_PRIVACY_SETTINGS: PrivacySettingsStore = {
+  usageAnalytics: 'unknown',
+  diagnostics: 'unknown',
 };
 
 export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
@@ -288,6 +301,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   layers: { ...DEFAULT_LAYERS_SETTINGS },
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
+  privacy: { ...DEFAULT_PRIVACY_SETTINGS },
   features: { ...DEFAULT_FEATURES },
 };
 
@@ -299,6 +313,10 @@ function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undef
     result[key] = val !== undefined ? val : defaults[key];
   }
   return result;
+}
+
+function normalizeAnalyticsConsent(value: unknown): AnalyticsConsentState {
+  return value === 'granted' || value === 'denied' ? value : 'unknown';
 }
 
 export function loadSettings(): EditorSettings {
@@ -322,6 +340,7 @@ export function loadSettings(): EditorSettings {
         layers: { ...DEFAULT_LAYERS_SETTINGS },
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
+        privacy: { ...DEFAULT_PRIVACY_SETTINGS },
         features: { ...DEFAULT_FEATURES },
       };
       // Migrate legacy UI settings if present
@@ -380,6 +399,12 @@ export function loadSettings(): EditorSettings {
     if (exportSettings.defaultFormat === 'avif') {
       exportSettings.defaultFormat = 'png';
     }
+    const privacy = mergePartial(
+      DEFAULT_PRIVACY_SETTINGS,
+      parsed.privacy as Partial<PrivacySettingsStore>,
+    );
+    privacy.usageAnalytics = normalizeAnalyticsConsent(privacy.usageAnalytics);
+    privacy.diagnostics = normalizeAnalyticsConsent(privacy.diagnostics);
     return {
       general: mergePartial(
         DEFAULT_GENERAL_SETTINGS,
@@ -417,6 +442,7 @@ export function loadSettings(): EditorSettings {
       layers: mergePartial(DEFAULT_LAYERS_SETTINGS, parsed.layers as Partial<LayersSettingsStore>),
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
+      privacy,
       features: {
         ...DEFAULT_FEATURES,
         ...(parsed.features as Partial<typeof DEFAULT_FEATURES> | undefined),
@@ -436,6 +462,7 @@ export function loadSettings(): EditorSettings {
       layers: { ...DEFAULT_LAYERS_SETTINGS },
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
+      privacy: { ...DEFAULT_PRIVACY_SETTINGS },
       features: { ...DEFAULT_FEATURES },
     };
   }
@@ -458,6 +485,7 @@ export interface EditorSettingsPatch {
   layers?: Partial<LayersSettingsStore>;
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
+  privacy?: Partial<PrivacySettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -479,6 +507,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     layers: { ...current.layers, ...patch.layers },
     collab: { ...current.collab, ...patch.collab },
     ai: { ...current.ai, ...patch.ai },
+    privacy: { ...current.privacy, ...patch.privacy },
     features: { ...current.features },
   };
   saveSettings(next);
@@ -499,6 +528,7 @@ export function resetSettings(): EditorSettings {
     layers: { ...DEFAULT_LAYERS_SETTINGS },
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
+    privacy: { ...DEFAULT_PRIVACY_SETTINGS },
     features: { ...DEFAULT_FEATURES },
   };
   saveSettings(defaults);

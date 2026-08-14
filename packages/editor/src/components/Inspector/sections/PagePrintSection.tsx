@@ -7,8 +7,8 @@
  */
 
 import type { BleedConfig, SafeAreaConfig, SlugConfig } from '@varve/scene';
-import { resolvePagePrintGeometry } from '@varve/scene';
-import { BUILTIN_PRESET_GROUPS } from '@varve/shared';
+import { resolvePagePrintGeometry, updateBleedEdge } from '@varve/scene';
+import { BUILTIN_PRESET_GROUPS, physicalToPx, pxToPhysical } from '@varve/shared';
 import { Select } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
@@ -63,12 +63,14 @@ function EdgeFields({
   unit,
   onChange,
   disabled,
+  max,
 }: {
   label: string;
   values: { top: number; right: number; bottom: number; left: number };
   unit: string;
   onChange: (edge: 'top' | 'right' | 'bottom' | 'left', value: number) => void;
   disabled?: boolean;
+  max?: number;
 }) {
   return (
     <div className="page-print__edges">
@@ -76,6 +78,8 @@ function EdgeFields({
         label={`${label} top`}
         value={values.top}
         unit={unit}
+        min={0}
+        max={max}
         disabled={disabled}
         onChange={(v) => onChange('top', v)}
       />
@@ -83,6 +87,8 @@ function EdgeFields({
         label={`${label} right`}
         value={values.right}
         unit={unit}
+        min={0}
+        max={max}
         disabled={disabled}
         onChange={(v) => onChange('right', v)}
       />
@@ -90,6 +96,8 @@ function EdgeFields({
         label={`${label} bottom`}
         value={values.bottom}
         unit={unit}
+        min={0}
+        max={max}
         disabled={disabled}
         onChange={(v) => onChange('bottom', v)}
       />
@@ -97,6 +105,8 @@ function EdgeFields({
         label={`${label} left`}
         value={values.left}
         unit={unit}
+        min={0}
+        max={max}
         disabled={disabled}
         onChange={(v) => onChange('left', v)}
       />
@@ -120,50 +130,67 @@ export function PagePrintSection() {
 
   const handleBleed = useCallback(
     (edge: 'top' | 'right' | 'bottom' | 'left', value: number) => {
-      if (!pageId) return;
+      if (!pageId || !geometry) return;
+      // The page override stores values in the resolved config's unit (the
+      // document default's unit unless the page override set its own), so
+      // mm-configured documents keep editing in mm. Conversions go through
+      // the shared unit contract — the resolver converts to document pixels,
+      // and the canvas and export read the same numbers. Do not convert to
+      // pixels here: BleedConfig values are stored in their declared unit.
+      const unit = geometry.bleed.unit;
       const current: BleedConfig = page?.bleed ?? {
         top: 0,
         right: 0,
         bottom: 0,
         left: 0,
         linked: true,
-        unit: 'px',
+        unit,
       };
-      setPageBleed(pageId, { ...current, [edge]: Math.max(0, value), unit: 'px' });
+      setPageBleed(pageId, updateBleedEdge({ ...current, unit }, edge, value));
     },
-    [pageId, page?.bleed, setPageBleed],
+    [pageId, page?.bleed, geometry, setPageBleed],
   );
 
   const handleSafeArea = useCallback(
     (edge: 'top' | 'right' | 'bottom' | 'left', value: number) => {
-      if (!pageId) return;
+      if (!pageId || !geometry) return;
+      const unit = geometry.safeArea.unit;
       const current: SafeAreaConfig = page?.safeArea ?? {
         top: 0,
         right: 0,
         bottom: 0,
         left: 0,
-        unit: 'px',
+        unit,
         enabled: true,
       };
-      setPageSafeArea(pageId, { ...current, [edge]: Math.max(0, value), unit: 'px' });
+      setPageSafeArea(pageId, {
+        ...current,
+        [edge]: physicalToPx(Math.max(0, value), unit),
+        unit,
+      });
     },
-    [pageId, page?.safeArea, setPageSafeArea],
+    [pageId, page?.safeArea, geometry, setPageSafeArea],
   );
 
   const handleSlug = useCallback(
     (edge: 'top' | 'right' | 'bottom' | 'left', value: number) => {
-      if (!pageId) return;
+      if (!pageId || !geometry) return;
+      const unit = geometry.slug.unit;
       const current: SlugConfig = page?.slug ?? {
         top: 0,
         right: 0,
         bottom: 0,
         left: 0,
-        unit: 'px',
+        unit,
         enabled: true,
       };
-      setPageSlug(pageId, { ...current, [edge]: Math.max(0, value), unit: 'px' });
+      setPageSlug(pageId, {
+        ...current,
+        [edge]: physicalToPx(Math.max(0, value), unit),
+        unit,
+      });
     },
-    [pageId, page?.slug, setPageSlug],
+    [pageId, page?.slug, geometry, setPageSlug],
   );
 
   const pageWidth = page?.width ?? 0;
@@ -189,6 +216,33 @@ export function PagePrintSection() {
   );
 
   if (state.tool !== 'page' || !pageId || !geometry) return null;
+
+  // Display in each config's own unit: resolved values are document px, the
+  // fields edit physical units (mm/in/pt for print docs). UI display
+  // precision (2dp) is separate from internal storage precision.
+  const bleedUnit = geometry.bleed.unit;
+  const bleedValues = {
+    top: pxToPhysical(geometry.bleed.top, bleedUnit),
+    right: pxToPhysical(geometry.bleed.right, bleedUnit),
+    bottom: pxToPhysical(geometry.bleed.bottom, bleedUnit),
+    left: pxToPhysical(geometry.bleed.left, bleedUnit),
+  };
+  const safeAreaUnit = geometry.safeArea.unit;
+  const safeAreaValues = {
+    top: pxToPhysical(geometry.safeArea.top, safeAreaUnit),
+    right: pxToPhysical(geometry.safeArea.right, safeAreaUnit),
+    bottom: pxToPhysical(geometry.safeArea.bottom, safeAreaUnit),
+    left: pxToPhysical(geometry.safeArea.left, safeAreaUnit),
+  };
+  const slugUnit = geometry.slug.unit;
+  const slugValues = {
+    top: pxToPhysical(geometry.slug.top, slugUnit),
+    right: pxToPhysical(geometry.slug.right, slugUnit),
+    bottom: pxToPhysical(geometry.slug.bottom, slugUnit),
+    left: pxToPhysical(geometry.slug.left, slugUnit),
+  };
+  // D5: bleed/slug must not exceed half the page's smaller dimension.
+  const maxInsetUnit = Math.max(0, pxToPhysical(Math.min(pageWidth, pageHeight) / 2, bleedUnit));
 
   return (
     <DisclosureSection title="Page Print" sectionId="page-print" defaultExpanded>
@@ -231,7 +285,13 @@ export function PagePrintSection() {
           Swap orientation
         </button>
         <h4 className="page-print__sub">Bleed</h4>
-        <EdgeFields label="Bleed" values={geometry.bleed} unit="px" onChange={handleBleed} />
+        <EdgeFields
+          label="Bleed"
+          values={bleedValues}
+          unit={bleedUnit}
+          max={maxInsetUnit}
+          onChange={handleBleed}
+        />
         <h4 className="page-print__sub">Safe area</h4>
         <label className="page-print__toggle">
           <input
@@ -248,8 +308,8 @@ export function PagePrintSection() {
         </label>
         <EdgeFields
           label="Safe area"
-          values={geometry.safeArea}
-          unit="px"
+          values={safeAreaValues}
+          unit={safeAreaUnit}
           disabled={!geometry.safeArea.enabled}
           onChange={handleSafeArea}
         />
@@ -269,8 +329,8 @@ export function PagePrintSection() {
         </label>
         <EdgeFields
           label="Slug"
-          values={geometry.slug}
-          unit="px"
+          values={slugValues}
+          unit={slugUnit}
           disabled={!geometry.slug.enabled}
           onChange={handleSlug}
         />

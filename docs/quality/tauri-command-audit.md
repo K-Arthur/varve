@@ -10,6 +10,30 @@ inference), `varve-colour` (conversions), `varve-sync` (SQLite document store), 
 No fixes are silently bundled into this document — findings here are cross-referenced to the
 actual patches applied separately (§4), each scoped to one concern.
 
+## Filesystem-boundary update (2026-08-13)
+
+The original findings below are retained as audit history, but the following
+filesystem claims are superseded by the cross-OS hardening slices:
+
+- `write_binary_file`, `home_read_text_file`, and `home_write_text_file` use
+  the home/temp-scoped resolver for webview-supplied paths. Dialog-approved
+  document paths use the separate canonicalizing resolver so external drives,
+  removable media, network mounts, and iCloud/Documents locations remain
+  usable without widening the untrusted path surface.
+- `read_dropped_file` uses the dialog/user-gesture resolver and rejects lexical
+  traversal before canonicalization. `write_binary_file_to_folder` accepts a
+  portable `/`-separated export plan and performs native joining plus
+  containment checks in Rust.
+- Model and font storage now use the Tauri-resolved application roots. Print
+  spooling uses the resolved app temporary root, unique staging names, and
+  cleanup after submission. Atomic saves use unique sibling staging files and
+  the Windows native replace primitive where plain rename cannot replace an
+  existing destination.
+- Archive/Sketch ZIP entry validation rejects POSIX, Windows drive/UNC,
+  `file:` URL, control-character, empty-component, dot, dot-dot, and colon
+  forms. The remaining follow-up is broader packaged-build and external-volume
+  execution coverage, not a return to raw path joins.
+
 ## 1. Full command table
 
 | Command | Parameters | Touches | Failure mode |

@@ -165,13 +165,21 @@ export function HomeShell({
   useEffect(() => {
     const checkMissingFiles = async () => {
       const missing = new Set<string>();
+      // Desktop: batch one existence probe for every recorded path instead
+      // of an IPC round-trip per file row.
+      const desktopPaths = view.files.filter((file) => file.filePath).map((file) => file.filePath!);
+      let results: boolean[] = [];
+      if (desktopPaths.length > 0 && platform.kind !== 'web') {
+        results = await platform.checkFilesExist(desktopPaths).catch(() => []);
+      }
+      let pathIndex = 0;
       for (const file of view.files) {
         if (file.filePath) {
-          // Desktop: check actual file existence on disk
-          const exists = await platform.fileExists(file.filePath);
-          if (!exists) {
+          if (platform.kind === 'web') continue;
+          if (results[pathIndex] === false) {
             missing.add(file.id);
           }
+          pathIndex += 1;
         } else if (platform.kind === 'web') {
           // Web: mark files as stale if not updated in 90 days
           const STALE_THRESHOLD_MS = 90 * 24 * 60 * 60 * 1000;

@@ -75,7 +75,13 @@ async function renderNodeToCanvas(
     const imgFill = (node as ShapeNode).fills?.find((f) => f.type === 'image' && f.image?.src);
     if (imgFill?.image) {
       try {
-        const img = await getImageCache().load(imgFill.image.src);
+        const img = await getImageCache().loadAtSize(
+          imgFill.image.src,
+          Math.max(THUMB_W, THUMB_H),
+          imgFill.image.imageWidth && imgFill.image.imageHeight
+            ? { width: imgFill.image.imageWidth, height: imgFill.image.imageHeight }
+            : undefined,
+        );
         ctx.drawImage(img, ox, oy, area, area);
       } catch {
         ctx.fillStyle = 'rgba(200,200,200,0.5)';
@@ -200,7 +206,13 @@ async function renderNodeToCanvas(
   const maskAsset = rasterMaskRef && doc ? doc.rasterMaskAssets?.[rasterMaskRef] : undefined;
   if (maskAsset?.dataUrl) {
     try {
-      const maskImg = await getImageCache().load(maskAsset.dataUrl);
+      const maskImg = await getImageCache().loadAtSize(
+        maskAsset.dataUrl,
+        Math.max(THUMB_W, THUMB_H),
+        maskAsset.width && maskAsset.height
+          ? { width: maskAsset.width, height: maskAsset.height }
+          : undefined,
+      );
       ctx.globalCompositeOperation = 'destination-in';
       ctx.drawImage(maskImg, ox, oy, area, area);
       ctx.globalCompositeOperation = 'source-over';

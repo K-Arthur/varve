@@ -14,6 +14,7 @@
  */
 import type { Platform } from '@varve/platform';
 import type { DocumentAsset, DocumentIconAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
+import type { Affine } from '@varve/shared';
 
 const VARVE_MIME = 'application/vnd.varve+json';
 const LEGACY_MIME = 'application/vnd.strata+json';
@@ -23,6 +24,19 @@ export interface ClipboardData {
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
   assets?: Record<string, DocumentAsset>;
   iconAssets?: Record<string, DocumentIconAsset>;
+  /**
+   * Placed-world transform of each copied selection root, keyed by the
+   * node's ORIGINAL id. Optional and forward-compatible: clipboard payloads
+   * without it (old copies, foreign writers) paste with legacy semantics
+   * (source local coordinates preserved verbatim).
+   *
+   * When present, paste converts through world space:
+   *   newLocal = targetParentWorld⁻¹ · anchor
+   * so a child copied from inside artboard A lands at the same WORLD pose
+   * after pasting into artboard B (or at the document top level) instead of
+   * being reinterpreted in the destination's local frame.
+   */
+  worldAnchor?: Record<string, Affine>;
 }
 
 export interface ClipboardImportItem {
@@ -41,6 +55,7 @@ export async function writeClipboard(
   rasterMaskAssets?: Record<string, RasterMaskAsset>,
   assets?: Record<string, DocumentAsset>,
   iconAssets?: Record<string, DocumentIconAsset>,
+  worldAnchor?: Record<string, Affine>,
 ): Promise<boolean> {
   try {
     const data: ClipboardData = {
@@ -48,6 +63,7 @@ export async function writeClipboard(
       ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
       ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
       ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
+      ...(worldAnchor && Object.keys(worldAnchor).length > 0 ? { worldAnchor } : {}),
     };
     const json = JSON.stringify(data);
     const blob = new Blob([json], { type: VARVE_MIME });

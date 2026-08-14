@@ -449,9 +449,71 @@ describe('CoordinateService — edge cases', () => {
     expect(t).toEqual([1, 0, 0, 1, 0, 0]);
   });
 
+  it('terminates on a cyclic parent graph (no infinite loop)', () => {
+    let doc = createDocument();
+    doc = addNode(doc, makeFrameNode('f1', { transform: [1, 0, 0, 1, 0, 0] }));
+    doc = addNode(doc, makeFrameNode('f2', { transform: [1, 0, 0, 1, 0, 0] }));
+    // Manually corrupt: f1 -> f2 -> f1
+    const nodes = { ...doc.nodes };
+    nodes.f1 = { ...(nodes.f1 as import('./types').FrameNode), children: ['f2'] };
+    nodes.f2 = { ...(nodes.f2 as import('./types').FrameNode), children: ['f1'] };
+    const cyclic = { ...doc, nodes };
+
+    const t = nodeWorldTransform(cyclic, 'f1');
+    expect(t).toHaveLength(6);
+    expect(t.every((v) => Number.isFinite(v))).toBe(true);
+  });
+
   it('returns null bounds for non-existent node', () => {
     const doc = createDocument();
     const b = nodeWorldBounds(doc, 'nonexistent');
     expect(b).toBeNull();
+  });
+});
+
+describe('CoordinateService — moving a parent must not rewrite descendants', () => {
+  it('moving an artboard changes child world position but not child local position', () => {
+    let doc = createDocument();
+    doc = addNode(doc, makeFrameNode('art', { transform: [1, 0, 0, 1, 1000, 500] }));
+    const child = makeRect('child', [1, 0, 0, 1, 25, 75]);
+    doc = addChild(doc, 'art', child);
+
+    const childLocalBefore = doc.nodes.child!.transform;
+    const childWorldBefore = nodeWorldTransform(doc, 'child');
+
+    // Child world position: (1000+25, 500+75) = (1025, 575)
+    expect(childWorldBefore[4]).toBeCloseTo(1025, EPS);
+    expect(childWorldBefore[5]).toBeCloseTo(575, EPS);
+
+    // Move the artboard: only the artboard transform changes.
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, art: { ...doc.nodes.art!, transform: [1, 0, 0, 1, 2000, -400] } },
+    };
+
+    // Stored child local coordinates unchanged.
+    expect(doc.nodes.child!.transform).toBe(childLocalBefore);
+
+    // Derived world position follows the artboard: (2025, -325).
+    const childWorldAfter = nodeWorldTransform(doc, 'child');
+    expect(childWorldAfter[4]).toBeCloseTo(2025, EPS);
+    expect(childWorldAfter[5]).toBeCloseTo(-325, EPS);
+  });
+
+  it('world round-trip through a nested chain preserves local coordinates', () => {
+    let doc = createDocument();
+    doc = addNode(doc, makeFrameNode('art', { transform: [1, 0, 0, 1, 1200, 800] }));
+    const g = makeGroupNode('g1', { transform: [1, 0, 0, 1, 50, 20] });
+    doc = addChild(doc, 'art', g);
+    const child = makeRect('s1', [1, 0, 0, 1, 40, 80]);
+    doc = addChild(doc, 'g1', child);
+
+    const world = localToWorld(doc, 's1', [10, 10]);
+    expect(world[0]).toBeCloseTo(1300, EPS); // 1200 + 50 + 40 + 10
+    expect(world[1]).toBeCloseTo(910, EPS); // 800 + 20 + 80 + 10
+
+    const local = worldToLocal(doc, 's1', world);
+    expect(local![0]).toBeCloseTo(10, EPS);
+    expect(local![1]).toBeCloseTo(10, EPS);
   });
 });

@@ -1,17 +1,20 @@
 mod crash;
 mod font;
 mod font_storage;
+mod filesystem;
+mod logs;
 mod lifecycle;
 mod menu;
 mod print;
 mod renderer;
+mod updates;
 
 use image::load_from_memory;
 use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 use tauri::ipc::Response;
@@ -40,6 +43,32 @@ fn check_scene_node_bounds(nodes: &[IpcSceneNode]) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+/// Hash an existing native model without loading the whole model into memory.
+/// The digest, not the advertised byte count, is the installation authority.
+fn sha256_file(path: &std::path::Path) -> Result<(u64, String), String> {
+    let mut file = std::fs::File::open(path)
+        .map_err(|error| format!("Failed to open existing model: {error}"))?;
+    let mut digest = Sha256::new();
+    let mut bytes = 0u64;
+    let mut buffer = [0u8; 1024 * 1024];
+    loop {
+        let read = file
+            .read(&mut buffer)
+            .map_err(|error| format!("Failed to read existing model: {error}"))?;
+        if read == 0 {
+            break;
+        }
+        digest.update(&buffer[..read]);
+        bytes += read as u64;
+    }
+    let checksum = digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok((bytes, checksum))
 }
 
 fn convert_scene(nodes: Vec<IpcSceneNode>) -> Vec<varve_core::SceneNode> {
@@ -239,25 +268,28 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory {}: {e}", parent.display()))?;
     }
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let tmp = parent.join(format!(".{name}.tmp-{}", uuid()));
-    let mut file = std::fs::File::create(&tmp)
-        .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
-    file.write_all(data)
-        .map_err(|e| format!("Failed to write temp file: {e}"))?;
-    file.sync_all()
-        .map_err(|e| format!("Failed to flush temp file: {e}"))?;
-    drop(file);
-    std::fs::rename(&tmp, path).map_err(|e| {
-        format!(
-            "Failed to rename {} -> {}: {e}",
-            tmp.display(),
-            path.display()
-        )
-    })?;
+    // The temporary name is app-generated, so it does not need to round-trip
+    // the target's native filename through UTF-8.  This keeps non-UTF-8 Unix
+    // filenames native and avoids using lossy text for path identity.
+    let tmp = parent.join(format!(".varve-write-{}.tmp", uuid()));
+    let result = (|| -> Result<(), String> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .map_err(|e| format!("Failed to create temp file {}: {e}", tmp.display()))?;
+        file.write_all(data)
+            .map_err(|e| format!("Failed to write temp file: {e}"))?;
+        file.sync_all()
+            .map_err(|e| format!("Failed to flush temp file: {e}"))?;
+        drop(file);
+        filesystem::replace_file(&tmp, path).map_err(|error| error.message)?;
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result?;
     // Best-effort directory fsync so the rename itself is durable, not just
     // the file contents. Not supported on every OS/filesystem (NFS, some
     // Windows volumes); failure here is ignored rather than failing the save.
@@ -337,6 +369,38 @@ fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
 fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
     let resolved = resolve_user_path(&path)?;
     write_file_atomic(&resolved, &data)
+}
+
+/// Write an export below a directory the user selected in the native folder
+/// dialog. The relative path is a portable export-plan path, not a native
+/// path; it is validated component-by-component before native joining.
+#[tauri::command]
+fn write_binary_file_to_folder(
+    folder: String,
+    relative_path: String,
+    data: Vec<u8>,
+) -> Result<String, String> {
+    let components = filesystem::validate_portable_relative_path(&relative_path)
+        .map_err(|error| error.message)?;
+
+    let root = resolve_user_path_approved(&folder)?;
+    if !root.is_dir() {
+        return Err("Export destination is not a directory".into());
+    }
+    let mut target = root.clone();
+    for component in components {
+        target.push(component);
+    }
+    let resolved = resolve_user_path_approved(
+        target
+            .to_str()
+            .ok_or_else(|| "Export path cannot be represented by the desktop IPC boundary".to_string())?,
+    )?;
+    if !resolved.starts_with(&root) {
+        return Err("Export path escapes the selected directory".into());
+    }
+    write_file_atomic(&resolved, &data)?;
+    Ok(filesystem::display_path(&resolved))
 }
 
 // ── Native clipboard ────────────────────────────────────────────────────
@@ -527,9 +591,22 @@ async fn download_background_removal_model(
         return Err("Native ONNX Runtime is unavailable on this desktop build".into());
     }
     let model = background_removal_model_info(&model_id)?.clone();
+    if !model.remote_url.starts_with("https://") {
+        return Err(format!("Refusing insecure model URL for {}", model.id));
+    }
+    let expected_checksum = model.checksum_sha256.clone().ok_or_else(|| {
+        format!(
+            "Model {} has no SHA-256 checksum and cannot be securely installed",
+            model.id
+        )
+    })?;
     let destination = varve_bgremove::model::model_path(&model_id);
-    if destination.metadata().map(|metadata| metadata.len()).ok() == Some(model.size_bytes) {
-        return Ok(model.size_bytes);
+    if destination.is_file() {
+        if let Ok((bytes, checksum)) = sha256_file(&destination) {
+            if checksum == expected_checksum {
+                return Ok(bytes);
+            }
+        }
     }
     if let Some(parent) = destination.parent() {
         std::fs::create_dir_all(parent)
@@ -538,7 +615,13 @@ async fn download_background_removal_model(
     let temporary = destination.with_extension(format!("onnx.download-{request_id}"));
     let result = async {
         let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::limited(8))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.url().scheme() == "https" {
+                    attempt.follow()
+                } else {
+                    attempt.stop()
+                }
+            }))
             .build()
             .map_err(|error| format!("Failed to create model downloader: {error}"))?;
         let mut response = client
@@ -581,30 +664,38 @@ async fn download_background_removal_model(
         }
         file.sync_all()
             .map_err(|error| format!("Failed to flush model file: {error}"))?;
-        if loaded != model.size_bytes {
+        let actual = digest
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+        if actual != expected_checksum {
             return Err(format!(
-                "Model size mismatch: expected {} bytes, received {loaded}",
-                model.size_bytes
+                "Model SHA-256 mismatch: expected {expected_checksum}, received {actual}"
             ));
         }
-        if let Some(expected) = &model.checksum_sha256 {
-            let actual = digest
-                .finalize()
-                .iter()
-                .map(|b| format!("{:02x}", b))
-                .collect::<String>();
-            if &actual != expected {
-                return Err(format!(
-                    "Model SHA-256 mismatch: expected {expected}, received {actual}"
-                ));
+        let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
+            .lock()
+            .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+            .remove(&request_id);
+        if cancelled {
+            return Err("Download cancelled".into());
+        }
+        // On Unix, rename replaces the destination atomically. Windows does
+        // not allow replacing an existing file, so retain a narrow fallback
+        // for that platform rather than deleting the good model first on all
+        // platforms.
+        if let Err(rename_error) = std::fs::rename(&temporary, &destination) {
+            if destination.exists() {
+                std::fs::remove_file(&destination)
+                    .map_err(|error| format!("Failed to replace native model: {error}"))?;
+                std::fs::rename(&temporary, &destination).map_err(|error| {
+                    format!("Failed to install native model after replacement: {error}")
+                })?;
+            } else {
+                return Err(format!("Failed to install native model: {rename_error}"));
             }
         }
-        if destination.exists() {
-            std::fs::remove_file(&destination)
-                .map_err(|error| format!("Failed to replace native model: {error}"))?;
-        }
-        std::fs::rename(&temporary, &destination)
-            .map_err(|error| format!("Failed to install native model: {error}"))?;
         Ok(loaded)
     }
     .await;
@@ -1092,6 +1183,11 @@ async fn upscale_image_command(
         .model_id
         .clone()
         .unwrap_or_else(|| "upscale-realesr-general".to_string());
+    // The model id becomes a filename under the app-owned models root. It is
+    // validated here (not inside varve-upscale, which is also used by
+    // non-desktop callers) so a `../` component can never escape the root on
+    // a read.
+    filesystem::validate_storage_key(&model_id).map_err(|error| error.message)?;
     let max_pixels = options.max_pixels;
     let target_width = options.target_width;
     let target_height = options.target_height;
@@ -1780,6 +1876,17 @@ impl PdfXOptions {
             } else {
                 varve_print::marks::MarksGeometry::default().bleed_mm
             },
+            draw_crop_marks: self.include_crop_marks,
+            trim_offset_mm: if self.include_crop_marks {
+                varve_print::marks::MarksGeometry::default().trim_offset_mm
+            } else {
+                0.0
+            },
+            mark_length_mm: if self.include_crop_marks {
+                varve_print::marks::MarksGeometry::default().mark_length_mm
+            } else {
+                0.0
+            },
             ..Default::default()
         })
     }
@@ -1984,6 +2091,59 @@ fn project_to_home(p: varve_sync::ProjectRow) -> HomeProject {
     }
 }
 
+/// Recent-file record, mirroring the TS `RecentFileRecord` shape.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecentFileRecord {
+    id: String,
+    name: String,
+    last_opened_at: i64,
+    opened_count: i64,
+    pinned: bool,
+    hidden: bool,
+    workspace_relevance: Vec<String>,
+    user_workspace_tag: Option<String>,
+    encrypted: bool,
+    missing: bool,
+    version: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_workspace_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content_hash: Option<String>,
+}
+
+fn recent_to_home(r: varve_sync::RecentRow) -> RecentFileRecord {
+    let workspace_relevance = serde_json::from_str(&r.workspace_relevance)
+        .unwrap_or_default();
+    RecentFileRecord {
+        id: r.id,
+        name: r.name,
+        last_opened_at: r.last_opened_at,
+        opened_count: r.opened_count,
+        pinned: r.pinned,
+        hidden: r.hidden,
+        workspace_relevance,
+        user_workspace_tag: r.user_workspace_tag,
+        encrypted: r.encrypted,
+        missing: r.missing,
+        version: r.version,
+        source_workspace_id: r.source_workspace_id,
+        content_hash: r.content_hash,
+    }
+}
+
+/// Frontend-editable recent-file fields. Identity and counters are owned by
+/// the store and are never accepted from the frontend.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct RecentFilePatch {
+    pinned: Option<bool>,
+    hidden: Option<bool>,
+    user_workspace_tag: Option<Option<String>>,
+    name: Option<String>,
+    missing: Option<bool>,
+}
+
 fn now_rfc3339() -> String {
     chrono::Utc::now().to_rfc3339()
 }
@@ -2045,7 +2205,36 @@ fn home_read_file(
 
 #[tauri::command]
 fn home_file_exists(path: String) -> bool {
-    std::path::Path::new(&path).exists()
+    is_probeable_absolute_path(&path).is_some() && std::path::Path::new(&path).exists()
+}
+
+/// Batch existence probe for Home's missing-file sweep. One IPC round-trip
+/// instead of one per file row. Per-path validation failures report `false`
+/// (never-found), which is the conservative reading for an invalid input.
+#[tauri::command]
+fn home_check_files_exist(paths: Vec<String>) -> Vec<bool> {
+    paths
+        .into_iter()
+        .map(|path| match is_probeable_absolute_path(&path) {
+            Some(validated) => validated.exists(),
+            None => false,
+        })
+        .collect()
+}
+
+/// An existence probe must never accept relative or NUL-containing input, so
+/// a compromised renderer cannot turn this command into a path oracle for
+/// arbitrary strings. Only absolute OS paths (the shape native dialogs and
+/// drag/drop produce) are probed.
+fn is_probeable_absolute_path(path: &str) -> Option<&std::path::Path> {
+    if path.is_empty() || path.contains('\0') {
+        return None;
+    }
+    let parsed = std::path::Path::new(path);
+    if !parsed.is_absolute() {
+        return None;
+    }
+    Some(parsed)
 }
 
 #[tauri::command]
@@ -2341,6 +2530,73 @@ fn home_reorder_file(
         .map_err(|e| e.to_string())
 }
 
+// ── Recent files ─────────────────────────────────────────────────────────
+//
+// The recent list lives in the same SQLite store as the Home index, so it
+// survives restarts and stays consistent with file rows. Records keep
+// `missing` and `hidden` state instead of being deleted when a path is
+// temporarily unavailable (network/removable volumes), so a reconnect does
+// not lose history.
+
+#[tauri::command]
+fn home_list_recent_files(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    limit: Option<i64>,
+) -> Result<Vec<RecentFileRecord>, String> {
+    let limit = limit.unwrap_or(50).clamp(1, 200);
+    store
+        .list_recent_files(limit)
+        .map(|rows| rows.into_iter().map(recent_to_home).collect())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_touch_recent_file(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    id: String,
+    name: String,
+    source_workspace_id: Option<String>,
+    content_hash: Option<String>,
+) -> Result<RecentFileRecord, String> {
+    store
+        .touch_recent_file(&id, &name, source_workspace_id.as_deref(), content_hash.as_deref())
+        .map(recent_to_home)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_patch_recent_file(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    id: String,
+    patch: RecentFilePatch,
+) -> Result<(), String> {
+    store
+        .patch_recent_file(
+            &id,
+            patch.pinned,
+            patch.hidden,
+            patch.user_workspace_tag,
+            patch.name,
+            patch.missing,
+        )
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_remove_recent_file(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+    id: String,
+) -> Result<(), String> {
+    store.remove_recent_file(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn home_clear_recent_history(
+    store: tauri::State<'_, varve_sync::DocumentStore>,
+) -> Result<(), String> {
+    store.clear_recent_history().map_err(|e| e.to_string())
+}
+
 // ── File-system read/write (for open/save from disk) ─────────────────────
 
 #[tauri::command]
@@ -2362,9 +2618,20 @@ fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
 // from a user dialog.
 
 #[tauri::command]
-fn home_read_text_file_approved(path: String) -> Result<String, String> {
-    let resolved = resolve_user_path_approved(&path)?;
-    std::fs::read_to_string(&resolved).map_err(|e| e.to_string())
+fn home_read_text_file_approved(path: String) -> Result<String, filesystem::FsError> {
+    let resolved = resolve_user_path_approved(&path).map_err(|message| {
+        // The only resolver rejection that means "the file and its parent
+        // chain are gone" is the no-existing-ancestor case; every other
+        // rejection is an invalid or traversing path.
+        let kind = if message.contains("does not resolve to any existing ancestor") {
+            filesystem::FsErrorKind::NotFound
+        } else {
+            filesystem::FsErrorKind::InvalidPath
+        };
+        filesystem::FsError::new(kind, message)
+    })?;
+    std::fs::read_to_string(&resolved)
+        .map_err(|error| filesystem::FsError::from_io("read", &resolved, &error))
 }
 
 #[tauri::command]
@@ -2374,29 +2641,33 @@ fn home_write_text_file_approved(path: String, contents: String) -> Result<(), S
 }
 
 fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to resolve app data dir: {e}"))?
-        .join("models");
+    let dir = filesystem::AppDirectories::resolve(app)
+        .map_err(|error| error.message)?
+        .models;
     std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {e}"))?;
     Ok(dir)
 }
 
 #[tauri::command]
 fn read_model_file(app: tauri::AppHandle, model_id: String) -> Result<Vec<u8>, String> {
+    filesystem::validate_storage_key(&model_id)
+        .map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     std::fs::read(&path).map_err(|e| format!("Failed to read model file {model_id}: {e}"))
 }
 
 #[tauri::command]
 fn write_model_file(app: tauri::AppHandle, model_id: String, data: Vec<u8>) -> Result<(), String> {
+    filesystem::validate_storage_key(&model_id)
+        .map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     write_file_atomic(&path, &data)
 }
 
 #[tauri::command]
 fn delete_model_file(app: tauri::AppHandle, model_id: String) -> Result<(), String> {
+    filesystem::validate_storage_key(&model_id)
+        .map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     if path.exists() {
         std::fs::remove_file(&path)
@@ -2578,7 +2849,9 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_opener::init());
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build());
 
     // WDIO testing plugins (debug-only, excluded from release builds)
     #[cfg(feature = "wdio")]
@@ -2600,13 +2873,35 @@ pub fn run() {
             // native_ai_status (see that command below), which can only
             // happen once the webview is already up and running JS.
 
-            let data_dir = app.path().app_data_dir().expect("no app data dir");
-            migrate_legacy_data_dir(&data_dir);
-            std::fs::create_dir_all(&data_dir).expect("create data dir");
+            let directories = filesystem::AppDirectories::resolve(app.handle())
+                .map_err(|error| error.message.clone())
+                .expect("resolve Varve application directories");
+            // Migrate before creating new roots. The migration itself is
+            // per-file and leaves legacy data in place; this ordering keeps a
+            // fresh Varve directory distinguishable from a completed copy.
+            let migration = migrate_legacy_data_dir(&directories.data);
+            directories
+                .ensure_mutable_roots()
+                .map_err(|error| error.message.clone())
+                .expect("create Varve application directories");
+            // The standalone inference crates use a platform-neutral fallback
+            // for non-Tauri callers, but the desktop process always injects
+            // the authoritative Tauri-resolved model root.
+            varve_bgremove::model::configure_models_dir(directories.models.clone());
+            varve_upscale::configure_model_directory(directories.models.clone());
+            let model_migration = varve_bgremove::model::migrate_legacy_models();
+            let data_dir = directories.data.clone();
+            logs::init(&directories.logs);
+            logs::log_line(
+                "migration",
+                &logs::redact_for_log(&format!(
+                    "legacy data migration: {migration:?}; legacy model migration: {model_migration:?}"
+                )),
+            );
             // Native crash capture: panic hook + sandboxed report filesystem.
             // Deliberately before any other subsystem — a panic later still
             // lands an emergency record.
-            crash::install(data_dir.as_path());
+            crash::install(&directories.crash_reports);
             let db_path = data_dir.join("documents.db");
             let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
@@ -2706,12 +3001,14 @@ pub fn run() {
             render_frame_pixels,
             report,
             done,
+            updates::update_packaging_context,
             // Home commands
             home_list_files,
             home_list_trashed,
             home_get_file,
             home_read_file,
             home_file_exists,
+            home_check_files_exist,
             home_upsert_file,
             home_touch_file,
             home_rename_file,
@@ -2736,11 +3033,17 @@ pub fn run() {
             home_delete_thumbnail,
             home_search_files,
             home_reorder_file,
+            home_list_recent_files,
+            home_touch_recent_file,
+            home_patch_recent_file,
+            home_remove_recent_file,
+            home_clear_recent_history,
             home_read_text_file,
             home_write_text_file,
             home_read_text_file_approved,
             home_write_text_file_approved,
             write_binary_file,
+            write_binary_file_to_folder,
             read_dropped_file,
             read_clipboard_image_png,
             remove_background,
@@ -2846,8 +3149,31 @@ fn list_printers() -> Vec<PrinterInfo> {
 }
 
 #[tauri::command]
-fn print_pdf(pdf_data: Vec<u8>, job_title: String, options: PrintOptions) -> PrintResult {
+fn print_pdf(
+    app: tauri::AppHandle,
+    pdf_data: Vec<u8>,
+    job_title: String,
+    options: PrintOptions,
+) -> PrintResult {
+    let temporary = match filesystem::AppDirectories::resolve(&app) {
+        Ok(directories) => directories.temporary,
+        Err(error) => {
+            return PrintResult {
+                job_id: 0,
+                message: error.message,
+                success: false,
+            };
+        }
+    };
+    if let Err(error) = std::fs::create_dir_all(&temporary) {
+        return PrintResult {
+            job_id: 0,
+            message: format!("Failed to create print staging directory: {error}"),
+            success: false,
+        };
+    }
     let result = crate::print::print_pdf(
+        &temporary,
         &options.printer_name,
         &pdf_data,
         &job_title,
@@ -3797,6 +4123,25 @@ mod tests {
     }
 
     #[test]
+    fn atomic_write_replaces_content_without_leaving_staging_files() {
+        let dir = std::env::temp_dir().join(format!("varve_atomic_write_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("document.varve");
+        std::fs::write(&target, b"old").expect("write initial content");
+
+        write_file_atomic(&target, b"new").expect("atomic write succeeds");
+
+        assert_eq!(std::fs::read(&target).expect("read final content"), b"new");
+        let leftovers = std::fs::read_dir(&dir)
+            .expect("read test dir")
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with(".varve-write-"))
+            .count();
+        assert_eq!(leftovers, 0, "successful writes should consume their staging file");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn resolve_user_path_rejects_nul_byte() {
         assert!(resolve_user_path("/tmp/foo\0bar").is_err());
     }
@@ -4225,11 +4570,13 @@ fn migrate_legacy_data_dir_from(
             //
             // Removing it means the next launch retries from a clean state.
             let _ = std::fs::remove_dir_all(data_dir);
-            eprintln!(
-                "[varve] could not migrate data from {}: {err}. \
-                 The previous directory is untouched; retrying on next launch.",
+            let message = format!(
+                "could not migrate data from {}: {err}. The previous directory \
+                 is untouched; retrying on next launch.",
                 legacy.display()
             );
+            eprintln!("[varve] {message}");
+            logs::log_line("migration", &logs::redact_for_log(&message));
             LegacyMigration::Failed
         }
     }

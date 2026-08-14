@@ -6,17 +6,20 @@
  * Research basis: Figma multi-run text editing, ARIA textbox selection model.
  */
 
+import { createUnicodeIndexMap, normalizeGraphemeRange, snapUtf16Offset } from '@varve/engine';
 import type { CharacterFormat, Paragraph, RichText, TextRun } from './typography';
 
 // ── Run splitting ───────────────────────────────────────────────────────────
 
 /**
  * Split a run at a UTF-16 offset, returning the two resulting runs. The
- * `format` is preserved on both halves; only `characterStyleId` stays with
- * the left half (the right half carries no explicit style link).
+ * offset is snapped to an extended grapheme boundary so a run can never
+ * split a surrogate pair, combining sequence, or ZWJ sequence. The `format`
+ * is preserved on both halves; only `characterStyleId` stays with the left
+ * half (the right half carries no explicit style link).
  */
 export function splitRunAt(run: TextRun, offset: number): [TextRun, TextRun] {
-  const safeOffset = Math.max(0, Math.min(offset, run.text.length));
+  const safeOffset = snapUtf16Offset(createUnicodeIndexMap(run.text), offset);
   return [
     {
       text: run.text.slice(0, safeOffset),
@@ -72,8 +75,53 @@ export function mergeAdjacentRuns(para: Paragraph): Paragraph {
 
 /** A run address within a flattened rich-text plane. */
 export interface RichSelection {
+  /** UTF-16 code-unit offsets within the selected paragraph. */
   start: { paragraphIndex: number; offset: number };
   end: { paragraphIndex: number; offset: number };
+}
+
+export interface MixedCharacterValue<T> {
+  value: T | undefined;
+  mixed: boolean;
+}
+
+/** Read one character property across a logical selection. */
+export function characterFormatValue<T extends keyof CharacterFormat>(
+  rich: RichText,
+  selection: RichSelection,
+  key: T,
+): MixedCharacterValue<CharacterFormat[T]> {
+  const { start, end } = normalizeSelection(selection);
+  const values: unknown[] = [];
+  for (
+    let paragraphIndex = start.paragraphIndex;
+    paragraphIndex <= end.paragraphIndex;
+    paragraphIndex++
+  ) {
+    const paragraph = rich.paragraphs[paragraphIndex];
+    if (!paragraph) continue;
+    const length = paragraphLength(paragraph);
+    const rangeStart = paragraphIndex === start.paragraphIndex ? start.offset : 0;
+    const rangeEnd = paragraphIndex === end.paragraphIndex ? end.offset : length;
+    let cursor = 0;
+    for (const run of paragraph.runs) {
+      const runEnd = cursor + run.text.length;
+      if (runEnd > rangeStart && cursor < rangeEnd) values.push(run.format?.[key]);
+      cursor = runEnd;
+    }
+  }
+  if (values.length === 0) return { value: undefined, mixed: false };
+  const first = values[0];
+  return {
+    value: first as CharacterFormat[T] | undefined,
+    mixed: values.some((value) => !sameFormatValue(value, first)),
+  };
+}
+
+function sameFormatValue(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function paragraphLength(para: Paragraph): number {
@@ -90,6 +138,54 @@ export function applyFormatToSelection(
   selection: RichSelection,
   format: CharacterFormat,
 ): RichText {
+  return rewriteCharacterFormat(rich, selection, (base) => mergeFormat(base, format));
+}
+
+/** Remove selected character-format properties without disturbing others. */
+export function removeCharacterFormat(
+  rich: RichText,
+  selection: RichSelection,
+  keys: readonly (keyof CharacterFormat)[],
+): RichText {
+  const removed = new Set<string>(keys as readonly string[]);
+  return rewriteCharacterFormat(rich, selection, (base) => {
+    if (!base) return undefined;
+    const next = Object.fromEntries(Object.entries(base).filter(([key]) => !removed.has(key)));
+    return Object.keys(next).length > 0 ? (next as CharacterFormat) : undefined;
+  });
+}
+
+/** Replace text in one paragraph while preserving surrounding run formats. */
+export function replaceTextInParagraph(
+  rich: RichText,
+  paragraphIndex: number,
+  start: number,
+  end: number,
+  replacement: string,
+  format?: CharacterFormat,
+): RichText {
+  const paragraph = rich.paragraphs[paragraphIndex];
+  if (!paragraph) return rich;
+  const text = paragraph.runs.map((run) => run.text).join('');
+  const safe = normalizeGraphemeRange(createUnicodeIndexMap(text), start, end);
+  const inherited = format ?? formatAtOffset(paragraph, safe.start);
+  const before = text.slice(0, safe.start);
+  const after = text.slice(safe.end);
+  const runs: TextRun[] = [];
+  if (before) runs.push({ text: before, format: formatAtOffset(paragraph, 0) });
+  if (replacement) runs.push({ text: replacement, format: inherited });
+  if (after) runs.push({ text: after, format: formatAtOffset(paragraph, safe.end) });
+  const paragraphs = rich.paragraphs.map((candidate, index) =>
+    index === paragraphIndex ? mergeAdjacentRuns({ ...candidate, runs }) : candidate,
+  );
+  return { paragraphs };
+}
+
+function rewriteCharacterFormat(
+  rich: RichText,
+  selection: RichSelection,
+  rewrite: (base: CharacterFormat | undefined) => CharacterFormat | undefined,
+): RichText {
   const paras = rich.paragraphs.map((p) => ({ ...p, runs: [...p.runs.map((r) => ({ ...r }))] }));
   const { start, end } = normalizeSelection(selection);
 
@@ -97,8 +193,14 @@ export function applyFormatToSelection(
     const para = paras[pi];
     if (!para) continue;
     const paraLen = paragraphLength(para);
-    const rangeStart = pi === start.paragraphIndex ? start.offset : 0;
-    const rangeEnd = pi === end.paragraphIndex ? end.offset : paraLen;
+    const paragraphMap = createUnicodeIndexMap(para.runs.map((run) => run.text).join(''));
+    const selectedRange = normalizeGraphemeRange(
+      paragraphMap,
+      pi === start.paragraphIndex ? start.offset : 0,
+      pi === end.paragraphIndex ? end.offset : paraLen,
+    );
+    const rangeStart = selectedRange.start;
+    const rangeEnd = selectedRange.end;
     if (rangeStart >= rangeEnd) continue;
 
     const newRuns: TextRun[] = [];
@@ -122,7 +224,7 @@ export function applyFormatToSelection(
       }
       newRuns.push({
         text: run.text.slice(selStart, selEnd),
-        format: mergeFormat(run.format, format),
+        format: rewrite(run.format),
         characterStyleId: run.characterStyleId,
       });
       if (selEnd < run.text.length) {
@@ -134,6 +236,15 @@ export function applyFormatToSelection(
   }
 
   return { paragraphs: paras.map(mergeAdjacentRuns) };
+}
+
+function formatAtOffset(para: Paragraph, offset: number): CharacterFormat | undefined {
+  let cursor = 0;
+  for (const run of para.runs) {
+    if (offset <= cursor + run.text.length) return run.format;
+    cursor += run.text.length;
+  }
+  return para.runs[para.runs.length - 1]?.format;
 }
 
 function normalizeSelection(sel: RichSelection): RichSelection {

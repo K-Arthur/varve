@@ -14,6 +14,7 @@
  */
 
 import type { PathPoint, Shape } from '@varve/engine';
+import { reflowLayoutChildren, resizeNodeGeometry } from '@varve/layout';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import { applyConstraints, getParent } from '@varve/scene';
 import type { Affine, Point, Rect } from '@varve/shared';
@@ -34,7 +35,7 @@ import {
   tryInvertAffine,
 } from '@varve/shared';
 import { OBJECT_RESIZE_POLICIES } from '../context/selectionState';
-import { resizeNodeGeometry } from '../scene/resizeGeometry';
+
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
 export interface TransformNodeState {
@@ -388,6 +389,20 @@ export class TransformEngine {
                 ...child,
                 transform: newChildLocal,
               } as SceneNode;
+            }
+          } else if (node.layoutStyle) {
+            // Layout frames reflow: layout owns child positions (and
+            // fill/grow sizes), so a canvas resize must re-run the layout
+            // against the frame's new box — constraint propagation alone
+            // leaves flex/grid children exactly where they were.
+            const reflowed = reflowLayoutChildren(
+              { ...currentDoc, nodes: { ...currentDoc.nodes, ...updates } },
+              node.id,
+            );
+            for (const childId of node.children) {
+              const child = reflowed.nodes[childId];
+              if (!child) continue;
+              updates[childId] = child;
             }
           } else {
             // Apply child constraints when the frame has changed dimensions

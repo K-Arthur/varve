@@ -10,12 +10,36 @@
  */
 import {
   decodeEfficientNetOutput,
+  embedTextForSearchWith,
   getFontRegistry,
   getInferenceWorkerHost,
   getModelLoader,
+  imageEmbeddingSpecFor,
   normalizeEmbedding,
-  rankBySimilarity,
+  SIGLIP_TEXT_MODEL_ID,
 } from '@varve/engine';
+import type {
+  EmbeddingVector,
+  SimilarityCandidate,
+  SimilaritySearchMode,
+} from '@varve/engine/semanticSimilarity';
+import {
+  DINOV2_SMALL_IMAGE_MODEL,
+  dHash,
+  embedImageForSearchWith,
+  pHash,
+  SIGLIP_IMAGE_MODEL,
+  SIGLIP_TEXT_EMBEDDING_SPEC,
+  searchNearDuplicates,
+  searchSemantic,
+} from '@varve/engine/semanticSimilarity';
+import {
+  assetEmbeddingKey,
+  decodeFloat32Embedding,
+  IndexedDbSemanticEmbeddingStore,
+  makeAssetEmbeddingRecord,
+  type SemanticEmbeddingStore,
+} from '@varve/platform';
 import { validatePrototype } from '@varve/prototype';
 import type { Document, NodeId, ShapeNode } from '@varve/scene';
 import {
@@ -61,6 +85,7 @@ import {
   type SpacingAnalysis,
 } from '../intelligence/spacingHarmonizer';
 import { buildPromotionPlan, type VariantPromotionPlan } from '../intelligence/variantPromotion';
+import { contentHashForSrc } from '../semantic/contentHash';
 
 import '../components/Inspector/inspector.css';
 
@@ -2343,10 +2368,19 @@ function ComponentsTab() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Tab 9: Similar — Find Similar Images (SigLIP)                     */
+/*  Tab 9: Similar — Find Similar Images                              */
 /* ------------------------------------------------------------------ */
 
-const SIGLIP_MODEL_ID = 'siglip-base-patch16-224';
+/**
+ * Image-to-image lane uses DINOv2-small (evidence-backed default: parity
+ * verified, retrieval ≈ SigLIP, ~1.8x faster, 2.4x smaller). The
+ * natural-language lane compares against SigLIP *image* embeddings, so
+ * it keeps the SigLIP image encoder (separate space — see
+ * EmbeddingVector compatibility guards in semanticSimilarity).
+ */
+const EMBED_IMAGE_MODEL = DINOV2_SMALL_IMAGE_MODEL;
+const EMBED_IMAGE_MODEL_ID = EMBED_IMAGE_MODEL.id;
+const SIGLIP_MODEL_ID = SIGLIP_IMAGE_MODEL.id;
 /** Bound how many document images get embedded per search — running
  * inference on an unbounded document could stall the UI for a long time. */
 const MAX_SIMILAR_CANDIDATES = 30;
@@ -2355,21 +2389,47 @@ interface SimilarMatch {
   nodeId: NodeId;
   src: string;
   similarity: number;
+  lane: SimilaritySearchMode;
 }
+
+/**
+ * Deterministic test seam: E2E specs inject a mock embedder through
+ * window.__varveSimilarityTest.mockEmbed to cover the populated-results
+ * UI without running real inference. Production code never installs it.
+ */
+interface WindowSimilarityTestHook {
+  mockEmbed?: (src: string) => Promise<EmbeddingVector>;
+}
+
+declare global {
+  interface Window {
+    __varveSimilarityTest?: WindowSimilarityTestHook;
+  }
+}
+
+const MAX_SEMANTIC_SOURCE_DIMENSION = 2048;
 
 function loadImageToImageDataForAI(src: string): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
+      const scale = Math.min(
+        1,
+        MAX_SEMANTIC_SOURCE_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight),
+      );
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
       const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
       }
-      ctx.drawImage(img, 0, 0);
+      // Make transparent assets deterministic: the embedding sees a neutral
+      // matte rather than browser-dependent transparent-black pixels.
+      ctx.fillStyle = 'rgb(128 128 128)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
     };
     img.onerror = () => reject(new Error('Failed to load image'));
@@ -2382,12 +2442,18 @@ function SimilarTab() {
   const { state, setSelection, announce } = useEditor();
   const abortRef = useRef<AbortController | null>(null);
   const downloadAbortRef = useRef<AbortController | null>(null);
-  const embeddingCacheRef = useRef<Map<string, Float32Array>>(new Map());
+  const embeddingCacheRef = useRef<Map<string, EmbeddingVector>>(new Map());
+  const embeddingStoreRef = useRef<SemanticEmbeddingStore | null>(null);
+  const imageDataCacheRef = useRef<Map<string, ImageData>>(new Map());
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [modelAvailable, setModelAvailable] = useState(false);
+  const [textModelAvailable, setTextModelAvailable] = useState(false);
+  const [queryText, setQueryText] = useState('');
   const [status, setStatus] = useState<'idle' | 'downloading' | 'searching' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [matches, setMatches] = useState<SimilarMatch[] | null>(null);
+  const [searchMode, setSearchMode] = useState<SimilaritySearchMode>('semantic');
+  const [scannedCount, setScannedCount] = useState(0);
 
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : null;
@@ -2397,8 +2463,15 @@ function SimilarTab() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const available = await getModelLoader().isModelAvailable(SIGLIP_MODEL_ID);
-      if (!cancelled) setModelAvailable(available);
+      const loader = getModelLoader();
+      const [available, textAvailable] = await Promise.all([
+        loader.isModelAvailable(EMBED_IMAGE_MODEL_ID),
+        loader.isModelAvailable(SIGLIP_TEXT_MODEL_ID),
+      ]);
+      if (!cancelled) {
+        setModelAvailable(available);
+        setTextModelAvailable(textAvailable);
+      }
     })();
     return () => {
       cancelled = true;
@@ -2414,7 +2487,7 @@ function SimilarTab() {
     try {
       const loader = getModelLoader();
       await loader.downloadModel(
-        SIGLIP_MODEL_ID,
+        EMBED_IMAGE_MODEL_ID,
         (loaded, total) => {
           setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
         },
@@ -2439,40 +2512,126 @@ function SimilarTab() {
     downloadAbortRef.current?.abort();
   }, []);
 
+  const handleDownloadTextModel = useCallback(async () => {
+    setStatus('downloading');
+    setErrorMessage(null);
+    setDownloadProgress(0);
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
+    try {
+      await getModelLoader().downloadModel(
+        SIGLIP_TEXT_MODEL_ID,
+        (loaded, total) => {
+          setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+        },
+        controller.signal,
+      );
+      setTextModelAvailable(true);
+      setStatus('idle');
+      announce('Natural-language search model downloaded');
+    } catch (err) {
+      if (controller.signal.aborted) {
+        setStatus('idle');
+        return;
+      }
+      setErrorMessage(err instanceof Error ? err.message : 'Download failed');
+      setStatus('error');
+    } finally {
+      downloadAbortRef.current = null;
+    }
+  }, [announce]);
+
   const embed = useCallback(
-    async (src: string, modelPath: string, signal: AbortSignal): Promise<Float32Array> => {
-      const cached = embeddingCacheRef.current.get(src);
+    async (
+      src: string,
+      modelPath: string,
+      signal: AbortSignal,
+      space: {
+        model: typeof EMBED_IMAGE_MODEL;
+      } = {
+        model: EMBED_IMAGE_MODEL,
+      },
+    ): Promise<EmbeddingVector> => {
+      // E2E-only deterministic seam (see WindowSimilarityTestHook).
+      const testMock = window.__varveSimilarityTest?.mockEmbed;
+      if (testMock) {
+        const mocked = await testMock(src);
+        if (signal.aborted) throw new Error('cancelled');
+        return mocked;
+      }
+
+      const identity = {
+        contentHash: await contentHashForSrc(src),
+        modelId: space.model.id,
+        modelVersion: space.model.revision,
+        preprocessingVersion: space.model.preprocessingVersion,
+        embeddingSchemaVersion: 'semantic-embedding-v1',
+      };
+      const cacheKey = assetEmbeddingKey(identity);
+      const cached = embeddingCacheRef.current.get(cacheKey);
       if (cached) return cached;
 
-      const imageData = await loadImageToImageDataForAI(src);
+      if (!embeddingStoreRef.current && typeof indexedDB !== 'undefined') {
+        embeddingStoreRef.current = new IndexedDbSemanticEmbeddingStore();
+      }
+      const stored = await embeddingStoreRef.current?.get(cacheKey).catch(() => null);
+      if (stored) {
+        const embedding: EmbeddingVector = {
+          modelId: stored.identity.modelId,
+          modelRevision: stored.identity.modelVersion,
+          embeddingSpaceVersion: space.model.embeddingSpaceVersion,
+          preprocessingVersion: stored.identity.preprocessingVersion,
+          dimension: stored.dimension,
+          // The platform store labels raw float buffers 'float32'; the
+          // embedding contract's vocabulary is fp32/fp16/int8.
+          dtype: 'fp32',
+          normalized: true,
+          values: normalizeEmbedding(decodeFloat32Embedding(stored.bytes, stored.dimension)),
+        };
+        embeddingCacheRef.current.set(cacheKey, embedding);
+        return embedding;
+      }
+
+      let imageData = imageDataCacheRef.current.get(src);
+      if (!imageData) {
+        imageData = await loadImageToImageDataForAI(src);
+        imageDataCacheRef.current.set(src, imageData);
+      }
       if (signal.aborted) throw new Error('cancelled');
 
-      const host = getInferenceWorkerHost();
-      const result = await host.infer(
-        {
-          type: 'infer',
-          modelType: 'siglip-image',
-          modelPath,
-          modelId: SIGLIP_MODEL_ID,
-          imageData,
-          reuseSession: true,
-        },
-        { signal, timeoutMs: 30_000 },
+      const runtimeSpec = imageEmbeddingSpecFor(space.model.id);
+      if (!runtimeSpec) {
+        throw new Error(`No embedding runtime registered for model '${space.model.id}'`);
+      }
+      const embedding = await embedImageForSearchWith(
+        { width: imageData.width, height: imageData.height, data: imageData.data },
+        runtimeSpec,
+        modelPath,
+        signal,
       );
-      if (signal.aborted) throw new Error('cancelled');
-
-      // Verified real output tensor name (see siglip.ts): "pooler_output".
-      const rawOutputs = result.outputs as {
-        pooler_output: { data: Float32Array; dims: number[] };
-      };
-      const raw = rawOutputs.pooler_output;
-      if (!raw) throw new Error('Embedding did not produce an output tensor');
-      const embedding = normalizeEmbedding(raw.data);
-      embeddingCacheRef.current.set(src, embedding);
+      embeddingCacheRef.current.set(cacheKey, embedding);
+      const store = embeddingStoreRef.current;
+      if (store) {
+        await store
+          .put(
+            makeAssetEmbeddingRecord(identity, embedding.values, {
+              contentId: src,
+              sourceGeneration: src,
+              createdAt: Date.now(),
+            }),
+          )
+          .catch(() => {
+            // Derived cache persistence is best-effort; source search remains usable.
+          });
+      }
       return embedding;
     },
     [],
   );
+
+  const embedText = useCallback(async (query: string, modelPath: string, signal: AbortSignal) => {
+    return embedTextForSearchWith(query, SIGLIP_TEXT_EMBEDDING_SPEC, modelPath, signal);
+  }, []);
 
   const handleSearch = useCallback(async () => {
     abortRef.current?.abort();
@@ -2482,34 +2641,90 @@ function SimilarTab() {
     setErrorMessage(null);
 
     try {
-      if (!imageSrc || !selectedNode) throw new Error('No image selected');
-
+      const testMock = window.__varveSimilarityTest?.mockEmbed;
       const loader = getModelLoader();
-      const modelPath = await loader.getModelPath(SIGLIP_MODEL_ID, controller.signal);
-      if (!modelPath) throw new Error('Find Similar model not downloaded');
+      const imageModelPath = testMock
+        ? '/mock/model.onnx'
+        : await loader.getModelPath(SIGLIP_MODEL_ID, controller.signal);
+      if (!imageModelPath) throw new Error('Find Similar image model not downloaded');
 
-      const queryEmbedding = await embed(imageSrc, modelPath, controller.signal);
+      const textQuery = queryText.trim();
+      const isTextSearch = textQuery.length > 0;
+      if (isTextSearch && !textModelAvailable) {
+        throw new Error('Download the natural-language search model first');
+      }
 
-      const candidates: Array<{ item: { nodeId: NodeId; src: string }; embedding: Float32Array }> =
-        [];
+      const queryEmbedding = isTextSearch
+        ? await embedText(
+            textQuery,
+            (await loader.getModelPath(SIGLIP_TEXT_MODEL_ID, controller.signal)) ??
+              (() => {
+                throw new Error('Natural-language search model not downloaded');
+              })(),
+            controller.signal,
+          )
+        : await (async () => {
+            if (!imageSrc || !selectedNode)
+              throw new Error('Select an image or enter a description');
+            return embed(imageSrc, imageModelPath, controller.signal);
+          })();
+
+      const queryImageData =
+        !isTextSearch && searchMode === 'near-duplicates' && imageSrc
+          ? (imageDataCacheRef.current.get(imageSrc) ?? (await loadImageToImageDataForAI(imageSrc)))
+          : undefined;
+      if (queryImageData) imageDataCacheRef.current.set(imageSrc, queryImageData);
+
+      const candidates: Array<SimilarityCandidate & { src: string }> = [];
       let scanned = 0;
       for (const [nodeId, candidateNode] of Object.entries(state.document.nodes)) {
         if (controller.signal.aborted) throw new Error('cancelled');
-        if (nodeId === selectedNode.id) continue;
+        if (!isTextSearch && nodeId === selectedNode?.id) continue;
         if (candidateNode.kind !== 'shape' || !isImageShape(candidateNode)) continue;
         const src = imageShapeSrc(candidateNode as ShapeNode);
         if (!src) continue;
         if (scanned >= MAX_SIMILAR_CANDIDATES) break;
         scanned++;
-        const candidateEmbedding = await embed(src, modelPath, controller.signal);
-        candidates.push({ item: { nodeId: nodeId as NodeId, src }, embedding: candidateEmbedding });
+        const candidateEmbedding = await embed(src, imageModelPath, controller.signal);
+        const candidate: SimilarityCandidate & { src: string } = {
+          id: nodeId,
+          contentId: nodeId,
+          src,
+          embedding: candidateEmbedding,
+        };
+        if (!isTextSearch && searchMode === 'near-duplicates') {
+          const candidateImageData =
+            imageDataCacheRef.current.get(src) ?? (await loadImageToImageDataForAI(src));
+          imageDataCacheRef.current.set(src, candidateImageData);
+          candidate.dHash = dHash(candidateImageData);
+          candidate.pHash = pHash(candidateImageData);
+        }
+        candidates.push(candidate);
       }
 
-      const ranked = rankBySimilarity(queryEmbedding, candidates, 5);
+      setScannedCount(scanned);
+      const queryCandidate: (SimilarityCandidate & { src: string }) | null =
+        !isTextSearch && selectedNode && imageSrc
+          ? {
+              id: selectedNode.id,
+              contentId: selectedNode.id,
+              src: imageSrc,
+              embedding: queryEmbedding,
+            }
+          : null;
+      if (queryCandidate && queryImageData) {
+        queryCandidate.dHash = dHash(queryImageData);
+        queryCandidate.pHash = pHash(queryImageData);
+      }
+      const ranked =
+        queryCandidate && searchMode === 'near-duplicates'
+          ? searchNearDuplicates(queryCandidate, candidates, 5)
+          : searchSemantic(queryEmbedding, candidates, 5);
       const results: SimilarMatch[] = ranked.map((r) => ({
-        nodeId: r.item.nodeId,
-        src: r.item.src,
-        similarity: r.similarity,
+        nodeId: r.candidate.id as NodeId,
+        src: r.candidate.src,
+        similarity: r.score,
+        lane: r.lane,
       }));
 
       setMatches(results);
@@ -2524,41 +2739,101 @@ function SimilarTab() {
       setErrorMessage(err instanceof Error ? err.message : 'Search failed');
       setStatus('error');
     }
-  }, [imageSrc, selectedNode, state.document.nodes, embed, announce]);
+  }, [
+    imageSrc,
+    selectedNode,
+    state.document.nodes,
+    embed,
+    embedText,
+    announce,
+    searchMode,
+    queryText,
+    textModelAvailable,
+  ]);
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort();
     setStatus('idle');
   }, []);
 
-  if (!isImage) {
-    return (
-      <div className="intelligence-empty">
-        <Icon name="Images" label={undefined} size="1.2em" />
-        <p>Select an image to find visually similar images in this document.</p>
-      </div>
-    );
-  }
-
   const isSearching = status === 'searching';
   const needsDownload = !modelAvailable && status !== 'downloading';
+  const needsTextDownload =
+    Boolean(queryText.trim()) && modelAvailable && !textModelAvailable && status !== 'downloading';
 
   return (
     <div className="intelligence-tab-content">
       <p className="intelligence-hint">
-        Embeds the selected image and ranks other images in this document by visual/semantic
-        similarity. Image-to-image only — runs locally in a web worker.
+        Search locally with an image or a description. Image similarity and natural-language queries
+        use the same verified SigLIP embedding space; near duplicates use exact identity and visual
+        fingerprints first.
       </p>
 
-      {needsDownload && (
+      <label className="intelligence-field-label" htmlFor="similarity-text-query">
+        Describe an asset
+      </label>
+      <input
+        id="similarity-text-query"
+        className="intelligence-text-input"
+        value={queryText}
+        onChange={(event) => setQueryText(event.target.value)}
+        placeholder="orange sunset over mountains"
+        type="search"
+      />
+
+      {!isImage && !queryText.trim() && (
+        <div className="intelligence-empty">
+          <Icon name="Images" label={undefined} size="1.2em" />
+          <p>Select an image or enter a description to search this document.</p>
+        </div>
+      )}
+
+      {!queryText.trim() && (
+        <div
+          className="similarity-mode-picker"
+          role="radiogroup"
+          aria-label="Similarity search type"
+        >
+          <button
+            type="button"
+            aria-pressed={searchMode === 'semantic'}
+            className={
+              searchMode === 'semantic'
+                ? 'similarity-mode-picker__option is-active'
+                : 'similarity-mode-picker__option'
+            }
+            onClick={() => setSearchMode('semantic')}
+          >
+            Similar
+          </button>
+          <button
+            type="button"
+            aria-pressed={searchMode === 'near-duplicates'}
+            className={
+              searchMode === 'near-duplicates'
+                ? 'similarity-mode-picker__option is-active'
+                : 'similarity-mode-picker__option'
+            }
+            onClick={() => setSearchMode('near-duplicates')}
+          >
+            Near duplicates
+          </button>
+        </div>
+      )}
+
+      {(needsDownload || needsTextDownload) && (
         <button
           type="button"
           className="intelligence-action-btn"
-          onClick={handleDownload}
-          aria-label="Download Find Similar model (~201 MB)"
+          onClick={needsDownload ? handleDownload : handleDownloadTextModel}
+          aria-label={
+            needsTextDownload && !needsDownload
+              ? 'Download natural-language search model (~106 MB)'
+              : 'Download Find Similar model (~201 MB)'
+          }
         >
           <Icon name="Download" label={undefined} size="0.85em" />
-          Download AI Model
+          {needsTextDownload && !needsDownload ? 'Download Text Search Model' : 'Download AI Model'}
         </button>
       )}
 
@@ -2581,38 +2856,35 @@ function SimilarTab() {
       )}
 
       {matches && (
-        <div className="intelligence-issue-list">
+        <div className="similarity-results">
           {matches.length === 0 ? (
-            <p>No other images found in this document.</p>
+            <p className="intelligence-empty">No matching images found in this document.</p>
           ) : (
             matches.map((m) => (
-              <div key={m.nodeId} className="intelligence-issue intelligence-issue--info">
-                <Tooltip label="Select this node">
-                  <button
-                    type="button"
-                    className="intelligence-issue__target"
-                    onClick={() => setSelection(m.nodeId)}
-                  >
-                    <img
-                      src={m.src}
-                      alt=""
-                      style={{
-                        width: 28,
-                        height: 28,
-                        objectFit: 'cover',
-                        borderRadius: 4,
-                        marginRight: 'var(--space-1)',
-                      }}
-                    />
-                    <span className="intelligence-issue__type">
-                      {Math.round(m.similarity * 100)}% match
-                    </span>
-                  </button>
-                </Tooltip>
-              </div>
+              <Tooltip
+                key={m.nodeId}
+                label={`Select result, ${Math.round(m.similarity * 100)}% match`}
+              >
+                <button
+                  type="button"
+                  className="similarity-result"
+                  onClick={() => setSelection(m.nodeId)}
+                >
+                  <img src={m.src} alt="" className="similarity-result__image" />
+                  <span className="similarity-result__score">
+                    {Math.round(m.similarity * 100)}%
+                  </span>
+                </button>
+              </Tooltip>
             ))
           )}
         </div>
+      )}
+
+      {matches && scannedCount > 0 && (
+        <p className="intelligence-hint" role="status">
+          Scanned {scannedCount} image{scannedCount === 1 ? '' : 's'} in this document.
+        </p>
       )}
 
       {isSearching ? (
@@ -2626,7 +2898,7 @@ function SimilarTab() {
         <button
           type="button"
           className="intelligence-action-btn"
-          disabled={needsDownload}
+          disabled={needsDownload || needsTextDownload || (!isImage && !queryText.trim())}
           onClick={handleSearch}
           aria-label="Find similar images in this document"
         >

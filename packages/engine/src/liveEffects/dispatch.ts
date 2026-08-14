@@ -158,6 +158,7 @@ export const cpuEffectProvider: LiveEffectProvider = {
         applyPaletteSnap(
           imageData,
           request.params as unknown as Parameters<typeof applyPaletteSnap>[1],
+          options.coordSpace,
         );
         break;
       case 'bloom':

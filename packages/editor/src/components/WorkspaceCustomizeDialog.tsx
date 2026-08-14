@@ -7,8 +7,10 @@
  * reverts to built-in defaults.
  */
 import { Dialog } from '@varve/ui';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useEditor } from '../context';
+import type { ToolId } from '../tools/types';
+import { ESSENTIAL_TOOL_IDS, toolLabel } from '../workspace/toolLabels';
 import {
   useEffectiveWorkspaceConfig,
   useWorkspaceCustomizations,
@@ -24,9 +26,48 @@ import {
   getWorkspaceConfig,
   type InspectorTabId,
   type PanelId,
+  STATUS_SECTION_LABELS,
   type StatusSectionId,
+  type ToolbarConfig,
   WORKSPACE_LABELS,
+  type WorkspaceConfig,
 } from '../workspace/workspaceTypes';
+
+/**
+ * All tools a workspace's toolbar can show: main row in declared order,
+ * then flyout members not already in the main row (flyout order, first
+ * flyout wins on overlaps).
+ */
+function allToolbarTools(toolbar: ToolbarConfig): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of toolbar.tools) {
+    if (!seen.has(item.toolId)) {
+      seen.add(item.toolId);
+      result.push(item.toolId);
+    }
+  }
+  for (const flyout of toolbar.flyouts ?? []) {
+    for (const toolId of flyout.tools) {
+      if (!seen.has(toolId)) {
+        seen.add(toolId);
+        result.push(toolId);
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * The effective toolbar's full tool id set (main row + flyout members).
+ */
+function effectiveToolIds(effectiveConfig: WorkspaceConfig): Set<string> {
+  const ids = new Set<string>(effectiveConfig.toolbar.tools.map((t) => t.toolId));
+  for (const flyout of effectiveConfig.toolbar.flyouts ?? []) {
+    for (const toolId of flyout.tools) ids.add(toolId);
+  }
+  return ids;
+}
 
 export function WorkspaceCustomizeDialog({
   open,
@@ -40,6 +81,7 @@ export function WorkspaceCustomizeDialog({
   const customizations = useWorkspaceCustomizations();
   const mode = state.workspaceMode;
   const builtIn = getWorkspaceConfig(mode);
+  const [confirmResetAll, setConfirmResetAll] = useState(false);
 
   const handleTogglePanel = useCallback(
     (panelId: PanelId, visible: boolean) => {
@@ -76,12 +118,14 @@ export function WorkspaceCustomizeDialog({
     onClose();
   }, [resetWorkspaceToDefault, onClose]);
 
-  const handleResetAll = useCallback(() => {
+  const handleConfirmResetAll = useCallback(() => {
     resetAllWorkspacesToDefaults();
+    setConfirmResetAll(false);
     onClose();
   }, [resetAllWorkspacesToDefaults, onClose]);
 
-  // Panel definitions with labels
+  // Panel definitions with labels — every PanelId must appear here; the list
+  // is validated by WorkspaceCustomizeDialog.test.tsx against the union.
   const panels: { id: PanelId; label: string }[] = [
     { id: 'layers', label: 'Layers' },
     { id: 'inspector', label: 'Inspector' },
@@ -90,7 +134,11 @@ export function WorkspaceCustomizeDialog({
     { id: 'library', label: 'Resources' },
     { id: 'codegen', label: 'Code Panel' },
     { id: 'logo', label: 'Logo Panel' },
+    { id: 'history', label: 'History' },
   ];
+
+  const effectiveToolIdsSet = effectiveToolIds(effectiveConfig);
+  const toolbarTools = allToolbarTools(builtIn.toolbar);
 
   return (
     <Dialog open={open} onClose={onClose} title={`Customize ${WORKSPACE_LABELS[mode]} workspace`}>
@@ -116,16 +164,32 @@ export function WorkspaceCustomizeDialog({
         {/* Toolbar tools */}
         <section className="workspace-customize__section">
           <h3>Toolbar Tools</h3>
-          {builtIn.toolbar.tools.map((tool) => {
-            const isVisible = effectiveConfig.toolbar.tools.some((t) => t.toolId === tool.toolId);
+          <p className="workspace-customize__hint">
+            Select, Hand, and Zoom stay available so the canvas can always be navigated and
+            recovered.
+          </p>
+          {toolbarTools.map((toolId) => {
+            const isVisible = effectiveToolIdsSet.has(toolId);
+            const isEssential = ESSENTIAL_TOOL_IDS.has(toolId as ToolId);
+            const flyout = builtIn.toolbar.flyouts?.find((f) => f.tools.includes(toolId as ToolId));
             return (
-              <label key={tool.toolId} className="workspace-customize__toggle">
+              <label key={toolId} className="workspace-customize__toggle">
                 <input
                   type="checkbox"
                   checked={isVisible}
-                  onChange={(e) => handleToggleTool(tool.toolId, e.target.checked)}
+                  disabled={isEssential}
+                  aria-label={`${toolLabel(toolId)} toolbar tool${isEssential ? ' (always available)' : ''}`}
+                  onChange={(e) => handleToggleTool(toolId, e.target.checked)}
                 />
-                <span>{tool.toolId}</span>
+                <span>
+                  {toolLabel(toolId)}
+                  {flyout && !builtIn.toolbar.tools.some((t) => t.toolId === toolId) && (
+                    <span className="workspace-customize__flyout">in {flyout.label}</span>
+                  )}
+                </span>
+                {isEssential && (
+                  <span className="workspace-customize__always">Always available</span>
+                )}
               </label>
             );
           })}
@@ -156,7 +220,7 @@ export function WorkspaceCustomizeDialog({
                 checked={section.visible}
                 onChange={(e) => handleToggleStatusSection(section.id, e.target.checked)}
               />
-              <span>{section.id}</span>
+              <span>{STATUS_SECTION_LABELS[section.id]}</span>
             </label>
           ))}
         </section>
@@ -171,7 +235,11 @@ export function WorkspaceCustomizeDialog({
           >
             Reset {WORKSPACE_LABELS[mode]}
           </button>
-          <button type="button" className="varve-btn varve-btn--danger" onClick={handleResetAll}>
+          <button
+            type="button"
+            className="varve-btn varve-btn--danger"
+            onClick={() => setConfirmResetAll(true)}
+          >
             Reset All Workspaces
           </button>
           <button type="button" className="varve-btn varve-btn--primary" onClick={onClose}>
@@ -179,6 +247,36 @@ export function WorkspaceCustomizeDialog({
           </button>
         </div>
       </div>
+
+      {/* Reset All is destructive across all seven modes — require an explicit
+          confirmation before discarding every customization. */}
+      <Dialog
+        open={confirmResetAll}
+        onClose={() => setConfirmResetAll(false)}
+        title="Reset all workspaces?"
+        dismissible={false}
+      >
+        <p>
+          This discards every panel, toolbar, inspector, and status-bar customization in all
+          workspaces and restores the built-in defaults. This cannot be undone.
+        </p>
+        <div className="workspace-customize__actions">
+          <button
+            type="button"
+            className="varve-btn varve-btn--secondary"
+            onClick={() => setConfirmResetAll(false)}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="varve-btn varve-btn--danger"
+            onClick={handleConfirmResetAll}
+          >
+            Reset All Workspaces
+          </button>
+        </div>
+      </Dialog>
     </Dialog>
   );
 }

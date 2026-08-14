@@ -9,15 +9,21 @@
 import type {
   DenoiseStrength,
   PixelArtAlgorithm,
+  RestorationOperation,
+  RestorationRequest,
   UpscaleModeId,
   UpscaleProgressFn,
 } from '@varve/engine';
 import {
+  type AutoAnalysis,
+  analyzeImageForRestoration,
   DEFAULT_UPSCALE_MODE,
   detectUpscaleCapabilities,
-  dispatchUpscale,
   getModelLoader,
   getUpscaleMode,
+  isRestorationOperationAvailable,
+  recommendationLabel,
+  runRestoration,
   UPSCALE_MODES,
   upscalePreviewRegion,
 } from '@varve/engine';
@@ -43,6 +49,7 @@ interface UpscaleDialogProps {
   onClose: () => void;
   /** Apply handler. */
   onApply: (options: {
+    operation: RestorationOperation;
     mode: UpscaleModeId;
     scale: number;
     output: OutputBehavior;
@@ -89,6 +96,7 @@ export function UpscaleDialog({
 }: UpscaleDialogProps) {
   const { announce } = useEditor();
   const [modeId, setModeId] = useState<UpscaleModeId>(DEFAULT_UPSCALE_MODE);
+  const [operation, setOperation] = useState<RestorationOperation | 'auto'>('auto');
   const [scale, setScale] = useState(2);
   const [output, setOutput] = useState<OutputBehavior>('new-layer');
   const [denoiseStrength, setDenoiseStrength] = useState<DenoiseStrength>('none');
@@ -111,20 +119,127 @@ export function UpscaleDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
+  // Availability comes from the validated capability registry, not a
+  // hardcoded per-operation rule, so a task lights up the moment its
+  // checkpoint passes validation and lands in the manifest.
+  const operationAvailable = useMemo(() => {
+    if (operation === 'auto') return true;
+    return isRestorationOperationAvailable(operation);
+  }, [operation]);
+  const usesUpscale =
+    operation === 'upscale' || operation === 'restore-upscale' || operation === 'deblur-upscale';
+  const usesDenoise = operation === 'denoise' || operation === 'restore-upscale';
 
-  // Model prerequisites. Denoise needs SCUNet and the AI modes need their
-  // Real-ESRGAN weights; the CPU resampling modes need nothing. Checking here
-  // means a missing model is offered as a download up front instead of
-  // surfacing as a backend failure after the user commits to the operation.
-  const requiredModelId = mode?.isAi
-    ? modeId === 'illustration'
-      ? 'upscale-realesrgan-anime'
-      : 'upscale-realesr-general'
-    : denoiseStrength !== 'none'
-      ? 'scunet'
-      : null;
+  const buildRestorationRequest = useCallback((): RestorationRequest => {
+    const method = mode?.id === 'pixel-art' ? 'pixel-art' : (mode?.method ?? 'bicubic');
+    // Auto shows the unchanged source as its preview; the recommended
+    // operation is resolved only when the user applies.
+    const activeOperation: RestorationOperation = operation === 'auto' ? 'none' : operation;
+    return {
+      operation: activeOperation,
+      denoise: usesDenoise
+        ? { strength: denoiseStrength === 'none' ? 'medium' : denoiseStrength }
+        : undefined,
+      upscale: usesUpscale
+        ? {
+            method,
+            scale,
+            modelId:
+              mode?.id === 'ai-enhance'
+                ? 'upscale-realesr-general'
+                : mode?.id === 'illustration'
+                  ? 'upscale-realesrgan-anime'
+                  : undefined,
+            pixelArtAlgorithm: mode?.id === 'pixel-art' ? pixelArtAlgorithm : undefined,
+          }
+        : undefined,
+      preview: true,
+      previewMaxDimension: 512,
+    };
+  }, [denoiseStrength, mode, operation, pixelArtAlgorithm, scale, usesDenoise, usesUpscale]);
+
+  /**
+   * Resolve the Auto recommendation into a concrete operation. Suggestions
+   * whose checkpoint is not installed are dropped with a note — the dialog
+   * never silently substitutes an unrelated model.
+   */
+  const [autoAnalysis, setAutoAnalysis] = useState<AutoAnalysis | null>(null);
+
+  const resolveAutoOperation = useCallback((): {
+    operation: RestorationOperation | null;
+    note?: string;
+  } => {
+    if (!autoAnalysis || autoAnalysis.recommendation[0] === 'none') return { operation: null };
+    const { recommendation } = autoAnalysis;
+    const restore =
+      recommendation.find(
+        (r) => r === 'deblur' || r === 'denoise' || r === 'compression-restoration',
+      ) ?? null;
+    const upscale = recommendation.includes('upscale');
+    const availableRestore =
+      restore === 'deblur' ? 'deblur' : restore === 'denoise' ? 'denoise' : null;
+    if (restore === 'compression-restoration') {
+      return {
+        operation: upscale ? 'restore-upscale' : 'denoise',
+        note: 'Compression-artifact cleanup is not available for this installation; Denoise is the closest validated operation.',
+      };
+    }
+    if (!availableRestore) return { operation: upscale ? 'upscale' : null };
+    if (upscale) {
+      return { operation: availableRestore === 'deblur' ? 'deblur-upscale' : 'restore-upscale' };
+    }
+    return { operation: availableRestore };
+  }, [autoAnalysis]);
+
+  // Model prerequisites. Denoise needs SCUNet, Deblur needs the NAFNet
+  // checkpoint, and the AI modes need their Real-ESRGAN weights; the CPU
+  // resampling modes need nothing. Checking here means a missing model is
+  // offered as a download up front instead of surfacing as a backend
+  // failure after the user commits to the operation.
+  const requiredModelId = usesDenoise
+    ? 'scunet'
+    : operation === 'deblur' || operation === 'deblur-upscale'
+      ? 'nafnet-deblur-gopro'
+      : operation === 'auto'
+        ? (() => {
+            // Auto resolves its recommendation before apply; surface the
+            // model requirement so the user can download it up front.
+            const resolved = autoAnalysis ? resolveAutoOperation() : null;
+            if (resolved?.operation === 'denoise' || resolved?.operation === 'restore-upscale') {
+              return 'scunet';
+            }
+            if (resolved?.operation === 'deblur' || resolved?.operation === 'deblur-upscale') {
+              return 'nafnet-deblur-gopro';
+            }
+            return null;
+          })()
+        : mode?.isAi
+          ? modeId === 'illustration'
+            ? 'upscale-realesrgan-anime'
+            : 'upscale-realesr-general'
+          : denoiseStrength !== 'none'
+            ? 'scunet'
+            : null;
   const [modelMissing, setModelMissing] = useState(false);
   const [showModelDownload, setShowModelDownload] = useState(false);
+
+  // Auto mode: run the cheap classical analysis once per open/source change.
+  useEffect(() => {
+    if (!open || operation !== 'auto' || !sourceImageData) {
+      setAutoAnalysis(null);
+      return;
+    }
+    let cancelled = false;
+    // Keep analysis off the critical path; it samples at most 64 patches.
+    const id = requestIdleCallback(() => {
+      const analysis = analyzeImageForRestoration(sourceImageData, { lowResolutionShortEdge: 900 });
+      if (!cancelled) setAutoAnalysis(analysis);
+    });
+    return () => {
+      cancelled = true;
+      cancelIdleCallback(id);
+    };
+  }, [open, operation, sourceImageData]);
 
   useEffect(() => {
     if (!open || !requiredModelId) {
@@ -145,8 +260,16 @@ export function UpscaleDialog({
     };
   }, [open, requiredModelId]);
 
-  const outW = mode?.isAi ? sourceWidth * 4 : Math.round(sourceWidth * scale);
-  const outH = mode?.isAi ? sourceHeight * 4 : Math.round(sourceHeight * scale);
+  const outW = !usesUpscale
+    ? sourceWidth
+    : mode?.isAi
+      ? sourceWidth * 4
+      : Math.round(sourceWidth * scale);
+  const outH = !usesUpscale
+    ? sourceHeight
+    : mode?.isAi
+      ? sourceHeight * 4
+      : Math.round(sourceHeight * scale);
   const outputBytes = outW > 0 && outH > 0 ? outW * outH * 4 : 0;
   const memoryWarning = outputBytes > MEMORY_WARNING_BYTES;
   const memoryExceeded = outputBytes > MEMORY_MAX_BYTES;
@@ -180,7 +303,7 @@ export function UpscaleDialog({
   // cancellation flag. A preview landing mid-apply would therefore cancel the
   // user's actual upscale, so previews are suppressed while processing.
   useEffect(() => {
-    if (!open || !sourceImageData || !mode || mode.isAi || processing) {
+    if (!open || !sourceImageData || !mode || !operationAvailable || processing) {
       return;
     }
     // Cancel previous preview
@@ -197,47 +320,51 @@ export function UpscaleDialog({
         clearTimeout(previewTimeoutRef.current);
       }
     };
-  }, [modeId, scale, open, sourceImageData, mode, processing]);
+  }, [
+    modeId,
+    scale,
+    operation,
+    operationAvailable,
+    denoiseStrength,
+    open,
+    sourceImageData,
+    mode,
+    processing,
+  ]);
 
   // Clear preview when switching to AI mode
   useEffect(() => {
-    if (mode?.isAi) {
+    if (mode?.isAi || !usesUpscale) {
       setPreviewDataUrl(null);
       setPreviewBaselineUrl(null);
     }
-  }, [mode?.isAi]);
+  }, [mode?.isAi, usesUpscale]);
 
   async function generatePreview() {
     // Never contend with a running upscale for the native backend's single job
     // slot — registering a preview job there cancels the real one.
-    if (!sourceImageData || !mode || processing) return;
+    if (!sourceImageData || !mode || !operationAvailable || processing) return;
     const abort = new AbortController();
     previewAbortRef.current = abort;
     setPreviewGenerating(true);
     try {
-      const result = await dispatchUpscale(
-        sourceImageData,
-        {
-          method: mode.method,
-          scale,
-          preview: true,
-          previewMaxDimension: 512,
-        },
-        abort.signal,
-      );
+      const result = await runRestoration(sourceImageData, buildRestorationRequest(), {
+        signal: abort.signal,
+      });
+      const previewImage = result.imageData;
       const canvas = document.createElement('canvas');
-      canvas.width = result.width;
-      canvas.height = result.height;
+      canvas.width = previewImage.width;
+      canvas.height = previewImage.height;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.putImageData(result, 0, 0);
+        ctx.putImageData(previewImage, 0, 0);
         const dataUrl = canvas.toDataURL('image/png');
 
         // Baseline: the identical source region, drawn at the upscaled size so
         // the browser's own interpolation stands in for "no upscale". Any
         // quality difference the slider reveals is then genuinely the method's.
         const region = upscalePreviewRegion(sourceImageData, {
-          scale,
+          scale: usesUpscale ? scale : 1,
           previewMaxDimension: 512,
         });
         const cropCanvas = document.createElement('canvas');
@@ -278,7 +405,15 @@ export function UpscaleDialog({
   }, []);
 
   const handleApply = useCallback(async () => {
-    if (!mode || memoryExceeded || processing) return;
+    if (!mode || memoryExceeded || processing || !operationAvailable) return;
+    // Auto resolves its recommendation at apply time; nothing to apply when
+    // the analysis suggested no restoration.
+    const resolved = operation === 'auto' ? resolveAutoOperation() : null;
+    if (operation === 'auto' && !resolved?.operation) {
+      announce('No specific restoration suggested');
+      return;
+    }
+    if (resolved?.note) setError(resolved.note);
     // Retire any queued or in-flight preview first. Both share the native
     // backend's single job slot, so a preview starting after this point would
     // cancel the real upscale.
@@ -288,15 +423,22 @@ export function UpscaleDialog({
     }
     previewAbortRef.current?.abort();
     previewAbortRef.current = null;
-    setError(null);
     setProcessing(true);
     setProgress(null);
     try {
       await onApply({
+        // 'auto' is a UI-level selection; the resolver picks the concrete
+        // operation. Fall back to plain upscale when it has not resolved.
+        operation: resolved?.operation ?? (operation === 'auto' ? 'upscale' : operation),
         mode: modeId,
         scale,
         output,
-        denoiseStrength,
+        denoiseStrength:
+          resolved?.operation === 'denoise' || resolved?.operation === 'restore-upscale'
+            ? denoiseStrength
+            : usesDenoise
+              ? denoiseStrength
+              : 'none',
         pixelArtAlgorithm: modeId === 'pixel-art' ? pixelArtAlgorithm : undefined,
         onProgress,
       });
@@ -314,13 +456,16 @@ export function UpscaleDialog({
         caught instanceof Error ? caught.stack : '(non-Error throw, no stack)',
       );
       setError(message === 'cancelled' ? 'Cancelled' : message);
-      announce(message === 'cancelled' ? 'Upscale cancelled' : `Upscale failed: ${message}`);
+      announce(
+        message === 'cancelled' ? 'Enhancement cancelled' : `Enhancement failed: ${message}`,
+      );
     } finally {
       setProcessing(false);
       setProgress(null);
     }
   }, [
     mode,
+    operation,
     modeId,
     scale,
     output,
@@ -332,6 +477,10 @@ export function UpscaleDialog({
     onClose,
     onProgress,
     announce,
+    buildRestorationRequest,
+    operationAvailable,
+    usesDenoise,
+    resolveAutoOperation,
   ]);
 
   const handleCancel = useCallback(() => {
@@ -381,7 +530,7 @@ export function UpscaleDialog({
       className="upscale-overlay"
       role="dialog"
       aria-modal="true"
-      aria-label="Upscale image"
+      aria-label="Enhance image"
       onClick={(e) => {
         if (e.target === e.currentTarget && !processing) handleCancel();
       }}
@@ -392,7 +541,7 @@ export function UpscaleDialog({
       <FocusTrap active={open}>
         <div className="upscale-dialog">
           <div className="upscale-dialog__header">
-            <h2 className="upscale-dialog__title">Upscale image</h2>
+            <h2 className="upscale-dialog__title">Enhance image</h2>
             <button
               type="button"
               className="upscale-dialog__close"
@@ -515,54 +664,121 @@ export function UpscaleDialog({
             {/* Settings */}
             <div className="upscale-settings">
               <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Mode</span>
+                <span className="upscale-settings__label">Enhancement</span>
                 <Select
-                  label="Upscale mode"
-                  value={modeId}
+                  label="Enhancement operation"
+                  value={operation}
                   disabled={processing}
-                  options={modeOptions}
-                  onChange={(v) => setModeId(v as UpscaleModeId)}
+                  options={[
+                    { value: 'auto', label: 'Auto / Recommended' },
+                    { value: 'upscale', label: 'Upscale' },
+                    { value: 'denoise', label: 'Denoise' },
+                    { value: 'restore-upscale', label: 'Restore + Upscale' },
+                    {
+                      value: 'deblur',
+                      label: isRestorationOperationAvailable('deblur')
+                        ? 'Deblur'
+                        : 'Deblur (not available)',
+                    },
+                    {
+                      value: 'compression-restoration',
+                      label: isRestorationOperationAvailable('compression-restoration')
+                        ? 'Remove compression artifacts'
+                        : 'Remove compression artifacts (not available)',
+                    },
+                  ]}
+                  onChange={(value) => {
+                    const next = value as RestorationOperation | 'auto';
+                    setOperation(next);
+                    if (next === 'upscale') setDenoiseStrength('none');
+                    if (next === 'denoise' && denoiseStrength === 'none') {
+                      setDenoiseStrength('medium');
+                    }
+                  }}
                 />
-                {mode && <p className="insp-hint">{mode.description}</p>}
-                {mode?.isAi && (
-                  <div className="upscale-settings__ai-preview">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={previewGenerating || processing}
-                      onClick={() => void generatePreview()}
-                    >
-                      {previewGenerating ? 'Generating...' : 'Generate AI preview'}
-                    </Button>
+                {operation === 'auto' && (
+                  <div className="upscale-auto" role="status" aria-live="polite">
+                    {autoAnalysis ? (
+                      autoAnalysis.recommendation[0] === 'none' ? (
+                        <p className="insp-hint">No specific restoration suggested.</p>
+                      ) : (
+                        <>
+                          <p className="insp-hint">
+                            <strong>Detected:</strong>{' '}
+                            {autoAnalysis.findings.join('; ').toLowerCase()}
+                          </p>
+                          <p className="insp-hint">
+                            <strong>Recommended:</strong>{' '}
+                            {recommendationLabel(autoAnalysis.recommendation)} (confidence{' '}
+                            {Math.round(autoAnalysis.confidence * 100)}%)
+                          </p>
+                        </>
+                      )
+                    ) : (
+                      <p className="insp-hint">Analyzing image…</p>
+                    )}
                   </div>
                 )}
-              </div>
-
-              <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Denoise</span>
-                <SegmentedControl
-                  label="Denoise strength"
-                  value={denoiseStrength}
-                  disabled={processing || mode?.isAi}
-                  options={[
-                    { value: 'none', label: 'None' },
-                    { value: 'light', label: 'Light' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'strong', label: 'Strong' },
-                  ]}
-                  onChange={(v) => setDenoiseStrength(v as DenoiseStrength)}
-                />
-                {!mode?.isAi && (
-                  <p className="insp-hint">
-                    {denoiseStrength === 'none'
-                      ? 'No denoising'
-                      : `${denoiseStrength} denoise before upscale`}
+                {!operationAvailable && (
+                  <p className="insp-hint insp-hint--warn">
+                    No task-specific model is installed and validated for this operation yet.
                   </p>
                 )}
               </div>
 
-              {modeId === 'pixel-art' && (
+              {usesUpscale && (
+                <div className="upscale-settings__group">
+                  <span className="upscale-settings__label">Mode</span>
+                  <Select
+                    label="Upscale quality"
+                    value={modeId}
+                    disabled={processing}
+                    options={modeOptions}
+                    onChange={(v) => setModeId(v as UpscaleModeId)}
+                  />
+                  {mode && <p className="insp-hint">{mode.description}</p>}
+                  {mode?.isAi && (
+                    <div className="upscale-settings__ai-preview">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={previewGenerating || processing}
+                        onClick={() => void generatePreview()}
+                      >
+                        {previewGenerating ? 'Generating...' : 'Generate AI preview'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(usesDenoise || operation === 'upscale') && (
+                <div className="upscale-settings__group">
+                  <span className="upscale-settings__label">Denoise</span>
+                  <SegmentedControl
+                    label="Denoise strength"
+                    value={denoiseStrength}
+                    disabled={processing || mode?.isAi || operation === 'upscale'}
+                    options={[
+                      { value: 'none', label: 'None' },
+                      { value: 'light', label: 'Light' },
+                      { value: 'medium', label: 'Medium' },
+                      { value: 'strong', label: 'Strong' },
+                    ]}
+                    onChange={(v) => setDenoiseStrength(v as DenoiseStrength)}
+                  />
+                  {!mode?.isAi && operation !== 'upscale' && (
+                    <p className="insp-hint">
+                      {denoiseStrength === 'none'
+                        ? 'No denoising'
+                        : `${denoiseStrength} denoise before upscale`}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {usesUpscale && modeId === 'pixel-art' && (
                 <div className="upscale-settings__group">
                   <span className="upscale-settings__label">Algorithm</span>
                   <Select
@@ -594,16 +810,18 @@ export function UpscaleDialog({
                 </div>
               )}
 
-              <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Scale</span>
-                <SegmentedControl
-                  label="Scale factor"
-                  value={String(scale)}
-                  disabled={processing || mode?.lockedScale}
-                  options={scaleOptions}
-                  onChange={(v) => setScale(Number(v))}
-                />
-              </div>
+              {usesUpscale && (
+                <div className="upscale-settings__group">
+                  <span className="upscale-settings__label">Scale</span>
+                  <SegmentedControl
+                    label="Scale factor"
+                    value={String(scale)}
+                    disabled={processing || mode?.lockedScale}
+                    options={scaleOptions}
+                    onChange={(v) => setScale(Number(v))}
+                  />
+                </div>
+              )}
 
               <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Result</span>
@@ -637,7 +855,9 @@ export function UpscaleDialog({
                   <p className="insp-hint insp-hint--warn">
                     {requiredModelId === 'scunet'
                       ? 'Denoise needs the SCUNet model, which is not installed yet.'
-                      : 'This mode needs an AI model that is not installed yet.'}
+                      : requiredModelId === 'nafnet-deblur-gopro'
+                        ? 'Deblur needs the NAFNet model, which is not installed yet.'
+                        : 'This mode needs an AI model that is not installed yet.'}
                   </p>
                   <Button
                     type="button"
@@ -667,11 +887,11 @@ export function UpscaleDialog({
                   aria-valuenow={progressPct}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label="Upscaling progress"
+                  aria-label="Enhancement progress"
                 >
                   <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
                   <span className="insp-progress__label">
-                    Tile {progress.done}/{progress.total}
+                    Step {progress.done}/{progress.total}
                   </span>
                 </div>
               )}
@@ -698,18 +918,38 @@ export function UpscaleDialog({
               type="button"
               variant="primary"
               size="sm"
-              disabled={processing || memoryExceeded || !mode || modelMissing}
+              disabled={
+                processing ||
+                memoryExceeded ||
+                !mode ||
+                modelMissing ||
+                !operationAvailable ||
+                (operation === 'auto' &&
+                  (!autoAnalysis || autoAnalysis.recommendation[0] === 'none'))
+              }
               loading={processing}
               onClick={() => void handleApply()}
             >
-              {mode?.isAi ? 'Upscale with AI' : 'Upscale image'}
+              {operation === 'auto'
+                ? 'Apply recommended'
+                : operation === 'denoise'
+                  ? 'Denoise image'
+                  : operation === 'deblur'
+                    ? 'Deblur image'
+                    : operation === 'compression-restoration'
+                      ? 'Clean up image'
+                      : operation === 'restore-upscale'
+                        ? 'Restore and upscale'
+                        : mode?.isAi
+                          ? 'Upscale with AI'
+                          : 'Upscale image'}
             </Button>
           </div>
 
           {/* Screen-reader announcements */}
           <div role="status" aria-live="polite" className="varve-visually-hidden">
             {processing && progress
-              ? `Upscaling: tile ${progress.done} of ${progress.total}`
+              ? `Enhancing: step ${progress.done} of ${progress.total}`
               : (error ?? '')}
           </div>
         </div>

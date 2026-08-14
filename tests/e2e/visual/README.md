@@ -41,7 +41,8 @@ flattened into the `RenderItem[]` this harness feeds `replayIr`, and covering th
 heavier harness that mounts real `CanvasArea` against a real `Document`, which is a materially
 larger undertaking than this pass.
 
-**Shipped fixtures**: multiple node types (rect/circle/ellipse/text), opacity, 4 blend modes
+**Shipped fixtures**: multiple node types (rect/circle/ellipse/text), multilingual text covering
+RTL, script fallback, combining marks, ligatures, and ZWJ emoji, opacity, 4 blend modes
 (multiply/screen/difference plus normal), one linear gradient with rotation, one stroke variant
 (center-aligned solid), and a 1,500-item pathological scene.
 
@@ -50,8 +51,8 @@ not left to rediscover it):
 - Nested groups, masks/clipping, image fills (`paintImageFill`'s fill-rect math) — all live in
   `replaySubtreeToCtx`, out of this harness's current scope per above.
 - Filters/LUTs, motion/bound-property-at-fixed-time fixtures.
-- RTL/emoji/ligature text, conic and radial gradient variants, dashed/joined/capped stroke
-  variants beyond the one shipped.
+- Conic and radial gradient variants, dashed/joined/capped stroke variants beyond the one
+  shipped.
 - 3rd DPR tier as a default (opt-in only, see above).
 - GPU-vs-software and per-platform separate baselines — this harness currently has one Linux
   Chromium baseline set per fixture/DPR; font rendering and anti-aliasing differ across
@@ -63,13 +64,11 @@ not left to rediscover it):
 
 ## Font pinning
 
-The fixture corpus currently uses `sans-serif` (a generic family) for its one text fixture,
-which resolves to whatever the runner's default sans font is — this is a known gap: per the task
-this harness was built for, font availability differs between CI and dev machines and will
-produce false diffs on the text fixture specifically if run on a machine without the same
-default font stack as CI. **Not yet fixed**: embedding a specific test font (e.g. via `@font-face`
-in `visual-harness.html`) and forcing text fixtures to use only that font is the correct fix,
-deferred here — flagged clearly rather than silently shipping a flaky fixture.
+The fixture corpus uses `sans-serif` for text, including the multilingual fixture. This resolves
+to the runner's default sans font and script fallback fonts, so font availability differs between
+CI and dev machines and can produce false diffs. **Not yet fixed**: embedding a specific test font
+(e.g. via `@font-face` in `visual-harness.html`) and forcing text fixtures to use only that font
+is the correct follow-up; the visual signal is still useful on the pinned Linux CI runner.
 
 ## Running locally
 

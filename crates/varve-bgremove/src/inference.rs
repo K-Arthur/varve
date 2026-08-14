@@ -117,8 +117,21 @@ impl InferenceRuntime for OrtInferenceRuntime {
         &self,
         model_path: &std::path::Path,
     ) -> Result<Box<dyn InferenceSession>, String> {
+        // Bounded-memory session options. The ONNX Runtime CPU memory arena
+        // retains its high-water allocation after inference; measured peak
+        // RSS for BiRefNet Lite at 1024×1024 with the arena enabled was
+        // ~11.2 GB on an 8-core x86_64 host (see docs/audits/
+        // background-removal-parity-audit-2026-08-13.md), which defeats the
+        // 4 GB support tier and the bounded session pool. Disabling the
+        // arena and the memory pattern trades a small allocation-speed
+        // constant for a much lower retained footprint; inference math is
+        // identical (the golden parity test runs with these options).
         let session = Session::builder()
             .map_err(|e| format!("Failed to create ONNX session: {e}"))?
+            .with_config_entry("session.enable_cpu_mem_arena", "0")
+            .map_err(|e| format!("Failed to disable CPU memory arena: {e}"))?
+            .with_memory_pattern(false)
+            .map_err(|e| format!("Failed to disable memory pattern: {e}"))?
             .commit_from_file(model_path)
             .map_err(|e| format!("Failed to load model from '{}': {e}", model_path.display()))?;
 
@@ -338,10 +351,14 @@ fn model_spec(model_id: &str) -> ModelSpec {
 }
 
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
-// SCUNet is fully convolutional: dynamic H×W (divisible by 8), identity
-// normalization (pixel / 255), no letterboxing. Input/output both [1,3,H,W].
+// SCUNet is fully convolutional: dynamic H×W, identity normalization
+// (pixel / 255), no letterboxing. Input/output both [1,3,H,W].
+// Padding must be a multiple of 64: the Heliosoph ONNX conversion bakes a
+// window-8 channel-attention reshape with floor-grid semantics, so any
+// padded dimension not divisible by 64 crashes the graph (verified on a
+// dimension sweep 2026-08-13; the manifest previously claimed 8).
 
-const DENOISE_INPUT_DIVISIBLE: u32 = 8;
+const DENOISE_INPUT_DIVISIBLE: u32 = 64;
 
 fn align_to(n: u32, to: u32) -> u32 {
     if n.is_multiple_of(to) {
@@ -357,6 +374,35 @@ struct ImageModelSpec {
     pub std: [f32; 3],
     /// Input height must be a multiple of this (0 = no constraint).
     pub input_divisible: u32,
+    /// Channel order of the RGBA source when packed into the tensor.
+    /// `rgb` feeds (R, G, B) — SCUNet. `bgr` feeds (B, G, R) — NAFNet,
+    /// which was trained on OpenCV BGR tensors; the output planes are
+    /// then mapped back so the returned PNG is RGBA again.
+    pub channel_order: ChannelOrder,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChannelOrder {
+    Rgb,
+    Bgr,
+}
+
+impl ChannelOrder {
+    /// Index of the source channel for tensor plane `c` (0..3).
+    fn source_channel(self, c: usize) -> usize {
+        match self {
+            ChannelOrder::Rgb => c,
+            ChannelOrder::Bgr => [2, 1, 0][c],
+        }
+    }
+
+    /// Index of the tensor plane for output RGBA channel `c` (0..3).
+    fn output_plane(self, c: usize) -> usize {
+        match self {
+            ChannelOrder::Rgb => c,
+            ChannelOrder::Bgr => [2, 1, 0][c],
+        }
+    }
 }
 
 /// Per-model preprocessing/normalization for fully-convolutional models
@@ -368,16 +414,29 @@ fn image_model_spec(model_id: &str) -> Option<ImageModelSpec> {
             mean: [0.0, 0.0, 0.0],
             std: [1.0, 1.0, 1.0],
             input_divisible: DENOISE_INPUT_DIVISIBLE,
+            channel_order: ChannelOrder::Rgb,
+        }),
+        // NAFNet checkpoints (task-validated, see tools/nafnet-export):
+        // GoPro deblur width64 (int8 OpenCV export) and the SIDD denoise
+        // checkpoint both expect BGR tensors divisible by 16 (the width64
+        // encoder's padder_size).
+        "nafnet-deblur-gopro" | "nafnet-denoise-sidd" => Some(ImageModelSpec {
+            mean: [0.0, 0.0, 0.0],
+            std: [1.0, 1.0, 1.0],
+            input_divisible: 16,
+            channel_order: ChannelOrder::Bgr,
         }),
         "paddleocr-det-v4" => Some(ImageModelSpec {
             mean: [0.485, 0.456, 0.406],
             std: [0.229, 0.224, 0.225],
             input_divisible: 32,
+            channel_order: ChannelOrder::Rgb,
         }),
         "paddleocr-rec-v4" => Some(ImageModelSpec {
             mean: [0.5, 0.5, 0.5],
             std: [0.5, 0.5, 0.5],
             input_divisible: 0,
+            channel_order: ChannelOrder::Rgb,
         }),
         _ => None,
     }
@@ -458,7 +517,7 @@ pub fn denoise_image_cancellable(
     let mut tensor_data = Vec::with_capacity(pixel_count * 3);
     for c in 0..3 {
         for p in 0..pixel_count {
-            let normalized = pixels[p * 4 + c] as f32 / 255.0;
+            let normalized = pixels[p * 4 + spec.channel_order.source_channel(c)] as f32 / 255.0;
             tensor_data.push((normalized - spec.mean[c]) / spec.std[c]);
         }
     }
@@ -495,7 +554,8 @@ pub fn denoise_image_cancellable(
     let s = strength.clamp(0.0, 1.0);
     for p in 0..out_pixel_count {
         for c in 0..3 {
-            let model_val = out_data[c * out_pixel_count + p].clamp(0.0, 1.0);
+            let plane = spec.channel_order.output_plane(c);
+            let model_val = out_data[plane * out_pixel_count + p].clamp(0.0, 1.0);
             let orig_val = pixels[p * 4 + c] as f32 / 255.0;
             let blended = orig_val * (1.0 - s) + model_val * s;
             out_rgba.push((blended * 255.0).round().clamp(0.0, 255.0) as u8);
@@ -1089,30 +1149,28 @@ fn reconstruct_letterbox_mask(
     result
 }
 
-/// Nearest-neighbor resize of a binary mask.
+/// Convert raw model output to a soft mask byte per pixel, following the
+/// rembg reference semantics for the pinned checkpoints:
+///
+/// 1. apply sigmoid where the graph does not bake it (BiRefNet exports);
+/// 2. clamp the result to [0, 1] — the rembg `post_process` does
+///    `np.clip(mat, 0, 1)`, it does not min-max stretch the map.
+///
+/// A min-max stretch is input-dependent: it inflates semi-transparent edge
+/// values and amplifies noise in near-flat regions, diverging from the
+/// reference soft alpha (measured up to ~0.065 MAE on the benchmark corpus).
+/// It is monotone, so thresholded binary metrics are unaffected by the
+/// change, but soft edge alpha now matches the reference.
 fn normalize_segmentation_output(data: &[f32], apply_sigmoid: bool) -> Vec<u8> {
-    if data.is_empty() {
-        return Vec::new();
-    }
-    let values: Vec<f32> = data
-        .iter()
+    data.iter()
         .map(|value| {
-            if apply_sigmoid {
+            let probability = if apply_sigmoid {
                 1.0 / (1.0 + (-value).exp())
             } else {
                 *value
-            }
+            };
+            ((probability.clamp(0.0, 1.0)) * 255.0).round() as u8
         })
-        .collect();
-    let min = values.iter().copied().fold(f32::INFINITY, f32::min);
-    let max = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-    let range = max - min;
-    if !range.is_finite() || range <= f32::EPSILON {
-        return vec![0; data.len()];
-    }
-    values
-        .iter()
-        .map(|value| (((value - min) / range) * 255.0) as u8)
         .collect()
 }
 
@@ -1151,11 +1209,18 @@ mod tests {
         InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
     };
 
+    fn decode_gray_png(png: &[u8]) -> Vec<u8> {
+        let image = image::load_from_memory(png).expect("png should decode");
+        let gray = image.to_luma8();
+        gray.into_raw()
+    }
+
     #[test]
-    fn normalizes_u2net_probabilities() {
+    fn normalizes_u2net_probabilities_to_reference_scale() {
+        // rembg-faithful: probability * 255 with clamp — no min-max stretch.
         assert_eq!(
             normalize_segmentation_output(&[0.2, 0.4, 0.6], false),
-            vec![0, 127, 255]
+            vec![51, 102, 153]
         );
     }
 
@@ -1163,7 +1228,31 @@ mod tests {
     fn applies_birefnet_sigmoid() {
         assert_eq!(
             normalize_segmentation_output(&[-2.0, 0.0, 2.0], true),
-            vec![0, 127, 255]
+            vec![30, 128, 225]
+        );
+    }
+
+    #[test]
+    fn clamps_out_of_range_logits_to_valid_soft_mask() {
+        // Sigmoid output is bounded, but a malformed graph output must not
+        // escape the 0-255 range; negative probabilities clamp to 0.
+        assert_eq!(
+            normalize_segmentation_output(&[-100.0, 0.0, 100.0], false),
+            vec![0, 0, 255]
+        );
+        let sigmoided = normalize_segmentation_output(&[-50.0, 0.0, 50.0], true);
+        assert_eq!(sigmoided[0], 0);
+        assert_eq!(sigmoided[2], 255);
+        assert_eq!(sigmoided[1], 128);
+    }
+
+    #[test]
+    fn flat_output_stays_at_its_true_probability_not_stretched() {
+        // The old min-max path stretched a near-flat map to full contrast,
+        // turning soft probability bands into hard edges.
+        assert_eq!(
+            normalize_segmentation_output(&[0.5, 0.51, 0.52], false),
+            vec![128, 130, 133]
         );
     }
 
@@ -1227,5 +1316,75 @@ mod tests {
         let mut session: Box<dyn InferenceSession> = Box::new(StubSession);
         let result = session.run(&[], 0).unwrap();
         assert!(result.is_empty());
+    }
+
+    /// Native-parity golden test against the checked-in rembg reference mask
+    /// for the bundled u2netp model and one deterministic synthetic fixture.
+    ///
+    /// Gated on `ORT_DYLIB_PATH`: running it requires the bundled onnxruntime
+    /// dylib, which ordinary CI does not have. The threshold is deliberately
+    /// loose (IoU ≥ 0.98): the reference was generated with a different ORT
+    /// patch version and resize kernel, and the test exists to catch pipeline
+    /// regressions (wrong normalization, broken letterbox, double sigmoid),
+    /// not to pin pixel-exact output.
+    #[test]
+    #[ignore = "requires ORT_DYLIB_PATH pointing at a bundled onnxruntime dylib"]
+    fn native_u2netp_matches_reference_mask_within_tolerance() {
+        let Ok(dylib) = std::env::var("ORT_DYLIB_PATH") else {
+            return;
+        };
+        let root = env!("CARGO_MANIFEST_DIR");
+        let fixture =
+            format!("{root}/../../tests/fixtures/bg-removal-corpus/synthetic/synth-hair.png");
+        let reference = format!(
+            "{root}/../../tests/fixtures/bg-removal-corpus/reference/synth-hair-u2netp-rembg.png"
+        );
+        if !std::path::Path::new(&reference).is_file() {
+            return; // reference artifact not checked out; nothing to compare
+        }
+        crate::runtime::init_native_runtime(std::path::Path::new(&dylib))
+            .expect("onnxruntime dylib should load");
+        let model = crate::model::model_path("u2netp");
+        std::fs::create_dir_all(model.parent().expect("model parent")).expect("model dir");
+        std::fs::copy(
+            format!("{root}/../../apps/desktop/public/models/u2netp.onnx"),
+            &model,
+        )
+        .expect("stage bundled model");
+        let image = image::open(&fixture).expect("fixture should decode");
+        let result = crate::inference::remove_ai(
+            &image,
+            &crate::RemovalOptions {
+                method: crate::RemovalMethod::AiBalanced,
+                tolerance: None,
+                feather_radius: Some(0.0),
+                decontaminate: Some(false),
+                click_x: None,
+                click_y: None,
+                preview_max_dimension: Some(4096),
+            },
+            "u2netp",
+        )
+        .expect("inference should succeed");
+        let png = base64::Engine::decode(
+            &base64::engine::general_purpose::STANDARD,
+            &result.mask_base64,
+        )
+        .expect("mask base64");
+        let predicted = decode_gray_png(&png);
+        let expected = decode_gray_png(&std::fs::read(&reference).expect("reference"));
+
+        let metrics = crate::metrics::compute_mask_metrics(
+            &predicted,
+            &expected,
+            result.width,
+            result.height,
+            crate::metrics::MaskMetricsOptions::default(),
+        );
+        assert!(
+            metrics.iou >= 0.98,
+            "native u2netp diverged from the rembg reference on synth-hair: {metrics:?}"
+        );
+        assert!(metrics.mae <= 0.02, "mask MAE too high: {metrics:?}");
     }
 }

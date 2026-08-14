@@ -29,7 +29,7 @@ import type {
 // COMPLEXITY: 15
 
 export const DB_NAME = 'varve-home';
-export const DB_VERSION = 3;
+export const DB_VERSION = 5;
 export const STORE_FILES = 'files';
 export const STORE_PROJECTS = 'projects';
 export const STORE_THUMBS = 'thumbnails';
@@ -50,6 +50,8 @@ export const STORE_FILE_TAGS = 'fileTags';
 export const STORE_ACTIVITY = 'activity';
 export const STORE_SAVED_SEARCHES = 'savedSearches';
 export const STORE_RECENT_FILES = 'recentFiles';
+export const STORE_SEMANTIC_EMBEDDINGS = 'semanticEmbeddings';
+export const STORE_ASSET_BYTES = 'assetBytes';
 export const KV_VIEW_STATE = 'view-state';
 
 export interface FileRecord {
@@ -76,6 +78,7 @@ interface DbSchema {
   libraries: Library;
   templates: TemplateLibrary;
   assets: Asset;
+  assetBytes: { id: string; bytes: Uint8Array };
   assetFolders: AssetFolder;
   versions: VersionEntry;
   versionContent: { hash: string; json: string };
@@ -177,6 +180,22 @@ export async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
           store.createIndex('lastOpenedAt', 'lastOpenedAt');
         }
       }
+      if (oldVersion < 4) {
+        // Content-addressed semantic embeddings (derived, reconstructible —
+        // see semanticEmbeddingStore.ts). Keyed by the embedding identity
+        // string so renames reuse work while edits/model changes invalidate.
+        if (!db.objectStoreNames.contains(STORE_SEMANTIC_EMBEDDINGS)) {
+          db.createObjectStore(STORE_SEMANTIC_EMBEDDINGS, { keyPath: 'key' });
+        }
+      }
+      if (oldVersion < 5) {
+        // Source bytes for imported assets. Stored separately from the
+        // lightweight `assets` records so listing never loads image data;
+        // consumed only by the semantic indexer (embedding jobs).
+        if (!db.objectStoreNames.contains(STORE_ASSET_BYTES)) {
+          db.createObjectStore(STORE_ASSET_BYTES, { keyPath: 'id' });
+        }
+      }
     },
   });
 }
@@ -271,32 +290,45 @@ export function migrateLegacyIndexedDb(
                     storeDone();
                     return;
                   }
-                  const writeTx = current.transaction(storeName, 'readwrite');
-                  const target = writeTx.objectStore(storeName);
-                  let remaining = keys.length;
-                  const stepDone = () => {
-                    remaining -= 1;
-                    if (remaining === 0) {
-                      writeTx.oncomplete = () => {
-                        storeDone();
-                      };
-                      writeTx.onerror = () => {
-                        storeDone();
-                      };
+                  // Read every value from the legacy store FIRST (each get
+                  // uses its own short-lived readonly transaction), then
+                  // issue all writes inside one fresh readwrite
+                  // transaction. Issuing puts from inside async get
+                  // callbacks raced the write transaction's auto-commit —
+                  // a put landing after commit threw
+                  // TransactionInactiveError and took down the app through
+                  // the window-error crash handler.
+                  const reads = keys.map(
+                    (key) =>
+                      new Promise<{ key: IDBValidKey; value: unknown } | null>((resolve) => {
+                        const getReq = legacy!
+                          .transaction(storeName, 'readonly')
+                          .objectStore(storeName)
+                          .get(key);
+                        getReq.onsuccess = () => {
+                          resolve({ key: key as IDBValidKey, value: getReq.result });
+                        };
+                        getReq.onerror = () => resolve(null);
+                      }),
+                  );
+                  void Promise.all(reads).then((values) => {
+                    if (!current) {
+                      storeDone();
+                      return;
                     }
-                  };
-                  keys.forEach((key) => {
-                    const getReq = legacy!
-                      .transaction(storeName, 'readonly')
-                      .objectStore(storeName)
-                      .get(key);
-                    getReq.onsuccess = () => {
-                      target.put(getReq.result, key as IDBValidKey);
-                      stepDone();
-                    };
-                    getReq.onerror = () => {
-                      stepDone();
-                    };
+                    const entries = values.filter((v): v is NonNullable<typeof v> => v !== null);
+                    if (entries.length === 0) {
+                      storeDone();
+                      return;
+                    }
+                    const writeTx = current.transaction(storeName, 'readwrite');
+                    const target = writeTx.objectStore(storeName);
+                    for (const { key, value } of entries) {
+                      target.put(value, key);
+                    }
+                    writeTx.oncomplete = () => storeDone();
+                    writeTx.onerror = () => storeDone();
+                    writeTx.onabort = () => storeDone();
                   });
                 };
               };

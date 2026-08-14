@@ -202,6 +202,19 @@ assert.throws(
   'unknown platform must be rejected',
 );
 
+// Architecture aliases are accepted only when the canonical filename agrees.
+assert.throws(
+  () =>
+    verifyFixture({
+      manifest: {
+        ...FIXTURE_MANIFEST,
+        artifacts: [{ ...FIXTURE_MANIFEST.artifacts[0], arch: 'arm64' }],
+      },
+    }),
+  /does not agree with canonical architecture aarch64/,
+  'architecture/filename disagreement must be rejected',
+);
+
 // Unmanifested installer on the release
 assert.throws(
   () => verifyFixture({ assetNames: [...FIXTURE_ASSETS, 'Varve-0.1.0-macos-aarch64.dmg'] }),

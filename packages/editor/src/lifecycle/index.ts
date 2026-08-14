@@ -13,11 +13,14 @@ export {
   scopeSessionIds,
 } from './dirtyRegistry';
 export { createFinalizerRegistry, type FinalizerRegistry } from './finalizers';
+export type { LifecycleCommitHook } from './global';
 export {
+  getLifecycleCommitHook,
   getLifecycleCoordinator,
   getLifecycleFinalizeHandler,
   installLifecycleCoordinator,
   LIFECYCLE_COMMIT_EVENT,
+  setLifecycleCommitHook,
   setLifecycleFinalizeHandler,
   uninstallLifecycleCoordinator,
 } from './global';

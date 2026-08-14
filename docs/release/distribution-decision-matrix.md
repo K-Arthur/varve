@@ -156,20 +156,27 @@ the GUI-launch-on-VM smoke test and a first green three-OS CI run.
 
 ## 6. Analytics and privacy
 
-**Decision: ship with no analytics at all. Implemented 2026-08-04.**
+**Decision: ship with no analytics by default; provide a consent-gated adapter for
+deliberate production activation. Updated 2026-08-13.**
 
 `apps/website/src/layouts/Layout.astro` previously hardcoded the Plausible
 script, pointed at `strata.design` — a domain not owned, so it cost money and
-collected nothing. Analytics is now opt-in behind the `ANALYTICS_DOMAIN` build
-env var (empty by default, so the script tag and its CSP allowances are
-omitted entirely from production builds). Privacy policy updated to match.
+collected nothing. The website now uses a Varve-owned, consent-gated Events API
+adapter behind `ANALYTICS_DOMAIN` (empty by default, so there is no prompt or
+analytics request). Desktop usage, diagnostics, and crash reporting are
+independent categories with unknown/denied fail-closed defaults. Privacy policy
+and the technical disclosure match the implementation.
 
-GitHub Releases already reports per-asset download counts via the API for free. That is the
-only metric that matters at alpha ("did anyone download it, and which platform"), and it
-requires no third-party script, no cookie banner, and no privacy-policy exposure.
+GitHub Releases still reports per-asset download counts via the API for free. The optional
+consent-gated Plausible measurement adds only normalized website routes, release/platform
+download categories, and approved outbound categories; it does not use a third-party script,
+cookies, personal identifiers, or design data.
 
-To enable analytics later, set `ANALYTICS_DOMAIN` in the deploy workflow — no
-source change needed.
+The production website deployment sets `ANALYTICS_DOMAIN=varve.studio` and uses
+the matching Plausible site. Consent is still required before any request.
+Local and unconfigured builds leave the variable empty, so no prompt or request
+is emitted. Provider retention, access, deletion, and legal review remain
+operational responsibilities.
 
 ---
 
@@ -200,7 +207,7 @@ repository owner as an explicit decision:
 | Release integrity order | Installers → manifests → SBOMs → `SHA256SUMS.txt` last → upload → re-download → re-hash → publish | `generate-final-checksums.mjs` + `verify-downloaded.mjs`; the checksum file covers every public asset except itself |
 | SBOM scope | Per-platform CycloneDX 1.5 SBOMs (bundle contents differ by OS) + explicit all-platforms combined SBOM | `generate-sbom.mjs --os/--arch/--scope`; structural validator `validate-sbom.mjs` |
 | Signing claims | `signed`/`notarized` stay false until signature verification succeeds; release notes derive from the manifest | No certificates owned; no aspirational labels; checksums ≠ code signing (stated on the download page) |
-| Update mechanism | Manual only: download page + release notes; no updater, no background checks, no in-app check at alpha | `update-strategy.md` |
+| Update mechanism | Consent-first updater for supported self-managed desktop packages; package-managed, unsupported, and development builds remain manual | `update-strategy.md`; `update-system-audit-2026-08-13.md` |
 
 ## 9. Decisions recorded 2026-08-08 (code signing engineering)
 

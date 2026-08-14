@@ -28,14 +28,29 @@ function colorValue(node: SceneNode, opts?: FlutterExportOptions): string {
   return `Color(0xFF${hex.slice(1)})`;
 }
 
+/**
+ * Wrap an emitted widget in Transform.rotate when the node carries a
+ * non-zero `rotation` field. The canvas renderer rotates about the node
+ * origin (0,0 local — the element's top-left), which is Alignment.topLeft.
+ */
+function rotatedChild(node: SceneNode, inner: string, depth: number): string {
+  const rot = node.rotation ?? 0;
+  if (rot === 0) return inner;
+  const ind = '  '.repeat(depth);
+  return `${ind}Transform.rotate(\n${ind}  angle: ${rot} * math.pi / 180,\n${ind}  alignment: Alignment.topLeft,\n${ind}  child: ${inner},\n${ind})`;
+}
+
 function emitShape(node: SceneNode, depth: number, opts?: FlutterExportOptions): string {
   const pos = computeNodePos(node);
-  return `${'  '.repeat(depth)}Positioned(\n${'  '.repeat(depth + 1)}left: ${pos.x},\n${'  '.repeat(depth + 1)}top: ${pos.y},\n${'  '.repeat(depth + 1)}child: Container(\n${'  '.repeat(depth + 2)}width: ${pos.w},\n${'  '.repeat(depth + 2)}height: ${pos.h},\n${'  '.repeat(depth + 2)}color: ${colorValue(node, opts)},\n${'  '.repeat(depth + 1)}),\n${'  '.repeat(depth)});`;
+  const container = `Container(\n${'  '.repeat(depth + 1)}width: ${pos.w},\n${'  '.repeat(depth + 1)}height: ${pos.h},\n${'  '.repeat(depth + 1)}color: ${colorValue(node, opts)},\n${'  '.repeat(depth + 1)}`;
+  const child = `${container})`;
+  return `${'  '.repeat(depth)}Positioned(\n${'  '.repeat(depth + 1)}left: ${pos.x},\n${'  '.repeat(depth + 1)}top: ${pos.y},\n${'  '.repeat(depth + 1)}child: ${rotatedChild(node, child, depth + 1)},\n${'  '.repeat(depth)});`;
 }
 
 function emitText(node: TextNode, depth: number, opts?: FlutterExportOptions): string {
   const colorText = colorValue(node, opts);
-  return `${'  '.repeat(depth)}Text(\n${'  '.repeat(depth + 1)}'${node.text}',\n${'  '.repeat(depth + 1)}style: TextStyle(\n${'  '.repeat(depth + 2)}fontSize: ${node.fontSize ?? 16},\n${'  '.repeat(depth + 2)}color: ${colorText},\n${'  '.repeat(depth + 1)}),\n${'  '.repeat(depth)});`;
+  const text = `Text(\n${'  '.repeat(depth + 1)}'${node.text}',\n${'  '.repeat(depth + 1)}style: TextStyle(\n${'  '.repeat(depth + 2)}fontSize: ${node.fontSize ?? 16},\n${'  '.repeat(depth + 2)}color: ${colorText},\n${'  '.repeat(depth + 1)}),\n${'  '.repeat(depth)}`;
+  return `${rotatedChild(node, `${text})`, depth)};`;
 }
 
 function emitContainer(

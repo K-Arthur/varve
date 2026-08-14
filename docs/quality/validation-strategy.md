@@ -129,12 +129,20 @@ files and impact rules; you can run a domain directly with
 
 ## Troubleshooting
 
-- `verify:affected` selects 74%+ of the repository -> investigate:
+- `verify:affected` selects 74%+ of the repository -> the planner prints a
+  machine-enforced budget WARNING (fraction of repository test files
+  selected, computed by `scripts/quality/affected-plan.mjs`). Investigate:
   is a package too highly coupled? Are impact rules too broad? Did a
   shared utility become a dependency hub? (This is an architectural
   signal, not just a cost problem.)
 - A changed file's test was not selected -> the test may not be colocated
   or the implicit dependency is not registered; add an impact rule.
+- A test-only change fans out to the whole monorepo -> it does not
+  anymore: test files (`.test`/`.spec` under `packages/`/`apps/`) run the
+  changed test directly (Tier 1) and never trigger package/reverse-
+  dependent fanout, unless the change is to shared test infrastructure
+  (`tests/unit/**`, e2e helpers/fixtures), which broadens via the
+  `test-infra-broaden` impact rule.
 - Uncertain impact -> escalate conservatively. The system must answer:
   what changed? what can depend on it? which tests prove those contracts?
   what implicit integrations need extra validation? If it cannot answer

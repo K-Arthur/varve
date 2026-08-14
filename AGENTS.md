@@ -62,15 +62,19 @@ After ANY change that touches:
 
 Run in order:
 ```bash
-pnpm verify:plan    # understand the impact first — never skip this
-pnpm format         # or format-check
-pnpm lint           # 0 new errors on touched files
-pnpm verify:affected   # affected tests + typechecks (replaces the old full pnpm test)
-pnpm bench          # benchmark mode for .bench.ts files (optional, perf-sensitive)
-pnpm audit:docs     # docs naming/index/link drift — zero violations
-pnpm audit:emoji    # zero violations
-pnpm audit:tokens   # 120/120 WCAG-AA (3 themes)
+pnpm verify:plan        # understand the impact first — never skip this
+pnpm verify:affected    # Tiers 0-4. Tier 0 already covers format+lint on the
+                        # touched files — no whole-repo format/lint runs per
+                        # change; those belong to the full gate only.
+pnpm bench              # benchmark mode for .bench.ts files (optional, perf-sensitive)
+pnpm audit:docs         # docs naming/index/link drift — zero violations
+pnpm audit:emoji        # zero violations
+pnpm audit:tokens       # 120/120 WCAG-AA (3 themes)
 ```
+
+The audits above are also auto-selected by the planner when the change
+touches their domain (docs/emoji/tokens) — running them directly is a
+belt-and-braces recheck, not a substitute for `verify:affected`.
 
 Failure at any step means the change introduced a regression. Fix before committing.
 Do NOT skip the affected checks — but do NOT run the full suite unless the
@@ -482,7 +486,7 @@ gaps: `docs/architecture/workspace-system.md`.
 | **Design** | `Ctrl+Shift+1` | select | UI/UX, components, prototyping |
 | **Print** | `Ctrl+Shift+2` | select | Multi-page, typography, preflight, colour management |
 | **Draw** | `Ctrl+Shift+3` | paint | Raster painting, vector freehand, brushes |
-| **Photo** | `Ctrl+Shift+4` | preserve | Nondestructive photo editing, adjustments |
+| **Photo** | `Ctrl+Shift+4` | select | Nondestructive photo editing, adjustments |
 | **Motion** | `Ctrl+Shift+5` | select | Timeline animation, keyframes, easing |
 | **Logo** | `Ctrl+Shift+6` | select | Wordmarks, marks, monograms, badges, brand systems |
 | **Codegen** | `Ctrl+Shift+9` | select | Code export |
@@ -558,7 +562,7 @@ See `docs/architecture/text-pipeline.md`.
 | `@varve/crash` | **Built** | Privacy-first crash reporting and recovery core |
 | `@varve/help` | **Built** | Help system documentation and browser |
 | `@varve/home` | **Built** | Home/Start surface: recent files, projects, templates, file management |
-| `@varve/layout` | **Built** | CSS-native flex/grid layout IR mirroring the `varve-layout` crate |
+| `@varve/layout` | **Built** | CSS-native flex/grid layout IR: `computeFlexLayout`, `computeGridLayout`, `reflowLayoutChildren`, `resizeNodeGeometry`, `checkLayoutCycle` (pure, DOM-free; mirroring the `varve-layout` crate) |
 | `@varve/print` | **Built** | TS facade for the `varve-print` crate: font outlining, CMYK, PDF/X |
 | `@varve/tokens` | **Built** | DTCG design-token engine: parsing, validation, serialization, semantic diff, merge |
 | `@varve/history` | **Built** | Persistent revision history: operation log, revision DAG, snapshots, recovery |

@@ -73,10 +73,9 @@ Developer ID certificates cannot be renewed — they must be **re-issued**.
       window (or the next prerelease) and confirm
       `signing-report-windows.json` shows `verification: valid`
 
-### 1.5 Tauri updater minisign key (when the updater lands)
+### 1.5 Tauri updater minisign key
 
-- [ ] Created only when the updator ships (`update-strategy.md` §5). Private
-      key offline backup in two locations; CI copy in
+- [ ] Private key offline backup in two locations; CI copy in
       `TAURI_SIGNING_PRIVATE_KEY`; rotation is a two-release operation (old key
       signs a release embedding the new public key first). Losing the private
       key permanently blocks updates for all installed clients

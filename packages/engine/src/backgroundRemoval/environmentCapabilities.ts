@@ -255,7 +255,7 @@ export async function isWasmModelSafe(modelId: string): Promise<boolean> {
     // Import or catalog unavailable — fall back to hardcoded values.
     switch (modelId) {
       case 'u2netp':
-        modelFileSize = 4_700_000;
+        modelFileSize = 4_574_861;
         break;
       case 'isnet-general-use':
         modelFileSize = 178_648_008;
@@ -264,7 +264,7 @@ export async function isWasmModelSafe(modelId: string): Promise<boolean> {
         modelFileSize = 224_000_000;
         break;
       case 'birefnet-general':
-        modelFileSize = 928_000_000;
+        modelFileSize = 972_666_916;
         break;
       default:
         return true;

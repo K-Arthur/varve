@@ -10,7 +10,7 @@
  */
 
 import type { CharacterFormat, ManagedColor, RichSelection, RichText, TextRun } from '@varve/scene';
-import { applyFormatToSelection, mergeAdjacentRuns } from '@varve/scene';
+import { applyFormatToSelection, characterFormatValue, mergeAdjacentRuns } from '@varve/scene';
 import { managedColorToCss } from '@varve/shared';
 import { useCallback, useMemo, useRef } from 'react';
 import { useEditor } from '../../../context';
@@ -120,6 +120,19 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
     return undefined;
   }, [richText, editor.state.selectionRange]);
 
+  const weightState = useMemo(() => {
+    const range = editor.state.selectionRange;
+    return range
+      ? characterFormatValue(richText, range, 'fontWeight')
+      : { value: undefined, mixed: false };
+  }, [richText, editor.state.selectionRange]);
+  const styleState = useMemo(() => {
+    const range = editor.state.selectionRange;
+    return range
+      ? characterFormatValue(richText, range, 'fontStyle')
+      : { value: undefined, mixed: false };
+  }, [richText, editor.state.selectionRange]);
+
   return (
     <div className="rich-span-editor">
       {/*
@@ -168,7 +181,8 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
         <button
           type="button"
           aria-label="Bold"
-          aria-pressed={false}
+          aria-pressed={weightState.value === 700 && !weightState.mixed}
+          data-mixed={weightState.mixed ? 'true' : undefined}
           className="rich-span-editor__btn"
           onMouseDown={(e) => {
             e.preventDefault();
@@ -180,7 +194,8 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
         <button
           type="button"
           aria-label="Italic"
-          aria-pressed={false}
+          aria-pressed={styleState.value === 'italic' && !styleState.mixed}
+          data-mixed={styleState.mixed ? 'true' : undefined}
           className="rich-span-editor__btn"
           onMouseDown={(e) => {
             e.preventDefault();

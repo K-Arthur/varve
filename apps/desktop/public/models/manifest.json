@@ -16,30 +16,52 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input.1",
-            "dims": [1, 3, 320, 320],
+            "dims": [
+              1,
+              3,
+              320,
+              320
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output.1",
-            "dims": [1, 1, 320, 320],
+            "dims": [
+              1,
+              1,
+              320,
+              320
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
-        "peakMemoryBytes": 18800000
+        "peakMemoryBytes": 330000000
       },
       "validation": {
         "contractVerified": true,
@@ -49,6 +71,7 @@
         "integrityVerifiedAt": "2026-07-21T00:00:00Z",
         "provenanceStatus": "unverified",
         "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-08-13T00:00:00Z",
         "inferenceVerifiedAt": "2026-07-21T00:00:00Z",
         "validationSummary": "SHA-256 pinned from verified download. Full contract and provenance documented."
       },
@@ -70,26 +93,48 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input.1",
-            "dims": [1, 3, 320, 320],
+            "dims": [
+              1,
+              3,
+              320,
+              320
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output.1",
-            "dims": [1, 1, 320, 320],
+            "dims": [
+              1,
+              1,
+              320,
+              320
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -121,30 +166,52 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input.1",
-            "dims": [1, 3, 1024, 1024],
+            "dims": [
+              1,
+              3,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output.1",
-            "dims": [1, 1, 1024, 1024],
+            "dims": [
+              1,
+              1,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.5, 0.5, 0.5],
-          "std": [1, 1, 1],
+          "mean": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
-        "peakMemoryBytes": 714600000
+        "peakMemoryBytes": 1300000000
       },
       "validation": {
         "contractVerified": true,
@@ -172,30 +239,52 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input.1",
-            "dims": [1, 3, 1024, 1024],
+            "dims": [
+              1,
+              3,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output.1",
-            "dims": [1, 1, 1024, 1024],
+            "dims": [
+              1,
+              1,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "sigmoid",
-        "peakMemoryBytes": 896000000
+        "peakMemoryBytes": 7000000000
       },
       "validation": {
         "contractVerified": true,
@@ -210,6 +299,177 @@
       "notes": "High quality, handles complex edges including hair and fur. UNVERIFIED CONTRACT — tensor names/shapes from rembg export documentation, not inspected graph."
     },
     {
+      "id": "yunet-face-detect",
+      "filename": "yunet-face-detect.onnx",
+      "localPath": "/models/yunet-face-detect.onnx",
+      "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+      "bundled": true,
+      "remoteUrl": "https://huggingface.co/opencv/face_detection_yunet/resolve/main/face_detection_yunet_2023mar.onnx",
+      "precision": "fp32",
+      "modelVersion": "2023mar",
+      "sourceRevision": "opencv/face_detection_yunet 2023mar",
+      "sourceLicense": "MIT",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input",
+            "dims": [
+              1,
+              3,
+              640,
+              640
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "cls_8",
+            "dims": [
+              1,
+              6400,
+              1
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "cls_16",
+            "dims": [
+              1,
+              1600,
+              1
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "cls_32",
+            "dims": [
+              1,
+              400,
+              1
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "obj_8",
+            "dims": [
+              1,
+              6400,
+              1
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "obj_16",
+            "dims": [
+              1,
+              1600,
+              1
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "obj_32",
+            "dims": [
+              1,
+              400,
+              1
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "bbox_8",
+            "dims": [
+              1,
+              6400,
+              4
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "bbox_16",
+            "dims": [
+              1,
+              1600,
+              4
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "bbox_32",
+            "dims": [
+              1,
+              400,
+              4
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "kps_8",
+            "dims": [
+              1,
+              6400,
+              10
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "kps_16",
+            "dims": [
+              1,
+              1600,
+              10
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "kps_32",
+            "dims": [
+              1,
+              400,
+              10
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "normalization": {
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            0.00392156862745098,
+            0.00392156862745098,
+            0.00392156862745098
+          ],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 8000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "contractVerifiedAt": "2026-08-13T00:00:00Z",
+        "contractVersion": 1,
+        "integrityVerified": true,
+        "integrityVerifiedAt": "2026-08-13T00:00:00Z",
+        "provenanceStatus": "unverified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-08-13T00:00:00Z",
+        "validationSummary": "SHA-256 pinned from verified download. Tensor contract (input -> cls/obj/bbox/kps at strides 8/16/32) verified against the ONNX graph; decode verified bit-for-bit against OpenCV FaceDetectorYN (max |score| 2.2e-9, max |box| 1.06e-5 px)."
+      },
+      "notes": "YuNet face detection (opencv/face_detection_yunet 2023mar, MIT). Detects faces with bounding boxes and five keypoints each — powers face-aware crop ('Protect Faces'), person selection anchors, and face keypoints. 233 KB, bundled with the app."
+    },
+    {
       "id": "birefnet-general",
       "filename": "birefnet-general.onnx",
       "localPath": "/models/birefnet-general.onnx",
@@ -222,30 +482,52 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input.1",
-            "dims": [1, 3, 1024, 1024],
+            "dims": [
+              1,
+              3,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output.1",
-            "dims": [1, 1, 1024, 1024],
+            "dims": [
+              1,
+              1,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "sigmoid",
-        "peakMemoryBytes": 3712000000
+        "peakMemoryBytes": 8500000000
       },
       "validation": {
         "contractVerified": true,
@@ -272,26 +554,48 @@
       "sourceLicense": "BSD-3-Clause",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input.1",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output.1",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -326,26 +630,48 @@
       "sourceLicense": "BSD-3-Clause",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input.1",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output.1",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -378,27 +704,48 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
-        "inputDivisor": 8,
+        "inputDivisor": 64,
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -414,7 +761,80 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "SCUNet blind real-world denoising (PSNR variant). Removes sensor noise, JPEG artifacts, grain while preserving detail. Trained on synthetic data — works on real photos without paired training. Input: [1,3,H,W] float32 [0,1], H and W divisible by 8 (dynamic). Output: same shape denoised. ~70MB. Source: Heliosoph/scunet-onnx (HuggingFace), Apache-2.0. Converted from cszn/SCUNet (Zhang et al. 2022). Default variant: general-purpose photo denoising."
+      "notes": "SCUNet blind real-world denoising (PSNR variant). Removes sensor noise, JPEG artifacts, grain while preserving detail. Trained on synthetic data — works on real photos without paired training. Input: [1,3,H,W] float32 [0,1], H and W divisible by 64 (dynamic). Output: same shape denoised. ~70MB. Source: Heliosoph/scunet-onnx (HuggingFace), Apache-2.0. Converted from cszn/SCUNet (Zhang et al. 2022). Default variant: general-purpose photo denoising. Padding contract corrected 2026-08-13: the graph’s baked window-8 attention reshape crashes unless padded dims are multiples of 64 (verified by dimension sweep)."
+    },
+    {
+      "id": "nafnet-deblur-gopro",
+      "filename": "nafnet-gopro-width64-fp16b-embed.onnx",
+      "localPath": "/models/nafnet-gopro-width64-fp16b-embed.onnx",
+      "sha256": "e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e",
+      "bundled": false,
+      "remoteUrl": "https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx",
+      "precision": "fp16",
+      "modelVersion": "1.0.0",
+      "sourceRevision": "megvii-research/NAFNet @ 2b4af71; NAFNet-GoPro-width64.pth sha256 329d3ab4077b8d6b7ff61de376e483714667960bf85be027bf4335cda701196f",
+      "sourceLicense": "MIT",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input",
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "output",
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "inputDivisor": 16,
+        "normalization": {
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
+          "channelOrder": "bgr"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 420000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "integrityVerified": true,
+        "provenanceStatus": "verified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-08-13T00:00:00Z",
+        "validationSummary": "Reproducible conversion from the official NAFNet-GoPro-width64 checkpoint (tools/nafnet-export): bit-exact parity with the trusted PyTorch reference on real photos (max diff <= 1/255), dynamic shape, fp16 internal weights with fp32 boundary. GoPro test-set PSNR gate recorded in docs/quality/image-enhancement-benchmark.md.",
+        "integrityVerifiedAt": "2026-08-13T00:00:00Z",
+        "contractVersion": 1,
+        "contractVerifiedAt": "2026-08-13T00:00:00Z"
+      },
+      "notes": "NAFNet-GoPro-width64 motion/defocus deblurring. Task-validated for deblur only; not advertised for denoise or JPEG restoration. BGR channel order (official OpenCV training convention; the runtime swaps at the boundary). H/W divisible by 16. MIT (c) 2022 megvii-model. ~138MB fp16 single-file."
     },
     {
       "id": "sam2-hiera-tiny",
@@ -429,25 +849,29 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
-      "notes": "SAM2.1 Hiera Tiny — interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Encoder: ~39MB. Verified community source: onnx-community/sam2.1-hiera-tiny-ONNX (HuggingFace, Apache-2.0, converted from Meta). Separate ONNX graphs for encoder and decoder.",
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
+      "notes": "SAM2.1 Hiera Tiny — interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Composite download is the verified encoder + decoder pair; separate ONNX graphs are loaded by the worker.",
       "components": [
         {
           "id": "sam2-hiera-tiny-encoder",
-          "filename": "vision_encoder.onnx",
-          "localPath": "/models/sam2-hiera-tiny/vision_encoder.onnx",
-          "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx",
-          "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx.data",
+          "filename": "sam2_hiera_tiny.encoder.onnx",
+          "localPath": "/models/sam2_hiera_tiny.encoder.onnx",
+          "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx",
           "role": "encoder",
-          "checksum": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
-          "sizeBytes": 134261315
+          "checksum": "b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf",
+          "sizeBytes": 134261247,
+          "notes": "Graph repaired for onnxruntime-web: the upstream export declares empty value_info shapes on /conv_s0 and /conv_s1 outputs, which ort-web's wasm shape inference rejects at session creation (inferred=4 declared=0). Repair is reproducible via scripts/models/repair-sam2-graph.mjs and was verified bit-identical against the upstream graph (ort-node encode outputs match to the last digit).",
+          "upstreamChecksum": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
+          "repair": "sam2-empty-value-info"
         },
         {
           "id": "sam2-hiera-tiny-decoder",
-          "filename": "prompt_encoder_mask_decoder.onnx",
-          "localPath": "/models/sam2-hiera-tiny/prompt_encoder_mask_decoder.onnx",
-          "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx",
-          "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx.data",
+          "filename": "sam2_hiera_tiny.decoder.onnx",
+          "localPath": "/models/sam2_hiera_tiny.decoder.onnx",
+          "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.decoder.onnx",
           "role": "decoder",
           "checksum": "f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf",
           "sizeBytes": 20640886
@@ -467,36 +891,67 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 3, 1024, 1024],
+            "dims": [
+              1,
+              3,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "image_embed",
-            "dims": [1, 256, 64, 64],
+            "dims": [
+              1,
+              256,
+              64,
+              64
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_0",
-            "dims": [1, 32, 256, 256],
+            "dims": [
+              1,
+              32,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_1",
-            "dims": [1, 64, 128, 128],
+            "dims": [
+              1,
+              64,
+              128,
+              128
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none"
@@ -511,7 +966,9 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "Select Subject — image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. No SHA-256 pinned yet — compute and pin on first verified download."
+      "notes": "Select Subject — image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. SHA-256 is pinned from the verified download.",
+      "upstreamChecksum": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
+      "repair": "sam2-empty-value-info"
     },
     {
       "id": "sam2-hiera-tiny-decoder",
@@ -526,55 +983,95 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "image_embed",
-            "dims": [1, 256, 64, 64],
+            "dims": [
+              1,
+              256,
+              64,
+              64
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_0",
-            "dims": [1, 32, 256, 256],
+            "dims": [
+              1,
+              32,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_1",
-            "dims": [1, 64, 128, 128],
+            "dims": [
+              1,
+              64,
+              128,
+              128
+            ],
             "dtype": "float32"
           },
           {
             "name": "point_coords",
-            "dims": [1, null, 2],
+            "dims": [
+              1,
+              null,
+              2
+            ],
             "dtype": "float32"
           },
           {
             "name": "point_labels",
-            "dims": [1, null],
+            "dims": [
+              1,
+              null
+            ],
             "dtype": "float32"
           },
           {
             "name": "mask_input",
-            "dims": [1, 1, 256, 256],
+            "dims": [
+              1,
+              1,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "has_mask_input",
-            "dims": [1],
+            "dims": [
+              1
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "masks",
-            "dims": [1, 3, 256, 256],
+            "dims": [
+              1,
+              3,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "iou_predictions",
-            "dims": [1, 3],
+            "dims": [
+              1,
+              3
+            ],
             "dtype": "float32"
           }
         ],
@@ -590,7 +1087,7 @@
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "Select Subject — prompt decoder (runs per click/drag, using the cached encoder output). ~20.6MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): inputs image_embed/high_res_feats_0/high_res_feats_1 (from encoder) + point_coords/point_labels/mask_input/has_mask_input -> outputs masks + iou_predictions. No SHA-256 pinned yet — compute and pin on first verified download."
+      "notes": "Select Subject — prompt decoder (runs per click/drag, using the cached encoder output). ~20.6MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): inputs image_embed/high_res_feats_0/high_res_feats_1 (from encoder) + point_coords/point_labels/mask_input/has_mask_input -> outputs masks + iou_predictions. SHA-256 is pinned from the verified download."
     },
     {
       "id": "depth-anything-v2-small",
@@ -606,27 +1103,48 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
-            "name": "input",
-            "dims": [1, 3, 518, 518],
+            "name": "pixel_values",
+            "dims": [
+              1,
+              3,
+              518,
+              518
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
-            "name": "output",
-            "dims": [1, 1, 518, 518],
+            "name": "predicted_depth",
+            "dims": [
+              1,
+              518,
+              518
+            ],
             "dtype": "float32"
           }
         ],
         "inputDivisor": 14,
+        "rawNearFarConvention": "nearIsHigh",
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -636,13 +1154,14 @@
         "contractVerified": true,
         "integrityVerified": true,
         "provenanceStatus": "unverified",
-        "inferenceVerified": false,
-        "validationSummary": "SHA-256 pinned from verified download. Full contract and provenance documented.",
+        "inferenceVerified": true,
+        "validationSummary": "SHA-256 verified against the pinned hash; contract (pixel_values -> predicted_depth, output [1,518,518]) and depth ordering verified by scripts/models/verify-depth-model.mjs on 2026-08-13 — see apps/desktop/public/models/quantized/depth-anything-v2-small-validation-report.json. Raw convention nearIsHigh; canonicalized to 0=near, 1=far.",
         "integrityVerifiedAt": "2026-07-27T20:17:34.047Z",
+        "inferenceVerifiedAt": "2026-08-13T20:22:00.000Z",
         "contractVersion": 1,
         "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "AI depth estimation — powers Lens Blur's background blur. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0, converted from the official depth-anything/Depth-Anything-V2-Small checkpoint). Using the INT8 variant (~27MB) over FP32 (~99MB) to keep the one-time download reasonable on constrained connections and 4GB-RAM devices. Input: 518x518 RGB (multiple of 14). Output: relative depth map. Normalization: ImageNet (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]). No SHA-256 pinned yet — compute and pin on first verified download."
+      "notes": "AI depth estimation — powers Depth Blur's depth-aware background blur. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0, converted from the official depth-anything/Depth-Anything-V2-Small checkpoint). Using the INT8 variant (~27MB) over FP32 (~99MB) to keep the one-time download reasonable on constrained connections and 4GB-RAM devices. Input: 518x518 RGB letterboxed (multiple of 14). Output: relative depth map, raw convention nearIsHigh. Normalization: ImageNet (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])."
     },
     {
       "id": "lineart",
@@ -657,26 +1176,47 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 3, 256, 256],
+            "dims": [
+              1,
+              3,
+              256,
+              256
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output",
-            "dims": [1, 1, 256, 256],
+            "dims": [
+              1,
+              1,
+              256,
+              256
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "sigmoid",
@@ -707,26 +1247,48 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 3, 256, 256],
+            "dims": [
+              1,
+              3,
+              256,
+              256
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output",
-            "dims": [1, 2, 256, 256],
+            "dims": [
+              1,
+              2,
+              256,
+              256
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -756,26 +1318,48 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 3, 512, 512],
+            "dims": [
+              1,
+              3,
+              512,
+              512
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output",
-            "dims": [1, 2, 512, 512],
+            "dims": [
+              1,
+              2,
+              512,
+              512
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -806,7 +1390,10 @@
       "postprocessingVersion": 1,
       "notes": "SAM2.1 Hiera Small — higher quality interactive segmentation. Encoder: ~163MB, Decoder: ~21MB. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). SHA-256 pinned from verified download.",
       "sourceRevision": "sam2.1-hiera-small",
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "components": [
         {
           "id": "sam2-hiera-small-encoder",
@@ -815,7 +1402,11 @@
           "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.encoder.onnx",
           "role": "encoder",
           "sha256": "f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40",
-          "sizeBytes": 162703493
+          "sizeBytes": 162703425,
+          "checksum": "49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3",
+          "notes": "Graph repaired for onnxruntime-web: the upstream export declares empty value_info shapes on /conv_s0 and /conv_s1 outputs, which ort-web's wasm shape inference rejects at session creation (inferred=4 declared=0). Repair is reproducible via scripts/models/repair-sam2-graph.mjs and was verified bit-identical against the upstream graph (ort-node encode outputs match to the last digit).",
+          "upstreamChecksum": "f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40",
+          "repair": "sam2-empty-value-info"
         },
         {
           "id": "sam2-hiera-small-decoder",
@@ -843,7 +1434,10 @@
       "postprocessingVersion": 1,
       "notes": "Microsoft TrOCR-base-printed — OCR for printed Latin text. Two components: encoder (vision) + decoder (text). Decoder uses INT8 quantization. Verified source: Xenova/trocr-base-printed (HuggingFace, MIT). SHA-256 pinned from verified download.",
       "sourceRevision": "microsoft/trocr-base-printed, ONNX export via HuggingFace transformers (Xenova)",
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "components": [
         {
           "id": "trocr-encoder",
@@ -878,26 +1472,46 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu",
+        "webgl"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 3, 300, 300],
+            "dims": [
+              1,
+              3,
+              300,
+              300
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output",
-            "dims": [1, 3473],
+            "dims": [
+              1,
+              3473
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -935,30 +1549,55 @@
         "inputs": [
           {
             "name": "pixel_values",
-            "dims": [1, 3, 800, 800],
+            "dims": [
+              1,
+              3,
+              800,
+              800
+            ],
             "dtype": "float32"
           },
           {
             "name": "pixel_mask",
-            "dims": [1, 64, 64],
+            "dims": [
+              1,
+              64,
+              64
+            ],
             "dtype": "int64"
           }
         ],
         "outputs": [
           {
             "name": "logits",
-            "dims": [1, 100, 92],
+            "dims": [
+              1,
+              100,
+              92
+            ],
             "dtype": "float32"
           },
           {
             "name": "pred_boxes",
-            "dims": [1, 100, 4],
+            "dims": [
+              1,
+              100,
+              4
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -981,20 +1620,36 @@
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 224, 224, 3],
+            "dims": [
+              1,
+              224,
+              224,
+              3
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "Softmax:0",
-            "dims": [1, 1000],
+            "dims": [
+              1,
+              1000
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "softmax",
@@ -1017,25 +1672,48 @@
         "inputs": [
           {
             "name": "image",
-            "dims": [1, 3, 512, 512],
+            "dims": [
+              1,
+              3,
+              512,
+              512
+            ],
             "dtype": "float32"
           },
           {
             "name": "mask",
-            "dims": [1, 1, 512, 512],
+            "dims": [
+              1,
+              1,
+              512,
+              512
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output",
-            "dims": [1, 3, 512, 512],
+            "dims": [
+              1,
+              3,
+              512,
+              512
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -1058,20 +1736,38 @@
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 6, null, null],
+            "dims": [
+              1,
+              6,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "output",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -1089,31 +1785,121 @@
       "quantizationOrigin": "upstream",
       "sourceLicense": "Apache-2.0",
       "sourceRevision": "Xenova/siglip-base-patch16-224 (google/siglip-base-patch16-224 ONNX export)",
-      "notes": "Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search only — text search needs a tokenizer not yet wired up). Verified 2026-07-21 by downloading and inspecting the real graph (opset 13): pixel_values [B,3,224,224] float32 -> pooler_output [B,768]. SigLIP normalizes to mean=0.5/std=0.5 per channel, not ImageNet stats.",
+      "notes": "Embeds an image so visually/semantically similar assets can be ranked and surfaced (Embeds an image so visually/semantically similar assets can be ranked and surfaced; the same artifact also provides the paired text tower used by natural-language queries (see siglip-base-patch16-224-text). Graph contract re-verified 2026-08-13 against this exact artifact: pixel_values [B,3,224,224] float32 -> image_embeds [B,768]; input_ids [B,T] int64 is graph-required and fed as a constant zero). Graph contract re-verified 2026-08-13 against this exact artifact: pixel_values [B,3,224,224] float32 -> image_embeds [B,768]; input_ids [B,T] int64 is graph-required and fed as a constant zero token. SigLIP normalizes to mean=0.5/std=0.5 per channel, not ImageNet stats.",
       "tensorContract": {
-        "version": 1,
+        "version": 2,
         "inputs": [
           {
             "name": "pixel_values",
-            "dims": [1, 3, 224, 224],
+            "dims": [
+              1,
+              3,
+              224,
+              224
+            ],
             "dtype": "float32"
+          },
+          {
+            "name": "input_ids",
+            "dims": [
+              1,
+              1
+            ],
+            "dtype": "int64",
+            "constant": true,
+            "constantValue": [
+              0
+            ]
           }
         ],
         "outputs": [
           {
-            "name": "pooler_output",
-            "dims": [1, 768],
+            "name": "image_embeds",
+            "dims": [
+              1,
+              768
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.5, 0.5, 0.5],
-          "std": [0.5, 0.5, 0.5],
+          "mean": [
+            0.5,
+            0.5,
+            0.5
+          ],
+          "std": [
+            0.5,
+            0.5,
+            0.5
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
         "peakMemoryBytes": 750000000
       }
+    },
+    {
+      "id": "siglip-base-patch16-224-text",
+      "filename": "siglip-base-patch16-224-text.onnx",
+      "localPath": "/models/siglip-base-patch16-224-text.onnx",
+      "sha256": "ad0329b1f35acc66d8953ff2559ce358da8eb0a7011794cf951523d63a4dbce2",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/text_model_quantized.onnx",
+      "precision": "int8",
+      "quantizationOrigin": "upstream",
+      "sourceLicense": "Apache-2.0",
+      "sourceRevision": "Xenova/siglip-base-patch16-224 (google/siglip-base-patch16-224 text encoder)",
+      "notes": "Text-side SigLIP encoder for local natural-language image search. It shares the 768-dimensional embedding space with siglip-base-patch16-224 image embeddings. Requires the pinned tokenizer.json asset; download is explicit and cached locally.",
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input_ids",
+            "dims": [
+              1,
+              64
+            ],
+            "dtype": "int64"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "pooler_output",
+            "dims": [
+              1,
+              768
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "normalization": {
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 400000000
+      }
+    },
+    {
+      "id": "siglip-tokenizer",
+      "filename": "siglip-tokenizer.json",
+      "localPath": "/models/siglip-tokenizer.json",
+      "sha256": "c6e405cb7c670d56636a9402c81023a55bc6c3c53d89cf02b92f5c5005bfe920",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/google/siglip-base-patch16-224/resolve/main/tokenizer.json",
+      "sourceLicense": "Apache-2.0",
+      "sourceRevision": "google/siglip-base-patch16-224 (T5/SentencePiece Unigram tokenizer.json)",
+      "notes": "SigLIP T5-style SentencePiece Unigram tokenizer vocabulary and normalizer charsmap. Pinned from the reference implementation's tokenizer.json; the TypeScript tokenizer reproduces its normalizer chain and Viterbi exactly (parity-tested against transformers)."
     },
     {
       "id": "paddleocr-det-v4",
@@ -1131,20 +1917,38 @@
         "inputs": [
           {
             "name": "x",
-            "dims": [1, 3, null, null],
+            "dims": [
+              1,
+              3,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "sigmoid_0.tmp_0",
-            "dims": [1, 1, null, null],
+            "dims": [
+              1,
+              1,
+              null,
+              null
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0, 0, 0],
-          "std": [1, 1, 1],
+          "mean": [
+            0,
+            0,
+            0
+          ],
+          "std": [
+            1,
+            1,
+            1
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "sigmoid",
@@ -1164,36 +1968,67 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "input",
-            "dims": [1, 3, 1024, 1024],
+            "dims": [
+              1,
+              3,
+              1024,
+              1024
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "image_embed",
-            "dims": [1, 256, 64, 64],
+            "dims": [
+              1,
+              256,
+              64,
+              64
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_0",
-            "dims": [1, 32, 256, 256],
+            "dims": [
+              1,
+              32,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_1",
-            "dims": [1, 64, 128, 128],
+            "dims": [
+              1,
+              64,
+              128,
+              128
+            ],
             "dtype": "float32"
           }
         ],
         "normalization": {
-          "mean": [0.485, 0.456, 0.406],
-          "std": [0.229, 0.224, 0.225],
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ],
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
@@ -1209,7 +2044,9 @@
         "validationSummary": "SHA-256 pinned from verified download. Contract same architecture as sam2-hiera-tiny-encoder.",
         "contractVersion": 1
       },
-      "notes": "Select Subject — image encoder (runs once per image). ~163MB. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Same architecture as sam2-hiera-tiny."
+      "notes": "Select Subject — image encoder (runs once per image). ~163MB. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Same architecture as sam2-hiera-tiny.",
+      "upstreamChecksum": "f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40",
+      "repair": "sam2-empty-value-info"
     },
     {
       "id": "sam2-hiera-small-decoder",
@@ -1224,55 +2061,95 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": [
+        "wasm",
+        "webgpu"
+      ],
       "tensorContract": {
         "version": 1,
         "inputs": [
           {
             "name": "image_embed",
-            "dims": [1, 256, 64, 64],
+            "dims": [
+              1,
+              256,
+              64,
+              64
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_0",
-            "dims": [1, 32, 256, 256],
+            "dims": [
+              1,
+              32,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "high_res_feats_1",
-            "dims": [1, 64, 128, 128],
+            "dims": [
+              1,
+              64,
+              128,
+              128
+            ],
             "dtype": "float32"
           },
           {
             "name": "point_coords",
-            "dims": [1, -1, 2],
+            "dims": [
+              1,
+              -1,
+              2
+            ],
             "dtype": "float32"
           },
           {
             "name": "point_labels",
-            "dims": [1, -1],
+            "dims": [
+              1,
+              -1
+            ],
             "dtype": "float32"
           },
           {
             "name": "mask_input",
-            "dims": [1, 1, 256, 256],
+            "dims": [
+              1,
+              1,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "has_mask_input",
-            "dims": [1],
+            "dims": [
+              1
+            ],
             "dtype": "float32"
           }
         ],
         "outputs": [
           {
             "name": "masks",
-            "dims": [1, 3, 256, 256],
+            "dims": [
+              1,
+              3,
+              256,
+              256
+            ],
             "dtype": "float32"
           },
           {
             "name": "iou_predictions",
-            "dims": [1, 3],
+            "dims": [
+              1,
+              3
+            ],
             "dtype": "float32"
           }
         ],

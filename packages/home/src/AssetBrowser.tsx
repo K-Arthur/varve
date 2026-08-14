@@ -1,6 +1,8 @@
 import type { Asset, AssetFolder, Platform } from '@varve/platform';
+import { searchAssets } from '@varve/platform';
 import { ContentSkeleton, Icon, type IconName, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSemanticAssetSearch } from './search/useSemanticAssetSearch';
 
 export interface AssetBrowserProps {
   platform: Platform;
@@ -35,13 +37,10 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [assetList] = await Promise.all([
-        searchQuery.trim()
-          ? platform.searchAssets(searchQuery)
-          : platform.listAssets(workspaceId, selectedFolderId ?? undefined),
-        platform.listAssets(workspaceId).then(() => []),
-      ]);
-
+      const assetList = await platform.listAssets(workspaceId, selectedFolderId ?? undefined);
+      // Search locally over the scoped asset list. This keeps query updates
+      // instant and lets the browser use the same rank-fusion contract as the
+      // desktop/native adapters when OCR or semantic ranks become available.
       const fetchedFolders: AssetFolder[] = [];
       setAssets(assetList);
       setFolders(fetchedFolders);
@@ -51,7 +50,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     } finally {
       setLoading(false);
     }
-  }, [platform, workspaceId, selectedFolderId, searchQuery]);
+  }, [platform, workspaceId, selectedFolderId]);
 
   useEffect(() => {
     loadData();
@@ -99,6 +98,24 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     [folders, selectedFolderId],
   );
 
+  const hasQuery = searchQuery.trim().length > 0;
+  const hasImageAssets = useMemo(() => assets.some((asset) => asset.kind === 'image'), [assets]);
+
+  const {
+    semanticRanks,
+    status: semanticStatus,
+    semanticBusy,
+    downloadImageModel,
+    downloadTextModel,
+    downloadProgress,
+    downloadingModelId,
+  } = useSemanticAssetSearch(platform, assets, searchQuery);
+
+  const searchResults = useMemo(
+    () => searchAssets(assets, searchQuery, { semanticRanks: semanticRanks ?? undefined }),
+    [assets, searchQuery, semanticRanks],
+  );
+
   return (
     <div className="asset-browser">
       <input
@@ -115,7 +132,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
           <input
             type="text"
             className="asset-browser__search-input"
-            placeholder="Search assets..."
+            placeholder="Describe an image or search by filename…"
             value={searchQuery}
             onChange={handleSearchChange}
             aria-label="Search assets"
@@ -131,6 +148,9 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
             </button>
           )}
         </div>
+        <span className="asset-browser__search-hint" aria-hidden="true">
+          Local: filename · OCR · tags · visual
+        </span>
         <button
           type="button"
           className="asset-browser__import-btn"
@@ -141,6 +161,49 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
           {importing ? 'Importing...' : 'Import'}
         </button>
       </div>
+
+      {(hasQuery ||
+        downloadingModelId ||
+        (!semanticStatus.imageModelAvailable && hasImageAssets) ||
+        (semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount)) && (
+        <div className="asset-browser__semantic-status" role="status" aria-live="polite">
+          {downloadingModelId ? (
+            <span>
+              <Icon name="Download" label={undefined} size="0.875rem" />
+              Preparing visual search
+              {downloadProgress !== null ? ` · ${Math.round(downloadProgress * 100)}%` : ''}
+            </span>
+          ) : hasQuery && !semanticStatus.textModelAvailable ? (
+            <button
+              type="button"
+              className="asset-browser__semantic-cta"
+              onClick={() => void downloadTextModel()}
+            >
+              <Icon name="Search" label={undefined} size="0.875rem" />
+              Download natural-language search model
+            </button>
+          ) : !semanticStatus.imageModelAvailable && hasImageAssets ? (
+            <button
+              type="button"
+              className="asset-browser__semantic-cta"
+              onClick={() => void downloadImageModel()}
+            >
+              <Icon name="Image" label={undefined} size="0.875rem" />
+              Download visual search model to index assets
+            </button>
+          ) : semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount ? (
+            <span>
+              <Icon name="Loader" label={undefined} size="0.875rem" />
+              Indexing local assets · {semanticStatus.indexedCount} / {semanticStatus.totalCount}
+            </span>
+          ) : semanticBusy ? (
+            <span>
+              <Icon name="Loader" label={undefined} size="0.875rem" />
+              Searching…
+            </span>
+          ) : null}
+        </div>
+      )}
 
       <div className="asset-browser__body">
         <aside className="asset-browser__sidebar">
@@ -184,7 +247,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
             <div className="asset-browser__loading">
               <ContentSkeleton variant="grid" columns={3} rows={3} label="Loading assets" />
             </div>
-          ) : assets.length === 0 && subFolders.length === 0 ? (
+          ) : searchResults.length === 0 && subFolders.length === 0 ? (
             <div className="asset-browser__empty">
               <Icon name="Image" label={undefined} size="2rem" />
               <p className="asset-browser__empty-text">
@@ -215,7 +278,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
               )}
 
               <div className="asset-browser__grid">
-                {assets.map((asset) => (
+                {searchResults.map(({ asset, reasons }) => (
                   <div key={asset.id} className="asset-browser__card">
                     <div className="asset-browser__card-thumb">
                       {asset.thumbnailHash ? (
@@ -240,6 +303,9 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
                         <span className="asset-browser__card-kind">{asset.kind}</span>
                         <span>{formatFileSize(asset.size)}</span>
                       </div>
+                      {searchQuery.trim() && reasons.length > 0 && (
+                        <span className="asset-browser__card-reason">{reasons[0]?.label}</span>
+                      )}
                     </div>
                     {onInsertAsset && (
                       <button

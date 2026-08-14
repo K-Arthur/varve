@@ -18,13 +18,13 @@ this repository.**
 
 ---
 
-## 1. Secrets currently required: none
+## 1. Secrets currently required: updater key for release builds
 
-Until signing is acquired, `release.yml` builds, checksums, SBOMs and drafts a
-release using only `github.token`. The unsigned prerelease path must work with zero
-configuration, so that a missing secret is never the reason a release fails —
-until `RELEASE_EXPECT_SIGNED=true`, at which point missing signing credentials
-fail the release in `signing-preflight` BEFORE any platform build.
+The release workflow now produces Tauri updater artifacts (`.sig` files and
+static channel feeds), so `TAURI_SIGNING_PRIVATE_KEY` is required before any
+bundle is built. The protected signing-preflight job fails closed when it is
+absent; it never prints the value. Platform code-signing credentials remain
+separate and are required according to the signing policy below.
 
 ---
 
@@ -93,18 +93,19 @@ workflow. Re-evaluate OIDC when Microsoft or the CLI supports it.
 
 ---
 
-## 5. Secrets — updater (not yet applicable)
+## 5. Secrets — updater trust
 
 | Secret | What it is |
 |---|---|
 | `TAURI_SIGNING_PRIVATE_KEY` | Minisign private key for update manifests |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Its password |
 
-Do not create these until the updater is actually being enabled — see
-`docs/release/update-strategy.md`. When it lands, this key is stored, backed up
-and rotated **separately** from the Apple/Windows material above; installed
-clients trust the embedded public key, so losing the private key makes future
-updates impossible for existing installs.
+These secrets are used only by the release bundle step and must be stored in a
+protected release secret set. The private key is stored, backed up and rotated
+**separately** from the Apple/Windows material above; installed clients trust
+the embedded public key, so losing the private key makes future updates
+impossible for existing installs. See
+[`update-strategy.md`](update-strategy.md) and the rotation runbook.
 
 ---
 

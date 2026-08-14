@@ -29,10 +29,13 @@
 
 import { cmykToRgb, labToRgb, lchToRgb, rgbToCmyk } from '@varve/shared';
 import {
+  type BitDepth,
   type ColorConfig,
   type ColorMode,
+  colorConfigWithDefaults,
   defaultColorConfig,
   type ManagedColor,
+  type WorkingSpace,
 } from './colorManagement';
 import type { Document } from './document';
 import type { Effect, Fill, GradientStop, SceneNode, Stroke } from './types';
@@ -331,4 +334,33 @@ export function convertDocumentColors(
  */
 export function switchColorMode(doc: Document, newMode: ColorMode): Document {
   return convertDocumentColors(doc, newMode).doc;
+}
+
+/**
+ * Set the document's default bit depth for newly authored colors.
+ *
+ * This changes document settings only — existing color VALUES are not
+ * rewritten (that would be a precision-conversion operation, which is a
+ * separate explicit workflow). uint16/float documents author new colors at
+ * the stated depth via the picker's precision-aware fields.
+ */
+export function setDocumentBitDepth(doc: Document, bitDepth: BitDepth): Document {
+  const config = colorConfigWithDefaults(doc.colorConfig);
+  if (config.bitDepth === bitDepth) return doc;
+  return { ...doc, colorConfig: { ...config, bitDepth } };
+}
+
+/**
+ * Set the document's compositing/blending working space ('srgb' or 'linear').
+ * Affects how blend operations interpret channel values; existing documents
+ * keep their authored appearance (the working space is a settings change,
+ * not a value rewrite).
+ */
+export function setDocumentWorkingSpace(
+  doc: Document,
+  workingSpace: WorkingSpace,
+): Document {
+  const config = colorConfigWithDefaults(doc.colorConfig);
+  if (config.workingSpace === workingSpace) return doc;
+  return { ...doc, colorConfig: { ...config, workingSpace } };
 }

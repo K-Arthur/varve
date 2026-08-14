@@ -26,7 +26,7 @@ import { ColorSlider } from './ColorSlider';
 import type { ColorSpace } from './ColorSpaceSelector';
 import { ColorSpaceSelector } from './ColorSpaceSelector';
 import type { Color } from './color-utils';
-import { hsvToRgb, rgbToHex, rgbToHsv } from './color-utils';
+import { hsvToRgbNormalized, rgbToHex, rgbToHsvFloat } from './color-utils';
 import { contrastRatio, formatContrast, relativeLuminance, wcagLevel } from './contrast';
 import { EyeDropperButton } from './EyeDropperButton';
 import { GamutWarning } from './GamutWarning';
@@ -54,10 +54,10 @@ export interface ColorPickerProps {
    */
   onInteractionStart?: () => void;
   onInteractionEnd?: () => void;
-  /** Document swatches shown in the picker's swatch section. */
-  documentColors?: Color[];
-  /** Recently used colors shown in the picker's swatch section. */
-  recentColors?: Color[];
+  /** Document swatches shown in the picker's swatch section (canonical). */
+  documentColors?: ManagedColor[];
+  /** Recently used colors shown in the picker's swatch section (canonical). */
+  recentColors?: ManagedColor[];
   /**
    * Document CMYK working profile. Shown as context in the CMYK view and
    * attached to newly authored CMYK values in CMYK-mode documents.
@@ -216,7 +216,33 @@ export function ColorPicker({
     bitDepth ?? ('bitDepth' in value ? value.bitDepth : undefined) ?? 'uint8';
 
   const rgbTuple = useMemo(() => managedColorToRgbTuple(value), [value]);
-  const [h, s, v] = useMemo(() => rgbToHsv(rgbTuple[0], rgbTuple[1], rgbTuple[2]), [rgbTuple]);
+
+  // Canonical normalized (0-1) channels of the value — used as the source
+  // for untouched channels in the numeric fields. Only RGB-space values
+  // map 1:1; CMYK/gray/Lab values fall back to the display tuple.
+  const canonicalRgbNormalized = useMemo<[number, number, number, number] | undefined>(() => {
+    if (value.space !== 'rgb') return undefined;
+    const depth = value.bitDepth ?? 'uint8';
+    return [
+      normalizeChannel(value.r, depth),
+      normalizeChannel(value.g, depth),
+      normalizeChannel(value.b, depth),
+      normalizeChannel(value.a, depth),
+    ];
+  }, [value]);
+
+  // HSV drafts are seeded from the canonical normalized value (not the 8-bit
+  // display tuple) so slider/area edits of a high-precision color do not
+  // collapse channels to the 8-bit lattice.
+  const hsvSeed = useMemo(() => {
+    const base = canonicalRgbNormalized ?? [
+      rgbTuple[0] / 255,
+      rgbTuple[1] / 255,
+      rgbTuple[2] / 255,
+    ];
+    return rgbToHsvFloat(base[0], base[1], base[2]);
+  }, [canonicalRgbNormalized, rgbTuple]);
+  const [h, s, v] = hsvSeed;
   const [draftSat, setDraftSat] = useState(s);
   const [draftVal, setDraftVal] = useState(v);
   const [draftHue, setDraftHue] = useState(h);
@@ -284,12 +310,11 @@ export function ColorPicker({
   // echo of a just-emitted color (same canonical key), keep the user's drafts.
   useEffect(() => {
     if (lastEmittedRef.current === valueKey) return;
-    const [nr, ng, nb] = rgbTuple;
-    const [nh, ns, nv] = rgbToHsv(nr, ng, nb);
+    const [nh, ns, nv] = hsvSeed;
     setDraftHue(nh);
     setDraftSat(ns);
     setDraftVal(nv);
-  }, [valueKey, rgbTuple]);
+  }, [valueKey, hsvSeed]);
 
   // Same resync for Lab/LCH drafts. Values that ARE Lab/LCH seed directly
   // (no sRGB round trip) so external edits do not accumulate drift.
@@ -318,7 +343,11 @@ export function ColorPicker({
     [onChange],
   );
 
-  // `alpha` is 0-1 normalized; RGB/CMYK/gray channels are 0-255 uint8 scale.
+  // `alpha` is 0-1 normalized. `emitRgbNormalized` takes normalized RGB
+  // (0-1) and alpha (0-1); it is the precision-preserving emit used by the
+  // HSV area/slider drafts and the bit-depth-aware numeric fields. The
+  // legacy `emitRgb` (0-255 uint8-scale channels) delegates to it and is
+  // only used by inherently 8-bit inputs (hex, eyedropper, legacy swatches).
   const authorProfile = useMemo(
     () =>
       spotProfile ??
@@ -326,23 +355,39 @@ export function ColorPicker({
     [spotProfile, documentColorMode, authoringSpace, cmykProfile],
   );
 
-  const emitRgb = useCallback(
+  const emitRgbNormalized = useCallback(
     (r: number, g: number, b: number, alpha: number) => {
+      const toStorage = (v: number) => denormalizeChannel(v, bitDepthEffective);
       if (authoringSpace === 'cmyk') {
-        const [c, m, y, k] = rgbToCmyk(r, g, b);
+        const [c, m, y, k] = rgbToCmyk(r * 255, g * 255, b * 255);
         emit(buildColor('cmyk', [c, m, y, k], alpha, bitDepthEffective, authorProfile));
       } else if (authoringSpace === 'gray') {
-        const lum = Math.round(r * 0.299 + g * 0.587 + b * 0.114);
-        emit(buildColor('gray', [lum, 0, 0, 0], alpha, bitDepthEffective, spotProfile));
+        const lum = r * 0.299 + g * 0.587 + b * 0.114;
+        emit(buildColor('gray', [lum * 255, 0, 0, 0], alpha, bitDepthEffective, spotProfile));
       } else {
-        emit(buildColor('rgb', [r, g, b, 0], alpha, bitDepthEffective, spotProfile));
+        emit({
+          space: 'rgb',
+          bitDepth: bitDepthEffective !== 'uint8' ? bitDepthEffective : undefined,
+          r: toStorage(r),
+          g: toStorage(g),
+          b: toStorage(b),
+          a: toStorage(alpha),
+          ...(spotProfile ? { profile: spotProfile } : {}),
+        });
       }
     },
     [authoringSpace, bitDepthEffective, authorProfile, spotProfile, emit],
   );
 
-  const setDraftsFromRgb = useCallback((r: number, g: number, b: number) => {
-    const [nh, ns, nv] = rgbToHsv(r, g, b);
+  const emitRgb = useCallback(
+    (r: number, g: number, b: number, alpha: number) => {
+      emitRgbNormalized(r / 255, g / 255, b / 255, alpha);
+    },
+    [emitRgbNormalized],
+  );
+
+  const setDraftsFromRgb = useCallback((r01: number, g01: number, b01: number) => {
+    const [nh, ns, nv] = rgbToHsvFloat(r01, g01, b01);
     setDraftHue(nh);
     setDraftSat(ns);
     setDraftVal(nv);
@@ -350,10 +395,10 @@ export function ColorPicker({
 
   const applyColor = useCallback(
     (hue: number, sat: number, val: number, alpha: number) => {
-      const [r, g, b] = hsvToRgb(hue, sat, val);
-      emitRgb(r, g, b, alpha);
+      const [r, g, b] = hsvToRgbNormalized(hue, sat, val);
+      emitRgbNormalized(r, g, b, alpha);
     },
-    [emitRgb],
+    [emitRgbNormalized],
   );
 
   const handleAreaChange = useCallback(
@@ -374,24 +419,55 @@ export function ColorPicker({
   );
 
   const handleFieldsChange = useCallback(
-    (newColor: Color) => {
-      setDraftsFromRgb(newColor[0], newColor[1], newColor[2]);
-      emitRgb(newColor[0], newColor[1], newColor[2], normalizeChannel(newColor[3], 'uint8'));
+    (r01: number, g01: number, b01: number, a01: number) => {
+      setDraftsFromRgb(r01, g01, b01);
+      emitRgbNormalized(r01, g01, b01, a01);
     },
-    [setDraftsFromRgb, emitRgb],
+    [setDraftsFromRgb, emitRgbNormalized],
   );
 
-  const handleSwatchSelect = useCallback(
-    (c: Color) => {
-      setDraftsFromRgb(c[0], c[1], c[2]);
-      emitRgb(c[0], c[1], c[2], normalizeChannel(c[3], 'uint8'));
+  // Legacy 0-255 tuple emit — retained for callers that don't use the
+  // normalized path (standalone ColorFields usage).
+  const handleFieldsChangeLegacy = useCallback(
+    (newColor: Color) => {
+      handleFieldsChange(newColor[0] / 255, newColor[1] / 255, newColor[2] / 255, newColor[3] / 255);
     },
-    [setDraftsFromRgb, emitRgb],
+    [handleFieldsChange],
+  );
+
+  // Swatch selection carries the canonical ManagedColor: a swatch in its
+  // native space (matching the authoring space) is emitted unchanged at full
+  // precision; an RGB swatch is emitted through the normalized path so
+  // uint16/float channel values survive; other spaces convert via the
+  // display tuple into the authoring space.
+  const handleSwatchSelect = useCallback(
+    (c: ManagedColor) => {
+      if (c.space === authoringSpace && c.space !== 'rgb') {
+        const tuple = managedColorToRgba(c);
+        setDraftsFromRgb(tuple[0] / 255, tuple[1] / 255, tuple[2] / 255);
+        emit(c);
+        return;
+      }
+      if (c.space === 'rgb') {
+        const depth = c.bitDepth ?? 'uint8';
+        const r01 = normalizeChannel(c.r, depth);
+        const g01 = normalizeChannel(c.g, depth);
+        const b01 = normalizeChannel(c.b, depth);
+        const a01 = normalizeChannel(c.a, depth);
+        setDraftsFromRgb(r01, g01, b01);
+        emitRgbNormalized(r01, g01, b01, a01);
+        return;
+      }
+      const tuple = managedColorToRgba(c);
+      setDraftsFromRgb(tuple[0] / 255, tuple[1] / 255, tuple[2] / 255);
+      emitRgb(tuple[0], tuple[1], tuple[2], normalizeChannel(tuple[3], 'uint8'));
+    },
+    [authoringSpace, emit, emitRgb, emitRgbNormalized, setDraftsFromRgb],
   );
 
   const handleEyeDropper = useCallback(
     (c: Color) => {
-      setDraftsFromRgb(c[0], c[1], c[2]);
+      setDraftsFromRgb(c[0] / 255, c[1] / 255, c[2] / 255);
       emitRgb(c[0], c[1], c[2], normalizeChannel(c[3], 'uint8'));
     },
     [setDraftsFromRgb, emitRgb],
@@ -400,7 +476,7 @@ export function ColorPicker({
   const handleCmykChange = useCallback(
     (c: ManagedColor) => {
       const tuple = managedColorToRgba(c);
-      setDraftsFromRgb(tuple[0], tuple[1], tuple[2]);
+      setDraftsFromRgb(tuple[0] / 255, tuple[1] / 255, tuple[2] / 255);
       if (authoringSpace === 'cmyk') {
         emit(c);
       } else if (c.space === 'cmyk') {
@@ -421,6 +497,7 @@ export function ColorPicker({
         emit(c);
       } else {
         const tuple = managedColorToRgba(c);
+        setDraftsFromRgb(tuple[0] / 255, tuple[0] / 255, tuple[0] / 255);
         emitRgb(tuple[0], tuple[0], tuple[0], normalizeChannel(tuple[3], 'uint8'));
       }
     },
@@ -478,10 +555,10 @@ export function ColorPicker({
         handleLchChange({ ...draftLch, alpha: newAlpha * 100 });
         return;
       }
-      const [r, g, b] = hsvToRgb(hue, sat, val);
-      emitRgb(r, g, b, newAlpha);
+      const [r, g, b] = hsvToRgbNormalized(hue, sat, val);
+      emitRgbNormalized(r, g, b, newAlpha);
     },
-    [space, draftLab, draftLch, hue, sat, val, handleLabChange, handleLchChange, emitRgb],
+    [space, draftLab, draftLch, hue, sat, val, handleLabChange, handleLchChange, emitRgbNormalized],
   );
 
   const handleSpotSelect = useCallback(
@@ -752,7 +829,15 @@ export function ColorPicker({
         </>
       )}
 
-      {space === 'rgb' && <ColorFields color={rgbTuple} onChange={handleFieldsChange} />}
+      {space === 'rgb' && (
+        <ColorFields
+          color={rgbTuple}
+          bitDepth={bitDepthEffective}
+          canonicalNormalized={canonicalRgbNormalized}
+          onChangeNormalized={handleFieldsChange}
+          onChange={handleFieldsChangeLegacy}
+        />
+      )}
 
       {space === 'cmyk' && (
         <>

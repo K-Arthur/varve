@@ -55,7 +55,9 @@ import { sitePath } from '../lib/siteUrl';
       <section class="about-section">
         <h2>Privacy Policy</h2>
         <p>
-          Varve does not collect telemetry, track users, or require cloud accounts. All data stays on your machine. This website runs no analytics and sets no cookies.
+          Varve does not track users across sites or require cloud accounts. Optional website
+          analytics is consent-based, uses no cookies or fingerprinting, and is disabled unless a
+          production deployment explicitly configures it. The application keeps design data local.
         </p>
         <a href={sitePath('/about/privacy')} class="btn-secondary">Read the privacy policy</a>
       </section>

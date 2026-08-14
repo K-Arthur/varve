@@ -72,6 +72,8 @@ export interface FlattenCapability {
   supportsAdjustments: boolean;
   /** Whether the target supports masks (clip-path, alpha, luminance). */
   supportsMasks: boolean;
+  /** Whether the target can keep an effect-local mask editable/native. */
+  supportsEffectMasks: boolean;
   /** Whether the target supports rotation/skew transforms. */
   supportsTransforms: boolean;
   /** Whether the target supports opacity on nodes/groups. */
@@ -219,6 +221,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     supportsComplexBlend: false,
     supportsAdjustments: false,
     supportsMasks: true, // clip-path and mask elements
+    supportsEffectMasks: false, // codegen has no effect-stage mask emitter yet
     supportsTransforms: true,
     supportsOpacity: true,
   },
@@ -234,6 +237,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     supportsComplexBlend: false,
     supportsAdjustments: false,
     supportsMasks: false,
+    supportsEffectMasks: false,
     supportsTransforms: false, // only axis-aligned
     supportsOpacity: true,
   },
@@ -249,6 +253,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
     supportsComplexBlend: true,
     supportsAdjustments: true,
     supportsMasks: true,
+    supportsEffectMasks: true,
     supportsTransforms: true,
     supportsOpacity: true,
   },
@@ -312,6 +317,7 @@ function hasUnsupportedEffects(node: SceneNode, cap: FlattenCapability): boolean
   const effects = collectNodeEffects(node);
   for (const e of effects) {
     if (!cap.nativeEffectTypes.has(e.type)) return true;
+    if (e.mask && !cap.supportsEffectMasks) return true;
   }
   return false;
 }

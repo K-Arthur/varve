@@ -24,19 +24,7 @@ export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
   toastHandler = fn;
 }
 
-/** Module-level bridge letting status-bar badges (DebtBadge, LayoutScoreIndicator)
- *  request an inspector tab switch without PropertiesPanel's local tab state
- *  living in the shared reducer. Registered by PropertiesPanel on mount. */
-interface InspectorTabRequest {
-  tab: InspectorTab;
-  subTab?: IntelligenceTab;
-}
-
-let inspectorTabHandler: ((req: InspectorTabRequest) => void) | null = null;
-
-export function setInspectorTabHandler(fn: ((req: InspectorTabRequest) => void) | null): void {
-  inspectorTabHandler = fn;
-}
+export { requestInspectorTab, setInspectorTabHandler } from './context/inspectorTabBridge';
 
 /** Module-level bridge: invalidate a specific node's layer thumbnail
  *  after the node's fill, shape, or dimensions change. Registered by
@@ -52,9 +40,11 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 }
 
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
-
+import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
+import { requestInspectorTab } from './context/inspectorTabBridge';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
+import { pathPointsWorldToLocal } from './tools/pathCoords';
 
 /** Module-level bridge giving the BackupSettingsPanel access to the editor's
  *  BackupService without threading it through the EditorContextValue interface.
@@ -101,6 +91,7 @@ import {
   triadicHarmony,
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
+import { reflowLayoutChildren, resizeNodeGeometry } from '@varve/layout';
 import type { Platform } from '@varve/platform';
 import {
   PrototypeDebugConsole,
@@ -109,6 +100,7 @@ import {
 } from '@varve/prototype';
 import type {
   AdjustmentNode,
+  BitDepth,
   ColorMode,
   ContainerNode,
   ExportPreset,
@@ -123,6 +115,7 @@ import type {
   Slot,
   SyncResult,
   TableModel,
+  WorkingSpace,
 } from '@varve/scene';
 import {
   type ArrangeOp,
@@ -146,6 +139,7 @@ import {
   assignDocumentColorMode as assignDocumentColorModeDoc,
   assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
+  booleanAnchorForNode,
   buildParentIndexMap,
   canBeClipMaskSource,
   clearGuides,
@@ -218,6 +212,7 @@ import {
   pageBoundsInWorld,
   pasteboardBounds,
   pasteGuides as pasteGuidesDoc,
+  placeBooleanResult,
   promoteToRichText as promoteToRichTextOp,
   pushMasterChanges as pushMasterChangesDoc,
   rebuildSpreads as rebuildSpreadsDoc,
@@ -258,7 +253,9 @@ import {
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
+  setDocumentBitDepth as setDocumentBitDepthDoc,
   setDocumentProofConfig as setDocumentProofConfigDoc,
+  setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
   setLiveTraceParams as setLiveTraceParamsDoc,
@@ -285,6 +282,7 @@ import {
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
   shapeHeight,
+  shapeNodesInWorldSpace,
   shapeWidth,
   spreadBoundsInWorld,
   storyForFrame,
@@ -389,6 +387,7 @@ import {
 import { isReducedMotion } from './context/reducedMotionManager';
 import { resizeSceneNode, shapeForTool } from './context/sceneNodeGeometry';
 import type {
+  EditorContextValue as CanonicalEditorContextValue,
   CanvasMode,
   EditorState,
   GridOverlayMode,
@@ -453,10 +452,15 @@ import { getActionTracker } from './intelligence/actionTracker';
 import { autoName } from './intelligence/autoNamer';
 import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
-import { computeFlexLayout } from './layout/computeFlexLayout';
-import { applyGridLayout } from './layout/computeGridLayout';
 import { type MediaContextValue, MediaProvider } from './media/MediaContext';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
+import {
+  applyPaintProperties,
+  extractPaintProperties,
+  getPropertyClipboard,
+  hasPaintProperties,
+  setPropertyClipboard,
+} from './propertyClipboard';
 import { getSharedRecoveryManager, type RecoveryManager } from './recovery';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
@@ -464,7 +468,7 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
-import { resizeNodeGeometry } from './scene/resizeGeometry';
+
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   planLinkSelection,
@@ -478,7 +482,14 @@ import {
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
-import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
+import {
+  nodeLocalBounds,
+  nodeWorldBounds,
+  nodeWorldTransform,
+  rebaseWorldTransformToParent,
+  reparentLocalTransform,
+  worldToParent,
+} from './scene/world';
 import { loadSettings, updateSettings } from './settings';
 import { createInitialMediaState } from './state/media-state';
 import { createInitialMotionState } from './state/motion-state';
@@ -490,6 +501,7 @@ import {
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
+import type { PanelId } from './workspace/workspaceTypes';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -619,7 +631,16 @@ function insertImportedSubtree(
   };
 }
 
-export interface EditorContextValue {
+/**
+ * The editor context contract.
+ *
+ * NOTE: `context/types.ts` declares the canonical `EditorContextValue`; this
+ * interface extends it so consumers importing from `../context` see every
+ * member (the two copies had drifted, leaving handlers referencing methods the
+ * consumer-facing type did not declare). New members belong in
+ * `context/types.ts` unless they are provider-local.
+ */
+export interface EditorContextValue extends CanonicalEditorContextValue {
   state: EditorState;
   /** The platform facade (Tauri/web/memory), undefined if none was provided. */
   platform: Platform | undefined;
@@ -1096,7 +1117,7 @@ export interface EditorContextValue {
   /** Detach the first selected component instance. */
   detachSelected: () => void;
   /** Create a mask on the selected container from the node above it (or the first shape child). */
-  addMaskToSelected: (type?: import('@varve/scene').MaskType) => void;
+  addMaskToSelected: (type?: import('@varve/scene').MaskType, sourceNodeId?: NodeId) => void;
   /** Remove the mask from the selected container. Does NOT delete the mask source node. */
   removeMaskFromSelected: () => void;
   /** Toggle the selected container's mask visibility. */
@@ -1302,8 +1323,10 @@ export interface EditorContextValue {
     };
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection' | 'layer';
+    candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
+  selectSam2Candidate: (index: number) => void;
 
   /** Enlarge the selected image into a new editable image layer. */
   upscaleSelectedImage: (options: import('@varve/engine').UpscaleOptions) => Promise<void>;
@@ -1464,6 +1487,8 @@ export interface EditorContextValue {
   /** Show or hide guide overlay lines (guides remain in document). */
   setGuidesVisible: (visible: boolean) => void;
   toggleGuidesVisible: () => void;
+  /** Show or hide print guides (bleed/trim/slug/safe area) — view-only, never exported. */
+  setBleedGuidesVisible: (visible: boolean) => void;
   setSelectedGuideId: (id: string | null) => void;
   nudgeSelectedGuide: (dx: number, dy: number) => void;
   /** Copy the selected guide to the clipboard. */
@@ -1674,6 +1699,10 @@ export interface EditorContextValue {
     padding?: number,
     options?: import('./imageCrop').TrimToSubjectOptions,
   ) => Promise<void>;
+  applyFaceAwareCrop: (options?: {
+    safetyMargin?: number;
+    minimumConfidence?: number;
+  }) => Promise<boolean>;
   expandImageBounds: (
     padding: number,
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
@@ -1959,25 +1988,15 @@ const INITIAL_SESSION_ID = 'session-0';
 
 // ─── standalone helpers ─────────────────────────────────────────────────
 
-/** Apply layout to a frame's children and return the updated doc. */
+/**
+ * Apply layout to a frame's children and return the updated doc.
+ *
+ * Delegates to `reflowLayoutChildren`, the shared reflow entry point that
+ * canvas resize commits and inspector W/H edits also use (see
+ * `layout/reflow.ts`).
+ */
 function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {
-  if (!parentId) return doc;
-  const parent = doc.nodes[parentId];
-  if (parent?.kind !== 'frame' || !parent.layoutStyle) return doc;
-  if (parent.layoutStyle.mode === 'grid') {
-    return applyGridLayout(doc, parentId);
-  }
-  const childNodes = parent.children
-    .map((cid) => doc.nodes[cid])
-    .filter((n): n is SceneNode => Boolean(n));
-  const results = computeFlexLayout(parent, childNodes);
-  if (results.length === 0) return doc;
-  const nodes = { ...doc.nodes };
-  for (const r of results) {
-    const child = nodes[r.id];
-    if (child) nodes[r.id] = { ...child, transform: [1, 0, 0, 1, r.x, r.y] as Affine };
-  }
-  return { ...doc, nodes };
+  return reflowLayoutChildren(doc, parentId);
 }
 
 /**
@@ -2033,49 +2052,6 @@ function propagateFrameConstraints(
     } as SceneNode;
   }
   return updates;
-}
-
-/**
- * Compute world-space bounding box for any node type.
- * Retained as a fallback only — prefers canonical `nodeWorldBounds(doc, id)`
- * which composes the full ancestor transform chain.
- */
-export function nodeWorldBoundsFn(
-  n: SceneNode,
-): { x: number; y: number; w: number; h: number } | null {
-  const tx = n.transform[4] ?? 0;
-  const ty = n.transform[5] ?? 0;
-  if (n.kind === 'shape') {
-    const s = n.shape;
-    if (s.kind === 'rect') return { x: tx + s.x, y: ty + s.y, w: s.w, h: s.h };
-    if (s.kind === 'ellipse')
-      return { x: tx + s.cx - s.rx, y: ty + s.cy - s.ry, w: s.rx * 2, h: s.ry * 2 };
-    if (s.kind === 'circle')
-      return { x: tx + s.cx - s.r, y: ty + s.cy - s.r, w: s.r * 2, h: s.r * 2 };
-    if (s.kind === 'line') {
-      const minX = Math.min(s.from[0], s.to[0]);
-      const minY = Math.min(s.from[1], s.to[1]);
-      return {
-        x: tx + minX,
-        y: ty + minY,
-        w: Math.abs(s.to[0] - s.from[0]) || 4,
-        h: Math.abs(s.to[1] - s.from[1]) || 4,
-      };
-    }
-    if (s.kind === 'polygon')
-      return { x: tx + s.cx - s.radius, y: ty + s.cy - s.radius, w: s.radius * 2, h: s.radius * 2 };
-    if (s.kind === 'star')
-      return {
-        x: tx + s.cx - s.outerRadius,
-        y: ty + s.cy - s.outerRadius,
-        w: s.outerRadius * 2,
-        h: s.outerRadius * 2,
-      };
-  }
-  if (n.kind === 'text')
-    return { x: tx, y: ty, w: (n.fontSize ?? 16) * 3, h: (n.fontSize ?? 16) * 1.4 };
-  if (n.kind === 'frame') return { x: tx, y: ty, w: n.w, h: n.h };
-  return null;
 }
 
 /** No-op fallback for media methods used before MediaProvider mounts. */
@@ -2331,6 +2307,7 @@ export function EditorProvider({
       subjectHighlightId: null,
       cafDialogNodeId: null,
       backgroundRemovalPreviewSession: null,
+      objectSelectionSession: null,
       keyObjectId: null,
       alignToPage: false,
       colorBlindnessView: 'none',
@@ -2349,6 +2326,8 @@ export function EditorProvider({
       upscaleDialogOpen: false,
       vectorizeDialogOpen: false,
       vectorizeDialogPrefill: null,
+      paletteExtractDialogOpen: false,
+      paletteExtractSrc: null,
       debugOverlay: {
         enabled: false,
         channels: {
@@ -3267,6 +3246,35 @@ export function EditorProvider({
         patch({ historyPanelVisible: next });
         recordPanelVisibilityOverride(state.workspaceMode, 'history', next);
       },
+      restoreAllPanels: () => {
+        // Recovery path for accidentally hidden panels: show every panel the
+        // active workspace knows, and record the choice as an override so the
+        // restored layout is what the next session boots into.
+        const patchObj: Partial<EditorState> = {
+          leftPanelVisible: true,
+          rightPanelVisible: true,
+          timelinePanelVisible: true,
+          libraryPanelVisible: true,
+          codegenPanelVisible: true,
+          logoPanelVisible: true,
+          historyPanelVisible: true,
+        };
+        patch(patchObj);
+        const mode = state.workspaceMode;
+        const panelIds: PanelId[] = [
+          'layers',
+          'inspector',
+          'timeline',
+          'library',
+          'codegen',
+          'logo',
+          'history',
+        ];
+        for (const panelId of panelIds) {
+          recordPanelVisibilityOverride(mode, panelId, true);
+        }
+        announcerRef.current?.announce('All panels restored');
+      },
       toggleDistractionFreeMode: () => {
         const next = !state.distractionFreeMode;
         patch({ distractionFreeMode: next });
@@ -3663,15 +3671,40 @@ export function EditorProvider({
             // parent's coordinate space so that composing parent · child
             // yields the original world position. Without this, a shape
             // placed inside a translated frame jumps by the frame's offset.
-            const pWorld = nodeWorldTransform(d2, effectiveParentId);
-            const pInv = invertAffine(pWorld);
-            const localPos = applyAffine(pInv, [world.x, world.y]);
+            const localPos = worldToParent(d2, effectiveParentId, [world.x, world.y]) ?? [
+              world.x,
+              world.y,
+            ];
             const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
             node = {
               ...node,
               transform: localTransform,
               constraints: defaultConstraints(),
             } as SceneNode;
+            // Path geometry under a transformed parent: anchors were rebased
+            // by translation only above, which is correct for identity
+            // parents but drifts by the parent's linear part (rotation/
+            // scale). Remap through the full inverse so the composed
+            // parent·node·point reproduces the drawn world path. Handles are
+            // vectors and are handled by pathPointsWorldToLocal.
+            if (
+              pathPoints &&
+              pathPoints.length > 0 &&
+              node.kind === 'shape' &&
+              node.shape.kind === 'path'
+            ) {
+              const parentWorld = nodeWorldTransform(d2, effectiveParentId);
+              const absoluteLocal = pathPointsWorldToLocal(pathPoints, parentWorld);
+              const localPoints = absoluteLocal.map((p) => ({
+                ...p,
+                x: p.x - localPos[0],
+                y: p.y - localPos[1],
+              }));
+              node = {
+                ...node,
+                shape: { ...node.shape, points: localPoints },
+              } as SceneNode;
+            }
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
@@ -3921,7 +3954,7 @@ export function EditorProvider({
 
       nodeWorldBounds: (n) =>
         getCachedWorldBounds(transformCacheRef.current, state.document, n.id) ??
-        nodeWorldBoundsFn(n),
+        nodeWorldBounds(state.document, n.id),
       getWorldTransform: (id) =>
         getCachedWorldTransform(transformCacheRef.current, state.document, id),
       getWorldBounds: (id) => getCachedWorldBounds(transformCacheRef.current, state.document, id),
@@ -4671,17 +4704,27 @@ export function EditorProvider({
             const oldW = node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w;
             nodes[id] = resizeNodeGeometry(node, w, bounds.h);
             invalidateNodeThumbnail(id);
-            // Propagate constraints to frame children
+            // Propagate constraints to frame children. Layout frames reflow
+            // instead — layout owns child positions (and fill/grow sizes).
             if (node.kind === 'frame') {
-              const childUpdates = propagateFrameConstraints(
-                { ...doc, nodes },
-                id,
-                oldW,
-                node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h,
-              );
-              for (const [cid, child] of Object.entries(childUpdates)) {
-                nodes[cid] = child;
-                invalidateNodeThumbnail(cid);
+              if (node.layoutStyle) {
+                const reflowed = reflowLayoutChildren({ ...doc, nodes }, id);
+                for (const [cid, child] of Object.entries(reflowed.nodes)) {
+                  if (cid === id) continue;
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
+              } else {
+                const childUpdates = propagateFrameConstraints(
+                  { ...doc, nodes },
+                  id,
+                  oldW,
+                  node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h,
+                );
+                for (const [cid, child] of Object.entries(childUpdates)) {
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
               }
             }
           }
@@ -4702,17 +4745,27 @@ export function EditorProvider({
             const oldH = node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h;
             nodes[id] = resizeNodeGeometry(node, bounds.w, h);
             invalidateNodeThumbnail(id);
-            // Propagate constraints to frame children
+            // Propagate constraints to frame children. Layout frames reflow
+            // instead — layout owns child positions (and fill/grow sizes).
             if (node.kind === 'frame') {
-              const childUpdates = propagateFrameConstraints(
-                { ...doc, nodes },
-                id,
-                node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w,
-                oldH,
-              );
-              for (const [cid, child] of Object.entries(childUpdates)) {
-                nodes[cid] = child;
-                invalidateNodeThumbnail(cid);
+              if (node.layoutStyle) {
+                const reflowed = reflowLayoutChildren({ ...doc, nodes }, id);
+                for (const [cid, child] of Object.entries(reflowed.nodes)) {
+                  if (cid === id) continue;
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
+              } else {
+                const childUpdates = propagateFrameConstraints(
+                  { ...doc, nodes },
+                  id,
+                  node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w,
+                  oldH,
+                );
+                for (const [cid, child] of Object.entries(childUpdates)) {
+                  nodes[cid] = child;
+                  invalidateNodeThumbnail(cid);
+                }
               }
             }
           }
@@ -5019,6 +5072,7 @@ export function EditorProvider({
         });
       },
 
+      pendingFormat: state.pendingFormat,
       setPendingFormat: (format: import('@varve/scene').CharacterFormat | null) => {
         setState((s) => ({ ...s, pendingFormat: format }));
       },
@@ -5515,6 +5569,13 @@ export function EditorProvider({
           nextDoc = await trimToSubjectDoc(nextDoc, id, padding, options);
         }
         updateDoc(() => nextDoc);
+      },
+      applyFaceAwareCrop: async (options) => {
+        const { applyFaceAwareCropToDocument } = await import('./imageCrop');
+        const next = await applyFaceAwareCropToDocument(state.document, state.selection, options);
+        if (!next) return false;
+        updateDoc(() => next);
+        return true;
       },
       expandImageBounds: (
         padding: number,
@@ -6028,7 +6089,7 @@ export function EditorProvider({
           patch({ rightPanelVisible: true });
           updateSettings({ panel: { rightPanelVisible: true } });
         }
-        inspectorTabHandler?.({ tab, subTab });
+        requestInspectorTab(tab, subTab);
       },
 
       openCafDialog: (nodeId) => {
@@ -6222,7 +6283,6 @@ export function EditorProvider({
           const node = doc.nodes[id];
           if (!node) return doc;
           const oldParentId = getParentFast(doc, id, parentCacheRef.current);
-          const oldWorld = nodeWorldTransform(doc, id);
           // A null newParentId means "move to the active page's top level."
           // doc.rootChildren holds each page's contentRoot group id, not page
           // content, so splicing directly into it (like createShapeAt used to)
@@ -6234,15 +6294,17 @@ export function EditorProvider({
           const effectiveParentId =
             newParentId ?? (contentRootId && doc.nodes[contentRootId] ? contentRootId : null);
           let newDoc: Document;
+          const newLocal = reparentLocalTransform(doc, id, effectiveParentId);
           if (effectiveParentId) {
             // Convert old world pos → new parent's local space.
-            const pWorld = nodeWorldTransform(doc, effectiveParentId);
-            const pInv = invertAffine(pWorld);
-            const newLocal = multiplyAffine(pInv, oldWorld);
-            newDoc = reparentNodeDoc(doc, id, effectiveParentId, toIndex, newLocal);
+            if (newLocal) {
+              newDoc = reparentNodeDoc(doc, id, effectiveParentId, toIndex, newLocal);
+            } else {
+              newDoc = doc;
+            }
           } else {
             // Move to root: local = world (root has identity transform).
-            newDoc = reparentNodeDoc(doc, id, null, toIndex, oldWorld);
+            newDoc = newLocal ? reparentNodeDoc(doc, id, null, toIndex, newLocal) : doc;
           }
           if (oldParentId) newDoc = applyFrameLayout(newDoc, oldParentId);
           if (effectiveParentId) newDoc = applyFrameLayout(newDoc, effectiveParentId);
@@ -6305,16 +6367,24 @@ export function EditorProvider({
         });
       },
 
-      addMaskToSelected: (type: MaskType = 'alpha') => {
+      addMaskToSelected: (type: MaskType = 'alpha', sourceNodeId?: NodeId) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
         updateDoc((doc) => {
           const container = doc.nodes[id];
-          if (!container || !('children' in container)) return doc;
-          const children = container.children;
-          // Use first child as mask source, or find a shape child
-          const maskSource = children.length > 0 ? children[0] : null;
+          if (!container || (container.kind !== 'adjustment' && !('children' in container))) {
+            return doc;
+          }
+          const children = 'children' in container ? container.children : [];
+          // Structural containers use a direct child by default. Adjustment
+          // layers have no children, so their spatial mask must be supplied by
+          // an explicit source (the inspector's target picker does this).
+          const maskSource =
+            sourceNodeId ??
+            (container.kind === 'adjustment'
+              ? sel.find((selectedId) => selectedId !== id && doc.nodes[selectedId])
+              : children.find((childId) => doc.nodes[childId] !== undefined));
           if (!maskSource || !doc.nodes[maskSource]) return doc;
           return addMaskDoc(doc, id, maskSource, type);
         });
@@ -6981,6 +7051,44 @@ export function EditorProvider({
         });
       },
 
+      // Style painter: copy/paste visual properties (one undo entry for the
+      // paste regardless of how many nodes are targeted).
+      copySelectedProperties: () => {
+        const sel = state.selection;
+        const source = sel.length > 0 ? state.document.nodes[sel[0]!] : undefined;
+        if (!source) return;
+        setPropertyClipboard(extractPaintProperties(source));
+        announcerRef.current?.announce('Properties copied');
+      },
+      pastePropertiesToSelection: () => {
+        const props = getPropertyClipboard();
+        if (!hasPaintProperties(props)) {
+          announcerRef.current?.announce('No copied properties to paste');
+          return;
+        }
+        const sel = state.selection.filter((id) => {
+          const node = state.document.nodes[id];
+          return node && !node.locked;
+        });
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const updated = applyPaintProperties(node, props);
+            if (updated !== node) {
+              nodes[id] = updated;
+              invalidateNodeThumbnail(id);
+            }
+          }
+          return { ...doc, nodes };
+        });
+        announcerRef.current?.announce(
+          `Properties pasted to ${sel.length} layer${sel.length === 1 ? '' : 's'}`,
+        );
+      },
+
       copySelected: () => {
         const guideId = stateRef.current.selectedGuideId;
         if (guideId) {
@@ -7000,7 +7108,19 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
-        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets, closure.iconAssets);
+        // World anchor per selection root (placed world): lets paste rebuild
+        // the exact world pose inside a destination frame/artboard.
+        const worldAnchor: Record<string, Affine> = {};
+        for (const id of sel) {
+          worldAnchor[id] = nodeWorldTransform(state.document, id);
+        }
+        writeToClipboard(
+          nodes,
+          closure.rasterMaskAssets,
+          closure.assets,
+          closure.iconAssets,
+          worldAnchor,
+        );
         announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
@@ -7011,7 +7131,17 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
-        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets, closure.iconAssets);
+        const worldAnchor: Record<string, Affine> = {};
+        for (const id of sel) {
+          worldAnchor[id] = nodeWorldTransform(state.document, id);
+        }
+        writeToClipboard(
+          nodes,
+          closure.rasterMaskAssets,
+          closure.assets,
+          closure.iconAssets,
+          worldAnchor,
+        );
         updateDoc((doc) => {
           let d = doc;
           for (const id of sel) d = removeNode(d, id);
@@ -7094,6 +7224,21 @@ export function EditorProvider({
           let doc = s.document;
           const newIds: NodeId[] = [];
 
+          // Paste target: the deepest selected unlocked/visible frame or
+          // group receives pasted content. Pasting converts the source
+          // world pose into that parent's local space instead of
+          // reinterpreting local coordinates in the destination frame.
+          const targetFrameId: NodeId | null =
+            s.selection
+              .map((id) => s.document.nodes[id])
+              .find(
+                (n): n is import('@varve/scene').FrameNode =>
+                  n !== undefined &&
+                  !n.locked &&
+                  n.visible !== false &&
+                  (n.kind === 'frame' || n.kind === 'group'),
+              )?.id ?? null;
+
           if (varveData) {
             const tempNodes: Record<string, SceneNode> = {};
             for (const node of varveData.nodes) {
@@ -7119,6 +7264,7 @@ export function EditorProvider({
                 for (const childId of node.children) childIds.add(childId);
               }
             }
+            const worldAnchor = varveData.worldAnchor ?? {};
             for (const node of varveData.nodes) {
               if (childIds.has(node.id)) continue;
               // insertImportedSubtree deep-clones from tempDoc (handling
@@ -7130,6 +7276,36 @@ export function EditorProvider({
               const inserted = insertImportedSubtree(doc, tempDoc, node.id, (n) => n);
               if (!inserted) continue;
               doc = inserted.doc;
+              // World-pose preservation: the copy records each root's
+              // placed-world transform; rebase it into the destination
+              // frame's local space (or use it directly at the document
+              // top level). Without an anchor (legacy clipboard payloads)
+              // the source local coordinates are kept verbatim.
+              const anchor = worldAnchor[node.id];
+              if (anchor) {
+                if (targetFrameId && doc.nodes[targetFrameId]) {
+                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
+                  const local = rebaseWorldTransformToParent(parentWorld, anchor);
+                  if (local) {
+                    const parent = doc.nodes[targetFrameId] as ContainerNode;
+                    doc = reparentNodeDoc(
+                      doc,
+                      inserted.rootId,
+                      targetFrameId,
+                      parent?.children?.length ?? 0,
+                      local,
+                    );
+                  }
+                } else {
+                  const root = doc.nodes[inserted.rootId];
+                  if (root) {
+                    doc = {
+                      ...doc,
+                      nodes: { ...doc.nodes, [inserted.rootId]: { ...root, transform: anchor } },
+                    };
+                  }
+                }
+              }
               newIds.push(inserted.rootId);
             }
           }
@@ -7162,6 +7338,26 @@ export function EditorProvider({
               );
               if (!inserted) continue;
               doc = inserted.doc;
+              // Paste into the selected frame: rebase the viewport-centred
+              // placement into the frame's local space so the imported
+              // content lands at the intended world point INSIDE the frame.
+              if (targetFrameId && doc.nodes[targetFrameId]) {
+                const root = doc.nodes[inserted.rootId];
+                if (root) {
+                  const parentWorld = nodeWorldTransform(doc, targetFrameId);
+                  const local = rebaseWorldTransformToParent(parentWorld, root.transform as Affine);
+                  if (local) {
+                    const parent = doc.nodes[targetFrameId] as ContainerNode;
+                    doc = reparentNodeDoc(
+                      doc,
+                      inserted.rootId,
+                      targetFrameId,
+                      parent?.children?.length ?? 0,
+                      local,
+                    );
+                  }
+                }
+              }
               newIds.push(inserted.rootId);
               pasteIndex += 1;
             }
@@ -7375,6 +7571,7 @@ export function EditorProvider({
       },
       setBleedGuidesVisible: (v: boolean) => {
         patch({ bleedGuidesVisible: v });
+        persistViewportPrefs({ ...stateRef.current, bleedGuidesVisible: v });
       },
       setLayoutGridVisible: (v: boolean) => {
         patch({ layoutGridVisible: v });
@@ -7631,6 +7828,16 @@ export function EditorProvider({
         updateDoc((doc) => convertDocumentColorsDoc(doc, mode).doc);
       },
 
+      // Document settings: default bit depth and working space for newly
+      // authored colors. Settings-only — existing values are never
+      // rewritten by these operations.
+      setDocumentBitDepth: (bitDepth: BitDepth) => {
+        updateDoc((doc) => setDocumentBitDepthDoc(doc, bitDepth));
+      },
+      setDocumentWorkingSpace: (workingSpace: WorkingSpace) => {
+        updateDoc((doc) => setDocumentWorkingSpaceDoc(doc, workingSpace));
+      },
+
       // F2/A8 — session (tab) management -----------------------------------
 
       resolveVariable: (nameOrId) =>
@@ -7877,6 +8084,13 @@ export function EditorProvider({
       closeVectorizeDialog: () => {
         patch({ vectorizeDialogOpen: false, vectorizeDialogPrefill: null });
       },
+      paletteExtractDialogOpen: state.paletteExtractDialogOpen,
+      openPaletteExtract: (src) => {
+        patch({ paletteExtractDialogOpen: true, paletteExtractSrc: src });
+      },
+      closePaletteExtract: () => {
+        patch({ paletteExtractDialogOpen: false, paletteExtractSrc: null });
+      },
 
       addPreset: (nodeId, preset) => {
         updateDoc((doc) => {
@@ -7939,13 +8153,18 @@ export function EditorProvider({
             redoStackRef.current = [];
             redoSelStackRef.current = [];
           }
-          const result = doBooleanOp(op, shapeNodes);
+          // Boolean operands are clipped in WORLD space so selections
+          // spanning artboards/groups/pasteboard clip correctly; the result
+          // is then re-anchored at the first operand's home (parent + z) in
+          // that parent's local coordinates.
+          const anchorNode = shapeNodes[0]!;
+          const anchor = booleanAnchorForNode(s.document, anchorNode.id);
+          const worldNodes = shapeNodesInWorldSpace(s.document, shapeNodes);
+          const result = doBooleanOp(op, worldNodes);
           let d = s.document;
           for (const id of sel) d = removeNode(d, id);
-          const { id: newId, doc: d2 } = nextNodeId(d);
-          const newNode = { ...result, id: newId } as import('@varve/scene').ShapeNode;
-          d = addNode(d2, newNode);
-          return { ...s, document: d, selection: [newId], dirty: true };
+          const placed = placeBooleanResult(d, result, anchor);
+          return { ...s, document: placed.doc, selection: [placed.nodeId], dirty: true };
         });
       },
 
@@ -8002,7 +8221,11 @@ export function EditorProvider({
               node.id,
               node as unknown as Parameters<typeof alphaContoursToShapeNodes>[2],
             ) as unknown as import('@varve/scene').ShapeNode[];
-            rasterShapeNodes.push(...nodes);
+            // Contours are in image-source space with the source's LOCAL
+            // transform; boolean clipping happens in world space, so lift
+            // each derived shape to the image node's world transform.
+            const worldTransform = nodeWorldTransform(doc, node.id);
+            rasterShapeNodes.push(...nodes.map((n) => ({ ...n, transform: worldTransform })));
           }
 
           // Collect vector nodes
@@ -8018,16 +8241,22 @@ export function EditorProvider({
             return;
           }
 
-          const allShapeNodes = [...rasterShapeNodes, ...vectorShapeNodes];
           setState((s) => {
-            const result = doBooleanOp(kind, allShapeNodes);
+            // World-space operands: raster-derived shapes were lifted to
+            // their image node's world transform at extraction; vector
+            // shapes are lifted here. The result is re-anchored at the
+            // first real operand's home in that parent's local space.
+            const anchorNode = doc.nodes[allIds[0]!];
+            const anchor = anchorNode
+              ? booleanAnchorForNode(s.document, anchorNode.id)
+              : { parentId: null as string | null, index: 0 };
+            const worldVectorNodes = shapeNodesInWorldSpace(s.document, vectorShapeNodes);
+            const result = doBooleanOp(kind, [...rasterShapeNodes, ...worldVectorNodes]);
             let d = s.document;
             for (const id of allIds) d = removeNode(d, id);
-            const { id: newId, doc: d2 } = nextNodeId(d);
-            const newNode = { ...result, id: newId } as import('@varve/scene').ShapeNode;
-            d = addNode(d2, newNode);
+            const placed = placeBooleanResult(d, result, anchor);
             announcerRef.current?.announce('Boolean operation complete');
-            return { ...s, document: d, selection: [newId], dirty: true };
+            return { ...s, document: placed.doc, selection: [placed.nodeId], dirty: true };
           });
         } catch (err) {
           const message = err instanceof Error ? err.message : 'Unknown error';
@@ -8082,7 +8311,41 @@ export function EditorProvider({
           const usePixelArt =
             options.method === 'nearest' && pixelArtAlgo && pixelArtAlgo !== 'nearest';
           let outputImage: ImageData;
-          if (denoiseStrength && denoiseStrength !== 'none') {
+          if (options.operation) {
+            const operation = options.operation;
+            const restorationResult = await engine.runRestoration(
+              source,
+              {
+                operation,
+                denoise:
+                  operation === 'denoise' || operation === 'restore-upscale'
+                    ? {
+                        strength:
+                          denoiseStrength && denoiseStrength !== 'none'
+                            ? denoiseStrength
+                            : 'medium',
+                        modelId: 'scunet',
+                      }
+                    : undefined,
+                upscale:
+                  operation === 'upscale' || operation === 'restore-upscale'
+                    ? {
+                        method: usePixelArt ? 'pixel-art' : (options.method ?? 'bicubic'),
+                        scale: options.scale ?? 2,
+                        modelId: options.modelId,
+                        pixelArtAlgorithm: usePixelArt
+                          ? (pixelArtAlgo as PixelArtAlgorithm)
+                          : undefined,
+                      }
+                    : undefined,
+              },
+              {
+                signal: controller.signal,
+                onProgress: (_stage, done, total) => options.onProgress?.(done, total),
+              },
+            );
+            outputImage = restorationResult.imageData;
+          } else if (denoiseStrength && denoiseStrength !== 'none') {
             const pipelineResult = await engine.runEnhancementPipeline({
               source,
               denoiseStrength,
@@ -8229,7 +8492,16 @@ export function EditorProvider({
             });
           } else {
             // Default: create a new layer beside the non-destructive source.
-            const scaleLabel = options.method === 'ai' ? '4x-ai' : `${options.scale ?? 2}x`;
+            const scaleLabel =
+              options.operation === 'deblur'
+                ? 'deblurred'
+                : options.operation === 'denoise'
+                  ? 'denoised'
+                  : options.operation === 'compression-restoration'
+                    ? 'cleaned'
+                    : options.method === 'ai'
+                      ? '4x-ai'
+                      : `${options.scale ?? 2}x`;
             const inserted = insertDerivedImageShape(current.document, processingNodeId, {
               dataUrl,
               width: outputImage.width,
@@ -8240,8 +8512,20 @@ export function EditorProvider({
             updateDoc(() => inserted.doc);
             patch({ selection: [inserted.nodeId] });
           }
+          const operationLabel =
+            options.operation === 'denoise'
+              ? 'denoised'
+              : options.operation === 'deblur'
+                ? 'deblurred'
+                : options.operation === 'deblur-upscale'
+                  ? 'deblurred and upscaled'
+                  : options.operation === 'compression-restoration'
+                    ? 'cleaned of compression artifacts'
+                    : options.operation === 'restore-upscale'
+                      ? 'restored and upscaled'
+                      : 'upscaled';
           announcerRef.current?.announce(
-            `Image upscaled to ${outputImage.width} by ${outputImage.height} pixels`,
+            `Image ${operationLabel} to ${outputImage.width} by ${outputImage.height} pixels`,
           );
         } catch (error) {
           if (controller.signal.aborted) throw new Error('cancelled');
@@ -8447,6 +8731,7 @@ export function EditorProvider({
       // SAM2 segmentation
       applySam2Segmentation: sam2Seg.applySam2Segmentation,
       cancelSam2Segmentation: sam2Seg.cancelSam2Segmentation,
+      selectSam2Candidate: sam2Seg.selectSam2Candidate,
 
       ...(protoValue ?? PROTO_NOOP),
 
@@ -9111,6 +9396,14 @@ export function EditorProvider({
                   >
                     {children}
                   </PrototypeProvider>
+                  {state.paletteExtractDialogOpen && state.paletteExtractSrc && (
+                    <PaletteExtractDialogHost
+                      src={state.paletteExtractSrc}
+                      onClose={() =>
+                        patch({ paletteExtractDialogOpen: false, paletteExtractSrc: null })
+                      }
+                    />
+                  )}
                 </MediaProvider>
               </MotionProvider>
             </SelectionProvider>

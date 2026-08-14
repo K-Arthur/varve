@@ -122,6 +122,19 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
     await expect(page.locator('.workspace-tabs')).toBeVisible();
     await expect(page.locator('[data-testid="toolbar"]')).toBeVisible();
     await expect(page.locator('.editor-status')).toBeVisible();
+
+    const status = await page.locator('.editor-status').boundingBox();
+    expect(status).toBeTruthy();
+    for (const fab of await page.locator('.editor__fab').all()) {
+      const box = await fab.boundingBox();
+      expect(box).toBeTruthy();
+      if (status && box) {
+        expect(
+          box.y + box.height,
+          'responsive panel control must not cover the status bar',
+        ).toBeLessThanOrEqual(status.y);
+      }
+    }
   });
 
   test('status bar stays below canvas', async ({ page }) => {

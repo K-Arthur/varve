@@ -1,6 +1,6 @@
 # Image lifecycle architecture
 
-**Updated:** 2026-08-09
+**Updated:** 2026-08-13
 
 This document records the verified raster/image lifecycle and its ownership
 boundaries. It complements [image-geometry.md](image-geometry.md), which owns
@@ -19,7 +19,7 @@ File picker / drop / clipboard / foreign importer / generated result
   -> DocumentCodec normalize / encode / decode
   -> sceneToEngine and render IR (short asset resource handle, not the payload)
   -> engine image resource registry (handle -> loadable source)
-  -> @varve/engine ImageCache (shared HTMLImageElement decode, byte-bounded LRU,
+  -> @varve/engine ImageCache (shared full/at-size decode, byte-bounded LRU,
      typed failure states)
   -> main-thread Canvas2D replay (loading vs failed placeholders)
        or missing-only ImageBitmap delta -> render worker retained source map
@@ -46,7 +46,7 @@ decoded cache. Workspace switching changes UI/tool configuration only.
 | Returned worker frame | worker host / canvas owner | Latest-revision and viewport/DPR guarded; stale and replaced frames are closed. |
 | WebGPU geometry | compositor | Optional acceleration. A batch falls back intact to Canvas2D when any item has unsupported paint or ordering semantics. |
 | Derived raster result | operation-specific service plus scene asset API | Must register a new immutable asset and retain source provenance where the operation is non-destructive. |
-| Thumbnail/export pixels | thumbnail/export service | Derived and disposable; never authoritative source data. |
+| Thumbnail/export pixels | thumbnail/export service | Derived and disposable; only settled thumbnails may be persisted; never authoritative source data. |
 
 Object URLs are not part of the normal image-ingestion path. Callers that use
 them for downloads, print, or codegen fallback own revocation explicitly.
@@ -84,9 +84,14 @@ reinterpret invalid profiles).
 ## Cache and worker rules
 
 - Identical cache requests share one pending load.
-- A cancelled, cleared, or superseded token cannot repopulate the cache.
+- A cancelled, cleared, superseded, or synchronously replaced token cannot
+  repopulate the cache; a stale `ImageBitmap` completion is closed exactly
+  once when the cache no longer owns it.
 - The decoded cache is bounded by both entry count and estimated RGBA bytes.
-- Oversized decodes may be used by the immediate caller but are not retained.
+- Oversized decodes may be used by the immediate caller but are not retained;
+  the cache does not close that caller-owned result.
+- Replacing a retained decoded bitmap closes the previous cache-owned bitmap
+  before publishing the replacement.
 - Cache reset clears pending state and listeners before replacing the singleton.
 - Cache failures are typed (`ImageLoadError`: missing/corrupt/unsupported/
   permission/unavailable/cors/unknown); remote failures are classified by
@@ -157,7 +162,7 @@ PARTIAL = foundation landed, product surface remains; OPEN = unchanged.
 | Worker IR identity | IR carries the short content-addressed asset handle; registry resolves to the loadable source | Embedded data URLs were structured-cloned even when bitmap transfer is a delta | High performance | `imageResourceRegistry.ts`, `sceneToEngine.ts`; measured 205x structured-clone reduction | DONE |
 | Worker memory | Transfer/frame budgets exist; resident source bytes now reported + accounted; admission includes residency | Worker-retained image bytes were not a distinct diagnostic category | Medium-high | `renderBitmapBudget.ts`, `workerHost.ts` | DONE |
 | Raster masks | Masked fills are collected (alphaMask) and refused by the worker (A-without-M fallback) | Worker resource collection ignored alpha-mask resources | High correctness | `collectImageBitmaps.ts` | DONE |
-| Thumbnail | Multiple thumbnail converters | Some paths duplicate scene conversion and can request full-resolution decodes for tiny output | High drift/performance | editor thumbnail modules | OPEN — canonical conversion reuse; bounded preview representations deferred |
+| Thumbnail | Canonical `renderDocThumbnail` → `generateThumbnail` pipeline and Layers Panel 28×28 profile use `ImageCache.loadAtSize` at physical output size when supported; persistence rejects provisional results | Remote sources and runtimes without `createImageBitmap` still use full HTML-image decode; legacy callers remain | Medium performance/correctness | `packages/editor/src/thumbnail/thumbnailService.ts`, `packages/engine/src/thumbnail/service.ts`, `packages/editor/src/components/LayersPanel/useThumbnail.ts` | DONE for canonical/node thumbnails — bounded inline previews and settled-only persistence; remote scaled decode remains platform-limited |
 | Export preload | Structural export runs a collect → settle → preflight → render barrier with typed failures, timeout and cancellation | Some structural raster-flatten paths could replay before images load | High correctness | `export/resourceReadiness.ts`, `compositor.ts`, `SpecPanel/export.ts` | DONE |
 | Loading/error UX | Typed failure model; placeholders distinguish loading from permanent failure; recovery hints per code | Loading, corrupt, missing, permission, and CORS failures were indistinguishable | Medium product correctness | `imageErrors.ts`, `imagePlaceholder.ts` | PARTIAL — canvas/export foundation landed; Inspector/relink UI flows remain |
 | Adaptive quality | Profile fields and prefetch helpers exist | Decode quality and prefetch depth have no runtime consumer | Medium performance | `adaptiveProfile.ts`, `viewportPrefetch.ts` | OPEN — connect only after large-image browser benchmarks establish a benefit |

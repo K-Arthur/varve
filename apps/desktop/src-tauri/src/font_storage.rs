@@ -13,7 +13,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
-use tauri::Manager;
 
 /// Metadata stored alongside each font.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -45,11 +44,9 @@ fn family_dir_name(family: &str) -> String {
 
 /// Get the app data font directory.
 fn font_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let mut dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Cannot resolve app data dir: {e}"))?;
-    dir.push("fonts");
+    let dir = crate::filesystem::AppDirectories::resolve(app)
+        .map_err(|error| error.message)?
+        .fonts;
     std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create font dir: {e}"))?;
     Ok(dir)
 }
@@ -126,11 +123,28 @@ pub fn store_font_on_filesystem(
     let font_path = dir.join(&file_name);
 
     // Atomically write font data
-    let tmp_path = dir.join(".font.tmp");
-    std::fs::write(&tmp_path, &data)
-        .map_err(|e| format!("Cannot write font file: {e}"))?;
-    std::fs::rename(&tmp_path, &font_path)
-        .map_err(|e| format!("Cannot finalize font file: {e}"))?;
+    // Never share a fixed staging name between concurrent app instances.
+    // The generated name is native path data and is not derived from the
+    // user's family name.
+    let staging_id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let tmp_path = dir.join(format!(
+        ".varve-font-{}-{}.tmp",
+        std::process::id(),
+        staging_id
+    ));
+    let write_result = std::fs::write(&tmp_path, &data)
+        .map_err(|e| format!("Cannot write font file: {e}"))
+        .and_then(|()| {
+            crate::filesystem::replace_file(&tmp_path, &font_path)
+                .map_err(|error| format!("Cannot finalize font file: {}", error.message))
+        });
+    if write_result.is_err() {
+        let _ = std::fs::remove_file(&tmp_path);
+    }
+    write_result?;
 
     let file_size = data.len() as u64;
 
@@ -149,8 +163,23 @@ pub fn store_font_on_filesystem(
 
     let meta_json = serde_json::to_string(&meta)
         .map_err(|e| format!("Cannot serialize metadata: {e}"))?;
-    std::fs::write(meta_path(&dir), &meta_json)
-        .map_err(|e| format!("Cannot write metadata: {e}"))?;
+    // Atomic metadata write: a crash mid-write must not leave a truncated
+    // meta.json that would hide the font or break its load.
+    let meta_tmp = dir.join(format!(
+        ".varve-meta-{}-{}.tmp",
+        std::process::id(),
+        staging_id
+    ));
+    let meta_result = std::fs::write(&meta_tmp, &meta_json)
+        .map_err(|e| format!("Cannot write metadata: {e}"))
+        .and_then(|()| {
+            crate::filesystem::replace_file(&meta_tmp, &meta_path(&dir))
+                .map_err(|error| format!("Cannot finalize metadata: {}", error.message))
+        });
+    if meta_result.is_err() {
+        let _ = std::fs::remove_file(&meta_tmp);
+    }
+    meta_result?;
 
     Ok(meta)
 }

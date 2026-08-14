@@ -28,3 +28,15 @@ export {
   dominantScript,
   segmentByScript,
 } from './script';
+export type { BoundaryBias, UnicodeIndexMap } from './unicodeIndices';
+export {
+  codePointCount,
+  codePointToUtf16,
+  createUnicodeIndexMap,
+  graphemeCount as indexedGraphemeCount,
+  graphemeToUtf16,
+  normalizeGraphemeRange,
+  snapUtf16Offset,
+  utf16ToCodePoint,
+  utf16ToGrapheme,
+} from './unicodeIndices';

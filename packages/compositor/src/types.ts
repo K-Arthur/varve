@@ -17,6 +17,19 @@ export interface CompositorFrame {
   camera: Camera;
   viewport: Viewport;
   docVersion: number;
+  /** Optional structural metadata. Without it, planning is flat and fail-closed. */
+  structure?: RenderStructureNode;
+}
+
+/** Minimal render-structure seam used by capability planning. */
+export interface RenderStructureNode {
+  /** Ordered `CompositorFrame.items` range, end exclusive. */
+  itemStart: number;
+  itemEnd: number;
+  children?: readonly RenderStructureNode[];
+  /** Preserve the complete node range when a descendant is unsupported. */
+  fallbackBoundary?: boolean;
+  fallbackReason?: string;
 }
 
 export interface CompositorBeginFrameOptions {
@@ -44,6 +57,11 @@ export interface CompositorDiagnostics {
    * is only needed if the user wants to re-acquire the GPU adapter.
    */
   deviceLost?: boolean;
+  /** Ordered structural fallback telemetry for the most recent frame. */
+  fallbackIslandCount?: number;
+  fallbackNodeCount?: number;
+  fallbackRasterArea?: number;
+  fallbackReasons?: Record<string, number>;
 }
 
 export interface CompositorBackend {

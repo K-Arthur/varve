@@ -110,6 +110,64 @@ describe('ModelDownloadDialog — consent gate', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
-    expect(await screen.findByText(/Offline Models/i)).toBeInTheDocument();
+    expect(await screen.findByText(/not enough free storage/i)).toBeInTheDocument();
+  });
+
+  it('never renders a blank error panel for a string rejection (Tauri Err(String))', async () => {
+    mockDownloadModel.mockRejectedValue('permission denied');
+    render(
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={() => {}}
+        onComplete={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    const title = await screen.findByText(/The app could not write the model file/i);
+    expect(title.textContent?.trim().length ?? 0).toBeGreaterThan(0);
+    expect(screen.queryByText(/Download failed:\s*$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Download failed: undefined/i)).not.toBeInTheDocument();
+  });
+
+  it('never renders a blank error panel for an object rejection', async () => {
+    mockDownloadModel.mockRejectedValue({ code: 'command_error', message: 'connection refused' });
+    render(
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={() => {}}
+        onComplete={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    const title = await screen.findByText(/couldn't download the model/i);
+    expect(title.textContent?.trim().length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('shows a Retry button only when the failure is retryable', async () => {
+    mockDownloadModel.mockRejectedValue('Model download failed: connection refused');
+    render(
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={() => {}}
+        onComplete={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    await screen.findByText(/couldn't download the model/i);
+    expect(screen.getByRole('button', { name: /^retry$/i })).toBeInTheDocument();
+  });
+
+  it('omits Retry for permanent integrity failures', async () => {
+    mockDownloadModel.mockRejectedValue(new Error('Model failed SHA-256 verification'));
+    render(
+      <ModelDownloadDialog
+        modelId="birefnet-general-lite"
+        onClose={() => {}}
+        onComplete={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^download$/i }));
+    await screen.findByText(/integrity verification/i);
+    expect(screen.queryByRole('button', { name: /^retry$/i })).not.toBeInTheDocument();
   });
 });

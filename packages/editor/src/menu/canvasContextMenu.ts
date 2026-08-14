@@ -78,6 +78,28 @@ export function buildCanvasContextMenuItems({
     } satisfies MenuEntry,
     ...(hasSelection
       ? [
+          {
+            id: 'ctx-copy-properties',
+            label: 'Copy Properties',
+            onAction: () => {
+              record('copyProperties');
+              editor.copySelectedProperties();
+              closeMenu();
+            },
+          } satisfies MenuEntry,
+          {
+            id: 'ctx-paste-properties',
+            label: 'Paste Properties',
+            onAction: () => {
+              record('pasteProperties');
+              editor.pastePropertiesToSelection();
+              closeMenu();
+            },
+          } satisfies MenuEntry,
+        ]
+      : []),
+    ...(hasSelection
+      ? [
           { id: 'ctx-sep1', separator: true as const } satisfies MenuEntry,
           {
             id: 'ctx-dup',

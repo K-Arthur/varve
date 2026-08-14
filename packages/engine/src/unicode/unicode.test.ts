@@ -13,6 +13,14 @@ import {
   utf16IndexAtCodepointOffset,
 } from './grapheme';
 import { detectScript, dominantScript, segmentByScript } from './script';
+import {
+  codePointCount,
+  codePointToUtf16,
+  createUnicodeIndexMap,
+  normalizeGraphemeRange,
+  snapUtf16Offset,
+  utf16ToCodePoint,
+} from './unicodeIndices';
 
 describe('grapheme segmentation', () => {
   it('splits ASCII text into single chars', () => {
@@ -60,6 +68,27 @@ describe('grapheme segmentation', () => {
     expect(graphemeIndexAt(text, 2)).toBe(1); // a
     expect(graphemeIndexAt(text, 3)).toBe(2); // b
     expect(graphemeIndexAt(text, 4)).toBe(3); // c
+  });
+
+  it('maps UTF-16, scalar, and grapheme units without normalizing source text', () => {
+    const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+    const text = `A${family}e\u0301`;
+    const map = createUnicodeIndexMap(text);
+    expect(map.text).toBe(text);
+    expect(codePointCount(map)).toBe(10);
+    expect(map.graphemes.map((g) => g.segment)).toEqual(['A', family, 'e\u0301']);
+    expect(map.graphemeBoundaries).toEqual([0, 1, 12, 14]);
+    expect(codePointToUtf16(map, 1)).toBe(1);
+    expect(utf16ToCodePoint(map, 2, 'floor')).toBe(1);
+    expect(utf16ToCodePoint(map, 2, 'ceil')).toBe(2);
+  });
+
+  it('snaps selection endpoints outward to whole graphemes', () => {
+    const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+    const map = createUnicodeIndexMap(`x${family}y`);
+    expect(snapUtf16Offset(map, 3, 'floor')).toBe(1);
+    expect(snapUtf16Offset(map, 3, 'ceil')).toBe(12);
+    expect(normalizeGraphemeRange(map, 3, 4)).toEqual({ start: 1, end: 12 });
   });
 });
 
@@ -146,6 +175,15 @@ describe('bidirectional layout', () => {
     const para = analyzeParagraph('מחיר: 100 שקלים', 'rtl');
     expect(para.baseDirection).toBe('rtl');
     expect(para.baseLevel).toBe(1);
+  });
+
+  it('resolves isolates and exposes mirrored punctuation without changing source text', () => {
+    const text = 'مرحبا (Varve) \u2067שלום\u2069';
+    const para = analyzeParagraph(text, 'rtl');
+    expect(para.text).toBe(text);
+    expect(para.visualOrder?.length).toBe(text.length);
+    expect(para.mirroredCharacters?.size).toBeGreaterThan(0);
+    expect(para.mirroredCharacters?.get(text.indexOf('('))).toBe(')');
   });
 });
 

@@ -103,6 +103,10 @@ export function applyDither(
   const originX = coordSpace ? coordSpace.originX : 0;
   const originY = coordSpace ? coordSpace.originY : 0;
 
+  // A palette-free dither adjustment is explicitly an identity operation,
+  // including ordered and seeded pattern modes.
+  if ((params.paletteMode ?? 'levels') === 'none') return imageData;
+
   if (algorithm === 'bayer' || algorithm === 'blue-noise') {
     applyOrdered(
       data,
@@ -240,7 +244,9 @@ function applyOrdered(
       let threshold: number;
       if (bayer) {
         const size = Math.sqrt(bayer.length);
-        const t = (bayer[(cellIdxY % size) * size + (cellIdxX % size)]! + 0.5) / (size * size);
+        const bx = positiveModulo(cellIdxX, size);
+        const by = positiveModulo(cellIdxY, size);
+        const t = (bayer[by * size + bx]! + 0.5) / (size * size);
         threshold = (t - 0.5) * st.strength * step * 1.5;
       } else {
         threshold = (hash2(cellIdxX, cellIdxY, st.seed) - 0.5) * st.strength * step;
@@ -264,6 +270,10 @@ function applyOrdered(
 
 function quantizeByte(v: number, step: number): number {
   return Math.round(clamp01(Math.round(v / step) * step) * 255);
+}
+
+function positiveModulo(value: number, modulus: number): number {
+  return ((value % modulus) + modulus) % modulus;
 }
 
 export function lumaOf(r: number, g: number, b: number): number {

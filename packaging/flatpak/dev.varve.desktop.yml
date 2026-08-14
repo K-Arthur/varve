@@ -20,7 +20,8 @@ runtime-version: '47'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
-  - org.freedesktop.Sdk.Extension.node20
+  # Node floor is >= 22.12.0 (astro 7 requirement; see root engines).
+  - org.freedesktop.Sdk.Extension.node22
 
 command: varve-desktop
 
@@ -50,7 +51,7 @@ modules:
   - name: varve
     buildsystem: simple
     build-options:
-      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
     build-commands:
       # STUB: Full offline build requires pre-generated source manifests above.
       # This command fails gracefully and prints a developer notice.
