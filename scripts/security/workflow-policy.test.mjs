@@ -256,6 +256,79 @@ jobs:
   expectViolation(text, 'no permissions block');
 }
 
+function testWebsiteReferencesBackendSecretRejected() {
+  // Scenario D of the adversarial validation: a website build receiving
+  // OPENAI_API_KEY must be rejected by policy before it even runs.
+  const text = BASE.replace(
+    '    steps:\n      - uses:',
+    `    steps:\n      - name: Build\n        run: pnpm build
+        env:
+          OPENAI_KEY: \${{ secrets.OPENAI_API_KEY }}
+      - uses:`,
+  );
+  expectViolation(text, 'backend/service credentials');
+}
+
+function testCiReferencesDatabaseSecretRejected() {
+  const text = BASE.replace(
+    '    steps:\n      - uses:',
+    `    steps:\n      - name: Migrate\n        run: echo
+        env:
+          DB: \${{ secrets.DATABASE_URL }}
+      - uses:`,
+  );
+  expectViolation(text, 'backend/service credentials');
+}
+
+function testWebsiteReferencesDnsCredentialRejected() {
+  const text = BASE.replace(
+    '    steps:\n      - uses:',
+    `    steps:\n      - name: DNS\n        run: echo
+        env:
+          PB: \${{ secrets.PORKBUN_API_SECRET }}
+      - uses:`,
+  );
+  expectViolation(text, 'DNS/registrar credentials');
+}
+
+function testDnsCredentialAsVariableRejected() {
+  const text = BASE.replace(
+    '    steps:\n      - uses:',
+    `    steps:\n      - name: DNS\n        run: echo
+        env:
+          PB: \${{ vars.PORKBUN_ACCOUNT }}
+      - uses:`,
+  );
+  expectViolation(text, 'DNS/registrar credentials');
+}
+
+function testUpdaterPrivateKeyOutsideReleaseRejected() {
+  const text = BASE.replace(
+    '    steps:\n      - uses:',
+    `    steps:\n      - name: Sign update\n        run: echo
+        env:
+          UP: \${{ secrets.TAURI_UPDATER_PRIVATE_KEY }}
+      - uses:`,
+  );
+  expectViolation(text, 'references production signing secrets');
+}
+
+function testWriteAllRejected() {
+  const text = BASE.replace('permissions:\n  contents: read', 'permissions: write-all');
+  expectViolation(text, 'write-all');
+}
+
+function testSigningStepFlagOutsideReleaseRejected() {
+  const text = BASE.replace(
+    '    steps:\n      - uses:',
+    `    steps:\n      - name: Build\n        run: pnpm build
+        env:
+          ALLOW: \${{ env.VARVE_SIGNING_STEP_ALLOWED }}
+      - uses:`,
+  );
+  expectViolation(text, 'VARVE_SIGNING_STEP_ALLOWED');
+}
+
 function testWebsiteCheckoutPersistCredentialsRejected() {
   const text = `name: Website Deploy
 on:
@@ -394,8 +467,15 @@ testPublishGateMissingRejected();
 testTagProvenanceGateRequired();
 testMissingPermissionsBlockRejected();
 testWebsiteCheckoutPersistCredentialsRejected();
+testWebsiteReferencesBackendSecretRejected();
+testCiReferencesDatabaseSecretRejected();
+testWebsiteReferencesDnsCredentialRejected();
+testDnsCredentialAsVariableRejected();
+testUpdaterPrivateKeyOutsideReleaseRejected();
+testWriteAllRejected();
+testSigningStepFlagOutsideReleaseRejected();
 testMisIndentedTopLevelKeyRejected();
 testCompliantReleaseFixtureClean();
 testRealWorkflowsPass();
 
-console.log('workflow-policy tests passed (18 scenarios).');
+console.log('workflow-policy tests passed (26 scenarios).');
