@@ -38,12 +38,14 @@ export interface RestorationTaskDispatchResult {
  * field (16x downsampling + global channel attention) makes seams far
  * worse than upscale/denoise tiling — measured 34 dB tiled-vs-whole at
  * 768/128 vs 60 dB single-shot on a 1536px image (seam tests, see
- * docs/quality/image-enhancement-benchmark.md). Images up to 1600px run
- * single-shot; larger images use the biggest budget-safe tile.
+ * docs/quality/image-enhancement-benchmark.md). Images up to 1280px run
+ * single-shot; larger images use the same 1280px tiles, because a
+ * 1536px single-shot already peaks above 7 GB (OOM-measured) while a
+ * 1280px tile stays within the ~5 GB budget.
  */
 function deblurTilePolicy(width: number, height: number): { tileSize: number; overlap: number } {
   const maxDim = Math.max(width, height);
-  if (maxDim <= 1600) {
+  if (maxDim <= 1280) {
     return { tileSize: Math.max(768, Math.ceil(maxDim / 16) * 16), overlap: 0 };
   }
   return { tileSize: 1280, overlap: 256 };
