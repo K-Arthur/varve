@@ -1855,7 +1855,7 @@
       "quantizationOrigin": "upstream",
       "sourceLicense": "Apache-2.0",
       "sourceRevision": "Xenova/siglip-base-patch16-224 (google/siglip-base-patch16-224 ONNX export)",
-      "notes": "Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search only — text search needs a tokenizer not yet wired up). Graph contract re-verified 2026-08-13 against this exact artifact: pixel_values [B,3,224,224] float32 -> image_embeds [B,768]; input_ids [B,T] int64 is graph-required and fed as a constant zero token. SigLIP normalizes to mean=0.5/std=0.5 per channel, not ImageNet stats.",
+      "notes": "Embeds an image so visually/semantically similar assets can be ranked and surfaced (Embeds an image so visually/semantically similar assets can be ranked and surfaced; the same artifact also provides the paired text tower used by natural-language queries (see siglip-base-patch16-224-text). Graph contract re-verified 2026-08-13 against this exact artifact: pixel_values [B,3,224,224] float32 -> image_embeds [B,768]; input_ids [B,T] int64 is graph-required and fed as a constant zero). Graph contract re-verified 2026-08-13 against this exact artifact: pixel_values [B,3,224,224] float32 -> image_embeds [B,768]; input_ids [B,T] int64 is graph-required and fed as a constant zero token. SigLIP normalizes to mean=0.5/std=0.5 per channel, not ImageNet stats.",
       "tensorContract": {
         "version": 2,
         "inputs": [
@@ -1913,7 +1913,7 @@
       "id": "siglip-base-patch16-224-text",
       "filename": "siglip-base-patch16-224-text.onnx",
       "localPath": "/models/siglip-base-patch16-224-text.onnx",
-      "sha256": "09b7273e0672a8105ba0aa0f3d1ca34b4cd6eb3f0af735fdc8d632bfa4ad188b",
+      "sha256": "ad0329b1f35acc66d8953ff2559ce358da8eb0a7011794cf951523d63a4dbce2",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/text_model_quantized.onnx",
       "precision": "int8",
@@ -1959,6 +1959,17 @@
         "outputActivation": "none",
         "peakMemoryBytes": 400000000
       }
+    },
+    {
+      "id": "siglip-tokenizer",
+      "filename": "siglip-tokenizer.json",
+      "localPath": "/models/siglip-tokenizer.json",
+      "sha256": "c6e405cb7c670d56636a9402c81023a55bc6c3c53d89cf02b92f5c5005bfe920",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/google/siglip-base-patch16-224/resolve/main/tokenizer.json",
+      "sourceLicense": "Apache-2.0",
+      "sourceRevision": "google/siglip-base-patch16-224 (T5/SentencePiece Unigram tokenizer.json)",
+      "notes": "SigLIP T5-style SentencePiece Unigram tokenizer vocabulary and normalizer charsmap. Pinned from the reference implementation's tokenizer.json; the TypeScript tokenizer reproduces its normalizer chain and Viterbi exactly (parity-tested against transformers)."
     },
     {
       "id": "paddleocr-det-v4",

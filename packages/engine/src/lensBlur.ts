@@ -169,7 +169,7 @@ export function applyDepthBlur(
   const sw = Math.max(1, Math.round(w * scale));
   const sh = Math.max(1, Math.round(h * scale));
   const scaledInput = new ImageData(
-    resizeRgbaPremultiplied(imageData.data, w, h, sw, sh) as Uint8ClampedArray<ArrayBuffer>,
+    new Uint8ClampedArray(resizeRgbaPremultiplied(imageData.data, w, h, sw, sh)),
     sw,
     sh,
   );
@@ -179,7 +179,7 @@ export function applyDepthBlur(
     blurAmount: blurAmount * (sw / w),
   });
   return new ImageData(
-    resizeRgbaPremultiplied(scaledOutput.data, sw, sh, w, h) as Uint8ClampedArray<ArrayBuffer>,
+    new Uint8ClampedArray(resizeRgbaPremultiplied(scaledOutput.data, sw, sh, w, h)),
     w,
     h,
   );

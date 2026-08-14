@@ -16,7 +16,7 @@
  */
 
 import type { AssetEmbeddingRecord } from './assetEmbeddingIndex';
-import { DB_NAME, STORE_SEMANTIC_EMBEDDINGS } from './web-db';
+import { DB_NAME, DB_VERSION, STORE_SEMANTIC_EMBEDDINGS } from './web-db';
 
 export interface SemanticEmbeddingStore {
   get(key: string): Promise<AssetEmbeddingRecord | null>;
@@ -59,9 +59,10 @@ export class IndexedDbSemanticEmbeddingStore implements SemanticEmbeddingStore {
   private async db(): Promise<import('idb').IDBPDatabase> {
     const { openDB } = await import('idb');
     // No upgrade callback here: the store schema is owned by web-db.ts,
-    // which creates `semanticEmbeddings` on version-4 upgrades. Opening at
-    // the same version never triggers a schema change from this module.
-    return openDB(this.dbName, 4);
+    // which creates `semanticEmbeddings` on version-4 upgrades. Open at the
+    // current DB_VERSION so a database already upgraded by web.ts is never
+    // re-opened at a lower version (indexedDB would throw VersionError).
+    return openDB(this.dbName, DB_VERSION);
   }
 
   async get(key: string): Promise<AssetEmbeddingRecord | null> {

@@ -51,9 +51,12 @@ async function buildRows(
   // by the tools that use them, but shouldn't also show as their own rows
   // here — their parent multiComponent entry represents them as one unit.
   const hiddenComponentIds = new Set(catalog.flatMap((m) => m.components?.map((c) => c.id) ?? []));
+  // Semantic-search models (SigLIP image/text towers + tokenizer) are
+  // managed by the dedicated SemanticSearchTab.
+  const catalogFiltered = catalog.filter((m) => m.category !== 'embedding');
   const results: InstalledModelRow[] = [];
 
-  for (const model of catalog) {
+  for (const model of catalogFiltered) {
     if (hiddenComponentIds.has(model.id)) continue;
 
     if (model.multiComponent && model.components && model.components.length > 0) {

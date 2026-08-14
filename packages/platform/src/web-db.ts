@@ -29,7 +29,7 @@ import type {
 // COMPLEXITY: 15
 
 export const DB_NAME = 'varve-home';
-export const DB_VERSION = 4;
+export const DB_VERSION = 5;
 export const STORE_FILES = 'files';
 export const STORE_PROJECTS = 'projects';
 export const STORE_THUMBS = 'thumbnails';
@@ -51,6 +51,7 @@ export const STORE_ACTIVITY = 'activity';
 export const STORE_SAVED_SEARCHES = 'savedSearches';
 export const STORE_RECENT_FILES = 'recentFiles';
 export const STORE_SEMANTIC_EMBEDDINGS = 'semanticEmbeddings';
+export const STORE_ASSET_BYTES = 'assetBytes';
 export const KV_VIEW_STATE = 'view-state';
 
 export interface FileRecord {
@@ -77,6 +78,7 @@ interface DbSchema {
   libraries: Library;
   templates: TemplateLibrary;
   assets: Asset;
+  assetBytes: { id: string; bytes: Uint8Array };
   assetFolders: AssetFolder;
   versions: VersionEntry;
   versionContent: { hash: string; json: string };
@@ -184,6 +186,14 @@ export async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
         // string so renames reuse work while edits/model changes invalidate.
         if (!db.objectStoreNames.contains(STORE_SEMANTIC_EMBEDDINGS)) {
           db.createObjectStore(STORE_SEMANTIC_EMBEDDINGS, { keyPath: 'key' });
+        }
+      }
+      if (oldVersion < 5) {
+        // Source bytes for imported assets. Stored separately from the
+        // lightweight `assets` records so listing never loads image data;
+        // consumed only by the semantic indexer (embedding jobs).
+        if (!db.objectStoreNames.contains(STORE_ASSET_BYTES)) {
+          db.createObjectStore(STORE_ASSET_BYTES, { keyPath: 'id' });
         }
       }
     },
