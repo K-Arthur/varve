@@ -161,27 +161,34 @@ export async function evaluateModel(
   }
 
   const coldStart = performance.now();
+  let cacheDirty = false;
+  const flushCache = (): void => {
+    if (!options.cacheFile || !cacheDirty) return;
+    mkdirSync(dirname(options.cacheFile), { recursive: true });
+    const payload: Record<string, string> = {};
+    for (const [id, v] of vectors) payload[id] = Buffer.from(v.buffer).toString('base64');
+    writeFileSync(options.cacheFile, JSON.stringify({ modelId: adapter.id, vectors: payload }));
+    cacheDirty = false;
+  };
   for (const image of corpus.images) {
     decodeCorpusImage(image);
     imageFiles.set(image.id, image.file);
     if (!vectors.has(image.id)) {
       const vector = await adapter.embed(image.rgba!, image.width, image.height);
       vectors.set(image.id, vector);
+      cacheDirty = true;
+      // Incremental persistence: a long run (or a crash) never loses the
+      // work already done. Rewrites are cheap at library scale.
+      if (vectors.size % 20 === 0) flushCache();
     }
     const imageData = { data: image.rgba!, width: image.width, height: image.height } as ImageData;
     hashes.set(image.id, { dHash: dHash(imageData), pHash: pHash(imageData) });
+    // Release decoded pixels as soon as they are consumed to keep peak
+    // memory bounded on modest hardware.
+    image.rgba = null;
   }
   const coldMs = performance.now() - coldStart;
-
-  if (options.cacheFile && vectors.size > 0) {
-    mkdirSync(dirname(options.cacheFile), { recursive: true });
-    const payload: Record<string, string> = {};
-    for (const [id, v] of vectors) payload[id] = Buffer.from(v.buffer).toString('base64');
-    writeFileSync(
-      options.cacheFile,
-      JSON.stringify({ modelId: adapter.id, vectors: payload }, null, 1),
-    );
-  }
+  flushCache();
 
   const samples = [...adapter.timing.samplesMs].sort((a, b) => a - b);
   const warmP50 = percentile(samples, 50);
