@@ -98,6 +98,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
     [folders, selectedFolderId],
   );
 
+  const hasQuery = searchQuery.trim().length > 0;
   const hasImageAssets = useMemo(() => assets.some((asset) => asset.kind === 'image'), [assets]);
 
   const {
@@ -161,7 +162,10 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
         </button>
       </div>
 
-      {searchQuery.trim() && (
+      {(hasQuery ||
+        downloadingModelId ||
+        (!semanticStatus.imageModelAvailable && hasImageAssets) ||
+        (semanticStatus.indexing && semanticStatus.indexedCount < semanticStatus.totalCount)) && (
         <div className="asset-browser__semantic-status" role="status" aria-live="polite">
           {downloadingModelId ? (
             <span>
@@ -169,7 +173,7 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
               Preparing visual search
               {downloadProgress !== null ? ` · ${Math.round(downloadProgress * 100)}%` : ''}
             </span>
-          ) : !semanticStatus.textModelAvailable ? (
+          ) : hasQuery && !semanticStatus.textModelAvailable ? (
             <button
               type="button"
               className="asset-browser__semantic-cta"
