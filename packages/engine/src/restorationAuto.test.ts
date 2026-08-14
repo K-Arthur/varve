@@ -125,6 +125,14 @@ describe('analyzeImageForRestoration', () => {
     expect(result.recommendation).toContain('upscale');
   });
 
+  it('only recommends upscale for tiny icons (no noise/blur false positives)', () => {
+    const tiny = makeImage(16, 16, (x, y) => (x < 8 === y < 8 ? 240 : 40));
+    const result = analyzeImageForRestoration(tiny);
+    expect(result.noise.level).toBe('none');
+    expect(result.blur.level).toBe('none');
+    expect(result.recommendation).toEqual(['upscale']);
+  });
+
   it('keeps the recommendation in human terms', () => {
     expect(recommendationLabel(['none'])).toBe('No specific restoration suggested');
     expect(recommendationLabel(['denoise', 'upscale'])).toBe('denoise + upscale');
