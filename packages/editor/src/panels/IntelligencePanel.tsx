@@ -10,12 +10,12 @@
  */
 import {
   decodeEfficientNetOutput,
+  embedTextForSearchWith,
   getFontRegistry,
   getInferenceWorkerHost,
   getModelLoader,
-  loadSiglipTokenizer,
+  imageEmbeddingSpecFor,
   normalizeEmbedding,
-  SIGLIP_TEXT_MAX_LENGTH,
   SIGLIP_TEXT_MODEL_ID,
 } from '@varve/engine';
 import type {
@@ -24,10 +24,12 @@ import type {
   SimilaritySearchMode,
 } from '@varve/engine/semanticSimilarity';
 import {
-  dHash,
   DINOV2_SMALL_IMAGE_MODEL,
+  dHash,
+  embedImageForSearchWith,
   pHash,
   SIGLIP_IMAGE_MODEL,
+  SIGLIP_TEXT_EMBEDDING_SPEC,
   searchNearDuplicates,
   searchSemantic,
 } from '@varve/engine/semanticSimilarity';
@@ -38,7 +40,6 @@ import {
   makeAssetEmbeddingRecord,
   type SemanticEmbeddingStore,
 } from '@varve/platform';
-import { contentHashForSrc } from '../semantic/contentHash';
 import { validatePrototype } from '@varve/prototype';
 import type { Document, NodeId, ShapeNode } from '@varve/scene';
 import {
@@ -84,6 +85,7 @@ import {
   type SpacingAnalysis,
 } from '../intelligence/spacingHarmonizer';
 import { buildPromotionPlan, type VariantPromotionPlan } from '../intelligence/variantPromotion';
+import { contentHashForSrc } from '../semantic/contentHash';
 
 import '../components/Inspector/inspector.css';
 
@@ -2378,10 +2380,6 @@ function ComponentsTab() {
  */
 const EMBED_IMAGE_MODEL = DINOV2_SMALL_IMAGE_MODEL;
 const EMBED_IMAGE_MODEL_ID = EMBED_IMAGE_MODEL.id;
-const EMBED_IMAGE_WORKER_TYPE = 'dinov2-image';
-const EMBED_IMAGE_OUTPUT = 'last_hidden_state';
-/** CLS token index of the DINOv2 output [B, 257, 384]. */
-const EMBED_IMAGE_CLS_INDEX = 0;
 const SIGLIP_MODEL_ID = SIGLIP_IMAGE_MODEL.id;
 /** Bound how many document images get embedded per search — running
  * inference on an unbounded document could stall the UI for a long time. */
@@ -2550,18 +2548,8 @@ function SimilarTab() {
       signal: AbortSignal,
       space: {
         model: typeof EMBED_IMAGE_MODEL;
-        workerType: string;
-        outputName: string;
-        extract: (raw: { data: Float32Array; dims: number[] }) => Float32Array;
       } = {
         model: EMBED_IMAGE_MODEL,
-        workerType: EMBED_IMAGE_WORKER_TYPE,
-        outputName: EMBED_IMAGE_OUTPUT,
-        extract: (raw) =>
-          raw.data.subarray(
-            EMBED_IMAGE_CLS_INDEX * EMBED_IMAGE_MODEL.dimension,
-            (EMBED_IMAGE_CLS_INDEX + 1) * EMBED_IMAGE_MODEL.dimension,
-          ),
       },
     ): Promise<EmbeddingVector> => {
       // E2E-only deterministic seam (see WindowSimilarityTestHook).
@@ -2609,36 +2597,16 @@ function SimilarTab() {
       }
       if (signal.aborted) throw new Error('cancelled');
 
-      const host = getInferenceWorkerHost();
-      const result = await host.infer(
-        {
-          type: 'infer',
-          modelType: space.workerType,
-          modelPath,
-          modelId: space.model.id,
-          imageData,
-          reuseSession: true,
-        },
-        { signal, timeoutMs: 30_000 },
+      const runtimeSpec = imageEmbeddingSpecFor(space.model.id);
+      if (!runtimeSpec) {
+        throw new Error(`No embedding runtime registered for model '${space.model.id}'`);
+      }
+      const embedding = await embedImageForSearchWith(
+        { width: imageData.width, height: imageData.height, data: imageData.data },
+        runtimeSpec,
+        modelPath,
+        signal,
       );
-      if (signal.aborted) throw new Error('cancelled');
-
-      const rawOutputs = result.outputs as Record<
-        string,
-        { data: Float32Array; dims: number[] }
-      >;
-      const raw = rawOutputs[space.outputName];
-      if (!raw) throw new Error('Embedding did not produce an output tensor');
-      const embedding: EmbeddingVector = {
-        modelId: space.model.id,
-        modelRevision: space.model.revision,
-        embeddingSpaceVersion: space.model.embeddingSpaceVersion,
-        preprocessingVersion: space.model.preprocessingVersion,
-        dimension: space.model.dimension,
-        dtype: 'fp32',
-        normalized: true,
-        values: normalizeEmbedding(space.extract(raw)),
-      };
       embeddingCacheRef.current.set(cacheKey, embedding);
       const store = embeddingStoreRef.current;
       if (store) {
@@ -2660,44 +2628,7 @@ function SimilarTab() {
   );
 
   const embedText = useCallback(async (query: string, modelPath: string, signal: AbortSignal) => {
-    const tokenizer = await loadSiglipTokenizer(signal);
-    const encoded = tokenizer.encode(query, SIGLIP_TEXT_MAX_LENGTH);
-    const result = await getInferenceWorkerHost().infer(
-      {
-        type: 'infer',
-        modelType: 'siglip-text',
-        modelPath,
-        modelId: SIGLIP_TEXT_MODEL_ID,
-        tensors: {
-          input_ids: {
-            data: encoded.inputIds,
-            dims: [1, SIGLIP_TEXT_MAX_LENGTH],
-            dtype: 'int64',
-          },
-        },
-        reuseSession: true,
-      },
-      { signal, timeoutMs: 30_000 },
-    );
-    const rawOutputs = result.outputs as {
-      pooler_output?: { data: Float32Array; dims: number[] };
-    };
-    const raw =
-      rawOutputs.pooler_output ??
-      Object.values(rawOutputs).find((value): value is { data: Float32Array; dims: number[] } =>
-        Boolean(value && typeof value === 'object' && 'data' in value && 'dims' in value),
-      );
-    if (!raw) throw new Error('Text embedding did not produce an output tensor');
-    return {
-      modelId: SIGLIP_MODEL_ID,
-      modelRevision: SIGLIP_IMAGE_MODEL.revision,
-      embeddingSpaceVersion: SIGLIP_IMAGE_MODEL.embeddingSpaceVersion,
-      preprocessingVersion: SIGLIP_IMAGE_MODEL.preprocessingVersion,
-      dimension: raw.data.length,
-      dtype: 'fp32' as const,
-      normalized: true,
-      values: normalizeEmbedding(raw.data),
-    } satisfies EmbeddingVector;
+    return embedTextForSearchWith(query, SIGLIP_TEXT_EMBEDDING_SPEC, modelPath, signal);
   }, []);
 
   const handleSearch = useCallback(async () => {
