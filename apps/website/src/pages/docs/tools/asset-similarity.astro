@@ -29,7 +29,7 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
       <section class="docs-section">
         <h2>Model notes</h2>
-        <p>Varve currently uses the existing checksum-pinned SigLIP base patch16/224 ONNX image encoder. DINOv2 and DINOv3 are evaluation candidates, not shipped defaults. A model change requires reference-vector parity, retrieval-quality evidence on a Varve corpus, and a license/distribution review.</p>
+        <p>Varve's image-to-image lane uses the checksum-pinned DINOv2-small ONNX encoder, selected by measured retrieval quality, speed, and download size on a Varve-specific corpus (reference-vector parity verified against an independent runtime). The natural-language lane pairs the SigLIP text graph with SigLIP image embeddings. Model changes require reference-vector parity, retrieval-quality evidence on the Varve corpus, and a license/distribution review.</p>
       </section>
       <div class="docs-cta">
         <p>For the implementation boundary and validation record, see the <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/semantic-asset-similarity.md">architecture notes</a>.</p>

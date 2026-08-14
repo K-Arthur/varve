@@ -53,6 +53,15 @@ SCUNet color real PSNR model (Apache-2.0)
   external weights are downloaded/verified through Varve's model manifest;
   they are not source-controlled in this repository.
 
+NAFNet-GoPro-width64 model (MIT)
+  Copyright (c) 2022 megvii-model
+  Source: https://github.com/megvii-research/NAFNet
+  Used for task-specific deblurring only. Varve ships a reproducible fp16
+  ONNX conversion of the official checkpoint (conversion and parity
+  evidence in tools/nafnet-export/; artifact hosted on the
+  varve-models-v1 release, pinned by SHA-256 in the model manifest). The
+  weights are not source-controlled in this repository.
+
 Real-ESRGAN general x4 model (BSD-3-Clause)
   Source: https://github.com/xinntao/Real-ESRGAN
   Used for super-resolution only. The converted ONNX artifact is verified by
@@ -195,6 +204,16 @@ depth-anything-v2-small (Apache-2.0)
   NOTE: only the Small variant is Apache-2.0; the Base/Large/Giant variants
   of the same model family are CC-BY-NC-4.0 (non-commercial) and must never
   be added to the catalog without a license review first.
+
+yunet-face-detect.onnx (MIT)
+  Source: OpenCV Face Detector YuNet 2023mar
+  (https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet)
+  Copyright (c) OpenCV Zoo authors, Wei Liu
+  Licensed under MIT License.
+  Bundled with the application (233 KB).
+  SHA-256 pinned in apps/desktop/public/models/manifest.json; decode verified
+  bit-for-bit against OpenCV FaceDetectorYN.
+  Powers the "Protect Faces" face-aware crop.
 
 -----------------------------------------------------------------------------
 Native ONNX Runtime Libraries

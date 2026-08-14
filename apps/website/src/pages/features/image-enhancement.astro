@@ -47,17 +47,20 @@ import { sitePath } from '../../lib/siteUrl';
         <h2 id="capabilities-title">Useful improvements, with honest boundaries.</h2>
         <div class="capability-grid">
           <article><h3>Denoise</h3><p>Reduce sensor noise and grain while preserving the alpha channel and keeping the source available for comparison.</p></article>
+          <article><h3>Deblur</h3><p>Reduce motion and defocus blur with a validated local model — preview a bounded crop before committing to full-resolution work.</p></article>
           <article><h3>Upscale</h3><p>Choose bounded CPU resampling, pixel-art scaling, or the local Real-ESRGAN path for supported image work.</p></article>
           <article><h3>Restore + Upscale</h3><p>Compose only the stages you selected. Restoration runs before enlargement so noise is not simply made larger.</p></article>
+          <article><h3>Auto / Recommended</h3><p>A quick local analysis suggests what your image actually needs, in plain language, with a confidence number you can override.</p></article>
         </div>
       </section>
 
       <aside class="honesty" aria-labelledby="honesty-title">
         <h2 id="honesty-title">Designed for faithful work.</h2>
         <p>
-          Deblur and JPEG artifact removal are not advertised as shipped capabilities
-          until task-specific models pass Varve's quality and fidelity checks. No
-          operation silently substitutes a different task when its model is unavailable.
+          JPEG artifact removal is not offered: no model has passed Varve's
+          design-content quality checks for that task. Every operation stays
+          explicit about what it can and cannot do, and no operation silently
+          substitutes a different task when its model is unavailable.
         </p>
         <a href={sitePath('/docs/tools/image-enhancement')}>Read the image enhancement guide →</a>
       </aside>
