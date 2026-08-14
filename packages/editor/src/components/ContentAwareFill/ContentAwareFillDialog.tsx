@@ -58,6 +58,7 @@ export function ContentAwareFillDialog({
 
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewAreaRef = useRef<HTMLDivElement | null>(null);
 
   const [quality, setQuality] = useState<ContentAwareFillQuality>('fast');
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
@@ -72,7 +73,8 @@ export function ContentAwareFillDialog({
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
-  const [previewZoom, setPreviewZoom] = useState<'fit' | '1-1'>('fit');
+  const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [maskVisible, setMaskVisible] = useState(true);
 
   const isProcessing = status === 'generating' || status === 'applying';
@@ -105,6 +107,7 @@ export function ContentAwareFillDialog({
     setHasMaskStrokes(false);
     setShowOriginal(false);
     setPreviewZoom('fit');
+    setZoomPercent(100);
     setMaskVisible(true);
     setDownloadProgress(0);
     setNaturalSize({ w: 0, h: 0 });
@@ -167,6 +170,32 @@ export function ContentAwareFillDialog({
       cancelled = true;
     };
   }, [isOpen, imageSrc]);
+
+  const centerPreview = useCallback(() => {
+    const area = previewAreaRef.current;
+    if (!area) return;
+    area.scrollLeft = Math.max(0, (area.scrollWidth - area.clientWidth) / 2);
+    area.scrollTop = Math.max(0, (area.scrollHeight - area.clientHeight) / 2);
+  }, []);
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(centerPreview);
+    return () => cancelAnimationFrame(frame);
+  }, [centerPreview, naturalSize, previewZoom, zoomPercent]);
+
+  const selectFitZoom = useCallback(() => {
+    setPreviewZoom('fit');
+  }, []);
+
+  const selectOneToOneZoom = useCallback(() => {
+    setZoomPercent(100);
+    setPreviewZoom('custom');
+  }, []);
+
+  const adjustZoom = useCallback((delta: number) => {
+    setZoomPercent((current) => Math.max(25, Math.min(400, current + delta)));
+    setPreviewZoom('custom');
+  }, []);
 
   const paintAt = useCallback(
     (clientX: number, clientY: number) => {
@@ -372,6 +401,11 @@ export function ContentAwareFillDialog({
       }}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !isProcessing) onClose();
+        if (e.target instanceof HTMLInputElement) return;
+        if (e.key === '+' || e.key === '=') adjustZoom(25);
+        if (e.key === '-') adjustZoom(-25);
+        if (e.key === '0') selectFitZoom();
+        if (e.key === '1') selectOneToOneZoom();
       }}
     >
       <div className="varve-dialog__header">
@@ -562,31 +596,67 @@ export function ContentAwareFillDialog({
             <div className="caf-dialog__preview-zoom">
               <button
                 type="button"
+                className="caf-dialog__zoom-btn"
+                aria-label="Zoom out"
+                onClick={() => adjustZoom(-25)}
+                disabled={previewZoom === 'custom' && zoomPercent <= 25}
+              >
+                −
+              </button>
+              <span className="caf-dialog__zoom-value" aria-live="polite">
+                {previewZoom === 'fit' ? 'Fit' : `${zoomPercent}%`}
+              </span>
+              <button
+                type="button"
+                className="caf-dialog__zoom-btn"
+                aria-label="Zoom in"
+                onClick={() => adjustZoom(25)}
+                disabled={previewZoom === 'custom' && zoomPercent >= 400}
+              >
+                +
+              </button>
+              <button
+                type="button"
                 className={`caf-dialog__zoom-btn${previewZoom === 'fit' ? ' caf-dialog__zoom-btn--active' : ''}`}
-                onClick={() => setPreviewZoom('fit')}
+                onClick={selectFitZoom}
               >
                 Fit
               </button>
               <button
                 type="button"
-                className={`caf-dialog__zoom-btn${previewZoom === '1-1' ? ' caf-dialog__zoom-btn--active' : ''}`}
-                onClick={() => setPreviewZoom('1-1')}
+                className={`caf-dialog__zoom-btn${previewZoom === 'custom' && zoomPercent === 100 ? ' caf-dialog__zoom-btn--active' : ''}`}
+                onClick={selectOneToOneZoom}
               >
                 1:1
+              </button>
+              <button
+                type="button"
+                className="caf-dialog__zoom-btn"
+                aria-label="Center preview"
+                onClick={centerPreview}
+              >
+                Center
               </button>
             </div>
           </div>
 
           <div
-            className={`caf-dialog__preview-area${previewZoom === '1-1' ? ' caf-dialog__preview-area--zoom' : ''}`}
+            ref={previewAreaRef}
+            className={`caf-dialog__preview-area${previewZoom === 'custom' ? ' caf-dialog__preview-area--zoom' : ''}`}
           >
             <canvas
               ref={previewCanvasRef}
               className={`caf-dialog__preview-canvas${showOriginal || !hasResult ? ' caf-dialog__preview-canvas--visible' : ''}`}
               style={{
-                width: previewZoom === '1-1' && naturalSize.w ? `${naturalSize.w}px` : '100%',
-                height: previewZoom === '1-1' && naturalSize.h ? `${naturalSize.h}px` : '100%',
-                objectFit: previewZoom === '1-1' ? 'none' : 'contain',
+                width:
+                  previewZoom === 'custom' && naturalSize.w
+                    ? `${(naturalSize.w * zoomPercent) / 100}px`
+                    : '100%',
+                height:
+                  previewZoom === 'custom' && naturalSize.h
+                    ? `${(naturalSize.h * zoomPercent) / 100}px`
+                    : '100%',
+                objectFit: previewZoom === 'custom' ? 'none' : 'contain',
               }}
             />
 
@@ -596,9 +666,15 @@ export function ContentAwareFillDialog({
                 alt="Fill result"
                 className={`caf-dialog__preview-canvas${!showOriginal ? ' caf-dialog__preview-canvas--visible' : ''}`}
                 style={{
-                  width: previewZoom === '1-1' && naturalSize.w ? `${naturalSize.w}px` : '100%',
-                  height: previewZoom === '1-1' && naturalSize.h ? `${naturalSize.h}px` : '100%',
-                  objectFit: previewZoom === '1-1' ? 'none' : 'contain',
+                  width:
+                    previewZoom === 'custom' && naturalSize.w
+                      ? `${(naturalSize.w * zoomPercent) / 100}px`
+                      : '100%',
+                  height:
+                    previewZoom === 'custom' && naturalSize.h
+                      ? `${(naturalSize.h * zoomPercent) / 100}px`
+                      : '100%',
+                  objectFit: previewZoom === 'custom' ? 'none' : 'contain',
                 }}
               />
             )}
@@ -609,8 +685,14 @@ export function ContentAwareFillDialog({
                 className="caf-dialog__mask-canvas"
                 style={{
                   opacity: 0.45,
-                  width: previewZoom === '1-1' && naturalSize.w ? `${naturalSize.w}px` : '100%',
-                  height: previewZoom === '1-1' && naturalSize.h ? `${naturalSize.h}px` : '100%',
+                  width:
+                    previewZoom === 'custom' && naturalSize.w
+                      ? `${(naturalSize.w * zoomPercent) / 100}px`
+                      : '100%',
+                  height:
+                    previewZoom === 'custom' && naturalSize.h
+                      ? `${(naturalSize.h * zoomPercent) / 100}px`
+                      : '100%',
                 }}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
