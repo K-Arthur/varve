@@ -64,7 +64,7 @@ function mockEmbedScript(): string {
 test.describe('Find Similar workflow', () => {
   test('shows a download requirement when no model is installed', async ({ page }) => {
     await navigateToEditor(page);
-    await importImages(page, ['test-image.png', 'flower.jpg', 'photo-fixture.jpg']);
+    await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
     // Select the first image in the layers panel.
     await page.getByRole('treeitem').first().click();
     await openSimilarTab(page);
@@ -87,7 +87,8 @@ test.describe('Find Similar workflow', () => {
 
   test('ranks and renders results with deterministic mocked embeddings', async ({ page }, testInfo) => {
     await navigateToEditor(page);
-    await importImages(page, ['test-image.png', 'flower.jpg', 'photo-fixture.jpg', 'subject-photo.png']);
+    await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
+    // Select the first image in the layers panel.
     await page.getByRole('treeitem').first().click();
     await openSimilarTab(page);
 
@@ -97,12 +98,12 @@ test.describe('Find Similar workflow', () => {
 
     await expect(page.getByText(/Found \d+ similar images/i)).toBeVisible({ timeout: 15000 });
     const results = page.locator('.similarity-result');
-    await expect(results).toHaveCount(3);
+    await expect(results).toHaveCount(2);
     await expect(results.first().locator('img')).toHaveAttribute('src', /.+/);
 
     // Selecting a result keeps the document usable.
     await results.first().click();
-    await expect(page.getByRole('treeitem')).toHaveCount(4);
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
 
     await testInfo.attach('similarity-results', {
       body: await page.locator('.intelligence-tab-content').screenshot(),
@@ -112,7 +113,7 @@ test.describe('Find Similar workflow', () => {
 
   test('mode picker switches between Similar and Near duplicates', async ({ page }) => {
     await navigateToEditor(page);
-    await importImages(page, ['test-image.png', 'flower.jpg', 'photo-fixture.jpg']);
+    await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
     await page.getByRole('treeitem').first().click();
     await openSimilarTab(page);
     await page.evaluate(mockEmbedScript);
