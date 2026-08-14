@@ -1,5 +1,6 @@
 import { decodeLamaOutput, getInferenceWorkerHost } from '../inference';
 import { compositeFillResult, extractBoundedContext } from './contextExtraction';
+import { nativeLaMaProvider } from './nativeProvider';
 import { patchMatchFill } from './patchMatch';
 import type { BoundedContext, ContentAwareFillOptions, ContentAwareFillResult } from './types';
 
@@ -21,6 +22,8 @@ export interface LaMaInferResult {
   imageData: ImageData;
   width: number;
   height: number;
+  executionProvider: string;
+  warnings: string[];
 }
 
 export async function runLaMaInference(
@@ -33,6 +36,13 @@ export async function runLaMaInference(
   signal?: AbortSignal,
   onProgress?: (progress: number) => void,
 ): Promise<LaMaInferResult> {
+  if (nativeLaMaProvider.isAvailable()) {
+    onProgress?.(0.2);
+    const nativeResult = await nativeLaMaProvider.infer(imageData, mask, signal);
+    onProgress?.(1);
+    return nativeResult;
+  }
+
   const maskImageData = new ImageData(maskWidth, maskHeight);
   for (let i = 0; i < mask.length; i++) {
     const v = mask[i] ?? 0;
@@ -83,7 +93,13 @@ export async function runLaMaInference(
   );
 
   onProgress?.(1);
-  return { imageData: decoded, width: imageData.width, height: imageData.height };
+  return {
+    imageData: decoded,
+    width: imageData.width,
+    height: imageData.height,
+    executionProvider: (rawOutputs.executionProvider as string) ?? 'wasm',
+    warnings: [],
+  };
 }
 
 export async function runContentAwareFillPipeline(
@@ -111,6 +127,7 @@ export async function runContentAwareFillPipeline(
   let boundedCtx: BoundedContext;
   let fillResult: { imageData: ImageData; width: number; height: number };
   let filledBounds: { x: number; y: number; w: number; h: number };
+  let executionProvider = 'heuristic';
 
   if (quality === 'fast') {
     boundedCtx = extractBoundedContext(
@@ -179,6 +196,8 @@ export async function runContentAwareFillPipeline(
     );
 
     fillResult = laMaResult;
+    executionProvider = laMaResult.executionProvider;
+    warnings.push(...laMaResult.warnings);
     filledBounds = {
       x: boundedCtx.offsetX,
       y: boundedCtx.offsetY,
@@ -205,7 +224,7 @@ export async function runContentAwareFillPipeline(
     height: composited.height,
     filledBounds,
     quality,
-    executionProvider: 'wasm',
+    executionProvider,
     modelId: quality === 'fast' ? undefined : modelId,
     processingTimeMs: performance.now() - startTime,
     warnings,
