@@ -6,10 +6,23 @@ dev server.
 
 ## Setup
 
-Start a Vite dev server for `apps/desktop`, then point the scripts at it. The
-default base URL is `http://localhost:1432`; the scripts read `?perf=1` to opt
-in to the diagnostics ring-buffer handle (see
-`packages/editor/src/canvas/drawDiagnostics.ts`).
+Start a Vite dev server for `apps/desktop`, then point the scripts at it.
+The scripts split on target port:
+
+- **`http://localhost:1430`** (hardcoded): `bench-replay-browser.mjs`,
+  `probe-baseline.mjs`, `probe-scale.mjs`, `probe-large-doc.mjs`,
+  `probe-latency.mjs`
+- **`http://localhost:1432`** (default, override with `VARVE_PERF_URL`):
+  `probe-interaction.mjs`, `probe-cpu-profile.mjs`
+- **`http://localhost:1432`** (hardcoded): `probe-duplication.mjs`
+
+The app's own dev server (`pnpm dev` in `apps/desktop`) listens on
+`http://localhost:1420` (strictPort), so probes do not point at it by
+default — run a dev server on 1430/1432 (e.g. `vite --port 1430 --strictPort`)
+or set `VARVE_PERF_URL` for the probes that support it.
+
+The scripts read `?perf=1` to opt in to the diagnostics ring-buffer handle
+(see `packages/editor/src/canvas/drawDiagnostics.ts`).
 
 The `?perf=1` query string enables the editor diagnostics handle (currently
 exposed under the legacy `window.__strataPerf` name). Production workload
@@ -72,7 +85,8 @@ frame/interaction percentiles from the `?perf=1` ring buffer.
 | `probe-cpu-profile.mjs` | Self-time ranking of hot functions | `--callers=<fn>` attribution |
 
 All probes: `node scripts/perf/probe-*.mjs [nodeCount]` against a running dev
-server on `http://localhost:1430`.
+server on `http://localhost:1430` (see [Setup](#setup) for the port split and
+`VARVE_PERF_URL` override).
 
 > One-off debugging dumps are not kept in this directory — they live only in
 > git history. If you need a throwaway probe, name it `probe-<what>.mjs` and

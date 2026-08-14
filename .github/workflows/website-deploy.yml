@@ -40,6 +40,11 @@ jobs:
     name: Website quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      # Trust-boundary canary: present on the build steps, then asserted
+      # absent from the artifacts (docs/security/trust-boundaries.md
+      # §Canary tests).
+      VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -71,6 +76,14 @@ jobs:
 
       - name: Build legacy project-site mode
         run: pnpm build:website:pages
+
+      # The website is an untrusted public client: its output must never
+      # contain private configuration. The canary proves the build embeds
+      # nothing it is not told to.
+      - name: Scan website artifacts (secret + canary)
+        run: |
+          node scripts/secret-scan.mjs --dir apps/website/dist --canary "$VARVE_PRIVATE_TEST_CANARY"
+          node scripts/secret-scan.mjs --dir apps/website/dist-pages --canary "$VARVE_PRIVATE_TEST_CANARY"
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
@@ -121,6 +134,11 @@ jobs:
 
       - name: Build website
         run: pnpm --filter @varve/website build
+
+      # The uploaded artifact must be clean of private configuration; the
+      # guard inside the build already rejected forbidden env vars.
+      - name: Scan built website artifact
+        run: node scripts/secret-scan.mjs --dir apps/website/dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
