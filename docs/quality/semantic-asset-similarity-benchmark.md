@@ -78,8 +78,27 @@ Interpretation caveats, recorded with the numbers:
   parallel load (load average > 25) during collection. Re-run on an idle
   machine before quoting latency in release material.
 
-DINOv2-small results and the model comparison table will be appended when the
-harness completes on the same corpus.
+### DINOv2-small comparison (same corpus, same run)
+
+| Metric | SigLIP base | DINOv2 small |
+|---|---|---|
+| Recall@1 / @5 / @10 | 1.0 / 1.0 / 1.0 | 1.0 / 1.0 / 1.0 |
+| Precision@10 | 0.973 | 0.987 |
+| mAP | 0.969 | 0.980 |
+| nDCG | 0.982 | 0.989 |
+| MRR | 1.0 | 1.0 |
+| Per-domain mAP (weakest) | ui 0.884, illustration 0.900, render 0.933 | ui 0.933, render 0.918 |
+| Embedding dim | 768 | 384 |
+| Model file | 211 MB (int8) | 88 MB (fp32) |
+
+Interpretation: on this variant-robustness harness DINOv2-small is the
+stronger image-to-image encoder (slightly higher mAP, smaller file, and a
+384-dim index). It cannot power text-to-image search on its own — it has no
+text tower — which is the product feature that selected SigLIP. DINOv2 stays
+an evaluation candidate for a future visual-only lane or as a reranker, and
+would require the same parity gate (export, reference vectors, corpus
+evidence) before shipping. Latency capture for DINOv2 was equally
+non-representative (warm p50 1.71 s under load).
 
 ## 4. Hardware notes
 
