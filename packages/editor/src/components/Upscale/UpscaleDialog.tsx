@@ -200,13 +200,26 @@ export function UpscaleDialog({
     ? 'scunet'
     : operation === 'deblur' || operation === 'deblur-upscale'
       ? 'nafnet-deblur-gopro'
-      : mode?.isAi
-        ? modeId === 'illustration'
-          ? 'upscale-realesrgan-anime'
-          : 'upscale-realesr-general'
-        : denoiseStrength !== 'none'
-          ? 'scunet'
-          : null;
+      : operation === 'auto'
+        ? (() => {
+            // Auto resolves its recommendation before apply; surface the
+            // model requirement so the user can download it up front.
+            const resolved = autoAnalysis ? resolveAutoOperation() : null;
+            if (resolved?.operation === 'denoise' || resolved?.operation === 'restore-upscale') {
+              return 'scunet';
+            }
+            if (resolved?.operation === 'deblur' || resolved?.operation === 'deblur-upscale') {
+              return 'nafnet-deblur-gopro';
+            }
+            return null;
+          })()
+        : mode?.isAi
+          ? modeId === 'illustration'
+            ? 'upscale-realesrgan-anime'
+            : 'upscale-realesr-general'
+          : denoiseStrength !== 'none'
+            ? 'scunet'
+            : null;
   const [modelMissing, setModelMissing] = useState(false);
   const [showModelDownload, setShowModelDownload] = useState(false);
 

@@ -280,32 +280,45 @@ export function migrateLegacyIndexedDb(
                     storeDone();
                     return;
                   }
-                  const writeTx = current.transaction(storeName, 'readwrite');
-                  const target = writeTx.objectStore(storeName);
-                  let remaining = keys.length;
-                  const stepDone = () => {
-                    remaining -= 1;
-                    if (remaining === 0) {
-                      writeTx.oncomplete = () => {
-                        storeDone();
-                      };
-                      writeTx.onerror = () => {
-                        storeDone();
-                      };
+                  // Read every value from the legacy store FIRST (each get
+                  // uses its own short-lived readonly transaction), then
+                  // issue all writes inside one fresh readwrite
+                  // transaction. Issuing puts from inside async get
+                  // callbacks raced the write transaction's auto-commit —
+                  // a put landing after commit threw
+                  // TransactionInactiveError and took down the app through
+                  // the window-error crash handler.
+                  const reads = keys.map(
+                    (key) =>
+                      new Promise<{ key: IDBValidKey; value: unknown } | null>((resolve) => {
+                        const getReq = legacy!
+                          .transaction(storeName, 'readonly')
+                          .objectStore(storeName)
+                          .get(key);
+                        getReq.onsuccess = () => {
+                          resolve({ key: key as IDBValidKey, value: getReq.result });
+                        };
+                        getReq.onerror = () => resolve(null);
+                      }),
+                  );
+                  void Promise.all(reads).then((values) => {
+                    if (!current) {
+                      storeDone();
+                      return;
                     }
-                  };
-                  keys.forEach((key) => {
-                    const getReq = legacy!
-                      .transaction(storeName, 'readonly')
-                      .objectStore(storeName)
-                      .get(key);
-                    getReq.onsuccess = () => {
-                      target.put(getReq.result, key as IDBValidKey);
-                      stepDone();
-                    };
-                    getReq.onerror = () => {
-                      stepDone();
-                    };
+                    const entries = values.filter((v): v is NonNullable<typeof v> => v !== null);
+                    if (entries.length === 0) {
+                      storeDone();
+                      return;
+                    }
+                    const writeTx = current.transaction(storeName, 'readwrite');
+                    const target = writeTx.objectStore(storeName);
+                    for (const { key, value } of entries) {
+                      target.put(value, key);
+                    }
+                    writeTx.oncomplete = () => storeDone();
+                    writeTx.onerror = () => storeDone();
+                    writeTx.onabort = () => storeDone();
                   });
                 };
               };
