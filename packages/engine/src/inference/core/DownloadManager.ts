@@ -435,7 +435,7 @@ export class DownloadManager {
       }
 
       const totalBytes = chunks.reduce((sum, c) => sum + c.length, 0);
-      const bytes = new Uint8Array(totalBytes);
+      let bytes = new Uint8Array(totalBytes);
       let offset = 0;
       for (const chunk of chunks) {
         bytes.set(chunk, offset);
@@ -444,12 +444,29 @@ export class DownloadManager {
 
       this.setState(notifyId, 'verifying');
 
-      if (entry?.checksum) {
-        const hash = await this.sha256Hex(bytes.buffer);
-        if (hash !== entry.checksum.toLowerCase()) {
+      if (entry?.checksum || entry?.upstreamChecksum) {
+        // The downloaded bytes must match what the upstream server serves
+        // (upstreamChecksum when the artifact is post-processed locally,
+        // otherwise checksum).
+        const upstream = await this.sha256Hex(bytes.buffer);
+        const expectedUpstream = (entry?.upstreamChecksum ?? entry?.checksum ?? '').toLowerCase();
+        if (upstream !== expectedUpstream) {
           throw new InferenceError('checksum_mismatch', undefined, {
-            technical: `Expected ${entry.checksum}, got ${hash}`,
+            technical: `Expected ${expectedUpstream}, got ${upstream}`,
           });
+        }
+      }
+
+      if (entry?.repair === 'sam2-empty-value-info') {
+        const { repairSam2EncoderGraph } = await import('../models/sam2GraphRepair');
+        bytes = new Uint8Array(repairSam2EncoderGraph(bytes));
+        if (entry.checksum) {
+          const repairedHash = await this.sha256Hex(bytes.buffer);
+          if (repairedHash !== entry.checksum.toLowerCase()) {
+            throw new InferenceError('checksum_mismatch', undefined, {
+              technical: `Repaired artifact checksum mismatch: expected ${entry.checksum}, got ${repairedHash}`,
+            });
+          }
         }
       }
 
