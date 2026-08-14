@@ -33,8 +33,6 @@ import {
 } from './metrics';
 import { type EmbeddingModelAdapter, percentile } from './models';
 
-const COSINE_NORM = true;
-
 export interface RankedEntry {
   id: string;
   score: number;
@@ -78,13 +76,14 @@ export interface EvaluationReport {
 }
 
 function cosineRank(
+  queryId: string,
   query: Float32Array,
   images: CorpusImage[],
   vectors: Map<string, Float32Array>,
   relevant: Set<string>,
 ): RankedEntry[] {
   return images
-    .filter((img) => img.id !== query.id)
+    .filter((img) => img.id !== queryId)
     .map((img) => {
       const v = vectors.get(img.id);
       const score = v ? cosineSimilarity(query, v) : -1;
@@ -140,7 +139,6 @@ export async function evaluateModel(
   const hashes = new Map<string, { dHash: string; pHash: string }>();
   const imageFiles = new Map<string, string>();
 
-  const cached: Record<string, string> = {};
   if (options.cacheFile) {
     try {
       const loaded = JSON.parse(readFileSync(options.cacheFile, 'utf-8')) as {
@@ -193,7 +191,7 @@ export async function evaluateModel(
 
   for (const query of queries) {
     const relevant = subjectRelevantSet(corpus, query);
-    const semantic = cosineRank(vectors.get(query.id)!, corpus.images, vectors, relevant);
+    const semantic = cosineRank(query.id, vectors.get(query.id)!, corpus.images, vectors, relevant);
     const dupRelevant = duplicateRelevantSet(corpus, query);
     const duplicate = hashDistanceRank(
       query,

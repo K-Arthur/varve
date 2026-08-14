@@ -63,7 +63,7 @@ export function loadCorpusManifest(root = corpusRoot()): Corpus {
 
 export function decodeCorpusImage(image: CorpusImage): void {
   if (image.rgba) return;
-  const buf = readFileSync(join(image.root ?? corpusRoot(), image.file));
+  const buf = readFileSync(join(corpusRoot(), image.file));
   const { data, width, height } = decodeRgba(buf);
   image.rgba = data;
   image.width = width;
@@ -136,8 +136,8 @@ export function layoutRelevantSet(corpus: Corpus, image: CorpusImage): Set<strin
     const sharesLayout =
       other.base === image.base ||
       other.layoutTwinOf === image.base ||
-      (other.base === image.layoutTwinOf ?? '') ||
-      (other.layoutTwinOf === image.layoutTwinOf ?? '');
+      other.base === (image.layoutTwinOf ?? '') ||
+      other.layoutTwinOf === (image.layoutTwinOf ?? '');
     if (sharesLayout) set.add(other.id);
   }
   return set;
