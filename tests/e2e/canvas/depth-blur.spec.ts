@@ -67,7 +67,7 @@ function seedModelStore() {
   return `
     (() => {
       const put = () => {
-        const request = indexedDB.open('varve-model-store', 3);
+        const request = indexedDB.open('varve-model-store', 2);
         request.onupgradeneeded = () => {
           if (!request.result.objectStoreNames.contains('models')) {
             request.result.createObjectStore('models');
@@ -79,10 +79,8 @@ function seedModelStore() {
         request.onsuccess = () => {
           const db = request.result;
           const tx = db.transaction('models', 'readwrite');
-          tx.objectStore('models').put(
-            { bytes: new Uint8Array([1]).buffer, modelId: '${DEPTH_MODEL_ID}', installedAt: Date.now() },
-            '${DEPTH_MODEL_ID}',
-          );
+          // modelStore stores raw Blobs keyed by model id.
+          tx.objectStore('models').put(new Blob([new Uint8Array([1])]), '${DEPTH_MODEL_ID}');
           tx.oncomplete = () => db.close();
         };
       };
@@ -115,15 +113,18 @@ async function navigateWithSeededModel(page: import('@playwright/test').Page) {
 
 /** Click the first visible match of a regex against button labels. */
 async function clickButton(page: import('@playwright/test').Page, pattern: RegExp) {
-  const clicked = await page.evaluate((source) => {
-    const re = new RegExp(source);
-    const btn = [...document.querySelectorAll('button')].find((b) =>
-      re.test(b.textContent ?? ''),
-    ) as HTMLButtonElement | undefined;
-    if (!btn) return false;
-    btn.click();
-    return true;
-  }, pattern.source);
+  const clicked = await page.evaluate(
+    (sourceAndFlags) => {
+      const re = new RegExp(sourceAndFlags.source, sourceAndFlags.flags);
+      const btn = [...document.querySelectorAll('button')].find((b) =>
+        re.test(b.textContent ?? ''),
+      ) as HTMLButtonElement | undefined;
+      if (!btn) return false;
+      btn.click();
+      return true;
+    },
+    { source: pattern.source, flags: pattern.flags },
+  );
   expect(clicked).toBe(true);
 }
 
