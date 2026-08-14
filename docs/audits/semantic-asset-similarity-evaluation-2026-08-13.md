@@ -48,18 +48,26 @@ errors in restoration, face-detection, and existing semantic-benchmark files.
 
 ## Quality gaps
 
-No Varve-specific labeled corpus or held-out model-quality metrics have been
-run yet. The tokenizer/graph smoke check, metrics helper, and exact-search
-scale baseline cover evaluation plumbing, not model quality. The optional
-SigLIP parity run also exposed runtime drift between the pinned Python
-reference and the Node 1.27 runtime (`max 1-cos=1.444e-2` against a `1e-4`
-gate); that needs a runtime/version decision before it can be called a
-golden. Recall@K, mAP, nDCG, duplicate precision/recall, CPU p50/p95, peak
-RAM, batch throughput, and exact-vs-ANN scale curves still require a legally
-usable Varve corpus and representative hardware before selecting DINOv2 or
-replacing SigLIP. The visual review sheet and real-model ranking audit are
-also pending.
+The first Varve-corpus metrics ran on 2026-08-13 (see
+`docs/quality/semantic-asset-similarity-benchmark.md`): SigLIP scored
+R@1/5/10 = 1.0/1.0/1.0, mAP 0.969, nDCG 0.982 on the 296-image variant
+harness, with the caveat that the corpus measures variant robustness, not
+discrimination among unrelated similar-looking images. The optional SigLIP
+parity run's earlier `1-cos=1.444e-2` drift was root-caused: the Python
+reference fixture had been generated before the artifact re-verification and
+used banker's rounding where the TypeScript pipeline uses half-up. The
+reference now mirrors the TS pipeline bit-for-bit, and parity is exact
+(tokenizer ids 26/26; text embeddings `1-cos < 2e-15`; image embeddings
+bit-exact).
+
+Still outstanding: a held-out corpus that measures discrimination quality for
+descriptive text queries (the current harness is variant-based), CPU p50/p95
+and peak RAM on an idle representative machine (this run's latency capture is
+not representative — collected under load average > 25), batch throughput,
+DINOv2-small corpus numbers, and the human visual review of the contact
+sheets. The visual review sheet and real-model ranking audit remain pending.
 
 The current implementation therefore makes no marketing claim about model
-quality, automatic clustering, or whole-library organization; text-to-image
-search is described only as an opt-in experimental document-local lane.
+quality, automatic clustering, or whole-library organization; natural-language
+search is described only as an opt-in experimental lane that ranks, never
+deletes or hides assets by itself.
