@@ -52,13 +52,49 @@ the real backend plugs in through the worker-backed SAM2 adapter.
 Before a release can claim Object Selection quality, run the corpus against
 the pinned SAM2-Hiera-Tiny model on a machine with the model installed:
 
-1. Install the model (Settings → AI Models → Object Selection).
-2. Run the quality E2E spec
-   `tests/e2e/canvas/object-selection-quality.spec.ts` — it drives the real
-   tool, reads the preview mask back, and writes `results.json` with
-   per-fixture metrics, provider, and p50/p95 prompt latency.
-3. Render the table:
+1. Install the model (Settings → AI Models → Object Selection) — the pinned
+   artifact is the *repaired* encoder (see "Graph repair" below).
+2. Serve the app from a server that sends COOP/COEP headers, or use a
+   browser that reports `navigator.deviceMemory`; otherwise the conservative
+   wasm memory gate rejects the encoder even on large machines.
+3. Run the real-model gate spec
+   `tests/e2e/canvas/object-selection-real-model.spec.ts` with
+   `VARVE_SAM2_REAL_MODEL=1` — it drives the real tool end to end (cold
+   preview latency, candidate cycling, Apply, undo/redo, warm-cache prompt
+   latency).
+4. Render the table:
    `node scripts/bench/object-selection-parity-report.mjs --input results.json`
+
+## First real-model run (2026-08-14)
+
+Environment: CachyOS, 22 GB RAM, headless Chromium (new headless), ort-web
+1.27.0, wasm execution provider only (no GPU provider available), the app
+served with COOP/COEP (crossOriginIsolated).
+
+| path | measured |
+| --- | --- |
+| Cold: model load + encode + first prompt (cat fixture) | 13 s to preview |
+| Warm prompt (embedding cache hit, same image) | 1 s |
+| Encoder alone (ort-node, 1024x1024) | 4.2 s |
+| Candidate masks per prompt | 3 |
+| Reported confidence | 94% (76% on repeat prompt) |
+
+The full interactive loop is verified: preview overlay renders, candidate
+cycling wraps, Apply commits one undoable document mask (provenance row with
+confidence), Undo removes it, Redo restores it.
+
+## Graph repair
+
+The upstream `sam2_hiera_tiny.encoder.onnx` declares empty shapes
+(`{}`) for the `/conv_s0` and `/conv_s1` output value_info entries.
+onnxruntime-node tolerates this with a lenient merge, but ort-web's wasm
+shape inference rejects the graph at session creation
+(`[ShapeInferenceError] ... inferred=4 declared=0`), so Object Selection
+was blocked in every browser build. `scripts/models/repair-sam2-graph.mjs`
+removes the two metadata-only entries; the repaired graph produces
+bit-identical encoder outputs (verified against the upstream graph with
+ort-node, matching to the last digit). Both the tiny and small encoders
+have the defect; repaired checksums are pinned in the manifest/catalog.
 
 Acceptance tolerances (provisional until the first real-model run pins
 numbers; the table below is the measurement record, not a claim):
