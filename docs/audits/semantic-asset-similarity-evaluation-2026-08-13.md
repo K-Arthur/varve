@@ -129,16 +129,33 @@ download flow around gated weights), Candle/safetensors (no parity or
 deployment benefit measured; the ONNX worker already provides a verified
 path on both web and desktop).
 
+## ANN vs exact decision (measured)
+
+Exact top-10 cosine scan over fp32 768-dim vectors (normalized), single
+thread, this host (`packages/engine/src/semanticSimilarity/bench/scale.bench.ts`):
+
+| Library size | Memory | p50 | p95 |
+| --- | ---: | ---: | ---: |
+| 100 | 0 MB | 0.4 ms | 6.0 ms |
+| 1,000 | 3 MB | 2.8 ms | 8.3 ms |
+| 10,000 | 29 MB | 28 ms | 85 ms |
+| 50,000 | 146 MB | 127 ms | 239 ms |
+| 100,000 | 293 MB | 253 ms | 404 ms |
+
+At Varve's plausible local library sizes exact scan is comfortably
+interactive; an ANN index (HNSW-style) is not justified until measured
+scale demands it. If ANN is ever introduced, the exact path stays as the
+recall reference.
+
 ## Remaining gaps
 
 - Real-photo/real-design corpus (synthetic only so far; licensing-clean
   by construction). A real corpus with manual relevance labels would
   confirm the synthetic ranking.
 - GPU/provider latency and batch throughput.
-- ANN vs exact decision at scale: exact scan stays the reference; the
-  scale baseline shows exact is comfortably interactive at Varve's
-  plausible library sizes (see `packages/engine/src/bench/semanticSearch.bench.test.ts`
-  and `semanticSimilarity/bench/scale.bench.test.ts`).
+- ANN vs exact decision at scale: measured — exact scan stays the
+  reference and is comfortably interactive at Varve's plausible library
+  sizes (253 ms p50 at 100k vectors; see `scale.bench.ts`).
 - Visual contact sheets were generated
   (`reports/semantic-similarity/contact-sheet-*.html`); human multimodal
   review of difficult cases is still pending.
