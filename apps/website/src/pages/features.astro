@@ -14,6 +14,51 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       </p>
 
       <div class="features-grid">
+        <a href={sitePath('/features/image-enhancement')} class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5 9 11l3.5 3.5L16 11l4 5.5"/><path d="M5 5h14v14H5z" opacity=".45"/><path d="M8 8h.01"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
+          <h2>Image Enhance</h2>
+          <p>Denoise, upscale, or combine both through one local-first workflow with explicit quality boundaries</p>
+        </a>
+
+        <a href={sitePath('/features/depth-aware-effects')} class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><path d="M12 5a7 7 0 0 0 0 14" opacity=".45"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
+          <h2>Depth-aware effects</h2>
+          <p>Non-destructive Depth Blur with focus picking, depth previews, and depth-range masks from a reusable local DepthMap</p>
+        </a>
+
+        <a href={sitePath('/features/asset-search')} class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/><path d="M7.5 10.5h6" opacity="0.6"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
+          <h2>Local Asset Search</h2>
+          <p>Find assets by filename, recognized text, tags, and a measured path toward visual description</p>
+        </a>
+
+        <a href={sitePath('/features/object-selection')} class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14v14H5z" opacity="0.45"/><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
+          <h2>Object Selection</h2>
+          <p>Select an object locally, refine the mask with include/exclude prompts, and reuse it across edits without destructive deletion</p>
+        </a>
+
+        <a href={sitePath('/features/visual-awareness')} class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2" opacity="0.6"/></svg>
+          </div>
+          <StatusPill status="planned" label="In development" class="feature-card-pill" />
+          <h2>Visual Awareness</h2>
+          <p>Task-specific visual assistance for composition, editable masks, effects, and future anchors</p>
+        </a>
+
         <a href={sitePath('/features/canvas')} class="feature-card">
           <div class="feature-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M9 21V9" opacity="0.6"/></svg>
