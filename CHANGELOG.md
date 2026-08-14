@@ -35,11 +35,16 @@ update, not for someone reading the commit log.
   smear into blurred backgrounds) and premultiplied-alpha correct. Relative
   depth only; no metric calibration is claimed.
 - **Experimental asset similarity** — the Intelligence panel now separates
-  image-to-image Similar search from Near duplicates. Similarity uses the
-  existing local SigLIP ONNX worker path; near-duplicate ranking keeps exact
-  identity and perceptual fingerprints separate. The current workflow is
+  image-to-image Similar search from Near duplicates. The image lane uses a
+  local DINOv2-small encoder (Apache-2.0, SHA-256 pinned, reference-vector
+  parity verified against an independent runtime; selected over the SigLIP
+  image encoder from a Varve-corpus evaluation — see
+  `docs/audits/semantic-asset-similarity-evaluation-2026-08-13.md`).
+  Near-duplicate ranking keeps exact identity and perceptual fingerprints
+  separate. Computed embeddings are cached locally by content hash, so
+  unchanged images never re-run inference. The current workflow is
   document-local, capped at 30 image candidates, and does not provide
-  text-to-image search or automatic deletion. See
+  automatic deletion. See
   `docs/architecture/semantic-asset-similarity.md`.
 - **Image palette extraction** — select one image and open Appearance → Palette
   to generate a deterministic local palette in perceptual Oklab, review
