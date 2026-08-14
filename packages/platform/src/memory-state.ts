@@ -40,6 +40,7 @@ export interface MemoryState {
   templates: Map<string, TemplateLibrary>;
   projectTemplates: Map<string, ProjectTemplate>;
   assets: Map<string, Asset>;
+  assetBytes: Map<string, Uint8Array>;
   assetFolders: Map<string, AssetFolder>;
   versions: Map<string, VersionEntry[]>;
   /** Content-addressed document store: hash → JSON string (dedup across versions). */
@@ -74,6 +75,7 @@ export function freshState(): MemoryState {
     templates: new Map(),
     projectTemplates: new Map(),
     assets: new Map(),
+    assetBytes: new Map(),
     assetFolders: new Map(),
     versions: new Map(),
     versionContent: new Map(),
