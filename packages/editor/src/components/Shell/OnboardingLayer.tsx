@@ -96,7 +96,7 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
       currentTip: didYouKnowTip,
       dismiss: dismissTip,
       dontShowAgain: dontShowAgainTip,
-    } = useDidYouKnow(getActionTracker());
+    } = useDidYouKnow(getActionTracker(), editor.state.workspaceMode);
 
     const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
 

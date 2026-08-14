@@ -21,6 +21,7 @@ import { SegmentedControl } from '../controls/SegmentedControl';
 import type { SectionId } from '../sectionRegistry';
 
 const DETR_MODEL_ID = 'detr-resnet-50';
+const YU_NET_MODEL_ID = 'yunet-face-detect';
 
 const TRIM_SOURCE_OPTIONS = [
   { value: 'mask', label: 'Mask' },
@@ -34,8 +35,13 @@ interface ImageCropSectionProps {
 }
 
 export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
-  const { trimToSubject, expandImageBounds, convertToCropAndExpand, resetImageBounds } =
-    useEditor();
+  const {
+    trimToSubject,
+    expandImageBounds,
+    convertToCropAndExpand,
+    resetImageBounds,
+    applyFaceAwareCrop,
+  } = useEditor();
   const node = nodes[0];
 
   if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
@@ -59,6 +65,9 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
           fillY={img.y}
           fillScale={img.scale ?? 1}
         />
+
+        {/* Protect Faces */}
+        <FaceCropControls applyFaceAwareCrop={applyFaceAwareCrop} />
 
         {/* Expand Bounds */}
         <ExpandControls
@@ -282,6 +291,94 @@ function TrimControls({
             </button>
           </Tooltip>
         </div>
+      </div>
+    </DisclosureSection>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Protect Faces sub-component
+// ---------------------------------------------------------------------------
+
+function FaceCropControls({
+  applyFaceAwareCrop,
+}: {
+  applyFaceAwareCrop: (options?: {
+    safetyMargin?: number;
+    minimumConfidence?: number;
+  }) => Promise<boolean>;
+}) {
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [modelAvailable, setModelAvailable] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const available = await getModelLoader().isModelAvailable(YU_NET_MODEL_ID);
+      if (!cancelled) setModelAvailable(available);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleProtectFaces = useCallback(async () => {
+    setDetecting(true);
+    setDetectError(null);
+    try {
+      const loader = getModelLoader();
+      if (!(await loader.isModelAvailable(YU_NET_MODEL_ID))) {
+        setDownloadProgress(0);
+        await loader.downloadModel(YU_NET_MODEL_ID, (loaded, total) => {
+          setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+        });
+        setModelAvailable(true);
+        setDownloadProgress(null);
+      }
+      const applied = await applyFaceAwareCrop({ safetyMargin: 0.35 });
+      if (!applied) {
+        setDetectError('No faces detected in this image.');
+      }
+    } catch (err) {
+      setDetectError(err instanceof Error ? err.message : 'Face detection failed');
+    } finally {
+      setDetecting(false);
+      setDownloadProgress(null);
+    }
+  }, [applyFaceAwareCrop]);
+
+  return (
+    <DisclosureSection title="Protect Faces" defaultExpanded={false}>
+      <div className="insp-field-group">
+        <p className="insp-hint">
+          Reposition the crop window to keep faces in frame
+          {modelAvailable ? '' : ' (downloads a small ~233 KB AI model on first use)'}.
+        </p>
+        <div className="insp-actions">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleProtectFaces}
+            loading={detecting}
+            disabled={detecting}
+            aria-label="Detect faces and reposition the crop to keep them in frame"
+          >
+            Protect Faces
+          </Button>
+        </div>
+        {downloadProgress !== null && (
+          <p className="insp-hint" aria-live="polite">
+            Downloading model… {downloadProgress}%
+          </p>
+        )}
+        {detectError && (
+          <p className="insp-hint insp-hint--error" role="alert">
+            {detectError}
+          </p>
+        )}
       </div>
     </DisclosureSection>
   );
