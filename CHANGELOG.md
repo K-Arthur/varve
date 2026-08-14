@@ -14,6 +14,16 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Object Selection** — select an image and use the Select Object tool
+  (or the Adjustments tab) to prompt a local SAM2-Hiera-Tiny model with
+  positive/negative points and drag boxes. The preview is transient until
+  you apply it: candidate masks can be cycled before applying, and Apply
+  creates one undoable non-destructive raster mask that survives save,
+  reload, and model removal. The ~155 MB model is an explicit, checksum-
+  pinned download (Apache-2.0) loaded lazily; embeddings live in a bounded
+  session cache and are never written into the document. Promptable
+  segmentation is not semantic subject detection and is not a perfect
+  alpha matte — brush and trimap refinement remain the edge-quality tools.
 - **Depth-aware effects** — a reusable, model-independent DepthMap resource
   powers non-destructive Depth Blur: pick a focus point, adjust focus range
   and blur strength, preview the depth field, or convert a depth range into a
