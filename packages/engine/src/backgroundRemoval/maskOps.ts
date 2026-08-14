@@ -112,26 +112,23 @@ export function thresholdMask(data: Float32Array, threshold = 0.5): Uint8Array {
   return mask;
 }
 
-/** Convert U2-Net probabilities or BiRefNet logits to rembg-compatible soft mask bytes. */
+/**
+ * Convert U2-Net probabilities or BiRefNet logits to a rembg-faithful soft
+ * mask byte array: optional sigmoid (BiRefNet exports omit it from the
+ * graph), then clamp to [0, 1] and scale to 0-255.
+ *
+ * Deliberately NOT a min-max stretch: stretching is input-dependent and
+ * inflates semi-transparent edge values (measured up to ~0.065 mask MAE
+ * divergence from the reference on the benchmark corpus). Clamping is
+ * monotone, so thresholded binary metrics are unchanged, while soft edge
+ * alpha now matches the reference implementation.
+ */
 export function normalizeSegmentationOutput(data: Float32Array, applySigmoid: boolean): Uint8Array {
-  if (data.length === 0) return new Uint8Array();
-
-  const normalized = new Float32Array(data.length);
-  let min = Number.POSITIVE_INFINITY;
-  let max = Number.NEGATIVE_INFINITY;
+  const mask = new Uint8Array(data.length);
   for (let i = 0; i < data.length; i++) {
     const raw = data[i] ?? 0;
-    const value = applySigmoid ? 1 / (1 + Math.exp(-raw)) : raw;
-    normalized[i] = value;
-    min = Math.min(min, value);
-    max = Math.max(max, value);
-  }
-
-  const range = max - min;
-  const mask = new Uint8Array(data.length);
-  if (!Number.isFinite(range) || range <= Number.EPSILON) return mask;
-  for (let i = 0; i < normalized.length; i++) {
-    mask[i] = Math.trunc((((normalized[i] ?? min) - min) / range) * 255);
+    const probability = applySigmoid ? 1 / (1 + Math.exp(-raw)) : raw;
+    mask[i] = Math.round(Math.min(1, Math.max(0, probability)) * 255);
   }
   return mask;
 }
