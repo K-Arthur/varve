@@ -1688,6 +1688,10 @@ export interface EditorContextValue {
     padding?: number,
     options?: import('./imageCrop').TrimToSubjectOptions,
   ) => Promise<void>;
+  applyFaceAwareCrop: (options?: {
+    safetyMargin?: number;
+    minimumConfidence?: number;
+  }) => Promise<boolean>;
   expandImageBounds: (
     padding: number,
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
@@ -5552,6 +5556,13 @@ export function EditorProvider({
         }
         updateDoc(() => nextDoc);
       },
+      applyFaceAwareCrop: async (options) => {
+        const { applyFaceAwareCropToDocument } = await import('./imageCrop');
+        const next = await applyFaceAwareCropToDocument(state.document, state.selection, options);
+        if (!next) return false;
+        updateDoc(() => next);
+        return true;
+      },
       expandImageBounds: (
         padding: number,
         sides?: { top?: number; right?: number; bottom?: number; left?: number },
@@ -8485,11 +8496,13 @@ export function EditorProvider({
               ? 'denoised'
               : options.operation === 'deblur'
                 ? 'deblurred'
-                : options.operation === 'compression-restoration'
-                  ? 'cleaned of compression artifacts'
-                  : options.operation === 'restore-upscale'
-                    ? 'restored and upscaled'
-                    : 'upscaled';
+                : options.operation === 'deblur-upscale'
+                  ? 'deblurred and upscaled'
+                  : options.operation === 'compression-restoration'
+                    ? 'cleaned of compression artifacts'
+                    : options.operation === 'restore-upscale'
+                      ? 'restored and upscaled'
+                      : 'upscaled';
           announcerRef.current?.announce(
             `Image ${operationLabel} to ${outputImage.width} by ${outputImage.height} pixels`,
           );

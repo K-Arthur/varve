@@ -1,5 +1,5 @@
 import type { Document } from '@varve/scene';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getToolManager } from '../canvas/toolDispatcher';
 import type { EditorState } from '../context/types';
 import { type CropState, commitImageCropExtended } from '../imageCrop';
@@ -36,11 +36,24 @@ export function useToolManagerSync(
   const buildToolCtxRef = useRef(buildToolCtx);
   buildToolCtxRef.current = buildToolCtx;
 
+  // Bumped when the sync effect transitions the ToolManager's active tool.
+  // Instance-backed overlays (crop) read the tool instance during render, but
+  // the instance is only created/activated inside the effect below — which
+  // runs AFTER the render that carries the new `state.tool`. Without a bump,
+  // `renderCropOverlay` would forever see a null instance and the overlay
+  // would never mount. This tick forces one extra render so overlays re-read
+  // the now-populated instance.
+  const [, setToolSyncTick] = useState(0);
+
   // Sync active tool to ToolManager when state.tool changes
   useEffect(() => {
     if (tm.current) {
+      const prevActive = tm.current.activeToolId;
       const ctx = buildToolCtxRef.current({} as PointerEvent);
       tm.current.setTool(state.tool, ctx);
+      if (tm.current.activeToolId !== prevActive) {
+        setToolSyncTick((n) => n + 1);
+      }
     }
   }, [state.tool]);
 

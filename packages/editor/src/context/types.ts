@@ -790,6 +790,12 @@ export interface EditorContextValue {
   ) => void;
   /** Trim image bounds to the non-transparent alpha region of a background-removal mask. */
   trimToSubject: (padding?: number) => Promise<void>;
+  /** Position the crop window to keep detected faces in frame. Returns true
+   * when a face-aware crop was applied. */
+  applyFaceAwareCrop: (options?: {
+    safetyMargin?: number;
+    minimumConfidence?: number;
+  }) => Promise<boolean>;
   /** Expand image bounds by adding transparent space around the content. */
   expandImageBounds: (
     padding: number,
