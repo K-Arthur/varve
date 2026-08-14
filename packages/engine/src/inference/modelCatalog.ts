@@ -243,6 +243,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         remoteUrl:
           'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
         checksum: 'b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf',
+        upstreamChecksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
+        repair: 'sam2-empty-value-info',
       },
       {
         id: 'sam2-hiera-tiny-decoder',
@@ -264,6 +266,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
     checksum: 'b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf',
+    upstreamChecksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
+    repair: 'sam2-empty-value-info',
     bundled: false,
     inputSpec: null,
     quality: 3.5,
@@ -316,6 +320,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         remoteUrl:
           'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.encoder.onnx',
         checksum: '49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3',
+        upstreamChecksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+        repair: 'sam2-empty-value-info',
       },
       {
         id: 'sam2-hiera-small-decoder',
@@ -337,6 +343,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_small.encoder.onnx',
     checksum: '49c179784d3ffcd1e856facc98e1060a3d4496e10e71f19c4ea677e86eec08d3',
+    upstreamChecksum: 'f6a7c74dee5b2e71cce3f0475b778f0f28fa3e6c3646c79027302123d2197f40',
+    repair: 'sam2-empty-value-info',
     bundled: false,
     inputSpec: null,
     quality: 4,
