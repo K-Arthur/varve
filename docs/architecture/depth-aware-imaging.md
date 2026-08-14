@@ -152,11 +152,19 @@ Verified facts:
 - Input tensor is `pixel_values`; output tensor is `predicted_depth` with dims
   `[1, 518, 518]`. The manifest's contract now records exactly this; the
   editor reads the last two output dims so `[1, 1, H, W]` exports also work.
-- The raw near/far convention of this export is **nearIsHigh** (nearer pixels
-  have higher raw values). `normalizeDepthPrediction` is called with
-  `nearFarConvention: 'nearIsHigh'` and every persisted map is canonical
-  nearIsLow (0 = near, 1 = far). The manifest records the raw convention so a
-  future model swap cannot silently invert the field.
+- The raw near/far convention of this export is **nearIsHigh** on the
+  two-plane and portrait fixtures (nearer pixels have higher raw values), but
+  the perspective-corridor fixture measures **nearIsLow**: monocular relative
+  depth carries a per-image sign ambiguity (the model itself is deterministic —
+  same input, byte-identical output; the ambiguity is across images).
+  Per-image sign detection without ground truth is mathematically impossible
+  (any monotone-invariant self-consistency metric is sign-insensitive), so
+  `normalizeDepthPrediction` pins `nearFarConvention: 'nearIsHigh'` per the
+  verified majority, every persisted map is canonical nearIsLow (0 = near,
+  1 = far), and the Depth Blur controls expose **Invert Depth** for the
+  minority of images the fixed convention gets wrong. The manifest records the
+  raw convention and the verification report records every fixture's measured
+  sign so a future real-photo corpus can validate or refine the assumption.
 - Outputs are NaN/Inf-free across the corpus; a flat uniform input yields a
   finite, stable mid-plane.
 - Measured on the verification machine (Intel workstation, 8-core, CPU-only,
