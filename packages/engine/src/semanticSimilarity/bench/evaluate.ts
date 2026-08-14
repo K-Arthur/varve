@@ -82,9 +82,10 @@ function cosineRank(
   images: CorpusImage[],
   vectors: Map<string, Float32Array>,
   relevant: Set<string>,
+  queryId: string,
 ): RankedEntry[] {
   return images
-    .filter((img) => img.id !== query.id)
+    .filter((img) => img.id !== queryId)
     .map((img) => {
       const v = vectors.get(img.id);
       const score = v ? cosineSimilarity(query, v) : -1;
@@ -200,7 +201,13 @@ export async function evaluateModel(
 
   for (const query of queries) {
     const relevant = subjectRelevantSet(corpus, query);
-    const semantic = cosineRank(vectors.get(query.id)!, corpus.images, vectors, relevant);
+    const semantic = cosineRank(
+      vectors.get(query.id)!,
+      corpus.images,
+      vectors,
+      relevant,
+      query.id,
+    );
     const dupRelevant = duplicateRelevantSet(corpus, query);
     const duplicate = hashDistanceRank(
       query,

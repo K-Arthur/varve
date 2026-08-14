@@ -62,7 +62,7 @@ cross-project background indexing remain intentionally deferred.
 facebook/dinov2-small, Apache-2.0, FP32, SHA-256 pinned). Selected by
 measurement, not default: on the Varve corpus (see
 `docs/audits/semantic-asset-similarity-evaluation-2026-08-13.md`) it
-matches the SigLIP image encoder for retrieval (mAP 69.1 vs 68.7, nDCG
+matches the SigLIP image encoder for retrieval (mAP 98.0 vs 96.9, nDCG
 77.0 vs 76.7, better on UI screenshots), runs ~1.8x faster on CPU, is
 2.4x smaller to download (88 vs 211 MB), and produces half the vector
 dimension (384 vs 768). Reference vectors are parity-tested against the
