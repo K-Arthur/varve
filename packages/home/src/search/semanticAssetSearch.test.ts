@@ -8,8 +8,6 @@ import {
   type AssetEmbeddingIdentity,
   type AssetEmbeddingRecord,
   MemorySemanticEmbeddingStore,
-  makeAssetEmbeddingRecord,
-  type SemanticEmbeddingStore,
 } from '@varve/platform';
 import { describe, expect, it } from 'vitest';
 import {
@@ -47,14 +45,6 @@ function fakeEmbedding(seed: number): Float32Array {
   norm = Math.sqrt(norm) || 1;
   for (let i = 0; i < 768; i++) values[i] /= norm;
   return values;
-}
-
-function identityFor(asset: Asset): AssetEmbeddingIdentity {
-  return {
-    contentHash: asset.contentHash ?? `asset:${asset.id}`,
-    ...MODEL,
-    embeddingSchemaVersion: SEMANTIC_EMBEDDING_SCHEMA_VERSION,
-  };
 }
 
 function makeDeps(overrides: Partial<SemanticSearchDeps> = {}): SemanticSearchDeps {
