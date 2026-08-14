@@ -193,10 +193,18 @@ export function analyzeImageForRestoration(
   const lowResolutionShortEdge = options.lowResolutionShortEdge ?? 900;
   const lowResolution = shortEdge < lowResolutionShortEdge;
 
+  // Below ~96px the patch-based estimators see icon edges as noise/blur;
+  // only the resolution signal is meaningful at that size.
+  const tooSmallForSignals = shortEdge < 96;
+
   const lum = luminance(source.data, source.width, source.height);
-  const noiseSigma = estimateNoiseSigma(lum, source.width, source.height);
-  const blurScore = estimateBlurScore(lum, source.width, source.height);
-  const blockiness = estimateJpegBlockiness(lum, source.width, source.height);
+  const noiseSigma = tooSmallForSignals ? 0 : estimateNoiseSigma(lum, source.width, source.height);
+  const blurScore = tooSmallForSignals
+    ? Infinity
+    : estimateBlurScore(lum, source.width, source.height);
+  const blockiness = tooSmallForSignals
+    ? 1
+    : estimateJpegBlockiness(lum, source.width, source.height);
 
   // Thresholds: tuned on the synthetic corpus (docs/quality/
   // image-enhancement-benchmark.md). Conservative by design.

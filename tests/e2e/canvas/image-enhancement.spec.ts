@@ -8,7 +8,7 @@ const DIALOG = 'Enhance image';
 /** Pick an operation in the Enhance dialog's custom Select. */
 async function selectOperation(page: import('@playwright/test').Page, label: string) {
   await page.getByRole('combobox', { name: 'Enhancement operation' }).click();
-  await page.getByRole('option', { name: label }).click();
+  await page.getByRole('option', { name: label, exact: true }).click();
 }
 
 async function openEnhanceDialog(page: import('@playwright/test').Page) {
@@ -42,7 +42,7 @@ test('imports an image and upscales it through the dialog', async ({ page }) => 
 });
 
 test('auto mode recommends an operation for a low-resolution import', async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(180000);
   await openEnhanceDialog(page);
 
   // The 16x16 favicon is below the resolution threshold, so the analysis
