@@ -1,25 +1,38 @@
+/**
+ * Native restoration provider — Tauri ORT backend for any image model the
+ * Rust side knows (`image_model_spec`). The command name remains
+ * `denoise_image` for wire compatibility; it routes on model id.
+ */
+
 import { isTauriRuntime } from '@varve/platform';
 import {
   decodeImageBytesToImageData,
   encodeImageDataToPngBytes,
 } from '../upscaleProviders/pngDecode';
-import type { DenoiseProvider, DenoiseTileRequest, DenoiseTileResult } from './types';
+import type {
+  RestorationTileProvider,
+  RestorationTileRequest,
+  RestorationTileResult,
+} from './types';
 
-interface NativeDenoiseResponse {
+interface NativeRestorationResponse {
   pngBase64: string;
   width: number;
   height: number;
   processingTimeMs: number;
 }
 
-export const nativeDenoiseProvider: DenoiseProvider = {
-  id: 'native-scunet',
+export const nativeRestorationProvider: RestorationTileProvider = {
+  id: 'native-restoration',
 
   isAvailable(modelId: string): boolean {
-    return isTauriRuntime() && modelId === 'scunet';
+    return isTauriRuntime() && modelId !== '';
   },
 
-  async denoise(request: DenoiseTileRequest, signal?: AbortSignal): Promise<DenoiseTileResult> {
+  async restore(
+    request: RestorationTileRequest,
+    signal?: AbortSignal,
+  ): Promise<RestorationTileResult> {
     const { strength, modelId, originalData, targetWidth, targetHeight } = request;
     if (signal?.aborted) throw new Error('cancelled');
 
@@ -37,7 +50,7 @@ export const nativeDenoiseProvider: DenoiseProvider = {
     const { invoke } = await import('@tauri-apps/api/core');
     if (signal?.aborted) throw new Error('cancelled');
 
-    const raw = await invoke<NativeDenoiseResponse>('denoise_image', {
+    const raw = await invoke<NativeRestorationResponse>('denoise_image', {
       imageData: Array.from(pngBytes),
       options: { modelId, strength },
     });

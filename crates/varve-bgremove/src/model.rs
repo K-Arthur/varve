@@ -91,6 +91,16 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         ),
     },
     ModelInfo {
+        id: "nafnet-deblur-gopro".to_owned(),
+        name: "NAFNet Deblur".to_owned(),
+        description: "138 MB — task-specific deblurring (NAFNet-GoPro-width64, fp16). Parity-verified against the trusted reference.".to_owned(),
+        size_bytes: 138_050_767,
+        remote_url: "https://github.com/K-Arthur/varve/releases/download/varve-models-v1/nafnet-gopro-width64-fp16b-embed.onnx".to_owned(),
+        checksum_sha256: Some(
+            "e9b82a578b6ddf47a3f22118da65d13a4459b53e6c0e5fcf41f5615eadf92f5e".into(),
+        ),
+    },
+    ModelInfo {
         id: "paddleocr-det-v4".to_owned(),
         name: "PaddleOCR v4 Detection".to_owned(),
         description: "4.7 MB — text region detection (DBNet++)".to_owned(),

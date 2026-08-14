@@ -148,19 +148,22 @@ export function UpscaleDialog({
     };
   }, [denoiseStrength, mode, operation, pixelArtAlgorithm, scale, usesDenoise, usesUpscale]);
 
-  // Model prerequisites. Denoise needs SCUNet and the AI modes need their
-  // Real-ESRGAN weights; the CPU resampling modes need nothing. Checking here
-  // means a missing model is offered as a download up front instead of
-  // surfacing as a backend failure after the user commits to the operation.
+  // Model prerequisites. Denoise needs SCUNet, Deblur needs the NAFNet
+  // checkpoint, and the AI modes need their Real-ESRGAN weights; the CPU
+  // resampling modes need nothing. Checking here means a missing model is
+  // offered as a download up front instead of surfacing as a backend
+  // failure after the user commits to the operation.
   const requiredModelId = usesDenoise
     ? 'scunet'
-    : mode?.isAi
-      ? modeId === 'illustration'
-        ? 'upscale-realesrgan-anime'
-        : 'upscale-realesr-general'
-      : denoiseStrength !== 'none'
-        ? 'scunet'
-        : null;
+    : operation === 'deblur'
+      ? 'nafnet-deblur-gopro'
+      : mode?.isAi
+        ? modeId === 'illustration'
+          ? 'upscale-realesrgan-anime'
+          : 'upscale-realesr-general'
+        : denoiseStrength !== 'none'
+          ? 'scunet'
+          : null;
   const [modelMissing, setModelMissing] = useState(false);
   const [showModelDownload, setShowModelDownload] = useState(false);
 
@@ -739,7 +742,9 @@ export function UpscaleDialog({
                   <p className="insp-hint insp-hint--warn">
                     {requiredModelId === 'scunet'
                       ? 'Denoise needs the SCUNet model, which is not installed yet.'
-                      : 'This mode needs an AI model that is not installed yet.'}
+                      : requiredModelId === 'nafnet-deblur-gopro'
+                        ? 'Deblur needs the NAFNet model, which is not installed yet.'
+                        : 'This mode needs an AI model that is not installed yet.'}
                   </p>
                   <Button
                     type="button"
@@ -808,11 +813,15 @@ export function UpscaleDialog({
             >
               {operation === 'denoise'
                 ? 'Denoise image'
-                : operation === 'restore-upscale'
-                  ? 'Restore and upscale'
-                  : mode?.isAi
-                    ? 'Upscale with AI'
-                    : 'Upscale image'}
+                : operation === 'deblur'
+                  ? 'Deblur image'
+                  : operation === 'compression-restoration'
+                    ? 'Clean up image'
+                    : operation === 'restore-upscale'
+                      ? 'Restore and upscale'
+                      : mode?.isAi
+                        ? 'Upscale with AI'
+                        : 'Upscale image'}
             </Button>
           </div>
 

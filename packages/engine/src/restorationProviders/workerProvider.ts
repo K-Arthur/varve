@@ -1,15 +1,66 @@
-import { getInferenceWorkerHost } from '../inference/inferenceWorkerHost';
-import { postprocessScunet } from '../inference/models/scunet';
-import type { DenoiseProvider, DenoiseTileRequest, DenoiseTileResult } from './types';
+/**
+ * Worker restoration provider — generic WASM/WebGPU ONNX inference for any
+ * registered model type (scunet, nafnet). Model post-processing (channel
+ * order, padding, alpha, strength) is dispatched by model id so the
+ * runtime itself stays task-agnostic.
+ */
 
-export const workerDenoiseProvider: DenoiseProvider = {
-  id: 'worker-scunet',
+import { getInferenceWorkerHost } from '../inference/inferenceWorkerHost';
+import { postprocessNafnet } from '../inference/models/nafnet';
+import { postprocessScunet } from '../inference/models/scunet';
+import type {
+  RestorationTileProvider,
+  RestorationTileRequest,
+  RestorationTileResult,
+} from './types';
+import { workerModelTypeForModel } from './types';
+
+function postprocessByModel(
+  modelId: string,
+  output: Float32Array,
+  outW: number,
+  outH: number,
+  targetWidth: number,
+  targetHeight: number,
+  alphaData: Uint8ClampedArray | null,
+  strength: number,
+  originalData: Uint8ClampedArray,
+): ImageData {
+  if (modelId === 'scunet') {
+    return postprocessScunet(
+      output,
+      outW,
+      outH,
+      targetWidth,
+      targetHeight,
+      alphaData,
+      strength,
+      originalData,
+    );
+  }
+  return postprocessNafnet(
+    output,
+    outW,
+    outH,
+    targetWidth,
+    targetHeight,
+    alphaData,
+    strength,
+    originalData,
+  );
+}
+
+export const workerRestorationProvider: RestorationTileProvider = {
+  id: 'worker-restoration',
 
   isAvailable(): boolean {
     return true;
   },
 
-  async denoise(request: DenoiseTileRequest, signal?: AbortSignal): Promise<DenoiseTileResult> {
+  async restore(
+    request: RestorationTileRequest,
+    signal?: AbortSignal,
+  ): Promise<RestorationTileResult> {
     const {
       tensor,
       width,
@@ -24,16 +75,15 @@ export const workerDenoiseProvider: DenoiseProvider = {
     const start = performance.now();
 
     // Resolve through the loader rather than assuming `/models/<id>.onnx`:
-    // SCUNet's file is named for its variant, and once downloaded it lives as
-    // an IndexedDB blob URL. The hardcoded path pointed at a file that never
-    // exists. Its weights also sit in a sibling `.onnx.data` the runtime must
-    // be told about explicitly.
+    // model files are named for their variants and live as IndexedDB blob
+    // URLs once downloaded. Weights kept in a sibling `.onnx.data` must be
+    // handed to the runtime explicitly.
     const { getModelLoader } = await import('../backgroundRemoval/modelLoader');
     const loader = getModelLoader(signal);
     const resolvedPath = await loader.getModelPath(modelId, signal);
     if (!resolvedPath) {
       throw new Error(
-        'Denoise model not downloaded. Use the Download button in the AI Denoise panel first.',
+        'Restoration model not downloaded. Use the Download button in the Enhance dialog first.',
       );
     }
     const externalData = (await loader.getModelExternalData(modelId, signal)) ?? undefined;
@@ -42,7 +92,7 @@ export const workerDenoiseProvider: DenoiseProvider = {
     const result = await host.infer(
       {
         type: 'infer',
-        modelType: 'scunet',
+        modelType: workerModelTypeForModel(modelId) as 'scunet' | 'nafnet',
         modelPath: resolvedPath,
         externalData,
         modelId,
@@ -69,13 +119,14 @@ export const workerDenoiseProvider: DenoiseProvider = {
         k !== 'letterbox',
     );
     if (!outputKey) {
-      throw new Error('SCUNet worker inference produced no output tensor');
+      throw new Error('Worker inference produced no output tensor');
     }
     const output = result.outputs[outputKey] as { data: Float32Array; dims: number[] };
     const outH = output.dims[2] ?? height;
     const outW = output.dims[3] ?? width;
 
-    const imageData = postprocessScunet(
+    const imageData = postprocessByModel(
+      modelId,
       output.data,
       outW,
       outH,
