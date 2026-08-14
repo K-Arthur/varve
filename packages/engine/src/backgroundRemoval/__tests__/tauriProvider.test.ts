@@ -62,6 +62,34 @@ describe('Tauri background-removal provider', () => {
     expect(result.method).toBe('ai-quality');
   });
 
+  it('defaults native decontamination to false to match worker/direct providers', async () => {
+    mockInvoke.mockResolvedValue({
+      maskBase64: 'test',
+      confidence: 0.9,
+      method: 'ai-quality',
+      processingTimeMs: 10,
+      width: 1,
+      height: 1,
+    });
+    const { tauriRemovalProvider } = await import('../providers/tauriProvider');
+    await tauriRemovalProvider.remove(new ImageData(new Uint8ClampedArray([1, 2, 3, 255]), 1, 1), {
+      method: 'ai-quality',
+    });
+    const args = mockInvoke.mock.calls.find(
+      ([command]) => command === 'remove_background',
+    )?.[1] as { options: { decontaminate: boolean } };
+    expect(args.options.decontaminate).toBe(false);
+
+    await tauriRemovalProvider.remove(new ImageData(new Uint8ClampedArray([1, 2, 3, 255]), 1, 1), {
+      method: 'ai-quality',
+      decontaminate: true,
+    });
+    const explicit = mockInvoke.mock.calls.filter(
+      ([command]) => command === 'remove_background',
+    ) as Array<[string, { options: { decontaminate: boolean } }]>;
+    expect(explicit.at(-1)?.[1].options.decontaminate).toBe(true);
+  });
+
   it('forwards native download progress and uses the fixed model-id command', async () => {
     let progressHandler: ((event: { payload: unknown }) => void) | undefined;
     mockListen.mockImplementation(

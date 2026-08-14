@@ -83,6 +83,10 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    cannot construct `Image` or access main-thread `ImageCache`. `collectImageBitmaps`
    pre-decodes on the main thread; `sceneCanUseWorkerRenderer` gates the worker path
    until every image src is loaded. Until then, main-thread replay applies.
+   `ImageCache` owns retained decoded resources and closes replaced, evicted, or
+   cleared `ImageBitmap` entries. A stale completion after cancellation or source
+   replacement is never admitted; an oversized result is caller-owned because it
+   may be returned for immediate use without being retained.
 
 3. **Never composite a stale surface unless a fresh one is actually coming.**
    Reusing already-painted pixels — a partial redraw, or a reprojected worker
@@ -93,12 +97,17 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    pixels. See "Reuse of already-painted pixels" below; this invariant is what
    the many-image regression violated.
 
+4. **Cross-node mattes are explicit render dependencies.** The scene
+   `buildCompositingDependencyGraph()` indexes node-mask and effect-mask source
+   edges. A text or group edit outside a target's subtree therefore invalidates
+   the target boundary as well as the source's own paint.
+
 ## WebGPU Compositor (2026-07-11; ownership invert 2026-07-13)
 
 | Feature | Implementation |
 |---|---|
 | Init order | Present canvas stays Canvas2D; offscreen canvas acquires `webgpu` |
-| Fallback | Non-GPU primitives (text/path/effects) draw via present Canvas2D on top of GPU blit |
+| Fallback | Ordered `webgpu-run` / `canvas2d-island` segments; unsupported flat items are the smallest safe island until structural metadata widens the boundary |
 | Primitives | rect, circle, line (tessellated quad) on GPU; text/path/effects on 2D |
 | Pipeline | Explicit bind group layouts; shared camera uniform (floating origin + view rotation); per-circle discard shader; premul blend |
 | Affine | Vertex shader uses kurbo/canvas `a·x+c·y+e` / `b·x+d·y+f` (`transform`/`transform2` attrs) |
@@ -109,6 +118,21 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
 | Opt-in | `settings.render.preferWebGpu` (default false; Linux WebKitGTK stays Canvas2D) |
 | Diagnostics | Status bar via `CompositorDiagnostics` |
 | Drift guard | `wgsl-drift.test.ts` keeps TS shaders ≡ `crates/varve-bridge/tests/wgsl_validation.rs` |
+
+### Structural fallback planning
+
+`packages/compositor/src/structuralRenderPlan.ts` builds an ordered plan before
+backend execution. A proven-safe contiguous run may execute on WebGPU; an
+unsupported item or declared structural boundary remains an atomic Canvas2D
+island. The plan is fail-closed and does not partition a flat batch by backend
+when that would lose parent compositing semantics.
+
+Each GPU run clears the transparent offscreen target before rendering and then
+blits only that run to the persistent Canvas2D presentation surface. Earlier
+GPU runs are therefore not retained and re-blitted after a Canvas2D island.
+When a scene compiler supplies `CompositorFrame.structure`, a boundary can widen
+an island to an isolated/masked/effect group without making the compositor
+depend on `@varve/scene`.
 
 ### Rollback & Incident Response
 
@@ -290,7 +314,7 @@ Raster/PDF export (`packages/editor/src/components/SpecPanel/export.ts`) had thr
 | **No canvas size clamp** | `exportNodeAsRaster` built an `OffscreenCanvas` at the full requested `w×h` with no upper bound. On WebKit's ~16384px dimension cap (the tightest of the three engines this app ships on — Chromium/Gecko allow 32767px), a large export either throws or silently corrupts. Export now clamps to `MAX_SAFE_CANVAS_DIMENSION` (16384, WebKit's floor — chosen because the runtime engine can't be reliably identified from script) and returns a `warnings[]` array surfaced to the user instead of failing silently. | `packages/editor/src/components/SpecPanel/export.test.ts` |
 | **Tainted-canvas export failures were an opaque `SecurityError`** | `ImageCache.load()` now requests non-inline URLs with `crossOrigin='anonymous'` first (falling back to a plain request if that fails, so on-screen display is unaffected for servers without CORS headers), and `exportNodeAsRaster` catches `SecurityError` from `convertToBlob` and rethrows an actionable message naming the cause. | `packages/engine/src/imageCache.test.ts`, `export.test.ts` |
 
-**Still open (deferred, see backlog):** oversized exports are clamped to a lower resolution, not tiled into multiple files. `packages/engine/src/export.ts`'s `getCanvasSizeLimit`/`tiledExport` helpers exist and are unit-tested but are not wired into the export path — true multi-tile output needs an `ExportJob`/UI change (one job → N files) that's a larger scope than this session's correctness-bug fixes. Thumbnails (`SpecPanel/thumbnail.ts`) silently drop text nodes from `buildScene()`, which sidesteps the font race there but is a separate, undocumented feature gap, not a fix.
+**Still open (deferred, see backlog):** oversized exports are clamped to a lower resolution, not tiled into multiple files. `packages/engine/src/export.ts`'s `getCanvasSizeLimit`/`tiledExport` helpers exist and are unit-tested but are not wired into the export path — true multi-tile output needs an `ExportJob`/UI change (one job → N files) that's a larger scope than this session's correctness-bug fixes. Canonical thumbnails now use the shared scene conversion and bounded at-size image representations where the runtime supports them; remote scaled decode remains platform-limited.
 
 **OffscreenCanvas capability detection hardened (2026-07-12):** `createRenderWorkerHost` now feature-detects `typeof OffscreenCanvas === 'undefined'` in addition to `typeof Worker`, before spinning up the render worker. Current research (2026-07) found WebKitGTK's OffscreenCanvas support inconsistently documented/tracked across point releases (unlike Chromium/WebView2/Firefox 105+/Safari 17+, which all have mature support) — without this guard, an engine lacking it would burn through the worker's full 5-retry exponential-backoff cycle (up to ~30s per attempt) before falling back to main-thread rendering, for a failure retrying can never fix.
 

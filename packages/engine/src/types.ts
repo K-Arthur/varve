@@ -165,7 +165,31 @@ export interface ChannelOffset {
   blueY: number;
 }
 
-export type Effect =
+export type EffectMaskSourceIR =
+  | { kind: 'scene-node'; nodeId: string }
+  | { kind: 'raster-asset'; assetId: string; src?: string }
+  | {
+      kind: 'vector';
+      vectorMask: {
+        points: PathPoint[];
+        closed: boolean;
+        fillRule: 'nonzero' | 'evenodd';
+      };
+    };
+
+export interface EffectMaskBindingIR {
+  source: EffectMaskSourceIR;
+  type: 'alpha' | 'luminance' | 'clip';
+  visible?: boolean;
+  inverted?: boolean;
+  density?: number;
+  feather?: number;
+  linked?: boolean;
+  transform?: Affine;
+  coordinateSpace: 'target-local' | 'world';
+}
+
+type EffectVariant =
   | {
       type: 'dropShadow';
       x: number;
@@ -190,6 +214,18 @@ export type Effect =
     }
   | { type: 'layerBlur'; radius: number; visible: boolean }
   | { type: 'backgroundBlur'; radius: number; visible: boolean }
+  | {
+      type: 'depthBlur';
+      depthMapId: string;
+      depthMap?: import('./depthMap').DepthMapResource;
+      focusDepth: number;
+      focusRange: number;
+      blurStrength: number;
+      falloff: number;
+      invert: boolean;
+      edgeProtection: number;
+      visible: boolean;
+    }
   | {
       type: 'outerGlow';
       blur: number;
@@ -249,6 +285,11 @@ export type Effect =
       opacity: number;
       visible: boolean;
     };
+
+export type Effect = EffectVariant & {
+  id?: string;
+  mask?: EffectMaskBindingIR;
+};
 
 export interface PathPoint {
   x: number;
@@ -760,6 +801,8 @@ export interface ShapedRun {
 export interface TextShaping {
   /** Shaped runs in logical order (after BiDi run segmentation). */
   runs: ShapedRun[];
+  /** Optional visual traversal order resolved by the shaping/layout backend. */
+  visualRuns?: readonly ShapedRun[];
   /** Total width after shaping. */
   width: number;
   /** Total height (max ascent + max descent across runs). */

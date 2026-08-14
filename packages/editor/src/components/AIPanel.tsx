@@ -1,3 +1,12 @@
+/**
+ * AIPanel — the on-device design assistant chat surface.
+ *
+ * Runs entirely locally: every "intent" dispatches to a deterministic
+ * heuristic command (`dispatchIntelligence`), and unknown intents get an
+ * honest reply that lists what actually exists. There is no cloud model
+ * behind this panel and no simulated latency — see `docs/architecture/
+ * offline-first.md`.
+ */
 import { type AIMessage, createAssistant, type IntelligenceDispatchContext } from '@varve/ai';
 import { Button, Icon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -6,9 +15,10 @@ import { renameSelected } from '../intelligence/autoNamer';
 import { harmonizeSpacing } from '../intelligence/spacingHarmonizer';
 
 const INITIAL_SUGGESTIONS = [
-  'Help me choose a color palette',
-  'Suggest a layout for this design',
-  'How can I improve accessibility?',
+  'Check contrast on my design',
+  'Scan for design debt',
+  'Suggest layer names',
+  'Harmonize spacing',
 ];
 
 export function AIPanel() {
@@ -68,7 +78,7 @@ export function AIPanel() {
       const reply = await assistantRef.current.sendMessage(trimmed, buildIntelligenceContext());
       setMessages((prev) => [...prev, reply]);
     } catch {
-      setError('Failed to get response. Please try again.');
+      setError('Something went wrong running that command. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -102,7 +112,7 @@ export function AIPanel() {
       );
       setMessages((prev) => [...prev, reply]);
     } catch {
-      setError('Failed to get response. Please try again.');
+      setError('Something went wrong running that command. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -112,7 +122,10 @@ export function AIPanel() {
     <div className="ai-panel">
       <div className="ai-panel__header">
         <Icon name="Bot" size={18} />
-        <span>AI Assistant</span>
+        <div className="ai-panel__header-text">
+          <span>Design Assistant</span>
+          <span className="ai-panel__header-subtitle">On-device — works offline</span>
+        </div>
       </div>
 
       <div
@@ -141,32 +154,12 @@ export function AIPanel() {
         {messages.map((msg) => (
           <div key={msg.id} className={`ai-panel__bubble ai-panel__bubble--${msg.role}`}>
             <div className="ai-panel__bubble-content">{msg.content}</div>
-            {msg.role === 'assistant' && (
-              <div className="ai-panel__bubble-actions">
-                <button
-                  type="button"
-                  className="ai-panel__action-btn"
-                  aria-label="Apply suggestion"
-                >
-                  <Icon name="Check" size={14} />
-                  Apply
-                </button>
-                <button
-                  type="button"
-                  className="ai-panel__action-btn"
-                  aria-label="Preview suggestion"
-                >
-                  <Icon name="Eye" size={14} />
-                  Preview
-                </button>
-              </div>
-            )}
           </div>
         ))}
 
         {loading && (
           <div className="ai-panel__bubble ai-panel__bubble--assistant">
-            <div className="ai-panel__typing" role="img" aria-label="AI is typing">
+            <div className="ai-panel__typing" role="img" aria-label="Running on-device command">
               <span className="ai-panel__typing-dot" />
               <span className="ai-panel__typing-dot" />
               <span className="ai-panel__typing-dot" />
@@ -189,7 +182,7 @@ export function AIPanel() {
         <textarea
           ref={textareaRef}
           className="ai-panel__textarea"
-          placeholder="Ask the AI assistant..."
+          placeholder="Ask the design assistant..."
           rows={1}
           value={input}
           onChange={(e) => setInput(e.target.value)}

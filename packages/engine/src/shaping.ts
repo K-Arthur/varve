@@ -28,6 +28,7 @@ import type { BidiParagraph } from './unicode/bidi';
 import { analyzeParagraph } from './unicode/bidi';
 import { splitGraphemes } from './unicode/grapheme';
 import { dominantScript } from './unicode/script';
+import type { ItemizedParagraph } from './text/paragraphs';
 
 export interface ShapeRunInput {
   /** The text to shape (single line). */
@@ -135,6 +136,80 @@ export function scriptCodeToTag(isoCode: string): string {
 }
 
 /**
+ * Shape one itemized paragraph into logical-order runs for the canonical
+ * layout pipeline. Glyph `clusterUtf16` values are paragraph-local and
+ * glyphs are in visual order within each run (matching the shaping backend
+ * contract), so `layoutText` can break lines and reorder per line without
+ * further source mapping.
+ *
+ * This is the canvas-measurement bridge: advances come from
+ * `ctx.measureText` per grapheme, `glyphId` stays 0, and contextual joining
+ * (Arabic forms, Indic conjuncts) is not produced — the real shaping
+ * backends (harfbuzz-wasm / rustybuzz-native) fill the same contract.
+ */
+export function shapeParagraphRuns(
+  paragraph: ItemizedParagraph,
+  ctx: CanvasRenderingContext2D,
+  style: {
+    fontFamily: string;
+    fontSize: number;
+    fontWeight?: number;
+    fontStyle?: 'normal' | 'italic';
+    letterSpacing?: number;
+    tracking?: number;
+    language?: string;
+  },
+): ShapedRun[] {
+  const runs: ShapedRun[] = [];
+  ctx.font = buildFontString(style.fontFamily, style.fontSize, style.fontWeight, style.fontStyle);
+  for (const scriptedRun of paragraph.scriptedRuns) {
+    const runText = paragraph.text.slice(scriptedRun.start, scriptedRun.end);
+    if (runText.length === 0) continue;
+    const graphemes = splitGraphemes(runText);
+    const glyphs: ShapedGlyph[] = [];
+    let runWidth = 0;
+    for (let gi = 0; gi < graphemes.length; gi++) {
+      const g = graphemes[gi]!;
+      const metrics = ctx.measureText(g);
+      const spacing =
+        (gi < graphemes.length - 1 ? (style.letterSpacing ?? 0) : 0) +
+        graphemeTracking(style.tracking ?? 0, style.fontSize, gi, graphemes.length);
+      const advance = metrics.width + spacing;
+      glyphs.push({
+        glyphId: 0,
+        xAdvance: advance,
+        yAdvance: 0,
+        xOffset: 0,
+        yOffset: 0,
+        clusterUtf16: scriptedRun.start + graphemeStartOffset(graphemes, gi),
+      });
+      runWidth += advance;
+    }
+    if (scriptedRun.direction === 'rtl') glyphs.reverse();
+    runs.push({
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight ?? 400,
+      fontStyle: style.fontStyle ?? 'normal',
+      direction: scriptedRun.direction,
+      level: scriptedRun.level,
+      script: scriptCodeToTag(scriptedRun.script),
+      glyphs,
+      width: runWidth,
+      ascent: style.fontSize * 0.8,
+      descent: style.fontSize * 0.2,
+    });
+  }
+  return runs;
+}
+
+function graphemeStartOffset(graphemes: readonly string[], index: number): number {
+  let offset = 0;
+  for (let i = 0; i < index; i++) offset += graphemes[i]!.length;
+  return offset;
+}
+
+/**
  * Shape a single text run: segment by BiDi direction, then walk grapheme
  * clusters to build shaped glyphs with advances from ctx.measureText.
  */
@@ -156,7 +231,6 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
   // Step 1: BiDi analysis of the line.
   const explicitDir = direction === 'auto' ? undefined : direction;
   const para: BidiParagraph = analyzeParagraph(text, explicitDir);
-  const isRTL = para.baseLevel % 2 === 1;
 
   // Set the font on the context for measurement.
   ctx.font = buildFontString(fontFamily, fontSize, fontWeight, fontStyle);
@@ -164,7 +238,8 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
   // Step 2: For each BiDi run, segment further by script and walk graphemes.
   const allRuns: ShapedRun[] = [];
 
-  for (const bidiRun of para.runs) {
+  const visualBidiRuns = para.visualRuns.length > 0 ? para.visualRuns : para.runs;
+  for (const bidiRun of visualBidiRuns) {
     const runText = text.substring(bidiRun.start, bidiRun.end);
 
     // Walk grapheme clusters in this run.
@@ -224,10 +299,6 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
     });
   }
 
-  // Step 3: Reorder runs visually if RTL.
-  if (isRTL && allRuns.length > 1) {
-    return [...allRuns].reverse();
-  }
   return allRuns;
 }
 
@@ -244,6 +315,7 @@ export function shapeText(
     fontWeight?: number;
     fontStyle?: 'normal' | 'italic';
     letterSpacing?: number;
+    tracking?: number;
     direction?: 'ltr' | 'rtl' | 'auto';
     language?: string;
   },
@@ -255,6 +327,7 @@ export function shapeText(
     fontWeight: opts?.fontWeight,
     fontStyle: opts?.fontStyle,
     letterSpacing: opts?.letterSpacing,
+    tracking: opts?.tracking,
     direction: opts?.direction ?? 'auto',
     ctx,
   });
@@ -275,6 +348,7 @@ export function shapeText(
 
   return {
     runs,
+    visualRuns: runs,
     width,
     height: maxAscent + maxDescent,
     baseDirection: direction,

@@ -1,114 +1,221 @@
-# Text Pipeline Architecture
+# Text pipeline architecture
 
-The text pipeline covers Unicode analysis, bidirectional (BiDi) layout,
-shaping, rich-text editing, and multilingual export across SVG and PDF.
+**Status:** migration in progress — audit baseline recorded 2026-08-13; shaping, BiDi, snapshot foundations, and the canonical paragraph layout pipeline landed
 
-## Pipeline stages
+Varve’s text system keeps source text in logical Unicode order. Paragraphs and
+rich-text runs are document data; visual ordering, glyph clusters, line boxes,
+caret stops, and selection fragments are derived layout data.
 
+## Current pipeline
+
+```text
+TextNode.text / TextNode.richText / TextStory
+  → sceneNodeToEngineNode
+  → text render IR
+  → replay-time layout selection
+      ├─ TextLayoutSnapshot → positioned cluster replay (plain text when shaping is available)
+      ├─ Canvas measureText → transient approximate snapshot → cluster replay (browser fallback)
+      ├─ rich-span snapshot → positioned cluster replay (Canvas2D measurement fallback)
+      ├─ legacy rich layout fallback (advanced paragraph controls)
+      └─ Rust rustybuzz command (native, currently export/diagnostic oriented)
+  → SVG/PDF/codegen-specific consumers
 ```
-TextNode (scene model)
-  ↓ direction, language
-Engine IR (Primitive::text)
-  ↓ shapeText / shapeRun
-TextShaping (ShapedRun[])
-  ↓ replayIr → paintText
-Canvas2D (browser-native BiDi via fillText)
 
-Export paths:
-  SVG  → <text direction="rtl" unicode-bidi="bidi-override">
-  PDF  → WinAnsiEncoding Tj  (Latin-1)
-       → outline_text_multi   (non-Latin fallback to vector paths)
+This is a transitional architecture. The browser’s shaping is not exposed
+enough to serve as Varve’s authoritative glyph, cluster, caret, or export data.
+The exact findings and code references are in
+[the 2026-08-13 Unicode text audit](../audits/unicode-text-shaping-audit-2026-08-13.md).
+
+## Target pipeline
+
+```text
+logical source string
+  → paragraph boundaries
+  → UTF-16 / scalar / grapheme index map
+  → UAX #9 paragraph resolution
+  → script, language, style, and font itemization
+  → cluster-aware font fallback
+  → HarfBuzz-compatible shaping
+  → UAX #14 line breaking
+  → line-level visual run ordering
+  → TextLayoutSnapshot
+      ├─ positioned glyph runs and metrics
+      ├─ logical ↔ visual source maps
+      ├─ legal caret stops and hit testing
+      ├─ selection fragments
+      ├─ layout/ink/object bounds
+      └─ diagnostics and cache identity
+  → canvas/WebGPU fallback renderer
+  → editor, masks, raster export, SVG, PDF, and codegen
 ```
 
-## Design decisions
+The snapshot is derived, revisioned, and bounded in memory. It must never be
+serialized as authoritative document content. A document edit, font revision,
+feature/variation change, frame geometry change, or relevant layout-policy
+change invalidates the appropriate paragraph/story scope.
 
-### BiDi is paragraph/run-level, not full UBA
+## Non-negotiable invariants
 
-`analyzeParagraph` in `packages/engine/src/unicode/bidi.ts` implements the
-P2/P3 baseline-resolution and run-formation steps of UAX #9. It does **not**
-implement the full embedding-level resolution (X1-X10, implicit levels,
-bracket pairing). Rationale: the browser's native `fillText` already applies
-the full Unicode Bidirectional Algorithm to the final run list, so the engine
-only needs to establish the *base direction* of each paragraph and segment
-strong runs. The renderer aligns `textAlign` to the right edge for RTL so
-the browser renders runs in visual order.
+1. Serialized text remains logical Unicode order and is never reversed for RTL.
+2. Source ranges remain UTF-16-compatible at persistence/DOM boundaries, while
+   scalar, grapheme, shaping-cluster, glyph, and visual-caret units are explicit.
+3. Complex scripts are shaped by a standards-based OpenType engine; one source
+   character is not assumed to equal one glyph.
+4. Rich formatting belongs to logical source ranges, never to visual glyph
+   positions.
+5. Rendering, bounds, caret placement, hit testing, selection, masks, and
+   exports consume the same derived layout wherever practical.
+6. Canvas2D may remain a rasterization backend, and WebGPU may fall back to it
+   for text, but neither API is the layout authority.
+7. Missing fonts and unsupported export semantics are reported explicitly;
+   they are not silently presented as equivalent output.
 
-For SVG/PDF export, explicit `direction="rtl"` attributes and vector
-outlining sidestep the need for server-side UBA entirely.
+## Backend strategy
 
-### Shaping uses browser-native advances (not per-glyph rustybuzz)
+* Native desktop shaping uses the existing `rustybuzz` implementation over
+  validated font bytes.
+* Web/WASM shaping uses the existing `harfbuzzjs` dependency behind the same
+  request/result contract when font bytes are available. The WASM adapter
+  always runs `buffer.guessSegmentProperties()` before applying explicit
+  direction/script/language overrides — a direction-only request must not
+  silently shape with the default script, which drops all Arabic/Indic GSUB
+  features (fixed 2026-08-13, covered by `shapingOracle.test.ts`).
+* Structural shaping invariants are verified against system Noto fonts by
+  `shapingOracle.test.ts` (skipped when the fonts are absent; never
+  redistributed): Arabic joining forms differ per position, harakat are
+  zero-advance GPOS-positioned marks, RTL output is visual-order with
+  monotone clusters, Devanagari conjuncts reduce glyph counts, and Thai
+  marks stay attached to their clusters. Lam-alef is asserted
+  font-independently: modern Noto Arabic does not ligate it, and both
+  shaped and ligated output are valid.
+* Canvas2D measurement is a bounded fallback for environments without a font
+  byte source. It is marked approximate and cannot satisfy glyph-level parity
+  or PDF text requirements.
+* UAX #9 resolution is provided through the maintained `bidi-js` adapter in
+  `unicode/bidiUax9.ts`; the public paragraph API retains logical UTF-16
+  offsets while exposing resolved visual indices and mirrored-character data.
 
-`shapeRun` measures glyph advances via `CanvasRenderingContext2D.measureText`,
-not a Rust shaleharfBuzz port. Rationale: the web target already has a
-high-quality shaper (the browser); a Rust shaper would only matter for
-pixel-perfect native-PDF glyph positioning, which the outline-text export
-path already covers. The `TextShaping` IR seam (`types.ts:622`) is kept so a
-future rusthbuzz backend can slot in without changing consumers.
+The backend contract currently lives in `packages/engine/src/shapingBackend.ts`.
+It normalizes native font units to the requested size and uses UTF-16 source
+cluster offsets. The HarfBuzz WASM adapter is lazy and owns one module instance
+per backend; font bytes are supplied per request and are not transferred every
+frame. Plain-text replay now consumes a derived snapshot when a pre-shaped IR
+result is present, or derives a transient Canvas2D-measured snapshot when the
+target exposes `measureText`. The transient fallback is deliberately not
+cached because replay does not own a font-face revision token; late font
+loading must be allowed to change its measurement.
 
-### The `TextShaping` seam
+The legacy Canvas measurement bridge now consumes the resolved visual BiDi run
+order from `analyzeParagraph`; it no longer reverses an entire RTL paragraph as
+a proxy for UAX-9 ordering. Glyph advances remain approximate until a font-byte
+shaping backend is selected, but the run-order contract is shared.
 
-`ShapedRun[]` carry glyph IDs, advances, offsets, and per-run direction level.
-The renderer (`replay.ts:paintText`) currently ignores per-glyph positioning
-and relies on the browser's `fillText` — the shaped data feeds hit-testing
-(`hitTestCaret`) and the SVG/PNG exporters. Pre-computed shaping results are
-cached in an LRU keyed by `(text, font, size, direction, language)`.
+The derived snapshot contract lives in
+`packages/engine/src/textLayoutSnapshot.ts`. It retains the logical source and
+Unicode index map while carrying line boxes, positioned glyphs, caret stops,
+selection rectangles, diagnostics, and an identity suitable for bounded LRU
+caching. `replay.ts` uses it for plain text; callers that own shaping and font
+revisions should continue to use the bounded shaping/snapshot caches outside
+the paint hot path. Rich-text, path text, and advanced legacy spacing/list
+cases retain explicit fallbacks until they can be itemized into the same
+snapshot without losing behavior.
 
-### Non-Latin PDF export uses outlining
+Rich text has a matching logical source index in
+`packages/scene/src/richTextIndex.ts`. It derives paragraph separators and
+run-local UTF-16 ranges without changing stored run order; formatting remains
+attached to logical ranges. `richTextLayout.ts` now itemizes those logical
+paragraph/run ranges and routes supported measured spans through the same
+snapshot renderer; advanced paragraph controls retain a documented fallback.
+Canonical scene operations in `packages/scene/src/richTextOps.ts` now also
+remove selected properties and replace text at grapheme-safe paragraph ranges,
+with adjacent equivalent runs normalized after each transaction.
 
-`crates/varve-print/src/lib.rs` detects non-WinAnsi text via
-`requires_outline()` and falls back to `outline_text_multi()` (ab_glyph)
-which emits vector path operators (`m`, `l`, `c`, `h`). This preserves
-visual fidelity for Arabic/Hebrew/Devanagari/CJK without a CIDFont/ToUnicode
-CMap implementation (deferred as Option B).
+`characterFormatValue` reports mixed values across a logical selection, and the
+existing rich-span inspector uses that state for its bold/italic controls while
+keeping formatting changes property-specific.
 
-## Supported scripts
+## Canonical paragraph layout
 
-| Script        | Canvas render | SVG export | PDF export |
-|---------------|---------------|------------|------------|
-| Latin         | Yes           | Yes        | WinAnsi Tj |
-| Arabic/Hebrew | Yes (BiDi)    | Yes (dir)  | Outlined   |
-| Devanagari    | Yes           | Yes        | Outlined   |
-| CJK           | Yes           | Yes        | Outlined   |
-| Thai          | Yes           | Yes        | Outlined   |
+`packages/engine/src/text/` implements the paragraph-aware layout stage that
+the snapshot pipeline is built on:
 
-The renderer's `detectRTL()` helper (`replay.ts:1707`) scans for the first
-strong RTL codepoint (Hebrew U+0590–U+05FF, Arabic U+0600–U+06FF and
-extensions) to set canvas `textAlign='right'` for native BiDi reordering.
+* `paragraphs.ts` — `splitParagraphs` splits a logical string at U+000A with
+  document offsets; `itemizeParagraph` runs UAX #9 (bidi-js) per paragraph and
+  retains per-code-unit embedding `levels` for line-local reordering, mirrored
+  punctuation, and script-itemized shaping runs (`scriptedRuns`). Common and
+  inherited characters (digits, combining marks, emoji) are absorbed into the
+  surrounding run so a grapheme is never split by itemization.
+* `lineBreak.ts` — `segmentBreakUnits` produces word-level break units via
+  `Intl.Segmenter` (CJK per-ideograph, Thai dictionary segmentation where the
+  runtime provides it). Units never split an extended grapheme cluster; NBSP is
+  whitespace but explicitly non-breaking (`isBreakable`); over-long words are
+  re-broken at grapheme boundaries.
+* `visualOrder.ts` — `lineVisualRuns` derives each wrapped line's visual run
+  sequence with UAX #9 X8/L2 applied to the line's character slice (bidi-js
+  `getReorderedIndices` with L1.4 trailing-whitespace reset), so RTL lines
+  reverse correctly after wrapping instead of using paragraph-level order.
+* `textLayoutSnapshot.ts` — `layoutText(input)` is the canonical entry:
+  paragraph itemization → word-level wrapping → per-line visual ordering →
+  positioned glyph runs (glyphs are consumed in the visual order the shaping
+  backend emits; the pen always advances left-to-right) → cluster-safe caret
+  stops (snapped to extended grapheme boundaries so a shaper's per-character
+  clusters can never create illegal insertion points) → hit testing and
+  selection rectangles. `buildTextLayoutSnapshot` remains the single-paragraph
+  compatibility wrapper.
+* `shaping.ts` — `shapeParagraphRuns` is the logical-order Canvas2D-measurement
+  bridge into `layoutText` (`glyphId` 0, no contextual joining); the
+  harfbuzz-wasm and rustybuzz-native backends fill the same contract.
 
-## Key files
+The paragraph pipeline is deterministic, source-preserving, and covered by the
+multilingual regression corpus in `text/fixtures.ts` (Arabic joining/lam-alef/
+harakat fixtures, Devanagari conjuncts, Thai vowels and tone marks, mixed
+LTR/RTL sentences, isolates, mirroring, emoji ZWJ, NBSP) plus conformance tests
+in `unicode/bidiConformance.test.ts`.
 
-| File | Purpose |
-|------|---------|
-| `packages/engine/src/unicode/bidi.ts` | UAX #9 paragraph/run analysis |
-| `packages/engine/src/unicode/grapheme.ts` | UAX #29 grapheme boundaries |
-| `packages/engine/src/unicode/script.ts` | ISO 15924 script detection |
-| `packages/engine/src/shaping.ts` | `shapeRun`, `shapeText`, `hitTestCaret` |
-| `packages/engine/src/shapingCache.ts` | LRU cache for TextShaping |
-| `packages/engine/src/replay.ts` | RTL canvas rendering, `detectRTL` |
-| `packages/engine/src/types.ts` | `ShapedGlyph`, `ShapedRun`, `TextShaping` |
-| `packages/scene/src/typography.ts` | `RichText`, `CharacterFormat`, `ParagraphFormat` |
-| `packages/scene/src/richTextOps.ts` | Pure run split/merge/format helpers |
-| `packages/codegen/src/svg.ts` | SVG `direction`/`unicode-bidi` emission |
-| `crates/varve-print/src/lib.rs` | WinAnsi + outline fallback for PDF |
-| `packages/editor/src/components/TextEditOverlay.tsx` | Inline editing, caret reporting |
-| `packages/editor/src/components/Inspector/controls/RichTextSpanEditor.tsx` | Span-level formatting |
+Property testing (`text/unicodeLayout.fuzz.test.ts`) drives the pipeline with
+random Unicode — combining-mark runs, emoji ZWJ chains, BiDi controls,
+isolates, NBSP/ZWSP, multi-paragraph text — and asserts termination, finite
+coordinates, source-mapped cluster bounds, exact paragraph tiling, caret stops
+on grapheme boundaries, in-bounds selection rects, and determinism. It has
+already caught and fixed three real defects: dropped trailing whitespace
+breaking caret coverage, script itemization splitting Arabic harakat from
+their base, and ICU-reported grapheme boundaries for degenerate ZWJ chains.
 
-## Known limitations
+The application-level browser check in
+`tests/e2e/canvas/text-multilingual-visual.spec.ts` complements the primitive
+replay screenshots. It creates text through the real editor tool, renders the
+mixed-script string through the desktop compositor, fits the selection, and
+captures the canvas for human review. This catches editor-state, camera,
+selection-overlay, and compositor defects that engine-only screenshots cannot.
 
-- Full UBA embedding resolution is deferred (browser-native BiDi covers the
-  render path; SVG/PDF use explicit direction attrs / outlining).
-- Per-glyph positioning for PDF CID text (Option B) is deferred.
-- `shapeText` advances are `measureText`-based, not ink-box-accurate.
-- The `RichTextSpanEditor` is MVP — full inline caret tracking for BiDi
-  text requires mirroring the browser's visual↔logical mapping.
-- Shaping cache is module-level; server-side rendering would need
-  per-request cache isolation.
+Line-level visual ordering is implemented locally in `reorderLineIndices`
+(UAX #9 L1.4 + L2 restricted to the line) instead of calling bidi-js
+`getReorderedIndices` per line, which allocates a full-paragraph index array
+per call (measured ~4 ms/line at 10k characters). Parity with bidi-js is
+pinned by `unicode/lineReorderParity.test.ts`, including an exhaustive sweep
+of all 65,536 BMP code points in trailing positions. Note: bidi-js's L1.4
+reset is only correct for ranges starting at index 0 — its `getReorderSegments`
+writes `lineLevels[i]` instead of `lineLevels[i - lineStart]`, so sub-range
+reorders silently skip the reset; the local implementation applies the reset
+correctly and the parity reference replicates bidi-js's intended semantics.
 
-## Recent milestones
+Timing baseline (`text/layout.bench.test.ts`, min-of-7 on a 2026 developer
+workstation): 100 chars ≈ 1 ms, 1,000 chars ≈ 6–16 ms, 10,000 chars
+≈ 76–103 ms across Latin/Arabic/mixed; the per-line reorder change alone took
+10k-character RTL layout from ~2.1 s to ~0.2 s.
 
-- **M1–M3** (committed): Unicode foundation, shaping bridge, RTL render path.
-- **M4** (this session): grapheme-aware caret reporting in TextEditOverlay.
-- **M5** (this session): direction toggle + rich-text span editor.
-- **M6** (this session): SVG `direction`/`unicode-bidi` export.
-- **M7** (this session): PDF non-WinAnsi outline fallback.
-- **M8** (this session): a11y labels, perf bench, architecture docs.
+`FontRegistry.revision` is a monotone process-local invalidation token. The
+shaping cache accepts it, face identity, OpenType features, variation axes,
+width, and layout mode in its key and bounds both entries and estimated bytes;
+callers must supply the revision when requesting font-dependent geometry.
+
+## Related decisions
+
+* [ADR-0186 — text composition engine](../adr/0186-text-composition-engine.md)
+* [ADR-0187 — persisted versus derived text ranges](../adr/0187-persisted-vs-derived-text-ranges.md)
+* [ADR-0188 — incremental reflow](../adr/0188-incremental-reflow.md)
+* [Unicode text audit](../audits/unicode-text-shaping-audit-2026-08-13.md)
+
+The implementation is intentionally staged. The audit and index foundation
+must land before replacing live shaping or renderer paths, so every later
+consumer can use the same source-boundary contract.

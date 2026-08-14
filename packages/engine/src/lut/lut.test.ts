@@ -421,6 +421,90 @@ describe('exportLutToCube', () => {
   });
 });
 
+// ─── 3D Bake Applies Filters ───────────────────────────────────
+
+/**
+ * Pixel-store fake surface: fillRect writes `fillStyle` into a real
+ * Uint8ClampedArray, getImageData/putImageData round-trip it. Lets the
+ * bake loop be exercised in node where the browser canvas is a no-op.
+ */
+function fakeSurfaceFactory() {
+  const store = new Uint8ClampedArray(4);
+  let fillStyleValue = 'rgb(0, 0, 0)';
+  const parseRgb = (css: string): [number, number, number] => {
+    const m = /rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/.exec(css);
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : [0, 0, 0];
+  };
+  const ctx = {
+    canvas: {} as HTMLCanvasElement,
+    get fillStyle() {
+      return fillStyleValue;
+    },
+    set fillStyle(v: string) {
+      fillStyleValue = v;
+    },
+    fillRect: (_x: number, _y: number, w: number, h: number) => {
+      const [r, g, b] = parseRgb(fillStyleValue);
+      for (let i = 0; i < w * h; i++) {
+        store[i * 4] = r;
+        store[i * 4 + 1] = g;
+        store[i * 4 + 2] = b;
+        store[i * 4 + 3] = 255;
+      }
+    },
+    getImageData: (_x: number, _y: number, w: number, h: number) =>
+      new ImageData(store.slice(0, w * h * 4), w, h),
+    putImageData: (img: ImageData) => {
+      store.set(img.data);
+    },
+  };
+  return {
+    canvas: ctx.canvas,
+    context: ctx as unknown as CanvasRenderingContext2D,
+    backend: 'html' as const,
+  };
+}
+
+describe('bakeFiltersToLut 3D applies filters', () => {
+  // CurvesAdjustment.points are in 0-255 document/render space
+  // (input 128 → output 178 ≈ normalized 0.5 → 0.7).
+  const redBoost: FilterIR = {
+    kind: 'curves',
+    channel: 'red',
+    points: [
+      { input: 0, output: 0 },
+      { input: 128, output: 178 },
+      { input: 255, output: 255 },
+    ],
+    opacity: 1,
+    blendMode: 'normal',
+  };
+
+  it('samples the filter output, not the identity input', () => {
+    const result = bakeFiltersToLut([redBoost], { format: '3d', size: 9 }, fakeSurfaceFactory);
+    expect(result.lut.kind).toBe('3d');
+    if (result.lut.kind !== '3d') return;
+    // Mid-grid sample r=g=b=4/8 → input 0.5,0.5,0.5
+    const idx = ((4 * 9 + 4) * 9 + 4) * 3;
+    // Red channel: curves input 0.5 → output 0.7 (canvas byte ≈ 178/255)
+    expect(result.lut.data[idx]).toBeCloseTo(0.7, 1);
+    // Green/blue untouched by the red-curve: stay ≈ 0.5
+    expect(result.lut.data[idx + 1]).toBeCloseTo(0.5, 2);
+    expect(result.lut.data[idx + 2]).toBeCloseTo(0.5, 2);
+  });
+
+  it('unaffected channels are preserved at the grid sample', () => {
+    const result = bakeFiltersToLut([redBoost], { format: '3d', size: 9 }, fakeSurfaceFactory);
+    expect(result.lut.kind).toBe('3d');
+    if (result.lut.kind !== '3d') return;
+    // Grid position (0, 4, 4): r=0 → 0; g=b=0.5 unchanged
+    const idx = ((4 * 9 + 4) * 9 + 0) * 3;
+    expect(result.lut.data[idx]).toBeCloseTo(0, 1);
+    expect(result.lut.data[idx + 1]).toBeCloseTo(0.5, 2);
+    expect(result.lut.data[idx + 2]).toBeCloseTo(0.5, 2);
+  });
+});
+
 // ─── 1D Bake Per-Channel ────────────────────────────────────────
 
 describe('bakeFiltersToLut 1D per-channel', () => {
@@ -430,13 +514,13 @@ describe('bakeFiltersToLut 1D per-channel', () => {
       channel: 'red',
       points: [
         { input: 0, output: 0 },
-        { input: 0.5, output: 0.7 },
-        { input: 1, output: 1 },
+        { input: 128, output: 178 },
+        { input: 255, output: 255 },
       ],
       opacity: 1,
       blendMode: 'normal',
     };
-    const result = bakeFiltersToLut([redBoost], { format: '1d', size: 5 });
+    const result = bakeFiltersToLut([redBoost], { format: '1d', size: 5 }, fakeSurfaceFactory);
     expect(result.lut.kind).toBe('1d');
     if (result.lut.kind === '1d') {
       // Core fix: channels must be independent Float64Arrays, not aliased to r
@@ -447,6 +531,11 @@ describe('bakeFiltersToLut 1D per-channel', () => {
       expect(result.lut.r.length).toBe(5);
       expect(result.lut.g.length).toBe(5);
       expect(result.lut.b.length).toBe(5);
+      // The red channel reflects the boost at mid-input (0.5 → ≈0.7);
+      // green/blue remain identity.
+      expect(result.lut.r[2]).toBeCloseTo(0.7, 1);
+      expect(result.lut.g[2]).toBeCloseTo(0.5, 2);
+      expect(result.lut.b[2]).toBeCloseTo(0.5, 2);
     }
   });
 

@@ -1,3 +1,22 @@
+export type { EmbeddingCacheOptions } from '../segmentation/embeddingCache';
+export { EmbeddingCache } from '../segmentation/embeddingCache';
+export type { AlphaMask, MaskCombineMode } from '../segmentation/maskAlgebra';
+export { combineAlphaMasks, invertAlphaMask } from '../segmentation/maskAlgebra';
+export type {
+  ImageEmbedding,
+  SegmentationBackend,
+  SegmentationBox,
+  SegmentationCacheKey,
+  SegmentationCandidate,
+  SegmentationCapabilities,
+  SegmentationImage,
+  SegmentationMaskPrompt,
+  SegmentationPoint,
+  SegmentationPointLabel,
+  SegmentationPrediction,
+  SegmentationPrompt,
+} from '../segmentation/types';
+export { isUsableSegmentationPrompt, serializeSegmentationCacheKey } from '../segmentation/types';
 export { DownloadManager } from './core/DownloadManager';
 export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';
 export { InferenceError, isInferenceError, toUserMessage } from './core/InferenceError';
@@ -74,6 +93,14 @@ export {
   SCUNET_TENSOR_SPEC,
   validateScunetInput,
 } from './models/scunet';
+export type { SiglipTokenizedText } from './models/siglipText';
+export {
+  loadSiglipTokenizer,
+  SIGLIP_TOKENIZER_CACHE,
+  SIGLIP_TOKENIZER_LOCAL_URL,
+  SIGLIP_TOKENIZER_URL,
+  SiglipTokenizer,
+} from './models/siglipText';
 export type {
   TrOcrInput,
   TrOcrOutput,

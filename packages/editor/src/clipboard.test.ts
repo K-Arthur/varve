@@ -1,4 +1,5 @@
 import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { readFromClipboardEvent, writeClipboard } from './clipboard';
 
@@ -334,6 +335,62 @@ describe('readFromClipboardEvent', () => {
       const payload = JSON.parse(await strataBlob!.text());
       expect(payload.assets).toEqual({ [imageAsset.id]: imageAsset });
       expect(payload.rasterMaskAssets).toEqual({ [maskAsset.id]: maskAsset });
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
+  it('serializes the world anchor for paste world-pose preservation', async () => {
+    const node = {
+      id: 'child-1',
+      name: 'Child',
+      kind: 'shape',
+      transform: [1, 0, 0, 1, 40, 60],
+    } as unknown as SceneNode;
+    const anchor: Record<string, Affine> = { 'child-1': [1, 0, 0, 1, 1640, 80] };
+    let written:
+      | Array<{ getType: (type: string) => Promise<Blob>; types: readonly string[] }>
+      | undefined;
+    class TestClipboardItem {
+      readonly types: string[];
+      constructor(private readonly entries: Record<string, Blob>) {
+        this.types = Object.keys(entries);
+      }
+      async getType(type: string): Promise<Blob> {
+        return this.entries[type]!;
+      }
+    }
+    const originalClipboardItem = globalThis.ClipboardItem;
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(globalThis, 'ClipboardItem', {
+      configurable: true,
+      value: TestClipboardItem,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        write: vi.fn(async (items) => {
+          written = items;
+        }),
+        writeText: vi.fn(),
+      },
+    });
+
+    try {
+      await expect(writeClipboard([node], undefined, undefined, undefined, anchor)).resolves.toBe(
+        true,
+      );
+      const blob = await written?.[0]?.getType('application/vnd.varve+json');
+      expect(blob).toBeDefined();
+      const payload = JSON.parse(await blob!.text());
+      expect(payload.worldAnchor).toEqual(anchor);
     } finally {
       Object.defineProperty(globalThis, 'ClipboardItem', {
         configurable: true,

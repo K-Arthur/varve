@@ -16,6 +16,7 @@
 import type {
   Adjustment,
   Affine,
+  DepthMapResource,
   PathPoint,
   Shape,
   WarpModifier,
@@ -168,6 +169,12 @@ export interface RasterMaskData {
   provenance?: BackgroundRemovalProvenance;
 }
 
+/** A live source reference for rendered alpha/luminance coverage. */
+export type LiveMatteSource =
+  | { kind: 'scene-node'; nodeId: NodeId }
+  | { kind: 'vector'; vectorMask: VectorMaskData }
+  | { kind: 'raster-asset'; assetId: string };
+
 /**
  * A mask on a container node (FrameNode, GroupNode, or AdjustmentNode).
  *
@@ -242,6 +249,8 @@ interface MaskPresentation {
    * (default: false — mask source is rendered normally)
    */
   hideMaskSource?: boolean;
+  /** External/live source for alpha or luminance mattes. */
+  matteSource?: LiveMatteSource;
 }
 
 /**
@@ -254,7 +263,21 @@ export type Mask = MaskPresentation &
     | { sourceNodeId: NodeId; vectorMask?: never; rasterMask?: never }
     | { vectorMask: VectorMaskData; sourceNodeId?: NodeId; rasterMask?: never }
     | { rasterMask: RasterMaskData; sourceNodeId?: never; vectorMask?: never }
+    | { matteSource: LiveMatteSource; sourceNodeId?: never; vectorMask?: never; rasterMask?: never }
   );
+
+/** Ownership-neutral parameters for a rendered coverage binding. */
+export interface EffectMaskBinding {
+  source: LiveMatteSource;
+  type: 'alpha' | 'luminance' | 'clip';
+  visible?: boolean;
+  inverted?: boolean;
+  density?: number;
+  feather?: number;
+  linked?: boolean;
+  transform?: Affine;
+  coordinateSpace: 'target-local' | 'world';
+}
 
 // ── Guide interface ──────────────────────────────────────────────────────────
 
@@ -339,7 +362,7 @@ export interface ChannelOffset {
   blueY: number;
 }
 
-export type Effect =
+type EffectVariant =
   | {
       type: 'dropShadow';
       /** Stable identifier for UI state and reordering. */
@@ -378,6 +401,24 @@ export type Effect =
       /** Stable identifier for UI state and reordering. */
       id?: string;
       radius: number;
+      visible: boolean;
+    }
+  | {
+      type: 'depthBlur';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
+      /** Reference to Document.depthMaps. */
+      depthMapId: string;
+      /** Canonical depth: 0 = near, 1 = far. */
+      focusDepth: number;
+      /** In-focus interval around focusDepth, normalized 0..1. */
+      focusRange: number;
+      /** Maximum gather radius in source pixels. */
+      blurStrength: number;
+      /** 0 = hard transition, 1 = soft transition. */
+      falloff: number;
+      invert: boolean;
+      edgeProtection: number;
       visible: boolean;
     }
   | {
@@ -449,6 +490,12 @@ export type Effect =
       opacity: number;
       visible: boolean;
     };
+
+/** Stable, reorder-safe effect identity plus an optional stage-local mask. */
+export type Effect = EffectVariant & {
+  id?: string;
+  mask?: EffectMaskBinding;
+};
 
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 
@@ -616,6 +663,13 @@ export interface DocumentAsset {
    */
   animated?: AnimatedAssetMetadata;
 }
+
+/**
+ * Persisted continuous depth field. Kept separate from RasterMaskAsset:
+ * masks express semantic coverage, while a depth map preserves scalar values
+ * for effects and future range-based consumers.
+ */
+export type DepthMapAsset = DepthMapResource;
 
 /**
  * Non-destructive upscale metadata stored on an image fill.

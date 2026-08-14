@@ -17,7 +17,7 @@ import {
   sampleRegionBackdrop,
 } from '@varve/engine';
 import type { Document, ManagedColor, NodeId, TextNode } from '@varve/scene';
-import { managedColorToRgba } from '@varve/shared';
+import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@varve/shared';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../context';
 import { nodeWorldBounds } from '../scene/world';
@@ -102,15 +102,22 @@ export function computeAdaptiveContrast(
   if (!result) return null;
 
   const now = Date.now();
+  // The resolver works in 0-255 display space (its backdrop samples come
+  // from an 8-bit canvas), but the result is canonical document state: it
+  // must be scaled to the document's bit depth so a uint16/float document
+  // never receives an 8-bit-only resolved color.
+  const docDepth = doc.colorConfig?.bitDepth ?? 'uint8';
+  const rescale = (v: number) => denormalizeChannel(normalizeChannel(v, 'uint8'), docDepth);
   const updatedConfig = {
     ...ac,
     lastResolved: now,
     resolvedColor: {
       space: 'rgb',
-      r: result.resolved[0],
-      g: result.resolved[1],
-      b: result.resolved[2],
-      a: 255,
+      bitDepth: docDepth,
+      r: rescale(result.resolved[0]),
+      g: rescale(result.resolved[1]),
+      b: rescale(result.resolved[2]),
+      a: rescale(255),
     } as ManagedColor,
   };
 

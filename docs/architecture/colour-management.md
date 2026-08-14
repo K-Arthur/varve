@@ -2,14 +2,24 @@
 
 ## Colour Representation
 
-The document model uses `ManagedColor` (a discriminated union with 4 variants) as the
+The canonical document value is distinct from every render or export surface.
+See the [quantization-boundary inventory](../audits/color-quantization-boundary-inventory.md)
+for the current audit and the remaining precision leaks. In particular,
+`managedColorToRgba()` is an explicit RGBA8 display adapter; it is not a safe
+working-space representation for gradients, effects, proofing, or document
+edits.
+
+The document model uses `ManagedColor` (an eight-variant discriminated union) as the
 canonical colour type for all fills, strokes, effects, gradient stops, swatches, and
 canvas backgrounds:
 
-- `RgbColor` (`space: 'rgb'`) — 0-255 RGBA, optional ICC profile id
-- `CmykColor` (`space: 'cmyk'`) — 0-255 CMYKA, optional ICC profile id
-- `GrayColor` (`space: 'gray'`) — 0-255 grayscale, optional ICC profile id
+- `RgbColor` (`space: 'rgb'`) — bit-depth-scaled RGBA, optional ICC profile id
+- `CmykColor` (`space: 'cmyk'`) — bit-depth-scaled CMYKA, optional ICC profile id
+- `GrayColor` (`space: 'gray'`) — bit-depth-scaled grayscale, optional ICC profile id
 - `SpotColorRef` (`space: 'spot'`) — named ink with tint and process fallback
+- `LabColor` / `LchColor` — float-valued authoring spaces with bit-depth-scaled alpha
+- `RegistrationColor` — all-plates registration ink
+- `UnresolvedColor` — retained source plus display-only fallback
 
 **Location:** `packages/scene/src/colorManagement.ts`
 
@@ -26,7 +36,134 @@ Built-in profile registries are defined in `colorManagement.ts` (RGB: sRGB, Disp
 Adobe RGB, ProPhoto; CMYK: Fogra39, Fogra51, GRACoL 2006, SWOP Coated/Uncoated,
 Japan Color 2011).
 
+## Print geometry and bleed
+
+Print geometry is page-scoped. `Page.bleed` is an optional override of the
+document's `bleed` default; `resolvePagePrintGeometry()` is the only resolver
+used by the page inspector, canvas overlays, preflight, and page-bleed export
+planning. A page's trim bounds are its placed `width`/`height`; bleed bounds
+expand those bounds outward by the resolved top/right/bottom/left insets.
+
+**Application default is zero bleed.** Documents that never configured bleed
+(including every pre-bleed legacy document) resolve to `EMPTY_BLEED` — the
+canvas shows no production region and export stays trim-only. Real bleed
+values come from print presets at document creation or from the page/document
+inspector; nothing injects 3 mm into an old document.
+
+Bleed values are persisted in their declared physical unit (`mm`, `in`, `pt`,
+or another supported `DocumentUnit`). The resolver converts them once to the
+fixed-96-dpi document coordinate space. Raster/export DPI is a separate output
+calculation and never changes canvas geometry. This prevents a 3 mm bleed from
+changing when a document's export resolution changes.
+
+Canonical geometry lives in `scene/printGeometry.ts`:
+`pageBleedInsetsPx(doc, pageId)` resolves the per-edge insets in document
+pixels (document default merged with the page override), and
+`pageBleedBoundsInWorld(doc, pageId, origin)` expands a trim rect at a given
+origin by those insets. The canvas overlay, the export plan's `page-bleed`
+bounds, and preflight all consume the same resolver — there is no independent
+bleed arithmetic in renderers or exporters.
+
+The canvas's `bleedGuidesVisible` preference is view state, not document state:
+it can hide the dashed outer boundary and production band without changing
+bleed, dirty state, undo history, or export output. The guide is an SVG editor
+overlay with `pointer-events: none`; it is not a scene node, does not enter hit
+testing or bounds, and is never exported. The overlay draws in screen space:
+origins map through `worldToCanvas` and sizes scale by zoom, so the physical
+bleed distance tracks the camera while the stroke stays screen-readable. The
+bleed boundary is a dashed accent-tinted rect with a subtle production band
+between trim and bleed; trim corner marks are drawn at the four cut corners.
+
+Page content remains editable on the pasteboard outside trim. The trim outline
+continues to identify the cut edge while the bleed guide identifies the
+production extent, so artwork that actually crosses trim remains visible for
+inspection without globally disabling ordinary frame clipping.
+
+The bleed value is edited in the Page Print inspector section (Page tool) in
+the resolved config's unit (mm for print documents, px for screen documents),
+clamped to non-negative values and to half the page's smaller dimension
+(ADR-0190 D5). The export dialog seeds its PDF/X bleed field from the active
+page's resolved bleed — the dialog value is an explicit export-job override of
+the document value, and the panel names the document bleed so the relationship
+is visible.
+
+PDF/X export receives trim dimensions and the resolved bleed for the native
+single-page production path. The encoder expands the media sheet around trim
+to contain bleed and, when requested, the complete crop-mark arms; it emits
+distinct `MediaBox`, `BleedBox`, `TrimBox`, `CropBox`, and `ArtBox` values in
+that same coordinate system. `BleedBox` is trim plus the configured bleed,
+while crop marks are positioned from the trim edge, not the bleed edge. With
+zero bleed and no marks, the boxes coincide. ADR-0192's multi-page execution
+and screen-PDF work remain separate roadmap items. PNG/JPEG/WebP retain their
+own format capabilities; the editor must not imply that a view guide changes a
+format that does not support page-bleed export.
+
 ## Colour Conversion Pipeline
+
+### Working precision and display precision
+
+`managedColorToNormalized()` is the working-space adapter. It reads the
+tagged channels directly, including uint16 and float channels, and produces a
+normalized floating-point encoded-sRGB value without passing through RGBA8.
+`managedColorToRgba()` remains available for explicit display/legacy API
+boundaries only.
+
+Gradient interpolation has the same split: the working path retains
+fractional channels through stop normalization and interpolation, then the
+Canvas2D adapter formats the result as a CSS gradient stop. Canvas2D is still a
+display surface and cannot prove document precision; the source `ManagedColor`
+and the engine IR remain authoritative.
+
+Effect parameters follow the same rule. Color-bearing effect inputs are
+normalized from their tagged model before entering a display-only `ImageData`
+pass. The current backdrop/effect surface is still RGBA8, so it is documented
+as a preview boundary rather than claimed as a high-precision effect surface.
+
+Soft proofing accepts both the legacy RGBA8 provider and an optional normalized
+provider. The editor prefers the normalized provider when the runtime offers
+one, and falls back to the legacy provider only as an explicit preview
+degradation. Neither path writes proofed values back to the document.
+
+### Typed raster working buffers
+
+Raster code must carry a `PixelBufferDescriptor` alongside its storage. The
+engine allocator now provides the following explicit mappings:
+
+| Format | Storage | Channel range |
+| --- | --- | --- |
+| `rgba8` | `Uint8Array` | 0–255 integer |
+| `rgba16` | `Uint16Array` | 0–65535 integer |
+| `rgba16f` | packed IEEE-754 half floats in `Uint16Array` | normalized working values |
+| `rgba32f` | `Float32Array` | normalized working values |
+
+`allocatePixelBuffer()` rejects invalid dimensions and enforces a default
+512 MiB byte budget. Format, color encoding, and alpha mode remain metadata;
+they are not inferred from the typed array. Half-float conversion helpers are
+explicit and tested, including negative and fractional values. Browser
+`ImageData` and the current Canvas2D effect surface remain deliberate RGBA8
+preview boundaries; they must not be used as the document or working-buffer
+storage contract.
+
+`convertPixelBufferFormat()` is the explicit storage-precision boundary. It
+returns a new buffer, leaves the source untouched, preserves encoding and
+alpha metadata, and applies integer clamping/rounding only when the selected
+target format requires it. A display or export caller must choose this
+operation deliberately rather than allowing an intermediate `ImageData`
+allocation to overwrite the working buffer.
+
+`createAnalyticRgbTransform()` now exposes `convertPixelBuffer()`, which
+converts `rgba8`, `rgba16`, `rgba16f`, and `rgba32f` buffers tile-wise. Integer
+formats quantize only when writing their explicitly selected storage format;
+float formats retain fractional working values. Premultiplied buffers are
+un-premultiplied for the color math and re-premultiplied afterward, while
+alpha remains untouched by the profile transform. The descriptor is switched
+to the target encoding only after a successful conversion.
+
+The WebGPU solid-vector upload adapter uses the same normalized conversion
+for RGB, CMYK, Gray, Spot, and float colors. This prevents normalized float
+channels from being divided by 255 a second time. The WebGPU canvas target is
+still an RGBA8 display surface, so this fixes the upload math without claiming
+that the GPU preview target is a high-precision document surface.
 
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas
@@ -258,9 +395,11 @@ ENCODED IMAGE (PNG/JPEG/WebP/TIFF/AVIF)
 - **Alpha is never colour-transformed**; premultiplied sources are
   un-premultiplied for the colour math and re-premultiplied after
   (`@varve/engine` `rasterColor/pixelBuffer.ts`).
-- **Cache identity will include colour.** The ImageCache key remains
-  source-only today because decode is sRGB; a profile-aware decode provider
-  must extend the key before it lands (see image-lifecycle.md).
+- **Cache identity is color-partitionable.** `ImageCache` retains URL-only
+  compatibility for existing callers, while profile-aware decode/conversion
+  callers can supply a stable `rasterEncodingKey()` variant for both full-size
+  and at-size representations (see image-lifecycle.md). Decode conversion
+  itself remains a separate provider concern.
 
 ### Working spaces
 
@@ -304,6 +443,7 @@ default decode pipeline; no Display-P3 canvas surface is requested anywhere.
 | Custom-ICC conversion (native/WASM provider) | **no** (deferred) | no | no | no |
 | Display-P3 canvas surface | no (sRGB baseline) | no | no | no |
 | Monitor ICC accuracy | no | no | no | no |
+| Typed RGBA8/16/16F/32F working-buffer allocation | yes | yes | yes | yes |
 | Raster soft-proof of image fills | no (vector only) | no | no | no |
 | Export: sRGB (untagged baseline) | yes | yes | yes | yes |
 | Export: P3/Adobe/ProPhoto PNG (converted + iCCP) | yes | yes | yes | yes |
@@ -314,3 +454,86 @@ default decode pipeline; no Display-P3 canvas surface is requested anywhere.
 
 "Convert" always means real pixel transformation; "preserve" means the
 authoritative source interpretation is retained and never relabelled.
+
+## High-precision pipeline status (2026-08-13)
+
+The following land on top of the representation work above. Each item
+cross-references the quantization-boundary inventory
+(`docs/audits/color-quantization-boundary-inventory.md`).
+
+### Canonical model and persistence (complete)
+
+- `ManagedColor` (RGB/CMYK/Gray/Lab/LCH/Spot/Registration/Unresolved) carries
+  `bitDepth` (`uint8`/`uint16`/`float16`/`float32`) and profile identity per
+  value; legacy values default to `uint8` without mutation.
+- Scene → engine IR preserves the tagged color object; `managedColorToRgba`
+  is an explicit display boundary and never feeds precision-sensitive math
+  (the normalized path `managedColorToNormalized` is the working path).
+- Save/reopen is lossless at any depth: see
+  `packages/scene/src/highPrecisionRegression.test.ts` (adjacent uint16
+  values stay distinct, 512-level ramps survive, float/CMYK channels are
+  exact, five save cycles show zero drift, legacy boundary values migrate
+  exactly).
+
+### Document color settings (complete)
+
+- Inspector → Document Color now exposes Mode (assign-only), **Precision**
+  (8-bit/16-bit/16f/32f — the default for newly authored colors) and
+  **Blend space** (sRGB/Linear). Both are settings-only operations
+  (`setDocumentBitDepth` / `setDocumentWorkingSpace` in
+  `packages/scene/src/colorMode.ts`); existing values are never rewritten.
+- File → **Document Color Mode…** opens the Assign vs Convert dialog
+  (`ColorConversionHost`), also reachable from the command palette
+  (`openColorConversion`). Assign keeps values; Convert rewrites them in one
+  undoable transaction (analytical in browser, ICC via the desktop engine).
+
+### Picker precision (complete)
+
+- HSV area/slider/alpha drafts run on float HSV with a normalized 0-1 emit;
+  storage quantization happens once at `denormalizeChannel`.
+- Numeric RGB fields are bit-depth aware: 0-255 (uint8), 0-65535 (uint16),
+  0-1 with 5 decimals (float16/float32). Editing one channel carries the
+  untouched channels from the canonical normalized value — editing R never
+  quantizes G/B (regression-tested in `ColorPicker.test.tsx`).
+- Swatches (document colors + recents) carry the full `ManagedColor`; only
+  the swatch face is 8-bit. Native-space swatches emit unchanged; RGB
+  swatches flow through the normalized path; precision is capped by the
+  document's bit depth, never by the 8-bit display.
+- Recents dedupe by canonical key and keep Lab/LCH values.
+- Gradient stop insertion interpolates in normalized 0-1 space
+  (`interpolateNormalizedColor` in `@varve/shared`) and stores at the
+  neighboring stops' bit depth.
+
+### Effects and blends (partial — see inventory)
+
+- `gaussianBlurLinearLight` runs the entire convolution on float32 linear
+  premultiplied values with one quantization at the end (the previous
+  implementation quantized linear values back to bytes before blurring).
+- `exportPipeline/palette.ts` lost a dead `/255 → ×255` round trip.
+- The adjustment stack (curves/levels/gradient maps/duotones) remains
+  byte-space by construction: every kernel consumes `ImageData` via
+  `filterCompositor.ts:150` and writes back through `putImageData`. A float
+  entry/exit for the whole effect pipeline (single quantization) is the
+  remaining work — the `rasterColor/` typed-buffer layer is the intended
+  carrier and is not yet wired into the effect path.
+- `liveEffects/dither.ts` already accumulates error diffusion in float; its
+  palette lookup is the genuine output boundary and stays byte-keyed.
+
+### Print (complete)
+
+- The PDF exporter emits authored CMYK channels directly (`cmyk_normalized`
+  is bit-depth aware: uint8 /255, uint16 /65535, float as-is) for solid
+  fills, strokes, and gradient samples. Native CMYK stops interpolate in
+  CMYK space. Pure K stays (0 0 0 1) — no four-color build from the naive
+  `(1-c)(1-k)` round trip. Tested in `crates/varve-print` (151 tests).
+
+### Remaining boundaries (explicit)
+
+| Boundary | Status |
+| --- | --- |
+| Browser raster decode (`new Image`/`createImageBitmap`) | 8-bit; 16-bit PNG/TIFF preservation requires native/WASM decode (varve-media is decode-only today) |
+| Canvas2D `ImageData` effect masks/backdrops | 8-bit preview boundary |
+| WebGPU effect textures | `rgba8unorm` only; capability-selected `rgba16float` is pending |
+| Export encoders | PNG/JPEG/WebP 8-bit only; PNG16/TIFF need a 16-bit composite path first (the compositor is Canvas2D 8-bit at the surface boundary) |
+| Grid/guide colors | scene model stores CSS strings (UI chrome, not document content) |
+| Document-wide precision conversion (uint8 → uint16 → float) | settings default exists; bulk value rewrite is not implemented |

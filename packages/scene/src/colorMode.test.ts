@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ColorConfig, ManagedColor } from './colorManagement';
-import { switchColorMode } from './colorMode';
+import { setDocumentBitDepth, setDocumentWorkingSpace, switchColorMode } from './colorMode';
 import type { Document } from './document';
 
 function rgb(r: number, g: number, b: number, a = 255): ManagedColor {
@@ -227,5 +227,41 @@ describe('switchColorMode', () => {
     const docWithoutConfig = { ...doc, colorConfig: undefined };
     const result = switchColorMode(docWithoutConfig, 'cmyk');
     expect(result.colorConfig?.mode).toBe('cmyk');
+  });
+});
+
+describe('setDocumentBitDepth', () => {
+  it('updates the document default bit depth without touching values', () => {
+    const doc = makeDoc(rgb(255, 0, 0));
+    const next = setDocumentBitDepth(doc, 'uint16');
+    expect(next.colorConfig?.bitDepth).toBe('uint16');
+    // Node values untouched.
+    expect(next.nodes.n1?.fill).toEqual(doc.nodes.n1?.fill);
+  });
+
+  it('is a no-op when the depth is already set', () => {
+    const doc = makeDoc(rgb(255, 0, 0));
+    expect(setDocumentBitDepth(doc, 'uint8')).toBe(doc);
+  });
+
+  it('fills missing colorConfig with defaults first', () => {
+    const bare = { ...makeDoc(rgb(255, 0, 0)), colorConfig: undefined };
+    const next = setDocumentBitDepth(bare, 'float32');
+    expect(next.colorConfig?.bitDepth).toBe('float32');
+    expect(next.colorConfig?.mode).toBe('rgb');
+  });
+});
+
+describe('setDocumentWorkingSpace', () => {
+  it('updates the working space', () => {
+    const doc = makeDoc(rgb(255, 0, 0));
+    const next = setDocumentWorkingSpace(doc, 'linear');
+    expect(next.colorConfig?.workingSpace).toBe('linear');
+    expect(next.nodes.n1?.fill).toEqual(doc.nodes.n1?.fill);
+  });
+
+  it('is a no-op when unchanged', () => {
+    const doc = makeDoc(rgb(255, 0, 0));
+    expect(setDocumentWorkingSpace(doc, 'srgb')).toBe(doc);
   });
 });

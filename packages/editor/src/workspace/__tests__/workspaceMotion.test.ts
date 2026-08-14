@@ -10,7 +10,12 @@
 import { describe, expect, it } from 'vitest';
 import { formatShortcut, getEffectiveBinding } from '../../shortcuts/ShortcutManager';
 import { workspaceShortcutLabel } from '../workspaceShortcutLabel';
-import { getWorkspaceConfig, WORKSPACE_CONFIGS, type WorkspaceMode } from '../workspaceTypes';
+import {
+  getWorkspaceConfig,
+  WORKSPACE_CONFIG_VERSION,
+  WORKSPACE_CONFIGS,
+  type WorkspaceMode,
+} from '../workspaceTypes';
 
 describe('Motion workspace config', () => {
   const motionConfig = WORKSPACE_CONFIGS.motion;
@@ -79,8 +84,11 @@ describe('Motion workspace config', () => {
     expect(motionConfig.canvasOverlays.pixelGrid).toBe(false);
   });
 
-  it('has version 2 config (motion workspace enhancements)', () => {
-    expect(motionConfig.version).toBe(2);
+  it('declares the current config schema version', () => {
+    // Motion used to claim version 2 while WORKSPACE_CONFIG_VERSION was 1 —
+    // a migration contract nothing implemented. All built-ins now agree.
+    expect(motionConfig.version).toBe(WORKSPACE_CONFIG_VERSION);
+    expect(WORKSPACE_CONFIG_VERSION).toBe(1);
   });
 
   it('has motion-specific onboarding tips', () => {

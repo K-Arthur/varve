@@ -1,4 +1,5 @@
 pub use crate::print_shared::{PrintJobResult, Printer};
+use std::path::Path;
 
 pub fn list_printers() -> Vec<Printer> {
     let mut printers = Vec::new();
@@ -68,6 +69,7 @@ fn get_printer_details(name: &str) -> (String, bool, Vec<String>, bool) {
 }
 
 pub fn print_pdf(
+    temporary_dir: &Path,
     printer_name: &str,
     pdf_bytes: &[u8],
     job_title: &str,
@@ -76,8 +78,7 @@ pub fn print_pdf(
     color_mode: &str,
     page_size: &str,
 ) -> PrintJobResult {
-    let tmp_dir = std::env::temp_dir();
-    let tmp_path = tmp_dir.join(format!("varve_print_{}.pdf", job_id_counter()));
+    let tmp_path = temporary_dir.join(format!("varve_print_{}.pdf", job_id_counter()));
     if let Err(e) = std::fs::write(&tmp_path, pdf_bytes) {
         return PrintJobResult {
             job_id: 0,

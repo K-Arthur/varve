@@ -15,6 +15,7 @@ vi.mock('@varve/scene', () => ({
   addPage: vi.fn((doc: unknown) => doc),
   duplicatePage: vi.fn((doc: unknown) => doc),
   removePage: vi.fn((doc: unknown) => doc),
+  renamePage: vi.fn((doc: unknown) => doc),
   reorderPages: vi.fn((doc: unknown) => doc),
 }));
 
@@ -144,6 +145,7 @@ describe('PageNav', () => {
     fireEvent.contextMenu(screen.getAllByRole('tab')[0]!);
 
     expect(screen.getByText('Duplicate page')).toBeTruthy();
+    expect(screen.getByText('Rename page')).toBeTruthy();
     // Two distinct deletes: the default preserves page content, discarding it
     // is a separate explicitly labelled command.
     expect(screen.getByText('Delete page (keep contents)')).toBeTruthy();

@@ -607,7 +607,7 @@ interface BuildLayerMenuItemsArgs {
   handleSelectSameLayerColor: () => void;
   handleSelectAllOfType: () => void;
   handleRevealOnCanvas: () => void;
-  addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance') => void;
+  addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance', sourceNodeId?: string) => void;
   removeMaskFromSelected: () => void;
   toggleMask: () => void;
   invertMask: () => void;
@@ -711,7 +711,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
       },
       {
         id: 'upscale',
-        label: 'Upscale Image',
+        label: 'Enhance Image…',
         onAction: () => {
           setSelection(nodeId);
           openUpscaleDialog();

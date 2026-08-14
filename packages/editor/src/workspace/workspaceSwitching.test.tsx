@@ -5,6 +5,7 @@ import {
   getVisibleInspectorTabs,
   getVisibleStatusSections,
   getWorkspaceConfig,
+  WORKSPACE_CONFIG_VERSION,
   type WorkspaceMode,
 } from './workspaceTypes';
 
@@ -91,9 +92,14 @@ describe('Workspace mode switching — motion mode', () => {
       expect(config.canvasOverlays.bleedGuides).toBe(false);
     });
 
-    it('has version 2 config', () => {
+    it('declares the current config schema version', () => {
+      // All built-ins must agree with WORKSPACE_CONFIG_VERSION. A lone
+      // higher number is a migration contract that nothing implements — it
+      // reads as a schema level that does not exist (motion used to claim
+      // version 2 while the constant was 1).
       const config = getWorkspaceConfig('motion');
-      expect(config.version).toBe(2);
+      expect(config.version).toBe(WORKSPACE_CONFIG_VERSION);
+      expect(WORKSPACE_CONFIG_VERSION).toBe(1);
     });
 
     it('has preferred width for timeline panel', () => {

@@ -21,18 +21,27 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 import {
   buildPlan,
   defaultScope,
   formatPlan,
   gitChangedFiles,
+  loadPackages,
   parseArgs,
 } from './affected-plan.mjs';
-import { LANES, laneCommand } from './validation-lanes.mjs';
+import { LANES, laneCommand, packageDirs } from './validation-lanes.mjs';
 
 const _PLAN_URL = fileURLToPath(new URL('./affected-plan.mjs', import.meta.url));
 const ROOT = process.cwd();
+
+// Populate the shared package-dir map so laneCommand() can resolve
+// js-unit:<pkg>/typecheck:<pkg> lanes to concrete commands.
+for (const [name, p] of Object.entries(loadPackages())) {
+  packageDirs[name] = p.dir;
+}
 
 function cmd(argv) {
   // Resolve pnpm-managed binaries and pnpm itself (user-local install).
@@ -69,11 +78,15 @@ function runVitestFiles(files) {
 }
 
 function runE2eDomains(domains) {
-  // Domain filter: pass directory paths and let playwright resolve them.
+  // Domain -> path resolution: consult the impact config first (some domains
+  // map to specific spec files, e.g. keyboard specs live under tests/e2e/canvas/),
+  // fall back to the conventional directory.
   const args = ['pnpm', 'exec', 'playwright', 'test'];
   for (const d of domains) {
     if (d === 'visual') continue; // handled by project selection
-    args.push(`tests/e2e/${d}`);
+    const paths = IMPACT_CONFIG.e2eDomains[d];
+    if (paths?.length) args.push(...paths);
+    else args.push(`tests/e2e/${d}`);
   }
   const workers = process.env.VARVE_E2E_WORKERS;
   if (workers) args.push('--workers', workers);
@@ -106,12 +119,29 @@ function flatten(plan) {
   return lanes;
 }
 
+// Changed files that biome can process (existing, supported extensions).
+// Used for format:touched / lint:touched so Tier 0 checks the real worktree
+// (staged + unstaged + untracked), not only what happens to be staged.
+const BIOME_EXTS = /\.(ts|tsx|js|jsx|mjs|cjs|json)$/;
+let CHANGED_FILES = [];
+
+function biomeTouchedArgs() {
+  const files = CHANGED_FILES.filter(
+    (f) => !f.startsWith('.worktrees/') && BIOME_EXTS.test(f) && existsSync(f),
+  );
+  return ['biome', 'check', ...files, '--no-errors-on-unmatched'];
+}
+
 function runLane(lane) {
   const t0 = Date.now();
   const isHeavy =
     HEAVY.has(lane) || lane.startsWith('rust-test:') || lane.startsWith('rust-clippy:');
   let status;
-  if (lane.startsWith('js-unit:file:')) {
+  if (lane === 'format:touched') {
+    status = cmd([...biomeTouchedArgs(), '--formatter-enabled=true', '--linter-enabled=false']);
+  } else if (lane === 'lint:touched') {
+    status = cmd(biomeTouchedArgs());
+  } else if (lane.startsWith('js-unit:file:')) {
     status = runVitestFiles([lane.slice('js-unit:file:'.length)]);
   } else if (lane.startsWith('e2e:') && lane !== 'e2e:all' && lane !== 'e2e:visual') {
     status = runE2eDomains([lane.slice('e2e:'.length)]);
@@ -144,42 +174,19 @@ function runLane(lane) {
     }[lane];
     status = shCmd(benchCmd);
   } else {
-    const base = laneCommand(lane) ?? LANES[lane] ?? lane;
-    let argv;
-    if (isHeavy) {
-      argv = ['node', 'scripts/quality/heavy-lease.mjs', lane, '--', 'sh', '-c', base];
-    } else if (lane.startsWith('rust-test:') && lane !== 'rust-test:all') {
-      const crate = lane.slice('rust-test:'.length);
-      status = cmd([
-        'node',
-        'scripts/quality/heavy-lease.mjs',
-        lane,
-        '--',
-        'cargo',
-        'test',
-        '-p',
-        crate,
-      ]);
-    } else if (lane.startsWith('rust-clippy:') && lane !== 'rust-clippy:all') {
-      const crate = lane.slice('rust-clippy:'.length);
-      status = cmd([
-        'node',
-        'scripts/quality/heavy-lease.mjs',
-        lane,
-        '--',
-        'cargo',
-        'clippy',
-        '-p',
-        crate,
-        '--all-targets',
-        '--',
-        '-D',
-        'warnings',
-      ]);
-    } else {
-      argv = ['sh', '-c', base];
+    // Resolve the lane to a real command: dynamic package/crate lanes first
+    // (js-unit:<pkg>, typecheck:<pkg>, rust-test:<crate>, rust-clippy:<crate>),
+    // then the static registry. Never pass a raw lane id to the shell.
+    const base = laneCommand(lane) ?? LANES[lane];
+    if (!base) {
+      console.error(`verify: no command registered for lane '${lane}'`);
+      return 1;
     }
-    status = cmd(argv);
+    if (isHeavy) {
+      status = cmd(['node', 'scripts/quality/heavy-lease.mjs', lane, '--', 'sh', '-c', base]);
+    } else {
+      status = shCmd(base);
+    }
   }
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`  [${status === 0 ? 'PASS' : 'FAIL'}] ${lane} (${elapsed}s)`);
@@ -269,6 +276,7 @@ function main() {
     console.log('No changed files detected — nothing to verify.');
     process.exit(0);
   }
+  CHANGED_FILES = files;
   const plan = buildPlan(files, { includeReverse: !planOpts.noReverse });
   console.log(formatPlan(plan, planOpts));
 

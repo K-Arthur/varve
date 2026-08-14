@@ -11,22 +11,30 @@
  * Protocol: main thread sends { type: 'infer', modelType, ...inputs }
  * Worker responds with { type: 'result', outputs } or { type: 'error' }
  */
+
+import {
+  DINOV2_PREPROCESS_SPEC,
+  preprocessSemanticInput,
+  type SemanticResizeSpec,
+} from '../semanticSimilarity/preprocess';
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor, packNhwcTensor } from './imageTensor';
 import { DD_COLOR_INPUT_SIZE, DD_COLOR_TENSOR_SPEC } from './models/ddcolor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
 import { DETR_INPUT_SIZE, DETR_TENSOR_SPEC } from './models/detr';
 import { EFFICIENTNET_INPUT_SIZE, EFFICIENTNET_TENSOR_SPEC } from './models/efficientnet';
+import { YU_NET_INPUT_SIZE, YU_NET_TENSOR_SPEC } from './models/faceDetect';
 import { FONT_CLASSIFY_INPUT_SIZE, FONT_CLASSIFY_TENSOR_SPEC } from './models/fontClassify';
 import { LAMA_INPUT_SIZE, LAMA_TENSOR_SPEC } from './models/lama';
 import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
+import { NAFNET_INPUT_SIZE, NAFNET_TENSOR_SPEC } from './models/nafnet';
 import { PADDLE_DET_TENSOR_SPEC } from './models/paddleocr';
 import { PADDLE_REC_TENSOR_SPEC } from './models/paddlerec';
 import { RIFE_INPUT_SIZE, RIFE_TENSOR_SPEC } from './models/rife';
 import type { Sam2Letterbox, Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
-import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC } from './models/siglip';
+import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
 
 export type WorkerModelType =
@@ -34,21 +42,27 @@ export type WorkerModelType =
   | 'sam2-encoder'
   | 'sam2-decoder'
   | 'scunet'
+  | 'nafnet'
   | 'depth'
   | 'lineart'
   | 'ddcolor'
   | 'lama'
   | 'rife'
   | 'detr'
+  | 'face-detect'
   | 'efficientnet'
   | 'paddleocr-det'
   | 'paddleocr-rec'
   | 'trocr'
   | 'siglip-image'
+  | 'siglip-text'
+  | 'dinov2-image'
   | 'font-classify';
 
 export interface WorkerTensor {
-  data: Float32Array;
+  data: Float32Array | BigInt64Array;
+  /** Defaults to float32; text/embedding models may feed int64 token ids. */
+  dtype?: 'float32' | 'int64';
   dims: number[];
 }
 
@@ -139,6 +153,10 @@ interface ModelPreprocessor {
   auxImage?: AuxImageSpec;
   /** Constant feeds this model always requires, independent of the image. */
   constantFeeds?: () => Record<string, ConstantFeed>;
+  /** Canonical math-based semantic preprocessing (versioned, parity-tested)
+   * replaces the canvas letterbox for this model. See
+   * semanticSimilarity/preprocess.ts. */
+  semanticPreprocess?: SemanticResizeSpec;
 }
 
 const modelRegistry = new Map<WorkerModelType, ModelPreprocessor>();
@@ -201,6 +219,16 @@ registerModelType('scunet', {
   hasImageInput: true,
 });
 
+// NAFNet checkpoints (deblur/denoise/JPEG-aware) share one architecture and
+// one worker contract: dynamic [1,3,H,W] float32, already padded to a
+// multiple of 16 by the client. Post-processing is model-specific and
+// handled by the restoration provider.
+registerModelType('nafnet', {
+  tensorSpec: NAFNET_TENSOR_SPEC,
+  getInputSize: () => NAFNET_INPUT_SIZE,
+  hasImageInput: true,
+});
+
 registerModelType('lineart', {
   tensorSpec: LINE_ART_TENSOR_SPEC,
   getInputSize: () => LINE_ART_INPUT_SIZE,
@@ -250,6 +278,12 @@ registerModelType('detr', {
   }),
 });
 
+registerModelType('face-detect', {
+  tensorSpec: YU_NET_TENSOR_SPEC,
+  getInputSize: () => YU_NET_INPUT_SIZE,
+  hasImageInput: true,
+});
+
 registerModelType('efficientnet', {
   tensorSpec: EFFICIENTNET_TENSOR_SPEC,
   getInputSize: () => EFFICIENTNET_INPUT_SIZE,
@@ -283,6 +317,39 @@ registerModelType('siglip-image', {
   tensorSpec: SIGLIP_IMAGE_TENSOR_SPEC,
   getInputSize: () => SIGLIP_IMAGE_SIZE,
   hasImageInput: true,
+  // The pinned SigLIP export keeps the text branch in the graph; ORT
+  // rejects a run that omits input_ids even though text outputs are
+  // never requested. Feed a constant zero token (verified 2026-08-13).
+  constantFeeds: () => siglipConstantFeeds(),
+});
+
+registerModelType('dinov2-image', {
+  tensorSpec: {
+    inputWidth: 224,
+    inputHeight: 224,
+    mean: [0.485, 0.456, 0.406],
+    std: [0.229, 0.224, 0.225],
+    paddingRgb: [128, 128, 128],
+  },
+  getInputSize: () => 0,
+  hasImageInput: true,
+  // DINOv2 evaluation preprocessing: shortest side to 256 then a 224x224
+  // center crop, ImageNet normalization. The canonical math pipeline
+  // (semanticSimilarity/preprocess.ts) mirrors the Python reference that
+  // produced the parity fixtures.
+  semanticPreprocess: DINOV2_PREPROCESS_SPEC,
+});
+
+registerModelType('siglip-text', {
+  tensorSpec: {
+    inputWidth: 0,
+    inputHeight: 0,
+    mean: [0, 0, 0],
+    std: [1, 1, 1],
+    paddingRgb: [0, 0, 0],
+  },
+  getInputSize: () => 0,
+  hasImageInput: false,
 });
 
 registerModelType('font-classify', {
@@ -544,30 +611,40 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     let letterboxOffsetY = 0;
 
     if (modelPre.hasImageInput && imageData) {
-      const inputSize = modelPre.getInputSize();
-      const primary = preprocessImage(imageData, inputSize, modelPre.tensorSpec, {
-        channelsLast: modelPre.channelsLast,
-      });
-      letterboxOffsetX = primary.offsetX;
-      letterboxOffsetY = primary.offsetY;
+      let finalTensor: Float32Array;
+      let dims: number[];
+      if (modelPre.semanticPreprocess) {
+        // Canonical, parity-tested math pipeline (matte → resize/crop →
+        // NCHW pack + normalize). No canvas, no letterbox.
+        const semantic = preprocessSemanticInput(imageData, modelPre.semanticPreprocess);
+        finalTensor = semantic.tensor;
+        dims = [1, 3, semantic.height, semantic.width];
+      } else {
+        const inputSize = modelPre.getInputSize();
+        const primary = preprocessImage(imageData, inputSize, modelPre.tensorSpec, {
+          channelsLast: modelPre.channelsLast,
+        });
+        letterboxOffsetX = primary.offsetX;
+        letterboxOffsetY = primary.offsetY;
 
-      let finalTensor = primary.tensor;
-      let dims = modelPre.channelsLast
-        ? [1, primary.height, primary.width, 3]
-        : [1, 3, primary.height, primary.width];
+        finalTensor = primary.tensor;
+        dims = modelPre.channelsLast
+          ? [1, primary.height, primary.width, 3]
+          : [1, 3, primary.height, primary.width];
 
-      if (modelPre.auxImage?.concatChannels && auxImageData) {
-        const aux = preprocessImage(
-          auxImageData,
-          modelPre.auxImage.inputSize,
-          modelPre.auxImage.tensorSpec,
-          {},
-        );
-        const combined = new Float32Array(finalTensor.length + aux.tensor.length);
-        combined.set(finalTensor, 0);
-        combined.set(aux.tensor, finalTensor.length);
-        finalTensor = combined;
-        dims = [1, 6, primary.height, primary.width];
+        if (modelPre.auxImage?.concatChannels && auxImageData) {
+          const aux = preprocessImage(
+            auxImageData,
+            modelPre.auxImage.inputSize,
+            modelPre.auxImage.tensorSpec,
+            {},
+          );
+          const combined = new Float32Array(finalTensor.length + aux.tensor.length);
+          combined.set(finalTensor, 0);
+          combined.set(aux.tensor, finalTensor.length);
+          finalTensor = combined;
+          dims = [1, 6, primary.height, primary.width];
+        }
       }
 
       const imageInputName =
@@ -619,7 +696,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           ? key
           : inputNames.find((n) => n.toLowerCase() === key.toLowerCase());
         if (match) {
-          feeds[match] = new ort.Tensor('float32', tensor.data, tensor.dims);
+          feeds[match] = new ort.Tensor(tensor.dtype ?? 'float32', tensor.data, tensor.dims);
         }
       }
     }

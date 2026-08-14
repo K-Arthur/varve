@@ -58,8 +58,8 @@ const sitewideStructuredData = [
   },
 ];
 
-// Empty unless deliberately configured at build time. See the analytics comment
-// in <head> — the default build makes no third-party requests at all.
+// Empty unless deliberately configured at build time. The default build makes
+// no analytics requests and renders no consent prompt.
 const analyticsDomain = import.meta.env.ANALYTICS_DOMAIN ?? '';
 
 const csp = [
@@ -76,7 +76,11 @@ const csp = [
 ---
 
 <!doctype html>
-<html lang="en">
+<html
+  lang="en"
+  data-analytics-domain={analyticsDomain}
+  data-analytics-enabled={import.meta.env.PROD && analyticsDomain ? 'true' : 'false'}
+>
   <head>
     <meta charset="UTF-8" />
     <meta name="description" content={description} />
@@ -193,22 +197,6 @@ const csp = [
       })();
     </script>
 
-    {/*
-      Analytics are opt-in and off by default.
-
-      This previously loaded Plausible unconditionally in production, pointed at
-      strata.design — a domain that is not owned, so it collected nothing while
-      still being a paid subscription and a third-party request on every page.
-
-      GitHub Releases already reports per-asset download counts for free, which
-      is the only number that matters before launch. To enable analytics later,
-      set both ANALYTICS_DOMAIN and the CSP hosts below, and update
-      /about/privacy to match.
-    */}
-    {import.meta.env.PROD && analyticsDomain && (
-      <script is:inline defer data-domain={analyticsDomain} src="https://plausible.io/js/script.js" />
-    )}
-
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Varve" />
@@ -245,6 +233,25 @@ const csp = [
   </head>
   <body>
     <a href="#main-content" class="skip-link">Skip to main content</a>
+    <aside
+      id="website-analytics-consent"
+      class="website-analytics-consent"
+      aria-label="Website analytics choice"
+      hidden
+    >
+      <div>
+        <strong>Optional website analytics</strong>
+        <p>
+          Help us understand which pages and download paths are useful. We send only aggregate
+          page routes and a few enumerated download properties. No cookies, fingerprinting, full
+          URLs, or design data are used.
+        </p>
+      </div>
+      <div class="website-analytics-consent__actions">
+        <button type="button" data-analytics-choice="denied">Not now</button>
+        <button type="button" data-analytics-choice="granted">Allow website analytics</button>
+      </div>
+    </aside>
     <SiteHeader />
 
     <main id="main-content" class="site-main" tabindex="-1">
@@ -256,12 +263,17 @@ const csp = [
 </html>
 
 <script>
+  import { initWebsiteAnalytics } from '../lib/analytics';
   import { initReveals } from '../lib/motion';
 
   // One shared reveal observer for the whole site. Runs on every page;
   // elements without [data-reveal] are ignored, and the observer guards
   // against double registration.
   initReveals();
+  initWebsiteAnalytics({
+    domain: document.documentElement.dataset.analyticsDomain ?? '',
+    enabled: document.documentElement.dataset.analyticsEnabled === 'true',
+  });
 </script>
 
 <style is:global>
@@ -296,5 +308,71 @@ const csp = [
 
   .skip-link:focus {
     top: 0.5rem;
+  }
+
+  .website-analytics-consent {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    max-width: min(42rem, calc(100vw - 2rem));
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .website-analytics-consent[hidden] {
+    display: none;
+  }
+
+  .website-analytics-consent p {
+    max-width: 58ch;
+    margin-top: 0.35rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .website-analytics-consent__actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.5rem;
+  }
+
+  .website-analytics-consent__actions button {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    background: var(--surface-muted);
+    color: var(--text-primary);
+    cursor: pointer;
+    font: inherit;
+    white-space: nowrap;
+  }
+
+  .website-analytics-consent__actions button:last-child {
+    border-color: var(--accent-primary);
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+  }
+
+  .website-analytics-consent__actions button:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 700px) {
+    .website-analytics-consent {
+      display: block;
+    }
+
+    .website-analytics-consent__actions {
+      margin-top: 0.75rem;
+    }
   }
 </style>

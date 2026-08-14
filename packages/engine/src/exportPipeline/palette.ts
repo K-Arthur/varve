@@ -196,10 +196,11 @@ export function quantizeToPalette(
       tc += b.count;
     }
     const scale = 1 / Math.max(1, tc);
-    // Bucket centres (5-bit) → byte range.
-    const r = Math.round(((tr * scale) / 255) * 255);
-    const g = Math.round(((tg * scale) / 255) * 255);
-    const b = Math.round(((tb * scale) / 255) * 255);
+    // Bucket centres (5-bit) → byte range. (No /255→*255 dead round trip:
+    // the bucket sums are already byte-scale.)
+    const r = Math.round(tr * scale);
+    const g = Math.round(tg * scale);
+    const b = Math.round(tb * scale);
     return [r, g, b];
   });
 

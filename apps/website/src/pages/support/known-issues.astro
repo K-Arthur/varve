@@ -14,44 +14,32 @@ interface KnownIssue {
 
 const issues: KnownIssue[] = [
   {
-    title: 'Complex script shaping not supported',
-    status: 'planned',
-    description: 'Complex scripts requiring shaping (Arabic, Devanagari, Thai) are not supported. Latin, CJK, and simple scripts work correctly.',
-    workaround: 'Use Latin or CJK scripts.',
-    category: 'Typography',
-  },
-  {
-    title: 'BiDi text layout not implemented',
-    status: 'planned',
-    description: 'Bidirectional text (mixed left-to-right and right-to-left) layout is not implemented.',
-    workaround: 'Use single-direction text.',
-    category: 'Typography',
-  },
-  {
-    title: 'Rich text per-span editing limited',
+    title: 'Complex-script glyph shaping is still approximate in the live canvas',
     status: 'partial',
-    description: 'The rich text data model exists and inline editing works, but per-span formatting (different styles within a single text node) is limited in the UI.',
-    workaround: 'Use separate text nodes for different styles.',
+    description: 'Varve now has a standards-based shaping contract, Unicode source maps, and a HarfBuzz-compatible WASM adapter in the engine. The live Canvas2D renderer still uses browser measurement and fillText in this migration stage, so Arabic, Devanagari, Thai, and other contextual scripts are not yet guaranteed to match the canonical glyph layout across fonts and exports.',
+    workaround: 'For production-critical output, verify the selected font and export result. Basic Latin and CJK workflows remain the most predictable while the shaped-glyph renderer is integrated.',
     category: 'Typography',
   },
   {
-    title: 'Bleed not visualized on canvas',
-    status: 'planned',
-    description: 'Bleed is an export-time parameter and is not visualized on canvas. You cannot see bleed margins while designing.',
-    workaround: 'Use guides to manually mark bleed areas.',
-    category: 'Color & Print',
+    title: 'Mixed-direction layout is canonical in the engine, but not yet in every consumer',
+    status: 'partial',
+    description: 'The engine now resolves UAX #9 embedding levels, script itemization, per-line visual run ordering, word-level line breaking (never inside a grapheme), cluster-safe caret stops, hit testing, and selection geometry through one canonical paragraph layout pipeline. The inline editor and pointer tools still use the legacy textarea/canvas path, and export consumers are being migrated incrementally.',
+    workaround: 'Keep mixed-direction text short while validating it, and check the final export. Explicit paragraph direction can make intent clearer than Auto for authored text.',
+    category: 'Typography',
   },
   {
-    title: '8-bit color storage only',
-    status: 'experimental',
-    description: 'Color storage is always 8-bit RGBA. No 16-bit, floating-point, or CMYK storage at the document level.',
-    category: 'Color & Print',
+    title: 'Rich text per-span editing is still being integrated',
+    status: 'partial',
+    description: 'Logical paragraph/run indexing, grapheme-safe formatting transactions, property removal, text replacement, and mixed bold/italic inspector state are now in place. Insertion-style state, full paragraph controls, composition transactions, and canonical shaped rendering for every span are still incomplete.',
+    workaround: 'Use the rich-span inspector for supported character properties and verify mixed-style text after editing. Separate text nodes remain the safest fallback for production-critical compositions.',
+    category: 'Typography',
   },
   {
-    title: 'No artboard-local coordinate space',
-    status: 'planned',
-    description: 'Canvas uses global coordinates. There is no artboard-local coordinate space.',
-    category: 'Canvas & Tools',
+    title: 'Canonical glyph layout is not yet the sole rendering authority',
+    status: 'partial',
+    description: 'The engine exposes a derived layout snapshot containing glyph clusters, lines, caret stops, selection fragments, bounds, diagnostics, and cache identity. The existing canvas, text-on-path, mask, and export consumers are being migrated incrementally and may still use independent browser measurement paths.',
+    workaround: 'Treat complex-script, mixed-direction, and font-loading results as beta behavior and inspect exported output before delivery.',
+    category: 'Typography',
   },
   {
     title: 'Collaboration is UI scaffolding only',
@@ -74,12 +62,54 @@ const issues: KnownIssue[] = [
     workaround: 'Use manual keyframing for animation.',
     category: 'Motion',
   },
+  {
+    title: 'Browser raster and GPU previews remain display-precision',
+    status: 'partial',
+    description: 'Native CMYK document values and precision-aware working buffers are supported. Browser raster decode and Canvas2D ImageData surfaces remain on the sRGB/RGBA8 display path, while the current WebGPU preview target is also RGBA8. Profile-aware raster decode, CMYK raster-plane import, and high-precision GPU targets are still being integrated.',
+    workaround: 'Use native desktop PDF/X or print export as the print authority, and treat the browser preview as directional. Verify the exported proof when color accuracy is production-critical.',
+    category: 'Color Management',
+  },
+  {
+    title: 'Raster exports do not include bleed',
+    status: 'partial',
+    description: 'Bleed is part of the print workflow: it is configured on the page, visualized on the canvas, and honored by PDF/X exports (page boxes and trim geometry). Raster formats (PNG/JPEG) still export the artwork\u2019s visual bounds only — the canonical page-plus-bleed bounds exist in the export plan but the standard export dialog does not use them.',
+    workaround: 'For raster deliverables with bleed, export at a larger scale and trim in post, or use the PDF/X path when the destination accepts PDF.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'Multi-page PDF/X execution is still limited',
+    status: 'partial',
+    description: 'The native PDF/X path now emits distinct MediaBox, BleedBox, TrimBox, CropBox, and ArtBox values for the single-page production export path. Multi-page PDF execution and complete printer-mark preview are still being integrated.',
+    workaround: 'Export and inspect a PDF/X proof per page when the document contains multiple print pages.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'Screen PDFs have no trim or bleed boxes',
+    status: 'partial',
+    description: 'The plain PDF export writes a MediaBox only. TrimBox and BleedBox are emitted only by the PDF/X path, so screen PDFs carry no print geometry metadata.',
+    workaround: 'Use PDF/X for any file destined for print.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'Crop marks are not previewed on the canvas',
+    status: 'partial',
+    description: 'Bleed and trim guides are visualized on the canvas, and trim corner marks are shown with the print guides. The full printer mark set (crop/registration marks, color bars) is rendered only at PDF/X export time \u2014 there is no canvas print-preview of the exported mark layout.',
+    workaround: 'Export a PDF/X proof to review the mark layout before sending to print.',
+    category: 'Print & Export',
+  },
+  {
+    title: 'Missing bleed coverage is not detected automatically',
+    status: 'planned',
+    description: 'Preflight flags documents with no bleed, bleed below the recommended minimum, or non-uniform bleed, but cannot detect artwork that stops exactly at the trim edge. A production-preflight coverage check that inspects painted content in the bleed region is a future enhancement.',
+    workaround: 'Turn on the bleed guides while designing and check that backgrounds and images reach the bleed boundary by eye.',
+    category: 'Print & Export',
+  },
 ];
 
 const categories = [...new Set(issues.map((i) => i.category))];
 ---
 
-<Layout title="Known Issues" description="Current known issues and limitations in Varve: complex script shaping, collaboration scaffolding, canvas bleed visualization, and platform constraints.">
+<Layout title="Known Issues" description="Current known issues and limitations in Varve, including color preview boundaries, the in-progress Unicode text layout migration, collaboration scaffolding, print visualization, and platform constraints.">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -89,6 +119,9 @@ const categories = [...new Set(issues.map((i) => i.category))];
       <h1 class="page-hero-title">Known Issues</h1>
       <p class="page-hero-sub">
         Current limitations and known issues in Varve. These are tracked and will be addressed in future releases.
+      </p>
+      <p class="known-issues-review">
+        Color Management, Typography, and Print &amp; Export entries were reviewed on 13 August 2026 against the current engine and website implementation. The color entry distinguishes native document values and working precision from browser display surfaces; print entries reflect the current export pipeline: bleed is configurable per page, visualized on the canvas, and honored by PDF/X. “Partial” means foundations exist but the complete user-facing path is not yet guaranteed.
       </p>
 
       {categories.map((category) => (
@@ -142,6 +175,16 @@ const categories = [...new Set(issues.map((i) => i.category))];
 
   .known-issues-section {
     margin-bottom: 3rem;
+  }
+
+  .known-issues-review {
+    background: var(--surface-muted);
+    border-left: 3px solid var(--border-accent);
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin: 1.5rem 0 2.5rem;
+    padding: 0.875rem 1rem;
   }
 
   .known-issues-section .section-title {

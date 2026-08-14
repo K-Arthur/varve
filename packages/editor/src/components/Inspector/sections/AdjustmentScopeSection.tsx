@@ -6,8 +6,8 @@
  */
 import type { AdjustmentScope, Document, NodeId } from '@varve/scene';
 import {
-  collectAllEligibleNodes,
   estimateAdjustmentImpact,
+  isAdjustmentEligible,
   resolveAdjustmentScope,
   validateScope,
 } from '@varve/scene';
@@ -45,6 +45,19 @@ export function AdjustmentScopeSection({
     return estimateAdjustmentImpact(doc, scope, nodeId);
   }, [doc, scope, nodeId]);
 
+  const eligibleTargets = useMemo(
+    () =>
+      Object.values(doc.nodes)
+        .filter((node) => node.id !== nodeId && isAdjustmentEligible(node))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [doc, nodeId],
+  );
+
+  const explicitTargetIds = useMemo(() => {
+    if (scope?.mode === 'explicit-targets') return new Set(scope.targetNodeIds);
+    return new Set(resolveAdjustmentScope(doc, scope, nodeId));
+  }, [doc, nodeId, scope]);
+
   const scopeMode = scope?.mode ?? 'legacy';
   const modeLabel =
     scopeMode === 'image-local'
@@ -71,9 +84,10 @@ export function AdjustmentScopeSection({
           break;
         }
         case 'explicit-targets': {
-          // Convert to explicit scope with all eligible nodes
-          const eligible = collectAllEligibleNodes(doc);
-          onChangeScope({ mode: 'explicit-targets', targetNodeIds: eligible });
+          // Preserve the current resolved set so switching modes does not
+          // unexpectedly broaden an adjustment to every layer in the file.
+          const current = resolveAdjustmentScope(doc, scope, nodeId);
+          onChangeScope({ mode: 'explicit-targets', targetNodeIds: current });
           break;
         }
         case 'container-descendant': {
@@ -94,7 +108,17 @@ export function AdjustmentScopeSection({
           break;
       }
     },
-    [doc, nodeId, onChangeScope],
+    [doc, nodeId, onChangeScope, scope],
+  );
+
+  const toggleExplicitTarget = useCallback(
+    (targetId: NodeId) => {
+      const next = new Set(explicitTargetIds);
+      if (next.has(targetId)) next.delete(targetId);
+      else next.add(targetId);
+      onChangeScope({ mode: 'explicit-targets', targetNodeIds: [...next] });
+    },
+    [explicitTargetIds, onChangeScope],
   );
 
   const handleConfirmGlobal = useCallback(() => {
@@ -156,6 +180,37 @@ export function AdjustmentScopeSection({
             </div>
           )}
         </>
+      )}
+
+      {scope?.mode === 'explicit-targets' && (
+        <fieldset className="insp-field" aria-label="Explicit adjustment targets">
+          <legend className="insp-field__label">Targets</legend>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 'var(--space-1)',
+              maxHeight: '12rem',
+              overflowY: 'auto',
+            }}
+          >
+            {eligibleTargets.length === 0 ? (
+              <span className="insp-field__hint">No eligible layers</span>
+            ) : (
+              eligibleTargets.map((target) => (
+                <label key={target.id} style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                  <input
+                    type="checkbox"
+                    checked={explicitTargetIds.has(target.id)}
+                    onChange={() => toggleExplicitTarget(target.id)}
+                    aria-label={`Apply adjustment to ${target.name}`}
+                  />
+                  <span>{target.name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </fieldset>
       )}
 
       {/* Scope mode selector */}

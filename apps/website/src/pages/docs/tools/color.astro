@@ -3,7 +3,7 @@ import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
 ---
 
-<Layout title="Color & Effects — Varve Docs" description="Varve color tools: color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
+<Layout title="Color & Effects — Varve Docs" description="Varve color tools: local image palette extraction, color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -21,13 +21,28 @@ import { sitePath } from '../../../lib/siteUrl';
           All colors in Varve are represented as <strong>ManagedColor</strong>, a discriminated union that supports four color modes:
         </p>
         <ul>
-          <li><strong>RGB</strong> — Standard sRGB color with 8-bit channels (0-255)</li>
+          <li><strong>RGB</strong> — sRGB color with bit-depth-aware channels (8-bit 0-255, 16-bit 0-65535, or float 0-1)</li>
           <li><strong>CMYK</strong> — Cyan, Magenta, Yellow, Key (black) percentages for print production</li>
           <li><strong>Grayscale</strong> — Single channel grayscale</li>
           <li><strong>Spot</strong> — Named spot color (e.g., Pantone) for specialized print output</li>
         </ul>
         <p>
-          The ColorPicker supports all four modes with a tabbed interface. You can switch between RGB, CMYK, Grayscale, and Spot color selection at any time. A <strong>Gamut Warning</strong> indicator alerts you when a color falls outside the printable CMYK gamut.
+          The ColorPicker supports all four modes with a tabbed interface. You can switch between RGB, CMYK, Grayscale, and Spot color selection at any time. A <strong>Gamut Warning</strong> indicator alerts you when a color falls outside the printable CMYK gamut. Numeric fields adapt to the document's precision: 0-255 for 8-bit documents, 0-65535 for 16-bit, and 0-1 with decimals for float documents. Editing one channel carries the untouched channels at full precision, and 16-bit/float values survive save and reopen exactly.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Document Color Settings</h2>
+        <p>
+          The Inspector's Document Color section (no selection required) controls the document's color intent:
+        </p>
+        <ul>
+          <li><strong>Mode</strong> — Assign RGB, CMYK, or Grayscale as the working mode. Assignment changes intent only; existing colors keep their values and are converted at export.</li>
+          <li><strong>Precision</strong> — 8-bit, 16-bit, 16f, or 32f. Sets the storage depth for newly authored colors; existing values are never rewritten.</li>
+          <li><strong>Blend space</strong> — sRGB or linear-light compositing.</li>
+        </ul>
+        <p>
+          <strong>File &rarr; Document Color Mode&hellip;</strong> (also in the command palette) opens the Assign vs Convert dialog: <em>Assign</em> changes the working mode without rewriting values, <em>Convert</em> rewrites every process color in one undoable transaction (analytical in the browser; profile-accurate ICC conversion via the desktop engine).
         </p>
       </section>
 
@@ -43,6 +58,19 @@ import { sitePath } from '../../../lib/siteUrl';
         </ul>
         <p>
           For print production, Varve also supports ICC-profile-aware conversion with bundled profiles for common RGB and CMYK standards (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP).
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Background Removal</h2>
+        <p>
+          Select an image and choose a user-facing mode: <strong>Fast</strong> for a local heuristic on simple backgrounds, <strong>Auto</strong> for the best available general-purpose local model, or <strong>High quality</strong> for difficult hair, fur, foliage, and thin edges. Auto prefers the optional IS-Net model when installed and otherwise uses bundled U²-NetP. High quality uses downloadable BiRefNet Lite where the available provider and memory budget are safe.
+        </p>
+        <p>
+          Model downloads require explicit consent, are checksum-verified, and stay on the device. A browser or desktop provider can refuse a model before an unsafe allocation; when that happens, Varve reports the actual model used instead of silently calling the result high quality. Review the mask on the checkerboard, white, and black backgrounds before applying it. The source image stays intact, and the mask can be refined with the brush or trimap tools and undone like any other document edit.
+        </p>
+        <p>
+          These models estimate foreground alpha. They are not a guarantee of true physical matting for glass, smoke, steam, or other translucent material; use the trimap editor and inspect the result against the final background for those cases.
         </p>
       </section>
 
@@ -71,6 +99,25 @@ import { sitePath } from '../../../lib/siteUrl';
         <h3>Image Fill</h3>
         <p>
           Fill a shape with a raster image. Varve's ImageCache handles async loading with LRU eviction (max 200 entries). The fill respects the shape's bounds and can be scaled via the <code>imageFit</code> property (cover, contain, fill).
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Image Palette Extraction</h2>
+        <p>
+          Select one image, open the <strong>Appearance</strong> tab, and expand <strong>Palette</strong> beside Paint Library. Varve decodes a bounded preview of the source and, when the image is cropped, analyses the visible crop (a <strong>Full image</strong> choice is available). The calculation is local and deterministic: image pixels are not uploaded and no model download is required.
+        </p>
+        <ol>
+          <li>Choose a requested count from 3–12 colours and select <strong>Analyze</strong>.</li>
+          <li>Review extracted swatches with their coverage and role candidates. Transparent pixels are ignored rather than treated as a colour.</li>
+          <li>Use the HEX copy action, apply an extracted colour as a fill, or save the swatches to the document.</li>
+          <li>Review <strong>Derived harmonies</strong> and <strong>Accessible pairs</strong>. Harmony colours are generated suggestions, not colours sampled from the image.</li>
+        </ol>
+        <p>
+          Accessible pairs use the shared WCAG 2.1 contrast calculation: 4.5:1 for body-text AA, 3:1 for large-text AA, and the corresponding AAA thresholds. These checks are a review aid; final contrast still depends on typography, anti-aliasing, display, and export profile.
+        </p>
+        <p>
+          <strong>Save as color tokens</strong> creates new document variables without replacing existing variables. Both swatch and variable saves are ordinary document updates and can be undone.
         </p>
       </section>
 

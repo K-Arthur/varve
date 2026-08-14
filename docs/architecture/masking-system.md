@@ -34,6 +34,59 @@ deliberately one coherent subsystem, not a pile of per-feature special cases.
 objects) is *not* the same as an alpha mask, a luminance mask, a vector clip,
 or an effect target scope. The model has separate, typed concepts for each.
 
+## 1b. Capability matrix
+
+This is the implementation matrix, not a type-presence checklist. A check in
+the model column is only complete when the corresponding command, renderer,
+serialization, and test paths are also present.
+
+| Capability | Model | Commands | Canvas2D | WebGPU | UI | Save/load | Import | Export | Tests | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Vector clip / clipping stack | `Mask` + `GroupNode`/`FrameNode` | create/release, retarget | native structural replay | structural Canvas2D fallback | Layers roles, drag-to-matte, inspector | versioned JSON + clone remap | SVG/PSD importer | SVG `<clipPath>`, raster/PDF fallback | scene, replay, E2E | complete with documented source limits |
+| Alpha / luminance mask | `Mask.type` | add/remove/type/parameters | pooled offscreen alpha path | structural Canvas2D fallback | Mask inspector | versioned JSON + asset validation | SVG/PSD where represented | SVG `<mask>`, raster/PDF fallback | compositing + replay | complete |
+| Raster / brush mask | `RasterMaskData` + document asset | paint/commit/remove | image-fill and frame paths | structural Canvas2D fallback except leaf IR alpha masks | mask tool and inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask, PDF raster fallback | asset, replay, E2E | complete for supported coordinate spaces |
+| Group/frame clipping | container-owned mask | create/release/reparent | nested structural replay | structural Canvas2D fallback | visible source/content labels | invariant repair on load | importer groups | native SVG where possible | transform, nesting, E2E | complete |
+| Effect spatial mask | adjustment-owned `mask` | mask CRUD | output-region compositing | structural Canvas2D fallback | Mask inspector | stable node references | format-dependent | rasterized boundary where needed | replay + E2E | complete |
+| Effect-local mask | `Effect.mask` + `EffectMaskBinding` | effect mask CRUD | raster effect stages + structural scene-node/vector replay | structural Canvas2D fallback | per-effect live source picker and parameters | additive JSON; deterministic effect IDs | source-dependent | smallest correct raster boundary | unit + inspector coverage; E2E pending | staged |
+| Explicit effect targets | `AdjustmentScope` stable IDs | scope mutation | target-only source replay | structural Canvas2D fallback | accessible target picker | clone/copy remap, missing-target filtering | not applicable | rasterized adjustment boundary | scope + replay + UI | complete for four scope modes |
+| Frame clipping intersection | `clipContent` + mask | existing frame commands | clip intersection | structural Canvas2D fallback | frame + mask sections | JSON | SVG/frame import | raster/PDF fallback | replay + E2E | complete |
+
+**Evidence locations:** scene invariants and scope resolution are in
+`packages/scene/src/masks.ts`, `clippingMask.ts`, and `adjustmentScope.ts`;
+live/export structural replay is in `packages/editor/src/canvas/maskReplay.ts`
+and `packages/editor/src/render/replayScene.ts`; UI coverage is in the Mask
+section, Layers tree, action registry, and `tests/e2e/canvas/clipping-masks.spec.ts`.
+
+## 1c. Live matte and effect-local source contract
+
+The node `Mask` remains the owner of a layer/container mask. Per-effect masks
+use the separate `EffectMaskBinding` contract on the effect instance:
+
+```text
+EffectMaskBinding
+  source: scene-node | vector | raster-asset
+  type: alpha | luminance | clip
+  coordinateSpace: target-local | world
+  visible / inverted / density / feather / linked / transform
+```
+
+`buildCompositingDependencyGraph()` indexes source-to-dependent edges for node
+masks and effect-local masks. A source edit therefore has a discoverable path
+to its dependent repaint. `setEffectMask()` rejects missing sources, self
+references, group sources that contain their owner, and explicit graph cycles.
+Cross-document clone/paste drops foreign effect-mask source references while
+preserving the effect itself. Any effect-local binding makes the scene
+ineligible for the flat worker renderer and uses structural replay, preserving
+the same premultiplied stage operation for live text/group output.
+
+The Effects inspector exposes scene-node sources from the current document,
+including editable text and group output. It writes through `setEffectMask()`
+so self/containment/cycle checks remain centralized, preserves a stable effect
+identity when repairing legacy effects without IDs, and keeps mask parameters
+attached to the effect rather than its array position. Raster assets and vector
+payloads remain document/command-owned sources; they are not fabricated by the
+scene-node picker.
+
 ## 2. The clipping relationship
 
 Representation (option C in the design space — a dedicated container):
@@ -51,10 +104,10 @@ GroupNode / FrameNode (mask: { type: 'clip', sourceNodeId: <matte>, hideMaskSour
 - **One matte clips any number of siblings** — inserting another ordinary
   item into the run just clips it (no migration needed). Moving the matte
   within the run keeps the relationship (it must remain a direct child).
-- `canBeClipMaskSource` governs which nodes can be mattes: shapes (except
-  line/arrow and open paths), and frames. Live text and groups are excluded
-  (no tracable outline); text must be outlined first — this is an explicit
-  limitation, not an oversight.
+- `canBeClipMaskSource` governs geometric clip sources: shapes (except
+  line/arrow and open paths), and frames. Live text and groups remain excluded
+  from geometric clips, but `canBeMatteSource` allows their rendered output to
+  drive alpha/luminance `matteSource` bindings without outlining or flattening.
 - **Adjustment nodes cannot be mask sources for frame/group containers**
   (they have no renderable geometry). An adjustment's *own* mask may
   reference any node.
@@ -115,6 +168,25 @@ density order)
 → group opacity / blend mode / isolation
 → parent composition → adjustment layers → group masks
 ```
+
+For an ordinary node's local effect stack, the effect-local stage is more
+specific than the node mask:
+
+```text
+node source
+→ effect 1 input/effect result cross-fade by effect 1 mask
+→ effect 2 input/effect result cross-fade by effect 2 mask
+→ node/layer mask
+→ parent clipping/live matte
+→ group opacity/blend/isolation
+→ parent composition
+→ adjustment scope (what) + spatial mask (where)
+```
+
+The stage operation uses premultiplied-alpha coverage:
+`output = input × (1 − coverage) + evaluatedEffect × coverage`.
+Missing effect-mask sources are treated as an unavailable mask and do not make
+the owning content transparent.
 
 Decisions (each was settled by the renderer's existing structure and is
 tested — see `replayScene.test.ts` and the E2E corpus):
@@ -177,11 +249,11 @@ Adjustment
 └── mask      → WHERE the result is visible (output region)
 ```
 
-The mask is applied to the filtered backdrop in place (`destination-in`):
-outside the mask the backdrop keeps its original pixels, so the underlying
-content shows through untouched. A plain hard clip skips the ImageData
-round-trip; alpha/luminance masks (and clips with invert/feather/density)
-use the post-processing path. Implemented in the live canvas
+The mask is applied to the filtered resolved-target surface in place
+(`destination-in`): outside the mask the underlying content shows through
+untouched. A plain hard clip skips the ImageData round-trip;
+alpha/luminance masks (and clips with invert/feather/density) use the
+post-processing path. Implemented in the live canvas
 (`CanvasArea.tsx` adjustment branch) and the export replay
 (`replayScene.ts`), with unit tests in both.
 
@@ -202,9 +274,13 @@ use the post-processing path. Implemented in the live canvas
 | Group opacity/blend after mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Frame clip ∩ mask | ✓ | ✓ | falls back | ✓ | ✓ |
 | Raster mask (leaf image) | ✓ (engine `alphaMask`) | ✓ | ✓ via engine IR | ✓ | ✓ |
+| Effect-local mask (raster) | ✓ (premultiplied stage) | ✓ | structural Canvas2D fallback | ✓ | rasterized boundary |
+| Effect-local mask (live node/vector) | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
 | Brush mask (frame, container-local) | ✓ (alpha path) | ✓ | falls back | ✓ | ✓ `<mask>`+`<image>` |
 | Adjustment scope | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
 | Spatial mask on adjustment | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
+| Live text alpha/luminance matte | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized where required |
+| Live group alpha/luminance matte | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized where required |
 
 **WebGPU:** the compositor renders leaf IR primitives only. Structural
 compositing — masks, clips, flattening, adjustments — is Canvas2D by

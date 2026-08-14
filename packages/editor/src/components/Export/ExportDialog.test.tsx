@@ -341,6 +341,115 @@ describe('ExportDialog', () => {
     expect(screen.getByLabelText('Crop marks')).toBeTruthy();
   });
 
+  it('seeds the PDF/X bleed from the document bleed when configured', () => {
+    const node = mockNode({
+      presets: [
+        {
+          id: 'p1',
+          format: 'pdf-x1a' as const,
+          scale: { type: 'factor' as const, value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+      ],
+    });
+    // 5mm bleed on a document with a page: the export-job bleed must match
+    // the canonical document bleed (5mm), not the app default.
+    const doc = {
+      ...createDocument('Doc', false),
+      bleed: { top: 5, right: 5, bottom: 5, left: 5, linked: true, unit: 'mm' },
+      rootChildren: ['n1'],
+      nodes: { n1: node },
+    };
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[node]}
+        document={doc}
+        onExport={async () => {}}
+      />,
+    );
+    const input = screen.getByLabelText('Bleed in millimetres') as HTMLInputElement;
+    expect(input.value).toBe('5');
+    expect(screen.getByText(/Document bleed: 5\.00 mm/)).toBeTruthy();
+  });
+
+  it('seeds the PDF/X bleed from a page override when the page has one', () => {
+    const node = mockNode({
+      presets: [
+        {
+          id: 'p1',
+          format: 'pdf-x1a' as const,
+          scale: { type: 'factor' as const, value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+      ],
+    });
+    // Document default 3mm, page override 8mm — the page's resolved bleed
+    // wins (canvas, inspector and export resolve the same way).
+    const doc = {
+      ...createDocument('Doc', false),
+      bleed: { top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' },
+      activePageId: 'p1',
+      pages: [
+        {
+          id: 'p1',
+          name: 'Page 1',
+          order: 'a0',
+          width: 1920,
+          height: 1080,
+          backgrounds: [],
+          contentRoot: 'cr1',
+          bleed: { top: 8, right: 8, bottom: 8, left: 8, linked: true, unit: 'mm' },
+        },
+      ],
+      rootChildren: ['n1'],
+      nodes: { n1: node },
+    };
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[node]}
+        document={doc}
+        onExport={async () => {}}
+      />,
+    );
+    const input = screen.getByLabelText('Bleed in millimetres') as HTMLInputElement;
+    expect(input.value).toBe('8');
+    expect(screen.getByText(/Document bleed: 8\.00 mm/)).toBeTruthy();
+  });
+
+  it('falls back to the app export default when the document has no bleed', () => {
+    const node = mockNode({
+      presets: [
+        {
+          id: 'p1',
+          format: 'pdf-x1a' as const,
+          scale: { type: 'factor' as const, value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+      ],
+    });
+    const doc = { ...createDocument('Doc', false), rootChildren: ['n1'], nodes: { n1: node } };
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[node]}
+        document={doc}
+        onExport={async () => {}}
+      />,
+    );
+    const input = screen.getByLabelText('Bleed in millimetres') as HTMLInputElement;
+    // App default is 3mm (settings.ts) — untouched by the document.
+    expect(input.value).toBe('3');
+    expect(screen.getByText(/has no bleed configured/)).toBeTruthy();
+  });
+
   it('attaches print settings to PDF/X jobs in the exported batch', async () => {
     const node = mockNode({
       presets: [

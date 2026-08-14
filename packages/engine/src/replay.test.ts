@@ -240,6 +240,12 @@ class Recorder implements ReplayTarget {
   shadowOffsetY: number = 0;
 }
 
+class MeasuredRecorder extends Recorder {
+  measureText(text: string): TextMetrics {
+    return { width: text.length * 10 } as TextMetrics;
+  }
+}
+
 describe('drawClusters (kerning-off and glyph adjustments)', () => {
   const basePrimitive: Extract<RenderItem['primitive'], { kind: 'text' }> = {
     kind: 'text',
@@ -751,6 +757,49 @@ describe('replayIr', () => {
     expect(fillTextCalls.some((c) => c.includes('World'))).toBe(true);
   });
 
+  it('uses the canonical snapshot for measured rich spans', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        x: 0,
+        y: 0,
+        w: 200,
+        h: 40,
+        text: 'AB',
+        fontSize: 16,
+        fontFamily: 'Inter',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.2,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        richText: {
+          paragraphs: [
+            {
+              runs: [
+                { text: 'A', format: { fontFamily: 'Inter', fontSize: 12, fontWeight: 400 } },
+                { text: 'B', format: { fontFamily: 'Inter', fontSize: 24, fontWeight: 700 } },
+              ],
+            },
+          ],
+        },
+      },
+    };
+    const rec = new MeasuredRecorder();
+    replayIr(rec, [item]);
+    expect(rec.calls).toContain('fillText("A",0,19.200000000000003)');
+    expect(rec.calls).toContain('fillText("B",10,19.200000000000003)');
+    expect(rec.calls).not.toContain('fillText("AB",0,0)');
+  });
+
   it('renders polygon via beginPath + polygon path + closePath + fill', () => {
     const item: RenderItem = {
       transform: [1, 0, 0, 1, 0, 0],
@@ -854,6 +903,66 @@ describe('replayIr', () => {
     replayIr(rec.target, [item]);
     expect(rec.calls).toContain('fillText(3)');
     expect(String(rec.props.font ?? '')).toContain('14px');
+  });
+
+  it('replays pre-shaped RTL glyphs in visual order without reversing source text', () => {
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      primitive: {
+        kind: 'text',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 30,
+        text: 'אב',
+        fontSize: 16,
+        fontFamily: 'Noto Sans Hebrew',
+        fontWeight: 400,
+        fontStyle: 'normal',
+        textAlign: 'left',
+        textAlignVertical: 'top',
+        letterSpacing: 0,
+        lineHeight: 1.2,
+        paragraphSpacing: 0,
+        textCase: 'none',
+        textDecoration: 'none',
+        textOverflow: 'visible',
+        listStyle: 'none',
+        direction: 'rtl',
+        shaping: {
+          runs: [
+            {
+              fontFamily: 'Noto Sans Hebrew',
+              fontSize: 16,
+              fontWeight: 400,
+              fontStyle: 'normal',
+              direction: 'rtl',
+              level: 1,
+              script: 'hebr',
+              glyphs: [
+                { glyphId: 11, xAdvance: 10, yAdvance: 0, xOffset: 0, yOffset: 0, clusterUtf16: 0 },
+                { glyphId: 12, xAdvance: 11, yAdvance: 0, xOffset: 0, yOffset: 0, clusterUtf16: 1 },
+              ],
+              width: 21,
+              ascent: 12,
+              descent: 4,
+            },
+          ],
+          width: 21,
+          height: 16,
+          baseDirection: 'rtl',
+          direction: 'rtl',
+        },
+      },
+    };
+    const rec = new Recorder();
+    replayIr(rec, [item]);
+    expect(rec.calls).toContain('fillText("ב",10,12)');
+    expect(rec.calls).toContain('fillText("א",0,12)');
+    expect(rec.calls.indexOf('fillText("ב",10,12)')).toBeLessThan(
+      rec.calls.indexOf('fillText("א",0,12)'),
+    );
   });
 
   it('renders a shape with image fill via the fill painting path', () => {

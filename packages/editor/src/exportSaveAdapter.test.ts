@@ -34,6 +34,15 @@ describe('export save adapter', () => {
     expect(extensionForExport('Logo.bin', 'application/octet-stream', job('svg'))).toBe('.svg');
   });
 
+  it('refuses to derive an extension from a trailing dot', () => {
+    // `Logo.` must not produce `"."` as an extension.
+    expect(extensionForExport('Logo.', 'application/octet-stream')).toBe('.bin');
+  });
+
+  it('derives the extension from the filename only as a last resort', () => {
+    expect(extensionForExport('Logo.svg', 'application/octet-stream')).toBe('.svg');
+  });
+
   it('saves through the active binary-aware platform with the derived extension', async () => {
     const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => '/tmp/Logo.svg');
     const saveFile = createExportSaveFile(platformWithSave(saveBinaryFile));

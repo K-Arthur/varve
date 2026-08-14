@@ -1,11 +1,14 @@
 # Varve — Update and Release Channel Strategy
 
 **Date:** 2026-08-03
-**Current state:** no updater is configured, and that is deliberate for v1.
+**Current state:** the repository audit found no updater configured before the
+2026-08-13 implementation. The implementation is being introduced behind the
+consent, package-authority, release-signing, and acceptance-test gates recorded
+in [the update-system audit](../architecture/update-system-audit-2026-08-13.md).
 
 ---
 
-## 1. What exists today
+## 1. What existed before the updater implementation
 
 Audited, not assumed:
 
@@ -14,15 +17,15 @@ Audited, not assumed:
 - No update signing keypair exists anywhere in the repository or CI secrets.
 - No update manifest endpoint is served.
 
-So there is no updater to audit for safety, and no key that could leak. The
-decision to make is whether to add one for the first release.
+That was the pre-implementation state. The current capability matrix and
+threat model are maintained in
+[update-system-audit-2026-08-13.md](../architecture/update-system-audit-2026-08-13.md).
 
 ---
 
-## 2. Recommendation for v1: manual updates
+## 2. Previous manual-update decision
 
-**Do not enable the Tauri updater for the first release.** Reasons, in order of
-weight:
+The following was the correct pre-updater decision for the first release:
 
 1. **Upgrade paths have never been tested.** Nobody has installed Varve `0.1.0`
    and upgraded it to `0.1.1` on any operating system. An auto-updater's entire
@@ -42,15 +45,14 @@ weight:
 4. **There is nothing to update to yet.** Update infrastructure built before the
    first release is infrastructure built against guesses.
 
-**What to ship instead:** the release notes and download page tell users to
-check the releases page, and the app can (later) do a version check against a
-static JSON file and *link* to the download page without downloading anything.
-A notification is not an update channel and carries none of the risk.
+That decision remains useful as the fallback for unsupported, externally
+managed, development, and not-yet-validated builds. It is no longer the whole
+product requirement: the consent-first updater is being added incrementally.
 
-**What exists today (audited 2026-08-06):**
+**Historical v1 snapshot (audited 2026-08-06):**
 
-- No updater plugin, no update keypair, no update endpoint — confirmed in
-  `tauri.conf.json` and `Cargo.toml`.
+- No updater plugin, no update keypair, no update endpoint — confirmed in the
+  then-current `tauri.conf.json` and `Cargo.toml`.
 - No in-app "Check for updates" action exists in the editor, and none is being
   added at alpha: an update check that is not an update is a button that opens
   the release page, and the download page already links the GitHub Releases
@@ -66,23 +68,100 @@ A notification is not an update channel and carries none of the risk.
 
 ---
 
-## 3. When to add the updater
+## 3. Production enablement gates
 
 All of these should be true first:
 
-- [ ] At least two releases exist, and a manual upgrade between them has been
-      performed on Linux, Windows and macOS.
+- [ ] At least two releases exist, and a packaged upgrade has been performed on
+      every self-managed package that will be enabled.
 - [ ] Document migration has been tested: a file saved by version N opens
       correctly in N+1, and the failure mode when it cannot is a clear message
       rather than data loss.
 - [ ] Downgrade behaviour is defined — what happens when a user installs an
       older version over a newer document store.
-- [ ] Installers are code-signed on Windows and macOS.
-- [ ] A key-management procedure exists and has been rehearsed (§5).
+- [ ] Platform signing/notarization policy passes for the release; this remains
+      separate from Tauri updater signing.
+- [ ] A dedicated updater key-management procedure exists and has been
+      rehearsed (§5 and the signing runbooks).
+
+The audit and capability matrix are maintained separately so this historical
+decision record does not silently become a claim that package-specific
+self-update is safe before its acceptance tests pass.
+
+## 4. Current implementation boundary
+
+The first implementation increment is deliberately conservative:
+
+- Tauri v2.10.1 updater and v2.3.1 process plugins are registered only for the
+  desktop app. The embedded public key is a dedicated updater key, separate
+  from Windows Authenticode and Apple Developer ID trust.
+- Stable and beta feeds are static JSON files generated from the exact signed
+  updater artifacts after the existing release trust gate. Website deployment
+  mirrors published feeds to `/updates/stable.json` and `/updates/beta.json`;
+  drafts are never mirrored.
+- AppImage self-update is offered only when native runtime detection sees a
+  non-development AppImage at a non-empty, writable location. Non-AppImage
+  Linux installs are never self-replaced: conventional system locations are
+  presented as package-manager managed, and other extracted binaries are
+  manual-only.
+- Windows NSIS and an installed writable macOS `.app` use Tauri's updater
+  artifacts. A mounted/read-only DMG is not an update target.
+- Manual checking remains available without background consent. Download and
+  install are separate state-machine operations; signature verification occurs
+  inside Tauri's updater download boundary before the coordinator can expose
+  `ready-to-install`.
+- Multiple desktop windows share update state and preferences through a
+  same-origin broadcast channel and an expiring operation lease, so only one
+  window owns a check/download/install transaction. A stale lease returns the
+  remaining windows to a recoverable settled state.
+- The ready-to-install UI does not bypass Varve's canonical termination/save
+  coordinator. “Install and Restart” enters the existing restart transaction;
+  install-on-quit enters the same transaction on a native quit request. A
+  normal quit installs and exits; an explicit restart installs and relaunches.
+  Neither path can discard unsaved documents.
+
+Hardening added on top of the first increment (2026-08-13, second pass):
+
+- **Least-privilege updater capability.** `capabilities/default.json` grants
+  `updater:allow-check`, `updater:allow-download` and `updater:allow-install`
+  explicitly and never `updater:default` or `allow-download-and-install`, so
+  webview JavaScript cannot bypass the consent/state machine with one combined
+  call. The frontend only ever receives opaque downloaded/verified tokens and
+  never an executable path.
+- **Channel gating per build.** The feed endpoint is embedded at build time
+  (`tauri.update.channel.json` in release CI). The provider resolves the native
+  packaging context and refuses to check a channel the build was not compiled
+  for, so a stable build cannot be pointed at the beta feed by configuration
+  tampering in the webview.
+- **macOS translocation.** A Gatekeeper-translocated app (running from
+  `/private/var/folders/...`) is detected as `manual-only` with
+  `installLocation: "translocated"`: updating the quarantine copy would be
+  silently undone on the next launch. The Settings UI explains that Varve must
+  be moved into Applications.
+- **Background cadence.** The scheduler runs from any settled state, not only
+  idle: after an up-to-date check the next eligible check is 24 h later, after
+  a failure 6 h later (backoff). Manual mode never schedules. Manual checks
+  remain available in every consent mode.
+- **Skip semantics.** Skipping a version records it against
+  `channel + exact version`, transitions the offer to `deferred` instead of
+  leaving the download button live, and the next check suppresses only that
+  version.
+- **Release notes surface in Settings** with keyboard-focusable scroll and a
+  polite live region for status; the download status line is a live region,
+  not a color-only signal.
+- **Cancel.** An in-flight download or verification can be cancelled from
+  Settings. Tauri's updater exposes no transport abort, so cancel is a soft
+  cancel: the coordinator discards the completed transfer (never verifying or
+  installing it) and Tauri's byte cache is re-verified against the embedded
+  public key before any later reuse.
+
+The implementation is still not a production-enablement claim. The gates in
+§3 remain release-blocking until the packaged upgrade matrix and the actual
+release feed have been exercised on the supported runners.
 
 ---
 
-## 4. Channel design (for when it lands)
+## 5. Channel design
 
 Channels derive from the tag shape, which `release.yml` already implements:
 
@@ -98,13 +177,98 @@ the beta manifest's URL. This is stricter than filtering a combined manifest by
 a `prerelease` flag, because a bug in the filter silently promotes every beta
 user's install to... whatever shipped last.
 
+**Nightly today.** No nightly builds are tagged or published, so no nightly
+feed is ever mirrored to the website (`fetch-website-release.mjs` handles only
+`stable` and `beta`). The generator accepts a `nightly` channel so the day a
+nightly pipeline exists it is a configuration change, not a new mechanism, and
+clients built with `VARVE_UPDATE_CHANNEL=nightly` already resolve only the
+nightly endpoint from their build-time config. The client-side channel gate
+(`update_packaging_context` + provider) refuses any channel the build was not
+compiled for, so a nightly build cannot be repointed at stable by webview
+configuration tampering.
+
 Downgrade protection: the client refuses any manifest version that does not
 compare greater than the running version under semver. Both sides must apply
 this — the server manifest can be replaced, the client check cannot.
 
 ---
 
-## 5. Key management (procedure to rehearse before use)
+## 5a. Document format migrations
+
+An updater can make a document incompatible with older Varve versions even
+when the install itself is flawless. Policy for any release whose persistent
+document format (scene schema, project metadata, trace metadata, tokens) is
+changed:
+
+1. **Verify the migration round trip before publishing an update feed entry:**
+   old Varve file → new Varve → open → save → reopen in new Varve. If the
+   migration is one-way (the saved file can no longer be opened by the old
+   version), that is acceptable only with the steps below — it is never a
+   silent side effect of auto-update.
+2. **State it in the release notes and the feed `notes` field.** The in-app
+   "Version X is available" panel renders the feed notes, so a one-way
+   migration warning reaches users *before* they download. A stable feed entry
+   whose notes mention a destructive migration is a release-notes
+   responsibility; the feed generator does not invent one.
+3. **Additive changes must keep old files openable.** Only genuinely
+   destructive migrations may rely on user-visible backup/versioning. Varve's
+   existing version history and recovery snapshots are the safety net for
+   those; they are not a substitute for the migration test in (1).
+4. **Rollback is a version-compat problem, not an installer problem.** The
+   updater can reinstall an older application, but a one-way migrated document
+   will not open in it. Reinstalling the previous version is therefore only
+   advertised when the document format is backward compatible.
+
+There is no central scene `schemaVersion` today; the migration test in (1) is
+the gate, and each release is responsible for running it on the artifact pair
+it publishes.
+
+---
+
+## 10. Packaged AppImage vertical slice
+
+`scripts/update-test/` runs a real packaged upgrade on the developer machine:
+
+```
+build-fixtures.sh   # builds OLD (0.1.1-test) + NEW (0.1.2-test) RELEASE
+                    # AppImages, wdio feature for automation, TEST-ONLY key
+                    # ~/.varve/updater-test.key, localhost feed on :8899
+run-slice.sh        # wdio on the OLD AppImage: consent -> manual check ->
+                    # download -> unsaved-work guard -> install -> restart;
+                    # byte-level replacement check; then an INVALID-signature
+                    # feed must fail closed on the relaunched NEW AppImage
+```
+
+Both AppImages embed the test public key and a localhost endpoint with
+`dangerousInsecureTransportProtocol` (allowed only by
+`apps/desktop/src-tauri/tauri.update.test.json`, which release CI never
+reads). The fixtures differ only by version, and the same WebDriver (embedded
+via the wdio Cargo feature) drives the native webview, so the consent dialog,
+the Settings > Updates flow, the termination/save guard and the relaunch are
+exercised against real packaged bytes — not mocks.
+
+Covered assertions:
+
+- first launch shows the consent dialog and never pre-checks consent;
+- declining consent reports manual mode and still allows a manual check;
+- the update is discovered with its feed notes, download reaches
+  `ready-to-install` only after Tauri's signature verification;
+- "Install and Restart" is blocked by the canonical unsaved-document guard
+  until it is resolved;
+- after restart the AppImage at the original path is byte-identical to the
+  new fixture, still executable, and reports `0.1.2-test` via
+  `update_packaging_context`;
+- preferences survive the upgrade (no re-consent prompt);
+- a feed whose signature does not match the payload fails closed: error
+  state, no install offer, app still running.
+
+Not covered by the slice (documented gaps): the read-only/disk-full install
+failure paths, Windows NSIS and macOS installed-app upgrades (require
+platform runners), and the production feed (never used for tests).
+
+---
+
+## 6. Key management
 
 Tauri's updater signs manifests with a minisign keypair. Expiry/rotation
 calendar and compromise procedure: [signing-rotation-runbook.md](signing-rotation-runbook.md)
@@ -126,7 +290,10 @@ pnpm tauri signer generate -w ~/.varve/updater.key
 | Key password | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret | Anywhere alongside the key |
 | Public key | `tauri.conf.json`, committed | — |
 
-`.gitignore` already excludes `.env*`; add `*.key` before generating anything.
+`.gitignore` excludes updater key files. The working key generated during this
+implementation is outside the repository at `~/.varve/updater.key`; it is not
+committed or used as a CI credential. A protected release secret must be
+provisioned before the release workflow can build updater artifacts.
 
 **Rotation** is a slow operation and must be planned as one: the public key is
 compiled into every already-installed client, so a rotated key cannot sign
@@ -145,7 +312,7 @@ advisory, and treat it as the incident it is. See
 
 ---
 
-## 6. Failure modes the updater must handle
+## 7. Failure modes the updater must handle
 
 Listed because "it downloaded and installed" is the easy path and the other
 eleven are where users lose work:
@@ -167,7 +334,7 @@ eleven are where users lose work:
 
 ---
 
-## 7. Interim: version-check-only
+## 8. Historical interim: version-check-only
 
 A safe first step that is not an updater:
 

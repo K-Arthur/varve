@@ -1,4 +1,4 @@
-import { useRef, useState } from '@storybook/preview-api';
+import { useRef, useState } from 'storybook/preview-api';
 import type { Meta, StoryObj } from '@storybook/react';
 import { Menu, MenuButton, type MenuEntry } from './Menu';
 

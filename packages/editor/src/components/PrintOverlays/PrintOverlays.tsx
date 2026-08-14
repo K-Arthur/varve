@@ -2,17 +2,29 @@
  * Print overlay rendering — bleed guides, safe area, slug, and trim marks.
  *
  * Renders SVG overlays positioned over the canvas to guide print production.
- * All positions are scaled by pxPerUnit to convert document units to
- * screen pixels at the current zoom.
+ * Values arrive in document pixels (resolved via the canonical print
+ * geometry resolver — see PagePrintOverlays), scaled by pxPerUnit to screen
+ * pixels at the current zoom.
+ *
+ * Visual contract:
+ *  - bleed bounds: dashed accent rect + a very subtle accent-tinted band
+ *    between the trim edge and the bleed boundary (the production region)
+ *  - trim: solid page outline comes from drawPageDecorations (content
+ *    canvas); the L-shaped corner marks here reinforce where the sheet is
+ *    cut
+ *  - safe area: dashed success-tinted rect (inside trim)
+ *  - slug: dashed info-tinted rect (outside bleed)
+ * Line style (dash patterns, not hue alone) differentiates the guides so
+ * they stay legible in light, dark and high-contrast themes.
  */
 import type { BleedConfig, SafeAreaConfig, SlugConfig } from '@varve/scene';
+
+import './PrintOverlays.css';
 
 export interface PrintOverlaysProps {
   pageWidth: number;
   pageHeight: number;
   zoom: number;
-  documentUnit: 'px' | 'pt' | 'mm' | 'cm' | 'in' | 'pc';
-  dpi: number;
   bleed?: BleedConfig;
   safeArea?: SafeAreaConfig;
   slug?: SlugConfig;
@@ -22,12 +34,14 @@ export interface PrintOverlaysProps {
   offsetY?: number;
 }
 
-/** Convert a value in document units to pixels at the current pxPerUnit. */
+/** Convert a value in document pixels to screen pixels at pxPerUnit. */
 function toPx(value: number, pxPerUnit: number): number {
   return value * pxPerUnit;
 }
 
 const TRIM_MARK_LENGTH_MM = 5;
+const MM_PER_INCH = 25.4;
+const CSS_DPI = 96;
 
 export function PrintOverlays({
   pageWidth,
@@ -65,7 +79,16 @@ export function PrintOverlays({
   const slugR = hasSlug ? toPx(slug?.right, pxPerUnit) : 0;
   const slugB = hasSlug ? toPx(slug?.bottom, pxPerUnit) : 0;
 
-  const trimMarkLen = TRIM_MARK_LENGTH_MM * pxPerUnit;
+  const trimMarkLen = (TRIM_MARK_LENGTH_MM / MM_PER_INCH) * CSS_DPI * pxPerUnit;
+
+  // Bleed band: the ring between the trim edge and the bleed boundary,
+  // drawn as an evenodd donut so the page interior stays untouched.
+  const bandPath = hasBleed
+    ? [
+        `M ${-bleedL} ${-bleedT} h ${pw + bleedL + bleedR} v ${ph + bleedT + bleedB} h ${-(pw + bleedL + bleedR)} z`,
+        `M 0 0 h ${pw} v ${ph} h ${-pw} z`,
+      ].join(' ')
+    : '';
 
   return (
     <svg
@@ -83,7 +106,12 @@ export function PrintOverlays({
       }}
     >
       <g transform={`translate(${offsetX}, ${offsetY})`}>
-        {/* Bleed guide rect (red dashed) */}
+        {/* Bleed band — subtle production-region tint between trim and bleed */}
+        {hasBleed && (
+          <path className="print-bleed-band" d={bandPath} fillRule="evenodd" stroke="none" />
+        )}
+
+        {/* Bleed guide rect (accent dashed) — the outer production extent */}
         {hasBleed && (
           <rect
             className="print-bleed-rect print-bleed-guide"
@@ -92,13 +120,12 @@ export function PrintOverlays({
             width={pw + bleedL + bleedR}
             height={ph + bleedT + bleedB}
             fill="none"
-            stroke="red"
             strokeWidth={1 / zoom}
             strokeDasharray={`${4 / zoom}, ${4 / zoom}`}
           />
         )}
 
-        {/* Safe area guide rect (green dashed) */}
+        {/* Safe area guide rect (success dashed, inside trim) */}
         {hasSafeArea && (
           <rect
             className="print-safe-area-rect print-safe-area-guide"
@@ -107,13 +134,12 @@ export function PrintOverlays({
             width={pw - safeL - safeR}
             height={ph - safeT - safeB}
             fill="none"
-            stroke="green"
             strokeWidth={1 / zoom}
             strokeDasharray={`${4 / zoom}, ${4 / zoom}`}
           />
         )}
 
-        {/* Slug area rect (blue dashed) */}
+        {/* Slug area rect (info dashed, outside bleed) */}
         {hasSlug && (
           <rect
             className="print-slug-rect print-slug-guide"
@@ -122,40 +148,35 @@ export function PrintOverlays({
             width={pw + bleedL + bleedR + slugL + slugR}
             height={ph + bleedT + bleedB + slugT + slugB}
             fill="none"
-            stroke="blue"
             strokeWidth={1 / zoom}
             strokeDasharray={`${2 / zoom}, ${4 / zoom}`}
           />
         )}
 
-        {/* Trim corner marks — L-shaped lines at 4 corners */}
+        {/* Trim corner marks — L-shaped lines at 4 corners (where the sheet is cut) */}
         {/* Top-left */}
         <path
           className="print-trim-mark"
           d={`M 0,${-trimMarkLen} L 0,0 L ${-trimMarkLen},0`}
           fill="none"
-          stroke="black"
           strokeWidth={1 / zoom}
         />
         <path
           className="print-trim-mark"
           d={`M ${pw},${-trimMarkLen} L ${pw},0 L ${pw + trimMarkLen},0`}
           fill="none"
-          stroke="black"
           strokeWidth={1 / zoom}
         />
         <path
           className="print-trim-mark"
           d={`M 0,${ph + trimMarkLen} L 0,${ph} L ${-trimMarkLen},${ph}`}
           fill="none"
-          stroke="black"
           strokeWidth={1 / zoom}
         />
         <path
           className="print-trim-mark"
           d={`M ${pw},${ph + trimMarkLen} L ${pw},${ph} L ${pw + trimMarkLen},${ph}`}
           fill="none"
-          stroke="black"
           strokeWidth={1 / zoom}
         />
       </g>

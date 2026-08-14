@@ -24,6 +24,7 @@ function snapshot(overrides: Partial<FrameStateSnapshot> = {}): FrameStateSnapsh
     motionStamp: 0,
     mediaStamp: 0,
     canvasMode: 'full',
+    showOriginalBgNodeId: null,
     ...overrides,
   };
 }

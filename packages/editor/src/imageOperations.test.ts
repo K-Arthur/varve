@@ -84,6 +84,32 @@ describe('insertDerivedImageShape', () => {
     expect(derived.transform[5]).toBe(7);
   });
 
+  it('never swaps the source fill when creating the derived layer', () => {
+    const doc = imageDoc();
+    const sourceBefore = doc.nodes.img1;
+    const result = insertDerivedImageShape(doc, 'img1', {
+      dataUrl: 'data:image/png;base64,BBBB',
+      width: 40,
+      height: 20,
+      suffix: '2x',
+    });
+    // The source node must still reference its original pixels, not the
+    // enhanced dataUrl ("New layer" mutating the original was a real bug
+    // class found in the legacy applyEnhancement path and removed).
+    expect(result.doc.nodes.img1).toBe(sourceBefore);
+    const sourceFill = (result.doc.nodes.img1 as import('@varve/scene').ShapeNode).fills;
+    const src = sourceFill?.[0];
+    expect(src?.type === 'image' ? (src.image as { src?: string }).src : null).toBe(
+      'data:image/png;base64,AAAA',
+    );
+    const derivedFill = (result.doc.nodes[result.nodeId] as import('@varve/scene').ShapeNode)
+      .fills;
+    const dsrc = derivedFill?.[0];
+    expect(dsrc?.type === 'image' ? (dsrc.image as { src?: string }).src : null).toBe(
+      'data:image/png;base64,BBBB',
+    );
+  });
+
   it('places a scaled derived image beyond the source world bounds', () => {
     const doc = imageDoc();
     const rotated = {

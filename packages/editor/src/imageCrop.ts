@@ -12,7 +12,12 @@
  *
  * Research basis: Figma image crop (viewport crop keeps source + mask intact).
  */
-import { type Affine, computeImagePlacement, localToSourcePixel } from '@varve/engine';
+import {
+  type Affine,
+  computeImagePlacement,
+  type FaceDetection,
+  localToSourcePixel,
+} from '@varve/engine';
 import type {
   Document,
   ImageCropRect,
@@ -104,6 +109,130 @@ export function translateAffine(t: Affine, dx: number, dy: number): Affine {
  */
 export function commitImageCrop(doc: Document, nodeId: NodeId, crop: LocalCropRect): Document {
   return commitImageCropExtended(doc, nodeId, { viewport: crop });
+}
+
+/**
+ * Commit a face/object-aware source crop suggestion without changing node
+ * geometry or baking a new raster. The input is already in decoded source
+ * pixel coordinates, which is the same coordinate space used by the scene
+ * crop field and by export/replay.
+ */
+export function commitSourceImageCrop(
+  doc: Document,
+  nodeId: NodeId,
+  crop: ImageCropRect,
+): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
+  const shapeNode = node as ShapeNode;
+  const bounds = getNodeBounds(node, doc);
+  const fill = getImageFill(shapeNode);
+  if (!bounds || !fill?.image) return doc;
+
+  const sourceWidth = fill.image.imageWidth ?? bounds.w;
+  const sourceHeight = fill.image.imageHeight ?? bounds.h;
+  const normalized = normalizeImageCropRect(crop, sourceWidth, sourceHeight);
+  const old = fill.image.crop;
+  const unchanged =
+    old?.x === normalized?.x &&
+    old?.y === normalized?.y &&
+    old?.w === normalized?.w &&
+    old?.h === normalized?.h;
+  if (unchanged) return doc;
+
+  const image = { ...fill.image };
+  if (normalized) image.crop = normalized;
+  else delete image.crop;
+  const fills = (shapeNode.fills ?? []).map((candidate) => {
+    if (candidate.type !== 'image' || !candidate.image) return candidate;
+    return { ...candidate, image };
+  });
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: { ...shapeNode, fills } } };
+}
+
+export interface FaceAwareCropOptions {
+  safetyMargin?: number;
+  minimumConfidence?: number;
+}
+
+/**
+ * Run YuNet face detection on the selected image shape's source pixels and
+ * commit a source-space crop suggestion that keeps faces in frame. Pure:
+ * returns the next document (or null when not applicable / no faces), so
+ * callers own the history transaction.
+ */
+export async function applyFaceAwareCropToDocument(
+  doc: Document,
+  selection: NodeId[],
+  options: FaceAwareCropOptions = {},
+): Promise<Document | null> {
+  const node = selection.length === 1 ? doc.nodes[selection[0]!] : undefined;
+  if (!node || node.kind !== 'shape' || !isImageShape(node)) return null;
+  const shapeNode = node as ShapeNode;
+  const imageFill = getImageFill(shapeNode);
+  if (!imageFill?.image) return null;
+
+  const { OnnxFaceBackend, suggestFaceAwareCrop } = await import('@varve/engine');
+
+  const image = imageFill.image;
+  const sourceWidth = image.imageWidth ?? 1;
+  const sourceHeight = image.imageHeight ?? 1;
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error('Failed to load image for face detection'));
+    img.src = image.src;
+  });
+  const canvas = document.createElement('canvas');
+  canvas.width = sourceWidth;
+  canvas.height = sourceHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas unavailable for face detection');
+  ctx.drawImage(img, 0, 0, sourceWidth, sourceHeight);
+  const imageData = ctx.getImageData(0, 0, sourceWidth, sourceHeight);
+
+  const backend = new OnnxFaceBackend();
+  const result = await backend.run({
+    source: {
+      assetId: image.assetId ?? image.src,
+      sourceRevision: image.src ?? '',
+      width: sourceWidth,
+      height: sourceHeight,
+      orientationNormalized: true,
+    },
+    capabilities: ['FACE_BOUNDS'],
+    quality: 'balanced',
+    priority: 'VISIBLE_UI',
+    consumer: 'crop:protect-faces',
+    input: imageData,
+  });
+  const faces = result.FACE_BOUNDS?.kind === 'FACE_BOUNDS' ? result.FACE_BOUNDS.faces : [];
+  if (faces.length === 0) return null;
+
+  // Target the node's on-canvas aspect ratio so the committed crop keeps
+  // the visible window while repositioning it onto the faces.
+  const suggestion = suggestFaceAwareCrop(
+    { width: sourceWidth, height: sourceHeight },
+    {
+      width: node.shape.kind === 'rect' ? node.shape.w : sourceWidth,
+      height: node.shape.kind === 'rect' ? node.shape.h : sourceHeight,
+    },
+    faces as unknown as FaceDetection[],
+    { safetyMargin: options.safetyMargin, minimumConfidence: options.minimumConfidence },
+  );
+
+  let next = doc;
+  for (const id of selection) {
+    next = commitSourceImageCrop(next, id, {
+      x: suggestion.crop.x,
+      y: suggestion.crop.y,
+      w: suggestion.crop.width,
+      h: suggestion.crop.height,
+    });
+  }
+  return next;
 }
 
 /** Convert a local viewport through the same placement used by replay/export. */

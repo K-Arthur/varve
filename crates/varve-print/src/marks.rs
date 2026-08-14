@@ -14,6 +14,9 @@
 pub struct MarksGeometry {
     /// Bleed extension beyond the trim box (mm).
     pub bleed_mm: f64,
+    /// Whether crop marks should be painted. Bleed geometry can be emitted
+    /// without printer marks, so these concerns stay independent.
+    pub draw_crop_marks: bool,
     /// Offset of the crop mark from the trim corner (mm).
     pub trim_offset_mm: f64,
     /// Length of each crop mark arm (mm).
@@ -26,6 +29,7 @@ impl Default for MarksGeometry {
     fn default() -> Self {
         Self {
             bleed_mm: 3.0,
+            draw_crop_marks: true,
             trim_offset_mm: 3.0,
             mark_length_mm: 10.0,
             line_width_pt: 0.25,

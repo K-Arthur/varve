@@ -8,6 +8,7 @@ import {
   effectPixelExpansion,
   getFilterProperties,
   requiresRasterExport,
+  totalEffectExpansion,
 } from '../../adjustmentPipeline';
 import { getEffectContract } from '../../effectContract';
 import { adjustmentToFilter, makeAdjustment } from '../../filters';
@@ -245,5 +246,19 @@ describe('live effect bounds expansion', () => {
         blendMode: 'normal',
       }),
     ).toEqual([0, 0, 0, 0]);
+  });
+
+  it('accumulates support for sequential spatial effects', () => {
+    const bloom = adjustmentToFilter(
+      makeAdjustment('bloom', 'bloom', { radius: 24 } as Partial<
+        import('../../filters').BloomAdjustment
+      >),
+    );
+    const split = adjustmentToFilter(
+      makeAdjustment('split', 'rgbSplit', { mode: 'offset', redX: 12, blueX: -12 } as Partial<
+        import('../../filters').RgbSplitAdjustment
+      >),
+    );
+    expect(totalEffectExpansion([bloom, split])).toEqual([36, 36, 36, 36]);
   });
 });

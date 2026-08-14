@@ -1,5 +1,5 @@
 import type { SidebarSection } from '@varve/platform';
-import { Button, EmptyState, Icon } from '@varve/ui';
+import { Button, EmptyState, SemanticIcon } from '@varve/ui';
 
 export interface EmptyStatesProps {
   section: SidebarSection | 'search' | 'missing';
@@ -109,9 +109,9 @@ export function EmptyStates({ section, query, onAction }: EmptyStatesProps) {
       description={copy.description}
       actions={
         <Button variant="primary" onClick={onAction}>
-          <Icon
-            name={section === 'trash' || section === 'templates' ? 'ArrowLeft' : 'Plus'}
-            label={undefined}
+          <SemanticIcon
+            name={section === 'trash' || section === 'templates' ? 'Back' : 'Add'}
+            size="sm"
           />
           {copy.cta}
         </Button>

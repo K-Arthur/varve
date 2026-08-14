@@ -10,8 +10,10 @@
  * Research basis: Local-First §3 (the app must work fully offline with no
  * account) — a memory backend preserves that contract for ephemeral contexts.
  */
+
+import { searchAssets as rankAssets } from './assetSearch';
 import type { Platform } from './platform';
-import { contentHash, defaultViewState, uuid } from './pure';
+import { contentHash, contentHashOf, defaultViewState, uuid } from './pure';
 import type { ContentSearchMatch } from './searchIndex';
 import { indexDocumentContent, searchContentIndex } from './searchIndex';
 import type {
@@ -56,6 +58,7 @@ interface MemoryState {
   templates: Map<string, TemplateLibrary>;
   projectTemplates: Map<string, ProjectTemplate>;
   assets: Map<string, Asset>;
+  assetBytes: Map<string, Uint8Array>;
   assetFolders: Map<string, AssetFolder>;
   versions: Map<string, VersionEntry[]>;
   /** Content-addressed document store: hash → JSON string (dedup across versions). */
@@ -90,6 +93,7 @@ function freshState(): MemoryState {
     templates: new Map(),
     projectTemplates: new Map(),
     assets: new Map(),
+    assetBytes: new Map(),
     assetFolders: new Map(),
     versions: new Map(),
     versionContent: new Map(),
@@ -350,6 +354,9 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async fileExists() {
       // Memory platform doesn't have file paths; always return true
       return true;
+    },
+    async checkFilesExist(paths) {
+      return paths.map(() => true);
     },
 
     async getThumbnail(hash) {
@@ -641,20 +648,24 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         kind: 'other',
         mimeType,
         size: data.length,
+        contentHash: (await contentHashOf(data)) ?? undefined,
         tags: [],
         createdAt: now,
         updatedAt: now,
       };
       state.assets.set(asset.id, asset);
+      if (data.length > 0) state.assetBytes.set(asset.id, data);
       return asset;
     },
     async deleteAsset(id) {
       state.assets.delete(id);
+      state.assetBytes.delete(id);
+    },
+    async getAssetBytes(id) {
+      return state.assetBytes.get(id) ?? null;
     },
     async searchAssets(query) {
-      if (!query.trim()) return [...state.assets.values()];
-      const q = query.toLowerCase();
-      return [...state.assets.values()].filter((a) => a.name.toLowerCase().includes(q));
+      return rankAssets([...state.assets.values()], query).map((result) => result.asset);
     },
     async createAssetFolder(workspaceId, name, parentId) {
       const now = Date.now();
@@ -956,7 +967,7 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       };
     },
     async readDocumentText() {
-      return undefined;
+      return { ok: false, reason: 'unsupported' };
     },
     async listPrinters() {
       return [

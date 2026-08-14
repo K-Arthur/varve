@@ -2426,3 +2426,79 @@ Notes / deferred:
 - Scene-package cycles are deliberately untouched: all type-only, allowlisted (`docs/quality/scene-cycle-report.md`).
 - Deferred: `EditorProvider` value useMemo (~2000 lines) split into `context/useX.ts` hooks; CanvasArea surface-lifecycle effects hook.
 - Mid-session, repo automation merged `origin/master` and `fix/new-document-opens-own-tab`; uncommitted working-tree work was lost once (renderPipeline.ts), redone and committed immediately — commit early when the compiler is green.
+
+## Consent-first in-app update system (2026-08-13)
+
+Complete consent-first, privacy-preserving, cryptographically verified updater
+built on Tauri v2.11.5 (`tauri-plugin-updater` 2.10.1, `tauri-plugin-process`
+2.3.1). Canonical docs: `docs/architecture/update-system-audit-2026-08-13.md`
+(baseline audit), `docs/release/update-strategy.md` (current boundary).
+
+### First increment (committed `cf730aaf`)
+
+- Native runtime detection (`updates.rs`): package authority derived from
+  runtime metadata, never from OS/filename. AppImage self-managed only when a
+  non-empty file in a writable parent; `/usr`/`/opt` installs are
+  package-manager-managed; other extracted binaries manual-only; dev builds
+  development-build; Windows NSIS and writable macOS `.app` self-managed.
+- Consent model (`updatePolicy.ts`): `manual` / `notify` /
+  `download-automatically`, plus separate `installOnQuit`. Default manual; no
+  background checks without consent; manual check always available. First-run
+  non-dark-pattern dialog ("Keep Varve up to date?") — decline = manual, no
+  re-nag (`consentPromptSeen`).
+- State machine (`updateStateMachine.ts`): consent-required → idle → checking →
+  update-available → downloading → verifying → ready-to-install → installing →
+  restart-required, plus deferred/cancelled/error/unsupported/externally-managed.
+  Invalid transitions reject to `error` instead of producing conflicting
+  booleans.
+- Coordinator (`updateCoordinator.ts`): check/download/install/relaunch as
+  separate permission-bearing operations; semver comparison; 24 h cadence,
+  6 h failure backoff; channel match; per-channel skipped versions.
+- Tauri adapter (`tauriUpdateProvider.ts`): opaque downloaded/verified tokens,
+  no executable paths reach the webview; verification inside Tauri's download
+  boundary (`allowDowngrades: false`).
+- Settings > Updates section: consent radios, install-on-quit, check button,
+  status live region, version/channel/build/authority display.
+- Lifecycle seam (`setLifecycleCommitHook`): install runs only after the
+  canonical termination/save coordinator approves (never over unsaved work).
+- Release pipeline: `TAURI_SIGNING_PRIVATE_KEY` preflight (fail-closed),
+  per-channel endpoint config (`tauri.update.channel.json`), `.sig` collection
+  with fail-on-missing (`collect-artifacts.mjs`), feed generation after the
+  trust gate (`generate-updater-feed.mjs`), website feed mirroring
+  (`fetch-website-release.mjs` → `/updates/{stable,beta}.json`), drafts never
+  mirrored.
+
+### Second pass (this session, gap-closing)
+
+- **Least-privilege capability**: `updater:default` replaced with explicit
+  `allow-check`/`allow-download`/`allow-install` — the webview cannot invoke
+  `download-and-install` to bypass consent policy.
+- **Multi-window ownership** (`updateWindowSync.ts`): BroadcastChannel state/
+  preference mirroring + expiring localStorage operation lease; one window owns
+  a check/download/install; stale-lease recovery to settled state; lease renewal
+  while an operation runs.
+- **Channel gating per build**: provider resolves native context and refuses a
+  channel the build was not compiled for (stable build cannot be pointed at the
+  beta feed).
+- **macOS translocation**: `/private/var/folders/...` executables are
+  `manual-only` with `installLocation: "translocated"`; Settings explains the
+  move-to-Applications fix.
+- **Scheduler fix**: background checks schedule from any settled state
+  (up-to-date/error/deferred included), not only idle.
+- **Consent re-enable transition**: `disabled → idle` when consent is enabled.
+- **Skip-version**: records `channel + exact version`, transitions to `deferred`
+  (download button no longer live), next check suppresses only that version.
+- **Release notes** rendered in Settings with keyboard-focusable scroll;
+  download status as polite live region.
+- Tests: 26 update-suite tests (policy, state machine, coordinator, window
+  sync, consent dialog integration via RTL with injectable preference store).
+
+### Verification
+
+- `vitest` update suite: 26/26 passed (single-worker run; machine was
+  oversubscribed by concurrent agents — jsdom env init ~55 s under load).
+- Release tooling: `generate-updater-feed.test.mjs` + shared portablePath
+  tests pass.
+- Remaining (environment-blocked): real packaged AppImage old→new upgrade,
+  NSIS install, macOS installed-app update, website visual screenshots —
+  require a packaged build + native runner; see update-strategy §3 gates.

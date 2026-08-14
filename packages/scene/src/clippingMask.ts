@@ -23,8 +23,12 @@ import {
   nextNodeId,
   reparentNode,
 } from './document';
-import { addMask, removeMask } from './masks';
+import { addMask, canBeClipMaskSource, removeMask } from './masks';
 import type { FrameNode, GroupNode, MaskFillRule, MaskType, NodeId, SceneNode } from './types';
+
+// Preserve the clipping-mask module API while keeping the predicate in the
+// canonical mask module used by validation and editor controls.
+export { canBeClipMaskSource } from './masks';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -81,20 +85,6 @@ function nodeWorldTransform(doc: Document, id: NodeId, parentIndex?: Map<NodeId,
 }
 
 // ── Predicates ─────────────────────────────────────────────────────────────
-
-/** True if the node can be used as a vector clipping mask source. */
-export function canBeClipMaskSource(node: SceneNode): boolean {
-  if (node.kind === 'shape') {
-    const k = node.shape.kind;
-    if (k === 'line' || k === 'arrow') return false;
-    if (k === 'path' && !node.shape.closed) return false;
-    return true;
-  }
-  // Frames have a deterministic rectangular vector outline. Live text and
-  // groups must be outlined/combined first; accepting them here currently
-  // produces an empty Canvas clip path and hides all content.
-  return node.kind === 'frame';
-}
 
 /** True if the node is a container with a clip-style mask. */
 export function isClippingMaskGroup(node: SceneNode): node is GroupNode | FrameNode {

@@ -42,6 +42,10 @@ export function hashLocator(locator: FileLocator): string {
       return hashString(`opfs:${locator.id}`);
     case 'remote':
       return hashString(`remote:${locator.url}`);
+    case 'library':
+      // Platform-backed recents are identified by library id, not by a
+      // locator; they never enter the legacy store.
+      return hashString('library');
   }
 }
 

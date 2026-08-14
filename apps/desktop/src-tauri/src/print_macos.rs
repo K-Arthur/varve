@@ -1,4 +1,5 @@
 pub use crate::print_shared::{PrintJobResult, Printer};
+use std::path::Path;
 
 pub fn list_printers() -> Vec<Printer> {
     let output = std::process::Command::new("lpstat")
@@ -70,6 +71,7 @@ fn get_printer_details_macos(name: &str) -> (String, bool, Vec<String>, bool) {
 }
 
 pub fn print_pdf(
+    temporary_dir: &Path,
     printer_name: &str,
     pdf_bytes: &[u8],
     job_title: &str,
@@ -78,9 +80,8 @@ pub fn print_pdf(
     color_mode: &str,
     page_size: &str,
 ) -> PrintJobResult {
-    let temp_dir = std::env::temp_dir();
     let safe_title: String = job_title.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    let pdf_path = temp_dir.join(format!("varve_print_{}.pdf", safe_title));
+    let pdf_path = temporary_dir.join(format!("varve_print_{}_{}.pdf", safe_title, staging_id()));
 
     if let Err(e) = std::fs::write(&pdf_path, pdf_bytes) {
         return PrintJobResult {
@@ -148,6 +149,13 @@ pub fn print_pdf(
             success: false,
         },
     }
+}
+
+fn staging_id() -> u128 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos()
 }
 
 pub fn cancel_job(printer_name: &str, job_id: u32) -> Result<String, String> {

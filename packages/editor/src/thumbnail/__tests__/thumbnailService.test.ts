@@ -4,7 +4,7 @@ import { createDocument, DocumentCodec, makeShapeNode } from '@varve/scene';
 import { THUMBNAIL_VARIANTS } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { documentRevisionHash } from '../identity';
-import { renderDocThumbnail } from '../thumbnailService';
+import { renderDocThumbnail, shouldPersistThumbnail } from '../thumbnailService';
 
 const VARIANT = THUMBNAIL_VARIANTS['home-card'];
 
@@ -107,6 +107,36 @@ describe('renderDocThumbnail — cancellation', () => {
     });
     expect(outcome.result).not.toBeNull();
     expect(outcome.result!.metadata.isPlaceholder).toBe(false);
+  });
+});
+
+describe('thumbnail persistence policy', () => {
+  it('does not persist a provisional result', () => {
+    expect(
+      shouldPersistThumbnail({
+        dataUrl: 'data:image/png;base64,placeholder',
+        metadata: { isProvisional: true } as never,
+      }),
+    ).toBe(false);
+  });
+
+  it('persists a settled result', () => {
+    expect(
+      shouldPersistThumbnail({
+        dataUrl: 'data:image/png;base64,settled',
+        metadata: { isProvisional: false } as never,
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects an empty result', () => {
+    expect(shouldPersistThumbnail(null)).toBe(false);
+    expect(
+      shouldPersistThumbnail({
+        dataUrl: '',
+        metadata: { isProvisional: false } as never,
+      }),
+    ).toBe(false);
   });
 });
 
