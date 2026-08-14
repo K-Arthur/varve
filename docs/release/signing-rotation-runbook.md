@@ -37,8 +37,12 @@ Developer ID certificates cannot be renewed — they must be **re-issued**.
       outstanding signed releases' timestamps are past the old cert's expiry —
       timestamps preserve validity, but do not rely on it)
 
-> Because all signatures are timestamped, **old releases remain verifiable
-> after the certificate expires** — expiry only blocks new signing.
+> Signatures are timestamped by the signing services (macOS notarization
+> timestamps; Azure Artifact Signing by default), so in practice **old releases
+> remain verifiable after the certificate expires** — expiry only blocks new
+> signing. Note the pipeline does not verify timestamp presence: the trust
+> gate only *notes* untimestamped Windows signatures and macOS checks do not
+> cover it, so this property is vendor-behaviour, not a gate guarantee.
 
 ### 1.3 App Store Connect API key (`.p8`) — revocable; no fixed expiry
 
