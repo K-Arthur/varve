@@ -1,15 +1,25 @@
 /**
- * IndexedDB-backed model storage for AI background removal models.
+ * IndexedDB-backed model storage for AI models.
  *
  * localStorage has a ~5MB limit which is insufficient for ONNX models
  * (4.7MB u2netp up to 928MB birefnet-general). IndexedDB provides the
  * capacity needed for large binary blobs.
+ *
+ * Two writers share this store and must stay interoperable:
+ *   - the model loader stores raw Blob values (v2 schema)
+ *   - the inference DownloadManager stores { bytes, modelId, installedAt }
+ *     records (v1 schema, still produced by older builds)
+ * `loadModelBlob` normalizes both shapes so availability checks work
+ * regardless of which manager installed the model.
  */
 import { migrateLegacyIndexedDb } from '@varve/platform';
 
 const DB_NAME = 'varve-model-store';
 const LEGACY_DB_NAME = 'strata-model-store';
-const DB_VERSION = 2;
+// Must match inference/core/ModelStorage's dbVersion: both writers open the
+// same database, and indexedDB rejects an open at a lower version than the
+// existing one (VersionError) depending on which manager ran first.
+const DB_VERSION = 3;
 const STORE_NAME = 'models';
 const PARTIALS_STORE = 'partials';
 
@@ -85,13 +95,36 @@ export async function loadModelBlob(id: string): Promise<Blob | null> {
     const request = store.get(id);
     request.onsuccess = () => {
       db.close();
-      resolve(request.result ?? null);
+      resolve(normalizeModelRecord(request.result));
     };
     request.onerror = () => {
       db.close();
       reject(new Error(`Failed to load model: ${id}`));
     };
   });
+}
+
+/**
+ * Normalize a stored model record to a Blob. Accepts either the blob
+ * schema written by the model loader or the `{ bytes, modelId,
+ * installedAt }` record written by the inference DownloadManager, so
+ * models installed through either path are visible to availability
+ * checks.
+ */
+function normalizeModelRecord(value: unknown): Blob | null {
+  if (value == null) return null;
+  if (value instanceof Blob) return value;
+  if (typeof value === 'object' && 'bytes' in value) {
+    const bytes = (value as { bytes: ArrayBuffer | Uint8Array }).bytes;
+    if (bytes instanceof Uint8Array) {
+      // Copy to a fresh Uint8Array<ArrayBuffer> so BlobPart typing is happy.
+      return new Blob([new Uint8Array(bytes)]);
+    }
+    if (bytes instanceof ArrayBuffer) {
+      return new Blob([bytes]);
+    }
+  }
+  return null;
 }
 
 export async function hasModelBlob(id: string): Promise<boolean> {
