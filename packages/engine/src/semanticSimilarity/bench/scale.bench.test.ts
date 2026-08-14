@@ -26,11 +26,11 @@ function randomVector(seed: number): Float32Array {
   const v = new Float32Array(DIM);
   let sumSq = 0;
   for (let i = 0; i < DIM; i++) {
-    v[i] = next() * 2 - 1;
-    sumSq += v[i] * v[i];
+    v[i]! = next() * 2 - 1;
+    sumSq += v[i]! * v[i]!;
   }
   const norm = Math.sqrt(sumSq);
-  for (let i = 0; i < DIM; i++) v[i] /= norm;
+  for (let i = 0; i < DIM; i++) v[i]! /= norm;
   return v;
 }
 

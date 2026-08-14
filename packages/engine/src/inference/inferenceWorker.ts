@@ -26,7 +26,7 @@ import { RIFE_INPUT_SIZE, RIFE_TENSOR_SPEC } from './models/rife';
 import type { Sam2Letterbox, Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
-import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC } from './models/siglip';
+import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
 
 export type WorkerModelType =
@@ -45,10 +45,13 @@ export type WorkerModelType =
   | 'paddleocr-rec'
   | 'trocr'
   | 'siglip-image'
+  | 'siglip-text'
   | 'font-classify';
 
 export interface WorkerTensor {
-  data: Float32Array;
+  data: Float32Array | BigInt64Array;
+  /** Defaults to float32; text/embedding models may feed int64 token ids. */
+  dtype?: 'float32' | 'int64';
   dims: number[];
 }
 
@@ -283,6 +286,22 @@ registerModelType('siglip-image', {
   tensorSpec: SIGLIP_IMAGE_TENSOR_SPEC,
   getInputSize: () => SIGLIP_IMAGE_SIZE,
   hasImageInput: true,
+  // The pinned SigLIP export keeps the text branch in the graph; ORT
+  // rejects a run that omits input_ids even though text outputs are
+  // never requested. Feed a constant zero token (verified 2026-08-13).
+  constantFeeds: () => siglipConstantFeeds(),
+});
+
+registerModelType('siglip-text', {
+  tensorSpec: {
+    inputWidth: 0,
+    inputHeight: 0,
+    mean: [0, 0, 0],
+    std: [1, 1, 1],
+    paddingRgb: [0, 0, 0],
+  },
+  getInputSize: () => 0,
+  hasImageInput: false,
 });
 
 registerModelType('font-classify', {
@@ -619,7 +638,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           ? key
           : inputNames.find((n) => n.toLowerCase() === key.toLowerCase());
         if (match) {
-          feeds[match] = new ort.Tensor('float32', tensor.data, tensor.dims);
+          feeds[match] = new ort.Tensor(tensor.dtype ?? 'float32', tensor.data, tensor.dims);
         }
       }
     }
