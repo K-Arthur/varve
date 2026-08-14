@@ -8460,7 +8460,16 @@ export function EditorProvider({
             });
           } else {
             // Default: create a new layer beside the non-destructive source.
-            const scaleLabel = options.method === 'ai' ? '4x-ai' : `${options.scale ?? 2}x`;
+            const scaleLabel =
+              options.operation === 'deblur'
+                ? 'deblurred'
+                : options.operation === 'denoise'
+                  ? 'denoised'
+                  : options.operation === 'compression-restoration'
+                    ? 'cleaned'
+                    : options.method === 'ai'
+                      ? '4x-ai'
+                      : `${options.scale ?? 2}x`;
             const inserted = insertDerivedImageShape(current.document, processingNodeId, {
               dataUrl,
               width: outputImage.width,
@@ -8474,9 +8483,13 @@ export function EditorProvider({
           const operationLabel =
             options.operation === 'denoise'
               ? 'denoised'
-              : options.operation === 'restore-upscale'
-                ? 'restored and upscaled'
-                : 'upscaled';
+              : options.operation === 'deblur'
+                ? 'deblurred'
+                : options.operation === 'compression-restoration'
+                  ? 'cleaned of compression artifacts'
+                  : options.operation === 'restore-upscale'
+                    ? 'restored and upscaled'
+                    : 'upscaled';
           announcerRef.current?.announce(
             `Image ${operationLabel} to ${outputImage.width} by ${outputImage.height} pixels`,
           );

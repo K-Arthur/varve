@@ -33,9 +33,18 @@ describe('restoration capability planning', () => {
     expect(plan.warnings).toHaveLength(1);
   });
 
-  it('rejects unsupported deblur instead of falling back to an unrelated model', () => {
-    expect(() => planRestoration({ operation: 'deblur' })).toThrowError(RestorationPlanningError);
-    expect(() => planRestoration({ operation: 'deblur' })).toThrow(/not available/i);
+  it('rejects unsupported operations instead of falling back to an unrelated model', () => {
+    // Compression restoration has no validated model yet.
+    expect(() => planRestoration({ operation: 'compression-restoration' })).toThrowError(
+      RestorationPlanningError,
+    );
+    expect(() => planRestoration({ operation: 'compression-restoration' })).toThrow(
+      /not available/i,
+    );
+    // Deblur now plans through the validated checkpoint.
+    const plan = planRestoration({ operation: 'deblur' });
+    expect(plan.stages.map((stage) => stage.task)).toEqual(['deblur']);
+    expect(plan.stages[0]?.modelId).toBe('nafnet-deblur-gopro');
   });
 
   it('allows no-op plans without requiring a model', () => {
@@ -57,11 +66,19 @@ describe('restoration capability planning', () => {
     expect(isRestorationOperationAvailable('denoise')).toBe(true);
     expect(isRestorationOperationAvailable('upscale')).toBe(true);
     expect(isRestorationOperationAvailable('restore-upscale')).toBe(true);
-    // Deblur has no validated checkpoint yet, so the operation must not be
-    // advertised as available even though the UI can render the option.
-    expect(isRestorationOperationAvailable('deblur')).toBe(false);
+    // Deblur has a validated checkpoint, so the operation is available.
+    expect(isRestorationOperationAvailable('deblur')).toBe(true);
+    // Compression restoration still has no validated task-specific model.
     expect(isRestorationOperationAvailable('compression-restoration')).toBe(false);
     expect(isRestorationOperationAvailable('none')).toBe(true);
+  });
+
+  it('never advertises a model for a task it was not validated for', () => {
+    expect(firstAvailableCapability('deblur')?.id).toBe('nafnet-deblur-gopro');
+    // The deblur checkpoint must not leak into the denoise registry and the
+    // denoise checkpoint must not leak into deblur.
+    expect(capabilitiesForTask('denoise').map((c) => c.id)).not.toContain('nafnet-deblur-gopro');
+    expect(capabilitiesForTask('deblur').map((c) => c.id)).not.toContain('scunet');
   });
 
   it('maps an operation to exactly the tasks it needs', () => {
