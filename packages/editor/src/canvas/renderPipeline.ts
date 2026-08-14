@@ -60,6 +60,7 @@ import {
 } from '../render/canvasRenderAdapter';
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
+import { alphaBounds } from '../render/surfaceBounds';
 import {
   collectMasterOffsets,
   offsetWorldBounds,
@@ -1510,10 +1511,10 @@ export function renderContent(deps: RenderContentDeps): void {
         const devMinY = minY * camScale + camOriginY;
         const devW = (maxX - minX) * camScale;
         const devH = (maxY - minY) * camScale;
-        const bx = devMinX - effectPad;
-        const by = devMinY - effectPad;
-        const bw = Math.min(cw, devW + effectPad * 2);
-        const bh = Math.min(ch, devH + effectPad * 2);
+        let bx = devMinX - effectPad;
+        let by = devMinY - effectPad;
+        let bw = devW + effectPad * 2;
+        let bh = devH + effectPad * 2;
         if (coordSpace) {
           coordSpace.regionX = bx;
           coordSpace.regionY = by;
@@ -1521,11 +1522,6 @@ export function renderContent(deps: RenderContentDeps): void {
 
         let backdrop: HTMLCanvasElement;
         try {
-          backdrop = document.createElement('canvas');
-          backdrop.width = Math.ceil(bw);
-          backdrop.height = Math.ceil(bh);
-          const bCtx = backdrop.getContext('2d');
-          if (!bCtx) return;
           // Render the resolved target set into the adjustment surface instead
           // of copying the entire canvas. Copying the canvas only bounded the
           // filter geographically; it still processed unrelated pixels inside
@@ -1548,6 +1544,22 @@ export function renderContent(deps: RenderContentDeps): void {
             for (const targetId of targetIds) {
               replaySubtreeToCtx(targetId, targetSurfaceCtx);
             }
+            const actual = alphaBounds(targetSurfaceCtx, targetSurface.width, targetSurface.height);
+            if (actual) {
+              bx = actual.x - effectPad;
+              by = actual.y - effectPad;
+              bw = actual.w + effectPad * 2;
+              bh = actual.h + effectPad * 2;
+              if (coordSpace) {
+                coordSpace.regionX = bx;
+                coordSpace.regionY = by;
+              }
+            }
+            backdrop = document.createElement('canvas');
+            backdrop.width = Math.ceil(bw);
+            backdrop.height = Math.ceil(bh);
+            const bCtx = backdrop.getContext('2d');
+            if (!bCtx) return;
             bCtx.setTransform(1, 0, 0, 1, 0, 0);
             bCtx.translate(-bx, -by);
             bCtx.drawImage(targetSurface, 0, 0);
