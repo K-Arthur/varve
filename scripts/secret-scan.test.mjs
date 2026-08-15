@@ -14,8 +14,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const SCANNER = new URL('./secret-scan.mjs', import.meta.url).pathname;
+const SCANNER = fileURLToPath(new URL('./secret-scan.mjs', import.meta.url));
 
 const FAKE = {
   githubPat: `ghp_${'A'.repeat(36)}`,
