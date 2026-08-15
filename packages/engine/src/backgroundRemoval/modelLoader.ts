@@ -20,6 +20,13 @@ import { AVAILABLE_MODELS } from './types';
 // so the download infrastructure can resolve remoteUrl and size without waiting
 // for an async manifest fetch.
 const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; size: number }> = {
+  'dinov2-small': {
+    // Verified 2026-08-13: Xenova/dinov2-small ONNX export (Apache-2.0).
+    // Image embedding model used by the local Find Similar workflow.
+    remoteUrl: 'https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model.onnx',
+    name: 'Find Similar Images (DINOv2)',
+    size: 88_459_888,
+  },
   scunet: {
     // Verified 2026-07-21: Heliosoph/scunet-onnx on Hugging Face, Apache-2.0.
     // Fully convolutional blind denoising. Total ~77MB (graph + external weights).

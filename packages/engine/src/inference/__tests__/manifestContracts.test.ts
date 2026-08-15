@@ -133,6 +133,25 @@ describe('BiRefNet tensor contracts (DECLARED — not yet verified against ONNX 
   }
 });
 
+describe('Semantic similarity model contract', () => {
+  const manifest = loadManifest();
+  const dino = manifest.models.find((m) => m.id === 'dinov2-small');
+
+  it('declares the verified DINOv2-small artifact and tensor contract', () => {
+    expect(dino).toMatchObject({
+      filename: 'dinov2-small.onnx',
+      bundled: false,
+      sha256: '83141175ec78b4ff9a2bb58a4c7c264ba0054d1c2e122e5a8114b79a8d4179ea',
+      precision: 'fp32',
+      sourceLicense: 'Apache-2.0',
+    });
+    expect(dino?.tensorContract).toMatchObject({
+      inputs: [{ name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' }],
+      outputs: [{ name: 'last_hidden_state', dims: [1, 197, 384], dtype: 'float32' }],
+    });
+  });
+});
+
 describe('Model validation consistency', () => {
   const manifest = loadManifest();
 

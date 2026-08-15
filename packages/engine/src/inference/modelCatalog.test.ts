@@ -37,6 +37,18 @@ describe('modelCatalog', () => {
       expect(ids).toContain('upscale-realesr-general');
     });
 
+    it('includes the verified DINOv2 image embedding model', () => {
+      const entry = getModelById('dinov2-small');
+      expect(entry).toMatchObject({
+        id: 'dinov2-small',
+        category: 'embedding',
+        precision: 'fp32',
+        sizeBytes: 88_459_888,
+        checksum: '83141175ec78b4ff9a2bb58a4c7c264ba0054d1c2e122e5a8114b79a8d4179ea',
+      });
+      expect(entry?.remoteUrl).toContain('Xenova/dinov2-small');
+    });
+
     it('includes INT8 variants', () => {
       const all = listAllModels();
       const ids = all.map((m) => m.id);

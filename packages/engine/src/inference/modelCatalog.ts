@@ -16,6 +16,35 @@ import type { ModelManifestEntry, ModelState } from './types';
 
 const FALLBACK_ENTRIES: ModelManifestEntry[] = [
   {
+    id: 'dinov2-small',
+    name: 'Find Similar Images (DINOv2)',
+    description:
+      'Local image embeddings for visual similarity search. Verified Xenova DINOv2-small ONNX export with a 224x224 ImageNet-normalized center-crop contract and 384-dimensional CLS output.',
+    sizeBytes: 88_459_888,
+    remoteUrl: 'https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model.onnx',
+    checksum: '83141175ec78b4ff9a2bb58a4c7c264ba0054d1c2e122e5a8114b79a8d4179ea',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp32',
+    category: 'embedding',
+    peakMemoryBytes: 354_000_000,
+    gpuRecommended: true,
+    source: 'Xenova/dinov2-small',
+    sourceLicense: 'Apache-2.0',
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' }],
+      outputs: [{ name: 'last_hidden_state', dims: [1, 197, 384], dtype: 'float32' }],
+      normalization: {
+        mean: [0.485, 0.456, 0.406],
+        std: [0.229, 0.224, 0.225],
+        channelOrder: 'rgb',
+      },
+      outputActivation: 'none',
+    },
+  },
+  {
     id: 'u2netp',
     name: 'U\u00B2-Net Light (FP32)',
     description: 'Fast preview quality segmentation. Bundled with the app.',
