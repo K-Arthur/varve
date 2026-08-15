@@ -12,10 +12,14 @@ import { expect } from '@wdio/globals';
  *   xvfb-run pnpm test:wdio
  */
 
+async function ensureHome(): Promise<void> {
+  const homeButton = await browser.$('.editor-menubar__home');
+  if (await homeButton.isDisplayed().catch(() => false)) await homeButton.click();
+  await browser.$('[data-testid="new-file-button"]').waitForDisplayed({ timeout: 30000 });
+}
+
 describe('Tauri Desktop: Application Lifecycle', () => {
   it('should load the application and show the home screen', async () => {
-    await browser.url('/');
-
     // Wait for the app-ready custom event (added for testability)
     await browser.waitUntil(
       async () =>
@@ -43,8 +47,8 @@ describe('Tauri Desktop: Application Lifecycle', () => {
   });
 
   it('should list Tauri windows', async () => {
-    const windows = await browser.tauri.execute(() => {
-      const all = window.__TAURI__?.window?.getAllWindows?.() ?? [];
+    const windows = await browser.tauri.execute(async () => {
+      const all = (await window.__TAURI__?.window?.getAllWindows?.()) ?? [];
       return all.map((w: { label: string }) => w.label);
     });
     expect(windows).toContain('main');
@@ -54,8 +58,8 @@ describe('Tauri Desktop: Application Lifecycle', () => {
     // The app automatically calls close_splashscreen via revealMainWindow.ts
     // once HomeShell signals ready.  In a headed session the splash window
     // should already be closed by the time this test runs.
-    const windows = await browser.tauri.execute(() => {
-      const all = window.__TAURI__?.window?.getAllWindows?.() ?? [];
+    const windows = await browser.tauri.execute(async () => {
+      const all = (await window.__TAURI__?.window?.getAllWindows?.()) ?? [];
       return all.map((w: { label: string }) => w.label);
     });
     expect(windows).not.toContain('splashscreen');
@@ -64,7 +68,7 @@ describe('Tauri Desktop: Application Lifecycle', () => {
 
 describe('Tauri Desktop: Create and Edit Document', () => {
   it('should create a new document and see the editor shell', async () => {
-    await browser.url('/');
+    await ensureHome();
     await browser.waitUntil(
       async () =>
         browser.tauri.execute(
@@ -76,7 +80,7 @@ describe('Tauri Desktop: Create and Edit Document', () => {
     const newBtn = await browser.$('[data-testid="new-file-button"]');
     await newBtn.click();
 
-    const createBtn = await browser.$('[data-testid="create-file-button"]');
+    const createBtn = await browser.$('[data-testid="create-design-button"]');
     await createBtn.waitForDisplayed({ timeout: 5000 });
     await createBtn.click();
 
@@ -97,8 +101,8 @@ describe('Tauri Desktop: Create and Edit Document', () => {
     await expect(layersPanel).toBeDisplayed();
   });
 
-  it('should create a rectangle via the Rect tool shortcut', async () => {
-    await browser.url('/');
+  it('should create a rectangle through the floating toolbar', async () => {
+    await ensureHome();
     await browser.waitUntil(
       async () =>
         browser.tauri.execute(
@@ -110,7 +114,7 @@ describe('Tauri Desktop: Create and Edit Document', () => {
     // Create document
     const newBtn = await browser.$('[data-testid="new-file-button"]');
     await newBtn.click();
-    const createBtn = await browser.$('[data-testid="create-file-button"]');
+    const createBtn = await browser.$('[data-testid="create-design-button"]');
     await createBtn.waitForDisplayed({ timeout: 5000 });
     await createBtn.click();
 
@@ -118,29 +122,43 @@ describe('Tauri Desktop: Create and Edit Document', () => {
     const canvasEl = await browser.$('[data-testid="editor-canvas"]');
     await canvasEl.waitForDisplayed({ timeout: 15000 });
 
-    // Use the Rect tool shortcut (r) and drag to create a shape
-    await browser.keys('r');
-    await browser.pause(100);
+    // Select the current visible tool control. The embedded WebKit driver
+    // does not consistently deliver keyboard events to the canvas, while the
+    // toolbar is the same user-facing path used by mouse and touch input.
+    const rectangleTool = await browser.$('[data-tool="rect"]');
+    await rectangleTool.waitForDisplayed({ timeout: 5000 });
+    await rectangleTool.click();
 
-    const box = await canvasEl.getLocation();
-    const size = await canvasEl.getSize();
-    const cx = box.x + size.width / 2;
-    const cy = box.y + size.height / 2;
-
-    // Drag from center to create a rect
-    await browser.performActions([
-      {
-        type: 'pointer',
-        id: 'mouse',
-        parameters: { pointerType: 'mouse' },
-        actions: [
-          { type: 'pointerMove', duration: 0, x: cx - 50, y: cy - 50 },
-          { type: 'pointerDown', button: 0 },
-          { type: 'pointerMove', duration: 300, x: cx + 50, y: cy + 50 },
-          { type: 'pointerUp', button: 0 },
-        ],
-      },
-    ]);
+    // Dispatch the same pointer sequence directly on the real canvas node.
+    // This avoids WebKitGTK's embedded-driver coordinate translation, which
+    // can report successful W3C actions without delivering them to the
+    // canvas when the window is decorated or scaled.
+    await browser.tauri.execute(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="editor-canvas"]');
+      if (!canvas) throw new Error('editor canvas not found');
+      const rect = canvas.getBoundingClientRect();
+      const startX = Math.round(rect.left + rect.width / 2 - 50);
+      const startY = Math.round(rect.top + rect.height / 2 - 50);
+      const endX = Math.round(rect.left + rect.width / 2 + 50);
+      const endY = Math.round(rect.top + rect.height / 2 + 50);
+      const dispatch = (type: string, clientX: number, clientY: number, buttons: number) =>
+        canvas.dispatchEvent(
+          new PointerEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            clientX,
+            clientY,
+            pointerId: 1,
+            pointerType: 'mouse',
+            isPrimary: true,
+            buttons,
+            button: type === 'pointerup' ? 0 : 0,
+          }),
+        );
+      dispatch('pointerdown', startX, startY, 1);
+      dispatch('pointermove', endX, endY, 1);
+      dispatch('pointerup', endX, endY, 0);
+    });
 
     await browser.pause(500);
 

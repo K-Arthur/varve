@@ -1,4 +1,12 @@
+import type { Document } from '@varve/scene';
 import { expect } from '@wdio/globals';
+import { getAllMenuDefs } from '../../packages/editor/src/menu/defs';
+import {
+  buildIntelFacts,
+  buildMenuContext,
+  detectPlatformFacts,
+} from '../../packages/editor/src/menu/facts';
+import { buildNativeMenuSpec } from '../../packages/editor/src/menu/nativeAdapter';
 
 /**
  * Native Menu E2E tests (Tauri desktop only).
@@ -18,7 +26,8 @@ import { expect } from '@wdio/globals';
 
 describe('Tauri Desktop: Native Menu IPC', () => {
   async function navigateToEditor(): Promise<void> {
-    await browser.url('/');
+    const homeButton = await browser.$('.editor-menubar__home');
+    if (await homeButton.isDisplayed().catch(() => false)) await homeButton.click();
     await browser.waitUntil(
       () =>
         browser.tauri.execute(
@@ -27,7 +36,7 @@ describe('Tauri Desktop: Native Menu IPC', () => {
       { timeout: 30000 },
     );
     await browser.$('[data-testid="new-file-button"]').click();
-    await browser.$('[data-testid="create-file-button"]').click();
+    await browser.$('[data-testid="create-design-button"]').click();
     await browser.waitUntil(
       () =>
         browser.tauri.execute(
@@ -128,31 +137,30 @@ describe('Tauri Desktop: Native Menu IPC', () => {
   it('should expose the adapter spec builder on window', async () => {
     await navigateToEditor();
 
-    const spec = await browser.tauri.execute(async () => {
+    // The adapter is a pure source module, not a browser-global API. Import
+    // it in the WDIO worker so this assertion tests the shipped source graph
+    // without asking the tauri:// webview to resolve a filesystem-relative
+    // module specifier.
+    const spec = (() => {
       try {
-        const mod = await import('../menu/nativeAdapter');
-        const defsMod = await import('../menu/defs');
-        const factsMod = await import('../menu/facts');
-
-        const ctx = factsMod.buildMenuContext(
+        const ctx = buildMenuContext(
           [],
-          { nodes: {}, pages: [] },
+          { nodes: {}, pages: [] } as unknown as Document,
           'design',
-          factsMod.detectPlatformFacts('tauri'),
-          factsMod.buildIntelFacts([], null, false),
+          detectPlatformFacts('tauri', 'mac'),
+          buildIntelFacts([], null, false),
         );
-
-        const allDefs = defsMod.getAllMenuDefs({ runAction: () => {} });
-        const result = mod.buildNativeMenuSpec(allDefs, ctx, 'mac');
+        const allDefs = getAllMenuDefs({ runAction: () => {} });
+        const result = buildNativeMenuSpec(allDefs, ctx, 'mac');
         return {
           ok: true,
           submenuCount: result.submenus.length,
-          submenuIds: result.submenus.map((s: { id: string }) => s.id),
+          submenuIds: result.submenus.map((s) => s.id),
         };
       } catch (err: unknown) {
         return { ok: false, error: String(err) };
       }
-    });
+    })();
 
     expect(spec).toBeTruthy();
     expect((spec as { ok: boolean }).ok).toBe(true);
