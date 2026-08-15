@@ -569,6 +569,12 @@ assert.deepEqual(
     /tests\/e2e\/\(canvas\|settings[\s\S]*shared\|helpers\|fixtures\)[\s\S]*playwright\\\.config\\\.ts/,
     'browser infrastructure paths must select the browser lane',
   );
+  const release = fs.readFileSync('.github/workflows/release.yml', 'utf-8');
+  assert.match(
+    release,
+    /squashfs-tools xdg-utils/,
+    'Linux release bundlers must install xdg-utils for Tauri AppImage packaging',
+  );
   for (const name of ['release.yml', 'website-deploy.yml', 'ci.yml', 'build.yml']) {
     const content = fs.readFileSync(`.github/workflows/${name}`, 'utf-8');
     assert.deepEqual(
