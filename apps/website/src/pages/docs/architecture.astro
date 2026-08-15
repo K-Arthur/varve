@@ -12,18 +12,20 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Architecture Overview</h1>
       <p class="docs-intro">
-        Varve is a local-first, cross-platform design suite with a native Rust engine powering the rendering pipeline. Desktop builds use Tauri 2, while the web version uses WebAssembly behind the same facade. This document describes the high-level architecture and data flow.
+        Varve is a local-first, cross-platform design suite with a native Rust engine powering the rendering pipeline. Desktop builds use Tauri 2, while the web target uses WebAssembly behind the same facade. A hosted public web editor is not available yet. This document describes the high-level architecture and data flow.
       </p>
 
       <section class="docs-section">
         <h2>Philosophy: Local-First by Default</h2>
         <p>
-          Varve is designed to work fully offline with no cloud dependency. Your designs never leave your machine unless you explicitly export them. This is a core architectural commitment:
+          Varve's core editing path works fully offline and has no mandatory cloud dependency.
+          Documents stay local by default; optional model downloads, online asset/font services,
+          update checks, and user-configured providers are separate network features:
         </p>
         <ul>
-          <li>All computation happens locally (native Rust engine or WASM in the browser)</li>
-          <li>Documents are saved as local files (.strata format)</li>
-          <li>No design telemetry or cloud sync; optional aggregate analytics require explicit consent (optional collaboration is planned but opt-in)</li>
+          <li>Core editing computation happens locally (native Rust engine or WASM in the browser)</li>
+          <li>Documents are saved as local files, with legacy <code>.strata</code> documents migrated through the versioned format pipeline</li>
+          <li>No mandatory design telemetry or cloud sync; optional aggregate analytics require explicit consent (optional collaboration is planned but opt-in)</li>
           <li>Full functionality with no internet connection</li>
           <li>Your data is yours — no lock-in, no subscription</li>
         </ul>

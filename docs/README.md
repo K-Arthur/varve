@@ -22,6 +22,7 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 | [AGENTS.md](../AGENTS.md) (root) | AI agent instructions — cross-project rules for automation |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) (root) | Contribution process (not yet open to external contributions) |
 | [CHANGELOG.md](../CHANGELOG.md) (root) | Release notes — source for `release-notes.mjs` |
+| [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
 
 ## Architecture Decision Records
 
