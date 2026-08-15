@@ -52,17 +52,19 @@ const anySigned = Boolean(
         ) : (
           <p>
             Currently, Varve builds are <strong>not code-signed</strong>. This is a known
-            limitation that will be addressed as the project matures. For stable releases, we
-            plan to provide:
+            limitation that will be addressed as the project matures. The current release still
+            publishes integrity metadata for independent verification.
           </p>
         )}
         <ul>
           <li>SHA256 checksums for all build artifacts</li>
-          <li>Cryptographic signing of release binaries</li>
-          <li>Reproducible build verification instructions</li>
+          <li>SBOMs and build provenance for published release artifacts</li>
+          <li>Platform signing and reproducible-build verification as release infrastructure matures</li>
         </ul>
         <p>
-          Until code signing is implemented, we recommend verifying downloads by building from source or checking the GitHub release page for checksum information. Always download Varve from the official GitHub releases page, not from third-party mirrors.
+          Until code signing is implemented, verify downloads with the published SHA-256
+          checksums and SBOMs, or build from source. Always download Varve from the official
+          GitHub releases page, not from third-party mirrors.
         </p>
       </section>
 
@@ -113,11 +115,11 @@ const anySigned = Boolean(
           As a local-first application, Varve's security model is straightforward:
         </p>
         <ul>
-          <li><strong>All design data stays on your machine</strong> — no cloud storage, no remote servers</li>
+          <li><strong>Core design data stays local by default</strong> — no mandatory cloud storage or sync</li>
           <li><strong>No design telemetry</strong> — optional aggregate measurements require explicit consent and never include design content</li>
           <li><strong>No user accounts</strong> — no authentication system to compromise</li>
           <li><strong>Local storage only</strong> — data persisted via SQLite (desktop) or IndexedDB (web)</li>
-          <li><strong>No cloud transmission</strong> without explicit user action (e.g., filing a GitHub issue)</li>
+          <li><strong>No remote transmission by default</strong> — optional providers and downloads are explicit</li>
         </ul>
       </section>
 

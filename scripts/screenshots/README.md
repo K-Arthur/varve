@@ -63,7 +63,7 @@ modes and a real type hierarchy.
 | `typography-panel` | light | inspector | Font family, weight, size, line height, tracking |
 | `layers` | light | layers | Named layers with blend-mode and opacity badges |
 | `layout` | light | full | Two-page editorial spread |
-| `motion` | dark | timeline | Timeline panel (currently skipped — see below) |
+| `motion` | dark | timeline | Timeline panel with a real position keyframe |
 
 Detail scenes are cropped **at capture time** (`clip`), because the website
 shows them at roughly a third of the page width where a scaled-down full
@@ -71,9 +71,9 @@ window is an unreadable smear.
 
 Scenes that cannot be produced are recorded as `skipped` with a reason, and
 any previous output file is **deleted** — never silently replaced by an older
-screenshot. `motion` is currently skipped: a timeline can be created but no
-track can be authored from this path, so the capture would show an empty
-"No tracks in this timeline" panel under a caption promising keyframes.
+screenshot. The motion scene authors a real position keyframe through the
+application's keyboard shortcut before capture, so the timeline screenshot
+does not claim more than the fixture actually demonstrates.
 
 ## Determinism
 

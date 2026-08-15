@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "note": "GENERATED FILE \u2014 do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-08-09T11:16:44.092Z",
+  "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
+  "generatedAt": "2026-08-15T06:43:35.726Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
       "alt": "The Varve workspace: a poster document on the canvas with the layers panel on the left and the properties inspector on the right",
-      "caption": "One window \u2014 canvas, layers, and properties",
+      "caption": "One window — canvas, layers, and properties",
       "feature": "home-showcase",
       "theme": "light",
       "status": "captured",
@@ -27,8 +27,8 @@
     },
     "vector": {
       "file": "vector-light.png",
-      "alt": "A curved vector shape in Varve with its anchor points and B\u00e9zier handles shown in node editing mode",
-      "caption": "Node editing with live B\u00e9zier handles",
+      "alt": "A curved vector shape in Varve with its anchor points and Bézier handles shown in node editing mode",
+      "caption": "Node editing with live Bézier handles",
       "feature": "vector-tools",
       "theme": "light",
       "status": "captured",
@@ -82,7 +82,7 @@
     },
     "layers": {
       "file": "layers-light.png",
-      "alt": "The Varve layers panel listing the poster\u2019s named layers with blend mode and opacity badges",
+      "alt": "The Varve layers panel listing the poster’s named layers with blend mode and opacity badges",
       "caption": "Layers, blend modes, and opacity",
       "feature": "canvas",
       "theme": "light",
