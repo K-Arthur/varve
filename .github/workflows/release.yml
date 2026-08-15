@@ -617,8 +617,6 @@ jobs:
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
