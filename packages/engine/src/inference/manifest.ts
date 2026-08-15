@@ -28,6 +28,8 @@ export interface RawManifestEntry {
   precision?: ModelPrecision;
   sourceModelId?: string;
   sourceSha256?: string;
+  source?: string;
+  sourceLicense?: string;
   notes?: string;
 }
 
@@ -49,6 +51,7 @@ function inferCategory(id: string): string {
   if (id === 'scunet') return 'denoising';
   if (id.startsWith('depth-')) return 'depth';
   if (id.includes('ocr') || id.includes('text-detect') || id.startsWith('tr-ocr')) return 'ocr';
+  if (id.startsWith('siglip') || id.startsWith('dinov2')) return 'embedding';
   if (id.includes('classifier') || id.includes('embedder')) return 'classification';
   if (
     id.startsWith('font-') ||
@@ -71,6 +74,7 @@ const KNOWN_SIZES: Record<string, number> = {
   'sam2-hiera-small': 183344311_344_379,
   'tr-ocr-base-printed': 340_000_000,
   'depth-anything-v2-small': 25_000_000,
+  'dinov2-small': 88_459_888,
 };
 
 function computeSizeBytes(id: string, bundled: boolean): number {
@@ -108,6 +112,8 @@ function entryDescription(id: string, notes?: string): string {
 
   if (id === 'depth-anything-v2-small')
     return 'Depth-Anything-V2 Small — monocular depth estimation for lens blur, 3D effects, depth-aware masking. Input: 518x518 RGB. Output: relative depth map.';
+  if (id === 'dinov2-small')
+    return 'DINOv2 Small — local image embeddings for visual similarity search. Input: 224x224 RGB center crop; output: normalized 384-dimensional CLS embedding.';
   return '';
 }
 
@@ -145,6 +151,8 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     precision: raw.precision ?? 'fp32',
     ...(raw.sourceModelId ? { sourceModelId: raw.sourceModelId } : {}),
     ...(raw.sourceSha256 ? { sourceSha256: raw.sourceSha256 } : {}),
+    ...(raw.source ? { source: raw.source } : {}),
+    ...(raw.sourceLicense ? { sourceLicense: raw.sourceLicense } : {}),
     ...(category ? { category } : {}),
     ...(raw.localPath ? { localPath: raw.localPath } : {}),
     acquisition: deriveAcquisition(raw),
@@ -230,6 +238,7 @@ function modelDisplayName(id: string): string {
     'sam2-hiera-small': 'SAM2 Small',
     'tr-ocr-base-printed': 'TrOCR (Printed Text)',
     'depth-anything-v2-small': 'Depth-Anything-V2 Small',
+    'dinov2-small': 'Find Similar Images (DINOv2)',
   };
   return names[id] ?? id;
 }
@@ -248,6 +257,7 @@ function modelQuality(id: string): number {
     'sam2-hiera-small': 183344311,
     'tr-ocr-base-printed': 4,
     'depth-anything-v2-small': 4.5,
+    'dinov2-small': 4,
   };
   return qualities[id] ?? 1;
 }
