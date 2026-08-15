@@ -67,6 +67,11 @@ jobs:
           # Lanes (conservative: any hit enables the lane)
           if grep -qE '^(packages/(engine|scene|shared|editor|ui|platform|import|codegen|print|prototype|layout|compositor|ai|collab|crash|help|history|home|tokens)/|apps/desktop/src/)' /tmp/changed.txt; then echo "js=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^crates/|^apps/desktop/src-tauri/' /tmp/changed.txt; then echo "rust=true" >> "$GITHUB_OUTPUT"; echo "desktop=true" >> "$GITHUB_OUTPUT"; fi
+          # Native desktop test infrastructure compiles and launches the
+          # Tauri test binary even when the application source is unchanged.
+          # Keep its Rust prerequisite enabled so desktop-e2e cannot be
+          # silently skipped after a WDIO/configuration-only repair.
+          if grep -qE '^(tests/wdio/|wdio\.conf\.ts$|scripts/desktop/|apps/desktop/src-tauri/tauri\.test\.conf\.json$)' /tmp/changed.txt; then echo "rust=true" >> "$GITHUB_OUTPUT"; echo "desktop=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^apps/website/' /tmp/changed.txt; then echo "website=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^tests/e2e/(canvas|settings|export|menus|layers|motion|home|editor|startup|save|thumbnails|workspace|logo|effects|gradient-map|model-quality|icons|inspector|intelligence|crash|workflow|format|a11y)/|^tests/e2e/.*\.spec\.ts$' /tmp/changed.txt; then echo "e2e=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^tests/e2e/visual/|^tests/e2e/canvas/.*visual.*spec\.ts$|^packages/ui/src/tokens/' /tmp/changed.txt; then echo "visual=true" >> "$GITHUB_OUTPUT"; fi
