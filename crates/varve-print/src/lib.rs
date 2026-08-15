@@ -5089,7 +5089,6 @@ mod tests {
                 midpoint: None,
             },
         ];
-        let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         let mut doc = Document::default();
         let id = create_sampled_function(&mut doc, &stops, true, None);
         assert_ne!(id, ObjectId::default(), "shading should be registered");
