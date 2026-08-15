@@ -54,8 +54,8 @@ tag v0.1.0
    │
    ├── preflight          tag == version == changelog entry, or stop
    ├── gate               lint, typecheck, tests, clippy, cargo test
-   ├── signing-preflight  credentials validated BEFORE any build (fail-closed)
-   ├── bundle             native runners; sign; verify signatures on the
+   ├── signing-preflight  resolve signed or manual-download contingency
+   ├── bundle             native runners; sign when configured; verify the
    │                      artifact bytes (signing-report-*.json); collect; hash
    ├── package-smoke      clean-container install + headless launch (Linux)
    ├── platform-smoke     install/mount + launch + uninstall (Win/macOS)
@@ -67,6 +67,12 @@ tag v0.1.0
 
 A tag never publishes anything by itself. See
 [.github/workflows/release.yml](../../.github/workflows/release.yml).
+
+When `RELEASE_EXPECT_SIGNED` is unset and signing credentials are not yet
+available, the release remains publishable as an explicitly unsigned,
+manual-download release. The workflow omits updater assets until the updater
+private key exists; it never silently downgrades a release that explicitly
+requires signatures.
 
 ## Before you touch any of this
 
