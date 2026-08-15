@@ -2596,9 +2596,13 @@ function paintCanonicalRichText(
         const family = format.fontFamily ?? run.sourceRun.fontFamily;
         target.font = `${style}${Math.max(1, Math.min(1000, weight))} ${size}px "${family}"`;
         if (format.color) target.fillStyle = rgba(format.color);
+        const glyphX =
+          run.direction === 'rtl'
+            ? run.x + run.width - (glyph.x - run.x) - glyph.xAdvance
+            : glyph.x;
         target.fillText(
           cluster,
-          p.x + xOffset + glyph.x + glyph.xOffset,
+          p.x + xOffset + glyphX + glyph.xOffset,
           p.y + verticalOffset + glyph.y,
         );
         target.fillStyle = originalFillStyle;
@@ -2690,9 +2694,13 @@ function paintCanonicalText(
       for (const glyph of run.glyphs) {
         const cluster = snapshot.text.slice(glyph.clusterUtf16, glyph.sourceEnd);
         if (cluster.length === 0 || cluster.includes('\n')) continue;
+        const glyphX =
+          run.direction === 'rtl'
+            ? run.x + run.width - (glyph.x - run.x) - glyph.xAdvance
+            : glyph.x;
         target.fillText(
           cluster,
-          p.x + xOffset + glyph.x + glyph.xOffset,
+          p.x + xOffset + glyphX + glyph.xOffset,
           p.y + verticalOffset + glyph.y,
         );
       }
