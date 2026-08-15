@@ -34,7 +34,7 @@ function findNearestKeyframe(
   duration: number,
   zoom: number,
   clientX: number,
-  container: HTMLDivElement | null,
+  container: HTMLLIElement | null,
 ): number | null {
   if (!container || keyframes.length === 0) return null;
   const rect = container.getBoundingClientRect();
@@ -70,7 +70,7 @@ const TrackRowInner: FC<TrackRowProps> = ({
   onSetMuted,
   onSetSolo,
 }) => {
-  const trackRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLLIElement>(null);
   const [draggingKf, setDraggingKf] = useState<number | null>(null);
 
   const handleRowClick = useCallback(() => {

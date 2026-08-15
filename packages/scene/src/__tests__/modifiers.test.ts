@@ -479,7 +479,7 @@ describe('2.14 → 2.15 migration', () => {
     };
     const migrated = migrateV214ToV215(raw);
     const nodes = migrated.nodes as Record<string, Record<string, unknown>>;
-    const binding = (nodes.n1.bindings as Record<string, PropertyBinding>).fill;
+    const binding = (nodes.n1!.bindings as Record<string, PropertyBinding>).fill;
     expect(binding?.modifiers).toEqual([{ kind: 'alpha', operation: 'multiply', value: 0.5 }]);
   });
 });

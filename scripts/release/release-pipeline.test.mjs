@@ -548,6 +548,14 @@ assert.throws(
   const withDraft = selectRelease([rel('v0.9.9', true), rel('v0.1.0')]);
   assert.equal(withDraft.tag_name, 'v0.1.0', 'draft v0.9.9 must not shadow published v0.1.0');
 
+  // Published auxiliary releases must not shadow the newest product release.
+  const withModelBundle = selectRelease([rel('varve-models-v1'), rel('v0.1.1')]);
+  assert.equal(
+    withModelBundle.tag_name,
+    'v0.1.1',
+    'non-semver model bundle must not be selected as a product release',
+  );
+
   // Stable preferred over prerelease
   const stableWins = selectRelease([rel('v0.2.0-alpha.1'), rel('v0.1.0'), rel('v0.1.1')]);
   assert.equal(stableWins.tag_name, 'v0.1.1', 'highest stable wins over prerelease');
