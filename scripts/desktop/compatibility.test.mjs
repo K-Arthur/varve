@@ -71,6 +71,12 @@ test('parses the WebView2 version from standard registry output', () => {
   );
 });
 
+test('uses the documented Evergreen WebView2 client registry key', () => {
+  const preflight = readFileSync('scripts/desktop/preflight.mjs', 'utf8');
+  assert.match(preflight, /F3017226-FE2A-4295-8BDF-00C3A9A7E4C5/);
+  assert.doesNotMatch(preflight, /F1E7E4A3-5D8A-4A42-BB8B-D0D444CBAE6D/);
+});
+
 test('reports a missing Linux display for native GUI runs', () => {
   const report = evaluateDisplay({
     platform: 'linux',
