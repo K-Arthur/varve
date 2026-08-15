@@ -73,8 +73,10 @@ jobs:
           # silently skipped after a WDIO/configuration-only repair.
           if grep -qE '^(tests/wdio/|wdio\.conf\.ts$|scripts/desktop/|apps/desktop/src-tauri/tauri\.test\.conf\.json$)' /tmp/changed.txt; then echo "rust=true" >> "$GITHUB_OUTPUT"; echo "desktop=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^apps/website/' /tmp/changed.txt; then echo "website=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^tests/e2e/(canvas|settings|export|menus|layers|motion|home|editor|startup|save|thumbnails|workspace|logo|effects|gradient-map|model-quality|icons|inspector|intelligence|crash|workflow|format|a11y)/|^tests/e2e/.*\.spec\.ts$' /tmp/changed.txt; then echo "e2e=true" >> "$GITHUB_OUTPUT"; fi
-          if grep -qE '^tests/e2e/visual/|^tests/e2e/canvas/.*visual.*spec\.ts$|^packages/ui/src/tokens/' /tmp/changed.txt; then echo "visual=true" >> "$GITHUB_OUTPUT"; fi
+          # The browser and visual lanes download the WASM artifact produced
+          # by the Rust job, so a test-only change must still select Rust.
+          if grep -qE '^tests/e2e/(canvas|settings|export|menus|layers|motion|home|editor|startup|save|thumbnails|workspace|logo|effects|gradient-map|model-quality|icons|inspector|intelligence|crash|workflow|format|a11y)/|^tests/e2e/.*\.spec\.ts$' /tmp/changed.txt; then echo "e2e=true" >> "$GITHUB_OUTPUT"; echo "rust=true" >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^tests/e2e/visual/|^tests/e2e/canvas/.*visual.*spec\.ts$|^packages/ui/src/tokens/' /tmp/changed.txt; then echo "visual=true" >> "$GITHUB_OUTPUT"; echo "rust=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^docs/|\.md$' /tmp/changed.txt; then echo "docs=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^(package.json|pnpm-lock.yaml|pnpm-workspace.yaml|tsconfig.base.json|vitest.config.ts|playwright.config.ts|Cargo.toml|Cargo.lock|biome.json|justfile|scripts/quality/|validation-impact.config.mjs)' /tmp/changed.txt; then echo "full=true" >> "$GITHUB_OUTPUT"; fi
           if grep -qE '^apps/desktop/public/models/|^models-source/' /tmp/changed.txt; then echo "models=true" >> "$GITHUB_OUTPUT"; fi
