@@ -140,15 +140,18 @@ pub fn tiled_upscale(
 
 /// Resolve model file path under the shared Varve models directory.
 pub fn model_path(model_id: &str) -> std::path::PathBuf {
-    let base = CONFIGURED_MODEL_DIRECTORY.get().cloned().unwrap_or_else(|| {
-        // Never fall back to the process working directory: the OS temp root
-        // is resolvable everywhere and is process-independent. Desktop builds
-        // always inject the Tauri-resolved root via `configure_model_directory`.
-        dirs_next::data_dir()
-            .unwrap_or_else(std::env::temp_dir)
-            .join("dev.varve.desktop")
-            .join("models")
-    });
+    let base = CONFIGURED_MODEL_DIRECTORY
+        .get()
+        .cloned()
+        .unwrap_or_else(|| {
+            // Never fall back to the process working directory: the OS temp root
+            // is resolvable everywhere and is process-independent. Desktop builds
+            // always inject the Tauri-resolved root via `configure_model_directory`.
+            dirs_next::data_dir()
+                .unwrap_or_else(std::env::temp_dir)
+                .join("dev.varve.desktop")
+                .join("models")
+        });
     let by_id = base.join(format!("{model_id}.onnx"));
     if by_id.exists() {
         return by_id;

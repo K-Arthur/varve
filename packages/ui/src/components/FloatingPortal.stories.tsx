@@ -1,5 +1,5 @@
-import { useRef, useState } from 'storybook/preview-api';
 import type { Meta, StoryObj } from '@storybook/react';
+import { useRef, useState } from 'storybook/preview-api';
 import { FloatingPortal } from './FloatingPortal';
 
 const meta: Meta<typeof FloatingPortal> = {

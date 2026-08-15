@@ -9,7 +9,7 @@ import { join, resolve } from 'node:path';
 import type { Corpus } from './corpus';
 import type { EvaluationReport, QueryReport, RankedEntry } from './evaluate';
 
-const RELATION_LABELS: Record<string, string> = {
+const _RELATION_LABELS: Record<string, string> = {
   base: 'base',
   exact: 'exact',
   resized: 'resized 1/4',
@@ -108,7 +108,7 @@ export function writeContactSheets(
       const firstRelevant = q.semantic.findIndex((e) => e.relevant);
       return { q, firstRelevant };
     })
-    .filter(({ q, firstRelevant }) => firstRelevant === -1 || firstRelevant > 2)
+    .filter(({ firstRelevant }) => firstRelevant === -1 || firstRelevant > 2)
     .sort((a, b) => b.firstRelevant - a.firstRelevant);
   const diffBody = difficult
     .map(

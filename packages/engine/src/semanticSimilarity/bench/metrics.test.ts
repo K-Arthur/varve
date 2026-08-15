@@ -15,7 +15,10 @@ describe('retrieval metrics', () => {
     expect(reciprocalRank([{ id: 'a', score: 0.9 }], relevant)).toBe(0);
     expect(
       reciprocalRank(
-        [{ id: 'a', score: 0.9 }, { id: 'b', score: 0.8 }],
+        [
+          { id: 'a', score: 0.9 },
+          { id: 'b', score: 0.8 },
+        ],
         relevant,
       ),
     ).toBe(0.5);
@@ -46,7 +49,16 @@ describe('retrieval metrics', () => {
     expect(ndcg).toBeGreaterThan(0.5);
     expect(ndcg).toBeLessThan(1);
     // perfect ordering scores 1
-    expect(nDcgAtK([{ id: 'b', score: 1 }, { id: 'd', score: 0.5 }], relevant, 2)).toBe(1);
+    expect(
+      nDcgAtK(
+        [
+          { id: 'b', score: 1 },
+          { id: 'd', score: 0.5 },
+        ],
+        relevant,
+        2,
+      ),
+    ).toBe(1);
   });
 
   it('aggregates query metrics into overall retrieval metrics', () => {
@@ -90,7 +102,12 @@ describe('duplicate detection metrics', () => {
   });
 
   it('handles degenerate empty detections', () => {
-    const m = duplicateMetrics({ truePositives: 0, falsePositives: 0, trueNegatives: 10, falseNegatives: 5 });
+    const m = duplicateMetrics({
+      truePositives: 0,
+      falsePositives: 0,
+      trueNegatives: 10,
+      falseNegatives: 5,
+    });
     expect(m.precision).toBe(0);
     expect(m.recall).toBe(0);
     expect(m.f1).toBe(0);

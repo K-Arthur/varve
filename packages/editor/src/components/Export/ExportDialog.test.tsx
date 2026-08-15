@@ -553,7 +553,9 @@ describe('ExportDialog', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Retry failed \(1\)/ }));
     await waitFor(() => expect(onExport).toHaveBeenCalledTimes(2));
-    const retryBatch = (onExport.mock.calls[1]?.[0] as { jobs: unknown[] }).jobs;
+    const retryCall = onExport.mock.calls[1];
+    if (!retryCall) throw new Error('Expected a retry export call');
+    const retryBatch = (retryCall[0] as { jobs: unknown[] }).jobs;
     expect(retryBatch).toHaveLength(1);
     expect((firstBatch as { jobs: unknown[] }).jobs).toHaveLength(1);
   });

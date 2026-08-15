@@ -694,9 +694,8 @@ impl DocumentStore {
     /// unavailable network/removable file is never silently forgotten.
     pub fn list_recent_files(&self, limit: i64) -> Result<Vec<RecentRow>, rusqlite::Error> {
         let conn = self.conn();
-        let mut stmt = conn.prepare(
-            "SELECT * FROM recent_files ORDER BY last_opened_at DESC LIMIT ?1",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT * FROM recent_files ORDER BY last_opened_at DESC LIMIT ?1")?;
         let rows = stmt.query_map(rusqlite::params![limit], Self::recent_from_row)?;
         rows.collect()
     }
@@ -741,7 +740,10 @@ impl DocumentStore {
 
     pub fn remove_recent_file(&self, id: &str) -> Result<(), rusqlite::Error> {
         let conn = self.conn();
-        conn.execute("DELETE FROM recent_files WHERE id = ?1", rusqlite::params![id])?;
+        conn.execute(
+            "DELETE FROM recent_files WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
         Ok(())
     }
 
@@ -1184,23 +1186,39 @@ mod tests {
         assert_eq!(listed[0].user_workspace_tag, None);
 
         store
-            .patch_recent_file("doc-1", None, None, Some(Some("logo".to_string())), None, None)
+            .patch_recent_file(
+                "doc-1",
+                None,
+                None,
+                Some(Some("logo".to_string())),
+                None,
+                None,
+            )
             .expect("set workspace tag");
         let tagged = store.list_recent_files(50).expect("list again");
         assert_eq!(tagged[0].user_workspace_tag.as_deref(), Some("logo"));
 
         store.remove_recent_file("doc-1").expect("remove");
-        assert!(store.list_recent_files(50).expect("list after remove").is_empty());
+        assert!(store
+            .list_recent_files(50)
+            .expect("list after remove")
+            .is_empty());
     }
 
     #[test]
     fn recent_files_are_sorted_newest_first_and_bounded() {
         let store = temp_store();
-        store.touch_recent_file("a", "A.varve", None, None).expect("a");
+        store
+            .touch_recent_file("a", "A.varve", None, None)
+            .expect("a");
         std::thread::sleep(std::time::Duration::from_millis(2));
-        store.touch_recent_file("b", "B.varve", None, None).expect("b");
+        store
+            .touch_recent_file("b", "B.varve", None, None)
+            .expect("b");
         std::thread::sleep(std::time::Duration::from_millis(2));
-        store.touch_recent_file("c", "C.varve", None, None).expect("c");
+        store
+            .touch_recent_file("c", "C.varve", None, None)
+            .expect("c");
 
         let listed = store.list_recent_files(2).expect("bounded list");
         assert_eq!(listed.len(), 2);
@@ -1208,7 +1226,10 @@ mod tests {
         assert_eq!(listed[1].id, "b");
 
         store.clear_recent_history().expect("clear");
-        assert!(store.list_recent_files(50).expect("list after clear").is_empty());
+        assert!(store
+            .list_recent_files(50)
+            .expect("list after clear")
+            .is_empty());
     }
 
     #[test]
