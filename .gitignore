@@ -151,3 +151,6 @@ scripts/perf/dump*.mjs
 
 # --- Non-bundled downloaded ONNX models (fetched on demand; never commit) ---
 apps/desktop/public/models/*.onnx
+# YuNet is a bundled, checksum-pinned model used by face-aware crop and must
+# remain in the release payload; all other top-level ONNX files are downloads.
+!apps/desktop/public/models/yunet-face-detect.onnx
