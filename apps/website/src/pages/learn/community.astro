@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Community" description="Connect with the Varve community: GitHub Discussions for questions and workflows, issue tracker for bugs and feature requests.">
+<Layout title="Community" description="Connect with the Varve community through GitHub Discussions, issue reports, cross-platform testing, documentation, and workflow feedback.">
   <div class="container-custom">
     <div class="learn-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,7 +12,15 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Community</h1>
       <p class="learn-intro">
-        Connect with the Varve community and learn from others.
+        Connect with the Varve community, learn from other makers, and help
+        shape a local-first design tool in public.
+      </p>
+
+      <p class="community-note">
+        External code contributions are temporarily paused while Varve’s build,
+        release, and documentation foundations settle. Feedback, testing,
+        reproducible bug reports, documentation, and workflow proposals are
+        actively welcome today.
       </p>
 
       <section class="community-section">
@@ -25,23 +33,24 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="community-section">
-        <h2>Contribution</h2>
-        <p>Varve is built by the community. You can contribute in many ways:</p>
+        <h2>How to help now</h2>
+        <p>Choose the channel that gives your contribution the clearest context:</p>
         <ul>
-          <li><strong>Code:</strong> Fix bugs, add features, improve performance</li>
-          <li><strong>Documentation:</strong> Improve docs, write tutorials, translate</li>
-          <li><strong>Testing:</strong> Test on different platforms, report bugs</li>
-          <li><strong>Design:</strong> Create UI mockups, icons, website improvements</li>
+          <li><strong>Bug reports:</strong> Use <a href="https://github.com/K-Arthur/varve/issues">Issues</a> with exact steps, expected and actual results, platform, release, screenshots, and logs.</li>
+          <li><strong>Workflows and ideas:</strong> Use <a href="https://github.com/K-Arthur/varve/discussions">Discussions</a> for feature proposals, architecture questions, and design feedback.</li>
+          <li><strong>Cross-platform testing:</strong> Try the same action on Linux, macOS, or Windows and record the OS, architecture, Varve version, and outcome.</li>
+          <li><strong>Docs and examples:</strong> Point out confusing guidance or share a tutorial, example, translation, or accessibility improvement.</li>
+          <li><strong>Community support:</strong> Help answer questions and connect people with the right documentation.</li>
         </ul>
-        <a href={sitePath('/contribute')} class="btn-secondary">Learn How to Contribute</a>
+        <a href={sitePath('/contribute')} class="btn-secondary">Read the contributor guide</a>
       </section>
 
       <section class="community-section">
         <h2>Support</h2>
-        <p>Support the project financially or through non-financial contributions:</p>
+        <p>Support the project financially or through practical non-financial contributions:</p>
         <ul>
           <li><a href={sitePath('/support-project')}>Financial Support</a> - GitHub Sponsors</li>
-          <li><a href={sitePath('/contribute')}>Non-Financial Contribution</a> - Code, docs, testing, design</li>
+          <li><a href={sitePath('/contribute')}>Non-Financial Contribution</a> - Bugs, testing, docs, workflows, and design feedback</li>
         </ul>
       </section>
 
@@ -82,6 +91,16 @@ import { sitePath } from '../../lib/siteUrl';
   .learn-intro {
     font-size: 1.125rem;
     color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+
+  .community-note {
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    line-height: 1.7;
     margin-bottom: 3rem;
   }
   

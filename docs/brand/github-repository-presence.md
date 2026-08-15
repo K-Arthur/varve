@@ -47,9 +47,23 @@ pnpm screenshots:og
 ```
 
 It is also the website's Open Graph image, which keeps link previews and the
-repository page visually consistent. GitHub does not expose a normal
-repository-avatar setting for a custom mark; use the README hero, favicon,
-release page, and social preview instead of pretending that it does.
+repository page visually consistent.
+
+The square 512×512 repository/owner icon is
+`docs/brand/github-repository-icon.png`. It is generated from the canonical
+`packages/ui/src/icons/varve-app-icon.svg` master with:
+
+```bash
+rsvg-convert -w 512 -h 512 packages/ui/src/icons/varve-app-icon.svg \
+  -o docs/brand/github-repository-icon.png
+```
+
+GitHub does not expose a normal per-repository avatar setting: the small icon
+shown beside a repository name is the owner or organization avatar. Use this
+PNG for a Varve organization avatar, or for the K-Arthur profile only if
+changing the profile avatar for every repository is intentional. The README
+hero and social preview provide repository-specific branding without changing
+the account identity.
 
 ## GitHub settings that are not stored in git
 
