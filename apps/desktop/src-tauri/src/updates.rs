@@ -27,7 +27,16 @@ pub fn update_packaging_context(app: AppHandle) -> UpdatePackagingContext {
     let version = app.package_info().version.to_string();
     let architecture = architecture();
     let channel = channel();
-    let (platform, package_type, authority, location, supported) = detect_runtime();
+    let (platform, package_type, detected_authority, location, detected_supported) =
+        detect_runtime();
+    let (authority, supported) = if updater_enabled() {
+        (detected_authority, detected_supported)
+    } else {
+        // Unsigned/manual releases deliberately omit the updater public key.
+        // Keep the capability unavailable even for writable AppImages so the
+        // frontend never attempts a check that cannot be signature-verified.
+        ("manual-only", false)
+    };
     let build_label = format!("{architecture} {}", package_label(package_type));
     UpdatePackagingContext {
         platform,
@@ -40,6 +49,14 @@ pub fn update_packaging_context(app: AppHandle) -> UpdatePackagingContext {
         runtime_supported: supported,
         build_label,
     }
+}
+
+fn updater_enabled() -> bool {
+    updater_enabled_for_mode(option_env!("VARVE_UPDATER_MODE"))
+}
+
+fn updater_enabled_for_mode(mode: Option<&str>) -> bool {
+    !matches!(mode, Some("manual-only"))
 }
 
 fn architecture() -> &'static str {
@@ -206,13 +223,20 @@ fn directory_writable(path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{appimage_capability, package_label};
+    use super::{appimage_capability, package_label, updater_enabled_for_mode};
     use std::fs;
 
     #[test]
     fn package_labels_are_not_os_labels() {
         assert_eq!(package_label("appimage"), "AppImage");
         assert_eq!(package_label("unknown"), "build");
+    }
+
+    #[test]
+    fn manual_only_mode_disables_update_capability() {
+        assert!(!updater_enabled_for_mode(Some("manual-only")));
+        assert!(updater_enabled_for_mode(Some("signed")));
+        assert!(updater_enabled_for_mode(None));
     }
 
     #[test]

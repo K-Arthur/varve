@@ -2,6 +2,9 @@ fn main() {
     if let Ok(channel) = std::env::var("VARVE_UPDATE_CHANNEL") {
         println!("cargo:rustc-env=VARVE_UPDATE_CHANNEL={channel}");
     }
+    if let Ok(mode) = std::env::var("VARVE_UPDATER_MODE") {
+        println!("cargo:rustc-env=VARVE_UPDATER_MODE={mode}");
+    }
     let manifest_dir = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let dst = manifest_dir.join("capabilities/wdio.json");
 
