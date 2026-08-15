@@ -9,6 +9,7 @@ import {
   evaluateWdioCompatibility,
   evaluateWindowsWebView2,
   getLinuxInstallHint,
+  parseWindowsWebView2Version,
 } from './compatibility.mjs';
 
 test('reports a missing native-utils export before WDIO starts', () => {
@@ -55,6 +56,19 @@ test('requires WebView2 only on Windows', () => {
   const report = evaluateWindowsWebView2({ platform: 'win32', version: null });
   assert.equal(report.ok, false);
   assert.match(report.remediation, /WebView2/);
+});
+
+test('parses the WebView2 version from standard registry output', () => {
+  assert.equal(
+    parseWindowsWebView2Version(
+      '    pv    REG_SZ    138.0.3351.121\r\n    name  REG_SZ    Microsoft Edge WebView2 Runtime',
+    ),
+    '138.0.3351.121',
+  );
+  assert.equal(
+    parseWindowsWebView2Version('ERROR: The system was unable to find the specified registry key.'),
+    null,
+  );
 });
 
 test('reports a missing Linux display for native GUI runs', () => {

@@ -19,6 +19,7 @@ import {
   evaluateWindowsWebView2,
   evaluateXvfb,
   getLinuxInstallHint,
+  parseWindowsWebView2Version,
 } from './compatibility.mjs';
 
 const wantsJson = process.argv.includes('--json');
@@ -42,12 +43,28 @@ const getDistro = () => {
 const pkgConfigVersion = (name) => run('pkg-config', ['--modversion', name]);
 const windowsWebView2Version = () => {
   if (process.platform !== 'win32') return null;
-  return run('powershell', [
+  const clientId = '{F1E7E4A3-5D8A-4A42-BB8B-D0D444CBAE6D}';
+  const registryKeys = [
+    `HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\${clientId}`,
+    `HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\${clientId}`,
+    `HKCU\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\${clientId}`,
+  ];
+
+  for (const key of registryKeys) {
+    const registryOutput = run('reg', ['query', key, '/v', 'pv']);
+    const version = parseWindowsWebView2Version(registryOutput);
+    if (version) return version;
+  }
+
+  // Some hosted images expose the runtime directory while registry
+  // virtualization hides the client key from the runner account.
+  const directoryOutput = run('powershell', [
     '-NoProfile',
     '-NonInteractive',
     '-Command',
-    "(Get-ItemProperty 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\*','HKLM:\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\*' -ErrorAction SilentlyContinue | Where-Object { $_.name -eq '{F1E7E4A3-5D8A-4A42-BB8B-D0D444CBAE6D}' } | Select-Object -First 1 -ExpandProperty pv)",
+    "Get-ChildItem 'C:\\Program Files (x86)\\Microsoft\\EdgeWebView\\Application','C:\\Program Files\\Microsoft\\EdgeWebView\\Application' -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty Name",
   ]);
+  return directoryOutput?.match(/^\d+(?:\.\d+){2,}$/m)?.[0] ?? null;
 };
 const macosRuntime = () => {
   if (process.platform !== 'darwin') return null;
