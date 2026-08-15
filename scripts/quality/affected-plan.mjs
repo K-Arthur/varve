@@ -31,8 +31,18 @@ const _PKGS = join(ROOT, 'packages');
  * repository-relative POSIX form. Git paths and impact globs use `/` on every
  * runner, while package managers return the host-native separator on Windows.
  */
+function toRepoRelativePath(rootValue, filePath, pathApi = { relative, sep }) {
+  const root = String(rootValue).replaceAll('\\', '/').replace(/\/+$/, '');
+  const path = String(filePath).replaceAll('\\', '/');
+  const prefix = `${root}/`;
+  if (path.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return path.slice(prefix.length);
+  }
+  return pathApi.relative(rootValue, filePath).split(pathApi.sep).join('/');
+}
+
 function repoRelativePath(filePath) {
-  return relative(ROOT, filePath).split(sep).join('/');
+  return toRepoRelativePath(ROOT, filePath);
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -608,7 +618,15 @@ function formatPlan(plan, opts) {
 
 // ── main ───────────────────────────────────────────────────────────────────
 
-export { buildPlan, defaultScope, formatPlan, gitBaseFor, gitChangedFiles, loadPackages };
+export {
+  buildPlan,
+  defaultScope,
+  formatPlan,
+  gitBaseFor,
+  gitChangedFiles,
+  loadPackages,
+  toRepoRelativePath,
+};
 
 export function parseArgs(argv) {
   const args = argv.slice(2);
