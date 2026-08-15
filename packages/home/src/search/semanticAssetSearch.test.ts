@@ -229,6 +229,27 @@ describe('SemanticAssetSearchService', () => {
     expect(latest.textModelAvailable).toBe(true);
   });
 
+  it('does not publish after disposal while startup is still pending', async () => {
+    let resolveImageAvailability: ((available: boolean) => void) | undefined;
+    const statuses: SemanticSearchStatus[] = [];
+    const deps = makeDeps({
+      onStatus: (status) => statuses.push(status),
+      isImageModelAvailable: () =>
+        new Promise<boolean>((resolve) => {
+          resolveImageAvailability = resolve;
+        }),
+    });
+    const svc = createSemanticAssetSearchService(deps);
+    const start = svc.start();
+
+    svc.dispose();
+    resolveImageAvailability?.(true);
+    await start;
+
+    expect(statuses).toHaveLength(0);
+    expect(() => svc.dispose()).not.toThrow();
+  });
+
   it('skips corrupt records from the persistent store without breaking search', async () => {
     const store = new MemorySemanticEmbeddingStore();
     const bad = {

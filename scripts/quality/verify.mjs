@@ -94,6 +94,13 @@ function runE2eDomains(domains) {
   }
   const workers = process.env.VARVE_E2E_WORKERS;
   if (workers) args.push('--workers', workers);
+  // CachyOS local validation installs Chromium only. Browser farms can opt
+  // into the complete matrix with VARVE_E2E_PROJECTS=chromium,firefox,webkit.
+  const projects = (process.env.VARVE_E2E_PROJECTS ?? 'chromium')
+    .split(',')
+    .map((project) => project.trim())
+    .filter(Boolean);
+  for (const project of projects) args.push(`--project=${project}`);
   if (domains.includes('visual'))
     args.push('--project=chromium-visual-1x', '--project=chromium-visual-2x');
   if (domains.length === 1 && domains[0] === 'visual')

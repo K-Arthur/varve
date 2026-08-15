@@ -1,7 +1,13 @@
 /** @vitest-environment jsdom */
 
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { createMemoryPlatform, makeFileEntry, type Workspace } from '@varve/platform';
+import {
+  createMemoryPlatform,
+  defaultViewState,
+  type HomeViewState,
+  makeFileEntry,
+  type Workspace,
+} from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { useFileActions } from './useFileActions';
 import { useHomeView } from './useHomeView';
@@ -11,6 +17,22 @@ function sampleJson(name: string) {
 }
 
 describe('useHomeView — workspace filtering', () => {
+  it('keeps a sidebar selection made while the initial load is pending', async () => {
+    const platform = createMemoryPlatform();
+    let releaseViewState!: (viewState: HomeViewState) => void;
+    const pendingViewState = new Promise<HomeViewState>((resolve) => {
+      releaseViewState = resolve;
+    });
+    vi.spyOn(platform, 'getViewState').mockReturnValue(pendingViewState);
+
+    const { result } = renderHook(() => useHomeView(platform));
+    act(() => result.current.setSection('assets'));
+    releaseViewState(defaultViewState());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.state.section).toBe('assets');
+  });
+
   it('defaults to the first personal workspace', async () => {
     const platform = createMemoryPlatform();
     const { result } = renderHook(() => useHomeView(platform));

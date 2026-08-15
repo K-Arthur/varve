@@ -69,8 +69,10 @@ export function useHomeView(platform: Platform): HomeView & {
   const [recentRecords, setRecentRecords] = useState<RecentFileRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const viewStateRef = useRef<HomeViewState>(state);
+  const viewStateRevisionRef = useRef(0);
 
   const load = useCallback(async () => {
+    const loadRevision = viewStateRevisionRef.current;
     setLoading(true);
     try {
       const [vs, fileList, trashList, projList, wsList] = await Promise.all([
@@ -90,9 +92,14 @@ export function useHomeView(platform: Platform): HomeView & {
           ? merged.activeWorkspaceId
           : (personal?.id ?? null);
       const next: HomeViewState = { ...merged, activeWorkspaceId };
-      viewStateRef.current = next;
-      setState(next);
-      platform.setViewState(next);
+      // A user can click a sidebar item while the initial platform reads are
+      // still pending. Preserve that newer local interaction instead of
+      // replacing it with the stale persisted view state when the reads land.
+      if (viewStateRevisionRef.current === loadRevision) {
+        viewStateRef.current = next;
+        setState(next);
+        platform.setViewState(next);
+      }
       setAllFiles(fileList);
       setAllTrashedFiles(trashList);
       setAllProjects(projList);
@@ -105,6 +112,7 @@ export function useHomeView(platform: Platform): HomeView & {
 
   const persist = useCallback(
     (s: HomeViewState) => {
+      viewStateRevisionRef.current += 1;
       viewStateRef.current = s;
       setState(s);
       platform.setViewState(s);
