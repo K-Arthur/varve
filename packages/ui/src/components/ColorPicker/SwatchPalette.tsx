@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
 import type { ManagedColor } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
+import { useCallback, useRef, useState } from 'react';
 import { Tooltip } from '../Tooltip';
 import type { Color } from './color-utils';
 import { rgbToHex } from './color-utils';
@@ -140,8 +140,8 @@ export function SwatchPalette({
     return { name: rgbToHex(display[0], display[1], display[2]), display, value: c };
   });
 
-  const themeSwatches: { name: string; display: Color; value: ManagedColor }[] =
-    THEME_PALETTE.map(({ name, color }) => ({
+  const themeSwatches: { name: string; display: Color; value: ManagedColor }[] = THEME_PALETTE.map(
+    ({ name, color }) => ({
       name,
       display: color,
       value: {
@@ -151,7 +151,8 @@ export function SwatchPalette({
         b: color[2],
         a: color[3],
       },
-    }));
+    }),
+  );
 
   return (
     <div

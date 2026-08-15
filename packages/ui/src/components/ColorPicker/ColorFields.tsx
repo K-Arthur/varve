@@ -1,5 +1,5 @@
-import { useCallback, useId, useState } from 'react';
 import type { BitDepth } from '@varve/scene';
+import { useCallback, useId, useState } from 'react';
 import type { Color } from './color-utils';
 import { hexToRgba, hsbToRgb, hslToRgb, rgbToHex, rgbToHsb, rgbToHsl } from './color-utils';
 import { SpinbuttonRow } from './SpinbuttonRow';
@@ -56,7 +56,11 @@ export function ColorFields({
   const hexId = useId();
 
   const displayScale: 'uint8' | 'uint16' | 'float' =
-    bitDepth === 'uint16' ? 'uint16' : bitDepth === 'float16' || bitDepth === 'float32' ? 'float' : 'uint8';
+    bitDepth === 'uint16'
+      ? 'uint16'
+      : bitDepth === 'float16' || bitDepth === 'float32'
+        ? 'float'
+        : 'uint8';
 
   const toNormalized = useCallback(
     (v: number, scale: 'uint8' | 'uint16' | 'float'): number =>
@@ -226,7 +230,11 @@ export function ColorFields({
         : { min: 0, max: 255, step: 1, decimals: 0 };
 
   const rgbFieldValue = (v: number): number =>
-    displayScale === 'uint16' ? Math.round((v / 255) * 65535) : displayScale === 'float' ? v / 255 : v;
+    displayScale === 'uint16'
+      ? Math.round((v / 255) * 65535)
+      : displayScale === 'float'
+        ? v / 255
+        : v;
 
   return (
     <div className="color-fields">

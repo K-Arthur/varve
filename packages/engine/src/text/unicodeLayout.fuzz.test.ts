@@ -366,7 +366,7 @@ describe('text layout property invariants', () => {
 
 describe('pathological input safety', () => {
   it('lays out a base plus 1000 combining marks without splitting it', () => {
-    const text = 'a' + '\u0301'.repeat(1000);
+    const text = `a${'\u0301'.repeat(1000)}`;
     const snapshot = layoutOf(text, 50);
     expect(snapshot.lines.length).toBeGreaterThanOrEqual(1);
     const offsets = new Set(snapshot.caretStops.map((stop) => stop.offset));
@@ -397,7 +397,7 @@ describe('pathological input safety', () => {
   });
 
   it('survives a long ZWJ emoji chain without inventing grapheme boundaries', () => {
-    const text = '👨' + '\u200d'.repeat(500) + '👦';
+    const text = `👨${'\u200d'.repeat(500)}👦`;
     const snapshot = layoutOf(text, 100);
     const offsets = new Set(snapshot.caretStops.map((stop) => stop.offset));
     // ICU (UAX #29 GB9b) closes the ZWJ sequence before the final emoji,
@@ -407,7 +407,7 @@ describe('pathological input safety', () => {
   });
 
   it('survives a burst of BiDi controls without corrupting source order', () => {
-    const text = 'a' + '\u2066'.repeat(200) + 'b' + '\u2069'.repeat(200) + 'c';
+    const text = `a${'\u2066'.repeat(200)}b${'\u2069'.repeat(200)}c`;
     const snapshot = layoutOf(text, 500);
     expect(snapshot.text).toBe(text);
     const reconstructed = snapshot.lines

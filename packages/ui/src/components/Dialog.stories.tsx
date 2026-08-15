@@ -1,5 +1,5 @@
-import { useState } from 'storybook/preview-api';
 import type { Meta, StoryObj } from '@storybook/react';
+import { useState } from 'storybook/preview-api';
 import { AlertDialog, Dialog } from './Dialog';
 
 const meta: Meta<typeof Dialog> = {
