@@ -93,7 +93,9 @@ function isTauriSurface(repoRel) {
 export function resolveSpecifier(spec, fromFile, root = ROOT) {
   if (spec.startsWith('.')) {
     const target = resolve(dirname(fromFile), spec);
-    const rel = relative(root, target);
+    // `relative()` uses the host separator. Keep repository paths POSIX-like
+    // so zoneOf() behaves identically on Linux, macOS, and Windows runners.
+    const rel = relative(root, target).replaceAll('\\', '/');
     return rel.startsWith('..') ? null : rel;
   }
   const alias = WORKSPACE_ALIASES.get(spec);
