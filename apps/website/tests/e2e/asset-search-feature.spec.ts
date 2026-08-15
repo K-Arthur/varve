@@ -18,5 +18,5 @@ test('asset search page remains usable at mobile width', async ({ page }) => {
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
-  await expect(page.getByRole('link', { name: 'Download Varve' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Download Varve', exact: true })).toBeVisible();
 });

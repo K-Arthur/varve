@@ -136,19 +136,40 @@ export function isActiveUpdateState(kind: string): boolean {
 }
 
 export class BroadcastWindowSync {
-  private readonly channel: BroadcastChannel;
+  private channel: BroadcastChannel;
   private readonly listeners = new Set<(message: WindowSyncMessage) => void>();
+  private closed = false;
+  private readonly name: string;
 
   constructor(
     name: string = UPDATE_SYNC_CHANNEL,
     private readonly storage: Storage = window.localStorage,
     private readonly owner: string = Math.random().toString(36).slice(2),
   ) {
+    this.name = name;
     this.channel = new BroadcastChannel(name);
+    this.bindChannel();
+  }
+
+  private bindChannel(): void {
     this.channel.onmessage = (event) => {
       const message = event.data as WindowSyncMessage;
       for (const listener of this.listeners) listener(message);
     };
+  }
+
+  /**
+   * React StrictMode intentionally mounts, cleans up, and mounts effects
+   * again. The provider memoizes this transport across that probe, so a
+   * cleanup can close the channel before the second effect subscribes. Reopen
+   * lazily on the next use; real unmounts remain fully closed because no
+   * references are retained after cleanup.
+   */
+  private ensureOpen(): void {
+    if (!this.closed) return;
+    this.channel = new BroadcastChannel(this.name);
+    this.closed = false;
+    this.bindChannel();
   }
 
   getOwner(): string {
@@ -172,16 +193,33 @@ export class BroadcastWindowSync {
   }
 
   publish(message: WindowSyncMessage): void {
-    this.channel.postMessage(message);
+    this.ensureOpen();
+    try {
+      this.channel.postMessage(message);
+    } catch (error) {
+      // A webview can close a channel during navigation or hot reload between
+      // the state update and the post. Reopen once and retry that message so
+      // update coordination cannot crash the entire React tree.
+      if (error instanceof DOMException && error.name === 'InvalidStateError') {
+        this.closed = true;
+        this.ensureOpen();
+        this.channel.postMessage(message);
+        return;
+      }
+      throw error;
+    }
   }
 
   subscribe(listener: (message: WindowSyncMessage) => void): () => void {
+    this.ensureOpen();
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
 
   close(): void {
+    if (this.closed) return;
     this.channel.close();
+    this.closed = true;
     this.listeners.clear();
   }
 }

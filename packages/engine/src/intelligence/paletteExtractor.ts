@@ -12,6 +12,9 @@ import {
 
 /** Version of the numeric pipeline. Bump when output semantics change. */
 export const PALETTE_ANALYSIS_VERSION = 2;
+export const PALETTE_DEFAULT_COLOR_COUNT = 6;
+export const PALETTE_MIN_COLOR_COUNT = 3;
+export const PALETTE_MAX_COLOR_COUNT = 32;
 
 /** Local ManagedColor alias that keeps the engine independent from @varve/scene. */
 type ManagedColor = ManagedColorShim;
@@ -120,14 +123,13 @@ export interface HarmonyPalette {
 }
 
 const DEFAULT_CONFIG: Omit<PaletteAnalysisConfig, 'seed'> = {
-  colorCount: 6,
+  colorCount: PALETTE_DEFAULT_COLOR_COUNT,
   maxSamples: 4096,
   alphaThreshold: 0.08,
   maxIterations: 24,
   mergeDistance: 0.025,
 };
 
-const MAX_COLOR_COUNT = 12;
 const MAX_SAMPLE_COUNT = 16_384;
 
 interface Point {
@@ -600,7 +602,10 @@ export function analyzePalette(
   const baseConfig = {
     ...DEFAULT_CONFIG,
     ...options,
-    colorCount: normalizeCount(options.colorCount ?? DEFAULT_CONFIG.colorCount, MAX_COLOR_COUNT),
+    colorCount: normalizeCount(
+      options.colorCount ?? DEFAULT_CONFIG.colorCount,
+      PALETTE_MAX_COLOR_COUNT,
+    ),
     maxSamples: normalizeCount(options.maxSamples ?? DEFAULT_CONFIG.maxSamples, MAX_SAMPLE_COUNT),
     alphaThreshold: clamp(options.alphaThreshold ?? DEFAULT_CONFIG.alphaThreshold, 0, 1),
     maxIterations: normalizeCount(options.maxIterations ?? DEFAULT_CONFIG.maxIterations, 64),

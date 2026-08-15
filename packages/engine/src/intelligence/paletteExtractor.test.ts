@@ -289,6 +289,24 @@ describe('extractPalette', () => {
       expect(swatch.weight).toBeGreaterThanOrEqual(0);
     }
   });
+
+  it('honors user-selected palette counts beyond the legacy six-color default', () => {
+    const width = 32;
+    const height = 32;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let i = 0; i < width * height; i += 1) {
+      const offset = i * 4;
+      const channel = Math.floor(i / 32) * 8;
+      data[offset] = channel;
+      data[offset + 1] = 255 - channel;
+      data[offset + 2] = (i % 32) * 8;
+      data[offset + 3] = 255;
+    }
+    const result = analyzePalette({ width, height, data }, { colorCount: 24 });
+
+    expect(result.config.colorCount).toBe(24);
+    expect(result.extracted.length).toBeLessThanOrEqual(24);
+  });
 });
 
 describe('Harmony generation', () => {

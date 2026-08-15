@@ -10,12 +10,14 @@ on:
       - Model Supply Chain Validation
       - Model Quantization & Validation
       - E2E Keyboard Nav
+      - Visual Baselines
     types:
       - completed
 
 permissions:
   contents: read
   actions: read
+  checks: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.workflow_run.id }}
@@ -24,7 +26,7 @@ concurrency:
 jobs:
   debug-report:
     name: Debug Report
-    if: github.event.workflow_run.conclusion == 'failure'
+    if: github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'timed_out'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -42,7 +44,8 @@ jobs:
         id: probe
         continue-on-error: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           node scripts/ci-debug.mjs \
             --probe \
@@ -59,7 +62,8 @@ jobs:
       - name: Generate debug report
         if: steps.probe.outcome == 'success'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           # ci-debug.mjs is dependency-free (Node builtins only) — no pnpm
           # install needed. A full `pnpm install --frozen-lockfile` here is

@@ -9,8 +9,10 @@ import {
   classifyJobFailure,
   classifyRunFailures,
   extractFailures,
+  hasFailureSourceForJob,
   isFailureLine,
   isStuckQueued,
+  normalizeLogSource,
   rankLine,
   redactSensitive,
 } from './ci-debug.mjs';
@@ -49,6 +51,15 @@ assertTrue(
   'should detect AssertionError',
 );
 assertTrue(isFailureLine('test failed: foo'), 'should detect test failed');
+assertTrue(
+  isFailureLine('Traceback (most recent call last):'),
+  'should detect Python traceback failures',
+);
+assertTrue(isFailureLine('fatal error: vector.hpp not found'), 'should detect C/C++ fatal errors');
+assertTrue(
+  isFailureLine('ninja: build stopped: subcommand failed'),
+  'should detect Ninja build failures',
+);
 
 // Negative matches
 assertTrue(!isFailureLine('  + exit 0'), 'should ignore exit 0');
@@ -83,6 +94,26 @@ assertTrue(
   'snippet should include failing line',
 );
 assertTrue(hits[0].snippet.includes('at some_function'), 'context should include following line');
+
+// GitHub prefixes run-archive job filenames with a numeric index. The report
+// must recognise that indexed filename as the same job before adding a false
+// "no log text" fallback entry.
+assert.strictEqual(
+  normalizeLogSource('0_Build (windows-latest).txt'),
+  normalizeLogSource('Build (windows-latest)'),
+  'indexed archive filename normalises to the job name',
+);
+assertTrue(
+  hasFailureSourceForJob(
+    { '0_Build (windows-latest)': [{ line: 42, rank: 1, text: 'Error: boom', snippet: '' }] },
+    'Build (windows-latest)',
+  ),
+  'indexed archive failure source matches job metadata',
+);
+assertTrue(
+  !hasFailureSourceForJob({ '0_Rust (ubuntu-latest)': [] }, 'Build (windows-latest)'),
+  'different job names do not match',
+);
 
 // Job classification: billing-blocked jobs never start and have zero steps.
 const billingAnnotations = [
@@ -157,6 +188,10 @@ assert.strictEqual(
 assertTrue(
   isStuckQueued({ status: 'queued', started_at: '2026-08-06T18:00:00Z' }, NOW),
   'isStuckQueued true for old queued run',
+);
+assertTrue(
+  isStuckQueued({ status: 'queued', run_started_at: '2026-08-06T18:00:00Z' }, NOW),
+  'isStuckQueued accepts GitHub workflow run timestamps',
 );
 
 // classifyRunFailures: probe-mode aggregation.

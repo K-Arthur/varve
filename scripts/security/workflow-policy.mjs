@@ -514,7 +514,10 @@ export function auditWorkflow(doc, filename) {
 }
 
 export function auditWorkflowYaml(text, filename) {
-  const doc = load(text, { json: true });
+  // `json: true` makes js-yaml silently accept duplicate mapping keys. That
+  // is unsafe for workflows: a second `env`, `permissions`, or `jobs` block
+  // can replace the first one while the file still looks valid in review.
+  const doc = load(text);
   if (!doc || typeof doc !== 'object') {
     return [`${filename}: YAML parsed to a non-object document`];
   }

@@ -6,7 +6,7 @@
 import type { ExportFormat, RenderingIntent } from '@varve/scene';
 import { NumberInput, Select } from '@varve/ui';
 import { useState } from 'react';
-import { loadSettings, saveSettings } from '../../settings';
+import { useSettings } from './SettingsContext';
 
 import './ExportSettingsTab.css';
 
@@ -62,7 +62,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 export function ExportSettingsTab() {
-  const [settings, setSettings] = useState(() => loadSettings());
+  const { settings, updateSection } = useSettings();
   const [customScale, setCustomScale] = useState('');
 
   const scaleValue =
@@ -71,9 +71,7 @@ export function ExportSettingsTab() {
       : 'custom';
 
   function updateExport(patch: Partial<typeof settings.export>) {
-    const next = { ...settings, export: { ...settings.export, ...patch } };
-    setSettings(next);
-    saveSettings(next);
+    updateSection('export', patch as Record<string, unknown>);
   }
 
   function handleScaleSelect(value: string) {

@@ -75,6 +75,20 @@ describe('CropOverlay', () => {
     });
     expect(setCropRect).toHaveBeenCalledWith({ x: 20, y: 10, w: 99, h: 50 });
   });
+
+  it('commits when Enter is pressed while the crop overlay owns focus', () => {
+    const onDone = vi.fn();
+    render(
+      <CropOverlay
+        tool={makeTool()}
+        screenBounds={{ x: 0, y: 0, w: 200, h: 100 }}
+        onDone={onDone}
+        onCancel={() => {}}
+      />,
+    );
+    fireEvent.keyDown(screen.getByTestId('crop-overlay'), { key: 'Enter' });
+    expect(onDone).toHaveBeenCalledOnce();
+  });
 });
 
 function makeTool(overrides: Partial<Pick<CropTool, 'setCropRect'>> = {}): CropTool {
