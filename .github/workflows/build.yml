@@ -26,6 +26,8 @@ jobs:
         with:
           lfs: true
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install just
         uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
@@ -98,6 +100,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
+          toolchain: 1.97.1
           components: rustfmt, clippy
 
       - name: Install Linux system deps
