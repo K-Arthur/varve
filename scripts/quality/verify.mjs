@@ -85,8 +85,12 @@ function runE2eDomains(domains) {
   for (const d of domains) {
     if (d === 'visual') continue; // handled by project selection
     const paths = IMPACT_CONFIG.e2eDomains[d];
-    if (paths?.length) args.push(...paths);
-    else args.push(`tests/e2e/${d}`);
+    if (paths?.length) {
+      // Impact config uses `/**` to describe a recursive domain for glob
+      // matching. Playwright accepts the directory itself, but interprets the
+      // raw glob as a regular-expression filter and rejects the `**` token.
+      args.push(...paths.map((path) => path.replace(/\/\*\*$/, '')));
+    } else args.push(`tests/e2e/${d}`);
   }
   const workers = process.env.VARVE_E2E_WORKERS;
   if (workers) args.push('--workers', workers);
