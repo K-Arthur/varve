@@ -249,6 +249,7 @@ jobs:
       windows_mode: ${{ steps.policy.outputs.windows_mode }}
       macos_mode: ${{ steps.policy.outputs.macos_mode }}
       signing_required: ${{ steps.policy.outputs.signing_required }}
+      updater_mode: ${{ steps.policy.outputs.updater_mode }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -287,6 +288,11 @@ jobs:
           echo "macos_mode=$(echo "${POLICY}" | node -e "process.stdin.on('data',d=>{const p=JSON.parse(d);process.stdout.write(p.macos)})")" >> "$GITHUB_OUTPUT"
           W="$(echo "${POLICY}" | node -e "process.stdin.on('data',d=>{const p=JSON.parse(d);process.stdout.write(String(p.windows==='signed'||p.macos==='signed'))})")"
           echo "signing_required=${W}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}" == "true" ]]; then
+            echo "updater_mode=signed" >> "$GITHUB_OUTPUT"
+          else
+            echo "updater_mode=manual-only" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Report policy outcome
         shell: bash
@@ -298,19 +304,20 @@ jobs:
             echo "- macOS: **${{ steps.policy.outputs.macos_mode }}**"
             echo "- Channel: ${{ needs.preflight.outputs.channel }}"
             echo "- RELEASE_EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED || '(unset)' }}"
+            echo "- Updater: **${{ steps.policy.outputs.updater_mode }}**"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Require protected updater signing key
+      - name: Record manual-update contingency
         shell: bash
         env:
           TAURI_KEY_PRESENT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
           if [[ "${TAURI_KEY_PRESENT}" != "true" ]]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for release updater artifacts."
-            echo "The updater public key is embedded in the app; publishing an unsigned .sig/feed would be fail-open."
-            exit 1
+            echo "::warning::Updater signing key is absent; publishing manual-download installers without an updater feed."
+            echo "Platform signedness remains independently governed by RELEASE_EXPECT_SIGNED."
+          else
+            echo "Tauri updater signing key present (value never printed)."
           fi
-          echo "Tauri updater signing key present (value never printed)."
 
   # ── 3. Platform bundles on native runners ───────────────────────────────────
   bundle:
@@ -657,7 +664,8 @@ jobs:
             --bundle-dir "${TAURI_BUNDLE_DIR}" \
             --out dist/release \
             --os ${{ matrix.os_slug }} \
-            --arch ${{ matrix.arch_slug }}
+            --arch ${{ matrix.arch_slug }} \
+            --updater-signatures "${{ needs.signing-preflight.outputs.updater_mode == 'signed' }}"
         shell: bash
 
       # Platform-specific SBOM: the bundle contents differ per platform (the
@@ -988,7 +996,7 @@ jobs:
   # Any step failing stops the release before a draft exists.
   verify:
     name: Verify, attest and finalize
-    needs: [preflight, bundle, package-smoke, platform-smoke]
+    needs: [preflight, signing-preflight, bundle, package-smoke, platform-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -1044,6 +1052,7 @@ jobs:
             --expect-signed "${EXPECT}"
 
       - name: Generate signed updater feed
+        if: needs.signing-preflight.outputs.updater_mode == 'signed'
         shell: bash
         run: |
           node scripts/release/generate-updater-feed.mjs \
@@ -1051,6 +1060,16 @@ jobs:
             --version '${{ needs.preflight.outputs.version }}' \
             --channel '${{ needs.preflight.outputs.channel }}' \
             --base-url 'https://github.com/K-Arthur/varve/releases/download/${{ needs.preflight.outputs.tag }}'
+
+      - name: Record manual update fallback
+        if: needs.signing-preflight.outputs.updater_mode != 'signed'
+        run: |
+          {
+            echo "### Manual update fallback"
+            echo ""
+            echo "Updater signatures were not available; no updater feed was generated."
+            echo "Installers remain available for manual download and are labelled with their verified platform signing state."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The combined SBOM describes the whole multi-platform release; its scope
       # is declared explicitly in its metadata. Platform-specific SBOMs arrived

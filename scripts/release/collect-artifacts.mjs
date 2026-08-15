@@ -22,9 +22,10 @@
  *     --bundle-dir apps/desktop/src-tauri/target/release/bundle \
  *     --out dist/release \
  *     [--os linux] [--arch x86_64]
+ *     [--updater-signatures true|false]
  *
  * Emits into --out:
- *   <renamed artifacts>
+ *   <renamed artifacts> (and updater .sig files when requested)
  *   SHA256SUMS.txt            sha256sum -c compatible
  *   release-manifest.json     consumed by the website download page
  */
@@ -78,7 +79,7 @@ function humanSize(bytes) {
   return mb >= 1000 ? `${(mb / 1000).toFixed(2)} GB` : `${mb.toFixed(1)} MB`;
 }
 
-function collect({ bundleDir, outDir, os, arch, version, product }) {
+function collect({ bundleDir, outDir, os, arch, version, product, updaterSignatures }) {
   if (!existsSync(bundleDir)) {
     throw new Error(
       `Bundle directory not found: ${bundleDir}\n` +
@@ -121,7 +122,7 @@ function collect({ bundleDir, outDir, os, arch, version, product }) {
       // and emits the detached `.sig` beside them. The signature is a release
       // input, not an OS code-signing claim; publish it so the feed can be
       // audited against the exact bytes users download.
-      if (meta.format === 'appimage' || meta.format === 'nsis') {
+      if (updaterSignatures && (meta.format === 'appimage' || meta.format === 'nsis')) {
         copyUpdaterSignature({ source, canonical, outDir });
       }
     }
@@ -137,7 +138,7 @@ function collect({ bundleDir, outDir, os, arch, version, product }) {
       if (!statSync(source).isFile()) continue;
       const canonical = `${product}-${version}-${os}-${arch}.app.tar.gz`;
       copyFileSync(source, join(outDir, canonical));
-      copyUpdaterSignature({ source, canonical, outDir });
+      if (updaterSignatures) copyUpdaterSignature({ source, canonical, outDir });
     }
   }
 
@@ -214,6 +215,7 @@ function main() {
   const currentTarget = targetById(currentTargetId());
   const os = args.os ?? currentTarget.os;
   const arch = args.arch ?? currentTarget.architecture;
+  const updaterSignatures = args['updater-signatures'] !== 'false';
   targetFor(os, arch);
 
   const version = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf-8')).version;
@@ -227,7 +229,15 @@ function main() {
   // Read from tauri.conf.json rather than hardcoded, so a product rename
   // renames the artifacts too instead of silently shipping the old name.
   const product = productSlug();
-  const artifacts = collect({ bundleDir, outDir, os, arch, version, product });
+  const artifacts = collect({
+    bundleDir,
+    outDir,
+    os,
+    arch,
+    version,
+    product,
+    updaterSignatures,
+  });
   writeChecksums(outDir, artifacts);
   const manifest = writeManifest(outDir, artifacts, version);
 
@@ -238,6 +248,7 @@ function main() {
     );
   }
   process.stdout.write(`\nOutput: ${outDir}\n`);
+  process.stdout.write(`Updater signatures required: ${updaterSignatures ? 'yes' : 'no'}\n`);
   process.stdout.write(`Manifest now lists ${manifest.artifacts.length} artifact(s) total.\n`);
 }
 
