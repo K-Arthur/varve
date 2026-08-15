@@ -84,6 +84,15 @@ describe('image error classification', () => {
     expect(['unknown', 'unavailable', 'cors', 'corrupt']).toContain(error.code);
   }, 20_000);
 
+  it('rejects non-http(s) sources without probing the network', async () => {
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const error = await classifyRemoteImageFailure('file:///etc/passwd');
+    expect(error.code).toBe('unknown');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('flags permanent failures that retry cannot fix', () => {
     expect(isPermanentImageFailure('missing')).toBe(true);
     expect(isPermanentImageFailure('corrupt')).toBe(true);

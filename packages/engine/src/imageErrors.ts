@@ -87,6 +87,23 @@ export function classifyInlineImageFailure(source: string, _cause?: unknown): Im
 
 const CLASSIFICATION_TIMEOUT_MS = 4000;
 
+/**
+ * True when `source` resolves to an http(s) URL. The image element already
+ * attempted this exact source, so re-probing it with `fetch` grants no new
+ * request capability for that scheme — but `fetch` also honors schemes
+ * (`file:`, app-custom protocols in a webview, ...) that `<img>` handles
+ * differently, so the probe stays restricted to the schemes it's meant for.
+ */
+function isProbeableRemoteUrl(source: string): boolean {
+  try {
+    const base = typeof location !== 'undefined' ? location.href : undefined;
+    const protocol = new URL(source, base).protocol;
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /** Bounded fetch probe that never hangs classification. */
 async function probeFetch(source: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -108,6 +125,9 @@ export async function classifyRemoteImageFailure(
   _cause?: unknown,
 ): Promise<ImageLoadError> {
   if (INLINE_URL.test(source)) return classifyInlineImageFailure(source);
+  if (!isProbeableRemoteUrl(source)) {
+    return new ImageLoadError(source, 'unknown', 'Image source is not an http(s) URL');
+  }
 
   try {
     const response = await probeFetch(source, { mode: 'cors' });
