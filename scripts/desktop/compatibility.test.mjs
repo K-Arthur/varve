@@ -92,8 +92,8 @@ test('preflight resolves package metadata through export maps', () => {
 test('repository pins the tested WDIO compatibility set', () => {
   const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
 
-  assert.equal(manifest.devDependencies['@wdio/tauri-service'], '1.2.0');
-  assert.equal(manifest.devDependencies['@wdio/tauri-plugin'], '1.2.0');
+  assert.equal(manifest.devDependencies['@wdio/tauri-service'], '1.3.0');
+  assert.equal(manifest.devDependencies['@wdio/tauri-plugin'], '1.3.0');
   const workspace = readFileSync('pnpm-workspace.yaml', 'utf8');
   assert.match(workspace, /"@wdio\/native-utils": 2\.5\.0/);
 });
@@ -104,6 +104,15 @@ test('native test config uses the current Tauri capability namespace', () => {
   assert.match(config, /'tauri:options':/);
   assert.doesNotMatch(config, /wdio:tauri:options/);
   assert.match(config, /driverProvider: 'embedded'/);
+});
+
+test('default native lane excludes fixture-only updater specs', () => {
+  const config = readFileSync('wdio.conf.ts', 'utf8');
+
+  assert.match(config, /tauri-smoke\.e2e\.ts/);
+  assert.match(config, /native-menu\.e2e\.ts/);
+  assert.doesNotMatch(config, /tests\/wdio\/\*\*\/\*\.ts/);
+  assert.match(config, /VARVE_WDIO_SPECS/);
 });
 
 test('WDIO permissions and bridge are excluded from normal desktop builds', () => {
