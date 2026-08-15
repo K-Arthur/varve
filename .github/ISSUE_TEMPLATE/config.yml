@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/K-Arthur/varve/security/advisories
+    about: Report vulnerabilities privately — do not open a public issue. See SECURITY.md.
+  - name: Questions and discussion
+    url: https://github.com/K-Arthur/varve/discussions
+    about: Q&A, ideas, and show-and-tell that aren't a bug report or a concrete feature request.
