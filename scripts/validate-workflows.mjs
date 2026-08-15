@@ -187,6 +187,20 @@ function validateWorkflowStructure(content, filename) {
     errors.push('Run: node scripts/pin-github-actions.mjs --pin');
   }
 
+  // dtolnay/rust-toolchain currently requires an explicit `toolchain` input.
+  // Without it the action fails before any repository step runs, which is a
+  // particularly opaque CI failure because the action itself reports only
+  // "toolchain is a required input". Keep this contract in the local gate so
+  // a future action update cannot reintroduce that failure.
+  const missingRustToolchain = findMissingRustToolchainInputs(lines);
+  if (missingRustToolchain.length > 0) {
+    errors.push(
+      'Every dtolnay/rust-toolchain step must provide with.toolchain (missing at line(s): ' +
+        missingRustToolchain.join(', ') +
+        ')',
+    );
+  }
+
   // Check for concurrency control (best practice)
   if (!content.includes('concurrency:')) {
     console.warn(`⚠️  ${filename}: Missing concurrency control (recommended for cost optimization)`);
@@ -200,6 +214,31 @@ function validateWorkflowStructure(content, filename) {
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+function findMissingRustToolchainInputs(lines) {
+  const missing = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!/uses:\s*dtolnay\/rust-toolchain@/.test(lines[i])) continue;
+
+    const actionIndent = lines[i].match(/^\s*/)[0].length;
+    let hasToolchain = false;
+    for (let j = i + 1; j < lines.length; j++) {
+      const line = lines[j];
+      const indent = line.match(/^\s*/)[0].length;
+      if (line.trim() && indent <= actionIndent && /^\s*-\s+/.test(line)) break;
+      if (line.trim() && indent < actionIndent) break;
+      if (/^\s+toolchain:\s*\S/.test(line)) {
+        hasToolchain = true;
+        break;
+      }
+    }
+
+    if (!hasToolchain) missing.push(i + 1);
+  }
+
+  return missing;
 }
 
 /**

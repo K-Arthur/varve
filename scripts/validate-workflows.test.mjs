@@ -7,7 +7,11 @@
  * Wired into the regression suite (pnpm test:ci:tools + CI pipeline-validation).
  */
 import assert from 'node:assert/strict';
-import { validateVarveRules, validateYAMLSyntax } from './validate-workflows.mjs';
+import {
+  validateVarveRules,
+  validateWorkflowStructure,
+  validateYAMLSyntax,
+} from './validate-workflows.mjs';
 
 const DUPLICATE_KEY = `name: Duplicate key fixture
 on: workflow_dispatch
@@ -26,6 +30,23 @@ jobs:
 
 assert.equal(validateYAMLSyntax(DUPLICATE_KEY).valid, false);
 assert.match(validateYAMLSyntax(DUPLICATE_KEY).errors[0], /duplicated mapping key/i);
+
+const RUST_TOOLCHAIN_GOOD = `name: Rust
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dtolnay/rust-toolchain@0123456789012345678901234567890123456789
+        with:
+          toolchain: 1.97.1
+`;
+const RUST_TOOLCHAIN_BAD = RUST_TOOLCHAIN_GOOD.replace('toolchain: 1.97.1\n', '');
+assert.equal(validateWorkflowStructure(RUST_TOOLCHAIN_GOOD, 'rust.yml').valid, true);
+assert.match(
+  validateWorkflowStructure(RUST_TOOLCHAIN_BAD, 'rust.yml').errors[0],
+  /with\.toolchain/,
+);
 
 const RELEASE_GOOD = `name: Release
 on:
