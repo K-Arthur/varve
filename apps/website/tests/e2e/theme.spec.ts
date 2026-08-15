@@ -319,7 +319,12 @@ test.describe('hero visibility', () => {
 
       const subtitleText = await subtitle.textContent();
       expect(subtitleText).toContain('Vector, layout, typography');
-      expect(subtitleText).toContain('Your work stays on your machine');
+      expect(subtitleText).toContain('core editing');
+      expect(subtitleText).toContain('works offline');
+
+      const localFirstTitle = page.locator('.local-first-title');
+      await expect(localFirstTitle).toBeVisible();
+      await expect(localFirstTitle).toContainText('Your work stays local by default');
     });
   }
 
