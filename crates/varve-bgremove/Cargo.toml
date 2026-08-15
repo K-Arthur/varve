@@ -28,5 +28,9 @@ sha2 = "0.11"
 default = []
 ai = ["ort"]
 
+[[example]]
+name = "bgremove_bench"
+required-features = ["ai"]
+
 [lints]
 workspace = true
