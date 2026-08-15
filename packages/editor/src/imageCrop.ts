@@ -167,7 +167,7 @@ export async function applyFaceAwareCropToDocument(
   options: FaceAwareCropOptions = {},
 ): Promise<Document | null> {
   const node = selection.length === 1 ? doc.nodes[selection[0]!] : undefined;
-  if (!node || node.kind !== 'shape' || !isImageShape(node)) return null;
+  if (node?.kind !== 'shape' || !isImageShape(node)) return null;
   const shapeNode = node as ShapeNode;
   const imageFill = getImageFill(shapeNode);
   if (!imageFill?.image) return null;

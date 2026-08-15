@@ -113,7 +113,7 @@ test.describe('Object Selection real-model gate', () => {
       'COLD PREVIEW:',
       statusText,
       '| latency:',
-      Math.round((Date.now() - t0) / 1000) + 's',
+      `${Math.round((Date.now() - t0) / 1000)}s`,
     );
     expect(statusText).toMatch(/Preview ready · \d+% model confidence · \d+ candidate masks?/);
     expect(statusText).not.toMatch(/0 candidate mask/);
@@ -166,7 +166,7 @@ test.describe('Object Selection real-model gate', () => {
     await warm.waitFor({ timeout: 120000 });
     const warmText = (await warm.textContent()) ?? '';
     const warmLatency = Date.now() - t1;
-    console.log('WARM PREVIEW:', warmText, '| latency:', Math.round(warmLatency / 1000) + 's');
+    console.log('WARM PREVIEW:', warmText, '| latency:', `${Math.round(warmLatency / 1000)}s`);
     expect(warmLatency).toBeLessThan(60000);
   });
 });

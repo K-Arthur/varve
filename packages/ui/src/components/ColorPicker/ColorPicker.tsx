@@ -430,7 +430,12 @@ export function ColorPicker({
   // normalized path (standalone ColorFields usage).
   const handleFieldsChangeLegacy = useCallback(
     (newColor: Color) => {
-      handleFieldsChange(newColor[0] / 255, newColor[1] / 255, newColor[2] / 255, newColor[3] / 255);
+      handleFieldsChange(
+        newColor[0] / 255,
+        newColor[1] / 255,
+        newColor[2] / 255,
+        newColor[3] / 255,
+      );
     },
     [handleFieldsChange],
   );
@@ -501,7 +506,7 @@ export function ColorPicker({
         emitRgb(tuple[0], tuple[0], tuple[0], normalizeChannel(tuple[3], 'uint8'));
       }
     },
-    [authoringSpace, emit, emitRgb],
+    [authoringSpace, emit, emitRgb, setDraftsFromRgb],
   );
 
   // Lab authoring: emit a canonical LabColor (device-independent; valid in

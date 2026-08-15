@@ -274,7 +274,7 @@ function vehicle(r, w, h, framing) {
   };
 }
 
-function dashboard(r, w, h, framing) {
+function dashboard(r, w, h, _framing) {
   const bg = [244, 246, 248, 255];
   const sidebar = [30, 36, 48, 255];
   const card = [255, 255, 255, 255];
@@ -305,7 +305,7 @@ function dashboard(r, w, h, framing) {
   };
 }
 
-function mobile(r, w, h, framing) {
+function mobile(r, w, h, _framing) {
   const bg = randColor(r, 235, 248);
   const tile = [255, 255, 255, 255];
   return (dst) => {
@@ -405,7 +405,7 @@ function poster(r, w, h, framing) {
   };
 }
 
-function patternStripes(r, w, h, framing) {
+function patternStripes(r, w, h, _framing) {
   const a = randColor(r, 30, 220);
   const b = randColor(r, 200, 250);
   return (dst) => {
@@ -415,7 +415,7 @@ function patternStripes(r, w, h, framing) {
   };
 }
 
-function patternDots(r, w, h, framing) {
+function patternDots(r, w, h, _framing) {
   const bg = [255, 255, 255, 255];
   const ink = randColor(r, 30, 220);
   const spacing = 40 + r() * 40;
@@ -455,7 +455,7 @@ function spheres(r, w, h, framing) {
   };
 }
 
-function architecture(r, w, h, framing) {
+function architecture(r, w, h, _framing) {
   const sky = randColor(r, 160, 220);
   const building = randColor(r, 100, 190);
   const window = [220, 225, 232, 255];
@@ -638,7 +638,7 @@ function overlayBadge(rgba, w, h, r) {
   return out;
 }
 
-function textOverlay(rgba, w, h, r) {
+function textOverlay(rgba, w, h, _r) {
   const out = new Uint8ClampedArray(rgba);
   const barH = Math.round(h * 0.12);
   const y0 = Math.round(h * 0.78);
@@ -685,7 +685,7 @@ function main() {
   const r = rng(SEED);
   const manifest = [];
   let fileIndex = 0;
-  const written = [];
+  const _written = [];
 
   const write = (data, w, h, ext) => {
     const id = `img-${String(fileIndex++).padStart(3, '0')}`;
@@ -801,7 +801,7 @@ function main() {
     {
       const f = { zoom: 1, lift: 0, density: 1 };
       const v = new Raster(scene.w, scene.h);
-      const paletteSwap = (c) => [c[2], c[0], c[1], 255];
+      const _paletteSwap = (c) => [c[2], c[0], c[1], 255];
       scene.gen(genRng, scene.w, scene.h, f)(v);
       emit(rasterToRgba(v), scene.w, scene.h, 'png', 'style');
     }

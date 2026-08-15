@@ -177,12 +177,11 @@ const TrackRowInner: FC<TrackRowProps> = ({
   const isSolo = track.solo ?? false;
 
   return (
-    <div
+    <li
       className={`timeline-track-row ${selected ? 'timeline-track-row--selected' : ''} ${isMuted ? 'timeline-track-row--muted' : ''}`}
       onClick={handleRowClick}
       onKeyDown={handleKeyDown}
       ref={trackRef}
-      role="listitem"
       // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard-editable composite row (Enter selects the track, ArrowLeft/Right step the selected keyframe, Delete removes it); the row-level handlers cannot live on the keyframe dots
       tabIndex={0}
       aria-label={`Track: ${nodeName} ${track.property}${isMuted ? ' (muted)' : ''}`}
@@ -286,7 +285,7 @@ const TrackRowInner: FC<TrackRowProps> = ({
           );
         })}
       </div>
-    </div>
+    </li>
   );
 };
 

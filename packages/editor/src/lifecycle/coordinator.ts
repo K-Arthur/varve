@@ -64,7 +64,7 @@ export interface TerminationCoordinatorDeps {
   /** Commit-time platform action (native close/exit, reload, restart).
    *  Returning `true` short-circuits the remaining commit pipeline (used by
    *  the updater's install-on-quit hook, which owns the exit itself). */
-  onCommit?: (intent: TerminationIntent) => void | boolean | Promise<void | boolean>;
+  onCommit?: (intent: TerminationIntent) => undefined | boolean | Promise<undefined | boolean>;
   /** Called at commit for intentionally discarded documents — the host
    *  removes their recovery snapshots (never while a dialog is open). */
   onDiscardCommitted?: (docs: UnsavedDocument[]) => void | Promise<void>;
