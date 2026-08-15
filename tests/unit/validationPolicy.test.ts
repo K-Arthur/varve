@@ -22,7 +22,12 @@ import {
   toRepoRelativePath,
 } from '../../scripts/quality/affected-plan.mjs';
 import { auditImpactConfig } from '../../scripts/quality/audit-impact-config.mjs';
-import { LANES, laneCommand, packageDirs } from '../../scripts/quality/validation-lanes.mjs';
+import {
+  LANES,
+  laneCommand,
+  packageDirs,
+  toWorkspaceRelativePath,
+} from '../../scripts/quality/validation-lanes.mjs';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 
 const ROOT = process.cwd();
@@ -282,6 +287,15 @@ describe('planner lane -> command resolution (executor contract)', () => {
     const editor = plan.tiers[2].find((l) => l === 'js-unit:@varve/editor');
     expect(editor).toBeTruthy();
     expect(laneCommand('js-unit:@varve/editor')).toMatch(/packages\/editor$/);
+  });
+
+  it('canonicalizes Windows workspace paths before resolving package lanes', () => {
+    expect(
+      toWorkspaceRelativePath('D:\\a\\varve\\varve', 'D:\\a\\varve\\varve\\packages\\editor'),
+    ).toBe('packages/editor');
+    expect(
+      toWorkspaceRelativePath('D:/a/varve/varve', 'd:\\A\\VARVE\\VARVE\\packages\\editor'),
+    ).toBe('packages/editor');
   });
 
   it('every e2e domain in the impact config resolves to real spec paths', () => {
