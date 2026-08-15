@@ -14,9 +14,13 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync, globSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, win32 } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildPlan, loadPackages } from '../../scripts/quality/affected-plan.mjs';
+import {
+  buildPlan,
+  loadPackages,
+  toRepoRelativePath,
+} from '../../scripts/quality/affected-plan.mjs';
 import { auditImpactConfig } from '../../scripts/quality/audit-impact-config.mjs';
 import { LANES, laneCommand, packageDirs } from '../../scripts/quality/validation-lanes.mjs';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
@@ -133,6 +137,18 @@ describe('validation infrastructure presence', () => {
 });
 
 describe('planner fixture classes', () => {
+  it('normalizes mixed Windows package-manager paths to POSIX repository paths', () => {
+    const root = 'D:\\a\\varve\\varve';
+    const pathApi = { relative: win32.relative, sep: win32.sep };
+
+    expect(toRepoRelativePath(root, 'D:/a/varve/varve/packages/editor', pathApi)).toBe(
+      'packages/editor',
+    );
+    expect(
+      toRepoRelativePath(root, 'd:\\A\\VARVE\\VARVE\\crates\\varve-core\\Cargo.toml', pathApi),
+    ).toBe('crates/varve-core/Cargo.toml');
+  });
+
   it('leaf UI component -> UI tests + typecheck, no Rust', () => {
     const plan = buildPlan(['packages/ui/src/components/Select.tsx']);
     expect(plan.tiers[2]).toContain('js-unit:@varve/ui');
