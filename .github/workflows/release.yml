@@ -176,6 +176,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
+          toolchain: 1.97.1
           components: rustfmt, clippy
 
       - name: Install Linux system deps
@@ -413,6 +414,8 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         if: matrix.enabled
+        with:
+          toolchain: 1.97.1
 
       - name: Install Linux system deps
         if: matrix.enabled && runner.os == 'Linux'
