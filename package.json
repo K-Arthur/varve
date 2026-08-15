@@ -3,6 +3,14 @@
   "version": "0.1.2",
   "private": true,
   "description": "Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print production.",
+  "homepage": "https://varve.studio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/K-Arthur/varve.git"
+  },
+  "bugs": {
+    "url": "https://github.com/K-Arthur/varve/issues"
+  },
   "license": "FSL-1.1-MIT",
   "packageManager": "pnpm@11.9.0",
   "engines": {

@@ -30,7 +30,7 @@ const faqSchema = {
       name: 'Has Varve shipped a release yet?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. Varve 0.1.0 was published in August 2026 with installers for Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is an early beta: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.',
+        text: 'Yes. The latest published application release is Varve 0.1.1, released in August 2026. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.',
       },
     },
     {
@@ -86,7 +86,7 @@ const faqSchema = {
       name: 'How do updates work?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve updates are consent-first. You can keep checks manual, receive notifications, or allow verified update files to download automatically in Settings > Updates. Installation is separate, with an optional install-on-quit preference. Linux AppImage, Windows NSIS, and writable installed macOS builds can update in place when their runtime checks pass; Debian/RPM packages, mounted or read-only copies, development builds, and unsupported architectures remain manual-only.',
+        text: 'Varve updates are designed to be consent-first. The published v0.1.1 release predates the signed update feed, so manual updates through the download page or GitHub Releases are currently the dependable path. Future feed-enabled builds can offer manual checks, notifications, or verified downloads in Settings > Updates. Installation remains separate, with package-specific limitations.',
       },
     },
     {
@@ -133,14 +133,13 @@ const faqSchema = {
         <div class="faq-item">
           <h3>How do updates work?</h3>
           <p>
-            Updates are consent-first. On first launch you can keep checks manual, receive
-            notifications, or allow verified update files to download automatically; these choices
-            can be changed in <strong>Settings &gt; Updates</strong>. Installation is separate,
-            with an optional install-on-quit preference. Linux AppImage, Windows NSIS, and writable
-            installed macOS builds can update in place when their runtime checks pass; Debian/RPM
-            packages, mounted or read-only copies, development builds, and unsupported
-            architectures remain manual-only. See the <a href={sitePath('/docs/updates')}>Updates
-            guide</a> for details.
+            Updates are designed to be consent-first. The published <strong>v0.1.1</strong> release
+            predates the signed update feed, so manual updates through the <a
+            href={sitePath('/download')}>download page</a> or GitHub Releases are currently the
+            dependable path. Future feed-enabled builds can offer manual checks, notifications,
+            or verified downloads in <strong>Settings &gt; Updates</strong>; package-specific
+            limitations still apply. See the <a href={sitePath('/docs/updates')}>Updates guide</a>
+            for details.
           </p>
         </div>
 
@@ -156,7 +155,8 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>Has Varve shipped a release yet?</h3>
-          <p>Yes. Varve 0.1.0 was published in August 2026 with installers for Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is an early beta: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.</p>
+          <p>Yes. The latest published application release is Varve 0.1.1, released in August 2026. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
+          </p>
         </div>
 
         <div class="faq-item">
