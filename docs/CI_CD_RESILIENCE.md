@@ -269,6 +269,8 @@ The pipeline tooling is covered by TDD assertions that run as part of `pnpm test
 - `node scripts/test-ci-debug.mjs` — simulated log-scenario extraction.
 - `node scripts/ci-health.test.mjs` — pipeline-health classifier aggregates.
 - `node scripts/pin-github-actions.test.mjs` — pin-table integrity + fabricated-SHA regression.
+- `node scripts/security/dependency-hardening.test.mjs` — transitive security overrides,
+  the patched archive extractor, and lockfile patch integrity.
 - `bash scripts/test-ci-shell-scripts.sh` — shell assertions on `ci-local-run.sh` dispatch, act-missing detection, secrets stub, and `bash -n` syntax for every CI shell script and git hook.
 
 Run them directly with:
@@ -276,6 +278,14 @@ Run them directly with:
 ```bash
 pnpm test:ci:tools
 ```
+
+`pnpm audit --prod` is the production dependency gate. The frozen pnpm graph
+pins `adm-zip` 0.6.0 and `brace-expansion` v5 5.0.9. `extract-zip@2.0.1` is
+locally patched to reject absolute or out-of-tree symlink targets because no
+patched upstream npm release exists. The generic `pnpm audit` command may still
+report that original development-only advisory because its scanner does not
+evaluate local patch files; the dependency-hardening test verifies the
+effective lockfile and patch contract instead of hiding the advisory.
 
 ## Pre-commit / pre-push hooks
 
