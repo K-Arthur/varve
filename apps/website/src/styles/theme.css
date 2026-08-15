@@ -44,6 +44,7 @@
   --text-primary: var(--color-text-primary);
   --text-secondary: var(--color-text-secondary);
   --text-muted: var(--color-text-muted);
+  --text-tertiary: var(--text-muted);
   --text-subtle: var(--color-text-subtle);
   --text-disabled: var(--color-text-disabled);
   --text-placeholder: var(--color-text-subtle);
@@ -258,6 +259,7 @@
     --text-primary: CanvasText;
     --text-secondary: CanvasText;
     --text-muted: GrayText;
+    --text-tertiary: GrayText;
     --text-subtle: GrayText;
     --text-disabled: GrayText;
     --text-placeholder: GrayText;
