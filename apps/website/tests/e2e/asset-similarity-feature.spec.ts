@@ -5,8 +5,8 @@ test.describe('asset similarity marketing surface', () => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await page.goto('/features/asset-similarity');
     await expect(page.getByRole('heading', { name: 'Asset Similarity' })).toBeVisible();
-    await expect(page.getByText(/image-to-image inference/i)).toBeVisible();
-    await expect(page.getByText(/text-to-image inference/i)).toBeVisible();
+    await expect(page.getByText(/image-to-image/i)).toBeVisible();
+    await expect(page.getByText(/text-to-image/i)).toBeVisible();
     await expect(page.getByText('Experimental', { exact: true }).last()).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });

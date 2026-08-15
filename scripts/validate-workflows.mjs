@@ -78,16 +78,29 @@ function validateYAMLSyntax(content) {
   // js-yaml). The naive indentation check below catches tabs and odd indents
   // but MISSES actual parse errors (bad anchors, invalid block scalars,
   // unclosed quotes) — those are what break a workflow at parse time.
+  let load;
   try {
     const yamlPath = require.resolve('js-yaml');
-    const { load } = require(yamlPath);
-    const doc = load(content);
-    if (!doc || typeof doc !== 'object') {
-      return { valid: false, errors: ['YAML parsed to a non-object document'] };
+    ({ load } = require(yamlPath));
+  } catch (error) {
+    if (error?.code !== 'MODULE_NOT_FOUND') {
+      return { valid: false, errors: [`Unable to load YAML parser: ${error.message}`] };
     }
-    return { valid: true, errors: [] };
-  } catch {
-    // js-yaml not resolvable — fall through to the heuristic checker.
+    // js-yaml is not resolvable — fall through to the heuristic checker.
+  }
+
+  if (load) {
+    try {
+      const doc = load(content);
+      if (!doc || typeof doc !== 'object') {
+        return { valid: false, errors: ['YAML parsed to a non-object document'] };
+      }
+      return { valid: true, errors: [] };
+    } catch (error) {
+      // A parser error is a real workflow failure. Do not silently downgrade
+      // malformed YAML to the indentation-only fallback.
+      return { valid: false, errors: [`YAML syntax error: ${error.message}`] };
+    }
   }
 
   try {
@@ -417,7 +430,7 @@ function validateReleaseSigningRules(content, stepBlocks, errors) {
   }
 }
 
-export { validateVarveRules };
+export { validateVarveRules, validateWorkflowStructure, validateYAMLSyntax };
 
 /**
  * Extract `steps:` entries per job as {name, run} pairs, line-scanned.

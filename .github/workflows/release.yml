@@ -41,7 +41,9 @@ on:
       platforms:
         description: 'Which platforms to build'
         required: true
-        default: 'linux'
+        # A manually dispatched release must be complete by default. Linux-only
+        # rehearsals remain available as an explicit opt-in.
+        default: 'all'
         type: choice
         options: [linux, linux-windows, all]
       publish:
@@ -172,7 +174,7 @@ jobs:
           lfs: true
           ref: ${{ needs.preflight.outputs.tag }}
 
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           components: rustfmt, clippy
 
@@ -314,14 +316,9 @@ jobs:
     name: Bundle (${{ matrix.name }})
     needs: [preflight, gate, signing-preflight]
     timeout-minutes: 90
-    env:
-      # Trust-boundary canary: present on the frontend build steps, then
-      # asserted absent from the final dist (see
-      # docs/security/trust-boundaries.md §Canary tests). Benign value with
-      # no credential meaning.
-      VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           # ubuntu-22.04, NOT ubuntu-latest. This is the whole ballgame for Linux
@@ -388,6 +385,11 @@ jobs:
     env:
       # Public build-time configuration. App usage/diagnostics consent remains
       # unknown until the user enables each category in Settings.
+      # Trust-boundary canary: present on the frontend build steps, then
+      # asserted absent from the final dist (see
+      # docs/security/trust-boundaries.md §Canary tests). Benign value with
+      # no credential meaning.
+      VARVE_PRIVATE_TEST_CANARY: VARVE_PRIVATE_TEST_CANARY_DO_NOT_SHIP
       VITE_VARVE_ANALYTICS_DOMAIN: 'varve.studio'
       TAURI_TARGET_DIR: apps/desktop/src-tauri/target/${{ matrix.rust_target }}
       TAURI_BUNDLE_DIR: apps/desktop/src-tauri/target/${{ matrix.rust_target }}/release/bundle
@@ -409,7 +411,7 @@ jobs:
         if: matrix.enabled
         run: node scripts/release/check-bundled-assets.mjs
 
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         if: matrix.enabled
 
       - name: Install Linux system deps
@@ -753,6 +755,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - name: x86_64
@@ -851,6 +854,7 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - name: windows

@@ -10,7 +10,7 @@
  *                          was not acquired by Runner of type hosted even after
  *                          multiple attempts") — GitHub capacity/queue issue.
  *                          Not a code failure.
- *   - stuck-queued       — job/run still `queued` long after its `started_at`
+ *   - stuck-queued       — job/run still `queued` long after GitHub accepted it
  *                          (runner starvation during an Actions outage).
  *                          Not a code failure.
  *   - never-started      — job concluded without any recorded step (runner
@@ -26,6 +26,8 @@
  *   node scripts/ci-health.mjs --quiet         # minimal output (pre-push hook)
  *   node scripts/ci-health.mjs --status        # GitHub Actions incident status
  *   node scripts/ci-health.mjs --rerun-stuck   # rerun runs stuck in queue > threshold
+ *
+ *   - unknown-telemetry   — GitHub metadata could not be read reliably
  *
  * Exit codes:
  *   0 — healthy or only real failures reported
@@ -176,8 +178,9 @@ function classifyJobFailure(job, annotations, nowMs = Date.now()) {
 function isStuckQueued(job, nowMs = Date.now()) {
   if (job?.status !== 'queued') return false;
   if (job.conclusion) return false;
-  if (!job.started_at) return false;
-  const started = Date.parse(job.started_at);
+  const acceptedAt = job.started_at ?? job.run_started_at;
+  if (!acceptedAt) return false;
+  const started = Date.parse(acceptedAt);
   if (Number.isNaN(started)) return false;
   return nowMs - started > STUCK_QUEUED_THRESHOLD_MS;
 }
@@ -238,9 +241,11 @@ function runnerUnavailableMessage(annotations) {
 
 function formatRow(run, classification) {
   let marker = 'OK-CODE';
-  if (classification.billingBlocked) marker = 'BILLING';
+  if (classification.telemetryError) marker = 'UNKNOWN-TELEMETRY';
+  else if (classification.billingBlocked) marker = 'BILLING';
   else if (classification.infraBlocks.some((b) => b.kind === 'stuck-queued')) marker = 'STUCK';
   else if (classification.infraBlocks.length > 0) marker = 'INFRA';
+  else if (run.conclusion === 'cancelled') marker = 'CANCELLED';
   const real = classification.realFailures.join(', ');
   const line = [String(run.id), run.name || 'Unknown', String(run.created_at || ''), marker];
   const detail =
@@ -361,6 +366,9 @@ async function runRerunStuck(flags, owner, name, token) {
 
 async function main() {
   const flags = parseArgs();
+  // The public status endpoint does not require repository authentication.
+  if (flags.status) return runStatus(flags.quiet);
+
   if (!flags.repo) flags.repo = getRepo();
   if (!flags.repo) {
     throw new Error('Could not determine repository. Use --repo or set GITHUB_REPOSITORY.');
@@ -369,8 +377,6 @@ async function main() {
   if (!token) {
     throw new Error('No GitHub token available. Set GITHUB_TOKEN or run gh auth login.');
   }
-
-  if (flags.status) return runStatus(flags.quiet);
 
   const [owner, name] = flags.repo.split('/');
 
@@ -389,6 +395,7 @@ async function main() {
   const rows = [];
   let infraBlocksTotal = 0;
   let stuckQueuedRuns = 0;
+  let telemetryErrors = 0;
   for (const run of runs) {
     // Runs GitHub accepted but has not scheduled past the threshold.
     if (run.status === 'queued' && isStuckQueued(run)) {
@@ -401,11 +408,7 @@ async function main() {
       stuckQueuedRuns += 1;
       continue;
     }
-    if (
-      run.conclusion === 'success' ||
-      run.conclusion === 'neutral' ||
-      run.conclusion === 'cancelled'
-    ) {
+    if (run.conclusion === 'success' || run.conclusion === 'neutral') {
       rows.push({
         line: [String(run.id), run.name || 'Unknown', String(run.created_at || ''), 'OK'],
         detail: '-',
@@ -414,26 +417,34 @@ async function main() {
       continue;
     }
     let jobs = [];
+    let jobFetchError = null;
     try {
       const jobsData = await githubJson(
         `/repos/${owner}/${name}/actions/runs/${run.id}/jobs`,
         token,
       );
       jobs = jobsData.jobs || [];
-    } catch {
-      // Run metadata may be unavailable for deleted runs; skip job detail.
+    } catch (error) {
+      jobFetchError = error;
+      telemetryErrors += 1;
     }
     const annotationsByJob = new Map();
+    let annotationFetchError = false;
     for (const job of jobs) {
       if (!job.check_run_url) continue;
       try {
         const ann = await githubJson(`${job.check_run_url}/annotations`, token);
         if (Array.isArray(ann)) annotationsByJob.set(job.id, ann);
       } catch {
-        // annotation fetch is best-effort
+        annotationFetchError = true;
+        telemetryErrors += 1;
       }
     }
     const classification = classifyRun(jobs, annotationsByJob, run);
+    classification.telemetryError = Boolean(jobFetchError || annotationFetchError);
+    classification.telemetryMessage =
+      jobFetchError?.message ||
+      (annotationFetchError ? 'One or more check-run annotation requests failed.' : null);
     infraBlocksTotal += classification.infraBlocks.length;
     if (classification.stuckQueued) stuckQueuedRuns += 1;
     rows.push(formatRow(run, classification));
@@ -453,6 +464,7 @@ async function main() {
           })),
           infraBlocksTotal,
           stuckQueuedRuns,
+          telemetryErrors,
         },
         null,
         2,
@@ -472,6 +484,11 @@ async function main() {
           'Fix: https://github.com/settings/billing — validate locally with `just gate` + `just act-dry` until the block lifts.',
         );
       }
+    } else if (telemetryErrors > 0) {
+      console.log(
+        `CI HEALTH: telemetry incomplete (${telemetryErrors} GitHub API request(s) failed). ` +
+          'Treat remote status as unknown until metadata can be fetched.',
+      );
     } else {
       console.log('CI HEALTH: no infrastructure blocks in recent runs.');
     }
@@ -494,12 +511,16 @@ async function main() {
       }
       console.log('  - billing: resolve at https://github.com/settings/billing');
       console.log('Validate locally meanwhile: `just gate` and `just act-dry`.');
+    } else if (telemetryErrors > 0) {
+      console.log(
+        `Telemetry errors: ${telemetryErrors} GitHub API request(s) failed; UNKNOWN-TELEMETRY is not healthy.`,
+      );
     } else {
       console.log('No infrastructure blocks detected in recent runs.');
     }
   }
 
-  if (flags.strict && infraBlocksTotal > 0) return 1;
+  if (flags.strict && (infraBlocksTotal > 0 || telemetryErrors > 0)) return 1;
   return 0;
 }
 

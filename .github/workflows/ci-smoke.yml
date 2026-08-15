@@ -22,6 +22,8 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
+  checks: read
 
 jobs:
   smoke:
@@ -83,4 +85,7 @@ jobs:
 
       - name: Automated failure debug
         if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true

@@ -1,4 +1,10 @@
-import type { PaletteAnalysis, PaletteSwatch } from '@varve/engine';
+import {
+  PALETTE_DEFAULT_COLOR_COUNT,
+  PALETTE_MAX_COLOR_COUNT,
+  PALETTE_MIN_COLOR_COUNT,
+  type PaletteAnalysis,
+  type PaletteSwatch,
+} from '@varve/engine';
 import {
   addSwatches,
   addVariable as addVariableToStore,
@@ -158,7 +164,7 @@ export function PaletteSection() {
   const [status, setStatus] = useState<PaletteStatus>('idle');
   const [result, setResult] = useState<PaletteAnalysis | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [colorCount, setColorCount] = useState(6);
+  const [colorCount, setColorCount] = useState(PALETTE_DEFAULT_COLOR_COUNT);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [sourceMode, setSourceMode] = useState<'full' | 'crop'>('crop');
 
@@ -326,13 +332,21 @@ export function PaletteSection() {
             <input
               className="palette-section__count-input"
               type="number"
-              min={3}
-              max={12}
+              min={PALETTE_MIN_COLOR_COUNT}
+              max={PALETTE_MAX_COLOR_COUNT}
               value={colorCount}
               onChange={(event) =>
-                setColorCount(Math.max(3, Math.min(12, Number(event.target.value) || 6)))
+                setColorCount(
+                  Math.max(
+                    PALETTE_MIN_COLOR_COUNT,
+                    Math.min(
+                      PALETTE_MAX_COLOR_COUNT,
+                      Number(event.target.value) || PALETTE_DEFAULT_COLOR_COUNT,
+                    ),
+                  ),
+                )
               }
-              aria-label="Number of colors to extract"
+              aria-label={`Number of colors to extract (${PALETTE_MIN_COLOR_COUNT}–${PALETTE_MAX_COLOR_COUNT})`}
             />
           </label>
           <button

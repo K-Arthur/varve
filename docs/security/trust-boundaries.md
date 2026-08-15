@@ -215,6 +215,12 @@ table, and forbidden if denied, regardless of its prefix.
 | DNS | `PORKBUN_*` |
 | Naming families | `PRIVATE_*`, `SIGNING_*`, `DNS_*` |
 
+Tauri itself injects the exact `TAURI_UPDATER_PLUGIN_CONFIG` variable while
+running a native frontend build. It contains public updater metadata from
+`tauri.conf.json` and is accepted only as valid JSON without private-key,
+password, secret, token, or credential fields. Updater private keys remain
+forbidden (`TAURI_UPDATER_PRIVATE_KEY*`).
+
 ### Documented exceptions
 
 1. **`VARVE_PRIVATE_TEST_CANARY`** — the trust-boundary canary. CI sets it on

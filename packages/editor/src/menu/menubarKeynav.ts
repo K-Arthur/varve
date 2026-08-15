@@ -99,22 +99,9 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
   // this guard keeps future siblings (rename input, radios, zoom field,
   // undo/redo buttons) from being hijacked by menu navigation.
   const target = e.target as HTMLElement;
-  console.log(
-    '[dbg-kd]',
-    e.key,
-    'open',
-    openMenu,
-    'sub',
-    openSubmenu,
-    'idx',
-    activeItemIndex,
-    'tgt',
-    target.textContent?.slice(0, 8),
-  );
   if (target !== menuRef.current && !target.getAttribute('role')?.startsWith('menuitem')) {
     return;
   }
-  console.log('[dbg-kd] PASS-GUARD');
 
   const openIdx = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
 
