@@ -10,6 +10,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 build a tag that has no matching section. Write for someone deciding whether to install the
 update, not for someone reading the commit log.
 
+## [0.1.2] - 2026-08-14
+
+This release improves editor reliability and completes the first production
+resilience pass for the application, website, and release pipeline.
+
+### Fixed
+
+- Settings dropdowns now render above native dialogs and Export, Performance,
+  Appearance, and theme changes apply immediately.
+- Content-Aware Fill preview sizing and Fit, 1:1, Center, zoom, keyboard, and
+  crop interactions now behave consistently.
+- Palette extraction accepts a user-selected count from 3 through 32 colors.
+- Browser update synchronization, Linux browser chrome detection, menubar
+  navigation, and React 19 tooltip refs are hardened.
+- GitHub Actions now have stronger workflow validation, concurrency controls,
+  cache/log diagnostics, and failure reports.
+- GitHub Pages builds use the correct `/varve/` project-site base path.
+
 ## [Unreleased]
 
 ### Added

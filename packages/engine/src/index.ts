@@ -609,6 +609,9 @@ export {
   extractPaletteFromRgba,
   monochromaticHarmony,
   PALETTE_ANALYSIS_VERSION,
+  PALETTE_DEFAULT_COLOR_COUNT,
+  PALETTE_MAX_COLOR_COUNT,
+  PALETTE_MIN_COLOR_COUNT,
   splitComplementaryHarmony,
   triadicHarmony,
 } from './intelligence/paletteExtractor';

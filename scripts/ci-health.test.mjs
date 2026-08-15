@@ -122,6 +122,10 @@ assertTrue(
   'isStuckQueued true for old queued run',
 );
 assertTrue(
+  isStuckQueued({ status: 'queued', run_started_at: '2026-08-06T18:00:00Z' }, nowMs),
+  'isStuckQueued accepts workflow run timestamps',
+);
+assertTrue(
   !isStuckQueued({ status: 'queued', started_at: '2026-08-06T18:59:00Z' }, nowMs),
   'isStuckQueued false for recent queued run',
 );

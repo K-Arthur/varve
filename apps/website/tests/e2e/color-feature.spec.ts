@@ -13,7 +13,7 @@ test.describe('color feature messaging', () => {
     await expect(
       page.getByText(/browser previews use the browser's sRGB display path/i),
     ).toBeVisible();
-    await expect(page.getByText(/high-precision raster decode, CMYK raster planes/i)).toBeVisible();
+    await expect(page.getByText(/high-precision raster decode.*CMYK raster planes/i)).toBeVisible();
   });
 
   test('lists the browser preview boundary on Known Issues', async ({ page }) => {

@@ -97,6 +97,7 @@ export function computeCropResize(
 
 export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverlayProps) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     handle: Handle;
     startCrop: LocalCropRect;
@@ -106,6 +107,9 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
     startY: number;
   } | null>(null);
   useEffect(() => tool.subscribe(() => bump()), [tool]);
+  useEffect(() => {
+    overlayRef.current?.focus();
+  }, []);
 
   const cropState = tool.getCropState();
   const crop = tool.getCropRect();
@@ -162,6 +166,16 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
     tool.setFillScale(current * delta);
   };
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onDone();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+
   const handles: Handle[] = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
   const onHandleKeyDown = (handle: Handle) => (e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
@@ -179,10 +193,18 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
   };
 
   return (
-    <div className="crop-overlay" data-testid="crop-overlay">
+    <div
+      ref={overlayRef}
+      role="dialog"
+      aria-label="Crop image"
+      className="crop-overlay"
+      data-testid="crop-overlay"
+      onKeyDown={onKeyDown}
+      tabIndex={-1}
+    >
       <div
         className="crop-overlay__window"
-        style={{ left, top, width, height, overflow: 'hidden' }}
+        style={{ left, top, width, height }}
         onPointerDown={onPointerDown('move')}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

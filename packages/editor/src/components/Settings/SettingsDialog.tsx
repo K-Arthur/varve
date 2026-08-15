@@ -13,7 +13,7 @@ import { getTheme, setTheme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bumpThemeRevision, getBackupService, useOptionalEditor } from '../../context';
 import { PrivacyDiagnosticsSection } from '../../crash';
-import { loadSettings, type ThemeMode, type UnitType, updateSettings } from '../../settings';
+import type { ThemeMode, UnitType } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { useOptionalUpdateCoordinator } from '../../updates';
@@ -94,7 +94,7 @@ export function SettingsDialog({
       } else {
         // "System" = remove explicit data-theme so CSS @media (prefers-color-scheme) takes over
         delete document.documentElement.dataset.theme;
-        localStorage.removeItem('strata-theme');
+        localStorage.removeItem('varve-theme');
       }
       bumpThemeRevision();
     },
@@ -302,11 +302,8 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
 }
 
 function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) => void }) {
-  const { settings, updateSection } = useSettings();
+  const { settings, updateSection, updateSettings } = useSettings();
   const currentTheme = getTheme();
-  const [showAllItems, setShowAllItems] = useState(
-    () => loadSettings().appearance.showAllMenuItems,
-  );
 
   return (
     <div className="settings-section">
@@ -337,10 +334,9 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
         <label className="settings-checkbox-row">
           <input
             type="checkbox"
-            checked={showAllItems}
+            checked={settings.appearance.showAllMenuItems}
             onChange={(e) => {
               const next = e.target.checked;
-              setShowAllItems(next);
               updateSettings({ appearance: { showAllMenuItems: next } });
             }}
           />

@@ -384,8 +384,16 @@ test.describe('Content-Aware Fill dialog', () => {
     const dialog = page.locator('dialog.varve-dialog--caf[open]');
 
     await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('Fit');
+    const fitStage = dialog.locator('.caf-dialog__preview-stage');
+    const fitSize = await fitStage.boundingBox();
+    expect(fitSize?.width).toBeGreaterThan(0);
+    expect(fitSize?.height).toBeGreaterThan(0);
     await dialog.getByRole('button', { name: 'Zoom in' }).click();
     await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('125%');
+    await expect(dialog.locator('.caf-dialog__preview-area')).toHaveClass(/--zoom/);
+    const zoomedSize = await fitStage.boundingBox();
+    expect(zoomedSize?.width).toBeGreaterThan(fitSize?.width ?? 0);
+    expect(zoomedSize?.height).toBeGreaterThan(fitSize?.height ?? 0);
 
     await dialog.getByRole('button', { name: 'Zoom out' }).click();
     await expect(dialog.locator('.caf-dialog__zoom-value')).toHaveText('100%');

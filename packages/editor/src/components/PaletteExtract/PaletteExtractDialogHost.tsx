@@ -1,12 +1,18 @@
 /**
  * Extract Color Palette dialog — the menu/command-palette "Extract Color
  * Palette" action surface. Lets the user choose how many colors to extract
- * (3–12) before running the analysis, then shows the swatches with hex
+ * (3–32) before running the analysis, then shows the swatches with hex
  * values and coverage. Analysis runs through the same worker-backed
  * pipeline as the inspector's Palette section.
  */
 
-import type { PaletteAnalysis, PaletteSwatch } from '@varve/engine';
+import {
+  PALETTE_DEFAULT_COLOR_COUNT,
+  PALETTE_MAX_COLOR_COUNT,
+  PALETTE_MIN_COLOR_COUNT,
+  type PaletteAnalysis,
+  type PaletteSwatch,
+} from '@varve/engine';
 import { type ManagedColorShim, managedColorToRgba } from '@varve/shared';
 import { Button, Dialog } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -20,9 +26,9 @@ interface PaletteExtractDialogHostProps {
   onClose: () => void;
 }
 
-const MIN_COLORS = 3;
-const MAX_COLORS = 12;
-const DEFAULT_COLORS = 6;
+const MIN_COLORS = PALETTE_MIN_COLOR_COUNT;
+const MAX_COLORS = PALETTE_MAX_COLOR_COUNT;
+const DEFAULT_COLORS = PALETTE_DEFAULT_COLOR_COUNT;
 
 function hexOf(color: ManagedColorShim): string {
   const [r, g, b] = managedColorToRgba(color);

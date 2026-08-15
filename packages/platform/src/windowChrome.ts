@@ -196,6 +196,12 @@ export function resolveWindowChromeStrategy(
 }
 
 function getBaseStrategy(platform: PlatformInfo): WindowChromeStrategy {
+  // Browser builds can run on a Linux host, but they do not have a Linux
+  // window to decorate. Resolve the runtime before the host OS so a Vite
+  // browser session never reserves a native-style title bar above the
+  // in-page menubar.
+  if (platform.kind === 'web') return getFallbackStrategy(platform);
+
   switch (platform.os) {
     case 'mac':
       return getMacOSStrategy(platform);

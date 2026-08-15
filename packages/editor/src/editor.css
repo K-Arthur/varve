@@ -308,6 +308,7 @@ input[type="number"] {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  align-self: stretch;
 }
 
 /* Left rail (home mark + menus). flex: 1 1 0 mirrors the right controls

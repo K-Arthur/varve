@@ -68,4 +68,40 @@ test.describe('Settings dialog', () => {
     const content = settingsDialog.locator('.settings-dialog__content');
     await expect(content.locator('.settings-section')).toBeVisible();
   });
+
+  test('opens native-dialog dropdowns and applies settings immediately', async ({ page }) => {
+    await navigateToEditor(page);
+    await page.evaluate(() => {
+      const file = [...document.querySelectorAll('button')].find(
+        (element) => element.textContent?.trim() === 'File',
+      );
+      (file as HTMLElement | undefined)?.click();
+    });
+    await page.getByRole('menuitem', { name: /Settings/ }).click();
+
+    const settingsDialog = page.locator('dialog.varve-dialog--settings[open]');
+    await settingsDialog.getByRole('tab', { name: 'Export', exact: true }).click();
+    const format = settingsDialog.getByRole('combobox', { name: 'Default format' });
+    await format.click();
+    const listbox = page.getByRole('listbox', { name: 'Default format' });
+    await expect(listbox).toBeVisible();
+    await expect(listbox.locator('..').locator('..')).toBeAttached();
+    await listbox.getByRole('option', { name: 'SVG', exact: true }).click();
+    await expect(format).toContainText('SVG');
+
+    await settingsDialog.getByRole('tab', { name: 'Appearance', exact: true }).click();
+    const theme = settingsDialog.getByRole('combobox', { name: 'Theme' });
+    await theme.click();
+    await page
+      .getByRole('listbox', { name: 'Theme' })
+      .getByRole('option', { name: 'Dark' })
+      .click();
+    await expect(theme).toContainText('Dark');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    await page.screenshot({
+      path: test.info().outputPath('settings-dropdowns.png'),
+      fullPage: true,
+    });
+  });
 });

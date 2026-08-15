@@ -9,13 +9,9 @@ import { detectPlatformCapabilities, getCurrentTier } from '../../canvas/adaptiv
 import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
 import { getAverageFrameTime, getPercentileFrameTime } from '../../canvas/frameBudget';
 import { setReducedMotionOverride } from '../../context/reducedMotionManager';
-import {
-  loadSettings,
-  type PerformanceSettingsStore,
-  type RenderSettingsStore,
-  updateSettings,
-} from '../../settings';
+import type { PerformanceSettingsStore, RenderSettingsStore } from '../../settings';
 import { InteractionTracePanel } from './InteractionTracePanel';
+import { useSettings } from './SettingsContext';
 
 import './PerformanceSettingsTab.css';
 
@@ -44,32 +40,30 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 export function PerformanceSettingsTab() {
-  const [settings, setSettings] = useState(() => loadSettings());
+  const { settings, updateSettings } = useSettings();
   const [copied, setCopied] = useState(false);
   const caps = detectPlatformCapabilities();
 
   function updateRender(patch: Partial<RenderSettingsStore>) {
-    setSettings(updateSettings({ render: patch }));
+    updateSettings({ render: patch });
   }
 
   function updateReducedMotion(value: PerformanceSettingsStore['reducedMotionOverride']) {
-    setSettings(updateSettings({ performance: { reducedMotionOverride: value } }));
+    updateSettings({ performance: { reducedMotionOverride: value } });
     setReducedMotionOverride(value === 'system' ? null : value === 'always');
   }
 
   function handleResetDefaults() {
-    setSettings(
-      updateSettings({
-        render: { memoryBudget: 'medium' },
-        performance: { reducedMotionOverride: 'system', showPerformanceDiagnostics: false },
-      }),
-    );
+    updateSettings({
+      render: { memoryBudget: 'medium' },
+      performance: { reducedMotionOverride: 'system', showPerformanceDiagnostics: false },
+    });
     setReducedMotionOverride(null);
     enableDrawDiagnostics(false);
   }
 
   function updateShowDiagnostics(next: boolean) {
-    setSettings(updateSettings({ performance: { showPerformanceDiagnostics: next } }));
+    updateSettings({ performance: { showPerformanceDiagnostics: next } });
     enableDrawDiagnostics(next);
   }
 

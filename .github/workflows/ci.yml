@@ -19,6 +19,8 @@ concurrency:
 # narrow scope needed to create a comment — nothing more.
 permissions:
   contents: read
+  actions: read
+  checks: read
 
 jobs:
   changes:
@@ -77,6 +79,8 @@ jobs:
   rust:
     permissions:
       contents: read
+      actions: read
+      checks: read
       issues: write
     name: Rust (${{ matrix.os }})
     timeout-minutes: 60
@@ -95,7 +99,7 @@ jobs:
         with:
           lfs: true
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
           components: rustfmt, clippy
       - name: Install Linux system deps (Tauri / wgpu)
@@ -170,6 +174,9 @@ jobs:
           path: apps/desktop/public/wasm/
       - name: Automated failure debug
         if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
@@ -249,6 +256,8 @@ jobs:
   js:
     permissions:
       contents: read
+      actions: read
+      checks: read
       issues: write
     name: JS (pnpm)
     timeout-minutes: 30
@@ -283,6 +292,9 @@ jobs:
         run: node scripts/audit-render-perf.mjs --ci
       - name: Automated failure debug
         if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
@@ -343,6 +355,8 @@ jobs:
   e2e:
     permissions:
       contents: read
+      actions: read
+      checks: read
       issues: write
     name: E2E (Playwright)
     timeout-minutes: 30
@@ -386,6 +400,9 @@ jobs:
           if-no-files-found: ignore
       - name: Automated failure debug
         if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
@@ -403,6 +420,8 @@ jobs:
   desktop-e2e:
     permissions:
       contents: read
+      actions: read
+      checks: read
       issues: write
     name: Native desktop E2E (${{ matrix.name }})
     timeout-minutes: 45
@@ -445,7 +464,7 @@ jobs:
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core mesa-utils
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Download wasm artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -460,6 +479,9 @@ jobs:
         run: pnpm test:desktop:native
       - name: Automated failure debug
         if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()

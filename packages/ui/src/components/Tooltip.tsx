@@ -414,8 +414,11 @@ export function Tooltip({
     Boolean(disabledReason) && childElement && childElement.props.disabled === true;
 
   // Prepare ref merging unconditionally to avoid hook ordering violation
+  // React 19 moved `ref` from the ReactElement instance onto props. Reading
+  // `childElement.ref` triggers a runtime warning on every tooltip render and
+  // will be removed from the element type; use the props location instead.
   const incomingRef = childElement
-    ? (childElement as unknown as { ref?: React.Ref<HTMLElement> }).ref
+    ? (childElement.props as { ref?: React.Ref<HTMLElement> }).ref
     : null;
   const mergedRef = useMergedRef(triggerRef, incomingRef);
 
