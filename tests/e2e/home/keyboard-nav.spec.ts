@@ -6,9 +6,9 @@ test.describe('Home keyboard navigation', () => {
     await page.waitForSelector('.varve-home');
   });
 
-  test('file grid receives focus via tab', async ({ page }) => {
+  test('empty Home omits the file grid until files exist', async ({ page }) => {
     const grid = page.locator('.home-grid[role="grid"]');
-    await expect(grid).toBeVisible();
+    await expect(grid).not.toBeVisible();
   });
 
   test('arrow keys navigate file grid when files exist', async ({ page }) => {

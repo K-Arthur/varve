@@ -110,6 +110,9 @@ export async function navigateToEditor(page: Page, path = '/') {
 export async function navigateToHome(page: Page) {
   await page.goto('/');
   await page.waitForSelector('.varve-home');
+  // `.varve-home` is also used by the loading skeleton. Wait for the real
+  // interactive shell before clicking navigation or toolbar controls.
+  await page.locator('.varve-home__toolbar').waitFor({ state: 'visible', timeout: 45000 });
 }
 
 /**
