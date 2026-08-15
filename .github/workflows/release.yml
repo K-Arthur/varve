@@ -433,7 +433,7 @@ jobs:
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf \
-            squashfs-tools
+            squashfs-tools xdg-utils
 
       - name: Add Rust target
         if: matrix.enabled
