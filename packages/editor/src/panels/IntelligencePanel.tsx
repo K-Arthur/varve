@@ -28,7 +28,6 @@ import {
   dHash,
   embedImageForSearchWith,
   pHash,
-  SIGLIP_IMAGE_MODEL,
   SIGLIP_TEXT_EMBEDDING_SPEC,
   searchNearDuplicates,
   searchSemantic,
@@ -2380,7 +2379,6 @@ function ComponentsTab() {
  */
 const EMBED_IMAGE_MODEL = DINOV2_SMALL_IMAGE_MODEL;
 const EMBED_IMAGE_MODEL_ID = EMBED_IMAGE_MODEL.id;
-const SIGLIP_MODEL_ID = SIGLIP_IMAGE_MODEL.id;
 /** Bound how many document images get embedded per search — running
  * inference on an unbounded document could stall the UI for a long time. */
 const MAX_SIMILAR_CANDIDATES = 30;
@@ -2454,6 +2452,7 @@ function SimilarTab() {
   const [matches, setMatches] = useState<SimilarMatch[] | null>(null);
   const [searchMode, setSearchMode] = useState<SimilaritySearchMode>('semantic');
   const [scannedCount, setScannedCount] = useState(0);
+  const usingTestEmbedder = Boolean(window.__varveSimilarityTest?.mockEmbed);
 
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : null;
@@ -2645,7 +2644,7 @@ function SimilarTab() {
       const loader = getModelLoader();
       const imageModelPath = testMock
         ? '/mock/model.onnx'
-        : await loader.getModelPath(SIGLIP_MODEL_ID, controller.signal);
+        : await loader.getModelPath(EMBED_IMAGE_MODEL_ID, controller.signal);
       if (!imageModelPath) throw new Error('Find Similar image model not downloaded');
 
       const textQuery = queryText.trim();
@@ -2757,18 +2756,17 @@ function SimilarTab() {
   }, []);
 
   const isSearching = status === 'searching';
-  const needsDownload = !modelAvailable && status !== 'downloading';
+  const needsDownload = !modelAvailable && !usingTestEmbedder && status !== 'downloading';
   const needsTextDownload =
     Boolean(queryText.trim()) && modelAvailable && !textModelAvailable && status !== 'downloading';
 
   return (
     <div className="intelligence-tab-content">
       <p className="intelligence-hint">
-        Search locally with an image or a description. Image similarity and natural-language queries
-        use the same verified SigLIP embedding space; near duplicates use exact identity and visual
-        fingerprints first.
+        Search locally with an image or a description. Image similarity uses the verified DINOv2
+        embedding space; natural-language queries use the paired SigLIP text model. Near duplicates
+        use exact identity and visual fingerprints first.
       </p>
-
       <label className="intelligence-field-label" htmlFor="similarity-text-query">
         Describe an asset
       </label>
@@ -2829,7 +2827,7 @@ function SimilarTab() {
           aria-label={
             needsTextDownload && !needsDownload
               ? 'Download natural-language search model (~106 MB)'
-              : 'Download Find Similar model (~201 MB)'
+              : 'Download AI Model (~88 MB)'
           }
         >
           <Icon name="Download" label={undefined} size="0.85em" />

@@ -29,7 +29,7 @@ async function openSimilarTab(page: import('@playwright/test').Page) {
 
 function mockEmbedScript(): string {
   return `(() => {
-    const dim = 768;
+    const dim = 384;
     const vectorFor = (src) => {
       let h = 0;
       for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) | 0;
@@ -41,16 +41,18 @@ function mockEmbedScript(): string {
         let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
         t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
         const v = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
-        values[i] = v;
-        sumSq += v * v;
+        // Keep every pair positively correlated so the semantic lane's
+        // score>=0 contract produces deterministic result cards.
+        values[i] = 1 + v * 0.05;
+        sumSq += values[i] * values[i];
       }
       const norm = Math.sqrt(sumSq) || 1;
       for (let i = 0; i < dim; i++) values[i] /= norm;
       return {
-        modelId: 'siglip-base-patch16-224',
-        modelRevision: 'xenova-onnx-2026-07-21',
-        embeddingSpaceVersion: 'siglip-image-pooler-v1',
-        preprocessingVersion: 'semantic-rgb-letterbox-neutral-v2',
+        modelId: 'dinov2-small',
+        modelRevision: 'xenova-onnx-2026-08-13',
+        embeddingSpaceVersion: 'dinov2-small-cls-v1',
+        preprocessingVersion: 'dinov2-rgb-center-crop-v1',
         dimension: dim,
         dtype: 'fp32',
         normalized: true,
@@ -78,7 +80,9 @@ test.describe('Find Similar workflow', () => {
   test('explains the empty state for a non-image selection', async ({ page }) => {
     await navigateToEditor(page);
     await importImages(page, ['test-image.png']);
-    // Open the Similar tab without selecting an image.
+    // Import selects the new asset; use the public Select None shortcut before
+    // checking the empty state so this tests the non-image-selection contract.
+    await page.keyboard.press('Control+Shift+a');
     await openSimilarTab(page);
     await expect(page.getByText(/Select an image or enter a description/i)).toBeVisible({
       timeout: 10000,
@@ -92,9 +96,8 @@ test.describe('Find Similar workflow', () => {
     await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
     // Select the first image in the layers panel.
     await page.getByRole('treeitem').first().click();
+    await page.evaluate(mockEmbedScript());
     await openSimilarTab(page);
-
-    await page.evaluate(mockEmbedScript);
 
     await page
       .getByRole('button', { name: /Find similar/i })
@@ -120,8 +123,8 @@ test.describe('Find Similar workflow', () => {
     await navigateToEditor(page);
     await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
     await page.getByRole('treeitem').first().click();
+    await page.evaluate(mockEmbedScript());
     await openSimilarTab(page);
-    await page.evaluate(mockEmbedScript);
     await page
       .getByRole('button', { name: /Find similar/i })
       .first()
