@@ -19,6 +19,13 @@ import { sitePath } from '../../lib/siteUrl';
         control of when software is downloaded or installed.
       </p>
 
+      <aside class="docs-note">
+        <strong>Current release note:</strong> the published <code>v0.1.1</code> release predates
+        the signed updater feed. For that release, use the
+        <a href={sitePath('/download')}>download page</a> or GitHub Releases for manual updates.
+        The updater design below applies when a channel feed is present in a future release.
+      </aside>
+
       <section class="docs-section">
         <h2>What happens on first launch?</h2>
         <p>
@@ -162,7 +169,8 @@ import { sitePath } from '../../lib/siteUrl';
 
   .breadcrumb a,
   .docs-section a,
-  .docs-cta a {
+  .docs-cta a,
+  .docs-note a {
     color: var(--text-link);
   }
 
@@ -180,6 +188,19 @@ import { sitePath } from '../../lib/siteUrl';
     font-size: 1.125rem;
     color: var(--text-secondary);
     margin-bottom: 3rem;
+  }
+
+  .docs-note {
+    margin: -1rem 0 3rem;
+    padding: 1rem 1.25rem;
+    border-left: 3px solid var(--accent-primary);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .docs-note strong {
+    color: var(--text-primary);
   }
 
   .docs-section {

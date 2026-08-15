@@ -31,7 +31,7 @@ const softwareSchema = {
 
 <Layout
   title="Varve — free design suite for vector, layout, motion, and print"
-  description="Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print — one application on Linux, macOS, and Windows. No subscription, no account, no uploads. Currently in public beta."
+  description="Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print — one application on Linux, macOS, and Windows. Core editing works offline; optional online services are explicit. Currently in public beta."
   structuredData={softwareSchema}
 >
   <Hero />
@@ -112,33 +112,36 @@ const softwareSchema = {
       <Reveal as="div" class="local-first-copy">
         <p class="section-eyebrow">Local-first by design</p>
         <h2 id="local-first-title" class="local-first-title">
-          Your work never leaves your machine.
+          Your work stays local by default.
         </h2>
         <p class="local-first-text">
-          No account. No cloud sync. No design telemetry. Varve stores documents on
-          your disk, works offline, and only sends bytes when you choose to
-          export them somewhere.
+          No account. No mandatory cloud sync. Varve stores documents locally
+          and core editing works offline. The desktop app writes files to your
+          disk; the browser build uses local browser storage. Optional model
+          downloads, online font/icon search, user-configured providers,
+          update checks, and consented aggregate analytics are separate network
+          features.
         </p>
         <div class="local-first-points">
           <div class="local-first-point">
             <span class="point-mark" aria-hidden="true"></span>
             <div>
               <strong>Files on disk</strong>
-              <p>Plain document files you can copy, back up, and own.</p>
+              <p>Desktop document files you can copy, back up, and own.</p>
             </div>
           </div>
           <div class="local-first-point">
             <span class="point-mark" aria-hidden="true"></span>
             <div>
               <strong>Works offline</strong>
-              <p>Everything the editor does runs on your hardware.</p>
+              <p>Core editing runs on your hardware without an account.</p>
             </div>
           </div>
           <div class="local-first-point">
             <span class="point-mark" aria-hidden="true"></span>
             <div>
               <strong>No design telemetry</strong>
-              <p>Only consented aggregate product measurements can leave your machine.</p>
+              <p>No design content is included in optional aggregate measurements.</p>
             </div>
           </div>
         </div>
@@ -165,7 +168,7 @@ const softwareSchema = {
         <p class="section-eyebrow">Where Varve is today</p>
         <h2 id="beta-title" class="beta-title">An honest {PRODUCT_STATUS.stage}.</h2>
         <p class="beta-text">
-          The first release, Varve {release.version}, is out for Linux,
+          The latest published release, Varve {release.version}, is out for Linux,
           macOS, and Windows. Core features work, but you should expect
           rough edges and evolving file formats &mdash; great for exploring
           workflows, not yet for critical production deadlines. Keep
