@@ -563,8 +563,12 @@ jobs:
         if: matrix.enabled
         env:
           CHANNEL: ${{ needs.preflight.outputs.channel }}
+          UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
         run: |
-          node -e "const fs=require('fs'); const c=process.env.CHANNEL; if(!['stable','beta','nightly'].includes(c)) throw new Error('invalid channel'); fs.writeFileSync('apps/desktop/src-tauri/tauri.update.channel.json', JSON.stringify({plugins:{updater:{endpoints:['https://varve.studio/updates/'+c+'.json']}}}, null, 2)+'\\n');"
+          node scripts/release/write-updater-config.mjs \
+            --channel "${CHANNEL}" \
+            --mode "${UPDATER_MODE}" \
+            --output apps/desktop/src-tauri/tauri.update.channel.json
 
       - name: Tauri build (signed platforms)
         if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed')
@@ -593,6 +597,7 @@ jobs:
           # re-scanned by the artifact scan step below.
           VARVE_SIGNING_STEP_ALLOWED: '1'
           NO_STRIP: '1'
+          VARVE_UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
@@ -617,6 +622,7 @@ jobs:
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
+          VARVE_UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
