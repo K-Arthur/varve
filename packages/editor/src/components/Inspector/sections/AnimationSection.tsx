@@ -45,15 +45,12 @@ export function AnimationSection({ nodes, sectionId }: AnimationSectionProps) {
   const timing = session?.timing;
 
   const media = useMemo(() => editor.state.media, [editor.state.media]);
-
-  if (!node || nodes.length !== 1 || !fill?.image || !asset?.animated || !session || !timing) {
-    return null;
-  }
-  const animated = asset.animated;
-  const settings = fill.image.media ?? defaultMediaFillSettings();
+  const animated = asset?.animated;
+  const settings = fill?.image?.media ?? defaultMediaFillSettings();
 
   const updateSettings = useCallback(
     (patch: Partial<typeof settings>) => {
+      if (!node || !fill) return;
       editor.updateDoc((doc) => {
         const target = doc.nodes[node.id];
         if (target?.kind !== 'shape' || !target.fills) return doc;
@@ -75,11 +72,11 @@ export function AnimationSection({ nodes, sectionId }: AnimationSectionProps) {
         } as Document;
       });
     },
-    [editor, node.id, fill],
+    [editor, node?.id, fill],
   );
 
   const inPoint = settings.inPointMs;
-  const outPoint = settings.outPointMs > 0 ? settings.outPointMs : animated.durationMs;
+  const outPoint = settings.outPointMs > 0 ? settings.outPointMs : (animated?.durationMs ?? 0);
 
   const step = useCallback(
     (direction: 1 | -1) => {
@@ -87,6 +84,10 @@ export function AnimationSection({ nodes, sectionId }: AnimationSectionProps) {
     },
     [editor],
   );
+
+  if (!node || nodes.length !== 1 || !fill?.image || !animated || !session || !timing) {
+    return null;
+  }
 
   return (
     <DisclosureSection title="Animation" sectionId={sectionId ?? 'animation'} defaultExpanded>
