@@ -14,6 +14,13 @@ async function openNewDesign(page: import('@playwright/test').Page) {
   return dialog;
 }
 
+async function chooseStartMode(
+  dialog: import('@playwright/test').Locator,
+  label: string,
+): Promise<void> {
+  await dialog.locator('label.new-design__start-card').filter({ hasText: label }).click();
+}
+
 test.describe('New Design dialog', () => {
   test.beforeEach(async ({ page }) => {
     // The app's crash-loop detector counts unclean startups per context;
@@ -44,7 +51,7 @@ test.describe('New Design dialog', () => {
   test('starting with a frame shows the searchable preset picker', async ({ page }) => {
     const dialog = await openNewDesign(page);
 
-    await dialog.getByRole('radio', { name: /start with a frame/i }).click();
+    await chooseStartMode(dialog, 'Start with a frame');
     await expect(dialog.getByPlaceholder('Search presets...')).toBeVisible();
     await expect(dialog.getByText('Instagram Post')).toBeVisible();
     await expect(dialog.getByText('A4')).toBeVisible();
@@ -57,7 +64,7 @@ test.describe('New Design dialog', () => {
   test('templates starting point shows templates', async ({ page }) => {
     const dialog = await openNewDesign(page);
 
-    await dialog.getByRole('radio', { name: /^template /i }).click();
+    await chooseStartMode(dialog, 'Template');
     await expect(dialog.locator('.templates-gallery')).toBeVisible();
   });
 
@@ -77,7 +84,7 @@ test.describe('New Design dialog', () => {
   }) => {
     const dialog = await openNewDesign(page);
 
-    await dialog.getByRole('radio', { name: /start with a frame/i }).click();
+    await chooseStartMode(dialog, 'Start with a frame');
     await dialog.getByPlaceholder('Search presets...').fill('iPhone 15 Pro');
     await dialog.locator('.preset-tile', { hasText: 'iPhone 15 Pro' }).first().click();
     await dialog.getByRole('button', { name: /create design/i }).click();

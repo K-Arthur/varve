@@ -74,6 +74,8 @@ export function useSemanticAssetSearch(
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
+      svc.dispose();
+      if (serviceRef.current === svc) serviceRef.current = null;
     };
   }, [service]);
 
