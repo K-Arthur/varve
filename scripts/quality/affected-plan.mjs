@@ -20,11 +20,20 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 
 const ROOT = process.cwd();
 const _PKGS = join(ROOT, 'packages');
+
+/**
+ * Convert an absolute workspace path reported by pnpm/Cargo to the planner's
+ * repository-relative POSIX form. Git paths and impact globs use `/` on every
+ * runner, while package managers return the host-native separator on Windows.
+ */
+function repoRelativePath(filePath) {
+  return relative(ROOT, filePath).split(sep).join('/');
+}
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -98,7 +107,7 @@ function loadPackages() {
   if (out) {
     for (const p of JSON.parse(out)) {
       if (!p.name) continue;
-      const dir = p.path.replace(`${ROOT}/`, '');
+      const dir = repoRelativePath(p.path);
       let manifest2 = null;
       try {
         manifest2 = JSON.parse(readFileSync(join(ROOT, dir, 'package.json'), 'utf-8'));
@@ -163,7 +172,7 @@ function loadCrates() {
   const { packages } = JSON.parse(out);
   const crates = {};
   for (const p of packages) {
-    const dir = p.manifest_path.replace(`${ROOT}/`, '').replace('/Cargo.toml', '');
+    const dir = repoRelativePath(p.manifest_path).replace(/\/Cargo\.toml$/, '');
     crates[p.name] = {
       dir,
       deps: new Set(p.dependencies.map((d) => d.name)),
