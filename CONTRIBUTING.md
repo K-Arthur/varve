@@ -2,17 +2,20 @@
 
 Thank you for your interest in contributing to Varve.
 
-## Current status: not yet open to external contributions
+## Current status: external code contributions are paused
 
-Varve is not currently accepting external code contributions. The project
-is still stabilizing its own foundations (build, CI, and documentation), and
-the CLA/DCO infrastructure described below is not yet active. Everything in
-this document describes the process we intend to use once the project opens
-to outside contributors — treat it as a preview, not a live workflow.
+Varve is currently stabilizing its build, release, and documentation
+foundations, so external code pull requests are paused. The issue and pull
+request templates describe the workflow we intend to use when code opens
+again; they are not an invitation to implement an uncoordinated change today.
 
-In the meantime, feedback, bug reports, and ideas are welcome via
-[GitHub Issues](https://github.com/K-Arthur/varve/issues) and
-[GitHub Discussions](https://github.com/K-Arthur/varve/discussions).
+The best current contributions are reproducible bug reports, workflow and
+architecture discussions, cross-platform testing, documentation, examples,
+and design feedback. See the [current contributor guide](docs/development/contributing.md)
+for the project map, channel guide, validation expectations, and future PR
+workflow. Use [GitHub Issues](https://github.com/K-Arthur/varve/issues) for
+reproducible bugs and [GitHub Discussions](https://github.com/K-Arthur/varve/discussions)
+for questions, proposals, and workflows.
 
 ## Code of Conduct
 
@@ -82,33 +85,67 @@ a one-time process. See [CLA.md](CLA.md), [ICLA.md](ICLA.md), and
 [CCLA.md](CCLA.md) — note that the CLA/ICLA/CCLA documents are still drafts
 awaiting legal review and are not yet in effect.
 
-## How to contribute
+## Ways to help today
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Make your changes, following the project's code standards.
-4. Add or update tests for your changes.
-5. Ensure affected quality gates pass:
+- Report a reproducible bug with the release, platform, exact steps, expected
+  result, actual result, and any relevant screenshots or logs.
+- Share a workflow, feature, or architecture proposal in Discussions before
+  turning it into an implementation plan.
+- Test Varve on Linux, macOS, or Windows and report the exact environment and
+  action that succeeded or failed.
+- Improve documentation, tutorials, examples, translations, or accessibility
+  guidance through an Issue or Discussion.
+- Help other users in Discussions. Report security vulnerabilities privately
+  using [SECURITY.md](SECURITY.md), never in a public issue.
+
+## When code contributions reopen
+
+When external code contributions reopen, start with a Discussion for any
+non-trivial change so scope and ownership are clear. Then:
+
+1. Fork the repository and create a focused branch from `master`.
+2. Make the smallest coherent change, preserving unrelated worktree changes
+   and following the project's architecture and design-token rules.
+3. Add or update the narrowest useful tests. Changes involving the canvas,
+   pointer events, dragging, or rendering require a real Playwright E2E test;
+   unit tests alone are not sufficient.
+4. Run the impact-aware plan and affected checks:
    ```bash
+   pnpm verify:plan
    pnpm verify:affected   # impact-aware validation (default)
    ```
-   The full repository gate (`just gate-full`) is reserved for release
-   checkpoints and high-risk changes; it requires a stated reason
-   (`VARVE_FULL_GATE_REASON`). See
-   [docs/quality/validation-strategy.md](docs/quality/validation-strategy.md).
-6. Submit a pull request with a clear description of your changes.
+5. Submit a focused pull request describing the problem, design choice,
+   compatibility or migration impact, exact validation commands, and any
+   screenshots or recordings that make the result easier to review.
+
+The full repository gate (`pnpm verify:full`) is reserved for workspace or
+toolchain changes, test-runner configuration, serialization migrations,
+foundational API changes, release checkpoints, or an explicit escalation. It
+requires `VARVE_FULL_GATE_REASON`. See the
+[validation strategy](docs/quality/validation-strategy.md).
 
 ## Development setup
 
 See [docs/development/setup.md](docs/development/setup.md) for full setup
 instructions, running, testing, and quality gates.
+The [current contributor guide](docs/development/contributing.md) explains
+where the major packages live and how the validation policy applies to each
+kind of change.
 
 ## Project governance
 
-For licensing questions, see the [licensing docs](docs/licensing/).
-Varve uses AI-assisted development tooling. AI-generated contributions
-are reviewed and committed by the project maintainer.
+For licensing questions, see the [licensing docs](docs/licensing/). Varve is
+source-available under FSL-1.1-MIT and is not currently OSI-approved; review
+[LICENSE](LICENSE) before reusing code. The DCO and CLA documents are drafts
+and are not active while external code contributions are paused.
+
+Varve uses AI-assisted development tooling. Contributors remain responsible
+for the provenance, license compatibility, security, tests, and quality of
+anything they submit. Do not include secrets, private data, or unlicensed
+material in issues, discussions, commits, or pull requests.
 
 ## Questions?
 
-Ask in [GitHub Issues](https://github.com/K-Arthur/varve/issues).
+Ask in [GitHub Discussions](https://github.com/K-Arthur/varve/discussions).
+Use [GitHub Issues](https://github.com/K-Arthur/varve/issues) for
+reproducible bugs.

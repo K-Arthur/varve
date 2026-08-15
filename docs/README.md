@@ -20,7 +20,8 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 |-----|---------|
 | [README.md](../README.md) (root) | What Varve is, quick start, key packages |
 | [AGENTS.md](../AGENTS.md) (root) | AI agent instructions — cross-project rules for automation |
-| [CONTRIBUTING.md](../CONTRIBUTING.md) (root) | Contribution process (not yet open to external contributions) |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) (root) | Contribution status, current ways to help, and future code workflow |
+| [development/contributing.md](development/contributing.md) | Current contribution status, ways to help now, project map, validation, and future PR workflow |
 | [CHANGELOG.md](../CHANGELOG.md) (root) | Release notes — source for `release-notes.mjs` |
 | [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
 

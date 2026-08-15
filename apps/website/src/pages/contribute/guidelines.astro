@@ -8,14 +8,15 @@ import { sitePath } from '../../lib/siteUrl';
     <div class="guidelines-page">
       <h1>Contribution Guidelines</h1>
       <p class="guidelines-intro">
-        <strong>Varve is not yet accepting external contributions.</strong> These guidelines describe the process
-        we intend to use once the project opens up, so it's transparent in advance — treat this page as a preview,
-        not a live workflow.
+        <strong>External code contributions are temporarily paused.</strong> These guidelines separate the feedback
+        and testing channels available today from the pull-request workflow that will apply when the project opens
+        to outside code contributors.
       </p>
       <p class="guidelines-intro">
-        Thank you for considering a future contribution to Varve. These guidelines will help ensure a smooth,
-        collaborative process for everyone involved — whether you're fixing a bug, writing documentation, or
-        designing a new feature.
+        Thank you for helping Varve mature. Reproducible bug reports, workflow proposals, cross-platform testing,
+        documentation corrections, and design feedback are useful contributions even before code pull requests open.
+        Start with the <a href="https://github.com/K-Arthur/varve/blob/master/docs/development/contributing.md">current contributor guide</a>
+        for the best channel.
       </p>
 
       <section class="guidelines-section">
@@ -43,7 +44,7 @@ import { sitePath } from '../../lib/siteUrl';
           Before making your first contribution, set up your development environment. Varve requires:
         </p>
         <ul>
-          <li><strong>Rust toolchain</strong> — rustc 1.96+ / cargo 1.96+, available at <code>~/.cargo/bin</code></li>
+          <li><strong>Rust toolchain</strong> — rustc 1.97+ / cargo 1.97+, available at <code>~/.cargo/bin</code></li>
           <li><strong>pnpm 11.9+</strong> — with <code>PNPM_HOME</code> configured and on your PATH</li>
           <li><strong>Node 26+</strong> with npm 11.16+</li>
           <li><strong>WASM target</strong> installed for wasm32-unknown-unknown</li>
@@ -59,30 +60,29 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="guidelines-section">
         <h2>Finding Work</h2>
         <p>
-          Not sure where to start? There are several ways to find work that fits your skills:
+          Code work is not currently being assigned to external contributors. For useful work today:
         </p>
         <ul>
-          <li><strong>Good first issues</strong> — tagged with the <code>good first issue</code> label on GitHub, these are small, well-scoped tasks ideal for new contributors</li>
-          <li><strong>Help wanted</strong> — issues labeled <code>help wanted</code> indicate the maintainer would appreciate community assistance</li>
-          <li><strong>Discussion threads</strong> — the <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a> board has ideas, feature requests, and architecture conversations seeking input</li>
-          <li><strong>Documentation gaps</strong> — if you find something confusing or undocumented, improving it is always welcome</li>
+          <li><strong>Bug reports</strong> — search existing <a href="https://github.com/K-Arthur/varve/issues">Issues</a>, then provide a minimal reproduction and environment details</li>
+          <li><strong>Workflow proposals</strong> — use <a href="https://github.com/K-Arthur/varve/discussions">Discussions</a> for feature ideas, architecture questions, and design feedback</li>
+          <li><strong>Cross-platform testing</strong> — record OS, architecture, package type, version, and exact actions</li>
+          <li><strong>Documentation and examples</strong> — point out stale or confusing content and suggest a replacement or workflow recipe</li>
         </ul>
         <p>
-          If you're interested in working on an issue, comment on it first to avoid duplicate work. The maintainer
-          will assign it to you. For new features or significant changes, please open a discussion before writing code
-          to ensure alignment with the project direction.
+          Please do not start an implementation based only on an issue label. For a future feature or significant
+          change, open a Discussion first so the scope and direction can be agreed before code is written.
         </p>
       </section>
 
       <section class="guidelines-section">
-        <h2>Making Changes</h2>
-        <p>Follow this workflow for all contributions:</p>
+        <h2>Making Changes When Code Opens</h2>
+        <p>Once external code contributions reopen, follow this workflow:</p>
         <ol>
           <li><strong>Create a branch</strong> — fork the repository and create a feature branch from <code>master</code>. Use a descriptive name like <code>fix/text-alignment</code> or <code>feat/gradient-picker</code></li>
-          <li><strong>Write tests first</strong> — Varve follows Test-Driven Development. Write failing tests before implementing your change. This applies to both Rust (<code>cargo test</code>) and TypeScript (<code>pnpm test</code>) code</li>
-          <li><strong>Follow existing patterns</strong> — read the surrounding code to understand conventions. Match the code style, use existing libraries and utilities, and follow the project's architectural patterns</li>
+          <li><strong>Write the narrowest useful tests</strong> — follow the closest existing test pattern. Canvas, pointer, drag, and rendering changes also require real Playwright E2E coverage</li>
+          <li><strong>Follow existing patterns</strong> — read the surrounding code and the nearest architecture document. Match the code style, use existing libraries and utilities, and follow the project's boundaries</li>
           <li><strong>Keep changes focused</strong> — each pull request should address a single concern. If you find yourself fixing multiple unrelated issues, split them into separate PRs</li>
-          <li><strong>Run <code>just gate</code> before committing</strong> — this runs the full quality gate: format check, lint, tests, token audit, and emoji audit. All must pass for code to be accepted</li>
+          <li><strong>Run the impact-aware gate</strong> — begin with <code>pnpm verify:plan</code>, then run <code>pnpm verify:affected</code> and record the exact commands in the pull request</li>
         </ol>
       </section>
 
@@ -100,20 +100,17 @@ import { sitePath } from '../../lib/siteUrl';
 
       <section class="guidelines-section">
         <h2>Testing Requirements</h2>
-        <p>All contributions must pass the following checks before they can be merged:</p>
+        <p>Validation is selected by impact. The affected plan may add package tests, typechecks, audits, or E2E coverage:</p>
         <ul>
-          <li><strong><code>pnpm test</code></strong> — all TypeScript/JavaScript tests across all packages must pass</li>
-          <li><strong><code>cargo test --workspace</code></strong> — all Rust workspace tests must pass (75+ tests across varve-core, varve-engine, varve-layout, varve-print, varve-sync, varve-trace)</li>
-          <li><strong><code>cargo test</code> (Tauri)</strong> — desktop-specific tests (currently 7+) must pass</li>
-          <li><strong><code>pnpm typecheck</code></strong> — TypeScript type-checking must produce zero errors across all 15 packages</li>
-          <li><strong><code>pnpm lint</code></strong> — Biome must report zero errors on new and modified files</li>
-          <li><strong><code>pnpm audit:tokens</code></strong> — all 93+ WCAG-AA token pairs across all 3 themes must pass</li>
-          <li><strong><code>pnpm audit:emoji</code></strong> — zero emoji violations (emojis are not permitted anywhere in the codebase)</li>
-          <li><strong><code>pnpm format</code></strong> — code formatting must be consistent with the project style</li>
+          <li><strong><code>pnpm verify:plan</code></strong> — inspect the selected checks before running them</li>
+          <li><strong><code>pnpm verify:affected</code></strong> — default Tiers 0–4 validation for the affected closure</li>
+          <li><strong>Feature-specific checks</strong> — for example <code>pnpm test:website</code>, <code>pnpm audit:docs</code>, <code>pnpm audit:tokens</code>, or a scoped Playwright test</li>
+          <li><strong>Full gate only when escalated</strong> — <code>pnpm verify:full</code> requires <code>VARVE_FULL_GATE_REASON</code> and is reserved for high-impact changes or an explicit request</li>
         </ul>
         <p>
-          These quality gates are not optional. Each catches a different class of error. If you're unsure how to
-          resolve a failing check, ask in the PR or in GitHub Discussions.
+          Skipping a selected affected check is not a valid shortcut. If a check fails or the plan looks broader than
+          the change, include the output in the pull request and ask in GitHub Discussions rather than silently
+          omitting it.
         </p>
       </section>
 
