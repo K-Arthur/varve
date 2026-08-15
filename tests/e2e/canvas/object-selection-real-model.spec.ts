@@ -23,7 +23,8 @@ const PROFILE_DIR = 'test-results/profile-sam2-real';
 const BASE_URL = process.env.VARVE_SAM2_BASE_URL ?? 'http://127.0.0.1:1433';
 
 const test = base.extend({
-  page: async (_unused, use) => {
+  page: async ({ browser }, use) => {
+    void browser;
     const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
       headless: true,
       channel: 'chromium',
