@@ -684,7 +684,7 @@ impl DocumentStore {
         let mut stmt = conn.prepare("SELECT * FROM recent_files WHERE id = ?1")?;
         let mut rows = stmt.query(rusqlite::params![id])?;
         rows.next()?
-            .map(|row| Self::recent_from_row(&row))
+            .map(|row| Self::recent_from_row(row))
             .transpose()
             .and_then(|row| row.ok_or(rusqlite::Error::QueryReturnedNoRows))
     }
@@ -719,7 +719,7 @@ impl DocumentStore {
             let Some(row) = rows.next()? else {
                 return Err(rusqlite::Error::QueryReturnedNoRows);
             };
-            Self::recent_from_row(&row)?
+            Self::recent_from_row(row)?
         };
         let pinned = pinned.unwrap_or(current.pinned);
         let hidden = hidden.unwrap_or(current.hidden);
