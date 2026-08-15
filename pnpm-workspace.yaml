@@ -16,7 +16,8 @@ overrides:
   # --- Transitive security remediations (2026-08-13) ---
   # Each override pins a vulnerable transitive dependency to its patched line.
   # Revisit each when the parent packages catch up and the overrides can be
-  # dropped. Verified by `pnpm audit` (zero findings) and the resolved graph.
+  # dropped. Production audit is zero; the resolved graph is checked on every
+  # frozen install, with patched development-only packages validated locally.
   # GHSA-v2hh-gcrm-f6hx / GHSA-7p8r-x3mc-p8w7: fast-uri host-confusion in
   # ajv@8.18 (stryker) and yaml-language-server (@astrojs/check) chains.
   "fast-uri": 3.1.5
@@ -28,6 +29,13 @@ overrides:
   "serialize-javascript": 7.1.0
   # GHSA-3jxr-9vmj-r5cp: brace-expansion DoS via minimatch@9 (wdio chain).
   "brace-expansion@2": 2.1.4
+  # GHSA-mh99-v99m-4gvg / GHSA-rgw5-rvv9-x895: brace-expansion DoS in the
+  # minimatch 10 / Stryker chain. The parent currently resolves 5.0.7.
+  "brace-expansion@5": 5.0.9
+  # GHSA-xcpc-8h2w-3j85: adm-zip can allocate 4 GB for a crafted archive.
+  # onnxruntime-node still declares ^0.5.16; 0.6.0 is API-compatible for its
+  # archive extraction path and is the first patched release.
+  "adm-zip": 0.6.0
   # GHSA-28wg-ghj8-5hjv / GHSA-2v37-7h3g-55p8: nanoid 3.x indefinite loop in
   # postcss (astro/stylelint chains). postcss@8 override dedupes onto
   # 8.5.26; nanoid pin is belt-and-braces for any other 3.x consumer.
@@ -54,4 +62,5 @@ minimumReleaseAgeExclude:
   - '@testing-library/jest-dom@7.0.1'
 
 patchedDependencies:
+  extract-zip@2.0.1: patches/extract-zip@2.0.1.patch
   jsdom@30.0.1: patches/jsdom@30.0.1.patch
