@@ -1,0 +1,108 @@
+name: Bug report
+description: Something in Varve doesn't work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. **Security vulnerabilities should not be
+        filed here** — use [private advisory reporting](https://github.com/K-Arthur/varve/security/advisories) instead (see [SECURITY.md](../../SECURITY.md)).
+
+        Varve is public beta software; please check the
+        [known issues](https://varve.studio/support/known-issues) and
+        existing [Issues](https://github.com/K-Arthur/varve/issues) first.
+
+  - type: input
+    id: version
+    attributes:
+      label: Varve version
+      description: Help → About, or the window title bar.
+      placeholder: "0.1.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Web (browser build)
+    validations:
+      required: true
+
+  - type: input
+    id: os-detail
+    attributes:
+      label: OS / distro version
+      placeholder: "e.g. Ubuntu 22.04, macOS 15.1, Windows 11 23H2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-type
+    attributes:
+      label: Installation type
+      options:
+        - AppImage (Linux)
+        - .deb (Linux)
+        - .rpm (Linux)
+        - .dmg (macOS)
+        - .exe / NSIS (Windows)
+        - Built from source
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU / rendering backend (if relevant)
+      placeholder: "e.g. NVIDIA RTX 4070, Canvas2D vs WebGPU if known"
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps that trigger the bug.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Screenshots, logs, or a sample file
+      description: >-
+        Drag and drop images/logs here. Only attach a `.varve` file if it
+        doesn't contain anything sensitive.
+
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Did this work in a previous version?
+      options:
+        - "Not sure / first time trying this"
+        - "Yes — this is a regression"
+        - "No — this has never worked"
+    validations:
+      required: true
