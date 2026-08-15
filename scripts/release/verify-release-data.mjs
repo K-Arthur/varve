@@ -61,8 +61,15 @@ export function selectRelease(releases, pinnedTag = null) {
     return pinned ?? null;
   }
 
-  const stable = published.filter((r) => !semverOf(r.tag_name)?.isPrerelease);
-  const pool = stable.length > 0 ? stable : published;
+  // GitHub releases may also contain published non-product tags (for example
+  // the optional-model bundle `varve-models-v1`). They are not application
+  // channels and must never win the website's product-release selection.
+  const stable = published.filter((r) => {
+    const version = semverOf(r.tag_name);
+    return version !== null && !version.isPrerelease;
+  });
+  const prerelease = published.filter((r) => semverOf(r.tag_name)?.isPrerelease === true);
+  const pool = stable.length > 0 ? stable : prerelease;
   pool.sort((a, b) => compare(b.tag_name, a.tag_name));
   return pool[0] ?? null;
 }

@@ -1,18 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TerminationCoordinator } from '../coordinator';
+import type { TerminationIntent } from '../types';
 import { createDialogHarness, createFakeApi, createMemoryMarker } from './testHarness';
 
 function makeCoordinator(options: {
   sessions?: Parameters<typeof createFakeApi>[0];
-  onCommit?: (intent: string) => void | Promise<void>;
+  onCommit?: (intent: TerminationIntent) => undefined | boolean | Promise<undefined | boolean>;
   onDiscardCommitted?: (docs: unknown[]) => void | Promise<void>;
   finalizers?: { runFor(): Promise<void> };
 }) {
   const controls = createFakeApi(options.sessions);
   const harness = createDialogHarness();
   const marker = createMemoryMarker('false');
-  const commit = vi.fn(async (intent: string) => {
-    await options.onCommit?.(intent);
+  const commit = vi.fn(async (intent: TerminationIntent) => {
+    const result = await options.onCommit?.(intent);
+    return typeof result === 'boolean' ? result : undefined;
   });
   const discard = vi.fn(async (docs: unknown[]) => {
     await options.onDiscardCommitted?.(docs);

@@ -143,7 +143,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   const duration = activeTimeline?.duration ?? 0;
   const tracks = activeTimeline?.tracks ?? [];
   const [zoom, setZoom] = useState(1);
-  const tracksContainerRef = useRef<HTMLDivElement>(null);
+  const tracksContainerRef = useRef<HTMLUListElement>(null);
 
   const presetOptions = useMemo(
     () => Object.values(motionPresets).map((p) => ({ id: p.id, name: p.name })),
@@ -335,7 +335,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
 
           <ul className="timeline-panel__tracks" ref={tracksContainerRef}>
             {tracks.length === 0 ? (
-              <div className="timeline-panel__empty-tracks">No tracks in this timeline</div>
+              <li className="timeline-panel__empty-tracks">No tracks in this timeline</li>
             ) : (
               tracks.map((track) => (
                 <TrackRow
