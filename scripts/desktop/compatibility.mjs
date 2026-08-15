@@ -48,6 +48,11 @@ export function evaluateWindowsWebView2({ platform, version }) {
   };
 }
 
+/** Parse the `pv` value emitted by Windows WebView2 registry probes. */
+export function parseWindowsWebView2Version(output) {
+  return output?.match(/\bpv\s+REG_\w+\s+([0-9]+(?:\.[0-9]+){2,})/i)?.[1] ?? null;
+}
+
 export function evaluateXvfb({ xvfbBinary, xvfbRunBinary }) {
   if (xvfbRunBinary) return { ok: true, available: 'xvfb-run', issues: [] };
   if (xvfbBinary) return { ok: true, available: 'Xvfb', issues: [] };
