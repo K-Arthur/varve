@@ -23,7 +23,7 @@ export function evaluateWdioCompatibility({
       `@wdio/tauri-service@${serviceVersion} requires @wdio/native-utils to export ${REQUIRED_WDIO_NATIVE_UTIL_EXPORT}; resolved ${nativeUtilsVersion} does not.`,
     ],
     remediation:
-      'Pin @wdio/tauri-service@1.2.0 and override @wdio/native-utils to 2.5.0; do not substitute an arbitrary latest browser driver.',
+      'Pin @wdio/tauri-service@1.3.0 and override @wdio/native-utils to 2.5.0; do not substitute an arbitrary latest browser driver.',
   };
 }
 
