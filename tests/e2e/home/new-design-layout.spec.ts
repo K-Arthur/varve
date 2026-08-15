@@ -27,6 +27,10 @@ async function openNewDesignDialog(page: Page) {
   return dialog;
 }
 
+async function chooseStartMode(dialog: import('@playwright/test').Locator, label: string) {
+  await dialog.locator('label.new-design__start-card').filter({ hasText: label }).click();
+}
+
 async function dialogLayoutInfo(page: Page) {
   return page.evaluate(() => {
     const d = document.querySelector('dialog.varve-dialog[open]') as HTMLDialogElement | null;
@@ -76,11 +80,8 @@ test.describe('New Design dialog — layout', () => {
 
   test('the preset browser scrolls internally at reduced height', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 600 });
-    await openNewDesignDialog(page);
-    await page
-      .locator('dialog.varve-dialog[open]')
-      .getByRole('radio', { name: /start with a frame/i })
-      .click();
+    const dialog = await openNewDesignDialog(page);
+    await chooseStartMode(dialog, 'Start with a frame');
 
     const info = await dialogLayoutInfo(page);
     expect(info?.dialog.bottom ?? 0).toBeLessThanOrEqual(info?.viewport.h ?? 0);

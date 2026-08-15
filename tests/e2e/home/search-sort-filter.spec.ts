@@ -36,14 +36,12 @@ test.describe('Home search, sort, and filter', () => {
   });
 
   test('view mode toggle exists and switches between grid and list', async ({ page }) => {
-    // A single toggle button, not two separate Grid/List buttons — its
-    // aria-label names the mode a click will switch *to*, so exactly one
-    // of "Grid view"/"List view" is present at a time, never both.
-    const toggle = page.getByRole('button', { name: /(grid|list) view/i });
-    await expect(toggle).toBeVisible();
-    const labelBefore = await toggle.getAttribute('aria-label');
-    await toggle.click();
-    await expect(toggle).not.toHaveAttribute('aria-label', labelBefore ?? '');
+    const switcher = page.getByRole('radiogroup', { name: 'View mode' });
+    const grid = switcher.getByRole('radio', { name: 'Grid' });
+    const list = switcher.getByRole('radio', { name: 'List' });
+    await expect(grid).toBeChecked();
+    await switcher.locator('label').filter({ hasText: 'List' }).click();
+    await expect(list).toBeChecked();
   });
 
   test('clear search button appears when query entered', async ({ page }) => {

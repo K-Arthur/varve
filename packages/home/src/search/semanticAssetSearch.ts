@@ -102,6 +102,7 @@ export class SemanticAssetSearchService {
   private imageModelAvailable = false;
   private textModelAvailable = false;
   private started = false;
+  private disposed = false;
   private syncCounter = 0;
 
   constructor(deps: SemanticSearchDeps) {
@@ -121,10 +122,12 @@ export class SemanticAssetSearchService {
   }
 
   async start(): Promise<void> {
-    if (this.started) return;
+    if (this.started || this.disposed) return;
     this.started = true;
     await this.reloadIndex();
+    if (this.disposed) return;
     this.imageModelAvailable = await this.deps.isImageModelAvailable().catch(() => false);
+    if (this.disposed) return;
     this.textModelAvailable = await this.deps.isTextModelAvailable().catch(() => false);
     this.publish();
   }
@@ -154,6 +157,7 @@ export class SemanticAssetSearchService {
    * and duplicates are free (content-hash keyed); only new bytes embed.
    */
   async sync(assets: readonly Asset[]): Promise<void> {
+    if (this.disposed) return;
     const counter = ++this.syncCounter;
     this.assets.clear();
     for (const asset of assets) this.assets.set(asset.id, asset);
@@ -169,33 +173,35 @@ export class SemanticAssetSearchService {
         contentHash: contentKey,
         embeddingSchemaVersion: SEMANTIC_EMBEDDING_SCHEMA_VERSION,
       };
-      void this.queue.enqueue({
-        id: `embed:${contentKey}`,
-        priority: imageAssets.indexOf(asset),
-        isCurrent: () => this.syncCounter === counter && this.assets.has(asset.id),
-        run: async (signal) => {
-          if (!(await this.deps.isImageModelAvailable())) return undefined;
-          const modelPath = await this.deps.getImageModelPath(signal);
-          if (!modelPath) return undefined;
-          const bytes = await this.deps.getAssetBytes(asset.id);
-          if (!bytes) return undefined;
-          const decode = this.deps.decodeImage ?? decodeSemanticImageBytes;
-          const embed = this.deps.embedImage ?? embedImageForSearch;
-          const image = await decode(bytes, asset.mimeType);
-          const embedding = await embed(image, modelPath, signal);
-          const record = makeAssetEmbeddingRecord(identity, embedding.values, {
-            contentId: contentKey,
-            assetId: asset.id,
-            sourceGeneration: contentKey,
-            createdAt: Date.now(),
-          });
-          await this.store.put(record);
-          this.index.upsert(record);
-          this.contentHashes.add(contentKey);
-          this.publish();
-          return record;
-        },
-      });
+      void this.queue
+        .enqueue({
+          id: `embed:${contentKey}`,
+          priority: imageAssets.indexOf(asset),
+          isCurrent: () => this.syncCounter === counter && this.assets.has(asset.id),
+          run: async (signal) => {
+            if (!(await this.deps.isImageModelAvailable())) return undefined;
+            const modelPath = await this.deps.getImageModelPath(signal);
+            if (!modelPath) return undefined;
+            const bytes = await this.deps.getAssetBytes(asset.id);
+            if (!bytes) return undefined;
+            const decode = this.deps.decodeImage ?? decodeSemanticImageBytes;
+            const embed = this.deps.embedImage ?? embedImageForSearch;
+            const image = await decode(bytes, asset.mimeType);
+            const embedding = await embed(image, modelPath, signal);
+            const record = makeAssetEmbeddingRecord(identity, embedding.values, {
+              contentId: contentKey,
+              assetId: asset.id,
+              sourceGeneration: contentKey,
+              createdAt: Date.now(),
+            });
+            await this.store.put(record);
+            this.index.upsert(record);
+            this.contentHashes.add(contentKey);
+            this.publish();
+            return record;
+          },
+        })
+        .catch(() => undefined);
     }
     this.publish();
   }
@@ -258,14 +264,18 @@ export class SemanticAssetSearchService {
 
   /** Re-check model availability and publish (after a download completes). */
   async refreshModelAvailability(): Promise<void> {
+    if (this.disposed) return;
     this.imageModelAvailable = await this.deps.isImageModelAvailable().catch(() => false);
+    if (this.disposed) return;
     this.textModelAvailable = await this.deps.isTextModelAvailable().catch(() => false);
     this.publish();
   }
 
   /** Drop all derived embeddings (Settings: Clear Search Index). */
   async clear(): Promise<void> {
+    if (this.disposed) return;
     await this.store.clear();
+    if (this.disposed) return;
     this.index = new SemanticAssetIndex();
     this.contentHashes = new ContentHashIndex([]);
     this.publish();
@@ -280,10 +290,14 @@ export class SemanticAssetSearchService {
   }
 
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.syncCounter += 1;
     this.queue.close();
   }
 
   private publish(): void {
+    if (this.disposed) return;
     this.deps.onStatus?.(this.status);
   }
 }
