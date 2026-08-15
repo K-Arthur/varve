@@ -18,13 +18,20 @@ this repository.**
 
 ---
 
-## 1. Secrets currently required: updater key for release builds
+## 1. Optional signing and manual-download contingency
 
-The release workflow now produces Tauri updater artifacts (`.sig` files and
-static channel feeds), so `TAURI_SIGNING_PRIVATE_KEY` is required before any
-bundle is built. The protected signing-preflight job fails closed when it is
-absent; it never prints the value. Platform code-signing credentials remain
-separate and are required according to the signing policy below.
+The release workflow supports two honest modes. With the signing credentials
+below, it produces cryptographically verified platform-signed installers and,
+when the updater key is present, signed Tauri updater artifacts. When those
+credentials are absent and `RELEASE_EXPECT_SIGNED` is unset, the documented
+zero-cost contingency builds and publishes manual-download installers with
+`signed: false` metadata and OS-specific warnings. It does not generate an
+updater feed, and it never labels an unsigned artifact as signed.
+
+`RELEASE_EXPECT_SIGNED=true` is the explicit fail-closed switch: missing
+platform signing credentials stop the release before packaging. The updater
+key is independently optional; without it, existing clients remain on manual
+updates until the key is provisioned.
 
 ---
 
