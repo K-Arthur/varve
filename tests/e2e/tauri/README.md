@@ -60,6 +60,20 @@ pnpm test:desktop:native
 
 The WDIO config lives at `wdio.conf.ts`. Tests are in `tests/wdio/`.
 
+The default native lane runs `tauri-smoke.e2e.ts` and
+`native-menu.e2e.ts`. Updater fixture specs are intentionally excluded because
+they require the dedicated signed AppImage fixture runner; select an explicit
+set when debugging another lane:
+
+```bash
+VARVE_WDIO_SPECS=tests/wdio/updater.e2e.ts pnpm test:desktop:native
+```
+
+The embedded Tauri provider starts each session at the app's current document,
+so native specs must wait for the home/editor selectors rather than navigate to
+`/`. Use `browser.tauri.execute()` for in-app JavaScript and stable
+`data-testid` or accessible-role selectors for UI actions.
+
 ### What's tested
 
 - Application lifecycle (load, home screen, create document)
