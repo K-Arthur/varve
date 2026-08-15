@@ -43,7 +43,8 @@ const getDistro = () => {
 const pkgConfigVersion = (name) => run('pkg-config', ['--modversion', name]);
 const windowsWebView2Version = () => {
   if (process.platform !== 'win32') return null;
-  const clientId = '{F1E7E4A3-5D8A-4A42-BB8B-D0D444CBAE6D}';
+  // Microsoft documents this client ID for the Evergreen WebView2 Runtime.
+  const clientId = '{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}';
   const registryKeys = [
     `HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\${clientId}`,
     `HKLM\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\${clientId}`,
@@ -182,6 +183,7 @@ if (wantsJson) {
     );
   }
   for (const issue of linuxLibraries.issues) console.log(`ERROR: ${issue}`);
+  for (const issue of webView2.issues) console.log(`ERROR: ${issue}`);
   for (const issue of display.issues) console.log(`ERROR: ${issue}`);
   for (const issue of wdio.issues) console.log(`ERROR: ${issue}`);
   if (platform === 'linux') console.log(`Linux setup: ${report.linux.installHint}`);
