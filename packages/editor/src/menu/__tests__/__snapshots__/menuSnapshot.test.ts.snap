@@ -15190,6 +15190,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "toggleBleedGuides",
+        "label": "Bleed Guides",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "softProof",
         "label": "Soft Proof",
         "onAction": [Function],
@@ -16672,6 +16679,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "disabled": false,
         "id": "toggleFacingPages",
         "label": "Facing Pages",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleBleedGuides",
+        "label": "Bleed Guides",
         "onAction": [Function],
       },
       {
@@ -31260,6 +31274,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       {
         "badge": undefined,
         "disabled": false,
+        "id": "toggleBleedGuides",
+        "label": "Bleed Guides",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "softProof",
         "label": "Soft Proof",
         "onAction": [Function],
@@ -32742,6 +32763,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "disabled": false,
         "id": "toggleFacingPages",
         "label": "Facing Pages",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleBleedGuides",
+        "label": "Bleed Guides",
         "onAction": [Function],
       },
       {
