@@ -137,6 +137,12 @@ describe('validation infrastructure presence', () => {
 });
 
 describe('planner fixture classes', () => {
+  it('uses shell-portable metadata commands on every runner', () => {
+    const planner = readFileSync(join(ROOT, 'scripts/quality/affected-plan.mjs'), 'utf8');
+    expect(planner).not.toContain('2>/dev/null');
+    expect(planner).not.toMatch(/\|\s*tail\b/);
+  });
+
   it('normalizes mixed Windows package-manager paths to POSIX repository paths', () => {
     const root = 'D:\\a\\varve\\varve';
     const pathApi = { relative: win32.relative, sep: win32.sep };

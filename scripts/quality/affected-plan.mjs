@@ -98,11 +98,14 @@ function defaultScope() {
 
 function gitBaseFor({ since }) {
   if (since) return since;
-  const mergeBase = run('git merge-base HEAD origin/master 2>/dev/null');
+  const mergeBase = run('git merge-base HEAD origin/master');
   if (mergeBase) return mergeBase;
-  const mergeBaseLocal = run('git merge-base HEAD master 2>/dev/null');
+  const mergeBaseLocal = run('git merge-base HEAD master');
   if (mergeBaseLocal) return mergeBaseLocal;
-  const firstCommit = run('git rev-list --max-parents=0 HEAD 2>/dev/null | tail -1');
+  const firstCommit = (run('git rev-list --max-parents=0 HEAD') ?? '')
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .at(-1);
   if (firstCommit) return firstCommit;
   return null;
 }
@@ -112,7 +115,7 @@ const _PKGS_CACHE = new Map();
 function loadPackages() {
   if (_PKGS_CACHE.has('pkgs')) return _PKGS_CACHE.get('pkgs');
   const _manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8'));
-  const out = run('pnpm m ls --json --depth -1 2>/dev/null');
+  const out = run('pnpm m ls --json --depth -1');
   const pkgs = {};
   if (out) {
     for (const p of JSON.parse(out)) {
@@ -177,7 +180,7 @@ function countTests(dir) {
 const _CRATES_CACHE = new Map();
 function loadCrates() {
   if (_CRATES_CACHE.has('crates')) return _CRATES_CACHE.get('crates');
-  const out = run('cargo metadata --format-version 1 --no-deps 2>/dev/null');
+  const out = run('cargo metadata --format-version 1 --no-deps');
   if (!out) return {};
   const { packages } = JSON.parse(out);
   const crates = {};
