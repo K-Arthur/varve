@@ -149,10 +149,17 @@ export function FloatingPortal({
 
   if (!open) return null;
 
+  // Native <dialog> elements render in the browser's top layer. A portal to
+  // document.body is painted below that layer, so selects inside a dialog can
+  // appear to open while their listbox is invisible and unclickable. Keep
+  // nested overlays inside their owning dialog; menus outside dialogs still
+  // use document.body to escape clipping ancestors.
+  const portalRoot = anchorRef.current?.closest('dialog') ?? document.body;
+
   return createPortal(
     <div ref={floatingRef} id={id} className={className} style={posStyle}>
       {children}
     </div>,
-    document.body,
+    portalRoot,
   );
 }

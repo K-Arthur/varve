@@ -89,6 +89,22 @@ describe('ExportSettingsTab', () => {
     fireEvent.click(exportTab!);
     expect(screen.getByLabelText('ICC profile')).toBeTruthy();
   });
+
+  it('opens export dropdowns in the dialog and persists a selection', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByText('Export'));
+
+    const format = screen.getByRole('combobox', { name: 'Default format' });
+    fireEvent.click(format);
+    const svg = screen.getByRole('option', { name: 'SVG' });
+    expect(svg.closest('dialog')).toBeTruthy();
+    fireEvent.click(svg);
+
+    expect(format).toHaveTextContent('SVG');
+    expect(JSON.parse(localStorage.getItem('varve-editor-settings')!).export.defaultFormat).toBe(
+      'svg',
+    );
+  });
 });
 
 describe('PerformanceSettingsTab', () => {

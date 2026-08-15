@@ -43,6 +43,26 @@ describe('FloatingPortal', () => {
     expect(float.style.position).toBe('fixed');
   });
 
+  it('keeps overlays inside a native dialog top layer', () => {
+    function DialogFixture() {
+      const anchorRef = useRef<HTMLButtonElement>(null);
+      return (
+        <dialog open>
+          <button type="button" ref={anchorRef}>
+            Anchor
+          </button>
+          <FloatingPortal anchorRef={anchorRef} open className="dialog-float">
+            <div role="listbox">Dialog menu</div>
+          </FloatingPortal>
+        </dialog>
+      );
+    }
+
+    render(<DialogFixture />);
+    const float = document.body.querySelector('.dialog-float');
+    expect(float?.parentElement?.tagName).toBe('DIALOG');
+  });
+
   it('calls onClose when clicking outside', async () => {
     const onClose = vi.fn();
     render(

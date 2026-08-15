@@ -72,6 +72,20 @@ function testWebsiteRejectsUpdaterPrivateKey() {
   expectErrors('website', { TAURI_UPDATER_PRIVATE_KEY: 'RWQfake...' }, 'TAURI_UPDATER_PRIVATE_KEY');
 }
 
+function testDesktopAllowsPublicTauriUpdaterConfig() {
+  expectClean('desktop', {
+    TAURI_UPDATER_PLUGIN_CONFIG: JSON.stringify({
+      pubkey: 'public-key',
+      endpoints: ['https://varve.studio/updates/stable.json'],
+    }),
+  });
+  expectErrors(
+    'desktop',
+    { TAURI_UPDATER_PLUGIN_CONFIG: JSON.stringify({ privateKey: 'fake' }) },
+    'TAURI_UPDATER_PLUGIN_CONFIG',
+  );
+}
+
 function testWebsiteRejectsSigningCredential() {
   expectErrors('website', { APPLE_CERTIFICATE: 'base64fake===' }, 'class signing');
 }
@@ -246,6 +260,7 @@ testWebsiteRejectsOpenAiKey();
 testWebsiteRejectsDatabaseUrl();
 testWebsiteRejectsPorkbunDnsCredential();
 testWebsiteRejectsUpdaterPrivateKey();
+testDesktopAllowsPublicTauriUpdaterConfig();
 testWebsiteRejectsSigningCredential();
 testDesktopRejectsAwsSecret();
 testRejectsPrivatePrefixFamily();
@@ -265,4 +280,4 @@ testParseEnvFile();
 testEnvFileWithForbiddenSecretFails();
 testEnvFileCleanPasses();
 
-console.log('validate-client-env tests passed (22 scenarios).');
+console.log('validate-client-env tests passed (23 scenarios).');

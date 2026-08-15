@@ -162,10 +162,12 @@ The migration is config-only and reversible per layer:
 2. **GitHub Pages:** remove the custom domain in Settings → Pages (or
    `DELETE`-style revert via the Pages API). `https://k-arthur.github.io/varve/`
    serves again immediately.
-3. **Site build:** to deploy the legacy project-site build, set
-   `SITE_URL=https://k-arthur.github.io` / `SITE_BASE=/varve` as the
-   `build:website` defaults and redeploy. Rollback must be per-layer —
-   diagnose before changing anything, and never use destructive git resets.
+3. **Site build:** to deploy the legacy project-site build, run
+   `pnpm build:website:pages`. The script validates the public client
+   environment and sets `SITE_URL=https://k-arthur.github.io` /
+   `SITE_BASE=/varve` before building `apps/website/dist-pages`. Rollback must
+   be per-layer — diagnose before changing anything, and never use destructive
+   git resets.
 
 ## 7. Registrar security checklist (owner, manual)
 

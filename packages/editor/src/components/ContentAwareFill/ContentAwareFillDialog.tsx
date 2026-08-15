@@ -74,8 +74,10 @@ export function ContentAwareFillDialog({
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
+  const [customZoomBase, setCustomZoomBase] = useState<'fit' | 'natural'>('fit');
   const [zoomPercent, setZoomPercent] = useState(100);
   const [maskVisible, setMaskVisible] = useState(true);
+  const [previewViewport, setPreviewViewport] = useState({ width: 0, height: 0 });
 
   const isProcessing = status === 'generating' || status === 'applying';
   const hasResult = previewDataUrl != null && result != null;
@@ -85,6 +87,22 @@ export function ContentAwareFillDialog({
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const area = previewAreaRef.current;
+    if (!area) return;
+    const measure = () =>
+      setPreviewViewport({ width: area.clientWidth, height: area.clientHeight });
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(area);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -107,6 +125,7 @@ export function ContentAwareFillDialog({
     setHasMaskStrokes(false);
     setShowOriginal(false);
     setPreviewZoom('fit');
+    setCustomZoomBase('fit');
     setZoomPercent(100);
     setMaskVisible(true);
     setDownloadProgress(0);
@@ -181,21 +200,45 @@ export function ContentAwareFillDialog({
   useEffect(() => {
     const frame = requestAnimationFrame(centerPreview);
     return () => cancelAnimationFrame(frame);
-  }, [centerPreview, naturalSize, previewZoom, zoomPercent]);
+  }, [centerPreview, naturalSize, previewZoom, zoomPercent, previewViewport]);
+
+  const fitScale =
+    naturalSize.w > 0 &&
+    naturalSize.h > 0 &&
+    previewViewport.width > 0 &&
+    previewViewport.height > 0
+      ? Math.min(previewViewport.width / naturalSize.w, previewViewport.height / naturalSize.h)
+      : 1;
+  const displayScale =
+    previewZoom === 'fit'
+      ? fitScale
+      : customZoomBase === 'fit'
+        ? fitScale * (zoomPercent / 100)
+        : zoomPercent / 100;
+  const displayWidth =
+    naturalSize.w > 0 ? Math.max(1, Math.round(naturalSize.w * displayScale)) : 0;
+  const displayHeight =
+    naturalSize.h > 0 ? Math.max(1, Math.round(naturalSize.h * displayScale)) : 0;
 
   const selectFitZoom = useCallback(() => {
+    setCustomZoomBase('fit');
     setPreviewZoom('fit');
   }, []);
 
   const selectOneToOneZoom = useCallback(() => {
+    setCustomZoomBase('natural');
     setZoomPercent(100);
     setPreviewZoom('custom');
   }, []);
 
-  const adjustZoom = useCallback((delta: number) => {
-    setZoomPercent((current) => Math.max(25, Math.min(400, current + delta)));
-    setPreviewZoom('custom');
-  }, []);
+  const adjustZoom = useCallback(
+    (delta: number) => {
+      if (previewZoom === 'fit') setCustomZoomBase('fit');
+      setZoomPercent((current) => Math.max(25, Math.min(400, current + delta)));
+      setPreviewZoom('custom');
+    },
+    [previewZoom],
+  );
 
   const paintAt = useCallback(
     (clientX: number, clientY: number) => {
@@ -644,62 +687,40 @@ export function ContentAwareFillDialog({
             ref={previewAreaRef}
             className={`caf-dialog__preview-area${previewZoom === 'custom' ? ' caf-dialog__preview-area--zoom' : ''}`}
           >
-            <canvas
-              ref={previewCanvasRef}
-              className={`caf-dialog__preview-canvas${showOriginal || !hasResult ? ' caf-dialog__preview-canvas--visible' : ''}`}
-              style={{
-                width:
-                  previewZoom === 'custom' && naturalSize.w
-                    ? `${(naturalSize.w * zoomPercent) / 100}px`
-                    : '100%',
-                height:
-                  previewZoom === 'custom' && naturalSize.h
-                    ? `${(naturalSize.h * zoomPercent) / 100}px`
-                    : '100%',
-                objectFit: previewZoom === 'custom' ? 'none' : 'contain',
-              }}
-            />
-
-            {hasResult && previewDataUrl && (
-              <img
-                src={previewDataUrl}
-                alt="Fill result"
-                className={`caf-dialog__preview-canvas${!showOriginal ? ' caf-dialog__preview-canvas--visible' : ''}`}
-                style={{
-                  width:
-                    previewZoom === 'custom' && naturalSize.w
-                      ? `${(naturalSize.w * zoomPercent) / 100}px`
-                      : '100%',
-                  height:
-                    previewZoom === 'custom' && naturalSize.h
-                      ? `${(naturalSize.h * zoomPercent) / 100}px`
-                      : '100%',
-                  objectFit: previewZoom === 'custom' ? 'none' : 'contain',
-                }}
-              />
-            )}
-
-            {!hasResult && maskVisible && (
+            <div
+              className="caf-dialog__preview-stage"
+              style={
+                displayWidth > 0 && displayHeight > 0
+                  ? { width: `${displayWidth}px`, height: `${displayHeight}px` }
+                  : undefined
+              }
+            >
               <canvas
-                ref={maskCanvasRef}
-                className="caf-dialog__mask-canvas"
-                style={{
-                  opacity: 0.45,
-                  width:
-                    previewZoom === 'custom' && naturalSize.w
-                      ? `${(naturalSize.w * zoomPercent) / 100}px`
-                      : '100%',
-                  height:
-                    previewZoom === 'custom' && naturalSize.h
-                      ? `${(naturalSize.h * zoomPercent) / 100}px`
-                      : '100%',
-                }}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
+                ref={previewCanvasRef}
+                className={`caf-dialog__preview-canvas${showOriginal || !hasResult ? ' caf-dialog__preview-canvas--visible' : ''}`}
               />
-            )}
+
+              {hasResult && previewDataUrl && (
+                <img
+                  src={previewDataUrl}
+                  alt="Fill result"
+                  className={`caf-dialog__preview-canvas${!showOriginal ? ' caf-dialog__preview-canvas--visible' : ''}`}
+                />
+              )}
+
+              {!hasResult && (
+                <canvas
+                  ref={maskCanvasRef}
+                  className="caf-dialog__mask-canvas"
+                  style={{ opacity: maskVisible ? 0.45 : 0 }}
+                  aria-label="Paint removal mask"
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>

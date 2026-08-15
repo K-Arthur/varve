@@ -45,6 +45,20 @@ test.describe('image palette extraction', () => {
     expect(controlSizes.harmonySwatchWidth).toBeGreaterThanOrEqual(40);
     expect(controlSizes.harmonySwatchHeight).toBeGreaterThanOrEqual(40);
 
+    const countInput = paletteSection.locator('.palette-section__count-input');
+    await countInput.fill('20');
+    await countInput.press('Tab');
+    await expect(countInput).toHaveValue('20');
+    await expect(paletteSection.getByRole('heading', { name: 'Extracted colors' })).toBeVisible({
+      timeout: 15000,
+    });
+    const extractedCount = await paletteSection
+      .getByRole('list', { name: 'Extracted colors' })
+      .getByRole('listitem')
+      .count();
+    expect(extractedCount).toBeGreaterThan(0);
+    expect(extractedCount).toBeLessThanOrEqual(20);
+
     await testInfo.attach('palette-inspector-light', {
       body: await paletteSection.screenshot(),
       contentType: 'image/png',

@@ -21,7 +21,11 @@ const THEMES = [
 /** Fresh context: no persisted preference. */
 async function freshPage(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.evaluate(() => localStorage.removeItem('varve-theme'));
+  await page.evaluate(() => {
+    history.scrollRestoration = 'manual';
+    window.scrollTo(0, 0);
+    localStorage.removeItem('varve-theme');
+  });
   await page.reload();
 }
 
