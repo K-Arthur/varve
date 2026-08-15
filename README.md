@@ -1,4 +1,5 @@
 <p align="center">
+  <img src="docs/brand/github-repository-icon.png" alt="Varve app icon" width="96"><br><br>
   <img src="packages/ui/src/icons/varve-wordmark.svg#gh-light-mode-only" alt="Varve" width="340">
   <img src="packages/ui/src/icons/varve-wordmark-dark.svg#gh-dark-mode-only" alt="Varve" width="340">
 </p>
@@ -376,10 +377,12 @@ Security vulnerabilities: report privately per <a href="SECURITY.md">SECURITY.md
 
 ## Contributing
 
-External code contributions are not yet open — see
-[CONTRIBUTING.md](CONTRIBUTING.md) for why, and for the DCO/CLA process
-that will apply once they are. Bug reports, feature ideas, and feedback are
-welcome now via [Issues](https://github.com/K-Arthur/varve/issues) and
+External code contributions are temporarily paused while the project
+stabilizes its build, release, and documentation foundations. See
+[CONTRIBUTING.md](CONTRIBUTING.md) and the [current contributor guide](docs/development/contributing.md)
+for the status and future PR workflow. Bug reports, feature ideas, testing,
+documentation, and design feedback are welcome now via
+[Issues](https://github.com/K-Arthur/varve/issues) and
 [Discussions](https://github.com/K-Arthur/varve/discussions).
 
 ## Security
