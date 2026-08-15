@@ -68,6 +68,16 @@ async function seedTheme(page: import('@playwright/test').Page, theme: 'light' |
  * is identical).
  */
 
+// Keep visual captures independent of the consent workflow. A fresh CI
+// context otherwise paints the fixed consent banner over pages such as 404,
+// while a developer browser may have a remembered choice. analytics.spec.ts
+// owns the grant/withdraw boundary separately.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('varve:website-analytics-consent', 'denied');
+  });
+});
+
 const THEMES = [
   { name: 'light', colorScheme: 'light' as const },
   { name: 'dark', colorScheme: 'dark' as const },

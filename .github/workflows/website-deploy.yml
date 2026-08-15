@@ -94,6 +94,20 @@ jobs:
       - name: E2E in both modes
         run: pnpm exec playwright test -c playwright.website.config.ts
 
+      # Preserve screenshots, diffs, and Playwright's HTML report on every
+      # outcome. This makes a remote visual regression actionable without
+      # copying thousands of lines from the Actions log.
+      - name: Upload website E2E diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: website-e2e-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
   # ── 2. Release-driven build + upload ────────────────────────────────────────
   build:
     name: Build and upload Pages artifact

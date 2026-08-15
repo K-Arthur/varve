@@ -10,6 +10,16 @@ import { expect, test } from '@playwright/test';
  * identical).
  */
 
+// Navigation tests exercise the site chrome, not the consent workflow. Seed a
+// deterministic denial before every first paint so the fixed-position consent
+// banner cannot intercept clicks in a fresh CI browser context. The consent
+// boundary itself is covered by analytics.spec.ts.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('varve:website-analytics-consent', 'denied');
+  });
+});
+
 test('no internal link or asset escapes the site base path', async ({ page, baseURL }) => {
   if (!baseURL) throw new Error('baseURL is required');
   await page.goto('/');
