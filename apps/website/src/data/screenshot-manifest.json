@@ -101,6 +101,17 @@
       "width": 1440,
       "height": 900,
       "lastValidatedAgainst": null
+    },
+    "enhance-dialog-auto": {
+      "file": "enhance-dialog-auto.png",
+      "alt": "The Varve Enhance dialog in Auto mode showing a real image import, detected noise, and a recommended denoise operation",
+      "caption": "The Enhance dialog in Auto mode recommends a task from the source image.",
+      "feature": "image-enhancement",
+      "theme": "light",
+      "status": "captured",
+      "width": 1440,
+      "height": 900,
+      "lastValidatedAgainst": null
     }
   }
 }
