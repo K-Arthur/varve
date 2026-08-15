@@ -553,6 +553,22 @@ assert.deepEqual(
 // The real files must pass — the rules must describe the repo as it is.
 {
   const fs = await import('node:fs');
+  const ci = fs.readFileSync('.github/workflows/ci.yml', 'utf-8');
+  assert.match(
+    ci,
+    /if: \$\{\{ needs\.changes\.outputs\.e2e == 'true' \|\| needs\.changes\.outputs\.visual == 'true' \}\}/,
+    'browser E2E must be selected by explicit browser-impact lanes, not generic full validation',
+  );
+  assert.match(
+    ci,
+    /if: \$\{\{ needs\.changes\.outputs\.desktop == 'true' \}\}/,
+    'native desktop E2E must be selected by explicit desktop-impact lanes, not generic full validation',
+  );
+  assert.match(
+    ci,
+    /tests\/e2e\/\(canvas\|settings[\s\S]*shared\|helpers\|fixtures\)[\s\S]*playwright\\\.config\\\.ts/,
+    'browser infrastructure paths must select the browser lane',
+  );
   for (const name of ['release.yml', 'website-deploy.yml', 'ci.yml', 'build.yml']) {
     const content = fs.readFileSync(`.github/workflows/${name}`, 'utf-8');
     assert.deepEqual(
