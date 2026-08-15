@@ -5,11 +5,15 @@ import {
   matteToOpaqueRgb,
   preprocessSemanticInput,
   resizeBilinearF64,
-  shorterSideCenterCropF64,
   SIGLIP_PREPROCESS_SPEC,
+  shorterSideCenterCropF64,
 } from './preprocess';
 
-function solidRgba(width: number, height: number, rgb: [number, number, number]): {
+function solidRgba(
+  width: number,
+  height: number,
+  rgb: [number, number, number],
+): {
   data: Uint8ClampedArray;
   width: number;
   height: number;

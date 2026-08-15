@@ -11,11 +11,11 @@
 
 use crate::marks::{self, MarksGeometry};
 use crate::subset::{
-    EmbeddingPermission, collect_used_chars, get_subset_tag, subset_font,
-    validate_embedding_permission,
+    collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
+    EmbeddingPermission,
 };
 use crate::{ImageRenderState, PdfOptions};
-use lopdf::{Document, Object, Stream, dictionary};
+use lopdf::{dictionary, Document, Object, Stream};
 use varve_colour::profiles::PrintProfile;
 pub use varve_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
 use varve_core::SceneNode;

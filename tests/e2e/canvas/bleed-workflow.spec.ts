@@ -307,10 +307,9 @@ test.describe('Bleed print workflow', () => {
     // for the button to enable before clicking.
     const redoBtn = page.getByRole('button', { name: /^Redo$/ });
     await expect
-      .poll(
-        async () => (await redoBtn.count()) && (await redoBtn.first().isEnabled()),
-        { timeout: 15000 },
-      )
+      .poll(async () => (await redoBtn.count()) && (await redoBtn.first().isEnabled()), {
+        timeout: 15000,
+      })
       .toBe(true);
     await redoBtn.first().click();
     await page.waitForTimeout(400);

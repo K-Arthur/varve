@@ -356,10 +356,7 @@ export function setDocumentBitDepth(doc: Document, bitDepth: BitDepth): Document
  * keep their authored appearance (the working space is a settings change,
  * not a value rewrite).
  */
-export function setDocumentWorkingSpace(
-  doc: Document,
-  workingSpace: WorkingSpace,
-): Document {
+export function setDocumentWorkingSpace(doc: Document, workingSpace: WorkingSpace): Document {
   const config = colorConfigWithDefaults(doc.colorConfig);
   if (config.workingSpace === workingSpace) return doc;
   return { ...doc, colorConfig: { ...config, workingSpace } };

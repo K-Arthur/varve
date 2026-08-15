@@ -174,8 +174,8 @@ export function DocumentPanel() {
             ))}
           </div>
           <p className="insp-panel__color-mode-note" role="note">
-            Linear-light blending matches physically correct compositing (multiply, screen, overlay).
-            sRGB is the backward-compatible default for existing documents.
+            Linear-light blending matches physically correct compositing (multiply, screen,
+            overlay). sRGB is the backward-compatible default for existing documents.
           </p>
         </div>
       </DisclosureSection>

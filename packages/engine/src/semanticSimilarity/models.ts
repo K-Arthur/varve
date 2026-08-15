@@ -1,5 +1,5 @@
-import type { EmbeddingModelSpec } from './types';
 import { DINOV2_PREPROCESSING_VERSION } from './preprocess';
+import type { EmbeddingModelSpec } from './types';
 
 export const SEMANTIC_PREPROCESSING_VERSION = 'semantic-rgb-letterbox-neutral-v1';
 

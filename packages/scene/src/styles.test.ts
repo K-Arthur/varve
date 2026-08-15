@@ -206,7 +206,9 @@ describe('Style System — Update & Delete', () => {
       visible: true,
     };
     doc = updateStyle(doc, style.id, { fill: fill2 } as Partial<typeof style>);
-    expect((doc.styles?.[style.id] as unknown as import('./types').ColorStyle).fill.color).toEqual({
+    const updatedStyle = doc.styles?.[style.id];
+    if (!updatedStyle) throw new Error('Expected updated color style');
+    expect((updatedStyle as unknown as import('./types').ColorStyle).fill.color).toEqual({
       space: 'rgb',
       r: 255,
       g: 0,

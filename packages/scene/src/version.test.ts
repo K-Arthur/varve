@@ -67,7 +67,7 @@ describe('Legacy background removal migration', () => {
       rasterMaskAssets: {},
     })!;
     const rasterMask = (
-      (migrated.nodes as Record<string, Record<string, unknown>>).image?.mask as Record<
+      (migrated.nodes as Record<string, Record<string, unknown>>).image.mask as Record<
         string,
         unknown
       >
@@ -98,7 +98,7 @@ describe('Legacy background removal migration', () => {
       },
     })!;
     const rasterMask = (
-      (migrated.nodes as Record<string, Record<string, unknown>>).image?.mask as Record<
+      (migrated.nodes as Record<string, Record<string, unknown>>).image.mask as Record<
         string,
         unknown
       >
@@ -262,11 +262,10 @@ describe('Legacy background removal migration', () => {
     const nodes = migrated.nodes as Record<string, Record<string, unknown>>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
     expect(
-      ((nodes.image?.mask as Record<string, unknown>).rasterMask as Record<string, unknown>)
-        .assetId,
+      ((nodes.image.mask as Record<string, unknown>).rasterMask as Record<string, unknown>).assetId,
     ).toBe(`${baseId}:1`);
     expect(
-      ((nodes.consumer?.mask as Record<string, unknown>).rasterMask as Record<string, unknown>)
+      ((nodes.consumer.mask as Record<string, unknown>).rasterMask as Record<string, unknown>)
         .assetId,
     ).toBe(baseId);
     expect(assets[baseId]?.checksum).toBe('existing-semantic-asset');

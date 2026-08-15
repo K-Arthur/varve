@@ -12,9 +12,9 @@ import { navigateToEditor } from '../shared';
  */
 
 async function importImages(page: import('@playwright/test').Page, names: string[]) {
-  await page.locator('#file-import-input').setInputFiles(
-    names.map((name) => path.resolve('tests/e2e/fixtures', name)),
-  );
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(names.map((name) => path.resolve('tests/e2e/fixtures', name)));
   await expect(page.getByRole('treeitem')).toHaveCount(names.length, { timeout: 15000 });
 }
 
@@ -85,7 +85,9 @@ test.describe('Find Similar workflow', () => {
     });
   });
 
-  test('ranks and renders results with deterministic mocked embeddings', async ({ page }, testInfo) => {
+  test('ranks and renders results with deterministic mocked embeddings', async ({
+    page,
+  }, testInfo) => {
     await navigateToEditor(page);
     await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
     // Select the first image in the layers panel.
@@ -94,7 +96,10 @@ test.describe('Find Similar workflow', () => {
 
     await page.evaluate(mockEmbedScript);
 
-    await page.getByRole('button', { name: /Find similar/i }).first().click();
+    await page
+      .getByRole('button', { name: /Find similar/i })
+      .first()
+      .click();
 
     await expect(page.getByText(/Found \d+ similar images/i)).toBeVisible({ timeout: 15000 });
     const results = page.locator('.similarity-result');
@@ -117,13 +122,19 @@ test.describe('Find Similar workflow', () => {
     await page.getByRole('treeitem').first().click();
     await openSimilarTab(page);
     await page.evaluate(mockEmbedScript);
-    await page.getByRole('button', { name: /Find similar/i }).first().click();
+    await page
+      .getByRole('button', { name: /Find similar/i })
+      .first()
+      .click();
     await expect(page.locator('.similarity-result')).toHaveCount(2, { timeout: 15000 });
 
     const nearDuplicates = page.getByRole('button', { name: 'Near duplicates' });
     await nearDuplicates.click();
     await expect(nearDuplicates).toHaveAttribute('aria-pressed', 'true');
-    await page.getByRole('button', { name: /Find similar/i }).first().click();
+    await page
+      .getByRole('button', { name: /Find similar/i })
+      .first()
+      .click();
     await expect(page.locator('.similarity-result')).toHaveCount(2, { timeout: 15000 });
   });
 });

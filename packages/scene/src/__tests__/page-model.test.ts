@@ -13,6 +13,12 @@ import {
 } from '../document';
 import type { GroupNode, Page } from '../types';
 
+function pageAt(doc: ReturnType<typeof createDocument>, index: number): Page {
+  const page = doc.pages?.[index];
+  if (!page) throw new Error(`Expected page at index ${index}`);
+  return page;
+}
+
 describe('Page model hygiene', () => {
   describe('createDocument flat parameter', () => {
     it('createDocument(true) creates flat document with no pages', () => {
@@ -202,7 +208,7 @@ describe('Page model hygiene', () => {
       // user can enter but never leave. Zero pages is the flat-document shape
       // both activePageNodes and multipageRootNodes already handle.
       const doc = createDocument('test', false);
-      const pageId = (doc.pages?.[0] as Page).id;
+      const pageId = pageAt(doc, 0).id;
       const result = removePage(doc, pageId);
       expect(result.pages ?? []).toHaveLength(0);
       expect(result.activePageId).toBeUndefined();
@@ -211,7 +217,7 @@ describe('Page model hygiene', () => {
     it('setActivePage switches active page by Page.id', () => {
       let doc = createDocument('test', false);
       doc = addPage(doc);
-      const secondPageId = (doc.pages?.[1] as Page).id;
+      const secondPageId = pageAt(doc, 1).id;
       const updated = setActivePage(doc, secondPageId);
       expect(updated.activePageId).toBe(secondPageId);
       expect(updated).not.toBe(doc);

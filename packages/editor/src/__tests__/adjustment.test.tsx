@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, waitFor } from '@testing-library/react';
-import type { Adjustment } from '@varve/engine';
 import { makeAdjustment } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
@@ -74,7 +73,7 @@ describe('adjustment layer', () => {
     if (node.kind === 'adjustment') {
       expect(node.adjustments?.length).toBe(1);
       expect(node.adjustments?.[0]?.kind).toBe('brightness');
-      expect((node.adjustments?.[0] as Adjustment & { value: number }).value).toBe(20);
+      expect(node.adjustments?.[0]).toMatchObject({ value: 20 });
     }
   });
 

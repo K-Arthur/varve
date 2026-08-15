@@ -333,7 +333,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             />
           </div>
 
-          <div className="timeline-panel__tracks" ref={tracksContainerRef} role="list">
+          <ul className="timeline-panel__tracks" ref={tracksContainerRef}>
             {tracks.length === 0 ? (
               <div className="timeline-panel__empty-tracks">No tracks in this timeline</div>
             ) : (
@@ -377,7 +377,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
                 />
               ))
             )}
-          </div>
+          </ul>
 
           {graphEditorVisible && activeTimelineId && (
             <GraphEditor
