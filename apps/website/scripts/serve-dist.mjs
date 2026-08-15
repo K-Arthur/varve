@@ -36,13 +36,35 @@ if (!fs.existsSync(path.join(root, 'index.html'))) {
   process.exit(1);
 }
 
-const server = http.createServer((req, res) => {
-  const url = decodeURIComponent(req.url.split('?')[0]);
+/**
+ * Resolve a request path to a file inside `root`, or null when it would
+ * escape. `path.join` already collapses `..` segments, so a plain
+ * `resolved.startsWith(root)` check is insufficient: a sibling directory
+ * that merely shares `root`'s string prefix (e.g. `dist-evil` next to
+ * `dist`) would pass it. `path.relative` gives an unambiguous boundary
+ * check instead.
+ */
+function resolveWithinRoot(urlPath) {
+  let clean;
+  try {
+    clean = decodeURIComponent(urlPath.split('?')[0]);
+  } catch {
+    return null;
+  }
   // Normalize: strip a /varve base prefix if present, map / to index.html.
-  let clean = url.replace(/^\/varve(?=\/|$)/, '');
+  clean = clean.replace(/^\/varve(?=\/|$)/, '');
   if (clean === '/') clean = '/index.html';
-  let file = path.join(root, clean);
-  if (!file.startsWith(root)) {
+  const candidate = path.join(root, clean);
+  const relative = path.relative(root, candidate);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    return null;
+  }
+  return candidate;
+}
+
+const server = http.createServer((req, res) => {
+  let file = resolveWithinRoot(req.url);
+  if (file === null) {
     res.writeHead(403);
     res.end();
     return;
