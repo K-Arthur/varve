@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, waitFor } from '@testing-library/react';
+import type { Adjustment } from '@varve/engine';
 import { makeAdjustment } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
