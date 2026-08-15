@@ -32,6 +32,7 @@ import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const API_BASE = 'https://api.github.com';
+const API_TIMEOUT_MS = 30_000;
 
 // Patterns that usually indicate a real failure. Lower index = higher priority.
 const FAILURE_PATTERNS = [
@@ -61,6 +62,13 @@ const FAILURE_PATTERNS = [
   /403\s*Forbidden/,
   /timed?\s*out/i,
   /timeout\s*exceeded/i,
+  /Traceback \(most recent call last\)/i,
+  /pytest.*\bfailed\b/i,
+  /fatal error:/i,
+  /undefined reference/i,
+  /collect2: error/i,
+  /(?:ninja|make): .*build stopped/i,
+  /CMake Error/i,
 ];
 
 const IGNORED_PATTERNS = [/\bgit\s+status\b.*clean/i, /\+\s*exit\s+0/i, /\bgit\s+config\b/i];
@@ -88,8 +96,9 @@ const STUCK_QUEUED_THRESHOLD_MS = 30 * 60 * 1000;
 function isStuckQueued(job, nowMs = Date.now()) {
   if (job?.status !== 'queued') return false;
   if (job.conclusion) return false;
-  if (!job.started_at) return false;
-  const started = Date.parse(job.started_at);
+  const acceptedAt = job.started_at ?? job.run_started_at;
+  if (!acceptedAt) return false;
+  const started = Date.parse(acceptedAt);
   if (Number.isNaN(started)) return false;
   return nowMs - started > STUCK_QUEUED_THRESHOLD_MS;
 }
@@ -147,6 +156,8 @@ function parseArgs() {
     output: 'ci-debug-report.md',
     json: false,
     probe: false,
+    context: 2,
+    maxHits: 10,
   };
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -163,6 +174,12 @@ function parseArgs() {
       flags.json = true;
     } else if (arg === '--probe') {
       flags.probe = true;
+    } else if (arg === '--context') {
+      flags.context = Math.max(0, Number.parseInt(args[i + 1] ?? '2', 10) || 0);
+      i += 1;
+    } else if (arg === '--max-hits') {
+      flags.maxHits = Math.max(1, Number.parseInt(args[i + 1] ?? '10', 10) || 1);
+      i += 1;
     }
   }
   return flags;
@@ -223,12 +240,36 @@ async function githubFetch(path, token) {
     Authorization: token ? `Bearer ${token}` : undefined,
   };
 
-  const res = await fetch(url, { headers, redirect: 'manual' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(url, { headers, redirect: 'manual', signal: controller.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`GitHub API request timed out after ${API_TIMEOUT_MS / 1000}s: ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (res.status === 302) {
     const location = res.headers.get('location');
     if (!location) throw new Error('GitHub API returned 302 without Location header');
-    const redirectRes = await fetch(location);
+    const redirectController = new AbortController();
+    const redirectTimeout = setTimeout(() => redirectController.abort(), API_TIMEOUT_MS);
+    let redirectRes;
+    try {
+      redirectRes = await fetch(location, { signal: redirectController.signal });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error(`GitHub log download timed out after ${API_TIMEOUT_MS / 1000}s`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(redirectTimeout);
+    }
     if (!redirectRes.ok) {
       throw new Error(
         `Download from ${location} failed: ${redirectRes.status} ${redirectRes.statusText}`,
@@ -268,8 +309,17 @@ async function getRunMeta(repo, runId, token) {
 
 async function getJobs(repo, runId, token) {
   const [owner, name] = repo.split('/');
-  const data = await githubJson(`/repos/${owner}/${name}/actions/runs/${runId}/jobs`, token);
-  return data.jobs || [];
+  const jobs = [];
+  for (let page = 1; page <= 10; page += 1) {
+    const data = await githubJson(
+      `/repos/${owner}/${name}/actions/runs/${runId}/jobs?per_page=100&page=${page}`,
+      token,
+    );
+    const pageJobs = Array.isArray(data.jobs) ? data.jobs : [];
+    jobs.push(...pageJobs);
+    if (pageJobs.length < 100) break;
+  }
+  return jobs;
 }
 
 async function getJobAnnotations(job, token) {
@@ -298,6 +348,12 @@ async function downloadLogs(repo, runId, token) {
 
   unlinkSync(zipPath);
   return extractDir;
+}
+
+async function downloadJobLog(repo, jobId, token) {
+  const [owner, name] = repo.split('/');
+  const res = await githubFetch(`/repos/${owner}/${name}/actions/jobs/${jobId}/logs`, token);
+  return res.text();
 }
 
 function commandExists(cmd) {
@@ -431,6 +487,25 @@ function extractFailures(logText, context = 2) {
   return hits;
 }
 
+function normalizeLogSource(value) {
+  return value
+    .replace(/^\d+[_-]/, '')
+    .replace(/\.txt$/, '')
+    .replace(/[^\w-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+}
+
+function hasFailureSourceForJob(failuresBySource, jobName) {
+  const expected = normalizeLogSource(jobName);
+  return Object.keys(failuresBySource).some((source) => {
+    const actual = normalizeLogSource(source);
+    return (
+      actual === expected || actual.endsWith(`_${expected}`) || expected.endsWith(`_${actual}`)
+    );
+  });
+}
+
 function _findLogForJob(logDir, jobName) {
   const normalized = jobName.replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '');
   const candidates = [];
@@ -505,7 +580,7 @@ function formatInfraBlockSection(infraBlocks) {
   return lines;
 }
 
-function formatReport(repo, run, jobs, failuresBySource, infraBlocks = []) {
+function formatReport(repo, run, jobs, failuresBySource, infraBlocks = [], { maxHits = 10 } = {}) {
   const runUrl = run.html_url || `https://github.com/${repo}/actions/runs/${run.id}`;
   const lines = [
     '# CI Failure Debug Report',
@@ -548,7 +623,7 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = []) {
     for (const source of sources) {
       lines.push(`### ${source}`);
       const hits = failuresBySource[source];
-      for (const hit of hits.slice(0, 10)) {
+      for (const hit of hits.slice(0, maxHits)) {
         lines.push(`- line ${hit.line}: \`${hit.text.slice(0, 120)}\``);
         lines.push('  <details><summary>context</summary>');
         lines.push('');
@@ -558,8 +633,8 @@ function formatReport(repo, run, jobs, failuresBySource, infraBlocks = []) {
         lines.push('  </details>');
         lines.push('');
       }
-      if (hits.length > 10) {
-        lines.push(`_... and ${hits.length - 10} more matches._`);
+      if (hits.length > maxHits) {
+        lines.push(`_... and ${hits.length - maxHits} more matches._`);
       }
     }
   }
@@ -654,36 +729,69 @@ async function main() {
   }
 
   console.log(`Downloading logs for run ${args.runId} (${run.name || ''})...`);
-  const logDir = await downloadLogs(args.repo, args.runId, token);
-
-  const failuresBySource = {};
-  for await (const file of walkTextFiles(logDir)) {
-    const source = basename(file, '.txt');
-    const text = readFileSync(file, 'utf8');
-    const hits = extractFailures(text);
-    if (hits.length > 0) {
-      failuresBySource[source] = (failuresBySource[source] || []).concat(hits);
-    }
+  let logDir = null;
+  try {
+    logDir = await downloadLogs(args.repo, args.runId, token);
+  } catch (error) {
+    console.warn(`Run log archive unavailable: ${error.message}`);
+    console.warn('Falling back to per-job log downloads for executed failed jobs.');
   }
 
-  // Merge with any failed-job metadata whose logs were missing from the archive.
-  for (const job of jobs) {
-    if (job.conclusion === 'failure' || job.conclusion === 'timed_out') {
-      const key = job.name;
-      if (!failuresBySource[key]) {
-        failuresBySource[key] = [
-          {
-            line: 0,
-            rank: 0,
-            text: `Job concluded as ${job.conclusion} but no log text was downloaded.`,
-            snippet: '',
-          },
-        ];
+  const failuresBySource = {};
+  if (logDir) {
+    for await (const file of walkTextFiles(logDir)) {
+      const source = basename(file, '.txt');
+      const text = readFileSync(file, 'utf8');
+      const hits = extractFailures(text, args.context);
+      if (hits.length > 0) {
+        failuresBySource[source] = (failuresBySource[source] || []).concat(hits);
       }
     }
   }
 
-  const report = formatReport(args.repo, run, jobs, failuresBySource, infraBlocks);
+  // The run archive is occasionally unavailable or omits a job log while the
+  // per-job endpoint still works. Prefer that endpoint before reporting a
+  // missing log, so a transient archive problem never hides the root cause.
+  for (const job of jobs) {
+    if (job.conclusion === 'failure' || job.conclusion === 'timed_out') {
+      if (hasFailureSourceForJob(failuresBySource, job.name)) continue;
+
+      if ((job.steps || []).length > 0) {
+        try {
+          const text = await downloadJobLog(args.repo, job.id, token);
+          const hits = extractFailures(text, args.context);
+          if (hits.length > 0) {
+            failuresBySource[job.name] = hits;
+            continue;
+          }
+          failuresBySource[job.name] = [
+            {
+              line: 0,
+              rank: 0,
+              text: `Job log downloaded, but no known failure pattern matched for ${job.name}.`,
+              snippet: '',
+            },
+          ];
+          continue;
+        } catch (error) {
+          console.warn(`Per-job log download failed for ${job.name}: ${error.message}`);
+        }
+      }
+
+      failuresBySource[job.name] = [
+        {
+          line: 0,
+          rank: 0,
+          text: `Job concluded as ${job.conclusion} but no log text was downloaded.`,
+          snippet: '',
+        },
+      ];
+    }
+  }
+
+  const report = formatReport(args.repo, run, jobs, failuresBySource, infraBlocks, {
+    maxHits: args.maxHits,
+  });
   writeFileSync(args.output, report);
 
   if (process.env.GITHUB_STEP_SUMMARY) {
@@ -712,7 +820,9 @@ export {
   classifyJobFailure,
   classifyRunFailures,
   extractFailures,
+  hasFailureSourceForJob,
   isFailureLine,
   isStuckQueued,
+  normalizeLogSource,
   rankLine,
 };

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  BroadcastWindowSync,
   claimOperationLease,
   hasActiveOperationLease,
   isActiveUpdateState,
@@ -80,5 +81,42 @@ describe('update state classification', () => {
     expect(isSettledUpdateState('downloading')).toBe(false);
     expect(isActiveUpdateState('downloading')).toBe(true);
     expect(isActiveUpdateState('idle')).toBe(false);
+  });
+});
+
+describe('broadcast transport lifecycle', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('reopens after StrictMode-style cleanup before the next subscription', () => {
+    class FakeBroadcastChannel {
+      static instances: FakeBroadcastChannel[] = [];
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      closed = false;
+      messages: unknown[] = [];
+
+      constructor(readonly name: string) {
+        FakeBroadcastChannel.instances.push(this);
+      }
+
+      postMessage(message: unknown): void {
+        if (this.closed) throw new DOMException('closed', 'InvalidStateError');
+        this.messages.push(message);
+      }
+
+      close(): void {
+        this.closed = true;
+      }
+    }
+
+    vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel);
+    const sync = new BroadcastWindowSync('test', storage() as unknown as Storage);
+    sync.close();
+    const unsubscribe = sync.subscribe(() => undefined);
+    sync.publish({ type: 'state', state: { kind: 'idle' } });
+
+    expect(FakeBroadcastChannel.instances).toHaveLength(2);
+    expect(FakeBroadcastChannel.instances[1]?.messages).toHaveLength(1);
+    unsubscribe();
+    sync.close();
   });
 });

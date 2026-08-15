@@ -8,7 +8,7 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "node ../../scripts/security/validate-client-env.mjs --app website && astro check && astro build",
-    "build:pages": "node ../../scripts/security/validate-client-env.mjs --app website && astro build --outDir dist-pages",
+    "build:pages": "node ../../scripts/build-website-pages.mjs",
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "astro check && tsc -p tests/e2e/tsconfig.json --noEmit",

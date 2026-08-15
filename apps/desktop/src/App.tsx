@@ -348,7 +348,9 @@ export function App() {
               active={view === 'home'}
               onOpenSettings={() => setHomeSettingsOpen(true)}
             />
-            <SettingsDialog open={homeSettingsOpen} onClose={() => setHomeSettingsOpen(false)} />
+            {view === 'home' && (
+              <SettingsDialog open={homeSettingsOpen} onClose={() => setHomeSettingsOpen(false)} />
+            )}
           </SettingsProvider>
         </div>
         {editorMounted && (

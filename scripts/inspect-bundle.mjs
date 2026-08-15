@@ -5,12 +5,12 @@
  * for every installer/package produced by a Tauri build.
  *
  * Usage:
- *   node scripts/inspect-bundle.mjs [--dir <bundle-dir>] [--platform <linux|macos|windows>]
+ *   node scripts/inspect-bundle.mjs [bundle-dir] [linux|macos|windows]
  *
- * Default --dir: apps/desktop/src-tauri/target/release/bundle/
- * Default --platform: auto-detected from host OS.
+ * Default bundle-dir: apps/desktop/src-tauri/target/release/bundle/
+ * Default platform: auto-detected from host OS.
  */
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -132,10 +132,7 @@ function checkAppImageArch(path) {
 
 function checkDebArch(path) {
   try {
-    const output = execSync(
-      `dpkg-deb --info "${path}" 2>/dev/null || ar p "${path}" control.tar.gz | tar -xzO ./control 2>/dev/null || true`,
-      { encoding: 'utf8' },
-    );
+    const output = readDebControl(path);
     if (output.includes('Architecture: arm64') || output.includes('aarch64')) {
       pass(`deb arch = arm64: ${path}`);
     } else if (output.includes('Architecture: amd64')) {
@@ -151,7 +148,7 @@ function checkDebArch(path) {
 function checkDebDeps(path) {
   const required = ['libwebkit2gtk-4.1', 'libgtk-3', 'librsvg2'];
   try {
-    const control = execSync(`dpkg-deb --info "${path}" 2>/dev/null || true`, { encoding: 'utf8' });
+    const control = readDebControl(path);
     for (const dep of required) {
       if (control.includes(dep)) {
         pass(`deb depends on ${dep}: ${path}`);
@@ -161,6 +158,23 @@ function checkDebDeps(path) {
     }
   } catch {
     fail(`Could not check deb dependencies: ${path}`);
+  }
+}
+
+/**
+ * Read Debian control metadata on both Debian hosts and Arch-based hosts.
+ * CachyOS does not normally ship dpkg-deb, so use the portable ar/tar
+ * fallback instead of treating a valid package as an architecture failure.
+ */
+function readDebControl(path) {
+  try {
+    return execFileSync('dpkg-deb', ['--info', path], { encoding: 'utf8' });
+  } catch {
+    const controlArchive = execFileSync('ar', ['p', path, 'control.tar.gz']);
+    return execFileSync('tar', ['-xzO', 'control'], {
+      input: controlArchive,
+      encoding: 'utf8',
+    });
   }
 }
 

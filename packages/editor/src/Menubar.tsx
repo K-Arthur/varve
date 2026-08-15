@@ -391,16 +391,16 @@ function buildMenus(
         { label: '---' },
         // ── Export ──
         {
-          label: 'Export\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
-          ariaKeyshortcut: ks('export'),
-          action: 'export',
-        },
-        {
           label: 'Export SVG\u2026',
           shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
           ariaKeyshortcut: ks('exportSvg'),
           action: 'exportSvg',
+        },
+        {
+          label: 'Export\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
+          ariaKeyshortcut: ks('export'),
+          action: 'export',
         },
         {
           label: 'Export Logo Package\u2026',
@@ -2157,9 +2157,9 @@ export function Menubar({
         </Tooltip>
         <div
           className="editor-menubar__left"
+          ref={menuRef}
           role="menubar"
           aria-label="Application"
-          ref={menuRef}
           onKeyDown={handleMenuKeyDown}
         >
           {menus.map((menu, i) => (

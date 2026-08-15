@@ -2,6 +2,8 @@ name: E2E Keyboard Nav
 
 permissions:
   contents: read
+  actions: read
+  checks: read
 
 on:
   push:
@@ -65,6 +67,7 @@ jobs:
     needs: plan
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -112,6 +115,9 @@ jobs:
           retention-days: 7
       - name: Automated failure debug
         if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
@@ -131,6 +137,7 @@ jobs:
     needs: plan
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         os: ${{ fromJSON(needs.plan.outputs.matrix).os }}
         browser: [chromium]
@@ -175,6 +182,9 @@ jobs:
           retention-days: 7
       - name: Automated failure debug
         if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()

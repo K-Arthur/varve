@@ -7,7 +7,25 @@
  * Wired into the regression suite (pnpm test:ci:tools + CI pipeline-validation).
  */
 import assert from 'node:assert/strict';
-import { validateVarveRules } from './validate-workflows.mjs';
+import { validateVarveRules, validateYAMLSyntax } from './validate-workflows.mjs';
+
+const DUPLICATE_KEY = `name: Duplicate key fixture
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VALUE: first
+    env:
+      VALUE: second
+    steps:
+      - run: echo test
+`;
+
+assert.equal(validateYAMLSyntax(DUPLICATE_KEY).valid, false);
+assert.match(validateYAMLSyntax(DUPLICATE_KEY).errors[0], /duplicated mapping key/i);
 
 const RELEASE_GOOD = `name: Release
 on:

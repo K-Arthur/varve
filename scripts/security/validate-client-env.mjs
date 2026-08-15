@@ -49,7 +49,6 @@ const FORBIDDEN_PREFIXES = [
   { family: 'signing', prefix: 'WINDOWS_SIGNING_' },
   { family: 'signing', prefix: 'AZURE_SIGNING_' },
   { family: 'signing', prefix: 'TAURI_SIGNING_' },
-  { family: 'signing', prefix: 'TAURI_UPDATER_' },
   { family: 'backend', prefix: 'DATABASE_' },
   { family: 'backend', prefix: 'REDIS_' },
   { family: 'backend', prefix: 'STRIPE_' },
@@ -107,6 +106,18 @@ const FORBIDDEN_EXACT = new Set([
   'GOOGLE_APPLICATION_CREDENTIALS',
 ]);
 
+const TAURI_UPDATER_PLUGIN_CONFIG = 'TAURI_UPDATER_PLUGIN_CONFIG';
+
+function isPublicTauriUpdaterConfig(value) {
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+    return !/(private[_-]?key|password|secret|token|credential)/i.test(JSON.stringify(parsed));
+  } catch {
+    return false;
+  }
+}
+
 // The CI canary (see docs/security/trust-boundaries.md §Canary tests).
 // Deliberately NOT forbidden: it must be settable on build steps so the
 // artifact scan can assert the build never embeds arbitrary env values.
@@ -157,6 +168,10 @@ const ALLOWED = {
     TAURI_DEBUG: {
       test: (v) => v === '' || v === 'true' || v === 'false',
       hint: "'true', 'false' or empty",
+    },
+    [TAURI_UPDATER_PLUGIN_CONFIG]: {
+      test: isPublicTauriUpdaterConfig,
+      hint: 'JSON updater metadata without private key or credential fields',
     },
   },
 };
@@ -256,6 +271,11 @@ function isTolerated(name) {
 }
 
 function isForbiddenPrefix(name) {
+  // Tauri injects this exact public updater metadata object into the
+  // beforeBuildCommand environment so tauri-plugin-updater can read its
+  // endpoints and public key. It is validated through the desktop allowlist;
+  // private updater material remains denied by FORBIDDEN_EXACT.
+  if (name === TAURI_UPDATER_PLUGIN_CONFIG) return null;
   return FORBIDDEN_PREFIXES.find((f) => name.startsWith(f.prefix)) ?? null;
 }
 

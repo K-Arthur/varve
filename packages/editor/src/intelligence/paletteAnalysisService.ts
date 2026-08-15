@@ -1,6 +1,7 @@
 import {
   analyzePalette,
   PALETTE_ANALYSIS_VERSION,
+  PALETTE_DEFAULT_COLOR_COUNT,
   type PaletteAnalysis,
   type PalettePixelSource,
   type PaletteSourceInfo,
@@ -89,7 +90,7 @@ export function paletteAnalysisCacheKey(
     source.width,
     source.height,
     crop,
-    options.colorCount ?? 6,
+    options.colorCount ?? PALETTE_DEFAULT_COLOR_COUNT,
   ].join(':');
 }
 

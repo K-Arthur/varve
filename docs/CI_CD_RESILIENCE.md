@@ -12,7 +12,7 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 - **Set `timeout-minutes`** on every job so a hung runner is killed instead of burning minutes.
 - **Install `just` via `taiki-e/install-action`** (`tool: just@1.54.0`) before any `just` recipe runs — GitHub-hosted runners do not ship `just`.
 - **Add `rustup target add`** steps for macOS and Windows so `tauri build` can compile on the default `macos-latest` (Apple Silicon) and `windows-latest` runners.
-- **Declare explicit least-privilege `permissions:` blocks** (top-level and per job). `website-deploy.yml` uses `pages: write` + `id-token: write` for GitHub Pages; `ci-debug.yml` uses `actions: read`; `release.yml` scopes `contents: write` to the draft/publish jobs only. v4 `upload-artifact`/`download-artifact` need no `actions:` scope, so none is granted.
+- **Declare explicit least-privilege `permissions:` blocks** (top-level and per job). Workflows that run the API-backed failure extractor grant only `actions: read` in addition to `contents: read`; `website-deploy.yml` uses `pages: write` + `id-token: write` for GitHub Pages; `release.yml` scopes `contents: write` to the draft/publish jobs only. v4 `upload-artifact`/`download-artifact` need no `actions:` scope.
 - **Add `if: failure()` debug steps** to long-running workflows (`build.yml`, `ci-smoke.yml`, `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact). The separate `ci-debug.yml` workflow covers the remaining pipelines via `workflow_run` (see the table below).
 
 | Workflow | Trigger | Notes |
@@ -21,7 +21,7 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 | `ci.yml` | push, PR, manual, weekly (Mon 02:00) | Rust, JS, website E2E, Playwright E2E matrix, desktop-e2e, plus `pipeline-validate` guard job. |
 | `release.yml` | tag, manual | Draft-then-approve release pipeline (replaced `publish.yml`); checksums, SBOM, artifact verification. |
 | `website-deploy.yml` | push touching `apps/website/**`, `scripts/release/**`, `package.json`, `pnpm-lock.yaml`, or the workflow file; `workflow_run` on Release `completed`; manual | Astro build to GitHub Pages at `https://varve.studio`. |
-| `ci-debug.yml` | `workflow_run` after CI, Build + Package, Release, Website Deploy, Model Supply Chain Validation, Model Quantization & Validation, or E2E Keyboard Nav fails | Generates a consolidated debug report. |
+| `ci-debug.yml` | `workflow_run` after a tracked workflow fails or times out, including Visual Baselines | Generates a consolidated debug report. |
 | `model-validation.yml` | push/PR on model paths, weekly (Mon 08:00), manual | Manifest v3 + contract verification, ONNX graph inspection. |
 | `quantize.yml` | push/PR on model paths, weekly (Mon 06:00), manual | Manifest v3 verification, quality validation, full quantization. |
 | `e2e-keyboard-nav.yml` | push/PR on menu/shortcut paths, weekly, manual | Menu + canvas keyboard-nav E2E; the full 3-OS x 3-browser matrix runs on schedule/dispatch only, collapsed to 2 jobs on push/PR. |
@@ -64,22 +64,36 @@ The script:
 
 1. Resolves the repo from `GITHUB_REPOSITORY` or `git remote get-url origin`.
 2. Uses `GITHUB_TOKEN` or `gh auth token` for GitHub API auth.
-3. Fetches the workflow run metadata and the per-job logs archive.
-4. Extracts high-priority failure patterns (errors, panics, test failures, exit codes, `##[error]` annotations, unresolvable action refs, etc.).
-5. Writes a Markdown report with failed jobs, failure snippets, and local reproduction commands.
+3. Fetches workflow metadata and check-run annotations, then downloads the run log archive.
+4. Falls back to the per-job logs API when the archive is expired, unavailable, or missing a job. Requests are bounded at 30 seconds so a GitHub API incident cannot hang the debug job indefinitely.
+5. Extracts high-priority failure patterns (errors, panics, test failures, exit codes, `##[error]` annotations, unresolvable action refs, etc.) and redacts credential-shaped values.
+6. Writes a Markdown report, appends the same report to `GITHUB_STEP_SUMMARY`, and includes local reproduction commands. Indexed archive filenames are matched to job metadata so a valid log is never mislabeled as missing.
 
 In CI, failure-debug coverage is layered: `build.yml`, `ci-smoke.yml`, and
 `e2e-keyboard-nav.yml` run `scripts/ci-debug.mjs` inline (`if: failure()`)
 and upload `ci-debug-report.md`; the separate `ci-debug.yml` workflow
-triggers on `workflow_run` of the seven main pipelines to produce a
+triggers on `workflow_run` of the tracked pipelines to produce a
 consolidated report. `ci-debug.yml` is intentionally dependency-free (no
 `pnpm install`) — the script uses only Node builtins, so a broken dependency
 tree cannot prevent the debug report from being produced.
 
-Known gap: `visual-baselines.yml` has no failure-debug coverage (neither
-inline steps nor a `ci-debug.yml` trigger entry). It is a manual, low-volume
-workflow, so this is a cosmetic gap today — add its name to `ci-debug.yml`'s
-`workflow_run.workflows` list if it ever starts failing regularly.
+Inline debug steps receive the workflow's `${{ github.token }}` explicitly and
+the workflow grants `actions: read`; this avoids a misleading empty report when
+the runner has no `gh` login configured. The `--context N` and `--max-hits N`
+options reduce output for large logs, for example:
+
+```bash
+node scripts/ci-debug.mjs --run-id <RUN_ID> --context 3 --max-hits 5
+```
+
+Dependency caches are disposable acceleration only: a missing or corrupt cache
+must never block a build. Node jobs cache the pnpm store using the committed
+`pnpm-lock.yaml` hash and install with `--frozen-lockfile`; Python jobs use
+`setup-python`'s pip cache keyed by `scripts/quantize/requirements.txt`; Rust
+jobs use `Swatinem/rust-cache`, which separates target/toolchain state. No
+compiled C/C++ output is cached in this repository; if a native CMake target is
+added, cache only the package-manager/download directory and key it by runner,
+compiler, architecture, and the lockfile—not `build/` or `target/` outputs.
 
 ## Infrastructure blocks: billing / runner outages
 
@@ -255,7 +269,7 @@ The pipeline tooling is covered by TDD assertions that run as part of `pnpm test
 - `node scripts/test-ci-debug.mjs` — simulated log-scenario extraction.
 - `node scripts/ci-health.test.mjs` — pipeline-health classifier aggregates.
 - `node scripts/pin-github-actions.test.mjs` — pin-table integrity + fabricated-SHA regression.
-- `bash scripts/test-ci-shell-scripts.sh` — 20 assertions on `ci-local-run.sh` dispatch, act-missing detection, secrets stub, and `bash -n` syntax for every CI shell script and git hook.
+- `bash scripts/test-ci-shell-scripts.sh` — shell assertions on `ci-local-run.sh` dispatch, act-missing detection, secrets stub, and `bash -n` syntax for every CI shell script and git hook.
 
 Run them directly with:
 
@@ -410,4 +424,3 @@ Two historical classes, both fixed:
   the viewport-constrained max height, clipping the final command. Grouped
   under `Object > Path` (both `menu/defs.ts` and `Menubar.tsx` `buildMenus`).
   Guarded by `tests/e2e/menus/visual-integrity.spec.ts`.
-

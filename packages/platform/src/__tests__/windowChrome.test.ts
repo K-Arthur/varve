@@ -165,6 +165,15 @@ describe('windowChrome', () => {
       expect(strategy.menubarPlacement).toBe('top-of-page');
     });
 
+    it('resolves browser strategy even when hosted on Linux', () => {
+      const platform: PlatformInfo = { ...mockPlatform, kind: 'web', os: 'linux' };
+      const strategy = resolveWindowChromeStrategy(platform);
+
+      expect(strategy.menubarStrategy).toBe('browser-menubar');
+      expect(strategy.showCustomTitleBar).toBe(false);
+      expect(strategy.controlsPosition).toBe('hidden');
+    });
+
     it('resolves fallback strategy for unknown OS', () => {
       const platform: PlatformInfo = { ...mockPlatform, os: 'unknown' };
       const strategy = resolveWindowChromeStrategy(platform);
