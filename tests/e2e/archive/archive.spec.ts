@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
-test.describe('Archive / Backup system', () => {
+test.describe('Archive / Backup system (desktop)', () => {
   test.describe.configure({ mode: 'serial' });
   // Archive create/restore involves ZIP packaging + AES-GCM key derivation
   // (600k PBKDF2 iterations) on top of normal editor load time — give it
@@ -9,6 +9,10 @@ test.describe('Archive / Backup system', () => {
   // dev-server load.
   test.setTimeout(60000);
   test.beforeEach(async ({ page }) => {
+    const isTauri = await page.evaluate(
+      () => '__TAURI__' in (window as unknown as Record<string, unknown>),
+    );
+    test.skip(!isTauri, 'Encrypted archive APIs are desktop-only; web uses snapshot fallback.');
     await navigateToEditor(page);
   });
 
@@ -227,5 +231,17 @@ test.describe('Archive / Backup system', () => {
 
     // Close the dialog
     await dialogCloseButton(page).click();
+  });
+});
+
+test.describe('Archive / Backup system (web fallback)', () => {
+  test('exposes snapshot backup and restore commands', async ({ page }) => {
+    await navigateToEditor(page);
+
+    const fileMenu = page.getByRole('menubar').getByRole('menuitem', { name: 'File' });
+    await fileMenu.click();
+
+    await expect(page.getByRole('menuitem', { name: /download snapshot/i })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /restore from snapshot/i })).toBeVisible();
   });
 });
