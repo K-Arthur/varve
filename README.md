@@ -19,7 +19,8 @@
   <a href="https://varve.studio/download"><strong>Download</strong></a> ·
   <a href="https://varve.studio/docs"><strong>Documentation</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a>
+  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
+  <a href="https://varve.studio/support-project"><strong>Sponsor</strong></a>
 </p>
 
 > **Public beta.** The latest published application release is `v0.1.1`.
