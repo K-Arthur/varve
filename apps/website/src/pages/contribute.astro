@@ -3,19 +3,19 @@ import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 ---
 
-<Layout title="Contribute" description="Contribute to Varve: code, documentation, testing, and design. All contributions are welcome — the source is available on GitHub under FSL-1.1-MIT.">
+<Layout title="Contribute" description="Help shape Varve through reproducible bug reports, product discussions, testing, documentation, design feedback, and future code contributions.">
   <div class="container-custom">
     <div class="contribute-page">
       <h1 class="page-hero-title">Contribute to Varve</h1>
       <p class="page-hero-sub">
-        Varve is community-shaped. Whether you contribute code, documentation, testing, or design, your help is valued and appreciated.
+        Varve is community-shaped. Clear bug reports, thoughtful workflow ideas, cross-platform testing, documentation, and design feedback all help the project move forward.
       </p>
       <p class="page-hero-sub" style="margin-top: 0.5rem;">
-        <strong>Varve is not yet accepting external contributions.</strong> The page below describes the process we intend to use once the project opens up. In the meantime, feedback and ideas are welcome in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.
+        <strong>External code contributions are temporarily paused.</strong> You can still help today through <a href="https://github.com/K-Arthur/varve/issues">Issues</a> and <a href="https://github.com/K-Arthur/varve/discussions">Discussions</a>. Read the <a href="https://github.com/K-Arthur/varve/blob/master/docs/development/contributing.md">current contributor guide</a> for the right channel and useful report details.
       </p>
 
       <section class="contribute-section">
-        <h2>Ways to Contribute</h2>
+        <h2>Ways to Help Today</h2>
         
         <div class="contribute-cards">
           <div class="contribute-card">
@@ -23,14 +23,14 @@ import { sitePath } from '../lib/siteUrl';
               <div class="cc-icon cc-icon-teal" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
               </div>
-              <h3>Code Contributions</h3>
+              <h3>Bug Reports</h3>
             </div>
-            <p>Fix bugs, add features, improve performance</p>
+            <p>Give the maintainer a reliable reproduction</p>
             <ul>
-              <li>Read the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a></li>
-              <li>Set up development environment (see <a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">AGENTS.md</a>)</li>
-              <li>Check for "good first issue" labels on GitHub</li>
-              <li>Submit pull requests with tests</li>
+              <li>Search existing <a href="https://github.com/K-Arthur/varve/issues">Issues</a> first</li>
+              <li>Include steps, expected and actual result, and environment</li>
+              <li>Add screenshots, logs, or a small source document when useful</li>
+              <li>Use <a href="https://github.com/K-Arthur/varve/issues/new?template=bug_report.yml">the bug template</a></li>
             </ul>
           </div>
 
@@ -39,14 +39,14 @@ import { sitePath } from '../lib/siteUrl';
               <div class="cc-icon cc-icon-sand" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
               </div>
-              <h3>Documentation</h3>
+              <h3>Documentation &amp; Examples</h3>
             </div>
-            <p>Improve docs, write tutorials, translate content</p>
+            <p>Make the product easier to understand and use</p>
             <ul>
-              <li>Fix typos or clarify confusing sections</li>
-              <li>Write tutorials for specific workflows</li>
-              <li>Add examples and screenshots</li>
-              <li>Translate documentation to other languages</li>
+              <li>Point out confusing or stale passages</li>
+              <li>Share tutorials, examples, and workflow recipes</li>
+              <li>Suggest screenshots or accessibility improvements</li>
+              <li>Use an <a href="https://github.com/K-Arthur/varve/discussions">Issue or Discussion</a> while code PRs are paused</li>
             </ul>
           </div>
 
@@ -55,14 +55,14 @@ import { sitePath } from '../lib/siteUrl';
               <div class="cc-icon cc-icon-terra" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
               </div>
-              <h3>Testing</h3>
+              <h3>Cross-Platform Testing</h3>
             </div>
-            <p>Test on different platforms and report bugs</p>
+            <p>Expand confidence beyond the maintainer's machine</p>
             <ul>
-              <li>Test on specific Linux distributions</li>
-              <li>Test on different macOS versions</li>
-              <li>Test accessibility with screen readers</li>
-              <li>Verify bug fixes and report regressions</li>
+              <li>Record OS, architecture, package type, and Varve version</li>
+              <li>Test on Linux, macOS, and Windows where available</li>
+              <li>Check keyboard access and screen-reader behavior</li>
+              <li>Confirm fixes and report regressions with exact actions</li>
             </ul>
           </div>
 
@@ -71,38 +71,47 @@ import { sitePath } from '../lib/siteUrl';
               <div class="cc-icon cc-icon-ink" aria-hidden="true">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="m2 2 7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
               </div>
-              <h3>Design</h3>
+              <h3>Workflow &amp; Design Feedback</h3>
             </div>
-            <p>Create UI mockups, icons, website improvements</p>
+            <p>Help prioritize the next useful design-tool improvement</p>
             <ul>
-              <li>Design new feature interfaces</li>
-              <li>Create icon designs</li>
-              <li>Improve website UX</li>
-              <li>Design marketing materials</li>
+              <li>Describe the task you are trying to complete</li>
+              <li>Share a sketch, mockup, or before/after comparison</li>
+              <li>Discuss interaction, accessibility, and visual hierarchy</li>
+              <li>Post proposals in <a href="https://github.com/K-Arthur/varve/discussions">Discussions</a></li>
             </ul>
           </div>
         </div>
       </section>
 
       <section class="contribute-section">
-        <h2>Getting Started</h2>
+        <h2>When Code Contributions Reopen</h2>
+        <p>
+          The future code workflow will begin with a scoped Discussion, then a focused branch and pull request against <code>master</code>. Changes will need the narrowest useful tests, honest release and platform claims, and documented validation. Canvas, pointer, drag, and rendering changes will require real Playwright coverage in addition to unit tests.
+        </p>
+        <p>
+          Start with <code>pnpm verify:plan</code>, run <code>pnpm verify:affected</code>, and record the commands in the pull request. The full gate is reserved for explicit high-impact changes and requires a stated reason. See the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a> and the <a href="https://github.com/K-Arthur/varve/blob/master/docs/development/contributing.md">development contributor guide</a> for the complete workflow.
+        </p>
+      </section>
+
+      <section class="contribute-section">
+        <h2>Getting Started Today</h2>
         <ol>
-          <li>Read the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a> and code of conduct</li>
-          <li>Set up your development environment following <a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">AGENTS.md</a></li>
-          <li>Check existing issues for "good first issue" labels</li>
-          <li>Fork the repository and create a feature branch</li>
-          <li>Make your changes and add tests</li>
-          <li>Submit a pull request with a clear description</li>
+          <li>Read the <a href={sitePath('/contribute/guidelines')}>contribution guidelines</a> and <a href="https://github.com/K-Arthur/varve/blob/master/CODE_OF_CONDUCT.md">code of conduct</a></li>
+          <li>Search existing Issues and Discussions before starting a new thread</li>
+          <li>Choose Issues for reproducible bugs and Discussions for ideas, workflows, and architecture</li>
+          <li>Include platform, version, exact steps, and evidence that helps someone reproduce the report</li>
+          <li>For local development, follow <a href="https://github.com/K-Arthur/varve/blob/master/docs/development/setup.md">the setup guide</a> and <a href="https://github.com/K-Arthur/varve/blob/master/AGENTS.md">AGENTS.md</a></li>
         </ol>
       </section>
 
       <section class="contribute-section">
         <h2>Contribution Licensing</h2>
         <p>
-          Once open, all contributions to Varve will need to be licensed under FSL-1.1-MIT. By contributing, you will grant a license for your code to be included in the project under the same license. You retain copyright to your contributions.
+          Varve is source-available under FSL-1.1-MIT. While external code contributions are paused, the repository's DCO and CLA documents are drafts and are not active. When code contributions reopen, the active sign-off and contribution terms will be published before outside code is accepted. Contributors will retain copyright to their work.
         </p>
         <p>
-          All contributions require a <a href="https://developercertificate.org/">Developer Certificate of Origin</a> (DCO) sign-off. See <a href={sitePath('/contribute/guidelines')}>the contribution guidelines</a> for details.
+          Future external code contributions will require a <a href="https://developercertificate.org/">Developer Certificate of Origin</a> (DCO) sign-off. The active terms will be published before code pull requests reopen; see <a href={sitePath('/contribute/guidelines')}>the contribution guidelines</a> for the planned process.
         </p>
       </section>
 

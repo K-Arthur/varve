@@ -137,3 +137,12 @@ just check-env           # Verify toolchain availability
 
 See `docs/architecture/render-pipeline.md` for the rendering architecture
 and `docs/README.md` for the full documentation index.
+
+## Contributor path
+
+Read [contributing.md](contributing.md) before starting work. External code
+pull requests are currently paused, but bug reports, workflow proposals,
+cross-platform testing, documentation corrections, and design feedback are
+welcome through the documented Issue and Discussion channels. When code work
+reopens, that guide explains the project map, impact-aware validation, and pull
+request expectations.
