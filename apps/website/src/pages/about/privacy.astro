@@ -37,7 +37,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li>No browser fingerprinting</li>
           <li>No marketing or advertising trackers</li>
           <li>No social media tracking pixels</li>
-          <li>No accounts, and no personal data</li>
+          <li>No accounts or personal data required for core editing</li>
         </ul>
         <p>
           Analytics never includes design contents, filenames, filesystem paths, text, images,
@@ -48,7 +48,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="privacy-section">
         <h2>The Application</h2>
         <p>
-          Varve is a <strong>local-first</strong> design application. All design data stays on your machine. There is no cloud sync, no user accounts, no authentication system, and no telemetry transmitted by default.
+          Varve is a <strong>local-first</strong> design application. Core editing data stays on your machine by default. There is no mandatory cloud sync, no user accounts, no authentication system, and no telemetry transmitted by default. Optional model downloads, online font/icon search, user-configured providers, and update checks are separate network features.
         </p>
         <p>
           The application does not report usage statistics or diagnostics unless you explicitly
@@ -94,7 +94,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Web (WASM):</strong> IndexedDB in your browser. Data persists in your browser's local storage and is not synced anywhere.</li>
         </ul>
         <p>
-          The only exception to local-only data is when you explicitly use features like creating a GitHub issue from within the app, which opens your browser to GitHub's interface — no data is transmitted automatically.
+          Local-only storage is the default. If you explicitly use a network feature — such as downloading a model, searching an online font/icon provider, configuring a cloud provider, or opening GitHub to file an issue — that feature's provider receives the data needed for that action. Core editing does not upload design content automatically.
         </p>
       </section>
 
