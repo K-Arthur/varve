@@ -23,12 +23,12 @@
  * in exactly one place.
  */
 
+import type { ItemizedParagraph } from './text/paragraphs';
 import type { ShapedGlyph, ShapedRun, TextShaping } from './types';
 import type { BidiParagraph } from './unicode/bidi';
 import { analyzeParagraph } from './unicode/bidi';
 import { splitGraphemes } from './unicode/grapheme';
 import { dominantScript } from './unicode/script';
-import type { ItemizedParagraph } from './text/paragraphs';
 
 export interface ShapeRunInput {
   /** The text to shape (single line). */

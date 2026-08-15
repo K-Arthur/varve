@@ -22,7 +22,13 @@ import { addMask } from '../masks';
 import type { GroupNode, Page } from '../types';
 
 function firstPage(doc: ReturnType<typeof createDocument>): Page {
-  return doc.pages?.[0] as Page;
+  return pageAt(doc, 0);
+}
+
+function pageAt(doc: ReturnType<typeof createDocument>, index: number): Page {
+  const page = doc.pages?.[index];
+  if (!page) throw new Error(`Expected page at index ${index}`);
+  return page;
 }
 
 describe('Page operations', () => {
@@ -209,7 +215,7 @@ describe('Page operations', () => {
   it('reorderPages validates all page IDs are present (not a subset)', () => {
     let doc = createDocument();
     doc = addPage(doc);
-    const firstIdOnly = [(doc.pages?.[0] as Page).id];
+    const firstIdOnly = [firstPage(doc).id];
     const result = reorderPages(doc, firstIdOnly);
     expect(result).toBe(doc);
   });
@@ -234,7 +240,7 @@ describe('Page operations', () => {
 
     // Content should be duplicated with new IDs
     const origContentRoot = doc.nodes[contentRootId];
-    const duplicatePageRootId = (doc.pages?.[1] as Page).contentRoot;
+    const duplicatePageRootId = pageAt(doc, 1).contentRoot;
     const dupContentRoot = doc.nodes[duplicatePageRootId];
     expect(dupContentRoot).toBeDefined();
     expect(dupContentRoot?.kind).toBe('group');
@@ -260,7 +266,7 @@ describe('Page operations', () => {
     doc = addChild(doc, contentRootId, shape);
 
     doc = duplicatePage(doc, originalId);
-    const duplicatePageRootId = (doc.pages?.[1] as Page).contentRoot;
+    const duplicatePageRootId = pageAt(doc, 1).contentRoot;
     const dupContentRoot = doc.nodes[duplicatePageRootId];
 
     // Structure check: both content roots exist and have children
@@ -288,7 +294,7 @@ describe('Page operations', () => {
 
     doc = duplicatePage(doc, originalId);
 
-    const copiedRootId = (doc.pages?.[1] as Page).contentRoot;
+    const copiedRootId = pageAt(doc, 1).contentRoot;
     const copiedRoot = doc.nodes[copiedRootId];
     if (copiedRoot?.kind !== 'group') throw new Error('Expected copied page root');
     const copiedClip = doc.nodes[copiedRoot.children[0] ?? ''];
@@ -457,7 +463,7 @@ describe('Page operations', () => {
 
     it('activePageNodes returns global children + page children when activePageId is set', () => {
       let doc = createDocument();
-      const contentRootId = (doc.pages?.[0] as Page).contentRoot;
+      const contentRootId = firstPage(doc).contentRoot;
       const globalId = 'global-1';
       doc = addGlobalChild(doc, globalId);
       const pageChildId = 'page-child-1';

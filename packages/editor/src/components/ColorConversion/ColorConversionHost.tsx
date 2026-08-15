@@ -3,8 +3,8 @@
  * the module-level open bridge. Placed once in the editor shell.
  */
 import { useEffect, useState } from 'react';
-import { setColorConversionHandler } from './colorConversionBridge';
 import { ColorConversionDialog } from './ColorConversionDialog';
+import { setColorConversionHandler } from './colorConversionBridge';
 
 export function ColorConversionHost() {
   const [open, setOpen] = useState(false);

@@ -8,15 +8,11 @@
  * supplies the same request for every segment.
  */
 
-import { itemizeParagraph, type ItemizedParagraph, type ParagraphRange } from './text/paragraphs';
-import { layoutText, type LayoutParagraphInput } from './textLayoutSnapshot';
 import { scriptCodeToTag, shapeRun } from './shaping';
-import type {
-  RichText,
-  ShapedRun,
-  TextRun,
-} from './types';
+import { type ItemizedParagraph, itemizeParagraph, type ParagraphRange } from './text/paragraphs';
 import type { TextLayoutSnapshot } from './textLayoutSnapshot';
+import { type LayoutParagraphInput, layoutText } from './textLayoutSnapshot';
+import type { RichText, ShapedRun, TextRun } from './types';
 
 export interface RichTextMeasureContext {
   font: string;
@@ -57,7 +53,12 @@ function spansForParagraph(runs: readonly TextRun[]): SpanRange[] {
   });
 }
 
-function cloneRunWithOffset(run: ShapedRun, offset: number, script: string, level: number): ShapedRun {
+function cloneRunWithOffset(
+  run: ShapedRun,
+  offset: number,
+  script: string,
+  level: number,
+): ShapedRun {
   return {
     ...run,
     script,
@@ -98,7 +99,9 @@ function shapeParagraph(
           ctx: ctx as unknown as CanvasRenderingContext2D,
         });
         for (const run of runs) {
-          shaped.push(cloneRunWithOffset(run, cursor, scriptCodeToTag(scripted.script), scripted.level));
+          shaped.push(
+            cloneRunWithOffset(run, cursor, scriptCodeToTag(scripted.script), scripted.level),
+          );
         }
       }
       cursor = end > cursor ? end : cursor + 1;

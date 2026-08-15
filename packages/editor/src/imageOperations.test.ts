@@ -102,8 +102,7 @@ describe('insertDerivedImageShape', () => {
     expect(src?.type === 'image' ? (src.image as { src?: string }).src : null).toBe(
       'data:image/png;base64,AAAA',
     );
-    const derivedFill = (result.doc.nodes[result.nodeId] as import('@varve/scene').ShapeNode)
-      .fills;
+    const derivedFill = (result.doc.nodes[result.nodeId] as import('@varve/scene').ShapeNode).fills;
     const dsrc = derivedFill?.[0];
     expect(dsrc?.type === 'image' ? (dsrc.image as { src?: string }).src : null).toBe(
       'data:image/png;base64,BBBB',

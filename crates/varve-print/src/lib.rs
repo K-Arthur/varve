@@ -135,7 +135,12 @@ fn cmyk_normalized(color: &EngineColor) -> Option<(f32, f32, f32, f32)> {
         Some(d) if d == "float16" || d == "float32" => 1.0,
         _ => 255.0,
     };
-    Some((*c as f32 / div, *m as f32 / div, *y as f32 / div, *k as f32 / div))
+    Some((
+        *c as f32 / div,
+        *m as f32 / div,
+        *y as f32 / div,
+        *k as f32 / div,
+    ))
 }
 
 fn is_spot_color(color: &EngineColor) -> bool {
@@ -4988,7 +4993,14 @@ mod tests {
 
     // ── Native CMYK emission (no RGB round trip) ───────────────────────
 
-    fn cmyk_color(c: f64, m: f64, y: f64, k: f64, a: f64, bit_depth: Option<String>) -> EngineColor {
+    fn cmyk_color(
+        c: f64,
+        m: f64,
+        y: f64,
+        k: f64,
+        a: f64,
+        bit_depth: Option<String>,
+    ) -> EngineColor {
         EngineColor::Cmyk {
             c,
             m,

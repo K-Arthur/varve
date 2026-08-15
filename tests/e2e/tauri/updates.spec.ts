@@ -16,7 +16,10 @@ async function openUpdatesSection(page: import('@playwright/test').Page): Promis
   await page.goto('/');
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 30000 });
   await page.getByRole('button', { name: /^new$/i }).click();
-  await page.locator('dialog').getByRole('button', { name: /create/i }).click();
+  await page
+    .locator('dialog')
+    .getByRole('button', { name: /create/i })
+    .click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
 
   await page.evaluate(() => {
@@ -27,8 +30,7 @@ async function openUpdatesSection(page: import('@playwright/test').Page): Promis
   });
   await page.evaluate(() => {
     const el = [...document.querySelectorAll('button, [role="menuitem"], div, span')].find(
-      (e) =>
-        e.textContent?.trim().toLowerCase().startsWith('settings') && e.children.length === 0,
+      (e) => e.textContent?.trim().toLowerCase().startsWith('settings') && e.children.length === 0,
     );
     (el as HTMLElement | undefined)?.click();
   });
@@ -53,7 +55,10 @@ test.describe('Updater surface (Tauri webview)', () => {
     await page.goto('/');
     await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 30000 });
     await page.getByRole('button', { name: /^new$/i }).click();
-    await page.locator('dialog').getByRole('button', { name: /create/i }).click();
+    await page
+      .locator('dialog')
+      .getByRole('button', { name: /create/i })
+      .click();
     await page.locator('.layers-panel').waitFor({ timeout: 10000 });
     await page.waitForTimeout(500);
     await expect(page.getByText('Keep Varve up to date?')).toHaveCount(0);

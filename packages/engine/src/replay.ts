@@ -50,6 +50,7 @@ import {
 } from './rasterPyramid/renderTiles';
 import { emitRasterReplaySample, isRasterReplayMeasured } from './rasterReplayMetrics';
 import { createRasterSurface } from './rasterSurface';
+import { layoutRichTextSnapshot } from './richTextLayout';
 import {
   itemNeedsAlphaShadow,
   paintAlphaAwareDropShadow,
@@ -58,7 +59,6 @@ import {
   type ShadowOps,
 } from './shadowSource';
 import { shapeText } from './shaping';
-import { layoutRichTextSnapshot } from './richTextLayout';
 import { layoutRichText } from './textLayout';
 import { buildTextLayoutSnapshot, type TextLayoutSnapshot } from './textLayoutSnapshot';
 import type { ArrowheadStyle, EngineColor, FillIR, Primitive, RenderItem, Stroke } from './types';
@@ -2625,10 +2625,7 @@ function canUseCanonicalTextLayout(p: TextPrimitive): boolean {
   );
 }
 
-function canonicalTextSnapshot(
-  target: ReplayTarget,
-  p: TextPrimitive,
-): TextLayoutSnapshot | null {
+function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayoutSnapshot | null {
   if (!canUseCanonicalTextLayout(p)) return null;
 
   const maxWidth = p.textMode === 'area' ? p.w : 0;
@@ -2702,7 +2699,9 @@ function paintCanonicalText(
     }
     if (p.textDecoration === 'underline' || p.textDecoration === 'line-through') {
       const decoY =
-        p.y + verticalOffset + line.baseline +
+        p.y +
+        verticalOffset +
+        line.baseline +
         (p.textDecoration === 'underline' ? p.fontSize * 0.3 : -p.fontSize * 0.3);
       target.beginPath();
       target.moveTo(p.x + xOffset, decoY);

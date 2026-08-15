@@ -199,8 +199,9 @@ describe('switchColorMode', () => {
     const doc = makeDoc(rgb(100, 150, 200, 128));
     const result = switchColorMode(doc, 'cmyk');
     const n = result.nodes.n1;
+    if (!n) throw new Error('Expected migrated node n1');
     expect(n?.fill.space).toBe('cmyk');
-    expect((n?.fill as { a: number }).a).toBe(128);
+    expect((n.fill as { a: number }).a).toBe(128);
   });
 
   it('returns document unchanged when mode is already same', () => {

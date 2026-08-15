@@ -79,7 +79,7 @@ describe('reflowLayoutChildren', () => {
 
     // One fill child in a 400px frame → full width.
     const reflowed = reflowLayoutChildren(doc, 'f1');
-    const child = reflowed.nodes['a'];
+    const child = reflowed.nodes.a;
     expect(childTransform(reflowed, 'a')[4]).toBeCloseTo(0);
     if (child?.kind === 'shape' && child.shape.kind === 'rect') {
       expect(child.shape.w).toBeCloseTo(400);
@@ -93,7 +93,7 @@ describe('reflowLayoutChildren', () => {
     const doc = makeDoc(frame, [a]);
 
     const reflowed = reflowLayoutChildren(doc, 'f1');
-    const child = reflowed.nodes['a'];
+    const child = reflowed.nodes.a;
     if (child?.kind === 'shape' && child.shape.kind === 'rect') {
       expect(child.shape.w).toBeCloseTo(100);
     }
