@@ -24,11 +24,9 @@ assert.deepEqual(buildUpdaterConfig('stable', 'signed'), {
   plugins: { updater: { endpoints: ['https://varve.studio/updates/stable.json'] } },
 });
 assert.deepEqual(buildUpdaterConfig('beta', 'manual-only'), {
+  bundle: { createUpdaterArtifacts: false },
   plugins: {
-    updater: {
-      endpoints: ['https://varve.studio/updates/beta.json'],
-      pubkey: null,
-    },
+    updater: { endpoints: ['https://varve.studio/updates/beta.json'], active: false, pubkey: '' },
   },
 });
 assert.throws(() => buildUpdaterConfig('preview', 'signed'), /invalid update channel/);

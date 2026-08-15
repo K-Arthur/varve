@@ -17,13 +17,17 @@ export function buildUpdaterConfig(channel, mode) {
   const updater = {
     endpoints: [`https://varve.studio/updates/${channel}.json`],
   };
+  const config = { plugins: { updater } };
   if (mode === 'manual-only') {
-    // The base tauri.conf.json contains the public key for signed updater
-    // artifacts. Explicit null removes it from the merged config so Tauri
-    // cannot enter signer mode when the private key is intentionally absent.
-    updater.pubkey = null;
+    // Tauri's bundler parses the updater key whenever createUpdaterArtifacts
+    // is true. Manual releases must disable artifact generation and provide a
+    // schema-valid inactive updater config; a null/missing pubkey is rejected
+    // by the bundler before it can produce the installer.
+    config.bundle = { createUpdaterArtifacts: false };
+    updater.active = false;
+    updater.pubkey = '';
   }
-  return { plugins: { updater } };
+  return config;
 }
 
 function readOption(args, name) {
