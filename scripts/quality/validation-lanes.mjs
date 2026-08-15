@@ -13,6 +13,20 @@ import { join } from 'node:path';
 
 const ROOT = process.cwd();
 
+function canonicalPath(value) {
+  return String(value).replaceAll('\\', '/');
+}
+
+export function toWorkspaceRelativePath(rootValue, filePath) {
+  const root = canonicalPath(rootValue).replace(/\/+$/, '');
+  const path = canonicalPath(filePath);
+  const prefix = `${root}/`;
+  if (path.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return path.slice(prefix.length);
+  }
+  return path;
+}
+
 export const LANES = {
   // ── Tier 0: changed-file checks ──────────────────────────────────────
   'format:touched': 'biome format --staged --no-errors-on-unmatched',
@@ -112,7 +126,7 @@ function ensurePackageDirs() {
     });
     for (const p of JSON.parse(out)) {
       if (!p.name || !p.path) continue;
-      packageDirs[p.name] = p.path.startsWith(`${ROOT}/`) ? p.path.slice(ROOT.length + 1) : p.path;
+      packageDirs[p.name] = toWorkspaceRelativePath(ROOT, p.path);
     }
   } catch {
     // Fall back to the workspace apps when pnpm listing is unavailable.
