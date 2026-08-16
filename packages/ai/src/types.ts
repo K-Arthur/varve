@@ -13,4 +13,4 @@ export interface AISession {
   createdAt: number;
 }
 
-export type AIModel = 'strata-default' | 'claude-3-sonnet' | 'gpt-4o';
+export type AIModel = 'varve-default' | 'claude-3-sonnet' | 'gpt-4o';

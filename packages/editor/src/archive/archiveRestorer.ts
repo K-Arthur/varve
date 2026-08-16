@@ -267,9 +267,11 @@ export function extractArchiveDocument(
   files: Record<string, Uint8Array>,
 ): { document?: Document; warnings: string[] } {
   const warnings: string[] = [];
-  const docBytes = files['document.strata'];
+  // Legacy archives (produced before the .strata -> .varve rename) carry the
+  // document under document.strata; new archives use document.varve.
+  const docBytes = files['document.varve'] ?? files['document.strata'];
   if (!docBytes) {
-    warnings.push('Archive contains no document.strata');
+    warnings.push('Archive contains no document.varve');
     return { warnings };
   }
 

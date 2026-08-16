@@ -61,7 +61,8 @@ export interface GradientPresetSource {
   origin:
     | 'photoshop-grd'
     | 'photoshop-grd-legacy'
-    | 'strata-gradient-json'
+    | 'varve-gradient-json'
+    | 'strata-gradient-json' // legacy tag; kept so pre-rename persisted values still type-check
     | 'builtin'
     | 'manual'
     | 'unknown';

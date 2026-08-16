@@ -106,7 +106,7 @@ export function GradientMapAdjustmentSection({
         .replace(/[^a-z0-9-_ ]+/gi, '')
         .trim()
         .replace(/\s+/g, '-') || 'gradient'
-    }.strata-gradient.json`;
+    }.varve-gradient.json`;
     a.click();
     URL.revokeObjectURL(url);
   }, []);

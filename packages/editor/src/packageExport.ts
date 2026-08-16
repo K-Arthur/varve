@@ -41,7 +41,7 @@ export interface PackageExportResult {
 
 export interface PackageManifest {
   schemaVersion: '1.0';
-  kind: 'strata-package';
+  kind: 'varve-package';
   createdAt: string;
   document: {
     id: string;
@@ -53,7 +53,7 @@ export interface PackageManifest {
   assets: PackageAssetEntry[];
   fonts: PackageFontEntry[];
   compatibility: {
-    tier: 'lossless-strata-document';
+    tier: 'lossless-varve-document';
     notes: string[];
   };
 }
@@ -111,7 +111,7 @@ export function buildPackageExport(
   const assets = collectAssets(doc, pkg);
   const fonts = collectFonts(doc, catalog);
 
-  addJson(pkg, 'document.strata', 'document', DocumentCodec.encode(doc));
+  addJson(pkg, 'document.varve', 'document', DocumentCodec.encode(doc));
   addJson(pkg, 'tokens/tokens.dtcg.json', 'tokens', dtcgExport());
   addJson(pkg, 'assets/manifest.json', 'asset-manifest', { assets });
   addJson(pkg, 'fonts/manifest.json', 'font-manifest', { fonts });
@@ -119,7 +119,7 @@ export function buildPackageExport(
 
   const manifest: PackageManifest = {
     schemaVersion: '1.0',
-    kind: 'strata-package',
+    kind: 'varve-package',
     createdAt: new Date().toISOString(),
     document: {
       id: doc.id,
@@ -131,9 +131,9 @@ export function buildPackageExport(
     assets,
     fonts,
     compatibility: {
-      tier: 'lossless-strata-document',
+      tier: 'lossless-varve-document',
       notes: [
-        '.strata document is the lossless source of truth',
+        '.varve document is the lossless source of truth',
         'External assets and fonts are listed with license/availability notes when not bundled',
         'Font files are only bundled when embedding is permitted by the font license',
       ],
@@ -143,7 +143,7 @@ export function buildPackageExport(
   addJson(pkg, 'manifest.json', 'manifest', manifest);
 
   return {
-    fileName: `${safePackageName(doc.name)}.strata-package.zip`,
+    fileName: `${safePackageName(doc.name)}.varve-package.zip`,
     mimeType: 'application/zip',
     bytes: zipSync(pkg.files, { level: 6 }),
     manifest,
@@ -345,5 +345,5 @@ function extensionForMime(mimeType: string): string {
 }
 
 function safePackageName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'strata-package';
+  return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'varve-package';
 }
