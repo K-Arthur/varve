@@ -49,16 +49,16 @@ describe('buildPackageExport', () => {
     const result = buildPackageExport(docWithAssetsAndFonts());
     const entries = unzipSync(result.bytes);
 
-    expect(result.fileName).toBe('Package Doc.strata-package.zip');
-    expect(entries['document.strata']).toBeDefined();
+    expect(result.fileName).toBe('Package Doc.varve-package.zip');
+    expect(entries['document.varve']).toBeDefined();
     expect(entries['manifest.json']).toBeDefined();
     expect(entries['tokens/tokens.dtcg.json']).toBeDefined();
     expect(entries['export-report.json']).toBeDefined();
     expect(entries['assets/0001.png']).toBeDefined();
 
     const manifest = readJson<PackageManifest>(entries, 'manifest.json');
-    expect(manifest.kind).toBe('strata-package');
-    expect(manifest.compatibility.tier).toBe('lossless-strata-document');
+    expect(manifest.kind).toBe('varve-package');
+    expect(manifest.compatibility.tier).toBe('lossless-varve-document');
     expect(manifest.assets[0]).toMatchObject({
       status: 'embedded',
       path: 'assets/0001.png',

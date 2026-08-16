@@ -4,7 +4,8 @@
  *
  * Archive ZIP structure:
  *   manifest.json
- *   document.strata          (full archive)
+ *   document.varve            (full archive; legacy archives carry
+ *                              document.strata instead — see archiveRestorer)
  *   settings/
  *     {category}.json        (per category)
  *   assets/
@@ -68,8 +69,8 @@ export async function buildFullArchive(
   onProgress?.('encoding-document', 0.1);
   const docJson = DocumentCodec.encode(doc);
   const docBytes = strToU8(docJson);
-  files['document.strata'] = docBytes;
-  checksums['document.strata'] = await computeChecksum(docBytes);
+  files['document.varve'] = docBytes;
+  checksums['document.varve'] = await computeChecksum(docBytes);
 
   if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
@@ -141,7 +142,7 @@ export async function buildFullArchive(
     finalBytes = rawZip;
   }
 
-  const fileName = `${safeArchiveName(doc.name)}.strata-archive.zip`;
+  const fileName = `${safeArchiveName(doc.name)}.varve-archive.zip`;
   return { fileName, bytes: finalBytes, manifest };
 }
 
@@ -201,7 +202,7 @@ export async function buildSettingsArchive(
     finalBytes = rawZip;
   }
 
-  const fileName = 'strata-settings-archive.zip';
+  const fileName = 'varve-settings-archive.zip';
   return { fileName, bytes: finalBytes, manifest };
 }
 
@@ -355,7 +356,7 @@ function extensionForMime(mimeType: string): string {
 }
 
 function safeArchiveName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'strata-archive';
+  return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'varve-archive';
 }
 
 const ALL_CATEGORIES: SettingsCategory[] = [

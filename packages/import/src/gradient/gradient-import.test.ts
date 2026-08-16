@@ -24,10 +24,8 @@ describe('detectGradientFormat', () => {
     expect(detectGradientFormat(buildModernGrd([twoStop]))).toBe('photoshop-grd');
     expect(detectGradientFormat(buildLegacyGrd([twoStop]))).toBe('photoshop-grd-legacy');
     expect(
-      detectGradientFormat(
-        JSON.stringify({ format: 'strata-gradient', version: 1, gradients: [] }),
-      ),
-    ).toBe('strata-gradient-json');
+      detectGradientFormat(JSON.stringify({ format: 'varve-gradient', version: 1, gradients: [] })),
+    ).toBe('varve-gradient-json');
     expect(detectGradientFormat(new Uint8Array([0, 1, 2, 3]))).toBe('unknown');
   });
 });
@@ -96,11 +94,38 @@ describe('importGradientPresets', () => {
       } satisfies GradientPreset,
     ]);
     const result = importGradientPresets(json);
-    expect(result.format).toBe('strata-gradient-json');
+    expect(result.format).toBe('varve-gradient-json');
     expect(result.presets).toHaveLength(1);
     expect(result.presets[0]!.name).toBe('From JSON');
     expect(result.presets[0]!.id).toBe('gpreset-x');
     expect(result.presets[0]!.opacityStops[1]!.opacity).toBe(0.5);
+  });
+
+  it('imports a legacy .strata-gradient.json export (pre-rename format tag)', () => {
+    const legacyJson = JSON.stringify({
+      format: 'strata-gradient',
+      version: 1,
+      gradients: [
+        {
+          id: 'gpreset-legacy',
+          name: 'From Strata Beta',
+          kind: 'solid',
+          colorStops: [
+            { id: 'cs-1', position: 0, color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+            { id: 'cs-2', position: 1, color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } },
+          ],
+          opacityStops: [
+            { id: 'os-1', position: 0, opacity: 1 },
+            { id: 'os-2', position: 1, opacity: 1 },
+          ],
+          interpolation: 'oklab',
+        },
+      ],
+    });
+    const result = importGradientPresets(legacyJson);
+    expect(result.format).toBe('varve-gradient-json');
+    expect(result.presets).toHaveLength(1);
+    expect(result.presets[0]!.name).toBe('From Strata Beta');
   });
 });
 

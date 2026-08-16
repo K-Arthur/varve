@@ -4,7 +4,7 @@
  * Two-tab design: Create Archive (full project or settings-only with encryption)
  * and Restore Archive (file drop, preview, conflict detection, restore).
  *
- * Follows the Strata design system patterns established by ExportDialog,
+ * Follows the Varve design system patterns established by ExportDialog,
  * SettingsDialog, and RecoveryDialog.
  */
 
@@ -256,9 +256,9 @@ export function ArchiveDialog({
 
   const destinationName = useMemo(() => {
     if (archiveKind === 'full' && doc) {
-      return `${doc.name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'document'}.strata-archive.zip`;
+      return `${doc.name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'document'}.varve-archive.zip`;
     }
-    return 'strata-settings-archive.zip';
+    return 'varve-settings-archive.zip';
   }, [archiveKind, doc]);
 
   // Reset state when dialog opens
@@ -907,13 +907,13 @@ export function ArchiveDialog({
             </span>
             <span className="archive-dialog__drop-text">Drop archive here or click to browse</span>
             <span className="archive-dialog__drop-hint">
-              Supports .zip and .strata-archive.zip files
+              Supports .zip and .varve-archive.zip files (legacy .strata-archive.zip also supported)
             </span>
             <input
               ref={fileInputRef}
               type="file"
               className="archive-dialog__drop-input"
-              accept=".zip,.strata-archive.zip"
+              accept=".zip,.varve-archive.zip,.strata-archive.zip"
               onChange={handleFileInputChange}
               aria-hidden="true"
               tabIndex={-1}

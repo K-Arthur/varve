@@ -5,7 +5,7 @@
 export type GradientFileFormat =
   | 'photoshop-grd'
   | 'photoshop-grd-legacy'
-  | 'strata-gradient-json'
+  | 'varve-gradient-json'
   | 'unknown';
 
 /** Detect the gradient format from raw bytes. */
@@ -16,7 +16,7 @@ export function detectGradientFormatBytes(data: Uint8Array): GradientFileFormat 
     if (sig === 'Grad') return 'photoshop-grd-legacy';
   }
   const head = String.fromCharCode(...Array.from(data.slice(0, 128)));
-  if (looksLikeJson(head)) return 'strata-gradient-json';
+  if (looksLikeJson(head)) return 'varve-gradient-json';
   return 'unknown';
 }
 
@@ -24,7 +24,7 @@ export function detectGradientFormatBytes(data: Uint8Array): GradientFileFormat 
 export function detectGradientFormatText(text: string): GradientFileFormat {
   const trimmed = text.trimStart();
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-    return 'strata-gradient-json';
+    return 'varve-gradient-json';
   }
   return 'unknown';
 }
