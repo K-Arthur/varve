@@ -24,6 +24,7 @@ import type { FrameJob, FrameLane } from '../performance/frameScheduler';
 import {
   beginInteractionSpan,
   enableInteractionTraces,
+  type FrameDisposition,
   getInteractionTraceCount,
   getRecentInteractionTraces,
   isInteractionTracingEnabled,
@@ -542,7 +543,10 @@ export function recordFrame(frame: FrameDiagnostics): void {
     partialRedraw: frame.partialRedraw,
   });
   const committedAt = performance.now();
-  notifyFrameCommit(committedAt, frame.totalMs);
+  notifyFrameCommit(committedAt, frame.totalMs, {
+    ...(frame.renderRevision !== undefined ? { renderRevision: frame.renderRevision } : {}),
+    ...(frame.frameDecision ? { disposition: frame.frameDecision as FrameDisposition } : {}),
+  });
   scheduleCompositeEstimate(committedAt);
 }
 

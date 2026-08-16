@@ -126,6 +126,7 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
     dirtyAreaRatio: 0,
     dirtyRects: 0,
     dirtyScreenRect: undefined,
+    frameDecision: args.decision.kind,
   });
   args.coordinator.completeFrame(args.decision, args.snapshot, {
     contentDrawn: false,
