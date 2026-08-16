@@ -175,6 +175,39 @@ afterEach(() => {
 });
 
 describe('image fill modes', () => {
+  it('uses an interactive proxy while keeping authoritative source dimensions', () => {
+    const source = 'data:image/png;base64,adaptive-source';
+    const cache = getImageCache();
+    cache.setLoaded(source, mockImage(source, 4000, 2000));
+    cache.setLoaded(cache.atSizeKey(source, 512), mockBitmap('adaptive-proxy', 512, 256));
+    const { target, calls } = makeRecorder();
+
+    replayIr(
+      target,
+      [
+        rectItem(
+          400,
+          200,
+          imageFill({
+            type: 'image',
+            src: source,
+            fit: 'fill',
+            x: 0,
+            y: 0,
+            scale: 1,
+            imageWidth: 4000,
+            imageHeight: 2000,
+          }),
+        ),
+      ],
+      undefined,
+      undefined,
+      { intent: 'interactive', maxSourceDim: 512 },
+    );
+
+    expect(calls.filter((call) => call.includes('adaptive-proxy'))).toHaveLength(1);
+  });
+
   it('stretch fills the whole primitive bounds', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
