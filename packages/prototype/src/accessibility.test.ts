@@ -94,18 +94,18 @@ describe('adjustTransitionForAccessibility', () => {
 
 describe('announceToScreenReader', () => {
   beforeEach(() => {
-    const existing = document.getElementById('strata-prototype-announcer');
+    const existing = document.getElementById('varve-prototype-announcer');
     if (existing) existing.remove();
   });
 
   afterEach(() => {
-    const existing = document.getElementById('strata-prototype-announcer');
+    const existing = document.getElementById('varve-prototype-announcer');
     if (existing) existing.remove();
   });
 
   it('creates an ARIA live region when one does not exist', () => {
     announceToScreenReader('Navigated to Screen 2', 'polite');
-    const announcer = document.getElementById('strata-prototype-announcer');
+    const announcer = document.getElementById('varve-prototype-announcer');
     expect(announcer).not.toBeNull();
     expect(announcer?.getAttribute('aria-live')).toBe('polite');
     expect(announcer?.getAttribute('role')).toBe('status');
@@ -113,16 +113,16 @@ describe('announceToScreenReader', () => {
 
   it('reuses an existing announcer element', () => {
     const existing = document.createElement('div');
-    existing.id = 'strata-prototype-announcer';
+    existing.id = 'varve-prototype-announcer';
     document.body.appendChild(existing);
     announceToScreenReader('Test', 'assertive');
-    expect(document.getElementById('strata-prototype-announcer')).toBe(existing);
+    expect(document.getElementById('varve-prototype-announcer')).toBe(existing);
     expect(existing.getAttribute('aria-live')).toBe('assertive');
   });
 
   it('sets assertive priority when specified', () => {
     announceToScreenReader('Alert!', 'assertive');
-    const announcer = document.getElementById('strata-prototype-announcer');
+    const announcer = document.getElementById('varve-prototype-announcer');
     expect(announcer?.getAttribute('aria-live')).toBe('assertive');
   });
 

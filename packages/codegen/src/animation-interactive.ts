@@ -266,7 +266,7 @@ function buildHtmlDocument(
         })
         .filter(Boolean)
         .join('\n');
-      return `    <div class="strata-screen${idx === 0 ? ' strata-screen--active' : ''}" data-screen-id="${frame.id}" role="group" aria-label="${escapeHtml(frame.name)}">
+      return `    <div class="varve-screen${idx === 0 ? ' varve-screen--active' : ''}" data-screen-id="${frame.id}" role="group" aria-label="${escapeHtml(frame.name)}">
       <svg viewBox="0 0 ${frameW} ${frameH}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="white" />
 ${children}
@@ -288,37 +288,37 @@ ${children}
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Inter, system-ui, -apple-system, sans-serif; background: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .strata-prototype { position: relative; width: ${width}px; height: {${height}px}; max-width: 100%; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-    .strata-screen { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 300ms ease; }
-    .strata-screen--active { opacity: 1; pointer-events: auto; }
-    .strata-interactive { cursor: pointer; }
-    .strata-hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 11px; color: rgba(0,0,0,0.4); background: rgba(255,255,255,0.8); padding: 4px 12px; border-radius: 999px; pointer-events: none; }
-    .strata-controls { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
-    .strata-controls button { background: rgba(0,0,0,0.5); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-    .strata-controls button:focus-visible { outline: 2px solid #39d0c6; outline-offset: 2px; }
+    .varve-prototype { position: relative; width: ${width}px; height: {${height}px}; max-width: 100%; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .varve-screen { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 300ms ease; }
+    .varve-screen--active { opacity: 1; pointer-events: auto; }
+    .varve-interactive { cursor: pointer; }
+    .varve-hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); font-size: 11px; color: rgba(0,0,0,0.4); background: rgba(255,255,255,0.8); padding: 4px 12px; border-radius: 999px; pointer-events: none; }
+    .varve-controls { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; }
+    .varve-controls button { background: rgba(0,0,0,0.5); color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+    .varve-controls button:focus-visible { outline: 2px solid #39d0c6; outline-offset: 2px; }
   </style>
 </head>
 <body>
-  <div class="strata-prototype" role="application" aria-label="${escapeHtml(title)}">
+  <div class="varve-prototype" role="application" aria-label="${escapeHtml(title)}">
 ${screensSvg}
-    <div class="strata-controls">
-      <button type="button" id="strata-reset" aria-label="Reset prototype">Reset</button>
+    <div class="varve-controls">
+      <button type="button" id="varve-reset" aria-label="Reset prototype">Reset</button>
     </div>
-    <div class="strata-hint">Click interactive elements</div>
+    <div class="varve-hint">Click interactive elements</div>
   </div>
   <script>
 // === Varve Prototype Runtime (self-contained) ===
 (function() {
   'use strict';
 
-  var screens = document.querySelectorAll('.strata-screen');
+  var screens = document.querySelectorAll('.varve-screen');
   var activeScreen = 0;
   var variables = ${variableInit};
 
   function showScreen(index) {
     if (index < 0 || index >= screens.length) return;
-    screens[activeScreen].classList.remove('strata-screen--active');
-    screens[index].classList.add('strata-screen--active');
+    screens[activeScreen].classList.remove('varve-screen--active');
+    screens[index].classList.add('varve-screen--active');
     activeScreen = index;
     enterStateCallbacks.forEach(function(cb) { cb(index); });
   }
@@ -329,7 +329,7 @@ ${smRuntime}
 ${interactionRuntime}
 
   // Reset button
-  document.getElementById('strata-reset').addEventListener('click', function() {
+  document.getElementById('varve-reset').addEventListener('click', function() {
     if (typeof resetStateMachine === 'function') resetStateMachine();
     showScreen(0);
   });
@@ -404,8 +404,8 @@ function buildSmRuntime(sm: StateMachine): string {
 
   function resetStateMachine() { smCurrentState = '${entry.id}'; }
 
-  document.querySelectorAll('[data-strata-trigger]').forEach(function(el) {
-    var trigger = el.getAttribute('data-strata-trigger');
+  document.querySelectorAll('[data-varve-trigger]').forEach(function(el) {
+    var trigger = el.getAttribute('data-varve-trigger');
     el.addEventListener('click', function() { fireTrigger(trigger); });
   });
 `;
@@ -429,7 +429,7 @@ function buildInteractionRuntime(interactions: Record<string, unknown[]>): strin
       if (action?.kind === 'navigateTo' && action.targetId) {
         handlers.push(
           `  document.querySelectorAll('[data-node-id="${nodeId}"]').forEach(function(el) {`,
-          `    el.classList.add('strata-interactive');`,
+          `    el.classList.add('varve-interactive');`,
           `    el.addEventListener('${triggerToEventType(trigger)}', function() {`,
           `      var idx = Array.from(screens).findIndex(function(s) { return s.dataset.screenId === '${action.targetId}'; });`,
           `      if (idx >= 0) showScreen(idx);`,
