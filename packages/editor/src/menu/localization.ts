@@ -221,6 +221,10 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   // ── Help ───────────────────────────────────────────────────────────────────
   'menu.help.contextualHelp': 'Contextual Help',
   'menu.help.helpCenter': 'Help Center',
+  'menu.help.contactSupport': 'Contact Support',
+  'menu.help.sendFeedback': 'Send Feedback',
+  'menu.help.reportSecurity': 'Report a Security Issue',
+  'menu.help.privacy': 'Privacy',
   'menu.help.whatIsThis': "What's This?",
   'menu.help.startTour': 'Start Tour',
   'menu.help.installDesktopApp': 'Install Desktop App',

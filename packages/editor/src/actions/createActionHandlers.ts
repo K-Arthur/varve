@@ -17,6 +17,10 @@ export interface ActionHandlerCallbacks {
   onOpenPalette?: () => void;
   onOpenHelp?: () => void;
   onOpenHelpCenter?: () => void;
+  onContactSupport?: () => void;
+  onSendFeedback?: () => void;
+  onReportSecurity?: () => void;
+  onOpenPrivacy?: () => void;
   onWhatIsThis?: () => void;
   onOpenAbout?: () => void;
   onBatchBgRemove?: () => void;
@@ -585,6 +589,10 @@ export function createActionHandlers(
     // ── Help ──
     openHelp: () => cb.onOpenHelp?.(),
     openHelpCenter: () => cb.onOpenHelpCenter?.(),
+    contactSupport: () => cb.onContactSupport?.(),
+    sendFeedback: () => cb.onSendFeedback?.(),
+    reportSecurity: () => cb.onReportSecurity?.(),
+    openPrivacy: () => cb.onOpenPrivacy?.(),
     whatIsThis: () => cb.onWhatIsThis?.(),
     about: () => cb.onOpenAbout?.(),
     startTour: () => cb.onStartTour?.(),

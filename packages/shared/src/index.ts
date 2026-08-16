@@ -206,6 +206,15 @@ export {
   rgbToOklch,
   stddev,
 } from './colorMath';
+export type { ContactChannel, ContactChannelId } from './contact';
+export {
+  CONTACT_CHANNELS,
+  CONTACT_DOMAIN,
+  CONTACTS,
+  contactChannel,
+  contactMailto,
+  VARVE_URLS,
+} from './contact';
 export {
   autoFixContrast,
   contrastRatio,
