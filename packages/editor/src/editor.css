@@ -1601,6 +1601,15 @@ input[type="number"] {
   background: var(--elevation-scrim);
 }
 
+/* Panel state is shared with desktop workspace configuration. The backdrop is
+   only a mobile-drawer affordance; rendering it on desktop would intercept
+   menubar and canvas input whenever Resources is enabled by the workspace. */
+@media (min-width: 900px) {
+  .editor__panel-backdrop {
+    display: none;
+  }
+}
+
 /* ── Floating action buttons ── */
 .editor__fab {
   position: fixed;
