@@ -71,6 +71,13 @@ ledger is deliberately an accounting and policy layer. ImageCache, worker
 bitmap ownership, WebGPU resources, and tile stores remain responsible for
 actually releasing their own objects until adapter integration is complete.
 
+At the active-document boundary, the pipeline now retains only the current
+document's asset and raster-mask sources. `ImageCache.retainSources` releases
+full and `@<maxDim>` proxy entries from prior documents, while
+`retainImageResourceHandles` removes old encoded handle mappings. These are
+derived-resource releases; document JSON and encoded authoritative assets are
+untouched.
+
 ## Image Representation Lifecycle
 
 For interactive main-thread replay:
