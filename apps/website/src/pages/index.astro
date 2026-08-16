@@ -147,11 +147,11 @@ const softwareSchema = {
         </div>
       </Reveal>
       <Reveal as="div" class="local-first-art" delay="150" aria-hidden="true">
-        <div class="strata-stack">
-          <span class="strata-slab strata-slab-1"></span>
-          <span class="strata-slab strata-slab-2"></span>
-          <span class="strata-slab strata-slab-3"></span>
-          <span class="strata-lock">
+        <div class="varve-stack">
+          <span class="varve-slab varve-slab-1"></span>
+          <span class="varve-slab varve-slab-2"></span>
+          <span class="varve-slab varve-slab-3"></span>
+          <span class="varve-lock">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <rect x="4" y="11" width="16" height="10" rx="2"></rect>
               <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
@@ -327,7 +327,7 @@ const softwareSchema = {
   .interface-mark-sand { background: var(--brand-sandstone); }
   .interface-mark-clay { background: var(--brand-terracotta); }
 
-  /* --- Local-first: full-bleed strata story --- */
+  /* --- Local-first: full-bleed varve story --- */
   .local-first-section {
     background: var(--surface-sunken);
     border-top: 1px solid var(--border-default);
@@ -395,21 +395,21 @@ const softwareSchema = {
     color: var(--text-secondary);
   }
 
-  /* The strata stack: three tilted strata planes with a lock node —
+  /* The varve stack: three tilted varve planes with a lock node —
      Varve's own geometry, not a stock illustration. */
   .local-first-art {
     display: flex;
     justify-content: center;
   }
 
-  .strata-stack {
+  .varve-stack {
     position: relative;
     width: min(100%, 320px);
     aspect-ratio: 1.25;
     filter: drop-shadow(0 24px 40px oklch(0 0 0 / 0.22));
   }
 
-  .strata-slab {
+  .varve-slab {
     position: absolute;
     left: 6%;
     right: 6%;
@@ -419,22 +419,22 @@ const softwareSchema = {
     border-radius: 6px;
   }
 
-  .strata-slab-1 {
+  .varve-slab-1 {
     top: 8%;
     background: color-mix(in oklab, var(--brand-teal) 85%, var(--surface-card));
   }
 
-  .strata-slab-2 {
+  .varve-slab-2 {
     top: 37%;
     background: color-mix(in oklab, var(--brand-sandstone) 80%, var(--surface-card));
   }
 
-  .strata-slab-3 {
+  .varve-slab-3 {
     top: 66%;
     background: color-mix(in oklab, var(--brand-terracotta) 78%, var(--surface-card));
   }
 
-  .strata-lock {
+  .varve-lock {
     position: absolute;
     right: -4%;
     bottom: -10%;
@@ -496,7 +496,7 @@ const softwareSchema = {
       order: -1;
     }
 
-    .strata-stack {
+    .varve-stack {
       max-width: 260px;
     }
   }

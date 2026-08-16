@@ -5,7 +5,7 @@
  * Design language: the header borrows from a design tool's interface —
  * a slim navigation rail with the brand mark, centrally composed links
  * with a vector-anchor active indicator, and a subtle technical grid
- * texture that appears on scroll. The 2px strata-gradient spine remains
+ * texture that appears on scroll. The 2px varve spine remains
  * as the brand's signature edge.
  *
  * States:
@@ -49,9 +49,9 @@ const versionLabel = release.hasRelease && release.version
   <nav class="site-nav" aria-label="Main">
     <a href={sitePath('/')} class="site-logo" aria-label="Varve home">
       <svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path class="logo-strata-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
-        <path class="logo-strata-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
-        <path class="logo-strata-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
+        <path class="logo-varve-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
+        <path class="logo-varve-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
+        <path class="logo-varve-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
       </svg>
       <span class="site-logo-text">Varve</span>
       {versionLabel && <span class="site-version">{versionLabel}</span>}
@@ -102,9 +102,9 @@ const versionLabel = release.hasRelease && release.version
       <div class="mobile-nav-header">
         <a href={sitePath('/')} class="mobile-nav-logo" aria-label="Varve home">
           <svg width="24" height="24" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-            <path class="logo-strata-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
-            <path class="logo-strata-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
-            <path class="logo-strata-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
+            <path class="logo-varve-1" d="M5,6.5 H21 L23.5,12.5 H7.5 Z" />
+            <path class="logo-varve-2" d="M7.5,13.5 H23.5 L26,19.5 H10 Z" />
+            <path class="logo-varve-3" d="M10,20.5 H26 L28.5,26.5 H12.5 Z" />
           </svg>
           <span>Varve</span>
         </a>
@@ -244,7 +244,7 @@ const versionLabel = release.hasRelease && release.version
       box-shadow var(--duration-base) var(--ease-default);
   }
 
-  /* The strata spine: brand's three bands as a 2px hairline. */
+  /* The varve spine: brand's three bands as a 2px hairline. */
   .site-header::before {
     content: '';
     position: absolute;
@@ -359,24 +359,24 @@ const versionLabel = release.hasRelease && release.version
     vertical-align: middle;
   }
 
-  /* Logo strata hover: the three bands fan out a hair */
-  .logo-strata-1,
-  .logo-strata-2,
-  .logo-strata-3 {
+  /* Logo varve hover: the three bands fan out a hair */
+  .logo-varve-1,
+  .logo-varve-2,
+  .logo-varve-3 {
     transition: transform var(--duration-fast) var(--ease-default);
     transform-box: fill-box;
     transform-origin: center;
   }
 
-  .logo-strata-1 { fill: var(--brand-teal); }
-  .logo-strata-2 { fill: var(--brand-sandstone); }
-  .logo-strata-3 { fill: var(--brand-terracotta); }
+  .logo-varve-1 { fill: var(--brand-teal); }
+  .logo-varve-2 { fill: var(--brand-sandstone); }
+  .logo-varve-3 { fill: var(--brand-terracotta); }
 
   @media (prefers-reduced-motion: no-preference) {
-    .site-logo:hover .logo-strata-1 {
+    .site-logo:hover .logo-varve-1 {
       transform: translate(-1px, -1px);
     }
-    .site-logo:hover .logo-strata-3 {
+    .site-logo:hover .logo-varve-3 {
       transform: translate(1px, 1px);
     }
   }
