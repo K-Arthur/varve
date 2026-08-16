@@ -21,6 +21,7 @@ import {
   type ReplayTarget,
   releaseMaskSurface,
   replayIr,
+  retainImageResourceHandles,
   totalEffectExpansion,
 } from '@varve/engine';
 import {
@@ -479,6 +480,17 @@ export function renderContent(deps: RenderContentDeps): void {
     const s = stateRef.current;
     const doc = s.document;
     _showOriginalBgNodeId = s.showOriginalBgNodeId ?? null;
+
+    // Render resources are session-derived. Retain only sources owned by the
+    // active document before any frame can return through the present-only
+    // path, so switching documents cannot leave encoded handles or decoded
+    // proxy/full images pinned by global caches.
+    retainImageResourceHandles(Object.keys(doc.assets ?? {}));
+    const activeImageSources = new Set<string>();
+    for (const asset of Object.values(doc.assets ?? {})) activeImageSources.add(asset.dataUrl);
+    for (const asset of Object.values(doc.rasterMaskAssets ?? {}))
+      activeImageSources.add(asset.dataUrl);
+    if (activeImageSources.size > 0) getImageCache().retainSources(activeImageSources);
 
     let boardColor = sunkenColorRef.current;
     {

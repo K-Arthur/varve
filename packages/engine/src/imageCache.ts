@@ -359,6 +359,29 @@ export class ImageCache {
     this.remove(key, false);
   }
 
+  /**
+   * Release decoded and proxy representations that cannot belong to the
+   * active document. Source keys also retain their `@<maxDim>` proxy entries.
+   * This is an ownership boundary, not ordinary LRU eviction: document close
+   * must not leave browser-backed image resources alive indefinitely.
+   */
+  retainSources(sources: Iterable<string>): number {
+    const retained = [...new Set(sources)].filter((source) => source.length > 0);
+    let released = 0;
+    for (const key of [...this.cache.keys()]) {
+      const baseKey = key.split('\u0000varve-color=', 1)[0] ?? key;
+      const belongsToSource = retained.some(
+        (source) => baseKey === source || baseKey.startsWith(`${source}@`),
+      );
+      if (belongsToSource) continue;
+      this.pending.delete(key);
+      this.loadTokens.delete(key);
+      this.remove(key, false);
+      released++;
+    }
+    return released;
+  }
+
   /** Clear all cached images, closing retained ImageBitmap entries. */
   clear(): void {
     for (const entry of this.cache.values()) {

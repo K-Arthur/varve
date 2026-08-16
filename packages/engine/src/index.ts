@@ -478,6 +478,7 @@ export {
   registerImageResourceHandle,
   resetImageResourceRegistry,
   resolveImageResourceHandle,
+  retainImageResourceHandles,
   unregisterImageResourceHandle,
   walkTableCellContents,
 } from './imageResourceRegistry';

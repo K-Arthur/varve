@@ -61,6 +61,23 @@ export function unregisterImageResourceHandle(handle: string): void {
   registry.delete(handle);
 }
 
+/**
+ * Retain only handles belonging to the active render session. Handles from a
+ * closed document are derived data and must not pin multi-megabyte data URLs
+ * for the lifetime of the application. A later document render can register
+ * its handles again before building IR.
+ */
+export function retainImageResourceHandles(handles: Iterable<string>): number {
+  const retained = new Set(handles);
+  let removed = 0;
+  for (const handle of registry.keys()) {
+    if (retained.has(handle)) continue;
+    registry.delete(handle);
+    removed++;
+  }
+  return removed;
+}
+
 /** Total registered handles (diagnostics). */
 export function imageResourceRegistrySize(): number {
   return registry.size;
