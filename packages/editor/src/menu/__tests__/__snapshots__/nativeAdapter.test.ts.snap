@@ -153,6 +153,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > wo
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -343,6 +375,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > wo
           "id": "openHelpCenter",
           "kind": "item",
           "label": "Help Center",
+        },
+        {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
         },
         {
           "accelerator": "Alt+F1",
@@ -537,6 +601,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > wo
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -729,6 +825,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > wo
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -919,6 +1047,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > wo
           "id": "openHelpCenter",
           "kind": "item",
           "label": "Help Center",
+        },
+        {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
         },
         {
           "accelerator": "Alt+F1",
@@ -1170,6 +1330,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > work
           "id": "openHelpCenter",
           "kind": "item",
           "label": "Help Center",
+        },
+        {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
         },
         {
           "accelerator": "Alt+F1",
@@ -1432,6 +1624,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > work
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -1690,6 +1914,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > work
           "id": "openHelpCenter",
           "kind": "item",
           "label": "Help Center",
+        },
+        {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
         },
         {
           "accelerator": "Alt+F1",
@@ -1952,6 +2208,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > work
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -2212,6 +2500,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > work
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -2413,6 +2733,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > 
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -2603,6 +2955,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > 
           "id": "openHelpCenter",
           "kind": "item",
           "label": "Help Center",
+        },
+        {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
         },
         {
           "accelerator": "Alt+F1",
@@ -2797,6 +3181,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > 
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -2989,6 +3405,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > 
           "label": "Help Center",
         },
         {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
+        },
+        {
           "accelerator": "Alt+F1",
           "enabled": true,
           "id": "whatIsThis",
@@ -3179,6 +3627,38 @@ exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > 
           "id": "openHelpCenter",
           "kind": "item",
           "label": "Help Center",
+        },
+        {
+          "id": "sep-contactSupport",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "contactSupport",
+          "kind": "item",
+          "label": "Contact Support",
+        },
+        {
+          "enabled": true,
+          "id": "sendFeedback",
+          "kind": "item",
+          "label": "Send Feedback",
+        },
+        {
+          "enabled": true,
+          "id": "reportSecurity",
+          "kind": "item",
+          "label": "Report a Security Issue",
+        },
+        {
+          "enabled": true,
+          "id": "openPrivacy",
+          "kind": "item",
+          "label": "Privacy",
+        },
+        {
+          "id": "sep-whatIsThis",
+          "kind": "separator",
         },
         {
           "accelerator": "Alt+F1",
