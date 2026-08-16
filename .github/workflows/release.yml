@@ -962,20 +962,27 @@ jobs:
           echo "Executable arch:   $(file "${BIN}" | grep -oE 'arm64|x86_64' | head -1)"
           echo "Bundle structure:  $(ls "${APP}/Contents/" | tr '\n' ' ')"
           if [[ -f "${APP}/Contents/Resources/icon.icns" ]]; then echo "Icon resource:      present"; fi
-          "${BIN}" & APP_PID=$!
+          # Launch the .app bundle rather than invoking its inner executable.
+          # Tauri resolves packaged resources through the macOS bundle context;
+          # launching Contents/MacOS/varve-desktop directly makes that context
+          # unavailable and produces a false smoke-test failure.
+          OPEN_LOG="$(mktemp /tmp/varve-open.XXXXXX.log)"
+          open -n "${APP}" >"${OPEN_LOG}" 2>&1
           sleep 20
-          if kill -0 "${APP_PID}" 2>/dev/null; then
+          APP_PID="$(pgrep -f -- "${BIN}" | head -1 || true)"
+          if [[ -n "${APP_PID}" ]]; then
             echo "Launch smoke PASSED (process stayed alive 20s)"
             kill "${APP_PID}" 2>/dev/null || true
-            wait "${APP_PID}" 2>/dev/null || true
           else
-            wait "${APP_PID}"
-            echo "::error::App exited early (code $?)"
+            echo "::error::App exited before the 20s launch smoke window"
+            cat "${OPEN_LOG}" || true
             hdiutil detach "${MOUNT_POINT}" >/dev/null 2>&1 || true
+            rm -f "${OPEN_LOG}"
             exit 1
           fi
           hdiutil detach "${MOUNT_POINT}" >/dev/null
           rm -rf "${MOUNT_POINT}"
+          rm -f "${OPEN_LOG}"
           echo "DMG mounted, app launched, unmounted cleanly."
 
       # Re-verify the signature on the DOWNLOADED bytes (the same artifacts the
