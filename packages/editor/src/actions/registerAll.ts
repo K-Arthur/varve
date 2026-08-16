@@ -1,3 +1,4 @@
+import { type ContactChannelId, contactMailto } from '@varve/shared';
 import { registerColorConversionActions } from '../components/ColorConversion/colorConversionCommands';
 import type { EditorContextValue } from '../context';
 import { openMockupsWithSelection } from '../mockup/mockupActions';
@@ -16,6 +17,12 @@ function categoryFromShortcut(cat: string): ActionCategory {
   if (lc === 'tools') return 'tools';
   if (lc === 'insert') return 'insert';
   return 'help';
+}
+
+/** Open a public Varve contact without putting routing details in the shell. */
+export function openVarveContact(contact: ContactChannelId): void {
+  const href = contactMailto(contact);
+  window.open(href, '_blank', 'noopener,noreferrer');
 }
 
 export function registerAllShortcuts(exec: (id: string) => (() => void) | null): void {
@@ -104,6 +111,10 @@ export function registerEditorActions(
     ['whatIsThis', 'What Is This?', 'help'],
     ['startTour', 'Start Tour', 'help'],
     ['about', 'About Varve', 'help'],
+    ['contactSupport', 'Contact Support', 'help'],
+    ['sendFeedback', 'Send Feedback', 'help'],
+    ['reportSecurity', 'Report a Security Issue', 'help'],
+    ['openPrivacy', 'Privacy', 'help'],
     // No-shortcut File actions: menu-only, but must reach the registry so
     // menu clicks and keyboard paths share the same handler.
     ['saveCopy', 'Save a Copy…', 'file'],
