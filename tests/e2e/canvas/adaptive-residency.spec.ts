@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 async function sampleCanvas(
   page: import('@playwright/test').Page,
@@ -70,7 +70,7 @@ test('selected-frame image import remains nested, clipped, and pixel-stable', as
     .setInputFiles(path.resolve('tests/e2e/fixtures/photo-fixture.jpg'));
 
   const imageRow = page
-    .getByRole('treeitem')
+    .locator('[role="treeitem"][data-layer-type="shape"]')
     .filter({ hasText: /photo-fixture|jpg/i })
     .first();
   await expect(imageRow).toHaveAttribute('aria-level', '2');
@@ -150,4 +150,47 @@ test('large imagery converges after rapid zoom without losing settled pixels', a
     await canvasHash(page),
     'settled adaptive imagery must match an authoritative redraw',
   ).toBe(settledHash);
+});
+
+test('drawing a frame around an existing image captures only that image', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await navigateToEditor(page);
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('tests/e2e/fixtures/photo-fixture.jpg'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+  await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+  await page.waitForTimeout(700);
+
+  const imageSelection = page.locator('svg:has(filter#selection-glow) > rect').first();
+  await expect(imageSelection).toBeVisible();
+  const imageBounds = await imageSelection.evaluate((element) => {
+    const rect = element as SVGRectElement;
+    return {
+      x: rect.x.baseVal.value,
+      y: rect.y.baseVal.value,
+      w: rect.width.baseVal.value,
+      h: rect.height.baseVal.value,
+    };
+  });
+  await page.keyboard.press('f');
+  await dragOnCanvas(
+    page,
+    imageBounds.x - 20,
+    imageBounds.y - 20,
+    imageBounds.x + imageBounds.w + 20,
+    imageBounds.y + imageBounds.h + 20,
+  );
+
+  const imageRow = page
+    .locator('[role="treeitem"][data-layer-type="shape"]')
+    .filter({ hasText: /photo-fixture|jpg/i })
+    .first();
+  await expect(imageRow).toHaveAttribute('aria-level', '2');
+  await expect(page.locator('[role="treeitem"][data-layer-type="frame"]').first()).toBeVisible();
+  await page.waitForTimeout(700);
+  expect(
+    Math.max(...(await sampleCanvas(page, imageBounds))),
+    'captured image must remain painted inside its new frame',
+  ).toBeGreaterThan(12);
 });
