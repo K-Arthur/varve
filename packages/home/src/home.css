@@ -23,6 +23,35 @@
  * matched, leaving an empty 224px sidebar track plus a 96px toolbar column at
  * 320px (scrollWidth 477). The drawer block now lives at the END of this file
  * as a media query (source order beats the base rules it must override). */
+/* Storage failure banner (create/persist errors). Spans the full shell so it
+   is unmissable, and is announced via role="alert" in HomeShell. */
+.varve-home__storage-error {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-feedback-danger);
+  color: var(--color-text-on-danger);
+  font-size: var(--font-size-sm);
+}
+.varve-home__storage-error-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+}
 .varve-home--drag-over {
   outline: 3px dashed var(--color-interactive-default);
   outline-offset: -3px;
@@ -31,6 +60,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .varve-home__sidebar {
+    transition: none;
+  }
+  /* The token layer collapses --duration-* to 0ms, but these surfaces use
+     literal durations (skeleton shimmer, asset spinner, import progress
+     width), so they animated regardless of the user's preference. */
+  .file-card__skeleton,
+  .asset-browser__loading-spinner,
+  .bulk-import__progress-fill {
+    animation: none;
     transition: none;
   }
 }
@@ -226,6 +264,8 @@
   height: 1em;
   flex-shrink: 0;
   color: var(--color-text-muted);
+  /* Token-driven so the reduced-motion override applies (was inline). */
+  transition: transform var(--duration-fast) var(--ease-default);
 }
 .sidebar-section__count {
   margin-left: auto;
@@ -1811,12 +1851,16 @@
 .search-palette__input::placeholder {
   color: var(--color-text-muted);
 }
+/* WCAG 2.5.8 Target Size (Minimum): 24x24 CSS px. The icon stays small; only
+   the hit area grows. */
 .search-palette__clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   border: none;
   border-radius: var(--radius-sm);
   background: none;
@@ -1918,12 +1962,15 @@
 .templates-gallery__search-input::placeholder {
   color: var(--color-text-muted);
 }
+/* WCAG 2.5.8 Target Size (Minimum): 24x24 CSS px. */
 .templates-gallery__search-clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   border: none;
   border-radius: var(--radius-sm);
   background: none;
@@ -2046,12 +2093,15 @@
   font-size: var(--font-size-2xs);
   white-space: nowrap;
 }
+/* WCAG 2.5.8 Target Size (Minimum): 24x24 CSS px. */
 .asset-browser__search-clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   border: none;
   border-radius: var(--radius-sm);
   background: none;

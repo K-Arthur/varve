@@ -242,6 +242,20 @@ function ShellInner({
     return () => window.removeEventListener('varve:open-privacy-settings', openPrivacy);
   }, []);
 
+  // Responsive panel drawers (<=899px) previously closed only by clicking the
+  // backdrop, so keyboard and switch users had no dismissal path once a
+  // drawer covered the canvas.
+  useEffect(() => {
+    if (!layersVisible && !inspectorVisible) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setLayersVisible(false);
+      setInspectorVisible(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [layersVisible, inspectorVisible]);
+
   // Register all actions into the ActionRegistry.
   // NOTE: registerEditorActions MUST run first so its handlers take
   // priority over the no-op stubs from registerAllShortcuts.
@@ -502,7 +516,10 @@ function ShellInner({
           </div>
         )}
         {libraryPanelVisible && !distractionFreeMode && !isDetached('library') && (
-          <div className="editor__library-panel" data-panel="library">
+          // data-visible drives the <=899px drawer transform. Without it the
+          // panel stayed translated fully off-screen, so Resources could be
+          // "open" in state and never reachable on a narrow viewport.
+          <div className="editor__library-panel" data-panel="library" data-visible>
             <ResourcesPanel
               doc={editor.state.document}
               onInstallLibrary={editor.installLibrary}
@@ -654,6 +671,7 @@ function ShellInner({
               type="button"
               className="editor__fab editor__fab--layers"
               onClick={() => setLayersVisible((v) => !v)}
+              aria-expanded={layersVisible}
               aria-label={layersVisible ? 'Hide layers panel' : 'Show layers panel'}
             >
               <Icon name="LayoutGrid" />
@@ -663,6 +681,7 @@ function ShellInner({
               type="button"
               className="editor__fab editor__fab--inspector"
               onClick={() => setInspectorVisible((v) => !v)}
+              aria-expanded={inspectorVisible}
               aria-label={inspectorVisible ? 'Hide inspector panel' : 'Show inspector panel'}
             >
               <Icon name="Settings" />
@@ -672,12 +691,15 @@ function ShellInner({
               type="button"
               className="editor__fab editor__fab--library"
               onClick={() => editor.toggleLibraryPanel()}
+              aria-expanded={libraryPanelVisible}
               aria-label={libraryPanelVisible ? 'Hide resources panel' : 'Show resources panel'}
             >
               <Icon name="Library" />
             </button>
-            {/* Backdrop for overlays */}
-            {(layersVisible || inspectorVisible) && (
+            {/* Backdrop for overlays. libraryPanelVisible is included because
+                the dismiss handler already closes Resources — without it, a
+                Resources-only drawer had no scrim and no pointer dismissal. */}
+            {(layersVisible || inspectorVisible || libraryPanelVisible) && (
               // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
               <div
                 className="editor__panel-backdrop"

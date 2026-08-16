@@ -219,6 +219,38 @@ export function HistoryPanel() {
     [session, mergeTargetBranch, refresh],
   );
 
+  const handleTabKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const order: Array<'steps' | 'branches' | 'compare'> = ['steps', 'branches', 'compare'];
+      const current = order.indexOf(activeTab);
+      let next = current;
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          next = (current + 1) % order.length;
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          next = (current - 1 + order.length) % order.length;
+          break;
+        case 'Home':
+          next = 0;
+          break;
+        case 'End':
+          next = order.length - 1;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      const nextTab = order[next];
+      if (!nextTab) return;
+      setActiveTab(nextTab);
+      document.getElementById(`history-tab-${nextTab}`)?.focus();
+    },
+    [activeTab],
+  );
+
   if (!persistentHistory.attached) {
     return (
       <div className="history-panel" data-testid="history-panel">
@@ -233,11 +265,21 @@ export function HistoryPanel() {
 
   return (
     <div className="history-panel" data-testid="history-panel">
-      <div className="history-panel__tabs" role="tablist">
+      {/* APG Tabs: labelled tablist, roving tabindex, Arrow/Home/End, and
+          tab <-> tabpanel wiring (previously tab roles with none of it). */}
+      <div
+        className="history-panel__tabs"
+        role="tablist"
+        aria-label="History views"
+        onKeyDown={handleTabKeyDown}
+      >
         <button
           type="button"
           role="tab"
+          id="history-tab-steps"
           aria-selected={activeTab === 'steps'}
+          aria-controls="history-panel-steps"
+          tabIndex={activeTab === 'steps' ? 0 : -1}
           className={`history-panel__tab ${activeTab === 'steps' ? 'history-panel__tab--active' : ''}`}
           onClick={() => setActiveTab('steps')}
         >
@@ -246,7 +288,10 @@ export function HistoryPanel() {
         <button
           type="button"
           role="tab"
+          id="history-tab-branches"
           aria-selected={activeTab === 'branches'}
+          aria-controls="history-panel-branches"
+          tabIndex={activeTab === 'branches' ? 0 : -1}
           className={`history-panel__tab ${activeTab === 'branches' ? 'history-panel__tab--active' : ''}`}
           onClick={() => setActiveTab('branches')}
         >
@@ -255,7 +300,10 @@ export function HistoryPanel() {
         <button
           type="button"
           role="tab"
+          id="history-tab-compare"
           aria-selected={activeTab === 'compare'}
+          aria-controls="history-panel-compare"
+          tabIndex={activeTab === 'compare' ? 0 : -1}
           className={`history-panel__tab ${activeTab === 'compare' ? 'history-panel__tab--active' : ''}`}
           onClick={() => setActiveTab('compare')}
         >
@@ -264,7 +312,12 @@ export function HistoryPanel() {
       </div>
 
       {activeTab === 'steps' && (
-        <div className="history-panel__content" role="tabpanel">
+        <div
+          className="history-panel__content"
+          role="tabpanel"
+          id="history-panel-steps"
+          aria-labelledby="history-tab-steps"
+        >
           <div className="history-panel__search">
             <input
               type="search"
@@ -387,7 +440,12 @@ export function HistoryPanel() {
       )}
 
       {activeTab === 'branches' && (
-        <div className="history-panel__content" role="tabpanel">
+        <div
+          className="history-panel__content"
+          role="tabpanel"
+          id="history-panel-branches"
+          aria-labelledby="history-tab-branches"
+        >
           <div className="history-panel__actions">
             <button
               type="button"
@@ -521,7 +579,12 @@ export function HistoryPanel() {
       )}
 
       {activeTab === 'compare' && (
-        <div className="history-panel__content" role="tabpanel">
+        <div
+          className="history-panel__content"
+          role="tabpanel"
+          id="history-panel-compare"
+          aria-labelledby="history-tab-compare"
+        >
           <div className="history-panel__compare-form">
             <label className="history-panel__compare-label">
               Base revision:

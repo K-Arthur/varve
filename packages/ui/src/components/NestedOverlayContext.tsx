@@ -6,13 +6,21 @@
  * Select (via stopPropagation), then the Dialog sees the Escape and closes
  * itself — the user only wanted to dismiss the dropdown, not the dialog.
  */
-import { createContext, type ReactNode, useCallback, useContext, useRef } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useRef } from 'react';
 
 interface NestedOverlayContextValue {
   /** Register an overlay as open. Returns an unregister function. */
   register: () => () => void;
-  /** True when at least one nested overlay is currently open. */
-  hasOpenOverlay: boolean;
+  /**
+   * Live ref that is true while at least one nested overlay is open.
+   *
+   * This is a ref rather than a boolean because the provider deliberately
+   * does not re-render when the overlay count changes. A boolean snapshot
+   * would be captured at the provider's last render, so a Dialog reading it
+   * would still see `false` after a nested Select opened and would close
+   * itself on the same Escape that dismissed the dropdown.
+   */
+  hasOpenOverlayRef: React.RefObject<boolean>;
 }
 
 const Ctx = createContext<NestedOverlayContextValue | null>(null);
@@ -37,10 +45,10 @@ export function NestedOverlayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const value: NestedOverlayContextValue = {
-    register,
-    hasOpenOverlay: hasOpen.current,
-  };
+  const value = useMemo<NestedOverlayContextValue>(
+    () => ({ register, hasOpenOverlayRef: hasOpen }),
+    [register],
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -71,6 +79,6 @@ export function useNestedOverlayRegistration(): () => () => void {
  */
 export function useNestedOverlayRef(): React.RefObject<boolean> {
   const ctx = useContext(Ctx);
-  if (!ctx) return { current: false };
-  return { current: ctx.hasOpenOverlay };
+  const standaloneRef = useRef(false);
+  return ctx ? ctx.hasOpenOverlayRef : standaloneRef;
 }

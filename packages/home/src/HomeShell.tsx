@@ -119,6 +119,12 @@ export function HomeShell({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [missingFiles, setMissingFiles] = useState<Set<string>>(new Set());
+  /**
+   * User-facing storage failure (create/persist). Storage errors were
+   * previously swallowed, so a failed write looked like a no-op or produced a
+   * blank document (WCAG 3.3.1 / 4.1.3).
+   */
+  const [storageError, setStorageError] = useState<string | null>(null);
   const [versionHistoryFileId, setVersionHistoryFileId] = useState<string | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
@@ -600,7 +606,21 @@ export function HomeShell({
       // Await the persistence so readFile in handleOpenFile always finds the
       // document. Without this await, readFile races with upsertFile and may
       // return null, causing a blank document to appear instead of the content.
-      await platform.upsertFile(entry, docJson).catch(() => undefined);
+      //
+      // A failure here previously resolved to undefined and the document was
+      // opened anyway, so the user could start work on a document that was
+      // never stored (and would read back as blank). Surface it instead.
+      const persisted = await platform
+        .upsertFile(entry, docJson)
+        .then(() => true)
+        .catch(() => false);
+      if (!persisted) {
+        setStorageError(
+          `"${doc.name}" could not be saved to local storage, so it was not opened. Check available disk space or browser storage permissions and try again.`,
+        );
+        return;
+      }
+      setStorageError(null);
       onOpenFile(entry);
     },
     [platform, onOpenFile],
@@ -664,16 +684,11 @@ export function HomeShell({
 
   const renderContent = () => {
     if (view.loading) {
-      return (
-        <div className="varve-home">
-          <div className="varve-home__sidebar">
-            <ContentSkeleton variant="list" rows={5} label="Loading navigation" />
-          </div>
-          <div className="varve-home__content">
-            <ContentSkeleton variant="grid" columns={4} rows={2} label="Loading projects" />
-          </div>
-        </div>
-      );
+      // Content-only skeleton. This used to render a second `.varve-home`,
+      // which is a 100dvh/100vw grid with overflow:hidden — nesting it inside
+      // the already-mounted shell produced a duplicate sidebar/content layout
+      // and a nested viewport-height scroll region during loading.
+      return <ContentSkeleton variant="grid" columns={4} rows={2} label="Loading projects" />;
     }
 
     const { state, visibleFiles, projects, trashedFiles } = view;
@@ -843,6 +858,19 @@ export function HomeShell({
         onDrop={handleDrop}
       >
         <h1 className="sr-only">{currentSectionLabel}</h1>
+        {storageError && (
+          <div className="varve-home__storage-error" role="alert">
+            <span>{storageError}</span>
+            <button
+              type="button"
+              className="varve-home__storage-error-dismiss"
+              onClick={() => setStorageError(null)}
+              aria-label="Dismiss storage error"
+            >
+              <Icon name="X" label={undefined} size="1em" />
+            </button>
+          </div>
+        )}
         {sidebarOpen && (
           <button
             type="button"

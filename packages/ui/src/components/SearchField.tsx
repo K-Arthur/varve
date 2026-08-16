@@ -22,6 +22,12 @@ export function SearchField({
   const statusId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // A placeholder is not an accessible name: it is not consistently exposed
+  // as one and it disappears once the user types. Fall back to the
+  // placeholder text as an explicit label when the caller supplies neither
+  // aria-label nor aria-labelledby.
+  const hasExternalName = Boolean(rest['aria-label'] ?? rest['aria-labelledby']);
+
   const clear = useCallback(() => {
     onChange('');
     inputRef.current?.focus();
@@ -38,6 +44,7 @@ export function SearchField({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        {...(hasExternalName ? {} : { 'aria-label': placeholder })}
         {...rest}
       />
       {value && (

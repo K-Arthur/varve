@@ -201,6 +201,10 @@ function MenuInternal({
   const menuRef = externalRef ?? internalRef;
   const [focusIdx, setFocusIdx] = useState(0);
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
+  // "Show all" expands the truncated list in place. It previously only called
+  // closeAll(), so activating it dismissed the menu without ever revealing
+  // the hidden items — the control named an action it did not perform.
+  const [showAllItems, setShowAllItems] = useState(false);
   const typeaheadRef = useRef('');
   const typeaheadTimerRef = useRef<number | null>(null);
   // Element focused before this menu took focus; restored on close/unmount.
@@ -238,7 +242,7 @@ function MenuInternal({
   );
 
   // Navigation range: only rendered items are reachable by arrow keys.
-  const navLength = Math.min(flatItems.length, maxVisibleItems);
+  const navLength = showAllItems ? flatItems.length : Math.min(flatItems.length, maxVisibleItems);
 
   useEffect(() => {
     if (!open) return;
@@ -467,9 +471,10 @@ function MenuInternal({
 
   let focusableCounter = -1;
 
-  const shouldLimitItems = items.length > maxVisibleItems;
+  const isTruncatable = items.length > maxVisibleItems;
+  const shouldLimitItems = isTruncatable && !showAllItems;
   const displayItems = shouldLimitItems ? items.slice(0, maxVisibleItems) : items;
-  const scrollStyle: React.CSSProperties = shouldLimitItems
+  const scrollStyle: React.CSSProperties = isTruncatable
     ? { maxHeight: `${maxVisibleItems * 32}px`, overflowY: 'auto' }
     : {};
 
@@ -639,7 +644,7 @@ function MenuInternal({
   // rendered item; separators do not consume a slot, so count focusables.
   const showMoreIdx = focusableCounter + 1;
 
-  const containerStyle = shouldLimitItems ? { ...menuStyle, ...scrollStyle } : menuStyle;
+  const containerStyle = isTruncatable ? { ...menuStyle, ...scrollStyle } : menuStyle;
 
   return (
     <div
@@ -659,9 +664,12 @@ function MenuInternal({
           tabIndex={showMoreIdx === focusIdx ? 0 : -1}
           data-focusable-idx={showMoreIdx}
           onMouseEnter={() => setFocusIdx(showMoreIdx)}
-          onClick={() => closeAll()}
+          onClick={() => {
+            setShowAllItems(true);
+            setFocusIdx(maxVisibleItems);
+          }}
         >
-          <span>Show all ({items.length} items)&hellip;</span>
+          <span>Show all ({items.length} items)</span>
         </button>
       )}
     </div>

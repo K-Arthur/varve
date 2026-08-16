@@ -93,10 +93,23 @@ export function Select({
     }
   }, [open]);
 
+  // Filtering can land the highlight on a disabled option (the filtered list
+  // is rebuilt from scratch and the index reset to 0). Re-seat it on the
+  // nearest selectable option so aria-activedescendant never points at one.
+  useEffect(() => {
+    if (!open || filteredOptions.length === 0) return;
+    if (!filteredOptions[highlightedIdx]?.disabled) return;
+    const firstEnabled = filteredOptions.findIndex((o) => !o.disabled);
+    if (firstEnabled >= 0) setHighlightedIdx(firstEnabled);
+  }, [open, filteredOptions, highlightedIdx]);
+
   const openListbox = useCallback(() => {
     if (disabled) return;
     const idx = value ? options.findIndex((o) => o.value === value) : 0;
-    setHighlightedIdx(Math.max(0, idx));
+    const start = Math.max(0, idx);
+    // Never open with a disabled option as the active descendant.
+    const firstEnabled = options[start]?.disabled ? options.findIndex((o) => !o.disabled) : start;
+    setHighlightedIdx(Math.max(0, firstEnabled));
     setOpen(true);
   }, [disabled, value, options]);
 
@@ -112,11 +125,39 @@ export function Select({
 
   const selectHighlighted = useCallback(() => {
     const option = filteredOptions[highlightedIdx];
-    if (option && !option.disabled) {
-      onChange(option.value);
-    }
+    // A disabled option must not consume activation: keep the listbox open so
+    // the user can move to a selectable option instead of the dropdown
+    // closing with no change (mouse clicks already no-op on disabled).
+    if (!option || option.disabled) return;
+    onChange(option.value);
     closeListbox();
   }, [filteredOptions, highlightedIdx, onChange, closeListbox]);
+
+  /**
+   * Nearest selectable option at or after `from`, searching in `step`
+   * direction. Disabled options are rendered but must never become the
+   * active descendant — keyboard users would otherwise be able to highlight
+   * (and previously activate) an option mouse users cannot select.
+   */
+  const nextEnabledIdx = useCallback(
+    (from: number, step: 1 | -1): number => {
+      const total = filteredOptions.length;
+      if (total === 0) return 0;
+      for (let i = 0; i < total; i += 1) {
+        const idx = from + step * i;
+        if (idx < 0 || idx >= total) break;
+        if (!filteredOptions[idx]?.disabled) return idx;
+      }
+      // No selectable option in that direction — stay where we are.
+      for (let i = 0; i < total; i += 1) {
+        const idx = from - step * i;
+        if (idx < 0 || idx >= total) break;
+        if (!filteredOptions[idx]?.disabled) return idx;
+      }
+      return from;
+    },
+    [filteredOptions],
+  );
 
   const handleTriggerClick = useCallback(() => {
     if (disabled) return;
@@ -140,19 +181,19 @@ export function Select({
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setHighlightedIdx((i) => Math.min(i + 1, filteredOptions.length - 1));
+          setHighlightedIdx((i) => nextEnabledIdx(Math.min(i + 1, filteredOptions.length - 1), 1));
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setHighlightedIdx((i) => Math.max(i - 1, 0));
+          setHighlightedIdx((i) => nextEnabledIdx(Math.max(i - 1, 0), -1));
           break;
         case 'Home':
           e.preventDefault();
-          setHighlightedIdx(0);
+          setHighlightedIdx(nextEnabledIdx(0, 1));
           break;
         case 'End':
           e.preventDefault();
-          setHighlightedIdx(filteredOptions.length - 1);
+          setHighlightedIdx(nextEnabledIdx(filteredOptions.length - 1, -1));
           break;
         case 'Enter':
           e.preventDefault();
@@ -167,7 +208,7 @@ export function Select({
           break;
       }
     },
-    [open, filteredOptions.length, selectHighlighted, closeListbox, openListbox],
+    [open, filteredOptions.length, selectHighlighted, closeListbox, openListbox, nextEnabledIdx],
   );
 
   const typeAheadBuffer = useRef('');
@@ -306,6 +347,14 @@ export function Select({
                 type="search"
                 className="varve-select__search-input"
                 placeholder="Filter..."
+                // The search input takes focus when the listbox opens, so it
+                // — not the trigger — must expose the highlighted option.
+                // Without this, arrow keys moved the visual highlight while
+                // the focused element announced nothing (a placeholder is
+                // also not a reliable accessible name).
+                aria-label={`Filter ${label}`}
+                aria-controls={listboxId}
+                aria-activedescendant={highlightedId}
                 value={filterText}
                 onChange={(e) => {
                   setFilterText(e.target.value);

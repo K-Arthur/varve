@@ -6,8 +6,8 @@
 
 import { parseDelimitedText, parseMarkdownTable } from '@varve/import';
 import { makeTableNode, nextNodeId } from '@varve/scene';
-import { Icon, Select } from '@varve/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { FocusTrap, Icon, Select } from '@varve/ui';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 
 export function CreateTableFromDataDialog() {
@@ -17,6 +17,7 @@ export function CreateTableFromDataDialog() {
   const [headerRow, setHeaderRow] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const titleId = useId();
 
   const parsed = useMemo(() => {
     if (!input.trim()) return { rows: [] as string[][], warnings: [] as string[] };
@@ -104,7 +105,8 @@ export function CreateTableFromDataDialog() {
   return (
     <div
       role="dialog"
-      aria-label="Create table from data"
+      aria-modal="true"
+      aria-labelledby={titleId}
       className="varve-dialog-backdrop"
       style={{
         position: 'fixed',
@@ -119,140 +121,146 @@ export function CreateTableFromDataDialog() {
         if (e.target === e.currentTarget) editor.patch({ createTableFromDataOpen: false });
       }}
     >
-      <div
-        className="varve-dialog"
-        style={{
-          background: 'var(--color-surface-raised, #fff)',
-          borderRadius: 10,
-          padding: 16,
-          width: 560,
-          maxWidth: '92vw',
-          maxHeight: '84vh',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12,
-          boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
-        }}
-      >
-        <div className="insp-field-row__split" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>Create table from data</h2>
-          <button
-            type="button"
-            className="insp-inline-btn"
-            aria-label="Close"
-            onClick={() => editor.patch({ createTableFromDataOpen: false })}
-          >
-            <Icon name="X" label={undefined} size="1em" />
-          </button>
-        </div>
+      {/* Focus containment + restoration; Escape is handled by the window
+          listener above, which FocusTrap's onClose mirrors for parity. */}
+      <FocusTrap active onClose={() => editor.patch({ createTableFromDataOpen: false })}>
+        <div
+          className="varve-dialog"
+          style={{
+            background: 'var(--color-surface-raised, #fff)',
+            borderRadius: 10,
+            padding: 16,
+            width: 560,
+            maxWidth: '92vw',
+            maxHeight: '84vh',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
+          }}
+        >
+          <div className="insp-field-row__split" style={{ justifyContent: 'space-between' }}>
+            <h2 id={titleId} style={{ margin: 0, fontSize: 16 }}>
+              Create table from data
+            </h2>
+            <button
+              type="button"
+              className="insp-inline-btn"
+              aria-label="Close"
+              onClick={() => editor.patch({ createTableFromDataOpen: false })}
+            >
+              <Icon name="X" label={undefined} size="1em" />
+            </button>
+          </div>
 
-        <textarea
-          aria-label="Paste CSV, TSV, or Markdown table"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={'Paste spreadsheet data (tab or comma separated) or a Markdown table…'}
-          rows={6}
-          style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
-        />
+          <textarea
+            aria-label="Paste CSV, TSV, or Markdown table"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={'Paste spreadsheet data (tab or comma separated) or a Markdown table…'}
+            rows={6}
+            style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+          />
 
-        <div className="insp-field-row__split" style={{ gap: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12 }}>
-            Format
-            <Select
-              label="Input format"
-              value={delimiter}
-              options={[
-                { value: 'auto', label: 'Auto-detect' },
-                { value: '\t', label: 'Tab (TSV)' },
-                { value: ',', label: 'Comma (CSV)' },
-                { value: ';', label: 'Semicolon' },
-                { value: 'markdown', label: 'Markdown' },
-              ]}
-              onChange={(v) => setDelimiter(v as typeof delimiter)}
-            />
-          </span>
-          <label style={{ fontSize: 12 }}>
-            <input
-              type="checkbox"
-              checked={headerRow}
-              onChange={(e) => setHeaderRow(e.target.checked)}
-            />{' '}
-            First row is a header
-          </label>
-          <span style={{ fontSize: 12, opacity: 0.7 }}>
-            {rows.length} rows x {cols} columns
-          </span>
-        </div>
+          <div className="insp-field-row__split" style={{ gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12 }}>
+              Format
+              <Select
+                label="Input format"
+                value={delimiter}
+                options={[
+                  { value: 'auto', label: 'Auto-detect' },
+                  { value: '\t', label: 'Tab (TSV)' },
+                  { value: ',', label: 'Comma (CSV)' },
+                  { value: ';', label: 'Semicolon' },
+                  { value: 'markdown', label: 'Markdown' },
+                ]}
+                onChange={(v) => setDelimiter(v as typeof delimiter)}
+              />
+            </span>
+            <label style={{ fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={headerRow}
+                onChange={(e) => setHeaderRow(e.target.checked)}
+              />{' '}
+              First row is a header
+            </label>
+            <span style={{ fontSize: 12, opacity: 0.7 }}>
+              {rows.length} rows x {cols} columns
+            </span>
+          </div>
 
-        {error && (
-          <div style={{ color: 'var(--color-danger, #d64545)', fontSize: 12 }}>{error}</div>
-        )}
-        {commitError && (
-          <div style={{ color: 'var(--color-danger, #d64545)', fontSize: 12 }}>{commitError}</div>
-        )}
-        {parsed.warnings.length > 0 && (
-          <div style={{ fontSize: 11, opacity: 0.7 }}>{parsed.warnings.join('; ')}</div>
-        )}
+          {error && (
+            <div style={{ color: 'var(--color-danger, #d64545)', fontSize: 12 }}>{error}</div>
+          )}
+          {commitError && (
+            <div style={{ color: 'var(--color-danger, #d64545)', fontSize: 12 }}>{commitError}</div>
+          )}
+          {parsed.warnings.length > 0 && (
+            <div style={{ fontSize: 11, opacity: 0.7 }}>{parsed.warnings.join('; ')}</div>
+          )}
 
-        {rows.length > 0 && (
-          <div
-            style={{
-              overflow: 'auto',
-              border: '1px solid var(--color-border, #cdd3de)',
-              borderRadius: 6,
-            }}
-          >
-            <table className="varve-preview-table" aria-label="Preview">
-              <thead>
-                <tr>
-                  {Array.from({ length: cols }, (_, c) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: preview columns are stateless; header labels can repeat
-                    <th key={c} style={{ fontSize: 11, padding: '2px 6px', textAlign: 'left' }}>
-                      {headerRow && rows[0]?.[c] ? rows[0][c] : `C${c + 1}`}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {previewRows.slice(headerRow ? 1 : 0).map((r, ri) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are stateless; cell content repeats across the table
-                  <tr key={ri}>
+          {rows.length > 0 && (
+            <div
+              style={{
+                overflow: 'auto',
+                border: '1px solid var(--color-border, #cdd3de)',
+                borderRadius: 6,
+              }}
+            >
+              <table className="varve-preview-table" aria-label="Preview">
+                <thead>
+                  <tr>
                     {Array.from({ length: cols }, (_, c) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: preview cells are stateless; content repeats across the table
-                      <td key={c} style={{ fontSize: 11, padding: '2px 6px' }}>
-                        {r[c] ?? ''}
-                      </td>
+                      // biome-ignore lint/suspicious/noArrayIndexKey: preview columns are stateless; header labels can repeat
+                      <th key={c} style={{ fontSize: 11, padding: '2px 6px', textAlign: 'left' }}>
+                        {headerRow && rows[0]?.[c] ? rows[0][c] : `C${c + 1}`}
+                      </th>
                     ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {truncated && (
-              <div style={{ fontSize: 11, padding: 4, opacity: 0.7 }}>
-                … and {rows.length - previewRows.length} more rows
-              </div>
-            )}
-          </div>
-        )}
+                </thead>
+                <tbody>
+                  {previewRows.slice(headerRow ? 1 : 0).map((r, ri) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are stateless; cell content repeats across the table
+                    <tr key={ri}>
+                      {Array.from({ length: cols }, (_, c) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: preview cells are stateless; content repeats across the table
+                        <td key={c} style={{ fontSize: 11, padding: '2px 6px' }}>
+                          {r[c] ?? ''}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {truncated && (
+                <div style={{ fontSize: 11, padding: 4, opacity: 0.7 }}>
+                  … and {rows.length - previewRows.length} more rows
+                </div>
+              )}
+            </div>
+          )}
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            className="insp-inline-btn"
-            onClick={() => editor.patch({ createTableFromDataOpen: false })}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="insp-add-btn"
-            onClick={commit}
-            disabled={rows.length === 0}
-          >
-            Create table
-          </button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="insp-inline-btn"
+              onClick={() => editor.patch({ createTableFromDataOpen: false })}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="insp-add-btn"
+              onClick={commit}
+              disabled={rows.length === 0}
+            >
+              Create table
+            </button>
+          </div>
         </div>
-      </div>
+      </FocusTrap>
     </div>
   );
 }

@@ -37,6 +37,11 @@ export function SpotlightOverlay({
   const tooltipRef = useRef<HTMLDivElement>(null);
   const titleId = `spotlight-title-${step.id}`;
   const descId = `spotlight-desc-${step.id}`;
+  // Element focused before the tour opened, restored on unmount. The tour is
+  // deliberately NOT focus-trapped: it spotlights real UI outside the tooltip,
+  // so trapping would contradict the feature. It must still take focus (so the
+  // step is announced) and hand it back when it closes.
+  const restoreRef = useRef<HTMLElement | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const [targetMissing, setTargetMissing] = useState(false);
   const isFirst = stepIndex === 0;
@@ -78,6 +83,35 @@ export function SpotlightOverlay({
       window.removeEventListener('resize', updatePosition);
     };
   }, [updatePosition, step.target]);
+
+  // Move focus into the tour tooltip so the step title/description are
+  // announced, and restore the launch element when the tour unmounts.
+  useEffect(() => {
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== document.body) restoreRef.current = active;
+    const frame = requestAnimationFrame(() => {
+      tooltipRef.current?.focus({ preventScroll: true });
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      const target = restoreRef.current;
+      if (target?.isConnected) target.focus({ preventScroll: true });
+    };
+  }, []);
+
+  // Escape must dismiss the tour from the overlay itself. The previous code
+  // documented "Escape handled by parent keydown handler" but no such handler
+  // existed, so keyboard users could not dismiss the tour.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onDismiss();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onDismiss]);
 
   const tooltipStyle = useMemo(() => {
     if (!rect) return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
@@ -127,7 +161,7 @@ export function SpotlightOverlay({
     >
       {/* Dark overlay */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop intercepts clicks to dismiss */}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape handled by parent keydown handler */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Escape is handled by this component's window keydown listener */}
       <div className="spotlight-overlay__backdrop" onClick={onDismiss} />
 
       {/* Highlight region (cutout) */}
@@ -155,6 +189,9 @@ export function SpotlightOverlay({
         ref={tooltipRef}
         className={`spotlight-overlay__tooltip${reduceMotion ? ' spotlight-overlay__tooltip--no-animation' : ''}`}
         style={tooltipStyle}
+        // Programmatic focus target so each tour step is announced. tabIndex=-1
+        // keeps it out of the Tab sequence.
+        tabIndex={-1}
       >
         <div className="spotlight-overlay__tooltip-header">
           <span className="spotlight-overlay__step-indicator">
