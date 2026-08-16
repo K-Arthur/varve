@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="File Formats" description="File formats Varve opens and exports: .strata documents, SVG, PDF, PSD, AI, EPS, images, and code targets.">
+<Layout title="File Formats" description="File formats Varve opens and exports: .varve documents, SVG, PDF, PSD, AI, EPS, images, and code targets.">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,13 +12,13 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>File Formats</h1>
       <p class="docs-intro">
-        Varve supports a wide range of file formats for import and export. The native .strata format preserves the full document model including layers, effects, variables, and prototypes.
+        Varve supports a wide range of file formats for import and export. The native .varve format preserves the full document model including layers, effects, variables, and prototypes.
       </p>
 
       <section class="docs-section">
-        <h2>Native Format: .strata</h2>
+        <h2>Native Format: .varve</h2>
         <p>
-          The Varve native file format (<code>.strata</code>) is a JSON-based document that stores the complete design state. Each file contains:
+          The Varve native file format (<code>.varve</code>) is a JSON-based document that stores the complete design state. Each file contains:
         </p>
         <ul>
           <li><strong>Format version</strong> — Semver string for forward compatibility with document migration (<code>migrateDocument()</code> supports version upgrades)</li>
@@ -33,7 +33,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Color mode</strong> — RGB, CMYK, or Grayscale with profile metadata</li>
         </ul>
         <p>
-          The .strata format is versioned. When opening an older file, Varve automatically migrates it to the current format version. The <code>Document.variableStore</code> field is the sole source of truth for all variable data.
+          The .varve format is versioned. When opening an older file, Varve automatically migrates it to the current format version. The <code>Document.variableStore</code> field is the sole source of truth for all variable data. Documents saved by pre-release builds with the legacy <code>.strata</code> extension (from before the project's rename from Strata to Varve) remain openable through the same migration pipeline.
         </p>
       </section>
 
