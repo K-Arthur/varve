@@ -168,6 +168,10 @@ jobs:
   gate:
     name: Quality Gate
     needs: preflight
+    # A publish-only dispatch operates on an already verified draft. Keep the
+    # expensive build graph out of that path; tag pushes and normal build
+    # dispatches still run the complete release validation.
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -245,6 +249,7 @@ jobs:
   signing-preflight:
     name: Signing preflight
     needs: preflight
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -325,6 +330,7 @@ jobs:
   bundle:
     name: Bundle (${{ matrix.name }})
     needs: [preflight, gate, signing-preflight]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -769,6 +775,7 @@ jobs:
   package-smoke:
     name: Linux package smoke (${{ matrix.name }})
     needs: [preflight, bundle]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -868,6 +875,7 @@ jobs:
   platform-smoke:
     name: ${{ matrix.name }} runner smoke
     needs: [preflight, bundle]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -1011,6 +1019,7 @@ jobs:
   verify:
     name: Verify, attest and finalize
     needs: [preflight, signing-preflight, bundle, package-smoke, platform-smoke]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -1145,6 +1154,7 @@ jobs:
   draft:
     name: Draft Release
     needs: [preflight, verify]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
