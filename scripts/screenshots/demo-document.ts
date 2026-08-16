@@ -100,7 +100,7 @@ function seeded(doc: Document, id: string, name: string): Document {
  * with oklab interpolation, path geometry and text styling in one document.
  */
 export function createPosterDocument(): Document {
-  let doc = seeded(createDocument('Strata Poster', true), 'varve-demo-poster', 'Strata Poster');
+  let doc = seeded(createDocument('Varve Poster', true), 'varve-demo-poster', 'Varve Poster');
 
   const frame = makeFrameNode('poster-frame', {
     name: 'Poster — A3',
@@ -138,11 +138,11 @@ export function createPosterDocument(): Document {
     ],
   });
 
-  // Strata: three sediment bands, the mark's core idea.
+  // Varve: three sediment bands, the mark's core idea.
   const bands: [string, ManagedColor, number, number, number][] = [
-    ['Strata — teal', TEAL, 470, 150, 0.92],
-    ['Strata — sandstone', SAND, 604, 132, 0.9],
-    ['Strata — terracotta', TERRA, 722, 118, 0.88],
+    ['Layer — teal', TEAL, 470, 150, 0.92],
+    ['Layer — sandstone', SAND, 604, 132, 0.9],
+    ['Layer — terracotta', TERRA, 722, 118, 0.88],
   ];
   bands.forEach(([name, color, y, h, opacity], i) => {
     const band = makeShapeNode(
