@@ -19,6 +19,14 @@ const SCANS = [
   { route: '/support/faq', name: 'faq' },
   { route: '/compare', name: 'compare' },
   { route: '/learn/examples', name: 'learn-examples' },
+  // Trust surfaces. These carry the contact directory and the security
+  // disclosure route, so an a11y regression here blocks someone from
+  // reporting a vulnerability or asking for help.
+  { route: '/contact', name: 'contact' },
+  { route: '/support', name: 'support' },
+  { route: '/security', name: 'security' },
+  { route: '/press', name: 'press' },
+  { route: '/about/privacy', name: 'privacy' },
   { route: '/404', name: '404' },
 ];
 
