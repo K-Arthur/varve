@@ -2,7 +2,7 @@
 
 Canonical decisions: `docs/adr/0216-termination-lifecycle-coordinator.md`.
 Audit baseline: `docs/audits/lifecycle-current-state-2026-08-09.md`.
-Plan: `docs/plans/quit-close-lifecycle.md`.
+Plan: `docs/plans/archived/quit-close-lifecycle.md` (complete; archived 2026-08-16).
 
 ## Invariant
 

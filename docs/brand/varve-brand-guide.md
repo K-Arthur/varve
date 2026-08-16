@@ -1,8 +1,9 @@
 # Varve Brand Guide (v1.0 — SUPERSEDED)
 
 > **Status: SUPERSEDED.** This is the v1.0 guide (last updated 2026-06-30,
-> the date of the mark rework whose originals are preserved in
-> `packages/ui/src/icons/_backup_2026-06-30/`). It describes the **pre-rework
+> the date of the mark rework; the pre-rework originals that lived in
+> `packages/ui/src/icons/_backup_2026-06-30/` were removed on 2026-08-16 and
+> remain recoverable from git history). It describes the **pre-rework
 > mark: four horizontal bands in the teal ramp with alternating offsets**,
 > which is no longer the shipped brand.
 >

@@ -194,7 +194,6 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 
 | Doc | Purpose |
 |-----|---------|
-| `ARCHITECTURE_BRIEF.md` | High-level architecture brief (docs root) — **dated snapshot (2026-07-25)** with line-precise file references that may have drifted; verify against code before relying on line numbers |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
 | `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |
 | `architecture/wasm-backends.md` | WASM backend architecture |
@@ -260,7 +259,6 @@ The files below live in `docs/architecture/` but are **point-in-time records**
 not current-state guidance. Treat them like the dated files in
 `docs/audits/`/`docs/plans/`: verify against current code before acting.
 
-- `ARCHITECTURE_BRIEF.md` (docs root) — point-in-time subsystem map (generated 2026-07-25); file/line and schema-version claims are stale, verify against code
 - `architecture/interaction-systems-2026-07-27.md` — dated interaction-systems notes (Milestones 1–10)
 - `architecture/ai-competitor-intelligence-2026.md` — competitor research (2026-07)
 - `architecture/ai-feature-strategy-2026-07-21.md` — dated AI feature strategy (pre-rename title)
@@ -268,6 +266,14 @@ not current-state guidance. Treat them like the dated files in
 - `architecture/raster-pyramid-audit.md` — audit-phase record of the raster-pyramid work
 - `architecture/coordinate-spaces-research.md` — coordinate-space research matrix
 - `architecture/webgpu-manual-verification.md` — manual WebGPU verification checklist (run on real hardware)
+- `architecture/design-to-code-intermediate-representation.md` — design-to-code IR (implemented; written as a design doc 2026-07-23)
+
+Dated records that have been moved to `docs/historical/`:
+- `ARCHITECTURE_BRIEF.md` — high-level architecture brief (generated 2026-07-25); file/line and schema-version claims are stale, verify against code
+- `architecture/interaction-systems-2026-07-27.md` — dated interaction-systems notes (Milestones 1–10)
+- `architecture/ai-competitor-intelligence-2026.md` — competitor research (2026-07)
+- `architecture/ai-feature-strategy-2026-07-21.md` — dated AI feature strategy (pre-rename title)
+- `architecture/icon-system-audit-2026-08-02.md` — dated icon system audit
 - `architecture/design-to-code-intermediate-representation.md` — design-to-code IR (implemented; written as a design doc 2026-07-23)
 
 ## Release Engineering (current state)
@@ -381,9 +387,9 @@ not current-state guidance. Treat them like the dated files in
 |-----|---------|
 | `plans/website-operations-guide.md` | **Operating guide:** how to add releases and platforms (keep current) |
 | `plans/website-progress-tracker.md` | Website implementation progress |
-| `plans/website-strategy.md` | Website marketing strategy |
-| `plans/website-research-findings.md` | Competitor research |
-| `plans/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` |
+| `plans/archived/website-strategy.md` | Website marketing strategy (Phase C deliverable, archived) |
+| `plans/archived/website-research-findings.md` | Competitor research (Phase B deliverable, archived) |
+| `plans/archived/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` (archived) |
 | `plans/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
 | `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `session-04-packaging.md` |

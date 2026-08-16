@@ -5,7 +5,8 @@
  * controls and bulk actions. Keyboard accessible with aria-live region.
  */
 
-import { useCallback, useEffect, useRef } from 'react';
+import { Icon } from '@varve/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecoverySession } from '../recovery';
 
 export interface RecoveryDialogProps {
@@ -34,15 +35,22 @@ export function RecoveryDialog({
   onClose,
 }: RecoveryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const prevOpen = useRef(open);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const [confirmDiscardAll, setConfirmDiscardAll] = useState(false);
 
   useEffect(() => {
-    if (open && !prevOpen.current) {
-      dialogRef.current?.showModal();
-    } else if (!open && prevOpen.current) {
-      dialogRef.current?.close();
+    const el = dialogRef.current;
+    if (!el) return;
+    if (open && !el.open) {
+      el.showModal();
+      titleRef.current?.focus();
+    } else if (!open && el.open) {
+      el.close();
     }
-    prevOpen.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setConfirmDiscardAll(false);
   }, [open]);
 
   const handleKeyDown = useCallback(
@@ -54,6 +62,14 @@ export function RecoveryDialog({
     },
     [onClose],
   );
+
+  const handleDiscardAll = useCallback(() => {
+    if (!confirmDiscardAll) {
+      setConfirmDiscardAll(true);
+      return;
+    }
+    onDiscardAll();
+  }, [confirmDiscardAll, onDiscardAll]);
 
   if (!open && sessions.length === 0) return null;
 
@@ -67,7 +83,9 @@ export function RecoveryDialog({
       onClose={onClose}
     >
       <div className="recovery-dialog__header">
-        <h2 className="recovery-dialog__title">Recover unsaved documents</h2>
+        <h2 ref={titleRef} className="recovery-dialog__title" tabIndex={-1}>
+          Recover unsaved documents
+        </h2>
         <p className="recovery-dialog__subtitle">
           We found auto-saved versions of documents that were open when the editor was last closed.
         </p>
@@ -77,7 +95,7 @@ export function RecoveryDialog({
           aria-label="Close"
           onClick={onClose}
         >
-          &times;
+          <Icon name="X" size={14} />
         </button>
       </div>
 
@@ -132,10 +150,13 @@ export function RecoveryDialog({
           </button>
           <button
             type="button"
-            className="recovery-dialog__btn recovery-dialog__btn--secondary"
-            onClick={onDiscardAll}
+            className={`recovery-dialog__btn ${confirmDiscardAll ? 'recovery-dialog__btn--danger' : 'recovery-dialog__btn--secondary'}`}
+            onClick={handleDiscardAll}
+            aria-label={
+              confirmDiscardAll ? 'Confirm discard all recovered documents' : 'Discard all'
+            }
           >
-            Discard All
+            {confirmDiscardAll ? 'Confirm Discard All' : 'Discard All'}
           </button>
         </div>
       )}

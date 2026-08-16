@@ -383,7 +383,7 @@ git log --oneline -3
 | Canvas responsiveness work | `perf/canvas-responsiveness` (6 commits ahead of master, merged 2026-07-27) |
 | Deferred plan | `docs/plans/layers-panel-deferred.md` |
 | Export deferred | `docs/plans/export-system-deferred.md` |
-| Home/Workspace System | `docs/plans/projects-home-workspace-completed.md` |
+| Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/session-04-packaging.md` |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
 | Marketing Website | `apps/website/` - Astro 5 static site, 42 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
