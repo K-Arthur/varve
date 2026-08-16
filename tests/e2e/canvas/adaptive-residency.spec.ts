@@ -115,3 +115,39 @@ test('selected-frame image import remains nested, clipped, and pixel-stable', as
 
   await canvas.focus();
 });
+
+test('large imagery converges after rapid zoom without losing settled pixels', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await navigateToEditor(page);
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('tests/e2e/fixtures/caf-4k.png'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+  await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+  await page.waitForTimeout(700);
+
+  await canvas.focus();
+  for (let i = 0; i < 5; i++) await page.keyboard.press('+');
+  for (let i = 0; i < 5; i++) await page.keyboard.press('-');
+  await page.waitForTimeout(150);
+  await page.getByRole('button', { name: 'Fit all to viewport' }).click();
+  await page.waitForTimeout(1200);
+
+  const samples = await sampleCanvas(page, { x: 0, y: 0, w: 900, h: 600 });
+  expect(
+    Math.max(...samples),
+    'large imagery should remain painted after zoom churn',
+  ).toBeGreaterThan(12);
+  const settledHash = await canvasHash(page);
+  await page.evaluate(async () => {
+    const perf = (window as Window & { __strataPerf?: { forceFullRedraw?: () => boolean } })
+      .__strataPerf;
+    perf?.forceFullRedraw?.();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  });
+  expect(
+    await canvasHash(page),
+    'settled adaptive imagery must match an authoritative redraw',
+  ).toBe(settledHash);
+});
