@@ -19,7 +19,7 @@ test.describe('shortcut tip chip', () => {
     // Wait for the poll interval — for test purposes we trigger it manually
     await page.evaluate(() => {
       // Force a re-check by triggering the poll
-      const ev = new CustomEvent('strata:force-tip-poll');
+      const ev = new CustomEvent('varve:force-tip-poll');
       window.dispatchEvent(ev);
     });
 

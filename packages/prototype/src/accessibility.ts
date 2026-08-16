@@ -61,7 +61,7 @@ export function announceToScreenReader(
 ): void {
   if (typeof document === 'undefined') return;
 
-  const id = 'strata-prototype-announcer';
+  const id = 'varve-prototype-announcer';
   let announcer = document.getElementById(id) as HTMLElement | null;
 
   if (!announcer) {
