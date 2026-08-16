@@ -1,0 +1,344 @@
+---
+/**
+ * /press — the canonical press and brand-assets page.
+ *
+ * Everything a journalist needs in one place: the contact address, a
+ * copy-pasteable product description, verified release facts, and the
+ * approved marks. Every fact on this page derives from the release manifest
+ * or the shared product constant, so it cannot go stale independently of the
+ * product.
+ *
+ * What this page deliberately does NOT contain: press mentions, testimonials,
+ * customer or partner logos, user counts, or any other claim Varve cannot
+ * substantiate. An empty "as featured in" strip is worse than none.
+ */
+import ContactChannel from '../components/ContactChannel.astro';
+import Layout from '../layouts/Layout.astro';
+import { CONTACTS, PRODUCT_STATUS } from '@varve/shared';
+import release from '../data/release-manifest.json';
+import { sitePath, siteUrl } from '../lib/siteUrl';
+
+const version = release.hasRelease && release.version ? release.version : null;
+const releaseUrl = (release as Record<string, unknown>).releaseUrl as string | undefined;
+
+const shortDescription =
+  'Varve is a free, local-first design suite for vector, layout, typography, motion, prototyping, and print production, running natively on Linux, macOS, and Windows.';
+
+const pressSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  '@id': `${siteUrl('/press')}#webpage`,
+  url: siteUrl('/press'),
+  name: 'Varve press and brand assets',
+  description:
+    'Press kit for Varve: media contact, product description, release facts, and downloadable logo and wordmark assets.',
+  inLanguage: 'en',
+  mainEntity: {
+    '@type': 'Organization',
+    name: 'Varve',
+    url: siteUrl('/'),
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'media inquiries',
+      email: CONTACTS.press,
+      availableLanguage: 'English',
+    },
+  },
+};
+---
+
+<Layout
+  title="Press and brand assets"
+  description="Varve press kit: media contact, an accurate product description, current release facts, and the approved Varve logo and wordmark assets."
+  structuredData={pressSchema}
+>
+  <div class="container-custom">
+    <div class="press-page">
+      <h1 class="page-hero-title">Press and brand assets</h1>
+      <p class="page-hero-sub">
+        Everything needed to write about Varve accurately: the media contact,
+        a description you can quote, current release facts, and the approved
+        marks.
+      </p>
+
+      <ContactChannel
+        id="press"
+        headingLevel={2}
+        purpose="Press inquiries about Varve, including interviews, review requests, product coverage questions, and requests for brand assets or screenshots."
+      />
+
+      <section class="press-section" aria-labelledby="press-description">
+        <h2 id="press-description">Product description</h2>
+        <p class="press-note">
+          Free to quote or adapt. Both versions are current as of this page.
+        </p>
+
+        <h3>One sentence</h3>
+        <blockquote class="press-quote">{shortDescription}</blockquote>
+
+        <h3>One paragraph</h3>
+        <blockquote class="press-quote">
+          {PRODUCT_STATUS.description} Varve combines vector design, page
+          layout, typography, animation, prototyping, and print production in
+          a single application and a single document model. Core editing works
+          offline and requires no account or cloud sync; optional network
+          features such as model downloads and update checks are explicit and
+          consent-based. Varve is source-available under FSL-1.1-MIT and is
+          built in the open.
+        </blockquote>
+      </section>
+
+      <section class="press-section" aria-labelledby="press-facts">
+        <h2 id="press-facts">Facts</h2>
+        <dl class="press-facts">
+          <dt>Product name</dt>
+          <dd>Varve (always capitalised, never "VARVE" or "varve" mid-sentence)</dd>
+
+          <dt>Website</dt>
+          <dd><a href={sitePath('/')}>varve.studio</a></dd>
+
+          <dt>Category</dt>
+          <dd>Design suite / creative software</dd>
+
+          <dt>Platforms</dt>
+          <dd>Linux (x86_64), macOS (Apple Silicon), Windows (x86_64)</dd>
+
+          <dt>Status</dt>
+          <dd>{PRODUCT_STATUS.label}</dd>
+
+          {version && (
+            <Fragment>
+              <dt>Current release</dt>
+              <dd>
+                Varve {version}
+                {releaseUrl && (
+                  <Fragment>
+                    {' — '}
+                    <a href={releaseUrl} target="_blank" rel="noopener noreferrer">release notes</a>
+                  </Fragment>
+                )}
+              </dd>
+            </Fragment>
+          )}
+
+          <dt>Price</dt>
+          <dd>Free. No subscription and no feature lockouts.</dd>
+
+          <dt>Licence</dt>
+          <dd>
+            FSL-1.1-MIT (source-available; each release converts to MIT after
+            two years) &mdash; <a href={sitePath('/about/license')}>licence details</a>
+          </dd>
+
+          <dt>Maintainer</dt>
+          <dd>
+            Varve is an independent project, not a company. Refer to it as
+            "Varve" or "the Varve project" rather than implying a corporate
+            entity.
+          </dd>
+
+          <dt>Source</dt>
+          <dd>
+            <a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer">github.com/K-Arthur/varve</a>
+          </dd>
+        </dl>
+      </section>
+
+      <section class="press-section" aria-labelledby="press-assets">
+        <h2 id="press-assets">Logo and wordmark</h2>
+        <p>
+          These are the current approved marks. Earlier gradient marks and any
+          asset carrying the retired "Strata" name are not approved for use.
+        </p>
+        <ul class="press-assets">
+          <li>
+            <a href={sitePath('/brand/varve-icon.svg')} download>Varve mark (SVG)</a>
+            <span>App icon geometry, no background. Works on light and dark.</span>
+          </li>
+          <li>
+            <a href={sitePath('/brand/varve-wordmark.svg')} download>Varve wordmark (SVG, light backgrounds)</a>
+            <span>Fraunces wordmark in the standard colourway.</span>
+          </li>
+          <li>
+            <a href={sitePath('/brand/varve-wordmark-dark.svg')} download>Varve wordmark (SVG, dark backgrounds)</a>
+            <span>Same wordmark tuned for dark surfaces.</span>
+          </li>
+          <li>
+            <a href={sitePath('/brand/varve-wordmark-mono.svg')} download>Varve wordmark (SVG, single colour)</a>
+            <span>For print, embroidery, and one-colour contexts.</span>
+          </li>
+        </ul>
+
+        <h3>Usage guidance</h3>
+        <ul class="press-guidance">
+          <li>Keep clear space around the mark equal to the height of the "V".</li>
+          <li>Do not recolour, rotate, outline, add effects to, or redraw the marks.</li>
+          <li>Do not place the standard wordmark on a background that leaves it low-contrast &mdash; use the dark or single-colour variant instead.</li>
+          <li>Do not imply endorsement, partnership, or sponsorship by using the marks.</li>
+        </ul>
+      </section>
+
+      <section class="press-section" aria-labelledby="press-screenshots">
+        <h2 id="press-screenshots">Screenshots</h2>
+        <p>
+          Current product screenshots are published throughout this site,
+          including the <a href={sitePath('/product')}>product overview</a> and
+          the <a href={sitePath('/features')}>feature pages</a>; they may be
+          used in coverage of Varve. If you need a specific view, a particular
+          resolution, or a screenshot of an area not shown, email
+          <a href={`mailto:${CONTACTS.press}`} aria-label="Email Varve press inquiries">{CONTACTS.press}</a>
+          and it can be produced.
+        </p>
+      </section>
+
+      <section class="press-section" aria-labelledby="press-other">
+        <h2 id="press-other">Not a press inquiry?</h2>
+        <p>
+          For partnership, integration, or distribution conversations, email
+          <a href={`mailto:${CONTACTS.partnerships}`} aria-label="Email Varve partnership inquiries">{CONTACTS.partnerships}</a>.
+          Every other channel is listed on the
+          <a href={sitePath('/contact')}>contact page</a>.
+        </p>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .press-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .press-page .page-hero-title {
+    margin-bottom: 0.75rem;
+  }
+
+  .press-page .page-hero-sub {
+    margin-bottom: 2rem;
+    max-width: 62ch;
+  }
+
+  .press-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .press-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  .press-section h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 1.5rem 0 0.5rem;
+  }
+
+  .press-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    max-width: 62ch;
+  }
+
+  .press-note {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  .press-quote {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    background: var(--surface-muted);
+    border-left: 3px solid var(--accent-primary);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    line-height: 1.8;
+    max-width: 66ch;
+  }
+
+  .press-facts {
+    margin: 0;
+  }
+
+  .press-facts dt {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 1rem;
+  }
+
+  .press-facts dd {
+    margin: 0.25rem 0 0;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    max-width: 62ch;
+  }
+
+  .press-assets,
+  .press-guidance {
+    list-style: none;
+    margin: 0;
+  }
+
+  .press-assets li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .press-assets li span {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+  }
+
+  .press-guidance li {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    padding-left: 1.25rem;
+    position: relative;
+    max-width: 62ch;
+  }
+
+  .press-guidance li::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+    font-weight: bold;
+  }
+
+  .press-section a,
+  .press-facts a,
+  .press-assets a {
+    color: var(--text-link);
+    overflow-wrap: anywhere;
+  }
+
+  .press-section a:hover,
+  .press-facts a:hover,
+  .press-assets a:hover {
+    color: var(--text-link-hover);
+  }
+
+  .press-section a:focus-visible,
+  .press-facts a:focus-visible,
+  .press-assets a:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  @media (max-width: 768px) {
+    .press-page {
+      padding: 2rem 0;
+    }
+  }
+</style>

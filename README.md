@@ -395,10 +395,18 @@ issue for a security report.
 
 ## Support
 
-[GitHub Issues](https://github.com/K-Arthur/varve/issues) and
-[Discussions](https://github.com/K-Arthur/varve/discussions) are the
-public support channels — see [SUPPORT.md](SUPPORT.md). This is a
-solo-developed project; response times may vary.
+[Product support](mailto:support@varve.studio) is available for private installation,
+download, troubleshooting, and usage questions. Use [GitHub Issues](https://github.com/K-Arthur/varve/issues)
+for reproducible non-sensitive bugs and [Discussions](https://github.com/K-Arthur/varve/discussions)
+for public questions and workflows. See [SUPPORT.md](SUPPORT.md) or the complete
+[contact directory](https://varve.studio/contact). This is an independently maintained project;
+availability and response times vary.
+
+## Contact
+
+- General: [hello@varve.studio](mailto:hello@varve.studio)
+- Support: [support@varve.studio](mailto:support@varve.studio)
+- Security: [security@varve.studio](mailto:security@varve.studio), or GitHub [Private Vulnerability Reporting](https://github.com/K-Arthur/varve/security/advisories)
 
 ## License
 
