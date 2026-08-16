@@ -20,11 +20,30 @@
 
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { IMPACT_CONFIG } from '../../validation-impact.config.mjs';
 
 const ROOT = process.cwd();
 const _PKGS = join(ROOT, 'packages');
+
+/**
+ * Convert an absolute workspace path reported by pnpm/Cargo to the planner's
+ * repository-relative POSIX form. Git paths and impact globs use `/` on every
+ * runner, while package managers return the host-native separator on Windows.
+ */
+function toRepoRelativePath(rootValue, filePath, pathApi = { relative, sep }) {
+  const root = String(rootValue).replaceAll('\\', '/').replace(/\/+$/, '');
+  const path = String(filePath).replaceAll('\\', '/');
+  const prefix = `${root}/`;
+  if (path.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return path.slice(prefix.length);
+  }
+  return pathApi.relative(rootValue, filePath).split(pathApi.sep).join('/');
+}
+
+function repoRelativePath(filePath) {
+  return toRepoRelativePath(ROOT, filePath);
+}
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -79,11 +98,14 @@ function defaultScope() {
 
 function gitBaseFor({ since }) {
   if (since) return since;
-  const mergeBase = run('git merge-base HEAD origin/master 2>/dev/null');
+  const mergeBase = run('git merge-base HEAD origin/master');
   if (mergeBase) return mergeBase;
-  const mergeBaseLocal = run('git merge-base HEAD master 2>/dev/null');
+  const mergeBaseLocal = run('git merge-base HEAD master');
   if (mergeBaseLocal) return mergeBaseLocal;
-  const firstCommit = run('git rev-list --max-parents=0 HEAD 2>/dev/null | tail -1');
+  const firstCommit = (run('git rev-list --max-parents=0 HEAD') ?? '')
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .at(-1);
   if (firstCommit) return firstCommit;
   return null;
 }
@@ -93,12 +115,12 @@ const _PKGS_CACHE = new Map();
 function loadPackages() {
   if (_PKGS_CACHE.has('pkgs')) return _PKGS_CACHE.get('pkgs');
   const _manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf-8'));
-  const out = run('pnpm m ls --json --depth -1 2>/dev/null');
+  const out = run('pnpm m ls --json --depth -1');
   const pkgs = {};
   if (out) {
     for (const p of JSON.parse(out)) {
       if (!p.name) continue;
-      const dir = p.path.replace(`${ROOT}/`, '');
+      const dir = repoRelativePath(p.path);
       let manifest2 = null;
       try {
         manifest2 = JSON.parse(readFileSync(join(ROOT, dir, 'package.json'), 'utf-8'));
@@ -158,12 +180,12 @@ function countTests(dir) {
 const _CRATES_CACHE = new Map();
 function loadCrates() {
   if (_CRATES_CACHE.has('crates')) return _CRATES_CACHE.get('crates');
-  const out = run('cargo metadata --format-version 1 --no-deps 2>/dev/null');
+  const out = run('cargo metadata --format-version 1 --no-deps');
   if (!out) return {};
   const { packages } = JSON.parse(out);
   const crates = {};
   for (const p of packages) {
-    const dir = p.manifest_path.replace(`${ROOT}/`, '').replace('/Cargo.toml', '');
+    const dir = repoRelativePath(p.manifest_path).replace(/\/Cargo\.toml$/, '');
     crates[p.name] = {
       dir,
       deps: new Set(p.dependencies.map((d) => d.name)),
@@ -599,7 +621,15 @@ function formatPlan(plan, opts) {
 
 // ── main ───────────────────────────────────────────────────────────────────
 
-export { buildPlan, defaultScope, formatPlan, gitBaseFor, gitChangedFiles, loadPackages };
+export {
+  buildPlan,
+  defaultScope,
+  formatPlan,
+  gitBaseFor,
+  gitChangedFiles,
+  loadPackages,
+  toRepoRelativePath,
+};
 
 export function parseArgs(argv) {
   const args = argv.slice(2);

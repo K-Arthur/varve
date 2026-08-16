@@ -51,7 +51,9 @@ on:
         required: false
         default: 'no'
         type: choice
-        options: [no, yes]
+        # Quote these values: YAML 1.1 treats bare `no`/`yes` as booleans,
+        # which makes GitHub reject the documented `publish=yes` dispatch.
+        options: ['no', 'yes']
 
 concurrency:
   # Never cancel a release build in flight — a half-uploaded draft is worse than
@@ -166,6 +168,10 @@ jobs:
   gate:
     name: Quality Gate
     needs: preflight
+    # A publish-only dispatch operates on an already verified draft. Keep the
+    # expensive build graph out of that path; tag pushes and normal build
+    # dispatches still run the complete release validation.
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -243,12 +249,14 @@ jobs:
   signing-preflight:
     name: Signing preflight
     needs: preflight
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       windows_mode: ${{ steps.policy.outputs.windows_mode }}
       macos_mode: ${{ steps.policy.outputs.macos_mode }}
       signing_required: ${{ steps.policy.outputs.signing_required }}
+      updater_mode: ${{ steps.policy.outputs.updater_mode }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -287,6 +295,11 @@ jobs:
           echo "macos_mode=$(echo "${POLICY}" | node -e "process.stdin.on('data',d=>{const p=JSON.parse(d);process.stdout.write(p.macos)})")" >> "$GITHUB_OUTPUT"
           W="$(echo "${POLICY}" | node -e "process.stdin.on('data',d=>{const p=JSON.parse(d);process.stdout.write(String(p.windows==='signed'||p.macos==='signed'))})")"
           echo "signing_required=${W}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}" == "true" ]]; then
+            echo "updater_mode=signed" >> "$GITHUB_OUTPUT"
+          else
+            echo "updater_mode=manual-only" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Report policy outcome
         shell: bash
@@ -298,24 +311,26 @@ jobs:
             echo "- macOS: **${{ steps.policy.outputs.macos_mode }}**"
             echo "- Channel: ${{ needs.preflight.outputs.channel }}"
             echo "- RELEASE_EXPECT_SIGNED: ${{ vars.RELEASE_EXPECT_SIGNED || '(unset)' }}"
+            echo "- Updater: **${{ steps.policy.outputs.updater_mode }}**"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Require protected updater signing key
+      - name: Record manual-update contingency
         shell: bash
         env:
           TAURI_KEY_PRESENT: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
         run: |
           if [[ "${TAURI_KEY_PRESENT}" != "true" ]]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is required for release updater artifacts."
-            echo "The updater public key is embedded in the app; publishing an unsigned .sig/feed would be fail-open."
-            exit 1
+            echo "::warning::Updater signing key is absent; publishing manual-download installers without an updater feed."
+            echo "Platform signedness remains independently governed by RELEASE_EXPECT_SIGNED."
+          else
+            echo "Tauri updater signing key present (value never printed)."
           fi
-          echo "Tauri updater signing key present (value never printed)."
 
   # ── 3. Platform bundles on native runners ───────────────────────────────────
   bundle:
     name: Bundle (${{ matrix.name }})
     needs: [preflight, gate, signing-preflight]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -426,7 +441,7 @@ jobs:
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf \
-            squashfs-tools
+            squashfs-tools xdg-utils
 
       - name: Add Rust target
         if: matrix.enabled
@@ -554,10 +569,15 @@ jobs:
 
       - name: Prepare updater channel configuration
         if: matrix.enabled
+        shell: bash
         env:
           CHANNEL: ${{ needs.preflight.outputs.channel }}
+          UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
         run: |
-          node -e "const fs=require('fs'); const c=process.env.CHANNEL; if(!['stable','beta','nightly'].includes(c)) throw new Error('invalid channel'); fs.writeFileSync('apps/desktop/src-tauri/tauri.update.channel.json', JSON.stringify({plugins:{updater:{endpoints:['https://varve.studio/updates/'+c+'.json']}}}, null, 2)+'\\n');"
+          node scripts/release/write-updater-config.mjs \
+            --channel "${CHANNEL}" \
+            --mode "${UPDATER_MODE}" \
+            --output apps/desktop/src-tauri/tauri.update.channel.json
 
       - name: Tauri build (signed platforms)
         if: matrix.enabled && (needs.signing-preflight.outputs.macos_mode == 'signed' || needs.signing-preflight.outputs.windows_mode == 'signed')
@@ -586,6 +606,7 @@ jobs:
           # re-scanned by the artifact scan step below.
           VARVE_SIGNING_STEP_ALLOWED: '1'
           NO_STRIP: '1'
+          VARVE_UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
@@ -610,8 +631,7 @@ jobs:
           # for it. Harmless to set everywhere: the Varve binary is stripped by
           # [profile.release] strip = true, and distro libraries ship stripped.
           NO_STRIP: '1'
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VARVE_UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
           VARVE_UPDATE_CHANNEL: ${{ needs.preflight.outputs.channel }}
         run: |
           TAURI_EXTRA_ARGS="--config ${{ github.workspace }}/apps/desktop/src-tauri/tauri.update.channel.json"
@@ -657,7 +677,8 @@ jobs:
             --bundle-dir "${TAURI_BUNDLE_DIR}" \
             --out dist/release \
             --os ${{ matrix.os_slug }} \
-            --arch ${{ matrix.arch_slug }}
+            --arch ${{ matrix.arch_slug }} \
+            --updater-signatures "${{ needs.signing-preflight.outputs.updater_mode == 'signed' }}"
         shell: bash
 
       # Platform-specific SBOM: the bundle contents differ per platform (the
@@ -754,6 +775,7 @@ jobs:
   package-smoke:
     name: Linux package smoke (${{ matrix.name }})
     needs: [preflight, bundle]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -853,6 +875,7 @@ jobs:
   platform-smoke:
     name: ${{ matrix.name }} runner smoke
     needs: [preflight, bundle]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -949,20 +972,27 @@ jobs:
           echo "Executable arch:   $(file "${BIN}" | grep -oE 'arm64|x86_64' | head -1)"
           echo "Bundle structure:  $(ls "${APP}/Contents/" | tr '\n' ' ')"
           if [[ -f "${APP}/Contents/Resources/icon.icns" ]]; then echo "Icon resource:      present"; fi
-          "${BIN}" & APP_PID=$!
+          # Launch the .app bundle rather than invoking its inner executable.
+          # Tauri resolves packaged resources through the macOS bundle context;
+          # launching Contents/MacOS/varve-desktop directly makes that context
+          # unavailable and produces a false smoke-test failure.
+          OPEN_LOG="$(mktemp /tmp/varve-open.XXXXXX.log)"
+          open -n "${APP}" >"${OPEN_LOG}" 2>&1
           sleep 20
-          if kill -0 "${APP_PID}" 2>/dev/null; then
+          APP_PID="$(pgrep -f -- "${BIN}" | head -1 || true)"
+          if [[ -n "${APP_PID}" ]]; then
             echo "Launch smoke PASSED (process stayed alive 20s)"
             kill "${APP_PID}" 2>/dev/null || true
-            wait "${APP_PID}" 2>/dev/null || true
           else
-            wait "${APP_PID}"
-            echo "::error::App exited early (code $?)"
+            echo "::error::App exited before the 20s launch smoke window"
+            cat "${OPEN_LOG}" || true
             hdiutil detach "${MOUNT_POINT}" >/dev/null 2>&1 || true
+            rm -f "${OPEN_LOG}"
             exit 1
           fi
           hdiutil detach "${MOUNT_POINT}" >/dev/null
           rm -rf "${MOUNT_POINT}"
+          rm -f "${OPEN_LOG}"
           echo "DMG mounted, app launched, unmounted cleanly."
 
       # Re-verify the signature on the DOWNLOADED bytes (the same artifacts the
@@ -988,7 +1018,8 @@ jobs:
   # Any step failing stops the release before a draft exists.
   verify:
     name: Verify, attest and finalize
-    needs: [preflight, bundle, package-smoke, platform-smoke]
+    needs: [preflight, signing-preflight, bundle, package-smoke, platform-smoke]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -1044,6 +1075,7 @@ jobs:
             --expect-signed "${EXPECT}"
 
       - name: Generate signed updater feed
+        if: needs.signing-preflight.outputs.updater_mode == 'signed'
         shell: bash
         run: |
           node scripts/release/generate-updater-feed.mjs \
@@ -1051,6 +1083,16 @@ jobs:
             --version '${{ needs.preflight.outputs.version }}' \
             --channel '${{ needs.preflight.outputs.channel }}' \
             --base-url 'https://github.com/K-Arthur/varve/releases/download/${{ needs.preflight.outputs.tag }}'
+
+      - name: Record manual update fallback
+        if: needs.signing-preflight.outputs.updater_mode != 'signed'
+        run: |
+          {
+            echo "### Manual update fallback"
+            echo ""
+            echo "Updater signatures were not available; no updater feed was generated."
+            echo "Installers remain available for manual download and are labelled with their verified platform signing state."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The combined SBOM describes the whole multi-platform release; its scope
       # is declared explicitly in its metadata. Platform-specific SBOMs arrived
@@ -1112,6 +1154,7 @@ jobs:
   draft:
     name: Draft Release
     needs: [preflight, verify]
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.publish != 'yes'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
