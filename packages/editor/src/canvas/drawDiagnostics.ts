@@ -107,6 +107,18 @@ export interface FrameDiagnostics {
    * traversal or camera math.
    */
   dirtyScreenRect?: { x: number; y: number; w: number; h: number };
+  /**
+   * Monotonic render revision at frame commit time. When present, the
+   * interaction trace can detect stale-frame presentation (a response whose
+   * revision is behind the latest requested).
+   */
+  renderRevision?: number;
+  /**
+   * The coordinator's frame decision kind at commit time: 'skip', 'present',
+   * or 'content'. When present, the interaction trace can distinguish
+   * scene-free worker-bitmap composites from full scene replays.
+   */
+  frameDecision?: string;
 }
 
 export function resolveDirtyScreenRect(
