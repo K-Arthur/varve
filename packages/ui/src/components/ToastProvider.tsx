@@ -20,7 +20,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const queueRef = useRef<ToastItem[]>([]);
 
+  const lastToastRef = useRef<{ message: string; time: number } | null>(null);
+
   const addToast = useCallback((item: Omit<ToastItem, 'id'>) => {
+    const now = Date.now();
+    const last = lastToastRef.current;
+    if (last && last.message === item.message && now - last.time < 500) {
+      return;
+    }
+    lastToastRef.current = { message: item.message, time: now };
+
     const newToast: ToastItem = { ...item, id: generateId() };
 
     setToasts((current) => {

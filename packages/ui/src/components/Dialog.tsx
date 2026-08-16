@@ -220,8 +220,11 @@ export function AlertDialog({
           type="button"
           className={`varve-btn varve-btn--${variant}`}
           onClick={() => {
-            onConfirm();
-            onClose();
+            try {
+              onConfirm();
+            } finally {
+              onClose();
+            }
           }}
         >
           {confirmLabel}

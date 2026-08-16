@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface ToastItem {
   id: string;
@@ -74,6 +74,15 @@ export function Toast({ toast, onDismiss }: ToastProps) {
   const role = toast.type === 'error' ? 'alert' : 'status';
   const typeClass = toast.type && toast.type !== 'info' ? `varve-toast--${toast.type}` : '';
 
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        dismiss();
+      }
+    },
+    [dismiss],
+  );
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: toast needs hover/focus to pause auto-dismiss timer
     <div
@@ -84,6 +93,7 @@ export function Toast({ toast, onDismiss }: ToastProps) {
       onMouseLeave={resumeTimer}
       onFocus={pauseTimer}
       onBlur={resumeTimer}
+      onKeyDown={handleKeyDown}
     >
       <span className="varve-toast__message">{toast.message}</span>
       <button

@@ -98,7 +98,14 @@ export interface ExportDialogProps {
 }
 
 function safeFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'export';
+  return (
+    name
+      .replace(/[<>:"/\\|?*]/g, '')
+      .replace(/[\p{Control}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 200) || 'export'
+  );
 }
 
 function nodeBaseDimensions(node: SceneNode): { w: number; h: number } {
