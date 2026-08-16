@@ -163,7 +163,7 @@ describe('ArchiveDialog', () => {
 
     it('shows destination file name', () => {
       renderDialog();
-      expect(screen.getByText('Test Doc.strata-archive.zip')).toBeInTheDocument();
+      expect(screen.getByText('Test Doc.varve-archive.zip')).toBeInTheDocument();
     });
 
     it('shows progress during archive creation', async () => {

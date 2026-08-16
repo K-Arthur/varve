@@ -41,7 +41,7 @@ export function importGradientPresets(
 ): GradientImportResult {
   const format = detectGradientFormat(input);
 
-  if (format === 'strata-gradient-json') {
+  if (format === 'varve-gradient-json') {
     const text = typeof input === 'string' ? input : new TextDecoder().decode(input);
     const decoded = decodeGradientPresets(text);
     return {

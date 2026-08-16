@@ -24,7 +24,8 @@ export function openGradientFilePicker(): Promise<PickedGradientFile | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.grd,.json,.strata-gradient.json,.strata-gradients.json';
+    input.accept =
+      '.grd,.json,.varve-gradient.json,.varve-gradients.json,.strata-gradient.json,.strata-gradients.json';
     input.onchange = () => {
       const file = input.files?.[0];
       if (!file) {

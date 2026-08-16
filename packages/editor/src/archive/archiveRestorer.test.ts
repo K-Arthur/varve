@@ -277,6 +277,21 @@ describe('archiveRestorer', () => {
 
       const manifest = makeManifest();
       const files: Record<string, Uint8Array> = {
+        'document.varve': strToU8(docJson),
+      };
+
+      const result = extractArchiveDocument(manifest, files);
+      expect(result.document).toBeDefined();
+      expect(result.document?.id).toBe('doc-test-restore');
+    });
+
+    it('extracts document from a legacy archive (document.strata entry)', async () => {
+      const doc = makeTestDocument();
+      const { DocumentCodec } = await import('@varve/scene');
+      const docJson = DocumentCodec.encode(doc);
+
+      const manifest = makeManifest();
+      const files: Record<string, Uint8Array> = {
         'document.strata': strToU8(docJson),
       };
 
