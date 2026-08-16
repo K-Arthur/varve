@@ -13,8 +13,8 @@
  */
 
 import type { CrashReport } from '@varve/crash';
-import { CONTACTS } from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ContactLink } from '../components/ContactLink';
 
 export interface CrashRecoveryDialogProps {
   open: boolean;
@@ -247,8 +247,7 @@ export function CrashRecoveryDialog({
                 from Privacy and diagnostics settings.
               </p>
               <p className="crash-dialog__settings-link">
-                Need help without sending diagnostics?{' '}
-                <a href={`mailto:${CONTACTS.support}`}>{CONTACTS.support}</a>
+                Need help without sending diagnostics? <ContactLink channel="support" />
               </p>
             </>
           )}
