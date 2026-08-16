@@ -1983,6 +1983,7 @@ export function renderContent(deps: RenderContentDeps): void {
       dirtyMergeFallback: mergedDirty?.fallback === 'none' ? undefined : mergedDirty?.fallback,
       fullRedrawReason,
       dirtyScreenRect: resolveDirtyScreenRect(!!usePartialRedraw, dirtyRect, dpr),
+      frameDecision: frameDecision.kind,
     });
     pendingPresentRef.current = false;
     coordinator.completeFrame(frameDecision, frameSnapshot, {
