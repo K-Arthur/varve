@@ -813,6 +813,7 @@ export function CanvasArea({
   // ─── Input pipeline (pointer, wheel, keyboard handlers) ──────────────────
   const input = useCanvasInputs({
     contentCanvasRef,
+    canvasRectRef,
     editor,
     stateRef,
     tmRef: tm,
