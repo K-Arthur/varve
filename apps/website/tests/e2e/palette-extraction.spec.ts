@@ -19,11 +19,6 @@ test.describe('palette extraction marketing surface', () => {
       body: await page.locator('.feature-page').screenshot(),
       contentType: 'image/png',
     });
-    if (process.env.VARVE_CAPTURE_PALETTE_SCREENSHOT) {
-      await page.locator('.feature-page').screenshot({
-        path: process.env.VARVE_CAPTURE_PALETTE_SCREENSHOT,
-      });
-    }
 
     await page.setViewportSize({ width: 390, height: 844 });
     const layout = await page.locator('.feature-page').evaluate((element) => ({

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-08-16T04:19:00.666Z",
+  "generatedAt": "2026-08-16T07:25:00.593Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -93,25 +93,25 @@
     },
     "palette-inspector": {
       "file": "palette-inspector-light.png",
-      "alt": "Varve showing a colorful image on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs",
+      "alt": "Varve showing a NASA Earth-observation photo on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs",
       "caption": "Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.",
       "feature": "color-effects",
       "theme": "light",
       "status": "captured",
+      "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900,
-      "lastValidatedAgainst": null
+      "height": 900
     },
     "enhance-dialog-auto": {
       "file": "enhance-dialog-auto.png",
-      "alt": "The Varve Enhance dialog in Auto mode showing a real image import, detected noise, and a recommended denoise operation",
+      "alt": "The Varve Enhance dialog in Auto mode showing a real photo import and a recommended enhancement task",
       "caption": "The Enhance dialog in Auto mode recommends a task from the source image.",
       "feature": "image-enhancement",
       "theme": "light",
       "status": "captured",
+      "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900,
-      "lastValidatedAgainst": null
+      "height": 900
     }
   }
 }

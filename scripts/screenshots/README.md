@@ -64,6 +64,8 @@ modes and a real type hierarchy.
 | `layers` | light | layers | Named layers with blend-mode and opacity badges |
 | `layout` | light | full | Two-page editorial spread |
 | `motion` | dark | timeline | Timeline panel with a real position keyframe |
+| `palette-inspector` | light | full | Palette Inspector open on a real imported photo |
+| `enhance-dialog-auto` | light | full | Enhance dialog, Auto mode, on a real degraded photo |
 
 Detail scenes are cropped **at capture time** (`clip`), because the website
 shows them at roughly a third of the page width where a scaled-down full
@@ -74,6 +76,16 @@ any previous output file is **deleted** — never silently replaced by an older
 screenshot. The motion scene authors a real position keyframe through the
 application's keyboard shortcut before capture, so the timeline screenshot
 does not claim more than the fixture actually demonstrates.
+
+The `palette-inspector` and `enhance-dialog-auto` scenes are the two
+exceptions to "committed document fixtures rather than scripted drawing"
+below: palette extraction and enhance analysis only mean something against
+real photographic content, which can't be authored as vector shapes the way
+the other demo documents are. Both import a real, rights-cleared photo
+through the application's own image-import input (`#file-import-input`) —
+see `fixtures/PROVENANCE.md` for its source, license, and the deterministic
+transform used to produce the degraded variant `enhance-dialog-auto` needs to
+show a real recommendation instead of "no restoration needed."
 
 ## Determinism
 
