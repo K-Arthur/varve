@@ -80,7 +80,7 @@ describe('archiveBuilder', () => {
       expect(result.bytes.byteLength).toBeGreaterThan(0);
       expect(result.manifest.kind).toBe('settings-only');
       expect(result.manifest.formatVersion).toBe(ARCHIVE_FORMAT_VERSION);
-      expect(result.fileName).toBe('strata-settings-archive.zip');
+      expect(result.fileName).toBe('varve-settings-archive.zip');
     });
 
     it('builds a full archive with document', async () => {
@@ -156,7 +156,7 @@ describe('archiveBuilder', () => {
       const result = await buildFullArchive(doc, { kind: 'full' });
 
       expect(Object.keys(result.manifest.checksums).length).toBeGreaterThan(0);
-      expect(result.manifest.checksums['document.strata']).toMatch(/^[a-f0-9]{64}$/);
+      expect(result.manifest.checksums['document.varve']).toMatch(/^[a-f0-9]{64}$/);
     });
   });
 
