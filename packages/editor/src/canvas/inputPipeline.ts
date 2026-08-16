@@ -59,6 +59,8 @@ import { createWheelGestureClassifier } from './wheelGesture';
 
 export interface UseCanvasInputsOptions {
   contentCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
+  /** Cached canvas screen position (updated by ResizeObserver + pointerdown). */
+  canvasRectRef: MutableRefObject<{ left: number; top: number }>;
   editor: {
     setCursorPos: (pos: { x: number; y: number } | null) => void;
     setPan: (pan: { x: number; y: number }) => void;
@@ -321,7 +323,10 @@ export function useCanvasInputs({
         const geo = pinchGeometry();
         if (pinch && geo) {
           const s = stateRef.current;
-          const rect = contentCanvasRef.current?.getBoundingClientRect();
+          const canvasRect = canvasRectRef.current;
+          const el = contentCanvasRef.current;
+          const canvasW = el?.clientWidth ?? 1920;
+          const canvasH = el?.clientHeight ?? 1080;
 
           const panned = {
             x: s.pan.x + (geo.centroid.x - pinch.lastCentroid.x),
@@ -329,14 +334,14 @@ export function useCanvasInputs({
           };
           const cam = { pan: panned, zoom: s.zoom, rotation: s.cameraRotation };
           const viewport = {
-            width: rect?.width ?? contentCanvasRef.current?.clientWidth ?? 1920,
-            height: rect?.height ?? contentCanvasRef.current?.clientHeight ?? 1080,
+            width: canvasW,
+            height: canvasH,
           };
           const origin = computeFloatingOrigin(cam, viewport);
           const anchor = screenToWorld(
             cam,
-            geo.centroid.x - (rect?.left ?? 0),
-            geo.centroid.y - (rect?.top ?? 0),
+            geo.centroid.x - canvasRect.left,
+            geo.centroid.y - canvasRect.top,
             viewport,
             origin,
           );
@@ -404,55 +409,62 @@ export function useCanvasInputs({
       });
 
       if (e.buttons !== 0) {
-        const rect = contentCanvasRef.current?.getBoundingClientRect();
-        if (rect) {
-          const vx = computeEdgeVelocity(e.clientX, rect.left, rect.right);
-          const vy = computeEdgeVelocity(e.clientY, rect.top, rect.bottom);
-          autoPanVelocity.current = { x: vx, y: vy };
-          if (vx !== 0 || vy !== 0) {
-            if (!autoPanActive.current) {
-              const frameKey = autoPanFrameKey.current;
-              if (!frameKey) return;
-              autoPanActive.current = true;
-              const tick = (frameTimeMs: number) => {
-                const v = autoPanVelocity.current;
-                if (v.x === 0 && v.y === 0) {
-                  stopAutoPan();
-                  return;
-                }
-                const elapsedMs = navigationFrameDeltaMs(autoPanFrameTime.current, frameTimeMs);
-                autoPanFrameTime.current = frameTimeMs;
-                const delta = integrateVelocity(
-                  {
-                    x: frameDisplacementToVelocity(v.x),
-                    y: frameDisplacementToVelocity(v.y),
-                  },
-                  elapsedMs,
-                );
-                editor.panBy(delta.x, delta.y);
-                const heldPointer = activeDragPointer.current;
-                const activeTool = tmRef.current;
-                if (heldPointer && activeTool) {
-                  // Camera motion changes the world point under a stationary
-                  // edge pointer. Re-sample the active drag after panBy has
-                  // synchronously advanced stateRef so artwork stays locked
-                  // to the pointer. Supply only the current authoritative
-                  // sample: re-reading the event's old coalesced packet would
-                  // duplicate already-processed drawing input each frame.
-                  const heldCtx = buildToolCtx(heldPointer, [
-                    { ...normalizeInputEvent(heldPointer), time: frameTimeMs },
-                  ]);
-                  dispatchToTool('move', heldPointer, dispatchAttributes(), () => {
-                    activeTool.handlePointerMove(heldPointer, heldCtx);
-                  });
-                }
-                scheduleCanvasFrame(frameKey, 'input', tick);
-              };
+        const rect = canvasRectRef.current;
+        const canvasEl = contentCanvasRef.current;
+        const vx = computeEdgeVelocity(
+          e.clientX,
+          rect.left,
+          rect.left + (canvasEl?.clientWidth ?? 0),
+        );
+        const vy = computeEdgeVelocity(
+          e.clientY,
+          rect.top,
+          rect.top + (canvasEl?.clientHeight ?? 0),
+        );
+        autoPanVelocity.current = { x: vx, y: vy };
+        if (vx !== 0 || vy !== 0) {
+          if (!autoPanActive.current) {
+            const frameKey = autoPanFrameKey.current;
+            if (!frameKey) return;
+            autoPanActive.current = true;
+            const tick = (frameTimeMs: number) => {
+              const v = autoPanVelocity.current;
+              if (v.x === 0 && v.y === 0) {
+                stopAutoPan();
+                return;
+              }
+              const elapsedMs = navigationFrameDeltaMs(autoPanFrameTime.current, frameTimeMs);
+              autoPanFrameTime.current = frameTimeMs;
+              const delta = integrateVelocity(
+                {
+                  x: frameDisplacementToVelocity(v.x),
+                  y: frameDisplacementToVelocity(v.y),
+                },
+                elapsedMs,
+              );
+              editor.panBy(delta.x, delta.y);
+              const heldPointer = activeDragPointer.current;
+              const activeTool = tmRef.current;
+              if (heldPointer && activeTool) {
+                // Camera motion changes the world point under a stationary
+                // edge pointer. Re-sample the active drag after panBy has
+                // synchronously advanced stateRef so artwork stays locked
+                // to the pointer. Supply only the current authoritative
+                // sample: re-reading the event's old coalesced packet would
+                // duplicate already-processed drawing input each frame.
+                const heldCtx = buildToolCtx(heldPointer, [
+                  { ...normalizeInputEvent(heldPointer), time: frameTimeMs },
+                ]);
+                dispatchToTool('move', heldPointer, dispatchAttributes(), () => {
+                  activeTool.handlePointerMove(heldPointer, heldCtx);
+                });
+              }
               scheduleCanvasFrame(frameKey, 'input', tick);
-            }
-          } else {
-            stopAutoPan();
+            };
+            scheduleCanvasFrame(frameKey, 'input', tick);
           }
+        } else {
+          stopAutoPan();
         }
       } else {
         stopAutoPan();
@@ -540,8 +552,12 @@ export function useCanvasInputs({
 
     const zoomAboutClientPoint = (clientX: number, clientY: number, newZoom: number): void => {
       const s = stateRef.current;
-      const rect = el.getBoundingClientRect();
-      const viewport = { width: rect.width, height: rect.height };
+      const rect = canvasRectRef.current;
+      const canvasEl = contentCanvasRef.current;
+      const viewport = {
+        width: canvasEl?.clientWidth ?? 800,
+        height: canvasEl?.clientHeight ?? 600,
+      };
       const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
       const origin = computeFloatingOrigin(cam, viewport);
       const anchor = screenToWorld(cam, clientX - rect.left, clientY - rect.top, viewport, origin);
@@ -752,9 +768,10 @@ export function useCanvasInputs({
             // Pinching over a panel should not move the artwork. The page zoom
             // has already been reverted natively, so swallowing it is enough.
             if (pointerInside === false) return;
-            const rect = el.getBoundingClientRect();
-            const x = lastPointer?.x ?? rect.left + rect.width / 2;
-            const y = lastPointer?.y ?? rect.top + rect.height / 2;
+            const rect = canvasRectRef.current;
+            const canvasEl = contentCanvasRef.current;
+            const x = lastPointer?.x ?? rect.left + (canvasEl?.clientWidth ?? 0) / 2;
+            const y = lastPointer?.y ?? rect.top + (canvasEl?.clientHeight ?? 0) / 2;
             zoomAboutClientPoint(x, y, stateRef.current.zoom * factor);
           }).then((unlisten) => {
             if (pinchBridgeCancelled) unlisten();
