@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Tutorials" description="Step-by-step Varve tutorials: getting started, vector design, layout, typography, motion, and print workflows.">
+<Layout title="Tutorials" description="Start with Varve's step-by-step getting-started guides, then go deeper with feature-by-feature documentation for vector, typography, motion, and export.">
   <div class="container-custom">
     <div class="learn-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,74 +12,105 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Tutorials</h1>
       <p class="learn-intro">
-        Step-by-step tutorials to help you get started with Varve.
+        Dedicated, written tutorials are still being developed. Until they exist, these are the
+        real guides available today: step-by-step walkthroughs to get oriented, and feature
+        documentation to go deeper on a specific tool.
       </p>
 
+      <h2 class="learn-subheading">Start here</h2>
       <div class="tutorials-grid">
         <div class="tutorial-card">
-          <h2>Getting Started with Varve</h2>
+          <h3>Getting Started</h3>
           <p>
-            Learn the basics of Varve's interface, tools, and workflow. This tutorial covers installation, first launch, and creating your first design.
+            Install Varve, open the app for the first time, and understand what a beta release
+            means in practice.
           </p>
           <div class="tutorial-meta">
-            <span class="tutorial-level">Beginner</span>
-            <span class="tutorial-time">15 minutes</span>
+            <span class="tutorial-tag">Step-by-step guide</span>
           </div>
-          <a href={sitePath('/docs/getting-started')} class="btn-secondary">Start Tutorial</a>
+          <a href={sitePath('/docs/getting-started')} class="btn-secondary">Read the guide</a>
         </div>
 
         <div class="tutorial-card">
-          <h2>Vector Design Basics</h2>
+          <h3>Interface Overview</h3>
           <p>
-            Master shape primitives, path editing, and boolean operations. Learn how to create precise vector graphics using Varve's geometry tools.
+            A tour of the toolbar, canvas, layers panel, inspector, timeline, status bar, and
+            workspace modes.
           </p>
           <div class="tutorial-meta">
-            <span class="tutorial-level">Beginner</span>
-            <span class="tutorial-time">20 minutes</span>
+            <span class="tutorial-tag">Step-by-step guide</span>
           </div>
-          <a href={sitePath('/features/vector-tools')} class="btn-secondary">Learn More</a>
+          <a href={sitePath('/docs/getting-started/interface')} class="btn-secondary">Read the guide</a>
         </div>
 
         <div class="tutorial-card">
-          <h2>Typography and Text</h2>
+          <h3>Your First Project</h3>
           <p>
-            Work with text elements, font families, and typography controls. Learn about text properties, alignment, and text-on-path capabilities.
+            Create a document, add shapes and text, and export your first file.
           </p>
           <div class="tutorial-meta">
-            <span class="tutorial-level">Intermediate</span>
-            <span class="tutorial-time">25 minutes</span>
+            <span class="tutorial-tag">Step-by-step guide</span>
           </div>
-          <a href={sitePath('/features/typography')} class="btn-secondary">Learn More</a>
+          <a href={sitePath('/docs/getting-started/first-project')} class="btn-secondary">Read the guide</a>
+        </div>
+      </div>
+
+      <h2 class="learn-subheading">Go deeper by feature</h2>
+      <p class="learn-subintro">
+        These describe what each tool does and its current status — useful for understanding
+        capabilities, not yet written as click-by-click walkthroughs.
+      </p>
+      <div class="tutorials-grid">
+        <div class="tutorial-card">
+          <h3>Vector Tools</h3>
+          <p>
+            Shape primitives, pen and pencil with bezier handles, node editing, and boolean
+            operations.
+          </p>
+          <div class="tutorial-meta">
+            <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
+          </div>
+          <a href={sitePath('/features/vector-tools')} class="btn-secondary">See the feature guide</a>
         </div>
 
         <div class="tutorial-card">
-          <h2>Motion and Prototyping</h2>
+          <h3>Typography</h3>
           <p>
-            Create timeline-based animations and prototype interactions. Learn about Smart Animate, easing curves, and export to CSS/Lottie.
+            Paragraph and character styling, OpenType features, variable fonts, and
+            text-on-path.
           </p>
           <div class="tutorial-meta">
-            <span class="tutorial-level">Advanced</span>
-            <span class="tutorial-time">30 minutes</span>
+            <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
           </div>
-          <a href={sitePath('/features/motion')} class="btn-secondary">Learn More</a>
+          <a href={sitePath('/features/typography')} class="btn-secondary">See the feature guide</a>
         </div>
 
         <div class="tutorial-card">
-          <h2>Export and Code Generation</h2>
+          <h3>Motion & Prototyping</h3>
           <p>
-            Export your designs to various formats including SVG, React/Tailwind, Flutter, and SwiftUI. Learn about export settings and code generation options.
+            Timeline animation, keyframes, easing, Smart Animate, and prototype interactions.
           </p>
           <div class="tutorial-meta">
-            <span class="tutorial-level">Intermediate</span>
-            <span class="tutorial-time">20 minutes</span>
+            <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
           </div>
-          <a href={sitePath('/features/export')} class="btn-secondary">Learn More</a>
+          <a href={sitePath('/features/motion')} class="btn-secondary">See the feature guide</a>
+        </div>
+
+        <div class="tutorial-card">
+          <h3>Export & Code Generation</h3>
+          <p>
+            Export to SVG, React, Flutter, SwiftUI, and PDF, with per-node export settings.
+          </p>
+          <div class="tutorial-meta">
+            <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
+          </div>
+          <a href={sitePath('/features/export')} class="btn-secondary">See the feature guide</a>
         </div>
       </div>
 
       <div class="learn-cta">
-        <h2>Want to contribute?</h2>
-        <p>Help create tutorials for the community. See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
+        <h2>Want to write one?</h2>
+        <p>Structured, task-based tutorials are on the roadmap but not yet written. See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
       </div>
     </div>
   </div>
@@ -91,16 +122,16 @@ import { sitePath } from '../../lib/siteUrl';
     margin: 0 auto;
     padding: 3rem 0;
   }
-  
+
   .breadcrumb {
     font-size: 0.875rem;
     margin-bottom: 1.5rem;
   }
-  
+
   .breadcrumb a {
     color: var(--text-secondary);
   }
-  
+
   .learn-page h1 {
     font-size: clamp(2rem, 5vw, 2.5rem);
     font-family: var(--font-editorial);
@@ -110,20 +141,35 @@ import { sitePath } from '../../lib/siteUrl';
     margin-bottom: 1rem;
     color: var(--text-primary);
   }
-  
+
   .learn-intro {
     font-size: 1.125rem;
     color: var(--text-secondary);
-    margin-bottom: 3rem;
+    margin-bottom: 2.5rem;
+    line-height: 1.65;
   }
-  
+
+  .learn-subheading {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .learn-subintro {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+    max-width: 62ch;
+  }
+
   .tutorials-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
     gap: 2rem;
     margin-bottom: 3rem;
   }
-  
+
   .tutorial-card {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
@@ -131,53 +177,57 @@ import { sitePath } from '../../lib/siteUrl';
     padding: 2rem;
     transition: all var(--duration-fast) var(--ease-default);
   }
-  
+
   .tutorial-card:hover {
     border-color: var(--border-accent);
     transform: translateY(-2px);
   }
-  
-  .tutorial-card h2 {
+
+  .tutorial-card h3 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
     color: var(--text-primary);
   }
-  
+
   .tutorial-card p {
     color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 1rem;
   }
-  
+
   .tutorial-meta {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
-  
-  .tutorial-level,
-  .tutorial-time {
+
+  .tutorial-tag {
     font-size: 0.875rem;
     padding: 0.25rem 0.75rem;
     border-radius: 9999px;
+    background: var(--surface-accent-soft);
+    color: var(--accent-primary);
+  }
+
+  .tutorial-tag-alt {
     background: var(--surface-muted);
     color: var(--text-secondary);
   }
-  
+
   .learn-cta {
     text-align: center;
     padding: 3rem 0;
     border-top: 1px solid var(--border-default);
   }
-  
+
   .learn-cta h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
     color: var(--text-primary);
   }
-  
+
   .learn-cta p {
     color: var(--text-secondary);
   }
