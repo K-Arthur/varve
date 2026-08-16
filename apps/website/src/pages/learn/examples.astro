@@ -1,9 +1,96 @@
 ---
+/**
+ * /learn/examples — real screenshots, not invented project files.
+ *
+ * Downloadable starter documents don't exist yet (see the "Planned" section
+ * below). Rather than mock up examples that aren't real, this page shows
+ * actual captures from the deterministic screenshot pipeline
+ * (screenshot-manifest.json — the same source ProductShowcase.astro and the
+ * feature pages use), each paired with the feature page that explains it.
+ * A scene that hasn't been captured simply drops out of the grid instead of
+ * rendering a broken image.
+ */
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import manifest from '../../data/screenshot-manifest.json';
+
+type SceneMeta = {
+  file: string;
+  alt: string;
+  caption: string;
+  width?: number;
+  height?: number;
+  status?: 'captured' | 'skipped';
+};
+
+const scenes = manifest.scenes as unknown as Record<string, SceneMeta>;
+const captured = (key: string): SceneMeta | null => {
+  const scene = scenes[key];
+  return scene && scene.status === 'captured' ? scene : null;
+};
+
+type Example = {
+  scene: SceneMeta;
+  title: string;
+  idea: string;
+  href: string;
+  linkLabel: string;
+};
+
+const candidates: Array<Omit<Example, 'scene'> & { key: string }> = [
+  {
+    key: 'workspace',
+    title: 'A poster, start to finish',
+    idea: 'One document, one window: canvas, layers, and the properties inspector together. A reasonable starting point for any single-page piece — a poster, a flyer, a social post.',
+    href: '/product',
+    linkLabel: 'See the product overview',
+  },
+  {
+    key: 'layout',
+    title: 'A two-page editorial spread',
+    idea: 'Headlines, two-column body text, and image plates across a multi-page document — the shape of a magazine spread, a zine, or a report.',
+    href: '/features/canvas',
+    linkLabel: 'See the canvas & layout feature',
+  },
+  {
+    key: 'vector',
+    title: 'Precise vector work with live handles',
+    idea: 'A curved shape with its anchor points and Bézier handles visible in node editing mode — the kind of control precision illustration and icon work needs.',
+    href: '/features/vector-tools',
+    linkLabel: 'See the vector tools feature',
+  },
+  {
+    key: 'typography',
+    title: 'A type hierarchy, set and specimen',
+    idea: 'A display character, a character set, a subhead, and a body paragraph together — useful for testing a typeface pairing before committing to it.',
+    href: '/features/typography',
+    linkLabel: 'See the typography feature',
+  },
+  {
+    key: 'motion',
+    title: 'Keyframe animation on a timeline',
+    idea: 'A timeline track for a selected layer — the building block for a simple looped animation, an interface micro-interaction, or a prototype transition.',
+    href: '/features/motion',
+    linkLabel: 'See the motion feature',
+  },
+  {
+    key: 'palette-inspector',
+    title: 'A palette pulled from a photo',
+    idea: 'Extracted swatches, generated harmonies, and WCAG contrast pairs from an open image — a fast way to ground a color system in a real photograph instead of guessing.',
+    href: '/features/color-effects',
+    linkLabel: 'See the color & effects feature',
+  },
+];
+
+const examples: Example[] = candidates
+  .map(({ key, ...rest }) => {
+    const scene = captured(key);
+    return scene ? { scene, ...rest } : null;
+  })
+  .filter((example): example is Example => example !== null);
 ---
 
-<Layout title="Examples" description="Example files and projects to learn from — real Varve documents you can open, inspect, and remix.">
+<Layout title="Examples" description="Real Varve screenshots showing what vector, layout, typography, motion, and color workflows look like in the app today, each linked to the feature that explains it.">
   <div class="container-custom">
     <div class="learn-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -12,69 +99,48 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1>Examples</h1>
       <p class="learn-intro">
-        Example files and projects to learn from.
+        Downloadable starter files aren't ready yet (see below). Until they are, here's what
+        real Varve documents look like — actual screenshots from the running app, not mockups —
+        each paired with the feature page behind it.
       </p>
 
-      <div class="examples-grid">
-        <div class="example-card">
-          <h2>UI Component Library</h2>
-          <p>
-            A collection of common UI components built with Varve. Includes buttons, cards, inputs, and navigation elements ready to use in your designs.
-          </p>
-          <div class="example-meta">
-            <span class="example-type">Components</span>
-            <span class="example-status">Planned</span>
-          </div>
+      {examples.length > 0 && (
+        <div class="examples-grid">
+          {examples.map((example) => (
+            <a href={sitePath(example.href)} class="example-card">
+              <figure class="example-visual">
+                <img
+                  src={sitePath(`/screenshots/${example.scene.file}`)}
+                  alt={example.scene.alt}
+                  width={example.scene.width ?? 1440}
+                  height={example.scene.height ?? 900}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </figure>
+              <div class="example-body">
+                <h2>{example.title}</h2>
+                <p>{example.idea}</p>
+                <span class="example-link">{example.linkLabel}</span>
+              </div>
+            </a>
+          ))}
         </div>
+      )}
 
-        <div class="example-card">
-          <h2>Mobile App Mockups</h2>
-          <p>
-            Example mobile app designs showcasing Varve's vector tools and layout capabilities. Includes iOS and Android frame templates.
-          </p>
-          <div class="example-meta">
-            <span class="example-type">Templates</span>
-            <span class="example-status">Planned</span>
-          </div>
-        </div>
-
-        <div class="example-card">
-          <h2>Icon Set</h2>
-          <p>
-            A comprehensive icon set created entirely in Varve. Demonstrates precision vector work and export to SVG format.
-          </p>
-          <div class="example-meta">
-            <span class="example-type">Icons</span>
-            <span class="example-status">Planned</span>
-          </div>
-        </div>
-
-        <div class="example-card">
-          <h2>Brand Identity System</h2>
-          <p>
-            Complete brand identity example including logo variations, color palette, typography system, and brand guidelines document.
-          </p>
-          <div class="example-meta">
-            <span class="example-type">Branding</span>
-            <span class="example-status">Planned</span>
-          </div>
-        </div>
-
-        <div class="example-card">
-          <h2>Animation Showcase</h2>
-          <p>
-            Interactive animations and motion design examples. Demonstrates timeline animation, Smart Animate, and export to CSS/Lottie.
-          </p>
-          <div class="example-meta">
-            <span class="example-type">Motion</span>
-            <span class="example-status">Planned</span>
-          </div>
-        </div>
-      </div>
+      <section class="learn-status">
+        <h2 class="learn-subheading">Starter files — planned</h2>
+        <p class="learn-subintro">
+          Downloadable <code>.varve</code> example documents (a component library, mobile
+          mockups, an icon set, a brand identity system, an animation showcase) are on the
+          roadmap but don't exist yet. Building and sharing one is a concrete way to
+          contribute — see the <a href={sitePath('/contribute')}>contribution guidelines</a>.
+        </p>
+      </section>
 
       <div class="learn-cta">
-        <h2>Want to contribute?</h2>
-        <p>Share your example files with the community. See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
+        <h2>Want to contribute an example?</h2>
+        <p>Share a real document with the community. See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
       </div>
     </div>
   </div>
@@ -82,20 +148,20 @@ import { sitePath } from '../../lib/siteUrl';
 
 <style>
   .learn-page {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 3rem 0;
   }
-  
+
   .breadcrumb {
     font-size: 0.875rem;
     margin-bottom: 1.5rem;
   }
-  
+
   .breadcrumb a {
     color: var(--text-secondary);
   }
-  
+
   .learn-page h1 {
     font-size: clamp(2rem, 5vw, 2.5rem);
     font-family: var(--font-editorial);
@@ -105,78 +171,131 @@ import { sitePath } from '../../lib/siteUrl';
     margin-bottom: 1rem;
     color: var(--text-primary);
   }
-  
+
   .learn-intro {
     font-size: 1.125rem;
     color: var(--text-secondary);
-    margin-bottom: 3rem;
+    line-height: 1.65;
+    margin-bottom: 2.5rem;
+    max-width: 68ch;
   }
-  
+
   .examples-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 1.5rem;
     margin-bottom: 3rem;
   }
-  
+
   .example-card {
+    display: block;
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: 0.75rem;
-    padding: 2rem;
-    transition: all var(--duration-fast) var(--ease-default);
+    overflow: hidden;
+    text-decoration: none;
+    transition:
+      transform var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default);
   }
-  
+
   .example-card:hover {
     border-color: var(--border-accent);
     transform: translateY(-2px);
+    box-shadow: var(--elevation-shadow-raised);
   }
-  
-  .example-card h2 {
-    font-size: 1.25rem;
+
+  .example-visual {
+    margin: 0;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--border-default);
+  }
+
+  .example-visual img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .example-body {
+    padding: 1.5rem;
+  }
+
+  .example-body h2 {
+    font-size: 1.1875rem;
     font-weight: 600;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.6rem;
     color: var(--text-primary);
   }
-  
-  .example-card p {
+
+  .example-body p {
     color: var(--text-secondary);
     line-height: 1.6;
+    font-size: 0.9375rem;
     margin-bottom: 1rem;
   }
-  
-  .example-meta {
-    display: flex;
-    gap: 0.5rem;
-  }
-  
-  .example-type,
-  .example-status {
+
+  .example-link {
+    display: inline-flex;
+    align-items: center;
     font-size: 0.875rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    background: var(--surface-muted);
+    font-weight: 600;
+    color: var(--text-link);
+  }
+
+  .example-card:hover .example-link {
+    color: var(--text-link-hover);
+  }
+
+  .learn-subheading {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+  }
+
+  .learn-subintro {
     color: var(--text-secondary);
+    line-height: 1.6;
   }
-  
-  .example-status {
-    background: var(--surface-warning);
-    color: var(--text-warning);
+
+  .learn-subintro code {
+    background: var(--surface-code);
+    color: var(--text-code);
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.9em;
   }
-  
+
+  .learn-status {
+    background: var(--surface-muted);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .learn-status .learn-subheading {
+    margin-bottom: 0.75rem;
+  }
+
   .learn-cta {
     text-align: center;
     padding: 3rem 0;
     border-top: 1px solid var(--border-default);
   }
-  
+
   .learn-cta h2 {
     font-size: 1.25rem;
     font-weight: 600;
     margin-bottom: 0.75rem;
     color: var(--text-primary);
   }
-  
+
   .learn-cta p {
     color: var(--text-secondary);
   }
