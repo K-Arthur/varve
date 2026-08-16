@@ -9,8 +9,12 @@ the details publicly before we have coordinated a fix.
 Contact: open a private advisory at
 https://github.com/K-Arthur/varve/security/advisories
 
-You should receive a response within 48 hours. If you do not, please
-follow up via the same channel.
+You may also email [security@varve.studio](mailto:security@varve.studio). Do not
+send vulnerability details through a public issue or discussion. Do not include
+unnecessary personal data or destructive test results.
+
+Reports are reviewed as capacity allows. If you do not receive an acknowledgement,
+follow up through the same private channel.
 
 ## Supported Versions
 
@@ -47,7 +51,7 @@ The following are out of scope:
 
 ## Handling process
 
-1. **Acknowledge** the report within 48 hours via the advisory.
+1. **Acknowledge** the report via the advisory or security email.
 2. **Triage**: confirm severity, affected versions, and whether a fix is
    feasible.
 3. **Fix and release**: a fix lands on `master`, then in the next stable

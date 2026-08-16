@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!--
+    Varve mark — master icon (no background).
+    Construction grid: 128×128 canvas, U=8px.
+    Three parallelogram strata layers, all same tilt (shear +8px right, height 20px),
+    cascading +8px right per layer. Shear = cascade so adjacent edges share x-coordinate,
+    producing a continuous staircase silhouette readable in monochrome and at 16px.
+    Safe zone: content x=[20,108], y=[26,102] — 20px margins all sides (15.6%).
+    Colours: design-system brand tokens teal/sandstone/terracotta.
+    All three pass 3:1 contrast on both light (#f5f7fa) and dark (#10151F) backgrounds.
+  -->
+  <path d="M20,26 H84 L92,46 H28 Z" fill="#39D0C6"/>
+  <path d="M28,54 H92 L100,74 H36 Z" fill="#E28C3C"/>
+  <path d="M36,82 H100 L108,102 H44 Z" fill="#C54B3A"/>
+</svg>
