@@ -42,6 +42,7 @@ import {
   PRESENTATION_EVIDENCE_BY_RUNTIME,
   RefreshIntervalEstimator,
 } from '../performance/presentationTiming';
+import { getAdaptiveResidencyManager } from '../render/adaptiveResidency';
 import {
   getOffscreenCapability,
   getOffscreenProbeDetail,
@@ -411,6 +412,7 @@ function augmentPerfDiagnosticsHandle(): void {
       viewport: (width: number, height: number) => setPyramidViewport(width, height),
     },
     workerBitmapBudget: () => getRegisteredWorkerHost()?.getBitmapBudgetState() ?? null,
+    residency: () => getAdaptiveResidencyManager().diagnostics(),
     // Presentation evidence is reported with its class and limits so a probe
     // cannot mistake the rAF lower bound for a measured presentation time.
     // Node work and the individual pre-merge dirty rectangles behind it, so a
