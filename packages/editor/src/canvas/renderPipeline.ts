@@ -50,6 +50,10 @@ import {
 import type { EditorContextValue, EditorState } from '../context';
 import { applyPropertyPath } from '../propertyPath';
 import {
+  getAdaptiveResidencyManager,
+  selectRasterRepresentation,
+} from '../render/adaptiveResidency';
+import {
   closeImageBitmapMap,
   collectImageBitmaps,
   type RenderWorkerHost,
@@ -914,6 +918,49 @@ export function renderContent(deps: RenderContentDeps): void {
       buildIrMs = performance.now() - t0c;
     }
     const needsStructural = sceneNeedsStructuralCompositing(doc);
+    const imageRepresentation = selectRasterRepresentation({
+      viewportWidth: VP_W,
+      viewportHeight: VP_H,
+      devicePixelRatio: dpr,
+      zoom: s.zoom,
+      intent: 'interactive',
+    });
+    const replayImagePolicy = {
+      intent: 'interactive' as const,
+      maxSourceDim: imageRepresentation.maxSourceDim,
+    };
+    const residency = getAdaptiveResidencyManager();
+    residency.beginFrame();
+    residency.setBudgets({
+      cpuBytes: budgets.imageCacheBytes,
+      gpuBytes: budgets.workerBitmapBytes,
+    });
+    const observedImageSources = new Set<string>();
+    for (const item of ir) {
+      for (const fill of item.fills ?? []) {
+        if (fill.type !== 'image' || fill.visible === false || observedImageSources.has(fill.src)) {
+          continue;
+        }
+        observedImageSources.add(fill.src);
+        const sourceWidth = Math.max(1, fill.imageWidth ?? 1);
+        const sourceHeight = Math.max(1, fill.imageHeight ?? 1);
+        const sourceLongEdge = Math.max(sourceWidth, sourceHeight);
+        const residentLongEdge = Math.min(sourceLongEdge, imageRepresentation.maxSourceDim);
+        const scale = residentLongEdge / sourceLongEdge;
+        residency.observe({
+          resourceId: `${doc.id}:${fill.src}`,
+          resourceType: 'image-source',
+          documentId: doc.id,
+          cpuBytes: Math.ceil(sourceWidth * scale) * Math.ceil(sourceHeight * scale) * 4,
+          visibility: 'visible',
+          priority: 'visible',
+          fidelity: scale < 1 ? 'interactive-medium' : 'interactive-high',
+          representation: scale < 1 ? 'proxy' : 'full',
+          recreationCost: sourceLongEdge / 1024,
+          reuseProbability: 0.5,
+        });
+      }
+    }
 
     if (s.canvasMode === 'outline') {
       const outlineColor: EngineColor = { space: 'rgb', r: 30, g: 30, b: 36, a: 255 };
@@ -1014,10 +1061,20 @@ export function renderContent(deps: RenderContentDeps): void {
     dirtyRectRef.current = null;
 
     const paintLeafItem = (item: IrItem, targetCtx: CanvasRenderingContext2D): void => {
-      if (targetCtx === ctxNN && compositorRef.current) {
+      // Structural replay has an active Canvas2D save/clip stack. A compositor
+      // backend may render a leaf into another surface and blit it back, which
+      // cannot inherit that clip. Direct replay also lets the image policy use
+      // a viewport-sized proxy without changing export/print paths.
+      if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
         compositorRef.current.drawVectorItems([item]);
       } else {
-        replayIr(targetCtx as unknown as ReplayTarget, [item]);
+        replayIr(
+          targetCtx as unknown as ReplayTarget,
+          [item],
+          undefined,
+          undefined,
+          replayImagePolicy,
+        );
       }
     };
 

@@ -33,7 +33,12 @@ import {
   type ImagePlacementRect,
 } from './imagePlacement';
 import { applyDepthBlur } from './lensBlur';
-import { paintWarpedImage, quadBoundsOf, resolveReplayImage } from './mockup/warpReplay';
+import {
+  paintWarpedImage,
+  quadBoundsOf,
+  type ReplayImagePolicy,
+  resolveReplayImage,
+} from './mockup/warpReplay';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { getRasterLayerCache } from './rasterLayerCache';
@@ -691,12 +696,14 @@ function paintInsetEffect(
  */
 let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined) | null = null;
 let effectMaskResolverForCurrentReplay: EffectMaskResolver | null = null;
+let imagePolicyForCurrentReplay: ReplayImagePolicy | undefined;
 
 function replayItemOnIsolatedSurface(
   target: ReplayTarget,
   item: RenderItem,
   imageLookup?: (src: string) => CanvasImageSource | undefined,
   effectMaskResolver?: EffectMaskResolver,
+  imagePolicy?: ReplayImagePolicy,
 ): boolean {
   const canvas = target.canvas;
   if (
@@ -736,6 +743,7 @@ function replayItemOnIsolatedSurface(
     ],
     imageLookup,
     effectMaskResolver ?? effectMaskResolverForCurrentReplay ?? undefined,
+    imagePolicy,
   );
   applyFilterWithCompositing(
     surface.context as CanvasRenderingContext2D,
@@ -762,12 +770,16 @@ function replayItemOnIsolatedSurface(
  * @param imageLookup Optional callback for resolving image source URLs to
  *   CanvasImageSource (used by render workers that receive ImageBitmaps
  *   via Structured Clone and cannot use `new Image()`).
+ * @param imagePolicy Optional interactive image representation policy. Export
+ *   and print callers omit this argument and therefore always use full source
+ *   fidelity.
  */
 export function replayIr(
   target: ReplayTarget,
   ir: readonly RenderItem[],
   imageLookup?: (src: string) => CanvasImageSource | undefined,
   effectMaskResolver?: EffectMaskResolver,
+  imagePolicy?: ReplayImagePolicy,
 ): void {
   // Sweep expired backdrop cache entries (preserves recent entries across frames)
   sweepBackdropCache();
@@ -776,8 +788,10 @@ export function replayIr(
   gradientCache.sweep();
   const previousImageLookup = imageLookupForCurrentReplay;
   const previousEffectMaskResolver = effectMaskResolverForCurrentReplay;
+  const previousImagePolicy = imagePolicyForCurrentReplay;
   imageLookupForCurrentReplay = imageLookup ?? previousImageLookup;
   effectMaskResolverForCurrentReplay = effectMaskResolver ?? previousEffectMaskResolver;
+  imagePolicyForCurrentReplay = imagePolicy ?? previousImagePolicy;
   try {
     for (const item of ir) {
       if (
@@ -1060,6 +1074,7 @@ export function replayIr(
   } finally {
     imageLookupForCurrentReplay = previousImageLookup;
     effectMaskResolverForCurrentReplay = previousEffectMaskResolver;
+    imagePolicyForCurrentReplay = previousImagePolicy;
   }
 }
 
@@ -1114,6 +1129,11 @@ function paintImageFill(
     imageLookupForCurrentReplay,
     getImageCache(),
     fill.frame,
+    {
+      ...imagePolicyForCurrentReplay,
+      sourceWidth: fill.imageWidth,
+      sourceHeight: fill.imageHeight,
+    },
   );
 
   if (!target.drawImage) {
@@ -1135,8 +1155,14 @@ function paintImageFill(
     width?: number;
     height?: number;
   };
-  const fullSourceWidth = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bw;
-  const fullSourceHeight = sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bh;
+  const fullSourceWidth = fill.imageWidth || sizedImage.naturalWidth || sizedImage.width || bw;
+  const fullSourceHeight = fill.imageHeight || sizedImage.naturalHeight || sizedImage.height || bh;
+  const actualSourceWidth = sizedImage.naturalWidth || sizedImage.width || fullSourceWidth;
+  const actualSourceHeight = sizedImage.naturalHeight || sizedImage.height || fullSourceHeight;
+  const sourceScale = {
+    x: actualSourceWidth / Math.max(1, fullSourceWidth),
+    y: actualSourceHeight / Math.max(1, fullSourceHeight),
+  };
 
   const placement = computeImagePlacement({
     fit: fill.fit ?? 'fill',
@@ -1159,7 +1185,7 @@ function paintImageFill(
       for (let tx = dx; tx < bounds.x + bw; tx += dw) {
         const tileRect = { x: tx, y: ty, w: dw, h: dh };
         const sampleRect = offsetSampleRect(placement, tileRect);
-        drawPlacedImageSample(target, image, placement, tileRect, sampleRect);
+        drawPlacedImageSample(target, image, placement, tileRect, sampleRect, sourceScale);
       }
     }
     return;
@@ -1189,6 +1215,7 @@ function paintImageFill(
           bounds,
           fill.src,
           fill.alphaMask,
+          sourceScale,
         );
         if (masked) {
           target.drawImage(masked, bounds.x, bounds.y, bounds.w, bounds.h);
@@ -1199,6 +1226,7 @@ function paintImageFill(
             placement,
             placement.drawRect,
             placement.sampleDrawRect,
+            sourceScale,
           );
         }
       } catch {
@@ -1211,10 +1239,24 @@ function paintImageFill(
         );
       }
     } else {
-      drawPlacedImageSample(target, image, placement, placement.drawRect, placement.sampleDrawRect);
+      drawPlacedImageSample(
+        target,
+        image,
+        placement,
+        placement.drawRect,
+        placement.sampleDrawRect,
+        sourceScale,
+      );
     }
   } else {
-    drawPlacedImageSample(target, image, placement, placement.drawRect, placement.sampleDrawRect);
+    drawPlacedImageSample(
+      target,
+      image,
+      placement,
+      placement.drawRect,
+      placement.sampleDrawRect,
+      sourceScale,
+    );
   }
 }
 
@@ -1236,8 +1278,13 @@ function drawPlacedImageSample(
   placement: ImagePlacement,
   drawRect: ImagePlacementRect,
   sampleDrawRect: ImagePlacementRect,
+  sourceScale = { x: 1, y: 1 },
 ): void {
-  const { x: sx, y: sy, w: sw, h: sh } = placement.sourceRect;
+  const { x, y, w, h } = placement.sourceRect;
+  const sx = x * sourceScale.x;
+  const sy = y * sourceScale.y;
+  const sw = w * sourceScale.x;
+  const sh = h * sourceScale.y;
   const hasTransform = placement.rotation !== 0 || placement.flipH || placement.flipV;
   if (!hasTransform) {
     target.drawImage?.(
@@ -1294,6 +1341,7 @@ function renderMaskedImageSample(
   bounds: ImagePlacementRect,
   imageKey: string,
   maskKey: string,
+  sourceScale = { x: 1, y: 1 },
 ): HTMLCanvasElement | null {
   if (typeof document === 'undefined' || typeof document.createElement !== 'function') return null;
   const width = Math.max(1, Math.ceil(bounds.w));
@@ -1322,6 +1370,8 @@ function renderMaskedImageSample(
     placement.sourceRect.y,
     placement.sourceRect.w,
     placement.sourceRect.h,
+    sourceScale.x,
+    sourceScale.y,
     placement.rotation,
     placement.flipH,
     placement.flipV,
@@ -1345,6 +1395,7 @@ function renderMaskedImageSample(
     placement,
     placement.drawRect,
     placement.sampleDrawRect,
+    sourceScale,
   );
   context.globalCompositeOperation = 'destination-in';
   drawPlacedImageSample(
