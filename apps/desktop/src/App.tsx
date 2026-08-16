@@ -67,15 +67,24 @@ export function App() {
   // soon as it resolves (it is async to construct by design). The browser
   // build must not silently run on a no-op storage backend.
   const [platform, setPlatform] = useState(bootPlatform);
+  // True when the real storage backend could not be constructed and the app is
+  // running on in-memory storage. Surfaced to the user: silently continuing
+  // meant work could be lost on reload with no warning.
+  const [storageIsEphemeral, setStorageIsEphemeral] = useState(false);
   useEffect(() => {
     if (bootPlatform.kind !== 'memory') return;
     let cancelled = false;
     void createWebPlatform()
       .then((web) => {
-        if (!cancelled) setPlatform(web);
+        if (!cancelled) {
+          setPlatform(web);
+          setStorageIsEphemeral(false);
+        }
       })
       .catch(() => {
-        // No IndexedDB (rare, e.g. strict privacy modes): keep the fallback.
+        // No IndexedDB (rare, e.g. strict privacy modes): keep the fallback,
+        // but tell the user their work will not persist.
+        if (!cancelled) setStorageIsEphemeral(true);
       });
     return () => {
       cancelled = true;
@@ -217,6 +226,15 @@ export function App() {
             void platform
               .patchRecentFile(entry.id, { name: entry.name, missing: true })
               .catch(() => undefined);
+            // Activating a file must never look like a no-op: the missing
+            // badge only appears after Home refreshes, so state alone left the
+            // user with no feedback (WCAG 3.3.1).
+            window.alert(
+              `"${entry.name}" could not be opened because the file is no longer at its saved location, and no cached copy is available.`,
+            );
+            // Clear the dedupe latch so the user can retry this file (e.g.
+            // after reconnecting a drive) instead of it silently no-opping.
+            lastOpenIdRef.current = null;
             return;
           }
           // We have cached content but the file is missing on disk.
@@ -247,6 +265,10 @@ export function App() {
         void platform
           .patchRecentFile(entry.id, { name: entry.name, missing: true })
           .catch(() => undefined);
+        window.alert(
+          `"${entry.name}" could not be opened because its contents are missing from local storage.`,
+        );
+        lastOpenIdRef.current = null;
         return;
       }
 
@@ -336,6 +358,13 @@ export function App() {
         }}
       >
         <TitleBar />
+        {storageIsEphemeral && (
+          <div role="alert" className="varve-ephemeral-storage-banner">
+            Local storage is unavailable, so documents are kept in memory only and will be lost when
+            this window closes. Save your work to a file, or check your browser's storage
+            permissions.
+          </div>
+        )}
         <div style={surfaceStyle(view === 'home')}>
           <SettingsProvider>
             <HomeShell

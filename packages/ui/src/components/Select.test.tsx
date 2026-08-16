@@ -135,6 +135,94 @@ describe('Select', () => {
     expect(screen.getByText('Please select a fruit')).toBeInTheDocument();
     expect(screen.getByText('Please select a fruit')).toHaveAttribute('role', 'alert');
   });
+
+  // Regression: keyboard navigation used to step onto disabled options, so a
+  // keyboard user could highlight (and activate) an option a mouse user
+  // cannot select. WCAG 2.1.1 / 4.1.2.
+  describe('disabled options', () => {
+    const withDisabled: SelectOption[] = [
+      { value: 'apple', label: 'Apple' },
+      { value: 'banana', label: 'Banana', disabled: true },
+      { value: 'cherry', label: 'Cherry' },
+    ];
+
+    it('ArrowDown skips a disabled option', async () => {
+      const user = userEvent.setup();
+      render(<SelectFixture options={withDisabled} />);
+      await user.click(screen.getByRole('combobox'));
+
+      const combobox = screen.getByRole('combobox');
+      const options = screen.getAllByRole('option');
+      expect(combobox.getAttribute('aria-activedescendant')).toBe(options[0]?.getAttribute('id'));
+
+      await user.keyboard('{ArrowDown}');
+      // Banana (index 1) is disabled — the highlight must land on Cherry.
+      expect(combobox.getAttribute('aria-activedescendant')).toBe(options[2]?.getAttribute('id'));
+    });
+
+    it('ArrowUp skips a disabled option', async () => {
+      const user = userEvent.setup();
+      render(<SelectFixture options={withDisabled} initialValue="cherry" />);
+      await user.click(screen.getByRole('combobox'));
+
+      const combobox = screen.getByRole('combobox');
+      const options = screen.getAllByRole('option');
+      await user.keyboard('{ArrowUp}');
+      expect(combobox.getAttribute('aria-activedescendant')).toBe(options[0]?.getAttribute('id'));
+    });
+
+    it('never opens with a disabled option active', async () => {
+      const user = userEvent.setup();
+      const disabledFirst: SelectOption[] = [
+        { value: 'apple', label: 'Apple', disabled: true },
+        { value: 'banana', label: 'Banana' },
+      ];
+      render(<SelectFixture options={disabledFirst} />);
+      await user.click(screen.getByRole('combobox'));
+
+      const options = screen.getAllByRole('option');
+      expect(screen.getByRole('combobox').getAttribute('aria-activedescendant')).toBe(
+        options[1]?.getAttribute('id'),
+      );
+    });
+
+    it('Enter on a disabled option neither selects nor closes', async () => {
+      const user = userEvent.setup();
+      // Every option disabled: navigation cannot escape to a selectable one,
+      // so this asserts the guard inside selectHighlighted rather than the
+      // navigation skipping above.
+      const allDisabled: SelectOption[] = [
+        { value: 'apple', label: 'Apple', disabled: true },
+        { value: 'banana', label: 'Banana', disabled: true },
+      ];
+      render(<SelectFixture options={allDisabled} />);
+      await user.click(screen.getByRole('combobox'));
+
+      await user.keyboard('{Enter}');
+      // Previously the listbox closed (consuming the activation) even though
+      // nothing could be selected.
+      expect(screen.getByRole('listbox')).toBeInTheDocument();
+      expect(screen.getByText('Select...')).toBeInTheDocument();
+    });
+  });
+
+  it('searchable filter input owns the active descendant and has a name', async () => {
+    const user = userEvent.setup();
+    const many: SelectOption[] = Array.from({ length: 12 }, (_, i) => ({
+      value: `v${i}`,
+      label: `Option ${i}`,
+    }));
+    render(<SelectFixture options={many} searchable />);
+    await user.click(screen.getByRole('combobox'));
+
+    // Focus moves to the filter input, so that input — not the trigger — must
+    // expose the highlighted option to assistive technology.
+    const search = screen.getByRole('searchbox', { name: /filter fruit/i });
+    expect(search).toHaveAttribute('aria-activedescendant');
+    const before = search.getAttribute('aria-activedescendant');
+    await user.keyboard('{ArrowDown}');
+    expect(search.getAttribute('aria-activedescendant')).not.toBe(before);
+  });
 });
 
 describe('Select — searchable', () => {

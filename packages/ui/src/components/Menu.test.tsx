@@ -632,6 +632,45 @@ describe('Menu focus lifecycle', () => {
   });
 });
 
+// Regression: "Show all (N items)" only called closeAll(), so activating it
+// dismissed the menu without ever revealing the truncated items — the control
+// named an action it did not perform.
+describe('Menu item truncation', () => {
+  function TruncatedMenu({ onClose }: { onClose: () => void }) {
+    const ref = useRef<HTMLButtonElement>(null);
+    const items: MenuEntry[] = Array.from({ length: 40 }, (_, i) => ({
+      id: `item-${i}`,
+      label: `Item ${i}`,
+      onAction: vi.fn(),
+    }));
+    return (
+      <>
+        <button type="button" ref={ref}>
+          trigger
+        </button>
+        <Menu items={items} triggerRef={ref} open onClose={onClose} label="test" />
+      </>
+    );
+  }
+
+  it('reveals the hidden items instead of closing the menu', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<TruncatedMenu onClose={onClose} />);
+
+    // Default maxVisibleItems is 30.
+    expect(document.body.querySelectorAll('[role="menuitem"]').length).toBe(31); // 30 + Show all
+
+    const showAll = screen.getByText(/Show all \(40 items\)/);
+    await user.click(showAll);
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.body.querySelectorAll('[role="menuitem"]').length).toBe(40);
+    expect(screen.queryByText(/Show all/)).not.toBeInTheDocument();
+    expect(screen.getByText('Item 39')).toBeInTheDocument();
+  });
+});
+
 describe('MenuButton', () => {
   it('renders with aria attributes', () => {
     render(<MenuButton label="File" menuId="file-menu" expanded={false} onClick={vi.fn()} />);

@@ -9,6 +9,24 @@ import {
 } from 'react';
 import { useNestedOverlayRef } from './NestedOverlayContext';
 
+// A consumer opts out of the internal dismissal behavior by calling
+// preventDefault in its own handler. Whether the event was ALREADY
+// default-prevented before reaching the dialog is not consulted: descendants
+// (a Select consuming Escape, a form control consuming Enter) routinely
+// preventDefault, and treating that as "skip dialog dismissal" would silently
+// take over the job of the nested-overlay guard. Module-scope: it closes over
+// nothing component-specific, so it stays referentially stable for the
+// useCallback hooks below instead of forcing them to depend on it.
+function consumerOptedOut<E extends React.SyntheticEvent>(
+  e: E,
+  handler: ((e: E) => void) | undefined,
+): boolean {
+  if (!handler) return false;
+  const preventedBefore = e.defaultPrevented;
+  handler(e);
+  return !preventedBefore && e.defaultPrevented;
+}
+
 export interface DialogProps extends DialogHTMLAttributes<HTMLDialogElement> {
   open: boolean;
   onClose: () => void;
@@ -41,6 +59,9 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     footer,
     className = '',
     focusFirstControl = false,
+    onCancel: consumerOnCancel,
+    onClick: consumerOnClick,
+    onKeyDown: consumerOnKeyDown,
     ...rest
   },
   ref,
@@ -73,25 +94,32 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     [ref],
   );
 
+  // Consumer handlers are composed with the internal dismissal behavior
+  // rather than spread over it. Spreading `...rest` after these props let a
+  // caller-supplied onCancel/onClick/onKeyDown silently remove Escape or
+  // backdrop dismissal (and the nested-overlay guard) from a modal dialog.
   const handleCancel = useCallback(
     (e: React.SyntheticEvent<HTMLDialogElement>) => {
+      if (consumerOptedOut(e, consumerOnCancel)) return;
       e.preventDefault();
       if (dismissible) onClose();
     },
-    [dismissible, onClose],
+    [dismissible, onClose, consumerOnCancel],
   );
 
   const handleBackdrop = useCallback(
     (e: React.MouseEvent<HTMLDialogElement>) => {
+      if (consumerOptedOut(e, consumerOnClick)) return;
       if (dismissible && e.target === innerRef.current) onClose();
     },
-    [dismissible, onClose],
+    [dismissible, onClose, consumerOnClick],
   );
 
   const nestedOverlayRef = useNestedOverlayRef();
 
   const handleBackdropKey = useCallback(
     (e: React.KeyboardEvent<HTMLDialogElement>) => {
+      if (consumerOptedOut(e, consumerOnKeyDown)) return;
       if (dismissible && e.key === 'Escape') {
         // Don't close the dialog when a nested overlay (Select, Popover,
         // etc.) is open — that overlay should consume the Escape first.
@@ -99,7 +127,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
         onClose();
       }
     },
-    [dismissible, onClose, nestedOverlayRef],
+    [dismissible, onClose, nestedOverlayRef, consumerOnKeyDown],
   );
 
   return (

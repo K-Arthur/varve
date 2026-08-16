@@ -143,6 +143,11 @@ export function PagesPanel() {
 
   const handleRowKeyDown = useCallback(
     (e: React.KeyboardEvent, index: number) => {
+      // The row owns Enter/Space/Delete, but it also contains move/duplicate/
+      // delete buttons. Those stop click propagation, not keydown, so pressing
+      // Enter on "Duplicate" previously ran the button action AND navigated
+      // the document to that page.
+      if (e.target !== e.currentTarget) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         const next = e.key === 'ArrowDown' ? index + 1 : index - 1;
