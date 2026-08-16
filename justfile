@@ -18,6 +18,12 @@ check-env:
 install:
     pnpm install
 
+# --- Dev utilities ---
+boot-watch:
+    # Wait until the dev server (http://localhost:1420) serves the editor
+    # (checks every 20 s, up to ~10 min, exits 1 on timeout).
+    node boot-watch.mjs
+
 # --- Build everything ---
 build: build-rust build-js
 build-rust:
