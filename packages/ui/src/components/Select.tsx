@@ -315,6 +315,7 @@ export function Select({
         aria-describedby={error ? errorId : undefined}
         tabIndex={disabled ? -1 : 0}
         className={`varve-select__trigger${error ? ' varve-select__trigger--error' : ''}${disabled ? ' varve-select__trigger--disabled' : ''}`}
+        aria-disabled={disabled || undefined}
         onClick={handleTriggerClick}
         onKeyDown={handleTriggerKeyDown}
         data-disabled={disabled || undefined}
