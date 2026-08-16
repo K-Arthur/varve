@@ -5,7 +5,7 @@ import StatusPill from '../components/StatusPill.astro';
 import ClosingCTA from '../components/ClosingCTA.astro';
 ---
 
-<Layout title="Features - Varve" description="Explore what Varve can do today — vector design, raster editing, layout, typography, motion, prototyping, color management, and code export.">
+<Layout title="Features" description="Explore what Varve can do today — vector design, raster editing, layout, typography, motion, prototyping, color management, and code export.">
   <div class="container-custom">
     <div class="features-page">
       <h1 class="page-hero-title">Features</h1>
@@ -14,6 +14,15 @@ import ClosingCTA from '../components/ClosingCTA.astro';
       </p>
 
       <div class="features-grid">
+        <a href={sitePath('/features/background-removal')} class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12" opacity="0.6"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
+          <h2>Background Removal</h2>
+          <p>Fast, Auto, and High quality subject cutouts that keep the mask local and undoable</p>
+        </a>
+
         <a href={sitePath('/features/image-enhancement')} class="feature-card">
           <div class="feature-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16.5 9 11l3.5 3.5L16 11l4 5.5"/><path d="M5 5h14v14H5z" opacity=".45"/><path d="M8 8h.01"/></svg>
