@@ -2,7 +2,8 @@
 import '../styles/global.css';
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
-import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath } from '../lib/siteUrl';
+import { CONTACTS } from '@varve/shared';
+import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath, siteUrl } from '../lib/siteUrl';
 
 interface Props {
   title: string;
@@ -12,6 +13,8 @@ interface Props {
   structuredData?: object | object[];
   /** Set true for pages that must not appear in search results (e.g. 404). */
   noindex?: boolean;
+  /** Optional canonical route for a compatibility alias. */
+  canonicalPath?: string;
 }
 
 const {
@@ -20,12 +23,13 @@ const {
   image = "/og-image.png",
   structuredData,
   noindex = false,
+  canonicalPath,
 } = Astro.props;
 
 // The base path is part of the deployed URL (GitHub Pages serves under /varve),
 // so absolute URLs must join site + base rather than assume the root. The
 // helpers in lib/siteUrl.ts are the one place this joining lives.
-const canonicalUrl = canonicalUrlOf(Astro.url.pathname);
+const canonicalUrl = canonicalPath ? siteUrl(canonicalPath) : canonicalUrlOf(Astro.url.pathname);
 const ogImageUrl = ogImageUrlOf(image);
 
 // Avoid "Features - Varve | Varve" duplication: only append the brand when the
@@ -40,10 +44,36 @@ const sitewideStructuredData = [
     name: 'Varve',
     url: siteOriginOf(),
     logo: ogImageUrl,
-    sameAs: [
-      'https://github.com/K-Arthur/varve',
-      'https://github.com/K-Arthur/varve/discussions',
-    ],
+     sameAs: [
+       'https://github.com/K-Arthur/varve',
+       'https://github.com/K-Arthur/varve/discussions',
+     ],
+      contactPoint: [
+        {
+          '@type': 'ContactPoint',
+          contactType: 'customer support',
+          email: CONTACTS.support,
+          url: siteUrl('/support'),
+        },
+        {
+          '@type': 'ContactPoint',
+          contactType: 'media inquiries',
+          email: CONTACTS.press,
+          url: siteUrl('/contact'),
+        },
+        {
+          '@type': 'ContactPoint',
+          contactType: 'privacy',
+          email: CONTACTS.privacy,
+          url: siteUrl('/about/privacy'),
+        },
+        {
+          '@type': 'ContactPoint',
+          contactType: 'security',
+          email: CONTACTS.security,
+          url: siteUrl('/security'),
+        },
+      ],
   },
   {
     '@context': 'https://schema.org',

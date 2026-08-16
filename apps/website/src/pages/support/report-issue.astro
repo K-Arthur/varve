@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { CONTACTS } from '@varve/shared';
 ---
 
 <Layout title="Report an Issue" description="How to report a Varve bug or feature request: what information to include, where to file it, and what response to expect from a solo-developer project.">
@@ -89,9 +90,9 @@ import { sitePath } from '../../lib/siteUrl';
         <p>For security vulnerabilities, please report privately:</p>
         <ul>
           <li><a href="https://github.com/K-Arthur/varve/security/advisories">GitHub Security Advisory</a> - Private vulnerability reporting</li>
-          <li>Email: security@k-arthur.design</li>
+           <li><a href={`mailto:${CONTACTS.security}`}>{CONTACTS.security}</a> — private email disclosure</li>
         </ul>
-        <p>Response time for security issues is typically within 48 hours for critical vulnerabilities.</p>
+         <p>Security reports are handled privately and reviewed as capacity allows; do not disclose sensitive details publicly.</p>
       </div>
 
       <div class="report-cta">

@@ -1,0 +1,220 @@
+---
+/**
+ * ContactChannel — one public contact channel, rendered consistently.
+ *
+ * Every surface that offers an email address renders it through this
+ * component so the copy, heading level, accessible link name, and the
+ * copy-to-clipboard affordance cannot drift between pages.
+ *
+ * Accessibility and robustness decisions, all deliberate:
+ *  - the address is always visible text, never an image and never
+ *    JavaScript-assembled, so it can be read and copied with no mail client
+ *    configured and no scripting;
+ *  - the mail link carries an explicit `aria-label` ("Email Varve product
+ *    support") because "support@varve.studio" read out of a link list does
+ *    not say what it is for;
+ *  - the Copy button is added by client script only after it verifies
+ *    clipboard support, so a browser without it never shows a dead control.
+ */
+import { type ContactChannelId, contactChannel, contactMailto } from '@varve/shared';
+
+interface Props {
+  /** Which canonical channel to render. */
+  id: ContactChannelId;
+  /** Heading level, so the page keeps a correct outline. */
+  headingLevel?: 2 | 3;
+  /** Show the concrete example list. Off for compact contexts. */
+  showExamples?: boolean;
+  /** Optional copy that replaces the canonical purpose sentence. */
+  purpose?: string;
+}
+
+const { id, headingLevel = 2, showExamples = false, purpose } = Astro.props;
+
+const channel = contactChannel(id);
+const Heading = `h${headingLevel}` as 'h2' | 'h3';
+const headingId = `contact-${channel.id}`;
+---
+
+<section class="contact-channel" aria-labelledby={headingId}>
+  <Heading id={headingId} class="contact-channel-title">{channel.label}</Heading>
+  <p class="contact-channel-purpose">{purpose ?? channel.purpose}</p>
+
+  <p class="contact-channel-address">
+    <a
+      href={contactMailto(channel.id)}
+      class="contact-channel-link"
+      aria-label={channel.linkLabel}
+      data-analytics-contact={channel.id}
+    >{channel.email}</a>
+    <span class="contact-channel-copy-slot" data-contact-copy={channel.email}></span>
+  </p>
+
+  {showExamples && (
+    <ul class="contact-channel-examples">
+      {channel.examples.map((example) => <li>{example}</li>)}
+    </ul>
+  )}
+</section>
+
+<style>
+  .contact-channel {
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .contact-channel-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.4rem;
+  }
+
+  .contact-channel-purpose {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+    max-width: 60ch;
+  }
+
+  .contact-channel-address {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .contact-channel-link {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 1rem;
+    color: var(--text-link);
+    /* Long addresses must wrap inside narrow viewports rather than force
+       the page into horizontal scrolling. */
+    overflow-wrap: anywhere;
+    /* Comfortable touch target without turning the address into a button. */
+    padding: 0.35rem 0;
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .contact-channel-link:hover {
+    color: var(--text-link-hover);
+  }
+
+  .contact-channel-link:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 3px;
+    border-radius: var(--radius-sm);
+  }
+
+  .contact-channel-examples {
+    list-style: none;
+    margin: 0;
+  }
+
+  .contact-channel-examples li {
+    color: var(--text-secondary);
+    line-height: 1.7;
+    padding-left: 1.25rem;
+    position: relative;
+  }
+
+  .contact-channel-examples li::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+    font-weight: bold;
+  }
+
+  /* Injected by the copy script; unstyled slot stays invisible without it. */
+  :global(.contact-copy-button) {
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-sm);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.8125rem;
+    padding: 0.4rem 0.7rem;
+    min-height: 2.25rem;
+    cursor: pointer;
+  }
+
+  :global(.contact-copy-button:hover) {
+    color: var(--text-primary);
+  }
+
+  :global(.contact-copy-button:focus-visible) {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+</style>
+
+<script>
+  /**
+   * Progressive enhancement for copying an address.
+   *
+   * The button is created only when an async clipboard is actually
+   * available, so the affordance never appears without working. The address
+   * itself is server-rendered text and a real mail link either way — this
+   * script is convenience only, and its absence costs nothing.
+   */
+  function initContactCopy(): void {
+    const supported =
+      typeof navigator !== 'undefined' &&
+      typeof navigator.clipboard?.writeText === 'function' &&
+      window.isSecureContext;
+    if (!supported) return;
+
+    for (const slot of document.querySelectorAll<HTMLElement>('[data-contact-copy]')) {
+      const email = slot.dataset.contactCopy;
+      if (!email || slot.dataset.contactCopyReady === 'true') continue;
+      slot.dataset.contactCopyReady = 'true';
+
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'contact-copy-button';
+      button.textContent = 'Copy';
+      button.setAttribute('aria-label', `Copy ${email} to the clipboard`);
+
+      const status = document.createElement('span');
+      status.className = 'contact-copy-status';
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      status.style.position = 'absolute';
+      status.style.width = '1px';
+      status.style.height = '1px';
+      status.style.overflow = 'hidden';
+      status.style.clip = 'rect(0 0 0 0)';
+      status.style.whiteSpace = 'nowrap';
+
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(email);
+          button.textContent = 'Copied';
+          status.textContent = `${email} copied to the clipboard`;
+          window.setTimeout(() => {
+            button.textContent = 'Copy';
+            status.textContent = '';
+          }, 2000);
+        } catch {
+          // Permission denied or a hostile environment: say so plainly and
+          // leave the visible address as the working fallback.
+          button.textContent = 'Copy failed';
+          status.textContent = 'Copying failed. The address is shown next to this button.';
+          window.setTimeout(() => {
+            button.textContent = 'Copy';
+            status.textContent = '';
+          }, 3000);
+        }
+      });
+
+      slot.append(button, status);
+    }
+  }
+
+  initContactCopy();
+  document.addEventListener('astro:page-load', initContactCopy);
+</script>

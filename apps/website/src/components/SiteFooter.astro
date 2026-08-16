@@ -11,6 +11,7 @@
  * The wordmark fills the viewport width and is cropped top and bottom.
  */
 import DownloadCTA from './DownloadCTA.astro';
+import { CONTACTS } from '@varve/shared';
 import { sitePath } from '../lib/siteUrl';
 import release from '../data/release-manifest.json';
 
@@ -80,6 +81,8 @@ const statusLabel = release.hasRelease && release.version
       <div class="footer-section">
         <h3>Support</h3>
         <ul>
+          <li><a href={sitePath('/contact')}>Contact Varve</a></li>
+          <li><a href={`mailto:${CONTACTS.support}`}>Email Support</a></li>
           <li><a href={sitePath('/support/faq')}>FAQ</a></li>
           <li><a href={sitePath('/support/troubleshooting')}>Troubleshooting</a></li>
           <li><a href={sitePath('/support/known-issues')}>Known issues</a></li>
@@ -92,6 +95,7 @@ const statusLabel = release.hasRelease && release.version
           <li><a href={sitePath('/contribute')}>Contribute</a></li>
           <li><a href={sitePath('/support-project')}>Support the project</a></li>
           <li><a href={sitePath('/about')}>About</a></li>
+          <li><a href={sitePath('/contact')}>Press &amp; partnerships</a></li>
           <li><a href={sitePath('/about/license')}>License (FSL-1.1-MIT)</a></li>
         </ul>
       </div>
@@ -100,7 +104,7 @@ const statusLabel = release.hasRelease && release.version
         <ul>
           <li><a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer" data-analytics-outbound="github">GitHub</a></li>
           <li><a href="https://github.com/K-Arthur/varve/discussions" target="_blank" rel="noopener noreferrer" data-analytics-outbound="community">Discussions</a></li>
-          <li><a href={sitePath('/about/security')}>Security</a></li>
+          <li><a href={sitePath('/security')}>Security</a></li>
           <li><a href={sitePath('/about/privacy')}>Privacy</a></li>
         </ul>
       </div>
@@ -127,7 +131,7 @@ const statusLabel = release.hasRelease && release.version
     <p class="footer-bottom-links">
       <a href={sitePath('/about/license')}>License</a>
       <a href={sitePath('/about/privacy')}>Privacy</a>
-      <a href={sitePath('/about/security')}>Security</a>
+       <a href={sitePath('/security')}>Security</a>
       <a href="https://github.com/K-Arthur/varve" target="_blank" rel="noopener noreferrer">Source</a>
       <a href={sitePath('/contribute')}>Contribute</a>
     </p>
