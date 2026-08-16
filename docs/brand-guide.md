@@ -96,18 +96,41 @@ Teal → `#878787` (lum 52.7 %), Sandstone → `#6B6B6B` (lum 42.2 %), Terracott
 
 ## 5. Lockup Specifications
 
+### Wordmark typography
+
+The "Varve" wordmark text is set in **Fraunces Variable**
+(`@fontsource-variable/fraunces`, the same family loaded as `--font-editorial`
+in `packages/ui/src/tokens/tokens.css` and used live for `.site-logo-text` in
+`apps/website/src/components/SiteHeader.astro`/`SiteFooter.astro`), at:
+
+- **Weight:** 600 (semibold)
+- **Optical size (`opsz`):** 24
+- **Softness (`SOFT`) / Wonky (`WONK`):** 0 / 0 (the standard, non-wonky cut)
+- **Tracking:** -0.005em
+- **Capitalization:** "Varve" — capital V, lowercase rest
+
+Distributed SVG lockups (`varve-wordmark*.svg`) convert this to outlined
+vector paths so they render identically without the font installed (see
+`packages/ui/scripts` for the mark generation pipeline; the wordmark paths
+were generated from `fraunces-latin-full-normal.woff2` via `fontkit`,
+variation-instanced at the settings above). The editable source is the live
+CSS treatment on the website; regenerate outlines from that source, don't
+hand-edit path data.
+
 ### Horizontal wordmark (`varve-wordmark.svg`)
-- **ViewBox:** `0 14 272 100` — crops 14 px top/bottom from the 128 px coordinate space, leaving 12 px breathing room above/below mark
-- **Mark centre y:** 64 (in original coords) → 50 in viewport
-- **Text baseline y:** 80 → 66 in viewport; cap-height top → 31 in viewport
-- **Gap mark→text:** 26.6 px (≈ 0.75× cap-height) — tight, connected feel
-- **Text right:** 270.14 px within 272 px ✓
+
+- **ViewBox:** `0 14 270 100` — crops 14 px top/bottom from the 128 px mark coordinate space, leaving 12 px breathing room above/below mark
+- **Mark:** unchanged, native position, x=[20,108] y=[26,102], centre y = 64
+- **Text origin:** `translate(132, 80.51)` (baseline), font-size 48 (≈ 0.024 × Fraunces' 2000 upm), vertically centred on the mark's centre y
+- **Gap mark→text:** 24 px
+- **Text right edge:** ≈ 263.3 px within the 270 px viewBox
 
 ### Stacked lockup (`varve-wordmark-stacked.svg`)
-- **ViewBox:** `0 14 156 164`
-- **Mark centred:** `translate(14,0)` → geometric centre x = 78; text centre x ≈ 78.4 ✓
-- **Gap mark-bottom → text-cap:** 21 px (≈ 2.5 U)
-- **Text baseline:** y = 158; no descenders in "Varve" ✓
+
+- **ViewBox:** `0 14 158 156`
+- **Mark centred:** `translate(15,0)` → geometric centre x = 79; text horizontal centre also 79
+- **Gap mark-bottom → text cap-top:** 21 px
+- **Text baseline:** y = 156.6
 
 ### Clear-space rule
 Minimum clear-space = **1× the height of the mark** (76 px at 128-px scale) on all four sides of the mark-only asset. For lockups, use the lockup bounding box.
