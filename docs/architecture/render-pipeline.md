@@ -56,6 +56,7 @@ Rust `hit_test` IPC exists but is **not called** from `CanvasArea`. Engine `hitT
 2. `requestAnimationFrame` coalesces draws; prior RAF cancelled on unmount.
 3. Dirty-rect partial redraw when mutation region is < 60% of viewport.
 4. Optional render worker replays to `OffscreenCanvas` with `docVersion` stale guards.
+5. The `RedrawCoordinator` decides before any scene traversal whether a frame is `skip` (nothing changed), `present` (composite worker bitmap only), or `content` (full scene replay). This decision is recorded as `frameDecision` in `FrameDiagnostics` and forwarded as the frame `disposition` in the interaction trace, so consumers can distinguish scene-free composites from full replays without re-analyzing the frame.
 
 ## Backend Selection
 
