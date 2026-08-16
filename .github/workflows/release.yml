@@ -51,7 +51,9 @@ on:
         required: false
         default: 'no'
         type: choice
-        options: [no, yes]
+        # Quote these values: YAML 1.1 treats bare `no`/`yes` as booleans,
+        # which makes GitHub reject the documented `publish=yes` dispatch.
+        options: ['no', 'yes']
 
 concurrency:
   # Never cancel a release build in flight — a half-uploaded draft is worse than
