@@ -51,7 +51,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           id={inputId}
           className="varve-input__field"
           disabled={disabled}
-          aria-invalid={error ? true : undefined}
+          aria-invalid={error ? 'true' : undefined}
           aria-describedby={describedBy}
           onFocus={(e) => {
             setFocused(true);
