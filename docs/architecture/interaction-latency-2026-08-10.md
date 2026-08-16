@@ -174,3 +174,44 @@ oracle compares *pixels* against an authoritative redraw.
 | Workspace typecheck (15 packages + e2e) | PASS — 0 errors (was 7, all pre-existing) |
 | Native Tauri / WebKitGTK | NOT RUN. The user's report came from that runtime; the fix is renderer-path logic shared by both, but the WebKitGTK worker-eligibility path differs and remains unverified here. |
 | Firefox / WebKit browser | NOT RUN this pass |
+
+## Follow-up pass (2026-08-16) — trace metadata enrichment
+
+The interaction trace recorded frame timing but lacked metadata about
+what *kind* of frame was committed and which render revision produced
+it. This made it impossible to distinguish a full scene replay from a
+scene-free worker bitmap composite in the trace, or to detect stale-frame
+presentation.
+
+### Changes
+
+| Item | Status |
+| ---- | ------ |
+| `FrameDiagnostics` gains `renderRevision` and `frameDecision` fields | **Done.** `drawDiagnostics.ts` — optional fields so pre-existing frame records stay valid. |
+| `recordFrame` passes `frameDecision` as frame disposition | **Done.** `perfRuntime.ts` — the coordinator's `skip`/`present`/`content` decision is forwarded through `notifyFrameCommit` as the `FrameDisposition` on each `InteractionFrameSample`. |
+| Content and present paths carry disposition | **Done.** `renderPipeline.ts` (content frames) and `presentWorkerFrame.ts` (worker-present frames) both pass `frameDecision: decision.kind`. |
+| Render revision available in present path | **Partial.** `renderRevision` is passed when present in `FrameDiagnostics`; the worker-present path does not yet surface the worker's render revision at the `recordFrame` call site (the revision is tracked in `workerHost.ts` but not threaded through `PresentWorkerFrameArgs`). The `docVersion` is already tracked and serves a coarser staleness signal. |
+| Tests | **Done.** Two new tests in `perfRuntimeTracing.test.ts` verify disposition and render revision propagation. 107 tests pass across performance and canvas modules. |
+
+### Trace schema change
+
+Each `InteractionFrameSample` in the trace ring now optionally carries:
+- `disposition?: 'caused' | 'coalesced' | 'superseded' | 'cancelled' | 'dropped' | 'replaced' | 'reused' | 'background'` — the coordinator's frame decision kind, telling consumers whether the frame was a full content replay, a scene-free worker bitmap composite, or suppressed
+- `renderRevision?: number` — when available, the render revision at commit time
+
+This does not change the trace schema version (still v2) because both
+fields are optional and backward-compatible.
+
+### Validation
+
+| Item | Status |
+| ---- | ------ |
+| Unit: interaction trace (20 tests) | PASS |
+| Unit: perfRuntime + tracing (3 tests, incl. 2 new) | PASS |
+| Unit: drawDiagnostics (18 tests) | PASS |
+| Unit: renderPipeline baseline (2 tests) | PASS |
+| Format/lint (Biome) | PASS |
+| Emoji audit | PASS |
+| Health audit | PASS |
+| Native Tauri / WebKitGTK | NOT RUN |
+| Visual regression | No visual change — pure instrumentation |
