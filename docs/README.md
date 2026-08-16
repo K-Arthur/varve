@@ -196,6 +196,7 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 |-----|---------|
 | `ARCHITECTURE_BRIEF.md` | High-level architecture brief (docs root) — **dated snapshot (2026-07-25)** with line-precise file references that may have drifted; verify against code before relying on line numbers |
 | `architecture/render-pipeline.md` | Canvas rendering pipeline |
+| `architecture/adaptive-render-residency.md` | Adaptive visibility, residency, raster representation, fidelity, and budget policy |
 | `architecture/wasm-backends.md` | WASM backend architecture |
 | `architecture/motion-system.md` | Motion/animation architecture |
 | `architecture/text-pipeline.md` | Multilingual text rendering and layout |

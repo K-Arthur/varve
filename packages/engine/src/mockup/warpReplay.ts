@@ -24,7 +24,22 @@ export type WarpImageResolver = (src: string) => CanvasImageSource | undefined;
 /** Structural slice of the image cache the resolver needs. */
 export interface WarpImageCacheLike {
   get(src: string): { state: string; image: CanvasImageSource | null } | undefined;
+  getImageAtSize?(src: string, maxDim: number): CanvasImageSource | null;
+  isRepresentationCapable?(src: string): boolean;
+  loadAtSize?(
+    src: string,
+    maxDim: number,
+    source?: { width: number; height: number },
+  ): Promise<CanvasImageSource>;
   load(src: string): Promise<CanvasImageSource>;
+}
+
+export interface ReplayImagePolicy {
+  /** Zero or absent means the authoritative source representation. */
+  maxSourceDim?: number;
+  sourceWidth?: number;
+  sourceHeight?: number;
+  intent?: 'interactive' | 'settled-preview' | 'thumbnail' | 'export' | 'print';
 }
 
 /**
@@ -48,6 +63,7 @@ export function resolveReplayImage(
   lookup: ((src: string, frame?: number) => CanvasImageSource | undefined) | null,
   cache: WarpImageCacheLike,
   frame?: number,
+  policy?: ReplayImagePolicy,
 ): CanvasImageSource | undefined {
   if (lookup) {
     return lookup(src, frame);
@@ -60,6 +76,23 @@ export function resolveReplayImage(
     if (media) return media;
   }
   const loadableSource = resolveImageResourceHandle(src);
+  const maxSourceDim = policy?.maxSourceDim ?? 0;
+  const shouldUseProxy =
+    maxSourceDim > 0 &&
+    policy?.intent !== 'export' &&
+    policy?.intent !== 'print' &&
+    (policy?.sourceWidth ?? 0) > maxSourceDim &&
+    cache.isRepresentationCapable?.(loadableSource) === true;
+  if (shouldUseProxy && cache.getImageAtSize && cache.loadAtSize) {
+    const proxy = cache.getImageAtSize(loadableSource, maxSourceDim);
+    if (proxy) return proxy;
+    void cache
+      .loadAtSize(loadableSource, maxSourceDim, {
+        width: policy?.sourceWidth ?? maxSourceDim,
+        height: policy?.sourceHeight ?? maxSourceDim,
+      })
+      .catch(() => undefined);
+  }
   const imgEntry = cache.get(loadableSource);
   if (imgEntry?.state === 'loaded' && imgEntry.image) {
     return imgEntry.image;
