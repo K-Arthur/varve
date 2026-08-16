@@ -943,6 +943,16 @@ export function renderContent(deps: RenderContentDeps): void {
     };
     const residency = getAdaptiveResidencyManager();
     residency.beginFrame();
+    const averageFrameTime = getAverageFrameTime();
+    residency.setPressure(
+      averageFrameTime > 50
+        ? 'critical'
+        : averageFrameTime > 32
+          ? 'high'
+          : averageFrameTime > 20
+            ? 'elevated'
+            : 'normal',
+    );
     residency.setBudgets({
       cpuBytes: budgets.imageCacheBytes,
       gpuBytes: budgets.workerBitmapBytes,
