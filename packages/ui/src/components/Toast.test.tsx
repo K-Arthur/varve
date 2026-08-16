@@ -79,13 +79,29 @@ describe('Toast', () => {
   }, 10000);
 
   it('max 3 visible toasts, queues excess', async () => {
-    renderWithProvider(<ToastTrigger toastItem={{ message: 'Toast' }} />);
+    function UniqueToastTrigger() {
+      const { toast } = useToast();
+      const countRef = { current: 0 };
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            countRef.current += 1;
+            toast({ message: `Toast ${countRef.current}` });
+          }}
+        >
+          Show Toast
+        </button>
+      );
+    }
+    renderWithProvider(<UniqueToastTrigger />);
     const user = userEvent.setup();
     const btn = screen.getByText('Show Toast');
     for (let i = 0; i < 5; i++) {
       await user.click(btn);
     }
-    const toasts = screen.getAllByText('Toast');
+    // Only 3 visible at a time (queued toasts are not in DOM)
+    const toasts = screen.getAllByText(/Toast \d/);
     expect(toasts).toHaveLength(3);
   });
 
