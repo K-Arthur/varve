@@ -5,7 +5,11 @@ import type { Platform } from '@varve/platform';
 import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from '@varve/scene';
 import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
+import {
+  openVarveContact,
+  registerAllShortcuts,
+  registerEditorActions,
+} from './actions/registerAll';
 import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { CanvasArea } from './CanvasArea';
 import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
@@ -257,6 +261,10 @@ function ShellInner({
       onBackToHome,
       onOpenHelp: () => editorHelp.openContextualHelp(),
       onOpenHelpCenter: () => editorHelp.setHelpCenterOpen(true),
+      onContactSupport: () => openVarveContact('support'),
+      onSendFeedback: () => openVarveContact('feedback'),
+      onReportSecurity: () => openVarveContact('security'),
+      onOpenPrivacy: () => openVarveContact('privacy'),
       onWhatIsThis: editorHelp.toggleWhatIsThis,
       onOpenAbout: () => {
         setSettingsSection('about');
@@ -396,6 +404,10 @@ function ShellInner({
             onOpenPalette={openPalette}
             onOpenHelp={editorHelp.openContextualHelp}
             onOpenHelpCenter={() => editorHelp.setHelpCenterOpen(true)}
+            onContactSupport={() => openVarveContact('support')}
+            onSendFeedback={() => openVarveContact('feedback')}
+            onReportSecurity={() => openVarveContact('security')}
+            onOpenPrivacy={() => openVarveContact('privacy')}
             onWhatIsThis={editorHelp.toggleWhatIsThis}
             onOpenAbout={() => {
               setSettingsSection('about');
