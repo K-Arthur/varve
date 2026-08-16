@@ -1,0 +1,370 @@
+---
+/**
+ * /contact — the canonical contact directory.
+ *
+ * One page, one URL, every public channel with an explicit purpose. The
+ * structure is deliberately flat and factual: a person scanning it, and an
+ * answer engine extracting from it, should both be able to pick the correct
+ * address without inference.
+ *
+ * Structured data is a ContactPage carrying one ContactPoint per channel,
+ * plus an FAQPage for the questions people actually ask. Both describe the
+ * same addresses rendered in the visible copy — no hidden text, and no
+ * invented contactType values.
+ */
+import ContactChannel from '../components/ContactChannel.astro';
+import Layout from '../layouts/Layout.astro';
+import { CONTACT_CHANNELS, CONTACTS } from '@varve/shared';
+import { sitePath, siteUrl } from '../lib/siteUrl';
+
+/**
+ * schema.org contactType is a free-text field, but only conventional values
+ * carry meaning to consumers. Channels without an established convention
+ * (feedback, partnerships) are described with plain, honest terms rather
+ * than keyword-stuffed inventions, and `general` maps to the site-wide
+ * Organization email rather than a redundant ContactPoint.
+ */
+const CONTACT_TYPES: Record<string, string> = {
+  support: 'customer support',
+  security: 'security',
+  privacy: 'privacy',
+  press: 'media inquiries',
+};
+
+const contactUrl = siteUrl('/contact');
+
+const contactPageSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'ContactPage',
+  '@id': `${contactUrl}#contactpage`,
+  url: contactUrl,
+  name: 'Contact Varve',
+  description:
+    'Public contact channels for Varve: general inquiries, product support, feedback, security disclosure, privacy questions, press, and partnerships.',
+  inLanguage: 'en',
+  mainEntity: {
+    '@type': 'Organization',
+    name: 'Varve',
+    url: siteUrl('/'),
+    email: CONTACTS.general,
+    contactPoint: CONTACT_CHANNELS.filter((channel) => CONTACT_TYPES[channel.id]).map(
+      (channel) => ({
+        '@type': 'ContactPoint',
+        contactType: CONTACT_TYPES[channel.id],
+        email: channel.email,
+        availableLanguage: 'English',
+      }),
+    ),
+  },
+};
+
+/**
+ * AEO: the six questions that actually get asked, each answered with one
+ * unambiguous address. Deliberately short — an FAQ that restates the page
+ * for keyword volume is spam, not an answer surface.
+ */
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  '@id': `${contactUrl}#faq`,
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'How do I contact Varve?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: `For general inquiries, email Varve at ${CONTACTS.general}. Varve also publishes dedicated addresses for support, feedback, security, privacy, press, and partnerships.`,
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How do I get help with Varve?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: `For product support, email ${CONTACTS.support}. Varve's support documentation and troubleshooting guides are at https://varve.studio/support, and public questions can be asked in GitHub Discussions.`,
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How do I report a Varve security vulnerability?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: `Report security vulnerabilities privately to ${CONTACTS.security}, or through GitHub private vulnerability reporting at https://github.com/K-Arthur/varve/security/advisories. Do not include vulnerability details in a public GitHub issue.`,
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How do I send feedback to Varve?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: `Email product feedback and feature ideas to ${CONTACTS.feedback}. Reproducible bugs are better filed as a GitHub issue so other users can find them.`,
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Who do journalists contact about Varve?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: `Press and media inquiries can be sent to ${CONTACTS.press}. The current Varve mark, screenshots, and product facts are available from the contact and download pages.`,
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How do I discuss a partnership with Varve?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: `Email ${CONTACTS.partnerships} for integration, distribution, education, and organisational inquiries.`,
+      },
+    },
+  ],
+};
+
+const CHANNEL_ORDER = CONTACT_CHANNELS.map((channel) => channel.id);
+---
+
+<Layout
+  title="Contact Varve — Support, Feedback, Press & Partnerships"
+  description="Contact Varve by email: general inquiries, product support, feedback, security disclosure, privacy questions, press, and partnerships. Each channel has a dedicated address."
+  structuredData={[contactPageSchema, faqSchema]}
+>
+  <div class="container-custom">
+    <div class="contact-page">
+      <h1 class="page-hero-title">Contact Varve</h1>
+      <p class="page-hero-sub">
+        Varve publishes a separate email address for each kind of inquiry, so
+         your message reaches the right place the first time. These addresses
+         are public project channels maintained by Varve's maintainer.
+      </p>
+
+      <nav class="contact-jump" aria-label="Contact channels">
+        <ul>
+          {CONTACT_CHANNELS.map((channel) => (
+            <li><a href={`#contact-${channel.id}`}>{channel.label}</a></li>
+          ))}
+        </ul>
+      </nav>
+
+      <div class="contact-channels">
+        {CHANNEL_ORDER.map((id) => (
+          <ContactChannel id={id} headingLevel={2} showExamples />
+        ))}
+      </div>
+
+      <section class="contact-aside" aria-labelledby="contact-public-vs-private">
+        <h2 id="contact-public-vs-private">Email, GitHub issues, or Discussions?</h2>
+        <p>
+          Three channels, three different jobs. Picking the right one gets you
+          a faster answer.
+        </p>
+        <dl class="contact-routing">
+          <dt>Open a GitHub issue</dt>
+          <dd>
+            For a reproducible, non-sensitive bug or a concrete feature
+            request. Public issues let other users find the problem, add
+            detail, and see the fix land.
+            <a href="https://github.com/K-Arthur/varve/issues" target="_blank" rel="noopener noreferrer">Varve issue tracker</a>
+          </dd>
+
+          <dt>Ask in GitHub Discussions</dt>
+          <dd>
+            For questions, workflow advice, and ideas that benefit from other
+            users answering. Discussions are public.
+            <a href="https://github.com/K-Arthur/varve/discussions" target="_blank" rel="noopener noreferrer">Varve Discussions</a>
+          </dd>
+
+          <dt>Email {CONTACTS.support}</dt>
+          <dd>
+            For installation help, general questions, and anything you would
+            rather not post in public.
+          </dd>
+
+          <dt>Email {CONTACTS.security}</dt>
+          <dd>
+            Required for security vulnerabilities. Please do not put
+            vulnerability details in a public issue or discussion.
+             <a href={sitePath('/security')}>Varve security policy</a>
+          </dd>
+        </dl>
+      </section>
+
+      <section class="contact-aside" aria-labelledby="contact-expectations">
+        <h2 id="contact-expectations">What to expect</h2>
+        <p>
+          Varve is built by a very small team, so email is answered as soon as
+          it reasonably can be rather than on a service-level agreement. There
+          is no phone line and no 24/7 desk. Security reports are prioritised;
+           the <a href={sitePath('/security')}>security policy</a> describes
+           the private disclosure process.
+        </p>
+        <p>
+          Email works from anywhere in the world. Varve is currently able to
+          correspond in English only.
+        </p>
+      </section>
+
+      <section class="contact-aside" aria-labelledby="contact-faq">
+        <h2 id="contact-faq">Common questions</h2>
+        <dl class="contact-faq">
+          <dt>How do I contact Varve?</dt>
+          <dd>
+            For general inquiries, email
+            <a href={`mailto:${CONTACTS.general}`} aria-label="Email Varve general inquiries">{CONTACTS.general}</a>.
+          </dd>
+
+          <dt>How do I get help with Varve?</dt>
+          <dd>
+            Email
+            <a href={`mailto:${CONTACTS.support}`} aria-label="Email Varve product support">{CONTACTS.support}</a>,
+            or read the <a href={sitePath('/support')}>Varve support documentation</a>.
+          </dd>
+
+          <dt>How do I report a Varve security vulnerability?</dt>
+          <dd>
+            Report vulnerabilities privately to
+            <a href={`mailto:${CONTACTS.security}`} aria-label="Email Varve security reporting">{CONTACTS.security}</a>,
+            or use
+            <a href="https://github.com/K-Arthur/varve/security/advisories" target="_blank" rel="noopener noreferrer">GitHub private vulnerability reporting</a>.
+            Please avoid posting sensitive vulnerability details publicly.
+          </dd>
+
+          <dt>How do I send feedback to Varve?</dt>
+          <dd>
+            Email
+            <a href={`mailto:${CONTACTS.feedback}`} aria-label="Email Varve product feedback">{CONTACTS.feedback}</a>.
+          </dd>
+
+          <dt>Who do journalists contact about Varve?</dt>
+          <dd>
+            Press inquiries can be sent to
+            <a href={`mailto:${CONTACTS.press}`} aria-label="Email Varve press inquiries">{CONTACTS.press}</a>.
+             The <a href={sitePath('/favicon.svg')}>current Varve mark (SVG)</a>, product facts, and
+             screenshots are available from this site and the <a href={sitePath('/download')}>download page</a>.
+          </dd>
+
+          <dt>How do I discuss a partnership with Varve?</dt>
+          <dd>
+            Email
+            <a href={`mailto:${CONTACTS.partnerships}`} aria-label="Email Varve partnership inquiries">{CONTACTS.partnerships}</a>.
+          </dd>
+        </dl>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .contact-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .contact-page .page-hero-title {
+    margin-bottom: 0.75rem;
+  }
+
+  .contact-page .page-hero-sub {
+    margin-bottom: 2rem;
+    max-width: 62ch;
+  }
+
+  .contact-jump ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    list-style: none;
+    margin: 0 0 1rem;
+  }
+
+  .contact-jump a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.5rem;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border-default);
+    border-radius: 999px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    background: var(--surface-muted);
+  }
+
+  .contact-jump a:hover {
+    color: var(--text-primary);
+  }
+
+  .contact-jump a:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+  }
+
+  .contact-channels {
+    margin-bottom: 3rem;
+  }
+
+  .contact-aside {
+    margin-bottom: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .contact-aside h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1rem;
+  }
+
+  .contact-aside p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    max-width: 62ch;
+  }
+
+  .contact-routing,
+  .contact-faq {
+    margin: 0;
+  }
+
+  .contact-routing dt,
+  .contact-faq dt {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 1.25rem;
+  }
+
+  .contact-routing dd,
+  .contact-faq dd {
+    margin: 0.35rem 0 0;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    max-width: 62ch;
+  }
+
+  .contact-routing dd a,
+  .contact-faq dd a,
+  .contact-aside p a {
+    color: var(--text-link);
+    overflow-wrap: anywhere;
+  }
+
+  .contact-routing dd a:hover,
+  .contact-faq dd a:hover,
+  .contact-aside p a:hover {
+    color: var(--text-link-hover);
+  }
+
+  .contact-routing dd a:focus-visible,
+  .contact-faq dd a:focus-visible,
+  .contact-aside p a:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  @media (max-width: 768px) {
+    .contact-page {
+      padding: 2rem 0;
+    }
+  }
+</style>
