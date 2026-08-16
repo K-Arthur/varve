@@ -162,6 +162,11 @@ export function CanvasArea({
   // document is structurally shared, so every node except the edited one keeps
   // its reference and skips toEngineNode entirely. See EngineNodeMemo.
   const engineNodeMemoRef = useRef(new EngineNodeMemo(budgets.engineNodeMemoEntries));
+  // Cached canvas position for pointer→world coordinate conversion.
+  // Updated by ResizeObserver and refreshed on pointerdown for safety.
+  // Avoids getBoundingClientRect() on every pointer-move (the single
+  // highest-frequency DOM layout read in the application).
+  const canvasRectRef = useRef({ left: 0, top: 0 });
 
   // Diagnostics HUD is off by default; driven by the persisted Settings >
   // Performance > Diagnostics toggle. The toggle also calls
@@ -380,6 +385,12 @@ export function CanvasArea({
     if (!el) return;
     const updateSize = () => {
       setCanvasSize({ width: el.clientWidth, height: el.clientHeight });
+      // Cache the canvas element's screen position for pointer→world conversion.
+      const canvas = contentCanvasRef.current;
+      if (canvas) {
+        const r = canvas.getBoundingClientRect();
+        canvasRectRef.current = { left: r.left, top: r.top };
+      }
     };
     updateSize();
     const ro = new ResizeObserver(updateSize);
@@ -609,12 +620,21 @@ export function CanvasArea({
     ev: PointerEvent,
     sourceEvents: ReturnType<typeof collectSourceEvents> = [],
   ): ToolContext {
+    // Refresh the cached canvas rect at gesture start for safety.
+    // The ResizeObserver keeps it current, but a pointerdown is a
+    // definitive sync point.
+    const canvas = contentCanvasRef.current;
+    if (canvas) {
+      const r = canvas.getBoundingClientRect();
+      canvasRectRef.current = { left: r.left, top: r.top };
+    }
     return buildToolContext(
       {
         stateRef,
         editorRef,
         engineRef,
         contentCanvasRef,
+        canvasRectRef,
         frameIndexRef,
         transformCacheRef,
         snapSessionRef,
