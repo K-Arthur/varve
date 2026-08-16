@@ -2,7 +2,7 @@
  * Tests for RecoveryDialog.
  */
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RecoveryDialog } from './RecoveryDialog';
 
@@ -116,7 +116,7 @@ describe('RecoveryDialog', () => {
     expect(onRestoreAll).toHaveBeenCalled();
   });
 
-  it('calls onDiscardAll when Discard All button is clicked', () => {
+  it('calls onDiscardAll on second click (two-click confirmation)', () => {
     const onDiscardAll = vi.fn();
     const { container } = render(
       <RecoveryDialog
@@ -132,7 +132,19 @@ describe('RecoveryDialog', () => {
     const buttons = container.querySelectorAll('button');
     const discardAllBtn = Array.from(buttons).find((b) => b.textContent === 'Discard All');
     expect(discardAllBtn).toBeDefined();
-    discardAllBtn?.click();
+    // First click shows confirmation
+    act(() => {
+      discardAllBtn?.click();
+    });
+    expect(onDiscardAll).not.toHaveBeenCalled();
+    // Second click triggers discard
+    const confirmBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent === 'Confirm Discard All',
+    );
+    expect(confirmBtn).toBeDefined();
+    act(() => {
+      confirmBtn?.click();
+    });
     expect(onDiscardAll).toHaveBeenCalled();
   });
 
