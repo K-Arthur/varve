@@ -561,6 +561,7 @@ jobs:
 
       - name: Prepare updater channel configuration
         if: matrix.enabled
+        shell: bash
         env:
           CHANNEL: ${{ needs.preflight.outputs.channel }}
           UPDATER_MODE: ${{ needs.signing-preflight.outputs.updater_mode }}
