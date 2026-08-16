@@ -215,3 +215,57 @@ fields are optional and backward-compatible.
 | Health audit | PASS |
 | Native Tauri / WebKitGTK | NOT RUN |
 | Visual regression | No visual change — pure instrumentation |
+
+## Follow-up pass (2026-08-16) — DOM layout read caching + cursor scheduling
+
+Two structural performance improvements targeting the input→visible pixel
+latency path.
+
+### 1. Canvas rect caching (commits `b6f876a8`, `74920f2b`)
+
+The single highest-frequency DOM layout read in the application was
+`getBoundingClientRect()` inside `canvasToWorld()`, called on every
+pointer-move for every tool. Additional uncached reads existed in the
+touch pinch handler, auto-pan edge velocity, wheel zoom, and Tauri
+pinch bridge.
+
+| Call site | Before | After |
+|-----------|--------|-------|
+| `toolContext.ts:163` — `canvasToWorld` (every pointer-move) | `getBoundingClientRect()` per call | Cached `canvasRectRef.left/top` |
+| `inputPipeline.ts:324` — touch pinch (every touch-move) | `getBoundingClientRect()` per call | Cached |
+| `inputPipeline.ts:407` — auto-pan edge velocity | `getBoundingClientRect()` per call | Cached |
+| `inputPipeline.ts:543` — wheel zoom | `getBoundingClientRect()` per call | Cached |
+| `inputPipeline.ts:755` — Tauri pinch bridge | `getBoundingClientRect()` per call | Cached |
+
+The cache is updated by `ResizeObserver` (canvas resize) and refreshed
+at gesture start (`pointerdown` / `buildToolCtx`). The canvas position
+is stable during gestures — it only changes on resize or window move.
+
+`CanvasRect` type and `canvasRectRef` added to `ToolContextDeps` and
+`UseCanvasInputsOptions`.
+
+### 2. Cursor position frame scheduling (commit `907d7c9a`)
+
+The cursor position (`StatusBar` coordinates, collab presence) was
+updated at ~31 Hz via a fixed 32ms throttle regardless of display
+refresh rate. On a 120 Hz display this meant cursor updates lagged
+3-4x behind the actual display cadence.
+
+Replaced with `requestAnimationFrame`-scheduled updates: latest pointer
+world position wins, at most one `setCursorPos` per animation frame.
+This matches the display refresh rate (60/120/144 Hz) and eliminates
+the fixed-time bottleneck.
+
+`cursorPos` feeds `StatusBar` coordinates and `useCollabPresence` —
+neither needs sub-frame accuracy. Frame scheduling is the correct
+semantic for this kind of latest-state update (task brief §6).
+
+### Validation
+
+| Item | Status |
+| Unit: canvas + tools + performance (916 tests) | PASS |
+| Format/lint (Biome) | PASS |
+| Emoji audit | PASS |
+| Health audit | PASS |
+| Native Tauri / WebKitGTK | NOT RUN — user to verify |
+| Visual regression | No visual change — pure performance |
