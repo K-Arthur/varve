@@ -107,7 +107,6 @@ export function CreateTableFromDataDialog() {
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      className="varve-dialog-backdrop"
       style={{
         position: 'fixed',
         inset: 0,

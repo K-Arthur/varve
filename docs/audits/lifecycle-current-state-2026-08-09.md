@@ -1,7 +1,7 @@
 # Lifecycle Current-State Audit — Quit / Close / Exit / Shutdown (2026-08-09)
 
 Phase 0 deliverable of the robust-quit program (see
-`docs/plans/quit-close-lifecycle.md`). Maps every termination entry point in
+`docs/plans/archived/quit-close-lifecycle.md`). Maps every termination entry point in
 Varve as of 2026-08-09, before any implementation work.
 
 ## Executive summary

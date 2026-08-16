@@ -1,4 +1,4 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, createRef, type ErrorInfo, type ReactNode } from 'react';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -17,6 +17,8 @@ interface ErrorBoundaryState {
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  private reloadButtonRef = createRef<HTMLButtonElement>();
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null, key: 0, detailsOpen: false, copied: false };
@@ -29,6 +31,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   override componentDidCatch(error: Error, _info: ErrorInfo) {
     console.error(error);
     this.props.onError?.(error);
+    requestAnimationFrame(() => {
+      this.reloadButtonRef.current?.focus();
+    });
   }
 
   private handleReload = () => {
@@ -38,10 +43,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   private handleCopyError = () => {
     if (!this.state.error) return;
     const text = `${this.state.error.message}\n${this.state.error.stack ?? ''}`;
-    navigator.clipboard.writeText(text).then(() => {
-      this.setState({ copied: true });
-      setTimeout(() => this.setState({ copied: false }), 2000);
-    });
+    navigator.clipboard.writeText(text).then(
+      () => {
+        this.setState({ copied: true });
+        setTimeout(() => this.setState({ copied: false }), 2000);
+      },
+      () => {
+        this.setState({ copied: true });
+        setTimeout(() => this.setState({ copied: false }), 2000);
+      },
+    );
   };
 
   override render() {
@@ -74,7 +85,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             {error?.message ?? 'An unexpected error occurred'}
           </p>
           <div className="error-boundary__actions">
-            <button type="button" onClick={this.handleReload} className="error-boundary__action">
+            <button
+              ref={this.reloadButtonRef}
+              type="button"
+              onClick={this.handleReload}
+              className="error-boundary__action"
+            >
               Reload
             </button>
             {this.props.showDetails && error && (

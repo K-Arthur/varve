@@ -237,6 +237,8 @@ export function useCanvasInputs({
   const snapSessionForPointer = externalSnapSessionRef ?? internalSnapSessionRef;
   const snapIndexForPointer = externalSnapIndexRef ?? internalSnapIndexRef;
   const lastCursorUpdate = useRef(0);
+  const cursorRafScheduled = useRef(false);
+  const latestCursorWorld = useRef<{ x: number; y: number } | null>(null);
   // Document size is O(n) to measure, so it is sampled once per gesture (only
   // while tracing) and reused for every event's dispatch attributes rather
   // than recomputed per pointermove.
@@ -383,11 +385,18 @@ export function useCanvasInputs({
         }
       };
 
-      const now = performance.now();
-      if (now - lastCursorUpdate.current > 32) {
-        lastCursorUpdate.current = now;
-        const world = ctx.canvasToWorld(e.clientX, e.clientY);
-        editor.setCursorPos(world);
+      // Frame-scheduled cursor update: latest input wins, at most one
+      // update per animation frame. Replaces the old 32ms fixed throttle
+      // which ran at ~31 Hz regardless of display refresh rate (task brief §6).
+      const world = ctx.canvasToWorld(e.clientX, e.clientY);
+      latestCursorWorld.current = world;
+      if (!cursorRafScheduled.current) {
+        cursorRafScheduled.current = true;
+        requestAnimationFrame(() => {
+          cursorRafScheduled.current = false;
+          const pos = latestCursorWorld.current;
+          if (pos) editor.setCursorPos(pos);
+        });
       }
 
       const tmInst = tmRef.current;
