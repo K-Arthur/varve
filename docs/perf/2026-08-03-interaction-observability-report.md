@@ -613,3 +613,18 @@ through a private git index against explicit paths, because several other
 agents were staging and committing in this tree concurrently; pushes used
 `--no-verify` since the pre-push `format-check` runs over the whole working
 tree and fails on other agents' in-flight files.
+
+## Follow-up (2026-08-16)
+
+The frame disposition gap identified in §12 (`pointer-move-idle`, `zoom`
+and `undo-redo` produced zero traces because `beginInteraction` only fired
+on pointerdown) was fixed in the 2026-08-09 session — all 5 interaction
+kinds now fire `beginInteraction`.
+
+The remaining metadata gap — `notifyFrameCommit` not receiving frame
+disposition or render revision — was fixed in commit `1521e266`:
+`FrameDiagnostics` now carries `renderRevision` and `frameDecision`,
+both forwarded through `recordFrame` → `notifyFrameCommit` as the
+`FrameDisposition` on each `InteractionFrameSample`. See
+`docs/architecture/interaction-latency-2026-08-10.md` § "Follow-up pass
+(2026-08-16)" for details.
