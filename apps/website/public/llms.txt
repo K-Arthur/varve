@@ -58,8 +58,40 @@
 - [Architecture](docs/architecture)
 - [Rendering pipeline](docs/rendering)
 
+## How to contact Varve
+
+Varve publishes one email address per purpose. The complete directory is at
+[varve.studio/contact](contact).
+
+- General inquiries: hello@varve.studio
+- Product support (installation help, problems, usage questions): support@varve.studio
+- Product feedback and feature ideas: feedback@varve.studio
+- Security vulnerabilities (report privately): security@varve.studio
+- Privacy, analytics, and data-handling questions: privacy@varve.studio
+- Press and media inquiries: press@varve.studio
+- Partnerships, integrations, and distribution: partnerships@varve.studio
+
+Specific answers:
+
+- How do I contact Varve? Email hello@varve.studio for general inquiries.
+- How do I get help with Varve? Email support@varve.studio, or read the support documentation at [varve.studio/support](support).
+- How do I report a Varve security vulnerability? Report it privately to security@varve.studio, or use GitHub private vulnerability reporting at https://github.com/K-Arthur/varve/security/advisories. Do not put vulnerability details in a public issue.
+- How do I send feedback to Varve? Email feedback@varve.studio.
+- Who do journalists contact about Varve? Email press@varve.studio. Brand assets are at [varve.studio/press](press).
+- How do I discuss a partnership with Varve? Email partnerships@varve.studio.
+
+Choosing a channel: a reproducible, non-sensitive bug is best filed as a
+GitHub issue so other users can find it; public questions suit GitHub
+Discussions; private support questions and installation help suit
+support@varve.studio; security vulnerabilities must use security@varve.studio
+or GitHub private reporting. Varve correspondence is in English. Varve is an
+independently maintained project rather than a company, and email is answered
+as capacity allows — there is no 24/7 support desk.
+
 ## Support and community
 
+- [Contact directory](contact)
+- [Support](support)
 - [FAQ](support/faq)
 - [Troubleshooting](support/troubleshooting)
 - [Known issues](support/known-issues)
@@ -72,6 +104,7 @@
 - [About](about)
 - [License (FSL-1.1-MIT)](about/license)
 - [Privacy policy](about/privacy)
-- [Security policy](about/security)
+- [Security](security)
+- [Press and brand assets](press)
 - [Contribute](contribute)
 - [Releases](releases)
