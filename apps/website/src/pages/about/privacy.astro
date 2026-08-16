@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import { CONTACTS } from '@varve/shared';
 ---
 
 <Layout title="Privacy Policy" description="Varve's privacy policy: optional, consent-based aggregate website analytics; no advertising trackers, fingerprinting, or design-content collection.">
@@ -143,7 +144,10 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="privacy-section">
         <h2>Your Rights</h2>
         <p>
-          Because we collect minimal data, there is little to access, modify, or delete. If you have questions or concerns about privacy, please reach out via GitHub issues or discussions. We will address any legitimate request.
+           Because we collect minimal data, there is little to access, modify, or delete. For privacy
+           questions, consent requests, or concerns about data handling, email
+           <a href={`mailto:${CONTACTS.privacy}`}>{CONTACTS.privacy}</a>. Public questions that contain
+           no personal information can also use GitHub Discussions.
         </p>
       </section>
 
@@ -157,11 +161,11 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="privacy-section">
         <h2>Contact</h2>
         <p>
-          For privacy-related questions or concerns:
+           For privacy-related questions or concerns, contact
+           <a href={`mailto:${CONTACTS.privacy}`}>{CONTACTS.privacy}</a>:
         </p>
         <ul>
-          <li>Open a <a href="https://github.com/K-Arthur/varve/issues" target="_blank" rel="noopener noreferrer">GitHub issue</a></li>
-          <li>Start a <a href="https://github.com/K-Arthur/varve/discussions" target="_blank" rel="noopener noreferrer">GitHub discussion</a></li>
+           <li>Start a <a href="https://github.com/K-Arthur/varve/discussions" target="_blank" rel="noopener noreferrer">GitHub discussion</a></li>
         </ul>
       </section>
 

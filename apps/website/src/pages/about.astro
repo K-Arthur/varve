@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import { CONTACTS } from '@varve/shared';
 ---
 
 <Layout title="About Varve" description="Varve is built independently by one designer-developer: transparent development, honest limitations, and community input. Learn about the project, its FSL-1.1-MIT license, privacy, and security policies.">
@@ -65,9 +66,10 @@ import { sitePath } from '../lib/siteUrl';
       <section class="about-section">
         <h2>Security Policy</h2>
         <p>
-          Security vulnerabilities can be reported privately via GitHub Security Advisory or email. Response time is typically within 48 hours for critical issues. The project follows coordinated disclosure practices.
+           Security vulnerabilities can be reported privately via GitHub Private Vulnerability Reporting or
+           <a href={`mailto:${CONTACTS.security}`}>{CONTACTS.security}</a>. The project follows coordinated disclosure practices.
         </p>
-        <a href={sitePath('/about/security')} class="btn-secondary">Read the security policy</a>
+        <a href={sitePath('/security')} class="btn-secondary">Read the security policy</a>
       </section>
     </div>
   </div>
