@@ -1,4 +1,4 @@
-import { CONTACTS, managedColorToCss, PRODUCT_STATUS, VARVE_URLS } from '@varve/shared';
+import { managedColorToCss, PRODUCT_STATUS, VARVE_URLS } from '@varve/shared';
 import {
   Button,
   Dialog,
@@ -18,6 +18,7 @@ import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { useOptionalUpdateCoordinator } from '../../updates';
 import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
+import { ContactLink } from '../ContactLink';
 import { InspectorColorPopover } from '../Inspector/controls/InspectorColorPopover';
 import { whiteForMode } from '../Inspector/panels/DocumentPanel';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
@@ -491,12 +492,12 @@ function AboutSection() {
           >
             Website
           </a>
-          <a className="settings-about__link" href={`mailto:${CONTACTS.support}`}>
+          <ContactLink channel="support" className="settings-about__link">
             Support
-          </a>
-          <a className="settings-about__link" href={`mailto:${CONTACTS.privacy}`}>
+          </ContactLink>
+          <ContactLink channel="privacy" className="settings-about__link">
             Privacy
-          </a>
+          </ContactLink>
           <TooltipProvider>
             <Tooltip
               label="Not yet available in this build"

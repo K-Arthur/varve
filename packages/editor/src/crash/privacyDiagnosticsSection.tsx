@@ -7,10 +7,11 @@
  */
 
 import type { CrashReport } from '@varve/crash';
-import { type AnalyticsConsentState, CONTACTS } from '@varve/shared';
+import type { AnalyticsConsentState } from '@varve/shared';
 import { Select } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { updateDesktopAnalyticsConsent } from '../analytics/desktopAnalytics';
+import { ContactLink } from '../components/ContactLink';
 import { useSettings } from '../components/Settings/SettingsContext';
 import { getCrashController } from './controllerRegistry';
 
@@ -290,9 +291,9 @@ export function PrivacyDiagnosticsSection() {
         separate consent category and is never enabled by usage analytics or diagnostics.
       </p>
       <p className="privacy-section__note">
-        For privacy questions, contact <a href={`mailto:${CONTACTS.privacy}`}>{CONTACTS.privacy}</a>
-        . For product help, contact <a href={`mailto:${CONTACTS.support}`}>{CONTACTS.support}</a>.
-        Review any diagnostics before sharing them; Varve never attaches a project automatically.
+        For privacy questions, contact <ContactLink channel="privacy" />. For product help, contact{' '}
+        <ContactLink channel="support" />. Review any diagnostics before sharing them; Varve never
+        attaches a project automatically.
       </p>
     </div>
   );
