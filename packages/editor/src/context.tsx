@@ -7403,6 +7403,10 @@ export function EditorProvider({
           redoLabelsRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
+          const selectedFrameId =
+            s.selection.length === 1 && s.document.nodes[s.selection[0] ?? '']?.kind === 'frame'
+              ? s.selection[0]
+              : null;
           let batchIndex = 0;
           for (const { node, sourceDoc, position } of items) {
             // Cascade positionless items from the viewport centre so a
@@ -7449,6 +7453,22 @@ export function EditorProvider({
                     },
                   };
                 }
+              }
+            }
+            if (selectedFrameId && doc.nodes[selectedFrameId]) {
+              const parent = doc.nodes[selectedFrameId];
+              if (parent.kind === 'frame') {
+                const importedWorld = nodeWorldTransform(doc, inserted.rootId);
+                const parentWorld = nodeWorldTransform(doc, selectedFrameId);
+                const localTransform = multiplyAffine(invertAffine(parentWorld), importedWorld);
+                doc = reparentNodeDoc(
+                  doc,
+                  inserted.rootId,
+                  selectedFrameId,
+                  parent.children.length,
+                  localTransform,
+                );
+                doc = applyFrameLayout(doc, selectedFrameId);
               }
             }
             newIds.push(inserted.rootId);
