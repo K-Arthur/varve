@@ -13,6 +13,7 @@
  */
 
 import type { CrashReport } from '@varve/crash';
+import { CONTACTS } from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface CrashRecoveryDialogProps {
@@ -240,10 +241,16 @@ export function CrashRecoveryDialog({
           </div>
 
           {sendFailed && (
-            <p role="alert" className="crash-dialog__error">
-              The report could not be sent. It is still saved locally — try again, or delete it from
-              Privacy and diagnostics settings.
-            </p>
+            <>
+              <p role="alert" className="crash-dialog__error">
+                The report could not be sent. It is still saved locally — try again, or delete it
+                from Privacy and diagnostics settings.
+              </p>
+              <p className="crash-dialog__settings-link">
+                Need help without sending diagnostics?{' '}
+                <a href={`mailto:${CONTACTS.support}`}>{CONTACTS.support}</a>
+              </p>
+            </>
           )}
 
           <div className="crash-dialog__footer">

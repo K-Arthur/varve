@@ -1,4 +1,4 @@
-import { managedColorToCss, PRODUCT_STATUS } from '@varve/shared';
+import { CONTACTS, managedColorToCss, PRODUCT_STATUS, VARVE_URLS } from '@varve/shared';
 import {
   Button,
   Dialog,
@@ -483,6 +483,20 @@ function AboutSection() {
         </div>
         <Divider />
         <div className="settings-about__links">
+          <a
+            className="settings-about__link"
+            href={VARVE_URLS.site}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Website
+          </a>
+          <a className="settings-about__link" href={`mailto:${CONTACTS.support}`}>
+            Support
+          </a>
+          <a className="settings-about__link" href={`mailto:${CONTACTS.privacy}`}>
+            Privacy
+          </a>
           <TooltipProvider>
             <Tooltip
               label="Not yet available in this build"

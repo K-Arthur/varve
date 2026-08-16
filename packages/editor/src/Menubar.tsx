@@ -1352,6 +1352,10 @@ function buildMenus(
           ariaKeyshortcut: ks('openHelpCenter'),
           action: 'openHelpCenter',
         },
+        { label: 'Contact Support', action: 'contactSupport' },
+        { label: 'Send Feedback', action: 'sendFeedback' },
+        { label: 'Report a Security Issue', action: 'reportSecurity' },
+        { label: 'Privacy', action: 'openPrivacy' },
         {
           label: "What's This?",
           action: 'whatIsThis',
@@ -1532,6 +1536,10 @@ export function Menubar({
   onOpenPalette,
   onOpenHelp,
   onOpenHelpCenter,
+  onContactSupport,
+  onSendFeedback,
+  onReportSecurity,
+  onOpenPrivacy,
   onWhatIsThis,
   onOpenAbout,
   onBatchBgRemove,
@@ -1542,6 +1550,10 @@ export function Menubar({
   onOpenPalette?: () => void;
   onOpenHelp?: () => void;
   onOpenHelpCenter?: () => void;
+  onContactSupport?: () => void;
+  onSendFeedback?: () => void;
+  onReportSecurity?: () => void;
+  onOpenPrivacy?: () => void;
   onWhatIsThis?: () => void;
   onOpenAbout?: () => void;
   onBatchBgRemove?: () => void;
@@ -1917,6 +1929,18 @@ export function Menubar({
           return;
         case 'about':
           onOpenAbout?.();
+          return;
+        case 'contactSupport':
+          onContactSupport?.();
+          return;
+        case 'sendFeedback':
+          onSendFeedback?.();
+          return;
+        case 'reportSecurity':
+          onReportSecurity?.();
+          return;
+        case 'openPrivacy':
+          onOpenPrivacy?.();
           return;
         case 'batchBgRemove':
           onBatchBgRemove?.();
