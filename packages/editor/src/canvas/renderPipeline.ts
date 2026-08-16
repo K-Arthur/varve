@@ -490,7 +490,9 @@ export function renderContent(deps: RenderContentDeps): void {
     for (const asset of Object.values(doc.assets ?? {})) activeImageSources.add(asset.dataUrl);
     for (const asset of Object.values(doc.rasterMaskAssets ?? {}))
       activeImageSources.add(asset.dataUrl);
-    if (activeImageSources.size > 0) getImageCache().retainSources(activeImageSources);
+    if (doc.assets !== undefined || doc.rasterMaskAssets !== undefined) {
+      getImageCache().retainSources(activeImageSources);
+    }
 
     let boardColor = sunkenColorRef.current;
     {
