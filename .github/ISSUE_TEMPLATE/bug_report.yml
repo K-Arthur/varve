@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for reporting a bug. **Security vulnerabilities should not be
-        filed here** — use [private advisory reporting](https://github.com/K-Arthur/varve/security/advisories) instead (see [SECURITY.md](../../SECURITY.md)).
+        filed here** — email [security@varve.studio](mailto:security@varve.studio) or use [private advisory reporting](https://github.com/K-Arthur/varve/security/advisories) instead (see [SECURITY.md](../../SECURITY.md)).
 
         Varve is public beta software; please check the
         [known issues](https://varve.studio/support/known-issues) and
