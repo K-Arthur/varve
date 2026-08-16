@@ -1,4 +1,6 @@
 // COMPLEXITY: 275 cyclo (over ceiling 200) — see Phase 5 of architecture-health-remediation-2026-07-26.md
+
+import { VARVE_URLS } from '@varve/shared';
 import {
   AlertDialog,
   FloatingPortal,
@@ -93,7 +95,9 @@ function safeOpenInstallPage(): void {
   if (isInstallDesktopDismissed()) return;
   safeLocalStorageSet(INSTALL_DISMISS_KEY, 'true');
   const os = detectOS();
-  const base = 'https://strata.app/download';
+  // Was 'https://strata.app/download' — a pre-rename domain the project has
+  // never owned, so this menu item opened a dead host for every web user.
+  const base = VARVE_URLS.download;
   const urls: Record<string, string> = {
     mac: `${base}/mac`,
     windows: `${base}/windows`,
