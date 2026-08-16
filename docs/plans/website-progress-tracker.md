@@ -17,7 +17,7 @@
 
 **Deliverables:**
 - ✅ Repository/product audit completed
-- ✅ Product Truth Matrix created: `docs/plans/website-product-truth-matrix.md`
+- ✅ Product Truth Matrix created: `docs/plans/archived/website-product-truth-matrix.md`
 - ✅ Baseline tests run and verified (82 Rust tests, 3572 JS tests passing)
 - ✅ Branding audit completed: `docs/brand-guide.md`
 - ✅ Platform/build/release audit completed
@@ -41,7 +41,7 @@
 **Status:** Complete
 
 **Deliverables:**
-- ✅ Research findings document: `docs/plans/website-research-findings.md`
+- ✅ Research findings document: `docs/plans/archived/website-research-findings.md`
 
 **Research Completed:**
 - ✅ DaVinci Resolve: Product storytelling, download journey, training ecosystem
@@ -67,7 +67,7 @@
 **Status:** Complete
 
 **Deliverables:**
-- ✅ Strategy document: `docs/plans/website-strategy.md`
+- ✅ Strategy document: `docs/plans/archived/website-strategy.md`
 
 **Strategy Defined:**
 - ✅ Audience analysis (primary: independent designers, Linux designers, privacy-conscious, technical)
@@ -385,9 +385,9 @@
 ## Files Created/Modified
 
 **New Files (Committed - 4ab098d):**
-- `docs/plans/website-product-truth-matrix.md` - Phase A deliverable
-- `docs/plans/website-research-findings.md` - Phase B deliverable
-- `docs/plans/website-strategy.md` - Phase C deliverable
+- `docs/plans/archived/website-product-truth-matrix.md` - Phase A deliverable
+- `docs/plans/archived/website-research-findings.md` - Phase B deliverable
+- `docs/plans/archived/website-strategy.md` - Phase C deliverable
 - `docs/plans/website-progress-tracker.md` - This file
 - `apps/website/package.json` - Website dependencies
 - `apps/website/tsconfig.json` - TypeScript config
@@ -465,8 +465,8 @@
 
 **If context is lost, start here:**
 1. Read `docs/plans/website-progress-tracker.md` (this file) for current state
-2. Read `docs/plans/website-strategy.md` for overall strategy
-3. Read `docs/plans/website-product-truth-matrix.md` for what's actually built
+2. Read `docs/plans/archived/website-strategy.md` for overall strategy
+3. Read `docs/plans/archived/website-product-truth-matrix.md` for what's actually built
 4. Check `apps/website/` directory for current implementation
 5. Continue from Phase D (Foundations) - test Astro dev server, create remaining pages
 

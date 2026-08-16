@@ -7,7 +7,8 @@
  *                name "Strata" or dead paths (crates/strata-*, strata-app-icon.svg,
  *                strata_wasm_*, dev.strata.desktop, ...). Historical docs
  *                (dated audits/plans/perf/research/superpowers/implementation
- *                memory/session history/ADRs/CLA/licensing) are allowed to
+ *                memory/session history/ADRs/CLA/licensing, and records moved
+ *                to docs/historical/) are allowed to
  *                mention Strata — the product was renamed 2026-08-04 and
  *                legacy format identifiers (.strata extension, vnd.strata
  *                MIME, strata:* storage keys) are intentionally kept.
@@ -32,6 +33,7 @@ const DOCS = join(ROOT, 'docs');
 const HISTORICAL_PREFIXES = [
   'docs/adr/',
   'docs/audits/',
+  'docs/historical/', // dated point-in-time records moved out of docs/architecture/
   'docs/implementation/',
   'docs/implementation-memory/',
   'docs/perf/',
@@ -53,9 +55,6 @@ const HISTORICAL_EXACT = [
   'docs/release/release-readiness-audit.md',
   'docs/audits/marketing-copy-review-2026-08-04.md', // dated review snapshot (moved from docs/release/ 2026-08-12)
   'docs/audits/marketing-copy-review-2026-08-10.md', // dated review snapshot
-  'docs/architecture/ai-competitor-intelligence-2026.md',
-  'docs/architecture/ai-feature-strategy-2026-07-21.md',
-  'docs/architecture/icon-system-audit-2026-08-02.md',
   'docs/brand/varve-brand-guide.md', // superseded v1.0 guide — describes the pre-rename asset names
 ];
 // These are CURRENT docs despite living under plans/ (they are operating guides).

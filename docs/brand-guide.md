@@ -222,7 +222,6 @@ packages/ui/src/icons/
   varve-wordmark-stacked-gradient.svg   ← stacked lockup, per-layer gradients
   varve-wordmark-on-black.svg           ← horizontal lockup, #000 bg, cross-sweep gradient
   varve-wordmark-stacked-on-black.svg   ← stacked lockup, #000 bg, cross-sweep gradient
-  _backup_2026-06-30/                    ← originals before this rework
 
 apps/desktop/src-tauri/icons/
   strata.svg                        ← mark + bg (Tauri window icon; filename retained from the pre-rename era)
