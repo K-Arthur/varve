@@ -40,6 +40,13 @@ fi
 # the portable baseline that always runs.
 echo "  → Scanning staged additions for secrets..."
 node scripts/secret-scan.mjs --staged
+
+# 5b-ii. Public-contact audit: Varve's public identity is seven
+# @varve.studio role addresses. A private forwarding mailbox, a retired
+# @strata.* address, or a bounced-domain typo reaching a public surface is a
+# privacy/deliverability defect, and history is hard to rewrite once pushed.
+echo "  → Auditing public contact identities..."
+node scripts/audit-contacts.mjs
 if command -v gitleaks >/dev/null 2>&1; then
   echo "  → gitleaks protect (staged)..."
   gitleaks protect --staged --no-banner --source . || {
