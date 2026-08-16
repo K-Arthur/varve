@@ -1,0 +1,319 @@
+---
+/**
+ * /compare — honest positioning against the tools people already know.
+ *
+ * Two rules, deliberately stricter than the rest of the site:
+ *  1. Every claim about Varve must already appear (in substance) elsewhere
+ *     on the site or in the README/llms.txt — nothing new is asserted here.
+ *  2. Claims about other products are limited to long-stable, easily
+ *     verified category facts (platform, license type, primary focus) —
+ *     never pricing specifics or feature-parity claims, which change
+ *     independently of this page and would go stale silently. See the
+ *     disclaimer section for the same point made to readers.
+ */
+import Layout from '../layouts/Layout.astro';
+import { sitePath, siteUrl } from '../lib/siteUrl';
+import ClosingCTA from '../components/ClosingCTA.astro';
+
+const faqs = [
+  {
+    q: 'Is Varve a Figma alternative?',
+    a: "It's a genuine alternative for vector, layout, typography, and prototyping work, with the opposite storage model: Varve documents are local files with no account required, where Figma is browser-based and built around real-time multi-user collaboration. Varve does not have real-time collaboration yet, so if that's central to your workflow, it isn't a drop-in replacement today.",
+  },
+  {
+    q: 'Is Varve like Adobe Illustrator?',
+    a: "Both do vector illustration. Illustrator is desktop software distributed through Adobe's Creative Cloud application suite; Varve is a single free application (vector, layout, typography, motion, and print together) under a source-available license, with no subscription and no account requirement.",
+  },
+  {
+    q: 'Is Varve like Affinity Designer, Photo, or Publisher?',
+    a: "Similar in spirit — desktop-native, not subscription-dependent for core use — but Affinity ships as separate apps for vector, raster, and publishing work, while Varve combines vector, layout, typography, motion, prototyping, and print in one document model and one application.",
+  },
+  {
+    q: 'How is Varve different from Inkscape or Penpot?',
+    a: 'Inkscape and Penpot are both free and open source, so the free-to-use ground is shared. Varve differs in scope (layout, typography, motion, and print production alongside vector editing, in one document model) and in license: Varve is source-available under FSL-1.1-MIT, not OSI-approved open source, though each release converts to plain MIT two years after it ships.',
+  },
+  {
+    q: "Should I switch to Varve today?",
+    a: "Only if beta software is an acceptable trade for what it offers now. Varve is public beta: interfaces and the .varve document format can still change, and Windows/macOS builds are not yet code-signed. It's a reasonable choice for exploring a local-first workflow or testing whether the combined toolset fits you; it is not yet the right choice for a deadline you can't afford to miss.",
+  },
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map(({ q, a }) => ({
+    '@type': 'Question',
+    name: q,
+    acceptedAnswer: { '@type': 'Answer', text: a },
+  })),
+};
+
+const pageSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebPage',
+  '@id': `${siteUrl('/compare')}#webpage`,
+  url: siteUrl('/compare'),
+  name: 'Compare Varve to other design tools',
+  description:
+    'How Varve differs from Figma, Adobe Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration.',
+  inLanguage: 'en',
+};
+---
+
+<Layout
+  title="Compare Varve to Other Design Tools"
+  description="How Varve compares to Figma, Illustrator, Affinity, Sketch, Inkscape, and Penpot on pricing, platform, license, and collaboration — compared honestly."
+  structuredData={[pageSchema, faqSchema]}
+>
+  <div class="container-custom">
+    <div class="compare-page">
+      <h1 class="page-hero-title">How Varve compares</h1>
+      <p class="page-hero-sub">
+        There's no single best design tool — only a better or worse fit for how you work. This
+        page is the honest version: what actually differs, and where Varve currently falls short
+        for people coming from something else.
+      </p>
+
+      <section class="compare-section">
+        <h2>What to weigh, regardless of what you're switching from</h2>
+        <p>These are facts about Varve itself — the same ones on the <a href={sitePath('/product')}>product overview</a> and in the <a href={sitePath('/support/faq')}>FAQ</a>, gathered in one table.</p>
+        <div class="spec-table" role="table" aria-label="Varve at a glance">
+          <div class="spec-row" role="row">
+            <span class="spec-key" role="columnheader">Price</span>
+            <span class="spec-val" role="cell">Free. No subscription, no feature paywall (Community Edition).</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span class="spec-key" role="columnheader">Account</span>
+            <span class="spec-val" role="cell">None required. Core editing works fully offline.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span class="spec-key" role="columnheader">Where files live</span>
+            <span class="spec-val" role="cell">Local disk (desktop) or local browser storage (web build). No mandatory cloud sync.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span class="spec-key" role="columnheader">Platforms</span>
+            <span class="spec-val" role="cell">Native desktop app on Linux, macOS (Apple Silicon), and Windows. No hosted web editor yet.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span class="spec-key" role="columnheader">License</span>
+            <span class="spec-val" role="cell">Source-available, FSL-1.1-MIT — each release converts to plain MIT two years after it ships.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span class="spec-key" role="columnheader">Collaboration</span>
+            <span class="spec-val" role="cell">Not implemented yet — UI scaffolding only, single-user today.</span>
+          </div>
+          <div class="spec-row" role="row">
+            <span class="spec-key" role="columnheader">Maturity</span>
+            <span class="spec-val" role="cell">Public beta — interfaces and the .varve format can still change.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="compare-section">
+        <h2>If you're coming from&hellip;</h2>
+        <div class="from-grid">
+          <div class="from-card">
+            <h3>Figma</h3>
+            <p class="from-what">Browser-based, built around real-time multi-user collaboration and UI design workflows.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app with documents as local files and no account — but no real-time collaboration yet.</p>
+          </div>
+          <div class="from-card">
+            <h3>Adobe Illustrator</h3>
+            <p class="from-what">Desktop vector illustration software, part of the wider Adobe Creative Cloud application suite.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> one application that also covers layout, typography, motion, and print — not a suite of separate apps.</p>
+          </div>
+          <div class="from-card">
+            <h3>Affinity (Designer, Photo, Publisher)</h3>
+            <p class="from-what">Desktop vector, raster, and publishing apps, now part of Canva's Affinity line.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> vector, raster, layout, and publishing live in one document model instead of three separate apps.</p>
+          </div>
+          <div class="from-card">
+            <h3>Sketch</h3>
+            <p class="from-what">A macOS-only UI design tool.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> cross-platform — Linux, macOS, and Windows from the same codebase.</p>
+          </div>
+          <div class="from-card">
+            <h3>Inkscape</h3>
+            <p class="from-what">Free, open-source, cross-platform vector editor licensed under the GPL.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> adds layout, typography, motion, prototyping, and print production alongside vector editing; the license is source-available (FSL-1.1-MIT), not GPL.</p>
+          </div>
+          <div class="from-card">
+            <h3>Penpot</h3>
+            <p class="from-what">Free, open-source, browser-based design and prototyping tool.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app rather than browser-based, with print production and offline-first storage.</p>
+          </div>
+        </div>
+        <p class="compare-disclaimer">
+          Varve is an independent project, not affiliated with, endorsed by, or sponsored by
+          Figma, Adobe, Canva/Affinity, Sketch, Inkscape, or Penpot. Names are trademarks of
+          their respective owners. Pricing and feature details for those products change
+          independently of this page — verify current specifics on their own sites; what's
+          verified here is Varve's own.
+        </p>
+      </section>
+
+      <section class="compare-section">
+        <h2>Frequently asked questions</h2>
+        <div class="faq-list">
+          {faqs.map(({ q, a }) => (
+            <div class="faq-item">
+              <h3>{q}</h3>
+              <p>{a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <ClosingCTA
+        title="See it yourself"
+        accentWord="for free."
+        text="Free and source-available under FSL-1.1-MIT. Public beta — expect rough edges."
+      />
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .compare-page {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 3rem 0 0;
+  }
+
+  .compare-page .page-hero-title {
+    margin-bottom: 1rem;
+  }
+
+  .compare-page .page-hero-sub {
+    margin-bottom: 3rem;
+  }
+
+  .compare-section {
+    margin-bottom: 3.5rem;
+  }
+
+  .compare-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .compare-section > p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+  }
+
+  .compare-section > p a {
+    color: var(--text-link);
+  }
+
+  .compare-section > p a:hover {
+    color: var(--text-link-hover);
+  }
+
+  .spec-table {
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  .spec-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 0.8fr) 2fr;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+  }
+
+  .spec-row + .spec-row {
+    border-top: 1px solid var(--border-default);
+  }
+
+  .spec-row:nth-child(odd) {
+    background: var(--surface-card);
+  }
+
+  .spec-key {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+  }
+
+  .spec-val {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  .from-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .from-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+  }
+
+  .from-card h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin-bottom: 0.6rem;
+    color: var(--text-primary);
+  }
+
+  .from-what {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    margin-bottom: 0.75rem;
+  }
+
+  .from-diff {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  .from-diff strong {
+    color: var(--text-primary);
+  }
+
+  .compare-disclaimer {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 68ch;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .faq-list {
+    display: grid;
+    gap: 1.75rem;
+  }
+
+  .faq-item h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+  }
+
+  .faq-item p {
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  @media (max-width: 640px) {
+    .spec-row {
+      grid-template-columns: 1fr;
+      gap: 0.25rem;
+    }
+  }
+</style>
