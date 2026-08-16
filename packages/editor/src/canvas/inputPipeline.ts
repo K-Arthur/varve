@@ -36,11 +36,7 @@ import {
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
-import {
-  collectSourceEvents,
-  type NormalizedInputEvent,
-  normalizeInputEvent,
-} from '../tools/inputNormalizer';
+import { type NormalizedInputEvent, normalizeInputEvent } from '../tools/inputNormalizer';
 import {
   decayRateFromFrameRetention,
   frameDisplacementToVelocity,
@@ -146,7 +142,6 @@ function snapshotHeldPointer(ev: PointerEvent): PointerEvent {
 
 export function useCanvasInputs({
   contentCanvasRef,
-  canvasRectRef,
   editor,
   stateRef,
   tmRef,
@@ -241,6 +236,7 @@ export function useCanvasInputs({
   } | null>(null);
   const snapSessionForPointer = externalSnapSessionRef ?? internalSnapSessionRef;
   const snapIndexForPointer = externalSnapIndexRef ?? internalSnapIndexRef;
+  const lastCursorUpdate = useRef(0);
   const cursorRafScheduled = useRef(false);
   const latestCursorWorld = useRef<{ x: number; y: number } | null>(null);
   // Document size is O(n) to measure, so it is sampled once per gesture (only
@@ -267,7 +263,7 @@ export function useCanvasInputs({
       activeDragPointer.current = snapshotHeldPointer(ne);
       const tmInst = tmRef.current;
       if (!tmInst) return;
-      const ctx = buildToolCtx(ne, collectSourceEvents(ne));
+      const ctx = buildToolCtx(ne);
 
       e.currentTarget.focus({ preventScroll: true });
 
@@ -315,7 +311,7 @@ export function useCanvasInputs({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
-      const ctx = buildToolCtx(ne, collectSourceEvents(ne, true));
+      const ctx = buildToolCtx(ne);
       if (e.buttons !== 0) activeDragPointer.current = snapshotHeldPointer(ne);
 
       if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
@@ -523,7 +519,7 @@ export function useCanvasInputs({
         endInteraction();
         return;
       }
-      const upCtx = buildToolCtx(ne, collectSourceEvents(ne));
+      const upCtx = buildToolCtx(ne);
       if (wasAutoPanning) {
         // Settle the gesture against the final camera snapshot before commit.
         // A delayed frame may legally advance by the bounded 50 ms step; this
