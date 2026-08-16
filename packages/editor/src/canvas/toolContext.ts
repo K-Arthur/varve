@@ -56,11 +56,17 @@ interface SnapIndexEntry {
   indexedNodeCount: number;
 }
 
+export interface CanvasRect {
+  left: number;
+  top: number;
+}
+
 export interface ToolContextDeps {
   stateRef: React.MutableRefObject<EditorState>;
   editorRef: React.MutableRefObject<EditorContextValue>;
   engineRef: React.MutableRefObject<Engine | null>;
   contentCanvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasRectRef: React.MutableRefObject<CanvasRect>;
   frameIndexRef: React.MutableRefObject<FrameSpatialIndex | null>;
   transformCacheRef: React.MutableRefObject<TransformCache>;
   snapSessionRef: React.MutableRefObject<SnapSession>;
@@ -160,8 +166,8 @@ export function buildToolContext(
     // accounting for the canvas element's screen offset below the menubar.
     // See BaseTool.ts:66-67.
     canvasToWorld: (cx, cy) => {
-      const rect = deps.contentCanvasRef.current?.getBoundingClientRect();
-      return e.canvasToWorld(cx - (rect?.left ?? 0), cy - (rect?.top ?? 0));
+      const rect = deps.canvasRectRef.current;
+      return e.canvasToWorld(cx - rect.left, cy - rect.top);
     },
     worldToCanvas: (wx, wy) => e.worldToCanvas(wx, wy),
     canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
