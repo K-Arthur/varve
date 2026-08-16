@@ -150,6 +150,41 @@ async function openDemoDocument(page, name) {
 }
 
 /**
+ * Imports a real photo fixture through the application's own image-import
+ * input — the same `#file-import-input` the e2e suite uses (see
+ * tests/e2e/helpers/editor-helpers.ts). Scenes that demonstrate image-based
+ * tools (palette extraction, enhance) need genuine photographic content;
+ * see fixtures/PROVENANCE.md for the source and license of every photo here.
+ */
+async function importImage(page, fileName) {
+  const fixture = join(ROOT, 'scripts', 'screenshots', 'fixtures', fileName);
+  await page.setInputFiles('#file-import-input', fixture);
+  await page.getByRole('treeitem').first().waitFor({ timeout: 15000 });
+  await page.waitForTimeout(300);
+  // A real (larger, decoded) photo can surface a dialog that a tiny
+  // synthetic fixture never does (e.g. a stray onboarding/tips prompt that
+  // reflows once real content lands). Clear it defensively — the same
+  // stacked-dialog loop openCleanEditor already runs at startup — so it
+  // can't intercept the next click.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const openDialogs = page.locator('dialog[open]');
+    if ((await openDialogs.count()) === 0) break;
+    const close = openDialogs.last().getByRole('button', { name: /close/i }).first();
+    if (!(await close.isVisible({ timeout: 400 }).catch(() => false))) break;
+    await close.click({ timeout: 2000 }).catch(() => undefined);
+    await page.waitForTimeout(200);
+  }
+}
+
+/** Selects the (single, just-imported) image node so tool panels act on it. */
+async function selectImageNode(page) {
+  await page.keyboard.press('v');
+  await page.waitForTimeout(200);
+  await page.getByRole('treeitem').first().click();
+  await page.waitForTimeout(200);
+}
+
+/**
  * Deterministic framing: identical zoom/pan for every capture of a document.
  *
  * "Fit all" (content bounds) rather than "Fit page": the demo documents are
@@ -432,6 +467,85 @@ const SCENES = [
       if (empty) {
         throw new Error(
           'timeline has no tracks: the Alt+P keyframe shortcut did not author a track, so the scene would misrepresent the motion workspace',
+        );
+      }
+    },
+  },
+  {
+    id: 'palette-inspector',
+    file: 'palette-inspector-light.png',
+    theme: 'light',
+    feature: 'color-effects',
+    alt: 'Varve showing a NASA Earth-observation photo on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs',
+    caption:
+      'Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.',
+    async run(page) {
+      await openCleanEditor(page);
+      await importImage(page, 'earth.jpg');
+      await selectImageNode(page);
+      await fitContent(page);
+      await page.getByRole('tab', { name: /^Appearance/i }).click();
+      // The Appearance panel re-renders on tab switch; querying the
+      // disclosure immediately after the click can catch it mid-render.
+      await page.waitForTimeout(400);
+      const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Palette/ });
+      await paletteSection.waitFor({ state: 'visible', timeout: 15000 });
+      const paletteTrigger = paletteSection.getByRole('button', { name: /^Palette$/ });
+      if ((await paletteTrigger.getAttribute('aria-expanded')) === 'false') {
+        await paletteTrigger.click();
+        await page.waitForTimeout(500);
+      }
+      // Wait for the actual loading -> idle transition rather than a fixed
+      // sleep or the heading's own timeout: analysis runs in a worker and
+      // briefly shows "Analyzing...", and waiting for that round trip is the
+      // real deterministic signal, not an arbitrary delay.
+      const analyzeBtn = paletteSection.locator(
+        '.palette-section__toolbar .intelligence-action-btn',
+      );
+      await analyzeBtn
+        .filter({ hasText: /Analyzing/i })
+        .waitFor({ state: 'visible', timeout: 5000 })
+        .catch(() => undefined);
+      await analyzeBtn
+        .filter({ hasText: /^Analyze$/ })
+        .waitFor({ state: 'visible', timeout: 20000 })
+        .catch(() => undefined);
+      const heading = paletteSection.getByRole('heading', { name: 'Extracted colors' });
+      if (!(await heading.isVisible({ timeout: 10000 }).catch(() => false))) {
+        throw new Error(
+          'palette extraction did not produce "Extracted colors" for the photo fixture',
+        );
+      }
+    },
+  },
+  {
+    id: 'enhance-dialog-auto',
+    file: 'enhance-dialog-auto.png',
+    theme: 'light',
+    feature: 'image-enhancement',
+    alt: 'The Varve Enhance dialog in Auto mode showing a real photo import and a recommended enhancement task',
+    caption: 'The Enhance dialog in Auto mode recommends a task from the source image.',
+    async run(page) {
+      await openCleanEditor(page);
+      // A visibly degraded derivative of the same rights-cleared photo (see
+      // fixtures/PROVENANCE.md) — the clean source is accurately judged as
+      // needing no restoration, which doesn't demonstrate what this dialog
+      // actually does.
+      await importImage(page, 'earth-noisy.jpg');
+      await selectImageNode(page);
+      await fitContent(page);
+      const enhanceBtn = page.getByRole('button', { name: 'Enhance', exact: true });
+      if (!(await enhanceBtn.isVisible({ timeout: 4000 }).catch(() => false))) {
+        throw new Error('Enhance control unavailable for the selected image');
+      }
+      await enhanceBtn.click();
+      const dialog = page.getByRole('dialog', { name: 'Enhance image' });
+      await dialog.waitFor({ state: 'visible', timeout: 8000 });
+      await page.waitForTimeout(400);
+      const recommendation = dialog.getByText(/Recommended:/);
+      if (!(await recommendation.isVisible({ timeout: 20000 }).catch(() => false))) {
+        throw new Error(
+          'Enhance Auto analysis produced no "Recommended:" result for the photo fixture',
         );
       }
     },
