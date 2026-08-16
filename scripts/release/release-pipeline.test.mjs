@@ -17,6 +17,20 @@ import { dirname, join } from 'node:path';
 import { parseChecksums, selectRelease, verifyReleaseIntegrity } from './verify-release-data.mjs';
 import { incrementVersion } from './version.mjs';
 import { buildWebsiteReleaseData, formatCopy } from './website-release-data.mjs';
+import { buildUpdaterConfig } from './write-updater-config.mjs';
+
+// ── updater build-mode configuration ────────────────────────────────────────
+assert.deepEqual(buildUpdaterConfig('stable', 'signed'), {
+  plugins: { updater: { endpoints: ['https://varve.studio/updates/stable.json'] } },
+});
+assert.deepEqual(buildUpdaterConfig('beta', 'manual-only'), {
+  bundle: { createUpdaterArtifacts: false },
+  plugins: {
+    updater: { endpoints: ['https://varve.studio/updates/beta.json'], active: false, pubkey: '' },
+  },
+});
+assert.throws(() => buildUpdaterConfig('preview', 'signed'), /invalid update channel/);
+assert.throws(() => buildUpdaterConfig('stable', 'unsigned'), /invalid updater mode/);
 
 const runValidator = (files) => {
   try {
