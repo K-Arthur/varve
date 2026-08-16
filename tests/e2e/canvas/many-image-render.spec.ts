@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
 /** Comfortably above the default `workerImageBitmaps` budget of 10. */
@@ -171,6 +171,12 @@ test.describe('many-image canvas rendering', () => {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Shift+1');
     await page.waitForTimeout(2000);
+
+    // Add an unrelated frame after the images already exist. This must not
+    // blank the image working set or capture a distant root-level sibling.
+    await page.keyboard.press('f');
+    await dragOnCanvas(page, 1040, 620, 1180, 760);
+    await page.waitForTimeout(1000);
 
     const painted = await surfaceState(page);
 

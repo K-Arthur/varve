@@ -3738,25 +3738,49 @@ export function EditorProvider({
 
             // Find siblings (nodes with same parent as the new frame)
             const frameParent = parentIndex.get(id);
-            const siblings: NodeId[] = [];
-            for (const [nodeId, parentId] of parentIndex.entries()) {
-              if (parentId === frameParent && nodeId !== id) {
-                siblings.push(nodeId);
+            const siblings: NodeId[] =
+              frameParent === undefined
+                ? newDoc.rootChildren.filter((nodeId) => nodeId !== id)
+                : [];
+            if (frameParent !== undefined) {
+              for (const [nodeId, parentId] of parentIndex.entries()) {
+                if (parentId === frameParent && nodeId !== id) {
+                  siblings.push(nodeId);
+                }
               }
             }
 
-            // Capture fully-contained siblings
+            // Capture siblings that the new frame meaningfully covers. Full
+            // containment is ideal, but requiring it made drawing a frame
+            // over an already-placed image leave the image as a top-level
+            // sibling underneath an opaque frame. A center hit or a majority
+            // overlap is conservative enough to avoid stealing unrelated
+            // nearby artwork while matching the user's visible intent.
             for (const siblingId of siblings) {
               const siblingBounds = nodeWorldBounds(newDoc, siblingId, parentIndex);
               if (!siblingBounds) continue;
 
-              // Check full containment (sibling must be entirely inside frame)
-              if (
-                siblingBounds.x >= frameBounds.x &&
-                siblingBounds.y >= frameBounds.y &&
-                siblingBounds.x + siblingBounds.w <= frameBounds.x + frameBounds.w &&
-                siblingBounds.y + siblingBounds.h <= frameBounds.y + frameBounds.h
-              ) {
+              const siblingCenterX = siblingBounds.x + siblingBounds.w / 2;
+              const siblingCenterY = siblingBounds.y + siblingBounds.h / 2;
+              const centerInside =
+                siblingCenterX >= frameBounds.x &&
+                siblingCenterY >= frameBounds.y &&
+                siblingCenterX <= frameBounds.x + frameBounds.w &&
+                siblingCenterY <= frameBounds.y + frameBounds.h;
+              const intersectionWidth = Math.max(
+                0,
+                Math.min(siblingBounds.x + siblingBounds.w, frameBounds.x + frameBounds.w) -
+                  Math.max(siblingBounds.x, frameBounds.x),
+              );
+              const intersectionHeight = Math.max(
+                0,
+                Math.min(siblingBounds.y + siblingBounds.h, frameBounds.y + frameBounds.h) -
+                  Math.max(siblingBounds.y, frameBounds.y),
+              );
+              const siblingArea = siblingBounds.w * siblingBounds.h;
+              const overlapRatio =
+                siblingArea > 0 ? (intersectionWidth * intersectionHeight) / siblingArea : 0;
+              if (centerInside || overlapRatio >= 0.5) {
                 // Reparent sibling into the new frame with transform preservation
                 const siblingNode = newDoc.nodes[siblingId];
                 if (siblingNode && !siblingNode.locked) {
