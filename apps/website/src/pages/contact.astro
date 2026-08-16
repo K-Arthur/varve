@@ -105,7 +105,7 @@ const faqSchema = {
       name: 'Who do journalists contact about Varve?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `Press and media inquiries can be sent to ${CONTACTS.press}. The current Varve mark, screenshots, and product facts are available from the contact and download pages.`,
+        text: `Press and media inquiries can be sent to ${CONTACTS.press}. Logos, screenshots, and product facts are on the Varve press page at https://varve.studio/press.`,
       },
     },
     {
@@ -237,8 +237,8 @@ const CHANNEL_ORDER = CONTACT_CHANNELS.map((channel) => channel.id);
           <dd>
             Press inquiries can be sent to
             <a href={`mailto:${CONTACTS.press}`} aria-label="Email Varve press inquiries">{CONTACTS.press}</a>.
-             The <a href={sitePath('/favicon.svg')}>current Varve mark (SVG)</a>, product facts, and
-             screenshots are available from this site and the <a href={sitePath('/download')}>download page</a>.
+            Logos, screenshots, and product facts are on the
+            <a href={sitePath('/press')}>press and brand assets page</a>.
           </dd>
 
           <dt>How do I discuss a partnership with Varve?</dt>
