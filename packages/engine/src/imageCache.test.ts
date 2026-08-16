@@ -315,6 +315,20 @@ describe('ImageCache at-size representations', () => {
     return { width, height, close, closed: false } as unknown as ImageBitmap;
   }
 
+  it('releases full and at-size entries outside the active source set', () => {
+    const cache = new ImageCache({ maxBytes: 10 * 1024 * 1024 });
+    const active = 'data:image/png;base64,active';
+    const closed = 'data:image/png;base64,closed';
+    cache.setLoaded(active, mockBitmap(vi.fn(), 100, 100));
+    cache.setLoaded(cache.atSizeKey(active, 512), mockBitmap(vi.fn(), 50, 50));
+    cache.setLoaded(closed, mockBitmap(vi.fn(), 100, 100));
+
+    expect(cache.retainSources([active])).toBe(1);
+    expect(cache.isLoaded(active)).toBe(true);
+    expect(cache.isLoadedAtSize(active, 512)).toBe(true);
+    expect(cache.isLoaded(closed)).toBe(false);
+  });
+
   function mockFetchBlob(): void {
     globalThis.fetch = vi.fn().mockResolvedValue({
       blob: () => Promise.resolve(new Blob(['bytes'], { type: 'image/jpeg' })),
