@@ -86,6 +86,37 @@ export function SettingsDialog({
     if (open) setActiveSection(initialSection);
   }, [open, initialSection]);
 
+  const handleSectionKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const current = SECTIONS.findIndex((s) => s.id === activeSection);
+      let next = current;
+      switch (e.key) {
+        case 'ArrowDown':
+        case 'ArrowRight':
+          next = (current + 1) % SECTIONS.length;
+          break;
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          next = (current - 1 + SECTIONS.length) % SECTIONS.length;
+          break;
+        case 'Home':
+          next = 0;
+          break;
+        case 'End':
+          next = SECTIONS.length - 1;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      const nextSection = SECTIONS[next];
+      if (!nextSection) return;
+      setActiveSection(nextSection.id);
+      document.getElementById(`settings-tab-${nextSection.id}`)?.focus();
+    },
+    [activeSection],
+  );
+
   const handleThemeChange = useCallback(
     (theme: string) => {
       updateSection('appearance', { theme: theme as ThemeMode });
@@ -119,7 +150,17 @@ export function SettingsDialog({
         className="varve-dialog--settings"
       >
         <div className="settings-dialog__layout">
-          <nav className="settings-dialog__nav" aria-label="Settings sections">
+          {/* APG Tabs: the container must be the tablist, only the selected
+              tab stays in the Tab sequence, and Arrow/Home/End move between
+              sections. Previously all 12 tabs were individual tab stops with
+              no arrow support. */}
+          <div
+            className="settings-dialog__nav"
+            role="tablist"
+            aria-label="Settings sections"
+            aria-orientation="vertical"
+            onKeyDown={handleSectionKeyDown}
+          >
             {SECTIONS.map((sec) => (
               <button
                 key={sec.id}
@@ -128,13 +169,14 @@ export function SettingsDialog({
                 role="tab"
                 aria-selected={activeSection === sec.id}
                 aria-controls="settings-tabpanel"
+                tabIndex={activeSection === sec.id ? 0 : -1}
                 className={`settings-dialog__tab${activeSection === sec.id ? ' settings-dialog__tab--active' : ''}`}
                 onClick={() => setActiveSection(sec.id)}
               >
                 {sec.label}
               </button>
             ))}
-          </nav>
+          </div>
 
           <div
             className="settings-dialog__content"

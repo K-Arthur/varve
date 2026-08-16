@@ -67,5 +67,16 @@ import { sitePath } from '../lib/siteUrl';
     gap: 1rem;
     justify-content: center;
     position: relative;
+    /* WCAG 1.4.10 Reflow: at 320px the container leaves ~272px of content
+       width, which the two full-padding buttons plus a fixed 1rem gap can
+       exceed. Wrapping keeps them inside the viewport. */
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 400px) {
+    .error-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
   }
 </style>

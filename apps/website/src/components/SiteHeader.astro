@@ -179,7 +179,9 @@ const versionLabel = release.hasRelease && release.version
   });
 
   closeBtn?.addEventListener('click', () => closeMenu(true));
-  backdrop?.addEventListener('click', () => closeMenu(false));
+  // Backdrop dismissal must also return focus to the toggle: focus was left on
+  // a now-hidden panel link (or fell back to <body>), losing the user's place.
+  backdrop?.addEventListener('click', () => closeMenu(true));
 
   // Close on Escape
   document.addEventListener('keydown', (e) => {
@@ -191,10 +193,14 @@ const versionLabel = release.hasRelease && release.version
     link.addEventListener('click', () => closeMenu(false));
   });
 
-  // Close on resize to desktop
+  // Close on resize to desktop. Focus is returned to the toggle because the
+  // panel (and whatever inside it had focus) becomes hidden at this breakpoint.
   const desktopQuery = window.matchMedia('(min-width: 769px)');
   desktopQuery.addEventListener('change', (e) => {
-    if (e.matches && isOpen) closeMenu(false);
+    if (e.matches && isOpen) {
+      const focusWasInPanel = panel?.contains(document.activeElement) ?? false;
+      closeMenu(focusWasInPanel);
+    }
   });
 
   // Trap focus inside panel when open
@@ -697,10 +703,16 @@ const versionLabel = release.hasRelease && release.version
     }
   }
 
-  /* Safe area inset for notched devices */
+  /* Safe area insets for notched devices. The sheet fills the whole viewport,
+     so the top (notch/status bar) and bottom (home indicator) insets matter as
+     much as the right one — without them the Close button and the bottom
+     Download action could sit under device chrome. */
   @supports (padding: env(safe-area-inset-right)) {
     .mobile-nav-sheet {
+      padding-top: env(safe-area-inset-top);
       padding-right: env(safe-area-inset-right);
+      padding-bottom: env(safe-area-inset-bottom);
+      padding-left: env(safe-area-inset-left);
     }
   }
 </style>

@@ -65,9 +65,14 @@ export function Combobox({
     if (highlightedIdx >= filteredOptions.length) {
       setHighlightedIdx(filteredOptions.length - 1);
     } else if (filteredOptions.length > 0 && highlightedIdx < 0) {
-      setHighlightedIdx(0);
+      setHighlightedIdx(filteredOptions.findIndex((o) => !o.disabled));
+    } else if (filteredOptions.length > 0 && filteredOptions[highlightedIdx]?.disabled) {
+      // Filtering can seat the highlight on a disabled option; move it to the
+      // first selectable one so aria-activedescendant stays valid.
+      const firstEnabled = filteredOptions.findIndex((o) => !o.disabled);
+      if (firstEnabled >= 0) setHighlightedIdx(firstEnabled);
     }
-  }, [filteredOptions.length, highlightedIdx]);
+  }, [filteredOptions, highlightedIdx]);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -76,6 +81,11 @@ export function Combobox({
 
   const commit = useCallback(
     (val: string) => {
+      // A disabled option must not be selectable by any input modality.
+      // Mouse selection already guarded this; keyboard Enter did not, so
+      // keyboard users could produce a value mouse users cannot.
+      const disabledMatch = options.find((o) => o.label === val && o.disabled);
+      if (disabledMatch) return;
       if (restrictToOptions) {
         const match = options.find((o) => o.label === val);
         if (match) {
@@ -88,6 +98,20 @@ export function Combobox({
       close();
     },
     [options, onChange, restrictToOptions, close],
+  );
+
+  /** Nearest selectable option index, scanning in `step` direction. */
+  const nextEnabledIdx = useCallback(
+    (from: number, step: 1 | -1): number => {
+      const total = filteredOptions.length;
+      if (total === 0) return -1;
+      for (let i = 0; i < total; i += 1) {
+        const idx = (((from + step * i) % total) + total) % total;
+        if (!filteredOptions[idx]?.disabled) return idx;
+      }
+      return -1;
+    },
+    [filteredOptions],
   );
 
   useEffect(() => {
@@ -111,16 +135,23 @@ export function Combobox({
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
-          setHighlightedIdx((i) => (i + 1) % filteredOptions.length);
+          setHighlightedIdx((i) => {
+            const next = nextEnabledIdx(i + 1, 1);
+            return next === -1 ? i : next;
+          });
           break;
         case 'ArrowUp':
           e.preventDefault();
-          setHighlightedIdx((i) => (i - 1 + filteredOptions.length) % filteredOptions.length);
+          setHighlightedIdx((i) => {
+            const next = nextEnabledIdx(i - 1, -1);
+            return next === -1 ? i : next;
+          });
           break;
         case 'Enter': {
           e.preventDefault();
           const option = filteredOptions[highlightedIdx];
           if (highlightedIdx >= 0 && highlightedIdx < filteredOptions.length && option) {
+            if (option.disabled) break;
             commit(option.label);
           } else {
             commit(inputValue);
@@ -136,7 +167,7 @@ export function Combobox({
           break;
       }
     },
-    [open, filteredOptions, highlightedIdx, inputValue, commit, close],
+    [open, filteredOptions, highlightedIdx, inputValue, commit, close, nextEnabledIdx],
   );
 
   return (

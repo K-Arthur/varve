@@ -7,7 +7,7 @@
  *
  * Research basis: Figma ⌘/ palette, VS Code Ctrl+Shift+P, Penpot shortcuts.
  */
-import { Icon } from '@varve/ui';
+import { FocusTrap, Icon } from '@varve/ui';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
@@ -69,12 +69,23 @@ export function QuickActionsBar({ open, onClose, onExecute, position }: QuickAct
     return actions.slice(0, MAX_VISIBLE);
   }, [query, registry, allActions, recent]);
 
+  // Save the launching element while the palette is open and hand focus back
+  // when it closes. FocusTrap also restores, but only while focus is still
+  // inside the trap at cleanup — an executed action can move focus first, so
+  // the palette owns this explicitly rather than relying on that path.
+  const launchElementRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (open) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && active !== document.body) launchElementRef.current = active;
       setQuery('');
       setActiveIndex(0);
       setTimeout(() => inputRef.current?.focus(), 0);
+      return;
     }
+    const target = launchElementRef.current;
+    launchElementRef.current = null;
+    if (target?.isConnected) target.focus({ preventScroll: true });
   }, [open]);
 
   const execute = useCallback(
@@ -133,55 +144,68 @@ export function QuickActionsBar({ open, onClose, onExecute, position }: QuickAct
       };
 
   return (
-    <div
-      className="quick-actions-bar"
-      style={barStyle}
-      role="dialog"
-      aria-modal={true}
-      aria-label="Quick actions"
-      onKeyDown={handleKeyDown}
-    >
-      <div className="quick-actions-bar__input-wrap">
-        <Icon name="Search" size={16} className="quick-actions-bar__search-icon" />
-        <input
-          ref={inputRef}
-          className="quick-actions-bar__input"
-          type="text"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setActiveIndex(0);
-          }}
-          placeholder="Search actions\u2026"
-          aria-label="Search actions"
-        />
-        <button
-          type="button"
-          className="quick-actions-bar__close-btn"
-          onClick={onClose}
-          aria-label="Close quick actions"
-        >
-          <Icon name="X" size={16} />
-        </button>
-      </div>
-
-      <div className="quick-actions-bar__results" ref={listRef} role="listbox" aria-label="Actions">
-        {filtered.length === 0 && <div className="quick-actions-bar__empty">No actions found</div>}
-        {filtered.map((action, i) => (
+    // FocusTrap supplies what aria-modal only claims: Tab containment plus
+    // restoration of focus to whatever launched the palette. Without it, Tab
+    // walked into the editor behind a supposedly modal surface and closing
+    // could drop focus to <body>.
+    <FocusTrap active initialFocus=".quick-actions-bar__input" onClose={onClose}>
+      <div
+        className="quick-actions-bar"
+        style={barStyle}
+        role="dialog"
+        aria-modal={true}
+        aria-label="Quick actions"
+        onKeyDown={handleKeyDown}
+      >
+        <div className="quick-actions-bar__input-wrap">
+          <Icon name="Search" size={16} className="quick-actions-bar__search-icon" />
+          <input
+            ref={inputRef}
+            className="quick-actions-bar__input"
+            type="text"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setActiveIndex(0);
+            }}
+            placeholder="Search actions\u2026"
+            aria-label="Search actions"
+          />
           <button
-            key={action.id}
             type="button"
-            className={`quick-actions-bar__item${i === activeIndex ? ' quick-actions-bar__item--active' : ''}`}
-            role="option"
-            aria-selected={i === activeIndex}
-            onClick={() => execute(action)}
-            onMouseEnter={() => setActiveIndex(i)}
+            className="quick-actions-bar__close-btn"
+            onClick={onClose}
+            aria-label="Close quick actions"
           >
-            <span className="quick-actions-bar__item-label">{action.label}</span>
-            <span className="quick-actions-bar__item-category">{action.category}</span>
+            <Icon name="X" size={16} />
           </button>
-        ))}
+        </div>
+
+        <div
+          className="quick-actions-bar__results"
+          ref={listRef}
+          role="listbox"
+          aria-label="Actions"
+        >
+          {filtered.length === 0 && (
+            <div className="quick-actions-bar__empty">No actions found</div>
+          )}
+          {filtered.map((action, i) => (
+            <button
+              key={action.id}
+              type="button"
+              className={`quick-actions-bar__item${i === activeIndex ? ' quick-actions-bar__item--active' : ''}`}
+              role="option"
+              aria-selected={i === activeIndex}
+              onClick={() => execute(action)}
+              onMouseEnter={() => setActiveIndex(i)}
+            >
+              <span className="quick-actions-bar__item-label">{action.label}</span>
+              <span className="quick-actions-bar__item-category">{action.category}</span>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+    </FocusTrap>
   );
 }
