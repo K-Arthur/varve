@@ -5,6 +5,7 @@ import {
   registerImageResourceHandle,
   resetImageResourceRegistry,
   resolveImageResourceHandle,
+  retainImageResourceHandles,
   unregisterImageResourceHandle,
 } from './imageResourceRegistry';
 
@@ -51,6 +52,16 @@ describe('imageResourceRegistry', () => {
     resetImageResourceRegistry();
     expect(imageResourceRegistrySize()).toBe(0);
     expect(resolveImageResourceHandle('asset-b')).toBe('asset-b');
+  });
+
+  it('retains only handles owned by the active document', () => {
+    registerImageResourceHandle('asset-a', 'data:image/png;base64,A');
+    registerImageResourceHandle('asset-b', 'data:image/png;base64,B');
+
+    expect(retainImageResourceHandles(['asset-b'])).toBe(1);
+    expect(imageResourceRegistrySize()).toBe(1);
+    expect(isImageResourceHandle('asset-a')).toBe(false);
+    expect(isImageResourceHandle('asset-b')).toBe(true);
   });
 
   it('ignores empty/invalid handles', () => {
