@@ -7,7 +7,7 @@ permissions:
 
 on:
   push:
-    branches: [main, master, feat/*]
+    branches: [main, master]
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -55,8 +55,9 @@ jobs:
   # runners are a shared, queue-limited resource.
   #
   # Pull requests get the Linux gate only. The other runners are reserved for
-  # pushes to the default branch and manual dispatch. Release artifacts come from
-  # release.yml, not here.
+  # pushes to the default branch and manual dispatch. Feature-branch pushes are
+  # covered by the PR run, avoiding a duplicate three-OS build. Release artifacts
+  # come from release.yml, not here.
   plan:
     name: Plan runners
     runs-on: ubuntu-latest
