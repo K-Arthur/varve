@@ -122,6 +122,32 @@ export function AlignmentHandleOverlay() {
     [dragState, zoom],
   );
 
+  /**
+   * Keyboard operation for the gap sliders. These are `role="slider"` with
+   * `tabIndex={0}`, so they were already reachable by Tab but had no keys
+   * bound — focusable controls that could not be operated at all without a
+   * pointer (WCAG 2.1.1). Arrow keys nudge by 1px, Shift+Arrow by 10px.
+   */
+  const handleGapKeyDown =
+    (axis: 'horizontal' | 'vertical', index: number) => (e: React.KeyboardEvent) => {
+      const gaps = axis === 'horizontal' ? gapsH : gapsV;
+      const currentValue = gaps[index] ?? 0;
+      const step = e.shiftKey ? 10 : 1;
+      let nextGap: number | null = null;
+
+      const decrease = axis === 'horizontal' ? 'ArrowLeft' : 'ArrowUp';
+      const increase = axis === 'horizontal' ? 'ArrowRight' : 'ArrowDown';
+
+      if (e.key === decrease) nextGap = Math.max(0, currentValue - step);
+      else if (e.key === increase) nextGap = currentValue + step;
+      else if (e.key === 'Home') nextGap = 0;
+      else return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      distributeWithGap(axis, Math.round(nextGap));
+    };
+
   const handlePointerUp = useCallback(
     (e: React.PointerEvent) => {
       const ds = dragState;
@@ -190,9 +216,12 @@ export function AlignmentHandleOverlay() {
             onMouseEnter={() => setHoveredIndex(i)}
             onMouseLeave={() => setHoveredIndex(null)}
             style={{ cursor: 'ew-resize' }}
+            onKeyDown={handleGapKeyDown('horizontal', i)}
             role="slider"
             aria-label={`Horizontal gap handle ${i + 1}`}
             aria-valuenow={gapsH[i]}
+            aria-valuemin={0}
+            aria-valuetext={`${gapsH[i]} pixels`}
             tabIndex={0}
           />
           <text
@@ -259,9 +288,12 @@ export function AlignmentHandleOverlay() {
             onMouseEnter={() => setHoveredIndex(sortedH.length + i)}
             onMouseLeave={() => setHoveredIndex(null)}
             style={{ cursor: 'ns-resize' }}
+            onKeyDown={handleGapKeyDown('vertical', i)}
             role="slider"
             aria-label={`Vertical gap handle ${i + 1}`}
             aria-valuenow={gapsV[i]}
+            aria-valuemin={0}
+            aria-valuetext={`${gapsV[i]} pixels`}
             tabIndex={0}
           />
           <text
@@ -279,7 +311,12 @@ export function AlignmentHandleOverlay() {
   };
 
   return (
-    <svg className="alignment-handle-overlay" aria-hidden="true">
+    // Not aria-hidden: this SVG contains focusable role="slider" controls with
+    // accessible names. aria-hidden on the ancestor removed them from the
+    // accessibility tree while the browser still let Tab focus them, which is
+    // the "focusable but not exposed" failure (WCAG 4.1.2). The <title> names
+    // the graphic instead.
+    <svg className="alignment-handle-overlay">
       <title>Alignment spacing handles</title>
       {renderHorizontalBars()}
       {renderVerticalBars()}

@@ -857,7 +857,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
               <circle
                 cx={rotScreenX}
                 cy={rotScreenY}
-                r={8}
+                r={12}
                 fill="transparent"
                 style={{ pointerEvents: 'auto', cursor: 'grab' }}
                 onPointerDown={(e) => handlePointerDown(e, 8)}
@@ -884,11 +884,14 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           const [sx, sy] = overlayWorldToScreen(hx, hy);
           return (
             <Fragment key={key}>
+              {/* Hit target is 24x24 (WCAG 2.5.8 minimum) while the painted
+                  handle stays HANDLE_HALF*2 — pointer/touch accuracy must not
+                  be tied to the visual handle size. */}
               <rect
-                x={sx - 8}
-                y={sy - 8}
-                width={16}
-                height={16}
+                x={sx - 12}
+                y={sy - 12}
+                width={24}
+                height={24}
                 fill="transparent"
                 style={{
                   pointerEvents: hasInteractiveHandles ? 'auto' : 'none',
@@ -945,8 +948,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       )}
 
       {/* Skew handles — diamond shape at edge midpoints. Hidden below
-          MIN_SKEW_BOX_PX: their 20px hit targets would cover a tiny box and
-          intercept the shape's own move-drag. */}
+          MIN_SKEW_BOX_PX: their 24px hit targets (WCAG 2.5.8) would cover a
+          tiny box and intercept the shape's own move-drag. */}
       {hasInteractiveHandles &&
         box.w * state.zoom >= MIN_SKEW_BOX_PX &&
         box.h * state.zoom >= MIN_SKEW_BOX_PX &&
@@ -993,10 +996,10 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
               <Fragment key={key}>
                 {/* Invisible hit target */}
                 <rect
-                  x={sx - 10}
-                  y={sy - 10}
-                  width={20}
-                  height={20}
+                  x={sx - 12}
+                  y={sy - 12}
+                  width={24}
+                  height={24}
                   fill="transparent"
                   style={{ pointerEvents: 'auto', cursor }}
                   onPointerDown={(e) => handleSkewPointerDown(e, axis)}
@@ -1031,7 +1034,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
               <circle
                 cx={sx}
                 cy={sy}
-                r={8}
+                r={12}
                 fill="transparent"
                 style={{ pointerEvents: 'auto', cursor: 'nwse-resize' }}
                 onPointerDown={handleCornerRadiusPointerDown}
@@ -1063,7 +1066,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
                 <circle
                   cx={sx}
                   cy={sy}
-                  r={8}
+                  r={12}
                   fill="transparent"
                   style={{ pointerEvents: 'auto', cursor: 'move' }}
                   onPointerDown={(e) => handleEndpointPointerDown(e, 0)}
@@ -1089,7 +1092,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
                 <circle
                   cx={sx}
                   cy={sy}
-                  r={8}
+                  r={12}
                   fill="transparent"
                   style={{ pointerEvents: 'auto', cursor: 'move' }}
                   onPointerDown={(e) => handleEndpointPointerDown(e, 1)}

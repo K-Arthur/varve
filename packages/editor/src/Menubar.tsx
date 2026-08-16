@@ -1689,6 +1689,7 @@ export function Menubar({
     entryId: string;
   } | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const nameButtonRef = useRef<HTMLButtonElement>(null);
   const typeaheadRef = useRef('');
   const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Element focused before the dropdown opened; restored on close.
@@ -1722,6 +1723,13 @@ export function Menubar({
     if (editingName && nameInputRef.current) {
       nameInputRef.current.focus();
       nameInputRef.current.select();
+      return;
+    }
+    // Rename ended (commit or cancel): hand focus back to the trigger so
+    // keyboard users keep their place instead of landing on <body>.
+    if (!editingName && restoreNameFocusRef.current) {
+      restoreNameFocusRef.current = false;
+      nameButtonRef.current?.focus();
     }
   }, [editingName]);
 
@@ -1767,7 +1775,18 @@ export function Menubar({
     setEditingName(true);
   }, [state.document.name]);
 
+  // The rename input replaces the trigger button, so when editing ends the
+  // focused element is removed from the DOM and focus fell to <body>. Flag a
+  // restore so the effect below returns focus to the rename trigger.
+  const restoreNameFocusRef = useRef(false);
+
+  const stopNameEdit = useCallback(() => {
+    restoreNameFocusRef.current = true;
+    setEditingName(false);
+  }, []);
+
   const commitName = useCallback(() => {
+    restoreNameFocusRef.current = true;
     setEditingName(false);
     const trimmed = nameDraft.trim();
     if (trimmed && trimmed !== state.document.name) {
@@ -2232,97 +2251,109 @@ export function Menubar({
               className="editor-menubar__menu"
             >
               <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
-                {menus[openMenuIndex]?.items.map((item, itemIdx) => {
-                  if (item.label === '---') {
+                {/* activeItemIndex counts only focusable items (separators
+                    excluded), matching menubarKeynav and the MENU_ITEM_SELECTOR
+                    NodeList it focuses through. Comparing it against the raw
+                    config index put tabIndex=0 on the wrong item — or on no
+                    item at all — as soon as a separator preceded the active
+                    one. Track the focusable index alongside the config index. */}
+                {(() => {
+                  let focusableIdx = -1;
+                  return menus[openMenuIndex]?.items.map((item, itemIdx) => {
+                    if (item.label === '---') {
+                      return (
+                        <hr
+                          key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
+                          className="editor-menubar__menu-sep"
+                          tabIndex={-1}
+                        />
+                      );
+                    }
+                    focusableIdx += 1;
+                    const itemFocusableIdx = focusableIdx;
+                    const role = itemRole(item);
+                    const isChecked = itemAriaChecked(item, state);
+                    const isActive =
+                      (item.action?.startsWith('theme:') &&
+                        currentTheme === item.action.slice(6)) ||
+                      isChecked;
+                    const hasSubmenu = !!item.items;
+                    const isSubmenuOpen = openSubmenu === itemIdx;
                     return (
-                      <hr
-                        key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
-                        className="editor-menubar__menu-sep"
-                        tabIndex={-1}
-                      />
-                    );
-                  }
-                  const role = itemRole(item);
-                  const isChecked = itemAriaChecked(item, state);
-                  const isActive =
-                    (item.action?.startsWith('theme:') && currentTheme === item.action.slice(6)) ||
-                    isChecked;
-                  const hasSubmenu = !!item.items;
-                  const isSubmenuOpen = openSubmenu === itemIdx;
-                  return (
-                    <div
-                      key={item.label}
-                      role="none"
-                      className="editor-menubar__menu-item-wrapper"
-                      onMouseEnter={() => {
-                        if (hasSubmenu) {
-                          setOpenSubmenu(itemIdx);
-                          setActiveSubmenuIndex(0);
-                        }
-                      }}
-                    >
-                      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
-                      <button
-                        role={hasSubmenu ? 'menuitem' : role}
-                        type="button"
-                        aria-haspopup={hasSubmenu ? true : undefined}
-                        aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
-                        aria-checked={
-                          !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
-                            ? isChecked
-                            : undefined
-                        }
-                        aria-keyshortcuts={item.ariaKeyshortcut}
-                        disabled={item.disabled && !hasSubmenu}
-                        tabIndex={activeItemIndex === itemIdx ? 0 : -1}
-                        className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
-                        onClick={() => {
+                      <div
+                        key={item.label}
+                        role="none"
+                        className="editor-menubar__menu-item-wrapper"
+                        onMouseEnter={() => {
                           if (hasSubmenu) {
-                            setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                            setOpenSubmenu(itemIdx);
                             setActiveSubmenuIndex(0);
-                          } else {
-                            handleAction(item.action ?? '');
                           }
                         }}
                       >
-                        <span className="editor-menubar__menu-label">{item.label}</span>
-                        {hasSubmenu && (
-                          <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
-                        )}
-                        {!hasSubmenu && item.shortcut && (
-                          <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
-                        )}
-                      </button>
-                      {hasSubmenu && isSubmenuOpen && item.items && (
-                        <MenubarSubmenu
-                          items={item.items}
-                          parentLabel={item.label}
-                          open
-                          activeSubmenuIndex={activeSubmenuIndex}
-                          anchorRef={dropdownMenuRef}
-                          submenuRef={submenuRef}
-                          currentTheme={currentTheme}
-                          state={state}
-                          onClose={() => {
-                            setOpenSubmenu(null);
-                            setActiveSubmenuIndex(0);
-                            // Return focus to the parent item when the submenu
-                            // had it (outside-click close).
-                            const active = document.activeElement;
-                            if (active && submenuRef.current?.contains(active)) {
-                              const parentItems =
-                                dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
-                                  MENU_ITEM_SELECTOR,
-                                );
-                              parentItems?.[activeItemIndex]?.focus();
+                        {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
+                        <button
+                          role={hasSubmenu ? 'menuitem' : role}
+                          type="button"
+                          aria-haspopup={hasSubmenu ? true : undefined}
+                          aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
+                          aria-checked={
+                            !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
+                              ? isChecked
+                              : undefined
+                          }
+                          aria-keyshortcuts={item.ariaKeyshortcut}
+                          disabled={item.disabled && !hasSubmenu}
+                          tabIndex={activeItemIndex === itemFocusableIdx ? 0 : -1}
+                          className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
+                          onClick={() => {
+                            if (hasSubmenu) {
+                              setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                              setActiveSubmenuIndex(0);
+                            } else {
+                              handleAction(item.action ?? '');
                             }
                           }}
-                          handleAction={handleAction}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+                        >
+                          <span className="editor-menubar__menu-label">{item.label}</span>
+                          {hasSubmenu && (
+                            <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
+                          )}
+                          {!hasSubmenu && item.shortcut && (
+                            <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
+                          )}
+                        </button>
+                        {hasSubmenu && isSubmenuOpen && item.items && (
+                          <MenubarSubmenu
+                            items={item.items}
+                            parentLabel={item.label}
+                            open
+                            activeSubmenuIndex={activeSubmenuIndex}
+                            anchorRef={dropdownMenuRef}
+                            submenuRef={submenuRef}
+                            currentTheme={currentTheme}
+                            state={state}
+                            onClose={() => {
+                              setOpenSubmenu(null);
+                              setActiveSubmenuIndex(0);
+                              // Return focus to the parent item when the submenu
+                              // had it (outside-click close).
+                              const active = document.activeElement;
+                              if (active && submenuRef.current?.contains(active)) {
+                                const parentItems =
+                                  dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
+                                    MENU_ITEM_SELECTOR,
+                                  );
+                                parentItems?.[activeItemIndex]?.focus();
+                              }
+                            }}
+                            handleAction={handleAction}
+                          />
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </FloatingPortal>
           )}
@@ -2341,13 +2372,14 @@ export function Menubar({
               onBlur={commitName}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') commitName();
-                if (e.key === 'Escape') setEditingName(false);
+                if (e.key === 'Escape') stopNameEdit();
               }}
               aria-label="Document name"
             />
           ) : (
             <Tooltip label="Rename document">
               <button
+                ref={nameButtonRef}
                 type="button"
                 className="editor-menubar__doc-name-text"
                 onClick={startNameEdit}

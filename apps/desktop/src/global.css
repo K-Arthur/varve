@@ -49,3 +49,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
   contain: layout style paint;
 }
+
+/* Ephemeral-storage warning banner. Shown when the real storage backend could
+ * not be constructed and the app fell back to in-memory storage, which
+ * previously happened silently (WCAG 3.3.1 / 4.1.3). */
+.varve-ephemeral-storage-banner {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-feedback-warning);
+  color: var(--color-text-on-warning);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}

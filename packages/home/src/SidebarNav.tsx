@@ -57,12 +57,14 @@ const SECTION_LEADER_IDS = new Set([
 
 function ChevronIcon({ collapsed }: { collapsed: boolean }) {
   return (
+    // The rotation transition lives in home.css so the reduced-motion media
+    // query can disable it. An inline transition could not be overridden by
+    // CSS, so it animated even under prefers-reduced-motion: reduce.
     <span
       className="sidebar-section__chevron"
       style={{
         transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
         display: 'inline-flex',
-        transition: 'transform 0.15s ease',
       }}
     >
       <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} label={undefined} size="0.75em" />

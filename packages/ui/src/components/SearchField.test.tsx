@@ -33,6 +33,53 @@ describe('SearchField', () => {
     const { container } = render(<SearchField value="a" onChange={vi.fn()} resultCount={5} />);
     expect(container.textContent).toContain('5 results');
   });
+
+  // Regression: the input relied on its placeholder for naming. A placeholder
+  // is not a dependable accessible name and disappears once the user types, so
+  // callers that passed only a placeholder shipped an unnamed search field.
+  describe('accessible name', () => {
+    it('falls back to the placeholder text as an explicit label', () => {
+      const { container } = render(
+        <SearchField value="" onChange={vi.fn()} placeholder="Search files…" />,
+      );
+      const input = container.querySelector('input') as HTMLInputElement;
+      expect(input).toHaveAttribute('aria-label', 'Search files…');
+    });
+
+    it('keeps the name after text is entered', () => {
+      const { container } = render(
+        <SearchField value="report" onChange={vi.fn()} placeholder="Search files…" />,
+      );
+      const input = container.querySelector('input') as HTMLInputElement;
+      expect(input.value).toBe('report');
+      expect(input).toHaveAttribute('aria-label', 'Search files…');
+    });
+
+    it('does not override a caller-supplied aria-label', () => {
+      const { container } = render(
+        <SearchField
+          value=""
+          onChange={vi.fn()}
+          placeholder="Search files…"
+          aria-label="Search assets"
+        />,
+      );
+      const input = container.querySelector('input') as HTMLInputElement;
+      expect(input).toHaveAttribute('aria-label', 'Search assets');
+    });
+
+    it('does not add aria-label when labelled by another element', () => {
+      const { container } = render(
+        <>
+          <span id="search-label">Find</span>
+          <SearchField value="" onChange={vi.fn()} aria-labelledby="search-label" />
+        </>,
+      );
+      const input = container.querySelector('input') as HTMLInputElement;
+      expect(input).not.toHaveAttribute('aria-label');
+      expect(input).toHaveAttribute('aria-labelledby', 'search-label');
+    });
+  });
 });
 
 describe('HighlightMatch', () => {
