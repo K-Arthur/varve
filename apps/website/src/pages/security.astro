@@ -1,0 +1,146 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+import release from '../data/release-manifest.json';
+import { CONTACTS } from '@varve/shared';
+
+const manifestSigning = ((release as Record<string, unknown>).signing ?? {}) as {
+  windows?: { signed?: boolean };
+  macos?: { signed?: boolean };
+};
+const anySigned = Boolean(manifestSigning.windows?.signed || manifestSigning.macos?.signed);
+---
+
+<Layout
+  title="Security at Varve"
+  description="Report Varve security vulnerabilities privately by email or through GitHub Private Vulnerability Reporting. Review download integrity, local-first data handling, and security practices."
+>
+  <div class="container-custom">
+    <div class="security-page">
+      <h1>Security at Varve</h1>
+
+      <section class="security-section security-callout">
+        <h2>Report a vulnerability privately</h2>
+        <p>
+          Email <a href={`mailto:${CONTACTS.security}`}>{CONTACTS.security}</a> or use
+          <a href="https://github.com/K-Arthur/varve/security/advisories"> GitHub Private Vulnerability Reporting</a>.
+          Do not post sensitive vulnerability details in public GitHub issues or discussions.
+        </p>
+        <p>
+          Helpful reports include the affected version, vulnerability class, reproduction steps,
+          likely impact, and a proof of concept where it is safe to provide one. Please avoid
+          destructive testing and unnecessary personal data. We coordinate disclosure with the reporter.
+        </p>
+      </section>
+
+      <section class="security-section">
+        <h2>Download integrity</h2>
+        {anySigned ? (
+          <p>Release builds are code-signed where the platform supports it; the download page shows the verified signature state.</p>
+        ) : (
+          <p>Varve builds are not currently code-signed. The release still publishes integrity metadata for independent verification.</p>
+        )}
+        <ul>
+          <li>SHA-256 checksums for published build artifacts</li>
+          <li>SBOMs and build provenance for release artifacts</li>
+          <li>Published downloads linked from the official GitHub repository</li>
+        </ul>
+        <p>
+          Until code signing is available, verify published checksums and SBOMs, or build from source.
+          See the <a href={sitePath('/download')}>download page</a> for current release information.
+        </p>
+      </section>
+
+      <section class="security-section">
+        <h2>Local-first data handling</h2>
+        <p>
+          Core design data stays on your device by default. Varve has no required account or cloud
+          storage. Optional network features, diagnostics, and crash reporting are separate choices;
+          review the <a href={sitePath('/about/privacy')}>Privacy Policy</a> before enabling them.
+        </p>
+      </section>
+
+      <section class="security-section">
+        <h2>Security documentation</h2>
+        <p>
+          The repository's <a href="https://github.com/K-Arthur/varve/blob/master/SECURITY.md">security policy</a>
+          describes scope, supported versions, and the handling process. The machine-readable
+          disclosure endpoint is <a href={sitePath('/.well-known/security.txt')}>security.txt</a>.
+        </p>
+      </section>
+
+      <div class="security-cta">
+        <a href={`mailto:${CONTACTS.security}`} class="btn-primary">Email Varve Security</a>
+        <a href="https://github.com/K-Arthur/varve/security/advisories" class="btn-secondary">Open private advisory</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .security-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 0 5rem;
+  }
+
+  .security-page h1 {
+    margin-bottom: 2.5rem;
+    color: var(--text-primary);
+    font-family: var(--font-editorial);
+    font-size: clamp(2rem, 5vw, 3.25rem);
+    letter-spacing: -0.03em;
+  }
+
+  .security-section {
+    margin-bottom: 2.75rem;
+  }
+
+  .security-section h2 {
+    margin-bottom: 0.85rem;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+  }
+
+  .security-section p,
+  .security-section li {
+    color: var(--text-secondary);
+    line-height: 1.8;
+  }
+
+  .security-section p + p {
+    margin-top: 1rem;
+  }
+
+  .security-section a {
+    color: var(--text-link);
+  }
+
+  .security-section ul {
+    margin: 1rem 0;
+    padding-left: 1.25rem;
+  }
+
+  .security-callout {
+    padding: 1.5rem;
+    border: 1px solid var(--border-default);
+    border-left: 4px solid var(--brand-terracotta);
+    border-radius: var(--radius-md);
+    background: var(--surface-card);
+  }
+
+  .security-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-default);
+  }
+
+  @media (max-width: 600px) {
+    .security-cta > a {
+      width: 100%;
+      text-align: center;
+    }
+  }
+</style>

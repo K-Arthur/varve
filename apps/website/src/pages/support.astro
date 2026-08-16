@@ -1,14 +1,15 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import { CONTACTS } from '@varve/shared';
 ---
 
-<Layout title="Support" description="Get help with Varve: documentation, FAQ, troubleshooting, known issues, and bug reporting. Community help is available on GitHub Discussions.">
+<Layout title="Varve Support" description="Get help using Varve through documentation, troubleshooting, GitHub community channels, public bug reports, and private product support at support@varve.studio.">
   <div class="container-custom">
     <div class="support-page">
       <h1 class="page-hero-title">Support</h1>
       <p class="page-hero-sub">
-        Get help with Varve through documentation, community forums, and issue tracking.
+         Get help with Varve through documentation, community forums, issue tracking, or private product support.
       </p>
 
       <div class="support-sections">
@@ -24,15 +25,22 @@ import { sitePath } from '../lib/siteUrl';
         </section>
 
         <section class="support-section">
+          <h2>Private product support</h2>
+          <p>
+            For installation help, download problems, troubleshooting, or usage questions, email
+            <a href={`mailto:${CONTACTS.support}`}>{CONTACTS.support}</a>. Please do not attach project
+            files, private designs, or logs containing secrets unless you have reviewed them first.
+          </p>
+        </section>
+
+        <section class="support-section">
           <h2>Community Support</h2>
           <p>Get help from the community through GitHub Discussions</p>
           <ul>
             <li><a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a> - Ask questions, share workflows</li>
             <li><a href="https://github.com/K-Arthur/varve/issues">GitHub Issues</a> - Report bugs, request features</li>
           </ul>
-          <p class="support-note">
-            Community support is provided by volunteers. Response times vary from 24-72 hours.
-          </p>
+           <p class="support-note">Community support is provided by a project maintainer and other users. Availability and response times vary.</p>
         </section>
 
         <section class="support-section">
@@ -43,19 +51,16 @@ import { sitePath } from '../lib/siteUrl';
 
         <section class="support-section">
           <h2>Response Time Expectations</h2>
-          <p>
-            As a solo-developer project, issues are typically reviewed within 1 week. Critical bugs are prioritized. 
-            Feature requests are added to the roadmap for consideration with no guaranteed timeline.
-            For faster responses, community forums are recommended.
-          </p>
+           <p>Varve is independently maintained. Issues and email are reviewed as capacity allows; no response time or feature timeline is guaranteed.</p>
         </section>
       </div>
 
       <div class="support-cta">
         <h2>Still need help?</h2>
         <p>
-          Check the <a href={sitePath('/docs')}>documentation</a> or search 
-          <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a> for similar issues.
+           Check the <a href={sitePath('/docs')}>documentation</a> or search
+           <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a> for similar issues.
+           For private product help, email <a href={`mailto:${CONTACTS.support}`}>{CONTACTS.support}</a>.
         </p>
       </div>
     </div>

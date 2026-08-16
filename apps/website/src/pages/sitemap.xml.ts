@@ -22,6 +22,8 @@ function toRoute(filePath: string): string | null {
   // 404 is not a destination; dynamic routes cannot be enumerated without
   // knowing their params, and we have none today.
   if (relative === '404') return null;
+  // Legacy security URL is a redirect alias for the canonical /security page.
+  if (relative === 'about/security') return null;
   if (relative.includes('[')) return null;
 
   if (relative === 'index') return '/';
