@@ -58,4 +58,74 @@ describe('canvas performance trace integration', () => {
     expect(trace.pointerToPresentMs).not.toBeNull();
     expect(getRecentInteractionTraces(1)[0]?.id).toBe(trace.id);
   });
+
+  it('propagates frame decision as disposition in the interaction trace', () => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      const id = callbacks.size + 1;
+      callbacks.set(id, callback);
+      return id;
+    });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id));
+
+    beginInteraction('pointer-drag');
+    recordFrame({
+      frameIndex: 1,
+      docVersion: 1,
+      redrawCount: 1,
+      nodeCount: 5,
+      culledCount: 0,
+      cacheHitCount: 3,
+      buildIrMs: 0.5,
+      replayMs: 1,
+      totalMs: 2,
+      renderPath: 'compositor',
+      wasDirty: true,
+      partialRedraw: false,
+      cacheBytes: 512,
+      cacheEntries: 4,
+      profileTier: 'balanced',
+      frameDecision: 'content',
+    });
+    const trace = endInteraction()!;
+
+    expect(trace.frames).toHaveLength(1);
+    expect(trace.frames[0].disposition).toBe('content');
+  });
+
+  it('propagates render revision when supplied in frame diagnostics', () => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      const id = callbacks.size + 1;
+      callbacks.set(id, callback);
+      return id;
+    });
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id));
+
+    beginInteraction('pointer-drag');
+    recordFrame({
+      frameIndex: 1,
+      docVersion: 1,
+      redrawCount: 1,
+      nodeCount: 5,
+      culledCount: 0,
+      cacheHitCount: 3,
+      buildIrMs: 0.5,
+      replayMs: 1,
+      totalMs: 2,
+      renderPath: 'worker-cached',
+      wasDirty: false,
+      partialRedraw: false,
+      cacheBytes: 512,
+      cacheEntries: 4,
+      profileTier: 'balanced',
+      frameDecision: 'present',
+      renderRevision: 42,
+    });
+    const trace = endInteraction()!;
+
+    expect(trace.frames).toHaveLength(1);
+    expect(trace.frames[0].disposition).toBe('present');
+    expect(trace.frames[0].renderRevision).toBe(42);
+  });
 });
