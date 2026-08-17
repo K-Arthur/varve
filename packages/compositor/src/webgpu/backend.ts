@@ -403,7 +403,10 @@ export class WebGPUBackend {
     this.present?.beginFrame(frame, opts);
   }
 
-  drawVectorItems(items: RenderItem[]): void {
+  drawVectorItems(
+    items: RenderItem[],
+    colorOptions?: import('../types').CompositorColorOptions,
+  ): void {
     if (!items.length) return;
     if (
       this.gpuReady &&
@@ -433,13 +436,13 @@ export class WebGPUBackend {
           } else {
             // Keep the complete semantic island on Canvas2D. No backend
             // partition is allowed to reorder the compositor's paint order.
-            this.present?.drawVectorItems([...segment.items]);
+            this.present?.drawVectorItems([...segment.items], colorOptions);
           }
         }
       }
       return;
     }
-    this.present?.drawVectorItems(items);
+    this.present?.drawVectorItems(items, colorOptions);
   }
 
   compositeRasterLayer(

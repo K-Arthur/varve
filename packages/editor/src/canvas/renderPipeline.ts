@@ -46,6 +46,7 @@ import {
   computeFloatingOrigin,
   isWorldRectInViewport,
   managedColorToCss,
+  resolveBlendEvaluationSpace,
   worldToScreen,
 } from '@varve/shared';
 import type { EditorContextValue, EditorState } from '../context';
@@ -943,6 +944,9 @@ export function renderContent(deps: RenderContentDeps): void {
       intent: 'interactive' as const,
       maxSourceDim: imageRepresentation.maxSourceDim,
     };
+    const replayColorOptions = {
+      blendEvaluationSpace: resolveBlendEvaluationSpace(doc.colorConfig ?? {}),
+    };
     const residency = getAdaptiveResidencyManager();
     residency.beginFrame();
     const averageFrameTime = getAverageFrameTime();
@@ -1090,7 +1094,7 @@ export function renderContent(deps: RenderContentDeps): void {
       // cannot inherit that clip. Direct replay also lets the image policy use
       // a viewport-sized proxy without changing export/print paths.
       if (targetCtx === ctxNN && compositorRef.current && !needsStructural) {
-        compositorRef.current.drawVectorItems([item]);
+        compositorRef.current.drawVectorItems([item], replayColorOptions);
       } else {
         replayIr(
           targetCtx as unknown as ReplayTarget,
@@ -1098,6 +1102,7 @@ export function renderContent(deps: RenderContentDeps): void {
           undefined,
           undefined,
           replayImagePolicy,
+          replayColorOptions,
         );
       }
     };
@@ -1821,6 +1826,7 @@ export function renderContent(deps: RenderContentDeps): void {
               viewport: { width: VP_W, height: VP_H },
               docVersion,
               proof: editor.proofEnabled ? editor.proofConfig : null,
+              blendEvaluationSpace: replayColorOptions.blendEvaluationSpace,
               dpr,
               images: collected.images,
               imageSources: collected.sources,

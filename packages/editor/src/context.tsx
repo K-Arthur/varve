@@ -254,6 +254,7 @@ import {
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
+  setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
   setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
@@ -7900,6 +7901,9 @@ export function EditorProvider({
       },
       setDocumentWorkingSpace: (workingSpace: WorkingSpace) => {
         updateDoc((doc) => setDocumentWorkingSpaceDoc(doc, workingSpace));
+      },
+      setDocumentBlendEvaluationSpace: (space) => {
+        updateDoc((doc) => setDocumentBlendEvaluationSpaceDoc(doc, space));
       },
 
       // F2/A8 — session (tab) management -----------------------------------

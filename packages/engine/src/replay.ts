@@ -11,8 +11,13 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 
-import { expandGradientStops, managedColorToNormalized, managedColorToRgba } from '@varve/shared';
-import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
+import {
+  type BlendEvaluationSpace,
+  expandGradientStops,
+  managedColorToNormalized,
+  managedColorToRgba,
+} from '@varve/shared';
+import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
 import {
@@ -165,6 +170,13 @@ export interface ReplayTarget {
   setTransform?(a: number, b: number, c: number, d: number, e: number, f: number): void;
   /** Read the current transform matrix (Canvas2D getTransform). */
   getTransform?(): { a: number; b: number; c: number; d: number; e: number; f: number };
+  getImageData?(x: number, y: number, width: number, height: number): ImageData;
+  putImageData?(data: ImageData, x: number, y: number): void;
+}
+
+export interface ReplayColorOptions {
+  /** Artistic blend formula evaluation; defaults to legacy encoded sRGB. */
+  blendEvaluationSpace?: BlendEvaluationSpace;
 }
 
 /** Resolve non-raster effect masks in a structural scene replay. */
@@ -704,20 +716,27 @@ function replayItemOnIsolatedSurface(
   imageLookup?: (src: string) => CanvasImageSource | undefined,
   effectMaskResolver?: EffectMaskResolver,
   imagePolicy?: ReplayImagePolicy,
+  colorOptions?: ReplayColorOptions,
 ): boolean {
   const canvas = target.canvas;
+  const needsLinearBlend =
+    colorOptions?.blendEvaluationSpace === 'linear-srgb' &&
+    item.blendMode !== undefined &&
+    item.blendMode !== 'normal';
   if (
     !canvas ||
     !target.drawImage ||
     !target.getTransform ||
     !target.setTransform ||
-    !item.filters?.some(
+    (!item.filters?.some(
       (filter) =>
         !supportsCanvasFilter(target) ||
         filter.blendMode !== 'normal' ||
         (filter.opacity ?? 1) < 1 ||
         !filterToCss(filter),
-    )
+    ) &&
+      !needsLinearBlend) ||
+    (needsLinearBlend && (!target.getImageData || !target.putImageData))
   ) {
     return false;
   }
@@ -744,13 +763,25 @@ function replayItemOnIsolatedSurface(
     imageLookup,
     effectMaskResolver ?? effectMaskResolverForCurrentReplay ?? undefined,
     imagePolicy,
+    colorOptions,
   );
   applyFilterWithCompositing(
     surface.context as CanvasRenderingContext2D,
-    item.filters,
+    item.filters ?? [],
     canvas.width,
     canvas.height,
   );
+
+  if (needsLinearBlend && target.getImageData && target.putImageData) {
+    const backdrop = target.getImageData(0, 0, canvas.width, canvas.height);
+    const source = surface.context.getImageData(0, 0, canvas.width, canvas.height);
+    target.putImageData(
+      blendPixels(backdrop, source, item.blendMode ?? 'normal', item.opacity ?? 1, 'linear-srgb'),
+      0,
+      0,
+    );
+    return true;
+  }
 
   target.save();
   try {
@@ -780,6 +811,7 @@ export function replayIr(
   imageLookup?: (src: string) => CanvasImageSource | undefined,
   effectMaskResolver?: EffectMaskResolver,
   imagePolicy?: ReplayImagePolicy,
+  colorOptions?: ReplayColorOptions,
 ): void {
   // Sweep expired backdrop cache entries (preserves recent entries across frames)
   sweepBackdropCache();
@@ -800,6 +832,8 @@ export function replayIr(
           item,
           imageLookupForCurrentReplay ?? undefined,
           effectMaskResolverForCurrentReplay ?? undefined,
+          imagePolicyForCurrentReplay ?? undefined,
+          colorOptions,
         )
       ) {
         continue;
@@ -1680,7 +1714,7 @@ function gradientCacheKey(
   bounds: { x: number; y: number; w: number; h: number },
 ): string {
   const normalizedRotation = ((fill.rotation % 360) + 360) % 360;
-  return `${fill.gradientType}|${fill.interpolationSpace ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
+  return `${fill.gradientType}|${fill.interpolationSpace ?? ''}|${fill.hueInterpolation ?? ''}|${normalizedRotation}|${fill.tilingMode ?? ''}|${JSON.stringify(fill.transform)}|${JSON.stringify(fill.stops)}|${bounds.x.toFixed(2)}|${bounds.y.toFixed(2)}|${bounds.w.toFixed(2)}|${bounds.h.toFixed(2)}`;
 }
 
 /** Create a gradient fillStyle from a FillIR gradient. */
