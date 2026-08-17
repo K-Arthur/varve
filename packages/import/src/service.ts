@@ -168,6 +168,7 @@ async function importOne(
   const format = extension(input.name);
   ensureBuiltInsRegistered();
   const parser = getParserForExtension(format) ?? getParserForData(data);
+  const reportFormat = parser?.format ?? format;
   const rasterCandidate =
     data instanceof Uint8Array &&
     (isRasterFallbackFormat(format) || detectImageMime(data) !== null);
@@ -214,7 +215,7 @@ async function importOne(
     return {
       name: input.name,
       source: input.source,
-      format: parser?.format ?? format,
+      format: reportFormat,
       status: result.nodeIds.length > 0 && unsupportedFeatures.length === 0 ? 'success' : 'partial',
       byteCount: byteCount(input),
       durationMs: performance.now() - started,

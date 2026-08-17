@@ -211,6 +211,7 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 | `architecture/frame-encapsulation.md` | Frame clipping and containment |
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
+| `architecture/figma-import-system.md` | Figma REST/plugin JSON import: acquisition, normalization, conversion, and fidelity |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
