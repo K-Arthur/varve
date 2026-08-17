@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon } from '../icons/Icon';
 import {
   firstEnabledIndex,
@@ -728,7 +729,7 @@ export function ContextMenu({
 
   if (!position) return null;
 
-  return (
+  return createPortal(
     <MenuInternal
       items={items}
       open
@@ -743,7 +744,8 @@ export function ContextMenu({
         top: position.y,
       }}
       containerRef={menuRef}
-    />
+    />,
+    document.body,
   );
 }
 

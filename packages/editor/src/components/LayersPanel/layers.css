@@ -189,7 +189,7 @@
   flex: 1 1 auto;
   min-height: 160px;
   overflow-y: auto;
-  overflow-x: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   outline: none;
   padding: var(--space-1) var(--space-1);
@@ -210,7 +210,6 @@
   cursor: default;
   user-select: none;
   min-height: var(--density-rows-min-height, var(--space-6));
-  min-width: max-content;
   background: var(--color-tree-row);
   color: var(--color-text-primary);
   transition: background var(--duration-quick) var(--ease-standard);
@@ -490,8 +489,8 @@
 .layers-row__name {
   flex: 1 1 auto;
   font-size: var(--font-size-sm);
-  overflow: visible;
-  text-overflow: clip;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 80px;
 }
