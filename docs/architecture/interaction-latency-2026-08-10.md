@@ -286,8 +286,33 @@ Condition: `!isSelected(target) || selection.length <= 1`
 | Unit: canvas + tools + performance (916 tests) | PASS |
 | Unit: SelectTool (58 tests) | PASS |
 | E2E: drag-precision multi-select + auto-pan (2 tests) | PASS |
+| E2E: interaction latency (3 tests) | PASS |
+| E2E: overlay alignment (3 tests) | PASS |
 | Format/lint (Biome) | PASS |
 | Emoji audit | PASS |
 | Health audit | PASS |
 | Native Tauri / WebKitGTK | NOT RUN — user to verify |
 | Visual regression | No visual change — interaction fix |
+
+## Follow-up pass (2026-08-17) — overlay caching + dead code removal + E2E tests
+
+### 4. getComputedStyle caching (commit `a7d6130b`)
+
+`gridRenderer.resolveCanvasColor()` called `getComputedStyle()` on every
+overlay frame when a grid was visible. Now caches resolved CSS custom
+properties per property name, invalidated on theme switch via global
+registration (avoids adding import to context.tsx hub file).
+
+`SnapGuidesOverlay` also called `getComputedStyle()` per render for
+guide colors. Now uses cached `resolveCanvasColor()`.
+
+`CloneStampTool` had a dead `getBoundingClientRect()` call (return value
+discarded; next line already calls `canvasToWorld`). Removed.
+
+### 5. E2E interaction tests (commit `c5b71869`)
+
+New Playwright E2E tests:
+- `interaction-latency.spec.ts`: 3 tests verifying drag, wheel pan, and
+  selection overlay responsiveness
+- `overlay-alignment.spec.ts`: visual regression tests for selection
+  overlay at different zoom levels and handle visibility
