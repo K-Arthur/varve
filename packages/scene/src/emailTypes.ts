@@ -329,6 +329,9 @@ export interface EmailSemanticMap {
   /** Per-node email semantics, keyed by scene node ID. */
   nodes: Record<string, EmailSemanticMetadata>;
 
+  /** Whole-node links, kept separate from text-range links. */
+  nodeLinks: Record<string, EmailLink>;
+
   /** Text-range links, keyed by `${nodeId}:${start}:${end}`. */
   textRangeLinks: Record<string, EmailTextRangeLink>;
 
@@ -364,6 +367,7 @@ export const DEFAULT_EMAIL_SEMANTIC: EmailSemanticMetadata = {
 
 export const DEFAULT_EMAIL_SEMANTIC_MAP: EmailSemanticMap = {
   nodes: {},
+  nodeLinks: {},
   textRangeLinks: {},
   variables: [],
   customHtmlBlocks: {},

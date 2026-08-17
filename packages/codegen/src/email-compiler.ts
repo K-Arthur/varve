@@ -29,6 +29,9 @@ import type {
   EmailIrTextRun,
   EmailIrWarning,
 } from './email-ir-types';
+import { emitEmailPlainText } from './email-plain-text';
+import { runEmailPreflight } from './email-preflight';
+import { appendTrackingParams, validateEmailUrl } from './email-security';
 import type { IRDocument, SemanticNode } from './ir-types';
 
 // ── Compiler Options ──────────────────────────────────────────────────────────
@@ -51,6 +54,9 @@ export interface EmailCompileOptions {
 
   /** Whether to include comments in output. */
   includeComments?: boolean;
+
+  /** Substitute sample values for preview output instead of provider tags. */
+  previewVariables?: boolean;
 }
 
 export interface EmailCompileResult {
@@ -89,6 +95,8 @@ export function compileEmail(
     compatibilityProfile: options.profile,
     provider: options.provider,
     customCss: emailProfile?.customCss,
+    assetBaseUrl: options.assetBaseUrl ?? emailProfile?.assetBaseUrl,
+    plainTextOverride: emailProfile?.plainTextOverride,
   };
 
   const warnings: EmailIrWarning[] = [];
@@ -114,18 +122,43 @@ export function compileEmail(
     if (emailNode) nodes.push(emailNode);
   }
 
-  return {
-    ir: {
-      version: '1.0',
-      settings,
-      nodes,
-      assets,
-      warnings,
-      diagnostics,
-    },
-    diagnostics,
+  const draftIr: EmailDocumentIr = {
+    version: '1.0',
+    settings,
+    nodes,
+    plainText: '',
+    assets: dedupeAssets(assets),
     warnings,
+    diagnostics: [],
   };
+  const draftWithText: EmailDocumentIr = { ...draftIr, plainText: emitEmailPlainText(draftIr) };
+  const preflight = runEmailPreflight(draftWithText, emailSemantics);
+  const ir: EmailDocumentIr = {
+    ...draftWithText,
+    diagnostics: preflight.map((diagnostic) => ({
+      severity: diagnostic.severity,
+      code: diagnostic.code,
+      message: diagnostic.message,
+      sourceNodeId: diagnostic.sourceNodeId,
+      sourceVariableId: diagnostic.sourceVariableId,
+      category: diagnostic.category,
+      suggestedFix: diagnostic.suggestedFix,
+      profile: diagnostic.profile,
+    })),
+  };
+  return { ir, diagnostics: preflight, warnings };
+}
+
+function dedupeAssets(assets: EmailIrAsset[]): EmailIrAsset[] {
+  const byIdentity = new Map<string, EmailIrAsset>();
+  for (const asset of assets) {
+    const identity =
+      asset.hash || `${asset.mimeType}:${asset.filename}:${asset.width}x${asset.height}`;
+    byIdentity.set(identity, asset);
+  }
+  return [...byIdentity.values()].sort(
+    (a, b) => a.filename.localeCompare(b.filename) || a.sourceNodeId.localeCompare(b.sourceNodeId),
+  );
 }
 
 // ── Node Compiler ─────────────────────────────────────────────────────────────
@@ -152,7 +185,13 @@ function compileNode(
   const styles = compileStyles(node, settings);
 
   // Build content
-  const content = compileContent(node, emailSemantics, sourceNodeId);
+  const content = compileContent(
+    node,
+    emailSemantics,
+    sourceNodeId,
+    settings.provider,
+    options.previewVariables ?? false,
+  );
 
   // Build link
   const link = resolveLink(sourceNodeId, emailSemantics);
@@ -207,7 +246,7 @@ function compileNode(
     link,
     image,
     headingLevel: semanticMeta?.headingLevel,
-    alt: (image?.alt ?? semanticMeta?.kind === 'decorative') ? undefined : node.name,
+    alt: semanticMeta?.kind === 'decorative' ? '' : (image?.alt ?? node.name),
     decorative: semanticMeta?.kind === 'decorative',
     width: node.layout.width.mode === 'fixed' ? node.layout.width.value : undefined,
     height: node.layout.height.mode === 'fixed' ? node.layout.height.value : undefined,
@@ -216,6 +255,10 @@ function compileNode(
     hideOnDesktop: semanticMeta?.hideOnDesktop,
     rasterFallback,
     compatibility,
+    providerAttributes:
+      settings.provider === 'mailchimp' && semanticMeta?.editableRegion
+        ? { 'mc:edit': semanticMeta.editableRegion }
+        : undefined,
   };
 }
 
@@ -378,7 +421,7 @@ function compileStyles(
   }
 
   // Display for layout
-  if (layout.mode === 'flex') {
+  if (layout.mode === 'flex' && settings.compatibilityProfile !== 'conservative') {
     styles.display = 'flex';
     if (layout.direction === 'row' || layout.direction === 'row-reverse') {
       styles['flex-direction'] = layout.direction;
@@ -426,6 +469,8 @@ function compileContent(
   node: SemanticNode,
   emailSemantics: EmailSemanticMap | undefined,
   sourceNodeId: string,
+  provider: 'generic' | 'mailchimp',
+  previewVariables: boolean,
 ):
   | {
       type: 'text' | 'image' | 'html' | 'none';
@@ -439,6 +484,7 @@ function compileContent(
   if (content.type === 'text' && content.text) {
     const runs: EmailIrTextRun[] = [];
     if (content.text.runs) {
+      let offset = 0;
       for (const run of content.text.runs) {
         const runStyles: Record<string, string> = {};
         if (run.style.fontFamily) runStyles['font-family'] = resolveFontStack(run.style.fontFamily);
@@ -447,25 +493,31 @@ function compileContent(
           runStyles['font-weight'] = String(run.style.fontWeight);
         if (run.style.decoration) runStyles['text-decoration'] = run.style.decoration;
 
-        // Check for text-range link
-        const textRangeLink = findTextRangeLink(sourceNodeId, run.text, emailSemantics);
-
-        runs.push({
-          text: run.text,
-          styles: runStyles,
-          link: textRangeLink
-            ? {
-                url: textRangeLink.url,
-                kind: textRangeLink.kind,
-              }
-            : undefined,
-        });
+        const pieces = splitTextByLinks(sourceNodeId, run.text, offset, emailSemantics);
+        for (const piece of pieces) {
+          runs.push({
+            ...piece,
+            text: applyVariables(
+              piece.text,
+              emailSemantics?.variables ?? [],
+              provider,
+              previewVariables,
+            ),
+            styles: runStyles,
+          });
+        }
+        offset += run.text.length;
       }
     }
 
     return {
       type: 'text',
-      text: content.text.value,
+      text: applyVariables(
+        content.text.value,
+        emailSemantics?.variables ?? [],
+        provider,
+        previewVariables,
+      ),
       runs: runs.length > 0 ? runs : undefined,
     };
   }
@@ -486,47 +538,92 @@ function compileContent(
   return undefined;
 }
 
+function applyVariables(
+  text: string,
+  variables: EmailSemanticMap['variables'],
+  provider: 'generic' | 'mailchimp',
+  preview: boolean,
+): string {
+  return text.replace(
+    /\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}|\*\|([A-Za-z0-9_.-]+)\|\*/g,
+    (match, neutral?: string, mailchimp?: string) => {
+      const name = neutral ?? mailchimp ?? '';
+      const variable = variables.find(
+        (candidate) =>
+          candidate.name === name || candidate.id === name || candidate.templateTag?.includes(name),
+      );
+      if (!variable) return match;
+      if (preview) return variable.sampleValue || variable.fallback || '';
+      if (provider === 'mailchimp') {
+        return (
+          variable.templateTag ?? `*|${variable.name.toUpperCase().replace(/[^A-Z0-9_]/g, '_')}|*`
+        );
+      }
+      return `{{${variable.name}}}`;
+    },
+  );
+}
+
 // ── Link Resolution ───────────────────────────────────────────────────────────
 
 function resolveLink(
   sourceNodeId: string,
   emailSemantics: EmailSemanticMap | undefined,
 ): EmailIrLink | undefined {
-  // Check text-range links first
-  const textLinks = emailSemantics?.textRangeLinks ?? {};
-  for (const key of Object.keys(textLinks)) {
-    if (key.startsWith(`${sourceNodeId}:`)) {
-      const link = textLinks[key];
-      if (link) {
-        return {
-          url: link.link.url,
-          kind: link.link.kind,
-          target: link.link.target,
-          title: link.link.title,
+  const link = emailSemantics?.nodeLinks?.[sourceNodeId];
+  if (!link) return undefined;
+  const result = validateEmailUrl(link);
+  if (!result.valid) return undefined;
+  return {
+    url: appendTrackingParams(result.value, link.tracking),
+    kind: link.kind,
+    target: link.target,
+    title: link.title,
+  };
+}
+
+function splitTextByLinks(
+  sourceNodeId: string,
+  text: string,
+  offset: number,
+  emailSemantics: EmailSemanticMap | undefined,
+): Array<{ text: string; link?: EmailIrLink }> {
+  const ranges = Object.values(emailSemantics?.textRangeLinks ?? {})
+    .filter(
+      (range) =>
+        range.nodeId === sourceNodeId &&
+        range.endIndex > offset &&
+        range.startIndex < offset + text.length,
+    )
+    .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
+  const boundaries = new Set([offset, offset + text.length]);
+  for (const range of ranges) {
+    boundaries.add(Math.max(offset, range.startIndex));
+    boundaries.add(Math.min(offset + text.length, range.endIndex));
+  }
+  const sorted = [...boundaries].sort((a, b) => a - b);
+  const result: Array<{ text: string; link?: EmailIrLink }> = [];
+  for (let index = 0; index < sorted.length - 1; index += 1) {
+    const start = sorted[index] ?? offset;
+    const end = sorted[index + 1] ?? offset + text.length;
+    const range = ranges.find(
+      (candidate) => candidate.startIndex <= start && candidate.endIndex >= end,
+    );
+    let link: EmailIrLink | undefined;
+    if (range) {
+      const validation = validateEmailUrl(range.link);
+      if (validation.valid) {
+        link = {
+          url: appendTrackingParams(validation.value, range.link.tracking),
+          kind: range.link.kind,
+          target: range.link.target,
+          title: range.link.title,
         };
       }
     }
+    result.push({ text: text.slice(start - offset, end - offset), link });
   }
-
-  return undefined;
-}
-
-function findTextRangeLink(
-  sourceNodeId: string,
-  _text: string,
-  emailSemantics: EmailSemanticMap | undefined,
-): { url: string; kind: EmailIrLink['kind'] } | undefined {
-  // This is a simplified lookup — full implementation would check character ranges
-  const textLinks = emailSemantics?.textRangeLinks ?? {};
-  for (const key of Object.keys(textLinks)) {
-    if (key.startsWith(`${sourceNodeId}:`)) {
-      const link = textLinks[key];
-      if (link) {
-        return { url: link.link.url, kind: link.link.kind };
-      }
-    }
-  }
-  return undefined;
+  return result;
 }
 
 // ── Image Compilation ─────────────────────────────────────────────────────────
@@ -542,7 +639,8 @@ function compileImage(
   if (content.type !== 'image' || !content.image) return undefined;
 
   const img = content.image;
-  const src = img.src;
+  const assetInfo = emailSemantics?.assets[sourceNodeId];
+  const src = assetInfo?.remoteUrl ?? (assetInfo ? `assets/${assetInfo.outputFilename}` : img.src);
 
   // Validate source URL
   if (!src || src.startsWith('file://') || src.startsWith('data:')) {
@@ -560,7 +658,6 @@ function compileImage(
   }
 
   // Collect asset metadata
-  const assetInfo = emailSemantics?.assets[sourceNodeId];
   if (assetInfo) {
     assets.push({
       sourceNodeId,
@@ -571,6 +668,7 @@ function compileImage(
       height: assetInfo.height,
       alt: assetInfo.alt || img.alt || node.name,
       remoteUrl: assetInfo.remoteUrl,
+      dataUrl: src.startsWith('data:') ? src : undefined,
     });
   }
 
@@ -579,10 +677,10 @@ function compileImage(
 
   return {
     src,
-    alt: img.alt || node.name,
+    alt: assetInfo?.decorative ? '' : assetInfo?.alt || img.alt || '',
     width: node.layout.width.value,
     height: node.layout.height.value,
-    decorative: false,
+    decorative: assetInfo?.decorative ?? false,
     link,
   };
 }

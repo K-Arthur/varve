@@ -95,6 +95,9 @@ export interface EmailIrNode {
 
   /** Compatibility classification. */
   compatibility: EmailCompatibilityClassification;
+
+  /** Stable provider attributes (for example Mailchimp editable regions). */
+  providerAttributes?: Record<string, string>;
 }
 
 export type EmailCompatibilityClassification =
@@ -177,6 +180,9 @@ export interface EmailDocumentIr {
   /** Root nodes. */
   nodes: EmailIrNode[];
 
+  /** Deterministic plain-text fallback. */
+  plainText: string;
+
   /** Collected asset references. */
   assets: EmailIrAsset[];
 
@@ -184,7 +190,7 @@ export interface EmailDocumentIr {
   warnings: EmailIrWarning[];
 
   /** Source diagnostics. */
-  diagnostics: EmailIrWarning[];
+  diagnostics: EmailIrDiagnostic[];
 }
 
 export interface EmailDocumentSettings {
@@ -220,6 +226,12 @@ export interface EmailDocumentSettings {
 
   /** Custom CSS. */
   customCss?: string;
+
+  /** Asset base URL used to resolve package-relative paths. */
+  assetBaseUrl?: string;
+
+  /** Manual plain-text override. */
+  plainTextOverride?: string;
 }
 
 // ── Asset Types ───────────────────────────────────────────────────────────────
@@ -285,7 +297,12 @@ export interface EmailIrDiagnostic {
   code: string;
   message: string;
   sourceNodeId?: string;
+  sourceVariableId?: string;
   category: EmailIrCategory;
   line?: number;
   column?: number;
+
+  suggestedFix?: string;
+
+  profile?: 'conservative' | 'modern' | 'provider-specific';
 }
