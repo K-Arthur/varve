@@ -104,11 +104,15 @@ pnpm exec vitest run packages/scene/src/__tests__/rasterLayer.test.ts packages/e
 ```
 
 Result: 86 tests passed in the first command and 49 tests passed in the
-worker/smudge regression command. The Playwright browser suite previously
-passed the paint layer, brush options, canvas pixel, zoom, undo, and all Draw
-workspace focus cases; the preset case was updated for Varve's custom combobox.
-Later browser retries were blocked by concurrent onboarding/browser-context
-processes, so no new screenshot is claimed for the follow-up grain path.
+worker/smudge regression command. Browser validation in this session ran with
+isolated output directories. The first combined run passed 6 tests, including
+paint-layer creation, brush-size controls, and all four Draw workspace focus
+tests; its remaining paint tests stopped at the stale native-select preset
+assertion. After updating that assertion for Varve's custom combobox, retries
+were blocked by onboarding/browser-context contention, and the final isolated
+run failed during dev-server warm-up before tests began. The inspected failure
+screenshots showed the brush options popover and the portaled Select boundary;
+no new grain screenshot is claimed because the final run did not reach it.
 
 Additional checks:
 
