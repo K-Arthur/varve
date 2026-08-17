@@ -14,6 +14,7 @@
 import { Icon } from '@varve/ui';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor } from '../../../context';
 import type { SectionId } from '../sectionRegistry';
 import { getSectionDefinition } from '../sectionRegistry';
@@ -217,24 +218,27 @@ function RegistryDisclosure({
           {children}
         </fieldset>
       )}
-      {contextMenu && def?.canHide && (
-        <div
-          ref={menuRef}
-          className="insp-disclosure__context-menu"
-          role="menu"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-        >
-          <button
-            ref={menuItemRef}
-            type="button"
-            className="insp-disclosure__context-menu-item"
-            role="menuitem"
-            onClick={handleHide}
+      {contextMenu &&
+        def?.canHide &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="insp-disclosure__context-menu"
+            role="menu"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
           >
-            Hide section
-          </button>
-        </div>
-      )}
+            <button
+              ref={menuItemRef}
+              type="button"
+              className="insp-disclosure__context-menu-item"
+              role="menuitem"
+              onClick={handleHide}
+            >
+              Hide section
+            </button>
+          </div>,
+          document.body,
+        )}
     </section>
   );
 }
