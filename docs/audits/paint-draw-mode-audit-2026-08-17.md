@@ -61,15 +61,22 @@ Use both concepts without introducing a competing engine:
   requests and made cancellation reject all requests for the cancelled stroke.
 - Made the existing tool-options popover open when a drawing tool activates so
   the active raster/vector target and relevant controls are immediately visible.
+- Reworked smudge compositing to read an immutable source neighborhood and
+  write across tile boundaries without directional seams or source mutation.
+- Kept worker-generated dab batches inside the stroke transaction, deferring
+  commit until all confirmed batches settle and invalidating late responses on
+  cancellation.
+- Connected the existing grain sampler to textured brush dabs and added a
+  built-in deterministic procedural Textured preset.
 
 ## Deferred, Not Falsely Completed
 
-- True sampled cross-tile smudge with immutable neighborhoods.
 - Wet-paint state, sparse drying scheduler, save/reopen policy, and visible
   wet controls.
-- Grain resource resolution and production brush-mask texture compositing.
-- Safe asynchronous worker transaction finalization and bounded latest-work
-  backpressure.
+- External grain resource resolution, document asset management, and advanced
+  grain anchoring controls.
+- Runtime profiling and bounded latest-work backpressure for enabling the worker
+  on ordinary strokes.
 - Full pressure-to-vector-width rendering parity.
 - Brush browser/editor lifecycle, import/export format, favorites, and advanced
   dynamics UI.
