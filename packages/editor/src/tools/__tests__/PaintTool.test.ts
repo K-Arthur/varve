@@ -168,6 +168,16 @@ describe('PaintTool', () => {
     expect(ctx.setDraft).toHaveBeenLastCalledWith(null);
   });
 
+  it('does not cancel an active stylus stroke for a second touch contact', () => {
+    const pointer = makePointerEvent(100, 200, { pointerType: 'pen', pointerId: 1 });
+    tool.onPointerDown(pointer, ctx);
+    const palm = makePointerEvent(110, 210, { pointerType: 'touch', pointerId: 2 });
+
+    tool.onPointerCancel(palm, ctx);
+
+    expect(ctx.abortTransaction).not.toHaveBeenCalled();
+  });
+
   it('Escape key aborts stroke when dragging', () => {
     const pointer = makePointerEvent(100, 200);
     tool.onPointerDown(pointer, ctx);

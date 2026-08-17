@@ -245,7 +245,9 @@ export function generateDabs(points: StrokePoint[], preset: BrushPreset): BrushD
   }
 
   const dabs: BrushDab[] = [];
-  const spacingPx = preset.radius * 2 * preset.spacing;
+  // Persisted presets can bypass UI clamps; never let a zero spacing value
+  // stall the dab loop.
+  const spacingPx = Math.max(0.01, preset.radius * 2 * preset.spacing);
   let accumulated = 0;
   let lastDabPoint = points[0]!;
   let totalLength = 0;
@@ -309,17 +311,26 @@ function deterministicRandom(): number {
 }
 
 function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): BrushDab {
-  const sizeMod = evaluateDynamics(preset, point, 'size');
-  const opacityMod = evaluateDynamics(preset, point, 'opacity');
-  const flowMod = evaluateDynamics(preset, point, 'flow');
-  const hardnessMod = evaluateDynamics(preset, point, 'hardness');
-  const rotationMod = evaluateDynamics(preset, point, 'rotation');
+  const sizeMod = evaluateDynamics(preset, point, 'size', strokeT);
+  const opacityMod = evaluateDynamics(preset, point, 'opacity', strokeT);
+  const flowMod = evaluateDynamics(preset, point, 'flow', strokeT);
+  const hardnessMod = evaluateDynamics(preset, point, 'hardness', strokeT);
+  const rotationMod = evaluateDynamics(preset, point, 'rotation', strokeT);
 
-  const radius = Math.max(0.5, preset.radius * sizeMod);
-  const opacity = Math.max(0, Math.min(1, preset.opacity * opacityMod));
+  const sizeJitter =
+    preset.sizeJitter > 0 ? 1 + (deterministicRandom() * 2 - 1) * preset.sizeJitter : 1;
+  const opacityJitter =
+    preset.opacityJitter > 0 ? 1 + (deterministicRandom() * 2 - 1) * preset.opacityJitter : 1;
+  const rotationJitter =
+    preset.rotationJitter > 0
+      ? (deterministicRandom() * 2 - 1) * preset.rotationJitter * Math.PI
+      : 0;
+
+  const radius = Math.max(0.5, preset.radius * sizeMod * sizeJitter);
+  const opacity = Math.max(0, Math.min(1, preset.opacity * opacityMod * opacityJitter));
   const flow = Math.max(0, Math.min(1, preset.flow * flowMod));
   const hardness = Math.max(0, Math.min(1, preset.hardness * hardnessMod));
-  const angle = preset.angle + rotationMod * Math.PI;
+  const angle = preset.angle + rotationMod * Math.PI + rotationJitter;
 
   const positionJitter = preset.positionJitter * radius;
   const jx = positionJitter > 0 ? (deterministicRandom() - 0.5) * positionJitter * 2 : 0;
@@ -344,11 +355,12 @@ function evaluateDynamics(
   preset: BrushPreset,
   point: StrokePoint,
   target: BrushDynamicsTarget,
+  strokeT: number,
 ): number {
   let product = 1;
   for (const mapping of preset.dynamics) {
     if (mapping.target !== target) continue;
-    const inputValue = getInputValue(preset, point, mapping.input);
+    const inputValue = getInputValue(preset, point, mapping.input, strokeT);
     const curveValue = evaluateBezier(mapping.curve, inputValue);
     const mapped = mapping.min + (mapping.max - mapping.min) * curveValue;
     product *= mapped;
@@ -356,7 +368,12 @@ function evaluateDynamics(
   return product;
 }
 
-function getInputValue(preset: BrushPreset, point: StrokePoint, input: BrushDynamicsInput): number {
+function getInputValue(
+  preset: BrushPreset,
+  point: StrokePoint,
+  input: BrushDynamicsInput,
+  strokeT: number,
+): number {
   switch (input) {
     case 'pressure':
       return point.pressure;
@@ -373,7 +390,7 @@ function getInputValue(preset: BrushPreset, point: StrokePoint, input: BrushDyna
     case 'random':
       return deterministicRandom();
     case 'stroke':
-      return 0; // Requires external stroke progress
+      return Math.max(0, Math.min(1, strokeT));
     case 'custom':
       return 0;
     default:
@@ -382,6 +399,7 @@ function getInputValue(preset: BrushPreset, point: StrokePoint, input: BrushDyna
 }
 
 function evaluateBezier(curve: readonly [number, number, number, number], t: number): number {
+  const input = Math.max(0, Math.min(1, t));
   const [x1, y1, x2, y2] = curve;
   const cx = 3 * x1;
   const bx = 3 * (x2 - x1) - cx;
@@ -389,8 +407,19 @@ function evaluateBezier(curve: readonly [number, number, number, number], t: num
   const cy = 3 * y1;
   const by = 3 * (y2 - y1) - cy;
   const ay = 1 - cy - by;
-  const x = ax * t * t * t + bx * t * t + cx * t;
-  return ay * x * x * x + by * x * x + cy * x;
+  const sampleX = (u: number) => ax * u * u * u + bx * u * u + cx * u;
+  const sampleY = (u: number) => ay * u * u * u + by * u * u + cy * u;
+
+  // Invert x(t) before evaluating y(t): the curve maps input (x) to output
+  // (y), so the input is not generally the Bezier parameter.
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 12; i++) {
+    const mid = (lo + hi) / 2;
+    if (sampleX(mid) < input) lo = mid;
+    else hi = mid;
+  }
+  return sampleY((lo + hi) / 2);
 }
 
 export function strokeBounds(dabs: BrushDab[]): { x: number; y: number; w: number; h: number } {
@@ -567,7 +596,7 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     opacity: clampUnit(p.opacity as number | undefined, fallback.opacity),
     flow: clampUnit(p.flow as number | undefined, fallback.flow),
     hardness: clampUnit(p.hardness as number | undefined, fallback.hardness),
-    spacing: clampUnit(p.spacing as number | undefined, fallback.spacing),
+    spacing: Math.max(0.01, clampUnit(p.spacing as number | undefined, fallback.spacing)),
     angle: (p.angle as number) ?? fallback.angle,
     roundness: clampUnit(p.roundness as number | undefined, fallback.roundness),
     positionJitter: clampUnit(p.positionJitter as number | undefined, fallback.positionJitter),
@@ -608,7 +637,7 @@ export function clampBrushPreset(preset: BrushPreset): BrushPreset {
     opacity: Math.max(0, Math.min(1, preset.opacity)),
     flow: Math.max(0, Math.min(1, preset.flow)),
     hardness: Math.max(0, Math.min(1, preset.hardness)),
-    spacing: Math.max(0, Math.min(1, preset.spacing)),
+    spacing: Math.max(0.01, Math.min(1, preset.spacing)),
     roundness: Math.max(0, Math.min(1, preset.roundness)),
     positionJitter: Math.max(0, Math.min(1, preset.positionJitter)),
     sizeJitter: Math.max(0, Math.min(1, preset.sizeJitter)),

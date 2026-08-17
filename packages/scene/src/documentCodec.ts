@@ -32,6 +32,7 @@ import {
 } from './masks';
 import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
+import { deserializeTiles, type SerializableTiles } from './rasterLayer';
 import { createEmptySelectionSetsData } from './selectionSet';
 import { emptyTableModel } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
@@ -488,6 +489,41 @@ function normalizeImageFillGeometry(doc: Document): Document {
   };
 }
 
+function normalizeRasterTiles(
+  nodeId: NodeId,
+  node: SceneNode,
+  warnings: DocumentCodecWarning[],
+): SceneNode {
+  if (node.kind !== 'rasterLayer') return node;
+  if (node.tiles instanceof Map) return node;
+
+  const rawTiles = (node as unknown as { tiles?: unknown }).tiles;
+  if (!isRecord(rawTiles)) {
+    warnings.push(
+      warning(
+        'document.raster-tiles-missing',
+        `Raster layer ${nodeId} had no valid tile collection; it was opened empty`,
+        'warning',
+        `${nodeId}.tiles`,
+      ),
+    );
+    return { ...node, tiles: new Map() };
+  }
+
+  const tiles = deserializeTiles(rawTiles as SerializableTiles);
+  if (Object.keys(rawTiles).length !== tiles.size) {
+    warnings.push(
+      warning(
+        'document.raster-tiles-repaired',
+        `Raster layer ${nodeId} contained invalid tile data; invalid tiles were discarded`,
+        'warning',
+        `${nodeId}.tiles`,
+      ),
+    );
+  }
+  return { ...node, tiles };
+}
+
 function isSupportedClipSource(node: SceneNode | undefined): boolean {
   if (!node) return false;
   if (node.kind === 'frame') return true;
@@ -624,7 +660,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
         nodes[id] = { ...node, id, table: model } as SceneNode;
       }
     } else {
-      nodes[id] = { ...node, id } as SceneNode;
+      nodes[id] = normalizeRasterTiles(id, { ...node, id } as SceneNode, warnings);
     }
   }
 

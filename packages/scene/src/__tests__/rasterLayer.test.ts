@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from '../clone';
 import { addNode, createDocument, removeNode, walkNodes } from '../document';
+import { DocumentCodec } from '../documentCodec';
 import {
   type BrushDab,
   compositeDabOnNode,
   createEmptyTile,
   deserializeTiles,
+  eraseDabOnNode,
   makeRasterLayerNode,
   makeTileKey,
   parseTileKey,
@@ -155,6 +157,25 @@ describe('Tile serialization', () => {
 });
 
 describe('Tile compositing', () => {
+  it('erases with the brush mask instead of a square region', () => {
+    const node = makeRasterLayerNode('erase-mask', { width: 256, height: 256 });
+    const tile = createEmptyTile();
+    for (let index = 3; index < tile.pixels.length; index += 4) tile.pixels[index] = 255;
+    node.tiles.set('0:0', tile);
+    const erased = eraseDabOnNode(node, {
+      x: 64,
+      y: 64,
+      radius: 10,
+      opacity: 1,
+      flow: 1,
+      hardness: 1,
+      angle: 0,
+      roundness: 1,
+      strokeT: 0,
+    });
+    expect(erased.tiles.get('0:0')!.pixels[64 * 128 * 4 + 64 * 4 + 3]).toBe(0);
+    expect(erased.tiles.get('0:0')!.pixels[54 * 128 * 4 + 54 * 4 + 3]).toBeGreaterThan(0);
+  });
   it('composites a dab onto a node tile', () => {
     const node = makeRasterLayerNode('test-comp-1', { width: 256, height: 256 });
     const dab: BrushDab = {
@@ -238,6 +259,25 @@ describe('Tile compositing', () => {
 });
 
 describe('RasterLayerNode document integration', () => {
+  it('preserves tile pixels through the canonical document codec', () => {
+    let doc = createDocument('raster-persistence');
+    const node = makeRasterLayerNode('rl-persist', { width: 256, height: 256 });
+    const tile = createEmptyTile();
+    tile.pixels.set([12, 34, 56, 255]);
+    node.tiles.set('0:0', tile);
+    doc = addNode(doc, node);
+
+    const result = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const restored = result.document.nodes['rl-persist'];
+    expect(restored?.kind).toBe('rasterLayer');
+    if (restored?.kind !== 'rasterLayer') return;
+    expect(restored.tiles).toBeInstanceOf(Map);
+    expect([...restored.tiles.get('0:0')!.pixels.slice(0, 4)]).toEqual([12, 34, 56, 255]);
+  });
+
   it('can be added to a document via addNode', () => {
     let doc = createDocument('raster-test');
     const node = makeRasterLayerNode('rl-1', { width: 640, height: 480 });

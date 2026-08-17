@@ -220,6 +220,8 @@ export interface ToolContext {
   canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
+  /** World transform for a node, including parent transforms and page placement. */
+  getWorldTransform?: (id: NodeId) => import('@varve/shared').Affine;
 
   setPointerCapture: (pointerId: number) => void;
   releasePointerCapture: (pointerId: number) => void;
@@ -304,7 +306,7 @@ export interface ToolContext {
     height: number,
     coordinateSpace?: 'source-image-pixels' | 'container-local-pixels',
   ) => void;
-  createRasterLayer: (width: number, height: number) => string | null;
+  createRasterLayer: (width: number, height: number, parentId?: NodeId | null) => string | null;
 
   /** SAM2 interactive segmentation */
   applySam2Segmentation?: (params: {
