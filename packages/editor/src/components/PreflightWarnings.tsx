@@ -15,6 +15,7 @@ import { runCombinedPreflight } from '@varve/scene';
 import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../context';
+import './PreflightWarnings.css';
 
 const SEVERITY_ORDER: CombinedPreflightSeverity[] = ['error', 'warning', 'info'];
 
@@ -38,11 +39,11 @@ function severityColor(severity: CombinedPreflightSeverity): string {
 function severityBg(severity: CombinedPreflightSeverity): string {
   switch (severity) {
     case 'error':
-      return 'var(--color-feedback-danger-bg, rgba(220, 38, 38, 0.1))';
+      return 'color-mix(in oklab, var(--color-feedback-danger) 12%, transparent)';
     case 'warning':
-      return 'var(--color-feedback-warning-bg, rgba(234, 179, 8, 0.1))';
+      return 'color-mix(in oklab, var(--color-feedback-warning) 16%, transparent)';
     case 'info':
-      return 'var(--color-bg-tertiary, rgba(128, 128, 128, 0.08))';
+      return 'var(--elevation-surface-sunken, rgba(128, 128, 128, 0.08))';
   }
 }
 
@@ -175,8 +176,8 @@ export function PreflightWarnings() {
               bottom: 'calc(100% + 4px)',
               left: 0,
               zIndex: 1000,
-              background: 'var(--color-bg-raised)',
-              border: '1px solid var(--border-default)',
+              background: 'var(--elevation-surface-raised)',
+              border: '1px solid var(--border-micro)',
               borderRadius: 'var(--radius-md)',
               boxShadow: 'var(--shadow-lg)',
               minWidth: 280,
@@ -210,7 +211,7 @@ export function PreflightWarnings() {
                     fontWeight: 600,
                     fontSize: 'var(--font-size-sm)',
                     padding: 'var(--space-1) var(--space-2)',
-                    borderBottom: '1px solid var(--border-subtle)',
+                    borderBottom: '1px solid var(--border-micro)',
                     marginBottom: 'var(--space-1)',
                     display: 'flex',
                     alignItems: 'center',
@@ -253,9 +254,9 @@ export function PreflightWarnings() {
                           flexShrink: 0,
                           fontSize: 'var(--font-size-xs)',
                           padding: '1px 4px',
-                          border: '1px solid var(--border-default)',
+                          border: '1px solid var(--border-micro)',
                           borderRadius: 'var(--radius-sm)',
-                          background: 'var(--color-bg-default)',
+                          background: 'var(--elevation-surface-default)',
                           cursor: 'pointer',
                           color: 'var(--color-text-secondary)',
                           whiteSpace: 'nowrap',
@@ -275,7 +276,7 @@ export function PreflightWarnings() {
                 style={{
                   marginTop: 'var(--space-2)',
                   paddingTop: 'var(--space-2)',
-                  borderTop: '1px solid var(--border-subtle)',
+                  borderTop: '1px solid var(--border-micro)',
                 }}
               >
                 <div

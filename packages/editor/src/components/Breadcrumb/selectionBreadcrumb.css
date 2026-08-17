@@ -9,7 +9,7 @@
   white-space: nowrap;
   min-height: 22px;
   border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-bg-surface);
+  background: var(--elevation-surface-default);
   flex-shrink: 0;
 }
 
@@ -20,7 +20,7 @@
 }
 
 .selection-breadcrumb__separator {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -43,7 +43,7 @@
 }
 
 .selection-breadcrumb__segment:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
 
@@ -54,7 +54,7 @@
 
 .selection-breadcrumb__segment-kind {
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   text-transform: lowercase;
   font-size: 0.85em;
 }
@@ -76,14 +76,14 @@
   height: 18px;
   border: none;
   background: transparent;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   cursor: pointer;
   border-radius: var(--radius-sm);
   padding: 0;
 }
 
 .selection-breadcrumb__overflow-btn:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
 
@@ -97,8 +97,8 @@
   top: 100%;
   left: 0;
   z-index: var(--z-popover);
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
+  background: var(--elevation-surface-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   padding: var(--space-1);
@@ -123,12 +123,12 @@
 }
 
 .selection-breadcrumb__overflow-item:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-surface-hover);
 }
 
 .selection-breadcrumb__overflow-item-kind {
   font-weight: var(--font-weight-medium);
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -140,7 +140,7 @@
 /* Touch candidate menu styles */
 
 .touch-candidate-item:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-surface-hover);
 }
 
 .touch-candidate-item:focus-visible {

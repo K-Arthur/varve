@@ -154,13 +154,13 @@
 }
 
 .font-browser__badge--color {
-  color: var(--color-text-inverse);
-  background: var(--color-accent-secondary);
+  color: var(--color-text-on-accent);
+  background: var(--color-accent-teal);
 }
 
 .font-browser__badge--license {
-  color: var(--color-text-inverse);
-  background: var(--color-warning);
+  color: var(--color-text-on-accent);
+  background: var(--color-feedback-warning);
 }
 
 /* ---------- Footer count ---------- */

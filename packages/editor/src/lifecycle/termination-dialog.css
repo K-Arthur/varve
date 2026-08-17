@@ -18,7 +18,7 @@
   gap: var(--space-3, 12px);
   padding: var(--space-2, 8px);
   border-radius: var(--radius-sm, 6px);
-  background: var(--color-surface-2, rgba(127, 127, 127, 0.08));
+  background: var(--elevation-surface-sunken);
 }
 
 .termination-dialog__row--failed {
@@ -46,7 +46,7 @@
   flex-shrink: 0;
   font-size: var(--font-size-xs, 11px);
   color: var(--color-text-secondary);
-  border: 1px solid var(--color-border, rgba(127, 127, 127, 0.3));
+  border: 1px solid var(--color-border-subtle, rgba(127, 127, 127, 0.3));
   border-radius: var(--radius-sm, 6px);
   padding: 1px 6px;
 }

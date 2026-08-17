@@ -191,10 +191,14 @@ export function CreateTableFromDataDialog() {
           </div>
 
           {error && (
-            <div style={{ color: 'var(--color-danger, #d64545)', fontSize: 12 }}>{error}</div>
+            <div style={{ color: 'var(--color-feedback-danger, #d64545)', fontSize: 12 }}>
+              {error}
+            </div>
           )}
           {commitError && (
-            <div style={{ color: 'var(--color-danger, #d64545)', fontSize: 12 }}>{commitError}</div>
+            <div style={{ color: 'var(--color-feedback-danger, #d64545)', fontSize: 12 }}>
+              {commitError}
+            </div>
           )}
           {parsed.warnings.length > 0 && (
             <div style={{ fontSize: 11, opacity: 0.7 }}>{parsed.warnings.join('; ')}</div>
@@ -204,7 +208,7 @@ export function CreateTableFromDataDialog() {
             <div
               style={{
                 overflow: 'auto',
-                border: '1px solid var(--color-border, #cdd3de)',
+                border: '1px solid var(--color-border-subtle, #cdd3de)',
                 borderRadius: 6,
               }}
             >

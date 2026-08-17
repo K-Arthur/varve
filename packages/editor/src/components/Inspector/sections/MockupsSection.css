@@ -9,7 +9,7 @@
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  background: var(--danger-subtle, var(--surface-muted));
+  background: var(--color-feedback-danger, var(--surface-muted));
   color: var(--danger, var(--text-primary));
   font-size: var(--font-size-sm);
 }
@@ -49,7 +49,7 @@
 
 .mockups-section__fit {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-micro);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
@@ -58,8 +58,8 @@
 }
 
 .mockups-section__fit--active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
   color: var(--text-on-accent, #ffffff);
 }
 
@@ -68,7 +68,7 @@
   gap: var(--space-2);
   flex-wrap: wrap;
   padding-top: var(--space-1);
-  border-top: 1px solid var(--border-default);
+  border-top: 1px solid var(--border-micro);
 }
 
 .mockups-section__note {

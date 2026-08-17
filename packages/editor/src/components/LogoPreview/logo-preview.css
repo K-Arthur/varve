@@ -27,7 +27,7 @@
 }
 
 .logo-preview__status--error {
-  color: var(--color-danger, #c2410c);
+  color: var(--color-feedback-danger, #c2410c);
 }
 
 .logo-preview__ladder {

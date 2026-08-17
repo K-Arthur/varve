@@ -25,7 +25,7 @@ export const Default: Story = {
         {open && (
           <div
             style={{
-              border: '1px solid var(--color-border)',
+              border: '1px solid var(--color-border-subtle)',
               padding: 16,
               marginTop: 8,
               borderRadius: 6,

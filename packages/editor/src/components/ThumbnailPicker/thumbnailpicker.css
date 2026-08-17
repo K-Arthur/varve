@@ -43,7 +43,7 @@
 .thumbnail-picker__notice {
   margin: 0;
   font-size: var(--font-size-sm, 13px);
-  color: var(--color-text-warning, #8a6d1a);
+  color: var(--color-feedback-warning-strong, #8a6d1a);
 }
 
 .thumbnail-picker__sources {
@@ -76,7 +76,7 @@
 }
 
 .thumbnail-picker__source--active {
-  border-color: var(--color-accent, #0f766e);
+  border-color: var(--color-accent-primary, #0f766e);
   background: var(--color-accent-subtle, #ecfdf5);
 }
 

@@ -20,6 +20,7 @@ import {
   analyzePaletteInWorker,
   type PaletteAnalysisRequest,
 } from '../../intelligence/paletteAnalysisService';
+import './PaletteExtractDialogHost.css';
 
 interface PaletteExtractDialogHostProps {
   src: string;

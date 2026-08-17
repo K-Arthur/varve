@@ -34,7 +34,7 @@
 
 .selection-sets__create-btn:hover {
   color: var(--color-interactive-default);
-  background: var(--color-surface-elevated);
+  background: var(--elevation-surface-raised);
 }
 
 .selection-sets__list {
@@ -58,7 +58,7 @@
   min-width: 0;
   padding: var(--space-1) var(--space-1);
   font-size: var(--font-size-sm);
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -67,7 +67,7 @@
 }
 
 .selection-sets__name-btn:hover {
-  background: var(--color-surface-elevated);
+  background: var(--elevation-surface-raised);
 }
 
 .selection-sets__name {
@@ -87,9 +87,9 @@
   flex: 1 1 auto;
   padding: var(--space-1);
   font-size: var(--font-size-sm);
-  color: var(--color-text-default);
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border-default);
+  color: var(--color-text-primary);
+  background: var(--elevation-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
 }
 
@@ -121,11 +121,11 @@
 
 .selection-sets__action-btn:hover {
   color: var(--color-interactive-default);
-  background: var(--color-surface-elevated);
+  background: var(--elevation-surface-raised);
 }
 
 .selection-sets__action-btn--danger:hover {
-  color: var(--color-danger-default);
+  color: var(--color-feedback-danger);
 }
 
 .selection-sets__empty {

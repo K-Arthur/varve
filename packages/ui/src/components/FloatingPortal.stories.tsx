@@ -23,8 +23,8 @@ export const Default: Story = {
         <FloatingPortal anchorRef={anchorRef} open={open} onClose={() => setOpen(false)}>
           <div
             style={{
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
+              background: 'var(--elevation-surface-default)',
+              border: '1px solid var(--color-border-subtle)',
               padding: 16,
               borderRadius: 6,
               minWidth: 200,
@@ -55,8 +55,8 @@ export const MatchAnchorWidth: Story = {
         >
           <div
             style={{
-              background: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
+              background: 'var(--elevation-surface-default)',
+              border: '1px solid var(--color-border-subtle)',
               padding: 16,
               borderRadius: 6,
             }}
