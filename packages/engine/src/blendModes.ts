@@ -23,6 +23,11 @@
  * and pass-through is group policy rather than a pixel blend mode.
  */
 
+import {
+  type BlendEvaluationSpace,
+  effectiveBlendEvaluationSpace,
+  normalizeBlendEvaluationSpace,
+} from '@varve/shared';
 import { blendNonSeparable, type NonSeparableMode } from './nonSeparable';
 
 // ── Separable blend mode functions ───────────────────────────────────────────
@@ -299,9 +304,8 @@ function getBlendFn(
  * @param source    Non-premultiplied [r, g, b, a] in [0, 1].
  * @param mode      Blend mode name.
  * @param opacity   Source opacity multiplier [0, 1].
- * @param linearize When true, decode sRGB→linear before blending and
- *                  re-encode after (physically correct for multiply/screen/
- *                  overlay). Default false (gamma-space, backward compat).
+ * @param evaluationSpace Explicit artistic blend evaluation policy. Non-
+ * separable modes deliberately resolve to legacy W3C encoded-RGB semantics.
  * @returns         Non-premultiplied [r, g, b, a] result in [0, 1].
  *
  * @remarks Inputs and opacity must be finite normalized values in [0, 1].
@@ -313,7 +317,7 @@ export function blend(
   source: readonly [number, number, number, number],
   mode: string,
   opacity: number,
-  linearize = false,
+  evaluationSpace: BlendEvaluationSpace = 'legacy-srgb',
 ): [number, number, number, number] {
   const [br, bg, bb, ba] = backdrop;
   const [srIn, sgIn, sbIn, saIn] = source;
@@ -321,9 +325,14 @@ export function blend(
   const sa = Math.max(0, Math.min(1, saIn * opacity));
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
-  // Linear-light path: decode sRGB→linear, blend, re-encode.
-  // Multiply/screen/overlay are only physically correct in linear space.
-  if (linearize) {
+  const effectiveSpace = effectiveBlendEvaluationSpace(
+    mode,
+    normalizeBlendEvaluationSpace(evaluationSpace),
+  );
+
+  // Linear-light path: decode sRGB→linear, evaluate the artistic formula,
+  // then re-encode. Alpha remains coverage and is never transfer-decoded.
+  if (effectiveSpace === 'linear-srgb') {
     const toLinear = (c: number) => {
       if (c <= 0.04045) return c / 12.92;
       return ((c + 0.055) / 1.055) ** 2.4;
@@ -334,7 +343,13 @@ export function blend(
     };
     const [lr, lg, lb] = [toLinear(br), toLinear(bg), toLinear(bb)];
     const [lsr, lsg, lsb] = [toLinear(srIn), toLinear(sgIn), toLinear(sbIn)];
-    const [mr, mg, mb] = blend([lr, lg, lb, ba], [lsr, lsg, lsb, saIn], mode, opacity);
+    const [mr, mg, mb] = blend(
+      [lr, lg, lb, ba],
+      [lsr, lsg, lsb, saIn],
+      mode,
+      opacity,
+      'legacy-srgb',
+    );
     return [toSrgb(mr), toSrgb(mg), toSrgb(mb), clamp(sa + ba * (1 - sa))];
   }
 
@@ -390,15 +405,14 @@ export function blend(
  * compositeCanvas.ts, but uses the individual blend functions from
  * this module.
  *
- * @param linearize When true, blend in linear-light space (physically
- *                  correct for multiply/screen/overlay).
+ * @param evaluationSpace Explicit artistic blend evaluation policy.
  */
 export function blendPixels(
   backdrop: ImageData,
   source: ImageData,
   blendMode: string,
   opacity: number,
-  linearize = false,
+  evaluationSpace: BlendEvaluationSpace = 'legacy-srgb',
 ): ImageData {
   const w = Math.min(backdrop.width, source.width);
   const h = Math.min(backdrop.height, source.height);
@@ -425,7 +439,7 @@ export function blendPixels(
       [sr, sg, sb, sa],
       blendMode,
       opacity,
-      linearize,
+      evaluationSpace,
     );
 
     rd[offset] = Math.round(Math.max(0, Math.min(255, mr * 255)));

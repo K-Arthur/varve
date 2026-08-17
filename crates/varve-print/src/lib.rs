@@ -3352,6 +3352,8 @@ mod tests {
                 },
             ],
             rotation: 0.0,
+            interpolation_space: None,
+            hue_interpolation: None,
             transform: None,
             tiling_mode: None,
             opacity: 1.0,
