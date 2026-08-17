@@ -59,6 +59,8 @@ Use both concepts without introducing a competing engine:
   stroke.
 - Stopped the brush worker host from silently deleting pending same-stroke
   requests and made cancellation reject all requests for the cancelled stroke.
+- Made the existing tool-options popover open when a drawing tool activates so
+  the active raster/vector target and relevant controls are immediately visible.
 
 ## Deferred, Not Falsely Completed
 
