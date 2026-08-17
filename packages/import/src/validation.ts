@@ -180,6 +180,16 @@ export async function validateImport(
       'Sketch constraints and resizing rules',
       'Sketch advanced effects and blend modes',
     );
+  } else if (parser.format === 'figma') {
+    estimatedNodeCount = estimateFigmaNodeCount(data);
+    if (!parser.canParse(data))
+      warnings.push('Figma input is not official file JSON or a supported plugin export');
+    unsupportedFeatures.push(
+      'opaque native .fig binary',
+      'Figma boolean operations',
+      'Figma scroll behavior',
+      'Figma layout grids',
+    );
   }
 
   // Check for empty or too-small data
@@ -260,6 +270,14 @@ function estimateSketchLayerCount(data: string | Uint8Array): number {
   const text = new TextDecoder().decode(data);
   const layerMatches = text.match(/"_class"\s*:/g) ?? [];
   return Math.max(1, layerMatches.length);
+}
+
+function estimateFigmaNodeCount(data: string | Uint8Array): number {
+  const text = typeof data === 'string' ? data : new TextDecoder().decode(data);
+  return Math.max(
+    1,
+    (text.match(/"type"\s*:\s*"(?:FRAME|TEXT|VECTOR|RECTANGLE|INSTANCE|COMPONENT)"/g) ?? []).length,
+  );
 }
 
 function deduplicateWarnings(warnings: string[]): string[] {

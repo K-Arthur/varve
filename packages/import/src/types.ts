@@ -4,6 +4,8 @@ export interface ImportResult {
   document: Document;
   nodeIds: string[];
   warnings: string[];
+  /** Features deliberately omitted or degraded by the parser. */
+  unsupportedFeatures?: string[];
   /**
    * Honest capability report (M14): what this import actually preserved.
    * UI must surface this rather than implying full fidelity.
