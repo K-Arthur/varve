@@ -79,7 +79,7 @@ describe('email output', () => {
           name: 'Hero',
           children: [],
           styles: {},
-          image: { src: 'assets/hero.png', alt: '', decorative: false },
+          image: { src: 'file:///tmp/hero.png', alt: '', decorative: false },
           compatibility: 'native',
           link: { kind: 'web', url: 'javascript:bad' },
         },
@@ -87,7 +87,7 @@ describe('email output', () => {
     });
     const diagnostics = runEmailPreflight(ir);
     expect(diagnostics.map((item) => item.code)).toEqual(
-      expect.arrayContaining(['MISSING_IMAGE_ALT', 'INVALID_LINK']),
+      expect.arrayContaining(['MISSING_IMAGE_ALT', 'INVALID_LINK', 'LOCAL_IMAGE_URL']),
     );
   });
 });
