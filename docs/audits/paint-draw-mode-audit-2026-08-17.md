@@ -96,6 +96,20 @@ pnpm exec vitest run packages/scene/src/__tests__/rasterLayer.test.ts packages/e
 
 Result: 5 files passed, 124 tests passed.
 
+Follow-up milestone validation:
+
+```text
+pnpm exec vitest run packages/scene/src/__tests__/brush.test.ts packages/scene/src/__tests__/rasterLayer.test.ts packages/editor/src/tools/__tests__/PaintTool.test.ts packages/editor/src/components/Inspector/sections/BrushSection.test.tsx
+pnpm exec vitest run packages/scene/src/__tests__/rasterLayer.test.ts packages/editor/src/tools/__tests__/PaintTool.test.ts
+```
+
+Result: 86 tests passed in the first command and 49 tests passed in the
+worker/smudge regression command. The Playwright browser suite previously
+passed the paint layer, brush options, canvas pixel, zoom, undo, and all Draw
+workspace focus cases; the preset case was updated for Varve's custom combobox.
+Later browser retries were blocked by concurrent onboarding/browser-context
+processes, so no new screenshot is claimed for the follow-up grain path.
+
 Additional checks:
 
 - `pnpm --filter @varve/scene typecheck` passed.
