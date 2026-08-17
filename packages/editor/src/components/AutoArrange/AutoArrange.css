@@ -52,6 +52,9 @@
   background: var(--color-accent-subtle);
   box-shadow: 0 0 0 1px var(--color-interactive-default);
 }
+.auto-arrange__layout-btn--active:hover {
+  background: var(--color-surface-hover);
+}
 
 .auto-arrange__layout-icon {
   font-size: 20px;

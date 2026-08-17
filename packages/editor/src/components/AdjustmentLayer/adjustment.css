@@ -71,6 +71,9 @@
 .adj-panel__item--selected {
   background-color: var(--color-accent-subtle);
 }
+.adj-panel__item--selected:hover {
+  background-color: var(--color-surface-hover);
+}
 
 .adj-panel__item-reorder {
   color: var(--color-text-muted);
@@ -882,6 +885,9 @@
   background: var(--color-accent-subtle);
   outline: 1px solid var(--color-interactive-default);
 }
+.gmp-item--selected:hover {
+  background: var(--color-surface-hover);
+}
 
 .gmp-item:focus-visible {
   outline: 2px solid var(--color-interactive-default);
@@ -990,6 +996,9 @@
 
 .gmp-import__item--selected {
   background: var(--color-accent-subtle);
+}
+.gmp-import__item--selected:hover {
+  background: var(--color-surface-hover);
 }
 
 .gmp-import__swatch {

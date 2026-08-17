@@ -1146,6 +1146,9 @@ input[type="number"] {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.editor-status__toggle--active:hover {
+  background: var(--color-interactive-hover);
+}
 /* Separator dashes in status bar */
 .editor-status > [aria-hidden] {
   color: var(--color-border-subtle);

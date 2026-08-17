@@ -113,6 +113,9 @@
   border-left-color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
 }
+.font-browser__row--selected:hover {
+  background: var(--color-surface-hover);
+}
 
 /* ---------- Font preview ---------- */
 

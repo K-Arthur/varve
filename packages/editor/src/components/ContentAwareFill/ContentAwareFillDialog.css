@@ -95,6 +95,9 @@
   border-color: var(--color-interactive-default);
   background: var(--color-accent-subtle);
 }
+.caf-dialog__quality-btn--active:hover {
+  background: var(--color-surface-hover);
+}
 
 .caf-dialog__quality-input {
   position: absolute;
@@ -204,6 +207,10 @@
   background: var(--color-accent-subtle);
   color: var(--color-interactive-default);
   font-weight: var(--font-weight-semibold);
+}
+.caf-dialog__toggle-btn--active:hover,
+.caf-dialog__zoom-btn--active:hover {
+  background: var(--color-surface-hover);
 }
 
 .caf-dialog__zoom-btn:disabled {

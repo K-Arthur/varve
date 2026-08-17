@@ -52,6 +52,9 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.floating-toolbar__btn--active:hover {
+  background: var(--color-interactive-hover);
+}
 
 .floating-toolbar__btn:disabled,
 .floating-toolbar__chevron:disabled {
@@ -122,6 +125,9 @@
 .floating-toolbar__touch-multi--active {
   color: var(--color-accent-on-subtle);
   background: var(--color-accent-subtle);
+}
+.floating-toolbar__touch-multi--active:hover {
+  background: var(--color-surface-hover);
 }
 
 /* ─── Drawing mode controls (brush size / opacity / colors) ─── */
