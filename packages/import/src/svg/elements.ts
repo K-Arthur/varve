@@ -3,7 +3,7 @@
 // svg/handlers/rect.ts etc.
 
 import type { Affine, PathPoint, Shape } from '@varve/engine';
-import type { Document, FrameNode, ManagedColor, SceneNode } from '@varve/scene';
+import type { Document, Fill, FrameNode, ManagedColor, SceneNode } from '@varve/scene';
 import {
   addMask,
   addNode,
@@ -273,7 +273,75 @@ function convertImage(
   return { node, warnings: [] };
 }
 
-function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
+function svgStopOffset(value: string | undefined): number {
+  if (!value) return 0;
+  const raw = value.trim();
+  const parsed = Number.parseFloat(raw);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(0, Math.min(1, raw.endsWith('%') ? parsed / 100 : parsed));
+}
+
+function svgStopColor(stop: ParsedElement): ManagedColor | null {
+  const style = parseCssStyle(stop.attrs.style ?? '');
+  const color = stop.attrs['stop-color'] ?? style['stop-color'] ?? 'transparent';
+  const parsed = parseSvgColor(color);
+  if (!parsed) return null;
+  const opacity = Number.parseFloat(stop.attrs['stop-opacity'] ?? style['stop-opacity'] ?? '1');
+  const alpha = Number.isFinite(opacity) ? Math.max(0, Math.min(1, opacity)) : 1;
+  return parsed.space === 'rgb' ? { ...parsed, a: Math.round(parsed.a * alpha) } : parsed;
+}
+
+function gradientFillFromSvg(def: ParsedElement, warnings: string[]): Fill | null {
+  const stops = def.children
+    .filter((child) => child.tag === 'stop')
+    .map((stop) => {
+      const color = svgStopColor(stop);
+      return color ? { position: svgStopOffset(stop.attrs.offset), color } : null;
+    })
+    .filter((stop): stop is { position: number; color: ManagedColor } => stop !== null)
+    .sort((a, b) => a.position - b.position);
+  if (stops.length < 2) {
+    warnings.push(`SVG gradient #${def.attrs.id ?? '(anonymous)'} has fewer than two usable stops`);
+    return null;
+  }
+
+  const interpolationSpace =
+    def.attrs['color-interpolation']?.toLowerCase() === 'linearrgb' ? 'linear-srgb' : 'srgb';
+  const spread = def.attrs.spreadMethod;
+  const tilingMode = spread === 'repeat' || spread === 'reflect' ? spread : 'none';
+  const gradientTransform = def.attrs.gradientTransform;
+  const rotation =
+    def.tag === 'linearGradient'
+      ? (Math.atan2(
+          Number.parseFloat(def.attrs.y2 ?? '0') - Number.parseFloat(def.attrs.y1 ?? '0'),
+          Number.parseFloat(def.attrs.x2 ?? '1') - Number.parseFloat(def.attrs.x1 ?? '0'),
+        ) *
+          180) /
+        Math.PI
+      : 0;
+
+  return {
+    type: 'gradient',
+    gradient: {
+      type: def.tag === 'radialGradient' ? 'radial' : 'linear',
+      stops,
+      rotation,
+      interpolationSpace,
+      tilingMode,
+      ...(gradientTransform ? { transform: composeTransforms([gradientTransform]) } : {}),
+    },
+    opacity: 1,
+    blendMode: 'normal',
+    visible: true,
+  };
+}
+
+function applyStylesToNode(
+  node: SceneNode,
+  el: ParsedElement,
+  defs: Map<string, ParsedElement>,
+  warnings: string[],
+): SceneNode {
   let fill = el.attrs.fill ?? el.attrs.style;
   let stroke = el.attrs.stroke;
   let strokeWidth = el.attrs['stroke-width'];
@@ -294,9 +362,20 @@ function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
   let result = { ...node };
 
   if (fill && fill !== 'none') {
-    const parsedColor = parseSvgColor(fill);
-    if (parsedColor) {
-      result = { ...result, fill: parsedColor };
+    const gradientId = parseUrlReference(fill);
+    const gradientDef = gradientId ? defs.get(gradientId) : undefined;
+    if (
+      gradientDef &&
+      (gradientDef.tag === 'linearGradient' || gradientDef.tag === 'radialGradient')
+    ) {
+      const gradientFill = gradientFillFromSvg(gradientDef, warnings);
+      if (gradientFill) result = { ...result, fills: [gradientFill] };
+    } else {
+      if (gradientId) warnings.push(`SVG fill references unsupported resource: #${gradientId}`);
+      const parsedColor = parseSvgColor(fill);
+      if (parsedColor) {
+        result = { ...result, fill: parsedColor };
+      }
     }
   } else if (fill === 'none') {
     result = { ...result, fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 } };
@@ -645,7 +724,7 @@ export function convertElement(
 
   if (result) {
     const { id, doc: d2 } = nextNodeId(doc);
-    const styled = applyStylesToNode(result.node, el);
+    const styled = applyStylesToNode(result.node, el, defs, warnings);
     const node = { ...styled, id } as SceneNode;
     doc = addNode(d2, node);
     ids.push(id);

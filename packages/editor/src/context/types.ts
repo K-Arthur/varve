@@ -57,7 +57,8 @@ export type InspectorTab =
   | 'prototype'
   | 'export'
   | 'audit'
-  | 'fonts';
+  | 'fonts'
+  | 'email';
 
 /** Persistent revision history surface exposed on the editor context. */
 export interface PersistentHistoryApi {
@@ -1315,6 +1316,7 @@ export interface EditorContextValue {
    * A settings change; existing values are not rewritten.
    */
   setDocumentWorkingSpace: (space: import('@varve/scene').WorkingSpace) => void;
+  setDocumentBlendEvaluationSpace: (space: import('@varve/shared').BlendEvaluationSpace) => void;
 
   // Soft proofing
   /** Persisted proof configuration (document print intent). */

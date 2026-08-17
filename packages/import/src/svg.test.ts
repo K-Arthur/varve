@@ -128,6 +128,29 @@ describe('parseSvg', () => {
     }
   });
 
+  it('imports linear SVG gradients with stop opacity and explicit interpolation', () => {
+    const result = parseSvg(
+      '<svg><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0" color-interpolation="linearRGB" spreadMethod="reflect"><stop offset="0%" stop-color="#ff0000"/><stop offset="1" stop-color="#0000ff" stop-opacity="0.5"/></linearGradient></defs><rect width="100" height="40" fill="url(#g)"/></svg>',
+    );
+    const node = result.document.nodes[result.nodeIds[0]!];
+    expect(result.warnings).toHaveLength(0);
+    expect(node?.fills?.[0]?.type).toBe('gradient');
+    const gradient = node?.fills?.[0]?.gradient;
+    expect(gradient?.type).toBe('linear');
+    expect(gradient?.interpolationSpace).toBe('linear-srgb');
+    expect(gradient?.tilingMode).toBe('reflect');
+    expect(gradient?.stops[1]?.color).toMatchObject({ space: 'rgb', a: 128 });
+  });
+
+  it('imports radial SVG gradients and warns on unsupported paint references', () => {
+    const radial = parseSvg(
+      '<svg><defs><radialGradient id="r"><stop offset="0" stop-color="white"/><stop offset="100%" stop-color="black"/></radialGradient></defs><circle r="20" fill="url(#r)"/><rect width="10" height="10" fill="url(#missing)"/></svg>',
+    );
+    const radialNode = radial.document.nodes[radial.nodeIds[0]!];
+    expect(radialNode?.fills?.[0]?.gradient?.type).toBe('radial');
+    expect(radial.warnings).toContain('SVG fill references unsupported resource: #missing');
+  });
+
   it('handles empty SVG', () => {
     const result = parseSvg('');
     expect(result.nodeIds).toHaveLength(0);

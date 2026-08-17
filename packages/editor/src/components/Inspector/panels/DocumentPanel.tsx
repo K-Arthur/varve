@@ -5,7 +5,12 @@ import {
   normaliseAngle,
   validateIsometricAxes,
 } from '@varve/scene';
-import { cssStringToManagedColor, managedColorToCss } from '@varve/shared';
+import {
+  type BlendEvaluationSpace,
+  cssStringToManagedColor,
+  managedColorToCss,
+  resolveBlendEvaluationSpace,
+} from '@varve/shared';
 import { Select } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
@@ -32,6 +37,7 @@ export function DocumentPanel() {
     assignDocumentColorMode,
     documentColorMode,
     setDocumentBitDepth,
+    setDocumentBlendEvaluationSpace,
     setDocumentWorkingSpace,
     setDocumentGrid,
     setPixelGridSnapEnabled,
@@ -47,6 +53,7 @@ export function DocumentPanel() {
   const colorConfig = doc.colorConfig;
   const documentBitDepth: BitDepth = colorConfig?.bitDepth ?? 'uint8';
   const workingSpace: WorkingSpace = colorConfig?.workingSpace ?? 'srgb';
+  const blendEvaluationSpace: BlendEvaluationSpace = resolveBlendEvaluationSpace(colorConfig ?? {});
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
   // When no custom background is set the canvas renders the theme sunken colour,
@@ -149,7 +156,7 @@ export function DocumentPanel() {
           </p>
         </div>
         <div className="insp-panel__color-mode">
-          <span className="insp-panel__color-mode-label">Blend space</span>
+          <span className="insp-panel__color-mode-label">Working RGB</span>
           <div className="insp-panel__color-mode-buttons">
             {(
               [
@@ -170,8 +177,8 @@ export function DocumentPanel() {
                 aria-pressed={workingSpace === opt.value}
                 title={
                   workingSpace === opt.value
-                    ? `Blend space: ${opt.label}`
-                    : `Blend and composite in ${opt.label} light`
+                    ? `Working RGB: ${opt.label}`
+                    : `Use ${opt.label} working RGB`
                 }
               >
                 {opt.label}
@@ -179,8 +186,43 @@ export function DocumentPanel() {
             ))}
           </div>
           <p className="insp-panel__color-mode-note" role="note">
-            Linear-light blending matches physically correct compositing (multiply, screen,
-            overlay). sRGB is the backward-compatible default for existing documents.
+            Working RGB describes the document's authored encoding. It is separate from gradient
+            interpolation and artistic blend evaluation.
+          </p>
+        </div>
+        <div className="insp-panel__color-mode">
+          <span className="insp-panel__color-mode-label">Blend evaluation</span>
+          <div className="insp-panel__color-mode-buttons">
+            {(
+              [
+                { value: 'legacy-srgb', label: 'Legacy sRGB' },
+                { value: 'linear-srgb', label: 'Linear light' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                className={`insp-panel__color-mode-btn${blendEvaluationSpace === opt.value ? ' insp-panel__color-mode-btn--active' : ''}`}
+                onClick={() => {
+                  if (blendEvaluationSpace === opt.value) return;
+                  beginTransaction();
+                  setDocumentBlendEvaluationSpace(opt.value);
+                  commitTransaction();
+                }}
+                aria-pressed={blendEvaluationSpace === opt.value}
+                title={
+                  blendEvaluationSpace === opt.value
+                    ? `Blend evaluation: ${opt.label}`
+                    : `Evaluate supported artistic blend modes in ${opt.label}`
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            Controls the values received by separable artistic blend formulas. Alpha coverage and
+            non-separable W3C modes keep their defined semantics.
           </p>
         </div>
       </DisclosureSection>
