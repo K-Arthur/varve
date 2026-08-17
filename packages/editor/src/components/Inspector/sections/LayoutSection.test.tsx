@@ -24,7 +24,7 @@ function setup() {
     ctx = useEditor();
     const id = ctx.state.selection[0];
     const frame = id ? ctx.state.document.nodes[id] : undefined;
-    if (!frame || frame.kind !== 'frame') return null;
+    if (frame?.kind !== 'frame') return null;
     return <LayoutSection node={frame} />;
   }
   const platform = createMemoryPlatform();
