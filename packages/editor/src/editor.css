@@ -2141,14 +2141,6 @@ input[type="number"] {
   font-size: 10px;
   color: var(--color-text-secondary);
 }
-.history-panel__compare-select {
-  padding: 4px 6px;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 4px;
-  background: var(--elevation-surface-default);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-}
 .history-panel__compare-btn {
   padding: 4px 10px;
   border: 1px solid var(--color-interactive-default);
@@ -4649,8 +4641,8 @@ dialog.varve-dialog--settings[open] {
   padding: 3px 10px;
   font-size: 0.75rem;
   font-weight: 600;
-  background: var(--color-feedback-warning);
-  color: var(--color-text-primary);
+  background: color-mix(in oklch, var(--color-feedback-warning) 16%, transparent);
+  color: var(--color-feedback-warning-strong);
   margin-bottom: 12px;
 }
 .safe-mode-screen__title {
@@ -4727,7 +4719,7 @@ dialog.varve-dialog--settings[open] {
 }
 .safe-mode-screen__btn--primary {
   background: var(--color-interactive-default);
-  color: var(--color-text-primary);
+  color: var(--color-text-on-accent);
 }
 .safe-mode-screen__note {
   margin: 0;
