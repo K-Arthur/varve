@@ -9,6 +9,7 @@
 
 import { Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor } from '../../../context';
 import { showAlignmentGuidesFromSelection } from '../../AlignmentOverlay/AlignmentGuideOverlay';
 
@@ -435,12 +436,15 @@ export function AlignDistributeBar() {
                   8 columns
                 </button>
               </div>
-              <button
-                className="insp-dropdown-backdrop"
-                onClick={() => setShowTidyMenu(false)}
-                aria-label="Close menu"
-                type="button"
-              />
+              {createPortal(
+                <button
+                  className="insp-dropdown-backdrop"
+                  onClick={() => setShowTidyMenu(false)}
+                  aria-label="Close menu"
+                  type="button"
+                />,
+                document.body,
+              )}
             </>
           )}
         </div>
