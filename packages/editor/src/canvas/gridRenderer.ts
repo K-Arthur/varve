@@ -12,7 +12,22 @@ const MIN_SCREEN_PX_BETWEEN_LINES = 6;
  * theme change. `var(--token)` references are resolved against `:root`'s
  * computed value; fallbacks (`var(--a, --b)`, `var(--a, red)`) are followed
  * recursively. Already-resolved colors are returned untouched.
+ *
+ * Resolved colors are cached per CSS property name. The cache is invalidated
+ * when `clearResolvedColorCache()` is called (on theme switch).
  */
+const resolvedColorCache = new Map<string, string>();
+
+/** Clear the resolved-color cache. Call on theme switch. */
+export function clearResolvedColorCache(): void {
+  resolvedColorCache.clear();
+}
+
+// Register globally so context.tsx can call without importing (hub-file budget).
+if (typeof window !== 'undefined') {
+  (window as any).__clearResolvedColorCache = clearResolvedColorCache;
+}
+
 export function resolveCanvasColor(color: string): string {
   if (typeof color !== 'string' || !color.startsWith('var(')) return color;
   if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') {
@@ -24,15 +39,28 @@ export function resolveCanvasColor(color: string): string {
   if (!match?.[1]) return color;
   const prop = match[1].trim();
   const fallback = match[2]?.trim();
+
+  // Check cache first (theme colors change only on theme switch)
+  const cached = resolvedColorCache.get(prop);
+  if (cached !== undefined) return cached;
+
   const value = getComputedStyle(root).getPropertyValue(prop).trim();
-  if (value) return value;
+  if (value) {
+    resolvedColorCache.set(prop, value);
+    return value;
+  }
   if (fallback) {
     // Fallback may be a color string, a bare --token, or another var().
     if (fallback.startsWith('--')) {
-      return resolveCanvasColor(`var(${fallback})`);
+      const resolved = resolveCanvasColor(`var(${fallback})`);
+      resolvedColorCache.set(prop, resolved);
+      return resolved;
     }
-    return resolveCanvasColor(fallback);
+    const resolved = resolveCanvasColor(fallback);
+    resolvedColorCache.set(prop, resolved);
+    return resolved;
   }
+  resolvedColorCache.set(prop, color);
   return color;
 }
 
