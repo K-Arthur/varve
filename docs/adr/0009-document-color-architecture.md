@@ -64,7 +64,7 @@ module should divide by 255 or guess a range.
 
 ### D3 — Working space on ColorConfig
 
-`ColorConfig` gains two fields:
+`ColorConfig` gains three fields:
 
 ```ts
 interface ColorConfig {
@@ -76,6 +76,7 @@ interface ColorConfig {
   outputIntent?: OutputIntentRef;
   workingSpace: 'srgb' | 'linear'; // NEW — 'linear' for correct blending
   blackGeneration: BlackGenerationConfig;
+  defaultGradientInterpolation?: GradientInterpolationSpace; // NEW — document default for gradients
 }
 ```
 
@@ -85,6 +86,11 @@ new documents can opt into `'linear'`.
 
 `bitDepth` at the document level is the default for newly created colors. A per-color
 `bitDepth` overrides it.
+
+`defaultGradientInterpolation` sets the default interpolation space for new gradients.
+When a gradient's own `interpolationSpace` is unset, this value is used. Existing gradients
+without this field resolve to `'oklab'` (historical default). Valid values: `'srgb'`,
+`'linear-srgb'`, `'oklab'`, `'oklch'`, `'hsl'`.
 
 ### D4 — Conversion pipeline hierarchy
 
