@@ -1493,12 +1493,11 @@ input[type="number"] {
   padding: 4px;
   min-width: 0;
   overflow: hidden;
-  /* Recessed tray: outer shadow lifts the strip off the menubar;
-     inner top highlight + bottom shadow create the inset depth. */
+  /* Recessed tray: inner top highlight + bottom shadow create inset depth.
+     No outer shadow — overflow:hidden clips it, causing visual bleed. */
   box-shadow:
-    var(--elevation-shadow-raised),
-    inset 0 1px 0 oklch(1 0 0 / 0.07),
-    inset 0 -1px 2px oklch(0 0 0 / 0.08);
+    inset 0 1px 0 oklch(1 0 0 / 0.08),
+    inset 0 -1px 2px oklch(0 0 0 / 0.1);
 }
 
 /* ── Workspace mode color palette ──
@@ -1611,12 +1610,9 @@ input[type="number"] {
   padding: 0 10px;
   background: var(--ws-mode-bg);
   color: var(--color-text-on-accent);
-  /* Lifted pill: shadow + upward translate pop it off the tray.
-     The shadow uses the mode's own color family for a subtle glow. */
-  box-shadow:
-    0 2px 6px oklch(0 0 0 / 0.3),
-    0 0 0 1px oklch(1 0 0 / 0.1);
-  transform: translateY(-1px);
+  /* Subtle inner highlight for raised feel — no outer shadow or transform
+     to avoid exceeding the strip bounds. */
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.15);
 }
 
 .workspace-tabs__tab--active:hover {
