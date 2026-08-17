@@ -347,4 +347,38 @@ describe('reflowLayoutChildren', () => {
       expect(resolved.h).toBeCloseTo(20);
     }
   });
+
+  it('a hug grid frame sizes itself from explicit px/auto tracks', () => {
+    const frame = makeFrame({
+      w: 999,
+      h: 999,
+      layoutSizingWidth: 'hug',
+      layoutSizingHeight: 'hug',
+      layoutStyle: {
+        mode: 'grid',
+        direction: 'row',
+        wrap: false,
+        gap: 8,
+        padding: [4, 4, 4, 4] as [number, number, number, number],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+        gridTemplateColumns: '60px 80px',
+        gridTemplateRows: '30px',
+      },
+    });
+    const a = makeChild('a', 0, 0, 10, 10);
+    const b = makeChild('b', 0, 0, 10, 10);
+    frame.children = ['a', 'b'];
+    const doc = makeDoc(frame, [a, b]);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+    const resolved = reflowed.nodes.f1;
+    if (resolved?.kind === 'frame') {
+      // width: 60 + 80 + gap(8) + padding(4+4) = 156; height: 30 + padding(4+4) = 38
+      expect(resolved.w).toBeCloseTo(156);
+      expect(resolved.h).toBeCloseTo(38);
+    }
+  });
 });
