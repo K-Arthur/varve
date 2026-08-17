@@ -287,17 +287,13 @@ test.describe('icon library', () => {
     // Verify the inserted icon group has non-zero w/h via the document state.
     // The core bug: computeGroupBounds returned 0x0 for path-only icons,
     // which caused the frame clip to hide all children.
-    const iconBounds = await page.evaluate(() => {
-      // Access the editor state through the window's devtools hook or
-      // by finding the React root and traversing.
-      const root = document.getElementById('root');
-      if (!root) return { error: 'no root' };
-      // Find all tree items and expand the Page 1 content group first.
+    //
+    // Expand the Page 1 content group to see the icon layer.
+    await page.evaluate(() => {
       const expandBtn = document.querySelector(
         '.layers-panel [role="treeitem"] button[aria-label="Expand"]',
       ) as HTMLButtonElement | null;
       if (expandBtn) expandBtn.click();
-      return { expanded: true };
     });
     await page.waitForTimeout(500);
 
