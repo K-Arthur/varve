@@ -231,11 +231,13 @@ export class SelectTool extends BaseTool {
         const target = deepTarget ?? hit;
         if (e.shiftKey) {
           ctx.toggleSelection(target.nodeId, true);
-        } else if (!ctx.isSelected(target.nodeId)) {
-          // Only replace the selection when the deep target is NOT already
-          // selected. If it is already selected, preserve the current
-          // multi-selection so a Ctrl+drag can move the entire selection
-          // (Ctrl is used to bypass snapping, not always to deep-select).
+        } else if (
+          !ctx.isSelected(target.nodeId) ||
+          // When multi-selecting, Ctrl+drag should move the whole selection,
+          // not replace it. Only re-select when single-selecting to keep the
+          // selection authoritative (fixes container-hit layers-panel stale).
+          ctx.selection.length <= 1
+        ) {
           ctx.setSelection(target.nodeId);
         }
       } else if (ctx.touchMultiSelect.active) {
