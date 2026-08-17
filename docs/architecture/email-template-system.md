@@ -129,7 +129,7 @@ The Email inspector is mounted as a real top-level inspector tab. It supports
 enabling a normal Varve document as an email, template settings, semantic node
 assignment, whole-node links, text-range links, custom HTML blocks,
 personalization variables, a sandboxed browser preview, generated HTML
-inspection, preflight diagnostics, and local HTML/text/manifest export.
+inspection, preflight diagnostics, and local HTML/text/manifest/embedded-asset export.
 
 ## Files
 
