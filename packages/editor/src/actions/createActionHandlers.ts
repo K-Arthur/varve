@@ -276,6 +276,7 @@ export function createActionHandlers(
     // ── Object ──
     group: () => e.groupSelected(),
     ungroup: () => e.ungroupSelected(),
+    addAutoLayout: () => e.addAutoLayoutSelected(),
     createClippingMask: () => e.createClippingMaskFromSelected(),
     releaseClippingMask: () => e.releaseClippingMaskFromSelected(),
     bringFront: () => e.arrangeSelected('front'),
