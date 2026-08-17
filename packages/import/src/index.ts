@@ -4,6 +4,7 @@ export { batchImport } from './batch';
 export { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } from './bitmap';
 export * from './delimited';
 export { createEpsParser } from './eps';
+export { createFigmaParser, type FigmaSourceDocument } from './figma';
 export * from './gradient';
 export { getBitmapInfo, importImageAsFill } from './image';
 export { importFile, importImageFile, importSvgString } from './import';
@@ -45,6 +46,7 @@ export const PACKAGE = '@varve/import' as const;
 
 import { createAiParser } from './ai';
 import { createEpsParser } from './eps';
+import { createFigmaParser } from './figma';
 import { createPdfParser } from './pdf';
 import { createPsdParser } from './psd';
 // Auto-register all built-in parsers
@@ -57,4 +59,5 @@ registerParser(createPdfParser());
 registerParser(createPsdParser());
 registerParser(createAiParser());
 registerParser(createEpsParser());
+registerParser(createFigmaParser());
 registerParser(createSketchParser());
