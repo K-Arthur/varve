@@ -279,6 +279,12 @@ export function CanvasArea({
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
   const [dropTargetFrameId, setDropTargetFrameId] = useState<NodeId | null>(null);
+  const [layoutInsertion, setLayoutInsertion] = useState<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  } | null>(null);
   const [maskDropTargetId, setMaskDropTargetId] = useState<NodeId | null>(null);
   const maskDropTargetRef = useRef<NodeId | null>(null);
   // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
@@ -643,6 +649,7 @@ export function CanvasArea({
         nodeEditTargetId,
         setDraft,
         setDropTargetFrameId,
+        setLayoutInsertion,
         setSnapGuides,
         setDeepSelectionCandidates,
         setNodeEditTargetId,
@@ -807,6 +814,7 @@ export function CanvasArea({
     sunkenColorRef,
     draft,
     dropTargetFrameId,
+    layoutInsertion,
     maskDropTargetId,
   });
 

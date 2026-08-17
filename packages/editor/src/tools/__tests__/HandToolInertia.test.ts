@@ -100,6 +100,7 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
       releasePointerCapture: vi.fn(),
       findContainingFrame: vi.fn().mockReturnValue(null),
       setDropTargetFrame: vi.fn(),
+      setLayoutInsertion: vi.fn(),
       nodeWorldBounds: vi.fn().mockReturnValue(null),
       engine: null,
       hitTest: vi.fn().mockReturnValue(null),

@@ -59,6 +59,7 @@ function createMockContext(overrides: Partial<ToolContext> = {}): ToolContext {
     announceOperation: vi.fn(),
     setDraft: vi.fn(),
     setDropTargetFrame: vi.fn(),
+    setLayoutInsertion: vi.fn(),
     rootNodes: vi.fn(() => []),
     getNode: vi.fn(),
     canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
