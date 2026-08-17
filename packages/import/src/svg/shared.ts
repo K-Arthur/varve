@@ -514,6 +514,27 @@ export function computeGroupBounds(
       } else if (s.kind === 'line' || s.kind === 'arrow') {
         bw = Math.abs(s.to[0] - s.from[0]) || 4;
         bh = Math.abs(s.to[1] - s.from[1]) || 4;
+      } else if (s.kind === 'path') {
+        if (s.points.length > 0) {
+          let pMinX = Infinity,
+            pMinY = Infinity,
+            pMaxX = -Infinity,
+            pMaxY = -Infinity;
+          for (const pt of s.points) {
+            const xs = [pt.x, pt.handleIn?.[0] ?? pt.x, pt.handleOut?.[0] ?? pt.x];
+            const ys = [pt.y, pt.handleIn?.[1] ?? pt.y, pt.handleOut?.[1] ?? pt.y];
+            for (const v of xs) {
+              if (v < pMinX) pMinX = v;
+              if (v > pMaxX) pMaxX = v;
+            }
+            for (const v of ys) {
+              if (v < pMinY) pMinY = v;
+              if (v > pMaxY) pMaxY = v;
+            }
+          }
+          bw = pMaxX - pMinX;
+          bh = pMaxY - pMinY;
+        }
       }
     } else if (n.kind === 'text') {
       bw = (n.fontSize ?? 16) * 6;
@@ -569,6 +590,27 @@ export function nodeBounds(node: SceneNode): { x: number; y: number; w: number; 
     } else if (s.kind === 'line' || s.kind === 'arrow') {
       bw = Math.abs(s.to[0] - s.from[0]) || 4;
       bh = Math.abs(s.to[1] - s.from[1]) || 4;
+    } else if (s.kind === 'path') {
+      if (s.points.length > 0) {
+        let pMinX = Infinity,
+          pMinY = Infinity,
+          pMaxX = -Infinity,
+          pMaxY = -Infinity;
+        for (const pt of s.points) {
+          const xs = [pt.x, pt.handleIn?.[0] ?? pt.x, pt.handleOut?.[0] ?? pt.x];
+          const ys = [pt.y, pt.handleIn?.[1] ?? pt.y, pt.handleOut?.[1] ?? pt.y];
+          for (const v of xs) {
+            if (v < pMinX) pMinX = v;
+            if (v > pMaxX) pMaxX = v;
+          }
+          for (const v of ys) {
+            if (v < pMinY) pMinY = v;
+            if (v > pMaxY) pMaxY = v;
+          }
+        }
+        bw = pMaxX - pMinX;
+        bh = pMaxY - pMinY;
+      }
     }
   } else if (node.kind === 'text') {
     bw = (node.fontSize ?? 16) * 6;
