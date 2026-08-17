@@ -734,7 +734,7 @@ function IsometricGridSection() {
               <div className="insp-field" role="alert">
                 <div
                   className="insp-field__control"
-                  style={{ fontSize: 11, color: 'var(--color-warning)' }}
+                  style={{ fontSize: 11, color: 'var(--color-feedback-warning)' }}
                 >
                   {axisValidation.errors.join('; ')}
                 </div>

@@ -165,7 +165,7 @@
 }
 
 .master-panel__action-btn--danger:hover {
-  color: var(--color-status-error);
+  color: var(--color-feedback-danger);
 }
 
 .master-panel__page-status {
@@ -205,8 +205,8 @@
 }
 
 .master-panel__detach-btn:hover {
-  color: var(--color-status-error);
-  border-color: var(--color-status-error);
+  color: var(--color-feedback-danger);
+  border-color: var(--color-feedback-danger);
 }
 
 .master-panel__detach-btn:focus-visible {

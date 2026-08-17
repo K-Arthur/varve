@@ -28,6 +28,7 @@ import { IconDetailsPanel } from './IconDetailsPanel';
 import { IconDiscoverySections } from './IconDiscoverySections';
 import { IconGrid, type IconGridItemView } from './IconGrid';
 import { getIconAcquisitionService, IconAcquisitionError } from './iconAcquisition';
+import './IconBrowser.css';
 import {
   getStoredIcon,
   type IconStorageRecord,

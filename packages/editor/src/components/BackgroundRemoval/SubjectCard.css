@@ -92,8 +92,8 @@
   z-index: 1;
 }
 .subject-card__badge--merged {
-  background: var(--color-warning);
-  color: var(--color-on-warning);
+  background: var(--color-feedback-warning);
+  color: var(--color-text-on-warning);
 }
 
 /* ── Info section ────────────────────────────────────────────────────────── */
@@ -223,10 +223,6 @@
   margin-bottom: var(--space-3);
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--color-border-subtle);
-}
-.subject-picker-toolbar__btn {
-  font-size: var(--font-size-xs);
-  padding: var(--space-1) var(--space-2);
 }
 .subject-picker-toolbar__count {
   margin-left: auto;

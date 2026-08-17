@@ -33,7 +33,7 @@
   font-size: var(--font-size-xs);
 }
 .export-results__item--failed {
-  background: var(--color-feedback-danger-bg, rgba(220, 38, 38, 0.08));
+  background: color-mix(in oklab, var(--color-feedback-danger) 10%, transparent);
 }
 .export-results__status-icon {
   grid-row: 1 / 3;
@@ -86,7 +86,7 @@
 }
 .export-results__action:disabled {
   cursor: wait;
-  opacity: var(--opacity-disabled);
+  opacity: 0.5;
 }
 .export-results__action:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);

@@ -151,7 +151,7 @@ export function VariableModifierPopover({
               fontWeight: operation === op.value ? 700 : 400,
               borderBottom:
                 operation === op.value
-                  ? '2px solid var(--color-accent, #39d0c6)'
+                  ? '2px solid var(--color-accent-primary, #39d0c6)'
                   : '2px solid transparent',
             }}
             onClick={() => setOperation(op.value)}

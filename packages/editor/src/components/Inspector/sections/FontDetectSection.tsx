@@ -19,6 +19,7 @@ import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import './FontDetectSection.css';
 
 const MODEL_ID = 'font-classify';
 

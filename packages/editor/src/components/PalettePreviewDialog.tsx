@@ -80,7 +80,7 @@ export function PalettePreviewDialog({
             role="alert"
             style={{
               padding: 'var(--space-2)',
-              background: 'var(--color-bg-critical)',
+              background: 'var(--color-feedback-danger)',
               borderRadius: 4,
               marginBottom: 'var(--space-2)',
             }}
@@ -119,7 +119,12 @@ export function PalettePreviewDialog({
                           aria-label={`${entry.name ?? `Color ${i + 1}`}: ${managedColorToCss(entry.color)}`}
                         />
                         {entry.warning && (
-                          <span style={{ fontSize: '0.75em', color: 'var(--color-text-warning)' }}>
+                          <span
+                            style={{
+                              fontSize: '0.75em',
+                              color: 'var(--color-feedback-warning-strong)',
+                            }}
+                          >
                             !
                           </span>
                         )}
@@ -170,7 +175,7 @@ export function PalettePreviewDialog({
                 style={{
                   marginBottom: 'var(--space-2)',
                   padding: 'var(--space-1) var(--space-2)',
-                  background: 'var(--color-bg-warning)',
+                  background: 'var(--color-feedback-warning)',
                   borderRadius: 4,
                   fontSize: '0.85em',
                 }}
@@ -256,7 +261,12 @@ export function PalettePreviewDialog({
                       </span>
                       {m.contrastPreserved === false && (
                         <Tooltip label="Contrast may be reduced">
-                          <span style={{ color: 'var(--color-text-warning)', fontSize: '0.9em' }}>
+                          <span
+                            style={{
+                              color: 'var(--color-feedback-warning-strong)',
+                              fontSize: '0.9em',
+                            }}
+                          >
                             !
                           </span>
                         </Tooltip>

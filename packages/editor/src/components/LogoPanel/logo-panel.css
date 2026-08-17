@@ -84,7 +84,7 @@
 }
 
 .logo-panel__section-heading:hover {
-  color: var(--color-text-accent);
+  color: var(--color-accent-on-subtle);
 }
 
 .logo-panel__section-body {
@@ -109,7 +109,7 @@
 .logo-panel__textarea {
   width: 100%;
   box-sizing: border-box;
-  background: var(--color-surface-field);
+  background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
@@ -120,7 +120,7 @@
 
 .logo-panel__text-input:focus-visible,
 .logo-panel__textarea:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -191,7 +191,7 @@
 .logo-panel__code {
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
-  background: var(--color-surface-field);
+  background: var(--elevation-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
@@ -202,7 +202,7 @@
 .logo-panel__tree {
   margin: 0;
   padding: var(--space-2);
-  background: var(--color-surface-field);
+  background: var(--elevation-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
@@ -213,7 +213,7 @@
 }
 
 .logo-panel__report {
-  border: 1px solid var(--color-border-success, var(--color-border-subtle));
+  border: 1px solid var(--color-feedback-success-strong, var(--color-border-subtle));
   border-radius: var(--radius-sm);
   padding: var(--space-2);
   font-size: var(--font-size-xs);

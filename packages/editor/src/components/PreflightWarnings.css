@@ -1,0 +1,47 @@
+/* PreflightWarnings — Print Mode preflight badge + issue panel.
+ * Badge lives in the StatusBar row; the panel is a non-modal popover
+ * anchored above the badge. */
+.preflight-warnings__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 1px 5px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-default);
+  font-family: inherit;
+  font-size: var(--font-size-2xs);
+  line-height: 1.4;
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+.preflight-warnings__badge:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-raised);
+}
+.preflight-warnings__badge:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.preflight-warnings__count {
+  font-weight: var(--font-weight-semibold);
+  font-feature-settings: "tnum";
+  color: var(--color-text-primary);
+}
+.preflight-warnings__panel {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+.preflight-warnings__issue:hover {
+  background: color-mix(in oklab, var(--color-border-subtle) 18%, transparent);
+}
+.preflight-warnings__select-btn:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+.preflight-warnings__select-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}

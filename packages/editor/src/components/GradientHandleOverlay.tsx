@@ -236,7 +236,7 @@ export function GradientHandleOverlay({
                       cx={sw.x}
                       cy={sw.y + 10 / Math.max(1, zoom * 0.5)}
                       r={3 / Math.max(1, zoom * 0.5)}
-                      fill="var(--color-accent-secondary, #666)"
+                      fill="var(--color-text-muted)"
                       opacity={0.6}
                     />
                   )}
@@ -249,7 +249,7 @@ export function GradientHandleOverlay({
               cx={startW.x}
               cy={startW.y}
               r={6 / Math.max(1, zoom * 0.5)}
-              fill="var(--color-bg-default, #fff)"
+              fill="var(--elevation-surface-default, #fff)"
               stroke="var(--color-accent-primary, #39d0c6)"
               strokeWidth={2 / Math.max(1, zoom * 0.5)}
               style={{ pointerEvents: 'auto', cursor: 'grab' }}

@@ -362,7 +362,7 @@ input[type="number"] {
   padding: var(--space-1) var(--space-3);
   background: var(--elevation-surface-overlay);
   border: var(--border-micro);
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-pill, 999px);
   box-shadow: var(--elevation-shadow-overlay);
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
@@ -1340,9 +1340,20 @@ input[type="number"] {
   border-radius: var(--radius-sm, 4px);
   border: 1px solid var(--color-interactive-default, #14998f);
   background: var(--color-interactive-default, #14998f);
-  color: var(--color-on-primary, #fff);
+  color: var(--color-text-on-accent);
   cursor: pointer;
   font-size: inherit;
+}
+.insp-contrast-popover__ratio,
+.insp-contrast-popover__level {
+  margin: 0 0 0.25em;
+  font-size: var(--font-size-xs, 0.8125rem);
+  color: var(--color-text-primary);
+}
+.insp-contrast-popover__warning {
+  margin: 0 0 0.25em;
+  font-size: var(--font-size-xs, 0.8125rem);
+  color: var(--color-feedback-warning, #f57c00);
 }
 
 /* ── Layout Score Section (Inspector) ──────────────── */
@@ -1424,8 +1435,8 @@ input[type="number"] {
 
 .high-contrast-handles .selection-overlay-handle {
   stroke-width: 2.5;
-  stroke: var(--color-on-surface);
-  fill: var(--color-surface);
+  stroke: var(--color-text-primary);
+  fill: var(--elevation-surface-default);
 }
 
 /* ── Center section (document identity) ──
@@ -1691,7 +1702,7 @@ input[type="number"] {
   overflow-y: auto;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
-  z-index: var(--elevation-z-sticky);
+  z-index: var(--z-sticky);
 }
 
 /* ── Panel overlays (responsive) ── */
@@ -1868,7 +1879,7 @@ input[type="number"] {
   display: flex;
   gap: 0;
   border-bottom: var(--border-micro);
-  background: var(--elevation-surface-subtle);
+  background: var(--elevation-surface-sunken);
   flex-shrink: 0;
 }
 
@@ -1885,7 +1896,7 @@ input[type="number"] {
     background 0.15s;
 }
 .history-panel__tab:hover {
-  background: var(--elevation-surface-hover);
+  background: var(--color-surface-hover);
 }
 .history-panel__tab--active {
   color: var(--color-text-primary);
@@ -1932,7 +1943,7 @@ input[type="number"] {
   cursor: pointer;
 }
 .history-panel__action-btn:hover {
-  background: var(--elevation-surface-hover);
+  background: var(--color-surface-hover);
   color: var(--color-text-primary);
 }
 
@@ -1980,22 +1991,22 @@ input[type="number"] {
   transition: background 0.1s;
 }
 .history-panel__step:hover {
-  background: var(--elevation-surface-hover);
+  background: var(--color-surface-hover);
 }
 .history-panel__step:focus-visible {
   outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }
 .history-panel__step--head {
-  background: var(--elevation-surface-active);
+  background: var(--color-surface-hover);
   border-left-color: var(--color-interactive-default);
   font-weight: 600;
 }
 .history-panel__step--checkpoint {
-  border-left-color: var(--status-warning);
+  border-left-color: var(--color-feedback-warning);
 }
 .history-panel__step--branch {
-  border-left-color: var(--status-info);
+  border-left-color: var(--color-feedback-info);
 }
 
 .history-panel__step-main {
@@ -2029,15 +2040,15 @@ input[type="number"] {
   color: var(--color-text-on-accent);
 }
 .history-panel__marker--checkpoint {
-  background: var(--status-warning-bg, #fef3c7);
-  color: var(--status-warning-text, #92400e);
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
+  color: var(--color-feedback-warning-strong);
 }
 .history-panel__marker--branch {
-  background: var(--status-info-bg, #dbeafe);
-  color: var(--status-info-text, #1e40af);
+  background: color-mix(in oklab, var(--color-feedback-info) 14%, transparent);
+  color: var(--color-feedback-info);
 }
 .history-panel__marker--pinned {
-  background: var(--elevation-surface-subtle);
+  background: var(--elevation-surface-sunken);
   color: var(--text-tertiary);
 }
 
@@ -2061,7 +2072,7 @@ input[type="number"] {
   cursor: default;
 }
 .history-panel__branch--current {
-  background: var(--elevation-surface-active);
+  background: var(--color-surface-hover);
   border-left-color: var(--color-interactive-default);
   font-weight: 600;
 }
@@ -2087,7 +2098,7 @@ input[type="number"] {
   cursor: pointer;
 }
 .history-panel__branch-switch:hover {
-  background: var(--elevation-surface-hover);
+  background: var(--color-surface-hover);
 }
 
 /* Checkpoints */
@@ -2110,7 +2121,7 @@ input[type="number"] {
   cursor: pointer;
 }
 .history-panel__checkpoint:hover {
-  background: var(--elevation-surface-hover);
+  background: var(--color-surface-hover);
 }
 .history-panel__checkpoint-name {
   color: var(--color-text-primary);
@@ -2163,13 +2174,13 @@ input[type="number"] {
   font-weight: 600;
 }
 .history-panel__diff-added {
-  color: var(--status-success, #059669);
+  color: var(--color-feedback-success-strong);
 }
 .history-panel__diff-removed {
-  color: var(--status-error, #dc2626);
+  color: var(--color-feedback-danger);
 }
 .history-panel__diff-modified {
-  color: var(--status-warning, #d97706);
+  color: var(--color-feedback-warning);
 }
 .history-panel__diff-renamed,
 .history-panel__diff-reordered,
@@ -2191,7 +2202,7 @@ input[type="number"] {
   border: 1px solid var(--color-border-subtle);
   border-radius: 4px;
   padding: 6px;
-  background: var(--elevation-surface-subtle);
+  background: var(--elevation-surface-sunken);
 }
 .history-panel__entity-head {
   display: flex;
@@ -2199,7 +2210,7 @@ input[type="number"] {
   gap: 6px;
 }
 .history-panel__entity-id {
-  font-family: var(--font-family-mono, monospace);
+  font-family: var(--font-mono, monospace);
   font-size: 10px;
   color: var(--color-text-secondary);
   overflow: hidden;
@@ -2227,7 +2238,7 @@ input[type="number"] {
   cursor: pointer;
 }
 .history-panel__entity-show:hover {
-  background: var(--elevation-surface-hover);
+  background: var(--color-surface-hover);
 }
 .history-panel__entity-changes {
   list-style: none;
@@ -2252,20 +2263,20 @@ input[type="number"] {
   border-radius: 2px;
 }
 .history-panel__change-badge--added {
-  background: var(--status-success-bg, #d1fae5);
-  color: var(--status-success-text, #065f46);
+  background: color-mix(in oklab, var(--color-feedback-success) 16%, transparent);
+  color: var(--color-feedback-success-strong);
 }
 .history-panel__change-badge--removed {
-  background: var(--status-error-bg, #fee2e2);
-  color: var(--status-error-text, #991b1b);
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
+  color: var(--color-feedback-danger);
 }
 .history-panel__change-badge--modified {
-  background: var(--status-warning-bg, #fef3c7);
-  color: var(--status-warning-text, #92400e);
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
+  color: var(--color-feedback-warning-strong);
 }
 .history-panel__change-badge--renamed {
-  background: var(--status-info-bg, #dbeafe);
-  color: var(--status-info-text, #1e40af);
+  background: color-mix(in oklab, var(--color-feedback-info) 14%, transparent);
+  color: var(--color-feedback-info);
 }
 .history-panel__change-badge--reordered,
 .history-panel__change-badge--text {
@@ -2329,7 +2340,7 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--elevation-surface-subtle);
+  background: var(--elevation-surface-sunken);
 }
 .conflict-resolver__item-head {
   display: flex;
@@ -2342,8 +2353,8 @@ input[type="number"] {
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 3px;
-  background: var(--status-warning-bg, #fef3c7);
-  color: var(--status-warning-text, #92400e);
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
+  color: var(--color-feedback-warning-strong);
 }
 .conflict-resolver__item-summary {
   font-size: var(--font-size-xs);
@@ -2374,7 +2385,7 @@ input[type="number"] {
   color: var(--color-interactive-default);
 }
 .conflict-resolver__value--theirs .conflict-resolver__value-label {
-  color: var(--status-info-text, #1e40af);
+  color: var(--color-feedback-info);
 }
 .conflict-resolver__value-code {
   font-size: 11px;
@@ -2397,7 +2408,7 @@ input[type="number"] {
   accent-color: var(--color-interactive-default);
 }
 .conflict-resolver__error {
-  color: var(--status-error-text, #dc2626);
+  color: var(--color-feedback-danger);
   font-size: var(--font-size-xs);
 }
 .conflict-resolver__actions {
@@ -2417,7 +2428,7 @@ input[type="number"] {
   cursor: pointer;
 }
 .conflict-resolver__btn:hover {
-  background: var(--elevation-surface-hover);
+  background: var(--color-surface-hover);
 }
 .conflict-resolver__btn--primary {
   background: var(--color-interactive-default);
@@ -2535,6 +2546,20 @@ input[type="number"] {
   .panel-resize {
     display: none;
   }
+}
+
+/* Panel drag handle — detach button (panel headers, inline-styled core). */
+.panel-drag-handle--active {
+  cursor: grabbing;
+}
+.panel-detach-btn:hover {
+  opacity: 0.9 !important;
+  background: var(--color-surface-sunken);
+}
+.panel-detach-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+  opacity: 1 !important;
 }
 
 /* Desktop panel collapse (Ctrl+B / Ctrl+Shift+B): the shell zeroes the grid
@@ -2775,7 +2800,7 @@ dialog.varve-dialog--settings[open] {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  line-height: var(--line-height-relaxed);
+  line-height: var(--font-line-relaxed);
 }
 .settings-section__subtitle {
   margin: 0;
@@ -2808,13 +2833,13 @@ dialog.varve-dialog--settings[open] {
   white-space: pre-wrap;
   margin: var(--space-3) 0 0;
   padding: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
 .settings-release-notes:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-accent-primary);
   outline-offset: 1px;
 }
 .settings-shortcuts-table {
@@ -2830,7 +2855,7 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-primary);
 }
 .settings-shortcuts-table code {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
 .editor-status__snap-grid {
@@ -4331,7 +4356,7 @@ dialog.varve-dialog--settings[open] {
   border: var(--border-micro);
   border-radius: 12px;
   background: var(--color-surface-raised);
-  color: var(--color-on-surface);
+  color: var(--color-text-primary);
   padding: 0;
   max-width: min(560px, calc(100dvw - 32px));
   max-height: min(80dvh, 640px);
@@ -4394,8 +4419,8 @@ dialog.varve-dialog--settings[open] {
   box-sizing: border-box;
   border: var(--border-micro);
   border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-on-surface);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
   padding: 8px 10px;
   font: inherit;
   font-size: 0.875rem;
@@ -4437,8 +4462,8 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__btn {
   border: var(--border-micro);
   border-radius: 6px;
-  background: var(--color-surface);
-  color: var(--color-on-surface);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
   padding: 8px 14px;
   font: inherit;
   font-size: 0.875rem;
@@ -4454,14 +4479,14 @@ dialog.varve-dialog--settings[open] {
 }
 .crash-dialog__btn--primary {
   background: var(--color-interactive-default);
-  color: var(--color-on-surface);
+  color: var(--color-text-primary);
 }
 .crash-dialog__btn--primary:hover {
   background: var(--color-interactive-hover);
 }
 .crash-dialog__btn--send {
   background: var(--color-interactive-default);
-  color: var(--color-on-surface);
+  color: var(--color-text-primary);
 }
 .crash-dialog__btn--send:hover {
   filter: brightness(1.1);
@@ -4504,7 +4529,7 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__copy {
   border: var(--border-micro);
   border-radius: 4px;
-  background: var(--color-surface);
+  background: var(--elevation-surface-default);
   padding: 4px 10px;
   font: inherit;
   font-size: 0.8125rem;
@@ -4625,7 +4650,7 @@ dialog.varve-dialog--settings[open] {
   font-size: 0.75rem;
   font-weight: 600;
   background: var(--color-feedback-warning);
-  color: var(--color-on-surface);
+  color: var(--color-text-primary);
   margin-bottom: 12px;
 }
 .safe-mode-screen__title {
@@ -4690,8 +4715,8 @@ dialog.varve-dialog--settings[open] {
   font-size: 0.875rem;
   cursor: pointer;
   min-height: 40px;
-  background: var(--color-surface);
-  color: var(--color-on-surface);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
 }
 .safe-mode-screen__btn:hover {
   background: var(--color-surface-hover);
@@ -4702,7 +4727,7 @@ dialog.varve-dialog--settings[open] {
 }
 .safe-mode-screen__btn--primary {
   background: var(--color-interactive-default);
-  color: var(--color-on-surface);
+  color: var(--color-text-primary);
 }
 .safe-mode-screen__note {
   margin: 0;
@@ -4760,8 +4785,8 @@ dialog.varve-dialog--settings[open] {
 .privacy-section__btn {
   border: var(--border-micro);
   border-radius: 5px;
-  background: var(--color-surface);
-  color: var(--color-on-surface);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
   padding: 5px 10px;
   font: inherit;
   font-size: 0.8125rem;
@@ -4887,7 +4912,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .media-frame-strip__icon-button:hover {
-  background: var(--color-bg-hover, rgba(128, 128, 128, 0.15));
+  background: var(--color-surface-hover, rgba(128, 128, 128, 0.15));
 }
 
 .media-frame-strip__uniform {
@@ -4905,13 +4930,13 @@ dialog.varve-dialog--settings[open] {
   width: 100%;
   touch-action: none;
   cursor: ew-resize;
-  background: var(--color-bg-inset, rgba(128, 128, 128, 0.08));
+  background: var(--elevation-surface-sunken, rgba(128, 128, 128, 0.08));
   border-radius: 4px;
   outline: none;
 }
 
 .media-frame-strip__cells:focus-visible {
-  box-shadow: 0 0 0 2px var(--color-accent, #14b8a6);
+  box-shadow: 0 0 0 2px var(--color-accent-primary, #14b8a6);
 }
 
 .media-frame-strip__cell {
@@ -4937,7 +4962,7 @@ dialog.varve-dialog--settings[open] {
   top: 2px;
   bottom: 2px;
   width: 2px;
-  background: var(--color-accent, #14b8a6);
+  background: var(--color-accent-primary, #14b8a6);
   pointer-events: none;
 }
 
@@ -4973,7 +4998,7 @@ dialog.varve-dialog--settings[open] {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.03em;
-  color: var(--color-accent, #14b8a6);
-  background: color-mix(in srgb, var(--color-accent, #14b8a6) 12%, transparent);
+  color: var(--color-accent-primary, #14b8a6);
+  background: color-mix(in srgb, var(--color-accent-primary, #14b8a6) 12%, transparent);
   white-space: nowrap;
 }

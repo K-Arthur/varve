@@ -106,7 +106,7 @@
   margin: 0;
 }
 .model-download__details dt {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
 }
 .model-download__details dd {
   margin: 0;
@@ -120,7 +120,7 @@
   justify-content: flex-end;
   gap: var(--space-2);
 }
-.model-download__actions button {
+.model-download__actions button:not(.varve-btn) {
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -131,7 +131,7 @@
     background var(--duration-quick) var(--ease-default),
     opacity var(--duration-quick) var(--ease-default);
 }
-.model-download__actions button:focus-visible {
+.model-download__actions button:not(.varve-btn):focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }

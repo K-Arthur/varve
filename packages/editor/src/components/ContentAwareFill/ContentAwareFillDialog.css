@@ -61,10 +61,10 @@
 
 .caf-dialog__error {
   font-size: var(--font-size-sm);
-  color: var(--color-text-critical);
+  color: var(--color-feedback-danger);
   margin: 0;
   padding: var(--space-2);
-  background: var(--color-surface-critical-subtle);
+  background: var(--color-feedback-danger);
   border-radius: var(--radius-sm);
 }
 
@@ -136,14 +136,14 @@
 
 .caf-dialog__progress {
   height: 6px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
   overflow: hidden;
 }
 
 .caf-dialog__progress-fill {
   height: 100%;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   background: var(--color-interactive-default);
   transition: width 0.2s ease;
 }
@@ -299,7 +299,7 @@
 }
 
 .caf-dialog__footer-text--error {
-  color: var(--color-text-critical);
+  color: var(--color-feedback-danger);
 }
 
 .caf-dialog__footer-actions {

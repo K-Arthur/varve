@@ -1292,11 +1292,11 @@
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-surface-default);
   color: var(--color-text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-md);
   cursor: pointer;
   transition:
     background 0.1s ease,
@@ -1335,7 +1335,7 @@
   margin: 0;
   flex-shrink: 0;
   border: 1.5px solid var(--color-border-strong);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: var(--color-surface-default);
   cursor: pointer;
   vertical-align: middle;
@@ -1501,7 +1501,7 @@
   width: 1.25rem;
   height: 1.25rem;
   min-width: 1.25rem;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   border: var(--border-micro);
   border-color: var(--color-border-strong);
   flex-shrink: 0;
@@ -1542,7 +1542,7 @@
   height: 1.25rem;
   background: transparent;
   border: none;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 0;
@@ -1814,7 +1814,7 @@
   color: var(--color-text-muted);
   padding: 0 var(--space-1);
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 
 /* ---------- Variable font axis slider ---------- */
@@ -1923,7 +1923,7 @@
   grid-template-columns: 1fr 1fr;
   gap: var(--space-1);
   padding: var(--space-1);
-  background: var(--color-surface-muted);
+  background: var(--elevation-surface-sunken);
   border-radius: var(--radius-sm);
 }
 
@@ -1940,7 +1940,7 @@
   width: 100%;
   min-height: 2.25rem;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 0.45rem;
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
@@ -1963,7 +1963,7 @@
   cursor: pointer;
 }
 .similarity-mode-picker__option.is-active {
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
@@ -2000,8 +2000,8 @@
   bottom: var(--space-1);
   padding: 1px var(--space-1);
   border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-surface-inverse) 85%, transparent);
-  color: var(--color-text-on-inverse);
+  background: color-mix(in srgb, var(--color-interactive-default) 85%, transparent);
+  color: var(--color-text-on-accent);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
 }
@@ -2298,7 +2298,7 @@
 .palette-section__saved {
   padding: var(--space-1);
   color: var(--color-text-primary);
-  background: var(--color-surface-accent-soft);
+  background: var(--color-accent-subtle);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
 }
@@ -2492,7 +2492,7 @@
   margin: 0;
   padding: var(--space-1);
   color: var(--color-text-secondary);
-  background: var(--color-surface-warning);
+  background: var(--color-feedback-warning);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-2xs);
 }
@@ -2609,7 +2609,7 @@
   background: var(--color-interactive-hover);
 }
 .caf-entry-button:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -2648,7 +2648,7 @@
   position: relative;
   margin-top: var(--space-2);
   height: 8px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
   overflow: hidden;
 }
@@ -2656,7 +2656,7 @@
 .insp-progress__bar {
   height: 100%;
   background: var(--color-interactive-default);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   transition: width 120ms ease-out;
 }
 
@@ -3229,15 +3229,15 @@
   font-size: var(--font-size-xs);
 }
 .insp-sm__warning--error {
-  background: var(--color-danger-bg, oklch(0.95 0.05 25));
-  color: var(--color-danger, oklch(0.5 0.2 25));
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
+  color: var(--color-feedback-danger, oklch(0.5 0.2 25));
 }
 .insp-sm__warning--warning {
-  background: var(--color-warning-bg, oklch(0.95 0.05 80));
-  color: var(--color-warning, oklch(0.5 0.15 80));
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
+  color: var(--color-feedback-warning, oklch(0.5 0.15 80));
 }
 .insp-sm__warning--info {
-  background: var(--color-bg-subtle);
+  background: var(--elevation-surface-sunken);
   color: var(--color-text-muted);
 }
 .insp-sm__section {
@@ -3278,7 +3278,7 @@
 .insp-sm__state--selected,
 .insp-sm__transition--selected {
   border-color: var(--color-interactive-default);
-  background: var(--color-bg-subtle);
+  background: var(--elevation-surface-sunken);
 }
 .insp-sm__state-select,
 .insp-sm__transition-select {
@@ -3310,8 +3310,8 @@
 .insp-sm__badge {
   font-size: var(--font-size-2xs);
   padding: 0 var(--space-1);
-  border-radius: var(--radius-xs);
-  background: var(--color-bg-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-sunken);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -3320,7 +3320,7 @@
   color: var(--color-on-accent, white);
 }
 .insp-sm__state-icon {
-  color: var(--color-warning, oklch(0.5 0.15 80));
+  color: var(--color-feedback-warning, oklch(0.5 0.15 80));
   flex-shrink: 0;
 }
 .insp-sm__detail {
@@ -3328,7 +3328,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2);
-  background: var(--color-bg-subtle);
+  background: var(--elevation-surface-sunken);
   border-radius: var(--radius-sm);
 }
 .insp-sm__field {
@@ -3345,7 +3345,7 @@
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-default);
+  background: var(--elevation-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
@@ -3395,15 +3395,15 @@
   background: var(--color-surface-raised);
 }
 .audit-badge--error {
-  color: var(--color-status-error);
-  border-color: var(--color-status-error);
+  color: var(--color-feedback-danger);
+  border-color: var(--color-feedback-danger);
 }
 .audit-badge--error:hover {
   background: oklch(0.95 0.02 25);
 }
 .audit-badge--warning {
-  color: var(--color-status-warning);
-  border-color: var(--color-status-warning);
+  color: var(--color-feedback-warning);
+  border-color: var(--color-feedback-warning);
 }
 .audit-badge--warning:hover {
   background: oklch(0.95 0.04 80);
@@ -3434,11 +3434,11 @@
 }
 .contextual-audit-chip--error {
   background: oklch(0.95 0.02 25);
-  color: var(--color-status-error);
+  color: var(--color-feedback-danger);
 }
 .contextual-audit-chip--warning {
   background: oklch(0.95 0.04 80);
-  color: var(--color-status-warning);
+  color: var(--color-feedback-warning);
 }
 .contextual-audit-chip--suggestion,
 .contextual-audit-chip--advisory,
@@ -3515,4 +3515,149 @@
   color: var(--color-text-subtle);
   line-height: 1.4;
   margin: 0 0 var(--space-2);
+}
+
+/* AuditBadge — keyboard focus (badge itself styled above). */
+.audit-badge:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+/* ─── Icon section (document icon provenance) ────────── */
+.insp-icon {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+}
+.insp-icon__name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+.insp-icon__meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.insp-icon__link {
+  color: var(--color-interactive-default);
+  text-decoration: underline;
+}
+.insp-icon__link:hover {
+  color: var(--color-interactive-hover);
+}
+.insp-icon__link:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+.insp-icon__warn {
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-warning);
+  background: color-mix(in oklab, var(--color-feedback-warning) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-feedback-warning) 35%, transparent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+.insp-icon__note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  line-height: 1.4;
+}
+.insp-icon__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+.insp-icon__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: var(--space-1) 0 0;
+}
+
+/* ─── Cognitive load indicator ───────────────────────── */
+.insp-cognitive-load__meter {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+.insp-cognitive-load__score {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+.insp-cognitive-load__suggestions {
+  margin: 4px 0 0;
+  padding: 0 0 0 16px;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-subtle);
+  list-style: disc;
+}
+
+/* ─── Constraint preview (frame children) ────────────── */
+.insp-constraint__preview-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.insp-constraint__preview {
+  display: block;
+  flex-shrink: 0;
+}
+.insp-constraint__preview-frame {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+.insp-constraint__preview-child {
+  fill: var(--color-accent-on-subtle);
+  stroke: var(--color-interactive-default);
+  stroke-width: 1;
+}
+.insp-field__mixed {
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+/* ─── Font-detect download progress ──────────────────── */
+.insp-progress-bar {
+  position: relative;
+  width: 100%;
+  max-width: 16rem;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+.insp-progress-bar__fill {
+  height: 100%;
+  background: var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  transition: width 120ms ease-out;
+}
+
+/* ─── Nested results panel (inspector subsections) ───── */
+.insp-nested-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+/* ─── Hint variants (warning spelling) ───────────────── */
+.insp-hint--warning {
+  color: var(--color-feedback-warning);
 }

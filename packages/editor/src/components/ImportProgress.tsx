@@ -1,9 +1,13 @@
+import './ImportProgress.css';
+
 export interface ImportProgressProps {
   current: number;
   total: number;
   fileName: string;
   onCancel?: () => void;
 }
+
+import './ImportProgress.css';
 
 export function ImportProgress({ current, total, fileName, onCancel }: ImportProgressProps) {
   const progress = total > 0 ? Math.round((current / total) * 100) : 0;

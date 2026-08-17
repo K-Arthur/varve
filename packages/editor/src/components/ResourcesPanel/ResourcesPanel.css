@@ -68,7 +68,7 @@
   border: none;
   background: transparent;
   cursor: col-resize;
-  z-index: var(--elevation-z-sticky);
+  z-index: var(--z-sticky);
 }
 .panel-width-edge:hover,
 .panel-width-edge:focus-visible,

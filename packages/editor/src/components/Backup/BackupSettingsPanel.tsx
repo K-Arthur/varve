@@ -1,6 +1,7 @@
 import { Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BackupService, IncludeAssetsPolicy } from '../../backupService';
+import './backup.css';
 
 interface BackupSettingsPanelProps {
   backupService: BackupService;
