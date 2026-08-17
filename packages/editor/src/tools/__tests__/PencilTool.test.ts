@@ -71,6 +71,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     releasePointerCapture: vi.fn(),
     findContainingFrame: vi.fn(() => null),
     setDropTargetFrame: vi.fn(),
+    setLayoutInsertion: vi.fn(),
     nodeWorldBounds: vi.fn(() => null),
     engine: null,
     hitTest: vi.fn(() => null),

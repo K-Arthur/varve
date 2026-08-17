@@ -77,6 +77,7 @@ export interface ToolContextDeps {
   nodeEditTargetId: string | null;
   setDraft: (draft: DraftShape | null) => void;
   setDropTargetFrameId: (id: NodeId | null) => void;
+  setLayoutInsertion: (segment: { x1: number; y1: number; x2: number; y2: number } | null) => void;
   setSnapGuides: (guides: SnapGuide[]) => void;
   setDeepSelectionCandidates: (candidates: DeepSelectionCandidateSet | null) => void;
   setNodeEditTargetId: (id: string | null) => void;
@@ -202,6 +203,7 @@ export function buildToolContext(
 
     findContainingFrame: (world) => e.findContainingFrame(world, deps.frameIndexRef.current),
     setDropTargetFrame: deps.setDropTargetFrameId,
+    setLayoutInsertion: deps.setLayoutInsertion,
     nodeWorldBounds: (n) =>
       getCachedWorldBounds(deps.transformCacheRef.current, s.document, n.id) ??
       nodeWorldBounds(s.document, n.id),
