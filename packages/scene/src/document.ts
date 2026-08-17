@@ -93,6 +93,7 @@ export {
   addNode,
   arrangeNode,
   detachInstance,
+  frameNodes,
   getById,
   groupNodes,
   insertNode,
