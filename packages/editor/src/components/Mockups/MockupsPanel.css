@@ -91,6 +91,9 @@
   border-color: var(--color-accent-primary);
   color: var(--text-on-accent, #ffffff);
 }
+.mockups-panel__chip--active:hover {
+  background: var(--color-interactive-hover);
+}
 
 .mockups-panel__grid {
   flex: 1;

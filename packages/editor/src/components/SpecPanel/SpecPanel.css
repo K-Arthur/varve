@@ -162,6 +162,9 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.spec-unit-selector__btn--active:hover {
+  background: var(--color-interactive-hover);
+}
 .spec-unit-selector__btn:hover:not(.spec-unit-selector__btn--active) {
   background: var(--color-surface-sunken);
 }
@@ -327,6 +330,9 @@
 .spec-export__btn--active {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
+}
+.spec-export__btn--active:hover {
+  background: var(--color-interactive-hover);
 }
 .spec-export__btn:hover:not(.spec-export__btn--active) {
   background: var(--color-surface-sunken);

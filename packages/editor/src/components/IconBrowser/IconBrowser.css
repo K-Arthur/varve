@@ -201,6 +201,9 @@
   color: var(--color-text-on-accent);
   border-color: var(--color-interactive-default);
 }
+.icon-browser__filter--active:hover {
+  background: var(--color-interactive-hover);
+}
 
 .icon-browser__filter-row {
   display: flex;
