@@ -142,7 +142,7 @@ export function MotionProvider({
       // finishes synchronously (onFinish patches isPlaying:false), so a
       // post-play patch would leave the UI stuck "playing" forever.
       patch({ motion: { ...s.motion, isPlaying: true, activeTimelineId: tlId } });
-      facade.play(timeline);
+      facade.play(timeline, s.document);
     },
     [patch, stateRef],
   );

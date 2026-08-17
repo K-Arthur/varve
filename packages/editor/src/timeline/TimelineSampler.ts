@@ -123,8 +123,11 @@ export function sampleTimeline(
     effectiveDirection,
   );
 
+  const hasSoloTracks = timeline.tracks.some((track) => track.enabled !== false && track.solo);
+
   for (const track of timeline.tracks) {
-    if (track.enabled === false) continue;
+    if (track.enabled === false || track.muted) continue;
+    if (hasSoloTracks && !track.solo) continue;
 
     if (track.nestedTimelineId && doc) {
       const nested = doc.timelines?.[track.nestedTimelineId];

@@ -3,7 +3,7 @@
  * and selection within the timeline/keyframe editor.
  */
 
-import type { Timeline } from '@varve/scene';
+import type { Document, Timeline } from '@varve/scene';
 import { isReducedMotion } from '../context/reducedMotionManager';
 import { TimelineEngine } from '../timeline/TimelineEngine';
 import { type SampleResult, sampleTimeline } from '../timeline/TimelineSampler';
@@ -66,7 +66,7 @@ export interface MotionEngineCallbacks {
 
 export interface MotionTimelineEngine {
   engine: TimelineEngine | null;
-  startPlayback: (timeline: Timeline, options?: MotionPlaybackOptions) => void;
+  startPlayback: (timeline: Timeline, doc?: Document, options?: MotionPlaybackOptions) => void;
   pausePlayback: () => void;
   stopPlayback: () => void;
   seekPlayback: (time: number) => void;
@@ -84,7 +84,7 @@ export function createMotionTimelineEngine(
   const engineRef: MotionTimelineEngine = {
     engine: null,
 
-    startPlayback(timeline: Timeline, options?: MotionPlaybackOptions) {
+    startPlayback(timeline: Timeline, doc?: Document, options?: MotionPlaybackOptions) {
       engineRef.stopPlayback();
       const reducedMotion = isReducedMotion();
       const loop = options?.loop ?? false;
@@ -103,12 +103,17 @@ export function createMotionTimelineEngine(
 
       eng.play({
         onFrame: (time) => {
-          currentSample.result = sampleTimeline(timeline, time, {
-            fillMode: timeline.defaultFillMode,
-            direction: timeline.defaultPlaybackDirection,
-            iterations: timeline.defaultIterations,
-            autoReverse: timeline.autoReverse,
-          });
+          currentSample.result = sampleTimeline(
+            timeline,
+            time,
+            {
+              fillMode: timeline.defaultFillMode,
+              direction: timeline.defaultPlaybackDirection,
+              iterations: timeline.defaultIterations,
+              autoReverse: timeline.autoReverse,
+            },
+            doc,
+          );
           callbacks?.onFrame?.(time);
         },
         onFinish: () => {
