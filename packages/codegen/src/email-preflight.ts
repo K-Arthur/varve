@@ -113,6 +113,26 @@ function inspectNode(
         suggestedFix: 'Add descriptive alt text or mark the image decorative.',
       });
     }
+    if (node.image?.src.startsWith('file:')) {
+      diagnostics.push({
+        severity: 'error',
+        code: 'LOCAL_IMAGE_URL',
+        message: `Image "${node.name}" still references a local file URL.`,
+        sourceNodeId: node.sourceNodeId,
+        category: 'asset',
+        suggestedFix: 'Attach an exported asset or configure a hosted asset URL.',
+      });
+    }
+    if (node.image?.src.startsWith('data:')) {
+      diagnostics.push({
+        severity: 'warning',
+        code: 'EMBEDDED_IMAGE_DATA_URL',
+        message: `Image "${node.name}" uses an embedded data URL.`,
+        sourceNodeId: node.sourceNodeId,
+        category: 'asset',
+        suggestedFix: 'Export the image as a package asset or use a hosted URL.',
+      });
+    }
   }
   if (node.link) {
     const result = validateEmailUrl({
