@@ -382,6 +382,14 @@ export class SelectTool extends BaseTool {
         selCenterY /= selCount;
         const dropTarget = ctx.findContainingFrame({ x: selCenterX, y: selCenterY });
         ctx.setDropTargetFrame(dropTarget);
+        ctx.setLayoutInsertion(
+          dropTarget
+            ? computeLayoutInsertionSegment(ctx.document, dropTarget, new Set(sel), {
+                x: selCenterX,
+                y: selCenterY,
+              })
+            : null,
+        );
       }
 
       // Snap the selection as a whole: one world-space response applied to
@@ -438,6 +446,7 @@ export class SelectTool extends BaseTool {
 
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDropTargetFrame(null);
+    ctx.setLayoutInsertion(null);
     if (this.marqueeActive) {
       ctx.setDraft(null);
       const rect = this.computeDragRect(ctx);
@@ -514,8 +523,11 @@ export class SelectTool extends BaseTool {
         const sel = ctx.selection;
         if (sel.length >= 1) {
           ctx.beginTransaction();
-          // Track insertion index per parent so batch inserts into the same
-          // target frame use incrementing indices (Fix 4).
+          const excludeIds = new Set(sel);
+          // Track insertion index per parent so a batch of inserts/reorders
+          // into the same target frame land contiguously with incrementing
+          // indices (Fix 4), anchored at the computed drop position rather
+          // than always the end.
           const insertIndexByParent = new Map<string | null, number>();
           for (const selId of sel) {
             if (!selId) continue;
@@ -527,23 +539,34 @@ export class SelectTool extends BaseTool {
             const frameId = ctx.findContainingFrame(center);
             if (frameId) {
               const currentParent = getParent(ctx.document, selId);
-              if (currentParent !== frameId) {
-                // Size heuristic: only reparent if the node is not larger
-                // than the target frame (matching Figma/Sketch behaviour).
-                const frameNode = ctx.getNode(frameId);
-                if (frameNode && frameNode.kind === 'frame') {
-                  const fb = nodeWorldBounds(ctx.document, frameId);
-                  if (fb && worldBounds) {
-                    const nodeArea = worldBounds.w * worldBounds.h;
-                    const frameArea = fb.w * fb.h;
-                    if (nodeArea > frameArea * 1.1) continue;
-                  }
-                }
-                const baseIndex = childrenCount(ctx.document, frameId);
-                const localIndex = insertIndexByParent.get(frameId) ?? 0;
-                ctx.reparentNode(selId, frameId, baseIndex + localIndex);
-                insertIndexByParent.set(frameId, localIndex + 1);
+              const frameNode = ctx.getNode(frameId);
+              const isFlexFrame =
+                frameNode?.kind === 'frame' &&
+                !!frameNode.layoutStyle &&
+                frameNode.layoutStyle.mode === 'flex';
+
+              if (currentParent === frameId && !isFlexFrame) {
+                // Same freeform/grid frame: dragging only repositions x/y —
+                // layer/z-order there isn't tied to canvas position, so
+                // leave the children array untouched (matches prior no-op
+                // behavior for this case).
+                continue;
               }
+              if (currentParent !== frameId && frameNode?.kind === 'frame') {
+                // Size heuristic: only reparent into a NEW frame if the node
+                // is not larger than the target frame (Figma/Sketch convention).
+                const fb = nodeWorldBounds(ctx.document, frameId);
+                if (fb && worldBounds) {
+                  const nodeArea = worldBounds.w * worldBounds.h;
+                  const frameArea = fb.w * fb.h;
+                  if (nodeArea > frameArea * 1.1) continue;
+                }
+              }
+              const targetIndex =
+                insertIndexByParent.get(frameId) ??
+                computeLayoutDropIndex(ctx.document, frameId, excludeIds, center);
+              ctx.reparentNode(selId, frameId, targetIndex);
+              insertIndexByParent.set(frameId, targetIndex + 1);
             } else {
               // No containing frame: resolve the destination page under the
               // drop point and reparent the node to that page's top level —
@@ -1024,4 +1047,106 @@ function childrenCount(
   const node = doc.nodes[id];
   if (!node?.children) return 0;
   return node.children.length;
+}
+
+/**
+ * For a drop into a flex auto-layout frame, compute the insertion index from
+ * where `center` falls along the frame's main axis relative to its current
+ * flow children — instead of always appending at the end. Falls back to
+ * appending for freeform/grid frames or a frame with no flow children.
+ *
+ * The returned index is already relative to the array *after* `excludeIds`
+ * (the node(s) being dropped) are removed — the same array reparentNode
+ * splices into for a same-frame reorder — so it can be passed to
+ * ctx.reparentNode's toIndex directly without further adjustment.
+ */
+function computeLayoutDropIndex(
+  doc: import('@varve/scene').Document,
+  frameId: NodeId,
+  excludeIds: Set<NodeId>,
+  center: { x: number; y: number },
+): number {
+  const frame = doc.nodes[frameId];
+  const postRemovalChildren =
+    frame && 'children' in frame ? frame.children.filter((cid) => !excludeIds.has(cid)) : [];
+  const fallback = postRemovalChildren.length;
+  if (!frame || frame.kind !== 'frame' || !frame.layoutStyle || frame.layoutStyle.mode !== 'flex') {
+    return fallback;
+  }
+
+  const row = frame.layoutStyle.direction === 'row' || frame.layoutStyle.direction === 'rowReverse';
+  const parentIndex = buildParentIndexMap(doc);
+  const flowChildren = postRemovalChildren
+    .map((cid) => {
+      const node = doc.nodes[cid];
+      if (!node || node.visible === false || node.layoutPosition === 'absolute') return null;
+      const bounds = nodeWorldBounds(doc, cid, parentIndex);
+      if (!bounds) return null;
+      return { id: cid, mid: row ? bounds.x + bounds.w / 2 : bounds.y + bounds.h / 2 };
+    })
+    .filter((c): c is { id: NodeId; mid: number } => c !== null);
+  if (flowChildren.length === 0) return fallback;
+
+  const pointerMain = row ? center.x : center.y;
+  const target = flowChildren.find((c) => pointerMain < c.mid);
+  if (!target) return fallback;
+  return postRemovalChildren.indexOf(target.id);
+}
+
+/**
+ * World-space line segment for the insertion indicator shown while dragging
+ * over a flex auto-layout frame — a full-height (row) or full-width (column)
+ * line at the gap the dragged node would land in. Returns null for
+ * freeform/grid frames (no indicator) or a frame with no world bounds.
+ */
+function computeLayoutInsertionSegment(
+  doc: import('@varve/scene').Document,
+  frameId: NodeId,
+  excludeIds: Set<NodeId>,
+  center: { x: number; y: number },
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  const frame = doc.nodes[frameId];
+  if (!frame || frame.kind !== 'frame' || !frame.layoutStyle || frame.layoutStyle.mode !== 'flex') {
+    return null;
+  }
+  const frameBounds = nodeWorldBounds(doc, frameId);
+  if (!frameBounds) return null;
+
+  const row = frame.layoutStyle.direction === 'row' || frame.layoutStyle.direction === 'rowReverse';
+  const gap = frame.layoutStyle.gap;
+  const [padTop, , , padLeft] = frame.layoutStyle.padding;
+  const parentIndex = buildParentIndexMap(doc);
+  const postRemovalChildren = frame.children.filter((cid) => !excludeIds.has(cid));
+  const flowChildren = postRemovalChildren
+    .map((cid) => {
+      const node = doc.nodes[cid];
+      if (!node || node.visible === false || node.layoutPosition === 'absolute') return null;
+      const bounds = nodeWorldBounds(doc, cid, parentIndex);
+      if (!bounds) return null;
+      return { mid: row ? bounds.x + bounds.w / 2 : bounds.y + bounds.h / 2, bounds };
+    })
+    .filter(
+      (c): c is { mid: number; bounds: { x: number; y: number; w: number; h: number } } =>
+        c !== null,
+    );
+
+  let linePos: number;
+  if (flowChildren.length === 0) {
+    linePos = row ? frameBounds.x + padLeft : frameBounds.y + padTop;
+  } else {
+    const pointerMain = row ? center.x : center.y;
+    const target = flowChildren.find((c) => pointerMain < c.mid);
+    if (target) {
+      linePos = (row ? target.bounds.x : target.bounds.y) - gap / 2;
+    } else {
+      const last = flowChildren[flowChildren.length - 1]!;
+      linePos = row
+        ? last.bounds.x + last.bounds.w + gap / 2
+        : last.bounds.y + last.bounds.h + gap / 2;
+    }
+  }
+
+  return row
+    ? { x1: linePos, y1: frameBounds.y, x2: linePos, y2: frameBounds.y + frameBounds.h }
+    : { x1: frameBounds.x, y1: linePos, x2: frameBounds.x + frameBounds.w, y2: linePos };
 }
