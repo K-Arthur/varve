@@ -49,7 +49,12 @@ export function DocumentPanel() {
   const workingSpace: WorkingSpace = colorConfig?.workingSpace ?? 'srgb';
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
-  const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
+  // When no custom background is set the canvas renders the theme sunken colour,
+  // not white.  Show that in the swatch so the picker reflects reality.
+  const swatchBackground = useMemo(
+    () => (doc.canvasBackground ? managedColorToCss(canvasBgColor) : 'var(--color-surface-sunken)'),
+    [doc.canvasBackground, canvasBgColor],
+  );
 
   return (
     <>
