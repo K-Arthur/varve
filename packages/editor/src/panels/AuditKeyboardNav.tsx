@@ -9,6 +9,7 @@
 
 import type { AuditFinding } from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
+import './audit.css';
 
 interface AuditKeyboardNavOptions {
   /** Current findings */
