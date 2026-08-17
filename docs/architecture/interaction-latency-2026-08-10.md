@@ -260,12 +260,34 @@ the fixed-time bottleneck.
 neither needs sub-frame accuracy. Frame scheduling is the correct
 semantic for this kind of latest-state update (task brief §6).
 
+### 3. Multi-select Ctrl+drag fix (commit `32e0f04c`)
+
+The Ctrl+Click deep-select handler (C3 in SelectTool) replaced the
+entire selection with just the clicked node whenever Ctrl was held,
+even when the clicked node was already selected. This broke multi-select
+drags where Ctrl is held to bypass snapping — only the clicked node
+moved.
+
+Fix: when the deep target is already selected AND the selection has
+more than one node, preserve the current multi-selection. Single-select
+Ctrl+click on an already-selected child still re-asserts selection
+authoritativeness (fixes container-hit layers-panel staleness).
+
+Condition: `!isSelected(target) || selection.length <= 1`
+
+| Scenario | Before | After |
+|----------|--------|-------|
+| Single-select + Ctrl+click on already-selected | Replaces (authoritative) | Replaces (unchanged) |
+| Multi-select + Ctrl+drag on already-selected | Replaces (breaks drag) | Preserves (moves all) |
+
 ### Validation
 
 | Item | Status |
 | Unit: canvas + tools + performance (916 tests) | PASS |
+| Unit: SelectTool (58 tests) | PASS |
+| E2E: drag-precision multi-select + auto-pan (2 tests) | PASS |
 | Format/lint (Biome) | PASS |
 | Emoji audit | PASS |
 | Health audit | PASS |
 | Native Tauri / WebKitGTK | NOT RUN — user to verify |
-| Visual regression | No visual change — pure performance |
+| Visual regression | No visual change — interaction fix |
