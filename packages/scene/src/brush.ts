@@ -160,6 +160,15 @@ export interface BrushDab {
   shape?: BrushShape;
   /** Blend mode for this dab. Defaults to the preset's blend mode. */
   blendMode?: string;
+  /** Optional deterministic grain parameters for textured presets. */
+  grain?: {
+    grainId: string;
+    scale: number;
+    rotation: number;
+    contrast: number;
+    invert: boolean;
+    strokeT: number;
+  };
 }
 
 export interface BrushStroke {
@@ -348,6 +357,16 @@ function makeDab(point: StrokePoint, preset: BrushPreset, strokeT: number): Brus
     strokeT,
     shape: preset.shape,
     blendMode: preset.blendMode,
+    grain: preset.grainId
+      ? {
+          grainId: preset.grainId,
+          scale: Math.max(0.001, preset.grainScale),
+          rotation: preset.grainRotation,
+          contrast: preset.grainContrast,
+          invert: preset.grainInvert,
+          strokeT,
+        }
+      : undefined,
   };
 }
 
@@ -563,6 +582,14 @@ export const BUILT_IN_BRUSH_PRESETS: Record<string, BrushPreset> = {
     opacity: 0.5,
     flow: 0.3,
     spacing: 0.1,
+  },
+  'built-in-textured': {
+    ...defaultBrushPreset('built-in-textured', 'Textured'),
+    id: 'built-in-textured',
+    grainId: 'procedural',
+    grainScale: 0.5,
+    grainContrast: 1.4,
+    hardness: 0.7,
   },
   'built-in-eraser': {
     ...defaultBrushPreset('built-in-eraser', 'Eraser'),

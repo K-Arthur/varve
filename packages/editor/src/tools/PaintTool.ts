@@ -26,6 +26,8 @@ export class PaintTool extends BaseTool {
   private transactionOpen = false;
   private workerHost: BrushWorkerHost | null = null;
   private ownsLayer = false;
+  private pendingWorkerJobs = 0;
+  private workerStrokeEnding = false;
 
   /** Called when the brush settings change (e.g., from keyboard shortcut).
    *  Editor sets this to update the editor state. */
@@ -66,6 +68,11 @@ export class PaintTool extends BaseTool {
     hardness: number;
     smoothing: number;
     spacing: number;
+    grainId?: string | null;
+    grainScale?: number;
+    grainRotation?: number;
+    grainContrast?: number;
+    grainInvert?: boolean;
   }): void {
     this.preset.id = settings.presetId;
     this.preset.radius = settings.radius;
@@ -74,6 +81,11 @@ export class PaintTool extends BaseTool {
     this.preset.hardness = settings.hardness;
     this.preset.smoothing = settings.smoothing;
     this.preset.spacing = settings.spacing;
+    if (settings.grainId !== undefined) this.preset.grainId = settings.grainId ?? undefined;
+    if (settings.grainScale !== undefined) this.preset.grainScale = settings.grainScale;
+    if (settings.grainRotation !== undefined) this.preset.grainRotation = settings.grainRotation;
+    if (settings.grainContrast !== undefined) this.preset.grainContrast = settings.grainContrast;
+    if (settings.grainInvert !== undefined) this.preset.grainInvert = settings.grainInvert;
   }
 
   /** Return current preset values mapped to the brush settings shape. */
@@ -151,6 +163,7 @@ export class PaintTool extends BaseTool {
     }
     this.rasterNodeId = rasterNodeId;
     this.strokeGeneration++;
+    this.workerStrokeEnding = false;
 
     // Seed deterministic jitter for this stroke
     seedJitter(Math.round(performance.now() * 1000) & 0x7fffffff);
@@ -195,12 +208,13 @@ export class PaintTool extends BaseTool {
     this.sampleStrokePoint(local, pressure, undefined, tilt);
 
     this.flushDabs(ctx);
-    ctx.commitTransaction();
-    this.transactionOpen = false;
-    ctx.setDraft(null);
-
     super.onPointerUp(e, ctx);
-    this.resetState();
+    if (this.pendingWorkerJobs > 0) {
+      this.workerStrokeEnding = true;
+      ctx.setDraft(null);
+    } else {
+      this.finishStroke(ctx);
+    }
   }
 
   override onDragCancel(_ctx: ToolContext): void {
@@ -294,6 +308,7 @@ export class PaintTool extends BaseTool {
     const strokeId = `${rasterNodeId}-${gen}`;
     const jitterSeed = gen * 7919;
 
+    this.pendingWorkerJobs++;
     this.workerHost!.generateDabs(strokeId, pts, this.preset, jitterSeed)
       .then(({ dabs }) => {
         // Stale-result guard: reject if a newer generation has started
@@ -316,6 +331,12 @@ export class PaintTool extends BaseTool {
       .catch(() => {
         if (gen !== this.strokeGeneration) return;
         this.flushDabsSync(ctx, pts, color);
+      })
+      .finally(() => {
+        this.pendingWorkerJobs = Math.max(0, this.pendingWorkerJobs - 1);
+        if (this.workerStrokeEnding && this.pendingWorkerJobs === 0) {
+          this.finishStroke(ctx);
+        }
       });
   }
 
@@ -380,10 +401,20 @@ export class PaintTool extends BaseTool {
 
   private abortStroke(ctx: ToolContext): void {
     if (!this.transactionOpen) return;
+    this.strokeGeneration++;
+    this.workerStrokeEnding = false;
     if (this.rasterNodeId) {
       this.workerHost?.cancelStroke(`${this.rasterNodeId}-${this.strokeGeneration}`);
     }
     ctx.abortTransaction();
+    this.transactionOpen = false;
+    ctx.setDraft(null);
+    this.resetState();
+  }
+
+  private finishStroke(ctx: ToolContext): void {
+    if (!this.transactionOpen) return;
+    ctx.commitTransaction();
     this.transactionOpen = false;
     ctx.setDraft(null);
     this.resetState();
@@ -394,5 +425,6 @@ export class PaintTool extends BaseTool {
     this.lastSmoothedPoint = null;
     this.rasterNodeId = null;
     this.ownsLayer = false;
+    this.workerStrokeEnding = false;
   }
 }

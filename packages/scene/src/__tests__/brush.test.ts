@@ -246,6 +246,23 @@ describe('generateDabs', () => {
     const dab = generateDabs(points, preset)[0]!;
     expect(dab.radius).toBeGreaterThan(5);
   });
+
+  it('carries grain settings into textured dabs', () => {
+    const preset = makePreset({
+      grainId: 'procedural',
+      grainScale: 0.5,
+      grainContrast: 1.3,
+      grainInvert: true,
+    });
+    expect(generateDabs([strokePoint(0, 0)], preset)[0]!.grain).toEqual(
+      expect.objectContaining({
+        grainId: 'procedural',
+        scale: 0.5,
+        contrast: 1.3,
+        invert: true,
+      }),
+    );
+  });
 });
 
 describe('makeBrushStroke', () => {

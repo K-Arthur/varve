@@ -5,6 +5,7 @@ import { DocumentCodec } from '../documentCodec';
 import {
   type BrushDab,
   compositeDabOnNode,
+  compositeSmudgeDabOnNode,
   createEmptyTile,
   deserializeTiles,
   eraseDabOnNode,
@@ -195,6 +196,46 @@ describe('Tile compositing', () => {
     expect(result.tiles.get('0:0')).toBeDefined();
   });
 
+  it('applies deterministic grain to textured dabs', () => {
+    const dab: BrushDab = {
+      x: 64,
+      y: 64,
+      radius: 16,
+      opacity: 1,
+      flow: 1,
+      hardness: 1,
+      angle: 0,
+      roundness: 1,
+      strokeT: 0,
+      grain: {
+        grainId: 'procedural',
+        scale: 0.5,
+        rotation: 0,
+        contrast: 1,
+        invert: false,
+        strokeT: 0,
+      },
+    };
+    const plain = compositeDabOnNode(
+      makeRasterLayerNode('plain', { width: 128, height: 128 }),
+      {
+        ...dab,
+        grain: undefined,
+      },
+      [255, 255, 255, 255],
+    );
+    const textured = compositeDabOnNode(
+      makeRasterLayerNode('textured', { width: 128, height: 128 }),
+      dab,
+      [255, 255, 255, 255],
+    );
+    const alphaSum = (node: typeof plain) =>
+      [...node.tiles.get('0:0')!.pixels]
+        .filter((_value, index) => index % 4 === 3)
+        .reduce((sum, value) => sum + value, 0);
+    expect(alphaSum(textured)).toBeLessThan(alphaSum(plain));
+  });
+
   it('creates new tiles only where dabs land', () => {
     const node = makeRasterLayerNode('test-comp-2', { width: 512, height: 512 });
     expect(node.tiles.size).toBe(0);
@@ -255,6 +296,34 @@ describe('Tile compositing', () => {
     expect(result.tiles.get('1:0')).toBeDefined();
     expect(result.tiles.get('0:1')).toBeDefined();
     expect(result.tiles.get('1:1')).toBeDefined();
+  });
+
+  it('smudges across a tile boundary using an immutable neighborhood', () => {
+    const node = makeRasterLayerNode('smudge-boundary', { width: 256, height: 128 });
+    const sourceTile = createEmptyTile();
+    const sourceIndex = (64 * TILE_SIZE + 124) * 4;
+    sourceTile.pixels[sourceIndex] = 255;
+    sourceTile.pixels[sourceIndex + 3] = 255;
+    node.tiles.set('0:0', sourceTile);
+
+    const result = compositeSmudgeDabOnNode(
+      node,
+      {
+        x: 128,
+        y: 64,
+        radius: 8,
+        opacity: 1,
+        flow: 1,
+        hardness: 1,
+        angle: 0,
+        roundness: 1,
+        strokeT: 0,
+      },
+      0,
+      1,
+    );
+
+    expect(result.tiles.get('1:0')!.pixels[(64 * TILE_SIZE + 0) * 4 + 3]).toBeGreaterThan(0);
   });
 });
 
