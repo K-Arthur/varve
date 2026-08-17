@@ -107,7 +107,7 @@ export function addTrack(
   timelineId: string,
   nodeId: NodeId,
   property: string,
-  opts?: { interpolation?: 'linear' | 'discrete' | 'bezier'; enabled?: boolean },
+  opts?: { interpolation?: 'linear' | 'discrete' | 'bezier' | 'path'; enabled?: boolean },
 ): { doc: Document; trackId: string } {
   const timeline = doc.timelines?.[timelineId];
   if (!timeline) return { doc, trackId: '' };

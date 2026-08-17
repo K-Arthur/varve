@@ -123,6 +123,22 @@ describe('executeAction', () => {
     expect(result.value).toBe(6);
   });
 
+  it('uses operator precedence in variable expressions', () => {
+    const action: Action = {
+      kind: 'setVariable',
+      variableId: 'score',
+      value: 0,
+      expression: 'score + 3 * 4',
+    };
+    const state = makeState({
+      variables: {
+        score: { id: 'score', name: 'Score', type: 'number', value: 2 },
+      },
+    });
+    const result = executeAction(action, state) as ActionResult & { kind: 'setVariable' };
+    expect(result.value).toBe(14);
+  });
+
   it('toggleVisibility returns target and new visible state', () => {
     const action: Action = {
       kind: 'toggleVisibility',
