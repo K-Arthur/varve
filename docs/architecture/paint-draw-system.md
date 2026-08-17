@@ -9,6 +9,11 @@ not maintain a second document model or a separate "paint mode" state. The
 workspace may reorganize the toolbar and inspector, but the authoritative scene
 remains the same for Design, Draw, and every other workspace.
 
+When a raster or vector drawing tool becomes active, the existing tool-options
+popover opens automatically. This keeps preset, size, opacity, flow, hardness,
+spacing, strength, or stabilization controls discoverable without creating a
+second drawing toolbar or duplicating brush state.
+
 The output target is deliberately explicit:
 
 - `Paint` and `Eraser` create or modify raster-layer pixels.
