@@ -5003,3 +5003,556 @@ dialog.varve-dialog--settings[open] {
   z-index: 2;
   filter: drop-shadow(0 0 0 1px var(--color-interactive-focus-ring));
 }
+
+/* ==========================================================================
+   Missing component styles — added per styling audit
+   ========================================================================== */
+
+/* ---------- ConstraintPinControl (Figma-style constraint diagram) ---------- */
+
+.constraint-pin-control {
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: none;
+  position: relative;
+  width: 120px;
+  height: 96px;
+}
+
+.constraint-pin-control__parent {
+  fill: var(--color-surface-sunken);
+  stroke: var(--color-stroke-subtle);
+  stroke-dasharray: 4 3;
+}
+
+.constraint-pin-control__child {
+  fill: var(--color-surface-raised);
+  stroke: var(--color-accent-primary);
+  stroke-width: 1.5;
+}
+
+.constraint-pin-control__line {
+  stroke: var(--color-accent-primary);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.constraint-pin-control__pin {
+  fill: var(--color-accent-primary);
+}
+
+.constraint-pin-control__zones {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.constraint-pin-control__zone {
+  position: absolute;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  border-radius: 2px;
+}
+
+.constraint-pin-control__zone:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.constraint-pin-control__zone:hover {
+  background: color-mix(in oklch, var(--color-interactive-default) 10%, transparent);
+}
+
+/* ---------- ReferenceImagePicker ------------------------------------------ */
+
+.ref-image-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ref-image-picker__current {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.ref-image-picker__preview {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  border: var(--border-micro);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-surface-sunken);
+}
+
+.ref-image-picker__preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ref-image-picker__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ref-image-picker__name {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-image-picker__dims,
+.ref-image-picker__type {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.ref-image-picker__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ref-image-picker__empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  padding: 8px 0;
+}
+
+.ref-image-picker__import-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ---------- InteractionTracePanel waterfall bars -------------------------- */
+
+.interaction-trace__track {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-surface-sunken);
+}
+
+.interaction-trace__bar {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.interaction-trace__bar--measured {
+  background: var(--color-interactive-default);
+}
+
+.interaction-trace__bar--estimated {
+  background: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+/* ---------- ModelManager -------------------------------------------------- */
+
+.model-manager__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.model-manager__toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.model-manager__diagnostics {
+  padding: 8px 12px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  margin-top: 12px;
+}
+
+.model-manager__diag-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.bg-models-list__badge--bundled {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-feedback-success) 16%, transparent);
+  color: var(--color-feedback-success-strong);
+}
+
+.bg-models-list__warning {
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-warning-strong);
+}
+
+/* ---------- OcrSection input ---------------------------------------------- */
+
+.insp-input {
+  width: 100%;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+}
+
+.insp-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+/* ---------- ArchiveDialog breach warning ---------------------------------- */
+
+.archive-dialog__strength-breach {
+  font-size: var(--font-size-sm);
+  color: var(--color-feedback-error-strong);
+  background: color-mix(in oklch, var(--color-feedback-error) 12%, transparent);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- UpscaleDialog ------------------------------------------------- */
+
+.upscale-auto {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upscale-settings__ai-preview {
+  border-radius: var(--radius-sm);
+  border: var(--border-micro);
+  overflow: hidden;
+}
+
+/* ---------- LogoPanel warning --------------------------------------------- */
+
+.logo-panel__warning {
+  font-size: var(--font-size-sm);
+  color: var(--color-feedback-warning-strong);
+  background: color-mix(in oklch, var(--color-feedback-warning) 12%, transparent);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- GradientMapEditor --------------------------------------------- */
+
+.gm-editor__opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- GradientImportDialog ------------------------------------------ */
+
+.gmp-import__scope {
+  margin-top: 8px;
+}
+
+.gmp-import__badge--warn {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-feedback-warning) 16%, transparent);
+  color: var(--color-feedback-warning-strong);
+}
+
+/* ---------- GradientEditor ------------------------------------------------ */
+
+.gradient-editor__slider {
+  width: 100%;
+  accent-color: var(--color-interactive-default);
+}
+
+/* ---------- ColorConversionDialog ----------------------------------------- */
+
+.color-conversion__explain {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+/* ---------- ImageFillControls sub-variants --------------------------------- */
+
+.insp-image-fill__upscale-info {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.insp-image-fill__upscale-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.insp-image-fill__color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.insp-image-fill__color-summary {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.insp-image-fill__color-details {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.insp-image-fill__color-detail {
+  display: flex;
+  gap: 4px;
+}
+
+/* ---------- SectionManagerTrigger ----------------------------------------- */
+
+.insp-section-manager__checkbox {
+  margin: 0;
+}
+
+/* ---------- ThumbnailInfoDialog ------------------------------------------- */
+
+.thumbnail-info-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.thumbnail-info-dialog__preview {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: var(--border-micro);
+}
+
+.thumbnail-info-dialog__preview-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.thumbnail-info-dialog__preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+
+.thumbnail-info-dialog__error {
+  font-size: var(--font-size-sm);
+  color: var(--color-feedback-error-strong);
+}
+
+.thumbnail-info-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* ---------- CreateTableFromDataDialog -------------------------------------- */
+
+.varve-preview-table {
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  width: 100%;
+}
+
+.varve-preview-table th,
+.varve-preview-table td {
+  padding: 4px 8px;
+  border: var(--border-micro);
+  text-align: left;
+}
+
+.varve-preview-table th {
+  font-weight: 600;
+  background: var(--color-surface-sunken);
+}
+
+/* ---------- ExportSettingsTab ---------------------------------------------- */
+
+.export-settings__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* ---------- RestoreBrowser ------------------------------------------------ */
+
+.restore-browser__item-date {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.restore-browser__item-size {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.restore-browser__item-status {
+  font-size: var(--font-size-xs);
+}
+
+.restore-browser__item-status--verified {
+  color: var(--color-feedback-success-strong);
+}
+
+.restore-browser__item-status--corrupted {
+  color: var(--color-feedback-error-strong);
+}
+
+/* ---------- BatchBgRemoveDialog ------------------------------------------- */
+
+.batch-bg-remove__hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.batch-bg-remove__hint--warn {
+  color: var(--color-feedback-warning-strong);
+}
+
+/* ---------- HistoryPanel extra classes ------------------------------------- */
+
+.history-panel__step-origin {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.history-panel__step-distance {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ---------- PackManager (IconBrowser) ------------------------------------- */
+
+.icon-pack-manager__section {
+  margin-bottom: 12px;
+}
+
+/* ---------- PrototypeFlowView --------------------------------------------- */
+
+.prototype-flow__edge {
+  list-style: none;
+}
+
+/* ---------- Inspector shared classes (missing from inspector.css) --------- */
+
+.insp-info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.insp-badge--info {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--color-feedback-info) 16%, transparent);
+  color: var(--color-feedback-info-strong, var(--color-text-primary));
+}
+
+.insp-adaptive-status {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.insp-section {
+  margin-bottom: 12px;
+}
+
+.insp-depth-canvas {
+  border-radius: var(--radius-sm);
+  border: var(--border-micro);
+  overflow: hidden;
+}
+
+.insp-depth-canvas canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.insp-crop-section__reset-group,
+.insp-crop-section__trim-actions,
+.insp-crop-section__expand-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.insp-link-btn,
+.insp-toggle-btn {
+  font-size: var(--font-size-xs);
+}
+
+.insp-hint__apply {
+  font-size: var(--font-size-xs);
+  color: var(--color-interactive-default);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.insp-hint__apply:hover {
+  text-decoration: underline;
+}
+
+.insp-field__control--inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.insp-label {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.insp-panel__color-mode-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.colorize-section__quality-options {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}

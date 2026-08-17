@@ -115,9 +115,11 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                   fontSize: 'var(--font-size-xs)',
                   padding: '2px 6px',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(57, 208, 198, 0.15)',
-                  color: 'var(--color-accent-primary)',
-                  border: '1px solid rgba(57, 208, 198, 0.3)',
+                  background:
+                    'color-mix(in oklch, var(--color-interactive-default) 15%, transparent)',
+                  color: 'var(--color-text-on-accent, var(--color-accent-primary))',
+                  border:
+                    '1px solid color-mix(in oklch, var(--color-interactive-default) 30%, transparent)',
                 }}
               >
                 {prop}
