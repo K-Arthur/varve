@@ -231,11 +231,11 @@ export class SelectTool extends BaseTool {
         const target = deepTarget ?? hit;
         if (e.shiftKey) {
           ctx.toggleSelection(target.nodeId, true);
-        } else {
-          // Explicitly select the resolved leaf even when it was already
-          // selected. This keeps the selection surface authoritative after
-          // a container hit and avoids leaving the LayersPanel on the parent
-          // when the model selection is already the child.
+        } else if (!ctx.isSelected(target.nodeId)) {
+          // Only replace the selection when the deep target is NOT already
+          // selected. If it is already selected, preserve the current
+          // multi-selection so a Ctrl+drag can move the entire selection
+          // (Ctrl is used to bypass snapping, not always to deep-select).
           ctx.setSelection(target.nodeId);
         }
       } else if (ctx.touchMultiSelect.active) {
