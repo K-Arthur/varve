@@ -17,6 +17,20 @@ describe('Document Versioning', () => {
     expect(CURRENT_DOCUMENT_VERSION).toBe('2.21');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
+  it('migrates email metadata without changing ordinary documents', () => {
+    const migrated = migrateDocument({
+      id: 'email-v220',
+      name: 'Email',
+      formatVersion: '2.20',
+      rootChildren: [],
+      nodes: {},
+      components: {},
+      nextId: 1,
+    });
+    expect(migrated?.formatVersion).toBe('2.21');
+    expect(migrated?.emailProfile).toBeUndefined();
+    expect(migrated?.emailSemantics).toBeUndefined();
+  });
   it('stamps current version on new documents', () => {
     const doc = stampVersion({
       id: 'd1',

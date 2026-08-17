@@ -60,7 +60,7 @@ const WORKSPACE_ICON_NAMES: Record<WorkspaceMode, TablerIconName> = {
   motion: 'Play',
   codegen: 'Code',
   logo: 'Badge',
-  email: 'Mail',
+  email: 'FileText',
 };
 
 const INITIAL_LAYOUT: WorkspaceLayoutResult = {

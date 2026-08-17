@@ -65,7 +65,10 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       .locator('dialog[open]')
       .getByRole('button', { name: /^create design$/i })
       .click({ timeout: 30_000 });
-    await page.locator('.layers-panel').waitFor({ timeout: 180_000 });
+    await page
+      .locator('.editor__layers-panel, .layers-panel')
+      .first()
+      .waitFor({ timeout: 180_000 });
     await page.close();
   } finally {
     await browser?.close();
