@@ -5002,3 +5002,12 @@ dialog.varve-dialog--settings[open] {
   background: color-mix(in srgb, var(--color-accent-primary, #14b8a6) 12%, transparent);
   white-space: nowrap;
 }
+
+/* Findings overlay hover affordance — class is toggled at runtime in
+ * AuditOverlayHost but had no styling, so the highlight was a no-op. */
+.finding-highlighted {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  z-index: 2;
+  filter: drop-shadow(0 0 0 1px var(--color-interactive-focus-ring));
+}
