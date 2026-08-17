@@ -139,4 +139,46 @@ describe('parseSvg', () => {
     expect(result.nodeIds).toHaveLength(0);
     expect(result.warnings.length).toBeGreaterThan(0);
   });
+
+  it('group with path-only children gets non-zero bounds (icon import)', () => {
+    // This is the exact scenario that broke icon import: an SVG with a <g>
+    // wrapping only <path> elements. Before the fix, computeGroupBounds
+    // returned w:0 h:0 because it lacked a 'path' case.
+    const result = parseSvg(
+      '<svg viewBox="0 0 24 24"><g><path d="M10 20v-6h4v6h5v-8h3L12 3L2 12h3v8z" fill="currentColor"/></g></svg>',
+    );
+    expect(result.nodeIds.length).toBe(1);
+    const groupNode = result.document.nodes[result.nodeIds[0]!];
+    expect(groupNode?.kind).toBe('frame');
+    if (groupNode?.kind === 'frame') {
+      // The group must have non-zero dimensions so the frame clip doesn't
+      // hide its children.
+      expect(groupNode.w).toBeGreaterThan(0);
+      expect(groupNode.h).toBeGreaterThan(0);
+      // And it should have the path child.
+      expect(groupNode.children.length).toBe(1);
+      const child = result.document.nodes[groupNode.children[0]!];
+      expect(child?.kind).toBe('shape');
+      if (child?.kind === 'shape') {
+        expect(child.shape.kind).toBe('path');
+      }
+    }
+  });
+
+  it('multiple path children in group compute correct combined bounds', () => {
+    const result = parseSvg(
+      '<svg viewBox="0 0 24 24"><g>' +
+        '<path d="M2 2h10v10H2z" fill="red"/>' +
+        '<path d="M12 12h10v10H12z" fill="blue"/>' +
+        '</g></svg>',
+    );
+    expect(result.nodeIds.length).toBe(1);
+    const groupNode = result.document.nodes[result.nodeIds[0]!];
+    if (groupNode?.kind === 'frame') {
+      // Both paths contribute to the group bounds.
+      expect(groupNode.w).toBeGreaterThan(0);
+      expect(groupNode.h).toBeGreaterThan(0);
+      expect(groupNode.children.length).toBe(2);
+    }
+  });
 });
