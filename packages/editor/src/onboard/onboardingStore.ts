@@ -12,6 +12,10 @@ export interface OnboardingStore {
   dismissedTips: string[];
   seenFeatureBadges: string[];
   tutorialFileCompleted: boolean;
+  /** IDs of contextual micro-hints the user has seen or dismissed. */
+  dismissedMicroHints: string[];
+  /** Last Varve version the user saw release notes for. */
+  lastSeenReleaseVersion: string;
 }
 
 const DEFAULT_STATE: OnboardingStore = {
@@ -22,6 +26,8 @@ const DEFAULT_STATE: OnboardingStore = {
   dismissedTips: [],
   seenFeatureBadges: [],
   tutorialFileCompleted: false,
+  dismissedMicroHints: [],
+  lastSeenReleaseVersion: '',
 };
 
 export function loadOnboardingState(): OnboardingStore {
@@ -121,6 +127,19 @@ export function markTutorialComplete(state: OnboardingStore): OnboardingStore {
 export function seeFeatureBadge(state: OnboardingStore, featureId: string): OnboardingStore {
   if (state.seenFeatureBadges.includes(featureId)) return state;
   return { ...state, seenFeatureBadges: [...state.seenFeatureBadges, featureId] };
+}
+
+export function dismissMicroHint(state: OnboardingStore, hintId: string): OnboardingStore {
+  if (state.dismissedMicroHints.includes(hintId)) return state;
+  return { ...state, dismissedMicroHints: [...state.dismissedMicroHints, hintId] };
+}
+
+export function hasSeenMicroHint(state: OnboardingStore, hintId: string): boolean {
+  return state.dismissedMicroHints.includes(hintId);
+}
+
+export function markReleaseSeen(state: OnboardingStore, version: string): OnboardingStore {
+  return { ...state, lastSeenReleaseVersion: version };
 }
 
 export function listenForStorageChanges(onChange: () => void): () => void {

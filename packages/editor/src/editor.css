@@ -3200,6 +3200,57 @@ dialog.varve-dialog--settings[open] {
   background-color: color-mix(in oklch, var(--color-interactive-default) 8%, transparent);
 }
 
+/* ── Canvas empty state ────────────────────────────── */
+.editor-canvas__empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  pointer-events: none;
+  user-select: none;
+}
+.editor-canvas__empty-state-title {
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+.editor-canvas__empty-state-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+}
+.editor-canvas__empty-state-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  height: 1.5em;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+.editor-canvas__empty-state-hint {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
 /* ════════════════════════════════════════════════════════════
    Onboarding — Welcome Dialog
    ════════════════════════════════════════════════════════════ */

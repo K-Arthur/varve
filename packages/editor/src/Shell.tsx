@@ -423,6 +423,7 @@ function ShellInner({
             onReportSecurity={() => openVarveContact('security')}
             onOpenPrivacy={() => openVarveContact('privacy')}
             onWhatIsThis={editorHelp.toggleWhatIsThis}
+            onWhatsNew={() => editorHelp.setHelpCenterOpen(true)}
             onOpenAbout={() => {
               setSettingsSection('about');
               setSettingsOpen(true);

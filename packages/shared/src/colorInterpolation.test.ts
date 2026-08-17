@@ -6,6 +6,7 @@ import {
   type GradientStopInput,
   interpolateManagedColor,
   interpolateNormalizedColor,
+  lerpHue,
   sampleGradientColor,
 } from './colorInterpolation';
 
@@ -278,5 +279,181 @@ describe('interpolateNormalizedColor', () => {
       const nonLattice = [mid.r, mid.g, mid.b].some((v) => !lattice(v));
       expect(nonLattice).toBe(true);
     }
+  });
+});
+
+// ── lerpHue tests ──────────────────────────────────────────────────────────
+
+describe('lerpHue', () => {
+  it('shorter: 350°→10° travels through 0° (20° arc)', () => {
+    expect(lerpHue(350, 10, 0.5, 'shorter')).toBeCloseTo(0, 1);
+    expect(lerpHue(350, 10, 0, 'shorter')).toBeCloseTo(350, 1);
+    expect(lerpHue(350, 10, 1, 'shorter')).toBeCloseTo(10, 1);
+  });
+
+  it('longer: 350°→10° travels through 180° (340° arc)', () => {
+    const mid = lerpHue(350, 10, 0.5, 'longer');
+    // Longer arc goes the other way: 350 → 180 → 10
+    expect(mid).toBeCloseTo(180, 0);
+  });
+
+  it('increasing: 350°→10° goes 350→360/0→10 (positive direction)', () => {
+    const mid = lerpHue(350, 10, 0.5, 'increasing');
+    expect(mid).toBeCloseTo(0, 1);
+  });
+
+  it('decreasing: 350°→10° goes 350→180→10 (negative direction)', () => {
+    const mid = lerpHue(350, 10, 0.5, 'decreasing');
+    expect(mid).toBeCloseTo(180, 0);
+  });
+
+  it('shorter: 10°→350° also takes the short path', () => {
+    const mid = lerpHue(10, 350, 0.5, 'shorter');
+    expect(mid).toBeCloseTo(0, 1);
+  });
+
+  it('returns exact endpoints at t=0 and t=1', () => {
+    for (const dir of ['shorter', 'longer', 'increasing', 'decreasing'] as const) {
+      expect(lerpHue(30, 200, 0, dir)).toBeCloseTo(30, 10);
+      expect(lerpHue(30, 200, 1, dir)).toBeCloseTo(200, 10);
+    }
+  });
+
+  it('handles identical hues', () => {
+    for (const dir of ['shorter', 'longer', 'increasing', 'decreasing'] as const) {
+      expect(lerpHue(120, 120, 0.5, dir)).toBeCloseTo(120, 5);
+    }
+  });
+
+  it('normalises inputs outside [0,360)', () => {
+    expect(lerpHue(-10, 370, 0.5, 'shorter')).toBeCloseTo(0, 1);
+    expect(lerpHue(720, 10, 0.5, 'shorter')).toBeCloseTo(5, 0);
+  });
+});
+
+// ── linear-srgb interpolation ──────────────────────────────────────────────
+
+describe('linear-srgb interpolation', () => {
+  it('red→green midpoint differs from sRGB midpoint (linear is more saturated)', () => {
+    const srgbMid = interpolateManagedColor(red, green, 0.5, 'srgb');
+    const linMid = interpolateManagedColor(red, green, 0.5, 'linear-srgb');
+    // Linear RGB should produce a brighter, more saturated midpoint
+    const srgbLuma = 0.2126 * srgbMid.r + 0.7152 * srgbMid.g + 0.0722 * srgbMid.b;
+    const linLuma = 0.2126 * linMid.r + 0.7152 * linMid.g + 0.0722 * linMid.b;
+    // Linear midpoint should be brighter than sRGB midpoint
+    expect(linLuma).toBeGreaterThan(srgbLuma);
+  });
+
+  it('produces valid output in all spaces', () => {
+    const spaces: GradientInterpolationSpace[] = ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl'];
+    for (const space of spaces) {
+      const mid = interpolateManagedColor(red, green, 0.5, space);
+      expect(mid.r).toBeGreaterThanOrEqual(0);
+      expect(mid.r).toBeLessThanOrEqual(255);
+      expect(mid.g).toBeGreaterThanOrEqual(0);
+      expect(mid.g).toBeLessThanOrEqual(255);
+      expect(mid.b).toBeGreaterThanOrEqual(0);
+      expect(mid.b).toBeLessThanOrEqual(255);
+    }
+  });
+
+  it('normalized linear-srgb produces 0-1 output', () => {
+    const from = { r: 0.8, g: 0.2, b: 0.4, a: 1 };
+    const to = { r: 0.1, g: 0.7, b: 0.9, a: 1 };
+    const mid = interpolateNormalizedColor(from, to, 0.5, 'linear-srgb');
+    for (const v of [mid.r, mid.g, mid.b, mid.a]) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+// ── Hue interpolation integration with OKLCH ───────────────────────────────
+
+describe('OKLCH hue interpolation direction', () => {
+  const blue = { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 };
+  const red = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 };
+
+  it('shorter hue: blue→red takes the short path (through purple)', () => {
+    const mid = interpolateManagedColor(blue, red, 0.5, 'oklch', {
+      hueInterpolation: 'shorter',
+    });
+    // Should be a purple/magenta-ish color (short path from blue to red)
+    expect(mid.b).toBeGreaterThan(50);
+    expect(mid.r).toBeGreaterThan(50);
+  });
+
+  it('longer hue: blue→red takes the long path (through green/yellow)', () => {
+    const mid = interpolateManagedColor(blue, red, 0.5, 'oklch', {
+      hueInterpolation: 'longer',
+    });
+    // Should have significant green component (long path)
+    expect(mid.g).toBeGreaterThan(30);
+  });
+});
+
+// ── Achromatic edge cases ──────────────────────────────────────────────────
+
+describe('achromatic edge cases', () => {
+  const black = { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
+  const white = { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 };
+  const gray = { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 };
+  const red = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 };
+
+  it('black→white in oklch stays achromatic', () => {
+    const mid = interpolateManagedColor(black, white, 0.5, 'oklch');
+    const maxDiff = Math.max(mid.r, mid.g, mid.b) - Math.min(mid.r, mid.g, mid.b);
+    expect(maxDiff).toBeLessThan(10);
+  });
+
+  it('gray→red in oklch falls back to oklab (no NaN)', () => {
+    const mid = interpolateManagedColor(gray, red, 0.5, 'oklch');
+    expect(Number.isFinite(mid.r)).toBe(true);
+    expect(Number.isFinite(mid.g)).toBe(true);
+    expect(Number.isFinite(mid.b)).toBe(true);
+    expect(mid.r).toBeGreaterThan(100);
+  });
+
+  it('black→saturated color in oklch does not produce NaN', () => {
+    const mid = interpolateManagedColor(black, red, 0.5, 'oklch');
+    expect(Number.isNaN(mid.r)).toBe(false);
+    expect(Number.isNaN(mid.g)).toBe(false);
+    expect(Number.isNaN(mid.b)).toBe(false);
+  });
+});
+
+// ── Round-trip consistency ─────────────────────────────────────────────────
+
+describe('round-trip consistency', () => {
+  it('sRGB: interpolation at t=0 and t=1 returns exact endpoints', () => {
+    const a = { space: 'rgb' as const, r: 42, g: 128, b: 200, a: 255 };
+    const b = { space: 'rgb' as const, r: 180, g: 60, b: 90, a: 255 };
+    expect(interpolateManagedColor(a, b, 0, 'srgb')).toEqual(a);
+    expect(interpolateManagedColor(a, b, 1, 'srgb')).toEqual(b);
+    expect(interpolateManagedColor(a, b, 0, 'linear-srgb')).toEqual(a);
+    expect(interpolateManagedColor(a, b, 1, 'linear-srgb')).toEqual(b);
+    expect(interpolateManagedColor(a, b, 0, 'oklab')).toEqual(a);
+    expect(interpolateManagedColor(a, b, 1, 'oklab')).toEqual(b);
+  });
+
+  it('oklch: t=0 and t=1 return exact endpoints even with hue wrapping', () => {
+    const a = { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 };
+    const b = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 };
+    expect(interpolateManagedColor(a, b, 0, 'oklch')).toEqual(a);
+    expect(interpolateManagedColor(a, b, 1, 'oklch')).toEqual(b);
+  });
+});
+
+// ── Boundary values ────────────────────────────────────────────────────────
+
+describe('boundary values', () => {
+  it('t < 0 returns from color', () => {
+    const result = interpolateManagedColor(red, green, -0.5, 'oklab');
+    expect(result).toEqual(red);
+  });
+
+  it('t > 1 returns to color', () => {
+    const result = interpolateManagedColor(red, green, 1.5, 'oklab');
+    expect(result).toEqual(green);
   });
 });

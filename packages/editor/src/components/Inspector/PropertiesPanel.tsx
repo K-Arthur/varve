@@ -37,6 +37,7 @@ import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { FillSection } from './sections/FillSection';
 import { IconSection } from './sections/IconSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
+import { LayoutChildSection } from './sections/LayoutChildSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { MockupsSection } from './sections/MockupsSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
@@ -534,6 +535,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('constraints', <ConstraintSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
+    if (!isFrame) add('layout', <LayoutChildSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('animation', <AnimationSection nodes={nodes} />);

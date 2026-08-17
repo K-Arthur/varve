@@ -1281,6 +1281,23 @@ export function CanvasArea({
           onClose={() => setDeepSelectionCandidates(null)}
         />
       )}
+      {/* Empty canvas guidance — shown only when document has no content */}
+      {state.document.rootChildren.length === 0 && !isDragOver && (
+        <div className="editor-canvas__empty-state" role="status" aria-label="Empty canvas">
+          <p className="editor-canvas__empty-state-title">Start designing</p>
+          <div className="editor-canvas__empty-state-shortcuts">
+            <span className="editor-canvas__empty-state-key">F</span>
+            <span>Frame</span>
+            <span className="editor-canvas__empty-state-key">R</span>
+            <span>Rectangle</span>
+            <span className="editor-canvas__empty-state-key">T</span>
+            <span>Text</span>
+            <span className="editor-canvas__empty-state-key">P</span>
+            <span>Pen</span>
+          </div>
+          <p className="editor-canvas__empty-state-hint">or drag an image here</p>
+        </div>
+      )}
     </section>
   );
 }

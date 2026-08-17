@@ -51,8 +51,8 @@ const JUSTIFY_OPTIONS: readonly SegmentedOption<
 
 const SIZING_OPTIONS: { value: LayoutSizing; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
-  { value: 'hug', label: 'Fit to Content' },
-  { value: 'fill', label: 'Fill Parent' },
+  { value: 'hug', label: 'Hug contents' },
+  { value: 'fill', label: 'Fill container' },
 ];
 
 const GRID_AUTO_FLOW_OPTIONS: { value: NonNullable<LayoutStyle['gridAutoFlow']>; label: string }[] =
@@ -324,7 +324,14 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
   const maxWRaw = commonValue(nodes, (n) => n.maxWidth);
   const minHRaw = commonValue(nodes, (n) => n.minHeight);
   const maxHRaw = commonValue(nodes, (n) => n.maxHeight);
-  const sizingRaw = commonValue(nodes, (n) => n.layoutSizing ?? 'fixed');
+  const widthSizingRaw = commonValue(
+    nodes,
+    (n) => n.layoutSizingWidth ?? n.layoutSizing ?? 'fixed',
+  );
+  const heightSizingRaw = commonValue(
+    nodes,
+    (n) => n.layoutSizingHeight ?? n.layoutSizing ?? 'fixed',
+  );
   const gridColStartRaw = commonValue(nodes, (n) => n.gridPlacement?.gridColumnStart);
   const gridColEndRaw = commonValue(nodes, (n) => n.gridPlacement?.gridColumnEnd);
   const gridRowStartRaw = commonValue(nodes, (n) => n.gridPlacement?.gridRowStart);
@@ -360,11 +367,20 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
       >
         Sizing
       </div>
-      <FieldRow label="Mode">
+      <FieldRow label="Width">
         <Select
-          label="Layout sizing mode"
-          value={isMixed(sizingRaw) ? '' : sizingRaw}
-          placeholder={isMixed(sizingRaw) ? 'Mixed' : undefined}
+          label="Width sizing mode"
+          value={isMixed(widthSizingRaw) ? '' : widthSizingRaw}
+          placeholder={isMixed(widthSizingRaw) ? 'Mixed' : undefined}
+          options={SIZING_OPTIONS}
+          onChange={(v) => setSelectedLayoutSizing(v as LayoutSizing)}
+        />
+      </FieldRow>
+      <FieldRow label="Height">
+        <Select
+          label="Height sizing mode"
+          value={isMixed(heightSizingRaw) ? '' : heightSizingRaw}
+          placeholder={isMixed(heightSizingRaw) ? 'Mixed' : undefined}
           options={SIZING_OPTIONS}
           onChange={(v) => setSelectedLayoutSizing(v as LayoutSizing)}
         />

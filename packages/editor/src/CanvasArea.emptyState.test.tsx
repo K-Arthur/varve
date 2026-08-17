@@ -96,3 +96,39 @@ describe('CanvasArea empty state', () => {
     expect(headline.className).toContain('varve-empty__headline');
   });
 });
+
+describe('Canvas inline empty state', () => {
+  it('renders keyboard shortcut hints', () => {
+    render(
+      <div className="editor-canvas__empty-state" role="status" aria-label="Empty canvas">
+        <p className="editor-canvas__empty-state-title">Start designing</p>
+        <div className="editor-canvas__empty-state-shortcuts">
+          <span className="editor-canvas__empty-state-key">F</span>
+          <span>Frame</span>
+          <span className="editor-canvas__empty-state-key">R</span>
+          <span>Rectangle</span>
+          <span className="editor-canvas__empty-state-key">T</span>
+          <span>Text</span>
+          <span className="editor-canvas__empty-state-key">P</span>
+          <span>Pen</span>
+        </div>
+        <p className="editor-canvas__empty-state-hint">or drag an image here</p>
+      </div>,
+    );
+    expect(screen.getByText('Start designing')).toBeTruthy();
+    expect(screen.getByText('Frame')).toBeTruthy();
+    expect(screen.getByText('Rectangle')).toBeTruthy();
+    expect(screen.getByText('Text')).toBeTruthy();
+    expect(screen.getByText('Pen')).toBeTruthy();
+    expect(screen.getByText('or drag an image here')).toBeTruthy();
+  });
+
+  it('has role=status for screen readers', () => {
+    render(
+      <div className="editor-canvas__empty-state" role="status" aria-label="Empty canvas">
+        <p className="editor-canvas__empty-state-title">Start designing</p>
+      </div>,
+    );
+    expect(screen.getByRole('status')).toHaveAttribute('aria-label', 'Empty canvas');
+  });
+});
