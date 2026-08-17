@@ -24,7 +24,7 @@
 | Nested layout (multi-level, hug + fill mixed) | ✓ | ✓ | N/A | ✓ | ✓ | **Working (new)** — was single-level only |
 | Cycle handling (fill inside hug) | ✓ | ✓ | N/A | N/A | ✓ | **Working (new)** — broken by construction (min-size contribution), diagnostic in cycleDetection.ts is available but not yet wired into the inspector as a user-facing warning |
 | Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (basic)** — unchanged this pass |
-| Grid hug/intrinsic sizing | ✓ | ✗ | — | — | — | **Missing** — hug resolution explicitly skips grid-mode frames |
+| Grid hug/intrinsic sizing | ✓ | ✓ | ✓ | — | ✓ | **Working (new)** — px/auto tracks resolve from content; fr tracks contribute 0 to hug measurement (same policy as flex fill-in-hug) |
 | Grid hidden/absolute filtering | ✓ | ✓ | — | — | — | **Working (new)** — parity fix, not deeply tested |
 | Components/instances | ✓ | ✓ | ✓ | N/A | — | **Unverified this pass** — structurally frames, so the generic frame path applies, but no dedicated instance/override test was run |
 | Text intrinsic sizing | ✓ | ✓ | N/A | ✓ | ✓ | **Working** (measureText), confirmed visually |
@@ -101,7 +101,6 @@ A child whose cross-axis sizing is `hug` never stretches, even under `alignItems
 
 ## 4. Known Limitations (see final report for full prioritization)
 
-- **Grid hug sizing** is not implemented — grid-mode frames are explicitly skipped in `resolveIntrinsicSizes` and keep their authored box.
 - **Cycle diagnostic not surfaced**: `checkLayoutCycle` exists and is tested but isn't called from any mutation path — there's no user-facing warning when a configuration would have cycled (the engine still resolves deterministically; this is about UX feedback, not correctness).
 - **Absolute-child constraints** (left+top / right+bottom / center / stretch scale) are not layered on top of `layoutPosition: 'absolute'` — absolute children currently just keep their existing transform, with no responsive anchoring within the layout parent.
 - **Canvas direct-manipulation** (drag-to-reorder within a flex frame, gap/padding drag handles, insertion indicators) was not built this pass — all layout editing goes through the inspector.
