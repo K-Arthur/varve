@@ -22,6 +22,7 @@ import {
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents, type NormalizedInputEvent } from './inputNormalizer';
 import { PreviewCanvas } from './previewCanvas';
+import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export type SmudgeMode = 'sampling' | 'mixing' | 'fingerpaint';
@@ -129,7 +130,8 @@ export class SmudgeTool extends BaseTool {
     ctx.beginTransaction();
     this.transactionOpen = true;
 
-    const rasterNodeId = this.findOrCreateRasterLayer(ctx);
+    const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    const rasterNodeId = this.findOrCreateRasterLayer(ctx, world);
     if (!rasterNodeId) {
       ctx.abortTransaction();
       this.transactionOpen = false;
@@ -138,10 +140,10 @@ export class SmudgeTool extends BaseTool {
     this.rasterNodeId = rasterNodeId;
     this.strokeGeneration++;
 
-    const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
     const avgTilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
-    const sp = strokePoint(world.x, world.y, { pressure, tilt: avgTilt });
+    const local = rasterLocalPoint(ctx, rasterNodeId, world);
+    const sp = strokePoint(local.x, local.y, { pressure, tilt: avgTilt });
     this.strokePoints = [sp];
     this.updatePreview(ctx);
 
@@ -158,9 +160,10 @@ export class SmudgeTool extends BaseTool {
     for (const ev of events) {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
+      const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
       const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
-      this.sampleStrokePoint(world, pressure, ev.time, tilt);
+      this.sampleStrokePoint(local, pressure, ev.time, tilt);
     }
 
     // Process confirmed events to tiles
@@ -179,9 +182,10 @@ export class SmudgeTool extends BaseTool {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
     const tilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
-    this.sampleStrokePoint(world, pressure, undefined, tilt);
+    this.sampleStrokePoint(local, pressure, undefined, tilt);
 
     this.flushDabs(ctx);
     ctx.commitTransaction();
@@ -290,9 +294,10 @@ export class SmudgeTool extends BaseTool {
     const pts: import('@varve/scene').StrokePoint[] = [];
     for (const ev of predictedEvents) {
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
+      const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
       const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
-      pts.push(strokePoint(world.x, world.y, { pressure, tilt }));
+      pts.push(strokePoint(local.x, local.y, { pressure, tilt }));
     }
 
     if (pts.length < 2) return;
@@ -316,30 +321,13 @@ export class SmudgeTool extends BaseTool {
     });
   }
 
-  private findOrCreateRasterLayer(ctx: ToolContext): string | null {
-    const existing = this.findExistingRasterLayer(ctx);
+  private findOrCreateRasterLayer(
+    ctx: ToolContext,
+    world: { x: number; y: number },
+  ): string | null {
+    const existing = findEditableRasterLayer(ctx);
     if (existing) return existing;
-    return ctx.createRasterLayer(4096, 4096);
-  }
-
-  private findExistingRasterLayer(ctx: ToolContext): string | null {
-    const doc = ctx.document;
-    const pageId = doc.activePageId;
-    const contentRootId = pageId
-      ? (doc.pages ?? []).find((p) => p.id === pageId)?.contentRoot
-      : null;
-
-    const candidates: string[] = contentRootId
-      ? ((doc.nodes[contentRootId] as { children?: string[] })?.children ?? doc.rootChildren)
-      : doc.rootChildren;
-
-    for (const nodeId of candidates) {
-      const node = doc.nodes[nodeId];
-      if (node?.kind === 'rasterLayer') {
-        return nodeId;
-      }
-    }
-    return null;
+    return createRasterTarget(ctx, world);
   }
 
   private abortStroke(ctx: ToolContext): void {

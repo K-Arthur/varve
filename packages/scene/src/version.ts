@@ -2,6 +2,7 @@
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 import { textColorMigration } from './colorMigration';
 import { migrateV214ToV215 } from './modifiersMigration';
+import { serializeTiles } from './rasterLayer';
 import { migrateV212ToV213 } from './version-migrations';
 import { migrateV216ToV217 } from './version-migrations-v217';
 import { migrateV217ToV218 } from './version-migrations-v218';
@@ -945,8 +946,33 @@ export function stampVersion<T extends { formatVersion?: string }>(
 export function serializeDocument(doc: Record<string, unknown> | unknown): string {
   const target = doc as Record<string, unknown>;
   return JSON.stringify(
-    stripEmbeddedAssetPayloads(stampVersion(normalizeLegacyBackgroundRemoval(target))),
+    stripEmbeddedAssetPayloads(
+      stampVersion(normalizeLegacyBackgroundRemoval(serializeRasterTiles(target))),
+    ),
   );
+}
+
+function serializeRasterTiles(doc: Record<string, unknown>): Record<string, unknown> {
+  if (!doc.nodes || typeof doc.nodes !== 'object' || Array.isArray(doc.nodes)) return doc;
+
+  const nodes = Object.fromEntries(
+    Object.entries(doc.nodes as Record<string, unknown>).map(([id, rawNode]) => {
+      if (
+        !rawNode ||
+        typeof rawNode !== 'object' ||
+        Array.isArray(rawNode) ||
+        (rawNode as { kind?: unknown }).kind !== 'rasterLayer'
+      ) {
+        return [id, rawNode];
+      }
+      const node = rawNode as { tiles?: unknown } & Record<string, unknown>;
+      return [
+        id,
+        node.tiles instanceof Map ? { ...node, tiles: serializeTiles(node.tiles) } : node,
+      ];
+    }),
+  );
+  return { ...doc, nodes };
 }
 
 function decodedBase64Length(dataUrl: string): number {

@@ -1,16 +1,17 @@
-import type { BrushDab, BrushPreset, RasterLayerNode } from '@varve/scene';
+import type { BrushPreset, RasterLayerNode } from '@varve/scene';
 import {
   compositeDabOnNode,
   defaultBrushPreset,
+  eraseDabOnNode,
   generateDabs,
   seedJitter,
   smoothStrokePoints,
   strokePoint,
-  tilesForBounds,
 } from '@varve/scene';
 import { BrushWorkerHost } from '../render/brushWorkerHost';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents } from './inputNormalizer';
+import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class PaintTool extends BaseTool {
@@ -156,7 +157,8 @@ export class PaintTool extends BaseTool {
 
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
     const avgTilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
-    const sp = strokePoint(world.x, world.y, { pressure, tilt: avgTilt });
+    const local = rasterLocalPoint(ctx, rasterNodeId, world);
+    const sp = strokePoint(local.x, local.y, { pressure, tilt: avgTilt });
     this.strokePoints = [sp];
     this.updatePreview(ctx);
 
@@ -173,9 +175,10 @@ export class PaintTool extends BaseTool {
     for (const ev of events) {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
+      const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
       const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
-      this.sampleStrokePoint(world, pressure, ev.time, tilt);
+      this.sampleStrokePoint(local, pressure, ev.time, tilt);
     }
 
     this.flushDabs(ctx);
@@ -186,9 +189,10 @@ export class PaintTool extends BaseTool {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
+    const local = rasterLocalPoint(ctx, this.rasterNodeId, world);
     const pressure = e.pressure > 0 ? e.pressure : 0.5;
     const tilt = (Math.abs(e.tiltX ?? 0) + Math.abs(e.tiltY ?? 0)) / 2;
-    this.sampleStrokePoint(world, pressure, undefined, tilt);
+    this.sampleStrokePoint(local, pressure, undefined, tilt);
 
     this.flushDabs(ctx);
     ctx.commitTransaction();
@@ -301,7 +305,7 @@ export class PaintTool extends BaseTool {
           let updated = raster;
           for (const dab of dabs) {
             if (this.eraserMode) {
-              updated = this.eraseDabOnNode(updated, dab);
+              updated = eraseDabOnNode(updated, dab);
             } else {
               updated = compositeDabOnNode(updated, dab, color, false);
             }
@@ -333,55 +337,13 @@ export class PaintTool extends BaseTool {
       let updated = raster;
       for (const dab of dabs) {
         if (this.eraserMode) {
-          updated = this.eraseDabOnNode(updated, dab);
+          updated = eraseDabOnNode(updated, dab);
         } else {
           updated = compositeDabOnNode(updated, dab, color, false);
         }
       }
       return updated;
     });
-  }
-
-  private eraseDabOnNode(node: RasterLayerNode, dab: BrushDab): RasterLayerNode {
-    const dabDiameter = Math.ceil(dab.radius * 2);
-    const startX = Math.floor(dab.x - dab.radius);
-    const startY = Math.floor(dab.y - dab.radius);
-
-    const tileKeys = tilesForBounds(startX, startY, dabDiameter, dabDiameter);
-    const TILE_SIZE = 128;
-    const newTiles = new Map(node.tiles);
-
-    for (const { col, row } of tileKeys) {
-      const key = `${col}:${row}`;
-      const tile = newTiles.get(key);
-      if (!tile) continue;
-
-      const newPixels = new Uint8ClampedArray(tile.pixels);
-      const tileOriginX = col * TILE_SIZE;
-      const tileOriginY = row * TILE_SIZE;
-
-      const size = Math.ceil(dab.radius * 2);
-      const offsetX = Math.round(dab.x - tileOriginX - dab.radius);
-      const offsetY = Math.round(dab.y - tileOriginY - dab.radius);
-
-      for (let my = 0; my < size; my++) {
-        const py = offsetY + my;
-        if (py < 0 || py >= TILE_SIZE) continue;
-        for (let mx = 0; mx < size; mx++) {
-          const px = offsetX + mx;
-          if (px < 0 || px >= TILE_SIZE) continue;
-
-          const idx = (py * TILE_SIZE + px) * 4;
-          const currentAlpha = newPixels[idx + 3]!;
-          const newAlpha = Math.max(0, currentAlpha - Math.round(dab.opacity * dab.flow * 255));
-          newPixels[idx + 3] = newAlpha;
-        }
-      }
-
-      newTiles.set(key, { pixels: newPixels, version: tile.version + 1 });
-    }
-
-    return { ...node, tiles: newTiles };
   }
 
   private updatePreview(ctx: ToolContext): void {
@@ -407,33 +369,20 @@ export class PaintTool extends BaseTool {
       return existing;
     }
 
-    const nodeId = ctx.createRasterLayer(4096, 4096);
+    const nodeId = createRasterTarget(ctx, this.drag.startWorld);
     this.ownsLayer = true;
     return nodeId;
   }
 
   private findExistingRasterLayer(ctx: ToolContext): string | null {
-    const doc = ctx.document;
-    const pageId = doc.activePageId;
-    const contentRootId = pageId
-      ? (doc.pages ?? []).find((p) => p.id === pageId)?.contentRoot
-      : null;
-
-    const candidates: string[] = contentRootId
-      ? ((doc.nodes[contentRootId] as { children?: string[] })?.children ?? doc.rootChildren)
-      : doc.rootChildren;
-
-    for (const nodeId of candidates) {
-      const node = doc.nodes[nodeId];
-      if (node?.kind === 'rasterLayer') {
-        return nodeId;
-      }
-    }
-    return null;
+    return findEditableRasterLayer(ctx);
   }
 
   private abortStroke(ctx: ToolContext): void {
     if (!this.transactionOpen) return;
+    if (this.rasterNodeId) {
+      this.workerHost?.cancelStroke(`${this.rasterNodeId}-${this.strokeGeneration}`);
+    }
     ctx.abortTransaction();
     this.transactionOpen = false;
     ctx.setDraft(null);

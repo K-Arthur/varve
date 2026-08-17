@@ -36,7 +36,11 @@ import {
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
-import { type NormalizedInputEvent, normalizeInputEvent } from '../tools/inputNormalizer';
+import {
+  collectSourceEvents,
+  type NormalizedInputEvent,
+  normalizeInputEvent,
+} from '../tools/inputNormalizer';
 import {
   decayRateFromFrameRetention,
   frameDisplacementToVelocity,
@@ -263,7 +267,7 @@ export function useCanvasInputs({
       activeDragPointer.current = snapshotHeldPointer(ne);
       const tmInst = tmRef.current;
       if (!tmInst) return;
-      const ctx = buildToolCtx(ne);
+      const ctx = buildToolCtx(ne, collectSourceEvents(ne));
 
       e.currentTarget.focus({ preventScroll: true });
 
@@ -311,7 +315,7 @@ export function useCanvasInputs({
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as PointerEvent;
-      const ctx = buildToolCtx(ne);
+      const ctx = buildToolCtx(ne, collectSourceEvents(ne, true));
       if (e.buttons !== 0) activeDragPointer.current = snapshotHeldPointer(ne);
 
       if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
@@ -519,7 +523,7 @@ export function useCanvasInputs({
         endInteraction();
         return;
       }
-      const upCtx = buildToolCtx(ne);
+      const upCtx = buildToolCtx(ne, collectSourceEvents(ne));
       if (wasAutoPanning) {
         // Settle the gesture against the final camera snapshot before commit.
         // A delayed frame may legally advance by the bounded 50 ms step; this
