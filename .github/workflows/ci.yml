@@ -108,7 +108,7 @@ jobs:
         with:
           lfs: true
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
           toolchain: 1.97.1
           components: rustfmt, clippy
@@ -153,12 +153,12 @@ jobs:
         run: pwsh -File "$env:GITHUB_WORKSPACE/scripts/ci/diagnose-entrypoint.ps1"
       - name: Install cargo-llvm-cov
         if: runner.os == 'Linux'
-        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1
         with:
           tool: cargo-llvm-cov
       - name: Install just
         if: runner.os == 'Linux'
-        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1
         with:
           tool: just@1.54.0
       - name: Rust coverage (ratchet floor)
@@ -474,7 +474,7 @@ jobs:
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core mesa-utils
-      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
           toolchain: 1.97.1
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
