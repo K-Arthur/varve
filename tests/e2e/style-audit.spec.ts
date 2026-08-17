@@ -26,38 +26,26 @@ async function navigateToEditor(page: import('@playwright/test').Page) {
   }
 }
 
-test('new-file dialog is styled with design tokens', async ({ page }, testInfo) => {
+test('new-design dialog is styled with design tokens', async ({ page }, testInfo) => {
   await page.goto('/');
   await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 10000 });
   await page.getByRole('button', { name: /^new$/i }).click();
-  await page.locator('dialog').waitFor({ timeout: 5000 });
+  const dialog = page.getByRole('dialog', { name: /new design/i });
+  await dialog.waitFor({ timeout: 5000 });
 
-  const tab = page.locator('.new-file__tab--active').first();
-  await expect(tab).toBeVisible();
-  const tabInfo = await tab.evaluate((el) => {
-    const cs = getComputedStyle(el);
-    return { borderBottomColor: cs.borderBottomColor, color: cs.color };
-  });
-  expect(tabInfo.borderBottomColor).not.toBe('rgba(0, 0, 0, 0)');
-
-  const blank = page.locator('.new-file__blank');
-  await expect(blank).toBeVisible();
-  const blankInfo = await blank.evaluate((el) => {
+  const card = dialog.locator('.new-design__start-card').first();
+  await expect(card).toBeVisible();
+  const cardInfo = await card.evaluate((el) => {
     const cs = getComputedStyle(el);
     return { background: cs.backgroundColor, radius: cs.borderRadius };
   });
-  expect(blankInfo.background).not.toBe('rgba(0, 0, 0, 0)');
+  expect(cardInfo.background).not.toBe('rgba(0, 0, 0, 0)');
+  expect(cardInfo.radius).not.toBe('0px');
 
-  await expect(page.locator('.new-file__fields')).toBeVisible();
-  await expect(page.locator('.new-file__footer')).toBeVisible();
+  await expect(dialog.locator('.new-design__name-input')).toBeVisible();
   await page.screenshot({
-    path: `reports/style-audit/newfile-${testInfo.project.name}.png`,
-    fullPage: true,
+    path: `reports/style-audit/newdesign-${testInfo.project.name}.png`,
   });
-
-  // Templates tab also renders
-  await page.getByRole('tab', { name: 'Templates' }).click();
-  await expect(page.locator('.new-file__body')).toBeVisible();
 });
 
 test('floating toolbar drawing controls are styled', async ({ page }, testInfo) => {
