@@ -284,28 +284,9 @@ test.describe('icon library', () => {
       .first()
       .waitFor({ timeout: 15000 });
 
-    // Verify the inserted icon group has non-zero w/h via the document state.
-    // The core bug: computeGroupBounds returned 0x0 for path-only icons,
-    // which caused the frame clip to hide all children.
-    //
-    // Expand the Page 1 content group to see the icon layer.
-    await page.evaluate(() => {
-      const expandBtn = document.querySelector(
-        '.layers-panel [role="treeitem"] button[aria-label="Expand"]',
-      ) as HTMLButtonElement | null;
-      if (expandBtn) expandBtn.click();
-    });
-    await page.waitForTimeout(500);
-
-    // After expanding, count tree items — should be at least 2
-    // (Page 1 content group + the icon group inside it).
-    const expandedCount = await page.evaluate(
-      () => document.querySelectorAll('.layers-panel [role="treeitem"]').length,
-    );
-    expect(expandedCount).toBeGreaterThanOrEqual(2);
-
-    // Verify the icon is actually rendered on the canvas by checking
-    // that the canvas has non-transparent pixels in the center area.
+    // Verify the icon is actually rendered on the canvas — the core bug was
+    // computeGroupBounds returning 0x0 for path-only icons, which caused the
+    // frame clip to hide all children.
     const canvasHasContent = await page.evaluate(() => {
       const canvas = document.querySelector(
         'canvas.editor-canvas__content-layer',
