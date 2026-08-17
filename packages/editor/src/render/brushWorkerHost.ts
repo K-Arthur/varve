@@ -22,8 +22,6 @@ export class BrushWorkerHost {
   private fallback = false;
   private pendingRequests = new Map<number, PendingRequest>();
   private nextRequestId = 1;
-  private currentStrokeId: string | null = null;
-  private currentRequestId: number = 0;
 
   constructor() {
     if (typeof Worker === 'undefined') {
@@ -68,13 +66,6 @@ export class BrushWorkerHost {
     preset: BrushPreset,
     jitterSeed: number,
   ): Promise<DabResult> {
-    // Cancel any older request for the same stroke.
-    // strokeId is now stable per pointer-down (includes generation counter),
-    // so this correctly deduplicates within a stroke.
-    if (this.currentStrokeId === strokeId && this.currentRequestId > 0) {
-      this.pendingRequests.delete(this.currentRequestId);
-    }
-
     return new Promise<DabResult>((resolve, reject) => {
       if (this.fallback || !this.worker) {
         seedJitter(jitterSeed);
@@ -86,9 +77,6 @@ export class BrushWorkerHost {
       }
 
       const requestId = this.nextRequestId++;
-      this.currentStrokeId = strokeId;
-      this.currentRequestId = requestId;
-
       // Generous timeout — long strokes with many points and complex
       // dynamics evaluation can take several seconds.
       const timeout = setTimeout(() => {
@@ -124,12 +112,11 @@ export class BrushWorkerHost {
   }
 
   cancelStroke(strokeId: string): void {
-    if (this.currentStrokeId === strokeId) {
-      const pending = this.pendingRequests.get(this.currentRequestId);
-      if (pending) {
-        clearTimeout(pending.timeout);
-        this.pendingRequests.delete(this.currentRequestId);
-      }
+    for (const [requestId, pending] of this.pendingRequests) {
+      if (pending.strokeId !== strokeId) continue;
+      clearTimeout(pending.timeout);
+      this.pendingRequests.delete(requestId);
+      pending.reject(new Error('Brush stroke cancelled'));
     }
   }
 

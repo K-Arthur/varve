@@ -140,10 +140,11 @@ describe('collectSourceEvents', () => {
         ] as unknown as PointerEvent[],
     });
     const events = collectSourceEvents(ev);
-    expect(events.length).toBe(2);
+    expect(events.length).toBe(3);
     expect(events[0]!.clientX).toBe(101);
     expect(events[1]!.clientX).toBe(102);
-    expect(events.map((event) => event.time)).toEqual([now - 4, now - 2]);
+    expect(events[2]!.clientX).toBe(100);
+    expect(events.map((event) => event.time)).toEqual([now - 4, now - 2, expect.any(Number)]);
   });
 
   it('marks predicted events when requested', () => {
@@ -152,10 +153,11 @@ describe('collectSourceEvents', () => {
       getPredictedEvents: () => [makePointerEvent({ clientX: 105 })] as unknown as PointerEvent[],
     });
     const events = collectSourceEvents(ev, true);
-    expect(events.length).toBe(2);
+    expect(events.length).toBe(3);
     expect(events[0]!.isPredicted).toBe(false);
-    expect(events[1]!.isPredicted).toBe(true);
-    expect(events[1]!.clientX).toBe(105);
+    expect(events[1]!.isPredicted).toBe(false);
+    expect(events[2]!.isPredicted).toBe(true);
+    expect(events[2]!.clientX).toBe(105);
   });
 
   it('excludes predicted events when not requested', () => {
@@ -164,7 +166,7 @@ describe('collectSourceEvents', () => {
       getPredictedEvents: () => [makePointerEvent({ clientX: 105 })] as unknown as PointerEvent[],
     });
     const events = collectSourceEvents(ev, false);
-    expect(events.length).toBe(1);
+    expect(events.length).toBe(2);
   });
 });
 

@@ -1,5 +1,6 @@
 import type { Engine } from '@varve/engine';
 import {
+  addChild,
   addNode,
   buildParentIndexMap,
   getGuidesForPage,
@@ -19,6 +20,7 @@ import {
 } from '../scene/spatialIndex';
 import {
   getWorldBounds as getCachedWorldBounds,
+  getWorldTransform as getCachedWorldTransform,
   type TransformCache,
 } from '../scene/transformCache';
 import { nodeWorldBounds } from '../scene/world';
@@ -171,6 +173,8 @@ export function buildToolContext(
     },
     worldToCanvas: (wx, wy) => e.worldToCanvas(wx, wy),
     canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
+    getWorldTransform: (id) =>
+      getCachedWorldTransform(deps.transformCacheRef.current, s.document, id),
 
     setPointerCapture: (pointerId) => {
       try {
@@ -412,11 +416,11 @@ export function buildToolContext(
         );
       });
     },
-    createRasterLayer: (width, height) => {
+    createRasterLayer: (width, height, parentId = null) => {
       const s2 = deps.stateRef.current;
       const { id, doc: d2 } = nextNodeId(s2.document);
       const layer = makeRasterLayerNode(id, { width, height }, { name: 'Brush Layer' });
-      const newDoc = addNode(d2, layer);
+      const newDoc = parentId ? addChild(d2, parentId, layer) : addNode(d2, layer);
       e.updateDoc(() => newDoc);
       return id;
     },

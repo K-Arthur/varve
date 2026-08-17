@@ -167,10 +167,15 @@ export function serializeTiles(tiles: Map<string, RasterTile>): SerializableTile
 export function deserializeTiles(data: SerializableTiles): Map<string, RasterTile> {
   const tiles = new Map<string, RasterTile>();
   for (const [key, serialized] of Object.entries(data)) {
-    tiles.set(key, {
-      pixels: new Uint8ClampedArray(base64ToArrayBuffer(serialized.pixels)),
-      version: serialized.version,
-    });
+    if (!serialized || typeof serialized !== 'object') continue;
+    if (typeof serialized.pixels !== 'string' || !Number.isFinite(serialized.version)) continue;
+    try {
+      const pixels = new Uint8ClampedArray(base64ToArrayBuffer(serialized.pixels));
+      if (pixels.length !== TILE_SIZE * TILE_SIZE * 4) continue;
+      tiles.set(key, { pixels, version: Math.max(1, Math.floor(serialized.version)) });
+    } catch {
+      // A corrupt tile must not make an otherwise usable document unloadable.
+    }
   }
   return tiles;
 }
@@ -506,6 +511,49 @@ export function compositeDabOnTiles(
     transform: [1, 0, 0, 1, 0, 0] as Affine,
   };
   return compositeDabOnNode(node, dab, color, alphaLock).tiles;
+}
+
+/** Erase with the same tip geometry and dynamics as a paint dab. */
+export function eraseDabOnNode(node: RasterLayerNode, dab: BrushDab): RasterLayerNode {
+  const brushShape = dab.shape ?? 'circle';
+  const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
+  const size = Math.ceil(dab.radius * 2);
+  const tileKeys = tilesForBounds(
+    Math.floor(dab.x - dab.radius),
+    Math.floor(dab.y - dab.radius),
+    size,
+    size,
+  );
+  const newTiles = new Map(node.tiles);
+
+  for (const { col, row } of tileKeys) {
+    const key = makeTileKey(col, row);
+    const tile = newTiles.get(key);
+    if (!tile) continue;
+    const pixels = new Uint8ClampedArray(tile.pixels);
+    const offsetX = Math.round(dab.x - col * TILE_SIZE - dab.radius);
+    const offsetY = Math.round(dab.y - row * TILE_SIZE - dab.radius);
+    for (let my = 0; my < size; my++) {
+      const py = offsetY + my;
+      if (py < 0 || py >= TILE_SIZE) continue;
+      for (let mx = 0; mx < size; mx++) {
+        const px = offsetX + mx;
+        if (px < 0 || px >= TILE_SIZE) continue;
+        const eraseAlpha = brushMask[my * size + mx]! * dab.opacity * dab.flow;
+        if (eraseAlpha <= 0) continue;
+        const index = (py * TILE_SIZE + px) * 4;
+        const remaining = Math.max(0, 1 - eraseAlpha);
+        pixels[index + 3] = Math.round(pixels[index + 3]! * remaining);
+        if (pixels[index + 3] === 0) {
+          pixels[index] = 0;
+          pixels[index + 1] = 0;
+          pixels[index + 2] = 0;
+        }
+      }
+    }
+    newTiles.set(key, { pixels, version: tile.version + 1 });
+  }
+  return { ...node, tiles: newTiles };
 }
 
 // ── Smudge compositing ───────────────────────────────────────────────────────

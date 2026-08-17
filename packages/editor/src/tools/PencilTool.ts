@@ -71,7 +71,7 @@ export class PencilTool extends BaseTool {
   }
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
-    if (this.drag.kind !== 'dragging') return;
+    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
     this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
@@ -112,6 +112,16 @@ export class PencilTool extends BaseTool {
   }
 
   override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
+    this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
+    this.currentPressure = e.pressure > 0 ? e.pressure : 0.5;
+    this.samplePoint(
+      this.drag.currentWorld,
+      this.currentPressure,
+      normalizeInputEvent(e).time,
+      ctx,
+    );
     this.stopCapture();
 
     ctx.beginTransaction();
