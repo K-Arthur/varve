@@ -500,7 +500,17 @@ export type Effect = EffectVariant & {
 export type GradientType = 'linear' | 'radial' | 'angular' | 'diamond';
 
 /** Color space for gradient stop interpolation (default: oklab). */
-export type GradientInterpolationSpace = 'srgb' | 'oklab' | 'oklch' | 'hsl';
+export type GradientInterpolationSpace = 'srgb' | 'linear-srgb' | 'oklab' | 'oklch' | 'hsl';
+
+/**
+ * Hue interpolation direction for cylindrical spaces (OKLCH, HSL).
+ * Only meaningful when GradientInterpolationSpace is cylindrical.
+ * - shorter: take the shorter arc around the hue circle (default)
+ * - longer: take the longer arc
+ * - increasing: always interpolate in the positive (CW) direction
+ * - decreasing: always interpolate in the negative (CCW) direction
+ */
+export type HueInterpolation = 'shorter' | 'longer' | 'increasing' | 'decreasing';
 
 /** How a gradient extends beyond its defined stop range. */
 export type GradientTilingMode = 'none' | 'repeat' | 'reflect';
@@ -518,6 +528,12 @@ export interface GradientFill {
   rotation?: number;
   /** Perceptually uniform interpolation space for stop blending. Default: oklab. */
   interpolationSpace?: GradientInterpolationSpace;
+  /**
+   * Hue interpolation direction for cylindrical spaces (OKLCH, HSL).
+   * Ignored for non-cylindrical spaces (sRGB, linear-srgb, OKLab).
+   * Default: 'shorter'.
+   */
+  hueInterpolation?: HueInterpolation;
   /** Full 2x3 fill transform matrix. When set, overrides rotation.
    *  Maps fill-internal [0,0]×[1,1] space to the node's local space.
    *  Backward-compat: rotation field auto-applies as rotate transform. */
@@ -1141,6 +1157,14 @@ export interface NodeBase {
   maxHeight?: number;
   /** P3: how this node is sized within its parent's auto-layout. */
   layoutSizing?: LayoutSizing;
+  /** Width sizing within a layout parent. Falls back to layoutSizing for old documents. */
+  layoutSizingWidth?: LayoutSizing;
+  /** Height sizing within a layout parent. Falls back to layoutSizing for old documents. */
+  layoutSizingHeight?: LayoutSizing;
+  /** Whether this node participates in its parent's flow layout. */
+  layoutPosition?: LayoutPosition;
+  /** Optional cross-axis alignment override for a flow child. */
+  layoutAlign?: LayoutAlign;
   /** P3: grid item placement within a grid parent. */
   gridPlacement?: GridItemPlacement;
   /** Figma-style constraints for responsive child positioning within frames. */
@@ -1382,7 +1406,7 @@ export interface LayoutStyle {
   shrink: number;
   /** F6: alignment and justification. */
   alignItems?: 'start' | 'center' | 'end' | 'stretch';
-  justifyContent?: 'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround';
+  justifyContent?: 'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly';
   /** P3: Grid template columns (e.g., "1fr 200px 1fr", "repeat(3, 1fr)"). */
   gridTemplateColumns?: string;
   /** P3: Grid template rows (e.g., "auto 1fr auto"). */
@@ -1397,6 +1421,8 @@ export interface LayoutStyle {
 
 /** How a child is sized within its parent's auto-layout. */
 export type LayoutSizing = 'fixed' | 'hug' | 'fill';
+export type LayoutPosition = 'flow' | 'absolute';
+export type LayoutAlign = 'inherit' | 'start' | 'center' | 'end' | 'stretch';
 
 /** Grid item placement (column/row start/end or span). */
 export interface GridItemPlacement {

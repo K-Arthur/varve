@@ -145,6 +145,15 @@ export interface PrivacySettingsStore {
   diagnostics: AnalyticsConsentState;
 }
 
+export interface LearningSettingsStore {
+  /** Show contextual micro-hints (tool first-use, shortcuts). */
+  showContextualTips: boolean;
+  /** Show keyboard shortcut hints in tooltips and status bar. */
+  showShortcutHints: boolean;
+  /** Automatically suggest tutorials when entering new workspaces. */
+  autoSuggestTutorials: boolean;
+}
+
 export interface EditorSettings {
   general: GeneralSettingsStore;
   export: ExportSettingsStore;
@@ -159,6 +168,7 @@ export interface EditorSettings {
   collab: CollabSettingsStore;
   ai: AiSettingsStore;
   privacy: PrivacySettingsStore;
+  learning: LearningSettingsStore;
   features: {
     /** Enable finding navigation (deep-link + inspector section jump). */
     findingsNavigation: boolean;
@@ -218,6 +228,12 @@ export const DEFAULT_AI_SETTINGS: AiSettingsStore = {
 export const DEFAULT_PRIVACY_SETTINGS: PrivacySettingsStore = {
   usageAnalytics: 'unknown',
   diagnostics: 'unknown',
+};
+
+export const DEFAULT_LEARNING_SETTINGS: LearningSettingsStore = {
+  showContextualTips: true,
+  showShortcutHints: true,
+  autoSuggestTutorials: true,
 };
 
 export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
@@ -302,6 +318,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   collab: { ...DEFAULT_COLLAB_SETTINGS },
   ai: { ...DEFAULT_AI_SETTINGS },
   privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+  learning: { ...DEFAULT_LEARNING_SETTINGS },
   features: { ...DEFAULT_FEATURES },
 };
 

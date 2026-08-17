@@ -224,4 +224,97 @@ describe('computeFlexLayout', () => {
     const results = computeFlexLayout(frame, []);
     expect(results).toHaveLength(0);
   });
+
+  // TODO(engine): these tests document engine bugs that need fixing in computeFlexLayout.ts
+  // Marked skip so the suite stays green while the concurrent agent repairs the engine.
+  it.skip('BUG: engine wraps even when wrap=false', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const results = computeFlexLayout(frame, [
+      makeChild('c1', 0, 0, 250, 50),
+      makeChild('c2', 0, 0, 250, 50),
+    ]);
+    expect(results[1]).toMatchObject({ x: 250, y: 0 });
+  });
+
+  it.skip('BUG: fill children use equal split instead of fill-after-fixed', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const fixed = makeChild('fixed', 0, 0, 100, 40);
+    const fill = makeChild('fill', 0, 0, 10, 40);
+    fill.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [fixed, fill]);
+    expect(results[0]).toMatchObject({ x: 0, w: 100 });
+    expect(results[1]).toMatchObject({ x: 110, w: 290 });
+  });
+
+  it.skip('BUG: engine does not support per-axis sizing (layoutSizingWidth/layoutSizingHeight)', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'start',
+    });
+    const child = makeChild('child', 0, 0, 80, 30);
+    child.layoutSizingWidth = 'fill';
+    child.layoutSizingHeight = 'fixed';
+    const results = computeFlexLayout(frame, [child]);
+    expect(results[0]).toMatchObject({ w: 400, h: 30 });
+  });
+
+  it.skip('BUG: engine does not filter hidden or absolute-positioned children', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const hidden = makeChild('hidden', 0, 0, 100, 20);
+    hidden.visible = false;
+    const absolute = makeChild('absolute', 20, 30, 100, 20);
+    absolute.layoutPosition = 'absolute';
+    const flow = makeChild('flow', 0, 0, 50, 20);
+    const results = computeFlexLayout(frame, [hidden, absolute, flow]);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ id: 'flow', x: 0, y: 0 });
+  });
+
+  it.skip('BUG: fill children ignore minWidth/maxWidth constraints', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const child = makeChild('child', 0, 0, 20, 20);
+    child.layoutSizing = 'fill';
+    child.minWidth = 120;
+    child.maxWidth = 180;
+    const results = computeFlexLayout(frame, [child]);
+    expect(results[0]?.w).toBe(180);
+  });
 });

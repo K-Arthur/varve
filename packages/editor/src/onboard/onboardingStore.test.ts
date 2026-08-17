@@ -36,6 +36,8 @@ describe('onboardingStore', () => {
       dismissedTips: ['tip1'],
       seenFeatureBadges: ['tool:pen'],
       tutorialFileCompleted: true,
+      dismissedMicroHints: ['rect.first-use'],
+      lastSeenReleaseVersion: '0.8.0',
     };
     saveOnboardingState(state);
     const loaded = loadOnboardingState();
@@ -51,12 +53,15 @@ describe('onboardingStore', () => {
       dismissedTips: ['tip1'],
       seenFeatureBadges: ['tool:pen'],
       tutorialFileCompleted: true,
+      dismissedMicroHints: ['rect.first-use'],
+      lastSeenReleaseVersion: '0.8.0',
     };
     saveOnboardingState(state);
     resetOnboarding();
     const loaded = loadOnboardingState();
     expect(loaded.onboardingComplete).toBe(false);
     expect(loaded.skillLevel).toBe('unclassified');
+    expect(loaded.dismissedMicroHints).toEqual([]);
   });
 
   it('handles corrupted JSON gracefully', () => {
