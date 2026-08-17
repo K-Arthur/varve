@@ -639,7 +639,23 @@ function compileImage(
   if (content.type !== 'image' || !content.image) return undefined;
 
   const img = content.image;
-  const assetInfo = emailSemantics?.assets[sourceNodeId];
+  const explicitAsset = emailSemantics?.assets[sourceNodeId];
+  const generatedAsset =
+    !explicitAsset && img.src.startsWith('data:')
+      ? {
+          sourceNodeId,
+          outputFilename: `${sourceNodeId}.${dataUrlExtension(img.src)}`,
+          hash: `fnv1a:${simpleHash(img.src)}`,
+          width: node.layout.width.value,
+          height: node.layout.height.value,
+          mimeType: dataUrlMimeType(img.src),
+          alt: img.alt || '',
+          decorative: false,
+          remoteUrl: undefined,
+          dataUrl: img.src,
+        }
+      : undefined;
+  const assetInfo = explicitAsset ?? generatedAsset;
   const src = assetInfo?.remoteUrl ?? (assetInfo ? `assets/${assetInfo.outputFilename}` : img.src);
 
   // Validate source URL
@@ -668,7 +684,7 @@ function compileImage(
       height: assetInfo.height,
       alt: assetInfo.alt || img.alt || node.name,
       remoteUrl: assetInfo.remoteUrl,
-      dataUrl: src.startsWith('data:') ? src : undefined,
+      dataUrl: assetInfo.dataUrl ?? (src.startsWith('data:') ? src : undefined),
     });
   }
 
@@ -683,6 +699,24 @@ function compileImage(
     decorative: assetInfo?.decorative ?? false,
     link,
   };
+}
+
+function dataUrlMimeType(dataUrl: string): string {
+  return /^data:([^;,]+)/i.exec(dataUrl)?.[1] ?? 'application/octet-stream';
+}
+
+function dataUrlExtension(dataUrl: string): string {
+  const mime = dataUrlMimeType(dataUrl);
+  return mime === 'image/jpeg' ? 'jpg' : (mime.split('/')[1] ?? 'bin');
+}
+
+function simpleHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
 // ── Compatibility Classification ──────────────────────────────────────────────
