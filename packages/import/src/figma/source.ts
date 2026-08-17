@@ -22,7 +22,10 @@ export interface FigmaPaint {
   opacity: number;
   blendMode?: string;
   color?: { r: number; g: number; b: number; a?: number };
-  gradientStops?: Array<{ position: number; color: { r: number; g: number; b: number; a?: number } }>;
+  gradientStops?: Array<{
+    position: number;
+    color: { r: number; g: number; b: number; a?: number };
+  }>;
   gradientHandlePositions?: FigmaPoint[];
   imageRef?: string;
   scaleMode?: string;
@@ -107,7 +110,10 @@ export interface FigmaSourceNode {
   isMask?: boolean;
   booleanOperation?: string;
   componentId?: string;
-  componentPropertyDefinitions?: Record<string, { type?: string; defaultValue?: unknown; variantOptions?: string[] }>;
+  componentPropertyDefinitions?: Record<
+    string,
+    { type?: string; defaultValue?: unknown; variantOptions?: string[] }
+  >;
   componentProperties?: Record<string, { type?: string; value?: unknown }>;
   styleRefs?: Record<string, string>;
   boundVariables?: Record<string, { id?: string } | Array<{ id?: string }>>;
@@ -204,9 +210,7 @@ function paint(value: unknown): FigmaPaint | undefined {
   const stops = recordArray(value.gradientStops)
     .map((stop) => {
       const stopColor = color(stop.color);
-      return stopColor
-        ? { position: finite(stop.position, 0), color: stopColor }
-        : undefined;
+      return stopColor ? { position: finite(stop.position, 0), color: stopColor } : undefined;
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry !== undefined);
   const handles = Array.isArray(value.gradientHandlePositions)
@@ -279,33 +283,48 @@ function textStyle(raw: JsonRecord): FigmaTextStyle {
     textCase: mapTextCase(stringValue(style.textCase)),
     textDecoration: mapTextDecoration(stringValue(style.textDecoration)),
     textResizing:
-      textResize === 'WIDTH_AND_HEIGHT' ? 'fixed' : textResize === 'HEIGHT' ? 'autoHeight' : 'autoWidth',
+      textResize === 'WIDTH_AND_HEIGHT'
+        ? 'fixed'
+        : textResize === 'HEIGHT'
+          ? 'autoHeight'
+          : 'autoWidth',
   };
 }
 
 function mapTextAlign(value: string | undefined): FigmaTextStyle['textAlign'] {
   switch (value) {
-    case 'CENTER': return 'center';
-    case 'RIGHT': return 'right';
-    case 'JUSTIFIED': return 'justify';
-    default: return 'left';
+    case 'CENTER':
+      return 'center';
+    case 'RIGHT':
+      return 'right';
+    case 'JUSTIFIED':
+      return 'justify';
+    default:
+      return 'left';
   }
 }
 
 function mapTextAlignVertical(value: string | undefined): FigmaTextStyle['textAlignVertical'] {
   switch (value) {
-    case 'CENTER': return 'middle';
-    case 'BOTTOM': return 'bottom';
-    default: return 'top';
+    case 'CENTER':
+      return 'middle';
+    case 'BOTTOM':
+      return 'bottom';
+    default:
+      return 'top';
   }
 }
 
 function mapTextCase(value: string | undefined): FigmaTextStyle['textCase'] {
   switch (value) {
-    case 'UPPER': return 'uppercase';
-    case 'LOWER': return 'lowercase';
-    case 'TITLE': return 'capitalize';
-    default: return 'none';
+    case 'UPPER':
+      return 'uppercase';
+    case 'LOWER':
+      return 'lowercase';
+    case 'TITLE':
+      return 'capitalize';
+    default:
+      return 'none';
   }
 }
 
@@ -315,16 +334,29 @@ function mapTextDecoration(value: string | undefined): FigmaTextStyle['textDecor
   return 'none';
 }
 
-function normalizeNode(raw: JsonRecord, path: string, depth: number, parent?: FigmaBounds): FigmaSourceNode {
-  if (depth > FIGMA_IMPORT_LIMITS.maxDepth) throw new Error(`Figma node depth exceeds ${FIGMA_IMPORT_LIMITS.maxDepth}`);
+function normalizeNode(
+  raw: JsonRecord,
+  path: string,
+  depth: number,
+  parent?: FigmaBounds,
+): FigmaSourceNode {
+  if (depth > FIGMA_IMPORT_LIMITS.maxDepth)
+    throw new Error(`Figma node depth exceeds ${FIGMA_IMPORT_LIMITS.maxDepth}`);
   const sourceId = stringValue(raw.id) ?? `missing:${path}`;
   const type = stringValue(raw.type) ?? 'UNKNOWN';
   const nodeBounds = bounds(raw, parent);
   const rawChildren = recordArray(raw.children);
-  const children = rawChildren.map((child, index) => normalizeNode(child, `${path}.children[${index}]`, depth + 1, nodeBounds));
+  const children = rawChildren.map((child, index) =>
+    normalizeNode(child, `${path}.children[${index}]`, depth + 1, nodeBounds),
+  );
   const rawOverrides = isRecord(raw.styleOverrideTable) ? raw.styleOverrideTable : undefined;
   const styleOverrides = rawOverrides
-    ? Object.fromEntries(Object.entries(rawOverrides).map(([key, value]) => [key, textStyle(isRecord(value) ? { style: value } : {})]))
+    ? Object.fromEntries(
+        Object.entries(rawOverrides).map(([key, value]) => [
+          key,
+          textStyle(isRecord(value) ? { style: value } : {}),
+        ]),
+      )
     : undefined;
   const node: FigmaSourceNode = {
     sourceId,
@@ -338,29 +370,47 @@ function normalizeNode(raw: JsonRecord, path: string, depth: number, parent?: Fi
     transform: affine(raw.relativeTransform),
     rotation: finite(raw.rotation, 0),
     children,
-    fills: recordArray(raw.fills).map(paint).filter((p): p is FigmaPaint => p !== undefined),
-    strokes: recordArray(raw.strokes).map(paint).filter((p): p is FigmaPaint => p !== undefined),
-    effects: recordArray(raw.effects).map(effect).filter((e): e is FigmaEffect => e !== undefined),
+    fills: recordArray(raw.fills)
+      .map(paint)
+      .filter((p): p is FigmaPaint => p !== undefined),
+    strokes: recordArray(raw.strokes)
+      .map(paint)
+      .filter((p): p is FigmaPaint => p !== undefined),
+    effects: recordArray(raw.effects)
+      .map(effect)
+      .filter((e): e is FigmaEffect => e !== undefined),
     cornerRadius: finite(raw.cornerRadius, 0),
-    rectangleCornerRadii: Array.isArray(raw.rectangleCornerRadii) && raw.rectangleCornerRadii.length === 4
-      ? raw.rectangleCornerRadii.map((v) => positive(v, 0)) as [number, number, number, number]
-      : undefined,
+    rectangleCornerRadii:
+      Array.isArray(raw.rectangleCornerRadii) && raw.rectangleCornerRadii.length === 4
+        ? (raw.rectangleCornerRadii.map((v) => positive(v, 0)) as [number, number, number, number])
+        : undefined,
     strokeWeight: finite(raw.strokeWeight, 1),
     strokeAlign: stringValue(raw.strokeAlign),
     strokeCap: stringValue(raw.strokeCap),
     strokeJoin: stringValue(raw.strokeJoin),
-    strokeDashes: Array.isArray(raw.strokeDashes) ? raw.strokeDashes.map((v) => positive(v, 0)) : undefined,
+    strokeDashes: Array.isArray(raw.strokeDashes)
+      ? raw.strokeDashes.map((v) => positive(v, 0))
+      : undefined,
     miterLimit: finite(raw.strokeMiterAngle, 4),
     fillGeometry: recordArray(raw.fillGeometry)
-      .map((geometry) => ({ path: stringValue(geometry.path) ?? '', windingRule: stringValue(geometry.windingRule) }))
+      .map((geometry) => ({
+        path: stringValue(geometry.path) ?? '',
+        windingRule: stringValue(geometry.windingRule),
+      }))
       .filter((geometry) => geometry.path.length > 0),
-    text: typeof raw.characters === 'string' ? raw.characters.slice(0, FIGMA_IMPORT_LIMITS.maxTextLength) : undefined,
+    text:
+      typeof raw.characters === 'string'
+        ? raw.characters.slice(0, FIGMA_IMPORT_LIMITS.maxTextLength)
+        : undefined,
     textStyle: type === 'TEXT' ? textStyle(raw) : undefined,
     styleOverrideTable: styleOverrides,
     characterStyleOverrides: Array.isArray(raw.characterStyleOverrides)
-      ? raw.characterStyleOverrides.map((value) => (typeof value === 'number' && Number.isInteger(value) ? value : 0))
+      ? raw.characterStyleOverrides.map((value) =>
+          typeof value === 'number' && Number.isInteger(value) ? value : 0,
+        )
       : undefined,
-    layoutMode: raw.layoutMode === 'HORIZONTAL' || raw.layoutMode === 'VERTICAL' ? raw.layoutMode : 'NONE',
+    layoutMode:
+      raw.layoutMode === 'HORIZONTAL' || raw.layoutMode === 'VERTICAL' ? raw.layoutMode : 'NONE',
     layoutWrap: raw.layoutWrap === 'WRAP' ? 'WRAP' : 'NO_WRAP',
     itemSpacing: finite(raw.itemSpacing, 0),
     counterAxisSpacing: finite(raw.counterAxisSpacing, 0),
@@ -378,28 +428,57 @@ function normalizeNode(raw: JsonRecord, path: string, depth: number, parent?: Fi
     layoutAlign: stringValue(raw.layoutAlign),
     layoutPositioning: stringValue(raw.layoutPositioning),
     constraints: isRecord(raw.constraints)
-      ? { horizontal: stringValue(raw.constraints.horizontal), vertical: stringValue(raw.constraints.vertical) }
+      ? {
+          horizontal: stringValue(raw.constraints.horizontal),
+          vertical: stringValue(raw.constraints.vertical),
+        }
       : undefined,
     isMask: raw.isMask === true,
     booleanOperation: stringValue(raw.booleanOperation),
     componentId: stringValue(raw.componentId),
     componentPropertyDefinitions: isRecord(raw.componentPropertyDefinitions)
-      ? Object.fromEntries(Object.entries(raw.componentPropertyDefinitions).map(([key, value]) => {
-          const record = isRecord(value) ? value : {};
-          return [key, { type: stringValue(record.type), defaultValue: record.defaultValue, variantOptions: Array.isArray(record.variantOptions) ? record.variantOptions.filter((v): v is string => typeof v === 'string') : undefined }];
-        }))
+      ? Object.fromEntries(
+          Object.entries(raw.componentPropertyDefinitions).map(([key, value]) => {
+            const record = isRecord(value) ? value : {};
+            return [
+              key,
+              {
+                type: stringValue(record.type),
+                defaultValue: record.defaultValue,
+                variantOptions: Array.isArray(record.variantOptions)
+                  ? record.variantOptions.filter((v): v is string => typeof v === 'string')
+                  : undefined,
+              },
+            ];
+          }),
+        )
       : undefined,
     componentProperties: isRecord(raw.componentProperties)
-      ? Object.fromEntries(Object.entries(raw.componentProperties).map(([key, value]) => {
-          const record = isRecord(value) ? value : {};
-          return [key, { type: stringValue(record.type), value: record.value }];
-        }))
+      ? Object.fromEntries(
+          Object.entries(raw.componentProperties).map(([key, value]) => {
+            const record = isRecord(value) ? value : {};
+            return [key, { type: stringValue(record.type), value: record.value }];
+          }),
+        )
       : undefined,
     styleRefs: isRecord(raw.styles)
-      ? Object.fromEntries(Object.entries(raw.styles).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
+      ? Object.fromEntries(
+          Object.entries(raw.styles).filter(
+            (entry): entry is [string, string] => typeof entry[1] === 'string',
+          ),
+        )
       : undefined,
     boundVariables: isRecord(raw.boundVariables)
-      ? Object.fromEntries(Object.entries(raw.boundVariables).map(([key, value]) => [key, Array.isArray(value) ? value.filter(isRecord).map((v) => ({ id: stringValue(v.id) })) : isRecord(value) ? { id: stringValue(value.id) } : {}]))
+      ? Object.fromEntries(
+          Object.entries(raw.boundVariables).map(([key, value]) => [
+            key,
+            Array.isArray(value)
+              ? value.filter(isRecord).map((v) => ({ id: stringValue(v.id) }))
+              : isRecord(value)
+                ? { id: stringValue(value.id) }
+                : {},
+          ]),
+        )
       : undefined,
     reactions: recordArray(raw.reactions),
   };
@@ -412,7 +491,8 @@ function collectNodes(node: FigmaSourceNode, output: FigmaSourceNode[]): void {
 }
 
 function parseJson(data: string | Uint8Array): unknown {
-  const text = typeof data === 'string' ? data : new TextDecoder('utf-8', { fatal: true }).decode(data);
+  const text =
+    typeof data === 'string' ? data : new TextDecoder('utf-8', { fatal: true }).decode(data);
   if (new TextEncoder().encode(text).byteLength > FIGMA_IMPORT_LIMITS.maxBytes) {
     throw new Error(`Figma JSON exceeds the ${FIGMA_IMPORT_LIMITS.maxBytes} byte limit`);
   }
@@ -429,11 +509,16 @@ function rootPayload(value: unknown): JsonRecord {
 
 function parseImages(value: unknown): FigmaSourceDocument['images'] {
   if (!isRecord(value)) return {};
-  return Object.fromEntries(Object.entries(value).flatMap(([key, raw]) => {
-    if (typeof raw === 'string' && raw.startsWith('data:')) return [[key, { dataUrl: raw }]];
-    if (!isRecord(raw) || typeof raw.dataUrl !== 'string' || !raw.dataUrl.startsWith('data:')) return [];
-    return [[key, { dataUrl: raw.dataUrl, width: finite(raw.width, 0), height: finite(raw.height, 0) }]];
-  }));
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([key, raw]) => {
+      if (typeof raw === 'string' && raw.startsWith('data:')) return [[key, { dataUrl: raw }]];
+      if (!isRecord(raw) || typeof raw.dataUrl !== 'string' || !raw.dataUrl.startsWith('data:'))
+        return [];
+      return [
+        [key, { dataUrl: raw.dataUrl, width: finite(raw.width, 0), height: finite(raw.height, 0) }],
+      ];
+    }),
+  );
 }
 
 function parseVariables(value: unknown): FigmaSourceVariable[] {
@@ -443,28 +528,41 @@ function parseVariables(value: unknown): FigmaSourceVariable[] {
     const type = raw.type;
     if (type !== 'COLOR' && type !== 'FLOAT' && type !== 'STRING' && type !== 'BOOLEAN') return [];
     const values = isRecord(raw.valuesByMode) ? raw.valuesByMode : {};
-    return [{
-      sourceId: id,
-      name: stringValue(raw.name) ?? id,
-      type: type === 'COLOR' ? 'color' : type === 'FLOAT' ? 'number' : type === 'STRING' ? 'string' : 'boolean',
-      valuesByMode: values,
-      collectionId: stringValue(raw.variableCollectionId),
-      collectionName: stringValue(raw.collectionName),
-      modes: Array.isArray(raw.modes) ? raw.modes.filter((v): v is string => typeof v === 'string') : ['default'],
-      activeMode: stringValue(raw.activeMode) ?? 'default',
-    } satisfies FigmaSourceVariable];
+    return [
+      {
+        sourceId: id,
+        name: stringValue(raw.name) ?? id,
+        type:
+          type === 'COLOR'
+            ? 'color'
+            : type === 'FLOAT'
+              ? 'number'
+              : type === 'STRING'
+                ? 'string'
+                : 'boolean',
+        valuesByMode: values,
+        collectionId: stringValue(raw.variableCollectionId),
+        collectionName: stringValue(raw.collectionName),
+        modes: Array.isArray(raw.modes)
+          ? raw.modes.filter((v): v is string => typeof v === 'string')
+          : ['default'],
+        activeMode: stringValue(raw.activeMode) ?? 'default',
+      } satisfies FigmaSourceVariable,
+    ];
   });
 }
 
 export function decodeFigmaSource(data: string | Uint8Array): FigmaSourceDocument {
   const payload = rootPayload(parseJson(data));
   const document = payload.document;
-  if (!isRecord(document) || document.type !== 'DOCUMENT') throw new Error('Figma source document node is invalid');
+  if (!isRecord(document) || document.type !== 'DOCUMENT')
+    throw new Error('Figma source document node is invalid');
   const warnings: string[] = [];
   const unsupportedFeatures: string[] = [];
   const pages = recordArray(document.children).map((page, index) => {
     const pageNode = normalizeNode(page, `document.children[${index}]`, 0);
-    if (pageNode.type !== 'CANVAS') warnings.push(`Top-level Figma node ${pageNode.type} was treated as a page`);
+    if (pageNode.type !== 'CANVAS')
+      warnings.push(`Top-level Figma node ${pageNode.type} was treated as a page`);
     return {
       sourceId: pageNode.sourceId,
       name: pageNode.name,
@@ -474,18 +572,51 @@ export function decodeFigmaSource(data: string | Uint8Array): FigmaSourceDocumen
   });
   const allNodes: FigmaSourceNode[] = [];
   for (const page of pages) for (const child of page.children) collectNodes(child, allNodes);
-  if (allNodes.length > FIGMA_IMPORT_LIMITS.maxNodes) throw new Error(`Figma source exceeds the ${FIGMA_IMPORT_LIMITS.maxNodes} node limit`);
+  if (allNodes.length > FIGMA_IMPORT_LIMITS.maxNodes)
+    throw new Error(`Figma source exceeds the ${FIGMA_IMPORT_LIMITS.maxNodes} node limit`);
   const components = isRecord(payload.components)
-    ? Object.entries(payload.components).map(([sourceId, raw]) => ({ sourceId, name: isRecord(raw) ? stringValue(raw.name) ?? sourceId : sourceId, componentSetId: isRecord(raw) ? stringValue(raw.componentSetId) : undefined }))
+    ? Object.entries(payload.components).map(([sourceId, raw]) => ({
+        sourceId,
+        name: isRecord(raw) ? (stringValue(raw.name) ?? sourceId) : sourceId,
+        componentSetId: isRecord(raw) ? stringValue(raw.componentSetId) : undefined,
+      }))
     : [];
   const styles = isRecord(payload.styles)
-    ? Object.entries(payload.styles).map(([sourceId, raw]) => ({ sourceId, name: isRecord(raw) ? stringValue(raw.name) ?? sourceId : sourceId, type: isRecord(raw) ? stringValue(raw.styleType) ?? 'UNKNOWN' : 'UNKNOWN', description: isRecord(raw) ? stringValue(raw.description) : undefined }))
+    ? Object.entries(payload.styles).map(([sourceId, raw]) => ({
+        sourceId,
+        name: isRecord(raw) ? (stringValue(raw.name) ?? sourceId) : sourceId,
+        type: isRecord(raw) ? (stringValue(raw.styleType) ?? 'UNKNOWN') : 'UNKNOWN',
+        description: isRecord(raw) ? stringValue(raw.description) : undefined,
+      }))
     : [];
   for (const node of allNodes) {
-    if (node.type === 'BOOLEAN_OPERATION') unsupportedFeatures.push(`Boolean operation "${node.name}" was preserved as editable children, not a native boolean node`);
-    if (node.type === 'VECTOR' && (node.fillGeometry?.length ?? 0) === 0) unsupportedFeatures.push(`Vector "${node.name}" did not include geometry=paths data and was imported as a bounds placeholder`);
-    if (node.fills.some((fill) => fill.type === 'IMAGE' && fill.imageRef && !parseImages(payload.images)[fill.imageRef])) unsupportedFeatures.push(`Image paint on "${node.name}" needs the Figma image-fills endpoint or embedded plugin data`);
-    if (node.effects.some((entry) => entry.type !== 'DROP_SHADOW' && entry.type !== 'INNER_SHADOW' && entry.type !== 'LAYER_BLUR' && entry.type !== 'BACKGROUND_BLUR')) unsupportedFeatures.push(`Unsupported effect on "${node.name}" was omitted`);
+    if (node.type === 'BOOLEAN_OPERATION')
+      unsupportedFeatures.push(
+        `Boolean operation "${node.name}" was preserved as editable children, not a native boolean node`,
+      );
+    if (node.type === 'VECTOR' && (node.fillGeometry?.length ?? 0) === 0)
+      unsupportedFeatures.push(
+        `Vector "${node.name}" did not include geometry=paths data and was imported as a bounds placeholder`,
+      );
+    if (
+      node.fills.some(
+        (fill) =>
+          fill.type === 'IMAGE' && fill.imageRef && !parseImages(payload.images)[fill.imageRef],
+      )
+    )
+      unsupportedFeatures.push(
+        `Image paint on "${node.name}" needs the Figma image-fills endpoint or embedded plugin data`,
+      );
+    if (
+      node.effects.some(
+        (entry) =>
+          entry.type !== 'DROP_SHADOW' &&
+          entry.type !== 'INNER_SHADOW' &&
+          entry.type !== 'LAYER_BLUR' &&
+          entry.type !== 'BACKGROUND_BLUR',
+      )
+    )
+      unsupportedFeatures.push(`Unsupported effect on "${node.name}" was omitted`);
   }
   return {
     name: stringValue(payload.name) ?? 'Imported Figma file',
