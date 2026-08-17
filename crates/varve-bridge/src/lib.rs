@@ -240,6 +240,8 @@ impl IpcEngineFill {
                 gradient_type: gradient.gradient_type,
                 stops: gradient.stops,
                 rotation: gradient.rotation.unwrap_or(0.0),
+                interpolation_space: gradient.interpolation_space,
+                hue_interpolation: gradient.hue_interpolation,
                 transform: gradient.transform,
                 tiling_mode: gradient.tiling_mode,
                 opacity,

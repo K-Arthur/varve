@@ -12,6 +12,7 @@
  * handled internally via context scaling.
  */
 
+import type { BlendEvaluationSpace } from '@varve/shared';
 import { blendModeDefinition, type CanvasBlendOperation } from './blendModeCatalog';
 import { blendPixels as blendPixelsCanonical } from './blendModes';
 import { gaussianBlurLinearLight } from './blur';
@@ -137,8 +138,20 @@ export class CompositeCanvas {
     opacity: number,
     dx = 0,
     dy = 0,
+    evaluationSpace: BlendEvaluationSpace = 'legacy-srgb',
   ): void {
     const ctx = this.ctx;
+    if (evaluationSpace === 'linear-srgb') {
+      const width = Math.min(source.width, this.width - dx);
+      const height = Math.min(source.height, this.height - dy);
+      if (width > 0 && height > 0) {
+        const backdrop = this.getImageData(dx, dy, width, height);
+        const pixels = source.getImageData(0, 0, width, height);
+        const result = blendPixelsCanonical(backdrop, pixels, blendMode, opacity, evaluationSpace);
+        this.putImageData(result, dx, dy);
+        return;
+      }
+    }
     const operation = mapBlendMode(blendMode);
     ctx.save();
     try {
@@ -214,6 +227,7 @@ export function blendPixels(
   source: ImageData,
   blendMode: string,
   opacity: number,
+  evaluationSpace: BlendEvaluationSpace = 'legacy-srgb',
 ): ImageData {
-  return blendPixelsCanonical(backdrop, source, blendMode, opacity);
+  return blendPixelsCanonical(backdrop, source, blendMode, opacity, evaluationSpace);
 }

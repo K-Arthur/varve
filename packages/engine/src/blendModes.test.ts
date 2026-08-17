@@ -390,12 +390,12 @@ describe('blend (unified)', () => {
 
 // ── Linear-light blending (physically correct) ───────────────────────────────
 
-describe('blend (linearize)', () => {
+describe('blend evaluation space', () => {
   it('multiply in linear space differs from gamma space', () => {
     // sRGB 0.5 × 0.5 in gamma = 0.25
     // sRGB 0.5 → linear ~0.214, × = 0.0458, → sRGB ~0.237
-    const gamma = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'multiply', 1, false);
-    const linear = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'multiply', 1, true);
+    const gamma = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'multiply', 1, 'legacy-srgb');
+    const linear = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'multiply', 1, 'linear-srgb');
     // Linear multiply is darker than gamma multiply (0.237 < 0.25)
     expect(linear[0]).toBeLessThan(gamma[0]);
     expect(linear[0]).toBeCloseTo(0.237, 2);
@@ -404,8 +404,8 @@ describe('blend (linearize)', () => {
   it('screen in linear space differs from gamma space', () => {
     // Gamma screen of 0.5,0.5 = 1 - 0.5*0.5 = 0.75
     // Linear: sRGB 0.5 → lin 0.214, screen = 1-(1-0.214)^2 = 0.382, → sRGB 0.652
-    const gamma = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'screen', 1, false);
-    const linear = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'screen', 1, true);
+    const gamma = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'screen', 1, 'legacy-srgb');
+    const linear = blend([0.5, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 1], 'screen', 1, 'linear-srgb');
     // Linear screen is darker than gamma screen for midtones (0.652 < 0.75)
     expect(linear[0]).toBeLessThan(gamma[0]);
     expect(linear[0]).toBeCloseTo(0.652, 2);
@@ -413,8 +413,8 @@ describe('blend (linearize)', () => {
 
   it('linear light normal mode produces same result as gamma (normal is identity)', () => {
     // Normal mode ignores backdrop; linearize shouldn't change it
-    const gamma = blend([0.2, 0.4, 0.6, 1], [0.8, 0.3, 0.1, 1], 'normal', 1, false);
-    const linear = blend([0.2, 0.4, 0.6, 1], [0.8, 0.3, 0.1, 1], 'normal', 1, true);
+    const gamma = blend([0.2, 0.4, 0.6, 1], [0.8, 0.3, 0.1, 1], 'normal', 1, 'legacy-srgb');
+    const linear = blend([0.2, 0.4, 0.6, 1], [0.8, 0.3, 0.1, 1], 'normal', 1, 'linear-srgb');
     expect(linear[0]).toBeCloseTo(gamma[0], 10);
     expect(linear[1]).toBeCloseTo(gamma[1], 10);
     expect(linear[2]).toBeCloseTo(gamma[2], 10);
@@ -422,7 +422,7 @@ describe('blend (linearize)', () => {
 
   it('linear multiply of black backdrop remains black', () => {
     // Multiply with black (0) in any space = 0
-    const linear = blend([0, 0, 0, 1], [0.8, 0.3, 0.1, 1], 'multiply', 1, true);
+    const linear = blend([0, 0, 0, 1], [0.8, 0.3, 0.1, 1], 'multiply', 1, 'linear-srgb');
     expect(linear[0]).toBe(0);
     expect(linear[1]).toBe(0);
     expect(linear[2]).toBe(0);
@@ -432,23 +432,29 @@ describe('blend (linearize)', () => {
     // Multiply with white (1) in any space = source. The linearize path
     // decodes source to linear, multiplies by backdrop-linear (1), and
     // re-encodes — net result is the original source value.
-    const linear = blend([1, 1, 1, 1], [0.3, 0.6, 0.9, 1], 'multiply', 1, true);
+    const linear = blend([1, 1, 1, 1], [0.3, 0.6, 0.9, 1], 'multiply', 1, 'linear-srgb');
     expect(linear[0]).toBeCloseTo(0.3, 1);
     expect(linear[1]).toBeCloseTo(0.6, 1);
     expect(linear[2]).toBeCloseTo(0.9, 1);
   });
 
   it('preserves alpha in linear mode', () => {
-    const linear = blend([0.5, 0.5, 0.5, 0.8], [0.5, 0.5, 0.5, 0.4], 'multiply', 1, true);
+    const linear = blend([0.5, 0.5, 0.5, 0.8], [0.5, 0.5, 0.5, 0.4], 'multiply', 1, 'linear-srgb');
     // ao = sa + ba * (1 - sa) = 0.4 + 0.8 * 0.6 = 0.88
     expect(linear[3]).toBeCloseTo(0.88, 5);
   });
 
-  it('linearize defaults to false (backward compat)', () => {
+  it('legacy encoded sRGB is the default (backward compat)', () => {
     // Same inputs, explicit false should match no-arg call
     const default_ = blend([0.5, 0.3, 0.7, 1], [0.2, 0.8, 0.4, 1], 'multiply', 1);
-    const explicit = blend([0.5, 0.3, 0.7, 1], [0.2, 0.8, 0.4, 1], 'multiply', 1, false);
+    const explicit = blend([0.5, 0.3, 0.7, 1], [0.2, 0.8, 0.4, 1], 'multiply', 1, 'legacy-srgb');
     expect(explicit).toEqual(default_);
+  });
+
+  it('keeps non-separable W3C modes encoded when linear is requested', () => {
+    const legacy = blend([0.2, 0.4, 0.6, 1], [0.8, 0.3, 0.1, 1], 'hue', 1, 'legacy-srgb');
+    const requestedLinear = blend([0.2, 0.4, 0.6, 1], [0.8, 0.3, 0.1, 1], 'hue', 1, 'linear-srgb');
+    expect(requestedLinear).toEqual(legacy);
   });
 });
 
