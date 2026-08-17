@@ -14,10 +14,12 @@
 
 import type {
   EmailDocumentIr,
+  EmailIrLink,
   EmailIrNode,
   EmailIrTextRun,
   EmailIrWarning,
 } from './email-ir-types';
+import { sanitizeEmailCss, sanitizeEmailHtml, validateEmailUrl } from './email-security';
 
 // ── Options ───────────────────────────────────────────────────────────────────
 
@@ -50,6 +52,9 @@ export interface EmailHtmlExportResult {
 
   /** Emission warnings. */
   warnings: EmailIrWarning[];
+
+  /** Plain-text fallback generated from the same Email IR. */
+  plainText: string;
 }
 
 // ── Main Emitter ──────────────────────────────────────────────────────────────
@@ -63,11 +68,23 @@ export function emitEmailHtml(
   const assets: string[] = [];
 
   const settings = ir.settings;
+  const resolvedOptions = { ...opts, assetBaseUrl: opts.assetBaseUrl ?? settings.assetBaseUrl };
+  const sanitizedCss = settings.customCss
+    ? sanitizeEmailCss(settings.customCss)
+    : { css: '', removed: [] as string[] };
+  for (const removed of sanitizedCss.removed) {
+    warnings.push({
+      severity: 'warning',
+      code: 'UNSAFE_CUSTOM_CSS',
+      message: `Removed unsafe custom CSS construct: ${removed}.`,
+      category: 'security',
+    });
+  }
 
   // Emit body content
   const bodyParts: string[] = [];
   for (const node of ir.nodes) {
-    const html = emitNode(node, indent, 0, opts, warnings, assets);
+    const html = emitNode(node, indent, 0, resolvedOptions, warnings, assets);
     if (html) bodyParts.push(html);
   }
 
@@ -76,6 +93,14 @@ export function emitEmailHtml(
     opts.includeResponsive !== false
       ? buildResponsiveCss(ir, settings.mobileBreakpoint, indent)
       : '';
+  const css = [
+    buildResetCss(indent),
+    buildBaseCss(settings, indent),
+    responsiveCss,
+    sanitizedCss.css,
+  ]
+    .filter(Boolean)
+    .join('\n');
 
   // Build MSO conditionals
   const msoHead =
@@ -104,10 +129,7 @@ export function emitEmailHtml(
   ${msoHead}
   <![endif]-->
   <style type="text/css">
-    ${buildResetCss(indent)}
-    ${buildBaseCss(settings, indent)}
-    ${responsiveCss}
-    ${settings.customCss ?? ''}
+    ${css}
   </style>
 </head>
 <body style="margin: 0; padding: 0; ${settings.bodyBackground ? `background-color: ${escapeHtml(settings.bodyBackground)};` : ''} -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
@@ -121,7 +143,7 @@ export function emitEmailHtml(
           <tr>
           <td>
           <![endif]-->
-          <div style="max-width: ${settings.contentWidth}px; margin: 0 auto; ${settings.contentBackground ? `background-color: ${escapeHtml(settings.contentBackground)};` : ''}">
+          <div class="email-container" style="max-width: ${settings.contentWidth}px; margin: 0 auto; ${settings.contentBackground ? `background-color: ${escapeHtml(settings.contentBackground)};` : ''}">
             ${bodyParts.join(`\n${indent}`)}
           </div>
           <!--[if mso]>
@@ -138,9 +160,10 @@ export function emitEmailHtml(
 
   return {
     html,
-    css: '',
-    assets,
+    css,
+    assets: [...new Set(assets)].sort(),
     warnings,
+    plainText: ir.plainText,
   };
 }
 
@@ -157,14 +180,6 @@ function emitNode(
   const pad = indent.repeat(depth);
   const innerPad = indent.repeat(depth + 1);
 
-  // Skip hidden nodes
-  if (node.hideOnMobile || node.hideOnDesktop) {
-    const msoHidden = node.hideOnMobile
-      ? `<!--[if mso]><tr><![endif]-->`
-      : `<!--[if !mso]><!--><tr style="display:none;" aria-hidden="true"><!--<![endif]-->`;
-    return msoHidden;
-  }
-
   // Raster fallback
   if (
     node.rasterFallback &&
@@ -173,7 +188,8 @@ function emitNode(
     assets.push(node.rasterFallback);
     const imgTag = `<img src="${escapeHtml(node.rasterFallback)}" alt="${escapeHtml(node.alt ?? node.name)}" width="${node.width ?? '100'}" style="display: block; max-width: 100%; ${buildInlineStyles(node.styles)}" />`;
     if (node.link) {
-      return `${pad}<a href="${escapeAttr(escapeUrl(node.link.url, node.link.kind))}"${node.link.target ? ` target="${escapeHtml(node.link.target)}"` : ''} style="text-decoration: none;">\n${innerPad}${imgTag}\n${pad}</a>`;
+      const href = safeLinkOpen(node.link, warnings, node.sourceNodeId, 'raster');
+      return href ? `${pad}${href}\n${innerPad}${imgTag}\n${pad}</a>` : `${pad}${imgTag}`;
     }
     return `${pad}${imgTag}`;
   }
@@ -208,7 +224,7 @@ function emitHeading(
   indent: string,
   depth: number,
   _opts: EmailHtmlExportOptions,
-  _warnings: EmailIrWarning[],
+  warnings: EmailIrWarning[],
   _assets: string[],
 ): string {
   const pad = indent.repeat(depth);
@@ -217,12 +233,10 @@ function emitHeading(
   const styles = buildInlineStyles(node.styles);
   const content = node.content?.text ?? node.name;
 
-  const linkOpen = node.link
-    ? `<a href="${escapeAttr(escapeUrl(node.link.url, node.link.kind))}"${node.link.target ? ` target="${escapeHtml(node.link.target)}"` : ''} style="text-decoration: none; color: inherit;">`
-    : '';
-  const linkClose = node.link ? '</a>' : '';
+  const linkOpen = safeLinkOpen(node.link, warnings, node.sourceNodeId, 'heading');
+  const linkClose = linkOpen ? '</a>' : '';
 
-  return `${pad}<${tag} style="${styles}">${linkOpen}${escapeHtml(content)}${linkClose}</${tag}>`;
+  return `${pad}<${tag}${mobileClass(node)}${providerAttributes(node)} style="${styles}">${linkOpen}${escapeHtml(content)}${linkClose}</${tag}>`;
 }
 
 function emitText(
@@ -230,7 +244,7 @@ function emitText(
   indent: string,
   depth: number,
   _opts: EmailHtmlExportOptions,
-  _warnings: EmailIrWarning[],
+  warnings: EmailIrWarning[],
   _assets: string[],
 ): string {
   const pad = indent.repeat(depth);
@@ -238,11 +252,16 @@ function emitText(
 
   if (node.content?.runs && node.content.runs.length > 0) {
     const runsHtml = node.content.runs.map((run) => emitTextRun(run)).join('');
-    return `${pad}<p style="${styles}">${runsHtml}</p>`;
+    const nodeLink =
+      node.link && !node.content.runs.some((run) => run.link)
+        ? safeLinkOpen(node.link, warnings, node.sourceNodeId, 'text')
+        : '';
+    return `${pad}<p${mobileClass(node)}${providerAttributes(node)} style="${styles}">${nodeLink}${runsHtml}${nodeLink ? '</a>' : ''}</p>`;
   }
 
   const text = node.content?.text ?? '';
-  return `${pad}<p style="${styles}">${escapeHtml(text)}</p>`;
+  const nodeLink = safeLinkOpen(node.link, warnings, node.sourceNodeId, 'text');
+  return `${pad}<p${mobileClass(node)}${providerAttributes(node)} style="${styles}">${nodeLink}${escapeHtml(text)}${nodeLink ? '</a>' : ''}</p>`;
 }
 
 function emitTextRun(run: EmailIrTextRun): string {
@@ -250,8 +269,9 @@ function emitTextRun(run: EmailIrTextRun): string {
   const text = escapeHtml(run.text);
 
   if (run.link) {
-    const href = escapeAttr(escapeUrl(run.link.url, run.link.kind));
-    return `<a href="${href}"${run.link.target ? ` target="${escapeHtml(run.link.target)}"` : ''} style="${styles}; text-decoration: underline; color: inherit;">${text}</a>`;
+    const result = validateEmailUrl(run.link);
+    if (!result.valid) return text;
+    return `<a href="${escapeAttr(result.value)}"${run.link.target ? ` target="${escapeHtml(run.link.target)}"` : ''}${run.link.title ? ` title="${escapeHtml(run.link.title)}"` : ''} style="${styles}; text-decoration: underline; color: inherit;">${text}</a>`;
   }
 
   if (styles) {
@@ -265,7 +285,7 @@ function emitImage(
   indent: string,
   depth: number,
   _opts: EmailHtmlExportOptions,
-  _warnings: EmailIrWarning[],
+  warnings: EmailIrWarning[],
   assets: string[],
 ): string {
   const pad = indent.repeat(depth);
@@ -275,7 +295,7 @@ function emitImage(
   const src = resolveAssetUrl(img.src, _opts.assetBaseUrl);
   if (src) assets.push(src);
 
-  const alt = escapeHtml(img.alt || node.alt || node.name);
+  const alt = escapeHtml(img.decorative ? '' : img.alt || node.alt || '');
   const width = img.width ? ` width="${img.width}"` : '';
   const styles = buildInlineStyles({
     ...node.styles,
@@ -284,12 +304,14 @@ function emitImage(
     'max-width': '100%',
   });
 
-  const imgTag = `<img src="${escapeHtml(src)}" alt="${alt}"${width} style="${styles}" />`;
+  const imgTag = `<img${providerAttributes(node)} src="${escapeHtml(src)}" alt="${alt}"${width} style="${styles}" />`;
 
   if (img.link || node.link) {
     const link = img.link ?? node.link!;
-    const href = escapeAttr(escapeUrl(link.url, link.kind));
-    return `${pad}<a href="${href}"${link.target ? ` target="${escapeHtml(link.target)}"` : ''} style="text-decoration: none;">\n${indent.repeat(depth + 1)}${imgTag}\n${pad}</a>`;
+    const href = safeLinkOpen(link, warnings, node.sourceNodeId, 'image');
+    return href
+      ? `${pad}${href}\n${indent.repeat(depth + 1)}${imgTag}\n${pad}</a>`
+      : `${pad}${imgTag}`;
   }
 
   return `${pad}${imgTag}`;
@@ -300,7 +322,7 @@ function emitButton(
   indent: string,
   depth: number,
   _opts: EmailHtmlExportOptions,
-  _warnings: EmailIrWarning[],
+  warnings: EmailIrWarning[],
   _assets: string[],
 ): string {
   const pad = indent.repeat(depth);
@@ -318,17 +340,18 @@ function emitButton(
   const cellStyle = `background-color: ${escapeHtml(bgColor)}; color: ${escapeHtml(textColor)}; padding: ${escapeHtml(padding)}; text-align: center; font-weight: bold; text-decoration: none; display: inline-block; ${borderRadius ? `border-radius: ${borderRadius};` : ''}`;
 
   if (link) {
-    const href = escapeAttr(escapeUrl(link.url, link.kind));
-    return `${pad}<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${tableStyle}">
+    const href = safeLinkOpen(link, warnings, node.sourceNodeId, 'button');
+    if (!href) return `${pad}<span style="${cellStyle}">${escapeHtml(text)}</span>`;
+    return `${pad}<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" style="${tableStyle}">
 ${innerPad}<tr>
 ${innerPad}${indent}<td align="center" role="button" style="${cellStyle}">
-${innerPad}${indent}${indent}<a href="${href}"${link.target ? ` target="${escapeHtml(link.target)}"` : ''} style="color: ${escapeHtml(textColor)}; text-decoration: none; display: inline-block; padding: ${escapeHtml(padding)}; font-weight: bold;">${escapeHtml(text)}</a>
+${innerPad}${indent}${indent}${href.slice(0, -1)} style="color: ${escapeHtml(textColor)}; text-decoration: none; display: inline-block; padding: ${escapeHtml(padding)}; font-weight: bold;">${escapeHtml(text)}</a>
 ${innerPad}${indent}</td>
 ${innerPad}</tr>
 ${pad}</table>`;
   }
 
-  return `${pad}<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="${tableStyle}">
+  return `${pad}<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" style="${tableStyle}">
 ${innerPad}<tr>
 ${innerPad}${indent}<td align="center" role="button" style="${cellStyle}">
 ${innerPad}${indent}${indent}<span style="color: ${escapeHtml(textColor)}; text-decoration: none;">${escapeHtml(text)}</span>
@@ -364,37 +387,17 @@ function emitCustomHtml(
 
   if (!html) return '';
 
-  // Basic safety check — warn about dangerous constructs
-  if (/<script/i.test(html)) {
+  const sanitized = sanitizeEmailHtml(html);
+  for (const removed of sanitized.removed) {
     warnings.push({
-      severity: 'error',
-      code: 'SCRIPT_IN_CUSTOM_HTML',
-      message: 'Custom HTML block contains <script> tag which will be stripped for email safety',
+      severity: 'warning',
+      code: 'UNSAFE_CUSTOM_HTML',
+      message: `Removed unsupported custom HTML construct: ${removed}.`,
       sourceNodeId: node.sourceNodeId,
       category: 'security',
     });
   }
-
-  if (/javascript:/i.test(html)) {
-    warnings.push({
-      severity: 'error',
-      code: 'JS_URL_IN_CUSTOM_HTML',
-      message: 'Custom HTML block contains javascript: URL which will be stripped',
-      sourceNodeId: node.sourceNodeId,
-      category: 'security',
-    });
-  }
-
-  // Strip dangerous constructs
-  const safeHtml = html
-    .replace(
-      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-      '<!-- script removed for email safety -->',
-    )
-    .replace(/javascript:[^"'\s]*/gi, '#')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '');
-
-  return `${pad}<!-- Custom HTML Block -->\n${pad}${safeHtml}\n${pad}<!-- End Custom HTML Block -->`;
+  return `${pad}${sanitized.html}`;
 }
 
 function emitPreheader(
@@ -418,13 +421,17 @@ function emitContainer(
   assets: string[],
 ): string {
   const pad = indent.repeat(depth);
+  const innerPad = indent.repeat(depth + 1);
   const styles = buildInlineStyles(node.styles);
 
   const childrenHtml = node.children
     .map((child) => emitNode(child, indent, depth + 1, opts, warnings, assets))
     .join('\n');
 
-  return `${pad}<div style="${styles}">\n${childrenHtml}\n${pad}</div>`;
+  if (node.compatibility === 'converted' && node.children.length > 0) {
+    return `${pad}<table${providerAttributes(node)} role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; ${styles}">\n${innerPad}<tr>\n${innerPad}${indent}<td valign="top" style="${styles}">\n${childrenHtml}\n${innerPad}${indent}</td>\n${innerPad}</tr>\n${pad}</table>`;
+  }
+  return `${pad}<div${mobileClass(node)} style="${styles}">\n${childrenHtml}\n${pad}</div>`;
 }
 
 // ── CSS Builders ──────────────────────────────────────────────────────────────
@@ -529,18 +536,40 @@ function escapeAttr(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
-function escapeUrl(url: string, kind: string): string {
-  // Only allow safe protocols
-  if (kind === 'email') return `mailto:${url.replace(/^mailto:/i, '')}`;
-  if (kind === 'tel') return `tel:${url.replace(/^tel:/i, '')}`;
-  if (kind === 'anchor') return url;
+function safeLinkOpen(
+  link: EmailIrLink | undefined,
+  warnings: EmailIrWarning[],
+  sourceNodeId: string | undefined,
+  context: string,
+): string {
+  if (!link) return '';
+  const result = validateEmailUrl(link);
+  if (!result.valid) {
+    warnings.push({
+      severity: 'error',
+      code: 'INVALID_LINK',
+      message: `${context} link was omitted: ${result.reason ?? 'invalid URL'}.`,
+      sourceNodeId,
+      category: 'link',
+    });
+    return '';
+  }
+  return `<a href="${escapeAttr(result.value)}"${link.target ? ` target="${escapeHtml(link.target)}"` : ''}${link.title ? ` title="${escapeHtml(link.title)}"` : ''} style="text-decoration: none;">`;
+}
 
-  // Web URLs: validate protocol
-  if (/^(https?:|ftp:)/i.test(url)) return url;
-  if (url.startsWith('#')) return url;
+function mobileClass(node: EmailIrNode): string {
+  const classes = [
+    node.hideOnMobile ? 'mobile-hide' : '',
+    node.mobileBehavior === 'stack' ? 'stack-column' : '',
+  ].filter(Boolean);
+  return classes.length ? ` class="${classes.join(' ')}"` : '';
+}
 
-  // Unknown protocol — flag as potential security issue
-  return `#unsafe-url-removed`;
+function providerAttributes(node: EmailIrNode): string {
+  return Object.entries(node.providerAttributes ?? {})
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => ` ${key}="${escapeAttr(value)}"`)
+    .join('');
 }
 
 function resolveAssetUrl(src: string, baseUrl?: string): string {
