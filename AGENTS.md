@@ -554,7 +554,7 @@ See `docs/architecture/text-pipeline.md`.
 | `@varve/codegen` | **Built** | SVG, React, Flutter, SwiftUI code export |
 | `@varve/prototype` | **Built** | Prototype engine: triggers, actions, animation, transitions, navigation |
 | `@varve/shared` | **Built** | Ordering, debounce, easing, units |
-| `@varve/import` | **Built** | SVG/PDF/PSD/AI/EPS import parsers |
+| `@varve/import` | **Built** | SVG/Figma REST JSON/PDF/PSD/AI/EPS/Sketch import parsers |
 | `@varve/platform` | **Built** | Platform abstraction (Tauri/web/memory) |
 | `@varve/ai` | **Built** | Auto-trace controller and assist orchestrator (on-device + cloud) |
 | `@varve/collab` | **Built** | CRDT awareness and reconnect over the varve-sync SQLite core |
