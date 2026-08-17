@@ -2,6 +2,12 @@
 
 Motion is a first-class document capability in Varve. Animation data lives on `Document`; playback and prototype runtime are editor facades that sample timelines without mutating undo history.
 
+Framework evaluation and adoption boundaries are documented in
+[`motion-framework-evaluation.md`](./motion-framework-evaluation.md). Varve
+borrows GSAP's sequencing/lifecycle ideas and Remotion's deterministic
+frame-addressable rendering contract without adding either as a required
+runtime dependency.
+
 ## Document Model (v1.6)
 
 ```
@@ -100,9 +106,21 @@ Sampler cache: `invalidateSamplerCache()` is called on timeline mutations; keyfr
 |---|---|
 | Color | Oklab (`interpolateColorOklch` in `@varve/shared/interpolation.ts`) |
 | Affine | 6-element array lerp |
-| Path | `ensureVertexMatch` + `interpolatePath` when `interpolation: 'path'` |
+| Path | `ensureVertexMatch` + `interpolatePath` when `interpolation: 'path'` (now creatable via `addTrack` opts) |
 | Text | String discrete midpoint on `text` / `text.*` property paths |
 | Spatial | `spatialTangents` + `interpolateSpatialBezier` |
+
+### Solo/Muted Tracks
+
+The sampler respects `track.muted` and `track.solo`: if any track in a timeline is solo, only solo tracks are evaluated. Muted tracks are always skipped.
+
+### Nested Timelines
+
+Nested timeline evaluation during playback passes the full `Document` to `sampleTimeline`, enabling nested timeline resolution in the playback path (not just static sampling).
+
+### Duration-0 Safety
+
+`TimelineEngine._advanceTime` returns immediately when `duration <= 0`, preventing infinite loops on empty timelines.
 
 ## Export (Phase 4)
 
@@ -117,6 +135,10 @@ Sampler cache: `invalidateSamplerCache()` is called on timeline mutations; keyfr
 - **Frame renderer**: `videoExportBridge.ts` samples timeline → `buildIr` → `replayIr` on OffscreenCanvas per frame.
 - **UI**: ExportDialog motion section lists per-timeline MP4/WebM buttons when timelines exist and WebCodecs is available.
 - **E2E**: `tests/e2e/motion/video-export.spec.ts` (skipped when `VideoEncoder` unavailable).
+
+Video export is frame-addressable: frame `i` at `fps` is sampled at
+`i * 1000 / fps` milliseconds. The sample time is not derived from the final
+frame count, so the renderer and encoder share one deterministic clock.
 
 ## Prototype screen transitions (complete)
 

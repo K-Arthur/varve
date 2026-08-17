@@ -47,8 +47,23 @@ export function computeVideoFrameCount(
   reducedMotion = false,
 ): number {
   if (reducedMotion) return 1;
+  if (!Number.isFinite(fps) || fps <= 0) return 1;
   const frames = Math.ceil((Math.max(durationMs, 0) / 1000) * fps);
   return Math.max(frames, 1);
+}
+
+/**
+ * Resolve a video frame to the same deterministic clock used by the encoder.
+ * Frame zero is the first sample; the duration endpoint is not an extra frame.
+ */
+export function frameTimeMs(frameIndex: number, fps: number): number {
+  if (!Number.isFinite(frameIndex) || frameIndex < 0) return 0;
+  if (!Number.isFinite(fps) || fps <= 0) return 0;
+  return (frameIndex * 1000) / fps;
+}
+
+function frameTimestampUs(frameIndex: number, fps: number): number {
+  return Math.round(frameTimeMs(frameIndex, fps) * 1000);
 }
 
 export function checkVideoExportSupport(): VideoExportSupport {
@@ -281,14 +296,10 @@ export async function exportTimelineToVideo(
         };
       }
 
-      const timeMs = options.reducedMotion
-        ? timeline.duration
-        : frameCount <= 1
-          ? 0
-          : (i / (frameCount - 1)) * timeline.duration;
+      const timeMs = options.reducedMotion ? timeline.duration : frameTimeMs(i, options.fps);
 
       const source = await renderFrame(timeMs, i);
-      const timestampUs = i * durationUs;
+      const timestampUs = options.reducedMotion ? 0 : frameTimestampUs(i, options.fps);
       const frame = await sourceToVideoFrame(
         source,
         options.width,
