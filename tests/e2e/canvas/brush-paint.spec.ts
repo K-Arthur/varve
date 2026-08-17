@@ -37,15 +37,16 @@ test.describe('Brush / Paint tool — drawing and persistence', () => {
     await page.keyboard.press('b');
     await page.waitForTimeout(200);
 
-    const presetSelect = page.locator('select[aria-label="Brush preset"]').first();
+    const presetSelect = page.getByRole('combobox', { name: 'Brush preset' }).first();
     await presetSelect.waitFor({ timeout: 5000 });
 
-    const currentValue = await presetSelect.inputValue();
-    await presetSelect.selectOption('built-in-marker');
+    const currentValue = await presetSelect.textContent();
+    await presetSelect.click();
+    await page.getByRole('option', { name: 'Marker' }).click();
     await page.waitForTimeout(200);
 
-    const newValue = await presetSelect.inputValue();
-    expect(newValue).toBe('built-in-marker');
+    const newValue = await presetSelect.textContent();
+    expect(newValue).toContain('Marker');
     expect(newValue).not.toBe(currentValue);
   });
 

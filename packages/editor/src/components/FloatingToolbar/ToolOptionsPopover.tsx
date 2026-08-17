@@ -51,7 +51,13 @@ export function ToolOptionsPopover() {
     }
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (!popoverRef.current?.contains(target) && !triggerRef.current?.contains(target)) {
+      const isPortaledSelect =
+        target instanceof Element && target.closest('.varve-select__listbox') !== null;
+      if (
+        !popoverRef.current?.contains(target) &&
+        !triggerRef.current?.contains(target) &&
+        !isPortaledSelect
+      ) {
         setOpen(false);
       }
     };
