@@ -1,4 +1,5 @@
 import type { Affine } from '@varve/engine';
+import { resolveGrainValueSync } from '@varve/engine';
 import type { BrushDab } from './brush';
 import type { RasterLayerNode, RasterTile } from './types';
 
@@ -365,6 +366,9 @@ function compositeBrushDabOnPixels(
   color: readonly [number, number, number, number],
   alphaLock: boolean,
   blendMode: string = 'normal',
+  grain: BrushDab['grain'] = undefined,
+  tileOriginX = 0,
+  tileOriginY = 0,
 ): void {
   const size = Math.ceil(dabRadius * 2);
   const offsetX = Math.round(dabX - dabRadius);
@@ -380,7 +384,20 @@ function compositeBrushDabOnPixels(
       if (maskValue <= 0) continue;
 
       const srcAlpha = color[3]! / 255;
-      const effectiveAlpha = maskValue * dabOpacity * dabFlow * srcAlpha;
+      const grainValue = grain
+        ? resolveGrainValueSync(grain.grainId, tileOriginX + px, tileOriginY + py, {
+            scale: grain.scale,
+            rotation: grain.rotation,
+            offsetX: 0,
+            offsetY: 0,
+            contrast: grain.contrast,
+            invert: grain.invert,
+            anchor: 'canvas',
+            strokeT: grain.strokeT,
+            seed: 0,
+          })
+        : 1;
+      const effectiveAlpha = maskValue * dabOpacity * dabFlow * srcAlpha * grainValue;
       if (effectiveAlpha <= 0) continue;
 
       const idx = (py * tileW + px) * 4;
@@ -479,6 +496,9 @@ export function compositeDabOnNode(
       color,
       alphaLock,
       blendMode,
+      dab.grain,
+      tileOriginX,
+      tileOriginY,
     );
 
     newTiles.set(key, newTile);
@@ -591,6 +611,7 @@ export function compositeSmudgeDabOnNode(
     dabDiameter,
   );
 
+  const sourceTiles = node.tiles;
   const newTiles = new Map(node.tiles);
 
   const displacement = dab.radius * strength * 0.5;
@@ -599,10 +620,10 @@ export function compositeSmudgeDabOnNode(
 
   for (const { col, row } of tileKeys) {
     const key = makeTileKey(col, row);
-    const tile = newTiles.get(key);
-    if (!tile) continue;
-
-    const newPixels = new Uint8ClampedArray(tile.pixels);
+    const tile = sourceTiles.get(key);
+    const newPixels = tile
+      ? new Uint8ClampedArray(tile.pixels)
+      : new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
     const size = Math.ceil(dab.radius * 2);
     const tileOriginX = col * TILE_SIZE;
     const tileOriginY = row * TILE_SIZE;
@@ -610,6 +631,7 @@ export function compositeSmudgeDabOnNode(
     const localDabY = dab.y - tileOriginY;
     const offsetX = Math.round(localDabX - dab.radius);
     const offsetY = Math.round(localDabY - dab.radius);
+    let wroteVisible = false;
 
     for (let my = 0; my < size; my++) {
       const py = offsetY + my;
@@ -620,37 +642,55 @@ export function compositeSmudgeDabOnNode(
         const maskValue = brushMask[my * size + mx]!;
         if (maskValue <= 0) continue;
 
-        const srcIdx = (py * TILE_SIZE + px) * 4;
-        const sr = newPixels[srcIdx]!;
-        const sg = newPixels[srcIdx + 1]!;
-        const sb = newPixels[srcIdx + 2]!;
-        const sa = newPixels[srcIdx + 3]!;
-        if (sa === 0) continue;
+        const globalX = tileOriginX + px;
+        const globalY = tileOriginY + py;
+        const sampled = sampleTilePixel(sourceTiles, globalX - dx, globalY - dy);
+        if (!sampled || sampled.a === 0) continue;
+        wroteVisible = true;
 
-        const sx = Math.round(px - dx);
-        const sy = Math.round(py - dy);
-        if (sx < 0 || sx >= TILE_SIZE || sy < 0 || sy >= TILE_SIZE) continue;
-
-        const dstIdx = (sy * TILE_SIZE + sx) * 4;
-        const dr = newPixels[dstIdx]!;
-        const dg = newPixels[dstIdx + 1]!;
-        const db = newPixels[dstIdx + 2]!;
-        const da = newPixels[dstIdx + 3]!;
-
-        const t = maskValue * strength;
+        const dstIdx = (py * TILE_SIZE + px) * 4;
+        const destination = {
+          r: newPixels[dstIdx]!,
+          g: newPixels[dstIdx + 1]!,
+          b: newPixels[dstIdx + 2]!,
+          a: newPixels[dstIdx + 3]!,
+        };
+        const t = Math.max(0, Math.min(1, maskValue * strength * dab.opacity * dab.flow));
         const invT = 1 - t;
-
-        newPixels[srcIdx] = clampByte(sr * invT + dr * t);
-        newPixels[srcIdx + 1] = clampByte(sg * invT + dg * t);
-        newPixels[srcIdx + 2] = clampByte(sb * invT + db * t);
-        newPixels[srcIdx + 3] = clampByte(sa * invT + da * t);
+        newPixels[dstIdx] = clampByte(destination.r * invT + sampled.r * t);
+        newPixels[dstIdx + 1] = clampByte(destination.g * invT + sampled.g * t);
+        newPixels[dstIdx + 2] = clampByte(destination.b * invT + sampled.b * t);
+        newPixels[dstIdx + 3] = clampByte(destination.a * invT + sampled.a * t);
       }
     }
 
-    newTiles.set(key, { pixels: newPixels, version: tile.version + 1 });
+    if (tile || wroteVisible) {
+      newTiles.set(key, { pixels: newPixels, version: (tile?.version ?? 0) + 1 });
+    }
   }
 
   return { ...node, tiles: newTiles };
+}
+
+function sampleTilePixel(
+  tiles: Map<string, RasterTile>,
+  x: number,
+  y: number,
+): { r: number; g: number; b: number; a: number } | null {
+  const col = Math.floor(x / TILE_SIZE);
+  const row = Math.floor(y / TILE_SIZE);
+  const tile = tiles.get(makeTileKey(col, row));
+  if (!tile) return null;
+  const px = Math.floor(x - col * TILE_SIZE);
+  const py = Math.floor(y - row * TILE_SIZE);
+  if (px < 0 || px >= TILE_SIZE || py < 0 || py >= TILE_SIZE) return null;
+  const index = (py * TILE_SIZE + px) * 4;
+  return {
+    r: tile.pixels[index]!,
+    g: tile.pixels[index + 1]!,
+    b: tile.pixels[index + 2]!,
+    a: tile.pixels[index + 3]!,
+  };
 }
 
 function clampByte(v: number): number {
