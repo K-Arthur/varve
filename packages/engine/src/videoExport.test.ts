@@ -3,6 +3,7 @@ import {
   checkVideoExportSupport,
   computeVideoFrameCount,
   exportTimelineToVideo,
+  frameTimeMs,
   type VideoFrameRenderer,
 } from './videoExport';
 
@@ -18,6 +19,24 @@ describe('computeVideoFrameCount', () => {
 
   it('returns at least 1 frame for zero duration', () => {
     expect(computeVideoFrameCount(0, 30)).toBe(1);
+  });
+
+  it('returns one frame for invalid frame rates', () => {
+    expect(computeVideoFrameCount(1000, 0)).toBe(1);
+    expect(computeVideoFrameCount(1000, Number.NaN)).toBe(1);
+  });
+});
+
+describe('frameTimeMs', () => {
+  it('maps frame indices to a deterministic frame clock', () => {
+    expect(frameTimeMs(0, 30)).toBe(0);
+    expect(frameTimeMs(1, 30)).toBeCloseTo(1000 / 30);
+    expect(frameTimeMs(29, 30)).toBeCloseTo((29 * 1000) / 30);
+  });
+
+  it('does not emit invalid times for invalid input', () => {
+    expect(frameTimeMs(-1, 30)).toBe(0);
+    expect(frameTimeMs(0, 0)).toBe(0);
   });
 });
 
@@ -82,7 +101,7 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('calls renderer at evenly spaced times', async () => {
+  it('calls renderer at deterministic frame-clock times', async () => {
     const renderTimes: number[] = [];
     const renderer: VideoFrameRenderer = vi.fn(async (timeMs) => {
       renderTimes.push(timeMs);
@@ -126,7 +145,7 @@ describe('exportTimelineToVideo frame timing (mock encoder)', () => {
     expect(result.frameCount).toBe(10);
     expect(renderTimes.length).toBe(10);
     expect(renderTimes[0]).toBe(0);
-    expect(renderTimes[9]).toBeCloseTo(1000, 0);
+    expect(renderTimes[9]).toBeCloseTo(900, 0);
   });
 
   it('renders only final frame when reduced motion is on', async () => {
