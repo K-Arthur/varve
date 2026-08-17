@@ -32,6 +32,18 @@ resilience pass for the application, website, and release pipeline.
 
 ### Added
 
+- **Figma REST JSON import** — official Figma file JSON (REST API or plugin
+  export) is now a first-class import source. A bounded source normalizer
+  (`figma/source.ts`) enforces 64 MB / 100k node / 256 depth limits, then
+  a semantic converter (`figma/converter.ts`) maps pages, frames, groups,
+  shapes, text, Auto Layout, components/instances, variables, styles, and
+  prototype interactions into native Varve document fragments with fresh
+  IDs and deduplicated image assets. Opaque `.fig` binaries are rejected
+  with actionable guidance. Fidelity is honest: boolean operations,
+  remote image refs without embedded data, and unsupported effects are
+  reported rather than silently dropped. See
+  `docs/architecture/figma-import-system.md` for the full conversion
+  matrix and architecture.
 - **Image Enhance — Deblur and Auto/Recommended** — the Enhance workflow
   now ships a validated Deblur operation backed by a reproducible
   conversion of NAFNet-GoPro-width64 (MIT, ~138 MB fp16 ONNX, downloaded

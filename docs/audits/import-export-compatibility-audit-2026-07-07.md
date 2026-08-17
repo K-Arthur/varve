@@ -80,6 +80,7 @@ current parser can support it.
 | F8 | Package export was missing | Export produced individual artifacts only | Enterprise handoff lacked source, assets, tokens, and compatibility manifest | Added package ZIP with document, manifests, tokens, assets, fonts notes, and report | `packageExport.test.ts`, `ExportDialog.test.tsx` | Font bytes are not copied unless license and source data are available |
 | F9 | PDF/AI/EPS/PSD fidelity was over-trusted by UX | Parsers had limited structural extraction | Users could mistake best-effort output for editable round-trip | Import reports now expose warnings and unsupported feature records | `service.test.ts`, parser validation tests | PDF and PSD are still synchronous, basic parsers; true PDF.js and `@webtoon/psd` async layer rendering need a parser API revision |
 | F10 | Export success state could overstate results | Dialog announced success without job-level artifact checks | False positive export completion | Dialog consumes `ExportReport`, shows job statuses, and only reports produced artifacts | `ExportDialog.test.tsx` | Destination picker and persisted export presets need broader E2E coverage |
+| F11 | Figma import was missing | No Figma source decoder or conversion path | Users could not open Figma documents | Added Figma REST JSON parser with bounded normalization, native conversion, and ImportService integration | `figma.test.ts`, `service.test.ts` | Opaque `.fig` binaries are rejected; remote image refs without embedded data require plugin-exported bytes |
 
 ## Roadmap
 
@@ -118,7 +119,7 @@ current parser can support it.
 ### Low
 
 - Remaining: richer EPS/AI tokenization beyond rectangles and text.
-- Remaining: Figma REST importer UI using official API JSON.
+- Completed: Figma REST importer using official API JSON (2026-08-17).
 - Remaining: Lottie and animated SVG validation in export reports.
 - Remaining: import compatibility score surfaced in results UI.
 
