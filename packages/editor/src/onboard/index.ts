@@ -2,6 +2,7 @@ export { ContextualHelpPanel } from './ContextualHelp/ContextualHelpPanel';
 export { DidYouKnowTip } from './DidYouKnow/DidYouKnowTip';
 export { TIPS, type Tip, type TipCategory } from './DidYouKnow/tips';
 export { useDidYouKnow } from './DidYouKnow/useDidYouKnow';
+export { MICRO_HINTS, MicroHint, type MicroHintData, useMicroHints } from './MicroHints';
 export {
   CURRENT_APP_VERSION,
   compareVersions,

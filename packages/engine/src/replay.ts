@@ -1587,7 +1587,10 @@ function expandGradientStopsForFill(
       ...(s.midpoint !== undefined ? { midpoint: s.midpoint } : {}),
     };
   });
-  return expandGradientStops(inputs, space, 16, { precision: 'working' }).map((s) => ({
+  return expandGradientStops(inputs, space, 16, {
+    precision: 'working',
+    hueInterpolation: fill.hueInterpolation ?? 'shorter',
+  }).map((s) => ({
     position: s.position,
     color: s.color as EngineColor,
   }));

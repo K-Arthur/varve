@@ -340,6 +340,38 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
       >
         Reset onboarding
       </Button>
+      <Divider />
+      <h3 className="settings-section__title">Learning & Help</h3>
+      <FieldRow label="Contextual tips">
+        <label className="settings-checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.learning.showContextualTips}
+            onChange={(e) => updateSection('learning', { showContextualTips: e.target.checked })}
+          />
+          <span>Show contextual tips when using tools</span>
+        </label>
+      </FieldRow>
+      <FieldRow label="Shortcut hints">
+        <label className="settings-checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.learning.showShortcutHints}
+            onChange={(e) => updateSection('learning', { showShortcutHints: e.target.checked })}
+          />
+          <span>Show keyboard shortcut hints</span>
+        </label>
+      </FieldRow>
+      <FieldRow label="Tutorial suggestions">
+        <label className="settings-checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.learning.autoSuggestTutorials}
+            onChange={(e) => updateSection('learning', { autoSuggestTutorials: e.target.checked })}
+          />
+          <span>Automatically suggest tutorials for new workspaces</span>
+        </label>
+      </FieldRow>
     </div>
   );
 }

@@ -6,10 +6,12 @@ import {
   checkChecklistItem,
   DidYouKnowTip,
   loadOnboardingState,
+  MicroHint,
   markTutorialComplete,
   saveOnboardingState,
   TutorialBanner,
   useDidYouKnow,
+  useMicroHints,
   useTutorialProgress,
 } from '../../onboard';
 import {
@@ -98,6 +100,14 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
       dontShowAgain: dontShowAgainTip,
     } = useDidYouKnow(getActionTracker(), editor.state.workspaceMode);
 
+    const selectionCount = editor.state.selection.length;
+    const { currentHint: microHint, dismiss: dismissMicroHint } = useMicroHints({
+      toolId: editor.state.tool,
+      workspaceMode: editor.state.workspaceMode,
+      enabled: true,
+      selectionCount,
+    });
+
     const currentStep = onboarding.stepIndex >= 0 && onboarding.active ? onboarding.stepIndex : -1;
 
     return (
@@ -165,6 +175,9 @@ export const OnboardingLayer = forwardRef<OnboardingLayerHandle, OnboardingLayer
             onDontShowAgain={dontShowAgainTip}
           />
         )}
+
+        {/* Contextual micro-hints (tool first-use) */}
+        {microHint && !didYouKnowTip && <MicroHint hint={microHint} onDismiss={dismissMicroHint} />}
       </>
     );
   },

@@ -118,6 +118,22 @@ pub enum EngineColor {
 
 // ── Gradient / Fill types (mirrors @varve/engine types.ts) ──────────────────
 
+/// Hue interpolation direction for cylindrical spaces (OKLCH, HSL).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HueInterpolation {
+    Shorter,
+    Longer,
+    Increasing,
+    Decreasing,
+}
+
+impl Default for HueInterpolation {
+    fn default() -> Self {
+        Self::Shorter
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GradientStop {
     pub position: f64,
@@ -133,6 +149,10 @@ pub struct GradientFill {
     pub stops: Vec<GradientStop>,
     #[serde(default)]
     pub rotation: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interpolation_space: Option<String>, // "srgb", "linear-srgb", "oklab", "oklch", "hsl"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hue_interpolation: Option<HueInterpolation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transform: Option<[f64; 6]>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -156,6 +176,10 @@ pub enum FillIR {
         gradient_type: String,
         stops: Vec<GradientStop>,
         rotation: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interpolation_space: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "hueInterpolation")]
+        hue_interpolation: Option<HueInterpolation>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transform: Option<[f64; 6]>,
         #[serde(default, skip_serializing_if = "Option::is_none")]

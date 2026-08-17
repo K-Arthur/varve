@@ -185,6 +185,7 @@ export {
 export type {
   GradientInterpolationSpace,
   GradientStopInput,
+  HueInterpolation,
   InterpolateOptions,
   InterpolationRgba,
 } from './colorInterpolation';
@@ -193,6 +194,7 @@ export {
   expandGradientStops,
   interpolateManagedColor,
   interpolateNormalizedColor,
+  lerpHue,
   sampleGradientColor,
 } from './colorInterpolation';
 export type { Oklch, Rgb } from './colorMath';

@@ -412,7 +412,10 @@ export interface SceneNode {
 }
 
 /** P2: Fill type for the engine (mirrors @varve/scene Fill). */
-export type GradientInterpolationSpace = 'srgb' | 'oklab' | 'oklch' | 'hsl';
+export type GradientInterpolationSpace = 'srgb' | 'linear-srgb' | 'oklab' | 'oklch' | 'hsl';
+
+/** Hue interpolation direction for cylindrical spaces. Default: 'shorter'. */
+export type HueInterpolation = 'shorter' | 'longer' | 'increasing' | 'decreasing';
 
 export type GradientTilingMode = 'none' | 'repeat' | 'reflect';
 
@@ -427,6 +430,8 @@ export interface EngineGradientFill {
   stops: EngineGradientStop[];
   rotation?: number;
   interpolationSpace?: GradientInterpolationSpace;
+  /** Hue interpolation direction for cylindrical spaces. Default: 'shorter'. */
+  hueInterpolation?: HueInterpolation;
   /** Full 2x3 fill transform matrix. When set, overrides rotation. */
   transform?: Affine;
   tilingMode?: GradientTilingMode;
@@ -1375,6 +1380,7 @@ export type FillIR =
       stops: { position: number; color: EngineColor; midpoint?: number }[];
       rotation: number;
       interpolationSpace?: GradientInterpolationSpace;
+      hueInterpolation?: HueInterpolation;
       transform?: Affine;
       tilingMode?: GradientTilingMode;
       opacity: number;
