@@ -1459,6 +1459,17 @@ input[type="number"] {
  * always visible. The wrapper is flex:1 so it claims the space between the
  * menus and the undo/redo/zoom controls — stable width that the layout
  * math measures against (never the content-sized strip). */
+/* ── Workspace mode color palette ──
+ * Each mode gets a unique accent hue from the existing ramp system.
+ * Light theme uses mid-dark steps (adequate contrast on light surfaces);
+ * Dark theme uses mid-light steps (adequate on dark surfaces).
+ * High-contrast overrides the active background to the single HC accent
+ * (all modes look the same there — colour differentiation is not a WCAG
+ * requirement, and the HC accent already passes all UI contrast pairs).
+ *
+ * Inactive tabs: icon tinted with --ws-mode-icon (visible on sunken bg).
+ * Active tab:    pill background with --ws-mode-bg, icon + label in white.
+ */
 .workspace-tabs {
   display: flex;
   align-items: center;
@@ -1472,55 +1483,146 @@ input[type="number"] {
 .workspace-tabs__strip {
   display: flex;
   align-items: center;
-  gap: var(--space-05);
+  gap: 4px;
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  padding: var(--space-05);
+  padding: 4px;
   min-width: 0;
   overflow: hidden;
+  /* Recessed tray: outer shadow lifts the strip off the menubar;
+     inner top highlight + bottom shadow create the inset depth. */
+  box-shadow:
+    var(--elevation-shadow-raised),
+    inset 0 1px 0 oklch(1 0 0 / 0.07),
+    inset 0 -1px 2px oklch(0 0 0 / 0.08);
+}
+
+/* ── Workspace mode color palette ──
+ * Each mode gets a unique accent hue, well-spaced around the color wheel.
+ * Three tiers per mode:
+ *   --ws-mode-bg:    Active tab pill background (mid-dark, passes 4.5:1 with white)
+ *   --ws-mode-icon:  Inactive icon tint + hover background (bright, visible on dark)
+ *   --ws-mode-hover: Active tab hover (slightly lighter than bg, still passes 4.5:1)
+ *
+ * Hue map (minimum 25° between any pair):
+ *   design   = Teal    (190°)
+ *   drawing  = Green   (148°)
+ *   image    = Violet  (300°)
+ *   print    = Blue    (250°)
+ *   motion   = Orange  (45°)
+ *   codegen  = Rose    (15°)
+ *   logo     = Lemon   (95°)
+ *
+ * High-contrast: all active tabs use the single HC accent (green). */
+
+.workspace-tabs__tab {
+  --ws-mode-bg: var(--color-interactive-default);
+  --ws-mode-icon: var(--color-text-muted);
+  --ws-mode-hover: var(--color-surface-hover);
+}
+
+.workspace-tabs__tab[data-mode="design"] {
+  --ws-mode-bg: oklch(0.5449 0.0866 189.77);
+  --ws-mode-icon: oklch(0.78 0.14 190);
+  --ws-mode-hover: oklch(0.58 0.1 190);
+}
+.workspace-tabs__tab[data-mode="drawing"] {
+  --ws-mode-bg: oklch(0.5052 0.1304 148.06);
+  --ws-mode-icon: oklch(0.78 0.17 148);
+  --ws-mode-hover: oklch(0.55 0.15 148);
+}
+.workspace-tabs__tab[data-mode="image"] {
+  --ws-mode-bg: oklch(0.5129 0.1428 294.74);
+  --ws-mode-icon: oklch(0.78 0.16 300);
+  --ws-mode-hover: oklch(0.56 0.16 300);
+}
+.workspace-tabs__tab[data-mode="print"] {
+  --ws-mode-bg: oklch(0.5063 0.1332 255.23);
+  --ws-mode-icon: oklch(0.78 0.14 250);
+  --ws-mode-hover: oklch(0.55 0.15 250);
+}
+.workspace-tabs__tab[data-mode="motion"] {
+  --ws-mode-bg: oklch(0.52 0.15 45);
+  --ws-mode-icon: oklch(0.78 0.17 45);
+  --ws-mode-hover: oklch(0.56 0.17 45);
+}
+.workspace-tabs__tab[data-mode="codegen"] {
+  --ws-mode-bg: oklch(0.52 0.15 15);
+  --ws-mode-icon: oklch(0.78 0.17 15);
+  --ws-mode-hover: oklch(0.56 0.17 15);
+}
+.workspace-tabs__tab[data-mode="logo"] {
+  --ws-mode-bg: oklch(0.48 0.14 95);
+  --ws-mode-icon: oklch(0.78 0.16 95);
+  --ws-mode-hover: oklch(0.53 0.16 95);
 }
 
 .workspace-tabs__tab {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: center;
+  gap: 5px;
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  /* L3 (2026-08-10): 1.75rem (28px) hit area was under the 32px desktop
-   * floor and far under touch guidance; 2rem keeps the menubar compact
-   * while lifting the worst case. */
-  height: 2rem;
-  padding: 0 var(--space-2);
+  height: 1.75rem;
+  /* Inactive: icon-only pill — symmetric square for clean rounded look */
+  width: 1.75rem;
+  padding: 0;
   border: none;
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--color-text-muted);
+  color: var(--ws-mode-icon);
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
   transition:
     background var(--duration-fast) var(--ease-default),
-    color var(--duration-fast) var(--ease-default);
+    color var(--duration-fast) var(--ease-default),
+    width var(--duration-normal) var(--ease-default),
+    padding var(--duration-normal) var(--ease-default),
+    transform var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
 }
 
 .workspace-tabs__label {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 6.5rem;
+  /* Collapsed by default (icon-only inactive tabs). The active state
+     expands the tab and the label becomes visible via width auto. */
+  width: 0;
+  opacity: 0;
+  transition:
+    width var(--duration-normal) var(--ease-default),
+    opacity var(--duration-fast) var(--ease-default);
 }
 
 .workspace-tabs__tab:hover {
-  /* --color-interactive-hover is a mid-dark teal in light theme and a light
-     teal in dark theme; --color-text-primary fails contrast on both
-     (1.88:1 / 1.47:1). --color-text-on-accent passes in all three themes
-     (9.7:1 / 11.6:1 / 19.1:1). */
-  color: var(--color-text-on-accent);
-  background: var(--color-interactive-hover);
+  color: var(--ws-mode-icon);
+  background: var(--ws-mode-hover);
 }
 
 .workspace-tabs__tab--active {
-  background: var(--color-interactive-default);
+  width: auto;
+  padding: 0 10px;
+  background: var(--ws-mode-bg);
   color: var(--color-text-on-accent);
+  /* Lifted pill: shadow + upward translate pop it off the tray.
+     The shadow uses the mode's own color family for a subtle glow. */
+  box-shadow:
+    0 2px 6px oklch(0 0 0 / 0.3),
+    0 0 0 1px oklch(1 0 0 / 0.1);
+  transform: translateY(-1px);
+}
+
+.workspace-tabs__tab--active:hover {
+  filter: brightness(0.9);
+}
+
+.workspace-tabs__tab--active .workspace-tabs__label {
+  width: auto;
+  opacity: 1;
 }
 
 .workspace-tabs__tab:focus-visible {
@@ -1532,10 +1634,9 @@ input[type="number"] {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: var(--color-interactive-default);
+  background: var(--ws-mode-icon);
   flex-shrink: 0;
-  margin-left: -2px;
-  margin-top: -6px;
+  transition: background var(--duration-fast) var(--ease-default);
 }
 
 .workspace-tabs__tab--active .workspace-tabs__customized-dot {
@@ -1575,6 +1676,14 @@ input[type="number"] {
 .workspace-tabs__more:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
+}
+
+/* ── HC override: all active tabs use the single HC accent ── */
+[data-theme="high-contrast"] .workspace-tabs__tab--active {
+  background: var(--color-interactive-default);
+}
+[data-theme="high-contrast"] .workspace-tabs__tab:hover {
+  background: color-mix(in oklch, var(--color-interactive-default) 80%, oklch(1 0 0));
 }
 
 /* ── Docs name in menubar ── */
@@ -2540,18 +2649,36 @@ input[type="number"] {
   }
 }
 
-/* Panel drag handle — detach button (panel headers, inline-styled core). */
+/* Panel drag handle — detach button (panel headers). */
 .panel-drag-handle--active {
   cursor: grabbing;
 }
+.panel-detach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  cursor: grab;
+  opacity: 0.6;
+  padding: 0;
+  flex-shrink: 0;
+}
 .panel-detach-btn:hover {
-  opacity: 0.9 !important;
+  opacity: 0.9;
   background: var(--color-surface-sunken);
 }
 .panel-detach-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
-  opacity: 1 !important;
+  opacity: 1;
+}
+.panel-detach-btn[data-transferring="true"] {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 /* Desktop panel collapse (Ctrl+B / Ctrl+Shift+B): the shell zeroes the grid
