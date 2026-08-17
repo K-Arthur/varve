@@ -228,6 +228,7 @@ export function WorkspaceTabs() {
               }}
               type="button"
               role="radio"
+              data-mode={mode}
               aria-checked={state.workspaceMode === mode}
               aria-label={`${WORKSPACE_LABELS[mode]} workspace`}
               aria-keyshortcuts={toAriaKeyshortcuts(workspaceShortcutLabel(mode))}
@@ -243,7 +244,9 @@ export function WorkspaceTabs() {
                 strokeWidth={2.25}
                 data-workspace-icon={WORKSPACE_ICON_NAMES[mode]}
               />
-              {!iconOnly && <span className="workspace-tabs__label">{WORKSPACE_LABELS[mode]}</span>}
+              {(!iconOnly || state.workspaceMode === mode) && (
+                <span className="workspace-tabs__label">{WORKSPACE_LABELS[mode]}</span>
+              )}
               {customizations[mode] && (
                 <>
                   <span className="workspace-tabs__customized-dot" aria-hidden="true" />

@@ -489,20 +489,7 @@ export function PanelDragHandle({
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             data-testid={`detach-${panelTypeId}`}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 20,
-              height: 20,
-              border: 'none',
-              background: 'transparent',
-              cursor: transferring ? 'wait' : 'grab',
-              opacity: transferring ? 0.5 : 0.6,
-              borderRadius: 3,
-              padding: 0,
-              flexShrink: 0,
-            }}
+            data-transferring={transferring ? 'true' : undefined}
           >
             <SolidIcon name={SOLID_CHROME_ICONS.maximize} size="0.75em" />
           </button>
