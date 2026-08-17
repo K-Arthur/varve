@@ -533,6 +533,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     }
     add('position-size', <PositionSizeSection nodes={nodes} />);
     add('constraints', <ConstraintSection nodes={nodes} />);
+    if (!isFrame) add('layout-child', <LayoutChildSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
     if (!isFrame) add('layout', <LayoutChildSection nodes={nodes} />);
