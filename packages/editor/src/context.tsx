@@ -2627,6 +2627,11 @@ export function EditorProvider({
   // the counter without importing EditorContextValue.
   useEffect(() => {
     setBumpThemeRevisionHandler(() => {
+      // Clear the resolved-color cache on theme switch (gridRenderer).
+      // Uses global to avoid adding an import to this hub file.
+      if (typeof window !== 'undefined') {
+        (window as any).__clearResolvedColorCache?.();
+      }
       patch({ themeRevision: stateRef.current.themeRevision + 1 });
     });
     return () => setBumpThemeRevisionHandler(null);

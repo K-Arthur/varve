@@ -1,5 +1,6 @@
 import type { Viewport } from '@varve/shared';
 import { getEditorViewport } from '../canvas/cameraState';
+import { resolveCanvasColor } from '../canvas/gridRenderer';
 import { guideLineScreenEndpoints } from '../canvas/guideGeometry';
 import type { SnapGuide } from '../tools/snapping';
 
@@ -11,13 +12,11 @@ interface SnapGuidesOverlayProps {
 }
 
 function guideColor(type?: string): string {
-  const root = document.documentElement;
-  const cs = getComputedStyle(root);
   switch (type) {
     case 'midpoint':
-      return cs.getPropertyValue('--color-feedback-success').trim() || '#22c55e';
+      return resolveCanvasColor('var(--color-feedback-success, #22c55e)');
     case 'size-match':
-      return cs.getPropertyValue('--color-accent-primary').trim() || '#3b82f6';
+      return resolveCanvasColor('var(--color-accent-primary, #3b82f6)');
     default:
       return 'currentColor';
   }
