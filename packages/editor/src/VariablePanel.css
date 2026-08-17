@@ -58,19 +58,19 @@
   padding-bottom: var(--space-1);
 }
 
-.variable-panel__table-header th--name {
+.variable-panel__table-header.th--name {
   text-align: left;
 }
 
-.variable-panel__table-header th--value {
+.variable-panel__table-header.th--value {
   text-align: left;
 }
 
-.variable-panel__table-header th--resolved {
+.variable-panel__table-header.th--resolved {
   text-align: left;
 }
 
-.variable-panel__table-header th--actions {
+.variable-panel__table-header.th--actions {
   width: 20px;
 }
 
