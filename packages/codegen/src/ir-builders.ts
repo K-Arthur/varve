@@ -351,7 +351,9 @@ function buildAutoLayoutSpec(node: FrameNode): LayoutSpec {
         ? 'space-between'
         : node.layoutStyle.justifyContent === 'spaceAround'
           ? 'space-around'
-          : (node.layoutStyle.justifyContent ?? 'stretch');
+          : node.layoutStyle.justifyContent === 'spaceEvenly'
+            ? 'space-evenly'
+            : (node.layoutStyle.justifyContent ?? 'stretch');
     layout.width = { mode: 'hug', value: 0 };
     layout.height = { mode: 'hug', value: 0 };
   }

@@ -1,118 +1,110 @@
 # Auto Layout / Responsive Layout System
 
-**Canonical doc** — audit status, model, engine, and merge plan.
+**Canonical doc** — audit status, model, engine, and known limitations.
 
-## 1. Current State (2026-08-16)
+## 1. Current State (2026-08-17)
 
 | Capability | Scene Model | Engine | Inspector | Canvas | Tests | Status |
 |---|---|---|---|---|---|---|
-| Horizontal layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
-| Vertical layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
+| Horizontal / vertical layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
+| Reverse direction | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
 | Padding | ✓ | ✓ | ✓ (per-side) | ✓ | ✓ | **Working** |
 | Gap | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
-| Reverse direction | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
-| Wrap | ✓ | ⚠ | ✓ | ✓ | ✓ | **Engine wraps even when wrap=false** |
-| Alignment (cross) | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
-| JustifyContent | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
-| Fill container (primary) | ✓ | ⚠ | ✓ | ✓ | ⚠ | **Equal split, not fill-after-fixed** |
-| Fill container (secondary) | ✓ | ✗ | ✓ | ✗ | ✗ | **Missing: equal split instead of fill-after-fixed** |
+| Wrap | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — was ignoring the flag entirely; fixed |
+| Alignment (cross-axis) | ✓ | ✓ | ✓ | ✓ | ✓ | **Working**, incl. per-child override + hug/stretch conflict resolved |
+| Distribution (justify) | ✓ | ✓ | ✓ | ✓ | ✓ | **Working**, incl. new spaceEvenly; spaceAround/spaceEvenly offset-accumulation bug fixed |
 | Fixed size | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
-| Hug contents | ✓ | Partial | ✓ | ✗ | ✗ | **No intrinsic hug for nested frames** |
-| Absolute child | ✓ (new) | ✗ | ✓ (new) | ✗ | ✓ | **Model + UI added, engine pending** |
-| Per-axis sizing | ✓ (new) | ✗ | ✓ (new) | ✗ | ✓ | **Model + UI added, engine pending** |
-| Min/max constraints | ✓ | ✗ | ✓ | ✗ | ✓ | **Model + UI exist, engine ignores them** |
-| Hidden children | ✓ | ✗ | N/A | N/A | ✓ | **Model exists, engine doesn't filter** |
-| Nested layout | ✓ | Partial | N/A | N/A | ✓ | **Single-level only; recursive pending** |
-| Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** (basic) |
-| Components/instances | ✓ | ✓ | ✓ | N/A | ✓ | **Working** (layoutStyle synced) |
-| Text intrinsic | ✓ | ✓ | N/A | N/A | ✓ | **Working** (measureText) |
-| Codegen | ✓ | N/A | N/A | N/A | Partial | **Basic flex mapping exists** |
-| Save/reopen | ✓ | N/A | N/A | N/A | ✓ | **Working** (schema stable) |
-| Undo/redo | ✓ | N/A | N/A | N/A | ✓ | **Working** (via updateDoc) |
+| Fill container | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** — was equal-split; now correct fill-after-fixed |
+| Hug contents (leaf children) | ✓ | ✓ | ✓ | ✓ | ✓ | **Working** |
+| Hug contents (frame sizing itself) | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** — recursive bottom-up resolution |
+| Per-axis sizing (width ≠ height mode) | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** |
+| Absolute-positioned children | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** — filtered from flow, hug, gap |
+| Hidden children | ✓ | ✓ | N/A | N/A | ✓ | **Working (new)** — filtered from flow, hug, gap |
+| Min/max constraints | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (new)** — was modeled, never enforced |
+| Nested layout (multi-level, hug + fill mixed) | ✓ | ✓ | N/A | ✓ | ✓ | **Working (new)** — was single-level only |
+| Cycle handling (fill inside hug) | ✓ | ✓ | N/A | N/A | ✓ | **Working (new)** — broken by construction (min-size contribution), diagnostic in cycleDetection.ts is available but not yet wired into the inspector as a user-facing warning |
+| Grid layout | ✓ | ✓ | ✓ | ✓ | ✓ | **Working (basic)** — unchanged this pass |
+| Grid hug/intrinsic sizing | ✓ | ✗ | — | — | — | **Missing** — hug resolution explicitly skips grid-mode frames |
+| Grid hidden/absolute filtering | ✓ | ✓ | — | — | — | **Working (new)** — parity fix, not deeply tested |
+| Components/instances | ✓ | ✓ | ✓ | N/A | — | **Unverified this pass** — structurally frames, so the generic frame path applies, but no dedicated instance/override test was run |
+| Text intrinsic sizing | ✓ | ✓ | N/A | ✓ | ✓ | **Working** (measureText), confirmed visually |
+| Codegen | ✓ | N/A | N/A | N/A | — | **Untouched this pass** — basic flex mapping pre-existing, not re-audited |
+| Save/reopen | ✓ | N/A | N/A | N/A | — | **Untouched this pass** — schema is additive/optional, no migration needed, not re-verified end-to-end |
+| Undo/redo | ✓ | N/A | N/A | N/A | — | **Untouched this pass** — goes through the existing updateDoc/history path, not independently re-verified |
 
 ## 2. Architecture
 
 ```
-Scene Model (persistent)
+Scene Model (persistent, packages/scene/src/types.ts)
     │
-    ├── FrameNode.layoutStyle      → container properties (direction, gap, padding, align, justify)
-    ├── NodeBase.layoutSizing      → legacy unified sizing (fixed/hug/fill)
-    ├── NodeBase.layoutSizingWidth → NEW per-axis width sizing
-    ├── NodeBase.layoutSizingHeight→ NEW per-axis height sizing
-    ├── NodeBase.layoutPosition    → NEW flow/absolute
-    ├── NodeBase.layoutAlign       → NEW child cross-axis override
-    ├── NodeBase.minWidth/maxWidth → constraints (not yet resolved by engine)
-    └── NodeBase.minHeight/maxHeight
-    │
-    ▼
-Layout Engine (@varve/layout)
-    │
-    ├── computeFlexLayout()   → row/column, wrap, gap, padding, align/justify, fill/grow
-    ├── computeGridLayout()   → explicit tracks, auto-flow, placement overrides
-    ├── reflowLayoutChildren()→ document adapter: applies results to scene
-    ├── resizeNodeGeometry()  → type-aware geometry resizing
-    └── checkLayoutCycle()    → fill-in-hug cycle guard
+    ├── FrameNode.layoutStyle       → container properties (direction, gap, padding, align, justify, wrap)
+    ├── NodeBase.layoutSizing       → legacy unified sizing (fixed/hug/fill), kept for back-compat
+    ├── NodeBase.layoutSizingWidth  → per-axis width sizing (falls back to layoutSizing)
+    ├── NodeBase.layoutSizingHeight → per-axis height sizing (falls back to layoutSizing)
+    ├── NodeBase.layoutPosition     → flow | absolute
+    ├── NodeBase.layoutAlign        → per-child cross-axis alignment override
+    └── NodeBase.minWidth/maxWidth/minHeight/maxHeight → constraints, enforced on every axis regardless of sizing mode
     │
     ▼
-Resolved Geometry (transform + size on each child)
+Layout Engine (@varve/layout — pure TS, no DOM)
+    │
+    ├── measure.ts            → shared: node natural size, flow-participation filter, min/max clamp
+    ├── computeFlexLayout()   → row/column/reverse, wrap, gap, padding, align/justify, fill-after-fixed, per-axis sizing, min/max
+    ├── computeGridLayout()   → explicit tracks, auto-flow, placement overrides (unchanged this pass)
+    ├── intrinsicSize.ts      → resolveIntrinsicSizes(): bottom-up hug resolution across a subtree
+    ├── reflow.ts             → reflowLayoutChildren(): the single entry point (see phases below)
+    └── cycleDetection.ts     → checkLayoutCycle(): diagnostic, not yet wired into any mutation path
     │
     ▼
-Render Pipeline (Canvas2D / WebGPU / Export)
+Resolved Geometry (transform + w/h written back onto each node)
+    │
+    ▼
+Render Pipeline (Canvas2D / selection overlay / export) — reads the same resolved geometry, no separate representation
 ```
 
-### Engine Phases
+### `reflowLayoutChildren(doc, frameId)` — the four-step pass
 
-1. **Filter**: exclude hidden and absolute children from flow
-2. **Measure**: compute intrinsic sizes (text via measureText, frames via geometry, shapes via bounds)
-3. **Resolve sizing modes**: per-axis width/height (fill/hug/fixed) with min/max clamping
-4. **Allocate**: distribute remaining space to fill/grow children, clamp to min/max
-5. **Wrap**: create line breaks when children exceed available width
-6. **Align**: cross-axis alignment per line (start/center/end/stretch, with per-child override)
-7. **Distribute**: main-axis justification (start/center/end/spaceBetween/spaceAround/spaceEvenly)
-8. **Output**: LayoutResult[] with resolved x, y, w, h per child
+Called with the frame whose children (and, transitively, descendants) need laying out. Every layout-mutating editor action funnels through this one function — sizing-mode setters, padding/gap/align edits, canvas resize, insert/delete/reparent.
+
+1. **Bottom-up intrinsic resolution** (`resolveIntrinsicSizes`): walks `frameId`'s subtree post-order (deepest frames first) and, for every frame whose width/height sizing is `hug`, recomputes its own box from its *already-resolved* flow children — natural size for fixed/hug children, `minWidth`/`minHeight` (or 0) for fill/grow children. Using the min size instead of an expanded size for fill children is what breaks the classic "parent hugs child, child fills parent" cycle by construction, without needing a runtime guard.
+2. **Top-down flex/grid layout**: `computeFlexLayout` (or `applyGridLayout` for grid-mode) positions `frameId`'s children against its now-resolved box. Per axis, a child's geometry is only overwritten when that axis's sizing mode isn't `fixed` — hug children get their own (already-correct) size re-applied, fill/grow children get their computed share.
+3. **Recurse into child layout frames**: any child that is itself a frame with `layoutStyle` gets `reflowLayoutChildren` called on it, now that its box is final, so deeper nesting resolves correctly.
+4. **Propagate upward**: if `frameId`'s own size changed (because it hugs), that invalidates its parent's measurement, so the parent is reflowed too. Bounded by tree depth — a fill/hug pair can't oscillate because of the min-size contribution in step 1.
+
+### Cross-axis hug vs. stretch
+
+A child whose cross-axis sizing is `hug` never stretches, even under `alignItems: stretch` or an explicit `layoutAlign: 'stretch'` override sourced from the parent. Without this rule, a hug *frame* child would get stretched by its parent's alignment pass, then immediately shrink back to its intrinsic size on the next reflow (step 1 of the child's own recursive call) — visibly fighting itself. Hug is treated as the more authoritative signal: "sized by my own content," full stop.
 
 ## 3. Files Changed
 
-### Scene/Model
-- `packages/scene/src/types.ts` — added `layoutSizingWidth`, `layoutSizingHeight`, `layoutPosition`, `layoutAlign`, `spaceEvenly`
-- `packages/scene/src/canonical.ts` — added new fields to canonical key order
+### Layout Engine (`packages/layout/src`)
+- `measure.ts` — **new**. Shared `measureNodeSize`, `isFlowParticipant`, `axisSizing`, `clampAxis`.
+- `computeFlexLayout.ts` — rewritten. Fixes: wrap flag ignored, fill-after-fixed distribution (was equal split), per-axis sizing support, hidden/absolute filtering, min/max clamping, spaceAround/spaceEvenly offset accumulation, hug-vs-stretch conflict.
+- `computeGridLayout.ts` — hidden/absolute filtering parity fix.
+- `intrinsicSize.ts` — **new**. Recursive bottom-up hug sizing.
+- `reflow.ts` — rewritten. Two-phase (bottom-up measure, top-down layout) with recursion into child frames and upward propagation.
+- `index.ts` — exports for the new modules.
+- `__tests__/autolayout.test.ts`, `__tests__/reflow.test.ts` — expanded (engine bug regressions, hug/nested/cycle-breaking coverage).
 
-### Layout Engine
-- `packages/layout/src/__tests__/autolayout.test.ts` — 5 new tests documenting engine bugs (skipped until engine fix)
-- `packages/layout/src/computeFlexLayout.ts` — **owned by concurrent agent** (engine repair)
-- `packages/layout/src/reflow.ts` — **owned by concurrent agent** (recursive reflow)
+### Scene Model (`packages/scene/src`)
+- `types.ts` — `layoutSizingWidth`, `layoutSizingHeight`, `layoutPosition`, `layoutAlign`, `spaceEvenly` (pre-existing from an earlier pass on this branch, verified still correct).
+- `canonical.ts` — new fields added to canonical key order.
 
-### Editor/Inspector
-- `packages/editor/src/context/types.ts` — added `setSelectedLayoutSizingWidth`, `setSelectedLayoutSizingHeight`, `setSelectedLayoutPosition`
-- `packages/editor/src/context.tsx` — implemented new setters with parent reflow
-- `packages/editor/src/components/Inspector/sections/LayoutSection.tsx` — updated sizing labels to match Figma conventions
-- `packages/editor/src/components/Inspector/sections/LayoutChildSection.tsx` — NEW child layout controls (position, width/height sizing)
-- `packages/editor/src/components/Inspector/PropertiesPanel.tsx` — wired LayoutChildSection for non-frame selections
+### Editor (`packages/editor/src`)
+- `context/layoutChildSetters.ts` — **new**. `applySelectedLayoutChildField`: batch-apply a sizing/position field to a selection and reflow every affected frame (the changed node itself when it's a frame with `layoutStyle`, plus its parent). Extracted out of `context.tsx` to stay under its complexity ceiling.
+- `context.tsx` — `setSelectedLayoutSizing/Width/Height/Position` and `setNodeLayout` now reflow after mutating (previously wrote the field and did nothing else — no visible effect until an unrelated action happened to trigger a reflow).
+- `context/types.ts` — new setter signatures.
+- `components/Inspector/sections/LayoutChildSection.tsx` — **new**. Flow/absolute position + per-axis width/height sizing controls for non-frame children of a layout frame.
+- `components/Inspector/sectionRegistry.ts` — new `layout-child` section id (was incorrectly sharing `layout`'s frame-only availability gate, which meant the section above never rendered until this fix).
+- `components/Inspector/PropertiesPanel.tsx` — wires `LayoutChildSection` under the new id.
+- `canvas/inputPipeline.ts` — unrelated one-line fix (`canvasRectRef` missing from a destructured parameter list, crashing on any canvas drag). Found while visually verifying; not part of Auto Layout but blocked all interactive testing.
 
-## 4. Engine Bug Inventory
+## 4. Known Limitations (see final report for full prioritization)
 
-These 5 tests document bugs the concurrent agent's engine repair must fix:
-
-| Test | Bug | Expected | Actual |
-|---|---|---|---|
-| wrap disabled | Engine wraps even when wrap=false | Both children on same line | Second child wraps |
-| fill after fixed | Fill gets remaining space | fixed=100, fill=290 | Both=200 (equal split) |
-| per-axis sizing | layoutSizingWidth used | w=400 (fill), h=30 (fixed) | w=80 (ignored) |
-| hidden/absolute | Filtered from flow | 1 result (flow only) | 3 results |
-| min/max clamp | Fill children clamped | w=180 (maxWidth) | w=400 (ignored) |
-
-## 5. Merge Plan
-
-The concurrent agent is repairing `computeFlexLayout.ts` and `reflow.ts`. When done:
-
-1. **Unskip the 5 bug tests** — they should pass with the repaired engine
-2. **Run `pnpm verify:affected`** to verify the full affected chain
-3. **Run Playwright visual tests** for canvas rendering
-4. **Commit** the engine fix alongside the model/inspector changes
-
-## 6. Backward Compatibility
-
-- Old documents without `layoutSizingWidth`/`layoutSizingHeight` fall back to `layoutSizing`
-- Old documents without `layoutPosition` default to `'flow'`
-- `layoutAlign` defaults to `'inherit'` (uses parent's alignItems)
-- No schema migration needed — all new fields are optional
+- **Grid hug sizing** is not implemented — grid-mode frames are explicitly skipped in `resolveIntrinsicSizes` and keep their authored box.
+- **Cycle diagnostic not surfaced**: `checkLayoutCycle` exists and is tested but isn't called from any mutation path — there's no user-facing warning when a configuration would have cycled (the engine still resolves deterministically; this is about UX feedback, not correctness).
+- **Absolute-child constraints** (left+top / right+bottom / center / stretch scale) are not layered on top of `layoutPosition: 'absolute'` — absolute children currently just keep their existing transform, with no responsive anchoring within the layout parent.
+- **Canvas direct-manipulation** (drag-to-reorder within a flex frame, gap/padding drag handles, insertion indicators) was not built this pass — all layout editing goes through the inspector.
+- **Real typographic baseline alignment** is not implemented; `alignItems` has no `baseline` option, which is correct per the "don't expose a fake option" principle rather than an oversight.
+- **RTL/logical direction** (`start`/`end` independent of `left`/`right`) is not modeled — `row`/`column` are physical, not logical.
+- Components/instances, save/reopen round-trip, undo/redo, and codegen fidelity were not independently re-verified this pass (pre-existing behavior, structurally unaffected by the engine changes, but not proven).

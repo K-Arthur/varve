@@ -1,8 +1,8 @@
 // COMPLEXITY: 858 (ceiling 847) — EditorProvider is the central state hub;
 // sub-contexts (MotionProvider, PrototypeProvider, ViewportProvider) are the
 // planned extraction path. Dialog state (useDialogState) and interaction state
-// (useInteractionState) already extracted. Next: extract layout setters
-// (setSelectedLayoutSizingWidth/Height/Position) into useLayoutState.
+// (useInteractionState) already extracted, as are the layout child setters
+// (context/layoutChildSetters.ts).
 /**
  * Editor state context — shared across all shell surfaces.
  *
@@ -42,6 +42,7 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
+import { applySelectedLayoutChildField } from './context/layoutChildSetters';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
@@ -412,7 +413,6 @@ import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
-import { makeLayoutSetters } from './context/useLayoutSetters';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import { resolveFontManifest, usePersistence } from './context/usePersistence';
@@ -951,8 +951,11 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   setSelectedMaxHeight: (value: number) => void;
   /** P3: batch-set layout sizing mode on all selected nodes. */
   setSelectedLayoutSizing: (value: import('@varve/scene').LayoutSizing) => void;
+  /** Batch-set width sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingWidth: (value: import('@varve/scene').LayoutSizing) => void;
+  /** Batch-set height sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingHeight: (value: import('@varve/scene').LayoutSizing) => void;
+  /** Batch-set flow/absolute position on all selected layout children. */
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
   setSelectedGridPlacement: (value: import('@varve/scene').GridItemPlacement) => void;
@@ -2809,8 +2812,6 @@ export function EditorProvider({
     },
     [updateDoc],
   );
-
-  const layoutSetters = makeLayoutSetters(updateDoc, state, reflowLayoutChildren);
 
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
@@ -7797,21 +7798,25 @@ export function EditorProvider({
         });
       },
 
-      setSelectedLayoutSizing: (value) => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, layoutSizing: value } as SceneNode;
-          }
-          return { ...doc, nodes };
-        });
-      },
+      setSelectedLayoutSizing: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutSizing', value),
+        ),
 
-      ...layoutSetters,
+      setSelectedLayoutSizingWidth: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutSizingWidth', value),
+        ),
+
+      setSelectedLayoutSizingHeight: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutSizingHeight', value),
+        ),
+
+      setSelectedLayoutPosition: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutPosition', value),
+        ),
 
       setSelectedGridPlacement: (value) => {
         const sel = state.selection;
