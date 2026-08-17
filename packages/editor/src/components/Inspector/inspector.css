@@ -1175,6 +1175,10 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.insp-segmented__btn[aria-pressed="true"]:hover,
+.insp-segmented__btn[aria-checked="true"]:hover {
+  background: var(--color-interactive-hover);
+}
 .insp-segmented__btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
@@ -1410,6 +1414,9 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border-color: var(--color-interactive-default);
+}
+.insp-panel__color-mode-btn--active:hover {
+  background: var(--color-interactive-hover);
 }
 
 /* ---------- Paint Library ---------- */
