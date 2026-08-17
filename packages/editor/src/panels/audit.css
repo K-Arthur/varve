@@ -141,6 +141,9 @@
   border-color: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.audit-filter-chip.active:hover {
+  background: var(--color-interactive-hover);
+}
 
 .audit-filter-chip:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -563,6 +566,9 @@
 .audit-profile-option.active {
   background: var(--color-accent-subtle);
   border-color: var(--color-accent-default);
+}
+.audit-profile-option.active:hover {
+  background: var(--color-surface-hover);
 }
 
 .audit-profile-option:focus-visible {

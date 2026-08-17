@@ -130,6 +130,9 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.code-panel__size-btn--active:hover {
+  background: var(--color-interactive-hover);
+}
 
 .code-panel__size-btn:hover:not(.code-panel__size-btn--active) {
   background: var(--color-surface-sunken);

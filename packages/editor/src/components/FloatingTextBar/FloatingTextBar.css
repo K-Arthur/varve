@@ -70,6 +70,9 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.floating-text-bar__btn--active:hover {
+  background: var(--color-interactive-hover);
+}
 
 .floating-text-bar__swatch {
   display: block;

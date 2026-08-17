@@ -565,6 +565,11 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
+.insp-panel .varve-select__option--selected:hover,
+.insp-disclosure .varve-select__option--selected:hover,
+.insp-fill-add .varve-select__option--selected:hover {
+  background: var(--color-interactive-hover);
+}
 
 .insp-fill-add {
   display: flex;
@@ -938,6 +943,9 @@
 .insp-btn-sm[aria-pressed="true"] {
   background: var(--color-accent-subtle);
   border-color: var(--color-interactive-default);
+}
+.insp-btn-sm[aria-pressed="true"]:hover {
+  background: var(--color-surface-hover);
 }
 
 .insp-per-side {
@@ -1313,6 +1321,9 @@
   background: var(--color-accent-subtle);
   border-color: var(--color-interactive-default);
   color: var(--color-interactive-default);
+}
+.insp-image-fill__flip-btn--active:hover {
+  background: var(--color-surface-hover);
 }
 .insp-image-fill__crop-info {
   display: flex;
@@ -3535,6 +3546,9 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border-color: var(--color-interactive-default);
+}
+.intelligence-filter-chip--active:hover {
+  background: var(--color-interactive-hover);
 }
 .intelligence-filter-chip--clear {
   border-style: dashed;
