@@ -760,7 +760,7 @@ function ShellInner({
         <input
           id="file-import-input"
           type="file"
-          accept=".svg,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.pdf,.ai,.eps,.psd,.psb,.sketch,.cube,.3dl,.clf,.ctf"
+          accept=".svg,.png,.jpg,.jpeg,.webp,.avif,.gif,.bmp,.pdf,.ai,.eps,.psd,.psb,.sketch,.fig,.fig.json,.cube,.3dl,.clf,.ctf"
           multiple
           style={{ display: 'none' }}
           onChange={async (e) => {
