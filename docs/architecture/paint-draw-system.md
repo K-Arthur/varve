@@ -86,7 +86,7 @@ empty destination tile is allocated only when the sampled neighborhood deposits
 visible pixels there. Opacity and flow affect smudge strength in the same way
 they affect paint dabs.
 
-The optional brush worker is a dab-generation optimization, not a second
+Alpha lock and per-brush blend modes are now wired through the full path: editor state, PaintTool, scene compositing, and inspector controls. The optional brush worker is a dab-generation optimization, not a second
 compositor. Each worker request remains inside the active stroke transaction;
 pointer-up defers commit until all confirmed requests settle. Cancellation
 invalidates the stroke generation, so late worker responses cannot mutate a
@@ -106,8 +106,8 @@ later stroke or document.
 | Transform-aware painting | incorrect | Fixed | World-to-raster-local inverse transform is used for paint and smudge. |
 | Layer targeting | incorrect | Fixed | Selected/visible/unlocked/active-page targeting is explicit. |
 | Raster persistence | incorrect | Fixed | Codec round-trip preserves tile pixels and runtime Map type. |
-| Alpha lock | partial | Partial | Scene compositing has alpha-lock support; tool target UI is incomplete. |
-| Blend modes | partial | Partial | Several scene blend modes exist; brush UI parity is incomplete. |
+| Alpha lock | partial | Fixed | Alpha lock toggle in inspector; compositing kernel already complete. |
+| Blend modes | partial | Fixed | Blend mode dropdown in inspector; scene compositing kernel was already complete. |
 | Grain/texture | scaffolded | Fixed baseline | Built-in procedural grain is composited deterministically; external assets remain deferred. |
 | Wet paint | scaffolded | Deferred | Wet buffer exists but is not in the live painting lifecycle. |
 | Smudge | partial | Fixed baseline | Immutable cross-tile neighborhood sampling is native; advanced modes remain deferred. |

@@ -1,5 +1,19 @@
 import { BUILT_IN_BRUSH_PRESETS, defaultBrushPreset, validateBrushPreset } from '@varve/scene';
 import { Select } from '@varve/ui';
+
+const BLEND_MODE_OPTIONS = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'multiply', label: 'Multiply' },
+  { value: 'screen', label: 'Screen' },
+  { value: 'overlay', label: 'Overlay' },
+  { value: 'darken', label: 'Darken' },
+  { value: 'lighten', label: 'Lighten' },
+  { value: 'color-dodge', label: 'Color Dodge' },
+  { value: 'color-burn', label: 'Color Burn' },
+  { value: 'difference', label: 'Difference' },
+  { value: 'exclusion', label: 'Exclusion' },
+];
+
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -66,6 +80,8 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
       setBrushSetting('grainRotation', found.grainRotation);
       setBrushSetting('grainContrast', found.grainContrast);
       setBrushSetting('grainInvert', found.grainInvert);
+      setBrushSetting('alphaLock', false);
+      setBrushSetting('blendMode', found.blendMode);
     },
     [setBrushSetting],
   );
@@ -173,6 +189,32 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
           onChange={(v) => setBrushSetting('spacing', Math.max(0.01, v / 100))}
         />
       )}
+
+      <div className="insp-field">
+        <span className="insp-field__label">Alpha Lock</span>
+        <div className="insp-field__control">
+          <button
+            type="button"
+            className={`btn-toggle${brushSettings.alphaLock ? ' btn-toggle--active' : ''}`}
+            aria-label="Alpha Lock"
+            onClick={() => setBrushSetting('alphaLock', !brushSettings.alphaLock)}
+          >
+            {brushSettings.alphaLock ? 'On' : 'Off'}
+          </button>
+        </div>
+      </div>
+
+      <div className="insp-field">
+        <span className="insp-field__label">Blend</span>
+        <div className="insp-field__control">
+          <Select
+            label="Brush blend mode"
+            value={brushSettings.blendMode}
+            options={BLEND_MODE_OPTIONS}
+            onChange={(v) => setBrushSetting('blendMode', v)}
+          />
+        </div>
+      </div>
 
       {isSmudge && (
         <NumberField

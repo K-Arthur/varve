@@ -26,6 +26,7 @@ export class PaintTool extends BaseTool {
   private transactionOpen = false;
   private workerHost: BrushWorkerHost | null = null;
   private ownsLayer = false;
+  private alphaLock = false;
   private pendingWorkerJobs = 0;
   private workerStrokeEnding = false;
 
@@ -73,6 +74,8 @@ export class PaintTool extends BaseTool {
     grainRotation?: number;
     grainContrast?: number;
     grainInvert?: boolean;
+    alphaLock?: boolean;
+    blendMode?: string;
   }): void {
     this.preset.id = settings.presetId;
     this.preset.radius = settings.radius;
@@ -86,6 +89,8 @@ export class PaintTool extends BaseTool {
     if (settings.grainRotation !== undefined) this.preset.grainRotation = settings.grainRotation;
     if (settings.grainContrast !== undefined) this.preset.grainContrast = settings.grainContrast;
     if (settings.grainInvert !== undefined) this.preset.grainInvert = settings.grainInvert;
+    if (settings.alphaLock !== undefined) this.alphaLock = settings.alphaLock;
+    if (settings.blendMode !== undefined) this.preset.blendMode = settings.blendMode;
   }
 
   /** Return current preset values mapped to the brush settings shape. */
@@ -360,7 +365,7 @@ export class PaintTool extends BaseTool {
         if (this.eraserMode) {
           updated = eraseDabOnNode(updated, dab);
         } else {
-          updated = compositeDabOnNode(updated, dab, color, false);
+          updated = compositeDabOnNode(updated, dab, color, this.alphaLock, this.preset.blendMode);
         }
       }
       return updated;
