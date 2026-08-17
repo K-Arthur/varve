@@ -58,6 +58,7 @@ const EXPECTED_VISIBILITY: Record<WorkspaceMode, boolean[]> = {
   codegen: [true, true, false, true, true, true, false],
   logo: [true, true, false, false, false, false, true],
   motion: [true, true, true, true, false, false, false],
+  email: [true, true, false, false, false, false, false],
 };
 
 const ALL_PANELS: PanelId[] = [
@@ -90,7 +91,7 @@ const MOUNT_CONTRACT: Record<PanelId, 'keep-mounted' | 'unmount'> = {
 describe('workspace panel baseline: per-mode visibility', () => {
   it('covers every registered workspace mode', () => {
     expect([...ALL_WORKSPACE_MODES].sort()).toEqual(
-      ['design', 'drawing', 'image', 'print', 'motion', 'codegen', 'logo'].sort(),
+      ['design', 'drawing', 'image', 'print', 'motion', 'codegen', 'logo', 'email'].sort(),
     );
   });
 
