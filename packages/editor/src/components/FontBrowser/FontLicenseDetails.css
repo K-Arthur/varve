@@ -87,17 +87,17 @@
 .font-license-details__value--installable,
 .font-license-details__value--editable,
 .font-license-details__value--preview {
-  color: var(--color-semantic-positive);
+  color: var(--color-feedback-success-strong);
 }
 
 .font-license-details__value--warning,
 .font-license-details__value--restricted,
 .font-license-details__value--license {
-  color: var(--color-semantic-warning);
+  color: var(--color-feedback-warning-strong);
 }
 
 .font-license-details__value--negative {
-  color: var(--color-semantic-negative);
+  color: var(--color-feedback-danger);
 }
 
 .font-license-details__value--neutral,
@@ -106,7 +106,7 @@
 }
 
 .font-license-details__link {
-  color: var(--color-accent);
+  color: var(--color-accent-primary);
   text-decoration: none;
 }
 
@@ -117,7 +117,7 @@
 .font-license-details__link:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 
 .font-license-details__permissions {
@@ -153,7 +153,7 @@
 }
 
 .font-license-details__permission-value--allowed {
-  color: var(--color-semantic-positive);
+  color: var(--color-feedback-success-strong);
 }
 
 .font-license-details__permission-value--denied {
@@ -174,7 +174,7 @@
 .font-license-details__text-summary:focus-visible {
   outline: var(--focus-ring);
   outline-offset: 2px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 
 .font-license-details__text-content {

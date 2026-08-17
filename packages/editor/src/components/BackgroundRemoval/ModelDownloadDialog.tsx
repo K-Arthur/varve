@@ -132,10 +132,14 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
                 download.
               </p>
               <div className="model-download__actions">
-                <button type="button" className="button button--ghost" onClick={handleCancel}>
+                <button type="button" className="varve-btn varve-btn--ghost" onClick={handleCancel}>
                   Cancel
                 </button>
-                <button type="button" className="button button--primary" onClick={handleDownload}>
+                <button
+                  type="button"
+                  className="varve-btn varve-btn--primary"
+                  onClick={handleDownload}
+                >
                   Download
                 </button>
               </div>
@@ -211,13 +215,17 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
 
           {status !== 'confirm' && (
             <div className="model-download__actions">
-              <button type="button" className="button button--ghost" onClick={handleCancel}>
+              <button type="button" className="varve-btn varve-btn--ghost" onClick={handleCancel}>
                 {status === 'ready' || status === 'cancelled' || status === 'error'
                   ? 'Close'
                   : 'Cancel'}
               </button>
               {status === 'error' && error?.retryable !== false && (
-                <button type="button" className="button button--primary" onClick={handleDownload}>
+                <button
+                  type="button"
+                  className="varve-btn varve-btn--primary"
+                  onClick={handleDownload}
+                >
                   Retry
                 </button>
               )}

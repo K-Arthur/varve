@@ -41,7 +41,7 @@
 }
 
 .selection-info-bar__layer-count {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -64,7 +64,7 @@
 .selection-info-bar__position,
 .selection-info-bar__rotation {
   font-variant-numeric: tabular-nums;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   flex-shrink: 0;
   white-space: nowrap;
 }

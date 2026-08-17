@@ -160,14 +160,14 @@ export function SubjectPickerOverlay({
         <div className="subject-picker-toolbar">
           <button
             type="button"
-            className="button--ghost subject-picker-toolbar__btn"
+            className="varve-btn varve-btn--ghost varve-btn--sm"
             onClick={selectAll}
           >
             Select all
           </button>
           <button
             type="button"
-            className="button--ghost subject-picker-toolbar__btn"
+            className="varve-btn varve-btn--ghost varve-btn--sm"
             onClick={deselectAll}
           >
             Deselect all
@@ -211,7 +211,7 @@ export function SubjectPickerOverlay({
         <div className="subject-picker-actions">
           <button
             type="button"
-            className="button--primary"
+            className="varve-btn varve-btn--primary"
             disabled={selectedCount === 0}
             onClick={handleConfirm}
           >
@@ -222,11 +222,11 @@ export function SubjectPickerOverlay({
                 : `Keep ${selectedCount} subject${selectedCount > 1 ? 's' : ''}`}
           </button>
           {selectedCount > 0 && selectedCount < totalCount && (
-            <button type="button" className="button--ghost" onClick={keepAll}>
+            <button type="button" className="varve-btn varve-btn--ghost" onClick={keepAll}>
               Keep all ({totalCount})
             </button>
           )}
-          <button type="button" className="button--ghost" onClick={onCancel}>
+          <button type="button" className="varve-btn varve-btn--ghost" onClick={onCancel}>
             Cancel
           </button>
         </div>

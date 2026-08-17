@@ -107,7 +107,7 @@ export function DnDShell({ children, layersDndRef }: DnDShellProps) {
               padding: '4px 12px',
               background: 'var(--color-surface-raised)',
               borderRadius: 'var(--radius-sm)',
-              boxShadow: 'var(--shadow-raised)',
+              boxShadow: 'var(--elevation-shadow-raised)',
               fontSize: 'var(--font-size-sm)',
             }}
           >

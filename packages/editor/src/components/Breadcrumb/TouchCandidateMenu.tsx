@@ -100,8 +100,8 @@ export function TouchCandidateMenu({
           width: menuWidth,
           maxHeight: 240,
           overflowY: 'auto',
-          background: 'var(--color-bg-surface)',
-          border: '1px solid var(--color-border)',
+          background: 'var(--elevation-surface-default)',
+          border: '1px solid var(--color-border-subtle)',
           borderRadius: 'var(--radius-md)',
           boxShadow: 'var(--shadow-lg)',
           padding: 'var(--space-1)',
@@ -160,7 +160,7 @@ export function TouchCandidateMenu({
                 <span
                   style={{
                     fontSize: '0.75em',
-                    color: 'var(--color-text-tertiary)',
+                    color: 'var(--color-text-muted)',
                     flexShrink: 0,
                   }}
                 >

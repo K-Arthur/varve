@@ -39,7 +39,7 @@
   height: 22px;
   border: none;
   background: transparent;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   cursor: pointer;
   border-radius: var(--radius-sm);
   padding: 0;
@@ -48,7 +48,7 @@
 
 .layers-panel__auto-reveal-btn:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: var(--color-surface-hover);
 }
 
 .layers-panel__auto-reveal-btn--active {
@@ -67,7 +67,7 @@
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
-  background: var(--color-surface-accent-subtle, var(--color-surface-raised));
+  background: var(--color-accent-subtle, var(--color-surface-raised));
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
@@ -627,7 +627,7 @@
 .layers-row__keyframe-badge {
   font-size: var(--font-size-2xs);
   color: var(--color-feedback-success);
-  background: var(--color-feedback-success-subtle);
+  background: color-mix(in oklab, var(--color-feedback-success) 16%, transparent);
   border-radius: var(--radius-sm);
   padding: 0 var(--space-1);
   flex-shrink: 0;
@@ -866,7 +866,7 @@
   background: var(--color-surface-app);
 }
 .layers-filter-bar__chip--inverse:hover {
-  background: var(--color-feedback-warning-subtle);
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
 }
 
 .layers-filter-bar__count {
@@ -1080,7 +1080,7 @@
 
 .layers-bulk-bar__btn--delete:hover {
   color: var(--color-feedback-danger);
-  background: var(--color-feedback-danger-subtle);
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
 }
 
 .layers-bulk-bar__color-group {

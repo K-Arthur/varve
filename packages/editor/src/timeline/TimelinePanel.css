@@ -65,7 +65,7 @@
 }
 .timeline-panel__create-btn:hover {
   background: var(--color-surface-overlay);
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
 }
 
 .timeline-panel__create-btn--primary {
@@ -138,7 +138,7 @@
 
 .timeline-panel__zoom-btn:hover:not(:disabled) {
   background: var(--color-surface-default);
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
 }
 
 .timeline-panel__zoom-btn:disabled {
@@ -170,7 +170,7 @@
 
 .timeline-panel__toggle-btn:hover {
   background: var(--color-surface-default);
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
   color: var(--color-text-primary);
 }
 

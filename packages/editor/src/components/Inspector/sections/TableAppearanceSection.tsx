@@ -157,11 +157,11 @@ export function TableAppearanceSection({ tableId, table, onSetAppearance, onSetB
                     border:
                       '1px solid ' +
                       (bindingValid
-                        ? 'var(--color-accent, #39d0c6)'
-                        : 'var(--color-danger, #d64545)'),
+                        ? 'var(--color-accent-primary, #39d0c6)'
+                        : 'var(--color-feedback-danger, #d64545)'),
                     color: bindingValid
-                      ? 'var(--color-text, #292d36)'
-                      : 'var(--color-danger, #d64545)',
+                      ? 'var(--color-text-primary, #292d36)'
+                      : 'var(--color-feedback-danger, #d64545)',
                     background: bindingValid
                       ? 'var(--color-surface-raised, #fff)'
                       : 'rgba(214,69,69,0.08)',

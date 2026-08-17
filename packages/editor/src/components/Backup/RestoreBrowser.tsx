@@ -2,6 +2,7 @@ import type { BackupIndexEntry, BackupManifest } from '@varve/engine';
 import { useCallback, useEffect, useState } from 'react';
 import type { BackupService } from '../../backupService';
 import { useEditor } from '../../context';
+import './backup.css';
 
 interface RestoreBrowserProps {
   backupService: BackupService;

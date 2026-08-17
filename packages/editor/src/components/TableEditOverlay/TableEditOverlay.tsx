@@ -290,7 +290,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
               width={cell.w * scale}
               height={cell.h * scale}
               fill="rgba(57, 208, 198, 0.16)"
-              stroke="var(--color-accent, #39d0c6)"
+              stroke="var(--color-accent-primary, #39d0c6)"
               strokeWidth={1.5 / scale}
               vectorEffect="non-scaling-stroke"
             />
@@ -312,7 +312,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
                 width={cell.w * scale}
                 height={cell.h * scale}
                 fill="none"
-                stroke="var(--color-accent, #39d0c6)"
+                stroke="var(--color-accent-primary, #39d0c6)"
                 strokeWidth={2.5 / scale}
                 vectorEffect="non-scaling-stroke"
               />

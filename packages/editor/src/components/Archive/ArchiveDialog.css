@@ -233,13 +233,13 @@
   flex: 1;
   height: 4px;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-pill, 999px);
   overflow: hidden;
 }
 
 .archive-dialog__strength-fill {
   height: 100%;
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-pill, 999px);
   transition:
     width var(--duration-fast) var(--ease-default),
     background var(--duration-fast) var(--ease-default);
@@ -332,14 +332,14 @@
 .archive-dialog__progress-bar {
   height: 6px;
   background: var(--color-surface-sunken);
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-pill, 999px);
   overflow: hidden;
 }
 
 .archive-dialog__progress-fill {
   height: 100%;
   background: var(--color-interactive-default);
-  border-radius: var(--radius-full, 999px);
+  border-radius: var(--radius-pill, 999px);
   transition: width var(--duration-base) var(--ease-out);
 }
 

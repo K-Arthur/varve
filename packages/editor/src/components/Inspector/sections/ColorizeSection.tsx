@@ -22,6 +22,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+import './ColorizeSection.css';
 
 // ---------------------------------------------------------------------------
 // Types
