@@ -414,6 +414,43 @@
   min-width: 80px;
 }
 
+.adj-editor__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.adj-editor__group:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.adj-editor__color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.adj-editor__checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.adj-editor__checkbox-row input {
+  accent-color: var(--color-interactive-default);
+  width: var(--space-2);
+  height: var(--space-2);
+}
+
 /* Adjustment layer row in layers panel */
 .adj-layer-row {
   display: flex;
@@ -854,7 +891,7 @@
 .gmp-item__swatch {
   width: var(--space-8);
   height: var(--space-3);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
   flex: none;
 }
@@ -871,7 +908,7 @@
 .gmp-item__badge {
   flex: none;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-2xs, 10px);
   background: var(--color-feedback-info);
   color: var(--color-text-secondary);
@@ -958,7 +995,7 @@
 .gmp-import__swatch {
   width: var(--space-10);
   height: var(--space-3);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
   flex: none;
 }
@@ -974,7 +1011,7 @@
 .gmp-import__badge {
   flex: none;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-size: var(--font-size-2xs, 10px);
   background: var(--color-feedback-warning);
   border: 1px solid var(--color-feedback-warning);
@@ -995,11 +1032,11 @@
 .adj-editor__swatch {
   aspect-ratio: 1;
   border-radius: 3px;
-  border: 1px solid var(--color-border, rgba(128, 128, 128, 0.35));
+  border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
   cursor: pointer;
 }
 .adj-editor__swatch--active {
-  outline: 2px solid var(--color-accent, #14b8a6);
+  outline: 2px solid var(--color-accent-primary, #14b8a6);
   outline-offset: 1px;
 }
 .adj-editor__palette-input {
@@ -1008,9 +1045,9 @@
   font-family: var(--font-mono, monospace);
   font-size: var(--font-size-2xs, 11px);
   resize: vertical;
-  background: var(--color-surface-2, transparent);
-  color: var(--color-text, inherit);
-  border: 1px solid var(--color-border, rgba(128, 128, 128, 0.35));
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-primary, inherit);
+  border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
   border-radius: 4px;
   padding: 6px;
 }

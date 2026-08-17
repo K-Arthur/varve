@@ -1,4 +1,5 @@
 import { Component, createRef, type ErrorInfo, type ReactNode } from 'react';
+import './ErrorBoundary.css';
 
 export interface ErrorBoundaryProps {
   children: ReactNode;
@@ -89,7 +90,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               ref={this.reloadButtonRef}
               type="button"
               onClick={this.handleReload}
-              className="error-boundary__action"
+              className="varve-btn varve-btn--primary"
             >
               Reload
             </button>
@@ -97,7 +98,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <button
                 type="button"
                 onClick={this.handleCopyError}
-                className="error-boundary__action error-boundary__action--secondary"
+                className="varve-btn varve-btn--ghost"
               >
                 {copied ? 'Error copied' : 'Copy error'}
               </button>
