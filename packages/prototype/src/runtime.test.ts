@@ -105,6 +105,20 @@ describe('Prototype Runtime', () => {
       expect(actionResult).toBeDefined();
       applyActionResult(runtime, actionResult as NonNullable<typeof actionResult>);
       expect(runtime.state.currentScreenId).toBe('screen-2');
+      expect(runtime.screenHistory).toEqual(['screen-1']);
+    });
+
+    it('goBack pops overlay or navigates back', () => {
+      const runtime = createRuntime([], 'screen-1');
+      runtime.state.overlayStack = ['overlay-1'];
+      applyActionResult(runtime, { kind: 'goBack' });
+      expect(runtime.state.overlayStack).toEqual([]);
+
+      runtime.state.currentScreenId = 'screen-2';
+      runtime.screenHistory = ['screen-1'];
+      applyActionResult(runtime, { kind: 'goBack' });
+      expect(runtime.state.currentScreenId).toBe('screen-1');
+      expect(runtime.screenHistory).toEqual([]);
     });
 
     it('processes multiple interactions on same event', () => {

@@ -8,7 +8,7 @@
  * contract, Strata motion architecture (docs/architecture/motion-system.md).
  */
 
-import type { Timeline } from '@varve/scene';
+import type { Document, Timeline } from '@varve/scene';
 import { createMotionTimelineEngine, type MotionTimelineEngine } from '../state/motion-state';
 
 export interface MotionFacadeCallbacks {
@@ -37,8 +37,8 @@ export class MotionFacade {
     return this.eng;
   }
 
-  play(timeline: Timeline): void {
-    this.eng.startPlayback(timeline, { loop: this.loop, speed: this.speed });
+  play(timeline: Timeline, doc?: Document): void {
+    this.eng.startPlayback(timeline, doc, { loop: this.loop, speed: this.speed });
   }
 
   pause(): void {

@@ -23,6 +23,15 @@ describe('TimelineEngine', () => {
     expect(engine.currentIteration).toBe(0);
   });
 
+  it('finishes a zero-duration timeline without looping', () => {
+    const onFinish = vi.fn();
+    engine = new TimelineEngine({ duration: 0 });
+    engine.play({ onFrame, onFinish });
+    engine.processDelta(16);
+    expect(engine.state).toBe('finished');
+    expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+
   it('plays and calls onFrame callback', () => {
     engine.play({ onFrame });
     expect(engine.state).toBe('playing');

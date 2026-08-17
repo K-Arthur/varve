@@ -10,6 +10,7 @@
  */
 
 import type { Action, PrototypeState, TransitionConfig } from './types';
+import { evaluatePrototypeExpression } from './variables';
 
 /**
  * Result of executing a prototype action.
@@ -58,48 +59,9 @@ export type ActionResult =
  * Supports patterns like "count + 1", "score * 2", etc.
  * Uses a safe evaluator — no eval, no Function constructor.
  */
-function evaluateExpression(expression: string, variables: Record<string, number>): number {
-  const tokens = expression.match(/([a-zA-Z_]\w*|\d+\.?\d*|\+|-|\*|\/|\(|\))/g);
-  if (!tokens) return 0;
-
-  const ops: string[] = [];
-  const vals: number[] = [];
-
-  for (const token of tokens) {
-    if (token in variables) {
-      vals.push(variables[token]!);
-    } else if (/^\d+\.?\d*$/.test(token)) {
-      vals.push(Number(token));
-    } else if (['+', '-', '*', '/', '(', ')'].includes(token)) {
-      ops.push(token);
-    } else {
-      vals.push(0);
-    }
-  }
-
-  if (vals.length === 0) return 0;
-  if (vals.length === 1) return vals[0]!;
-
-  let result = vals[0]!;
-  for (let i = 0; i < ops.length; i++) {
-    const op = ops[i]!;
-    const next = vals[i + 1] ?? 0;
-    switch (op) {
-      case '+':
-        result += next;
-        break;
-      case '-':
-        result -= next;
-        break;
-      case '*':
-        result *= next;
-        break;
-      case '/':
-        result = next !== 0 ? result / next : 0;
-        break;
-    }
-  }
-  return result;
+export function evaluateExpression(expression: string, variables: Record<string, number>): number {
+  const value = evaluatePrototypeExpression(expression, variables);
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 /**
@@ -216,5 +178,3 @@ export function executeAction(action: Action, state: PrototypeState): ActionResu
       return { kind: 'goBack' };
   }
 }
-
-export { evaluateExpression };

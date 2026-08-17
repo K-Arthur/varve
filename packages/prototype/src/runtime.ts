@@ -20,6 +20,10 @@ import type { Interaction, NodeId, PrototypeState, PrototypeVariable } from './t
 export interface PrototypeRuntime {
   interactions: Interaction[];
   state: PrototypeState;
+  /** Transient screen history used by goBack; never persisted in the document. */
+  screenHistory: NodeId[];
+  /** Per-runtime delayed-action counter. */
+  nextActionIndex: number;
   /** Pending delayed actions (for afterDelay triggers with delays) */
   pendingDelays: Array<{
     interactionId: string;
@@ -56,6 +60,8 @@ export function createRuntime(
   return {
     interactions,
     state: createInitialState(initialScreenId, initialVariables),
+    screenHistory: [],
+    nextActionIndex: 0,
     pendingDelays: [],
   };
 }
@@ -76,15 +82,13 @@ export function handleEvent(
  * If delay > 0, the result is scheduled as a pending delay instead of applying immediately.
  * Mutates the runtime state directly (the runtime owns state).
  */
-let _nextActionIndex = 0;
-
 export function applyActionResult(
   runtime: PrototypeRuntime,
   result: ActionResult,
   delay?: number,
 ): void {
   if (delay !== undefined && delay > 0) {
-    const actionIndex = _nextActionIndex++;
+    const actionIndex = runtime.nextActionIndex++;
     runtime.pendingDelays.push({
       interactionId: 'delayed',
       actionIndex,
@@ -95,6 +99,7 @@ export function applyActionResult(
 
   switch (result.kind) {
     case 'navigateTo':
+      runtime.screenHistory.push(runtime.state.currentScreenId);
       runtime.state.currentScreenId = result.targetId;
       runtime.state.overlayStack = [];
       break;
@@ -158,6 +163,8 @@ export function applyActionResult(
     case 'goBack':
       if (runtime.state.overlayStack.length > 0) {
         runtime.state.overlayStack.pop();
+      } else if (runtime.screenHistory.length > 0) {
+        runtime.state.currentScreenId = runtime.screenHistory.pop()!;
       }
       break;
   }
