@@ -75,6 +75,13 @@ test.describe('drag precision', () => {
     // Both rects selected: the union box is wider than either rect alone.
     expect(before.width).toBeGreaterThan(150);
 
+    // Ensure stateRef.current (used by buildToolCtx → canvasToWorld) reflects
+    // the committed selection. The SVG overlay reads React state directly, but
+    // the tool context reads stateRef which is only updated during render.
+    // Without this wait, a race between setState and the next pointer event
+    // can cause the drag to see a stale selection.
+    await page.waitForTimeout(50);
+
     // Drag the selection by (60, 40) with Ctrl held to bypass snapping so
     // the final position is pointer-exact. Grab rect A's centre.
     await page.keyboard.down('Control');
