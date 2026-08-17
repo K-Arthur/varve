@@ -57,6 +57,7 @@ export {
 export * from './documentCodec';
 export * from './effectMasks';
 export * from './effects';
+export * from './emailTypes';
 export * from './expandWarp';
 export * from './export-types';
 export * from './exportNaming';
