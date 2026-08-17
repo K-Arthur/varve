@@ -35,8 +35,8 @@
 .backup-settings__select {
   width: 100%;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
   background: var(--color-surface-default);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -45,7 +45,7 @@
   margin: var(--space-4) 0;
   padding: var(--space-3);
   background: var(--color-surface-raised);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
 }
 .backup-settings__status h4 {
   margin: 0 0 var(--space-2);
@@ -68,8 +68,8 @@
 }
 .backup-settings__button {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
   background: var(--color-surface-default);
   color: var(--color-text-primary);
   cursor: pointer;
@@ -117,7 +117,7 @@
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
-  border-radius: var(--border-radius-sm);
+  border-radius: var(--radius-sm);
   background: var(--color-surface-default);
   cursor: pointer;
   text-align: left;
@@ -141,15 +141,15 @@
   color: var(--color-text-muted);
 }
 .restore-browser__item-status--verified {
-  color: var(--color-success);
+  color: var(--color-feedback-success-strong);
 }
 .restore-browser__item-status--corrupted {
-  color: var(--color-danger);
+  color: var(--color-feedback-danger);
 }
 .restore-browser__details {
   padding: var(--space-3);
   background: var(--color-surface-raised);
-  border-radius: var(--border-radius-md);
+  border-radius: var(--radius-md);
   margin-bottom: var(--space-3);
 }
 .restore-browser__details h4 {
@@ -171,7 +171,7 @@
   margin: 0;
 }
 .restore-browser__checksum {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
 .restore-browser__mode {
@@ -188,13 +188,13 @@
 }
 .restore-browser__warning {
   font-size: var(--font-size-sm);
-  color: var(--color-warning);
+  color: var(--color-feedback-warning);
   margin: var(--space-1) 0 0 var(--space-5);
 }
 .restore-browser__button {
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--color-border-default);
-  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
   background: var(--color-surface-default);
   color: var(--color-text-primary);
   cursor: pointer;

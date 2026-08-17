@@ -606,7 +606,7 @@
 .spec-export__configs-preflight {
   margin-top: var(--space-2);
   padding: var(--space-2);
-  background: var(--color-feedback-warning-subtle, var(--color-surface-sunken));
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
   border: var(--border-micro);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);

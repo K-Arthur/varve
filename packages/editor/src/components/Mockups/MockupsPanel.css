@@ -35,8 +35,8 @@
 }
 
 .mockups-panel__hint--active {
-  background: var(--accent-subtle, var(--surface-muted));
-  color: var(--accent);
+  background: var(--color-accent-subtle, var(--surface-muted));
+  color: var(--color-accent-primary);
 }
 
 .mockups-panel__search {
@@ -44,7 +44,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-micro);
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
 }
@@ -73,7 +73,7 @@
 
 .mockups-panel__chip {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-micro);
   border-radius: 999px;
   background: transparent;
   color: var(--text-secondary);
@@ -82,13 +82,13 @@
 }
 
 .mockups-panel__chip:hover {
-  border-color: var(--accent);
+  border-color: var(--color-accent-primary);
   color: var(--text-primary);
 }
 
 .mockups-panel__chip--active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
   color: var(--text-on-accent, #ffffff);
 }
 
@@ -106,10 +106,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--border-micro);
   border-radius: var(--radius-md);
   padding: var(--space-2);
-  background: var(--surface-raised, var(--surface-default));
+  background: var(--elevation-surface-raised);
 }
 
 .mockups-panel__preview {

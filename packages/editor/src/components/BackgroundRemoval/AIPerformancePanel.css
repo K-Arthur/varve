@@ -26,7 +26,7 @@
   color: var(--color-text-muted);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-pill);
   padding: 1px var(--space-2);
   min-width: 20px;
   text-align: center;
@@ -82,8 +82,8 @@
 .ai-perf__warning {
   margin: var(--space-2) 0 0;
   padding: var(--space-2);
-  background: var(--color-surface-warning-subtle, var(--elevation-surface-default));
-  border-left: 2px solid var(--color-accent-warning, var(--color-interactive-default));
+  background: var(--elevation-surface-sunken);
+  border-left: 2px solid var(--color-feedback-warning);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -148,14 +148,14 @@
 .ai-perf__tag {
   font-size: var(--font-size-2xs);
   padding: 0 var(--space-1);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   font-weight: var(--font-weight-medium);
   text-align: center;
 }
 
 .ai-perf__tag--int8 {
   color: var(--color-interactive-default);
-  background: var(--color-accent-wash, var(--elevation-surface-sunken));
+  background: var(--elevation-surface-sunken);
 }
 
 .ai-perf__tag--fp32 {

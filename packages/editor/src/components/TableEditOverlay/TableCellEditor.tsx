@@ -84,13 +84,13 @@ export function TableCellEditor({ cellId, zoom, worldToScreen, onDone }: Props) 
         padding: `${Math.max(0, (tableNode.table.appearance.cellPadding ?? 8) * zoom)}px`,
         fontSize: `${13 * zoom}px`,
         lineHeight: 1.35,
-        fontFamily: 'var(--font-ui, sans-serif)',
+        fontFamily: 'var(--font-display, sans-serif)',
         fontWeight: cell.isHeader ? 600 : 400,
         color: cell.isHeader
           ? 'var(--color-text-strong, #292d36)'
           : 'var(--color-text-strong, #292d36)',
         background: 'rgba(255,255,255,0.92)',
-        border: '2px solid var(--color-accent, #39d0c6)',
+        border: '2px solid var(--color-accent-primary, #39d0c6)',
         borderRadius: 2,
         boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
         resize: 'none',

@@ -14,11 +14,11 @@
 
 .high-contrast-handles .warp-overlay__handle {
   stroke-width: 2.5;
-  stroke: var(--color-on-surface);
+  stroke: var(--color-text-primary);
 }
 
 .high-contrast-handles .warp-overlay__cage {
-  stroke: var(--color-on-surface);
+  stroke: var(--color-text-primary);
   stroke-dasharray: none;
 }
 
@@ -82,7 +82,7 @@
 .warp-section__item-tools button,
 .warp-section__row button,
 .warp-section__danger button {
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 6px;
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
@@ -115,7 +115,7 @@
 .warp-section__row > input {
   flex: 1;
   min-width: 120px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 6px;
   background: var(--color-surface-raised);
   color: var(--color-text-primary);

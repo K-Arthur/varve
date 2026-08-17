@@ -11,6 +11,7 @@
 import type { InferenceDiagnosticEvent } from '@varve/engine';
 import { getInferenceDiagnostics, subscribeInferenceDiagnostics } from '@varve/engine';
 import { useEffect, useState } from 'react';
+import './AIPerformancePanel.css';
 
 function formatDuration(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)} ms`;

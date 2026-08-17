@@ -24,7 +24,7 @@
 }
 
 .glyph-typography__hint--muted {
-  color: var(--color-text-tertiary, var(--color-text-secondary));
+  color: var(--color-text-muted, var(--color-text-secondary));
 }
 
 .glyph-typography__grid {

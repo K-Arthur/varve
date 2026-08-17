@@ -170,26 +170,26 @@
 }
 
 .font-selector__badge--color {
-  color: var(--color-text-inverse);
-  background: var(--color-accent-secondary);
+  color: var(--color-text-on-accent);
+  background: var(--color-accent-teal);
 }
 
 .font-selector__badge--license {
-  color: var(--color-text-inverse);
-  background: var(--color-warning);
+  color: var(--color-text-on-accent);
+  background: var(--color-feedback-warning);
 }
 
 .font-selector__badge--online {
-  color: var(--color-text-inverse);
+  color: var(--color-text-on-accent);
   background: var(--color-interactive-default);
 }
 
 .font-selector__section-note {
   margin-left: var(--space-2);
-  font-weight: var(--font-weight-normal);
+  font-weight: var(--font-weight-regular);
   text-transform: none;
   letter-spacing: normal;
-  font-size: var(--font-size-3xs);
+  font-size: var(--font-size-2xs);
   color: var(--color-interactive-default);
   opacity: 0.8;
 }
@@ -204,7 +204,7 @@
 
 .font-selector__option--error {
   justify-content: center;
-  color: var(--color-danger);
+  color: var(--color-feedback-danger);
   font-size: var(--font-size-sm);
   cursor: default;
 }

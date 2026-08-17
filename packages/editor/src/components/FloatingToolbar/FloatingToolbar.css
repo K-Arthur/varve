@@ -123,3 +123,76 @@
   color: var(--color-accent-on-subtle);
   background: var(--color-accent-subtle);
 }
+
+/* ─── Drawing mode controls (brush size / opacity / colors) ─── */
+.floating-toolbar__drawing {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--elevation-surface-raised);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  width: max-content;
+}
+.floating-toolbar__drawing-label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+.floating-toolbar__drawing-slider {
+  width: 5.5rem;
+  accent-color: var(--color-interactive-default);
+  cursor: pointer;
+}
+.floating-toolbar__drawing-slider:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.floating-toolbar__colors {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-1);
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--color-border-subtle);
+}
+.floating-toolbar__color-swatch {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.floating-toolbar__color-swatch:focus-within {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.floating-toolbar__color-swap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.floating-toolbar__color-swap:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+}
+.floating-toolbar__color-swap:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}

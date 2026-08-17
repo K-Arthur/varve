@@ -417,7 +417,7 @@ function flashTarget(doc: Document, nodeId?: string): void {
   const el = document.querySelector(`[data-node-id="${nodeId}"]`);
   if (el instanceof HTMLElement) {
     el.style.transition = `outline ${FLASH_DURATION_MS}ms ease-out`;
-    el.style.outline = '2px solid var(--color-accent)';
+    el.style.outline = '2px solid var(--color-accent-primary)';
     el.style.outlineOffset = '2px';
     setTimeout(() => {
       el.style.outline = '';

@@ -36,10 +36,10 @@ export function DebtBadge() {
   let bg: string;
   if (ec > 0) {
     color = 'var(--color-feedback-danger)';
-    bg = 'var(--color-feedback-danger-bg, rgba(220, 38, 38, 0.1))';
+    bg = 'color-mix(in oklab, var(--color-feedback-danger) 12%, transparent)';
   } else if (wc > 0) {
     color = 'var(--color-feedback-warning)';
-    bg = 'var(--color-feedback-warning-bg, rgba(234, 179, 8, 0.1))';
+    bg = 'color-mix(in oklab, var(--color-feedback-warning) 16%, transparent)';
   } else {
     color = 'var(--color-feedback-info)';
     bg = 'var(--color-surface-sunken)';
