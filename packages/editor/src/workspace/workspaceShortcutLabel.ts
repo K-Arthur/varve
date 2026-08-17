@@ -19,6 +19,7 @@ const WORKSPACE_SHORTCUT_IDS: Record<WorkspaceMode, string> = {
   motion: 'workspaceMotion',
   codegen: 'workspaceCodegen',
   logo: 'workspaceLogo',
+  email: 'workspaceEmail',
 };
 
 /** Effective shortcut label for a workspace mode (e.g. "Ctrl+Shift+2"). */

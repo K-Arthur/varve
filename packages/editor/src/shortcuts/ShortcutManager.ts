@@ -522,6 +522,11 @@ export const SHORTCUT_DEFS = {
     label: 'Workspace: Logo',
     category: 'View',
   },
+  workspaceEmail: {
+    binding: { key: '7', ctrl: true, shift: true },
+    label: 'Workspace: Email',
+    category: 'View',
+  },
   toggleDistractionFree: {
     // Shift+. produces e.key '>' — bindingMatchesEvent compares e.key, so a
     // '.' key with shift:true could never fire.

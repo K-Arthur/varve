@@ -919,6 +919,15 @@ export function getViewMenu(
       run: () => runAction('workspaceLogo'),
     },
     {
+      id: 'workspaceEmail',
+      labelKey: 'menu.view.workspaceEmail',
+      accelerator: acceleratorFor('workspaceEmail'),
+      kind: 'radio',
+      group: 'workspace',
+      radioGroup: 'workspace',
+      run: () => runAction('workspaceEmail'),
+    },
+    {
       id: 'workspaceCodegen',
       labelKey: 'menu.view.workspaceCodegen',
       accelerator: acceleratorFor('workspaceCodegen'),

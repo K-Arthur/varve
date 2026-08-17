@@ -169,6 +169,30 @@ export const WORKSPACE_AUDIT_PROFILES: Record<WorkspaceMode, WorkspaceAuditProfi
     statusBadgeCategories: ['vector', 'color', 'export'],
     overlayCategories: ['vector', 'color'],
   },
+
+  email: {
+    workspace: 'email',
+    primaryCategories: ['accessibility', 'typography', 'color', 'layout'],
+    secondaryCategories: ['structure', 'spacing', 'export', 'raster'],
+    hiddenCategories: [
+      'print',
+      'prototype',
+      'vector',
+      'performance',
+      'layer-hygiene',
+      'governance',
+    ],
+    defaultStage: 'debounced',
+    maxFindings: 50,
+    contextualSummaryRules: [
+      'accessibility/missing-alt',
+      'accessibility/empty-link',
+      'typography/missing-fallback',
+      'contrast/aa-fail',
+    ],
+    statusBadgeCategories: ['accessibility', 'typography'],
+    overlayCategories: ['accessibility', 'layout'],
+  },
 };
 
 // ---------------------------------------------------------------------------
