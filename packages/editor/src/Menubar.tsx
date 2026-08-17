@@ -1366,6 +1366,7 @@ function buildMenus(
         },
         { label: '---' },
         { label: 'Take a Tour', action: 'startTour' },
+        { label: "What's New", action: 'whatsNew' },
         { label: '---' },
         { label: 'About Varve', action: 'about' },
         ...(!caps.has('nativeMenu') && !isInstallDesktopDismissed() && !isInIframe()
@@ -1545,6 +1546,7 @@ export function Menubar({
   onReportSecurity,
   onOpenPrivacy,
   onWhatIsThis,
+  onWhatsNew,
   onOpenAbout,
   onBatchBgRemove,
 }: {
@@ -1559,6 +1561,7 @@ export function Menubar({
   onReportSecurity?: () => void;
   onOpenPrivacy?: () => void;
   onWhatIsThis?: () => void;
+  onWhatsNew?: () => void;
   onOpenAbout?: () => void;
   onBatchBgRemove?: () => void;
 }) {
@@ -1949,6 +1952,9 @@ export function Menubar({
           return;
         case 'whatIsThis':
           onWhatIsThis?.();
+          return;
+        case 'whatsNew':
+          onWhatsNew?.();
           return;
         case 'about':
           onOpenAbout?.();

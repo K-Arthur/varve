@@ -246,6 +246,7 @@ function stubEngine(): Engine {
                   })),
                   rotation: f.gradient.rotation ?? 0,
                   interpolationSpace: f.gradient.interpolationSpace ?? 'oklab',
+                  hueInterpolation: f.gradient.hueInterpolation ?? 'shorter',
                   tilingMode: f.gradient.tilingMode ?? undefined,
                   opacity: f.opacity,
                   blendMode: f.blendMode,

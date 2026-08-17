@@ -1,8 +1,8 @@
-// COMPLEXITY: 843 (ceiling 847) — EditorProvider is the central state hub;
+// COMPLEXITY: 858 (ceiling 847) — EditorProvider is the central state hub;
 // sub-contexts (MotionProvider, PrototypeProvider, ViewportProvider) are the
 // planned extraction path. Dialog state (useDialogState) and interaction state
-// (useInteractionState) already extracted. Next: extract tool state into
-// useToolState (blocked: tightly coupled to createShapeAt).
+// (useInteractionState) already extracted. Next: extract layout setters
+// (setSelectedLayoutSizingWidth/Height/Position) into useLayoutState.
 /**
  * Editor state context — shared across all shell surfaces.
  *
@@ -412,6 +412,7 @@ import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
+import { makeLayoutSetters } from './context/useLayoutSetters';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import { resolveFontManifest, usePersistence } from './context/usePersistence';
@@ -950,6 +951,9 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   setSelectedMaxHeight: (value: number) => void;
   /** P3: batch-set layout sizing mode on all selected nodes. */
   setSelectedLayoutSizing: (value: import('@varve/scene').LayoutSizing) => void;
+  setSelectedLayoutSizingWidth: (value: import('@varve/scene').LayoutSizing) => void;
+  setSelectedLayoutSizingHeight: (value: import('@varve/scene').LayoutSizing) => void;
+  setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
   setSelectedGridPlacement: (value: import('@varve/scene').GridItemPlacement) => void;
   /** P3: set the document canvas width. */
@@ -2805,6 +2809,8 @@ export function EditorProvider({
     },
     [updateDoc],
   );
+
+  const layoutSetters = makeLayoutSetters(updateDoc, state, reflowLayoutChildren);
 
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
@@ -7724,9 +7730,14 @@ export function EditorProvider({
         }),
 
       setNodeLayout: (id, layout) => {
-        updateNodeProp(id, (n) => {
-          if (n.kind !== 'frame') return n;
-          return { ...n, layoutStyle: layout };
+        updateDoc((doc) => {
+          const node = doc.nodes[id];
+          if (node?.kind !== 'frame') return doc;
+          const updated = {
+            ...doc,
+            nodes: { ...doc.nodes, [id]: { ...node, layoutStyle: layout } },
+          };
+          return layout ? reflowLayoutChildren(updated, id) : updated;
         });
       },
 
@@ -7799,6 +7810,8 @@ export function EditorProvider({
           return { ...doc, nodes };
         });
       },
+
+      ...layoutSetters,
 
       setSelectedGridPlacement: (value) => {
         const sel = state.selection;

@@ -15,6 +15,7 @@ import type {
   GradientStop,
   GradientTilingMode,
   GradientType,
+  HueInterpolation,
   ManagedColor,
 } from '@varve/scene';
 import type { InterpolationRgba } from '@varve/shared';
@@ -40,9 +41,17 @@ export interface GradientEditorProps {
 const INTERPOLATION_SPACES = [
   { value: 'oklab', label: 'OKLab' },
   { value: 'oklch', label: 'OKLch' },
+  { value: 'linear-srgb', label: 'Linear RGB' },
   { value: 'hsl', label: 'HSL' },
   { value: 'srgb', label: 'sRGB' },
 ] as const;
+
+const HUE_INTERPOLATION_OPTIONS: { value: HueInterpolation; label: string }[] = [
+  { value: 'shorter', label: 'Shorter' },
+  { value: 'longer', label: 'Longer' },
+  { value: 'increasing', label: 'Increasing' },
+  { value: 'decreasing', label: 'Decreasing' },
+];
 
 const GRADIENT_TYPES: { value: GradientType; label: string }[] = [
   { value: 'linear', label: 'Linear' },
@@ -276,6 +285,25 @@ export function GradientEditor({
           />
         </div>
       </div>
+
+      {(gradient.interpolationSpace === 'oklch' || gradient.interpolationSpace === 'hsl') && (
+        <div className="insp-field">
+          <span className="insp-field__label">Hue</span>
+          <div className="insp-field__control">
+            <Select
+              label="Hue interpolation direction"
+              value={gradient.hueInterpolation ?? 'shorter'}
+              options={HUE_INTERPOLATION_OPTIONS}
+              onChange={(v) =>
+                onChange({
+                  ...gradient,
+                  hueInterpolation: v as HueInterpolation,
+                })
+              }
+            />
+          </div>
+        </div>
+      )}
 
       <div className="insp-field">
         <span className="insp-field__label">Tiling</span>

@@ -1,8 +1,9 @@
 /**
  * Perceptually uniform gradient color interpolation.
  *
- * Supports sRGB, Oklab, Oklch, and HSL interpolation spaces for gradient
- * stop blending. Handles midpoint bias (Figma-style) and premultiplied alpha.
+ * Supports sRGB, linear-sRGB, Oklab, Oklch, and HSL interpolation spaces for
+ * gradient stop blending. Handles midpoint bias (Figma-style), premultiplied
+ * alpha, and configurable hue interpolation for cylindrical spaces.
  *
  * Research basis: Björn Ottosson Oklab (2020), CSS Color Level 4 color-mix(),
  * Figma gradient midpoint controls, Porter-Duff premultiplied alpha compositing.
@@ -15,13 +16,18 @@ import {
   managedColorToNormalized,
   oklabToLinearSrgb,
   oklabToOkLch,
-  oklchToOkLab,
   srgbToLinear,
   srgbToLinearUnit,
 } from './colorConversion';
 
 /** Color space used for gradient stop interpolation. */
-export type GradientInterpolationSpace = 'srgb' | 'oklab' | 'oklch' | 'hsl';
+export type GradientInterpolationSpace = 'srgb' | 'linear-srgb' | 'oklab' | 'oklch' | 'hsl';
+
+/**
+ * Hue interpolation direction for cylindrical spaces (OKLCH, HSL).
+ * Default: 'shorter'.
+ */
+export type HueInterpolation = 'shorter' | 'longer' | 'increasing' | 'decreasing';
 
 /** Minimal gradient stop input for interpolation (decoupled from scene types). */
 export interface GradientStopInput {
@@ -42,6 +48,8 @@ export interface InterpolateOptions {
   premultiplied?: boolean;
   /** Keep fractional working channels instead of rounding to display bytes. */
   precision?: 'display' | 'working';
+  /** Hue interpolation direction for cylindrical spaces. Default: 'shorter'. */
+  hueInterpolation?: HueInterpolation;
 }
 
 type RgbColor = GradientStopInput['color'];
@@ -109,11 +117,58 @@ function hslToRgb(
   ];
 }
 
-/** Shortest-path hue interpolation in degrees. */
-function lerpHue(h1: number, h2: number, t: number): number {
+/**
+ * Interpolate hue in degrees with configurable direction.
+ *
+ * - shorter: take the shorter arc (default)
+ * - longer: take the longer arc
+ * - increasing: always interpolate in the positive (CW) direction
+ * - decreasing: always interpolate in the negative (CCW) direction
+ *
+ * Hue values must be in [0, 360). Achromatic endpoints (where chroma is
+ * near-zero) should not reach this function; callers fall back to OKLab
+ * when either endpoint is achromatic.
+ */
+export function lerpHue(
+  h1: number,
+  h2: number,
+  t: number,
+  direction: HueInterpolation = 'shorter',
+): number {
+  // Normalise both hues into [0, 360)
+  h1 = ((h1 % 360) + 360) % 360;
+  h2 = ((h2 % 360) + 360) % 360;
+
+  // Compute raw difference in (-360, 360]
   let diff = h2 - h1;
-  if (diff > 180) diff -= 360;
-  if (diff < -180) diff += 360;
+  if (diff > 360) diff -= 360;
+  if (diff <= -360) diff += 360;
+
+  switch (direction) {
+    case 'shorter': {
+      // Take the shorter arc: if |diff| > 180, flip direction
+      if (diff > 180) diff -= 360;
+      else if (diff < -180) diff += 360;
+      break;
+    }
+    case 'longer': {
+      // Take the longer arc: if |diff| ≤ 180, flip direction
+      if (diff > 0 && diff <= 180) diff -= 360;
+      else if (diff < 0 && diff >= -180) diff += 360;
+      break;
+    }
+    case 'increasing': {
+      // Always go positive: if diff < 0, add 360
+      if (diff < 0) diff += 360;
+      break;
+    }
+    case 'decreasing': {
+      // Always go negative: if diff > 0, subtract 360
+      if (diff > 0) diff -= 360;
+      break;
+    }
+  }
+
   return (((h1 + diff * t) % 360) + 360) % 360;
 }
 
@@ -145,13 +200,17 @@ export function interpolateManagedColor(
 
   const premultiplied = opts.premultiplied !== false;
   const precision = opts.precision ?? 'display';
+  const hueDir = opts.hueInterpolation ?? 'shorter';
 
   if (premultiplied && (from.a < 255 || to.a < 255)) {
     const af = from.a / 255;
     const at = to.a / 255;
     const pmFrom = toRgbColor(from.r * af, from.g * af, from.b * af, from.a, precision);
     const pmTo = toRgbColor(to.r * at, to.g * at, to.b * at, to.a, precision);
-    const pmResult = interpolateManagedColor(pmFrom, pmTo, t, space, { premultiplied: false });
+    const pmResult = interpolateManagedColor(pmFrom, pmTo, t, space, {
+      ...opts,
+      premultiplied: false,
+    });
     const outA = clamp255(from.a + (to.a - from.a) * t);
     if (outA === 0) return toRgbColor(0, 0, 0, 0);
     const outAf = outA / 255;
@@ -167,6 +226,19 @@ export function interpolateManagedColor(
         from.a + (to.a - from.a) * t,
         precision,
       );
+
+    case 'linear-srgb': {
+      const lr = srgbToLinear(from.r) + (srgbToLinear(to.r) - srgbToLinear(from.r)) * t;
+      const lg = srgbToLinear(from.g) + (srgbToLinear(to.g) - srgbToLinear(from.g)) * t;
+      const lb = srgbToLinear(from.b) + (srgbToLinear(to.b) - srgbToLinear(from.b)) * t;
+      return toRgbColor(
+        linearToSrgbUnit(lr) * 255,
+        linearToSrgbUnit(lg) * 255,
+        linearToSrgbUnit(lb) * 255,
+        from.a + (to.a - from.a) * t,
+        precision,
+      );
+    }
 
     case 'oklab': {
       const lerp = (a: number, b: number) => a + (b - a) * t;
@@ -206,22 +278,16 @@ export function interpolateManagedColor(
         return interpolateManagedColor(from, to, t, 'oklab', { ...opts, premultiplied: false });
       }
       const lerp = (a: number, b: number) => a + (b - a) * t;
-      let h2 = H2;
-      const h1 = H1;
-      const diff = h2 - h1;
-      if (diff > Math.PI) h2 -= 2 * Math.PI;
-      else if (diff < -Math.PI) h2 += 2 * Math.PI;
-      const H = h1 + (h2 - h1) * t;
-      const oklab = oklchToOkLab([lerp(L1, L2), lerp(C1, C2), H]);
-      const [lr, lg, lb] = oklabToLinearSrgb(oklab);
+      // OKLCH uses radians internally; convert to degrees for lerpHue
+      const H1Deg = (H1 * 180) / Math.PI;
+      const H2Deg = (H2 * 180) / Math.PI;
+      const HDeg = lerpHue(H1Deg, H2Deg, t, hueDir);
+      const HRad = (HDeg * Math.PI) / 180;
       const [r, g, b] = (precision === 'working' ? gamutMapToSrgbUnit : gamutMapToSrgb)([
         lerp(L1, L2),
         lerp(C1, C2),
-        H,
+        HRad,
       ]);
-      void lr;
-      void lg;
-      void lb;
       return toRgbColor(r, g, b, from.a + (to.a - from.a) * t, precision);
     }
 
@@ -229,7 +295,7 @@ export function interpolateManagedColor(
       const [h1, s1, l1] = rgbToHsl(from.r, from.g, from.b);
       const [h2, s2, l2] = rgbToHsl(to.r, to.g, to.b);
       const lerp = (a: number, b: number) => a + (b - a) * t;
-      const [r, g, b] = hslToRgb(lerpHue(h1, h2, t), lerp(s1, s2), lerp(l1, l2), precision);
+      const [r, g, b] = hslToRgb(lerpHue(h1, h2, t, hueDir), lerp(s1, s2), lerp(l1, l2), precision);
       return toRgbColor(r, g, b, from.a + (to.a - from.a) * t, precision);
     }
   }
@@ -301,12 +367,13 @@ export function interpolateNormalizedColor(
   to: InterpolationRgba,
   t: number,
   space: GradientInterpolationSpace,
-  opts: { premultiplied?: boolean } = {},
+  opts: { premultiplied?: boolean; hueInterpolation?: HueInterpolation } = {},
 ): InterpolationRgba {
   if (t <= 0) return { ...from };
   if (t >= 1) return { ...to };
 
   const premultiplied = opts.premultiplied !== false;
+  const hueDir = opts.hueInterpolation ?? 'shorter';
   if (premultiplied && (from.a < 1 || to.a < 1)) {
     const pmFrom: InterpolationRgba = {
       r: from.r * from.a,
@@ -315,7 +382,10 @@ export function interpolateNormalizedColor(
       a: from.a,
     };
     const pmTo: InterpolationRgba = { r: to.r * to.a, g: to.g * to.a, b: to.b * to.a, a: to.a };
-    const pmResult = interpolateNormalizedColor(pmFrom, pmTo, t, space, { premultiplied: false });
+    const pmResult = interpolateNormalizedColor(pmFrom, pmTo, t, space, {
+      premultiplied: false,
+      hueInterpolation: hueDir,
+    });
     const outA = from.a + (to.a - from.a) * t;
     if (outA === 0) return { r: 0, g: 0, b: 0, a: 0 };
     return { r: pmResult.r / outA, g: pmResult.g / outA, b: pmResult.b / outA, a: outA };
@@ -331,6 +401,17 @@ export function interpolateNormalizedColor(
         b: lerp(from.b, to.b),
         a: lerp(from.a, to.a),
       };
+    case 'linear-srgb': {
+      const lr = srgbToLinearUnit(from.r) + (srgbToLinearUnit(to.r) - srgbToLinearUnit(from.r)) * t;
+      const lg = srgbToLinearUnit(from.g) + (srgbToLinearUnit(to.g) - srgbToLinearUnit(from.g)) * t;
+      const lb = srgbToLinearUnit(from.b) + (srgbToLinearUnit(to.b) - srgbToLinearUnit(from.b)) * t;
+      return {
+        r: linearToSrgbUnit(lr),
+        g: linearToSrgbUnit(lg),
+        b: linearToSrgbUnit(lb),
+        a: lerp(from.a, to.a),
+      };
+    }
     case 'oklab': {
       const toLin = (c: InterpolationRgba): [number, number, number] => [
         srgbToLinearUnit(c.r),
@@ -357,28 +438,24 @@ export function interpolateNormalizedColor(
       const [l2, a2, b2] = linearSrgbToOklab(toLin(to));
       const [L1, C1, H1] = oklabToOkLch([l1, a1, b1]);
       const [L2, C2, H2] = oklabToOkLch([l2, a2, b2]);
-      // Near-zero chroma → undefined hue; fall back to OKLab (see the
-      // byte-space interpolator for the same rule).
+      // Near-zero chroma → undefined hue; fall back to OKLab.
       if (C1 < 0.001 || C2 < 0.001) {
-        return interpolateNormalizedColor(from, to, t, 'oklab', { premultiplied: false });
+        return interpolateNormalizedColor(from, to, t, 'oklab', {
+          premultiplied: false,
+          hueInterpolation: hueDir,
+        });
       }
-      let h2 = H2;
-      const h1 = H1;
-      const diff = h2 - h1;
-      if (diff > Math.PI) h2 -= 2 * Math.PI;
-      else if (diff < -Math.PI) h2 += 2 * Math.PI;
-      const [r, g, b] = gamutMapToSrgbUnit([lerp(L1, L2), lerp(C1, C2), h1 + (h2 - h1) * t]);
-      // gamutMapToSrgbUnit returns unquantized 0-255 floats — rescale to
-      // normalized 0-1 for the caller's storage precision.
+      const H1Deg = (H1 * 180) / Math.PI;
+      const H2Deg = (H2 * 180) / Math.PI;
+      const HDeg = lerpHue(H1Deg, H2Deg, t, hueDir);
+      const HRad = (HDeg * Math.PI) / 180;
+      const [r, g, b] = gamutMapToSrgbUnit([lerp(L1, L2), lerp(C1, C2), HRad]);
       return { r: r / 255, g: g / 255, b: b / 255, a: lerp(from.a, to.a) };
     }
     case 'hsl': {
       const [h1, s1, l1] = rgbToHslUnit(from.r, from.g, from.b);
       const [h2, s2, l2] = rgbToHslUnit(to.r, to.g, to.b);
-      let dh = h2 - h1;
-      if (dh > 180) dh -= 360;
-      else if (dh < -180) dh += 360;
-      const [r, g, b] = hslToRgbUnit(h1 + dh * t, lerp(s1, s2), lerp(l1, l2));
+      const [r, g, b] = hslToRgbUnit(lerpHue(h1, h2, t, hueDir), lerp(s1, s2), lerp(l1, l2));
       return { r, g, b, a: lerp(from.a, to.a) };
     }
   }

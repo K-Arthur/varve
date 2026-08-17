@@ -533,6 +533,12 @@ export interface ColorConfig {
   outputIntent?: OutputIntentRef;
   /** Black generation settings. */
   blackGeneration: BlackGenerationConfig;
+  /**
+   * Default interpolation space for new gradients. When a gradient's own
+   * `interpolationSpace` is unset, this value is used. Existing gradients
+   * without this field resolve to 'oklab' (historical default).
+   */
+  defaultGradientInterpolation?: import('./types').GradientInterpolationSpace;
 }
 
 // ── Built-in Profile Registry ───────────────────────────────────────────────
