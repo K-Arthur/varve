@@ -37,7 +37,7 @@ async function navigateToEditor(
     .locator('dialog[open]')
     .getByRole('button', { name: /^create design$/i })
     .click({ timeout: 30_000 });
-  await page.locator('.layers-panel').waitFor({ timeout: 180_000 });
+  await page.locator('.editor__layers-panel, .layers-panel').first().waitFor({ timeout: 180_000 });
   const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
   if (
     await welcomeClose
@@ -75,6 +75,9 @@ for (const theme of THEMES) {
       test('email inspector tab visible', async ({ page }) => {
         await navigateToEditor(page, theme);
         await switchToEmailWorkspace(page);
+        await page.getByRole('tab', { name: 'Email' }).click();
+        await expect(page.getByTestId('email-panel')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Enable email template' })).toBeVisible();
 
         // Check the inspector panel is visible
         const inspector = page.locator('.editor__inspector-panel');
@@ -88,6 +91,9 @@ for (const theme of THEMES) {
       test('full email editor layout', async ({ page }) => {
         await navigateToEditor(page, theme);
         await switchToEmailWorkspace(page);
+        await page.getByRole('tab', { name: 'Email' }).click();
+        await page.getByRole('button', { name: 'Enable email template' }).click();
+        await expect(page.getByTitle('Email browser preview')).toBeVisible();
 
         // Full page screenshot
         await expect(page).toHaveScreenshot(`email-full-editor-${theme}.png`, {

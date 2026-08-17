@@ -1,6 +1,6 @@
 # Email Template System — Architecture
 
-**Status**: Phase 0-1 Complete (Foundation + Compiler Core)
+**Status**: Foundation, compiler, editor authoring, preview, preflight, and local export implemented
 **ADR**: Pending (will be ADR-02XX)
 
 ## Overview
@@ -125,6 +125,12 @@ The 8th workspace mode (`Ctrl+Shift+7`) provides:
 - **Status bar**: Preflight warnings, cursor position, zoom
 - **Toolbar**: Select, hand, zoom, frame, shapes, text, line, arrow, scale, inspect
 
+The Email inspector is mounted as a real top-level inspector tab. It supports
+enabling a normal Varve document as an email, template settings, semantic node
+assignment, whole-node links, text-range links, custom HTML blocks,
+personalization variables, a sandboxed browser preview, generated HTML
+inspection, preflight diagnostics, and local HTML/text/manifest export.
+
 ## Files
 
 ### Scene Model
@@ -155,6 +161,7 @@ The 8th workspace mode (`Ctrl+Shift+7`) provides:
 | File | Purpose |
 |------|---------|
 | `tests/e2e/email/visual.spec.ts` | Playwright visual verification |
+| `packages/codegen/src/email.test.ts` | URL, HTML sanitization, plain text, and preflight invariants |
 
 ## Schema Migration
 
@@ -168,11 +175,11 @@ Both fields are optional — existing documents open unchanged.
 
 | Profile | Layout | CSS | Borders | Gradients | Position |
 |---------|--------|-----|---------|-----------|----------|
-| Conservative | Tables only | Inline | Solid only | Solid fallback | No |
+| Conservative | Converted presentation tables | Inline | Solid only | Solid fallback | No |
 | Modern | Flex + tables | Inline + style | Full | Linear/radial | Relative |
 | Provider-specific | Adapter-dependent | Adapter-dependent | Adapter | Adapter | Adapter |
 
-## Provider Adapters (Future)
+## Provider Adapters
 
 The architecture supports pluggable provider adapters:
 ```typescript
@@ -184,15 +191,22 @@ interface EmailProviderAdapter {
 }
 ```
 
-Mailchimp adapter is planned for Phase 8.
+Generic and Mailchimp adapters are isolated in `email-provider.ts`. Mailchimp
+variables map to `*|TAG|*` syntax, and nodes with explicit editable-region
+metadata emit stable `mc:edit` attributes. Direct authenticated publishing is
+not part of this implementation; export remains local and credential-free.
 
 ## What's NOT Included (By Design)
 
 - No campaign sending or subscriber management
 - No ESP account integration
 - No JavaScript execution in templates
-- No automatic round-trip from HTML back to design
+- No automatic round-trip from arbitrary HTML back to design
 - No claim of exact email-client rendering (browser preview only)
+
+The current preview is a sandboxed iframe with scripting disabled. Remote
+images may be blocked by the browser sandbox; the exported asset manifest
+identifies package-relative assets for an explicit hosting step.
 
 ## Testing
 
@@ -203,6 +217,7 @@ Mailchimp adapter is planned for Phase 8.
 
 ### E2E Tests
 - `email/visual.spec.ts`: Playwright visual regression for email workspace
+- `packages/codegen/src/email.test.ts`: security, output, plain text, and preflight invariants
 
 ### Type Safety
 - All new types are fully typed (no `any`)
