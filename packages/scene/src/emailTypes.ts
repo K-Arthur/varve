@@ -239,6 +239,9 @@ export interface EmailAssetInfo {
 
   /** Remote URL if already hosted. */
   remoteUrl?: string;
+
+  /** Embedded source data for local-first asset packaging. */
+  dataUrl?: string;
 }
 
 // ── Email Custom HTML Block ───────────────────────────────────────────────────

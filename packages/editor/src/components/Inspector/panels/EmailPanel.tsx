@@ -115,6 +115,18 @@ export function EmailPanel() {
       'application/json',
       '.json',
     );
+    for (const asset of compilation.ir.assets) {
+      if (!asset.dataUrl) continue;
+      const bytes = decodeDataUrl(asset.dataUrl);
+      if (!bytes) continue;
+      await saveExportBytes(
+        editor.platform,
+        asset.filename,
+        bytes,
+        asset.mimeType,
+        `.${asset.filename.split('.').pop() ?? 'bin'}`,
+      );
+    }
   };
 
   const updateProfile = (patch: Partial<EmailProfile>) => {
@@ -574,4 +586,15 @@ function CustomHtmlEditor({ nodeId, enabled }: { nodeId: string; enabled: boolea
       </Button>
     </div>
   );
+}
+
+function decodeDataUrl(dataUrl: string): Uint8Array | null {
+  const comma = dataUrl.indexOf(',');
+  if (comma < 0 || !dataUrl.slice(0, comma).includes(';base64')) return null;
+  try {
+    const binary = atob(dataUrl.slice(comma + 1));
+    return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  } catch {
+    return null;
+  }
 }
