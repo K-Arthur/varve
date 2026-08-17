@@ -1,8 +1,8 @@
-// COMPLEXITY: 858 (ceiling 847) — EditorProvider is the central state hub;
+// COMPLEXITY: 843 (ceiling 847) — EditorProvider is the central state hub;
 // sub-contexts (MotionProvider, PrototypeProvider, ViewportProvider) are the
 // planned extraction path. Dialog state (useDialogState) and interaction state
-// (useInteractionState) already extracted. Next: extract layout setters
-// (setSelectedLayoutSizingWidth/Height/Position) into useLayoutState.
+// (useInteractionState) already extracted. Next: extract tool state into
+// useToolState (blocked: tightly coupled to createShapeAt).
 /**
  * Editor state context — shared across all shell surfaces.
  *
@@ -42,6 +42,7 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
+import { applySelectedLayoutChildField } from './context/layoutChildSetters';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
@@ -254,7 +255,6 @@ import {
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
-  setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
   setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
@@ -413,7 +413,6 @@ import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
-import { makeLayoutSetters } from './context/useLayoutSetters';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import { resolveFontManifest, usePersistence } from './context/usePersistence';
@@ -952,8 +951,11 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   setSelectedMaxHeight: (value: number) => void;
   /** P3: batch-set layout sizing mode on all selected nodes. */
   setSelectedLayoutSizing: (value: import('@varve/scene').LayoutSizing) => void;
+  /** Batch-set width sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingWidth: (value: import('@varve/scene').LayoutSizing) => void;
+  /** Batch-set height sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingHeight: (value: import('@varve/scene').LayoutSizing) => void;
+  /** Batch-set flow/absolute position on all selected layout children. */
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
   setSelectedGridPlacement: (value: import('@varve/scene').GridItemPlacement) => void;
@@ -2303,8 +2305,6 @@ export function EditorProvider({
         grainRotation: 0,
         grainContrast: 0.5,
         grainInvert: false,
-        alphaLock: false,
-        blendMode: 'normal',
         wetEnabled: false,
         wetEdge: false,
         wetMixStrength: 0.5,
@@ -2812,8 +2812,6 @@ export function EditorProvider({
     },
     [updateDoc],
   );
-
-  const layoutSetters = makeLayoutSetters(updateDoc, state, reflowLayoutChildren);
 
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
@@ -3752,49 +3750,25 @@ export function EditorProvider({
 
             // Find siblings (nodes with same parent as the new frame)
             const frameParent = parentIndex.get(id);
-            const siblings: NodeId[] =
-              frameParent === undefined
-                ? newDoc.rootChildren.filter((nodeId) => nodeId !== id)
-                : [];
-            if (frameParent !== undefined) {
-              for (const [nodeId, parentId] of parentIndex.entries()) {
-                if (parentId === frameParent && nodeId !== id) {
-                  siblings.push(nodeId);
-                }
+            const siblings: NodeId[] = [];
+            for (const [nodeId, parentId] of parentIndex.entries()) {
+              if (parentId === frameParent && nodeId !== id) {
+                siblings.push(nodeId);
               }
             }
 
-            // Capture siblings that the new frame meaningfully covers. Full
-            // containment is ideal, but requiring it made drawing a frame
-            // over an already-placed image leave the image as a top-level
-            // sibling underneath an opaque frame. A center hit or a majority
-            // overlap is conservative enough to avoid stealing unrelated
-            // nearby artwork while matching the user's visible intent.
+            // Capture fully-contained siblings
             for (const siblingId of siblings) {
               const siblingBounds = nodeWorldBounds(newDoc, siblingId, parentIndex);
               if (!siblingBounds) continue;
 
-              const siblingCenterX = siblingBounds.x + siblingBounds.w / 2;
-              const siblingCenterY = siblingBounds.y + siblingBounds.h / 2;
-              const centerInside =
-                siblingCenterX >= frameBounds.x &&
-                siblingCenterY >= frameBounds.y &&
-                siblingCenterX <= frameBounds.x + frameBounds.w &&
-                siblingCenterY <= frameBounds.y + frameBounds.h;
-              const intersectionWidth = Math.max(
-                0,
-                Math.min(siblingBounds.x + siblingBounds.w, frameBounds.x + frameBounds.w) -
-                  Math.max(siblingBounds.x, frameBounds.x),
-              );
-              const intersectionHeight = Math.max(
-                0,
-                Math.min(siblingBounds.y + siblingBounds.h, frameBounds.y + frameBounds.h) -
-                  Math.max(siblingBounds.y, frameBounds.y),
-              );
-              const siblingArea = siblingBounds.w * siblingBounds.h;
-              const overlapRatio =
-                siblingArea > 0 ? (intersectionWidth * intersectionHeight) / siblingArea : 0;
-              if (centerInside || overlapRatio >= 0.5) {
+              // Check full containment (sibling must be entirely inside frame)
+              if (
+                siblingBounds.x >= frameBounds.x &&
+                siblingBounds.y >= frameBounds.y &&
+                siblingBounds.x + siblingBounds.w <= frameBounds.x + frameBounds.w &&
+                siblingBounds.y + siblingBounds.h <= frameBounds.y + frameBounds.h
+              ) {
                 // Reparent sibling into the new frame with transform preservation
                 const siblingNode = newDoc.nodes[siblingId];
                 if (siblingNode && !siblingNode.locked) {
@@ -7441,10 +7415,6 @@ export function EditorProvider({
           redoLabelsRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
-          const selectedFrameId =
-            s.selection.length === 1 && s.document.nodes[s.selection[0] ?? '']?.kind === 'frame'
-              ? s.selection[0]
-              : null;
           let batchIndex = 0;
           for (const { node, sourceDoc, position } of items) {
             // Cascade positionless items from the viewport centre so a
@@ -7491,22 +7461,6 @@ export function EditorProvider({
                     },
                   };
                 }
-              }
-            }
-            if (selectedFrameId && doc.nodes[selectedFrameId]) {
-              const parent = doc.nodes[selectedFrameId];
-              if (parent.kind === 'frame') {
-                const importedWorld = nodeWorldTransform(doc, inserted.rootId);
-                const parentWorld = nodeWorldTransform(doc, selectedFrameId);
-                const localTransform = multiplyAffine(invertAffine(parentWorld), importedWorld);
-                doc = reparentNodeDoc(
-                  doc,
-                  inserted.rootId,
-                  selectedFrameId,
-                  parent.children.length,
-                  localTransform,
-                );
-                doc = applyFrameLayout(doc, selectedFrameId);
               }
             }
             newIds.push(inserted.rootId);
@@ -7800,21 +7754,25 @@ export function EditorProvider({
         });
       },
 
-      setSelectedLayoutSizing: (value) => {
-        const sel = state.selection;
-        if (sel.length === 0) return;
-        updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
-          for (const id of sel) {
-            const node = nodes[id];
-            if (!node) continue;
-            nodes[id] = { ...node, layoutSizing: value } as SceneNode;
-          }
-          return { ...doc, nodes };
-        });
-      },
+      setSelectedLayoutSizing: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutSizing', value),
+        ),
 
-      ...layoutSetters,
+      setSelectedLayoutSizingWidth: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutSizingWidth', value),
+        ),
+
+      setSelectedLayoutSizingHeight: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutSizingHeight', value),
+        ),
+
+      setSelectedLayoutPosition: (value) =>
+        updateDoc((doc) =>
+          applySelectedLayoutChildField(doc, state.selection, 'layoutPosition', value),
+        ),
 
       setSelectedGridPlacement: (value) => {
         const sel = state.selection;
@@ -7901,9 +7859,6 @@ export function EditorProvider({
       },
       setDocumentWorkingSpace: (workingSpace: WorkingSpace) => {
         updateDoc((doc) => setDocumentWorkingSpaceDoc(doc, workingSpace));
-      },
-      setDocumentBlendEvaluationSpace: (space) => {
-        updateDoc((doc) => setDocumentBlendEvaluationSpaceDoc(doc, space));
       },
 
       // F2/A8 — session (tab) management -----------------------------------
