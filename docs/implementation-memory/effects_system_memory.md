@@ -47,8 +47,9 @@
 - **sRGB gamma space** for compositing (NOT linear-light).
 - `ManagedColor` discriminated union (RGB/CMYK/Gray/Spot) as canonical color type.
 - Analytical color conversion (`colorConversion.ts`): sRGB↔linear↔XYZ↔Lab↔Oklab↔CMYK.
-- Oklab/Oklch for gradient interpolation (default), non-separable blends, palette extraction.
+- Oklab/Oklch for gradient interpolation (default), non-separable blends, palette extraction. Linear-sRGB also available for physically-correct blending.
 - Gradient interpolation uses **premultiplied alpha** (avoids dark fringing).
+- Hue interpolation direction is user-configurable for cylindrical spaces (shorter/longer/increasing/decreasing).
 - Canvas2D `globalCompositeOperation` used in gamma space (default browser behavior) — no linear-light conversion for the 86fps replay path.
 - Key files: `packages/shared/src/colorConversion.ts`, `packages/engine/src/blendModes.ts`, `packages/engine/src/nonSeparable.ts`, `packages/engine/src/porterDuff.ts`, `packages/engine/src/compositeCanvas.ts`.
 
