@@ -2,12 +2,14 @@
  * Pure-TS flex layout engine for FrameNode auto-layout.
  *
  * Supports row/column/rowReverse/columnReverse, wrap, gap, padding,
- * alignItems, justifyContent, grow/shrink, and layoutSizing (hug/fill).
+ * alignItems, justifyContent, grow/shrink, per-axis sizing (layoutSizingWidth/
+ * layoutSizingHeight, falling back to the legacy unified layoutSizing), and
+ * min/max constraints.
  *
  * Research basis: CSS Flexible Box Layout Module Level 1, Figma auto layout.
  */
-import type { FrameNode, SceneNode } from '@varve/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
+import type { FrameNode, LayoutSizing, SceneNode } from '@varve/scene';
+import { axisSizing, clampAxis, isFlowParticipant, measureNodeSize, type Size } from './measure';
 
 export interface LayoutResult {
   id: string;
@@ -15,35 +17,6 @@ export interface LayoutResult {
   y: number;
   w: number;
   h: number;
-}
-
-function childSize(n: SceneNode): { w: number; h: number } {
-  if (n.kind === 'shape') {
-    const s = n.shape;
-    if (s.kind === 'rect') return { w: s.w, h: s.h };
-    if (s.kind === 'ellipse') return { w: s.rx * 2, h: s.ry * 2 };
-    if (s.kind === 'circle') return { w: s.r * 2, h: s.r * 2 };
-    if (s.kind === 'path') {
-      const xs = s.points.map((p) => p.x);
-      const ys = s.points.map((p) => p.y);
-      if (xs.length === 0) return { w: 0, h: 0 };
-      return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
-    }
-  }
-  if (n.kind === 'frame') return { w: n.w, h: n.h };
-  if (n.kind === 'text') {
-    const fs = n.fontSize ?? 16;
-    const measured = measureText(n.text ?? '', {
-      fontSize: fs,
-      fontFamily: n.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY,
-      fontWeight: n.fontWeight ?? 400,
-      fontStyle: n.fontStyle ?? 'normal',
-      letterSpacing: n.letterSpacing ?? 0,
-      lineHeight: n.lineHeight ?? 1.4,
-    });
-    return { w: Math.max(measured.width, 20), h: measured.height };
-  }
-  return { w: 0, h: 0 };
 }
 
 function isRow(dir: string): boolean {
@@ -54,70 +27,90 @@ function isReverse(dir: string): boolean {
   return dir === 'rowReverse' || dir === 'columnReverse';
 }
 
-export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): LayoutResult[] {
+/** Cross-axis sizing mode, read from the explicit per-axis field only — the
+ *  legacy unified `layoutSizing` never implied cross-axis stretch, only
+ *  main-axis fill, so old documents keep their original behavior. */
+function explicitAxisSizing(n: SceneNode, axis: 'width' | 'height'): LayoutSizing | undefined {
+  return axis === 'width' ? n.layoutSizingWidth : n.layoutSizingHeight;
+}
+
+/** Primary-axis grow weight: per-axis/legacy fill sizing, or an explicit frame-item grow factor. */
+function primaryGrowWeight(child: SceneNode, primaryAxis: 'width' | 'height'): number {
+  const fillGrow = axisSizing(child, primaryAxis) === 'fill' ? 1 : 0;
+  const styleGrow = (child as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
+  return fillGrow || styleGrow;
+}
+
+export function computeFlexLayout(frame: FrameNode, allChildren: SceneNode[]): LayoutResult[] {
   const style = frame.layoutStyle;
-  if (!style || children.length === 0) return [];
+  if (!style) return [];
+
+  const children = allChildren.filter(isFlowParticipant);
+  if (children.length === 0) return [];
 
   const [pt, pr, pb, pl] = style.padding;
   const gap = style.gap;
   const row = isRow(style.direction);
   const rev = isReverse(style.direction);
+  const wrap = style.wrap === true;
 
   const frameW = frame.w ?? 400;
   const frameH = frame.h ?? 200;
   const availW = Math.max(0, frameW - pl - pr);
   const availH = Math.max(0, frameH - pt - pb);
+  const primaryAxis: 'width' | 'height' = row ? 'width' : 'height';
+  const crossAxis: 'width' | 'height' = row ? 'height' : 'width';
+  const avail = row ? availW : availH;
+  const crossAvail = row ? availH : availW;
 
-  // ── Compute intrinsic child sizes ────────────────────────────
-  const sizes = children.map(childSize);
+  // ── Measure intrinsic sizes, clamp primary axis to min/max ──────
+  const sizes: Size[] = children.map((c) => {
+    const sz = measureNodeSize(c);
+    const clamped = clampAxis(row ? sz.w : sz.h, c, primaryAxis);
+    return row ? { w: clamped, h: sz.h } : { w: sz.w, h: clamped };
+  });
 
-  // ── Apply grow/shrink to primary axis ────────────────────────
-  const growTotal = children.reduce((s, n) => {
-    const fillGrow = n.layoutSizing === 'fill' ? 1 : 0;
-    const styleGrow = (n as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
-    return s + (fillGrow || styleGrow);
-  }, 0);
-  let remainingPrimary: number;
-  if (row) {
-    const totalContentW =
-      sizes.reduce((s, sz) => s + sz.w, 0) + Math.max(0, children.length - 1) * gap;
-    remainingPrimary = Math.max(0, availW - totalContentW);
-  } else {
-    const totalContentH =
-      sizes.reduce((s, sz) => s + sz.h, 0) + Math.max(0, children.length - 1) * gap;
-    remainingPrimary = Math.max(0, availH - totalContentH);
-  }
-
-  if (growTotal > 0 && remainingPrimary > 0) {
-    const perUnit = remainingPrimary / growTotal;
-    for (let i = 0; i < sizes.length; i++) {
-      const fillGrow = children[i]?.layoutSizing === 'fill' ? 1 : 0;
-      const styleGrow = (children[i] as { layoutStyle?: { grow?: number } }).layoutStyle?.grow ?? 0;
-      const grow = fillGrow || styleGrow;
-      const curSize = sizes[i];
-      if (grow > 0 && curSize) {
-        if (row) sizes[i] = { w: curSize.w + perUnit * grow, h: curSize.h };
-        else sizes[i] = { w: curSize.w, h: curSize.h + perUnit * grow };
-      }
+  // ── Zero out primary-axis base size for grow/fill children ──────
+  const growWeights = children.map((c) => primaryGrowWeight(c, primaryAxis));
+  const growTotal = growWeights.reduce((s, w) => s + w, 0);
+  for (let i = 0; i < sizes.length; i++) {
+    if (growWeights[i]! > 0) {
+      const sz = sizes[i]!;
+      sizes[i] = row ? { w: 0, h: sz.h } : { w: sz.w, h: 0 };
     }
   }
 
-  // ── Apply shrink when content overflows ──────────────────────
-  if (remainingPrimary < 0) {
+  const gapsTotal = Math.max(0, children.length - 1) * gap;
+  const contentTotal = sizes.reduce((s, sz) => s + (row ? sz.w : sz.h), 0);
+  const rawRemaining = avail - contentTotal - gapsTotal;
+
+  // ── Distribute remaining space to grow/fill children (fill-after-fixed) ──
+  if (growTotal > 0 && rawRemaining > 0) {
+    for (let i = 0; i < sizes.length; i++) {
+      const weight = growWeights[i]!;
+      if (weight <= 0) continue;
+      const rawShare = rawRemaining * (weight / growTotal);
+      const clamped = clampAxis(rawShare, children[i]!, primaryAxis);
+      const sz = sizes[i]!;
+      sizes[i] = row ? { w: clamped, h: sz.h } : { w: sz.w, h: clamped };
+    }
+  }
+
+  // ── Shrink when content overflows (legacy per-child shrink factor) ──
+  if (rawRemaining < 0) {
     const shrinkTotal = children.reduce(
       (s, n) => s + ((n as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0),
       0,
     );
     if (shrinkTotal > 0) {
-      const overflow = -remainingPrimary;
-      const perUnit = overflow / shrinkTotal;
+      const overflow = -rawRemaining;
       for (let i = 0; i < sizes.length; i++) {
         const sh = (children[i] as { layoutStyle?: { shrink?: number } }).layoutStyle?.shrink ?? 0;
-        const shrinkSize = sizes[i];
-        if (sh > 0 && shrinkSize) {
-          if (row) sizes[i] = { w: Math.max(0, shrinkSize.w - perUnit * sh), h: shrinkSize.h };
-          else sizes[i] = { w: shrinkSize.w, h: Math.max(0, shrinkSize.h - perUnit * sh) };
-        }
+        if (sh <= 0) continue;
+        const perUnit = overflow / shrinkTotal;
+        const sz = sizes[i]!;
+        if (row) sizes[i] = { w: Math.max(0, sz.w - perUnit * sh), h: sz.h };
+        else sizes[i] = { w: sz.w, h: Math.max(0, sz.h - perUnit * sh) };
       }
     }
   }
@@ -128,7 +121,6 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
   let cursor = 0;
   let lineSize = 0;
 
-  // Order for reverse directions
   const order = rev
     ? [...Array(children.length).keys()].reverse()
     : [...Array(children.length).keys()];
@@ -136,10 +128,8 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
   for (const i of order) {
     const sz = sizes[i]!;
     const itemSize = row ? sz.w : sz.h;
-    const avail = row ? availW : availH;
 
-    if (cursor + itemSize > avail && currentLine.length > 0) {
-      // Wrap to next line
+    if (wrap && cursor + itemSize > avail && currentLine.length > 0) {
       lines.push({ indices: currentLine, totalSize: lineSize });
       currentLine = [];
       cursor = 0;
@@ -154,51 +144,62 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
     lines.push({ indices: currentLine, totalSize: lineSize });
   }
 
-  // ── Distribute lines along cross-axis ────────────────────────
+  // ── Distribute lines along cross-axis, align items per line ─────
   const results: LayoutResult[] = [];
   let crossCursor = row ? pt : pl;
   const crossGap = gap;
 
   for (const line of lines) {
     let primaryCursor = row ? pl : pt;
-    const lineSize = line.totalSize;
 
-    // Align items within the line
     for (const i of line.indices) {
       const sz = sizes[i]!;
       const child = children[i]!;
 
-      // Apply layoutSizing: fill stretches to line size
       let cw = sz.w;
       let ch = sz.h;
-      if (child.layoutSizing === 'fill') {
-        if (row) cw = availW / line.indices.length;
-        else ch = availH / line.indices.length;
+
+      // Per-child cross-axis override: explicit layoutAlign wins; otherwise an
+      // explicit cross-axis 'fill' sizing implies stretch; otherwise inherit
+      // the parent's alignItems. A child whose cross-axis sizing is 'hug'
+      // never stretches — hug is an authoritative "sized by my own content"
+      // commitment that would otherwise fight recursively with a hugging
+      // frame's own intrinsic measurement (parent stretches it, then its own
+      // hug pass shrinks it back).
+      const alignOverride = child.layoutAlign ?? 'inherit';
+      const crossFill = explicitAxisSizing(child, crossAxis) === 'fill';
+      let effectiveAlign =
+        alignOverride !== 'inherit'
+          ? alignOverride
+          : crossFill
+            ? 'stretch'
+            : (style.alignItems ?? 'start');
+      if (effectiveAlign === 'stretch' && axisSizing(child, crossAxis) === 'hug') {
+        effectiveAlign = 'start';
       }
 
-      // Cross-axis alignment uses the frame's available space (not line size).
-      // This matches Figma's auto-layout behavior where items center within
-      // the frame's cross-axis, not just within the line's packed extent.
       let cx = row ? primaryCursor : crossCursor;
       let cy = row ? crossCursor : primaryCursor;
 
-      const align = style.alignItems ?? 'start';
-      const crossAvail = row ? availH : availW;
-      if (row && align !== 'start') {
-        if (align === 'center') cy = crossCursor + (crossAvail - ch) / 2;
-        else if (align === 'end') cy = crossCursor + crossAvail - ch;
-        else if (align === 'stretch') ch = crossAvail;
-      } else if (!row && align !== 'start') {
-        if (align === 'center') cx = crossCursor + (crossAvail - cw) / 2;
-        else if (align === 'end') cx = crossCursor + crossAvail - cw;
-        else if (align === 'stretch') cw = crossAvail;
+      if (row && effectiveAlign !== 'start') {
+        if (effectiveAlign === 'center') cy = crossCursor + (crossAvail - ch) / 2;
+        else if (effectiveAlign === 'end') cy = crossCursor + crossAvail - ch;
+        else if (effectiveAlign === 'stretch') ch = crossAvail;
+      } else if (!row && effectiveAlign !== 'start') {
+        if (effectiveAlign === 'center') cx = crossCursor + (crossAvail - cw) / 2;
+        else if (effectiveAlign === 'end') cx = crossCursor + crossAvail - cw;
+        else if (effectiveAlign === 'stretch') cw = crossAvail;
       }
+
+      const clampedCross = clampAxis(row ? ch : cw, child, crossAxis);
+      if (row) ch = clampedCross;
+      else cw = clampedCross;
 
       results.push({ id: child.id, x: cx, y: cy, w: cw, h: ch });
       primaryCursor += (row ? cw : ch) + gap;
     }
 
-    crossCursor += lineSize + crossGap;
+    crossCursor += line.totalSize + crossGap;
   }
 
   // ── Apply justifyContent to primary axis within each line ────
@@ -209,33 +210,40 @@ export function computeFlexLayout(frame: FrameNode, children: SceneNode[]): Layo
       if (lineResults.length === 0) continue;
 
       const totalSize = lineResults.reduce((s, r) => s + (row ? r.w : r.h), 0);
-      const gaps = (lineResults.length - 1) * gap;
-      const free = ((row ? availW : availH) - totalSize - gaps) | 0;
+      const lineGaps = (lineResults.length - 1) * gap;
+      const free = ((row ? availW : availH) - totalSize - lineGaps) | 0;
 
       if (free <= 0) continue;
 
-      let offset = 0;
-      const perGap =
-        justify === 'spaceBetween'
-          ? free / Math.max(1, lineResults.length - 1)
-          : free / Math.max(1, lineResults.length);
-      const halfGap = perGap / 2;
-
-      for (let j = 0; j < lineResults.length; j++) {
-        const r = lineResults[j]!;
-        if (justify === 'center') {
-          offset = free / 2;
-        } else if (justify === 'end') {
-          offset = free;
-        } else if (justify === 'spaceAround') {
-          offset = halfGap;
+      if (justify === 'center' || justify === 'end') {
+        const offset = justify === 'center' ? free / 2 : free;
+        for (const r of lineResults) {
+          if (row) r.x += offset;
+          else r.y += offset;
         }
-        // For spaceBetween, first gets no offset, last gets no offset
-        if (row) r.x += offset;
-        else r.y += offset;
-        if (justify === 'spaceAround') offset += (row ? r.w : r.h) + perGap;
-        else if (justify === 'spaceBetween') offset += (row ? r.w : r.h) + perGap;
-        else if (justify === 'center' || justify === 'end') break; // applied once at line level
+        continue;
+      }
+
+      // spaceBetween / spaceAround / spaceEvenly: each item's baseline
+      // position (from the sequential pass above) already includes the
+      // configured `gap`, so these only add the *extra* free space per
+      // boundary crossed — not item width, which is already baked in.
+      let perGap: number;
+      let extra: number;
+      if (justify === 'spaceBetween') {
+        perGap = free / Math.max(1, lineResults.length - 1);
+        extra = 0;
+      } else if (justify === 'spaceAround') {
+        perGap = free / lineResults.length;
+        extra = perGap / 2;
+      } else {
+        perGap = free / (lineResults.length + 1);
+        extra = perGap;
+      }
+      for (const r of lineResults) {
+        if (row) r.x += extra;
+        else r.y += extra;
+        extra += perGap;
       }
     }
   }

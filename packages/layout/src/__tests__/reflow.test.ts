@@ -164,4 +164,187 @@ describe('reflowLayoutChildren', () => {
     expect(childTransform(reflowed, 'b')[4]).toBeCloseTo(200);
     expect(childTransform(reflowed, 'b')[5]).toBeCloseTo(0);
   });
+
+  it('hug frame sizes its own box to fit flow children plus padding and gap', () => {
+    const frame = makeFrame({
+      w: 999, // authored size is irrelevant once hug resolves it
+      h: 999,
+      layoutSizingWidth: 'hug',
+      layoutSizingHeight: 'hug',
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        wrap: false,
+        gap: 8,
+        padding: [4, 6, 4, 6] as [number, number, number, number],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+      },
+    });
+    const a = makeChild('a', 0, 0, 40, 20);
+    const b = makeChild('b', 0, 0, 60, 30);
+    frame.children = ['a', 'b'];
+    const doc = makeDoc(frame, [a, b]);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+    const resolved = reflowed.nodes.f1;
+    // width: 40 + 60 + gap(8) + padding(6+6) = 120; height: max(20,30) + padding(4+4) = 38
+    expect(resolved?.kind).toBe('frame');
+    if (resolved?.kind === 'frame') {
+      expect(resolved.w).toBeCloseTo(120);
+      expect(resolved.h).toBeCloseTo(38);
+    }
+  });
+
+  it('empty hug frame resolves to padding-only size', () => {
+    const frame = makeFrame({
+      w: 999,
+      h: 999,
+      layoutSizingWidth: 'hug',
+      layoutSizingHeight: 'hug',
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        wrap: false,
+        gap: 8,
+        padding: [4, 6, 4, 6] as [number, number, number, number],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+      },
+    });
+    frame.children = [];
+    const doc = makeDoc(frame, []);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+    const resolved = reflowed.nodes.f1;
+    if (resolved?.kind === 'frame') {
+      expect(resolved.w).toBeCloseTo(12); // padding left+right only
+      expect(resolved.h).toBeCloseTo(8); // padding top+bottom only
+    }
+  });
+
+  it('a hug frame nested inside another hug frame resolves both levels bottom-up', () => {
+    const inner = makeFrame({
+      id: 'inner',
+      w: 999,
+      h: 999,
+      layoutSizingWidth: 'hug',
+      layoutSizingHeight: 'hug',
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        wrap: false,
+        gap: 0,
+        padding: [0, 0, 0, 0] as [number, number, number, number],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+      },
+    });
+    const leaf = makeChild('leaf', 0, 0, 30, 20);
+    inner.children = ['leaf'];
+
+    const outer = makeFrame({
+      id: 'f1',
+      w: 999,
+      h: 999,
+      layoutSizingWidth: 'hug',
+      layoutSizingHeight: 'hug',
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        wrap: false,
+        gap: 0,
+        padding: [10, 10, 10, 10] as [number, number, number, number],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+      },
+    });
+    outer.children = ['inner'];
+
+    const doc = makeDoc(outer, [inner as unknown as SceneNode, leaf]);
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+
+    const resolvedInner = reflowed.nodes.inner;
+    const resolvedOuter = reflowed.nodes.f1;
+    if (resolvedInner?.kind === 'frame') {
+      expect(resolvedInner.w).toBeCloseTo(30);
+      expect(resolvedInner.h).toBeCloseTo(20);
+    }
+    if (resolvedOuter?.kind === 'frame') {
+      // outer hugs inner (30x20) + its own 10px padding on all sides
+      expect(resolvedOuter.w).toBeCloseTo(50);
+      expect(resolvedOuter.h).toBeCloseTo(40);
+    }
+  });
+
+  it('a fill child inside a hug parent breaks the cycle via minWidth, without looping', () => {
+    const frame = makeFrame({
+      w: 999,
+      h: 999,
+      layoutSizingWidth: 'hug',
+      layoutSizingHeight: 'hug',
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        wrap: false,
+        gap: 0,
+        padding: [0, 0, 0, 0] as [number, number, number, number],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+      },
+    });
+    const fillChild = makeChild('a', 0, 0, 20, 20);
+    fillChild.layoutSizing = 'fill';
+    fillChild.minWidth = 75;
+    frame.children = ['a'];
+    const doc = makeDoc(frame, [fillChild]);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+    const resolved = reflowed.nodes.f1;
+    if (resolved?.kind === 'frame') {
+      expect(resolved.w).toBeCloseTo(75); // hug measured the fill child's minWidth, not an expanded/unbounded size
+    }
+  });
+
+  it('excludes hidden children from hug measurement', () => {
+    const frame = makeFrame({
+      w: 999,
+      h: 999,
+      layoutSizingWidth: 'hug',
+      layoutSizingHeight: 'hug',
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        wrap: false,
+        gap: 0,
+        padding: [0, 0, 0, 0] as [number, number, number, number],
+        grow: 0,
+        shrink: 0,
+        alignItems: 'start',
+        justifyContent: 'start',
+      },
+    });
+    const visibleChild = makeChild('a', 0, 0, 40, 20);
+    const hiddenChild = makeChild('b', 0, 0, 200, 200);
+    hiddenChild.visible = false;
+    frame.children = ['a', 'b'];
+    const doc = makeDoc(frame, [visibleChild, hiddenChild]);
+
+    const reflowed = reflowLayoutChildren(doc, 'f1');
+    const resolved = reflowed.nodes.f1;
+    if (resolved?.kind === 'frame') {
+      expect(resolved.w).toBeCloseTo(40);
+      expect(resolved.h).toBeCloseTo(20);
+    }
+  });
 });
