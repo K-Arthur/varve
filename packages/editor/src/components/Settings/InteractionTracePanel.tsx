@@ -10,7 +10,7 @@
  * Lives behind the Performance settings tab (an advanced surface), not in the
  * ordinary editor chrome.
  */
-import { Button } from '@varve/ui';
+import { Button, Select } from '@varve/ui';
 import { useCallback, useId, useMemo, useState } from 'react';
 import { getNodeWorkSamples } from '../../canvas/perfRuntime';
 import type { InteractionTrace } from '../../performance/interactionTrace';
@@ -123,6 +123,17 @@ export function InteractionTracePanel() {
 
   const ratios = snapshot?.nodeWork?.latestRatios ?? null;
 
+  const traceOptions = useMemo(
+    () =>
+      (snapshot?.traces ?? []).map((trace) => ({
+        value: String(trace.id),
+        label: `#${trace.id} ${trace.kind} — ${trace.totalMs.toFixed(1)} ms${
+          trace.slow ? ' (slow)' : ''
+        }`,
+      })),
+    [snapshot],
+  );
+
   return (
     <section aria-labelledby={headingId} className="interaction-trace">
       <h3 className="settings-section__title" id={headingId}>
@@ -152,21 +163,16 @@ export function InteractionTracePanel() {
       </p>
 
       {snapshot && snapshot.traces.length > 0 && (
-        <label className="settings-field-row">
+        <div className="settings-field-row">
           <span className="settings-field-row__label">Interaction</span>
-          <select
-            className="settings-field-row__control"
-            value={selectedId ?? ''}
-            onChange={(e) => setSelectedId(Number(e.target.value))}
-          >
-            {snapshot.traces.map((trace) => (
-              <option key={trace.id} value={trace.id}>
-                #{trace.id} {trace.kind} — {trace.totalMs.toFixed(1)} ms
-                {trace.slow ? ' (slow)' : ''}
-              </option>
-            ))}
-          </select>
-        </label>
+          <Select
+            label="Interaction"
+            options={traceOptions}
+            value={selectedId != null ? String(selectedId) : ''}
+            onChange={(v) => setSelectedId(Number(v))}
+            placeholder="Select interaction..."
+          />
+        </div>
       )}
 
       {selected && (

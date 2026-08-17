@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import pkg from './package.json';
 
 /**
  * Dev-only plugin: serve ort-wasm files directly from public/ort-wasm/ without Vite transform.
@@ -59,7 +60,7 @@ export default defineConfig({
     // Release stamp for crash reports. Unset in dev; production CI sets it
     // from the tag/channel. Never contains secrets.
     __VARVE_RELEASE__: JSON.stringify({
-      appVersion: process.env.VARVE_APP_VERSION ?? '0.1.0',
+      appVersion: process.env.VARVE_APP_VERSION ?? pkg.version,
       buildChannel: process.env.VARVE_BUILD_CHANNEL ?? 'dev',
       releaseId: process.env.VARVE_RELEASE_ID ?? undefined,
       gitCommit: process.env.VARVE_GIT_COMMIT ?? undefined,
