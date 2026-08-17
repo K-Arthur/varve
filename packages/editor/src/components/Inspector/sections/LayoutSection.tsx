@@ -316,7 +316,8 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
     setSelectedMaxWidth,
     setSelectedMinHeight,
     setSelectedMaxHeight,
-    setSelectedLayoutSizing,
+    setSelectedLayoutSizingWidth,
+    setSelectedLayoutSizingHeight,
     setSelectedGridPlacement,
   } = editor;
 
@@ -373,7 +374,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           value={isMixed(widthSizingRaw) ? '' : widthSizingRaw}
           placeholder={isMixed(widthSizingRaw) ? 'Mixed' : undefined}
           options={SIZING_OPTIONS}
-          onChange={(v) => setSelectedLayoutSizing(v as LayoutSizing)}
+          onChange={(v) => setSelectedLayoutSizingWidth(v as LayoutSizing)}
         />
       </FieldRow>
       <FieldRow label="Height">
@@ -382,7 +383,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           value={isMixed(heightSizingRaw) ? '' : heightSizingRaw}
           placeholder={isMixed(heightSizingRaw) ? 'Mixed' : undefined}
           options={SIZING_OPTIONS}
-          onChange={(v) => setSelectedLayoutSizing(v as LayoutSizing)}
+          onChange={(v) => setSelectedLayoutSizingHeight(v as LayoutSizing)}
         />
       </FieldRow>
       <NumberField
