@@ -2,6 +2,7 @@
 
 import { makeRasterLayerNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { BrushWorkerHost, DabResult } from '../../render/brushWorkerHost';
 import { normalizeInputEvent } from '../inputNormalizer';
 import { PaintTool } from '../PaintTool';
 import type { ToolContext } from '../types';
@@ -148,6 +149,32 @@ describe('PaintTool', () => {
     tool.onPointerDown(pointer, ctx);
     tool.onPointerUp(pointer, ctx);
 
+    expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+  });
+
+  it('defers commit until worker dab batches settle', async () => {
+    const resolvers: Array<(result: DabResult) => void> = [];
+    const worker = {
+      isUsingWorker: true,
+      generateDabs: vi.fn(() => new Promise<DabResult>((resolve) => resolvers.push(resolve))),
+      cancelStroke: vi.fn(),
+      destroy: vi.fn(),
+    } as unknown as BrushWorkerHost;
+    tool.setWorkerHost(worker);
+
+    const down = makePointerEvent(100, 200);
+    const move = makePointerEvent(110, 200);
+    tool.onPointerDown(down, ctx);
+    tool.onPointerMove(move, ctx);
+    tool.onPointerUp(move, ctx);
+
+    expect(resolvers).toHaveLength(2);
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+    resolvers[0]!({ dabs: [], bounds: { x: 0, y: 0, w: 0, h: 0 } });
+    await Promise.resolve();
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+    resolvers[1]!({ dabs: [], bounds: { x: 0, y: 0, w: 0, h: 0 } });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(ctx.commitTransaction).toHaveBeenCalledOnce();
   });
 

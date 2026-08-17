@@ -61,6 +61,11 @@ export function BrushSection({ tool, sectionId }: BrushSectionProps) {
       setBrushSetting('hardness', found.hardness);
       setBrushSetting('smoothing', found.smoothing);
       setBrushSetting('spacing', found.spacing);
+      setBrushSetting('grainId', found.grainId ?? null);
+      setBrushSetting('grainScale', found.grainScale);
+      setBrushSetting('grainRotation', found.grainRotation);
+      setBrushSetting('grainContrast', found.grainContrast);
+      setBrushSetting('grainInvert', found.grainInvert);
     },
     [setBrushSetting],
   );

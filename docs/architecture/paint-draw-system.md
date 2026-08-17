@@ -74,9 +74,23 @@ roundness as paint dabs, then reduce destination alpha. This keeps erasing from
 silently becoming a square constant-alpha operation.
 
 Preset validation clamps persisted spacing to a positive minimum so malformed
-presets cannot hang dab generation. Built-in and user preset lifecycle, grain
-asset resolution, wet-paint scheduling, and advanced smudge modes are not yet
-complete and must not be exposed as complete capabilities.
+presets cannot hang dab generation. The built-in Textured preset uses the
+existing deterministic procedural grain sampler and modulates dab alpha. User
+preset lifecycle, external grain asset management, wet-paint scheduling, and
+advanced smudge modes are not yet complete and must not be exposed as complete
+capabilities.
+
+Smudge reads from an immutable snapshot of the source tile map while writing
+new destination tiles. Samples may cross 128 by 128 tile boundaries, and an
+empty destination tile is allocated only when the sampled neighborhood deposits
+visible pixels there. Opacity and flow affect smudge strength in the same way
+they affect paint dabs.
+
+The optional brush worker is a dab-generation optimization, not a second
+compositor. Each worker request remains inside the active stroke transaction;
+pointer-up defers commit until all confirmed requests settle. Cancellation
+invalidates the stroke generation, so late worker responses cannot mutate a
+later stroke or document.
 
 ## Capability Matrix
 
@@ -94,10 +108,10 @@ complete and must not be exposed as complete capabilities.
 | Raster persistence | incorrect | Fixed | Codec round-trip preserves tile pixels and runtime Map type. |
 | Alpha lock | partial | Partial | Scene compositing has alpha-lock support; tool target UI is incomplete. |
 | Blend modes | partial | Partial | Several scene blend modes exist; brush UI parity is incomplete. |
-| Grain/texture | scaffolded | Deferred | Sampler exists but is not connected to production dab compositing. |
+| Grain/texture | scaffolded | Fixed baseline | Built-in procedural grain is composited deterministically; external assets remain deferred. |
 | Wet paint | scaffolded | Deferred | Wet buffer exists but is not in the live painting lifecycle. |
-| Smudge | partial | Partial | Target and coordinates fixed; cross-tile sampled smudge remains. |
-| Worker processing | disconnected | Deferred | Host no longer drops same-stroke requests; production painting remains synchronous until transaction orchestration is complete. |
+| Smudge | partial | Fixed baseline | Immutable cross-tile neighborhood sampling is native; advanced modes remain deferred. |
+| Worker processing | disconnected | Partial | Dab generation and cancellation are transactional; production enablement still depends on runtime profiling. |
 | Symmetry/assistants | partial | Partial | Existing assist infrastructure is separate from the raster target fixes. |
 | Presets/browser/editor | partial | Partial | Existing common controls work; advanced lifecycle/editor remains. |
 | Tablet capabilities | partial | Partial | Pressure, tilt, twist, altitude, azimuth, and pointer identity are normalized where provided. |
