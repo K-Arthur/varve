@@ -30,18 +30,33 @@ describe('InteractionTracePanel', () => {
     resetInteractionTraces();
   });
 
+  // The panel announces state through a role="status" live region, and the
+  // design-system Select it renders also contributes its own status announcer,
+  // so disambiguate by text rather than assuming a single status region.
+  function findStatus(matcher: RegExp) {
+    const match = screen.getAllByRole('status').find((el) => matcher.test(el.textContent ?? ''));
+    if (!match) {
+      throw new Error(
+        `Expected a status region matching ${matcher}; found: ${screen
+          .getAllByRole('status')
+          .map((el) => JSON.stringify(el.textContent))}`,
+      );
+    }
+    return match;
+  }
+
   it('does nothing until a snapshot is explicitly requested', () => {
     render(<InteractionTracePanel />);
     // Snapshot-driven by design: a live panel would distort the workload it
     // measures by re-rendering on every pointer event.
-    expect(screen.getByRole('status')).toHaveTextContent('No snapshot taken yet');
+    expect(findStatus(/no snapshot/i)).toHaveTextContent('No snapshot taken yet');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
   it('tells the developer how to enable capture when tracing is off', async () => {
     render(<InteractionTracePanel />);
     await userEvent.click(screen.getByRole('button', { name: 'Refresh snapshot' }));
-    expect(screen.getByRole('status')).toHaveTextContent('Reload with ?perf=1');
+    expect(findStatus(/reload with/i)).toHaveTextContent('Reload with ?perf=1');
   });
 
   it('renders a waterfall with numeric columns beside the decorative bar', async () => {
@@ -91,6 +106,6 @@ describe('InteractionTracePanel', () => {
     captureInteraction();
     render(<InteractionTracePanel />);
     await userEvent.click(screen.getByRole('button', { name: 'Refresh snapshot' }));
-    expect(screen.getByRole('status')).toHaveTextContent('2 interaction(s) captured');
+    expect(findStatus(/2 interaction/i)).toHaveTextContent('2 interaction(s) captured');
   });
 });
