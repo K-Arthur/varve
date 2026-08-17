@@ -88,6 +88,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     announceOperation: vi.fn(),
     setDraft: vi.fn(),
     setDropTargetFrame: vi.fn(),
+    setLayoutInsertion: vi.fn(),
     rootNodes: () => [],
     getNode: (id) => withNode.nodes[id as keyof typeof withNode.nodes] as never,
     canvasToWorld: (x, y) => ({ x, y }),
