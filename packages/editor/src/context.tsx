@@ -2302,6 +2302,8 @@ export function EditorProvider({
         grainRotation: 0,
         grainContrast: 0.5,
         grainInvert: false,
+        alphaLock: false,
+        blendMode: 'normal',
         wetEnabled: false,
         wetEdge: false,
         wetMixStrength: 0.5,

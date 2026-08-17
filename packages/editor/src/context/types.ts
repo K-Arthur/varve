@@ -449,6 +449,8 @@ export interface EditorState {
     // Smudge settings
     smudgeStrength: number;
     smudgeMode: 'sampling' | 'mixing' | 'fingerpaint';
+    alphaLock: boolean;
+    blendMode: string;
     // Grain settings
     grainId: string | null;
     grainScale: number;

@@ -68,6 +68,8 @@ Use both concepts without introducing a competing engine:
   cancellation.
 - Connected the existing grain sampler to textured brush dabs and added a
   built-in deterministic procedural Textured preset.
+- Wired alpha lock toggle through inspector, PaintTool, and scene compositing.
+- Wired blend mode dropdown through inspector, PaintTool, and scene compositing.
 
 ## Deferred, Not Falsely Completed
 
@@ -80,8 +82,13 @@ Use both concepts without introducing a competing engine:
 - Full pressure-to-vector-width rendering parity.
 - Brush browser/editor lifecycle, import/export format, favorites, and advanced
   dynamics UI.
-- Selection coverage, mask-target painting, alpha-lock target UX, symmetry
-  parity, clone/heal, and quick-shape workflows.
+- Wet paint lifecycle, drying loop, and UI controls.
+- External grain resource management and advanced grain anchoring controls.
+- Full brush browser panel with previews.
+- Smudge mixing/fingerpaint modes.
+- Selection-constrained painting and mask-target painting UX.
+- Symmetry parity, clone/heal, and quick-shape workflows.
+- Runtime profiling for enabling the worker on smudge.
 
 These remain follow-up milestones because exposing them as finished would make
 the UI promise behavior the renderer does not yet provide.
