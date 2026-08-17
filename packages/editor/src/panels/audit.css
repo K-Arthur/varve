@@ -1,0 +1,649 @@
+/* Design Audit panels — previously unstyled (zero CSS existed for the
+ * `audit-*` vocabulary). Authored to match the editor's panel/inspector
+ * language: token-driven surfaces, --space-* rhythm, --radius-* corners,
+ * --font-size-xs/sm typography, accent/feedback colors for severity.
+ * All three themes are covered via the token layer; high-contrast gets
+ * explicit borders where tints alone would be too faint. */
+
+/* ── AuditUtilityPanel ─────────────────────────────────────────────── */
+.audit-utility-panel {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.audit-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.audit-panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.audit-panel-count {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.audit-panel-controls {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.audit-panel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.audit-panel-button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.audit-panel-button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.audit-panel-collapsed {
+  padding: var(--space-2) var(--space-3);
+}
+
+.audit-panel-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.audit-panel-summary-item {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+}
+
+.audit-panel-summary-item.error {
+  background: color-mix(in oklch, var(--color-feedback-danger) 16%, transparent);
+  color: var(--color-feedback-danger);
+}
+
+.audit-panel-summary-item.warning {
+  background: color-mix(in oklch, var(--color-feedback-warning) 18%, transparent);
+  color: var(--color-feedback-warning-strong);
+}
+
+.audit-panel-summary-item.suggestion {
+  background: color-mix(in oklch, var(--color-feedback-info) 16%, transparent);
+  color: var(--color-feedback-info);
+}
+
+.audit-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.audit-panel-filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.audit-panel-filter-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.audit-panel-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.audit-filter-chip {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.audit-filter-chip:hover {
+  background: var(--color-surface-hover);
+}
+
+.audit-filter-chip.active {
+  background: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.audit-filter-chip:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.audit-panel-findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.audit-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-3);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.audit-finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-left: 3px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.audit-finding:hover {
+  background: var(--color-surface-hover);
+}
+
+.audit-finding:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.audit-finding--error {
+  border-left-color: var(--color-feedback-danger);
+}
+
+.audit-finding--warning {
+  border-left-color: var(--color-feedback-warning-strong);
+}
+
+.audit-finding--suggestion {
+  border-left-color: var(--color-feedback-info);
+}
+
+.audit-finding-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+.audit-finding-header svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+}
+
+.audit-finding-message {
+  color: var(--color-text-primary);
+}
+
+.audit-finding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.audit-finding-fix {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-interactive-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  cursor: pointer;
+}
+
+.audit-finding-fix:hover {
+  background: var(--color-interactive-hover);
+  border-color: var(--color-interactive-hover);
+}
+
+.audit-finding-fix:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.audit-finding-suppress {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.audit-finding-suppress:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+}
+
+/* ── AuditContextualSummary ────────────────────────────────────────── */
+.audit-contextual-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.audit-contextual-empty {
+  padding: var(--space-2) 0;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.audit-contextual-severity {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
+}
+
+.audit-contextual-severity--error {
+  background: color-mix(in oklch, var(--color-feedback-danger) 16%, transparent);
+  color: var(--color-feedback-danger);
+}
+
+.audit-contextual-severity--warning {
+  background: color-mix(in oklch, var(--color-feedback-warning) 18%, transparent);
+  color: var(--color-feedback-warning-strong);
+}
+
+.audit-contextual-severity--suggestion {
+  background: color-mix(in oklch, var(--color-feedback-info) 16%, transparent);
+  color: var(--color-feedback-info);
+}
+
+.audit-contextual-category,
+.audit-contextual-rule,
+.audit-contextual-confidence,
+.audit-contextual-timestamp {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.audit-contextual-label {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.audit-contextual-value {
+  color: var(--color-text-primary);
+}
+
+.audit-contextual-message {
+  color: var(--color-text-primary);
+}
+
+.audit-contextual-message p,
+.audit-contextual-detail p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.audit-contextual-detail {
+  padding: var(--space-2);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
+.audit-contextual-evidence,
+.audit-contextual-nodes,
+.audit-contextual-fixes,
+.audit-contextual-related {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.audit-contextual-evidence h4,
+.audit-contextual-nodes h4,
+.audit-contextual-fixes h4,
+.audit-contextual-related h4 {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.audit-contextual-evidence ul,
+.audit-contextual-node-list,
+.audit-contextual-related-list {
+  margin: 0;
+  padding-left: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.audit-contextual-evidence-key {
+  margin-right: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.audit-contextual-node code {
+  padding: 1px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.audit-contextual-node-more,
+.audit-contextual-related-more {
+  list-style: none;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.audit-contextual-fix {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) 0;
+}
+
+.audit-contextual-fix-label {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.audit-contextual-fix-description {
+  color: var(--color-text-secondary);
+}
+
+.audit-contextual-fix-previewable {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-accent-default);
+  font-size: var(--font-size-xs);
+}
+
+.audit-contextual-related-item {
+  list-style: none;
+}
+
+.audit-contextual-related-item button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.audit-contextual-related-item button:hover {
+  background: var(--color-surface-hover);
+}
+
+.audit-contextual-related-item button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.audit-contextual-related-severity {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
+}
+
+.audit-contextual-related-severity--error {
+  background: color-mix(in oklch, var(--color-feedback-danger) 16%, transparent);
+  color: var(--color-feedback-danger);
+}
+
+.audit-contextual-related-severity--warning {
+  background: color-mix(in oklch, var(--color-feedback-warning) 18%, transparent);
+  color: var(--color-feedback-warning-strong);
+}
+
+.audit-contextual-related-severity--suggestion {
+  background: color-mix(in oklch, var(--color-feedback-info) 16%, transparent);
+  color: var(--color-feedback-info);
+}
+
+.audit-contextual-related-message {
+  color: var(--color-text-secondary);
+}
+
+/* ── AuditProfileSwitcher ─────────────────────────────────────────── */
+.audit-profile-switcher {
+  position: relative;
+  display: inline-block;
+  font-size: var(--font-size-xs);
+}
+
+.audit-profile-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.audit-profile-button:hover {
+  background: var(--color-surface-hover);
+}
+
+.audit-profile-button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.audit-profile-label {
+  font-weight: var(--font-weight-medium);
+}
+
+.audit-profile-dropdown {
+  position: absolute;
+  z-index: var(--z-popover, 100);
+  top: calc(100% + var(--space-1));
+  left: 0;
+  min-width: 220px;
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+}
+
+.audit-profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1) 0;
+}
+
+.audit-profile-section + .audit-profile-section {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.audit-profile-section-label {
+  padding: 2px var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.audit-profile-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.audit-profile-option:hover {
+  background: var(--color-surface-hover);
+}
+
+.audit-profile-option.active {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent-default);
+}
+
+.audit-profile-option:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.audit-profile-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.audit-profile-option-name {
+  font-weight: var(--font-weight-medium);
+}
+
+.audit-profile-option-description {
+  color: var(--color-text-muted);
+}
+
+/* ── KeyboardShortcutsHelp ────────────────────────────────────────── */
+.audit-keyboard-shortcuts {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.audit-keyboard-shortcuts h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.audit-keyboard-shortcuts ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.audit-keyboard-shortcuts li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.audit-keyboard-shortcuts kbd {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border-subtle);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+/* ── High-contrast: tints are too faint, add explicit borders ─────── */
+[data-theme="high-contrast"] .audit-finding {
+  border-color: var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .audit-panel-summary-item.error,
+[data-theme="high-contrast"] .audit-panel-summary-item.warning,
+[data-theme="high-contrast"] .audit-panel-summary-item.suggestion {
+  border: 1px solid currentColor;
+}
+
+[data-theme="high-contrast"] .audit-contextual-severity,
+[data-theme="high-contrast"] .audit-contextual-related-severity {
+  border: 1px solid currentColor;
+}
+
+[data-theme="high-contrast"] .audit-profile-option.active {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+}
