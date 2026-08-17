@@ -7,7 +7,7 @@
  */
 
 import type { BranchRef, CheckpointRef, MergeConflict } from '@varve/history';
-import { EmptyState } from '@varve/ui';
+import { EmptyState, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import type { HistoryStepView } from '../history/editorHistorySession';
@@ -93,6 +93,15 @@ export function HistoryPanel() {
         s.branchHeadNames.some((n: string) => n.toLowerCase().includes(q)),
     );
   }, [steps, searchQuery]);
+
+  const revisionOptions = useMemo(
+    () =>
+      steps.map((s) => ({
+        value: s.revision.revisionId,
+        label: `${s.label} (${s.revision.revisionId.slice(0, 8)})`,
+      })),
+    [steps],
+  );
 
   const handleNavigate = useCallback(
     async (revisionId: string) => {
@@ -586,36 +595,26 @@ export function HistoryPanel() {
           aria-labelledby="history-tab-compare"
         >
           <div className="history-panel__compare-form">
-            <label className="history-panel__compare-label">
+            <div className="history-panel__compare-label">
               Base revision:
-              <select
+              <Select
+                label="Base revision"
+                options={revisionOptions}
                 value={compareBase}
-                onChange={(e) => setCompareBase(e.target.value)}
-                className="history-panel__compare-select"
-              >
-                <option value="">Select base...</option>
-                {steps.map((s) => (
-                  <option key={s.revision.revisionId} value={s.revision.revisionId}>
-                    {s.label} ({s.revision.revisionId.slice(0, 8)})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="history-panel__compare-label">
+                onChange={setCompareBase}
+                placeholder="Select base..."
+              />
+            </div>
+            <div className="history-panel__compare-label">
               Target revision:
-              <select
+              <Select
+                label="Target revision"
+                options={revisionOptions}
                 value={compareTarget}
-                onChange={(e) => setCompareTarget(e.target.value)}
-                className="history-panel__compare-select"
-              >
-                <option value="">Select target...</option>
-                {steps.map((s) => (
-                  <option key={s.revision.revisionId} value={s.revision.revisionId}>
-                    {s.label} ({s.revision.revisionId.slice(0, 8)})
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={setCompareTarget}
+                placeholder="Select target..."
+              />
+            </div>
             <button
               type="button"
               className="history-panel__compare-btn"
