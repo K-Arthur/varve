@@ -175,6 +175,8 @@ const SUPPORTED_IMPORT_EXTENSIONS = new Set([
   'eps',
   'epsf',
   'avif',
+  'sketch',
+  'fig',
 ]);
 
 const WARN_SIZE_BYTES = 50 * 1024 * 1024;

@@ -38,7 +38,13 @@ function fixture(): string {
                   name: 'Title',
                   absoluteBoundingBox: { x: 36, y: 46, width: 260, height: 24 },
                   characters: 'Hello Varve',
-                  style: { fontFamily: 'Inter', fontSize: 20, fontWeight: 700, lineHeightPx: 24, textAutoResize: 'HEIGHT' },
+                  style: {
+                    fontFamily: 'Inter',
+                    fontSize: 20,
+                    fontWeight: 700,
+                    lineHeightPx: 24,
+                    textAutoResize: 'HEIGHT',
+                  },
                   fills: [{ type: 'SOLID', color: { r: 0.1, g: 0.1, b: 0.1 }, opacity: 1 }],
                   layoutSizingHorizontal: 'FILL',
                 },
@@ -48,10 +54,25 @@ function fixture(): string {
                   name: 'Accent',
                   absoluteBoundingBox: { x: 36, y: 82, width: 260, height: 48 },
                   rectangleCornerRadii: [8, 8, 8, 8],
-                  fills: [{ type: 'GRADIENT_LINEAR', gradientStops: [{ position: 0, color: { r: 0, g: 0.8, b: 0.7 } }, { position: 1, color: { r: 0.1, g: 0.2, b: 0.8 } }] }],
+                  fills: [
+                    {
+                      type: 'GRADIENT_LINEAR',
+                      gradientStops: [
+                        { position: 0, color: { r: 0, g: 0.8, b: 0.7 } },
+                        { position: 1, color: { r: 0.1, g: 0.2, b: 0.8 } },
+                      ],
+                    },
+                  ],
                   strokes: [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 }, opacity: 1 }],
                   strokeWeight: 2,
-                  effects: [{ type: 'DROP_SHADOW', offset: { x: 0, y: 4 }, radius: 8, color: { r: 0, g: 0, b: 0, a: 0.2 } }],
+                  effects: [
+                    {
+                      type: 'DROP_SHADOW',
+                      offset: { x: 0, y: 4 },
+                      radius: 8,
+                      color: { r: 0, g: 0, b: 0, a: 0.2 },
+                    },
+                  ],
                 },
               ],
             },
@@ -71,7 +92,15 @@ function fixture(): string {
       '1:10': { name: 'Button', componentSetId: '1:11' },
     },
     variables: {
-      'var:1': { name: 'Spacing / Small', type: 'FLOAT', variableCollectionId: 'col:1', collectionName: 'Theme', modes: ['Light', 'Dark'], activeMode: 'Light', valuesByMode: { Light: 8, Dark: 8 } },
+      'var:1': {
+        name: 'Spacing / Small',
+        type: 'FLOAT',
+        variableCollectionId: 'col:1',
+        collectionName: 'Theme',
+        modes: ['Light', 'Dark'],
+        activeMode: 'Light',
+        valuesByMode: { Light: 8, Dark: 8 },
+      },
     },
   });
 }
@@ -91,9 +120,22 @@ describe('Figma JSON importer', () => {
     const title = nodes.find((node) => node.name === 'Title');
     const accent = nodes.find((node) => node.name === 'Accent');
     const mark = nodes.find((node) => node.name === 'Mark');
-    expect(card).toMatchObject({ kind: 'frame', layoutStyle: { mode: 'flex', direction: 'column', gap: 12, padding: [16, 16, 16, 16] } });
-    expect(title).toMatchObject({ kind: 'text', text: 'Hello Varve', fontFamily: 'Inter', fontWeight: 700 });
-    expect(accent).toMatchObject({ kind: 'shape', cornerRadius: [8, 8, 8, 8], strokes: [{ weight: 2 }], effects: [{ type: 'dropShadow' }] });
+    expect(card).toMatchObject({
+      kind: 'frame',
+      layoutStyle: { mode: 'flex', direction: 'column', gap: 12, padding: [16, 16, 16, 16] },
+    });
+    expect(title).toMatchObject({
+      kind: 'text',
+      text: 'Hello Varve',
+      fontFamily: 'Inter',
+      fontWeight: 700,
+    });
+    expect(accent).toMatchObject({
+      kind: 'shape',
+      cornerRadius: [8, 8, 8, 8],
+      strokes: [{ weight: 2 }],
+      effects: [{ type: 'dropShadow' }],
+    });
     expect(mark).toMatchObject({ kind: 'shape', shape: { kind: 'path', closed: true } });
     expect(validateDocument(result.document).valid).toBe(true);
     expect(DocumentCodec.normalize(result.document).document.pages).toHaveLength(1);
@@ -110,24 +152,49 @@ describe('Figma JSON importer', () => {
     const document = input.document as Record<string, unknown>;
     const page = (document.children as Array<Record<string, unknown>>)[0]!;
     const children = page.children as Array<Record<string, unknown>>;
-    children.push({ id: '1:5', type: 'BOOLEAN_OPERATION', name: 'Union', absoluteBoundingBox: { x: 0, y: 0, width: 20, height: 20 }, booleanOperation: 'UNION', children: [] });
-    children.push({ id: '1:6', type: 'RECTANGLE', name: 'Photo', absoluteBoundingBox: { x: 0, y: 0, width: 20, height: 20 }, fills: [{ type: 'IMAGE', imageRef: 'missing' }] });
+    children.push({
+      id: '1:5',
+      type: 'BOOLEAN_OPERATION',
+      name: 'Union',
+      absoluteBoundingBox: { x: 0, y: 0, width: 20, height: 20 },
+      booleanOperation: 'UNION',
+      children: [],
+    });
+    children.push({
+      id: '1:6',
+      type: 'RECTANGLE',
+      name: 'Photo',
+      absoluteBoundingBox: { x: 0, y: 0, width: 20, height: 20 },
+      fills: [{ type: 'IMAGE', imageRef: 'missing' }],
+    });
     const result = createFigmaParser().parse(JSON.stringify(input));
     expect(result.nodeIds).toHaveLength(1);
     expect(result.warnings.join('\n')).toMatch(/image reference/i);
-    expect(result.unsupportedFeatures).toEqual(expect.arrayContaining(['image paints without embedded bytes']));
-    expect(result.unsupportedFeatures?.some((value) => value.includes('Boolean operation'))).toBe(true);
+    expect(result.unsupportedFeatures).toEqual(
+      expect.arrayContaining(['image paints without embedded bytes']),
+    );
+    expect(result.unsupportedFeatures?.some((value) => value.includes('Boolean operation'))).toBe(
+      true,
+    );
   });
 
   it('fails safely on excessive nesting', () => {
     let node: Record<string, unknown> = { id: 'deep', type: 'GROUP', name: 'deep', children: [] };
-    for (let index = 0; index < 300; index += 1) node = { id: `deep-${index}`, type: 'GROUP', name: 'deep', children: [node] };
-    const data = JSON.stringify({ document: { type: 'DOCUMENT', children: [{ id: 'page', type: 'CANVAS', name: 'Page', children: [node] }] } });
+    for (let index = 0; index < 300; index += 1)
+      node = { id: `deep-${index}`, type: 'GROUP', name: 'deep', children: [node] };
+    const data = JSON.stringify({
+      document: {
+        type: 'DOCUMENT',
+        children: [{ id: 'page', type: 'CANVAS', name: 'Page', children: [node] }],
+      },
+    });
     expect(() => decodeFigmaSource(data)).toThrow(/depth/i);
   });
 
   it('routes through ImportService with a partial fidelity report', async () => {
-    const report = await ImportService.importFiles([{ name: 'fixture.fig', text: fixture(), source: 'file-picker' }]);
+    const report = await ImportService.importFiles([
+      { name: 'fixture.fig', text: fixture(), source: 'file-picker' },
+    ]);
     const file = report.files[0]!;
     expect(file.nodeCount).toBeGreaterThanOrEqual(0);
     expect(file.format).not.toBe('unknown');
