@@ -105,6 +105,14 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Selected frame layout directly affects its children.',
   },
+  'layout-child': {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'frequent',
+    complexity: 'compact',
+    status: 'functional',
+    rationale: 'Flow/absolute position and per-axis sizing for a child of an auto-layout frame.',
+  },
   constraints: {
     surface: 'properties',
     scope: 'mixed-selection',
