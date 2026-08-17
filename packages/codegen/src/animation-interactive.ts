@@ -78,32 +78,33 @@ function nodeToSvgElement(doc: Document, node: SceneNode, depth: number): string
   const t = nodeEffectiveTransform(node);
   const transform = `matrix(${t[0]},${t[1]},${t[2]},${t[3]},${t[4]},${t[5]})`;
   const fill = 'fill' in node && node.fill ? renderColor(node.fill) : '#888888';
+  const nodeAttr = ` data-node-id="${escapeHtml(node.id)}"`;
 
   if (node.kind === 'shape') {
     const s = node.shape;
     switch (s.kind) {
       case 'rect':
-        return `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fill}" transform="${transform}" />`;
+        return `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fill}" transform="${transform}"${nodeAttr} />`;
       case 'ellipse':
-        return `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fill}" transform="${transform}" />`;
+        return `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fill}" transform="${transform}"${nodeAttr} />`;
       case 'circle':
-        return `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fill}" transform="${transform}" />`;
+        return `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fill}" transform="${transform}"${nodeAttr} />`;
       case 'line':
       case 'arrow':
-        return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fill}" stroke-width="2" transform="${transform}" />`;
+        return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fill}" stroke-width="2" transform="${transform}"${nodeAttr} />`;
       case 'polygon':
       case 'star': {
         const pts = shapeVerticesToPoints(s, 3);
-        return `${indent}<polygon points="${pts}" fill="${fill}" transform="${transform}" />`;
+        return `${indent}<polygon points="${pts}" fill="${fill}" transform="${transform}"${nodeAttr} />`;
       }
       case 'path':
-        return `${indent}<path d="${pathToData(s, 3)}" fill="${fill}" transform="${transform}" />`;
+        return `${indent}<path d="${pathToData(s, 3)}" fill="${fill}" transform="${transform}"${nodeAttr} />`;
     }
   }
   if (node.kind === 'text') {
     const fontSize = node.fontSize ?? 16;
     const fontFamily = node.fontFamily ?? 'Inter, sans-serif';
-    return `${indent}<text x="${t[4]}" y="${t[5]}" fill="${fill}" font-size="${fontSize}" font-family="${fontFamily}" transform="matrix(${t[0]},${t[1]},${t[2]},${t[3]},0,0)">${escapeHtml(node.text)}</text>`;
+    return `${indent}<text x="${t[4]}" y="${t[5]}" fill="${fill}" font-size="${fontSize}" font-family="${fontFamily}" transform="matrix(${t[0]},${t[1]},${t[2]},${t[3]},0,0)"${nodeAttr}>${escapeHtml(node.text)}</text>`;
   }
   if (node.kind === 'group' || node.kind === 'frame') {
     const children = (node.children ?? [])
@@ -113,7 +114,7 @@ function nodeToSvgElement(doc: Document, node: SceneNode, depth: number): string
       })
       .filter(Boolean)
       .join('\n');
-    return `${indent}<g transform="${transform}">\n${children}\n${indent}</g>`;
+    return `${indent}<g transform="${transform}"${nodeAttr}>\n${children}\n${indent}</g>`;
   }
   return '';
 }
@@ -288,7 +289,7 @@ ${children}
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Inter, system-ui, -apple-system, sans-serif; background: #1a1a2e; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-    .varve-prototype { position: relative; width: ${width}px; height: {${height}px}; max-width: 100%; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+    .varve-prototype { position: relative; width: ${width}px; height: ${height}px; max-width: 100%; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
     .varve-screen { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity 300ms ease; }
     .varve-screen--active { opacity: 1; pointer-events: auto; }
     .varve-interactive { cursor: pointer; }
@@ -337,7 +338,7 @@ ${interactionRuntime}
   // Keyboard navigation
   document.addEventListener('keydown', function(e) {
     if (e.key === 'ArrowRight') { showScreen(activeScreen + 1); }
-    if (e.key === 'ArrowLeft') { showScreen(activeScreen - 1); });
+    if (e.key === 'ArrowLeft') { showScreen(activeScreen - 1); }
   });
 
 })();

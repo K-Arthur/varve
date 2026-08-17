@@ -131,6 +131,37 @@ describe('sampleTimeline', () => {
     expect(result.overrides.get('n1')?.get('rotation')).toBe(180);
   });
 
+  it('suppresses muted tracks and isolates solo tracks', () => {
+    const tl = makeTimeline({
+      tracks: [
+        {
+          id: 'muted',
+          nodeId: 'muted-node',
+          property: 'opacity',
+          muted: true,
+          keyframes: [{ progress: 0, value: 0.25 }],
+        },
+        {
+          id: 'solo',
+          nodeId: 'solo-node',
+          property: 'opacity',
+          solo: true,
+          keyframes: [{ progress: 0, value: 0.5 }],
+        },
+        {
+          id: 'other',
+          nodeId: 'other-node',
+          property: 'opacity',
+          keyframes: [{ progress: 0, value: 0.75 }],
+        },
+      ],
+    });
+    const overrides = sampleTimeline(tl, 0).overrides;
+    expect(overrides.has('muted-node')).toBe(false);
+    expect(overrides.get('solo-node')?.get('opacity')).toBe(0.5);
+    expect(overrides.has('other-node')).toBe(false);
+  });
+
   it('samples multiple nodes', () => {
     const tl = makeTimeline({
       duration: 1000,

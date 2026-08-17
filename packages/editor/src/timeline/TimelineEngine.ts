@@ -189,6 +189,7 @@ export class TimelineEngine {
 
   /** Check if the engine should transition to finished state. Returns true if finished. */
   private _checkFinish(): boolean {
+    if (this._state === 'finished') return true;
     const maxIter = this._config.iterations ?? 1;
     const loop = this._config.loop ?? false;
 
@@ -219,6 +220,10 @@ export class TimelineEngine {
 
   private _advanceTime(deltaMs: number): void {
     const duration = this._config.duration;
+    if (duration <= 0) {
+      this._finish();
+      return;
+    }
     const maxIter = this._config.iterations ?? 1;
     const loop = this._config.loop ?? false;
     const infinite = maxIter === Infinity || loop;

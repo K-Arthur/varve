@@ -1,4 +1,13 @@
-import { addSMState, addSMTransition, createDocument, createStateMachine } from '@varve/scene';
+import vm from 'node:vm';
+import {
+  addNode,
+  addSMState,
+  addSMTransition,
+  createDocument,
+  createStateMachine,
+  makeFrameNode,
+  makeShapeNode,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { exportInteractivePrototype, type InteractiveExportResult } from './animation-interactive';
 
@@ -22,7 +31,20 @@ describe('exportInteractivePrototype', () => {
     expect(result.html).toContain('<!DOCTYPE html>');
     expect(result.html).toContain('<script>');
     expect(result.html).toContain('State Machine Runtime');
+    expect(result.html).toContain('height: 812px');
+    const script = result.html.match(/<script>\n([\s\S]*?)\n {2}<\/script>/)?.[1];
+    expect(script).toBeDefined();
+    expect(() => new vm.Script(script!)).not.toThrow();
     expect(result.html).toContain('</html>');
+  });
+
+  it('emits node identifiers for exported interaction binding', () => {
+    const shape = makeShapeNode('button-1', { kind: 'rect', x: 0, y: 0, w: 100, h: 50 });
+    let doc = createDocument('test');
+    doc = addNode(doc, shape);
+    doc = addNode(doc, makeFrameNode('screen-1', { children: ['button-1'] }));
+    const result = exportInteractivePrototype(doc);
+    expect(result.html).toContain('data-node-id="button-1"');
   });
 
   it('includes state machine transitions as JSON', () => {
