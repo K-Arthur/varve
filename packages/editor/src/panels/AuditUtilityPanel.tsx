@@ -10,6 +10,7 @@
 import type { AuditFinding, AuditSeverity } from '@varve/shared';
 import { Icon } from '@varve/ui';
 import { useState } from 'react';
+import './audit.css';
 
 interface AuditUtilityPanelProps {
   /** Current findings */

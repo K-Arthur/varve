@@ -9,6 +9,7 @@
 
 import type { AuditFinding } from '@varve/shared';
 import { Icon } from '@varve/ui';
+import './audit.css';
 
 interface AuditContextualSummaryProps {
   /** Current finding */

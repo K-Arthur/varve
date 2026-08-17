@@ -11,6 +11,7 @@
 import type { EditorMode, WorkspaceMode } from '@varve/shared';
 import { Icon } from '@varve/ui';
 import { useState } from 'react';
+import './audit.css';
 
 /**
  * Audit profile definition.
