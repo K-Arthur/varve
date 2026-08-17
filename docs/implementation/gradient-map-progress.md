@@ -16,7 +16,7 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 | `GradientStop` (`{position, color: ManagedColor, midpoint?}`) | `types.ts:413-418` | Canonical scene stop |
 | `GradientFill` (`{type, stops, rotation?, interpolationSpace?, transform?, tilingMode?}`) | `types.ts:420-432` | Canonical spatial fill gradient |
 | `Fill.type = 'solid'\|'gradient'\|'image'\|'pattern'` | `types.ts:581-592` | Gradient map is NOT a fill |
-| `GradientInterpolationSpace = 'srgb'\|'oklab'\|'oklch'\|'hsl'` | `types.ts:408`, `engine/types.ts:368`, `shared/colorInterpolation.ts:22` | Triplicated union |
+| `GradientInterpolationSpace = 'srgb'\|'linear-srgb'\|'oklab'\|'oklch'\|'hsl'` | `types.ts`, `engine/types.ts`, `shared/colorInterpolation.ts` | Triplicated union |
 | Shared interpolation engine | `packages/shared/src/colorInterpolation.ts` (`interpolateManagedColor`, `sampleGradientColor`, `expandGradientStops`, `applyMidpointBias`) | **Reusable canonical evaluation** |
 | Canvas gradient mapper | `packages/engine/src/replay.ts:1813` `createGradientStyle` + `expandGradientStopsForFill:1713` + `gradientCache:1801` | Fill gradient rasterizer |
 | Fill gradient editor UI | `packages/editor/src/components/Inspector/color/GradientEditor.tsx` | Reusable stop-bar concepts |

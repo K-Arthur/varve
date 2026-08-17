@@ -15,7 +15,7 @@ tonal adjustment**, not a spatial gradient fill.
 | Scope | One node's fill | Adjustment scope (image-local / targets / container / document) |
 
 The two share stop + interpolation primitives (`GradientColorStop`,
-`GradientOpacityStop`, midpoint bias, OKLab/OKLCH/HSL/sRGB interpolation) but
+`GradientOpacityStop`, midpoint bias, OKLab/OKLCH/Linear-sRGB/HSL/sRGB interpolation) but
 remain distinct scene concepts.
 
 ## Canonical model

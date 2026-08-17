@@ -9,16 +9,16 @@
 - `packages/shared/src/colorConversion.ts` (540 lines) — SSOT: sRGB↔linear↔XYZ D65↔CIELab↔Oklab↔OKLCH↔CMYK, ΔEOK, `gamutMapToSrgb`
 - `packages/ui/src/tokens/contrast.ts` (174 lines) — duplicate OKLCH math for token system
 - `packages/ui/src/components/ColorPicker/color-utils.ts` (123 lines) — HSV/HSL/Hex for ColorPicker
-- `packages/shared/src/colorInterpolation.ts` (296 lines) — gradient interpolation (4 spaces)
+- `packages/shared/src/colorInterpolation.ts` (~480 lines) — gradient interpolation (5 spaces: sRGB, linear-sRGB, OKLab, OKLCH, HSL) with configurable hue direction
 - `packages/shared/src/cssColorParser.ts` (343 lines) — CSS color parser (hex/rgb/hsl/oklch/oklab/named)
 
 ### Gradient Rendering
 - **Backend**: Canvas2D only (`ReplayTarget` interface, `@varve/engine/replay.ts`). No WebGL/WebGPU.
 - **Gradient types**: linear, radial, angular (conic), diamond (radial fallback)
-- **Interpolation spaces**: sRGB, OKLab, OKLCH, HSL — all handled via `expandGradientStops` (16 subdivisions/segment)
+- **Interpolation spaces**: sRGB, Linear sRGB, OKLab, OKLCH, HSL — all handled via `expandGradientStops` (16 subdivisions/segment)
 - **Tiling**: repeat/reflect via OffscreenCanvas + `createPattern`
 - **Transform matrix**: Affine matrix override for fill position/rotation
-- **Tests**: 43 replay-fill tests, 23 colorInterpolation tests, 28 fills tests
+- **Tests**: 43 replay-fill tests, 46 colorInterpolation tests, 28 fills tests
 
 ### Types
 - **Scene**: `ManagedColor` (RGB/CMYK/Gray/Spot union), `GradientFill`, `GradientStop`, `Fill` (solid/gradient/image/pattern)
@@ -55,14 +55,14 @@ Implemented in `gamutMapToSrgb()` (colorConversion.ts:497) — preserves hue and
 **⚠ Contrast evaluation still uses simple-clipped sRGB** — `gamutMapToSrgb` is NOT called in the contrast/audit path. This means WCAG ratios for wide-gamut colors are measured against clipped values, not gamut-mapped ones. Deferred fix (minor impact for current sRGB-primary workflow).
 
 ### Hue interpolation direction
-**Chosen: Shortest path** in both HSL (`lerpHue`, `colorInterpolation.ts:97`) and OKLCH (`colorInterpolation.ts:185-188`).
+**Chosen: User-configurable, default shortest path.**
 
-**Not user-configurable** — it's a hidden default. Making it a user-visible option (shorter/longer/clockwise/counterclockwise) is deferred (would require scene type changes).
+Implemented in `lerpHue()` (`colorInterpolation.ts`) — supports CSS Color 4's four directional modes: shorter, longer, increasing, decreasing. Stored in `GradientFill.hueInterpolation` (optional, defaults to `'shorter'`). UI shows the hue direction selector conditionally for cylindrical spaces (OKLCH, HSL) only.
 
 ### Undefined-hue handling (chroma=0 in OKLCH)
-**⚠ OPEN GAP.** When chroma (C) is 0, `oklabToOkLch()` returns H=0 via `atan2(0,0)` → 0. During OKLCH interpolation between an achromatic stop (C≈0, H=0 arbitrary) and a chromatic stop (C>0, H=real), the hue ramps from the arbitrary 0 to the real hue — creating a visible wrong hue shift through gray.
+**Resolved.** When chroma (C) is 0, `oklabToOkLch()` returns H=0 via `atan2(0,0)` → 0. During OKLCH interpolation between an achromatic stop (C≈0, H=0 arbitrary) and a chromatic stop (C>0, H=real), the hue ramps from the arbitrary 0 to the real hue — creating a visible wrong hue shift through gray.
 
-**Decision**: For segments where either endpoint has C < 0.001, fall back to OKLab interpolation (no hue component). This is the standard fix used by color-science-aware engines.
+**Decision**: For segments where either endpoint has C < 0.001, fall back to OKLab interpolation (no hue component). This is the standard fix used by color-science-aware engines. Tested with 46 tests including achromatic edge cases.
 
 ### CMYK scope
 **Screen preview only.** All CMYK conversions use analytical inverse-complement formulas (`cmykToRgb` / `rgbToCmyk`). ICC-profile-aware output (Fogra39/GRACoL/SWOP) exists in the Rust print crate (`strata-print`) for PDF export only, not for screen display.
@@ -78,7 +78,7 @@ Implemented in `gamutMapToSrgb()` (colorConversion.ts:497) — preserves hue and
 
 | # | Gap | File | Fix |
 |---|-----|------|-----|
-| 1 | **Undefined-hue in OKLCH interpolation** via gray stops (chroma≈0 → H=0 arbitrary → hue shift) | `colorInterpolation.ts:172-196` | Fall back to OKLab when C < 0.001 |
+| 1 | ~~**Undefined-hue in OKLCH interpolation** via gray stops (chroma≈0 → H=0 arbitrary → hue shift)~~ | `colorInterpolation.ts` | **Resolved**: Fall back to OKLab when C < 0.001 |
 | 2 | **Gradient stop drag = one undo entry per pointermove** (not per gesture) | `GradientEditor.tsx:173-193` + `FillSection.tsx` | Wrap drag in `beginTransaction()`/`commitTransaction()` |
 | 3 | **Zero-length gradient vector** (degenerate shape: bounds.w===0 || bounds.h===0) — relies on Canvas2D undefined behavior | `replay.ts:806-810` | Guard on `halfDiag <= 0`, emit solid fill of last stop |
 
@@ -112,7 +112,7 @@ Implemented in `gamutMapToSrgb()` (colorConversion.ts:497) — preserves hue and
 
 | # | Gap | File | Fix |
 |---|------|------|-----|
-| 15 | **Hue interpolation direction not user-configurable** | `colorInterpolation.ts` | Feature request: add `hueInterpolation` field to GradientFill (shorter/longer/clockwise/counterclockwise) |
+| 15 | ~~**Hue interpolation direction not user-configurable**~~ | `colorInterpolation.ts` | **Resolved**: `hueInterpolation` field added to GradientFill (shorter/longer/increasing/decreasing), UI selector visible for cylindrical spaces |
 | 16 | **Dirty-flagging per token** (architectural improvement) | `CanvasArea.tsx` | Track `token→[nodeIds]` mapping; only rebuild IR for affected nodes |
 
 ---
@@ -126,8 +126,8 @@ Implemented in `gamutMapToSrgb()` (colorConversion.ts:497) — preserves hue and
 | Stops outside [0,1] | ⚠ UI-clamped only | Programmatic import bypasses clamping |
 | Linear gradient zero-length vector | ❌ No guard | Relies on Canvas2D undefined behavior |
 | Conic angle wrap-around at 0°/360° | ✅ Canvas2D natively handles | `createConicGradient` wraps angles |
-| Undefined hue (chroma=0 in OKLCH) | ❌ OPEN | `atan2(0,0)` → 0, arbitrary hue ramp through grays |
-| NaN propagation (achromatic→chromatic) | ❌ OPEN | Same as undefined-hue — NaN if unguarded |
+| Undefined hue (chroma=0 in OKLCH) | ✅ Resolved | Falls back to OKLab when C < 0.001; tested with 4 achromatic edge-case tests |
+| NaN propagation (achromatic→chromatic) | ✅ Resolved | Same fix as undefined-hue — guarded by C < 0.001 check |
 | Round-trip hex→OKLab→hex precision | ✅ Untested but analytical | Pure math, no truncation between iterations |
 | Named CSS colors | ✅ | ~30 named colors in cssColorParser |
 | Hex #RGB/#RRGGBB/#RGBA/#RRGGBBAA | ✅ | 3, 4, 6, 8-digit supported |
@@ -142,7 +142,7 @@ Implemented in `gamutMapToSrgb()` (colorConversion.ts:497) — preserves hue and
 
 | Area | Current | Needed |
 |------|---------|--------|
-| Undefined-hue OKLCH interpolation | 0 | 2 tests (gray→color, color→gray in OKLCH space) |
+| Undefined-hue OKLCH interpolation | ✅ 4 tests | Covered (achromatic edge cases) |
 | Zero-length gradient vector | 0 | 2 tests (bounds.w===0, bounds.h===0) |
 | Gradient stop transaction wrapping | 0 | 2 tests (drag=1 undo entry, abort restores) |
 | Throttled gradient updates | 0 | 1 test (RAF fires at ≤1 per frame) |
