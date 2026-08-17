@@ -183,8 +183,15 @@ export function collectSourceEvents(
     }
   }
 
-  if (events.length === 0) {
-    events.push(normalizeInputEvent(ev));
+  const primary = normalizeInputEvent(ev);
+  const last = events[events.length - 1];
+  if (
+    !last ||
+    last.clientX !== primary.clientX ||
+    last.clientY !== primary.clientY ||
+    last.time !== primary.time
+  ) {
+    events.push(primary);
   }
 
   if (includePredicted && typeof ev.getPredictedEvents === 'function') {

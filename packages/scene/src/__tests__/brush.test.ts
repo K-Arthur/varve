@@ -205,6 +205,47 @@ describe('generateDabs', () => {
     const dabs = generateDabs(pts, makePreset({ radius: 0.1 }));
     expect(dabs[0]!.radius).toBeGreaterThanOrEqual(0.5);
   });
+
+  it('clamps zero spacing so malformed presets cannot stall generation', () => {
+    const points = makePoints(3, 0, 0, 10, 0);
+    expect(() => generateDabs(points, makePreset({ spacing: 0 }))).not.toThrow();
+  });
+
+  it('evaluates stroke progress dynamics across a stroke', () => {
+    const points = makePoints(20, 0, 0, 10, 0);
+    const preset = makePreset({
+      radius: 10,
+      spacing: 0.5,
+      dynamics: [
+        {
+          input: 'stroke',
+          target: 'opacity',
+          curve: [0, 0, 1, 1],
+          min: 0.25,
+          max: 1,
+        },
+      ],
+    });
+    const dabs = generateDabs(points, preset);
+    expect(dabs[0]!.opacity).toBeLessThan(dabs[dabs.length - 1]!.opacity);
+  });
+
+  it('inverts nonlinear dynamics curves before evaluating output', () => {
+    const points = [strokePoint(0, 0, { pressure: 0.25 })];
+    const preset = makePreset({
+      dynamics: [
+        {
+          input: 'pressure',
+          target: 'size',
+          curve: [0.8, 0, 0.9, 1],
+          min: 0.5,
+          max: 1.5,
+        },
+      ],
+    });
+    const dab = generateDabs(points, preset)[0]!;
+    expect(dab.radius).toBeGreaterThan(5);
+  });
 });
 
 describe('makeBrushStroke', () => {
