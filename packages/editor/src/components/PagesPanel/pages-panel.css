@@ -94,6 +94,9 @@
   background: var(--color-accent-subtle);
   border-color: var(--color-interactive-default);
 }
+.pages-panel__row--active:hover {
+  background: var(--color-surface-hover);
+}
 
 .pages-panel__thumb {
   width: 40px;

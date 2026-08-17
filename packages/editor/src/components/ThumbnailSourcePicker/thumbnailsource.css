@@ -60,6 +60,9 @@
   background: var(--color-accent-subtle);
   border-color: var(--color-interactive-default);
 }
+.thumbnail-source-picker__option--active:hover {
+  background: var(--color-surface-hover);
+}
 
 .thumbnail-source-picker__option-text {
   display: flex;

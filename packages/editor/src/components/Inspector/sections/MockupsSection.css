@@ -62,6 +62,9 @@
   border-color: var(--color-accent-primary);
   color: var(--text-on-accent, #ffffff);
 }
+.mockups-section__fit--active:hover {
+  background: var(--color-interactive-hover);
+}
 
 .mockups-section__actions {
   display: flex;

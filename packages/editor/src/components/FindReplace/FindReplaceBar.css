@@ -209,6 +209,9 @@
 .find-results-item--active {
   background: var(--color-accent-subtle);
 }
+.find-results-item--active:hover {
+  background: var(--color-surface-hover);
+}
 
 .find-results-item__snippet {
   color: var(--color-text-secondary);
