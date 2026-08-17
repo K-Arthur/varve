@@ -30,7 +30,7 @@ export function ToolOptionsPopover() {
     BRUSH_TOOLS.has(state.tool) || state.tool === 'frame' || state.tool === 'crop';
 
   useEffect(() => {
-    setOpen(false);
+    setOpen(BRUSH_TOOLS.has(state.tool));
   }, [state.tool]);
 
   useEffect(() => {
