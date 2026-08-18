@@ -3,7 +3,6 @@ import {
   addPage,
   createClippingMask,
   createDocument,
-  makeFrameNode,
   makeGroupNode,
   makeShapeNode,
   type Page,
@@ -73,7 +72,6 @@ function makeCtx(overrides?: Record<string, unknown>) {
     releasePointerCapture: vi.fn(),
     findContainingFrame: vi.fn().mockReturnValue(null),
     setDropTargetFrame: vi.fn(),
-    setLayoutInsertion: vi.fn(),
     nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 100, h: 100 }),
     engine: null,
     hitTest: vi.fn().mockReturnValue(null),
@@ -1096,160 +1094,6 @@ describe('SelectTool drag-end auto-reparent', () => {
 
     expect(reparentNode).toHaveBeenCalledTimes(1);
     expect(reparentNode).toHaveBeenCalledWith('n0', null, expect.any(Number));
-  });
-
-  /** Paged doc: contentRoot holds a flex-row frame `f1` with three children
-   *  laid out left to right, each 40px wide, no gap. */
-  function docWithFlexRowFrame() {
-    const doc = createDocument('test', {});
-    const page = doc.pages![0]!;
-    const contentRootId = page.contentRoot!;
-    const contentRoot = doc.nodes[contentRootId]!;
-    const frame = makeFrameNode('f1', {
-      name: 'Frame',
-      transform: [1, 0, 0, 1, 0, 0],
-      w: 200,
-      h: 60,
-      children: ['a', 'b', 'c'],
-      layoutStyle: {
-        mode: 'flex',
-        direction: 'row',
-        wrap: false,
-        gap: 0,
-        padding: [0, 0, 0, 0],
-        grow: 0,
-        shrink: 0,
-        alignItems: 'start',
-        justifyContent: 'start',
-      },
-    });
-    return {
-      ...doc,
-      nodes: {
-        ...doc.nodes,
-        [contentRootId]: { ...contentRoot, children: ['f1'] },
-        f1: frame,
-        a: makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }, { name: 'a' }),
-        b: {
-          ...makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }, { name: 'b' }),
-          transform: [1, 0, 0, 1, 40, 0],
-        },
-        c: {
-          ...makeShapeNode('c', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }, { name: 'c' }),
-          transform: [1, 0, 0, 1, 80, 0],
-        },
-      },
-    } as typeof doc;
-  }
-
-  it('reorders a child within the same flex frame based on drop position', () => {
-    // c (currently last, world x=80..120) is dragged to world x=-30..10 —
-    // its center (-10) sits before a's midpoint (a spans world x=0..40,
-    // midpoint 20), so it should land at index 0, ahead of both a and b.
-    const tool = new SelectTool();
-    const doc = docWithFlexRowFrame();
-    const reparentNode = vi.fn();
-    const ctx = makeCtx({
-      document: doc,
-      selection: ['c'],
-      findContainingFrame: vi.fn().mockReturnValue('f1'),
-      reparentNode,
-      getNode: vi.fn((id: string) => doc.nodes[id]),
-      rootNodes: vi.fn().mockReturnValue([{ id: 'f1' }]),
-    });
-    // worldCenterOf reads the node's actual transform via nodeWorldBounds,
-    // which onDragEnd calls directly (not through ctx) — move c's transform
-    // to simulate the drag having already repositioned it near world x=-30.
-    doc.nodes = {
-      ...doc.nodes,
-      c: { ...doc.nodes.c!, transform: [1, 0, 0, 1, -30, 0] },
-    };
-
-    endDrag(tool, ctx);
-
-    expect(reparentNode).toHaveBeenCalledTimes(1);
-    expect(reparentNode).toHaveBeenCalledWith('c', 'f1', 0);
-  });
-
-  it('does not reorder within a freeform (non-flex) frame on a same-parent drop', () => {
-    const tool = new SelectTool();
-    const doc = docWithFlexRowFrame();
-    doc.nodes = {
-      ...doc.nodes,
-      f1: { ...doc.nodes.f1!, layoutStyle: undefined } as (typeof doc.nodes)['f1'],
-      c: { ...doc.nodes.c!, transform: [1, 0, 0, 1, 10, 0] },
-    };
-    const reparentNode = vi.fn();
-    const ctx = makeCtx({
-      document: doc,
-      selection: ['c'],
-      findContainingFrame: vi.fn().mockReturnValue('f1'),
-      reparentNode,
-      getNode: vi.fn((id: string) => doc.nodes[id]),
-      rootNodes: vi.fn().mockReturnValue([{ id: 'f1' }]),
-    });
-
-    endDrag(tool, ctx);
-
-    expect(reparentNode).not.toHaveBeenCalled();
-  });
-
-  it('inserts at a position-aware index when dropped into a different flex frame', () => {
-    const tool = new SelectTool();
-    const doc = docWithFlexRowFrame();
-    const page = doc.pages![0]!;
-    const contentRootId = page.contentRoot!;
-    const contentRoot = doc.nodes[contentRootId] as { children: string[] };
-    // A second, empty flex-row frame elsewhere on the canvas.
-    const doc2 = {
-      ...doc,
-      nodes: {
-        ...doc.nodes,
-        [contentRootId]: { ...contentRoot, children: [...contentRoot.children, 'f2'] },
-        f2: makeFrameNode('f2', {
-          name: 'Frame2',
-          transform: [1, 0, 0, 1, 500, 0],
-          w: 200,
-          h: 60,
-          children: ['x'],
-          layoutStyle: {
-            mode: 'flex',
-            direction: 'row',
-            wrap: false,
-            gap: 0,
-            padding: [0, 0, 0, 0],
-            grow: 0,
-            shrink: 0,
-            alignItems: 'start',
-            justifyContent: 'start',
-          },
-        }),
-        // x's transform is local to f2 (world-space parent at x=500), so this
-        // places it at world x=540..580.
-        x: {
-          ...makeShapeNode('x', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }, { name: 'x' }),
-          transform: [1, 0, 0, 1, 40, 0],
-        },
-        // 'a' has been dragged from f1 (world-space parent at x=0, so local ==
-        // world here) into f2, landing at world x=505..545 — just before x.
-        a: { ...doc.nodes.a, transform: [1, 0, 0, 1, 505, 0] },
-      },
-    } as typeof doc;
-
-    const reparentNode = vi.fn();
-    const ctx = makeCtx({
-      document: doc2,
-      selection: ['a'],
-      findContainingFrame: vi.fn().mockReturnValue('f2'),
-      reparentNode,
-      getNode: vi.fn((id: string) => doc2.nodes[id]),
-      rootNodes: vi.fn().mockReturnValue([{ id: 'f1' }, { id: 'f2' }]),
-    });
-
-    endDrag(tool, ctx);
-
-    expect(reparentNode).toHaveBeenCalledTimes(1);
-    expect(reparentNode).toHaveBeenCalledWith('a', 'f2', 0);
   });
 });
 

@@ -25,7 +25,6 @@ describe('Inspector feature ownership', () => {
       'table',
       'table-cells',
       'layout',
-      'layout-child',
       'appearance',
       'fills',
       'stroke',

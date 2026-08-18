@@ -9,7 +9,6 @@
  */
 import type { Document, LayoutStyle, NodeId, SceneNode } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
-import { isFlowParticipant } from './measure';
 
 export interface GridItem {
   id: NodeId;
@@ -158,7 +157,7 @@ export function computeGridLayout(
 
   const childNodes = children
     .map((cid) => doc.nodes[cid])
-    .filter((n): n is SceneNode => n !== undefined && isFlowParticipant(n));
+    .filter((n): n is SceneNode => Boolean(n));
 
   const explicitPlacements: Array<{
     childIndex: number;
