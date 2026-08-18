@@ -23,11 +23,11 @@
   <a href="https://varve.studio/support-project"><strong>Sponsor</strong></a>
 </p>
 
-> **Public beta.** The latest published application release is `v0.1.1`.
+> **Public beta.** The latest published application release is `v0.1.2`.
 > Installers are published for Linux, macOS, and Windows. Core workflows are
 > usable today, but the `.varve` document format and interfaces can still
 > change, and Windows/macOS builds are not yet code-signed. The source tree is
-> already on the next `0.1.2` development line; see [Project status](#project-status).
+> already on the next development line; see [Project status](#project-status).
 
 <p align="center">
   <img src="docs/screenshots/product/workspace-light.png#gh-light-mode-only" alt="The Varve workspace: a poster document on the canvas with the layers panel on the left and the properties inspector on the right" width="820">
@@ -160,8 +160,8 @@ and may be used for:
   model dialog and verified against a pinned checksum when one is available.
 - **Online font and icon search**, when you invoke those providers.
 - **Update checks**, only after you enable them and only for an install whose
-  release channel has a published signed feed. The public `v0.1.1` release
-  predates that feed, so manual updates are currently the dependable path.
+  release channel has a published signed feed. The current release does not
+  include a signed feed, so manual updates are currently the dependable path.
 - **Optional cloud providers**, only when you configure and invoke one (for
   example, a user-supplied background-removal endpoint).
 - **Consent-gated aggregate analytics**. Crash reports remain local unless a
@@ -266,10 +266,9 @@ for the full validation strategy.
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`v0.1.1` (the two published installer releases are `v0.1.0` and `v0.1.1`),
+`v0.1.2` (published installer releases are `v0.1.0`, `v0.1.1`, and `v0.1.2`),
 covering Linux, macOS (Apple Silicon), and Windows. The checkout represented
-by this source tree is version `0.1.2` and is not yet a published GitHub
-release. Versioning follows [SemVer](https://semver.org/); release notes are
+by this source tree is version `0.1.2`. Versioning follows [SemVer](https://semver.org/); release notes are
 kept in [CHANGELOG.md](CHANGELOG.md). Expect rough edges, and keep backups —
 the `.varve` document format can still change between releases. Documents
 saved with the legacy `.strata` extension (from before the project's rename
