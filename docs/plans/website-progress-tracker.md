@@ -166,19 +166,28 @@
 
 ## Phase F: Download System ✅ COMPLETED
 
-**Date:** 2026-07-08  
+**Date:** 2026-07-08 (initial), updated 2026-08-18  
 **Status:** Complete
 
 **Completed:**
 - ✅ Download page with platform tabs (Linux, macOS, Windows)
-- ✅ Platform-specific package options (AppImage, deb, rpm, dmg, msi)
+- ✅ Platform-specific package options (AppImage, deb, rpm, dmg, NSIS)
 - ✅ System requirements for each platform
 - ✅ Release information section
-- ✅ Download integrity notice (checksums to be added with stable release)
+- ✅ Download integrity notice with SHA-256 checksums per artifact
 - ✅ Source link to GitHub
+- ✅ Privacy-preserving platform/architecture recommendation (browser-based)
+- ✅ macOS "Apple Silicon only" honest Rosetta ambiguity guidance
+- ✅ Single primary-format rule shared by quick grid and detailed sections
+- ✅ "Which package should I choose?" Linux tradeoffs (deb/AppImage/RPM)
+- ✅ "After you install" first-use conversion (steps, sample doc, tutorials)
+- ✅ "Having trouble launching?" troubleshooting (wrong arch, deps, unsigned)
+- ✅ Manual recommendation override (localStorage, per-machine only)
+- ✅ Reduced-motion / 320px responsive / no-JS baseline
+- ✅ 21 unit tests + 12 E2E tests + 7 review screenshots
 
 **Remaining:**
-- None (checksums will be added with first stable release)
+- None
 
 ---
 
