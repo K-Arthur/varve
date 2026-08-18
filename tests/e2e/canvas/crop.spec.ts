@@ -205,4 +205,49 @@ test.describe('Image crop — interactive tool', () => {
       await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
     }
   });
+
+  test('bottom handles stay draggable when crop window overlaps the toolbar band', async ({
+    page,
+  }) => {
+    test.setTimeout(60000);
+    // test-image.png (100x100) imports at ~519px, centered — its bottom edge
+    // lands under the floating toolbar band (probe: window bottom at ~625 in
+    // a 720px viewport, toolbar band 610-656), which is the conflict zone.
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    await page.getByRole('treeitem').first().click();
+    await page.waitForTimeout(300);
+
+    await page.keyboard.press('c');
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+
+    // The default import places the crop window's bottom edge under the
+    // floating toolbar band. Crop mode is modal: the toolbar must be hidden
+    // so its buttons never swallow pointerdown meant for the s/se/sw handles
+    // (previously the toolbar chevron covered the SE handle center).
+    await expect(page.getByTestId('toolbar')).not.toBeVisible();
+
+    const before = await page.locator('.crop-overlay__window').boundingBox();
+    const se = page.getByRole('button', { name: 'Resize crop se', exact: true });
+    const box = await se.boundingBox();
+    if (!box || !before) throw new Error('missing crop geometry');
+
+    // The window starts at the full image bounds, so resize inward (shrink):
+    // an SE drag that never reaches the handle leaves the window unchanged.
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 60, box.y + box.height / 2 - 60, { steps: 5 });
+    await page.mouse.up();
+
+    const after = await page.locator('.crop-overlay__window').boundingBox();
+    if (!after) throw new Error('missing crop window after drag');
+    expect(after.width).toBeLessThan(before.width - 30);
+    expect(after.height).toBeLessThan(before.height - 30);
+
+    // Toolbar returns once crop mode is committed.
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('toolbar')).toBeVisible({ timeout: 3000 });
+  });
 });
