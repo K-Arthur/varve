@@ -74,7 +74,7 @@ describe('migration 2.19 → 2.20', () => {
       },
     };
     const migrated = migrateDocument(raw);
-    expect(migrated?.formatVersion).toBe('2.20');
+    expect(migrated?.formatVersion).toBe('2.21');
     // static asset unchanged — no animated structures fabricated
     expect(
       (migrated?.assets as Record<string, { animated?: unknown }> | undefined)?.['asset-1']

@@ -483,7 +483,7 @@ describe('ContextMenu', () => {
       value: 500,
     });
 
-    const { container } = render(
+    render(
       <ContextMenu
         items={[
           { id: 'a', label: 'Action A', onAction: vi.fn() },
@@ -494,7 +494,7 @@ describe('ContextMenu', () => {
       />,
     );
 
-    const menu = container.querySelector('[role="menu"]') as HTMLElement;
+    const menu = document.body.querySelector('[role="menu"]') as HTMLElement;
     // The layout effect will adjust the position. Check that it's clamped.
     const left = parseInt(menu.style.left, 10);
     const top = parseInt(menu.style.top, 10);
