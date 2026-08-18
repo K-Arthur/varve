@@ -25,6 +25,7 @@ import { StartupLoader, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
+import { armOsFileOpen } from './startup/osFileOpen';
 import { revealMainWindow } from './startup/revealMainWindow';
 import { TauriUpdateProvider } from './updates/tauriUpdateProvider';
 
@@ -160,6 +161,11 @@ export function App() {
 
   /** Guard against duplicate open requests for the same file. */
   const lastOpenIdRef = useRef<string | null>(null);
+
+  /** Dedupe OS "Open With" intake by path: startup drain and the live event
+   *  can both deliver the same file, and each ingest creates a fresh entry
+   *  id, so the open-request latch above cannot catch the duplicate. */
+  const lastOpenPathRef = useRef<string | null>(null);
 
   /**
    * Re-link a Home entry whose physical file was moved or renamed.
@@ -298,6 +304,41 @@ export function App() {
     },
     [markEditorStateInitialized, measure, onEditorReady, platform],
   );
+
+  /**
+   * OS file-association intake (.varve / .strata double-click, "Open With").
+   * Mirrors the File → Open flow: read the physical file, persist a store
+   * copy with the resolved disk path (so Save writes back to the original),
+   * then open it through the normal entry path.
+   */
+  const handleOsFileOpen = useCallback(
+    async (path: string) => {
+      if (path === lastOpenPathRef.current) return;
+      lastOpenPathRef.current = path;
+
+      const result = await platform.openDocumentFromPath(path).catch(() => null);
+      if (!result) {
+        // The Rust intake only forwards existing .varve/.strata files, so a
+        // failure here means genuinely unreadable content — say so (WCAG
+        // 3.3.1: an activation that looks like a no-op must not be silent).
+        window.alert(`"${displayNameFromPath(path)}" could not be opened.`);
+        return;
+      }
+      const entry = result.entry;
+      if (result.filePath) entry.filePath = result.filePath;
+      await platform.upsertFile(entry, result.documentJson).catch(() => undefined);
+      await handleOpenFile(entry);
+    },
+    [handleOpenFile, platform],
+  );
+
+  useEffect(() => {
+    let dispose: (() => void) | undefined;
+    void armOsFileOpen(handleOsFileOpen).then((disposeOpen) => {
+      dispose = disposeOpen;
+    });
+    return () => dispose?.();
+  }, [handleOsFileOpen]);
 
   const handleBackToHome = useCallback(() => {
     setView('home');
