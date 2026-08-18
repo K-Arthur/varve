@@ -14,93 +14,49 @@
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
 </p>
 
+> **Public beta.** The latest published application release is
+> `<!-- VARVE_VERSION -->v0.1.2<!-- /VARVE_VERSION -->`. Installers are
+> published for Linux, macOS, and Windows. Core workflows are usable today,
+> but the `.varve` document format and interfaces can still change, and
+> Windows/macOS builds are not yet code-signed.
+
 <p align="center">
+  <a href="https://varve.studio/download"><strong>Download Varve</strong></a> ·
   <a href="https://varve.studio"><strong>Website</strong></a> ·
-  <a href="https://varve.studio/download"><strong>Download</strong></a> ·
-  <a href="https://varve.studio/docs"><strong>Documentation</strong></a> ·
+  <a href="https://varve.studio/docs"><strong>Docs</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
-  <a href="https://varve.studio/support-project"><strong>Sponsor</strong></a>
+  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a>
 </p>
 
-> **Public beta.** The latest published application release is `v0.1.2`.
-> Installers are published for Linux, macOS, and Windows. Core workflows are
-> usable today, but the `.varve` document format and interfaces can still
-> change, and Windows/macOS builds are not yet code-signed. The source tree is
-> already on the next development line; see [Project status](#project-status).
+**For designers, illustrators, and print professionals** who want a local-first
+alternative to subscription design tools. Built with a shared Rust rendering
+engine, Varve runs natively on Linux, macOS, and Windows — and compiles to
+WASM for the browser. No account, no forced cloud sync, no feature paywall.
 
 <p align="center">
   <img src="docs/screenshots/product/workspace-light.png#gh-light-mode-only" alt="The Varve workspace: a poster document on the canvas with the layers panel on the left and the properties inspector on the right" width="820">
   <img src="docs/screenshots/product/workspace-dark.png#gh-dark-mode-only" alt="The same Varve poster document with the application in dark theme" width="820">
 </p>
 
-## What is Varve?
+## What works today
 
-Varve is a local-first, cross-platform design application for vector
-graphics, page layout, typography, motion, prototyping, and print
-production, built as one application around one document model. The desktop
-app runs natively on Linux, macOS, and Windows with a shared Rust engine; the
-same architecture also compiles to WASM for the browser build. Core editing
-does not require an account, cloud subscription, or internet connection. The
-desktop app writes projects to local files and the browser build uses local
-browser storage; no hosted web editor is available yet. Varve is free to use
-today under a source-available license (see [License](#license)).
+- **Vector editing** — paths, shapes, node/Bézier editing, boolean ops
+- **Page layout** — multi-page documents, flex/grid layout, reusable components
+- **Typography** — paragraph/character styling, OpenType features, variable fonts, text-on-path
+- **Motion** (alpha) — timeline with keyframes, easing, auto-keyframe assist
+- **Print production** (desktop) — CMYK via ICC profiles, PDF/X export, crop/registration marks
+- **Export** — SVG, React, Flutter, SwiftUI, Lottie/CSS/SVG animation — computed locally, no network round-trip
+- **Images and local intelligence** — adjustments, effects, raster-to-vector trace, background removal, optional on-device enhancement, palette extraction, and asset search
 
-## Why Varve
-
-- **Local-first** — documents are files on your disk, not records in
-  someone else's database. No account, no forced cloud sync.
-- **No subscription** — the Community Edition is free, with no feature
-  paywall.
-- **One engine, every surface** — the shared Rust rendering and layout
-  architecture runs natively on desktop and compiles to WASM for the browser
-  build, so behavior does not need to fork between platforms.
-- **Cross-platform** — Linux, macOS, and Windows from one codebase, packaged
-  with [Tauri](https://tauri.app).
-- **Source-available today, MIT tomorrow** — the source is public now under
-  FSL-1.1-MIT; each release converts to plain MIT two years after it ships.
-
-## Features
-
-Maturity is called out honestly below — see [Project status](#project-status)
-for what "public beta" means in practice.
-
-- **Vector editing** — paths, shapes, node/Bézier editing, and boolean
-  union/subtract/intersect/exclude operations.
-- **Layout** — multi-page documents, flex/grid-based layout (via
-  [Taffy](https://github.com/DioxusLabs/taffy)), and reusable components
-  with typed variants.
-- **Typography** — paragraph/character styling, OpenType features, variable
-  fonts, text-on-path, and font detection/estimation tooling.
-- **Raster tools** — adjustment/filter pipeline, live effects (bloom,
-  dither, CRT, VHS, and more), and non-AI + optional on-device background
-  removal.
-- **Print production** *(desktop only)* — CMYK via ICC profiles, PDF/X-1a
-  and PDF/X-4 export, crop/registration marks, and preflight checks.
-- **Prototyping** — interactions, transitions, Smart Animate, and
-  responsive/scroll behavior.
-- **Motion** *(alpha)* — a timeline with keyframes, easing, and an
-  auto-keyframe assist.
-- **Code export** — SVG, React (Tailwind or CSS Modules), Svelte, Flutter,
-  SwiftUI, HTML, and Lottie/CSS/SVG animation export, computed locally with
-  no network round-trip.
-- **Images and local intelligence** — import common image formats, use
-  non-destructive adjustments and effects, trace raster images into vectors,
-  remove backgrounds, and access optional on-device workflows such as image
-  enhancement, object selection, depth-aware effects, palette extraction,
-  and local asset search. Some small baseline models are bundled; larger
-  models are downloaded explicitly, pinned by SHA-256 where available, and
-  run locally rather than through a Varve inference service. Availability can
-  vary between the published release and the development build.
-
-Not yet implemented: real-time multi-user collaboration exists only as UI
-scaffolding — see the [FAQ](#frequently-asked-questions).
+**Not yet implemented:** real-time collaboration exists only as UI scaffolding.
+The WASM/browser build exists for development — the supported product path is
+the native desktop application.
 
 ## See Varve in action
 
 Screenshots are generated by the deterministic capture pipeline
-(`pnpm screenshots:product`) from the running application against seeded demo
-documents — never hand-edited. See
+(`pnpm screenshots:product`) from the running application against seeded
+demo documents — never hand-edited. See
 [scripts/screenshots/README.md](scripts/screenshots/README.md).
 
 <table>
@@ -126,6 +82,18 @@ documents — never hand-edited. See
 </tr>
 </table>
 
+## Download
+
+**[varve.studio/download](https://varve.studio/download)** — the website
+renders every download link and checksum directly from the published release
+manifest, so it never goes stale. You can also get the same installers from
+[GitHub Releases](https://github.com/K-Arthur/varve/releases) (look for a
+release named `Varve vX.Y.Z` — a separate `Varve optional AI models` release
+also exists on that page for on-demand model assets and is not an application
+release). GitHub's
+[latest-release shortcut](https://github.com/K-Arthur/varve/releases/latest)
+points to the latest Varve application release, not the model artifacts.
+
 ## Platform support
 
 | Platform | Package | Status | Signing |
@@ -137,18 +105,8 @@ documents — never hand-edited. See
 | macOS Intel (x86_64) | — | Not published | — |
 
 Minimum 4 GB RAM (8 GB recommended), 500 MB storage. Full detail and the
-policy behind each tier: [docs/release/platform-support-matrix.md](docs/release/platform-support-matrix.md).
-
-## Download
-
-**[varve.studio/download](https://varve.studio/download)** — the website
-renders every download link and checksum directly from the published
-release manifest, so it never goes stale. You can also get the same
-installers from [GitHub Releases](https://github.com/K-Arthur/varve/releases)
-(look for a release named `Varve vX.Y.Z` — a separate `Varve optional AI
-models` release also exists on that page for on-demand model assets and is
-not an application release). GitHub's [latest-release shortcut](https://github.com/K-Arthur/varve/releases/latest)
-points to the latest Varve application release, not the model artifacts.
+policy behind each tier:
+[docs/release/platform-support-matrix.md](docs/release/platform-support-matrix.md).
 
 ## Privacy and local-first operation
 
@@ -166,6 +124,41 @@ and may be used for:
   example, a user-supplied background-removal endpoint).
 - **Consent-gated aggregate analytics**. Crash reports remain local unless a
   build explicitly configures an upload endpoint; the public build does not.
+
+## Develop Varve
+
+Full instructions, prerequisites, and per-OS system packages:
+[docs/development/setup.md](docs/development/setup.md).
+
+```bash
+git clone https://github.com/K-Arthur/varve
+cd varve
+pnpm install
+just check-env             # verify Rust/pnpm/just/Node toolchain
+```
+
+Run the application:
+
+```bash
+cd apps/desktop
+pnpm tauri:dev              # native desktop window (Tauri)
+# or
+pnpm dev                    # web build via Vite → http://localhost:1420
+```
+
+`pnpm --filter @varve/ui storybook` runs Storybook, the UI **component**
+development environment — it is not the application.
+
+Test and validate:
+
+```bash
+pnpm verify:affected        # impact-aware validation (default inner loop)
+just test-rust              # cargo test --workspace
+just test-js                # Vitest
+```
+
+See [docs/development/setup.md#testing](docs/development/setup.md#testing)
+for the full validation strategy.
 
 ## Architecture
 
@@ -208,67 +201,12 @@ scripts/    release, screenshot, and quality-gate tooling
 .github/    CI/CD workflows, issue templates, Dependabot
 ```
 
-## Develop Varve
-
-Full instructions, prerequisites, and per-OS system packages:
-[docs/development/setup.md](docs/development/setup.md).
-
-```bash
-git clone https://github.com/K-Arthur/varve
-cd varve
-pnpm install
-just check-env             # verify Rust/pnpm/just/Node toolchain
-```
-
-Run the application:
-
-```bash
-cd apps/desktop
-pnpm tauri:dev              # native desktop window (Tauri)
-# or
-pnpm dev                    # web build via Vite → http://localhost:1420
-```
-
-`pnpm --filter @varve/ui storybook` runs Storybook, the UI **component**
-development environment — it is not the application.
-
-Test and validate:
-
-```bash
-pnpm verify:affected        # impact-aware validation (default inner loop)
-just test-rust              # cargo test --workspace
-just test-js                # Vitest
-```
-
-See [docs/development/setup.md#testing](docs/development/setup.md#testing)
-for the full validation strategy.
-
-## Documentation
-
-**For users**
-- [Getting started](https://varve.studio/docs/getting-started)
-- [Keyboard shortcuts](https://varve.studio/docs/keyboard-shortcuts)
-- [File formats](https://varve.studio/docs/file-formats)
-- [Download & install](https://varve.studio/download)
-
-**For developers**
-- [Development setup](docs/development/setup.md)
-- [Architecture decision records](docs/adr/)
-- [Documentation index](docs/README.md)
-- [Release engineering](docs/release/README.md)
-
-**Project**
-- [Security policy](SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
-- [License](LICENSE)
-- [Trademark policy](TRADEMARKS.md)
-
 ## Project status
 
 Varve is in **public beta**. The latest published application release is
-`v0.1.2` (published installer releases are `v0.1.0`, `v0.1.1`, and `v0.1.2`),
+`<!-- VARVE_VERSION -->v0.1.2<!-- /VARVE_VERSION -->` (published installer releases are `v0.1.0`, `v0.1.1`, and `v0.1.2`),
 covering Linux, macOS (Apple Silicon), and Windows. The checkout represented
-by this source tree is version `0.1.2`. Versioning follows [SemVer](https://semver.org/); release notes are
+by this source tree is version `<!-- VARVE_VERSION -->0.1.2<!-- /VARVE_VERSION -->`. Versioning follows [SemVer](https://semver.org/); release notes are
 kept in [CHANGELOG.md](CHANGELOG.md). Expect rough edges, and keep backups —
 the `.varve` document format can still change between releases. Documents
 saved with the legacy `.strata` extension (from before the project's rename
