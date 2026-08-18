@@ -57,8 +57,10 @@ describe('GuideContextMenu', () => {
   });
 
   it('renders a separator between Lock/Unlock and Delete', () => {
-    const { container } = render(<GuideContextMenu {...defaultProps} />);
-    const separators = container.querySelectorAll('hr.varve-menu__sep');
+    render(<GuideContextMenu {...defaultProps} />);
+    // ContextMenu portals to document.body — scope the query to the menu itself.
+    const menu = screen.getByRole('menu');
+    const separators = menu.querySelectorAll('hr.varve-menu__sep');
     expect(separators.length).toBe(1);
   });
 

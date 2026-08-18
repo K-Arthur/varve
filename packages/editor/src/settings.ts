@@ -358,6 +358,7 @@ export function loadSettings(): EditorSettings {
         collab: { ...DEFAULT_COLLAB_SETTINGS },
         ai: { ...DEFAULT_AI_SETTINGS },
         privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+        learning: { ...DEFAULT_LEARNING_SETTINGS },
         features: { ...DEFAULT_FEATURES },
       };
       // Migrate legacy UI settings if present
@@ -460,6 +461,10 @@ export function loadSettings(): EditorSettings {
       collab: mergePartial(DEFAULT_COLLAB_SETTINGS, parsed.collab as Partial<CollabSettingsStore>),
       ai: mergePartial(DEFAULT_AI_SETTINGS, parsed.ai as Partial<AiSettingsStore>),
       privacy,
+      learning: mergePartial(
+        DEFAULT_LEARNING_SETTINGS,
+        parsed.learning as Partial<LearningSettingsStore>,
+      ),
       features: {
         ...DEFAULT_FEATURES,
         ...(parsed.features as Partial<typeof DEFAULT_FEATURES> | undefined),
@@ -480,6 +485,7 @@ export function loadSettings(): EditorSettings {
       collab: { ...DEFAULT_COLLAB_SETTINGS },
       ai: { ...DEFAULT_AI_SETTINGS },
       privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+      learning: { ...DEFAULT_LEARNING_SETTINGS },
       features: { ...DEFAULT_FEATURES },
     };
   }
@@ -503,6 +509,7 @@ export interface EditorSettingsPatch {
   collab?: Partial<CollabSettingsStore>;
   ai?: Partial<AiSettingsStore>;
   privacy?: Partial<PrivacySettingsStore>;
+  learning?: Partial<LearningSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -525,6 +532,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     collab: { ...current.collab, ...patch.collab },
     ai: { ...current.ai, ...patch.ai },
     privacy: { ...current.privacy, ...patch.privacy },
+    learning: { ...current.learning, ...patch.learning },
     features: { ...current.features },
   };
   saveSettings(next);
@@ -546,6 +554,7 @@ export function resetSettings(): EditorSettings {
     collab: { ...DEFAULT_COLLAB_SETTINGS },
     ai: { ...DEFAULT_AI_SETTINGS },
     privacy: { ...DEFAULT_PRIVACY_SETTINGS },
+    learning: { ...DEFAULT_LEARNING_SETTINGS },
     features: { ...DEFAULT_FEATURES },
   };
   saveSettings(defaults);

@@ -241,7 +241,6 @@ export function useCanvasInputs({
   } | null>(null);
   const snapSessionForPointer = externalSnapSessionRef ?? internalSnapSessionRef;
   const snapIndexForPointer = externalSnapIndexRef ?? internalSnapIndexRef;
-  const _lastCursorUpdate = useRef(0);
   const cursorRafScheduled = useRef(false);
   const latestCursorWorld = useRef<{ x: number; y: number } | null>(null);
   // Document size is O(n) to measure, so it is sampled once per gesture (only
