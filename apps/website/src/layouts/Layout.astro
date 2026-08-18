@@ -123,7 +123,8 @@ const csp = [
     ) : (
       <meta name="robots" content="index, follow" />
     )}
-    <link rel="canonical" href={canonicalUrl} />
+    {/* A noindex page (e.g. 404) must not also declare itself canonical. */}
+    {!noindex && <link rel="canonical" href={canonicalUrl} />}
     <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
 
@@ -234,6 +235,14 @@ const csp = [
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImageUrl} />
+    {/*
+      The social card is a single regenerable 1200x630 asset
+      (scripts/screenshots/og-image.mjs). Any per-page image passed via the
+      `image` prop must keep the same dimensions and carry a matching alt.
+    */}
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print" />
     <meta property="og:locale" content="en_US" />
 
     <!-- Twitter Card -->
@@ -241,6 +250,7 @@ const csp = [
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content="Varve — local-first design suite for vector, layout, typography, motion, prototyping, and print" />
 
     <!-- Structured data: Organization + WebSite on every page; page-specific
       schemas (FAQPage, SoftwareApplication, ...) via the structuredData prop. -->
