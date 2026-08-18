@@ -4,6 +4,8 @@ export {
   configureDesktopAnalytics,
   getDesktopAnalytics,
   resetDesktopAnalyticsForTests,
+  startDesktopFlushTimer,
+  stopDesktopFlushTimer,
   updateDesktopAnalyticsConsent,
 } from './analytics/desktopAnalytics';
 export { type ReplayExpansion, worldRectsToScreen } from './canvas/dirtyQuery';
