@@ -363,27 +363,12 @@ export class TransformEngine {
         const newW = oldW * scaleX;
         const newH = oldH * scaleY;
 
-        // Manually resizing a hug-sized axis commits it to a fixed size —
-        // otherwise the reflow below (which re-derives hug sizes from
-        // content via resolveIntrinsicSizes) would discard the drag and
-        // snap the frame straight back to its old content-driven size.
-        const widthResized = Math.abs(scaleX - 1) > 1e-6;
-        const heightResized = Math.abs(scaleY - 1) > 1e-6;
-        const effectiveWidthSizing = node.layoutSizingWidth ?? node.layoutSizing;
-        const effectiveHeightSizing = node.layoutSizingHeight ?? node.layoutSizing;
-        const nextLayoutSizingWidth =
-          widthResized && effectiveWidthSizing === 'hug' ? 'fixed' : node.layoutSizingWidth;
-        const nextLayoutSizingHeight =
-          heightResized && effectiveHeightSizing === 'hug' ? 'fixed' : node.layoutSizingHeight;
-
         updates[node.id] = {
           ...node,
           transform: [1, 0, 0, 1, translateX, translateY] as Affine,
           rotation: decomposed.rotation,
           w: newW,
           h: newH,
-          layoutSizingWidth: nextLayoutSizingWidth,
-          layoutSizingHeight: nextLayoutSizingHeight,
         } as SceneNode;
 
         // When scaleContents is true, frame children are scaled uniformly

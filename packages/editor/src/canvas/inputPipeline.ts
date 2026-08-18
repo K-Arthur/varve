@@ -145,8 +145,8 @@ function snapshotHeldPointer(ev: PointerEvent): PointerEvent {
 }
 
 export function useCanvasInputs({
-  canvasRectRef,
   contentCanvasRef,
+  canvasRectRef,
   editor,
   stateRef,
   tmRef,
