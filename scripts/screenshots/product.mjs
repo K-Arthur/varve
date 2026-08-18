@@ -550,6 +550,116 @@ const SCENES = [
       }
     },
   },
+  {
+    id: 'export',
+    file: 'export-dialog-light.png',
+    theme: 'light',
+    feature: 'export',
+    alt: 'The Varve advanced export dialog showing a destination and filename template, flat/by-format/by-node organization, and format options including SVG, PNG, WebP and PDF in the adjacent Quick Export panel',
+    caption: 'Set a destination and filename template, then export to SVG, PNG, WebP, or PDF.',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'poster');
+      await selectLayer(page, /^Poster — A3$/);
+      await fitContent(page);
+      const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
+        hasText: /^export$/i,
+      });
+      await exportTab.waitFor({ state: 'visible', timeout: 5000 });
+      await exportTab.click();
+      const advancedBtn = page.getByRole('button', { name: /Open advanced export/ });
+      if (!(await advancedBtn.isVisible({ timeout: 4000 }).catch(() => false))) {
+        throw new Error('"Open advanced export" control unavailable for the selected frame');
+      }
+      await advancedBtn.click();
+      const dialog = page.getByRole('dialog', { name: 'Export' });
+      await dialog.waitFor({ state: 'visible', timeout: 8000 });
+      await page.waitForTimeout(500);
+    },
+  },
+  {
+    id: 'print-production',
+    file: 'print-production-light.png',
+    theme: 'light',
+    feature: 'print-production',
+    alt: 'The default page on the Varve canvas with a dashed bleed guide beyond the trim edge and the Page Print inspector showing per-edge bleed values',
+    caption: 'Bleed and trim guides render on canvas as you set them in the Page Print inspector.',
+    async run(page) {
+      // Mirrors tests/e2e/canvas/bleed-workflow.spec.ts's seedPrintDocument:
+      // a real Page node comes from the "Add page" control. Bleed/trim is a
+      // Page property, not a generic Frame property — the demo .varve
+      // fixtures' "Page 12"/"Page 13" layers are ordinary Frames named for
+      // the editorial-spread layout (confirmed by the status bar reading
+      // "Frame" rather than "Page" when one is selected), so none of them
+      // can stand in for this scene.
+      //
+      // Currently skips: the Page Print inspector opens and the four bleed
+      // fields commit and read back correctly (verified visually), but
+      // .print-bleed-guide never mounts — unlike the passing Chromium run
+      // of bleed-workflow.spec.ts on the same build, which reaches guide
+      // count 1 through what should be an equivalent sequence. The
+      // difference wasn't isolated (candidates: some extra setup that
+      // spec's seedPrintDocument performs, e.g. its Ctrl+Shift+2 step, or a
+      // render-invalidation gap specific to a page created then immediately
+      // fitted/tool-switched in the same tick). Left as a real, reproducible
+      // gap rather than guessed at further — see the skip reason recorded
+      // in the manifest.
+      await openCleanEditor(page);
+      await page.getByRole('button', { name: 'Add page' }).click();
+      await page.waitForTimeout(400);
+      await page.locator('canvas.editor-canvas__content-layer').waitFor({ timeout: 10000 });
+      await page.keyboard.press('r');
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const canvasBox = await canvas.boundingBox();
+      if (!canvasBox) throw new Error('canvas bounding box unavailable');
+      const sx = canvasBox.x + canvasBox.width * 0.25;
+      const sy = canvasBox.y + canvasBox.height * 0.25;
+      const ex = canvasBox.x + canvasBox.width * 0.75;
+      const ey = canvasBox.y + canvasBox.height * 0.7;
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      await page.mouse.move((sx + ex) / 2, (sy + ey) / 2);
+      await page.mouse.move(ex, ey);
+      await page.mouse.up();
+      await page.keyboard.press('Escape');
+      // "Fit all" (the fitContent helper) frames artwork bounds, which here
+      // is the small rectangle just drawn — it would zoom in far past the
+      // page itself. "Fit active page" frames the page/bleed geometry this
+      // scene is actually about.
+      const fitPageBtn = page.getByRole('button', { name: /fit active page/i }).first();
+      await fitPageBtn.waitFor({ state: 'visible', timeout: 8000 });
+      await fitPageBtn.click({ timeout: 5000 });
+      await page.waitForTimeout(600);
+      await page.keyboard.press('q');
+      const guideBefore = page.locator('.print-bleed-guide');
+      const guideBox = (await guideBefore.count()) ? await guideBefore.first().boundingBox() : null;
+      if (guideBox) {
+        await page.mouse.click(guideBox.x + guideBox.width / 2, guideBox.y + guideBox.height / 2);
+      } else {
+        await page.mouse.click(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2);
+      }
+      const pagePrintLabel = page.getByText('Page Print').first();
+      if (!(await pagePrintLabel.isVisible({ timeout: 5000 }).catch(() => false))) {
+        throw new Error(
+          'Page Print inspector section did not appear after selecting the page with the page tool',
+        );
+      }
+      await page.getByLabel(/bleed top/i).fill('20');
+      await page.getByLabel(/bleed right/i).fill('20');
+      await page.getByLabel(/bleed bottom/i).fill('20');
+      await page.getByLabel(/bleed left/i).fill('20');
+      await page.getByLabel(/bleed left/i).press('Enter');
+      await page.waitForTimeout(2000);
+      const guide = page.locator('.print-bleed-guide');
+      if ((await guide.count()) === 0) {
+        throw new Error(
+          'bleed fields commit correctly (verified visually) but .print-bleed-guide never ' +
+            'mounts on canvas — a real gap between this sequence and the passing ' +
+            'bleed-workflow.spec.ts run, not isolated further; see scene comment above',
+        );
+      }
+    },
+  },
 ];
 
 /* ------------------------------------------------------------------ */
