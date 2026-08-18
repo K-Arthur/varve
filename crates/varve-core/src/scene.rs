@@ -154,16 +154,12 @@ pub struct GradientFill {
         skip_serializing_if = "Option::is_none",
         rename = "interpolationSpace"
     )]
-    pub interpolation_space: Option<String>,
+    pub interpolation_space: Option<String>, // "srgb", "linear-srgb", "oklab", "oklch", "hsl"
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
         rename = "hueInterpolation"
     )]
-    pub hue_interpolation: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub interpolation_space: Option<String>, // "srgb", "linear-srgb", "oklab", "oklch", "hsl"
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hue_interpolation: Option<HueInterpolation>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transform: Option<[f64; 6]>,
@@ -199,10 +195,6 @@ pub enum FillIR {
             skip_serializing_if = "Option::is_none",
             rename = "hueInterpolation"
         )]
-        hue_interpolation: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        interpolation_space: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none", rename = "hueInterpolation")]
         hue_interpolation: Option<HueInterpolation>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         transform: Option<[f64; 6]>,
