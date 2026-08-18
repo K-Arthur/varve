@@ -4,7 +4,6 @@ import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 import { primaryFormatFor } from '../lib/download-detection';
 import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
-import manifest from '../data/screenshot-manifest.json';
 
 // Channel label: the product stage (not just the GitHub prerelease flag)
 // decides how a release is described — a "Stable"-tagged release of a product
@@ -185,11 +184,6 @@ const first = available[0]?.id;
  * detailed tabbed sections below use — nothing here is a second, separately
  * maintained copy of the release data.
  */
-function shortRequirement(requirements: string[], prefix: string): string | null {
-  const line = requirements.find((r) => r.startsWith(prefix));
-  if (!line) return null;
-  return line.slice(prefix.length).trim();
-}
 
 // The single primary-format decision per platform, reused by the quick grid
 // AND the detailed sections so the two can never disagree about which
@@ -214,12 +208,9 @@ const quickPlatforms = available.map((p) => {
       alternates: artifacts.filter((artifact) => artifact !== primary),
     };
   });
-  const os = shortRequirement(p.requirements, 'OS:');
-  const ram = shortRequirement(p.requirements, 'RAM:');
   return {
     ...p,
     architectures,
-    reqSummary: [os, ram].filter(Boolean).join(' · '),
   };
 });
 
@@ -230,10 +221,6 @@ function primaryInstallCommand(p: (typeof available)[number]): string | null {
     p.artifacts.find((artifact) => artifact.format === primaryFormat) ?? p.artifacts[0];
   return primary?.install ?? null;
 }
-
-type ScreenshotScene = { file: string; alt: string; status?: string };
-const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
-const workspaceShot = scenes.workspace?.status === 'captured' ? scenes.workspace : null;
 
 const PLATFORM_ICON: Record<string, string> = {
   linux: 'terminal',
@@ -373,27 +360,28 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       >
                         Download {architecture.primary.size}
                       </a>
-                      {architecture.alternates.map((alternate) => (
-                        <p class="quick-download-alts">
-                          <span class="alts-label">Alternate:</span>{' '}
-                          <a
-                            href={alternate.url}
-                            download
-                            data-analytics-download="true"
-                            data-analytics-platform={p.id}
-                            data-analytics-architecture={analyticsArchitecture(alternate.arch)}
-                            data-analytics-package-type={analyticsPackageType(alternate.format)}
-                            data-analytics-release={release.version}
-                            data-analytics-release-channel={analyticsReleaseChannel}
-                          >
-                            {alternate.title ?? alternate.label} &middot; {alternate.size}
-                          </a>
-                        </p>
-                      ))}
+                      {architecture.alternates.length > 0 && (
+                        <div class="quick-download-alts">
+                          {architecture.alternates.map((alternate) => (
+                            <a
+                              href={alternate.url}
+                              class="alt-link"
+                              download
+                              data-analytics-download="true"
+                              data-analytics-platform={p.id}
+                              data-analytics-architecture={analyticsArchitecture(alternate.arch)}
+                              data-analytics-package-type={analyticsPackageType(alternate.format)}
+                              data-analytics-release={release.version}
+                              data-analytics-release-channel={analyticsReleaseChannel}
+                            >
+                              {alternate.title ?? alternate.label} &middot; {alternate.size}
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
 
-                  {p.reqSummary && <p class="quick-download-req">{p.reqSummary}</p>}
                   <a href={`#platform-${p.id}`} class="quick-download-detail-link" data-jump-platform={p.id}>
                     Checksums &amp; requirements &rsaquo;
                   </a>
