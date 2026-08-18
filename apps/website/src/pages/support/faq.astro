@@ -1,6 +1,17 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import release from '../../data/release-manifest.json';
+
+// Derive human-readable version info from the release manifest
+const releaseVersion = release.version ?? '0.0.0';
+const releaseDateStr = release.releaseDate
+  ? new Date(release.releaseDate + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  : 'TBD';
+const platformsList = Object.keys(release.platforms ?? {}).map(p => {
+  if (p === 'macos') return 'macOS';
+  return p.charAt(0).toUpperCase() + p.slice(1);
+}).join(', ');
 
 // FAQPage structured data: mirrors the visible Q&As so answer engines can
 // extract and cite them. Keep the answers here in sync with the markup below —
@@ -38,7 +49,7 @@ const faqSchema = {
       name: 'Has Varve shipped a release yet?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Yes. The latest published application release is Varve 0.1.1, released in August 2026. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.',
+        text: `Yes. The latest published application release is Varve ${releaseVersion}, released in ${releaseDateStr}. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the download page for checksums and the release notes for what changed.`,
       },
     },
     {
@@ -168,7 +179,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>Has Varve shipped a release yet?</h3>
-          <p>Yes. The latest published application release is Varve 0.1.1, released in August 2026. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
+          <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
           </p>
         </div>
 
