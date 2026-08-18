@@ -1,6 +1,6 @@
 # ADR-0170: Native Image Trace (Raster-to-Vector) Engine
 
-- Status: accepted
+- **Status:** Accepted
 - Date: 2026-08-05
 - Deciders: Architecture, Editor, Engine
 
