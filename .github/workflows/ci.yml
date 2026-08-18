@@ -240,6 +240,10 @@ jobs:
         # master silently — release.yml only catches it at tag time, when a
         # fix means another commit + tag. Cheap and dependency-free.
         run: node scripts/release/version.mjs verify
+      - name: Verify product truth (cross-source contradiction check)
+        # Detects contradictions between canonical sources (version, platforms,
+        # signing, document extension, changelog) and user-facing claims.
+        run: node scripts/release/verify-product-truth.mjs
       - name: Secret scan (tracked tree)
         run: node scripts/secret-scan.mjs
       - name: Secret scan regression tests (canaries)
