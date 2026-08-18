@@ -7,7 +7,7 @@
 
 ## 1. What already existed
 
-A complete Astro 5 site under `apps/website` — 42 pages covering product,
+A complete Astro 7 site under `apps/website` — 42 pages covering product,
 features, docs, support, licensing, privacy and security. Reusing it was the
 right call; almost none of it needed rewriting.
 

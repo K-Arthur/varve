@@ -8,7 +8,7 @@
 - **Status**: Public beta
 - **Monorepo structure**:
   - `apps/desktop` — Tauri 2 native desktop app (Linux, macOS, Windows)
-  - `apps/website` — Astro 5 static marketing site
+  - `apps/website` — Astro 7 static marketing site
   - `packages/*` — TypeScript packages (editor, engine, scene, ui, platform, shared, etc.)
   - `crates/*` — Rust workspace (varve-core, varve-engine, varve-effects, etc.)
 - **Package manager**: pnpm 11.9.0
