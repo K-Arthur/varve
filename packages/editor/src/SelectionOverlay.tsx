@@ -333,15 +333,7 @@ export interface SelectionOverlayProps {
 }
 
 export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
-  const {
-    state,
-    selectedNodes,
-    updateDoc,
-    beginTransaction,
-    commitTransaction,
-    setSelectedLayoutSizingWidth,
-    setSelectedLayoutSizingHeight,
-  } = useEditor();
+  const { state, selectedNodes, updateDoc, beginTransaction, commitTransaction } = useEditor();
   const sel = selectedNodes();
   const dragRef = useRef<DragState | null>(null);
   const skewDragRef = useRef<SkewDragState | null>(null);
@@ -772,22 +764,6 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     [updateDoc, state.pan, state.zoom],
   );
 
-  /**
-   * Double-click a pure-edge resize handle (e/w for width, n/s for height —
-   * corner handles are ambiguous between the two axes and are skipped) to
-   * reset that axis back to "Hug contents". Ergonomic counterpart to
-   * dragging a hug edge, which implicitly commits it to a fixed size
-   * (TransformEngine.bakeNode) — this is the documented way back.
-   */
-  const handleResizeHandleDoubleClick = useCallback(
-    (key: ResizeHandle) => {
-      if (state.selection.length === 0) return;
-      if (key === 'e' || key === 'w') setSelectedLayoutSizingWidth('hug');
-      else if (key === 'n' || key === 's') setSelectedLayoutSizingHeight('hug');
-    },
-    [state.selection, setSelectedLayoutSizingWidth, setSelectedLayoutSizingHeight],
-  );
-
   const handlePointerUp = useCallback(() => {
     const drag = dragRef.current;
     dragRef.current = null;
@@ -925,9 +901,6 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
                 onPointerUp={hasInteractiveHandles ? handlePointerUp : undefined}
                 onPointerCancel={hasInteractiveHandles ? handlePointerUp : undefined}
                 onLostPointerCapture={hasInteractiveHandles ? handlePointerUp : undefined}
-                onDoubleClick={
-                  hasInteractiveHandles ? () => handleResizeHandleDoubleClick(key) : undefined
-                }
               />
               <rect
                 x={sx - HANDLE_HALF}

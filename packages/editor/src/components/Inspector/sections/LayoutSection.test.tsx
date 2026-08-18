@@ -3,9 +3,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 /**
  * Regression coverage for a bug found during Auto Layout canvas-manipulation
- * work: the frame's own Width and Height sizing selects (in the "Sizing"
- * sub-section) both called the same axis-agnostic setSelectedLayoutSizing,
- * so changing one axis silently overwrote the other.
+ * work: the frame's own Width and Height sizing selects in the Sizing
+ * subsection must update independent axes.
  */
 import { createMemoryPlatform } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -37,7 +36,7 @@ function setup() {
   return () => ctx as NonNullable<typeof ctx>;
 }
 
-describe('LayoutSection — per-node Width/Height sizing controls', () => {
+describe('LayoutSection per-node Width/Height sizing controls', () => {
   it('changing Width sizing sets layoutSizingWidth without touching layoutSizingHeight', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });

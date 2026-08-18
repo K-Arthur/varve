@@ -845,7 +845,6 @@ export interface EditorContextValue {
   arrangeSelected: (op: import('@varve/scene').ArrangeOp) => void;
   groupSelected: () => void;
   ungroupSelected: () => void;
-  addAutoLayoutSelected: () => void;
   detachSelected: () => void;
 
   // Components

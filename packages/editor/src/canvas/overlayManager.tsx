@@ -42,9 +42,6 @@ export interface UseOverlayDrawOptions {
   sunkenColorRef: MutableRefObject<string>;
   draft: unknown | null;
   dropTargetFrameId: NodeId | null;
-  /** World-space insertion-line segment shown while dragging a child within
-   *  (or into) a flex auto-layout frame. */
-  layoutInsertion: { x1: number; y1: number; x2: number; y2: number } | null;
   maskDropTargetId: NodeId | null;
 }
 
@@ -175,7 +172,6 @@ export function useOverlayDraw({
   accentColorRef,
   draft,
   dropTargetFrameId,
-  layoutInsertion,
   maskDropTargetId,
 }: UseOverlayDrawOptions): () => void {
   const overlayFrameKey = useRef<string | null>(null);
@@ -450,22 +446,6 @@ export function useOverlayDraw({
       }
     }
 
-    // ── Auto-layout insertion indicator ──────────────────────────────────
-    // A short solid line at the gap the dragged child would land in — drawn
-    // in world space (see applyEditorCameraToCtx above), same accent color
-    // and line-width convention as the dashed drop-target frame highlight.
-    if (layoutInsertion) {
-      ctx.save();
-      ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 2 / s.zoom;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(layoutInsertion.x1, layoutInsertion.y1);
-      ctx.lineTo(layoutInsertion.x2, layoutInsertion.y2);
-      ctx.stroke();
-      ctx.restore();
-    }
-
     // ── Mask drop target ─────────────────────────────────────────────────
     if (maskDropTargetId) {
       const target = doc.nodes[maskDropTargetId];
@@ -710,7 +690,6 @@ export function useOverlayDraw({
     accentColorRef,
     draft,
     dropTargetFrameId,
-    layoutInsertion,
     maskDropTargetId,
   ]);
 

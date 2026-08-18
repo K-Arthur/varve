@@ -159,11 +159,6 @@ export const SHORTCUT_DEFS = {
   },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
   ungroup: { binding: { key: 'g', ctrl: true, shift: true }, label: 'Ungroup', category: 'Object' },
-  addAutoLayout: {
-    binding: { key: 'a', ctrl: true, alt: true },
-    label: 'Add Auto Layout',
-    category: 'Object',
-  },
   createClippingMask: {
     binding: { key: '7', ctrl: true },
     label: 'Create Clipping Mask',

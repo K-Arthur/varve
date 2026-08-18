@@ -214,9 +214,6 @@ export interface ToolContext {
   announceOperation: (op: string, result: string) => void;
   setDraft: (draft: DraftShape | null) => void;
   setDropTargetFrame: (id: NodeId | null) => void;
-  /** World-space insertion-line segment shown while dragging over a flex
-   *  auto-layout frame (null hides it). */
-  setLayoutInsertion: (segment: { x1: number; y1: number; x2: number; y2: number } | null) => void;
   rootNodes: () => SceneNode[];
   getNode: (id: NodeId) => SceneNode | undefined;
 
