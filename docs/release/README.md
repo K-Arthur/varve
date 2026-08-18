@@ -16,6 +16,7 @@ trust. Start with the audit; it explains why the rest of these exist.
 | [production-build.md](production-build.md) | Every build command, marked VERIFIED or UNVERIFIED, with real measurements |
 | [update-strategy.md](update-strategy.md) | Consent-first updater design, package authority, production gates, and key management |
 | [release-checklists.md](release-checklists.md) | Alpha / beta / RC / stable, plus hotfix, rollback and incident runbooks |
+| [release-rollback-runbook.md](release-rollback-runbook.md) | Full rollback procedure: detection, containment, website re-pointing, updater recovery, communication, manual-update path |
 | [ci-secrets.md](ci-secrets.md) | Secret names, job permissions, and the enrolment steps a human must do |
 | [website.md](website.md) | Site architecture, the generated download-manifest flow, hosting and launch checklist |
 | [implementation-plan.md](implementation-plan.md) | P0–P3, with verification, risk, effort and cost per task |
