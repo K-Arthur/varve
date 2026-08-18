@@ -2,6 +2,11 @@
 import Layout from '../../layouts/Layout.astro';
 import StatusPill from '../../components/StatusPill.astro';
 import { sitePath } from '../../lib/siteUrl';
+import manifest from '../../data/screenshot-manifest.json';
+
+type ScreenshotScene = { file: string; alt: string; width?: number; height?: number; status?: string };
+const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
+const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scenes['enhance-dialog-auto'] : null;
 ---
 
 <Layout
@@ -34,19 +39,21 @@ import { sitePath } from '../../lib/siteUrl';
             only those selected stages, in order.
           </p>
         </div>
-        <figure class="enhance-shot">
-          <img
-            src={sitePath('/screenshots/enhance-dialog-auto.png')}
-            alt="The Enhance dialog in Auto mode: it detected moderate-to-severe noise in a real photo and recommends denoise with a confidence number, beside a before-and-after preview."
-            width="1440"
-            height="900"
-            loading="lazy"
-          />
-          <figcaption>
-            The Enhance dialog in Auto mode — it detected noise on a real photo and
-            recommended a task in plain language.
-          </figcaption>
-        </figure>
+        {enhanceShot && (
+          <figure class="enhance-shot">
+            <img
+              src={sitePath(`/screenshots/${enhanceShot.file}`)}
+              alt={enhanceShot.alt}
+              width={enhanceShot.width ?? 1440}
+              height={enhanceShot.height ?? 900}
+              loading="lazy"
+            />
+            <figcaption>
+              The Enhance dialog in Auto mode — it detected noise on a real photo and
+              recommended a task in plain language.
+            </figcaption>
+          </figure>
+        )}
         <div class="pipeline" aria-label="Enhance workflow stages">
           <div class="pipeline-step"><span>01</span><strong>Source image</strong><small>Existing pixels stay intact</small></div>
           <div class="pipeline-arrow" aria-hidden="true">→</div>
