@@ -302,6 +302,7 @@ The following dated files were moved from `docs/architecture/` to
 | `release/website.md` | Website architecture and launch plan |
 | `release/budget-plan.md` | Launch budget (CAD $200) and purchase triggers |
 | `release/distribution-decision-matrix.md` | Distribution channel decisions |
+| `release/directory-listing-packet.md` | Canonical listing data for AlternativeTo / repology / software directories |
 
 ### Release Engineering — historical records
 
@@ -401,6 +402,9 @@ The following dated files were moved from `docs/architecture/` to
 |-----|---------|
 | `plans/website-operations-guide.md` | **Operating guide:** how to add releases and platforms (keep current) |
 | `plans/website-progress-tracker.md` | Website implementation progress |
+| `plans/discovery-content-plan.md` | Discovery and content architecture plan — SEO, new pages, engineering articles |
+| `plans/social-surface-plan.md` | Social surface plan — brand collision research, account strategy, manual checklist |
+| `plans/sponsorship-readiness.md` | Sponsorship surface readiness — tiers, guardrails, manual activation steps |
 | `plans/archived/website-strategy.md` | Website marketing strategy (Phase C deliverable, archived) |
 | `plans/archived/website-research-findings.md` | Competitor research (Phase B deliverable, archived) |
 | `plans/archived/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` (archived) |
