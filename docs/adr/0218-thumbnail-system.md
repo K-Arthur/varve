@@ -1,6 +1,6 @@
 # ADR-0218 — Unified Thumbnail System
 
-- Status: accepted
+- **Status:** Accepted
 - Date: 2026-08-09
 - Deciders: architecture session (unified thumbnail task)
 - Supersedes: the informal content-hash-keyed thumbnail cache introduced

@@ -1,6 +1,6 @@
 # ADR-0015: Non-Destructive Mockup System
 
-- Status: Accepted — Level 1 + Level 2 implemented (2026-08-05)
+- **Status:** Accepted — Level 1 + Level 2 implemented (2026-08-05)
 - Date: 2026-08-05
 - Deciders: Architecture (repository-first audit of 2026-08-05)
 

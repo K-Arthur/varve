@@ -2,7 +2,7 @@
  * Compositor types — backend router for mixed raster + vector replay.
  */
 import type { RenderItem } from '@varve/engine';
-import type { Affine, Camera, Viewport } from '@varve/shared';
+import type { Affine, BlendEvaluationSpace, Camera, Viewport } from '@varve/shared';
 
 export type CompositorBackendId = 'canvas2d' | 'webgpu' | 'native';
 
@@ -39,6 +39,10 @@ export interface CompositorBeginFrameOptions {
   clear?: boolean;
 }
 
+export interface CompositorColorOptions {
+  blendEvaluationSpace?: BlendEvaluationSpace;
+}
+
 /** Runtime diagnostics exposed to the editor status bar (non-blocking reads). */
 export interface CompositorDiagnostics {
   backendId: CompositorBackendId;
@@ -68,7 +72,7 @@ export interface CompositorBackend {
   readonly id: CompositorBackendId;
   init(canvas: HTMLCanvasElement): Promise<void>;
   beginFrame(frame: CompositorFrame, opts?: CompositorBeginFrameOptions): void;
-  drawVectorItems(items: RenderItem[]): void;
+  drawVectorItems(items: RenderItem[], colorOptions?: CompositorColorOptions): void;
   compositeRasterLayer(id: string, bitmap: ImageBitmap, transform: Affine, blendMode: string): void;
   endFrame(): void;
   destroy(): void;

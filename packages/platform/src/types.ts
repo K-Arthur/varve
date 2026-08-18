@@ -17,7 +17,15 @@ export type FileKind = 'strata' | 'figma' | 'illustrator' | 'image' | 'unknown';
  * Canonical editor workspace modes. A project may be relevant to one or more.
  * Mirrors `packages/editor/src/workspace/workspaceTypes.ts`.
  */
-export type EditorWorkspaceMode = 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen';
+export type EditorWorkspaceMode =
+  | 'design'
+  | 'print'
+  | 'drawing'
+  | 'image'
+  | 'motion'
+  | 'codegen'
+  | 'logo'
+  | 'email';
 
 // ─── Recent-File Record (v1) ───────────────────────────────────────────────
 /** Maximum number of recent-file records kept. */

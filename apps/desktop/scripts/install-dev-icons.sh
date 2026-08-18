@@ -78,7 +78,7 @@ cp -f "$DESKTOP_SRC" "$APPS_DIR/${APP_ID}.desktop"
   echo "Terminal=false"
   echo "StartupNotify=true"
   echo "StartupWMClass=varve-desktop"
-  echo "MimeType=application/x-strata;"
+  echo "MimeType=application/x-varve;application/x-strata;"
   echo "NoDisplay=true"
 } > "$APPS_DIR/varve-desktop.desktop"
 

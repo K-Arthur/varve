@@ -23,6 +23,25 @@ export { cssTargetGaps, exportNodeToCss } from './css';
 export { cssModulesTargetGaps, exportNodeToCssModules } from './css-modules';
 export type { DesignAuditOptions } from './design-audit';
 export { runCodegenReadiness, runDesignAudit } from './design-audit';
+export type { EmailCompileOptions, EmailCompileResult } from './email-compiler';
+export { compileEmail } from './email-compiler';
+export type { EmailHtmlExportOptions, EmailHtmlExportResult } from './email-html';
+export { emitEmailHtml } from './email-html';
+export * from './email-ir-types';
+export { emitEmailPlainText } from './email-plain-text';
+export { runEmailPreflight } from './email-preflight';
+export type { EmailProviderAdapter } from './email-provider';
+export {
+  genericEmailProvider,
+  getEmailProviderAdapter,
+  mailchimpEmailProvider,
+} from './email-provider';
+export {
+  appendTrackingParams,
+  sanitizeEmailCss,
+  sanitizeEmailHtml,
+  validateEmailUrl,
+} from './email-security';
 export type {
   EmitStrategy,
   FlattenedNodeSpec,

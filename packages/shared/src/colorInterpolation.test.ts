@@ -40,6 +40,21 @@ describe('interpolateManagedColor', () => {
     expect(oklchMid.r + oklchMid.g).toBeGreaterThan(oklchMid.b + 50);
   });
 
+  it('honors explicit HSL hue direction', () => {
+    const near350 = { space: 'rgb' as const, r: 255, g: 0, b: 43, a: 255 };
+    const near10 = { space: 'rgb' as const, r: 255, g: 43, b: 0, a: 255 };
+    const shorter = interpolateManagedColor(near350, near10, 0.5, 'hsl', {
+      hueInterpolation: 'shorter',
+    });
+    const longer = interpolateManagedColor(near350, near10, 0.5, 'hsl', {
+      hueInterpolation: 'longer',
+    });
+    expect(shorter.r).toBeGreaterThan(200);
+    expect(shorter.g).toBeLessThan(80);
+    expect(longer.g).toBeGreaterThan(shorter.g);
+    expect(longer.b).toBeGreaterThan(shorter.b);
+  });
+
   it('interpolates alpha with premultiplied blending', () => {
     const a = { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 128 };
     const b = { space: 'rgb' as const, r: 0, g: 0, b: 255, a: 255 };
@@ -230,7 +245,7 @@ describe('Bug 2: stops outside [0,1] unclamped in expandGradientStops', () => {
 });
 
 describe('interpolation space dispatch', () => {
-  const spaces: GradientInterpolationSpace[] = ['srgb', 'oklab', 'oklch', 'hsl'];
+  const spaces: GradientInterpolationSpace[] = ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl'];
 
   for (const space of spaces) {
     it(`${space}: produces valid RGB at t=0.5`, () => {
@@ -248,7 +263,7 @@ describe('interpolation space dispatch', () => {
 describe('interpolateNormalizedColor', () => {
   const from = { r: 0.5, g: 0.25, b: 0.75, a: 1 };
   const to = { r: 0.125, g: 0.625, b: 0.375, a: 0.5 };
-  const spaces: GradientInterpolationSpace[] = ['srgb', 'oklab', 'oklch', 'hsl'];
+  const spaces: GradientInterpolationSpace[] = ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl'];
 
   it('returns endpoints exactly', () => {
     for (const space of spaces) {

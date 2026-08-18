@@ -323,6 +323,22 @@ export interface Document {
 
   /** Named selection sets for saving and restoring selections. */
   selectionSets?: import('./selectionSet').SelectionSetsData;
+
+  // ── Email template properties (v2.21+) ─────────────────────────────────────
+
+  /**
+   * Email template profile (v2.21+). Optional — documents without this field
+   * are normal Varve designs. When present, the document can be compiled into
+   * email HTML via the email workspace and email compiler pipeline.
+   */
+  emailProfile?: import('./emailTypes').EmailProfile;
+
+  /**
+   * Per-node email semantic metadata (v2.21+). Keyed by scene node ID.
+   * Captures email-specific meaning (heading, paragraph, button, section, etc.)
+   * that augments normal Varve design primitives for the email compiler.
+   */
+  emailSemantics?: import('./emailTypes').EmailSemanticMap;
 }
 
 export interface NodeEntry {

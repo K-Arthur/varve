@@ -601,6 +601,18 @@ export function createTauriPlatform(): Platform {
       });
     },
 
+    async openDocumentFromPath(path) {
+      const c = core();
+      let text: string;
+      try {
+        text = (await c.invoke('home_read_text_file_approved', { path })) as string;
+      } catch {
+        return null;
+      }
+      const name = path.split(/[\\/]/).pop() ?? 'untitled.varve';
+      return ingest(name, text, path);
+    },
+
     async importDocumentFromDisk(extensions) {
       return withFocusRestore(async () => {
         const c = core();

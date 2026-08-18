@@ -41,19 +41,19 @@ describe('color precision benchmarks', () => {
     expect(elapsed).toBeLessThan(200);
   });
 
-  it('blend: linearize=true ~3x cost vs linearize=false', () => {
+  it('blend: linear-light evaluation cost vs legacy encoded RGB', () => {
     const a = [0.5, 0.2, 0.8, 1.0] as [number, number, number, number];
     const b = [0.8, 0.3, 0.1, 1.0] as [number, number, number, number];
 
     const startedPlain = performance.now();
     for (let i = 0; i < 10000; i++) {
-      blend(a, b, 'normal', 1.0, false);
+      blend(a, b, 'normal', 1.0, 'legacy-srgb');
     }
     const elapsedPlain = performance.now() - startedPlain;
 
     const startedLinear = performance.now();
     for (let i = 0; i < 10000; i++) {
-      blend(a, b, 'normal', 1.0, true);
+      blend(a, b, 'normal', 1.0, 'linear-srgb');
     }
     const elapsedLinear = performance.now() - startedLinear;
 

@@ -1,9 +1,6 @@
 # ADR-0009: Document Color Architecture — Bit Depth, Working Space, and ICC Pipeline
 
-## Status
-
-Proposed — extends the existing `ManagedColor` system (ADR-0002 color tokens, Session 35 color
-management). Created 2026-07-21.
+- **Status:** Proposed
 
 ## Context
 

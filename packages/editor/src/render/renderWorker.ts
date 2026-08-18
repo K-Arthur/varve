@@ -110,7 +110,9 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
         const ir = msg.proof
           ? applyProofToIr(msg.ir as RenderItem[], msg.proof)
           : (msg.ir as RenderItem[]);
-        replayIr(ctx as unknown as ReplayTarget, ir, (src) => imageMap[src]);
+        replayIr(ctx as unknown as ReplayTarget, ir, (src) => imageMap[src], undefined, undefined, {
+          blendEvaluationSpace: msg.blendEvaluationSpace,
+        });
       } finally {
         ctx.restore();
       }

@@ -946,6 +946,10 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async openDocumentFromDisk() {
       return null;
     },
+    /** In-memory mode has no OS paths to open. */
+    async openDocumentFromPath() {
+      return null;
+    },
     async importDocumentFromDisk() {
       return { result: null, unsupported: false };
     },

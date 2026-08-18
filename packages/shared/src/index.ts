@@ -124,6 +124,18 @@ export {
   pathSegmentIntersections,
   pointToPointDist,
 } from './bezier';
+export type {
+  BlendEvaluationCategory,
+  BlendEvaluationPolicy,
+  BlendEvaluationSpace,
+} from './blendEvaluation';
+export {
+  BLEND_EVALUATION_POLICIES,
+  blendEvaluationPolicy,
+  effectiveBlendEvaluationSpace,
+  normalizeBlendEvaluationSpace,
+  resolveBlendEvaluationSpace,
+} from './blendEvaluation';
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
 export type {

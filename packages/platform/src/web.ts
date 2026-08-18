@@ -1058,6 +1058,12 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       return ingestFile(picked.name, picked.text);
     },
 
+    /** Browsers cannot read arbitrary OS paths — OS "Open With" intake is
+     *  available only when the platform passes the path (Tauri). */
+    async openDocumentFromPath() {
+      return null;
+    },
+
     async importDocumentFromDisk(extensions) {
       const picked = await pickViaInput(extensions);
       if (!picked) return { result: null, unsupported: false };
