@@ -1,6 +1,6 @@
 # ADR-0219 — Parent-Local Scene Coordinates
 
-- Status: accepted
+- **Status:** Accepted
 - Date: 2026-08-12
 - Deciders: architecture session (artboard-local coordinate space task)
 - Supersedes: scattered `artboard.x + child.x` arithmetic, inline

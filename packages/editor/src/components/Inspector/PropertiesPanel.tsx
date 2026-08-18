@@ -68,6 +68,9 @@ const DocumentPanel = lazy(() =>
 const FontBrowserPanel = lazy(() =>
   import('../FontBrowser/FontBrowser').then((module) => ({ default: module.FontBrowser })),
 );
+const EmailPanel = lazy(() =>
+  import('./panels/EmailPanel').then((module) => ({ default: module.EmailPanel })),
+);
 
 type ExportSubTab = 'format' | 'code';
 
@@ -79,6 +82,7 @@ const FALLBACK_TAB_LABELS: Record<InspectorTab, string> = {
   export: 'Export',
   audit: 'Audit',
   fonts: 'Fonts',
+  email: 'Email',
 };
 
 const TAB_ORDER: InspectorTab[] = [
@@ -89,6 +93,7 @@ const TAB_ORDER: InspectorTab[] = [
   'export',
   'audit',
   'fonts',
+  'email',
 ];
 
 export function PropertiesPanel() {
@@ -381,6 +386,11 @@ export function PropertiesPanel() {
       {tab === 'fonts' && (
         <LazyTabPanel tab={tab}>
           <FontBrowserPanel onSelect={() => {}} />
+        </LazyTabPanel>
+      )}
+      {tab === 'email' && (
+        <LazyTabPanel tab={tab}>
+          <EmailPanel />
         </LazyTabPanel>
       )}
     </section>

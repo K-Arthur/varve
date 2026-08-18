@@ -12,6 +12,7 @@ const tabWidths: Record<(typeof modes)[number], number> = {
   motion: 90,
   codegen: 100,
   logo: 80,
+  email: 92,
 };
 
 describe('computeWorkspaceLayout', () => {
@@ -41,7 +42,7 @@ describe('computeWorkspaceLayout', () => {
     });
     expect(result.iconOnly).toBe(true);
     expect(result.visible).toEqual(['design', 'drawing', 'image', 'print', 'motion', 'codegen']);
-    expect(result.overflow).toEqual(['logo']);
+    expect(result.overflow).toEqual(['email', 'logo']);
   });
 
   it('keeps the active mode visible even when it would overflow', () => {
@@ -57,7 +58,7 @@ describe('computeWorkspaceLayout', () => {
     expect(result.visible[0]).toBe('design');
     // Logo displaced 'codegen' (highest overflow priority among visible).
     expect(result.visible).toEqual(['design', 'drawing', 'image', 'print', 'motion', 'logo']);
-    expect(result.overflow).toEqual(['codegen']);
+    expect(result.overflow).toEqual(['codegen', 'email']);
   });
 
   it('keeps the active mode visible even when it would overflow (labeled strip)', () => {
@@ -72,6 +73,7 @@ describe('computeWorkspaceLayout', () => {
       motion: 200,
       codegen: 220,
       logo: 180,
+      email: 210,
     };
     const result = computeWorkspaceLayout({
       modes,
@@ -83,7 +85,7 @@ describe('computeWorkspaceLayout', () => {
     });
     expect(result.iconOnly).toBe(false);
     expect(result.visible).toEqual(['design', 'drawing', 'image', 'logo']);
-    expect(result.overflow).toEqual(['print', 'motion', 'codegen']);
+    expect(result.overflow).toEqual(['print', 'motion', 'codegen', 'email']);
   });
 
   it('never removes functionality — overflow keeps full mode list', () => {

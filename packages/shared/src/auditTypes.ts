@@ -87,7 +87,8 @@ export type WorkspaceMode =
   | 'print'
   | 'motion'
   | 'codegen'
-  | 'logo';
+  | 'logo'
+  | 'email';
 
 /**
  * Node kind this finding applies to.

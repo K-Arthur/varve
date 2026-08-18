@@ -6,6 +6,15 @@
  * is talking to. The render IR is replayed to canvas by `replayIr`.
  */
 
+export type { BlendEvaluationSpace } from '@varve/shared';
+export {
+  BLEND_EVALUATION_POLICIES,
+  blendEvaluationPolicy,
+  effectiveBlendEvaluationSpace,
+  normalizeBlendEvaluationSpace,
+  resolveBlendEvaluationSpace,
+} from '@varve/shared';
+
 export {
   createRecordingTarget,
   type DrawCallEntry,
@@ -855,7 +864,7 @@ export type {
   RasterTraceResult,
 } from './rasterTrace';
 export { quantizeExactPalette, quantizePalette, traceRasterToPaths } from './rasterTrace';
-export type { EffectMaskResolver, ReplayTarget } from './replay';
+export type { EffectMaskResolver, ReplayColorOptions, ReplayTarget } from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
 export type {
   CapabilityStatus,
@@ -989,7 +998,9 @@ export type {
   FillIR,
   FilterIR,
   GlyphAdjustmentIR,
+  GradientInterpolationSpace,
   GradientTilingMode,
+  HueInterpolation,
   PathPoint,
   Point,
   Primitive,

@@ -227,6 +227,7 @@ export function createActionHandlers(
     workspaceMotion: () => e.requestWorkspaceSwitch('motion'),
     workspaceCodegen: () => e.requestWorkspaceSwitch('codegen'),
     workspaceLogo: () => e.requestWorkspaceSwitch('logo'),
+    workspaceEmail: () => e.requestWorkspaceSwitch('email'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
     resetAllWorkspaces: () => e.resetAllWorkspacesToDefaults(),
     canvasModeOutline: () => e.setCanvasMode('outline'),

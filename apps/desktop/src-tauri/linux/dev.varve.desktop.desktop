@@ -10,4 +10,4 @@ StartupNotify=true
 StartupWMClass=dev.varve.desktop
 Terminal=false
 Type=Application
-MimeType=application/x-strata;
+MimeType=application/x-varve;application/x-strata;

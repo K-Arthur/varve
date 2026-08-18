@@ -61,6 +61,7 @@ describe('WorkspaceTabs', () => {
       'Printer',
       'Play',
       'Code',
+      'FileText',
       'Badge',
     ]);
     expect(new Set(icons).size).toBe(icons.length);

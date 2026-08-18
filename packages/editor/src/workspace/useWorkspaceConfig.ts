@@ -14,7 +14,7 @@ import {
   isModeCustomized,
   subscribeWorkspacePreferences,
 } from './workspaceStore';
-import type { WorkspaceConfig, WorkspaceMode } from './workspaceTypes';
+import { ALL_WORKSPACE_MODES, type WorkspaceConfig, type WorkspaceMode } from './workspaceTypes';
 
 export function useEffectiveWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
   const [prefs, setPrefs] = useState(getWorkspacePreferences);
@@ -32,15 +32,7 @@ export function useWorkspaceCustomizations(): Record<WorkspaceMode, boolean> {
   useEffect(() => subscribeWorkspacePreferences(() => setPrefs(getWorkspacePreferences())), []);
   return useMemo(() => {
     const result = {} as Record<WorkspaceMode, boolean>;
-    for (const mode of [
-      'design',
-      'print',
-      'drawing',
-      'image',
-      'motion',
-      'codegen',
-      'logo',
-    ] as WorkspaceMode[]) {
+    for (const mode of ALL_WORKSPACE_MODES) {
       result[mode] = isModeCustomized(prefs, mode);
     }
     return result;

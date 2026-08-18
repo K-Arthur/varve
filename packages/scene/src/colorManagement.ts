@@ -11,8 +11,16 @@
  * OpenEXR / half-float convention.
  */
 
-import type { BitDepth, ColorMode, DocumentUnit, RenderingIntent } from '@varve/shared';
-import { DEFAULT_BIT_DEPTH } from '@varve/shared';
+import type {
+  BitDepth,
+  BlendEvaluationSpace,
+  ColorMode,
+  DocumentUnit,
+  RenderingIntent,
+} from '@varve/shared';
+import { DEFAULT_BIT_DEPTH, resolveBlendEvaluationSpace } from '@varve/shared';
+
+export type { BlendEvaluationSpace } from '@varve/shared';
 
 // ── Color Mode + Bit Depth ─────────────────────────────────────────────────
 
@@ -500,12 +508,11 @@ export const DEFAULT_BLACK_GENERATION: BlackGenerationConfig = {
 // ── Document Color Configuration ────────────────────────────────────────────
 
 /**
- * Working color space for compositing and blending.
+ * Document working RGB encoding for authored colors and color-managed effects.
+ * Artistic blend evaluation is stored separately in `blendEvaluationSpace`.
  *
- * - 'srgb': blend in gamma-encoded sRGB (current behavior, fast, but
- *   mathematically incorrect for multiply/screen/overlay).
- * - 'linear': decode to linear light before blending, re-encode after
- *   (physically correct — how compositing works in Photoshop, Figma, CSS).
+ * - 'srgb': encoded sRGB working values.
+ * - 'linear': linear-sRGB working values.
  */
 export type WorkingSpace = 'srgb' | 'linear';
 
@@ -521,10 +528,15 @@ export interface ColorConfig {
   mode: ColorMode;
   /** Default bit depth for newly created colors. */
   bitDepth: BitDepth;
-  /** Working color space for blending and compositing. */
+  /** Working RGB encoding/profile context for authored values. */
   workingSpace: WorkingSpace;
   /** Working RGB profile (for RGB documents). */
   rgbProfile: ColorProfileRef;
+  /**
+   * Artistic blend formula evaluation. Optional for old-document tolerance;
+   * missing values resolve to historical encoded-sRGB behavior.
+   */
+  blendEvaluationSpace?: BlendEvaluationSpace;
   /** Working CMYK profile (for CMYK documents and output intent). */
   cmykProfile: ColorProfileRef;
   /** Display profile for soft proofing (optional). */
@@ -561,8 +573,7 @@ export const CMYK_PROFILES = {
   japanColor2011: { id: 'japan-color-2011', name: 'Japan Color 2011 Coated' },
 } as const;
 
-/** Default working space: sRGB (backward compatible). Existing documents
- *  blend in gamma space; new documents can opt into 'linear'. */
+/** Default authored working encoding: sRGB (backward compatible). */
 export const DEFAULT_WORKING_SPACE: WorkingSpace = 'srgb';
 
 /** Default color configuration for RGB documents. */
@@ -571,6 +582,7 @@ export function defaultRgbColorConfig(bitDepth: BitDepth = DEFAULT_BIT_DEPTH): C
     mode: 'rgb',
     bitDepth,
     workingSpace: DEFAULT_WORKING_SPACE,
+    blendEvaluationSpace: 'legacy-srgb',
     rgbProfile: { ...RGB_PROFILES.srgb },
     cmykProfile: { ...CMYK_PROFILES.fogra39 },
     blackGeneration: { ...DEFAULT_BLACK_GENERATION },
@@ -583,6 +595,7 @@ export function defaultCmykColorConfig(bitDepth: BitDepth = DEFAULT_BIT_DEPTH): 
     mode: 'cmyk',
     bitDepth,
     workingSpace: DEFAULT_WORKING_SPACE,
+    blendEvaluationSpace: 'legacy-srgb',
     rgbProfile: { ...RGB_PROFILES.srgb },
     cmykProfile: { ...CMYK_PROFILES.fogra39 },
     outputIntent: {
@@ -611,6 +624,7 @@ export function colorConfigWithDefaults(config: ColorConfig | undefined): ColorC
     ...base,
     bitDepth: base.bitDepth ?? DEFAULT_BIT_DEPTH,
     workingSpace: base.workingSpace ?? DEFAULT_WORKING_SPACE,
+    blendEvaluationSpace: resolveBlendEvaluationSpace(base),
   };
 }
 

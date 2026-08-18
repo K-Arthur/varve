@@ -3,7 +3,12 @@
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@varve/engine';
 import { computeFloatingOrigin } from '@varve/shared';
-import type { CompositorBackend, CompositorDiagnostics, CompositorFrame } from '../types';
+import type {
+  CompositorBackend,
+  CompositorColorOptions,
+  CompositorDiagnostics,
+  CompositorFrame,
+} from '../types';
 
 /** Canvas surface accepted by the 2D backend (main canvas or offscreen overlay). */
 export type CanvasSurface = HTMLCanvasElement | OffscreenCanvas;
@@ -37,11 +42,18 @@ export class Canvas2DBackend implements CompositorBackend {
     }
   }
 
-  drawVectorItems(items: RenderItem[]): void {
+  drawVectorItems(items: RenderItem[], colorOptions?: CompositorColorOptions): void {
     if (!this.ctx || items.length === 0) return;
     // Always replay: immediate-mode canvas is cleared each frame; skipping draws
     // without a persistent backing store would blank the canvas on cache hits.
-    replayIr(this.ctx as unknown as ReplayTarget, items);
+    replayIr(
+      this.ctx as unknown as ReplayTarget,
+      items,
+      undefined,
+      undefined,
+      undefined,
+      colorOptions,
+    );
   }
 
   compositeRasterLayer(

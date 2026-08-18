@@ -1,6 +1,6 @@
 # ADR-0221: Local asset search ranking and model gate
 
-- Status: Accepted; Phase 1 model selection closed 2026-08-13 (see
+- **Status:** Accepted; Phase 1 model selection closed 2026-08-13 (see
   Resolution below)
 - Date: 2026-08-13
 

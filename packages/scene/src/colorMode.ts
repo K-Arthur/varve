@@ -30,6 +30,7 @@
 import { cmykToRgb, labToRgb, lchToRgb, rgbToCmyk } from '@varve/shared';
 import {
   type BitDepth,
+  type BlendEvaluationSpace,
   type ColorConfig,
   type ColorMode,
   colorConfigWithDefaults,
@@ -351,13 +352,22 @@ export function setDocumentBitDepth(doc: Document, bitDepth: BitDepth): Document
 }
 
 /**
- * Set the document's compositing/blending working space ('srgb' or 'linear').
- * Affects how blend operations interpret channel values; existing documents
- * keep their authored appearance (the working space is a settings change,
- * not a value rewrite).
+ * Set the document's authored working RGB encoding ('srgb' or 'linear').
+ * This does not change the separate artistic blend evaluation policy or
+ * rewrite authored values.
  */
 export function setDocumentWorkingSpace(doc: Document, workingSpace: WorkingSpace): Document {
   const config = colorConfigWithDefaults(doc.colorConfig);
   if (config.workingSpace === workingSpace) return doc;
   return { ...doc, colorConfig: { ...config, workingSpace } };
+}
+
+/** Set artistic blend evaluation without changing the authored working space. */
+export function setDocumentBlendEvaluationSpace(
+  doc: Document,
+  blendEvaluationSpace: BlendEvaluationSpace,
+): Document {
+  const config = colorConfigWithDefaults(doc.colorConfig);
+  if (config.blendEvaluationSpace === blendEvaluationSpace) return doc;
+  return { ...doc, colorConfig: { ...config, blendEvaluationSpace } };
 }

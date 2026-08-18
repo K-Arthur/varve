@@ -92,7 +92,8 @@ export type InspectorTabId =
   | 'export'
   | 'audit'
   | 'codegen'
-  | 'fonts';
+  | 'fonts'
+  | 'email';
 
 /** Legacy tab IDs that may appear in stored preferences — mapped on migration. */
 export type DeprecatedInspectorTabId = 'document' | 'spec';
@@ -921,6 +922,94 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       ],
     },
   },
+
+  // ─── Email Mode (email template design, compilation, export) ────────────
+  email: {
+    version: 1,
+    panels: {
+      layers: { visible: true },
+      inspector: { visible: true },
+      timeline: { visible: false },
+      pagenav: { visible: false },
+      library: { visible: false },
+      codegen: { visible: false },
+      logo: { visible: false },
+      history: { visible: false },
+    },
+    defaultTool: 'select',
+    floatingToolbar: true,
+    statusBar: true,
+    tabStrip: true,
+    toolbar: {
+      tools: [
+        { toolId: 'select', groupStart: true },
+        { toolId: 'hand' },
+        { toolId: 'zoom' },
+        { toolId: 'frame', groupStart: true },
+        { toolId: 'rect' },
+        { toolId: 'ellipse' },
+        { toolId: 'text' },
+        { toolId: 'line', groupStart: true },
+        { toolId: 'arrow' },
+        { toolId: 'scale', groupStart: true },
+        { toolId: 'inspect' },
+        { toolId: 'sam2Segment', groupStart: true },
+      ],
+      flyouts: [{ id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] }],
+    },
+    inspectorTabs: [
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      {
+        id: 'email',
+        label: 'Email',
+        visible: true,
+        group: 'primary',
+        default: false,
+        overflowPriority: 0,
+      },
+      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
+      { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
+    ],
+    statusSections: [
+      { id: 'toolName', visible: true, order: 0 },
+      { id: 'cursorPos', visible: true, order: 10 },
+      { id: 'preflight', visible: true, order: 12 },
+      { id: 'unit', visible: true, order: 20 },
+      { id: 'shortcutTip', visible: true, order: 25 },
+      { id: 'zoom', visible: true, order: 30 },
+      { id: 'selectionInfo', visible: true, order: 40 },
+    ],
+    canvasOverlays: {
+      rulers: true,
+      guides: true,
+      pixelGrid: false,
+      dotGrid: true,
+      bleedGuides: false,
+      layoutGrid: false,
+      baselineGrid: false,
+    },
+    onboarding: {
+      description:
+        'Email template design with visual editing, responsive layout, compatibility compilation, and provider export.',
+      tips: [
+        'Use Frame (F) to create email sections and columns.',
+        'Mark nodes as email semantics (heading, button, image) in the Email inspector tab.',
+        'Add links to text, buttons, and images via the Link inspector.',
+        'Preview your email at desktop and mobile widths.',
+        'Check preflight warnings before exporting.',
+        'Export as generic HTML, Mailchimp-compatible, or plain text.',
+      ],
+    },
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -942,6 +1031,7 @@ export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   motion: 'Motion',
   codegen: 'Codegen & Audit',
   logo: 'Logo',
+  email: 'Email',
 };
 
 export const WORKSPACE_ICONS: Record<WorkspaceMode, IconName> = {
@@ -952,6 +1042,7 @@ export const WORKSPACE_ICONS: Record<WorkspaceMode, IconName> = {
   motion: 'Play',
   codegen: 'Code',
   logo: 'Stamp',
+  email: 'Mail',
 };
 
 /** All available workspace modes. */
@@ -963,6 +1054,7 @@ export const ALL_WORKSPACE_MODES: readonly WorkspaceMode[] = [
   'motion',
   'codegen',
   'logo',
+  'email',
 ] as const;
 
 /**
@@ -979,6 +1071,7 @@ export const WORKSPACE_OVERFLOW_ORDER: readonly WorkspaceMode[] = [
   'print',
   'motion',
   'codegen',
+  'email',
   'logo',
 ] as const;
 
@@ -994,6 +1087,7 @@ export const WORKSPACE_OVERFLOW_PRIORITY: Record<WorkspaceMode, number> = {
   print: 3,
   motion: 4,
   codegen: 5,
+  email: 5,
   logo: 6,
 };
 

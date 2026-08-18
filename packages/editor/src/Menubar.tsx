@@ -875,6 +875,10 @@ function buildMenus(
           action: 'workspaceLogo',
         },
         {
+          label: 'Workspace: Email',
+          action: 'workspaceEmail',
+        },
+        {
           label: 'Workspace: Codegen',
           action: 'workspaceCodegen',
         },

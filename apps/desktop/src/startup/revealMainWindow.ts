@@ -8,8 +8,10 @@
  * startup fails.
  *
  * This is kept because showing an already-visible window is a harmless no-op
- * and it correctly focuses the window when the app is launched by opening a
- * .varve (or legacy .strata) file. Browser builds no-op.
+ * and it correctly focuses the window when the app is launched via an OS
+ * "Open With" request — the intake itself lives in src-tauri/src/file_open.rs
+ * (queued paths) and startup/osFileOpen.ts (drain + live events). Browser
+ * builds no-op.
  */
 
 import { isTauriRuntime } from '@varve/platform';

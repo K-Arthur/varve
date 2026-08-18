@@ -1,6 +1,6 @@
 # ADR-0223: Automated palette extraction as derived, versioned analysis
 
-- Status: Accepted
+- **Status:** Accepted
 - Date: 2026-08-13
 
 ## Context
