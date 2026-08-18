@@ -108,6 +108,7 @@ describe('WorkspaceConfig', () => {
       'codegen',
       'design',
       'drawing',
+      'email',
       'image',
       'logo',
       'motion',
