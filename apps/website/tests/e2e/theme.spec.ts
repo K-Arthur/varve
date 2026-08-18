@@ -318,26 +318,22 @@ test.describe('hero visibility', () => {
       await expect(ctas.getByRole('link', { name: /What is Varve/i })).toBeVisible();
 
       const subtitleText = await subtitle.textContent();
-      expect(subtitleText).toContain('Vector, layout, typography');
-      expect(subtitleText).toContain('core editing');
-      expect(subtitleText).toContain('works offline');
+      expect(subtitleText).toContain('vector, layout, typography, motion, and print');
+      expect(subtitleText).toContain('local files');
+      expect(subtitleText).toContain('native Linux performance');
 
       const localFirstTitle = page.locator('.local-first-title');
       await expect(localFirstTitle).toBeVisible();
-      await expect(localFirstTitle).toContainText('Your work stays local by default');
+      await expect(localFirstTitle).toContainText('No account required');
     });
   }
 
-  test('hero animated phrase keeps accessible static text', async ({ page }) => {
+  test('hero heading keeps accessible static text', async ({ page }) => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await freshPage(page);
     const heading = page.getByRole('heading', { level: 1 });
-    await expect(heading).toContainText('Varve');
-    await expect(heading).toContainText('design across disciplines.');
-    await expect(heading).toContainText('One canvas.');
-    // The rotating decoration must be hidden from AT.
-    const rotorAriaHidden = await page.locator('.hero-phrase-rotor').getAttribute('aria-hidden');
-    expect(rotorAriaHidden).toBe('true');
+    await expect(heading).toContainText('Design locally.');
+    await expect(heading).toContainText('No account. No subscription.');
   });
 
   test('discipline section copy is readable in every theme', async ({ page }) => {
