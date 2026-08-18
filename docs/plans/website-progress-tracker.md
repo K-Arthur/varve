@@ -4,7 +4,7 @@
 > describes the project as AGPL-3.0-or-later. See `LICENSE` for the current
 > license (FSL-1.1-MIT).
 
-**Project:** Strata Marketing Website  
+**Project:** Varve Marketing Website  
 **Started:** 2026-07-08  
 **Purpose:** Track progress across BMAD-Lite phases A-J for context recovery
 
@@ -467,6 +467,25 @@
 
 **Risk 4: AGPL misunderstanding by users**
 - Mitigation: Clear AGPL explanation on website, honest about what AGPL means, distinguish from permissive open source, FAQ for licensing questions
+
+---
+
+## Discovery / SEO status (Task 14, 2026-08-18)
+
+| Area | Status | Notes |
+|---|---|---|
+| Metadata / head | Complete | Title, description, canonical, OG/Twitter, JSON-LD on every page; noindex/no-correct on 404; og:image:width/height/alt + twitter:image:alt added |
+| robots.txt + sitemap | Complete | Generated endpoints, base-path aware; sitemap excludes 404 + alias; smoke-tested |
+| Social images | Complete | Single regenerable 1200x630 brand card (pnpm screenshots:og) |
+| Naming consistency | Audited | "Varve" always capitalised; no "Varve Studio" on website; one stale Strata comment fixed in global.css |
+| SEO contract test | Added | apps/website/tests/e2e/seo.spec.ts asserts title/description/canonical/OG/JSON-LD/robots/sitemap on every route, in both deployment modes |
+| Sponsorship surface | Ready | FUNDING.yml, support-project page (4 tiers with guardrails), README sponsor badge + link |
+| Directory packet | Prepared | docs/release/directory-listing-packet.md — single canonical source for AlternativeTo / repology |
+| Brand collision | Recorded | docs/plans/social-surface-plan.md — 10 entities found by web search; none are design-suite competitors |
+| Social accounts | Planned | 3 channels recommended (Mastodon primary, X mirror, YouTube deferred); manual creation only |
+| Content architecture | Planned | docs/plans/discovery-content-plan.md — Linux page + 3 engineering articles seeded from existing docs |
+| /try/ demo indexability | Deferred | Recommendation recorded; OG tags needed before indexing; workstream owned by the browser-demo agent |
+| docs/README.md | Updated | New plan/release docs added to the index |
 
 ---
 
