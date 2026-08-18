@@ -54,6 +54,18 @@ on:
         # Quote these values: YAML 1.1 treats bare `no`/`yes` as booleans,
         # which makes GitHub reject the documented `publish=yes` dispatch.
         options: ['no', 'yes']
+      # Installer-size gate override. The gate compares the NSIS installer
+      # against scripts/release/installer-size-baseline.json and blocks
+      # unexplained growth (warn 1.2x / block 1.35x of expected). Provide a
+      # reason here ONLY for intentional growth (e.g. bundling a new model or
+      # changing the WebView2 install mode); update the baseline in the same
+      # commit that ships the change. Tag-triggered releases default to no
+      # override, so growth has to be accepted deliberately per release.
+      size_gate_override:
+        description: 'Reason to accept an installer size above the hard threshold (leave empty to enforce)'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   # Never cancel a release build in flight — a half-uploaded draft is worse than
@@ -680,6 +692,23 @@ jobs:
             --arch ${{ matrix.arch_slug }} \
             --updater-signatures "${{ needs.signing-preflight.outputs.updater_mode == 'signed' }}"
         shell: bash
+
+      # Installer composition + size gate. Decomposes the NSIS installer
+      # (7-Zip is preinstalled on GitHub Windows runners) and compares total
+      # size against scripts/release/installer-size-baseline.json. Blocks
+      # only on measured growth above the hard threshold without an explicit
+      # override; the report JSON and baseline live alongside the artifacts
+      # and feed the historical trend.
+      - name: Report installer size (Windows)
+        if: matrix.enabled && runner.os == 'Windows'
+        shell: bash
+        env:
+          SIZE_GATE_OVERRIDE: ${{ github.event.inputs.size_gate_override || '' }}
+        run: |
+          node scripts/release/report-installer-size.mjs \
+            --installer dist/release/*-windows-*.exe \
+            --out-report dist/release/installer-size-report-${{ matrix.os_slug }}-${{ matrix.arch_slug }}.json \
+            --override-reason "$SIZE_GATE_OVERRIDE"
 
       # Platform-specific SBOM: the bundle contents differ per platform (the
       # ONNX Runtime shared library and models are platform-native), so each

@@ -66,12 +66,18 @@ requires a compositor such as Weston, not merely `Xvfb`.
 
 ## Windows
 
-The app uses WebView2, never GTK. The NSIS installer is configured to embed
-Tauri's offline WebView2 bootstrapper so an offline installation does not rely
-on a browser download. Hosted Windows runners execute the embedded provider;
-no EdgeDriver is selected or downloaded by Varve. Test x64 and ARM64 packaged
-builds independently, use short writable temp paths, and retain screenshots on
-failure. Account for DPI and multiple-monitor coordinates in interaction tests.
+The app uses WebView2, never GTK. The NSIS installer uses Tauri's
+`downloadBootstrapper` WebView2 mode: a ~2 MB bootstrapper fetches the
+Evergreen runtime during setup when it is missing. This replaced
+`offlineInstaller` (2026-08-18) because the embedded standalone installer
+weighed 202.8 MB of the 263.7 MB x64 installer (measured from the released
+v0.1.2 artifact) while Windows 11 ships the runtime and Windows 10 receives
+it via Edge/Windows Update — see `docs/release/platform-support-matrix.md`.
+Hosted Windows runners execute the embedded provider; no EdgeDriver is
+selected or downloaded by Varve. Test x64 and ARM64 packaged builds
+independently, use short writable temp paths, and retain screenshots on
+failure. Account for DPI and multiple-monitor coordinates in interaction
+tests.
 
 ## macOS
 

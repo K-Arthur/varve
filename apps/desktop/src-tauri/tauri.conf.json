@@ -194,7 +194,8 @@
     },
     "windows": {
       "webviewInstallMode": {
-        "type": "offlineInstaller"
+        "type": "downloadBootstrapper",
+        "silent": true
       },
       "wix": {
         "language": ["en-US"]

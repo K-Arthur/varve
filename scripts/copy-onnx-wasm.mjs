@@ -94,23 +94,31 @@ for (const requiredFile of requiredFiles) {
   }
 }
 
+// Only the required runtime companions are staged. onnxruntime-web ships
+// ~25 variants (asyncify/jspi/webgl/webgpu/bundled loaders) that total
+// ~57 MB over the 4 required files; the app only ever resolves the
+// simd-threaded + jsep builds (ortRuntimeAssets.ts), so copying the whole
+// package silently added ~57 MB of unused bytes to every installer
+// (measured 2026-08-18: 97.1 MB vs 40.4 MB raw in dist/ort-wasm).
+const stagedFiles = requiredFiles;
+
 // The directory is generated and gitignored. Clear it before copying so a
 // package upgrade cannot leave stale companions that mask an incomplete
 // install or make diagnostics report the wrong runtime version.
 rmSync(publicDest, { recursive: true, force: true });
 mkdirSync(publicDest, { recursive: true });
 
-for (const file of files) {
+for (const file of stagedFiles) {
   copyFileSync(join(onnxWebDir, file), join(publicDest, file));
 }
 
 writeFileSync(
   join(publicDest, 'manifest.json'),
-  `${JSON.stringify({ package: 'onnxruntime-web', version: packageVersion, requiredFiles, files }, null, 2)}\n`,
+  `${JSON.stringify({ package: 'onnxruntime-web', version: packageVersion, requiredFiles, files: stagedFiles }, null, 2)}\n`,
 );
 
 console.log(
-  `Copied and validated ${files.length} onnxruntime-web ${packageVersion} artifacts from ${onnxWebDir} to ${publicDest}`,
+  `Copied and validated ${stagedFiles.length}/${files.length} onnxruntime-web ${packageVersion} artifacts from ${onnxWebDir} to ${publicDest}`,
 );
 
 // Ensure LFS-tracked model files are materialized (not pointer files).

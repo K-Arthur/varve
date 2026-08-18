@@ -149,12 +149,20 @@ test('WDIO permissions and bridge are excluded from normal desktop builds', () =
   assert.match(entrypoint, /buildMode === 'wdio'/);
 });
 
-test('Windows packages use Tauri offline WebView2 installation at the bundle level', () => {
+test('Windows packages use the Tauri WebView2 bootstrapper at the bundle level', () => {
   const releaseConfig = readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8');
 
+  // Decision 2026-08-18 (installer-size investigation): the offline WebView2
+  // standalone installer embedded by `offlineInstaller` weighed 202.8 MB of
+  // the 263.7 MB x64 NSIS installer (measured from the released v0.1.2
+  // artifact). Windows 11 ships the runtime and Windows 10 (min supported
+  // 1809) receives it via Edge/Windows Update, so `downloadBootstrapper`
+  // (~2 MB) keeps first launch reliable while shrinking the installer to
+  // roughly a quarter. The trade-off (install-time internet only when the
+  // runtime is missing) is documented in docs/release/platform-support-matrix.md.
   assert.match(
     releaseConfig,
-    /"windows":\s*\{\s*"webviewInstallMode":\s*\{\s*"type":\s*"offlineInstaller"/s,
+    /"windows":\s*\{\s*"webviewInstallMode":\s*\{\s*"type":\s*"downloadBootstrapper"/s,
   );
 });
 
