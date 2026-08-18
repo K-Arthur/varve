@@ -10,6 +10,7 @@ import {
   prewarmWasmEngine,
 } from '@varve/engine';
 import { type ImportFileInput, ImportService } from '@varve/import';
+import { getDesktopAnalytics } from './analytics/desktopAnalytics';
 import {
   buildAllVariantCaches,
   buildVariableDependencyMap,
@@ -474,9 +475,14 @@ export function CanvasArea({
           adapterIsFallback: false,
         },
       );
-      // The backend resolves asynchronously; drawContent() may have already run
-      // (and silently no-op'd via optional chaining) with compositorRef still null.
-      // Force one redraw now that a backend is actually available.
+      const preferWebGpu = loadSettings().render.preferWebGpu;
+      if (preferWebGpu && b.id !== 'webgpu') {
+        getDesktopAnalytics().track('renderer_fallback', {
+          from: 'webgpu',
+          to: 'canvas2d',
+          reason: 'unavailable',
+        });
+      }
       requestContentDrawRef.current?.('compositor-init', 'backing-store-recovery');
     });
     return () => {

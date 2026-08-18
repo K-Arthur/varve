@@ -132,6 +132,9 @@ export const ANALYTICS_EVENT_CATEGORIES: {
   website_page_viewed: 'website',
   website_download_started: 'website',
   website_outbound_clicked: 'website',
+  website_contact_clicked: 'website',
+  browser_demo_launched: 'usage',
+  browser_demo_desktop_download: 'website',
 };
 
 export type AnalyticsEventName = keyof AnalyticsEventMap;

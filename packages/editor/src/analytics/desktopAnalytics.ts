@@ -13,8 +13,11 @@ import { getReleaseInfo } from '../crash/releaseInfo';
 import { loadSettings, type PrivacySettingsStore } from '../settings';
 
 let client: AnalyticsClient | null = null;
+let hasConfiguredEndpoint = false;
+let flushIntervalId: ReturnType<typeof setInterval> | null = null;
 
 const PLAUSIBLE_ENDPOINT = 'https://plausible.io/api/event';
+const FLUSH_INTERVAL_MS = 30_000;
 
 function safeDomain(domain: string): string | null {
   return /^[A-Za-z0-9.-]{1,253}$/.test(domain) ? domain : null;
@@ -87,6 +90,38 @@ function consentFromSettings(settings: PrivacySettingsStore): AnalyticsConsent {
   };
 }
 
+function flushNow(): void {
+  if (!client) return;
+  void client.flush();
+}
+
+function handleBeforeUnload(): void {
+  flushNow();
+}
+
+/**
+ * Start the periodic flush timer and the beforeunload listener.
+ * Safe to call multiple times — no-ops if already running.
+ */
+export function startDesktopFlushTimer(): void {
+  if (flushIntervalId !== null) return;
+  flushIntervalId = setInterval(flushNow, FLUSH_INTERVAL_MS);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  }
+}
+
+/** Stop the periodic flush timer and remove the beforeunload listener. */
+export function stopDesktopFlushTimer(): void {
+  if (flushIntervalId !== null) {
+    clearInterval(flushIntervalId);
+    flushIntervalId = null;
+  }
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  }
+}
+
 /** Configure the app-owned client once at desktop boot. */
 export function configureDesktopAnalytics(options?: {
   platform?: AnalyticsPlatform;
@@ -96,6 +131,12 @@ export function configureDesktopAnalytics(options?: {
   const release = getReleaseInfo();
   // Unconfigured builds remain network-silent. Production releases select the
   // Plausible adapter through the public domain build variable.
+  const provider = options?.endpoint
+    ? new HttpAnalyticsProvider({ endpoint: options.endpoint })
+    : options?.domain && safeDomain(options.domain)
+      ? new PlausibleDesktopProvider(options.domain)
+      : new NoopAnalyticsProvider();
+  hasConfiguredEndpoint = !(provider instanceof NoopAnalyticsProvider);
   client = new AnalyticsClient({
     context: {
       appVersion: release.appVersion,
@@ -104,13 +145,18 @@ export function configureDesktopAnalytics(options?: {
       releaseChannel: release.buildChannel,
     },
     consent: consentFromSettings(loadSettings().privacy),
-    provider: options?.endpoint
-      ? new HttpAnalyticsProvider({ endpoint: options.endpoint })
-      : options?.domain && safeDomain(options.domain)
-        ? new PlausibleDesktopProvider(options.domain)
-        : new NoopAnalyticsProvider(),
+    provider,
   });
   return client;
+}
+
+/**
+ * Whether this build was started with a sending analytics endpoint or domain.
+ * Enabling a consent category in an unconfigured build must not claim (or
+ * imply) that a network request will be made.
+ */
+export function hasConfiguredAnalyticsEndpoint(): boolean {
+  return hasConfiguredEndpoint;
 }
 
 export function getDesktopAnalytics(): AnalyticsClient {
@@ -123,6 +169,24 @@ export function updateDesktopAnalyticsConsent(settings: PrivacySettingsStore): v
 
 export function resetDesktopAnalyticsForTests(): void {
   client = null;
+  hasConfiguredEndpoint = false;
+  stopDesktopFlushTimer();
 }
 
 export { DEFAULT_ANALYTICS_CONSENT };
+
+/**
+ * Bucket a millisecond duration into a low-cardinality analytics bucket.
+ * The boundaries are deliberately coarse — they answer "fast / medium / slow"
+ * without retaining numeric timing data.
+ */
+export function durationBucket(
+  ms: number,
+): 'under_16ms' | '16_33ms' | '33_50ms' | '50_100ms' | '100_250ms' | 'over_250ms' {
+  if (ms < 16) return 'under_16ms';
+  if (ms < 33) return '16_33ms';
+  if (ms < 50) return '33_50ms';
+  if (ms < 100) return '50_100ms';
+  if (ms < 250) return '100_250ms';
+  return 'over_250ms';
+}

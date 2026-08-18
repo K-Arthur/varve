@@ -24,6 +24,7 @@ import {
 } from '@varve/scene';
 import { Button, Checkbox, SegmentedControl, Select, Slider, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import { useEditor } from '../../context';
 import { insertTraceGroup, replaceTraceGroup } from '../../imageOperations';
 import { buildTraceMetadata, traceEngineLabel } from '../../logo/vectorization/metadata';
@@ -292,6 +293,7 @@ export function VectorizeWorkflow({
       editor.announce(
         `Inserted ${result.paths.length} vector path${result.paths.length === 1 ? '' : 's'}${holeNote}`,
       );
+      getDesktopAnalytics().track('feature_used', { feature: 'image_trace' });
     } catch (error) {
       if (error instanceof Error && error.message === 'cancelled') {
         editor.announce('Vectorization cancelled');

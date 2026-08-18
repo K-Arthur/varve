@@ -12,6 +12,7 @@
   <a href="https://github.com/K-Arthur/varve/releases/latest"><img src="https://img.shields.io/github/v/release/K-Arthur/varve?label=release" alt="Latest release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-FSL--1.1--MIT-3b82f6" alt="License: FSL-1.1-MIT"></a>
   <a href="#project-status"><img src="https://img.shields.io/badge/status-public%20beta-C54B3A" alt="Status: public beta"></a>
+  <a href="https://github.com/sponsors/K-Arthur"><img src="https://img.shields.io/github/sponsors/K-Arthur?label=sponsors" alt="GitHub Sponsors"></a>
 </p>
 
 > **Public beta.** The latest published application release is
@@ -25,7 +26,8 @@
   <a href="https://varve.studio"><strong>Website</strong></a> ·
   <a href="https://varve.studio/docs"><strong>Docs</strong></a> ·
   <a href="https://github.com/K-Arthur/varve/releases"><strong>Releases</strong></a> ·
-  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a>
+  <a href="https://github.com/K-Arthur/varve/discussions"><strong>Discussions</strong></a> ·
+  <a href="https://github.com/sponsors/K-Arthur"><strong>Sponsor</strong></a>
 </p>
 
 **For designers, illustrators, and print professionals** who want a local-first

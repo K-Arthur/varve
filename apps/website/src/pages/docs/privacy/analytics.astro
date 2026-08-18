@@ -18,23 +18,32 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <h2>Website events</h2>
       <table>
-        <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th></tr></thead>
+        <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>website_page_viewed</td><td>normalized route</td><td>Understand which documentation and product pages are useful.</td></tr>
-          <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Measure the download funnel and platform demand.</td></tr>
-          <tr><td>website_outbound_clicked</td><td>destination category</td><td>Understand whether GitHub, documentation, or community links help visitors.</td></tr>
+          <tr><td>website_page_viewed</td><td>normalized route</td><td>Understand which documentation and product pages are useful.</td><td>emitted</td></tr>
+          <tr><td>website_download_started</td><td>release, platform, architecture, package type, release channel</td><td>Measure the download funnel and platform demand.</td><td>emitted</td></tr>
+          <tr><td>website_outbound_clicked</td><td>destination category</td><td>Understand whether GitHub, documentation, or community links help visitors.</td><td>emitted</td></tr>
+          <tr><td>website_contact_clicked</td><td>channel category</td><td>Understand which support/contact channels are used.</td><td>emitted</td></tr>
         </tbody>
       </table>
 
       <h2>Desktop events</h2>
+      <p>
+        Desktop events attribute to the pseudo-page <code>varve.studio/app</code> so they
+        never mix with website pageviews. A periodic flush timer and a
+        beforeunload handler ensure events reach the provider even if the app
+        shuts down.
+      </p>
       <table>
-        <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th></tr></thead>
+        <thead><tr><th>Event</th><th>Fields</th><th>Purpose</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td>app_launched</td><td>surface</td><td>Count opted-in product sessions.</td></tr>
-          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td></tr>
-          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td></tr>
-          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td></tr>
-          <tr><td>renderer_fallback / performance_sample</td><td>backend, reason, metric, duration bucket</td><td>Find platform-specific renderer and performance issues.</td></tr>
+          <tr><td>app_launched</td><td>surface</td><td>Count opted-in product sessions.</td><td>emitted</td></tr>
+          <tr><td>document_created</td><td>blank, template, or import source</td><td>Understand activation without seeing the document.</td><td>emitted</td></tr>
+          <tr><td>feature_used</td><td>closed feature category</td><td>Prioritize features with meaningful adoption.</td><td>emitted (high-signal subset)</td></tr>
+          <tr><td>export_completed / export_failed</td><td>format and coarse duration or error category</td><td>Find export reliability and performance problems.</td><td>emitted</td></tr>
+          <tr><td>renderer_fallback</td><td>from, to, reason</td><td>Find platform-specific renderer fallback issues.</td><td>emitted</td></tr>
+          <tr><td>browser_demo_launched</td><td>entry source</td><td>Count demo sessions from the website.</td><td>emitted</td></tr>
+          <tr><td>browser_demo_desktop_download</td><td>release, platform, architecture, package type</td><td>Measure demo-to-desktop conversion.</td><td>emitted</td></tr>
         </tbody>
       </table>
 

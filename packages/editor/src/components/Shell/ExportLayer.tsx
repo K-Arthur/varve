@@ -4,6 +4,7 @@ import type { Platform } from '@varve/platform';
 import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { durationBucket, getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import { useEditor } from '../../context';
 import {
   createBufferedExportArchive,
@@ -98,6 +99,22 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           }
         }
       }
+      const analytics = getDesktopAnalytics();
+      for (const file of report.files) {
+        const analyticsFormat = mapExportFormat(file.format);
+        if (file.status === 'success') {
+          analytics.track('export_completed', {
+            format: analyticsFormat,
+            durationBucket: durationBucket(file.durationMs),
+          });
+        } else {
+          analytics.track('export_failed', {
+            format: analyticsFormat,
+            code: 'unknown',
+          });
+        }
+      }
+      void analytics.flush();
       return report;
     },
     [editor.state.document, getExportEngine, saveExportFile, platform?.kind],
@@ -232,4 +249,13 @@ function weightToSubfamily(weight: number, style: string): string {
   };
   const base = weightNames[weight] ?? 'Regular';
   return style === 'italic' ? `${base} Italic` : base;
+}
+
+function mapExportFormat(format: string): 'png' | 'jpeg' | 'webp' | 'svg' | 'pdf' | 'gif' | 'webm' {
+  if (format === 'png' || format === 'gif' || format === 'webm') return format;
+  if (format === 'jpg') return 'jpeg';
+  if (format === 'webp') return 'webp';
+  if (format === 'svg') return 'svg';
+  if (format.startsWith('pdf')) return 'pdf';
+  return 'png';
 }
