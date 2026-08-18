@@ -32,7 +32,7 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | **Windows 10/11** | x86-64 | ✅ built in CI (`windows-latest`, NSIS) | `.exe` | unsigned | ⚠️ runner smoke passed 2026-08-09 (install/launch/uninstall); no long-term hardware testing | Win 10 1809 | **3** | Low |
 | **Windows** | ARM64 | 🟡 matrix wired (`windows-11-arm`); native executable/runtime gates pending | native ARM64 app in NSIS distribution | unsigned until signing gate passes | ⬜ Windows on ARM runtime smoke pending | Windows 10 1809 | **3 — Experimental** | Low |
 | **macOS** | ARM64 | ✅ built in CI (`macos-latest`, `aarch64-apple-darwin` DMG) | `.dmg` | unsigned, unnotarised | ⚠️ runner smoke passed 2026-08-09 (mount/launch/unmount); no long-term hardware testing | macOS 13 | **3** | Low |
-| **macOS** | x86-64 | ❌ not built (no ONNX Runtime Intel dylib — audit H-3) | — | — | ❌ | — | **Not supported** | — |
+| **macOS** | x86-64 | ❌ not built (dependency EOL — ONNX Runtime upstream discontinued macOS Intel binaries; see `docs/plans/macos-intel-feasibility.md`) | — | — | ❌ | — | **Not supported** | — |
 
 Legend: ✅ verified · ⚠️ runner smoke passed once, no ongoing hardware testing · ⬜ planned · ❌ absent
 
@@ -160,8 +160,10 @@ runner smoke passed, no Mac hardware in the project.** The release matrix
 builds `macos-latest` / `aarch64-apple-darwin`; the v0.1.0 draft passed the
 runner smoke pass (DMG mounted, app bundle structure and architecture
 checked, executable launched for a bounded smoke test, unmounted cleanly —
-all on a real macOS runner). The bundled ONNX Runtime has no Intel dylib, so
-only ARM64 is configured. The runner smoke proves mount/launch/unmount once,
+all on a real macOS runner). ONNX Runtime upstream discontinued macOS Intel
+binaries (last release line 1.23.0, dropped at 1.24.1), so only ARM64 is
+configured — see `docs/plans/macos-intel-feasibility.md` for the full
+dependency audit. The runner smoke proves mount/launch/unmount once,
 not that the application works on macOS over time — no Mac hardware is
 available to the project for ongoing validation, and macOS remains
 **Experimental** for that reason. The changelog/download page label it
@@ -169,9 +171,9 @@ accordingly.
 
 | Decision | Choice | Reasoning |
 |---|---|---|
-| Arch | ARM64 first | Apple Silicon is the overwhelming majority of active Macs; Intel is declining and cannot use the bundled ORT dylib anyway (H-3) |
+| Arch | ARM64 only | Apple Silicon is the overwhelming majority of active Macs; Intel macOS is a discontinued platform — ONNX Runtime upstream stopped shipping Intel macOS binaries (last line 1.23.0, dropped at 1.24.1) and GitHub retires its last Intel runner (Aug 2027). Decision: `docs/plans/macos-intel-feasibility.md` |
 | Universal vs split | **Split, ARM64 published** | The current build targets `aarch64-apple-darwin` only (a DMG); an earlier `universal-apple-darwin` approach produced a binary whose accelerated inference path only worked on Apple Silicon anyway. Better to ship an honest `aarch64` DMG than a "universal" one that is half-degraded |
-| Intel | Tier 3, or omit | Only if someone asks and can test it |
+| Intel | **Not supported** (decision 2026-08-18) | Dependency EOL: ONNX Runtime upstream discontinued Intel macOS binaries; the last viable line (1.23.0) predates Varve's runtime, carries a known macOS exit-crash bug, and will never receive fixes. GitHub's Intel runner retires Aug 2027. Revisit only with demand, hardware, and upstream signal (`docs/plans/macos-intel-feasibility.md`) |
 | Min version | macOS 13 Ventura | Already set in `tauri.conf.json:180` |
 | Distribution | Unsigned DMG, clearly labelled | See below |
 | Mac App Store | **Reject for v1** | Requires the $99 membership *and* full App Sandbox. The sandbox directly conflicts with arbitrary-path document access and CUPS printing. Months of work |

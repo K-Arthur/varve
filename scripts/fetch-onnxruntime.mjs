@@ -83,8 +83,13 @@ const PLATFORMS = {
     libName: 'onnxruntime.dll',
     kind: 'zip',
   },
-  // Not bundled: macOS Intel (osx-x64 has no CPU-only asset in this release
-  // line). It remains outside the supported release target registry.
+  // Not bundled: macOS Intel. ONNX Runtime upstream discontinued macOS
+  // x86_64 binaries at v1.24.1 (2026-02); the last Intel line (1.23.0)
+  // predates the pinned ORT_VERSION, carries a known macOS atexit mutex
+  // crash (microsoft/onnxruntime#24579) that was fixed only after that line,
+  // and will never receive another fix. GitHub's last Intel macOS runner
+  // (macos-15-intel) retires Aug 2027 and macOS 27 (fall 2026) drops Intel
+  // entirely — see docs/plans/macos-intel-feasibility.md.
 };
 
 function currentPlatformKey() {
