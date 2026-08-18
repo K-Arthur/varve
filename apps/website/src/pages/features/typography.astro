@@ -22,6 +22,29 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <div class="feature-visual feature-visual--pair">
+        <figure>
+          <img
+            src={sitePath('/screenshots/typography-light.png')}
+            alt="A type specimen in Varve showing a display character, a character set, a subhead and a body paragraph"
+            width="832"
+            height="620"
+            loading="lazy"
+          />
+          <figcaption>A type hierarchy set on the canvas</figcaption>
+        </figure>
+        <figure>
+          <img
+            src={sitePath('/screenshots/typography-panel-light.png')}
+            alt="The Varve properties inspector showing typography controls: font family, weight, size, line height and letter spacing"
+            width="320"
+            height="620"
+            loading="lazy"
+          />
+          <figcaption>Type controls for the selected text</figcaption>
+        </figure>
+      </div>
+
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
@@ -148,7 +171,44 @@ import { sitePath } from '../../lib/siteUrl';
   .feature-section strong {
     color: var(--text-primary);
   }
-  
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual--pair {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 1rem;
+  }
+
+  .feature-visual figure {
+    margin: 0;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  @media (max-width: 640px) {
+    .feature-visual--pair {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .limitations {
     background: var(--surface-muted);
     border-radius: 0.75rem;

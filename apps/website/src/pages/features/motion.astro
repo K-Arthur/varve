@@ -22,6 +22,17 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <figure class="feature-visual">
+        <img
+          src={sitePath('/screenshots/motion-dark.png')}
+          alt="The Varve timeline panel with a track for the selected layer"
+          width="1440"
+          height="264"
+          loading="lazy"
+        />
+        <figcaption>The timeline panel in the motion workspace</figcaption>
+      </figure>
+
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
@@ -148,7 +159,28 @@ import { sitePath } from '../../lib/siteUrl';
   .feature-section strong {
     color: var(--text-primary);
   }
-  
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
   .limitations {
     background: var(--surface-muted);
     border-radius: 0.75rem;
