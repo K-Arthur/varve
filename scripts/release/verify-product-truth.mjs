@@ -397,7 +397,49 @@ function checkUpdaterConsistency() {
 }
 
 // ---------------------------------------------------------------------------
-// 9. Copyright year consistency
+// 9b. Updater claims vs release signing state
+// ---------------------------------------------------------------------------
+
+function checkUpdaterTruth() {
+  const problems = [];
+  const manifest = readJSON('apps/website/src/data/release-manifest.json');
+  if (!manifest) return problems;
+
+  // If the release is unsigned, the download page should gate updater claims
+  // behind a conditional on release.signed (or similar), not state them
+  // unconditionally.
+  if (manifest.signed === false) {
+    const downloadPage = readFile('apps/website/src/pages/download.astro');
+    if (downloadPage) {
+      // Check for unconditional updater claims — text that appears OUTSIDE
+      // a `release.signed` conditional branch. We do a simple heuristic: if
+      // the page contains both updater claim patterns AND a release.signed
+      // guard, the guard is present. If it contains updater claims but no
+      // release.signed guard, the claims are unconditional.
+      const hasSignedGuard = /release\.signed/.test(downloadPage);
+      const unconditionalPatterns = [
+        /self-updates in place/i,
+        /updates install through the installer/i,
+        /updates the installed app/i,
+      ];
+      if (!hasSignedGuard) {
+        for (const pattern of unconditionalPatterns) {
+          if (pattern.test(downloadPage)) {
+            problems.push(
+              `download.astro: claims updater works (${pattern.source}) but release is unsigned (v${manifest.version}). ` +
+                'Wrap updater claims in a conditional on release.signed, or add a caveat.',
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return problems;
+}
+
+// ---------------------------------------------------------------------------
+// 10. Copyright year consistency
 // ---------------------------------------------------------------------------
 
 function checkCopyrightConsistency() {
@@ -432,6 +474,7 @@ const checks = [
   ['signing-claims', checkSigningClaims],
   ['changelog', checkChangelogConsistency],
   ['updater', checkUpdaterConsistency],
+  ['updater-truth', checkUpdaterTruth],
   ['copyright', checkCopyrightConsistency],
 ];
 

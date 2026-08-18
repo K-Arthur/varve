@@ -4,7 +4,7 @@
 
 - **Project**: Varve — local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print
 - **Previous name**: Strata (renamed to Varve before open-sourcing)
-- **Version**: 0.1.2 (source), latest published release: v0.1.1
+- **Version**: 0.1.2 (source), latest published release: v0.1.2
 - **Status**: Public beta
 - **Monorepo structure**:
   - `apps/desktop` — Tauri 2 native desktop app (Linux, macOS, Windows)
@@ -285,7 +285,7 @@ The release pipeline from `docs/release/README.md` accurately describes the real
 - macOS notarization requires Apple Developer ID certificate (not available in CI)
 - Windows Authenticode signing requires Azure Artifact Signing credentials (not available in CI)
 - Tauri updater signing requires separate signing key
-- Without these credentials, releases are unsigned (which is the current state for v0.1.1)
+- Without these credentials, releases are unsigned (current state for all published releases)
 
 ### Release Checklists
 

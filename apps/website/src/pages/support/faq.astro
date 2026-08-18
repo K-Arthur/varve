@@ -105,7 +105,7 @@ const faqSchema = {
       name: 'How do updates work?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve updates are designed to be consent-first. The published v0.1.1 release predates the signed update feed, so manual updates through the download page or GitHub Releases are currently the dependable path. Future feed-enabled builds can offer manual checks, notifications, or verified downloads in Settings > Updates. Installation remains separate, with package-specific limitations.',
+        text: `Varve updates are designed to be consent-first. The current published release (v${releaseVersion}) does not include a signed update feed, so manual updates through the download page or GitHub Releases are the dependable path. Future feed-enabled builds can offer manual checks, notifications, or verified downloads in Settings > Updates. Installation remains separate, with package-specific limitations.`,
       },
     },
     {
@@ -157,13 +157,12 @@ const faqSchema = {
         <div class="faq-item">
           <h3>How do updates work?</h3>
           <p>
-            Updates are designed to be consent-first. The published <strong>v0.1.1</strong> release
-            predates the signed update feed, so manual updates through the <a
-            href={sitePath('/download')}>download page</a> or GitHub Releases are currently the
-            dependable path. Future feed-enabled builds can offer manual checks, notifications,
-            or verified downloads in <strong>Settings &gt; Updates</strong>; package-specific
-            limitations still apply. See the <a href={sitePath('/docs/updates')}>Updates guide</a>
-            for details.
+            Updates are designed to be consent-first. The current published release (v{releaseVersion}) does not include a signed update feed, so manual updates through the <a
+              href={sitePath('/download')}>download page</a> or GitHub Releases are the
+              dependable path. Future feed-enabled builds can offer manual checks, notifications,
+              or verified downloads in <strong>Settings &gt; Updates</strong>; package-specific
+              limitations still apply. See the <a href={sitePath('/docs/updates')}>Updates guide</a>
+              for details.
           </p>
         </div>
 

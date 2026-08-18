@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import release from '../../data/release-manifest.json';
 ---
 
 <Layout
@@ -20,10 +21,7 @@ import { sitePath } from '../../lib/siteUrl';
       </p>
 
       <aside class="docs-note">
-        <strong>Current release note:</strong> the published <code>v0.1.1</code> release predates
-        the signed updater feed. For that release, use the
-        <a href={sitePath('/download')}>download page</a> or GitHub Releases for manual updates.
-        The updater design below applies when a channel feed is present in a future release.
+        <strong>Current release note:</strong> the published <code>v{release.version}</code> release {release.signed ? 'includes a signed update feed' : 'does not include a signed update feed'}. {release.signed ? 'The updater design below is active.' : <span>For this release, use the <a href={sitePath('/download')}>download page</a> or GitHub Releases for manual updates. The updater design below applies when a channel feed is present in a future release.</span>}
       </aside>
 
       <section class="docs-section">

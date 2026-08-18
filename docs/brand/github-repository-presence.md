@@ -12,7 +12,7 @@ set of GitHub settings that cannot be represented in git.
 | Website | <https://varve.studio> |
 | Source repository | <https://github.com/K-Arthur/varve> |
 | Application release shortcut | <https://github.com/K-Arthur/varve/releases/latest> |
-| Current public status | Public beta; latest published application release is `v0.1.1` |
+| Current public status | Public beta; latest published application release is `v0.1.2` |
 | License wording | Source-available under FSL-1.1-MIT; not OSI-approved open source |
 
 The repository description should remain a short product definition rather
@@ -99,9 +99,9 @@ view to confirm that GitHub recognizes them.
 
 - Say **public beta**, not stable, until `PRODUCT_STATUS.stage` changes.
 - Call the current license **source-available**, not open source.
-- Treat `v0.1.1` as the latest application release until GitHub publishes a
-  newer `vX.Y.Z` release. `varve-models-v1` is an auxiliary model-artifact
-  release and must not be presented as an application download.
+- Treat the latest published application release (currently `v0.1.2`) as the latest
+  until GitHub publishes a newer `vX.Y.Z` release. `varve-models-v1` is an auxiliary
+  model-artifact release and must not be presented as an application download.
 - Keep privacy wording scoped to core editing. Model downloads, online
   font/icon providers, user-configured remote providers, update checks, and
   consented aggregate analytics are distinct network features.
