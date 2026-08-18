@@ -78,9 +78,11 @@ function normalizedRoute(
   | '/docs'
   | '/contribute'
   | '/support'
-  | '/about/privacy' {
+  | '/about/privacy'
+  | '/try' {
   const path = pathname.toLowerCase();
   if (path.includes('/about/privacy')) return '/about/privacy';
+  if (path === '/try' || path.startsWith('/try/')) return '/try';
   if (path.includes('/download')) return '/download';
   if (path.includes('/releases')) return '/releases';
   if (path.includes('/features')) return '/features';
@@ -292,6 +294,31 @@ export class WebsiteAnalyticsController {
     void this.client.flush();
   }
 
+  trackContact(
+    channel: 'general' | 'support' | 'feedback' | 'security' | 'privacy' | 'press' | 'partnerships',
+  ): void {
+    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    this.client.track('website_contact_clicked', { channel });
+    void this.client.flush();
+  }
+
+  trackDemoLaunch(entry: 'website' | 'direct'): void {
+    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    this.client.track('browser_demo_launched', { entry });
+    void this.client.flush();
+  }
+
+  trackDemoDownload(element: DownloadTarget): void {
+    if (readConsent() !== 'granted' || this.blockedBySignal) return;
+    this.client.track('browser_demo_desktop_download', {
+      release: element.dataset.analyticsRelease ?? 'unknown',
+      platform: platform(element.dataset.analyticsPlatform),
+      architecture: architecture(element.dataset.analyticsArchitecture),
+      packageType: packageType(element.dataset.analyticsPackageType),
+    });
+    void this.client.flush();
+  }
+
   private showBanner(): void {
     if (this.banner) this.banner.hidden = false;
   }
@@ -331,5 +358,24 @@ export function initWebsiteAnalytics(options: WebsiteAnalyticsOptions): void {
   });
   document.querySelectorAll<HTMLElement>('[data-analytics-withdraw]').forEach((element) => {
     element.addEventListener('click', () => controller.withdraw());
+  });
+  document.querySelectorAll<HTMLElement>('[data-analytics-contact]').forEach((element) => {
+    const channel = element.dataset.analyticsContact;
+    if (
+      channel === 'general' ||
+      channel === 'support' ||
+      channel === 'feedback' ||
+      channel === 'security' ||
+      channel === 'privacy' ||
+      channel === 'press' ||
+      channel === 'partnerships'
+    ) {
+      element.addEventListener('click', () => controller.trackContact(channel), { passive: true });
+    }
+  });
+  document.querySelectorAll<DownloadTarget>('[data-analytics-demo-download]').forEach((element) => {
+    element.addEventListener('click', () => controller.trackDemoDownload(element), {
+      passive: true,
+    });
   });
 }
