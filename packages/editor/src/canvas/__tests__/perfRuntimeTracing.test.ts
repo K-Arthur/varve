@@ -90,7 +90,7 @@ describe('canvas performance trace integration', () => {
     const trace = endInteraction()!;
 
     expect(trace.frames).toHaveLength(1);
-    expect(trace.frames[0].disposition).toBe('content');
+    expect(trace.frames[0]!.disposition).toBe('content');
   });
 
   it('propagates render revision when supplied in frame diagnostics', () => {
@@ -125,7 +125,7 @@ describe('canvas performance trace integration', () => {
     const trace = endInteraction()!;
 
     expect(trace.frames).toHaveLength(1);
-    expect(trace.frames[0].disposition).toBe('present');
-    expect(trace.frames[0].renderRevision).toBe(42);
+    expect(trace.frames[0]!.disposition).toBe('present');
+    expect(trace.frames[0]!.renderRevision).toBe(42);
   });
 });
