@@ -405,29 +405,24 @@ function checkUpdaterTruth() {
   const manifest = readJSON('apps/website/src/data/release-manifest.json');
   if (!manifest) return problems;
 
-  // If the release is unsigned, the download page should gate updater claims
-  // behind a conditional on release.signed (or similar), not state them
-  // unconditionally.
-  if (manifest.signed === false) {
+  // If the release does not have an updater feed, the download page should
+  // gate updater claims behind a conditional on release.updater, not state
+  // them unconditionally.
+  if (manifest.updater === false) {
     const downloadPage = readFile('apps/website/src/pages/download.astro');
     if (downloadPage) {
-      // Check for unconditional updater claims — text that appears OUTSIDE
-      // a `release.signed` conditional branch. We do a simple heuristic: if
-      // the page contains both updater claim patterns AND a release.signed
-      // guard, the guard is present. If it contains updater claims but no
-      // release.signed guard, the claims are unconditional.
-      const hasSignedGuard = /release\.signed/.test(downloadPage);
+      const hasUpdaterGuard = /release\.updater/.test(downloadPage);
       const unconditionalPatterns = [
         /self-updates in place/i,
         /updates install through the installer/i,
         /updates the installed app/i,
       ];
-      if (!hasSignedGuard) {
+      if (!hasUpdaterGuard) {
         for (const pattern of unconditionalPatterns) {
           if (pattern.test(downloadPage)) {
             problems.push(
-              `download.astro: claims updater works (${pattern.source}) but release is unsigned (v${manifest.version}). ` +
-                'Wrap updater claims in a conditional on release.signed, or add a caveat.',
+              `download.astro: claims updater works (${pattern.source}) but release has no updater feed (v${manifest.version}). ` +
+                'Wrap updater claims in a conditional on release.updater, or add a caveat.',
             );
           }
         }

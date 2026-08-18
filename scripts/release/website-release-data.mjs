@@ -222,6 +222,10 @@ export function buildWebsiteReleaseData({
     signed: manifest.signed === true,
     notarized: manifest.notarized === true,
     signing: manifest.signing ?? {},
+    // Updater availability is independent of OS code-signing. A minisign
+    // keypair (free, no subscription) is enough for the updater feed; OS
+    // signing (Apple Developer ID, Azure Authenticode) is a separate concern.
+    updater: manifest.updater === true,
     integrity,
     releaseUrl: `https://github.com/${repo}/releases/tag/${tag}`,
     checksumsUrl: `${base}/SHA256SUMS.txt`,
@@ -247,6 +251,7 @@ export function emptyWebsiteReleaseData(repo) {
     prerelease: true,
     signed: false,
     notarized: false,
+    updater: false,
     integrity: null,
     releaseUrl: `https://github.com/${repo}/releases`,
     checksumsUrl: null,

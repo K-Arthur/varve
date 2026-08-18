@@ -41,7 +41,7 @@ const faqSchema = {
       name: 'What platforms does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the download page only after their runtime gates pass. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.',
+        text: 'Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the download page only after their runtime gates pass. There is no Intel macOS build: Varve\'s on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.',
       },
     },
     {
@@ -105,7 +105,9 @@ const faqSchema = {
       name: 'How do updates work?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: `Varve updates are designed to be consent-first. The current published release (v${releaseVersion}) does not include a signed update feed, so manual updates through the download page or GitHub Releases are the dependable path. Future feed-enabled builds can offer manual checks, notifications, or verified downloads in Settings > Updates. Installation remains separate, with package-specific limitations.`,
+        text: release.updater
+          ? `Varve updates are consent-first and cryptographically verified. The current release (v${releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply — see the Updates guide.`
+          : `Varve updates are designed to be consent-first. The current release (v${releaseVersion}) does not include an in-app updater, so manual updates through the download page or GitHub Releases are the dependable path. Future feed-enabled builds can offer automatic checks, notifications, or verified downloads in Settings > Updates.`,
       },
     },
     {
@@ -157,12 +159,15 @@ const faqSchema = {
         <div class="faq-item">
           <h3>How do updates work?</h3>
           <p>
-            Updates are designed to be consent-first. The current published release (v{releaseVersion}) does not include a signed update feed, so manual updates through the <a
-              href={sitePath('/download')}>download page</a> or GitHub Releases are the
-              dependable path. Future feed-enabled builds can offer manual checks, notifications,
-              or verified downloads in <strong>Settings &gt; Updates</strong>; package-specific
-              limitations still apply. See the <a href={sitePath('/docs/updates')}>Updates guide</a>
-              for details.
+            {release.updater ? (
+              <>Updates are consent-first and cryptographically verified. The current release (v{releaseVersion}) includes an in-app updater. On first launch you can choose to allow automatic update checks. Updates are verified before installation and never overwrite unsaved work. Package-specific limitations apply. See the <a href={sitePath('/docs/updates')}>Updates guide</a> for details.</>
+            ) : (
+              <>Updates are designed to be consent-first. The current release (v{releaseVersion}) does not include an in-app updater, so manual updates through the <a
+                href={sitePath('/download')}>download page</a> or GitHub Releases are the
+                dependable path. Future feed-enabled builds can offer automatic checks, notifications,
+                or verified downloads in <strong>Settings &gt; Updates</strong>. See the <a href={sitePath('/docs/updates')}>Updates guide</a>
+                for details.</>
+            )}
           </p>
         </div>
 

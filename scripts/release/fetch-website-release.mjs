@@ -41,7 +41,7 @@
  * strongly recommended: the unauthenticated rate limit (60 req/h) is
  * insufficient for a busy release day.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { repoSlug } from './product.mjs';
@@ -162,7 +162,12 @@ async function main() {
   const website = buildWebsiteReleaseData({
     repo,
     tag,
-    manifest,
+    manifest: {
+      ...manifest,
+      // Updater availability: the feed was fetched and written to public/updates/
+      // if refreshUpdaterFeeds found a varve-update-*.json asset on this release.
+      updater: existsSync(join(UPDATE_OUT_DIR, 'stable.json')),
+    },
     checksumsText,
     sbomFilenames: verified.sbomAssets,
     integrity: 'verified',

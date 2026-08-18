@@ -568,7 +568,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
           <div class="updates-info">
             <h2>Keeping Varve up to date</h2>
-            {release.signed ? (
+            {release.updater ? (
               <>
                 <p>
                   Varve checks for updates only after you choose to allow it. On first launch you are
@@ -591,11 +591,13 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   <li>
                     <strong>Windows (NSIS):</strong> updates install through the installer with a
                     visible progress window, and installation happens only after your approval.
+                    {!release.signed && ' Windows may show a SmartScreen warning for unsigned builds — choose More info, then Run anyway.'}
                   </li>
                   <li>
                     <strong>macOS:</strong> updates the installed app in your Applications folder.
                     If you are running Varve from the mounted DMG or a Gatekeeper-translocated copy,
                     move it into Applications first.
+                    {!release.signed && ' macOS may block unsigned builds — use System Settings > Privacy & Security to allow it.'}
                   </li>
                   <li>
                     <strong>Debian / RPM packages:</strong> installed files are owned by your package
@@ -604,8 +606,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   </li>
                 </ul>
                 <p class="download-meta">
-                  Updates are published only after every release gate passes: build, platform
-                  signing/notarization, updater signature verification, checksums and SBOM.
+                  Updates are cryptographically signed and verified. {!release.signed && 'Platform code-signing (Apple Developer ID, Windows Authenticode) is not yet provisioned — see the '}
+                  <a href={sitePath('/docs/updates')}>Updates guide</a>
+                  {!release.signed && ' for platform-specific details.'}
                 </p>
               </>
             ) : (
@@ -619,8 +622,8 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                   and install it over your existing copy. Your documents and settings are preserved.
                 </p>
                 <p class="download-meta">
-                  In-app updates require a signed release feed, which will be available in a future
-                  release once platform signing and notarization are provisioned.
+                  In-app updates require a signed release feed. The updater will be available in a
+                  future release.
                 </p>
               </>
             )}
