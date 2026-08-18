@@ -17,8 +17,12 @@ import ClosingCTA from '../components/ClosingCTA.astro';
 
 const faqs = [
   {
+    q: 'Can I use Varve without an account or internet?',
+    a: 'Yes. Varve requires no account, no cloud sync, and no internet connection for core editing. Optional network features — model downloads, font search, update checks — are each explicit and user-controlled. Documents are local files on your disk.',
+  },
+  {
     q: 'Is Varve a Figma alternative?',
-    a: "It's a genuine alternative for vector, layout, typography, and prototyping work, with the opposite storage model: Varve documents are local files with no account required, where Figma is browser-based and built around real-time multi-user collaboration. Varve does not have real-time collaboration yet, so if that's central to your workflow, it isn't a drop-in replacement today.",
+    a: "It's a genuine alternative for vector, layout, typography, and prototyping work, with the opposite storage model: Varve documents are local files with no account required, where Figma is browser-based and built around real-time multi-user collaboration. Varve also runs natively on Linux, which Figma does not. Varve does not have real-time collaboration yet, so if that's central to your workflow, it isn't a drop-in replacement today.",
   },
   {
     q: 'Is Varve like Adobe Illustrator?',
@@ -115,7 +119,7 @@ const pageSchema = {
           <div class="from-card">
             <h3>Figma</h3>
             <p class="from-what">Browser-based, built around real-time multi-user collaboration and UI design workflows.</p>
-            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app with documents as local files and no account — but no real-time collaboration yet.</p>
+            <p class="from-diff"><strong>Varve differs:</strong> a native desktop app with documents as local files, no account — and it runs natively on Linux, which Figma does not. No real-time collaboration yet.</p>
           </div>
           <div class="from-card">
             <h3>Adobe Illustrator</h3>

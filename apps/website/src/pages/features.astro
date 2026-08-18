@@ -10,7 +10,7 @@ import ClosingCTA from '../components/ClosingCTA.astro';
     <div class="features-page">
       <h1 class="page-hero-title">Features</h1>
       <p class="page-hero-sub">
-        What Varve can do today, with honest status indicators for each area. Varve is in beta — features are functional but evolving.
+        Vector, layout, typography, motion, and print — all in one application. Honest status for each area. Varve is in beta — features are functional but evolving.
       </p>
 
       <div class="features-grid">
@@ -102,6 +102,15 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           <StatusPill status="available" class="feature-card-pill" />
           <h2>Color & Effects</h2>
           <p>Native CMYK document colors, precision-aware working values, ICC profiles, effects, adjustments, and halftone</p>
+        </a>
+
+        <a href={sitePath('/features/print-production')} class="feature-card">
+          <div class="feature-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          </div>
+          <StatusPill status="available" class="feature-card-pill" />
+          <h2>Print Production</h2>
+          <p>CMYK via ICC profiles, PDF/X-1a and PDF/X-4 export, crop and registration marks, bleed guides, and preflight checks</p>
         </a>
 
         <a href={sitePath('/features/asset-similarity')} class="feature-card">

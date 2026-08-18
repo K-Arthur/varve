@@ -10,7 +10,6 @@
  * The cards use CSS custom properties so they automatically adapt to light
  * and dark mode without separate implementations.
  */
-import AnimatedText from './AnimatedText.astro';
 import DownloadCTA from './DownloadCTA.astro';
 import { sitePath } from '../lib/siteUrl';
 import { PRODUCT_STATUS } from '@varve/shared';
@@ -132,13 +131,13 @@ import { PRODUCT_STATUS } from '@varve/shared';
       Local-first design suite&nbsp;&middot;&nbsp;{PRODUCT_STATUS.label.toLowerCase()}
     </p>
     <h1 id="hero-title" class="hero-title">
-      Varve &mdash; design across disciplines.
-      <span class="hero-title-line"><AnimatedText /></span>
+      Design locally.
+      <span class="hero-title-line">No account. No subscription.</span>
     </h1>
     <p class="hero-subtitle">
-      Vector, layout, typography, motion, prototyping, and print production
-      in one application &mdash; no subscription, no account, and core editing
-      that works offline. Optional online services are explicit.
+      One application for vector, layout, typography, motion, and print
+      &mdash; with native Linux performance, local files, and a
+      source-available license that converts to MIT.
     </p>
     <div class="hero-ctas">
       <DownloadCTA size="large" beta />

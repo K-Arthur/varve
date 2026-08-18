@@ -38,6 +38,10 @@ function toRoute(filePath: string): string | null {
 function priority(route: string): string {
   if (route === '/') return '1.0';
   if (route === '/download') return '0.9';
+  // Wedge-relevant pages get elevated priority despite their depth.
+  if (route === '/features/local-first') return '0.8';
+  if (route === '/features/print-production') return '0.7';
+  if (route === '/compare') return '0.8';
   const depth = route.split('/').filter(Boolean).length;
   return depth <= 1 ? '0.8' : '0.6';
 }
