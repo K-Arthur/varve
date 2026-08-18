@@ -15,6 +15,8 @@ import { AuxiliaryRoot } from '@varve/editor/auxiliary';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { demoMode } from './demo/demoMode';
+import { installStaleAssetGuard } from './demo/staleAssetGuard';
 import { initCspDiagnostics } from './security/cspDiagnostics';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
@@ -62,6 +64,13 @@ async function bootstrap() {
   // render the minimal auxiliary shell instead of the full app.
   const isPanelWindow =
     new URLSearchParams(window.location.search).get('surface') === 'panel-window';
+
+  // Stale-chunk recovery for the public browser demo (deploy swaps invalidate
+  // old hashed chunks; a reload gets the fresh shell). No-op elsewhere.
+  const demo = demoMode();
+  if (demo.active && !isPanelWindow) {
+    installStaleAssetGuard();
+  }
 
   createRoot(root).render(
     <StrictMode>

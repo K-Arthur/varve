@@ -36,6 +36,7 @@ const ROUTES = [
   '/robots.txt',
   '/favicon.svg',
   '/og-image.png',
+  '/try/',
 ];
 const RETRIES = 12;
 const RETRY_DELAY_MS = 15_000;
@@ -107,6 +108,23 @@ if (expectOrigin) {
     `${good ? 'PASS' : 'FAIL'}  canonical origin ${expectOrigin.padEnd(22)} ${canonical || '(none)'}`,
   );
   good ? ok++ : failures++;
+}
+
+// ── Browser demo asset checks ────────────────────────────────────────────────
+{
+  const wasmUrl = `${base}/try/wasm/varve_wasm_bg.wasm`;
+  try {
+    const res = await fetch(wasmUrl, { method: 'HEAD' });
+    const ct = res.headers.get('content-type') ?? '';
+    const good = res.status === 200 && ct.includes('application/wasm');
+    console.log(
+      `${good ? 'PASS' : 'FAIL'}  ${'WASM asset (/try/wasm/)'.padEnd(30)} ${res.status} ${ct}`,
+    );
+    good ? ok++ : failures++;
+  } catch (err) {
+    console.log(`FAIL  ${'WASM asset (/try/wasm/)'.padEnd(30)} error: ${err.message}`);
+    failures++;
+  }
 }
 
 console.log(`\nSmoke check: ${ok} passed, ${failures} failed`);

@@ -9,6 +9,8 @@ import {
   SettingsDialog,
   SettingsProvider,
   Shell,
+  startDesktopFlushTimer,
+  stopDesktopFlushTimer,
   UpdateCoordinatorProvider,
   useStartup,
 } from '@varve/editor';
@@ -24,6 +26,8 @@ import { DocumentCodec } from '@varve/scene';
 import { StartupLoader, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
+import { DemoBanner } from './demo/DemoBanner';
+import { useDemoEntry } from './demo/useDemoEntry';
 import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
 import { armOsFileOpen } from './startup/osFileOpen';
 import { revealMainWindow } from './startup/revealMainWindow';
@@ -58,7 +62,9 @@ export function App() {
   useEffect(() => {
     desktopAnalytics.track('app_launched', { surface: 'desktop' });
     void desktopAnalytics.flush();
+    startDesktopFlushTimer();
     return () => {
+      stopDesktopFlushTimer();
       void getDesktopAnalytics().shutdown();
     };
   }, []);
@@ -344,6 +350,45 @@ export function App() {
     setView('home');
   }, []);
 
+  // Commit an open with content already in hand (shared by the normal open
+  // path and the demo's direct path) so editor-mount and startup milestones
+  // are identical everywhere.
+  const commitOpen = useCallback(
+    (entry: { id: string; name: string }, json: string) => {
+      setOpenRequest((prev) => ({
+        id: entry.id,
+        name: entry.name,
+        json,
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+      markEditorStateInitialized();
+      setEditorMounted(true);
+      setView('editor');
+      pendingEditorMilestone.current?.();
+      pendingEditorMilestone.current = afterFirstVisiblePaint(
+        '.editor-canvas__content-layer',
+        () => {
+          onEditorReady();
+          measure('varve-editor-first-visible-canvas', 'editor_state_initialized');
+          window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'editor' } }));
+        },
+      );
+    },
+    [markEditorStateInitialized, measure, onEditorReady],
+  );
+
+  // Browser-demo entry (/try): seed the sample document and open it directly
+  // instead of the Home-first boot. Desktop and non-demo URLs are no-ops.
+  const demo = useDemoEntry(platform, storageIsEphemeral, {
+    onOpenFile: (entry) => void handleOpenFile(entry),
+    onOpenDirect: commitOpen,
+  });
+
+  // Keep the title honest in the demo.
+  useEffect(() => {
+    if (demo.config.active) document.title = 'Varve — Try in browser';
+  }, [demo.config.active]);
+
   const handleResumeEditing = useCallback(() => {
     setView('editor');
     onEditorReady();
@@ -399,6 +444,7 @@ export function App() {
         }}
       >
         <TitleBar />
+        {demo.config.active && <DemoBanner config={demo.config} />}
         {storageIsEphemeral && (
           <div role="alert" className="varve-ephemeral-storage-banner">
             Local storage is unavailable, so documents are kept in memory only and will be lost when

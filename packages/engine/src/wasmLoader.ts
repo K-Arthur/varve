@@ -8,6 +8,7 @@
  * Shaping a loaded module into an `Engine`, and deciding what to do when loading
  * fails, are the caller's job (see engine.ts's `tryWasmEngine`).
  */
+import { resolveAppAssetUrl } from './assets';
 import { hitTest as stubHitTest } from './geometry';
 import type { SceneNode } from './types';
 
@@ -56,8 +57,8 @@ export function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
 
 async function loadWasmEngineModuleUncached(): Promise<WasmEngineModule | null> {
   try {
-    const base = '/wasm';
-    const candidates = [`${base}/varve_wasm_simd_bg.wasm`, `${base}/varve_wasm_bg.wasm`];
+    const base = resolveAppAssetUrl('wasm/');
+    const candidates = [`${base}varve_wasm_simd_bg.wasm`, `${base}varve_wasm_bg.wasm`];
     for (const wasmUrl of candidates) {
       let blobUrl: string | null = null;
       try {
@@ -123,8 +124,8 @@ let cachedTraceModule: WasmTraceModule | null = null;
 export async function tryLoadTraceWasm(): Promise<WasmTraceModule | null> {
   if (cachedTraceModule) return cachedTraceModule;
   try {
-    const base = '/wasm';
-    const candidates = [`${base}/varve_wasm_simd_bg.wasm`, `${base}/varve_wasm_bg.wasm`];
+    const base = resolveAppAssetUrl('wasm/');
+    const candidates = [`${base}varve_wasm_simd_bg.wasm`, `${base}varve_wasm_bg.wasm`];
     for (const wasmUrl of candidates) {
       let blobUrl: string | null = null;
       try {

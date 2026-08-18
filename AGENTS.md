@@ -571,7 +571,7 @@ See `docs/architecture/text-pipeline.md`.
 ### apps/
 | App | Status | Contents |
 |---|---|---|
-| `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend |
+| `apps/desktop` | **Built** | Tauri 2 app with Vite+React frontend; `build:try` produces the public browser demo at `/try/` |
 | `apps/website` | **Built** | Astro 5 static marketing site, GitHub Pages deploy (see `docs/release/website.md`) |
 
 ## Release signing (code-signing pipeline)

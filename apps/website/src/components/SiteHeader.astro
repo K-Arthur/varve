@@ -75,6 +75,9 @@ const versionLabel = release.hasRelease && release.version
 
     <div class="nav-actions">
       <ThemeToggle />
+      <a href={sitePath('/try/')} class="nav-try-cta" target="_blank" rel="noopener noreferrer">
+        Try
+      </a>
       <DownloadCTA variant="primary" size="compact" label="Download" class="nav-download-cta" />
       <button
         class="mobile-menu-toggle"
@@ -462,6 +465,26 @@ const versionLabel = release.hasRelease && release.version
   :global(.nav-download-cta:hover),
   :global(.nav-download-cta:focus-visible) {
     box-shadow: 0 2px 10px -2px color-mix(in oklab, var(--accent-primary) 55%, transparent);
+  }
+
+  :global(.nav-try-cta) {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    text-decoration: none;
+    color: var(--accent-primary);
+    border: 1px solid currentColor;
+    transition:
+      background-color var(--duration-quick) var(--ease-default),
+      box-shadow var(--duration-quick) var(--ease-default);
+  }
+
+  :global(.nav-try-cta:hover),
+  :global(.nav-try-cta:focus-visible) {
+    background: color-mix(in oklab, var(--accent-primary) 8%, transparent);
   }
 
   /* Mobile toggle */

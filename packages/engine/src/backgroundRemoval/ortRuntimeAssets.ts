@@ -1,6 +1,8 @@
 /** Resolve and configure ONNX Runtime Web companion assets consistently. */
 
-declare const __VARVE_ASSET_BASE__: string | undefined;
+import { resolveAppAssetUrl } from '../assets';
+
+export { resolveAppAssetUrl } from '../assets';
 
 export const REQUIRED_ORT_RUNTIME_FILES = [
   'ort-wasm-simd-threaded.jsep.mjs',
@@ -10,22 +12,6 @@ export const REQUIRED_ORT_RUNTIME_FILES = [
 ] as const;
 
 let loggedConfiguration = false;
-
-function configuredAssetBase(): string {
-  if (typeof __VARVE_ASSET_BASE__ !== 'undefined' && __VARVE_ASSET_BASE__) {
-    return __VARVE_ASSET_BASE__;
-  }
-  return '/';
-}
-
-export function resolveAppAssetUrl(relativePath: string, locationHref?: string): string {
-  const href =
-    locationHref ??
-    (typeof globalThis.location !== 'undefined' ? globalThis.location.href : 'http://localhost/');
-  const origin = new URL(href).origin;
-  const baseUrl = new URL(configuredAssetBase(), `${origin}/`);
-  return new URL(relativePath.replace(/^\//, ''), baseUrl).href;
-}
 
 export function getOrtWasmBaseUrl(locationHref?: string): string {
   return resolveAppAssetUrl('ort-wasm/', locationHref);
