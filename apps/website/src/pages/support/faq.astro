@@ -41,7 +41,7 @@ const faqSchema = {
       name: 'What platforms does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the download page only after their runtime gates pass. There is no Intel macOS build.',
+        text: 'Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the download page only after their runtime gates pass. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.',
       },
     },
     {
@@ -173,7 +173,7 @@ const faqSchema = {
 
         <div class="faq-item">
           <h3>What platforms does Varve support?</h3>
-          <p>Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the <a href={sitePath('/download')}>download page</a> only after their runtime gates pass. There is no Intel macOS build.</p>
+          <p>Varve publishes Linux x86_64 packages, Apple Silicon macOS builds, and Windows x86_64 installers. Native Linux ARM64 and Windows ARM64 release targets are now in validation and will appear on the <a href={sitePath('/download')}>download page</a> only after their runtime gates pass. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.</p>
         </div>
 
         <div class="faq-item">

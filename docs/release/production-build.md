@@ -220,8 +220,10 @@ cd apps/desktop && pnpm tauri build --target x86_64-pc-windows-msvc --bundles ns
 ```
 
 Note the macOS build deliberately targets `aarch64`, not `universal`: the
-bundled ONNX Runtime dylib has no macOS Intel build, so a "universal" binary
-would be half-degraded (audit H-3).
+bundled ONNX Runtime has no macOS Intel library — upstream discontinued
+macOS x86_64 binaries at v1.24.1 (last line 1.23.0) — so a "universal"
+binary would be half-degraded (audit H-3; full dependency audit in
+`docs/plans/macos-intel-feasibility.md`).
 
 For Windows ARM64, Tauri documents that the NSIS bootstrapper may remain an
 x86 process under emulation while the installed `varve-desktop.exe` is native
