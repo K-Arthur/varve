@@ -45,7 +45,7 @@ export function LayoutChildSection({ nodes }: { nodes: SceneNode[] }) {
   const position = commonValue(nodes, (node) => node.layoutPosition ?? 'flow');
 
   return (
-    <DisclosureSection title="Layout child" id="layout-child">
+    <DisclosureSection title="Layout child" sectionId="layout-child">
       <FieldRow label="Position">
         <Select
           label="Layout position"
