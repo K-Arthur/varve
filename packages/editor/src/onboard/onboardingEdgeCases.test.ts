@@ -41,6 +41,8 @@ describe('onboardingEdgeCases', () => {
       dismissedTips: ['test'],
       seenFeatureBadges: [],
       tutorialFileCompleted: false,
+      dismissedMicroHints: [],
+      lastSeenReleaseVersion: '',
     };
     saveOnboardingState(state);
 
@@ -102,6 +104,8 @@ describe('onboardingEdgeCases', () => {
       dismissedTips: [],
       seenFeatureBadges: [],
       tutorialFileCompleted: false,
+      dismissedMicroHints: [],
+      lastSeenReleaseVersion: '',
     };
 
     // Version 0 is below the current version, so it should be a bump

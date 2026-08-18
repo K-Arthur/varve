@@ -21,6 +21,7 @@ export type SettingsSection =
   | 'collab'
   | 'ai'
   | 'privacy'
+  | 'learning'
   | 'updates'
   | 'about';
 

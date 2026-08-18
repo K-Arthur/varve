@@ -80,6 +80,8 @@ describe('onboardingStore', () => {
       dismissedTips: [],
       seenFeatureBadges: [],
       tutorialFileCompleted: false,
+      dismissedMicroHints: [],
+      lastSeenReleaseVersion: '',
     };
     expect(isVersionBump(old)).toBe(true);
     const current: OnboardingStore = { ...old, onboardingVersion: getCurrentVersion() };
