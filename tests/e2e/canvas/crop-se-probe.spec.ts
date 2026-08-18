@@ -26,7 +26,6 @@ test.describe('crop se handle probe', () => {
     if (!box) throw new Error('se handle not found');
     const probe = await page.evaluate(
       ({ x, y }) => {
-        const el = document.elementFromPoint(x, y);
         const all = document
           .elementsFromPoint(x, y)
           .slice(0, 6)
