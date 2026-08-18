@@ -272,6 +272,10 @@ export interface Platform {
 
   // ─── Native dialogs / OS integration ─────────────────────────────────────
   openDocumentFromDisk(): Promise<OpenFileResult | null>;
+  /** Open a document by absolute path (OS file-association intake: "Open
+   *  With" hands the app a path instead of a user pick). Unsupported
+   *  runtimes (web/memory) return null. */
+  openDocumentFromPath(path: string): Promise<OpenFileResult | null>;
   importDocumentFromDisk(
     extensions: string[],
   ): Promise<{ result: OpenFileResult | null; unsupported: boolean }>;

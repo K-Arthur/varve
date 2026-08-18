@@ -1,4 +1,5 @@
 mod crash;
+mod file_open;
 mod font;
 mod font_storage;
 mod filesystem;
@@ -2908,6 +2909,9 @@ pub fn run() {
             app.manage(UpscaleCancelState::new());
             app.manage(TraceCancelState::new());
             app.manage(lifecycle::LifecycleGuard::new());
+            // OS file-association intake (.varve / .strata "Open With").
+            app.manage(file_open::PendingFileOpens::default());
+            file_open::register_startup_args(app.handle());
 
             // WebKitGTK owns the touchpad pinch gesture and applies it as page
             // zoom, scaling the entire UI. The gesture never reaches JS, so the
@@ -3095,10 +3099,14 @@ pub fn run() {
             update_cursor,
             list_plugins,
             close_splashscreen,
+            // OS file-association intake
+            file_open::take_pending_open_files,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            // macOS LaunchServices "Open With" → pending-open queue
+            file_open::handle_run_event(app_handle, &event);
             // Run-event interception (ExitRequested → coordinator) — the
             // only place Tauri 2 exposes the exit veto (ADR-0216 D5).
             lifecycle::handle_run_event(app_handle, event);
