@@ -78,7 +78,7 @@ entirely off-screen when content bounds are known.
 | `zoom`, `pan`, `cameraRotation` | `EditorState` (active tab) | Per inactive tab in `sessionStoreRef` |
 | `snapEnabled`, `pixelGridEnabled`, `rulerMode`, `gridOverlayMode`, `unitType`, `guidesVisible`, `snapGrid` | `EditorState` | Per inactive tab snapshot + `localStorage` defaults via `settings.viewport` |
 | `selectedGuideId` | `EditorState` (ephemeral) | Not persisted |
-| `Document.guides[]` | Document model (`pageId` per guide) | Saved with `.strata` file |
+| `Document.guides[]` | Document model (`pageId` per guide) | Saved with `.varve` file |
 | Panel visibility | `settings.panel` | `localStorage` |
 
 ### Per-tab snapshot (`SavedViewport`)

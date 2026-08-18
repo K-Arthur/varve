@@ -80,7 +80,7 @@ frame/interaction percentiles from the `?perf=1` ring buffer.
 |---|---|---|
 | `probe-baseline.mjs` | Canvas frame timing at a fixed node count | `NODES` env var |
 | `probe-scale.mjs` | Frame cost + interaction response as node count scales | `[nodeCount]` arg |
-| `probe-large-doc.mjs` | Frame cost on a large `.strata` doc opened via the real Open dialog | `[nodeCount]` arg |
+| `probe-large-doc.mjs` | Frame cost on a large `.varve` doc opened via the real Open dialog | `[nodeCount]` arg |
 | `probe-latency.mjs` | Interaction latency; fails (exit 1) on budget breach | CI-fence style check |
 | `probe-cpu-profile.mjs` | Self-time ranking of hot functions | `--callers=<fn>` attribution |
 

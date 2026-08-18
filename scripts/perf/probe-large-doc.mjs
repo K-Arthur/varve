@@ -1,4 +1,4 @@
-/* Deterministic large-document probe: generate a .strata document on disk,
+/* Deterministic large-document probe: generate a .varve document on disk,
  * open it through the app's own Open dialog (file chooser), then measure
  * canvas frame cost + interaction latency via the diagnostics ring.
  *
@@ -9,7 +9,7 @@ import { chromium } from '@playwright/test';
 
 const BASE = 'http://localhost:1430/?perf=1';
 const COUNT = Number(process.argv[2] ?? process.env.NODES ?? '2000');
-const DOC_PATH = '/tmp/opencode/bench-doc.strata';
+const DOC_PATH = '/tmp/opencode/bench-doc.varve';
 
 function pct(sorted, p) {
   if (!sorted.length) return 0;

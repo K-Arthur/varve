@@ -70,7 +70,7 @@ remain distinct scene concepts.
   compatibility warning (no PRNG reproduction); unknown color models
   approximate to sRGB with a warning. A partially corrupt multi-gradient file
   imports its valid entries and reports the skipped ones.
-- Native interchange: `.strata-gradient.json` (versioned, human-inspectable),
+- Native interchange: `.varve-gradient.json` (versioned, human-inspectable),
   `encodeGradientPresets` / `decodeGradientPresets`.
 - Limits: 5 MB max file, 2000 gradients, 256 color stops, 256 opacity stops,
   4096-char names, depth 32, 100k collection items.
