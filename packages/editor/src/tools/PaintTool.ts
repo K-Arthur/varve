@@ -365,7 +365,7 @@ export class PaintTool extends BaseTool {
         if (this.eraserMode) {
           updated = eraseDabOnNode(updated, dab);
         } else {
-          updated = compositeDabOnNode(updated, dab, color, this.alphaLock, this.preset.blendMode);
+          updated = compositeDabOnNode(updated, dab, color, this.alphaLock);
         }
       }
       return updated;

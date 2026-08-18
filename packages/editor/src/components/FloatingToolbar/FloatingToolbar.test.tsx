@@ -57,23 +57,20 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
   it('moves full brush configuration into a keyboard-accessible tool-options popover', async () => {
     renderInMode('drawing');
     // The workspace switch is asynchronous (requestWorkspaceSwitch). Wait for
-    // it to land — Smudge only renders once drawing mode is active — or its
-    // tool reset closes the popover mid-test (see ToolOptionsPopover's
-    // close-on-tool-change effect), making the Brush button unreachable.
+    // it to land — Smudge only renders once drawing mode is active.
     await screen.findByLabelText('Smudge');
     fireEvent.click(screen.getByLabelText('Paint Brush'));
 
     const options = screen.getByRole('button', { name: 'Tool options' });
-    expect(options).toHaveAttribute('aria-expanded', 'false');
-    fireEvent.click(options);
-
+    // Brush tools auto-open the popover for discoverability.
+    expect(options).toHaveAttribute('aria-expanded', 'true');
     expect(await screen.findByRole('dialog', { name: 'paint tool options' })).toBeInTheDocument();
     const brushButton = await screen.findByRole('button', { name: 'Brush' }, { timeout: 5000 });
     await waitFor(() => expect(brushButton).toHaveFocus());
-    expect(options).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'paint tool options' })).not.toBeInTheDocument();
+    expect(options).toHaveAttribute('aria-expanded', 'false');
     expect(options).toHaveFocus();
   });
 
