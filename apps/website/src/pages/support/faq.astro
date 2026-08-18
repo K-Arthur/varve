@@ -19,6 +19,14 @@ const faqSchema = {
     },
     {
       '@type': 'Question',
+      name: 'Does Varve work offline?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Core editing works fully offline with no account required. Optional network features include model downloads, online font/icon search, consented update checks, and user-configured cloud providers — each is explicit and user-controlled.',
+      },
+    },
+    {
+      '@type': 'Question',
       name: 'What platforms does Varve support?',
       acceptedAnswer: {
         '@type': 'Answer',
@@ -128,6 +136,11 @@ const faqSchema = {
         <div class="faq-item">
           <h3>Is Varve free?</h3>
           <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/K-Arthur/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product — it will never be this one.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Does Varve work offline?</h3>
+          <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, font search, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details.</p>
         </div>
 
         <div class="faq-item">

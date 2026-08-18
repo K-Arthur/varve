@@ -1,6 +1,6 @@
 # Varve
 
-> Varve is a free, local-first, cross-platform design suite for vector, layout, typography, motion, prototyping, and print production. It runs natively on Linux, macOS, and Windows, and is currently in public beta. Source-available under the Functional Source License 1.1 with MIT Future License (FSL-1.1-MIT): free to use, modify, and redistribute for any permitted purpose; after two years each release converts to the MIT license.
+> Varve is a free, local-first desktop design suite for vector graphics, page layout, typography, motion, prototyping, and print production. It runs natively on Linux, macOS, and Windows. No account is required, no subscription is needed, and core editing works offline. Source-available under FSL-1.1-MIT; each release converts to MIT after two years. Currently in public beta.
 
 ## What Varve is
 
@@ -40,6 +40,7 @@
 ## Frequently asked questions
 
 - Is Varve free? Yes. The Community Edition is free to download and use — no subscriptions, no feature lockouts, and no mandatory cloud requirements.
+- Does Varve work offline? Yes. Core editing works fully offline with no account required. Optional network features (model downloads, font search, update checks) are each explicit and user-controlled.
 - Is Varve open source? The source is publicly available under FSL-1.1-MIT, a source-available license. After two years, each release converts to the MIT license.
 - Does Varve have real-time collaboration? Not yet. Collaboration is UI scaffolding only, with no transport or wire protocol.
 - Can I use Varve for professional print work? It has CMYK management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and preflight checks, but it is in public beta — test thoroughly before critical production use.
