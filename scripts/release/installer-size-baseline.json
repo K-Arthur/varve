@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "note": "Expected NSIS installer sizes after the 2026-08-18 changes (WebView2 downloadBootstrapper + ort-wasm trim). Derived from the released v0.1.2 bytes: 263,742,332 (x64) / 236,738,619 (arm64) minus the embedded WebView2 standalone installer (202.8 MB / 187.3 MB raw; LZMA-incompressible, so its installer contribution ~ its raw size), minus ~9.8 MB brotli payload trimmed from varve-desktop.exe, plus ~2 MB bootstrapper. Update this file in the same commit as any intentional installer-size change — that is the override-at-source process. Per-run overrides use --override-reason.",
+  "warnRatio": 1.2,
+  "blockRatio": 1.35,
+  "installers": {
+    "nsis-x86_64": { "expectedBytes": 56000000 },
+    "nsis-aarch64": { "expectedBytes": 44000000 }
+  }
+}

@@ -31,6 +31,7 @@ trust. Start with the audit; it explains why the rest of these exist.
 | `check-bundled-assets.mjs` | Fail on LFS pointers, catalog disagreement, and unpinned model downloads |
 | `prune-foreign-runtimes.mjs` | Drop other platforms' ONNX Runtime libraries before packaging |
 | `collect-artifacts.mjs` | Rename to a predictable scheme, hash, write manifest + `SHA256SUMS.txt` |
+| `report-installer-size.mjs` | Decompose NSIS installers (7-Zip), compare against `installer-size-baseline.json`, warn/block on unexplained growth, emit the per-release size report (override: `--override-reason`, wired to the `size_gate_override` dispatch input) |
 | `merge-manifests.mjs` | Merge per-runner manifests (and signing reports), re-hashing from bytes on disk |
 | `verify-artifacts.mjs` | Verify the exact files about to be uploaded |
 | `signing-policy.mjs` | The signing rules: channel policy, secret-presence checks, report normalization, fail-closed trust verification |
@@ -57,7 +58,8 @@ tag v0.1.0
    ├── gate               lint, typecheck, tests, clippy, cargo test
    ├── signing-preflight  resolve signed or manual-download contingency
    ├── bundle             native runners; sign when configured; verify the
-   │                      artifact bytes (signing-report-*.json); collect; hash
+   │                      artifact bytes (signing-report-*.json); collect; hash;
+   │                      report installer size (Windows, gate v. baseline)
    ├── package-smoke      clean-container install + headless launch (Linux)
    ├── platform-smoke     install/mount + launch + uninstall (Win/macOS)
    ├── verify             merge + trust gate + SBOM + FINAL checksums +
