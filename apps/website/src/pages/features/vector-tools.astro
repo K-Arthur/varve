@@ -22,6 +22,17 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
+      <figure class="feature-visual">
+        <img
+          src={sitePath('/screenshots/vector-light.png')}
+          alt="A curved vector shape in Varve with its anchor points and Bézier handles shown in node editing mode"
+          width="832"
+          height="620"
+          loading="lazy"
+        />
+        <figcaption>Node editing with live Bézier handles</figcaption>
+      </figure>
+
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
@@ -101,59 +112,80 @@ import { sitePath } from '../../lib/siteUrl';
   .feature-section {
     margin-bottom: 3rem;
   }
-  
+
   .feature-section h2 {
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
     color: var(--text-primary);
   }
-  
+
   .feature-section p {
     color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
   }
-  
+
   .feature-section ul {
     list-style: none;
   }
-  
+
   .feature-section li {
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
     position: relative;
     color: var(--text-secondary);
   }
-  
+
   .feature-section li::before {
     content: "•";
     position: absolute;
     left: 0;
     color: var(--text-link-hover);
   }
-  
+
   .feature-section strong {
     color: var(--text-primary);
   }
-  
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
   .limitations {
     background: var(--surface-muted);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
-  
+
   .limitations p {
     margin-bottom: 0.75rem;
     font-weight: 600;
   }
-  
+
   .feature-cta {
     text-align: center;
     padding: 3rem 0;
     border-top: 1px solid var(--border-default);
   }
-  
+
   .feature-cta h2 {
     font-size: 1.75rem;
     font-weight: 700;
