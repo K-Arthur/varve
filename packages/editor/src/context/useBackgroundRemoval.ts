@@ -1,5 +1,6 @@
 import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
+import { getDesktopAnalytics } from '../analytics/desktopAnalytics';
 import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
 import { warmMaskRenderCache } from '../backgroundRemoval/maskRenderCache';
 import {
@@ -198,6 +199,7 @@ export function useBackgroundRemoval(
           },
         });
         announcerRef.current?.announce('Background removal preview ready');
+        getDesktopAnalytics().track('feature_used', { feature: 'background_removal' });
       } catch (e) {
         if ((e as Error).message === 'cancelled') return;
         announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);

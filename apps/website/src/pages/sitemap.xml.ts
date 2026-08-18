@@ -58,6 +58,10 @@ export const GET: APIRoute = ({ site }) => {
     .filter((route): route is string => route !== null)
     .sort();
 
+  // /try is a separate Vite build output (desktop demo), not an .astro page.
+  // Add it manually so crawlers and Search Console can discover it.
+  if (!routes.includes('/try')) routes.push('/try');
+
   // `siteUrl` joins the configured site origin with the base path — the same
   // joining every link on the site uses, so a domain or base change updates
   // the sitemap without any edit here.

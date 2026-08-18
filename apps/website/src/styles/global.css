@@ -7,7 +7,7 @@
  * prefixes) from theme.css.
  */
 
-/* Import Strata design tokens (theme-aware) + the website semantic layer. */
+/* Import Varve design tokens (theme-aware) + the website semantic layer. */
 @import "@varve/ui/tokens.css";
 @import "./theme.css";
 
