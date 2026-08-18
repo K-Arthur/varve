@@ -4,11 +4,15 @@
 
 | Identity | Commits | Type |
 |----------|---------|------|
-| Kevin Arthur `<hello@kevinarthur.design>` | 88 | Human (canonical) |
+| Kevin Arthur `<hello@kevinarthur.design>` | 1638 | Human (canonical) |
 | Strata Founder `<founder@strata.local>` | 583 | Human (early alias) |
-| Cascade Agent `<agent@strata.dev>` | 202 | AI automation |
+| K-Arthur `<58142087+K-Arthur@users.noreply.github.com>` | 10 | Human (GitHub web interface) |
+| Cascade Agent `<agent@strata.dev>` | 189 | AI automation |
+| github-actions[bot] | 1 | CI tooling (visual baseline refresh) |
+| dependabot[bot] | 1 | CI tooling (Actions version bump) |
 
-**Total commits:** ~873 across all branches.
+**Total commits:** ~2422 across all branches. All human commits are one
+person: Kevin Arthur.
 
 ## Identity mapping
 
@@ -24,6 +28,15 @@ person as `Kevin Arthur <hello@kevinarthur.design>`. Evidence:
   hello@kevinarthur.design was adopted
 
 A `.mailmap` maps these two identities for display tools.
+
+### K-Arthur — GitHub web interface
+
+`K-Arthur <58142087+K-Arthur@users.noreply.github.com>` (10 commits) is the
+same person, using GitHub's web UI commit identity. This is the same human
+as Kevin Arthur. The noreply address is a GitHub-provided forwarding
+address.
+
+A `.mailmap` maps this identity to the canonical form for display tools.
 
 ### Cascade Agent — AI automation
 
@@ -78,7 +91,8 @@ the maintainer's tooling.
 
 ## Recommendations
 
-1. The `.mailmap` already maps `Strata Founder` → `Kevin Arthur`.
+1. The `.mailmap` maps `Strata Founder`, `K-Arthur`, and `Cascade Agent`
+   to the canonical `Kevin Arthur <hello@kevinarthur.design>` identity.
 2. Future automated commits should use `Co-authored-by: Kevin Arthur <hello@kevinarthur.design>`
    trailer when the agent commits on behalf of the human.
 3. External contributors must use `git commit -s` for DCO compliance.
