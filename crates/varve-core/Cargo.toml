@@ -3,7 +3,7 @@ name = "varve-core"
 description = "Core geometry, scene graph primitives, and hit-testing for Varve."
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+license = "MIT OR Apache-2.0"
 authors.workspace = true
 repository.workspace = true
 

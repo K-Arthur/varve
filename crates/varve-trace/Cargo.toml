@@ -3,7 +3,7 @@ name = "varve-trace"
 description = "Raster-to-vector auto-tracing (Potrace/vtracer-class: contour + centerline)."
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+license = "MIT OR Apache-2.0"
 authors.workspace = true
 repository.workspace = true
 

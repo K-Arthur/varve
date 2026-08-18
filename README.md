@@ -224,12 +224,15 @@ subscription and no feature paywall.
 <details>
 <summary><strong>Is Varve open source or source-available?</strong></summary>
 <br>
-Source-available, not OSI-approved open source. Varve is licensed under the
-Functional Source License 1.1 with MIT Future License (FSL-1.1-MIT): the
-source is public and you may use, modify, and redistribute it for any
-purpose that doesn't compete commercially with Varve. Each release
-automatically converts to the plain MIT license two years after it ships.
-See <a href="LICENSE">LICENSE</a>.
+The application is source-available under FSL-1.1-MIT: the source is public
+and you may use, modify, and redistribute it for any purpose that doesn't
+compete commercially with Varve. Each release automatically converts to the
+plain MIT license two years after it ships. See <a href="LICENSE">LICENSE</a>.
+
+Several engine crates (<code>varve-core</code>, <code>varve-colour</code>,
+<code>varve-trace</code>, and others) are published separately under
+<strong>MIT OR Apache-2.0</strong> — genuine OSI-approved open source. See
+<a href="docs/licensing/mixed-license-model.md">docs/licensing/mixed-license-model.md</a>.
 </details>
 
 <details>
@@ -352,6 +355,12 @@ Version 1.1, MIT Future License** (FSL-1.1-MIT) — source-available, not
 OSI-approved open source, with an automatic conversion to the **MIT
 License** two years after each release. See [LICENSE](LICENSE) for full
 terms.
+
+Several engine crates (`varve-core`, `varve-colour`, `varve-trace`,
+`varve-layout`, `varve-media`, `varve-effects`, `varve-upscale`,
+`varve-bgremove`) are licensed under **MIT OR Apache-2.0** for ecosystem
+reuse and grant eligibility. See
+[mixed-license model](docs/licensing/mixed-license-model.md).
 
 "Varve" is a trademark of K-Arthur (formerly "Strata"). See
 [TRADEMARKS.md](TRADEMARKS.md) for usage guidelines. Third-party component

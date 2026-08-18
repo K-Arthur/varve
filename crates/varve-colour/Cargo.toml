@@ -4,7 +4,7 @@ description = "Colour-science crate: ICC transforms via tintbox, analytical colo
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license = "MIT OR Apache-2.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

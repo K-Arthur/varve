@@ -655,6 +655,10 @@ merge sequentially. Verify with `just gate` after each merge.
 - Rust `unsafe_code = deny` workspace-wide.
 - Cross-platform: if it works on macOS but not Linux, it's not done.
 - **No native `<select>` elements** — use `@varve/ui`'s custom `Select` component.
+- **No `Co-authored-by` trailers in commit messages.** All commits are authored
+  by the maintainer. AI tool output is reviewed and committed as the
+  maintainer's work — it is not a separate legal contribution. A commit-msg
+  hook (`.githooks/commit-msg`) enforces this. Do not disable it.
 
 ## Session history
 

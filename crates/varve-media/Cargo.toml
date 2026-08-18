@@ -4,7 +4,7 @@ description = "Animated image decoding: GIF, APNG, and WebP frame extraction wit
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license.workspace = true
+license = "MIT OR Apache-2.0"
 authors.workspace = true
 repository.workspace = true
 
