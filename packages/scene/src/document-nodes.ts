@@ -2,7 +2,6 @@ import type { Affine } from '@varve/engine';
 import { generateKeyBetween } from '@varve/shared';
 import { deepCloneSubtree } from './clone';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
-import { nodeWorldBounds, worldToParent } from './coordinateService';
 import type { Document } from './document';
 import { devValidate, getParent } from './document-utils';
 import type {
@@ -479,117 +478,6 @@ export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): 
   d = {
     ...d,
     nodes: { ...d.nodes, [groupNode.id]: { ...groupInDoc, children } as GroupNode },
-  };
-
-  devValidate(d);
-  return d;
-}
-
-/**
- * Wrap a set of sibling nodes in a new FrameNode ("Add Auto Layout" / group-
- * into-frame). Mirrors groupNodes' structure — same same-parent guard, same
- * order-preserving reparent — but unlike a GroupNode (whose bounds are always
- * derived from its children), a FrameNode carries its own authored transform
- * and w/h, so the new frame is positioned and sized to the world bounding box
- * of the wrapped nodes, and each child's local transform is adjusted to keep
- * its world-space appearance unchanged (the frame's own transform is pure
- * translation, so a child's rotation/scale components are untouched — only
- * its tx/ty shift by the frame's new origin).
- */
-export function frameNodes(doc: Document, ids: NodeId[], frameNode: FrameNode): Document {
-  if (ids.length < 1) return doc;
-
-  const firstId = ids[0];
-  if (!firstId) return doc;
-  const first = doc.nodes[firstId];
-  if (!first) return doc;
-  const parentId: NodeId | null = getParent(doc, firstId);
-
-  for (let i = 1; i < ids.length; i++) {
-    const nid = ids[i];
-    if (!nid) return doc;
-    const n = doc.nodes[nid];
-    if (!n) return doc;
-    if (getParent(doc, nid) !== parentId) return doc;
-  }
-
-  const worldRects = ids
-    .map((id) => nodeWorldBounds(doc, id))
-    .filter((r): r is NonNullable<typeof r> => r !== null);
-  if (worldRects.length === 0) return doc;
-  const minX = Math.min(...worldRects.map((r) => r.x));
-  const minY = Math.min(...worldRects.map((r) => r.y));
-  const maxX = Math.max(...worldRects.map((r) => r.x + r.w));
-  const maxY = Math.max(...worldRects.map((r) => r.y + r.h));
-
-  const originWorld: readonly [number, number] = [minX, minY];
-  const originLocal = parentId
-    ? (worldToParent(doc, parentId, originWorld) ?? originWorld)
-    : originWorld;
-  const [originX, originY] = originLocal;
-
-  const positionedFrame: FrameNode = {
-    ...frameNode,
-    transform: [1, 0, 0, 1, originX, originY] as Affine,
-    w: Math.max(1, maxX - minX),
-    h: Math.max(1, maxY - minY),
-  };
-
-  const children = [...positionedFrame.children];
-  let d = addNode(doc, positionedFrame);
-
-  const parentIdNonNull = parentId as NodeId;
-  const sorted = [...ids].sort((a, b) => {
-    const idxA = parentId
-      ? d.nodes[parentIdNonNull] && isContainer(d.nodes[parentIdNonNull])
-        ? (d.nodes[parentIdNonNull] as ContainerNode).children.indexOf(a)
-        : -1
-      : d.rootChildren.indexOf(a);
-    const idxB = parentId
-      ? d.nodes[parentIdNonNull] && isContainer(d.nodes[parentIdNonNull])
-        ? (d.nodes[parentIdNonNull] as ContainerNode).children.indexOf(b)
-        : -1
-      : d.rootChildren.indexOf(b);
-    return idxA - idxB;
-  });
-
-  let frameInsertIdx = -1;
-  if (parentId) {
-    const parentNode = d.nodes[parentIdNonNull];
-    const firstSorted = sorted[0];
-    if (firstSorted && parentNode && isContainer(parentNode)) {
-      frameInsertIdx = parentNode.children.indexOf(firstSorted);
-    }
-  }
-
-  for (const sid of sorted) {
-    const child = d.nodes[sid];
-    if (!child) continue;
-    const [a, b, c, dd, tx, ty] = child.transform;
-    const childLocal: Affine = [a, b, c, dd, tx - originX, ty - originY];
-    d = reparentNode(d, sid, frameNode.id, children.length, childLocal);
-    children.push(sid);
-  }
-
-  if (parentId === null) {
-    const firstSorted = sorted[0];
-    if (!firstSorted) return d;
-    const firstIdxInRoot = d.rootChildren.indexOf(firstSorted);
-    if (firstIdxInRoot >= 0) {
-      d = moveNode(d, frameNode.id, Math.min(firstIdxInRoot, d.rootChildren.length - 1));
-    }
-  } else {
-    d = reparentNode(d, frameNode.id, parentId, frameInsertIdx >= 0 ? frameInsertIdx : 0);
-  }
-
-  const frameInDoc = d.nodes[frameNode.id];
-  if (!frameInDoc) {
-    devValidate(d);
-    return d;
-  }
-  d = {
-    ...d,
-    nodes: { ...d.nodes, [frameNode.id]: { ...frameInDoc, children } as FrameNode },
   };
 
   devValidate(d);

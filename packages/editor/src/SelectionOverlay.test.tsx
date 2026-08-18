@@ -4,7 +4,7 @@
  * Research basis: TDD for overlay handle completeness (Phase A4).
  */
 
-import { fireEvent, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import type { Document, SceneNode, ShapeNode } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
@@ -73,7 +73,6 @@ function renderOverlay(
   props: SelectionOverlayProps = {},
   pan = MOCK_PAN,
   zoom = MOCK_ZOOM,
-  mockOverrides: Record<string, unknown> = {},
 ) {
   const nodeMap: Record<string, SceneNode> = {};
   for (const n of nodes) {
@@ -97,9 +96,6 @@ function renderOverlay(
     beginTransaction: vi.fn(),
     commitTransaction: vi.fn(),
     setSelectedRotation: vi.fn(),
-    setSelectedLayoutSizingWidth: vi.fn(),
-    setSelectedLayoutSizingHeight: vi.fn(),
-    ...mockOverrides,
   });
 
   const { container } = render(<SelectionOverlay {...props} />);
@@ -481,67 +477,6 @@ describe('SelectionOverlay — accessibility', () => {
     ]);
     const pivot = container.querySelector('circle[aria-label="Transform origin"]');
     expect(pivot).toBeTruthy();
-  });
-});
-
-describe('SelectionOverlay — double-click resize handle resets to Hug', () => {
-  // HANDLE_KEYS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w']; the interactive
-  // (transparent) hit-target rects render in that order, one per handle.
-  it('double-clicking the east (width) edge handle calls setSelectedLayoutSizingWidth', () => {
-    const setSelectedLayoutSizingWidth = vi.fn();
-    const setSelectedLayoutSizingHeight = vi.fn();
-    const container = renderOverlay(
-      [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 })],
-      {},
-      MOCK_PAN,
-      MOCK_ZOOM,
-      { setSelectedLayoutSizingWidth, setSelectedLayoutSizingHeight },
-    );
-    const interactiveHandles = container.querySelectorAll('rect[fill="transparent"]');
-    const eastHandle = interactiveHandles[3]; // 'e'
-    expect(eastHandle).toBeTruthy();
-    fireEvent.doubleClick(eastHandle!);
-
-    expect(setSelectedLayoutSizingWidth).toHaveBeenCalledWith('hug');
-    expect(setSelectedLayoutSizingHeight).not.toHaveBeenCalled();
-  });
-
-  it('double-clicking the south (height) edge handle calls setSelectedLayoutSizingHeight', () => {
-    const setSelectedLayoutSizingWidth = vi.fn();
-    const setSelectedLayoutSizingHeight = vi.fn();
-    const container = renderOverlay(
-      [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 })],
-      {},
-      MOCK_PAN,
-      MOCK_ZOOM,
-      { setSelectedLayoutSizingWidth, setSelectedLayoutSizingHeight },
-    );
-    const interactiveHandles = container.querySelectorAll('rect[fill="transparent"]');
-    const southHandle = interactiveHandles[5]; // 's'
-    expect(southHandle).toBeTruthy();
-    fireEvent.doubleClick(southHandle!);
-
-    expect(setSelectedLayoutSizingHeight).toHaveBeenCalledWith('hug');
-    expect(setSelectedLayoutSizingWidth).not.toHaveBeenCalled();
-  });
-
-  it('double-clicking a corner handle (ambiguous axis) does nothing', () => {
-    const setSelectedLayoutSizingWidth = vi.fn();
-    const setSelectedLayoutSizingHeight = vi.fn();
-    const container = renderOverlay(
-      [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 })],
-      {},
-      MOCK_PAN,
-      MOCK_ZOOM,
-      { setSelectedLayoutSizingWidth, setSelectedLayoutSizingHeight },
-    );
-    const interactiveHandles = container.querySelectorAll('rect[fill="transparent"]');
-    const nwHandle = interactiveHandles[0]; // 'nw'
-    expect(nwHandle).toBeTruthy();
-    fireEvent.doubleClick(nwHandle!);
-
-    expect(setSelectedLayoutSizingWidth).not.toHaveBeenCalled();
-    expect(setSelectedLayoutSizingHeight).not.toHaveBeenCalled();
   });
 });
 

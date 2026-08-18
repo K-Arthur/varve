@@ -1,8 +1,8 @@
 // COMPLEXITY: 858 (ceiling 847) — EditorProvider is the central state hub;
 // sub-contexts (MotionProvider, PrototypeProvider, ViewportProvider) are the
 // planned extraction path. Dialog state (useDialogState) and interaction state
-// (useInteractionState) already extracted, as are the layout child setters
-// (context/layoutChildSetters.ts).
+// (useInteractionState) already extracted. Next: extract layout setters
+// (setSelectedLayoutSizingWidth/Height/Position) into useLayoutState.
 /**
  * Editor state context — shared across all shell surfaces.
  *
@@ -42,7 +42,6 @@ export function invalidateNodeThumbnail(nodeId: string): void {
 import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 import { PaletteExtractDialogHost } from './components/PaletteExtract/PaletteExtractDialogHost';
 import { requestInspectorTab } from './context/inspectorTabBridge';
-import { applySelectedLayoutChildField } from './context/layoutChildSetters';
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 import { useAutoBackupServices } from './context/useAutoBackupServices';
 import { pathPointsWorldToLocal } from './tools/pathCoords';
@@ -179,7 +178,6 @@ import {
   fillSlot as fillSlotDoc,
   findOrCreateEmbeddedAsset,
   flattenLiveTrace as flattenLiveTraceDoc,
-  frameNodes as frameNodesDoc,
   type Guide,
   activePageNodes as getActivePageNodes,
   activePageNodesWithMaster as getActivePageNodesWithMaster,
@@ -414,6 +412,7 @@ import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
+import { makeLayoutSetters } from './context/useLayoutSetters';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import { resolveFontManifest, usePersistence } from './context/usePersistence';
@@ -451,7 +450,6 @@ import {
   selectedImageShape,
 } from './imageOperations';
 import { getActionTracker } from './intelligence/actionTracker';
-import { suggestAutoLayout } from './intelligence/autoLayoutSuggestor';
 import { autoName } from './intelligence/autoNamer';
 import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
 import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
@@ -953,11 +951,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   setSelectedMaxHeight: (value: number) => void;
   /** P3: batch-set layout sizing mode on all selected nodes. */
   setSelectedLayoutSizing: (value: import('@varve/scene').LayoutSizing) => void;
-  /** Batch-set width sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingWidth: (value: import('@varve/scene').LayoutSizing) => void;
-  /** Batch-set height sizing mode (fixed/hug/fill) on all selected layout children. */
   setSelectedLayoutSizingHeight: (value: import('@varve/scene').LayoutSizing) => void;
-  /** Batch-set flow/absolute position on all selected layout children. */
   setSelectedLayoutPosition: (value: import('@varve/scene').LayoutPosition) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
   setSelectedGridPlacement: (value: import('@varve/scene').GridItemPlacement) => void;
@@ -1123,8 +1118,6 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   groupSelected: () => void;
   /** Ungroup the first selected group. */
   ungroupSelected: () => void;
-  /** Wrap selected nodes in a new auto-layout FrameNode, sized to their bounding box and laid out immediately (direction/gap/alignment inferred from current geometry). */
-  addAutoLayoutSelected: () => void;
   /** Detach the first selected component instance. */
   detachSelected: () => void;
   /** Create a mask on the selected container from the node above it (or the first shape child). */
@@ -2818,6 +2811,8 @@ export function EditorProvider({
     },
     [updateDoc],
   );
+
+  const layoutSetters = makeLayoutSetters(updateDoc, state, reflowLayoutChildren);
 
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
   // P5: Wired to @varve/collab transaction hooks for Yjs integration
@@ -6409,50 +6404,6 @@ export function EditorProvider({
         });
       },
 
-      addAutoLayoutSelected: () => {
-        const sel = state.selection;
-        if (sel.length < 1) return;
-        setState((s) => {
-          const selectedNodes = sel
-            .map((id) => s.document.nodes[id])
-            .filter((n): n is SceneNode => Boolean(n));
-          if (selectedNodes.length === 0) return s;
-          if (!inTransactionRef.current) {
-            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
-            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
-            redoStackRef.current = [];
-            redoSelStackRef.current = [];
-          }
-          // Infer direction/gap/alignment from the selection's current
-          // geometry (conservative — falls back to a plain row when no
-          // clear row/column pattern is detected, never rearranges anything).
-          const suggestion =
-            selectedNodes.length >= 2
-              ? suggestAutoLayout(
-                  { id: 'temp' } as import('@varve/scene').FrameNode,
-                  selectedNodes,
-                  s.document,
-                )
-              : null;
-          const layoutStyle: import('@varve/scene').LayoutStyle = suggestion?.suggestedStyle ?? {
-            mode: 'flex',
-            direction: 'row',
-            gap: 8,
-            wrap: false,
-            padding: [0, 0, 0, 0],
-            grow: 0,
-            shrink: 1,
-            alignItems: 'start',
-          };
-          const { id: fId, doc: d2 } = nextNodeId(s.document);
-          const frame = makeFrameNode(fId, { name: 'Frame', layoutStyle });
-          let newDoc = frameNodesDoc(d2, sel, frame);
-          if (!newDoc.nodes[fId]) return s; // guard failed (mixed parents) — no-op
-          newDoc = reflowLayoutChildren(newDoc, fId);
-          return { ...s, document: newDoc, selection: [fId], dirty: true };
-        });
-      },
-
       addMaskToSelected: (type: MaskType = 'alpha', sourceNodeId?: NodeId) => {
         const sel = state.selection;
         const id = sel[0];
@@ -7848,25 +7799,21 @@ export function EditorProvider({
         });
       },
 
-      setSelectedLayoutSizing: (value) =>
-        updateDoc((doc) =>
-          applySelectedLayoutChildField(doc, state.selection, 'layoutSizing', value),
-        ),
+      setSelectedLayoutSizing: (value) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            nodes[id] = { ...node, layoutSizing: value } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
 
-      setSelectedLayoutSizingWidth: (value) =>
-        updateDoc((doc) =>
-          applySelectedLayoutChildField(doc, state.selection, 'layoutSizingWidth', value),
-        ),
-
-      setSelectedLayoutSizingHeight: (value) =>
-        updateDoc((doc) =>
-          applySelectedLayoutChildField(doc, state.selection, 'layoutSizingHeight', value),
-        ),
-
-      setSelectedLayoutPosition: (value) =>
-        updateDoc((doc) =>
-          applySelectedLayoutChildField(doc, state.selection, 'layoutPosition', value),
-        ),
+      ...layoutSetters,
 
       setSelectedGridPlacement: (value) => {
         const sel = state.selection;
@@ -9386,7 +9333,6 @@ export function EditorProvider({
       arrangeSelected: value.arrangeSelected,
       groupSelected: value.groupSelected,
       ungroupSelected: value.ungroupSelected,
-      addAutoLayoutSelected: value.addAutoLayoutSelected,
       addMaskToSelected: value.addMaskToSelected,
       removeMaskFromSelected: value.removeMaskFromSelected,
       toggleMask: value.toggleMask,

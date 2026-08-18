@@ -184,8 +184,6 @@ function buildMenus(
       case 'group':
       case 'ungroup':
         return !hasMultipleSelection;
-      case 'addAutoLayout':
-        return !hasSelection;
       case 'flattenSelection':
       case 'rasterizeSelection':
       case 'mergeSelected':
@@ -970,13 +968,6 @@ function buildMenus(
           ariaKeyshortcut: ks('ungroup'),
           action: 'ungroup',
           disabled: dis('ungroup'),
-        },
-        {
-          label: 'Add Auto Layout',
-          shortcut: formatShortcut(SHORTCUT_DEFS.addAutoLayout.binding),
-          ariaKeyshortcut: ks('addAutoLayout'),
-          action: 'addAutoLayout',
-          disabled: dis('addAutoLayout'),
         },
         { label: '---' },
         {

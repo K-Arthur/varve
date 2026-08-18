@@ -8,7 +8,6 @@ import {
   createDocument,
   detachInstance,
   duplicateGuide,
-  frameNodes,
   getById,
   getChildren,
   getGuidesForPage,
@@ -382,94 +381,6 @@ describe('GroupNode', () => {
     doc = addChild(doc, gId, child);
     expect(getChildren(doc, gId)).toEqual([child.id]);
     expect(getChildren(doc, child.id)).toBeNull();
-  });
-});
-
-describe('frameNodes ("Add Auto Layout" wrap-selection)', () => {
-  function positionedShape(
-    doc: ReturnType<typeof createDocument>,
-    name: string,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-  ) {
-    const { id, doc: d2 } = nextNodeId(doc);
-    const node = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w, h }, { name });
-    return { id, node: { ...node, transform: [1, 0, 0, 1, x, y] as const }, doc: d2 };
-  }
-
-  it('wraps two root-level nodes in a frame sized to their bounding box', () => {
-    let doc = createDocument();
-    const a = positionedShape(doc, 'a', 10, 20, 30, 40);
-    doc = a.doc;
-    doc = addNode(doc, a.node);
-    const b = positionedShape(doc, 'b', 60, 10, 20, 20);
-    doc = b.doc;
-    doc = addNode(doc, b.node);
-
-    const { id: frameId, doc: d3 } = nextNodeId(doc);
-    doc = d3;
-    const frame = makeFrameNode(frameId, { name: 'Frame', layoutStyle: undefined });
-    doc = frameNodes(doc, [a.id, b.id], frame);
-
-    const resolved = getById(doc, frameId) as FrameNode;
-    expect(resolved.kind).toBe('frame');
-    // bounding box: x in [10, 80], y in [10, 60]
-    expect(resolved.transform[4]).toBeCloseTo(10);
-    expect(resolved.transform[5]).toBeCloseTo(10);
-    expect(resolved.w).toBeCloseTo(70);
-    expect(resolved.h).toBeCloseTo(50);
-    expect(resolved.children).toEqual([a.id, b.id]);
-
-    expect(getParent(doc, a.id)).toBe(frameId);
-    expect(getParent(doc, b.id)).toBe(frameId);
-
-    // children's local transforms shift by the frame's new origin, preserving
-    // world position: a was at world (10,20) -> local (10-10, 20-10) = (0,10)
-    const aInDoc = getById(doc, a.id);
-    expect(aInDoc?.transform[4]).toBeCloseTo(0);
-    expect(aInDoc?.transform[5]).toBeCloseTo(10);
-    // b was at world (60,10) -> local (60-10, 10-10) = (50,0)
-    const bInDoc = getById(doc, b.id);
-    expect(bInDoc?.transform[4]).toBeCloseTo(50);
-    expect(bInDoc?.transform[5]).toBeCloseTo(0);
-  });
-
-  it('refuses to wrap nodes with different parents', () => {
-    let doc = createDocument();
-    const a = positionedShape(doc, 'a', 0, 0, 10, 10);
-    doc = a.doc;
-    doc = addNode(doc, a.node);
-    const { id: gId, doc: d2 } = nextNodeId(doc);
-    doc = d2;
-    doc = addNode(doc, makeGroupNode(gId, { name: 'G' }));
-    const b = positionedShape(doc, 'b', 0, 0, 10, 10);
-    doc = b.doc;
-    doc = addChild(doc, gId, b.node);
-
-    const { id: frameId, doc: d3 } = nextNodeId(doc);
-    doc = d3;
-    const frame = makeFrameNode(frameId, { name: 'Frame' });
-    const result = frameNodes(doc, [a.id, b.id], frame);
-    expect(getById(result, frameId)).toBeUndefined();
-  });
-
-  it('wraps a single node', () => {
-    let doc = createDocument();
-    const a = positionedShape(doc, 'a', 5, 5, 40, 15);
-    doc = a.doc;
-    doc = addNode(doc, a.node);
-
-    const { id: frameId, doc: d2 } = nextNodeId(doc);
-    doc = d2;
-    const frame = makeFrameNode(frameId, { name: 'Frame' });
-    doc = frameNodes(doc, [a.id], frame);
-
-    const resolved = getById(doc, frameId) as FrameNode;
-    expect(resolved.w).toBeCloseTo(40);
-    expect(resolved.h).toBeCloseTo(15);
-    expect(getParent(doc, a.id)).toBe(frameId);
   });
 });
 
