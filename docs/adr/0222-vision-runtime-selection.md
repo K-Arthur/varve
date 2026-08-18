@@ -1,6 +1,6 @@
 # ADR-0222: Capability-driven visual-awareness runtime boundary
 
-- Status: Accepted boundary; runtime selection pending benchmark evidence
+- **Status:** Accepted boundary; runtime selection pending benchmark evidence
 - Date: 2026-08-13
 - Owners: Varve editor, engine, native inference
 

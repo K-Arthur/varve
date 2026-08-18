@@ -1,6 +1,6 @@
 # ADR-0220: Object Selection runtime boundary
 
-Status: Accepted for the current implementation; runtime replacement remains
+- **Status:** Accepted for the current implementation; runtime replacement remains
 subject to the parity and benchmark gates below.
 
 ## Context

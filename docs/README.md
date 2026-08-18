@@ -312,6 +312,7 @@ The following dated files were moved from `docs/architecture/` to
 | Doc | Purpose |
 |-----|---------|
 | `development/setup.md` | Setup, running, testing, and quality gates |
+| `development/troubleshooting.md` | Common build, platform, test, runtime, and CI/CD issues |
 | `development/provenance.md` | Git identity and contribution provenance |
 | `development/tooltip-guide.md` | Tooltip system authoring patterns |
 

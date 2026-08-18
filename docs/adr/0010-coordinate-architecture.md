@@ -1,8 +1,6 @@
 # ADR-0010: Coordinate Architecture
 
-## Status
-
-Accepted (2026-07-20)
+- **Status:** Accepted
 
 ## Context
 
