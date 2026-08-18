@@ -21,7 +21,7 @@ export function formatCopy(product) {
     appimage: {
       title: 'AppImage',
       blurb:
-        'Portable file for x86-64 Linux — no install, no root. Uses the system WebKitGTK ' +
+        'Portable file for Linux — no install, no root. Uses the system WebKitGTK ' +
         'libraries (same requirement as the .deb).',
       caveat:
         'Requires FUSE2 and a system WebKitGTK (libwebkit2gtk-4.1). On systems without ' +
@@ -206,8 +206,23 @@ export function buildWebsiteReleaseData({
     });
   }
 
+  // Deterministic ordering for the download page: dominant architecture
+  // (x86_64) first so the no-JS default and the visual order match the
+  // recommendation, then architecture groups in format order. The page may
+  // promote ARM64 per-device, but the published data stays stable.
+  const ARCH_RANK = ['x86_64', 'aarch64'];
+  const FORMAT_RANK = ['appimage', 'deb', 'rpm', 'dmg', 'nsis', 'msi'];
+  const rank = (list, key) => {
+    const index = list.indexOf(key);
+    return index === -1 ? 99 : index;
+  };
   for (const list of Object.values(platforms)) {
-    list.sort((a, b) => a.filename.localeCompare(b.filename));
+    list.sort(
+      (a, b) =>
+        rank(ARCH_RANK, a.arch) - rank(ARCH_RANK, b.arch) ||
+        rank(FORMAT_RANK, a.format) - rank(FORMAT_RANK, b.format) ||
+        a.filename.localeCompare(b.filename),
+    );
   }
 
   return {

@@ -2,6 +2,7 @@
 import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
+import { primaryFormatFor } from '../lib/download-detection';
 import { PRODUCT_STATUS, type ProductStatusStage } from '@varve/shared';
 import manifest from '../data/screenshot-manifest.json';
 
@@ -147,7 +148,7 @@ const REQUIREMENTS: Record<string, string[]> = {
   ],
   macos: [
     'OS: macOS 13 Ventura or later',
-    'CPU: Apple Silicon',
+    'CPU: Apple Silicon only. There is no Intel macOS build — the on-device AI depends on ONNX Runtime, whose upstream discontinued macOS Intel binaries; see the FAQ for details.',
     'RAM: 4 GB minimum, 8 GB recommended',
     'Storage: 500 MB minimum free disk',
   ],
@@ -177,9 +178,9 @@ const available = ['linux', 'macos', 'windows']
 const first = available[0]?.id;
 
 /**
- * Quick-download grid data: one primary artifact (the one already marked
- * "recommended" where the platform has that concept, otherwise the first
- * listed) plus up to one secondary artifact, and a compact one-line
+ * Quick-download grid data: one primary artifact per architecture (the one
+ * the detailed sections also mark "Recommended", selected by the shared
+ * primaryFormatFor rule) plus the alternates, and a compact one-line
  * requirements summary. All derived from the same `available` data the
  * detailed tabbed sections below use — nothing here is a second, separately
  * maintained copy of the release data.
@@ -190,10 +191,22 @@ function shortRequirement(requirements: string[], prefix: string): string | null
   return line.slice(prefix.length).trim();
 }
 
+// The single primary-format decision per platform, reused by the quick grid
+// AND the detailed sections so the two can never disagree about which
+// artifact is "the download".
+const platformPrimaryFormat: Record<string, string> = {};
+for (const p of available) {
+  platformPrimaryFormat[p.id] = primaryFormatFor(
+    p.id,
+    p.artifacts.map((artifact) => artifact.format),
+  );
+}
+
 const quickPlatforms = available.map((p) => {
+  const primaryFormat = platformPrimaryFormat[p.id];
   const architectures = [...new Set(p.artifacts.map((artifact) => artifact.arch))].map((arch) => {
     const artifacts = p.artifacts.filter((artifact) => artifact.arch === arch);
-    const primary = artifacts.find((artifact) => artifact.format === 'appimage') ?? artifacts[0]!;
+    const primary = artifacts.find((artifact) => artifact.format === primaryFormat) ?? artifacts[0]!;
     return {
       arch,
       label: primary.architectureLabel ?? architectureLabel(arch),
@@ -209,6 +222,14 @@ const quickPlatforms = available.map((p) => {
     reqSummary: [os, ram].filter(Boolean).join(' · '),
   };
 });
+
+/** Install command of a platform's primary artifact, for the install steps. */
+function primaryInstallCommand(p: (typeof available)[number]): string | null {
+  const primaryFormat = platformPrimaryFormat[p.id];
+  const primary =
+    p.artifacts.find((artifact) => artifact.format === primaryFormat) ?? p.artifacts[0];
+  return primary?.install ?? null;
+}
 
 type ScreenshotScene = { file: string; alt: string; status?: string };
 const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
@@ -294,7 +315,7 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
             <div class="quick-download-grid">
               {quickPlatforms.map((p) => (
-                <div class="quick-download-col">
+                <div class="quick-download-col" data-platform-col={p.id}>
                   <div class="quick-download-platform">
                     <span class="platform-icon" data-icon={PLATFORM_ICON[p.id]} aria-hidden="true">
                       {PLATFORM_ICON[p.id] === 'terminal' && (
@@ -320,11 +341,15 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       )}
                     </span>
                     <span class="platform-name">{p.label}</span>
+                    <span class="recommend-chip" hidden>Recommended</span>
                   </div>
 
                   {p.architectures.map((architecture) => (
-                    <div class="quick-architecture">
-                      <div class="quick-architecture-label">{architecture.label}</div>
+                    <div class="quick-architecture" data-arch={architecture.arch}>
+                      <div class="quick-architecture-label">
+                        {architecture.label}
+                        <span class="arch-chip" hidden>Recommended for you</span>
+                      </div>
                       <a
                         href={architecture.primary.url}
                         class="btn-primary quick-download-btn"
@@ -490,11 +515,33 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                 <span class="trust-badge">{p.trust.badge}</span> {p.trust.detail}
               </p>
 
+              {p.id === 'linux' && (
+                <div class="format-tradeoffs">
+                  <h3>Which package should I choose?</h3>
+                  <ul>
+                    <li>
+                      <strong>Debian package (.deb)</strong> — recommended for Debian, Ubuntu and
+                      derivatives: installs system-wide and updates through apt, and pulls in the
+                      WebKitGTK dependency automatically.
+                    </li>
+                    <li>
+                      <strong>AppImage</strong> — a single portable file that runs on any
+                      distribution without installing. It needs FUSE2 (or
+                      <code>--appimage-extract-and-run</code>) and a system WebKitGTK library.
+                    </li>
+                    <li>
+                      <strong>RPM package (.rpm)</strong> — for Fedora, RHEL and derivatives;
+                      updates through dnf.
+                    </li>
+                  </ul>
+                </div>
+              )}
+
               <div class="download-options">
                 {p.artifacts.map((artifact) => (
-                  <div class:list={['download-option', { recommended: artifact.format === 'deb' }]}>
+                  <div class:list={['download-option', { recommended: artifact.format === platformPrimaryFormat[p.id] }]}>
                     <div class="download-option-head">
-                      {artifact.format === 'deb' && <span class="badge recommended">Recommended</span>}
+                      {artifact.format === platformPrimaryFormat[p.id] && <span class="badge recommended">Recommended</span>}
                     </div>
                     <p>{artifact.blurb}</p>
                     <a
@@ -630,6 +677,77 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
             <p class="download-meta">
               <a href={sitePath('/docs/updates')}>Read the full update and privacy guide</a>.
             </p>
+          </div>
+
+          <div class="after-install" id="after-install">
+            <h2>After you install</h2>
+            <ol class="install-steps">
+              <li>
+                <strong>Open the app.</strong>
+                <ul class="install-commands">
+                  {available.map((p) => {
+                    const command = primaryInstallCommand(p);
+                    return command ? (
+                      <li>
+                        <span>{p.label}:</span> <code class="code-block">{command}</code>
+                      </li>
+                    ) : null;
+                  })}
+                </ul>
+              </li>
+              <li>
+                <strong>First launch.</strong> Varve opens a welcome screen where you can start a
+                new document, open a recent file, or load the sample document. If your operating
+                system blocks the app (unsigned build), the platform notes above say exactly what
+                to click — and verify the checksum first.
+              </li>
+              <li>
+                <strong>Make your first project.</strong> Open the{' '}
+                <a href={sitePath('/samples/varve-poster.varve')} download>
+                  sample poster document
+                </a>{' '}
+                (a small <code>.varve</code> file showing a complete poster project), follow the{' '}
+                <a href={sitePath('/docs/getting-started/first-project')}>first-project guide</a>,
+                or take the <a href={sitePath('/docs/getting-started')}>getting started tour</a>.
+              </li>
+            </ol>
+          </div>
+
+          <div class="troubleshoot-help" id="troubleshoot-help">
+            <h2>Having trouble launching?</h2>
+            <ul>
+              <li>
+                <strong>Wrong architecture.</strong> If the OS says the binary is not supported
+                or the app exits immediately, you likely downloaded the build for the other
+                architecture. Check with <code>uname -m</code> (Linux) or Settings &gt; System
+                &gt; About (Windows) and pick the matching label above.
+              </li>
+              <li>
+                <strong>Linux — AppImage will not start:</strong> FUSE2 is missing. Install{' '}
+                <code>fuse2</code> or run <code>./Varve-*.AppImage --appimage-extract-and-run</code>.
+              </li>
+              <li>
+                <strong>Linux — .deb fails to install or start:</strong> the package needs the
+                system WebKitGTK library — <code>sudo apt install libwebkit2gtk-4.1-0</code>, then
+                reinstall the package.
+              </li>
+              <li>
+                <strong>macOS — the app is blocked:</strong> this build is unsigned and not
+                notarized: System Settings &gt; Privacy &amp; Security &gt; Open Anyway. Do not
+                disable Gatekeeper.
+              </li>
+              <li>
+                <strong>Windows — SmartScreen warning:</strong> choose More info, then Run
+                anyway — after verifying the SHA-256 checksum shown above.
+              </li>
+              <li>
+                <strong>Still stuck?</strong>{' '}
+                <a href={sitePath('/support/troubleshooting')}>Troubleshooting guide</a> &middot;{' '}
+                <a href={sitePath('/support/known-issues')}>Known issues</a> &middot;{' '}
+                <a href={sitePath('/support/report-issue')}>Report a bug</a> &middot;{' '}
+                <a href={sitePath('/security')}>Report a security issue</a>
+              </li>
+            </ul>
           </div>
         </>
       )}
@@ -838,6 +956,193 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     text-decoration: underline;
   }
 
+  .recommend-chip,
+  .arch-chip {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.2em 0.55em;
+    border-radius: 999px;
+    background: var(--surface-accent-soft);
+    color: var(--accent-primary);
+    border: 1px solid var(--border-accent);
+    white-space: nowrap;
+  }
+
+  /* The chips toggle via the `hidden` attribute; the display rule above
+     would override the UA's [hidden] { display: none }, so keep it explicit. */
+  .recommend-chip[hidden],
+  .arch-chip[hidden] {
+    display: none;
+  }
+
+  .recommend-chip {
+    margin-left: 0.35rem;
+  }
+
+  .arch-chip {
+    margin-left: 0.5rem;
+    vertical-align: middle;
+  }
+
+  .quick-architecture.recommended-arch {
+    background: var(--surface-accent-soft);
+    border-radius: 0.5rem;
+    padding: 0.75rem 0.875rem;
+    margin: -0.375rem -0.875rem 0.375rem;
+  }
+
+  .format-tradeoffs {
+    background: var(--surface-muted);
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .format-tradeoffs h3 {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .format-tradeoffs ul {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .format-tradeoffs li {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .format-tradeoffs strong {
+    color: var(--text-primary);
+  }
+
+  .format-tradeoffs code,
+  .troubleshoot-help code {
+    font-size: 0.875em;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.25rem;
+    padding: 0.1em 0.35em;
+  }
+
+  .after-install,
+  .troubleshoot-help {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .after-install h2,
+  .troubleshoot-help h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .install-steps {
+    list-style: none;
+    counter-reset: install-step;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .install-steps > li {
+    counter-increment: install-step;
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .install-steps > li::before {
+    content: counter(install-step);
+    grid-row: 1 / span 2;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--surface-accent-soft);
+    border: 1px solid var(--border-accent);
+    color: var(--accent-primary);
+    font-weight: 700;
+    font-size: 0.875rem;
+  }
+
+  .install-steps > li > strong {
+    color: var(--text-primary);
+    padding-top: 0.25rem;
+  }
+
+  .install-commands {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .install-commands li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .install-commands .code-block {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .troubleshoot-help ul {
+    list-style: none;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .troubleshoot-help li {
+    color: var(--text-secondary);
+    line-height: 1.55;
+    padding-left: 1.25rem;
+    position: relative;
+  }
+
+  .troubleshoot-help li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--accent-primary);
+    opacity: 0.7;
+  }
+
+  .troubleshoot-help strong {
+    color: var(--text-primary);
+  }
+
+  .troubleshoot-help a {
+    color: var(--text-link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .quick-download-screenshot {
     margin: 2rem 0 0;
     border-radius: 0.625rem;
@@ -870,6 +1175,11 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     .quick-download-col:first-child {
       padding-top: 0;
       border-top: none;
+    }
+
+    .quick-architecture.recommended-arch {
+      margin: 0;
+      padding: 0.75rem 0.875rem;
     }
   }
 
@@ -1195,58 +1505,67 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 </style>
 
 <script>
-  const PLATFORM_NAMES = {
-    linux: 'Linux',
-    macos: 'macOS',
-    windows: 'Windows',
-    unknown: 'your platform',
-  };
+  import {
+    detect,
+    orderArchitectures,
+    recommendationCopy,
+    type DetectionResult,
+  } from '../lib/download-detection';
 
-  function detectPlatform() {
-    const ua = navigator.userAgent;
-    if (/android|iphone|ipad|ipod|mobile|tablet|webos|iemobile|opera mini/i.test(ua)) {
-      return 'unknown';
+  // Maps the manifest's arch identifiers to the two recommendation families.
+  const ARCH_KEYS = {
+    x86_64: 'x64',
+    amd64: 'x64',
+    x64: 'x64',
+    aarch64: 'arm64',
+    arm64: 'arm64',
+  } as Record<string, 'arm64' | 'x64'>;
+
+  // The visitor's explicit choice, stored locally (this machine only — no
+  // network, no tracking). It overrides the browser-based recommendation so
+  // the recommendation is never a forced redirection.
+  const CHOICE_KEY = 'varve:download:choice';
+  interface Choice {
+    platform?: string;
+    arch?: 'arm64' | 'x64';
+    dismissed?: boolean;
+  }
+
+  function readChoice(): Choice | null {
+    try {
+      const raw = localStorage.getItem(CHOICE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Choice;
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+      return null;
     }
-    if (ua.includes('Linux') && !ua.includes('Mac')) return 'linux';
-    if (ua.includes('Mac')) return 'macos';
-    if (ua.includes('Windows')) return 'windows';
-    return 'unknown';
   }
 
-  function detectArchitecture() {
-    const ua = navigator.userAgent;
-    if (/arm64|aarch64|armv8/i.test(ua)) return 'arm64';
-    if (/x86_64|x64|win64|amd64/i.test(ua)) return 'x64';
-    return 'unknown';
+  function writeChoice(choice: Choice) {
+    try {
+      localStorage.setItem(CHOICE_KEY, JSON.stringify(choice));
+    } catch {
+      // Storage unavailable (private mode, disabled) — the recommendation
+      // still works for this visit; it just is not persisted.
+    }
   }
 
-  function isMobileOrTablet() {
-    const ua = navigator.userAgent;
-    const touchDevice = navigator.maxTouchPoints > 1;
-    return /android|iphone|ipad|ipod|mobile|tablet|webos|iemobile|opera mini/i.test(ua)
-      || (touchDevice && Math.min(screen.width, screen.height) < 1024);
-  }
+  const detection = detect({
+    userAgent: navigator.userAgent,
+    maxTouchPoints: navigator.maxTouchPoints,
+    screenWidth: window.screen.width,
+    screenHeight: window.screen.height,
+  });
 
-  function showDetectionBanner(platform: string, architecture: string) {
-    const banner = document.getElementById('detection-banner');
-    if (!banner) return;
-    if (platform === 'unknown') return;
-    const architectureHint = architecture === 'arm64'
-      ? ' The browser hints that this may be an ARM64 device.'
-      : architecture === 'x64'
-        ? ' The browser hints that this may be an x86_64 device.'
-        : '';
-    banner.style.display = 'block';
-    banner.innerHTML = 'We detected you&rsquo;re on <strong>' + PLATFORM_NAMES[platform as keyof typeof PLATFORM_NAMES] + '</strong>.' + architectureHint + ' Choose the architecture-labeled download below; this browser hint may be wrong. <a href="#choose-platform" style="margin-left:0.5rem;">Choose another platform</a>.';
+  const mobileNotice = document.getElementById('mobile-download-notice');
+  if (mobileNotice && detection.mobile) {
+    mobileNotice.hidden = false;
   }
 
   const platformTabs = document.querySelectorAll<HTMLButtonElement>('.platform-tab');
   const platformSections = document.querySelectorAll<HTMLElement>('.platform-section');
-  const mobileNotice = document.getElementById('mobile-download-notice');
-
-  if (mobileNotice && isMobileOrTablet()) {
-    mobileNotice.hidden = false;
-  }
+  const banner = document.getElementById('detection-banner');
 
   function activatePlatform(tab: HTMLButtonElement) {
     const platform = tab.getAttribute('data-platform');
@@ -1263,8 +1582,10 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
   }
 
   platformTabs.forEach(function (tab) {
+    // A click on a platform tab is an explicit choice: remember it (local
+    // only) so the recommendation follows the visitor, not the other way.
     tab.addEventListener('click', function () {
-      activatePlatform(tab);
+      writeChoice({ platform: tab.getAttribute('data-platform') ?? undefined });
     });
 
     // Arrow-key / Home / End navigation between tabs, per the tablist pattern.
@@ -1325,11 +1646,108 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
     });
   });
 
-  const detected = detectPlatform();
-  const detectedArchitecture = detectArchitecture();
-  if (detected !== 'unknown') {
-    const tab = document.querySelector('.platform-tab[data-platform="' + detected + '"]');
-    if (tab instanceof HTMLButtonElement) activatePlatform(tab);
-    showDetectionBanner(detected, detectedArchitecture);
+  // --- Recommendation -----------------------------------------------
+  // Bots, mobile visitors and privacy-reduced UAs get no recommendation at
+  // all: no banner, no chips, no tab preselect. Everyone else gets the
+  // browser-based best guess unless they already made an explicit choice
+  // (localStorage) — which always wins and is never forced back.
+  let recommendation: DetectionResult | null = null;
+  let showBanner = false;
+
+  if (!detection.bot && !detection.mobile && !detection.reducedUa) {
+    const choice = readChoice();
+    if (choice?.dismissed) {
+      recommendation = null;
+    } else if (choice?.platform) {
+      recommendation = {
+        platform: choice.platform as DetectionResult['platform'],
+        arch: choice.arch ?? 'unknown',
+        macArchHint: 'none',
+        bot: false,
+        mobile: false,
+        reducedUa: false,
+      };
+    } else if (detection.platform !== 'unknown') {
+      recommendation = detection;
+      showBanner = true;
+    }
   }
+
+  function clearRecommendationMarkers() {
+    document.querySelectorAll<HTMLElement>('.recommend-chip, .arch-chip').forEach(function (chip) {
+      chip.hidden = true;
+    });
+    document.querySelectorAll('.quick-architecture.recommended-arch').forEach(function (row) {
+      row.classList.remove('recommended-arch');
+    });
+  }
+
+  function applyRecommendation() {
+    if (!recommendation || recommendation.platform === 'unknown') return;
+
+    const tab = document.querySelector('.platform-tab[data-platform="' + recommendation.platform + '"]');
+    if (tab instanceof HTMLButtonElement) activatePlatform(tab);
+
+    const column = document.querySelector(
+      '.quick-download-col[data-platform-col="' + recommendation.platform + '"]',
+    );
+    if (!column) return;
+
+    const platformChip = column.querySelector<HTMLElement>('.recommend-chip');
+    if (platformChip) platformChip.hidden = false;
+
+    const archKey = recommendation.arch;
+    if (archKey !== 'unknown') {
+      const rows = Array.from(column.querySelectorAll<HTMLElement>('.quick-architecture'));
+      const keys = rows.map((row) => row.getAttribute('data-arch') ?? '');
+      const ordered = orderArchitectures(keys, archKey);
+      if (ordered.join() !== keys.join()) {
+        const orderMap = new Map(rows.map((row, index) => [row, ordered.indexOf(keys[index])]));
+        rows
+          .slice()
+          .sort((a, b) => (orderMap.get(a) ?? 99) - (orderMap.get(b) ?? 99))
+          .forEach((row) => column.appendChild(row));
+      }
+      rows.forEach(function (row) {
+        const rowArch = ARCH_KEYS[row.getAttribute('data-arch') ?? ''] ?? 'unknown';
+        row.classList.toggle('recommended-arch', rowArch === archKey);
+        const chip = row.querySelector<HTMLElement>('.arch-chip');
+        if (chip) chip.hidden = rowArch !== archKey;
+      });
+    }
+
+    if (showBanner && banner) {
+      const copy = recommendationCopy(recommendation);
+      if (copy) {
+        banner.style.display = 'block';
+        banner.innerHTML =
+          copy +
+          ' <a href="#choose-platform" data-dismiss-recommend>Choose another platform</a>.';
+      }
+    }
+  }
+
+  // The dismiss link is injected into the banner after this script runs, so
+  // the handler is delegated from the document rather than attached at eval.
+  document.addEventListener('click', function (event) {
+    const target = (event.target as Element | null)?.closest?.('[data-dismiss-recommend]');
+    if (!target) return;
+    writeChoice({ dismissed: true });
+    if (banner) banner.style.display = 'none';
+    clearRecommendationMarkers();
+  });
+
+  // Clicking a quick-download button records the platform+architecture
+  // choice, so the next visit recommends exactly what this visitor chose.
+  document.querySelectorAll<HTMLAnchorElement>('.quick-download-btn, .quick-download-alts a').forEach(function (link) {
+    link.addEventListener('click', function () {
+      const column = link.closest<HTMLElement>('.quick-download-col');
+      const row = link.closest<HTMLElement>('.quick-architecture');
+      const platform = column?.getAttribute('data-platform-col') ?? undefined;
+      const arch = row ? ARCH_KEYS[row.getAttribute('data-arch') ?? ''] ?? undefined : undefined;
+      writeChoice({ platform, arch });
+    });
+  });
+
+  applyRecommendation();
 </script>
