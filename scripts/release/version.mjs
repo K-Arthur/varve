@@ -26,7 +26,7 @@
  * warns on drift before the commit leaves the machine.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -48,6 +48,9 @@ const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/;
  * `kind: 'toml-section'` targets the first `version = "..."` after a named
  * section header, so a dependency's `version =` elsewhere in the file is never
  * touched.
+ *
+ * `kind: 'readme-markers'` targets version strings wrapped in
+ * `<!-- VARVE_VERSION -->vX.Y.Z<!-- /VARVE_VERSION -->` comment markers.
  */
 const TARGETS = [
   { path: 'package.json', kind: 'json', pointer: ['version'] },
@@ -55,15 +58,23 @@ const TARGETS = [
   { path: 'apps/desktop/src-tauri/tauri.conf.json', kind: 'json', pointer: ['version'] },
   { path: 'Cargo.toml', kind: 'toml-section', section: 'workspace.package' },
   { path: 'apps/desktop/src-tauri/Cargo.toml', kind: 'toml-section', section: 'package' },
+  { path: 'README.md', kind: 'readme-markers' },
 ];
 
 function readTarget(target) {
   const abs = join(repoRoot, target.path);
+  if (!existsSync(abs)) return { text: '', value: undefined };
   const text = readFileSync(abs, 'utf-8');
   if (target.kind === 'json') {
     let node = JSON.parse(text);
     for (const key of target.pointer) node = node?.[key];
     return { text, value: node };
+  }
+  if (target.kind === 'readme-markers') {
+    const match = text.match(/<!-- VARVE_VERSION -->[^<]*<!-- \/VARVE_VERSION -->/);
+    if (!match) return { text, value: undefined };
+    const versionMatch = match[0].match(/<!-- VARVE_VERSION -->([^<]*)<!-- /);
+    return { text, value: versionMatch?.[1]?.replace(/^v/, '') };
   }
   return { text, value: tomlSectionVersion(text, target.section) };
 }
@@ -87,6 +98,7 @@ function tomlSectionVersion(text, section) {
 
 function writeTarget(target, version) {
   const abs = join(repoRoot, target.path);
+  if (!existsSync(abs)) return; // skip missing files (e.g. README in test fixtures)
   const text = readFileSync(abs, 'utf-8');
 
   if (target.kind === 'json') {
@@ -98,6 +110,24 @@ function writeTarget(target, version) {
     );
     if (updated === text && readTarget(target).value !== version) {
       throw new Error(`Could not locate a "version" key to update in ${target.path}`);
+    }
+    writeFileSync(abs, updated);
+    return;
+  }
+
+  if (target.kind === 'readme-markers') {
+    if (!existsSync(abs)) return; // README may not exist in test fixtures
+    // Replace every <!-- VARVE_VERSION -->vX.Y.Z<!-- /VARVE_VERSION --> with
+    // the new version, preserving the v prefix where present.
+    const updated = text.replace(
+      /<!-- VARVE_VERSION -->([^<]*)<!-- \/VARVE_VERSION -->/g,
+      (_m, oldVersion) => {
+        const prefix = oldVersion.startsWith('v') ? 'v' : '';
+        return `<!-- VARVE_VERSION -->${prefix}${version}<!-- /VARVE_VERSION -->`;
+      },
+    );
+    if (updated === text) {
+      throw new Error(`Could not locate <!-- VARVE_VERSION --> markers in ${target.path}`);
     }
     writeFileSync(abs, updated);
     return;
