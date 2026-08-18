@@ -1,6 +1,6 @@
 # Varve Website
 
-Varve's marketing website — an Astro 5 static site for product pages,
+Varve's marketing website — an Astro 7 static site for product pages,
 documentation, downloads, and community.
 
 ## Architecture

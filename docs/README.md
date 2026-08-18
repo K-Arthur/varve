@@ -215,16 +215,22 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
 | `architecture/raster-assets.md` | Canonical raster asset architecture: metadata, resource handles, worker residency, export barrier |
 | `architecture/image-trace-system.md` | Native raster-to-vector tracing (silhouette/centerline/pixel-art) |
+| `architecture/image-vector-enhancement.md` | Image/vector enhancement and AI upscaling dispatch |
 | `architecture/palette-extraction-system.md` | Deterministic local image palette, harmony, and WCAG pair analysis |
 | `architecture/thumbnail-system.md` | Unified thumbnail system (ADR-0218) |
 | `architecture/coordinate-system.md` | Coordinate-space contract: spaces, storage, composition, reparenting, migration (ADR-0219) |
 | `architecture/asset-search-system.md` | Asset Browser retrieval lanes, vector identity, model/runtime gate, and degradation contract |
+| `architecture/background-removal-system.md` | Background-removal system contract and local-first workflow |
+| `architecture/blend-evaluation-policy.md` | Blend evaluation policy and compositing operations |
 | `architecture/visual-awareness-system.md` | Demand-driven face, hand, pose, object, and segmentation capability boundary |
 | `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
 | `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2) |
 | `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |
+| `architecture/analytics.md` | Privacy-first analytics architecture |
 | `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
-| `architecture/live-effects-system.md` / `architecture/effect-rendering.md` | Live effect model and render-parity contract |
+| `architecture/effect-rendering.md` | Live effect model and render-parity contract |
+| `architecture/email-template-system.md` | Email template authoring, preview, and export system |
+| `architecture/live-effects-system.md` | Live effect model and render-parity contract |
 | `architecture/gradient-map-system.md` | Gradient map adjustment system |
 | `architecture/warp-system.md` | Persistent geometry modifier (warp) model (ADRs 0155–0169) |
 | `architecture/persistent-history.md` | Version history architecture (milestones 1–14 landed) |
@@ -244,13 +250,16 @@ and [`quality/image-enhancement-benchmark.md`](quality/image-enhancement-benchma
 | `architecture/semantic-asset-similarity.md` | Local image-to-image similarity, duplicate lanes, model/runtime boundaries, and current limitations |
 | `quality/semantic-asset-similarity-benchmark.md` | Exact-search scale baseline and held-out retrieval evaluation contract |
 | `architecture/object-selection-system.md` | Object Selection prompts, transient masks, runtime boundary, and persistence |
+| `architecture/offline-first.md` | Offline-first UX contract and network boundary |
 | `architecture/int8-quantization.md` | INT8 model quantization |
 | `architecture/realesrgan-packaging.md` | Real-ESRGAN model packaging |
 | `architecture/debug-overlays.md` | Debug overlay contract |
+| `architecture/depth-aware-imaging.md` | Depth-aware imaging contract and inference ordering |
 | `architecture/workspace-navigation.md` | Workspace navigation behavior |
 | `architecture/filesystem-boundary.md` | Cross-platform directory, path, storage, and native filesystem boundary |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
+| `architecture/multimodal-edit-plan.md` | Multimodal design edit plans and proposal boundary |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
 
 ### Dated point-in-time records under `docs/architecture/`
@@ -260,22 +269,25 @@ The files below live in `docs/architecture/` but are **point-in-time records**
 not current-state guidance. Treat them like the dated files in
 `docs/audits/`/`docs/plans/`: verify against current code before acting.
 
-- `architecture/interaction-systems-2026-07-27.md` — dated interaction-systems notes (Milestones 1–10)
-- `architecture/ai-competitor-intelligence-2026.md` — competitor research (2026-07)
-- `architecture/ai-feature-strategy-2026-07-21.md` — dated AI feature strategy (pre-rename title)
-- `architecture/icon-system-audit-2026-08-02.md` — dated icon system audit
-- `architecture/raster-pyramid-audit.md` — audit-phase record of the raster-pyramid work
+- `architecture/arm64-support-audit-2026-08-13.md` — ARM64 platform support audit
 - `architecture/coordinate-spaces-research.md` — coordinate-space research matrix
+- `architecture/interaction-latency-2026-08-10.md` — interaction latency investigation
+- `architecture/motion-framework-evaluation.md` — motion framework evaluation
+- `architecture/raster-pyramid-audit.md` — audit-phase record of the raster-pyramid work
+- `architecture/update-system-audit-2026-08-13.md` — update system audit
 - `architecture/webgpu-manual-verification.md` — manual WebGPU verification checklist (run on real hardware)
-- `architecture/design-to-code-intermediate-representation.md` — design-to-code IR (implemented; written as a design doc 2026-07-23)
 
-Dated records that have been moved to `docs/historical/`:
-- `ARCHITECTURE_BRIEF.md` — high-level architecture brief (generated 2026-07-25); file/line and schema-version claims are stale, verify against code
-- `architecture/interaction-systems-2026-07-27.md` — dated interaction-systems notes (Milestones 1–10)
-- `architecture/ai-competitor-intelligence-2026.md` — competitor research (2026-07)
-- `architecture/ai-feature-strategy-2026-07-21.md` — dated AI feature strategy (pre-rename title)
-- `architecture/icon-system-audit-2026-08-02.md` — dated icon system audit
-- `architecture/design-to-code-intermediate-representation.md` — design-to-code IR (implemented; written as a design doc 2026-07-23)
+### Dated records moved to `docs/historical/`
+
+The following dated files were moved from `docs/architecture/` to
+`docs/historical/` during a previous hygiene pass:
+
+- `historical/ARCHITECTURE_BRIEF.md` — high-level architecture brief (generated 2026-07-25); file/line and schema-version claims are stale, verify against code
+- `historical/ai-competitor-intelligence-2026.md` — competitor research (2026-07)
+- `historical/ai-feature-strategy-2026-07-21.md` — dated AI feature strategy (pre-rename title)
+- `historical/design-to-code-intermediate-representation.md` — design-to-code IR (implemented; written as a design doc 2026-07-23)
+- `historical/icon-system-audit-2026-08-02.md` — dated icon system audit
+- `historical/interaction-systems-2026-07-27.md` — dated interaction-systems notes (Milestones 1–10)
 
 ## Release Engineering (current state)
 
@@ -408,7 +420,7 @@ records; check the current code before acting on their findings.
 
 | Area | Location | Purpose |
 |------|----------|---------|
-| Source code | `apps/website/` | Astro 5 static site (42 pages) |
+| Source code | `apps/website/` | Astro 7 static site (42 pages) |
 | Release manifest | `apps/website/src/data/release-manifest.json` | Download data for the release pages |
 | Deployment workflow | `.github/workflows/website-deploy.yml` | GitHub Pages auto-deploy |
 | Website build | `pnpm --filter @varve/website build` | Build command (astro check + astro build) |
@@ -419,7 +431,7 @@ records; check the current code before acting on their findings.
 | Doc | Purpose |
 |-----|---------|
 | `apps/desktop/README.md` | Tauri 2 desktop app — architecture, running, building |
-| `apps/website/README.md` | Astro 5 marketing site — architecture, running, testing |
+| `apps/website/README.md` | Astro 7 marketing site — architecture, running, testing |
 
 ## AI-Assisted Development
 
