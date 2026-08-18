@@ -37,7 +37,7 @@ export const GETTING_STARTED: Record<string, HelpArticle> = {
     id: 'getting-started:saving',
     title: 'Saving and Opening',
     summary: 'Auto-save, recovery, and file management.',
-    body: 'Varve automatically saves your work as you design. Auto-save creates recovery points that can be restored if the application closes unexpectedly. To manually save, press Ctrl+S or go to File > Save. Use Save As (Ctrl+Shift+S) to create a copy with a different name or location. Varve saves documents in its native JSON format (.strata). Opening a file: press Ctrl+O or go to File > Open to load a saved document. The Home screen lists your recent documents for quick access. Recovery sessions appear automatically after a crash, offering to restore your work with a single click.',
+    body: 'Varve automatically saves your work as you design. Auto-save creates recovery points that can be restored if the application closes unexpectedly. To manually save, press Ctrl+S or go to File > Save. Use Save As (Ctrl+Shift+S) to create a copy with a different name or location. Varve saves documents in its native JSON format (.varve). Opening a file: press Ctrl+O or go to File > Open to load a saved document. The Home screen lists your recent documents for quick access. Recovery sessions appear automatically after a crash, offering to restore your work with a single click.',
     keywords: ['save', 'open', 'auto-save', 'recovery', 'file', 'load', 'persist'],
     category: 'Getting Started',
     related: ['getting-started:creating', 'faq:save', 'faq:recover'],

@@ -60,7 +60,7 @@ export interface LogoPackageOptions {
   includePalette?: boolean;
   /** Include the source document (default true). */
   includeSource?: boolean;
-  /** Document JSON for Source/project.strata. */
+  /** Document JSON for Source/project.varve. */
   sourceJson?: string;
 }
 
@@ -381,7 +381,7 @@ export async function buildLogoPackage(
   if (options.includeSource ?? true) {
     const sourceJson = options.sourceJson ?? JSON.stringify(doc, null, 2);
     push(
-      `${folder}/Source/project.strata`,
+      `${folder}/Source/project.varve`,
       new TextEncoder().encode(sourceJson),
       'application/json',
     );
