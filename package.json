@@ -43,6 +43,7 @@
     "audit:clientenv": "node scripts/security/validate-client-env.mjs --app website && node scripts/security/validate-client-env.mjs --app desktop",
     "audit:boundaries": "node scripts/security/import-boundaries.mjs",
     "audit:artifacts": "node scripts/secret-scan.mjs --dir apps/website/dist --dir apps/website/dist-pages --dir apps/desktop/dist",
+    "audit:product-truth": "node scripts/release/verify-product-truth.mjs",
     "verify:plan": "node scripts/quality/verify.mjs plan",
     "verify:quick": "node scripts/quality/verify.mjs quick",
     "verify:affected": "node scripts/quality/verify.mjs affected",
