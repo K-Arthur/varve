@@ -255,6 +255,7 @@ import {
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
   setDocumentBitDepth as setDocumentBitDepthDoc,
+  setDocumentBlendEvaluationSpace as setDocumentBlendEvaluationSpaceDoc,
   setDocumentProofConfig as setDocumentProofConfigDoc,
   setDocumentWorkingSpace as setDocumentWorkingSpaceDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
@@ -2299,12 +2300,14 @@ export function EditorProvider({
         smoothing: 0.5,
         spacing: 0.25,
         smudgeStrength: 0.5,
-        smudgeMode: 'sampling' as const,
+        smudgeMode: 'sampling' as 'sampling' | 'mixing' | 'fingerpaint',
         grainId: null,
         grainScale: 1,
         grainRotation: 0,
         grainContrast: 0.5,
         grainInvert: false,
+        alphaLock: false,
+        blendMode: 'normal' as const,
         wetEnabled: false,
         wetEdge: false,
         wetMixStrength: 0.5,
@@ -7859,6 +7862,9 @@ export function EditorProvider({
       },
       setDocumentWorkingSpace: (workingSpace: WorkingSpace) => {
         updateDoc((doc) => setDocumentWorkingSpaceDoc(doc, workingSpace));
+      },
+      setDocumentBlendEvaluationSpace: (space) => {
+        updateDoc((doc) => setDocumentBlendEvaluationSpaceDoc(doc, space));
       },
 
       // F2/A8 — session (tab) management -----------------------------------
