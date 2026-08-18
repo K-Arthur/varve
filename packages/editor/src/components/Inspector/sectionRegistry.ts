@@ -22,6 +22,7 @@ export type SectionId =
   | 'position-size'
   | 'corner-radius'
   | 'layout'
+  | 'layout-child'
   | 'constraints'
   | 'appearance'
   | 'mask'
@@ -261,6 +262,22 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 120,
     category: 'geometry',
     isAvailable: (ctx) => isSingleSelection(ctx) && isFrameNode(ctx.selectedNodes),
+  },
+  {
+    // Child-owned layout controls (flow/absolute, per-axis sizing) for
+    // non-frame nodes selected inside an auto-layout frame. Needs its own id
+    // — reusing 'layout' would inherit its frame-only isAvailable gate.
+    // Whether the parent actually has layoutStyle is a per-document check the
+    // component itself makes (it renders nothing otherwise), not something
+    // expressible in this static predicate.
+    id: 'layout-child',
+    title: 'Layout child',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 120,
+    category: 'geometry',
+    isAvailable: (ctx) => hasNodes(ctx) && !isFrameNode(ctx.selectedNodes),
   },
   {
     id: 'constraints',
