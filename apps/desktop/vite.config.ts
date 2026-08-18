@@ -54,6 +54,48 @@ function ortWasmDevPlugin() {
   };
 }
 
+/**
+ * CSP for the public browser-demo build (VITE_DEMO=1) only.
+ *
+ * The desktop (Tauri) webview must NOT receive this meta tag — its IPC uses a
+ * custom protocol that 'self' would block. The demo runs on a plain static
+ * host where a meta CSP is the only header we control (GitHub Pages has no
+ * _headers support).
+ *
+ * 'unsafe-inline' is required by the boot-fallback/theme inline scripts that
+ * run before React; 'wasm-unsafe-eval' + blob: are required by the WASM
+ * engine loader (fetches the glue as text, imports it from a blob: URL, and
+ * instantiates the binary). frame-ancestors 'none' prevents the demo from
+ * being embedded elsewhere.
+ */
+const DEMO_CSP = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' blob:",
+  "worker-src 'self' blob:",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self'",
+  "connect-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+
+function demoCspPlugin() {
+  const demo = process.env.VITE_DEMO === '1';
+  return {
+    name: 'demo-csp',
+    apply: 'build' as const,
+    enforce: 'post' as const,
+    transformIndexHtml(html: string) {
+      if (!demo) return html;
+      const meta =
+        `<meta http-equiv="Content-Security-Policy" content="${DEMO_CSP}" />\n    `;
+      return html.replace('<head>', `<head>\n    ${meta}`);
+    },
+  };
+}
+
 export default defineConfig({
   define: {
     __VARVE_ASSET_BASE__: JSON.stringify(process.env.VITE_BASE_URL ?? '/'),
@@ -67,7 +109,7 @@ export default defineConfig({
     }),
   },
   base: process.env.VITE_BASE_URL ?? '/',
-  plugins: [react(), ortWasmDevPlugin()],
+  plugins: [react(), ortWasmDevPlugin(), demoCspPlugin()],
   clearScreen: false,
   server: { port: 1420, strictPort: true },
   optimizeDeps: {
@@ -89,6 +131,12 @@ export default defineConfig({
           groups: [{ name: 'onnxruntime', test: /onnxruntime-web/ }],
         },
       },
+      // The demo build ships only the app entry — e2e.html and
+      // visual-harness.html are test harnesses that must never reach the
+      // public site.
+      ...(process.env.VITE_DEMO === '1'
+        ? { input: { index: new URL('./index.html', import.meta.url).pathname } }
+        : {}),
     },
   },
   worker: {

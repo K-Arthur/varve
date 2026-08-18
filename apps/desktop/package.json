@@ -10,6 +10,8 @@
     "prebuild": "node ../../scripts/copy-onnx-wasm.mjs",
     "build": "node ../../scripts/security/validate-client-env.mjs --app desktop && tsc --noEmit && vite build",
     "build:wdio": "node ../../scripts/security/validate-client-env.mjs --app desktop && tsc --noEmit && vite build --mode wdio",
+    "prebuild:try": "node ../../scripts/copy-onnx-wasm.mjs",
+    "build:try": "node ../../scripts/security/validate-client-env.mjs --app desktop && tsc --noEmit && VITE_DEMO=1 VITE_BASE_URL=/try/ vite build --outDir dist-try",
     "preview": "vite preview",
     "tauri": "tauri",
     "pretauri:dev": "node scripts/pre-tauri-dev.mjs",

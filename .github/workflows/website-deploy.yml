@@ -6,8 +6,18 @@ on:
       - master
     paths:
       - 'apps/website/**'
+      - 'apps/desktop/**'
+      - 'packages/editor/**'
+      - 'packages/engine/**'
+      - 'packages/scene/**'
+      - 'packages/platform/**'
+      - 'packages/home/**'
+      - 'packages/ui/**'
+      - 'packages/shared/**'
+      - 'tests/e2e/browser/**'
       - '.github/workflows/website-deploy.yml'
       - 'scripts/release/**'
+      - 'scripts/website/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
   # A completed release run redeploys the site so the download page is rebuilt
@@ -113,7 +123,7 @@ jobs:
     name: Build and upload Pages artifact
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     # On workflow_run only act when the Release run actually succeeded.
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
@@ -140,6 +150,23 @@ jobs:
       - name: Install dependencies (frozen)
         run: pnpm install --frozen-lockfile
 
+      # ── WASM engine build (for the browser demo at /try/) ──────────────
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Install just
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        with:
+          tool: just@1.54.0
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          fi
+      - name: wasm build (base + simd + colour)
+        run: just wasm-build-all
+
       # The download page is rebuilt from the published release (channel
       # policy: latest stable, else latest published prerelease; drafts never
       # appear). When a Release run only produced a draft, this rewrites the
@@ -156,6 +183,17 @@ jobs:
       # guard inside the build already rejected forbidden env vars.
       - name: Scan built website artifact
         run: node scripts/secret-scan.mjs --dir apps/website/dist
+
+      # ── Browser demo (/try/) build + staging ────────────────────────────
+      - name: Build browser demo
+        run: pnpm --filter @varve/desktop build:try
+
+      - name: Stage demo into website dist
+        run: node scripts/website/stage-demo.mjs
+
+      - name: Scan demo artifact (secret + canary)
+        run: |
+          node scripts/secret-scan.mjs --dir apps/website/dist/try
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9

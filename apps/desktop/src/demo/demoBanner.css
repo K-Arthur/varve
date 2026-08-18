@@ -1,0 +1,125 @@
+/* Browser-demo banner — slim, non-disruptive, token-driven. */
+
+.varve-demo-banner {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--font-line-normal);
+}
+
+.varve-demo-banner__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  max-width: 1200px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+
+.varve-demo-banner__intro {
+  margin: 0;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.varve-demo-banner__limits {
+  position: relative;
+}
+
+.varve-demo-banner__limits summary {
+  cursor: pointer;
+  color: var(--color-accent-primary);
+  user-select: none;
+}
+
+.varve-demo-banner__limits summary:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.varve-demo-banner__limits ul {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: var(--z-popover);
+  width: min(420px, 90vw);
+  margin: 0;
+  padding: var(--space-3);
+  list-style: none;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  box-shadow: var(--shadow-lg);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.varve-demo-banner__limits li {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.varve-demo-banner__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 6px;
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.varve-demo-banner__cta:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.varve-demo-banner__cta:hover {
+  background: var(--color-accent-hover);
+}
+
+.varve-demo-banner__dismiss {
+  border: none;
+  background: transparent;
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-2);
+  border-radius: 6px;
+}
+
+.varve-demo-banner__dismiss:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.varve-demo-banner__dismiss:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+@media (max-width: 720px) {
+  .varve-demo-banner__inner {
+    gap: var(--space-2);
+  }
+
+  .varve-demo-banner__cta {
+    margin-left: 0;
+  }
+
+  .varve-demo-banner__limits ul {
+    position: static;
+    width: auto;
+    box-shadow: none;
+    border: none;
+    padding: var(--space-2) 0 0;
+  }
+}

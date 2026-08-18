@@ -304,6 +304,16 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
       {release.hasRelease && release.integrity === 'verified' && (
         <>
+          <div class="try-browser-banner">
+            <p>
+              <strong>Or try it right now</strong> — no download required.
+              The full editor runs in your browser with the WASM engine.
+            </p>
+            <a href={sitePath('/try/')} class="try-browser-link" target="_blank" rel="noopener noreferrer">
+              Try Varve in your browser
+            </a>
+          </div>
+
           <div class="quick-download">
             <div class="quick-download-header">
               <h2 class="quick-download-title">
@@ -744,6 +754,47 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
 
 
 <style>
+  .try-browser-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--accent-primary) 6%, var(--surface-base));
+    border: 1px solid color-mix(in oklab, var(--accent-primary) 20%, transparent);
+  }
+
+  .try-browser-banner p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+  }
+
+  .try-browser-banner strong {
+    color: var(--text-primary);
+  }
+
+  .try-browser-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+    font-weight: 600;
+    font-size: 0.875rem;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background-color var(--duration-quick) var(--ease-default);
+  }
+
+  .try-browser-link:hover {
+    background: color-mix(in oklab, var(--accent-primary) 90%, white);
+  }
+
   .download-page {
     max-width: 960px;
     margin: 0 auto;
