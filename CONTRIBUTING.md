@@ -23,9 +23,14 @@ This project follows a standard Code of Conduct. See [CODE_OF_CONDUCT.md](CODE_O
 
 ## Licensing and DCO
 
-Varve is licensed under the **Functional Source License, Version 1.1, MIT
-Future License (FSL-1.1-MIT)**, with a change licence of **MIT** after two
-years. See [LICENSE](LICENSE) for full terms.
+Varve uses a **mixed-license model**. The application (editor, scene model,
+UI, AI features) is licensed under the **Functional Source License, Version
+1.1, MIT Future License (FSL-1.1-MIT)**, with a change licence of **MIT**
+after two years. Several engine crates (`varve-core`, `varve-colour`,
+`varve-trace`, etc.) are licensed under **MIT OR Apache-2.0**. See
+[LICENSE](LICENSE) for the app terms and
+[mixed-license model](docs/licensing/mixed-license-model.md) for the full
+picture.
 
 Once contributions open, all contributions will need to include a
 **Developer Certificate of Origin** (DCO) sign-off. This certifies that you

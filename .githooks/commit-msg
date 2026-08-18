@@ -1,0 +1,17 @@
+#!/bin/sh
+# commit-msg hook: reject commits containing Co-authored-by trailers.
+# These trailers attribute AI tool output as separate legal authorship,
+# which is incorrect — all commits are authored by the maintainer.
+#
+# Install: cp .githooks/commit-msg .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
+# Or: git config core.hooksPath .githooks
+
+msg=$(cat "$1")
+if echo "$msg" | grep -qi '^Co-authored-by:'; then
+  echo "ERROR: Commit message contains a Co-authored-by trailer." >&2
+  echo "All commits in this repository are authored by the maintainer." >&2
+  echo "AI tool output is reviewed and committed as the maintainer's work." >&2
+  echo "" >&2
+  echo "Remove the Co-authored-by line(s) and try again." >&2
+  exit 1
+fi

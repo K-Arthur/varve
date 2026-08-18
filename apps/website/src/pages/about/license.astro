@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="License" description="Varve is licensed under FSL-1.1-MIT: free to use, modify, and redistribute for any permitted purpose. After two years, each release converts to the MIT license.">
+<Layout title="License" description="Varve uses a mixed-license model: the app is FSL-1.1-MIT, and several engine crates are MIT OR Apache-2.0.">
   <div class="container-custom">
     <div class="license-page">
       <h1>License</h1>
@@ -54,6 +54,24 @@ import { sitePath } from '../../lib/siteUrl';
           <li>If development stops, previously released versions become MIT-licensed over time</li>
           <li>The community can freely fork and continue development on MIT-licensed code</li>
         </ul>
+      </section>
+
+      <section class="license-section">
+        <h2>Open-Source Engine Crates</h2>
+        <p>
+          Several reusable engine crates are published separately under
+          <strong>MIT OR Apache-2.0</strong> — genuine OSI-approved open source
+          licenses. These include the geometry core, colour science, auto-tracing,
+          layout, media decoding, effect kernels, upscaling, and background
+          removal crates.
+        </p>
+        <p>
+          The open crates are building blocks, not the product. The editor,
+          document model, UI, AI features, and all application-specific code
+          remain under FSL-1.1-MIT. See the
+          <a href="https://github.com/K-Arthur/varve/blob/main/docs/licensing/mixed-license-model.md">
+          mixed-license model</a> for the full picture.
+        </p>
       </section>
 
       <section class="license-section">
