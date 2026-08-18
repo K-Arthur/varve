@@ -137,16 +137,21 @@ Everything in Alpha, plus:
 ## Rollback
 
 Triggered when a published release is worse than its predecessor.
+Full procedure: [release-rollback-runbook.md](release-rollback-runbook.md).
+
+Quick checklist:
 
 1. [ ] **Do not delete the bad release.** People have already downloaded it;
        deleting it breaks their checksum verification and hides the evidence.
        Mark it as a prerelease so it stops being "latest", and edit the notes to
        say plainly what is wrong.
 2. [ ] Confirm the previous release's assets are still downloadable
-3. [ ] `node scripts/release/update-website-manifest.mjs --manifest dist/release/release-manifest.json --tag <previous>` and
-       redeploy the site, so the download page points at the good version
-4. [ ] Post the reason and the workaround where users will see it
-5. [ ] Then fix forward — a rollback is a stopgap, not a resolution
+3. [ ] Re-point the website at the good version:
+       `node scripts/release/fetch-website-release.mjs --repo K-Arthur/varve --tag <previous>`
+       then redeploy the site
+4. [ ] If updater is active, regenerate feed pointing at the good version
+5. [ ] Post the reason and the workaround where users will see it
+6. [ ] Then fix forward — a rollback is a stopgap, not a resolution
 
 ---
 
