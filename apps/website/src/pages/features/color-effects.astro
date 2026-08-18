@@ -1,6 +1,18 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import manifest from '../../data/screenshot-manifest.json';
+
+type ScreenshotScene = {
+  file: string;
+  alt: string;
+  caption: string;
+  width?: number;
+  height?: number;
+  status?: string;
+};
+const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
+const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes['palette-inspector'] : null;
 ---
 
 <Layout title="Color & Effects" description="Varve's precision-aware color workflow: local image palette extraction, native CMYK document colors, RGB and grayscale, ICC profiles, soft proofing, effects, and print export.">
@@ -38,16 +50,18 @@ import { sitePath } from '../../lib/siteUrl';
         </p>
       </section>
 
-      <figure class="feature-visual">
-        <img
-          src={sitePath('/screenshots/palette-inspector-light.png')}
-          alt="Varve showing a colorful image on the canvas with the Palette Inspector open, including extracted swatches, generated harmonies, and WCAG contrast pairs"
-          width="1440"
-          height="900"
-          loading="lazy"
-        />
-        <figcaption>Extract an image palette, explore derived harmonies, and review contrast pairs in the Inspector.</figcaption>
-      </figure>
+      {paletteShot && (
+        <figure class="feature-visual">
+          <img
+            src={sitePath(`/screenshots/${paletteShot.file}`)}
+            alt={paletteShot.alt}
+            width={paletteShot.width ?? 1440}
+            height={paletteShot.height ?? 900}
+            loading="lazy"
+          />
+          <figcaption>{paletteShot.caption}</figcaption>
+        </figure>
+      )}
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>

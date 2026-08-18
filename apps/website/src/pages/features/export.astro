@@ -1,6 +1,11 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import manifest from '../../data/screenshot-manifest.json';
+
+type ScreenshotScene = { file: string; alt: string; caption: string; width?: number; height?: number; status?: string };
+const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
+const exportShot = scenes.export?.status === 'captured' ? scenes.export : null;
 ---
 
 <Layout title="Export & Code Generation" description="Export from Varve: SVG, React/Tailwind, Flutter, SwiftUI, and PDF with CMYK, PDF/X-1a and PDF/X-4 — with per-node export settings.">
@@ -21,11 +26,24 @@ import { sitePath } from '../../lib/siteUrl';
           Varve's code generation system exports scene documents to multiple formats including SVG, React with Tailwind CSS, React with CSS Modules, Flutter, and SwiftUI. The print production system supports PDF export with CMYK, bleed, crop marks, and color bars for professional print workflows.
         </p>
         <p>
-          For page-based print work, <a href={sitePath('/features/print-production')}>Print Production</a>
+          For page-based print work, <a href={sitePath('/features/print-production')}>Print Production</a>{' '}
           adds design-time trim and bleed guides so the production area stays visible while you
           design.
         </p>
       </section>
+
+      {exportShot && (
+        <figure class="feature-visual">
+          <img
+            src={sitePath(`/screenshots/${exportShot.file}`)}
+            alt={exportShot.alt}
+            width={exportShot.width ?? 1440}
+            height={exportShot.height ?? 900}
+            loading="lazy"
+          />
+          <figcaption>{exportShot.caption}</figcaption>
+        </figure>
+      )}
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>
@@ -128,7 +146,28 @@ import { sitePath } from '../../lib/siteUrl';
     line-height: 1.8;
     margin-bottom: 1rem;
   }
-  
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 0.75rem;
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
   .feature-section ul {
     list-style: none;
   }
