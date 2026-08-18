@@ -236,6 +236,7 @@ export function FloatingToolbar() {
   // back to Design and merges the user's overrides.
   const config = useEffectiveWorkspaceConfig(workspaceMode);
   if (!config.floatingToolbar) return null;
+  if (state.tool === 'crop') return null;
 
   const isDrawingMode = workspaceMode === 'drawing';
   // Order, grouping and flyout membership all come from the workspace config.
