@@ -75,12 +75,36 @@ modes and a real type hierarchy.
 | `export` | light | full | Advanced export dialog: destination, filename template, formats |
 | `print-production` | light | full | Bleed guides on canvas and the Page Print inspector |
 | `vectorize` | light | full | Vectorize dialog in colour mode on an imported photo |
+| `effects` | light | full | Effects inspector with a real drop shadow added to a shape |
 | `image-tools` | light | inspectorTall | Enhance, Vectorize, Object Selection, Background Removal, Depth Blur |
 | `workspaces` | light | full | Print workspace active — Masters, Pages, and Spreads panels |
 
 Detail scenes are cropped **at capture time** (`clip`), because the website
 shows them at roughly a third of the page width where a scaled-down full
 window is an unreadable smear.
+
+### Feature pages still without a scene
+
+These are not oversights. Each one's result depends on a model that is
+downloaded on demand, so a capture run would either block on a network fetch
+or screenshot a "download this model" prompt — neither of which shows the
+feature:
+
+| Feature page | Blocked on |
+|---|---|
+| `background-removal` | segmentation model (`ModelDownloadDialog`) |
+| `object-selection` | segmentation model |
+| `depth-aware-effects` | depth model (`ensureDepthModelDownloaded`) |
+| `asset-search` | text/image encoder for the embedding index |
+| `asset-similarity` | image encoder for the embedding index |
+
+The `image-tools` scene covers the **entry points** for the first three — the
+inspector sections a user opens to reach them — which is capturable without a
+model and honest about what it shows. `local-first` has no single panel that
+depicts it; its evidence is the absence of an account, not a screen.
+
+Capturing the model-dependent results properly needs a fixture strategy for
+pre-seeded model assets, so a run stays offline and deterministic.
 
 `SCENES` in `product.mjs` is the source of truth for what exists. A newly
 added scene seeds its own manifest entry, and an entry whose scene has been

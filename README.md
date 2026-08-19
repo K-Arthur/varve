@@ -102,6 +102,16 @@ demo documents — never hand-edited. See
 <p align="center">Export to SVG, PNG, WebP, or PDF</p>
 </td>
 </tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/product/effects-light.png" alt="The Varve Effects inspector with a drop shadow added to the selected shape, showing offset, blur, spread, opacity and blend-mode controls" width="100%">
+<p align="center">Stackable, non-destructive effects</p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/product/typography-panel-light.png" alt="The Varve typography inspector showing font family, weight, style, size, line height and letter spacing for the selected text" width="100%">
+<p align="center">Type controls for the selected text</p>
+</td>
+</tr>
 </table>
 
 ## Download
