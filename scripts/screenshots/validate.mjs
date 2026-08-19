@@ -9,6 +9,9 @@
  * Also verifies documentation/website references: any `/screenshots/` path in
  * docs, README, or website sources must resolve to a captured manifest entry.
  *
+ * Video assets (workflow.webm, workflow.mp4) are validated separately: budget
+ * checks (warn 5 MB, fail 10 MB) and cross-directory consistency.
+ *
  *   node scripts/screenshots/validate.mjs [--strict]
  *
  * --strict additionally fails when any scene is skipped (used by the
@@ -44,7 +47,13 @@ if (!manifest.schemaVersion) fail('manifest missing schemaVersion');
 const ids = Object.keys(scenes);
 if (ids.length === 0) fail('manifest has no scenes');
 
+const PNG_BUDGET_WARN = 1_000_000; // 1 MB
+const PNG_BUDGET_FAIL = 2_000_000; // 2 MB
+const PNG_TOTAL_BUDGET_WARN = 5_000_000; // 5 MB
+const PNG_TOTAL_BUDGET_FAIL = 10_000_000; // 10 MB
+
 const capturedFiles = new Set();
+let totalPngBytes = 0;
 for (const [id, scene] of Object.entries(scenes)) {
   if (typeof scene.file !== 'string' || !scene.file.endsWith('.png')) {
     fail(`${id}: missing/odd file name`);
@@ -62,6 +71,16 @@ for (const [id, scene] of Object.entries(scenes)) {
     if (buf.length === 0) {
       fail(`${id}: ${scene.file} is 0 bytes`);
       continue;
+    }
+    totalPngBytes += buf.length;
+    if (buf.length > PNG_BUDGET_FAIL) {
+      fail(
+        `${id}: ${scene.file} exceeds ${PNG_BUDGET_FAIL / 1_000_000} MB budget (${(buf.length / 1_000_000).toFixed(2)} MB)`,
+      );
+    } else if (buf.length > PNG_BUDGET_WARN) {
+      console.warn(
+        `WARN ${id}: ${scene.file} is ${(buf.length / 1_000_000).toFixed(2)} MB (warn threshold ${PNG_BUDGET_WARN / 1_000_000} MB)`,
+      );
     }
     const dims = pngSize(buf);
     if (!dims) {
@@ -87,6 +106,16 @@ for (const [id, scene] of Object.entries(scenes)) {
   }
 }
 
+if (totalPngBytes > PNG_TOTAL_BUDGET_FAIL) {
+  fail(
+    `captured PNG set exceeds ${PNG_TOTAL_BUDGET_FAIL / 1_000_000} MB total budget (${(totalPngBytes / 1_000_000).toFixed(2)} MB)`,
+  );
+} else if (totalPngBytes > PNG_TOTAL_BUDGET_WARN) {
+  console.warn(
+    `WARN captured PNG set is ${(totalPngBytes / 1_000_000).toFixed(2)} MB total (warn threshold ${PNG_TOTAL_BUDGET_WARN / 1_000_000} MB)`,
+  );
+}
+
 // Every reference to screenshots in docs/marketing must resolve to a captured
 // manifest entry (no stale paths, no hand-copied copies).
 const refRe = /(?:src|href)="[^"]*\/screenshots\/([a-z0-9-]+\.png)"/g;
@@ -105,9 +134,58 @@ for (const src of haystack) {
 for (const ref of missingRefs) fail(`docs/website reference to missing screenshot: ${ref}`);
 
 // No file may exist in public/screenshots without a manifest entry (avoids
-// drift between generated assets and the manifest).
-for (const file of globSync('*.png', { cwd: PUBLIC_DIR })) {
-  if (!capturedFiles.has(file)) fail(`orphan file in public/screenshots: ${file}`);
+// drift between generated assets and the manifest). Video files are allowed
+// as they are not tracked by the PNG manifest.
+// Both output directories are checked: a renamed scene leaves its old file
+// behind in each, and only the manifest knows which name is current.
+for (const [label, dir] of [
+  ['public/screenshots', PUBLIC_DIR],
+  ['docs/screenshots/product', join(ROOT, 'docs', 'screenshots', 'product')],
+]) {
+  for (const file of globSync('*.png', { cwd: dir })) {
+    if (!capturedFiles.has(file)) fail(`orphan file in ${label}: ${file}`);
+  }
+}
+
+// Video asset validation: workflow.webm / workflow.mp4 are optional but if
+// present must pass budget checks and exist in both output directories.
+const VIDEO_BUDGET_WARN = 5_000_000; // 5 MB
+const VIDEO_BUDGET_FAIL = 10_000_000; // 10 MB
+const DOCS_DIR = join(ROOT, 'docs', 'screenshots', 'product');
+
+for (const ext of ['webm', 'mp4']) {
+  const fileName = `workflow.${ext}`;
+  const docsPath = join(DOCS_DIR, fileName);
+  const publicPath = join(PUBLIC_DIR, fileName);
+  try {
+    const buf = readFileSync(publicPath);
+    if (buf.length === 0) {
+      fail(`workflow video ${fileName} is 0 bytes`);
+    } else if (buf.length > VIDEO_BUDGET_FAIL) {
+      fail(
+        `workflow video ${fileName} exceeds ${VIDEO_BUDGET_FAIL / 1_000_000} MB budget (${(buf.length / 1_000_000).toFixed(1)} MB)`,
+      );
+    } else if (buf.length > VIDEO_BUDGET_WARN) {
+      console.warn(
+        `WARN workflow video ${fileName} is ${(buf.length / 1_000_000).toFixed(1)} MB (warn threshold ${VIDEO_BUDGET_WARN / 1_000_000} MB)`,
+      );
+    }
+    // Verify docs copy matches
+    try {
+      const docsBuf = readFileSync(docsPath);
+      if (docsBuf.length !== buf.length) {
+        fail(
+          `workflow video ${fileName}: docs/screenshots size (${docsBuf.length}) differs from public/screenshots (${buf.length})`,
+        );
+      }
+    } catch {
+      fail(
+        `workflow video ${fileName} exists in public/screenshots but missing from docs/screenshots/product/`,
+      );
+    }
+  } catch {
+    // Video is optional — not a failure if absent
+  }
 }
 
 const skipped = Object.values(scenes).filter((s) => s.status === 'skipped');

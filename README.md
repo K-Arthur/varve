@@ -82,6 +82,26 @@ demo documents — never hand-edited. See
 <p align="center">The timeline panel in the motion workspace</p>
 </td>
 </tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/product/print-production-light.png" alt="A page on the Varve canvas with a dashed bleed guide beyond the trim edge and the Page Print inspector showing per-edge bleed values" width="100%">
+<p align="center">Bleed and trim guides for print production</p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/product/workspaces-light.png" alt="The Varve menubar workspace switcher with the Print workspace selected, showing the Masters, Pages and Spreads panels it applies" width="100%">
+<p align="center">Workspaces swap panels for the task</p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/product/vectorize-dialog-light.png" alt="The Varve Vectorize dialog in colour mode, tracing an imported photo into editable vector paths with colour count and path-fitting controls" width="100%">
+<p align="center">Trace an image into editable paths</p>
+</td>
+<td width="50%">
+<img src="docs/screenshots/product/export-dialog-light.png" alt="The Varve advanced export dialog showing a destination, filename template and format options" width="100%">
+<p align="center">Export to SVG, PNG, WebP, or PDF</p>
+</td>
+</tr>
 </table>
 
 ## Download

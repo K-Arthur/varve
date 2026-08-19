@@ -39,8 +39,12 @@ const PORT = Number(process.env.VARVE_SHOT_PORT ?? 1430);
 const BASE = `http://localhost:${PORT}`;
 
 const args = process.argv.slice(2);
+// indexOf returns -1 when --scenes is absent, so reading args[index + 1]
+// unguarded picks up args[0] — turning `--strict` into a scene filter that
+// matches nothing and silently capturing zero scenes.
+const scenesFlag = args.indexOf('--scenes');
 const onlyScenes = new Set(
-  (args[args.indexOf('--scenes') + 1] ?? '')
+  (scenesFlag === -1 ? '' : (args[scenesFlag + 1] ?? ''))
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
@@ -304,6 +308,9 @@ async function settle(page) {
 const CROP = {
   canvas: { x: 288, y: 100, width: 832, height: 620 },
   inspector: { x: 1120, y: 100, width: 320, height: 620 },
+  // Full inspector column: starts below the tab strip and stops above the
+  // status bar, so a long stack of sections is not clipped mid-row.
+  inspectorTall: { x: 1120, y: 122, width: 320, height: 722 },
   // Starts below the document thumbnail and Pages strip so the crop lands on
   // the layer rows themselves, where the blend/opacity badges are.
   layers: { x: 0, y: 350, width: 288, height: 380 },
@@ -578,6 +585,105 @@ const SCENES = [
     },
   },
   {
+    id: 'vectorize',
+    file: 'vectorize-dialog-light.png',
+    theme: 'light',
+    feature: 'vector-tools',
+    alt: 'The Varve Vectorize dialog tracing an imported photo into editable vector paths, with mode, colour count and path-fitting controls',
+    caption: 'Trace an imported image into editable paths — computed locally by the Rust trace engine.',
+    async run(page) {
+      await openCleanEditor(page);
+      await importImage(page, 'earth.jpg');
+      await selectImageNode(page);
+      await fitContent(page);
+      const vectorize = page
+        .locator('.selection-quick-bar')
+        .getByRole('button', { name: /vectorize/i });
+      if (!(await vectorize.isVisible({ timeout: 4000 }).catch(() => false))) {
+        throw new Error('Vectorize control unavailable for the selected image');
+      }
+      await vectorize.click();
+      const dialog = page.getByRole('dialog', { name: /vectorize image/i });
+      await dialog.waitFor({ state: 'visible', timeout: 10000 });
+      // The dialog opens on the B&W "crisp black logo" preset. That is the
+      // right default for line art and the wrong one for a photograph — it
+      // traces this fixture into hundreds of paths and surfaces a complexity
+      // warning. Colour mode is what a designer would actually pick here.
+      // SegmentedControl renders a visually-hidden radio inside its label, so
+      // the input has no clickable box of its own — check it directly.
+      const colorMode = dialog.getByRole('radio', { name: 'Color', exact: true });
+      if ((await colorMode.count()) === 0) {
+        throw new Error('Vectorize colour mode control not present');
+      }
+      await colorMode.check({ force: true, timeout: 8000 });
+      if (!(await colorMode.isChecked())) {
+        throw new Error('Vectorize did not switch to colour mode');
+      }
+      // Colour mode re-runs the trace preview; capturing before it settles
+      // would show the previous mode's result under the new mode's controls.
+      await page.waitForTimeout(2500);
+    },
+  },
+  {
+    id: 'image-tools',
+    file: 'image-tools-panel-light.png',
+    theme: 'light',
+    feature: 'visual-awareness',
+    clip: CROP.inspectorTall,
+    alt: 'The Varve image tools inspector for a selected photo, stacking Image Enhance, Vectorize, Object Selection, Background Removal, Colorize, AI Denoise and Depth Blur sections',
+    caption: 'Image tools for a selected photo — enhance, vectorize, object selection, background removal, depth blur. All run on-device.',
+    async run(page) {
+      await openCleanEditor(page);
+      await importImage(page, 'earth.jpg');
+      await selectImageNode(page);
+      await fitContent(page);
+      const tab = page.getByRole('tab', { name: /^Adjustments/i });
+      if (!(await tab.isVisible({ timeout: 5000 }).catch(() => false))) {
+        throw new Error('image tools tab unavailable for the selected image');
+      }
+      await tab.click();
+      // The panel is lazy-loaded; wait for real controls rather than the tab
+      // click alone, or the crop can land on a loading fallback.
+      await page
+        .locator('.insp-disclosure')
+        .first()
+        .waitFor({ state: 'visible', timeout: 15000 });
+      const bgSection = page.locator('.insp-disclosure').filter({ hasText: /Background Removal/ });
+      if (!(await bgSection.isVisible({ timeout: 5000 }).catch(() => false))) {
+        throw new Error('Background Removal section missing — panel would misrepresent image tools');
+      }
+      await page.waitForTimeout(700);
+    },
+  },
+  {
+    id: 'workspaces',
+    file: 'workspaces-light.png',
+    theme: 'light',
+    feature: 'workspaces',
+    alt: 'The Varve menubar workspace switcher with the Print workspace selected, showing the panel and toolbar layout that workspace applies',
+    caption: 'Task-focused workspaces — each remembers its own panels, toolbar, and inspector.',
+    async run(page) {
+      await openCleanEditor(page);
+      await openDemoDocument(page, 'poster');
+      await selectLayer(page, /display headline/i);
+      await fitContent(page);
+      const group = page.getByRole('radiogroup', { name: 'Workspace' });
+      await group.waitFor({ state: 'visible', timeout: 8000 });
+      const printTab = group.getByRole('radio', { name: /print workspace/i });
+      if (!(await printTab.isVisible({ timeout: 4000 }).catch(() => false))) {
+        throw new Error('Print workspace tab not present in the workspace switcher');
+      }
+      await printTab.click();
+      // requestWorkspaceSwitch is async and re-lays out the shell; assert the
+      // switch actually took rather than capturing mid-transition.
+      await page.waitForTimeout(1200);
+      if ((await printTab.getAttribute('aria-checked')) !== 'true') {
+        throw new Error('Print workspace did not become the active workspace after the click');
+      }
+      await fitContent(page);
+    },
+  },
+  {
     id: 'print-production',
     file: 'print-production-light.png',
     theme: 'light',
@@ -593,17 +699,11 @@ const SCENES = [
       // "Frame" rather than "Page" when one is selected), so none of them
       // can stand in for this scene.
       //
-      // Currently skips: the Page Print inspector opens and the four bleed
-      // fields commit and read back correctly (verified visually), but
-      // .print-bleed-guide never mounts — unlike the passing Chromium run
-      // of bleed-workflow.spec.ts on the same build, which reaches guide
-      // count 1 through what should be an equivalent sequence. The
-      // difference wasn't isolated (candidates: some extra setup that
-      // spec's seedPrintDocument performs, e.g. its Ctrl+Shift+2 step, or a
-      // render-invalidation gap specific to a page created then immediately
-      // fitted/tool-switched in the same tick). Left as a real, reproducible
-      // gap rather than guessed at further — see the skip reason recorded
-      // in the manifest.
+      // Bleed guides are a View toggle that defaults to off
+      // (viewportSession.ts: bleedGuidesVisible: false), so setting bleed
+      // values alone renders nothing — CanvasOverlays only mounts
+      // PagePrintOverlays while the toggle is on. Ctrl+Shift+2 is that
+      // toggle, which is why the spec's prelude presses it.
       await openCleanEditor(page);
       await page.getByRole('button', { name: 'Add page' }).click();
       await page.waitForTimeout(400);
@@ -622,6 +722,8 @@ const SCENES = [
       await page.mouse.move(ex, ey);
       await page.mouse.up();
       await page.keyboard.press('Escape');
+      await page.keyboard.press('Control+Shift+2');
+      await page.waitForTimeout(400);
       // "Fit all" (the fitContent helper) frames artwork bounds, which here
       // is the small rectangle just drawn — it would zoom in far past the
       // page itself. "Fit active page" frames the page/bleed geometry this
@@ -636,7 +738,10 @@ const SCENES = [
       if (guideBox) {
         await page.mouse.click(guideBox.x + guideBox.width / 2, guideBox.y + guideBox.height / 2);
       } else {
-        await page.mouse.click(canvasBox.x + canvasBox.width / 2, canvasBox.y + canvasBox.height / 2);
+        await page.mouse.click(
+          canvasBox.x + canvasBox.width / 2,
+          canvasBox.y + canvasBox.height / 2,
+        );
       }
       const pagePrintLabel = page.getByText('Page Print').first();
       if (!(await pagePrintLabel.isVisible({ timeout: 5000 }).catch(() => false))) {
@@ -670,6 +775,7 @@ const manifest = JSON.parse(readFileSync(MANIFEST_PATH, 'utf8'));
 const browser = await chromium.launch();
 const server = await startServer();
 let failures = 0;
+let ranThisRun = 0;
 
 /**
  * One throwaway load before the scene loop.
@@ -700,12 +806,12 @@ await warmUp();
 try {
   for (const scene of SCENES) {
     if (onlyScenes.size > 0 && !onlyScenes.has(scene.id)) continue;
+    // SCENES is the source of truth for what exists; the manifest is a
+    // generated view of it, so a newly added scene seeds its own entry
+    // rather than requiring a hand-edit of a file marked "do not hand-edit".
+    manifest.scenes[scene.id] ??= {};
     const entry = manifest.scenes[scene.id];
-    if (!entry) {
-      console.error(`unknown scene ${scene.id} (not in manifest)`);
-      failures++;
-      continue;
-    }
+    ranThisRun++;
     const ctx = await browser.newContext({
       viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 1,
@@ -748,6 +854,14 @@ try {
         `captured ${scene.id} -> docs/screenshots/product/${scene.file} (${dims.width}x${dims.height})`,
       );
     } catch (err) {
+      // Descriptive fields are written on the failure path too: a skipped
+      // scene still has to carry its file name, alt text and feature so the
+      // manifest stays a complete inventory rather than a bare error stub.
+      entry.file = scene.file;
+      entry.alt = scene.alt;
+      entry.caption = scene.caption;
+      entry.feature = scene.feature;
+      entry.theme = scene.theme;
       entry.status = 'skipped';
       entry.reason = String(err instanceof Error ? err.message : err).slice(0, 400);
       entry.lastValidatedAgainst = null;
@@ -765,12 +879,35 @@ try {
       await ctx.close();
     }
   }
+  // Drop manifest entries whose scene no longer exists. Only safe on a full
+  // run — a --scenes run intentionally leaves the other entries untouched.
+  if (onlyScenes.size === 0) {
+    const live = new Set(SCENES.map((s) => s.id));
+    for (const id of Object.keys(manifest.scenes)) {
+      if (live.has(id)) continue;
+      const stale = manifest.scenes[id];
+      if (stale?.file) {
+        for (const dir of [OUT_DIR, PUBLIC_DIR]) rmSync(join(dir, stale.file), { force: true });
+      }
+      delete manifest.scenes[id];
+      console.log(`pruned removed scene ${id}`);
+    }
+  }
   manifest.generatedAt = new Date().toISOString();
   writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`manifest written: ${MANIFEST_PATH}`);
 } finally {
   await stopServer(server);
   await browser.close();
+}
+
+// Reported separately from the manifest totals below: a run that captures
+// nothing still leaves a manifest full of previously-captured scenes, which
+// reads like success unless this run's own tally is shown.
+console.log(`this run: ${ranThisRun} scene(s) attempted`);
+if (ranThisRun === 0) {
+  console.error('FAIL no scenes ran — check the --scenes filter');
+  failures++;
 }
 
 const captured = Object.values(manifest.scenes).filter((s) => s.status === 'captured').length;
