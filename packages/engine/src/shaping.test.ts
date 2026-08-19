@@ -192,6 +192,26 @@ describe('shapeText', () => {
     expect(result.direction).toBe('ltr');
   });
 
+  it('shapes every paragraph of a multi-line string, not just the first', () => {
+    // Regression: analyzeParagraph stops at U+000A, so text after the first
+    // newline was never shaped and the canvas painted only the first line.
+    const result = shapeText('Layers\nof time', 'Arial', 16, ctx);
+    const clusters = result.runs.flatMap((run) => run.glyphs.map((g) => g.clusterUtf16));
+
+    // 'Layers' is 0-5 and 'of time' is 7-13; the newline at 6 yields no glyph.
+    expect(Math.max(...clusters)).toBe(13);
+    expect(clusters).not.toContain(6);
+    expect(clusters).toHaveLength('Layers'.length + 'of time'.length);
+  });
+
+  it('reports the widest paragraph as the width, not the sum of all lines', () => {
+    const single = shapeText('of time', 'Arial', 16, ctx);
+    const multi = shapeText('Layers\nof time', 'Arial', 16, ctx);
+    const long = shapeText('Layers', 'Arial', 16, ctx);
+
+    expect(multi.width).toBeCloseTo(Math.max(single.width, long.width), 5);
+  });
+
   it('detects RTL base direction for Arabic text', () => {
     const result = shapeText('مرحبا', 'Arial', 16, ctx);
     expect(result.baseDirection).toBe('rtl');

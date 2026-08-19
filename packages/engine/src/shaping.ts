@@ -228,6 +228,34 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
 
   if (text.length === 0) return [];
 
+  // U+000A terminates a UAX #9 paragraph, so `analyzeParagraph` only ever
+  // describes the text up to the first newline — everything after it would
+  // never be shaped at all. Shape each paragraph on its own (which is also
+  // what UAX #9 requires: base direction is resolved per paragraph, not once
+  // for the whole string) and rebase clusters back to document offsets.
+  //
+  // The newline itself yields no glyph. The line break is carried by the
+  // paragraph split in textLayoutSnapshot, not by a zero-width glyph.
+  if (text.includes('\n')) {
+    const paragraphRuns: ShapedRun[] = [];
+    let paragraphStart = 0;
+    for (const paragraphText of text.split('\n')) {
+      if (paragraphText.length > 0) {
+        for (const run of shapeRun({ ...input, text: paragraphText })) {
+          paragraphRuns.push({
+            ...run,
+            glyphs: run.glyphs.map((glyph) => ({
+              ...glyph,
+              clusterUtf16: glyph.clusterUtf16 + paragraphStart,
+            })),
+          });
+        }
+      }
+      paragraphStart += paragraphText.length + 1;
+    }
+    return paragraphRuns;
+  }
+
   // Step 1: BiDi analysis of the line.
   const explicitDir = direction === 'auto' ? undefined : direction;
   const para: BidiParagraph = analyzeParagraph(text, explicitDir);
@@ -337,13 +365,32 @@ export function shapeText(
   const direction =
     explicitDir === 'rtl' ? 'rtl' : explicitDir === 'ltr' ? 'ltr' : isRTL ? 'rtl' : 'ltr';
 
-  let width = 0;
   let maxAscent = 0;
   let maxDescent = 0;
   for (const r of runs) {
-    width += r.width;
     maxAscent = Math.max(maxAscent, r.ascent);
     maxDescent = Math.max(maxDescent, r.descent);
+  }
+  // Runs of a single paragraph sit side by side, so their advances add up. Runs
+  // of different paragraphs sit on separate lines, so the block is as wide as
+  // its widest paragraph — summing those would report a runaway width.
+  let width = 0;
+  if (text.includes('\n')) {
+    let paragraphStart = 0;
+    for (const paragraphText of text.split('\n')) {
+      const paragraphEnd = paragraphStart + paragraphText.length;
+      let paragraphWidth = 0;
+      for (const r of runs) {
+        const cluster = r.glyphs[0]?.clusterUtf16;
+        if (cluster !== undefined && cluster >= paragraphStart && cluster < paragraphEnd) {
+          paragraphWidth += r.width;
+        }
+      }
+      width = Math.max(width, paragraphWidth);
+      paragraphStart = paragraphEnd + 1;
+    }
+  } else {
+    for (const r of runs) width += r.width;
   }
 
   return {

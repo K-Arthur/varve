@@ -15,7 +15,7 @@
 
 import { type BreakUnit, graphemeBreakUnits, segmentBreakUnits } from './text/lineBreak';
 import type { ItemizedParagraph } from './text/paragraphs';
-import { itemizeParagraph } from './text/paragraphs';
+import { itemizeParagraph, splitParagraphs } from './text/paragraphs';
 import { lineVisualRuns } from './text/visualOrder';
 import type { ShapedGlyph, ShapedRun, TextShaping } from './types';
 import {
@@ -677,16 +677,22 @@ export function buildTextLayoutSnapshot(
   shaping: TextShaping,
   options: BuildTextLayoutSnapshotOptions,
 ): TextLayoutSnapshot {
-  const paragraph =
+  const direction = shaping.baseDirection === 'rtl' ? 'rtl' : 'ltr';
+  // Plain text arrives shaped as one continuous run set, but an explicit
+  // U+000A still has to start a new line. Splitting here (rather than teaching
+  // wrapLines about newlines, which only ever breaks on maxWidth) reuses the
+  // multi-paragraph path that rich text already takes, so caret stops, BiDi
+  // run ordering, and blank-line height all keep working.
+  const paragraphs =
     text.length === 0
-      ? emptyItemizedParagraph(shaping.baseDirection)
-      : itemizeParagraph(
-          { index: 0, start: 0, end: text.length, text },
-          shaping.baseDirection === 'rtl' ? 'rtl' : 'ltr',
-        );
+      ? [{ paragraph: emptyItemizedParagraph(shaping.baseDirection), runs: shaping.runs }]
+      : splitParagraphs(text).map((range) => ({
+          paragraph: itemizeParagraph(range, direction),
+          runs: sliceRunsForParagraph(shaping.runs, range.start, range.end),
+        }));
   return layoutText({
     text,
-    paragraphs: [{ paragraph, runs: shaping.runs }],
+    paragraphs,
     maxWidth: options.maxWidth,
     sourceRevision: options.sourceRevision,
     fontRevision: options.fontRevision,
@@ -695,6 +701,33 @@ export function buildTextLayoutSnapshot(
     featureKey: options.featureKey,
     variationKey: options.variationKey,
   });
+}
+
+/**
+ * Narrow whole-string shaped runs to one paragraph, rebasing glyph clusters to
+ * paragraph-local offsets (what `layoutText` expects).
+ *
+ * The newline itself sits at `end`, so it falls outside every slice and never
+ * reaches a painter — the break is carried by the paragraph split instead of by
+ * a glyph.
+ */
+function sliceRunsForParagraph(
+  runs: readonly ShapedRun[],
+  start: number,
+  end: number,
+): ShapedRun[] {
+  const sliced: ShapedRun[] = [];
+  for (const run of runs) {
+    const glyphs: ShapedGlyph[] = [];
+    let width = 0;
+    for (const glyph of run.glyphs) {
+      if (glyph.clusterUtf16 < start || glyph.clusterUtf16 >= end) continue;
+      glyphs.push({ ...glyph, clusterUtf16: glyph.clusterUtf16 - start });
+      width += glyph.xAdvance;
+    }
+    if (glyphs.length > 0) sliced.push({ ...run, glyphs, width });
+  }
+  return sliced;
 }
 
 function emptyItemizedParagraph(direction: 'ltr' | 'rtl'): ItemizedParagraph {
