@@ -56,6 +56,31 @@ describe('TextLayoutSnapshot', () => {
     expect(snapshot.diagnostics).toEqual([]);
   });
 
+  it('breaks plain text on an explicit newline even when it fits maxWidth', () => {
+    // Regression: plain text was itemized as a single paragraph, so wrapLines
+    // — which only breaks on maxWidth — never saw the U+000A, and the canvas
+    // painted just the first line while still measuring at full height.
+    const snapshot = buildTextLayoutSnapshot('ab\ncd', makeShaping('ab\ncd'), { maxWidth: 1000 });
+
+    expect(snapshot.lines).toHaveLength(2);
+    expect(snapshot.lines[0]?.paragraphIndex).toBe(0);
+    expect(snapshot.lines[1]?.paragraphIndex).toBe(1);
+    // Document-local offsets: 'cd' starts after 'ab\n'.
+    expect(snapshot.lines[1]?.sourceStart).toBe(3);
+    // The newline itself must not paint.
+    const glyphCount = snapshot.lines.flatMap((l) => l.runs.flatMap((r) => r.glyphs)).length;
+    expect(glyphCount).toBe(4);
+    expect(snapshot.lines[1]!.top).toBeGreaterThan(0);
+  });
+
+  it('keeps a blank line for consecutive newlines', () => {
+    const snapshot = buildTextLayoutSnapshot('a\n\nb', makeShaping('a\n\nb'), { maxWidth: 1000 });
+
+    expect(snapshot.lines).toHaveLength(3);
+    expect(snapshot.lines[1]?.runs.flatMap((r) => r.glyphs)).toHaveLength(0);
+    expect(snapshot.lines[2]!.top).toBeGreaterThan(snapshot.lines[1]!.top);
+  });
+
   it('uses cluster spans for selection and nearest caret hit testing', () => {
     const snapshot = buildTextLayoutSnapshot('abc', makeShaping('abc'), { maxWidth: 100 });
     expect(selectionRects(snapshot, 1, 3)).toEqual([
