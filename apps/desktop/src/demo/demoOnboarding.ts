@@ -14,6 +14,7 @@
  */
 
 import {
+  CHECKLIST_ITEMS,
   loadOnboardingState,
   markOnboardingComplete,
   saveOnboardingState,
@@ -23,7 +24,13 @@ export function suppressFirstRunOnboarding(): void {
   try {
     const state = loadOnboardingState();
     if (state.onboardingComplete) return;
-    saveOnboardingState(markOnboardingComplete(state));
+    // The "Getting started" checklist re-opens whenever any item is still
+    // outstanding — completing the tour alone is not enough to keep it off a
+    // demo visitor's canvas, so pre-fill its progress as well.
+    saveOnboardingState({
+      ...markOnboardingComplete(state),
+      checklistProgress: CHECKLIST_ITEMS.map((item) => item.id),
+    });
   } catch {
     // localStorage throws in strict privacy modes. The dialog reappearing is a
     // cosmetic problem, not a reason to fail the boot.

@@ -33,6 +33,7 @@ export {
 export { ErrorBoundary } from './components/ErrorBoundary';
 // Onboarding state — exposed so a host can declare first-run already handled
 // (the browser demo explains itself through its own banner).
+export { CHECKLIST_ITEMS } from './onboard/OnboardingChecklist/OnboardingChecklist';
 export type { OnboardingStore } from './onboard/onboardingStore';
 export {
   loadOnboardingState,

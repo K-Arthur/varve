@@ -31,6 +31,16 @@ const DEFAULT_FONTS: FontEntry[] = [
   { family: 'IBM Plex Sans Variable', weight: 600, style: 'normal', source: 'bundled' },
   { family: 'IBM Plex Sans Variable', weight: 700, style: 'normal', source: 'bundled' },
   { family: 'Geist Variable', weight: 400, style: 'normal', source: 'bundled' },
+  // Fraunces ships with the app (@fontsource-variable/fraunces, imported in
+  // apps/desktop/src/main.tsx) and backs --font-editorial, but it was never
+  // registered here. Any document using it — including Varve's own editorial
+  // surfaces — was reported as a missing font and offered Arial as a
+  // replacement, because this registry is what the missing-font sweep
+  // consults, not the loaded @font-face set.
+  { family: 'Fraunces Variable', weight: 400, style: 'normal', source: 'bundled' },
+  { family: 'Fraunces Variable', weight: 500, style: 'normal', source: 'bundled' },
+  { family: 'Fraunces Variable', weight: 600, style: 'normal', source: 'bundled' },
+  { family: 'Fraunces Variable', weight: 700, style: 'normal', source: 'bundled' },
   { family: 'Inter', weight: 400, style: 'normal', source: 'system' },
   { family: 'Arial', weight: 400, style: 'normal', source: 'system' },
   { family: 'Arial', weight: 700, style: 'normal', source: 'system' },

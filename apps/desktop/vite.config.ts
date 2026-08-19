@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -81,6 +81,65 @@ const DEMO_CSP = [
   "form-action 'self'",
 ].join('; ');
 
+/**
+ * Strip the on-device inference payload from the demo build (VITE_DEMO=1).
+ *
+ * The demo withholds background removal, upscaling, and visual search (see
+ * apps/desktop/src/demo/demoCapabilities.ts), so the ONNX Runtime and the
+ * bundled models are dead weight in the deployed artifact — and not small
+ * weight: ~39 MB of runtime plus the models directory, which balloons past
+ * 600 MB on a machine with a warm model cache because Vite copies public/
+ * wholesale. GitHub Pages caps a published site at 1 GB.
+ *
+ * This runs after the bundle is written and deletes those directories from the
+ * output only. Nothing in a demo page load can reach them: the affordances are
+ * gated in the UI and the capability check refuses at the call site.
+ */
+function demoAssetPrunePlugin() {
+  const demo = process.env.VITE_DEMO === '1';
+  const PRUNED_DIRS = ['models', 'ort-wasm'];
+  return {
+    name: 'demo-asset-prune',
+    apply: 'build' as const,
+    enforce: 'post' as const,
+    closeBundle() {
+      if (!demo) return;
+      const outDir = join(process.cwd(), process.env.VITE_DEMO_OUT_DIR ?? 'dist-try');
+      let freed = 0;
+      for (const dir of PRUNED_DIRS) {
+        const target = join(outDir, dir);
+        if (!existsSync(target)) continue;
+        freed += dirSize(target);
+        rmSync(target, { recursive: true, force: true });
+      }
+      // The ORT runtime also reaches the bundle as an emitted asset via
+      // onnxruntime-web's own imports, so the chunk needs removing too.
+      const assetsDir = join(outDir, 'assets');
+      if (existsSync(assetsDir)) {
+        for (const file of readdirSync(assetsDir)) {
+          if (!/^ort-wasm.*\.wasm$/.test(file)) continue;
+          const target = join(assetsDir, file);
+          freed += statSync(target).size;
+          rmSync(target, { force: true });
+        }
+      }
+      console.log(
+        `[demo-asset-prune] removed ${(freed / 1024 / 1024).toFixed(1)} MB of inference assets`,
+      );
+    },
+  };
+}
+
+/** Recursive byte size of a directory, for the prune log line. */
+function dirSize(dir: string): number {
+  let total = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    total += entry.isDirectory() ? dirSize(full) : statSync(full).size;
+  }
+  return total;
+}
+
 function demoCspPlugin() {
   const demo = process.env.VITE_DEMO === '1';
   return {
@@ -89,8 +148,7 @@ function demoCspPlugin() {
     enforce: 'post' as const,
     transformIndexHtml(html: string) {
       if (!demo) return html;
-      const meta =
-        `<meta http-equiv="Content-Security-Policy" content="${DEMO_CSP}" />\n    `;
+      const meta = `<meta http-equiv="Content-Security-Policy" content="${DEMO_CSP}" />\n    `;
       return html.replace('<head>', `<head>\n    ${meta}`);
     },
   };
@@ -109,7 +167,7 @@ export default defineConfig({
     }),
   },
   base: process.env.VITE_BASE_URL ?? '/',
-  plugins: [react(), ortWasmDevPlugin(), demoCspPlugin()],
+  plugins: [react(), ortWasmDevPlugin(), demoCspPlugin(), demoAssetPrunePlugin()],
   clearScreen: false,
   server: {
     port: 1420,

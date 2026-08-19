@@ -18,7 +18,7 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
-  type RgbColor,
+
   serializeDocument,
 } from '@varve/scene';
 
@@ -35,14 +35,9 @@ const INK = { space: 'rgb', r: 16, g: 21, b: 31, a: 255 } as const;
 const PAPER = { space: 'rgb', r: 255, g: 255, b: 255, a: 255 } as const;
 const MUTED = { space: 'rgb', r: 96, g: 108, b: 128, a: 255 } as const;
 const OUTLINE = { space: 'rgb', r: 210, g: 216, b: 228, a: 255 } as const;
+/** Stroke-only shapes still need a fill; makeShapeNode defaults to teal. */
+const NO_FILL = { space: 'rgb', r: 0, g: 0, b: 0, a: 0 } as const;
 
-const rgb = (r: number, g: number, b: number): RgbColor => ({
-  space: 'rgb',
-  r,
-  g,
-  b,
-  a: 255,
-});
 
 /** Stable doc id for the sample — makes serialization deterministic. */
 const SAMPLE_DOC_ID = '00000000-0000-4000-a000-000000000001';
@@ -128,7 +123,10 @@ export function buildDemoSampleDocument(): Document {
       w: 760,
       h: 190,
       fontSize: 150,
-      fontFamily: 'Fraunces',
+      // The bundled @fontsource-variable/fraunces registers the family as
+      // 'Fraunces Variable' — asking for plain 'Fraunces' makes the editor
+      // raise its Missing Fonts dialog over the demo on first paint.
+      fontFamily: 'Fraunces Variable',
       fontWeight: 600,
       lineHeight: 1,
       fill: INK,
@@ -176,7 +174,9 @@ export function buildDemoSampleDocument(): Document {
       {
         name: 'Outline',
         transform: [1, 0, 0, 1, 20, 20],
-        fill: rgb(0, 0, 0),
+        // Opaque black here painted over the entire poster — the frame is
+        // meant to be its stroke and nothing else.
+        fill: NO_FILL,
         strokes: [
           {
             color: OUTLINE,
@@ -246,4 +246,28 @@ export async function seedDemoSample(platform: Platform): Promise<DemoSeedResult
       error: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/**
+ * Font families the sample document renders with, as registered by the
+ * bundled @fontsource-variable packages.
+ */
+const SAMPLE_FONT_SPECS = ['600 150px "Fraunces Variable"', '500 30px "IBM Plex Sans Variable"'];
+
+/**
+ * Load the sample's fonts before the document opens.
+ *
+ * `document.fonts.check()` — which drives the editor's Missing Fonts dialog —
+ * reports false for a declared-but-unloaded @font-face. IBM Plex is safe
+ * because the interface itself uses it, but Fraunces is an editorial face that
+ * appears nowhere in the demo's chrome, so nothing else pulls it in. Without
+ * this the demo greets every visitor with a modal offering to replace the
+ * sample poster's headline font with Arial.
+ *
+ * Failures are ignored: a missing font degrades to the fallback stack, which
+ * is a far better outcome than refusing to open the document.
+ */
+export async function preloadSampleFonts(): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return;
+  await Promise.allSettled(SAMPLE_FONT_SPECS.map((spec) => document.fonts.load(spec)));
 }

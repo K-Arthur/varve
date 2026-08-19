@@ -16,7 +16,7 @@
 import type { FileEntry, Platform } from '@varve/platform';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type DemoConfig, demoMode } from './demoMode';
-import { type DemoSeedResult, seedDemoSample } from './sampleDocument';
+import { type DemoSeedResult, preloadSampleFonts, seedDemoSample } from './sampleDocument';
 
 export interface DemoOpenHandlers {
   /** Normal open path (reads content from storage). */
@@ -56,6 +56,9 @@ export function useDemoEntry(
     let cancelled = false;
     void (async () => {
       const { onOpenFile, onOpenDirect } = handlersRef.current;
+      // Before the document opens, so the editor's missing-font sweep sees the
+      // sample's faces as loaded rather than absent.
+      await preloadSampleFonts();
       const result = await seedDemoSample(platform);
       if (cancelled) return;
       setSeed(result);
