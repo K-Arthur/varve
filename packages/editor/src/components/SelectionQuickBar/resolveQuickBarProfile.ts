@@ -6,6 +6,7 @@
  */
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
+import { isCapabilityRestricted } from '../../capabilities/restrictions';
 
 export type QuickBarKind = 'image' | 'path' | 'text' | 'multi';
 
@@ -94,21 +95,26 @@ function isBooleanableShape(node: SceneNode): node is ShapeNode {
 }
 
 function imageProfile(node: ShapeNode, input: ResolveQuickBarInput): QuickBarProfile {
+  // Background removal and Enhance are on-device inference; a deployment that
+  // withholds it (the browser demo) must not offer the affordance at all.
+  // Vectorize stays — image trace has a pure-WASM path that works anywhere.
+  const inference = !isCapabilityRestricted('inference');
   const actions: QuickBarAction[] = [
     action('crop', 'Crop'),
-    action('removeBg', 'Remove background'),
-    action('upscale', 'Enhance'),
+    ...(inference
+      ? [action('removeBg', 'Remove background'), action('upscale', 'Enhance')]
+      : []),
     action('vectorize', 'Vectorize'),
     action('flipH', 'Flip horizontal'),
     action('flipV', 'Flip vertical'),
   ];
   const moreActions: QuickBarAction[] = [action('fitCycle', 'Cycle fit')];
-  if (node.backgroundRemoval?.maskDataUrl) {
+  if (inference && node.backgroundRemoval?.maskDataUrl) {
     moreActions.push(action('refineMask', 'Refine mask'));
     const showingOriginal = input.showOriginalBgNodeId === node.id;
     moreActions.push(action('showOriginal', showingOriginal ? 'Hide original' : 'Show original'));
   }
-  if (input.bgRemovalPending) {
+  if (inference && input.bgRemovalPending) {
     moreActions.push(action('cancelBg', 'Cancel'));
   }
   return { kind: 'image', actions, moreActions };

@@ -30,7 +30,8 @@
  * browser paints, so there is no flash of a full-width strip.
  */
 import { Menu, TablerIcon, type TablerIconName, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { allowedWorkspaceModes } from '../capabilities/restrictions';
 import { useEditor } from '../context';
 import { useWorkspaceCustomizations } from '../workspace/useWorkspaceConfig';
 import {
@@ -91,6 +92,12 @@ export function WorkspaceTabs() {
   const tabRefs = useRef<Partial<Record<WorkspaceMode, HTMLButtonElement | null>>>({});
   const naturalWidths = useRef<Partial<Record<WorkspaceMode, number>>>({});
   const [layout, setLayout] = useState<WorkspaceLayoutResult>(INITIAL_LAYOUT);
+  // Deployments may expose only a subset of workspaces (the browser demo ships
+  // Design/Draw/Photo). Filtering the order here keeps every downstream
+  // calculation — measurement, overflow, roving focus — working on the same
+  // list, so a withheld mode simply does not exist as far as the strip is
+  // concerned. Restrictions are fixed for the page's lifetime, hence [].
+  const allowedModes = useMemo(() => allowedWorkspaceModes(WORKSPACE_OVERFLOW_ORDER), []);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
   // Roving focus index: the radio owning tabindex=0. Follows focus moves and
@@ -105,13 +112,13 @@ export function WorkspaceTabs() {
     // the strip itself — the strip's width shrinks as tabs overflow, which
     // would otherwise collapse the measurement in a feedback loop.
     if (wrap.clientWidth <= 0) return;
-    for (const mode of WORKSPACE_OVERFLOW_ORDER) {
+    for (const mode of allowedModes) {
       const el = tabRefs.current[mode];
       if (el && el.offsetWidth > 0) naturalWidths.current[mode] = el.offsetWidth + TAB_GAP;
     }
     setLayout(
       computeWorkspaceLayout({
-        modes: WORKSPACE_OVERFLOW_ORDER,
+        modes: allowedModes,
         activeMode: state.workspaceMode,
         availableWidth: wrap.clientWidth,
         tabWidths: naturalWidths.current,
@@ -119,7 +126,7 @@ export function WorkspaceTabs() {
         overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
       }),
     );
-  }, [state.workspaceMode]);
+  }, [state.workspaceMode, allowedModes]);
 
   // Measure before first paint (all tabs visible on the initial render).
   useLayoutEffect(() => {
